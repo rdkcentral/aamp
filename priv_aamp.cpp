@@ -4348,12 +4348,17 @@ bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
 /**
  * @brief Set curl timeout(CURLOPT_TIMEOUT)
  */
-void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
+	bool timeoutChanged = false;
+
 	if(ContentType_EAS == mContentType)
-		return;
+		return false;
+
 	if(instance < eCURLINSTANCE_MAX && curl[instance])
 	{
+		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
+		
 		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
 		curlDLTimeout[instance] = timeoutMS;
 	}
@@ -4361,6 +4366,8 @@ void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	{
 		AAMPLOG_ERR("Failed to update timeout for curl instance %d",instance);
 	}
+
+	return timeoutChanged;
 }
 
 /**
@@ -7483,11 +7490,6 @@ void PrivateInstanceAAMP::detach()
 	{
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
-	// Gate any in-flight async callback before draining the queue.
-	// AsyncEvent() and SendEventSync() both check eSTATE_RELEASED and
-	// will skip dispatch if they observe it, preventing a use-after-free
-	// on teardown even when a callback has already popped its event.
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	// This will flush all the pending events.
 	mEventManager->FlushPendingEvents();
 }

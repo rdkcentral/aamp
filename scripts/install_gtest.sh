@@ -68,13 +68,13 @@ function install_build_googletest_fn()
         }
         
         if [[ "$OSTYPE" == "darwin"* ]]; then    
-            env PKG_CONFIG_PATH="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig" cmake .. -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" || {
+            env PKG_CONFIG_PATH="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig" cmake .. -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 || {
                 echo "ERROR: CMake configuration failed for googletest"
                 popd
                 return 1
             }
         elif [[ "$OSTYPE" == "linux"* ]]; then
-            env PKG_CONFIG_PATH="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig" cmake .. -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" || {
+            env PKG_CONFIG_PATH="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig" cmake .. -DCMAKE_PLATFORM_UBUNTU=1 -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 || {
                 echo "ERROR: CMake configuration failed for googletest"
                 popd
                 return 1

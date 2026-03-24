@@ -6680,9 +6680,14 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	double offsetFromStart;
 
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_AUDIO];
-	if ((!pMediaStreamContext) || (!pMediaStreamContext->enabled))
+	if (!pMediaStreamContext)
 	{
-		AAMPLOG_WARN("pMediaStreamContext  is null");
+		AAMPLOG_WARN("pMediaStreamContext is null");
+		return;
+	}
+	if (!pMediaStreamContext->enabled)
+	{
+		AAMPLOG_WARN("pMediaStreamContext is not enabled");
 		pMediaStreamContext->NotifyCachedAudioFragmentAvailable();
 		return;
 	}
@@ -10127,6 +10132,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 		{
 			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
 			{
+				// Acquire lock to update current period to sync with ABR changes on video track
+				std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 				mManifestDnldRespPtr = std::move(tmpManifestDnldRespPtr);
 				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
 				// if no parse error
@@ -10134,8 +10141,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 				{
 					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
 					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
-					// Acquire lock to update current period to sync with ABR changes on video track
-					std::lock_guard<std::recursive_mutex> lock(mMediaStreamContext[eMEDIATYPE_VIDEO]->mMediaStreamContextMutex);
 					ret = IndexNewMPDDocument();
 				}
 			}
