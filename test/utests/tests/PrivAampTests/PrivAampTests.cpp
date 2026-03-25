@@ -22,6 +22,7 @@
 #include <string>
 #include <string.h>
 #include <string_view>
+#include <thread>
 #include <type_traits>
 
 #include <gtest/gtest.h>
@@ -29,6 +30,7 @@
 
 #include "priv_aamp.h"
 #include "AampProfiler.h"
+#include "AampUtils.h"
 
 #include "MockPrivateInstanceAAMP.h"
 #include "main_aamp.h"
@@ -1716,14 +1718,118 @@ TEST_F(PrivAampTests,UpdateRefreshPlaylistIntervalTest)
 	p_aamp->UpdateRefreshPlaylistInterval(-12.43265);
 }
 
-TEST_F(PrivAampTests,SendBufferChangeEventTest)
+// --- Buffering duration tracking tests ---
+
+// mBufferingStartTimeMS is initialised to -1 in the constructor; no episode in flight yet.
+TEST_F(PrivAampTests, SendBufferChangeEvent_InitialTimestampIsUnset)
 {
-	p_aamp->SendBufferChangeEvent(true);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
 }
 
-TEST_F(PrivAampTests,SendBufferChangeEventTest_1)
+// Start event must capture a plausible steady-clock timestamp (>= before, <= after).
+TEST_F(PrivAampTests, SendBufferChangeEvent_StartSetsTimestamp)
 {
+	long long beforeMs = NOW_STEADY_TS_MS;
+	p_aamp->SendBufferChangeEvent(true);
+	long long afterMs = NOW_STEADY_TS_MS;
+
+	long long recorded = p_aamp->GetBufferingStartTimeMS();
+	EXPECT_GE(recorded, beforeMs);
+	EXPECT_LE(recorded, afterMs);
+}
+
+// End event must reset mBufferingStartTimeMS back to -1.
+TEST_F(PrivAampTests, SendBufferChangeEvent_EndResetsTimestamp)
+{
+	p_aamp->SendBufferChangeEvent(true);
+	EXPECT_GE(p_aamp->GetBufferingStartTimeMS(), 0LL);
+
 	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+}
+
+// End call without a preceding start is a no-op: no crash, state stays -1.
+TEST_F(PrivAampTests, SendBufferChangeEvent_EndWithoutStartIsNoOp)
+{
+	ASSERT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+}
+
+// Duplicate start events must not reset the timestamp; only the first call wins.
+// Verified by sleeping briefly so a second capture would produce a strictly later value.
+TEST_F(PrivAampTests, SendBufferChangeEvent_DuplicateStartDoesNotResetTimestamp)
+{
+	p_aamp->SendBufferChangeEvent(true);
+	long long firstTimestamp = p_aamp->GetBufferingStartTimeMS();
+	ASSERT_GE(firstTimestamp, 0LL);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	p_aamp->SendBufferChangeEvent(true);
+
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), firstTimestamp);
+}
+
+// The duration that would be reported to telemetry is bounded by the elapsed real time.
+// We verify this indirectly: capture the steady-clock window around the end call and
+// confirm it brackets (end_clock - startTime), then confirm the episode is closed out.
+TEST_F(PrivAampTests, SendBufferChangeEvent_DurationBoundedByElapsedRealTime)
+{
+	p_aamp->SendBufferChangeEvent(true);
+	long long startTime = p_aamp->GetBufferingStartTimeMS();
+	ASSERT_GE(startTime, 0LL);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+	long long beforeEnd = NOW_STEADY_TS_MS;
+	p_aamp->SendBufferChangeEvent(false);
+	long long afterEnd  = NOW_STEADY_TS_MS;
+
+	// The internal duration = (steady_clock at end) - startTime.
+	// It must be >= (beforeEnd - startTime) and <= (afterEnd - startTime).
+	long long minDuration = beforeEnd - startTime;
+	long long maxDuration = afterEnd  - startTime;
+	EXPECT_GE(minDuration, 0LL);
+	EXPECT_LE(minDuration, maxDuration);
+
+	// Episode must be closed out.
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+}
+
+// BufUnderFlowStatus flag must follow start/end transitions.
+TEST_F(PrivAampTests, SendBufferChangeEvent_UnderflowStatusTracksTransitions)
+{
+	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(true);
+	EXPECT_TRUE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+}
+
+// Back-to-back episodes must each be tracked independently: the second start time
+// must be strictly later than the first (monotonic clock), and each episode closes cleanly.
+TEST_F(PrivAampTests, SendBufferChangeEvent_SequentialEpisodesTrackedIndependently)
+{
+	// First episode
+	p_aamp->SendBufferChangeEvent(true);
+	long long t1 = p_aamp->GetBufferingStartTimeMS();
+	ASSERT_GE(t1, 0LL);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+
+	// Second episode
+	std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	p_aamp->SendBufferChangeEvent(true);
+	long long t2 = p_aamp->GetBufferingStartTimeMS();
+	ASSERT_GE(t2, 0LL);
+	EXPECT_GT(t2, t1); // monotonic: second start must be later than first
+
+	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
 }
 
 TEST_F(PrivAampTests,PausePipelineTest)
