@@ -333,6 +333,7 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 					gst_buffer_add_protection_meta (buffer, crypto_info);
 							}
 						retValue = OCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, caps);
+				printf("VRN DECRYPT Return[%d] \n",retValue);
 			}
 			else
 				/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
