@@ -6973,7 +6973,7 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 	{
 		aamp->mIsInbandCC = mediaInfoStore[currentTextTrackProfileIndex].isCC;
 	}
-	AAMPLOG_WARN("TextTrack Selected :%d inBandCC:%d", currentTextTrackProfileIndex, aamp->mIsInbandCC);
+	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
 }
 /**
  * @brief Stops the Track Injection,Restarts once the track has been changed
@@ -7117,7 +7117,6 @@ void TrackState::SwitchAudioTrack()
  */
 void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 {
-	const bool disableWebVTT = ISCONFIGSET(eAAMPConfig_DisableWebVTT);
 	if (mMediaCount > 0 && mProfileCount > 0)
 	{
 		bool tracksChanged{false};
@@ -7137,10 +7136,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
-				if (!disableWebVTT || media.isCC)
-				{
-					mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));	
-				}	
+				mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
 			}
 			i++;
 		}
