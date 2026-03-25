@@ -2139,8 +2139,8 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 		std::unique_lock<std::mutex> lock(mLock);
 		double audioDuration = audio->GetTotalInjectedDuration();
 		double videoDuration = video->GetTotalInjectedDuration();
-		AAMPLOG_INFO("DEBUG::Enter WaitForVideoTrackCatchup audioDuration %f videoDuration_total %f videoFragmentDuration %f", audioDuration, (videoDuration + video->fragmentDurationSeconds),video->fragmentDurationSeconds);
-		while ((audioDuration > (videoDuration + (video->fragmentDurationSeconds))) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
+		AAMPLOG_INFO("DEBUG::FIX4 Enter WaitForVideoTrackCatchup audioDuration %f videoDuration_total %f videoFragmentDuration %f", audioDuration, videoDuration,video->fragmentDurationSeconds);
+		while ((audioDuration > videoDuration ) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
 			if (mTrackState == eDISCONTINUITY_IN_VIDEO)
 			{
