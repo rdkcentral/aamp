@@ -7141,6 +7141,28 @@ static bool IsWebmVideoCodec(const std::string &codec )
 }
 
 /**
+ * @brief Is this an HEVC video codec (hvc1 or hev1)
+ *
+ * @param codec Codec string from MPD Representation
+ * @return true if codec is HEVC, false otherwise
+ */
+static bool IsHEVCVideoCodec(const std::string &codec)
+{
+	return codec.rfind("hvc1.", 0) == 0 || codec.rfind("hev1.", 0) == 0;
+}
+
+/**
+ * @brief Is this an AVC/H.264 video codec (avc1)
+ *
+ * @param codec Codec string from MPD Representation
+ * @return true if codec is AVC, false otherwise
+ */
+static bool IsAVCVideoCodec(const std::string &codec)
+{
+	return codec.rfind("avc1.", 0) == 0;
+}
+
+/**
  * @brief Updates track information based on current state
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
@@ -7294,6 +7316,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					int representationCount = 0;
 					std::set<uint32_t> blAdaptationIdxs;
 					bool bSeenNonWebmCodec = false;
+					bool bHasHEVC = false; /**< At least one HEVC representation is present */
+					bool bHasAVC  = false; /**< At least one AVC representation is present */
 
 					const auto &blacklistedProfiles = aamp->GetBlacklistedProfiles();
 					// Filter the blacklisted profiles in the period
@@ -7389,15 +7413,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 									bSeenNonWebmCodec = true;
 								}
 							}
-
-							mStreamInfo[idx].enabled = false;
-							mStreamInfo[idx].validity = false;
-							if(repFrameRate.empty())
-								repFrameRate = adapFrameRate;
-							if(!repFrameRate.empty())
-							{
-								int val1, val2;
-								sscanf(repFrameRate.c_str(),"%d/%d",&val1,&val2);
+									// Track which codec families are present across all chosen AdaptationSets.
+									// Used below to restrict the ABR pool to a single family and prevent
+									// codec switches at runtime (e.g. AVC <-> HEVC).
+									if (IsHEVCVideoCodec(mStreamInfo[idx].codecs))     bHasHEVC = true;
+									else if (IsAVCVideoCodec(mStreamInfo[idx].codecs))  bHasAVC  = true;
 								double frate = val2? ((double)val1/val2):val1;
 								mStreamInfo[idx].resolution.framerate = frate;
 							}
@@ -7444,6 +7464,19 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						}
 					}
 					mProfileCount = idx;
+					// When both HEVC and AVC AdaptationSets are present, restrict the ABR pool
+					// to representations from the preferred codec family only.  Mixing codec
+					// families in the pool would cause GStreamer pipeline failures whenever ABR
+					// crosses between them (different init segments, codec reconfiguration
+					// required, no discontinuity signalled).
+					StreamOutputFormat preferredVideoFormat = FORMAT_INVALID; // FORMAT_INVALID = no restriction
+					if (bHasHEVC && bHasAVC)
+					{
+						bool preferHEVC = ISCONFIGSET(eAAMPConfig_PreferHEVC);
+						preferredVideoFormat = preferHEVC ? FORMAT_VIDEO_ES_HEVC : FORMAT_VIDEO_ES_H264;
+						AAMPLOG_WARN("Multiple video codec families present (HEVC+AVC); restricting ABR pool to %s codec family",
+									 preferHEVC ? "HEVC" : "AVC");
+					}
 					for (int pidx = 0; pidx < idx; pidx++)
 					{
 						if (false == aamp->userProfileStatus && resolutionCheckEnabled && (mStreamInfo[pidx].resolution.width > aamp->mDisplayWidth) &&
@@ -7456,6 +7489,20 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						{
 							// Don't use VP8 or VP9 codecs if others are listed.
 							AAMPLOG_INFO("Video Profile ignoring for codec %s resolution= %d:%d display= %d:%d BW=%" BITSPERSECOND_FORMAT, mStreamInfo[pidx].codecs.c_str(), mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, mStreamInfo[pidx].bandwidthBitsPerSecond);
+						}
+						else if (preferredVideoFormat != FORMAT_INVALID &&
+								 !mStreamInfo[pidx].codecs.empty() &&
+								 ((preferredVideoFormat == FORMAT_VIDEO_ES_HEVC && !IsHEVCVideoCodec(mStreamInfo[pidx].codecs)) ||
+								  (preferredVideoFormat == FORMAT_VIDEO_ES_H264 && !IsAVCVideoCodec(mStreamInfo[pidx].codecs))))
+						{
+							// Exclude representations from the non-preferred codec family to prevent
+							// cross-codec ABR switches (e.g. AVC<->HEVC) which require decoder
+							// reconfiguration and are not supported at runtime.
+							AAMPLOG_INFO("Video Profile ignoring codec %s (preferred %s family) res= %d:%d BW=%" BITSPERSECOND_FORMAT,
+										 mStreamInfo[pidx].codecs.c_str(),
+										 preferredVideoFormat == FORMAT_VIDEO_ES_HEVC ? "HEVC" : "AVC",
+										 mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height,
+										 mStreamInfo[pidx].bandwidthBitsPerSecond);
 						}
 						else
 						{
