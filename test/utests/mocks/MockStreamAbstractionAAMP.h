@@ -28,6 +28,7 @@ class MockMediaTrack : public MediaTrack
 public:
 	MockMediaTrack(TrackType type, PrivateInstanceAAMP *aamp, const char *name)
 		: MediaTrack(type, aamp, name) {}
+	//MOCK_METHOD(void, SetLocalTSBInjection, (bool value));
 	MOCK_METHOD(bool, IsLocalTSBInjection, ());
 	MOCK_METHOD(bool, Enabled, ());
 	MOCK_METHOD(void, ProcessPlaylist, (AampGrowableBuffer& newPlaylist, int http_error),(override));
@@ -49,6 +50,8 @@ public:
 	MOCK_METHOD(double, GetTotalInjectedDuration, (), (override));
 	MOCK_METHOD(void, ResetTrickModePtsRestamping, (), (override));
 };
+
+extern MockMediaTrack *g_mockMediaTrack;
 
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
 {
