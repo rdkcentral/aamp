@@ -3246,8 +3246,8 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(!bufferingStopped, GetSessionId());
 
 	SetBufUnderFlowStatus(bufferingStopped);
-    //Calculating the duration for which buffering was happening and sending it as part of telemetry. 
-	//This will help in understanding the buffering duration for each buffering event and also help in calculating the total buffering duration for a session.
+	// Calculating the duration for which buffering was happening and sending it as part of telemetry.
+	// This will help in understanding the buffering duration for each buffering event and also help in calculating the total buffering duration for a session.
 	long long bufferingDurationMs = 0;
 	if (bufferingStopped)
 	{
