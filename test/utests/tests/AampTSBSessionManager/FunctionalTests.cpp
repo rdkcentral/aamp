@@ -120,17 +120,6 @@ protected:
 
 	void TearDown() override
 	{
-		if (mAampTSBSessionManager)
-		{
-			EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
-			mAampTSBSessionManager->Flush();
-			delete mAampTSBSessionManager;
-			mAampTSBSessionManager = nullptr;
-		}
-
-		delete aamp;
-		aamp = nullptr;
-
 		delete g_mockAampTsbMetaDataManager;
 		g_mockAampTsbMetaDataManager = nullptr;
 
@@ -139,6 +128,9 @@ protected:
 
 		delete g_mockPrivateInstanceAAMP;
 		g_mockPrivateInstanceAAMP = nullptr;
+
+		delete mAampTSBSessionManager;
+		mAampTSBSessionManager = nullptr;
 
 		mTSBStore = nullptr;
 
@@ -150,6 +142,9 @@ protected:
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
+
+		delete aamp;
+		aamp = nullptr;
 	}
 
 };
@@ -261,6 +256,9 @@ TEST_F(FunctionalTests, TSBWriteTests)
 
 	mAampTSBSessionManager->Init();
 	EXPECT_TRUE(mAampTSBSessionManager->IsActive());
+	// TearDown deletes mAampTSBSessionManager; its destructor calls Flush() which
+	// reaches mTSBStore->Flush() because mInitialized_ is true after re-Init().
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
 }
 
 TEST_F(FunctionalTests, Cullsegments)
@@ -661,61 +659,27 @@ TEST_F(FunctionalTests, AdMetadataBoundaryTest)
 
 /**
  * @brief Verify that Flush() calls NotifyVideoTsbWaiters().
- *
- * Uses a stack-allocated plain AampTSBSessionManager so the real Flush() and
- * the real NotifyVideoTsbWaiters() implementations both run. The effect of
- * NotifyVideoTsbWaiters() is observed by a thread blocking in
- * WaitForVideoTsbContentOrAbort(): if that thread unblocks after Flush() is
- * called, NotifyVideoTsbWaiters() was invoked.
+ * The effect of NotifyVideoTsbWaiters() is observed by a thread
+ * blocking in WaitForVideoTsbContentOrAbort(): if that thread
+ * unblocks after Flush() is called, NotifyVideoTsbWaiters() was invoked.
  */
 TEST_F(FunctionalTests, FlushCallsNotifyVideoTsbWaiters)
 {
-	// Flush and release the fixture's plain instance first.
+	// Spawn a thread that blocks on WaitForVideoTsbContentOrAbort(). The real
+	// NotifyVideoTsbWaiters() (called by Flush()) must unblock it.
+	std::atomic<bool> waiterUnblocked{false};
+	std::thread waiter([&]() {
+		mAampTSBSessionManager->WaitForVideoTsbContentOrAbort();
+		waiterUnblocked.store(true);
+	});
+
+	// Brief pause to let the waiter thread enter the condition-variable wait.
+	std::this_thread::sleep_for(std::chrono::milliseconds(25));
+
 	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
 	mAampTSBSessionManager->Flush();
-	delete mAampTSBSessionManager;
-	mAampTSBSessionManager = nullptr;
 
-	{
-		AampTSBSessionManager tsbManager(aamp);
-		tsbManager.SetTsbLength(5);
-		tsbManager.SetTsbLocation("/tmp");
-		tsbManager.SetTsbMinFreePercentage(5);
-
-		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
-			.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
-		EXPECT_CALL(*g_mockAampTsbMetaDataManager, Initialize()).WillOnce(Return());
-		EXPECT_CALL(*g_mockAampTsbMetaDataManager,
-					RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
-			.WillOnce(Return(true));
-		EXPECT_CALL(*g_mockAampTsbMetaDataManager,
-					RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
-			.WillOnce(Return(true));
-		tsbManager.Init();
-
-		// Init() starts the write thread asynchronously. The sleep gives that thread
-		// time to reach its blocking wait() call inside ProcessWriteQueue(). Without it,
-		// Flush() could run before the thread is actually waiting on the condition variable.
-		std::this_thread::sleep_for(std::chrono::milliseconds(25));
-
-		// Spawn a thread that blocks on WaitForVideoTsbContentOrAbort(). The real
-		// NotifyVideoTsbWaiters() (called by Flush()) must unblock it.
-		std::atomic<bool> waiterUnblocked{false};
-		std::thread waiter([&]() {
-			tsbManager.WaitForVideoTsbContentOrAbort();
-			waiterUnblocked.store(true);
-		});
-
-		// Brief pause to let the waiter thread enter the condition-variable wait.
-		std::this_thread::sleep_for(std::chrono::milliseconds(25));
-
-		EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
-		tsbManager.Flush();
-
-		// If NotifyVideoTsbWaiters() was called, the waiter thread is now unblocked.
-		waiter.join();
-		EXPECT_TRUE(waiterUnblocked.load());
-		// ~AampTSBSessionManager() runs here, calling Flush() again. mInitialized_ is
-		// now false so NotifyVideoTsbWaiters() is not invoked a second time.
-	}
+	// If NotifyVideoTsbWaiters() was called, the waiter thread is now unblocked.
+	waiter.join();
+	EXPECT_TRUE(waiterUnblocked.load());
 }
