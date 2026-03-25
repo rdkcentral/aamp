@@ -54,7 +54,7 @@ AampMp4Demuxer::~AampMp4Demuxer()
 /**
  * @fn sendSegment
  *
- * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+ * @param[in] pBuffer - buffer containing the fragment data
  * @param[in] position - position of fragment
  * @param[in] duration - duration of fragment
  * @param[in] fragmentPTSoffset - offset PTS of fragment

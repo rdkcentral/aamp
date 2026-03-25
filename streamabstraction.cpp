@@ -1837,7 +1837,6 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 			AAMPLOG_WARN("fragment.ptr already set - possible memory leak");
 		}
 		cachedFragment->fragment.clear();
-		//memset(&cachedFragment->fragment, 0x00, sizeof(AampGrowableBuffer));
 	}
 	return cachedFragment;
 }
