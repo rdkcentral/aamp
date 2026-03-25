@@ -202,7 +202,7 @@ static void gst_cdmidecryptor_class_init(
 			GST_ELEMENT_FACTORY_KLASS_DECRYPTOR,
 			"Decrypts streams encrypted using Encryption.",
 			"comcast");
-	//GST_DEBUG_OBJECT(cdmidecryptor, "Inside custom plugin init\n");
+	GST_WARNING_OBJECT(cdmidecryptor, "Inside custom plugin init\n");
 }
 
 static void gst_cdmidecryptor_init(
@@ -308,7 +308,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 	unsigned size = gst_caps_get_size(caps);
 	GstCaps* transformedCaps = gst_caps_new_empty();
 
-	GST_DEBUG_OBJECT(trans, "direction: %s, caps: %" GST_PTR_FORMAT " filter:"
+	GST_WARNING_OBJECT(trans, "direction: %s, caps: %" GST_PTR_FORMAT " filter:"
 			" %" GST_PTR_FORMAT, (direction == GST_PAD_SRC) ? "src" : "sink", caps, filter);
 
 	if(!cdmidecryptor->selectedProtection)
@@ -337,7 +337,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		}
 		else
 		{
-			GST_DEBUG_OBJECT(trans, "can't find protection-system field from caps: %" GST_PTR_FORMAT, caps);
+			GST_WARNING_OBJECT(trans, "can't find protection-system field from caps: %" GST_PTR_FORMAT, caps);
 		}
 	}
 
@@ -512,7 +512,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	mutexLocked = TRUE;
 	if (!protectionMeta)
 	{
-		GST_DEBUG_OBJECT(cdmidecryptor,
+		GST_WARNING_OBJECT(cdmidecryptor,
 				"Failed to get GstProtection metadata from buffer %p, could be clear buffer",buffer);
 		if (socInterface && socInterface->IsDecryptRequired())
 		{
@@ -529,7 +529,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		goto free_resources;
 	}
 
-	GST_TRACE_OBJECT(cdmidecryptor,
+	GST_WARNING_OBJECT(cdmidecryptor,
 			"Mutex acquired, stream received: %s canWait: %d",
 			cdmidecryptor->streamReceived ? "yes" : "no", cdmidecryptor->canWait);
 
@@ -565,7 +565,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		goto free_resources;
 	}
 
-	GST_TRACE_OBJECT(cdmidecryptor, "Got key event ; Proceeding with decryption");
+	GST_WARNING_OBJECT(cdmidecryptor, "Got key event ; Proceeding with decryption");
 
 	if (!gst_structure_get_uint(protectionMeta->info, "iv_size", &ivSize))
 	{
@@ -587,7 +587,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!ivSize || !encrypted)
 		goto free_resources;
 
-	GST_TRACE_OBJECT(trans, "protection meta: %" GST_PTR_FORMAT, protectionMeta->info);
+	GST_WARNING_OBJECT(trans, "protection meta: %" GST_PTR_FORMAT, protectionMeta->info);
 	if (!gst_structure_get_uint(protectionMeta->info, "subsample_count",
 			&subSampleCount))
 	{
@@ -637,16 +637,19 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	}
 
 	errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
-
+	GST_ERROR_OBJECT(cdmidecryptor,"ALSAMIIII errorCode %d\n",errorCode);
 	cdmidecryptor->streamEncrypted = true;
 	if (errorCode != 0 || cdmidecryptor->hdcpOpProtectionFailCount)
 	{
+		GST_ERROR_OBJECT(cdmidecryptor,"NO 0 ERR ALSAMIIII errorCode %d\n",errorCode);
 	if(errorCode == HDCP_OUTPUT_PROTECTION_FAILURE)
 	{
 		cdmidecryptor->hdcpOpProtectionFailCount++;
+		GST_ERROR_OBJECT(cdmidecryptor,"ALSAMIIII errorCode HDCP FAILURE %d\n",errorCode);
 	}
 	else if(cdmidecryptor->hdcpOpProtectionFailCount)
 	{
+		GST_ERROR_OBJECT(cdmidecryptor,"HDCPOPFAIL COUNT ALSAMIIII errorCode %d\n",errorCode);
 		if(cdmidecryptor->hdcpOpProtectionFailCount >= DECRYPT_FAILURE_THRESHOLD) {
 			GstStructure *newmsg = gst_structure_new("HDCPProtectionFailure", "message", G_TYPE_STRING,"HDCP Output Protection Error", NULL);
 			gst_element_post_message(reinterpret_cast<GstElement*>(cdmidecryptor),gst_message_new_application (GST_OBJECT (cdmidecryptor), newmsg));
@@ -700,6 +703,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		    cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_BEGIN, 0);
 		}
 		cdmidecryptor->firstsegprocessed = true;
+		GST_ERROR_OBJECT(cdmidecryptor,"ALSAMIIII errorCode %d\n FIRST SEG PROCESSED",errorCode);
 	}
 
 	free_resources:
@@ -711,6 +715,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		{
 			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 			{
+				GST_ERROR_OBJECT(cdmidecryptor,"ALSAMIIII errorCode %d\n PROFILE DECRYPT",errorCode);
 				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
 			}
 		}
@@ -718,6 +723,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		{
 			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 			{
+				GST_ERROR_OBJECT(cdmidecryptor,"ALSAMIIII ELSEEE errorCode %d\n PROFILE DECRYPT",errorCode);
 				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
 			}
 		}
