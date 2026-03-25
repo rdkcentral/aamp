@@ -104,7 +104,7 @@ void OCDMSessionAdapter::initDRMSystem()
 
 OCDMSessionAdapter::~OCDMSessionAdapter()
 {
-	MW_LOG_WARN("[HHH]OCDMSessionAdapter destructor called! keySystem %s", m_keySystem.c_str());
+	MW_LOG_WARN("VRN [HHH]OCDMSessionAdapter destructor called! keySystem %s", m_keySystem.c_str());
 	clearDecryptContext();
 
 	if (m_pOpenCDMSystem) {
@@ -120,7 +120,7 @@ OCDMSessionAdapter::~OCDMSessionAdapter()
 void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 		uint32_t f_cbInitData, std::string &customData)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 
 	std::lock_guard<std::mutex> guard(decryptMutex);
 	if (m_pOpenCDMSystem == nullptr)
@@ -141,6 +141,7 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 
 		m_OCDMSessionCallbacks.key_update_callback = [](OpenCDMSession* session, void* userData, const uint8_t key[], const uint8_t keySize) {
 			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
+			MW_LOG_WARN( "VRN TRIGGERED KEY UPDATE OCDM");
 			userSession->keyUpdateOCDM(key, keySize);
 		};
 
@@ -149,6 +150,7 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 
 		m_OCDMSessionCallbacks.keys_updated_callback = [](const OpenCDMSession* session, void* userData) {
 			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
+			MW_LOG_WARN( "VRN TRIGGERED KEY UPDATED OCDM");
 			userSession->keysUpdatedOCDM();
 		};
 		const unsigned char *customDataMessage = customData.empty() ? nullptr:reinterpret_cast<const unsigned char *>(customData.c_str()) ;
@@ -214,7 +216,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 }
 
 void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	// Validate input parameters
 	if (key != nullptr && keySize > 0)
 	{
@@ -224,6 +226,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 		if (m_pOpenCDMSession)
 		{
 			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+			MW_LOG_WARN("VRN OCDM SESSION UPDATE[%d]",m_keyStatus);
 			m_keyStateIndeterminate = false;
 		}
 		else
@@ -239,6 +242,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 			// Check if this key already exists to avoid duplicates
 			if (std::find(m_usableKeys.begin(), m_usableKeys.end(), keyData) == m_usableKeys.end())
 			{
+				MW_LOG_WARN("VRN ADDED TO USABLE KEYS");
 				m_usableKeys.push_back(keyData);
 			}
 		}
@@ -246,14 +250,14 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 }
 
 void OCDMSessionAdapter::keysUpdatedOCDM() {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	m_keyStatusReady.signal();
 }
 
 
 DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	DrmData * result = NULL;
 
 	m_eKeyState = KEY_ERROR;
@@ -283,7 +287,7 @@ DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_
 
 int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	int retValue = -1;
 	const uint8_t* keyMessage = NULL;
 	uint16_t keyMessageLength = 0;
