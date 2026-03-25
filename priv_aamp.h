@@ -1320,11 +1320,11 @@ public:
 	/**
 	 * @fn SetCurlTimeout
 	 *
-	 * @param[in] timeoutMs - maximum time in milliseconds curl request is allowed to take
+	 * @param[in] timeout - maximum time  in seconds curl request is allowed to take
 	 * @param[in] instance - index of curl instance to which timeout to be set
-	 * @return true if timeout changed, else false
+	 * @return void
 	 */
-	bool SetCurlTimeout(long timeoutMs, AampCurlInstance instance);
+	void SetCurlTimeout(long timeout, AampCurlInstance instance);
 
 	/**
 	 * @brief Set manifest curl timeout

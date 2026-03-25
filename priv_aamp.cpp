@@ -4378,17 +4378,12 @@ bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
 /**
  * @brief Set curl timeout(CURLOPT_TIMEOUT)
  */
-bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
-	bool timeoutChanged = false;
-
 	if(ContentType_EAS == mContentType)
-		return false;
-
+		return;
 	if(instance < eCURLINSTANCE_MAX && curl[instance])
 	{
-		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
-		
 		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
 		curlDLTimeout[instance] = timeoutMS;
 	}
@@ -4396,8 +4391,6 @@ bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	{
 		AAMPLOG_ERR("Failed to update timeout for curl instance %d",instance);
 	}
-
-	return timeoutChanged;
 }
 
 /**
