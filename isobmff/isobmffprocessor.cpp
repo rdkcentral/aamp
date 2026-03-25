@@ -297,14 +297,14 @@ bool IsoBmffProcessor::setTuneTimePTS(std::vector<uint8_t>& fragBuffer, double p
 	if (ret && !processPTSComplete && playRate == AAMP_NORMAL_PLAY_RATE)
 	{
 		// We need to parse PTS from first buffer
-		IsoBmffBuffer bmffBuf;
-		bmffBuf.setBuffer(fragBuffer);
-		bmffBuf.parseBuffer();
+		IsoBmffBuffer buffer;
+		buffer.setBuffer(fragBuffer);
+		buffer.parseBuffer();
 
-		if (bmffBuf.isInitSegment())
+		if (buffer.isInitSegment())
 		{
 			uint32_t tScale = 0;
-			if (bmffBuf.getTimeScale(tScale))
+			if (buffer.getTimeScale(tScale))
 			{
 				timeScale = tScale;
 				currTimeScale = tScale;
@@ -317,7 +317,7 @@ bool IsoBmffProcessor::setTuneTimePTS(std::vector<uint8_t>& fragBuffer, double p
 		{
 			// Init segment was parsed and stored previously. Find the base PTS now
 			uint64_t fPts = 0;
-			if (bmffBuf.getFirstPTS(fPts))
+			if (buffer.getFirstPTS(fPts))
 			{
 				bool sendError = false;
 
@@ -336,7 +336,7 @@ bool IsoBmffProcessor::setTuneTimePTS(std::vector<uint8_t>& fragBuffer, double p
 					{
 						AAMPLOG_WARN("IsoBmffProcessor %s MDHD/MVHD boxes are missing in init segment!",  IsoBmffProcessorTypeName[type]);
 						uint32_t tScale = 0;
-						if (bmffBuf.getTimeScale(tScale))
+						if (buffer.getTimeScale(tScale))
 						{
 							timeScale = tScale;
 							currTimeScale = tScale;
