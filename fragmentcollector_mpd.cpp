@@ -7413,11 +7413,17 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 									bSeenNonWebmCodec = true;
 								}
 							}
-									// Track which codec families are present across all chosen AdaptationSets.
-									// Used below to restrict the ABR pool to a single family and prevent
-									// codec switches at runtime (e.g. AVC <-> HEVC).
-									if (IsHEVCVideoCodec(mStreamInfo[idx].codecs))     bHasHEVC = true;
-									else if (IsAVCVideoCodec(mStreamInfo[idx].codecs))  bHasAVC  = true;
+							// Track which codec families are present across all chosen AdaptationSets.
+							// Used below to restrict the ABR pool to a single family and prevent
+							// codec switches at runtime (e.g. AVC <-> HEVC).
+							if (IsHEVCVideoCodec(mStreamInfo[idx].codecs))     bHasHEVC = true;
+							else if (IsAVCVideoCodec(mStreamInfo[idx].codecs))  bHasAVC  = true;
+							if(repFrameRate.empty())
+								repFrameRate = adapFrameRate;
+							if(!repFrameRate.empty())
+							{
+								int val1, val2;
+								sscanf(repFrameRate.c_str(),"%d/%d",&val1,&val2);
 								double frate = val2? ((double)val1/val2):val1;
 								mStreamInfo[idx].resolution.framerate = frate;
 							}
