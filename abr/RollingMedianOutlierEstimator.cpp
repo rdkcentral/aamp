@@ -132,12 +132,12 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 	std::sort(tmpData.begin(), tmpData.end());
 	if (initialSize % 2)
 	{
-		medianbps = tmpData.at(initialSize / 2);
+		medianbps = tmpData[initialSize / 2];
 	}
 	else
 	{
-		BitsPerSecond m1 = tmpData.at(initialSize / 2 - 1);
-		BitsPerSecond m2 = tmpData.at(initialSize / 2);
+		BitsPerSecond m1 = tmpData[initialSize / 2 - 1];
+		BitsPerSecond m2 = tmpData[initialSize / 2];
 		medianbps = (m1 + m2) / 2;
 	}
 
