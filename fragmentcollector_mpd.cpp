@@ -38,6 +38,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <set>
+#include <unordered_map>
 #include <iomanip>
 #include <ctime>
 #include <inttypes.h>
@@ -146,7 +147,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mAvailabilityStartTime(0)
 	,mFirstPeriodStartTime(0)
 	,mDrmPrefs({{CLEARKEY_UUID, 1}, {WIDEVINE_UUID, 2}, {PLAYREADY_UUID, 3}})// Default values, may get changed due to config file
-	,mCommonKeyDuration(0), mEarlyAvailablePeriodIds(), thumbnailtrack(), indexedTileInfo()
+	,mCommonKeyDuration(0), mEarlyAvailablePeriodIds(), mKeyRotationEarlyDetectedPeriodIds(), thumbnailtrack(), indexedTileInfo()
 	,mMaxTracks(0)
 	,mStreamLock()
 	,mProfileCount(0)
@@ -2726,6 +2727,12 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 				ProcessVssLicenseRequest();
 			}
 		}
+		// Detect key rotation early during manifest refresh to start license
+		// acquisition ahead of the period transition
+		if(!init && ISCONFIGSET(eAAMPConfig_EarlyKeyRotationDetect))
+		{
+			DetectKeyRotationOnManifestRefresh(mpdDnldResp);
+		}
 		// Process and send manifest http headers
 		ProcessManifestHeaderResponse(std::move(mpdDnldResp), init);
 	}
@@ -3077,6 +3084,166 @@ void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequest()
 }
 
 /**
+ * @fn DetectKeyRotationOnManifestRefresh
+ * @brief Compares DRM key IDs for all periods and track types present in the
+ *        new manifest against the previous manifest. For periods that existed
+ *        in the previous manifest the key ID is compared directly; for brand-
+ *        new periods the key ID is compared against the last known period from
+ *        the previous manifest. Whenever a key ID change is detected, content
+ *        protection is queued to start early license acquisition before the
+ *        period transition. Controlled by eAAMPConfig_EarlyKeyRotationDetect.
+ */
+void StreamAbstractionAAMP_MPD::DetectKeyRotationOnManifestRefresh(
+	ManifestDownloadResponsePtr mpdDnldResp)
+{
+	if (!mpdDnldResp)
+	{
+		return;
+	}
+	AampMPDParseHelperPtr newParseHelper = mpdDnldResp->GetMPDParseHelper();
+	if (!newParseHelper)
+	{
+		AAMPLOG_WARN("MPD parse helper not available in manifest refresh response");
+		return;
+	}
+	const IMPD *previousMpd = mMPDParseHelper->getMPD();
+	if (!previousMpd)
+	{
+		return;
+	}
+	const IMPD *newMpd = newParseHelper->getMPD();
+	if (!newMpd)
+	{
+		return;
+	}
+
+	const std::vector<IPeriod*>& previousPeriods = previousMpd->GetPeriods();
+	const std::vector<IPeriod*>& newPeriods = newMpd->GetPeriods();
+	if (newPeriods.empty())
+	{
+		return;
+	}
+
+	// Build a period-ID to IPeriod* map from the previous manifest
+	std::unordered_map<std::string, IPeriod*> previousPeriodById;
+	previousPeriodById.reserve(previousPeriods.size());
+	for (IPeriod* period : previousPeriods)
+	{
+		if (period)
+		{
+			previousPeriodById.emplace(period->GetId(), period);
+		}
+	}
+
+	const AampMediaType trackTypes[] = {
+		eMEDIATYPE_VIDEO, eMEDIATYPE_AUDIO, eMEDIATYPE_SUBTITLE
+	};
+
+	for (IPeriod* newPeriod : newPeriods)
+	{
+		if (!newPeriod)
+		{
+			continue;
+		}
+
+		const std::string& periodId = newPeriod->GetId();
+		const auto& newAdaptSets = newPeriod->GetAdaptationSets();
+		if (newAdaptSets.empty())
+		{
+			continue;
+		}
+
+		// Resolve the reference period for key ID comparison:
+		//   - If this period existed in the previous manifest, compare
+		//     its old key ID against the new one (classic key rotation).
+		//   - If it is a brand-new period, compare against the last period
+		//     in the previous manifest so that a new period carrying a
+		//     different key also triggers early license acquisition.
+		auto it = previousPeriodById.find(periodId);
+		IPeriod* refPeriod = (it != previousPeriodById.end())
+		                     ? it->second
+		                     : (!previousPeriods.empty() ? previousPeriods.back() : nullptr);
+
+		for (AampMediaType mediaType : trackTypes)
+		{
+			// Dedup key encodes both period and track type so each combination
+			// is queued at most once across repeated manifest refreshes
+			const std::string dedupKey =
+				periodId + ":" + std::to_string(static_cast<int>(mediaType));
+			if (std::find(mKeyRotationEarlyDetectedPeriodIds.begin(),
+			              mKeyRotationEarlyDetectedPeriodIds.end(),
+			              dedupKey) != mKeyRotationEarlyDetectedPeriodIds.end())
+			{
+				continue;
+			}
+
+			// Extract the reference cenc:default_KID string for this track
+			// type directly from the ContentProtection attributes.
+			// For existing periods this is the old key; for new periods this
+			// is the key from the last known period in the previous manifest.
+			std::string refKid;
+			if (refPeriod)
+			{
+				for (IAdaptationSet* adaptSet : refPeriod->GetAdaptationSets())
+				{
+					if (!mMPDParseHelper->IsContentType(adaptSet, mediaType))
+					{
+						continue;
+					}
+					for (auto* cp : mMPDParseHelper->GetContentProtection(adaptSet))
+					{
+						const auto attrs = cp->GetRawAttributes();
+						auto kidIt = attrs.find("cenc:default_KID");
+						if (kidIt != attrs.end() && !kidIt->second.empty())
+						{
+							refKid = kidIt->second;
+							break;
+						}
+					}
+					break; // Only check the first matching adaptation set per type
+				}
+			}
+
+			// Find the first matching adaptation set in the new period and
+			// compare its cenc:default_KID with the reference
+			for (uint32_t idx = 0; idx < newAdaptSets.size(); ++idx)
+			{
+				IAdaptationSet* adaptSet = newAdaptSets.at(idx);
+				if (!newParseHelper->IsContentType(adaptSet, mediaType))
+				{
+					continue;
+				}
+
+				std::string newKid;
+				for (auto* cp : newParseHelper->GetContentProtection(adaptSet))
+				{
+					const auto attrs = cp->GetRawAttributes();
+					auto kidIt = attrs.find("cenc:default_KID");
+					if (kidIt != attrs.end() && !kidIt->second.empty())
+					{
+						newKid = kidIt->second;
+						break;
+					}
+				}
+
+				if (!newKid.empty() && newKid != refKid)
+				{
+					AAMPLOG_INFO(
+						"Early key rotation detected for period '%s' "
+						"mediaType %d, KID: %s",
+						periodId.c_str(),
+						static_cast<int>(mediaType),
+						newKid.c_str());
+					mKeyRotationEarlyDetectedPeriodIds.push_back(dedupKey);
+					QueueContentProtection(newPeriod, idx, mediaType);
+				}
+				break; // Only check the first matching adaptation set per type
+			}
+		}
+	}
+}
+
+/**
  * @fn QueueContentProtection
  * @param[in] period - period
  * @param[in] adaptationSetIdx - adaptation set index
@@ -3244,6 +3411,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		//Clear previously stored vss early period ids
 		mEarlyAvailablePeriodIds.clear();
+		//Clear previously stored early key rotation period ids
+		mKeyRotationEarlyDetectedPeriodIds.clear();
 	}
 
 	aamp->IsTuneTypeNew = newTune;

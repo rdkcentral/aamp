@@ -1173,6 +1173,7 @@ protected:
 	double mBasePeriodOffset;
 	class PrivateCDAIObjectMPD *mCdaiObject;
 	std::vector<std::string> mEarlyAvailablePeriodIds;
+	std::vector<std::string> mKeyRotationEarlyDetectedPeriodIds; /**< Dedup keys for which early key-rotation license fetch was triggered */
 	int mCommonKeyDuration;
 
 	// DASH does not use abr manager to store the supported bandwidth values,
@@ -1239,6 +1240,15 @@ protected:
 	* @fn ProcessVssLicenseRequest
 	*/
 	void ProcessVssLicenseRequest();
+	/**
+	 * @fn DetectKeyRotationOnManifestRefresh
+	 * @brief Compares DRM key IDs for all periods and track types between the
+	 *        previous and new manifest to trigger early license acquisition.
+	 * @param[in] mpdDnldResp New manifest download response containing the
+	 *            updated parse helper.
+	 */
+	void DetectKeyRotationOnManifestRefresh(
+		ManifestDownloadResponsePtr mpdDnldResp);
 	/**
 	* @fn GetAvailableVSSPeriods
 	* @param PeriodIds VSS Periods

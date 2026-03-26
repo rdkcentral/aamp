@@ -229,6 +229,7 @@ typedef enum
 	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
 	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
+	eAAMPConfig_EarlyKeyRotationDetect,		/**< Config to enable early DRM key rotation detection during manifest refresh */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
