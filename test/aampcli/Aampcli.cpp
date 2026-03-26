@@ -671,9 +671,9 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			std::string manifest;
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			AAMPCLI_PRINTF("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
 			manifest = mAampcli.mSingleton->GetManifest();
-			AAMPCLI_PRINTF("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
+			AAMPCLI_PRINTF("[AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
 			break;
 		}
 		case AAMP_EVENT_TUNE_TIME_METRICS:
