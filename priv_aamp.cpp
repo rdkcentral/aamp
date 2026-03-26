@@ -11922,29 +11922,37 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 
 void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
-	// Note: Caller MUST hold mStreamLock
-	if (mpStreamAbstractionAAMP)
-	{
-		// Mute subtitles if either video is muted or subtitles are muted
-		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
-		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
-		AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
-					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+    // Note: Caller MUST hold mStreamLock
+    const bool isGstSubtecEnabled =
+        ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
+    const bool mute_subtitles_applied =
+        video_muted.load() || subtitles_muted.load();
 
-		if (mIsInbandCC || !isGstSubtecEnabled)
-		{
-			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-		}
-		else
-		{
-			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
-			if (HasSidecarData())
-			{ // has sidecar data
-				mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
-			}
-			SetSubtitleMuteInternal(mute_subtitles_applied);
-		}
-	}
+    AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d "
+                 "mute_subtitles_applied %d video_muted %d "
+                 "subtitles_muted %d",
+                 mIsInbandCC,
+                 isGstSubtecEnabled,
+                 mute_subtitles_applied,
+                 video_muted.load(),
+                 subtitles_muted.load());
+
+    /*
+     * Keep persisted CC/subtitle state in sync even after Stop(), when
+     * mpStreamAbstractionAAMP can be NULL.
+     */
+    PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+
+    if (mpStreamAbstractionAAMP && !mIsInbandCC && isGstSubtecEnabled)
+    {
+        mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
+        if (HasSidecarData())
+        {
+            mpStreamAbstractionAAMP->MuteSidecarSubtitles(
+                mute_subtitles_applied);
+        }
+        SetSubtitleMuteInternal(mute_subtitles_applied);
+    }
 }
 
 /**
