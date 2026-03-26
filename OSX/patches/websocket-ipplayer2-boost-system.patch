@@ -1,0 +1,12 @@
+diff --git a/cmake/Ipp2UtilsConfig.cmake.in b/cmake/Ipp2UtilsConfig.cmake.in
+index e3adb51..09e848f 100644
+--- a/cmake/Ipp2UtilsConfig.cmake.in
++++ b/cmake/Ipp2UtilsConfig.cmake.in
+@@ -25,6 +25,6 @@
+ include("${CMAKE_CURRENT_LIST_DIR}/@TARGETS_EXPORT_NAME@.cmake")
+ 
+ include(CMakeFindDependencyMacro)
+-find_dependency(Boost REQUIRED system)
++find_dependency(Boost REQUIRED)
+ 
+ check_required_components("@PROJECT_NAME@")

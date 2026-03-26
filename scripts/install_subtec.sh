@@ -94,6 +94,12 @@ function subtec_install_fn() {
         return 1
     }
     
+    git apply -p1 "${1}/OSX/patches/websocket-ipplayer2-boost-system.patch" --directory websocket-ipplayer2-utils || {
+        echo "ERROR: Failed to apply websocket-ipplayer2-boost-system.patch"
+        popd
+        return 1
+    }
+    
     git apply -p1 "${1}/OSX/patches/websocket-ipplayer2-typescpp.patch" --directory websocket-ipplayer2-utils || {
         echo "ERROR: Failed to apply websocket-ipplayer2-typescpp.patch"
         popd

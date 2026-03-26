@@ -214,6 +214,14 @@ function install_asio_fn()
         sudo make install
         popd
         INSTALL_STATUS_ARR+=("asio was successfully installed.")
+    elif [ ! -f /usr/local/include/asio.hpp ]; then
+        # Source directory exists but headers were never installed (e.g. interrupted build).
+        # Run make install from the existing build directory.
+        echo "asio source found but headers not installed. Running make install..."
+        pushd asio-1.18.2/build
+        sudo make install
+        popd
+        INSTALL_STATUS_ARR+=("asio headers were installed from existing build.")
     else
         echo "asio is already installed."
         INSTALL_STATUS_ARR+=("asio was already installed.")
