@@ -25,11 +25,151 @@
 #include <sstream>
 #include <thread>
 #include <vector>
+#include <map>
+#include <mutex>
 
 // AAMP JS registration
 extern "C" void aamp_LoadJSController(JSGlobalContextRef context);
 
 static GMainLoop* gMainLoop = nullptr;
+
+// ---------------------------------------------------------------------------
+// setTimeout / clearTimeout implementation backed by GLib timers
+// ---------------------------------------------------------------------------
+
+struct TimeoutData {
+    JSGlobalContextRef ctx;
+    JSObjectRef        callback;
+    guint              timerId;
+};
+
+static std::map<guint, TimeoutData*> gPendingTimeouts;
+static std::mutex                    gTimeoutMutex;
+
+static gboolean timeout_callback(gpointer userData)
+{
+    TimeoutData* data = static_cast<TimeoutData*>(userData);
+
+    {
+        std::lock_guard<std::mutex> lock(gTimeoutMutex);
+        gPendingTimeouts.erase(data->timerId);
+    }
+
+    JSValueRef exc = nullptr;
+    JSObjectCallAsFunction(data->ctx, data->callback, nullptr, 0, nullptr, &exc);
+    JSValueUnprotect(data->ctx, data->callback);
+    delete data;
+    return G_SOURCE_REMOVE;
+}
+
+static JSValueRef js_set_timeout(
+    JSContextRef ctx,
+    JSObjectRef  /*function*/,
+    JSObjectRef  /*thisObject*/,
+    size_t argumentCount,
+    const JSValueRef arguments[],
+    JSValueRef* exception)
+{
+    if (argumentCount < 1 || !JSValueIsObject(ctx, arguments[0])) {
+        return JSValueMakeNumber(ctx, 0);
+    }
+
+    JSObjectRef cb = JSValueToObject(ctx, arguments[0], exception);
+    if (!cb) { return JSValueMakeNumber(ctx, 0); }
+
+    unsigned int delay = 0;
+    if (argumentCount >= 2) {
+        delay = static_cast<unsigned int>(JSValueToNumber(ctx, arguments[1], exception));
+    }
+
+    JSGlobalContextRef globalCtx = JSContextGetGlobalContext(ctx);
+    JSValueProtect(globalCtx, cb);
+
+    TimeoutData* data = new TimeoutData{globalCtx, cb, 0};
+    guint timerId = g_timeout_add(delay, timeout_callback, data);
+    data->timerId = timerId;
+
+    {
+        std::lock_guard<std::mutex> lock(gTimeoutMutex);
+        gPendingTimeouts[timerId] = data;
+    }
+
+    return JSValueMakeNumber(ctx, timerId);
+}
+
+static JSValueRef js_clear_timeout(
+    JSContextRef ctx,
+    JSObjectRef  /*function*/,
+    JSObjectRef  /*thisObject*/,
+    size_t argumentCount,
+    const JSValueRef arguments[],
+    JSValueRef* exception)
+{
+    if (argumentCount >= 1) {
+        guint timerId = static_cast<guint>(JSValueToNumber(ctx, arguments[0], exception));
+
+        TimeoutData* data = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(gTimeoutMutex);
+            auto it = gPendingTimeouts.find(timerId);
+            if (it != gPendingTimeouts.end()) {
+                data = it->second;
+                gPendingTimeouts.erase(it);
+            }
+        }
+
+        if (data) {
+            g_source_remove(timerId);
+            JSValueUnprotect(data->ctx, data->callback);
+            delete data;
+        }
+    }
+    return JSValueMakeUndefined(ctx);
+}
+
+/**
+ * Browser API polyfill injected before the user script.
+ * Provides stubs for DOM/window APIs not available in the JavaScriptCore
+ * CLI environment so that l3.js test scripts can run unmodified.
+ */
+static const char* kBrowserPolyfill = R"JS(
+// Stub window.location so URLSearchParams can read query params (always empty in CLI)
+window.location = { search: "" };
+
+// Stub window.addEventListener (error / unhandledrejection hooks are no-ops in CLI)
+window.addEventListener = function(type, listener, options) {};
+
+// Minimal URLSearchParams implementation
+function URLSearchParams(search) {
+    this._params = {};
+    if (typeof search === "string") {
+        if (search.charAt(0) === "?") { search = search.slice(1); }
+        if (search.length > 0) {
+            var pairs = search.split("&");
+            for (var i = 0; i < pairs.length; i++) {
+                var idx = pairs[i].indexOf("=");
+                if (idx >= 0) {
+                    this._params[decodeURIComponent(pairs[i].slice(0, idx))] =
+                        decodeURIComponent(pairs[i].slice(idx + 1));
+                } else {
+                    this._params[decodeURIComponent(pairs[i])] = "";
+                }
+            }
+        }
+    }
+}
+URLSearchParams.prototype.get = function(key) {
+    return Object.prototype.hasOwnProperty.call(this._params, key) ? this._params[key] : null;
+};
+
+// Minimal document stub — getElementById returns an inert object whose
+// innerHTML setter is a no-op (UI updates are silently ignored in CLI)
+var document = {
+    getElementById: function(id) {
+        return { get innerHTML() { return ""; }, set innerHTML(v) {} };
+    }
+};
+)JS";
 
 /**
  * Convert JSStringRef to std::string (C++14 safe)
@@ -106,6 +246,20 @@ static void installConsole(JSGlobalContextRef ctx)
     JSObjectSetProperty(ctx, global, consoleName, console,
                         kJSPropertyAttributeNone, nullptr);
     JSStringRelease(consoleName);
+
+    // setTimeout
+    JSStringRef setTimeoutName = JSStringCreateWithUTF8CString("setTimeout");
+    JSObjectRef setTimeoutFunc = JSObjectMakeFunctionWithCallback(ctx, setTimeoutName, js_set_timeout);
+    JSObjectSetProperty(ctx, global, setTimeoutName, setTimeoutFunc,
+                        kJSPropertyAttributeNone, nullptr);
+    JSStringRelease(setTimeoutName);
+
+    // clearTimeout
+    JSStringRef clearTimeoutName = JSStringCreateWithUTF8CString("clearTimeout");
+    JSObjectRef clearTimeoutFunc = JSObjectMakeFunctionWithCallback(ctx, clearTimeoutName, js_clear_timeout);
+    JSObjectSetProperty(ctx, global, clearTimeoutName, clearTimeoutFunc,
+                        kJSPropertyAttributeNone, nullptr);
+    JSStringRelease(clearTimeoutName);
 }
 
 static int main_func(int argc, char** argv)
@@ -135,9 +289,17 @@ static int main_func(int argc, char** argv)
     // Register AAMP bindings
     aamp_LoadJSController(ctx);
 
-    // Execute JS
-    JSStringRef jsSource =
-        JSStringCreateWithUTF8CString(script.c_str());
+    // Combine the browser-API polyfill with the user script.
+    // Wrap in an async IIFE so that top-level `await` expressions in the
+    // user script (e.g. `await TST_2000_UVE_AampPlayback()`) work correctly
+    // under JSEvaluateScript, which does not support module-level top-level await.
+    std::string combined =
+        std::string(kBrowserPolyfill) +
+        "\n(async function() {\n" +
+        script +
+        "\n})().catch(function(e) { console.log('Unhandled error: ' + e); });\n";
+
+    JSStringRef jsSource = JSStringCreateWithUTF8CString(combined.c_str());
     JSEvaluateScript(ctx, jsSource, nullptr, nullptr, 1, nullptr);
     JSStringRelease(jsSource);
 
