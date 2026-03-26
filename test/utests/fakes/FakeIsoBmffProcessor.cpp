@@ -26,7 +26,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback
 {
 }
 
-bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						                bool isInit, process_fcn_t processor, bool &ptsError)
 {
     return true;
@@ -86,7 +86,7 @@ void IsoBmffProcessor::abortWaitForVideoPTS()
 void IsoBmffProcessor::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, double position)
 {
 }
-bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer)
+bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(std::vector<uint8_t>& buffer)
 {
     return true;
 }

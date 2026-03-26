@@ -216,24 +216,6 @@ protected:
 	}
 
 public:
-	/**
-	 * @brief Get manifest helper method
-	 *
-	 * @param[in] remoteUrl Manifest url
-	 * @param[out] buffer Buffer containing manifest data
-	 * @retval true on success
-	*/
-	bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer)
-	{
-		EXPECT_STREQ(remoteUrl.c_str(), mManifestUrl.c_str());
-
-		/* Setup fake AampGrowableBuffer contents. */
-		buffer->clear();
-		buffer->assign(mManifest, mManifest + strlen(mManifest));
-
-		return true;
-	}
-
 
 	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
