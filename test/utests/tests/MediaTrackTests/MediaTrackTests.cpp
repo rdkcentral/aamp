@@ -29,7 +29,6 @@
 #include "AampTime.h"
 #include "priv_aamp.h"
 #include "fragmentcollector_mpd.h"
-#include "AampGrowableBuffer.h"
 
 #include "MockIsoBmffHelper.h"
 #include "MockIsoBmffBuffer.h"
