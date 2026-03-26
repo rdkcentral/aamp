@@ -3828,6 +3828,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTune)
 	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -3860,6 +3861,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -3894,6 +3896,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -3941,6 +3944,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute02)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
 	// Enable CC and check that status is stored, 
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -3991,6 +3995,7 @@ TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 
 	// Enable CC and check that status is stored, however SetStatus(false) is called since video is still muted
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -4013,6 +4018,7 @@ TEST_F(PrivAampTests,RestoreCCWhenCCWasEnabledBeforeTune)
 
 	// Enable CC after tune - SetStatus(true) should be called
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -4053,6 +4059,7 @@ TEST_F(PrivAampTests,RestoreCCPreservesStateAcrossMultipleTunes)
 	
 	// Enable CC - SetStatus(true) should be called
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 

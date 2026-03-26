@@ -1640,7 +1640,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
 	seek_pos_seconds(-1), rate(0), mSinkPaused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_NONE),
-	video_muted(false), subtitles_muted(true), mCCStatusSetByApp(false), audio_volume(100),
+	video_muted(false), subtitles_muted(true), audio_volume(100),
 	subscribedTags(), manifestHeadersNeeded(), httpHeaderResponses(), timedMetadata(), timedMetadataNew(), IsTuneTypeNew(false), trickStartUTCMS(-1), durationSeconds(0.0), culledSeconds(0.0), culledOffset(0.0),
 	maxRefreshPlaylistIntervalSecs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS/1000),
 	mEventListener(NULL), mNewSeekInfo(), discardEnteringLiveEvt(false),
@@ -7960,6 +7960,11 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 	}
 }
 
+void PrivateInstanceAAMP::SetCCStatusSetByApp()
+{
+	mCCStatusSetByApp = true;
+}
+
 /**
  *   @brief Enable/ Disable Subtitles.
  *
@@ -7967,7 +7972,6 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
  */
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 {
-	mCCStatusSetByApp = true;
 	subtitles_muted = muted;
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
@@ -11911,7 +11915,6 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-		mCCStatusSetByApp = true;
 		// Set subtitles_muted flag to the value requested by the app
 		subtitles_muted = !enabled;
 		SetCCStatusInternal();

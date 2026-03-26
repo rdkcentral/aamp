@@ -391,6 +391,11 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	}
 }
 
+void PrivateInstanceAAMP::SetCCStatusSetByApp()
+{
+	mCCStatusSetByApp = true;
+}
+
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 {
 }
