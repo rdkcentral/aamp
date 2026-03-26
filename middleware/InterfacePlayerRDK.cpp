@@ -471,6 +471,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 			MW_LOG_WARN("Couldn't get video-sink");
 		}
 	}
+	if(interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
+	{
+		g_object_set(interfacePlayerPriv->gstPrivateContext->pipeline, "enable-live-latency", TRUE, NULL);
+	}
 	if (interfacePlayerPriv->gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == interfacePlayerPriv->gstPrivateContext->rate)
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
