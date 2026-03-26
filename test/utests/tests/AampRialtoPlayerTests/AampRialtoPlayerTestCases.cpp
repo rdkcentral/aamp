@@ -986,3 +986,165 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	SUCCEED();
 }
+
+// ===========================================================================
+// Phase 12 — Per-segment codec data (mid-stream codec change)
+// ===========================================================================
+
+// Verifies that codec data cached during AttachVideoSource is forwarded on
+// every subsequent MediaSegmentVideo via setCodecData().
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	InjectSamples_VideoSegment_CarriesCodecDataFromInitFragment)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+
+	// Init fragment supplies codec data {0x01, 0x02, 0x03}.
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillByDefault([]() { return MakeVideoH264CodecInfo(); });
+	std::vector<uint8_t> initBuf = {0x00};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(initBuf),
+		0, 0, 0, 0, /*initFragment=*/true);
+
+	// Collect codec data seen on each addSegment call.
+	std::vector<std::shared_ptr<const firebolt::rialto::CodecData>> capturedCodecData;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&capturedCodecData](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				capturedCodecData.push_back(seg->getCodecData());
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	m_player->OnNeedMediaData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/1);
+
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::vector<uint8_t> mediaBuf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(mediaBuf),
+		0.1, 0.1, 0.033, 0, /*initFragment=*/false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	ASSERT_EQ(capturedCodecData.size(), 1u);
+	ASSERT_NE(capturedCodecData[0], nullptr);
+	EXPECT_EQ(capturedCodecData[0]->data,
+		(std::vector<uint8_t>{0x01, 0x02, 0x03}));
+}
+
+// Verifies that codec data cached during AttachAudioSource is forwarded on
+// every subsequent MediaSegmentAudio via setCodecData().
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	InjectSamples_AudioSegment_CarriesCodecDataFromInitFragment)
+{
+	Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF);
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillByDefault([]() { return MakeAudioAacCodecInfo(); });
+	std::vector<uint8_t> initBuf = {0x00};
+	m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(initBuf),
+		0, 0, 0, 0, /*initFragment=*/true);
+
+	std::vector<std::shared_ptr<const firebolt::rialto::CodecData>> capturedCodecData;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&capturedCodecData](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				capturedCodecData.push_back(seg->getCodecData());
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	m_player->OnNeedMediaData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/2);
+
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::vector<uint8_t> mediaBuf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(mediaBuf),
+		0.1, 0.1, 0.033, 0, /*initFragment=*/false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	ASSERT_EQ(capturedCodecData.size(), 1u);
+	ASSERT_NE(capturedCodecData[0], nullptr);
+	EXPECT_EQ(capturedCodecData[0]->data,
+		(std::vector<uint8_t>{0xAA, 0xBB}));
+}
+
+// Verifies that when a second init fragment arrives for a source that is
+// already attached (mid-stream codec change), the new codec data replaces the
+// cached value and is forwarded on all subsequent segments.  attachSource()
+// must NOT be called a second time.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	InitFragment_SecondVideoInit_UpdatesCodecDataWithoutReattaching)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+
+	// First init fragment — H264 with codec data {0x01, 0x02, 0x03}.
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillByDefault([]() { return MakeVideoH264CodecInfo(); });
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+	std::vector<uint8_t> init1 = {0x00};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(init1),
+		0, 0, 0, 0, /*initFragment=*/true);
+
+	// Second init fragment — HEVC with different codec data {0x01, 0x02}.
+	// attachSource() must NOT be called again.
+	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillByDefault([]() { return MakeVideoHevcCodecInfo(); });
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+	std::vector<uint8_t> init2 = {0x00};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(init2),
+		0, 0, 0, 0, /*initFragment=*/true);
+
+	// The next injected segment must carry the new HEVC codec data.
+	std::vector<std::shared_ptr<const firebolt::rialto::CodecData>> capturedCodecData;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&capturedCodecData](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				capturedCodecData.push_back(seg->getCodecData());
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	m_player->OnNeedMediaData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/3);
+
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.2; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::vector<uint8_t> mediaBuf = {0x02};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(mediaBuf),
+		0.2, 0.2, 0.033, 0, /*initFragment=*/false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	ASSERT_EQ(capturedCodecData.size(), 1u);
+	ASSERT_NE(capturedCodecData[0], nullptr);
+	// Must be the HEVC codec data from the second init fragment.
+	EXPECT_EQ(capturedCodecData[0]->data,
+		(std::vector<uint8_t>{0x01, 0x02}));
+}

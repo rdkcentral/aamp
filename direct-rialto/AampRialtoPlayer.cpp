@@ -330,98 +330,98 @@ void AampRialtoPlayer::AttachVideoSource(Mp4Demux &demuxer)
 	if (!m_pipeline)
 	{
 		AAMPLOG_ERR("pipeline not created");
+		return;
 	}
-	else if (m_videoSourceId >= 0)
+
+	MediaCodecInfo codecInfo = demuxer.GetCodecInfo();
+
+	AAMPLOG_INFO("codecFormat=%d codecDataSize=%zu w=%u h=%u", static_cast<int>(codecInfo.mCodecFormat),
+		codecInfo.mCodecData.size(),
+		codecInfo.mInfo.video.mWidth,
+		codecInfo.mInfo.video.mHeight);
+
+	std::string mimeType;
+	firebolt::rialto::StreamFormat streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
+	bool validCodec = true;
+	switch (codecInfo.mCodecFormat)
 	{
-		AAMPLOG_INFO("video source already attached (id=%d), skipping", m_videoSourceId);
+		case GST_FORMAT_VIDEO_ES_H264:
+			mimeType = "video/h264";
+			streamFormat = firebolt::rialto::StreamFormat::AVC;
+			break;
+		case GST_FORMAT_VIDEO_ES_HEVC:
+			mimeType = "video/h265";
+			streamFormat = firebolt::rialto::StreamFormat::HVC1;
+			break;
+		default:
+			AAMPLOG_ERR("Unknown video codec format=%d", static_cast<int>(codecInfo.mCodecFormat));
+			validCodec = false;
+			break;
+	}
+
+	if (!validCodec)
+		return;
+
+	std::shared_ptr<firebolt::rialto::CodecData> codecData;
+	if (!codecInfo.mCodecData.empty())
+	{
+		codecData = std::make_shared<firebolt::rialto::CodecData>();
+		codecData->data = codecInfo.mCodecData;
+	}
+
+	// Always update the cached values so InjectSamples sends current codec
+	// data and dimensions even when the codec changes mid-stream.
+	m_videoCodecData = codecData;
+	m_videoWidth  = static_cast<int32_t>(codecInfo.mInfo.video.mWidth);
+	m_videoHeight = static_cast<int32_t>(codecInfo.mInfo.video.mHeight);
+
+	if (m_videoSourceId >= 0)
+	{
+		AAMPLOG_INFO("video source already attached (id=%d), updated cached codec data", m_videoSourceId);
+		return;
+	}
+
+	auto source = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSourceVideo>(
+		mimeType,
+		/*hasDrm=*/false,
+		static_cast<int32_t>(codecInfo.mInfo.video.mWidth),
+		static_cast<int32_t>(codecInfo.mInfo.video.mHeight),
+		firebolt::rialto::SegmentAlignment::AU,
+		streamFormat,
+		codecData);
+
+	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> sourceBase = std::move(source);
+	if (!m_pipeline->attachSource(sourceBase))
+	{
+		AAMPLOG_ERR("attachSource (video) failed");
 	}
 	else
 	{
-		MediaCodecInfo codecInfo = demuxer.GetCodecInfo();
-
-		AAMPLOG_INFO("codecFormat=%d codecDataSize=%zu w=%u h=%u", static_cast<int>(codecInfo.mCodecFormat),
-			codecInfo.mCodecData.size(),
+		m_videoSourceId = sourceBase->getId();
+		AAMPLOG_INFO("Attached video source id=%d mime=%s w=%d h=%d", m_videoSourceId, mimeType.c_str(),
 			codecInfo.mInfo.video.mWidth,
 			codecInfo.mInfo.video.mHeight);
 
-		std::string mimeType;
-		firebolt::rialto::StreamFormat streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
-		bool validCodec = true;
-		switch (codecInfo.mCodecFormat)
+		// Set the initial segment position on the server so that
+		// pushSampleIfRequired() creates a GStreamer segment before the first
+		// buffer is pushed.  Without this, frames at large live-stream PTS
+		// values are never rendered.
+		const int64_t posNs =
+			m_pendingFlushPositionNs.load(std::memory_order_relaxed);
+		if (posNs >= 0)
 		{
-			case GST_FORMAT_VIDEO_ES_H264:
-				mimeType = "video/h264";
-				streamFormat = firebolt::rialto::StreamFormat::AVC;
-				break;
-			case GST_FORMAT_VIDEO_ES_HEVC:
-				mimeType = "video/h265";
-				streamFormat = firebolt::rialto::StreamFormat::HVC1;
-				break;
-			default:
-				AAMPLOG_ERR("Unknown video codec format=%d", static_cast<int>(codecInfo.mCodecFormat));
-				validCodec = false;
-				break;
-		}
-
-		if (validCodec)
-		{
-			std::shared_ptr<firebolt::rialto::CodecData> codecData;
-			if (!codecInfo.mCodecData.empty())
+			if (!m_pipeline->setSourcePosition(
+					m_videoSourceId, posNs, /*resetTime=*/true))
 			{
-				codecData = std::make_shared<firebolt::rialto::CodecData>();
-				codecData->data = std::move(codecInfo.mCodecData);
-			}
-
-			auto source = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSourceVideo>(
-				mimeType,
-				/*hasDrm=*/false,
-				static_cast<int32_t>(codecInfo.mInfo.video.mWidth),
-				static_cast<int32_t>(codecInfo.mInfo.video.mHeight),
-				firebolt::rialto::SegmentAlignment::AU,
-				streamFormat,
-				codecData);
-
-			std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> sourceBase = std::move(source);
-			if (!m_pipeline->attachSource(sourceBase))
-			{
-				AAMPLOG_ERR("attachSource (video) failed");
+				AAMPLOG_WARN("setSourcePosition(video, %" PRId64 ") failed", posNs);
 			}
 			else
 			{
-				m_videoSourceId = sourceBase->getId();
-				AAMPLOG_INFO("Attached video source id=%d mime=%s w=%d h=%d", m_videoSourceId, mimeType.c_str(),
-					codecInfo.mInfo.video.mWidth,
-					codecInfo.mInfo.video.mHeight);
-
-				m_videoWidth  = static_cast<int32_t>(codecInfo.mInfo.video.mWidth);
-				m_videoHeight = static_cast<int32_t>(codecInfo.mInfo.video.mHeight);
-
-				// Cache codec data so it can be applied to each MediaSegment
-				// during injection (required by decoders that need in-band SPS/PPS).
-				m_videoCodecData = codecData;
-
-				// Set the initial segment position on the server so that
-				// pushSampleIfRequired() creates a GStreamer segment before the first
-				// buffer is pushed.  Without this, frames at large live-stream PTS
-				// values are never rendered.
-				const int64_t posNs =
-					m_pendingFlushPositionNs.load(std::memory_order_relaxed);
-				if (posNs >= 0)
-				{
-					if (!m_pipeline->setSourcePosition(
-							m_videoSourceId, posNs, /*resetTime=*/true))
-					{
-						AAMPLOG_WARN("setSourcePosition(video, %" PRId64 ") failed", posNs);
-					}
-					else
-					{
-						AAMPLOG_INFO("setSourcePosition(video, %" PRId64 ") ok", posNs);
-					}
-				}
-
-				CheckAllSourcesAttached();
+				AAMPLOG_INFO("setSourcePosition(video, %" PRId64 ") ok", posNs);
 			}
 		}
+
+		CheckAllSourcesAttached();
 	}
 }
 
@@ -430,106 +430,105 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 	if (!m_pipeline)
 	{
 		AAMPLOG_ERR("pipeline not created");
+		return;
 	}
-	else if (m_audioSourceId >= 0)
+
+	MediaCodecInfo codecInfo = demuxer.GetCodecInfo();
+
+	std::string mimeType;
+	firebolt::rialto::StreamFormat streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
+	bool validCodec = true;
+	switch (codecInfo.mCodecFormat)
 	{
-		AAMPLOG_INFO("audio source already attached (id=%d), skipping", m_audioSourceId);
+		case GST_FORMAT_AUDIO_ES_AAC_RAW:
+			mimeType = "audio/aac";
+			streamFormat = firebolt::rialto::StreamFormat::RAW;
+			break;
+		case GST_FORMAT_AUDIO_ES_EC3:
+			mimeType = "audio/x-eac3";
+			streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
+			break;
+		case GST_FORMAT_AUDIO_ES_AC4:
+			mimeType = "audio/x-ac4";
+			streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
+			break;
+		default:
+			AAMPLOG_ERR("Unknown audio codec format=%d", static_cast<int>(codecInfo.mCodecFormat));
+			validCodec = false;
+			break;
+	}
+
+	if (!validCodec)
+		return;
+
+	std::shared_ptr<firebolt::rialto::CodecData> audioCodecData;
+	if (!codecInfo.mCodecData.empty())
+	{
+		audioCodecData = std::make_shared<firebolt::rialto::CodecData>();
+		audioCodecData->data = codecInfo.mCodecData;
+		AAMPLOG_INFO("audio codecData size=%zu", audioCodecData->data.size());
 	}
 	else
 	{
-		MediaCodecInfo codecInfo = demuxer.GetCodecInfo();
+		AAMPLOG_WARN("audio codecData is empty — Rialto may produce empty caps");
+	}
 
-		std::string mimeType;
-		firebolt::rialto::StreamFormat streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
-		bool validCodec = true;
-		switch (codecInfo.mCodecFormat)
+	// Always update the cached values so InjectSamples sends current codec
+	// data and params even when the codec changes mid-stream.
+	m_audioCodecData  = audioCodecData;
+	m_audioSampleRate = static_cast<int32_t>(codecInfo.mInfo.audio.mSampleRate);
+	m_audioChannels   = static_cast<int32_t>(codecInfo.mInfo.audio.mChannelCount);
+
+	if (m_audioSourceId >= 0)
+	{
+		AAMPLOG_INFO("audio source already attached (id=%d), updated cached codec data", m_audioSourceId);
+		return;
+	}
+
+	firebolt::rialto::AudioConfig audioConfig;
+	audioConfig.numberOfChannels = codecInfo.mInfo.audio.mChannelCount;
+	audioConfig.sampleRate = codecInfo.mInfo.audio.mSampleRate;
+	if (!codecInfo.mCodecData.empty())
+	{
+		audioConfig.codecSpecificConfig = codecInfo.mCodecData;
+	}
+
+	auto source = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSourceAudio>(
+		mimeType,
+		/*hasDrm=*/false,
+		audioConfig,
+		firebolt::rialto::SegmentAlignment::UNDEFINED,
+		streamFormat,
+		audioCodecData);
+
+	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> sourceBase = std::move(source);
+	if (!m_pipeline->attachSource(sourceBase))
+	{
+		AAMPLOG_ERR("attachSource (audio) failed");
+	}
+	else
+	{
+		m_audioSourceId = sourceBase->getId();
+		AAMPLOG_INFO("Attached audio source id=%d mime=%s channels=%u rate=%u", m_audioSourceId, mimeType.c_str(),
+			audioConfig.numberOfChannels, audioConfig.sampleRate);
+
+		// Set the initial segment position on the server (mirrors the video path).
+		const int64_t posNs =
+			m_pendingFlushPositionNs.load(std::memory_order_relaxed);
+		if (posNs >= 0)
 		{
-			case GST_FORMAT_AUDIO_ES_AAC_RAW:
-				mimeType = "audio/aac";
-				streamFormat = firebolt::rialto::StreamFormat::RAW;
-				break;
-			case GST_FORMAT_AUDIO_ES_EC3:
-				mimeType = "audio/x-eac3";
-				streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
-				break;
-			case GST_FORMAT_AUDIO_ES_AC4:
-				mimeType = "audio/x-ac4";
-				streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
-				break;
-			default:
-				AAMPLOG_ERR("Unknown audio codec format=%d", static_cast<int>(codecInfo.mCodecFormat));
-				validCodec = false;
-				break;
-		}
-
-		if (validCodec)
-		{
-			firebolt::rialto::AudioConfig audioConfig;
-			audioConfig.numberOfChannels = codecInfo.mInfo.audio.mChannelCount;
-			audioConfig.sampleRate = codecInfo.mInfo.audio.mSampleRate;
-			if (!codecInfo.mCodecData.empty())
+			if (!m_pipeline->setSourcePosition(
+					m_audioSourceId, posNs, /*resetTime=*/true))
 			{
-				audioConfig.codecSpecificConfig = codecInfo.mCodecData;
-			}
-
-			// Pass codec data via the shared_ptr parameter so the Rialto server
-			// can build the GStreamer caps codec_data buffer (same mechanism as video).
-			std::shared_ptr<firebolt::rialto::CodecData> audioCodecData;
-			if (!codecInfo.mCodecData.empty())
-			{
-				audioCodecData = std::make_shared<firebolt::rialto::CodecData>();
-				audioCodecData->data = codecInfo.mCodecData;
-				AAMPLOG_INFO("audio codecData size=%zu", audioCodecData->data.size());
+				AAMPLOG_WARN("setSourcePosition(audio, %" PRId64 ") failed", posNs);
 			}
 			else
 			{
-				AAMPLOG_WARN("audio codecData is empty — Rialto may produce empty caps");
-			}
-
-			auto source = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSourceAudio>(
-				mimeType,
-				/*hasDrm=*/false,
-				audioConfig,
-				firebolt::rialto::SegmentAlignment::UNDEFINED,
-				streamFormat,
-				audioCodecData);
-
-			std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> sourceBase = std::move(source);
-			if (!m_pipeline->attachSource(sourceBase))
-			{
-				AAMPLOG_ERR("attachSource (audio) failed");
-			}
-			else
-			{
-				m_audioSourceId = sourceBase->getId();
-				AAMPLOG_INFO("Attached audio source id=%d mime=%s channels=%u rate=%u", m_audioSourceId, mimeType.c_str(),
-					audioConfig.numberOfChannels, audioConfig.sampleRate);
-
-				m_audioSampleRate = static_cast<int32_t>(audioConfig.sampleRate);
-				m_audioChannels   = static_cast<int32_t>(audioConfig.numberOfChannels);
-
-				// Cache codec data for per-segment injection.
-				m_audioCodecData = audioCodecData;
-
-				// Set the initial segment position on the server (mirrors the video path).
-				const int64_t posNs =
-					m_pendingFlushPositionNs.load(std::memory_order_relaxed);
-				if (posNs >= 0)
-				{
-					if (!m_pipeline->setSourcePosition(
-							m_audioSourceId, posNs, /*resetTime=*/true))
-					{
-						AAMPLOG_WARN("setSourcePosition(audio, %" PRId64 ") failed", posNs);
-					}
-					else
-					{
-						AAMPLOG_INFO("setSourcePosition(audio, %" PRId64 ") ok", posNs);
-					}
-				}
-
-				CheckAllSourcesAttached();
+				AAMPLOG_INFO("setSourcePosition(audio, %" PRId64 ") ok", posNs);
 			}
 		}
+
+		CheckAllSourcesAttached();
 	}
 }
 
