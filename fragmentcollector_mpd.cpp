@@ -6679,9 +6679,14 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	double offsetFromStart;
 
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_AUDIO];
-	if ((!pMediaStreamContext) || (!pMediaStreamContext->enabled))
+	if (!pMediaStreamContext)
 	{
-		AAMPLOG_WARN("pMediaStreamContext  is null");
+		AAMPLOG_WARN("pMediaStreamContext is null");
+		return;
+	}
+	if (!pMediaStreamContext->enabled)
+	{
+		AAMPLOG_WARN("pMediaStreamContext is not enabled");
 		pMediaStreamContext->NotifyCachedAudioFragmentAvailable();
 		return;
 	}
