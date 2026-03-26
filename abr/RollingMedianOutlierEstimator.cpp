@@ -21,6 +21,9 @@
 #include <algorithm>
 #include <sys/time.h>
 #include <cstdlib>
+#include <vector>
+#include <numeric>
+#include <cmath>
 /**
  * @brief Get current time in milliseconds.
  * @return Current time in milliseconds.
@@ -141,44 +144,35 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 		medianbps = (m1 + m2) / 2;
 	}
 
-	long diffOutlier = 0;
-	BitsPerSecond avg = 0;
+
 	int abrOutlierDiffBytes = mConfig.mAbrCacheOutlier;
-	for (auto tmpDataIter = tmpData.begin();
-		 tmpDataIter != tmpData.end();)
+	// O(n) filtering using the Erase-Remove idiom
+
+	auto rm = std::remove_if(tmpData.begin(), tmpData.end(), [&](const long &val)
 	{
-		if ( initialSize == 2)
+		long diffOutlier = 0;
+        if (initialSize == 2)
 		{
-			// With 2 samples then only reject the higher outlier but not the lower one
-			// for the lower sample then diffOutlier will be negative hence not rejected
-			diffOutlier = (*tmpDataIter) - medianbps;
-		}
+			// Special case: only reject higher outlier
+			diffOutlier = val - medianbps;
+        }
 		else
 		{
-			diffOutlier = std::abs((*tmpDataIter) - medianbps);
+			// Reject both higher and lower outliers
+			diffOutlier = std::abs(val - medianbps);
 		}
+        return diffOutlier > abrOutlierDiffBytes;
+	});
 
-		if (diffOutlier > abrOutlierDiffBytes)
-		{
-			tmpDataIter = tmpData.erase(tmpDataIter);
-		}
-		else
-		{
-			avg += (*tmpDataIter);
-			tmpDataIter++;
-		}
-	}
+	tmpData.erase(rm, tmpData.end());
 
-	if (tmpData.size())
+	if (tmpData.empty())
 	{
-		ret = (avg / static_cast<BitsPerSecond>(tmpData.size()));
+		return -1;
 	}
-	else
-	{
-		ret = -1;
-	}
-
-	return ret;
+	// Use std::accumulate for clarity
+	auto sum = std::accumulate(tmpData.begin(), tmpData.end(), 0LL);
+	return static_cast<BitsPerSecond>(sum / tmpData.size());
 }
 
 /**
