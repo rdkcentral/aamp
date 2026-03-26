@@ -7120,7 +7120,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
 	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - pMediaStreamContext->fragmentTime );
 	AAMPLOG_INFO("vk::diffInInjectedDuration before fragment duration subtraction %lf", diffInInjectedDuration);
-	   // diffInInjectedDuration -= (fragmentDuration/pMediaStreamContext->fragmentDescriptor.TimeScale);
+	   	diffInInjectedDuration += (fragmentDuration/pMediaStreamContext->fragmentDescriptor.TimeScale);
 	    AAMPLOG_INFO("vk::new fragmenttime %lf timeScale %u fragmentDuration %u getpos:%lf diffInInjectedDuration %lf", pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.TimeScale, fragmentDuration, pMediaStreamContext->GetLastInjectedPosition(), diffInInjectedDuration);
 
 	
