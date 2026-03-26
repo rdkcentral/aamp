@@ -55,7 +55,7 @@ bool ElementaryProcessor::sendSegment(std::vector<uint8_t>& buffer, double posit
 		AAMPLOG_INFO("IsoBmffProcessor:: eMEDIATYPE_SUBTITLE sending segment at pos:%f dur:%f", position, duration);
 		sendStream(buffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 	}
-	return true;
+	return ret;
 }
 
 /**

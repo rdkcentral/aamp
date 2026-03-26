@@ -123,7 +123,7 @@ bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>& buffer, double position
 			sendStream(buffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 		}
 	}
-	return true;
+	return ret;
 }
 /**
  *  @brief Update PTS and send pts for flush subtitle
