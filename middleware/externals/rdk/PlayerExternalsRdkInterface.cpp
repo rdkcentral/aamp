@@ -40,6 +40,10 @@
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
 
+#ifdef USE_PREINIT_DECODING
+static IARM_Bus_PWRMgr_PowerState_t prevState = IARM_BUS_PWRMGR_POWERSTATE_ON;
+#endif
+
 /**
  * @brief Enumeration for net_srv_mgr active interface event callback
  */
@@ -85,11 +89,13 @@ void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *dat
         IARM_Bus_PWRMgr_EventData_t *param = (IARM_Bus_PWRMgr_EventData_t *)data;
         printf("Event IARM_BUS_PWRMGR_EVENT_MODECHANGED: State Changed %d -- > %d\n",
                 param->data.state.curState, param->data.state.newState);
-        if(param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && param->data.state.newState != IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP )
+        bool isOnOrStandby = (param->data.state.newState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY || param->data.state.newState == IARM_BUS_PWRMGR_POWERSTATE_ON);
+	if((param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && isOnOrStandby) || (prevState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_LIGHT_SLEEP && isOnOrStandby))
         {
         	printf(" DEEPSLEEP : calling triggerFakeTune  \n");
 		triggerFakeTune();
         }
+	prevState = param->data.state.curState;
     }
 }
 #endif
