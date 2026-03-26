@@ -26,6 +26,8 @@
 #include "AampLogManager.h"
 #include <cinttypes>
 
+using namespace firebolt::rialto;
+
 // ---------------------------------------------------------------------------
 // Construction / destruction
 // ---------------------------------------------------------------------------
@@ -46,8 +48,8 @@ AampRialtoMediaPipelineClient::~AampRialtoMediaPipelineClient()
 
 bool AampRialtoMediaPipelineClient::init()
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY", __FUNCTION__);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 	return false;
 }
 
@@ -57,23 +59,24 @@ bool AampRialtoMediaPipelineClient::init()
 
 void AampRialtoMediaPipelineClient::notifyNetworkState(NetworkState state)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY state=%d",
-		__FUNCTION__, static_cast<int>(state));
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY state=%d", static_cast<int>(state));
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackState(PlaybackState state)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY state=%d",
-		__FUNCTION__, static_cast<int>(state));
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY state=%d", static_cast<int>(state));
+	if (m_playbackStateCallback)
+	{
+		m_playbackStateCallback(state);
+	}
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyPosition(int64_t position)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY position=%" PRId64,
-		__FUNCTION__, position);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY position=%" PRId64, position);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyNeedMediaData(
@@ -82,89 +85,79 @@ void AampRialtoMediaPipelineClient::notifyNeedMediaData(
 	uint32_t needDataRequestId,
 	const std::shared_ptr<MediaPlayerShmInfo> &mediaPlayerShmInfo)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY"
-		" sourceId=%d frameCount=%zu needDataRequestId=%u",
-		__FUNCTION__, sourceId, frameCount, needDataRequestId);
+	AAMPLOG_INFO("ENTRY sourceId=%d frameCount=%zu needDataRequestId=%u", sourceId, frameCount, needDataRequestId);
 	if (m_needDataCallback)
+	{
 		m_needDataCallback(sourceId, frameCount, needDataRequestId);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	}
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyQos(
 	int32_t sourceId, const QosInfo &qosInfo)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY sourceId=%d",
-		__FUNCTION__, sourceId);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY sourceId=%d",
-		__FUNCTION__, sourceId);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyDuration(int64_t duration)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY duration=%" PRId64,
-		__FUNCTION__, duration);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY duration=%" PRId64, duration);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyNativeSize(
 	uint32_t width, uint32_t height, double aspect)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY"
-		" width=%u height=%u aspect=%f",
-		__FUNCTION__, width, height, aspect);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY width=%u height=%u aspect=%f", width, height, aspect);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyVideoData(bool hasData)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY hasData=%d",
-		__FUNCTION__, hasData);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY hasData=%d", hasData);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyAudioData(bool hasData)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY hasData=%d",
-		__FUNCTION__, hasData);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY hasData=%d", hasData);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyCancelNeedMediaData(
 	int32_t sourceId)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY sourceId=%d",
-		__FUNCTION__, sourceId);
+	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
 	if (m_cancelNeedDataCallback)
+	{
 		m_cancelNeedDataCallback(sourceId);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	}
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackError(
 	int32_t sourceId, PlaybackError error)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY"
-		" sourceId=%d error=%d",
-		__FUNCTION__, sourceId, static_cast<int>(error));
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY sourceId=%d error=%d", sourceId, static_cast<int>(error));
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifySourceFlushed(int32_t sourceId)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY sourceId=%d",
-		__FUNCTION__, sourceId);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
+	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackInfo(
 	const PlaybackInfo &playbackInfo)
 {
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s ENTRY",
-		__FUNCTION__);
-	AAMPLOG_INFO("AampRialtoMediaPipelineClient::%s EXIT", __FUNCTION__);
+	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("EXIT");
 }

@@ -95,6 +95,50 @@ public:
 		bool bESChangeStatus,
 		bool setReadyAfterPipelineCreation = false) override;
 
+	/**
+	 * @brief Inject a custom pipeline factory before calling Configure().
+	 *
+	 * For unit testing only.  Passing a non-null factory makes Configure()
+	 * use it instead of the production singleton, allowing tests to inject
+	 * a MockIMediaPipelineFactory without a live Rialto server.
+	 *
+	 * @param[in] factory  Factory to use; nullptr restores production behaviour.
+	 */
+	void SetPipelineFactoryForTesting(
+		std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> factory)
+	{
+		m_pipelineFactory = std::move(factory);
+	}
+
+	/**
+	 * @brief Install a playback-state observer for testing.
+	 *
+	 * For unit testing only.  The observer is called whenever
+	 * OnPlaybackState() is invoked (i.e. when the pipeline client's
+	 * notifyPlaybackState fires).
+	 *
+	 * @param observer  Callable to invoke with the new PlaybackState.
+	 */
+	void SetPlaybackObserverForTesting(
+		std::function<void(firebolt::rialto::PlaybackState)> observer)
+	{
+		m_testPlaybackObserver = std::move(observer);
+	}
+
+	/**
+	 * @brief Simulate a Rialto need-data event (for unit testing only).
+	 *
+	 * Bypasses the IPC callback path so tests can drive injection without
+	 * running a live Rialto server.
+	 */
+	void OnNeedMediaData(
+		int32_t sourceId, size_t frameCount, uint32_t requestId);
+
+	/**
+	 * @brief Simulate a Rialto cancel-need-data event (for unit testing only).
+	 */
+	void OnCancelNeedMediaData(int32_t sourceId);
+
 	/// @copydoc StreamSink::SendCopy
 	bool SendCopy(
 		AampMediaType mediaType,
@@ -264,6 +308,8 @@ private:
 
 	PrivateInstanceAAMP *m_aamp{nullptr}; ///< Owning AAMP instance
 	std::shared_ptr<RialtoLogHandler> m_rialtoLogHandler; ///< Rialto log bridge
+	/// Factory override set via SetPipelineFactoryForTesting(); null in production.
+	std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> m_pipelineFactory;
 #ifdef USE_AAMP_GST_PLAYER
 	std::unique_ptr<AAMPGstPlayer> mGstPlayer; ///< Underlying GStreamer player
 #else
@@ -278,6 +324,10 @@ private:
 	int32_t m_videoHeight{0};     ///< Video frame height (pixels)
 	int32_t m_audioSampleRate{0}; ///< Audio sample rate (Hz)
 	int32_t m_audioChannels{0};   ///< Audio channel count
+
+	/// Codec data cached at attachSource time; applied to every MediaSegment.
+	std::shared_ptr<firebolt::rialto::CodecData> m_videoCodecData;
+	std::shared_ptr<firebolt::rialto::CodecData> m_audioCodecData;
 
 	// -----------------------------------------------------------------------
 	// Segment injection thread
@@ -318,6 +368,9 @@ private:
 	/// Stream() reads this to decide whether it can call play() immediately.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
+	/// Optional observer installed by tests to receive playback state changes.
+	std::function<void(firebolt::rialto::PlaybackState)> m_testPlaybackObserver;
+
 	/// @brief Start the segment injection thread (idempotent).
 	void StartInjectionThread();
 
@@ -330,27 +383,26 @@ private:
 	/**
 	 * @brief Inject buffered samples for one source and call haveData.
 	 *
-	 * The samples vector is consumed by this function; the data pointers
-	 * inside each AampMediaSample remain valid until haveData() returns,
-	 * satisfying the Rialto data-lifetime contract.
+	 * Samples that could not be sent (due to NO_SPACE) are pushed back to
+	 * the front of @p requeueDest so they are retried on the next needData
+	 * request.  The data pointers inside each AampMediaSample remain valid
+	 * until haveData() returns, satisfying the Rialto data-lifetime contract.
 	 *
-	 * @param sourceId   Rialto source identifier.
-	 * @param requestId  The needDataRequestId to close out.
-	 * @param samples    Samples to inject (taken by value / moved in).
-	 * @param eos        True if these are the last samples for this source.
+	 * @param sourceId     Rialto source identifier.
+	 * @param requestId    The needDataRequestId to close out.
+	 * @param samples      Samples to inject (taken by value / moved in).
+	 * @param eos          True if these are the last samples for this source.
+	 * @param requeueDest  Deque to push rejected samples back to (front).
 	 */
 	void InjectSamples(
 		int32_t sourceId,
 		uint32_t requestId,
 		std::vector<AampMediaSample> &&samples,
-		bool eos);
+		bool eos,
+		std::deque<AampMediaSample> &requeueDest);
 
-	/// @brief Called (via callback) when Rialto wants data for a source.
-	void OnNeedMediaData(
-		int32_t sourceId, size_t frameCount, uint32_t requestId);
-
-	/// @brief Called (via callback) when Rialto cancels a pending request.
-	void OnCancelNeedMediaData(int32_t sourceId);
+	/// @brief Called (via callback) when the Rialto server changes state.
+	void OnPlaybackState(firebolt::rialto::PlaybackState state);
 
 	/// @brief Attach video source after parsing the init segment.
 	void AttachVideoSource(Mp4Demux &demuxer);

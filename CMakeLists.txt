@@ -203,6 +203,7 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/tsb/api
 	${CMAKE_CURRENT_SOURCE_DIR}/abr
 	${CMAKE_CURRENT_SOURCE_DIR}/mp4demux
+	${CMAKE_CURRENT_SOURCE_DIR}/direct-rialto
 	# Locally built/installed dependencies
 	${CMAKE_CURRENT_SOURCE_DIR}/.libs/include
 )
@@ -444,7 +445,9 @@ set(LIBAAMP_SOURCES
 	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
-	AampRialtoMediaPipelineClient.cpp AampRialtoPlayer.cpp AampRialtoPlayer.h
+	direct-rialto/AampRialtoMediaPipelineClient.cpp
+	direct-rialto/AampRialtoPlayer.cpp
+	direct-rialto/AampRialtoPlayer.h
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h

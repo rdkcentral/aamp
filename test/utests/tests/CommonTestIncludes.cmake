@@ -20,6 +20,8 @@
 # Assumes AAMP_ROOT and UTESTS_ROOT are set before including this file
 
 include_directories(${AAMP_ROOT} 
+                    ${AAMP_ROOT}/direct-rialto
+                    ${AAMP_ROOT}/.libs/include/rialto
                     ${AAMP_ROOT}/drm 
                     ${AAMP_ROOT}/drm/helper 
                     ${AAMP_ROOT}/downloader 

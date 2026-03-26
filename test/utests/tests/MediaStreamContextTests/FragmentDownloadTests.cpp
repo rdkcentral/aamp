@@ -104,6 +104,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_NullActiveDownloadInfo)
 {
 	mMediaStreamContext->mActiveDownloadInfo = nullptr;
 	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo);
 	// Expect no crash or exception
 }
