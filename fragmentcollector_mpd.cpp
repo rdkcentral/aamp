@@ -6812,10 +6812,18 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	/*Calculating the difference in Fetched duration, injected duration and diff in Media Sequence number */
 
 	//Finding the fragment duration in seconds, for calculating the diff in injected duration.
-	double fragmentDurationSec = static_cast<double>(fragmentDuration) / pMediaStreamContext->fragmentDescriptor.TimeScale;
-
+	double fragmentDurationSec = 0.0;
+	if (pMediaStreamContext->fragmentDescriptor.TimeScale == 0)
+	{
+		AAMPLOG_INFO("TimeScale is 0 while calculating fragmentDurationSec, treating fragmentDurationSec as 0");
+	}
+	else
+	{
+		fragmentDurationSec = static_cast<double>(fragmentDuration) / pMediaStreamContext->fragmentDescriptor.TimeScale;
+	}
 	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
 	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - pMediaStreamContext->fragmentTime );
+	// Add fragment duration offset to reduce from injected position for next fragment calculation
 	diffInInjectedDuration += fragmentDurationSec;
 
 	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
