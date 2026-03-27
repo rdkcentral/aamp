@@ -29,7 +29,6 @@
 #include "AampTime.h"
 #include "priv_aamp.h"
 #include "fragmentcollector_mpd.h"
-#include "AampGrowableBuffer.h"
 
 #include "MockIsoBmffHelper.h"
 #include "MockIsoBmffBuffer.h"
@@ -80,7 +79,7 @@ public:
 	}
 
 	// Provide overrides for pure virtuals - this is just to keep the compiler happy
-	void ProcessPlaylist(AampGrowableBuffer&, int) override {};
+	void ProcessPlaylist(std::vector<uint8_t>&, int) override {};
 	std::string& GetPlaylistUrl() override { return mFakeStr; };
 	std::string& GetEffectivePlaylistUrl() override { return mFakeStr; };
 	void SetEffectivePlaylistUrl(std::string) override {};

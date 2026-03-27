@@ -36,7 +36,6 @@
 #include "DrmMediaFormat.h"
 #include "DrmCallbacks.h"
 #include <IPVideoStat.h>
-#include "AampGrowableBuffer.h"
 #include "CCTrackInfo.h"
 #include <signal.h>
 #include <semaphore.h>
@@ -586,6 +585,13 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	//The position previously reported by MonitorProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
+	// The time when buffering started (steady clock ms), used to calculate buffering duration
+	// for telemetry. -1 means no episode is in progress. Declared atomic because
+	// SendBufferChangeEvent() is reached concurrently from the underflow monitor thread and
+	// from GStreamer error callbacks (via ScheduleRetune), with no common lock held at the
+	// call site. The compound check-and-set operations in SendBufferChangeEvent use
+	// compare_exchange_strong / exchange to keep the read-modify-write sequences race-free.
+	std::atomic<long long> mBufferingStartTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
@@ -1314,11 +1320,11 @@ public:
 	/**
 	 * @fn SetCurlTimeout
 	 *
-	 * @param[in] timeoutMs - maximum time in milliseconds curl request is allowed to take
+	 * @param[in] timeout - maximum time  in seconds curl request is allowed to take
 	 * @param[in] instance - index of curl instance to which timeout to be set
-	 * @return true if timeout changed, else false
+	 * @return void
 	 */
-	bool SetCurlTimeout(long timeoutMs, AampCurlInstance instance);
+	void SetCurlTimeout(long timeout, AampCurlInstance instance);
 
 	/**
 	 * @brief Set manifest curl timeout
@@ -1579,6 +1585,9 @@ public:
 	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
 	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
 	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
+	/** Returns the steady-clock timestamp (ms) at which the current buffering episode began,
+	 *  or -1 if no episode is in progress. Exposed for unit testing. */
+	long long GetBufferingStartTimeMS() const { return mBufferingStartTimeMS.load(); }
 
 	/**
 	 * @fn SendEvent

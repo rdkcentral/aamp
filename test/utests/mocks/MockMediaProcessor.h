@@ -29,7 +29,7 @@ public:
 	MockMediaProcessor() : MediaProcessor() {}
 	MOCK_METHOD(double, getFirstPts, (const std::vector<uint8_t>& buffer), (override));
 	MOCK_METHOD(void, setPtsOffset, (double ptsOffset), (override));
-	MOCK_METHOD(bool, sendSegment, (AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit, process_fcn_t processor, bool &ptsError), (override));
+	MOCK_METHOD(bool, sendSegment, (std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit, process_fcn_t processor, bool &ptsError), (override));
 	MOCK_METHOD(void, setRate, (double rate, PlayMode mode), (override));
 	MOCK_METHOD(void, setThrottleEnable, (bool enable), (override));
 	MOCK_METHOD(void, setFrameRateForTM, (int frameRate), (override));

@@ -40,7 +40,6 @@
 
 // Forward declarations
 class InterfacePlayerPriv;
-class AampGrowableBuffer;
 
 struct MonitorAVState
 {
