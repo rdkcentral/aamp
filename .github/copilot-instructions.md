@@ -192,7 +192,12 @@ The `.github/instructions/` directory contains deeper rules:
 
 - `testing.instructions.md`  
   **Critical:** L1 Test structure, build flow, Fake framework, Google Test rules.
-
+- `direct-rialto.instructions.md`
+  **Scoped to `direct-rialto/` only.** Mandates the TDD Red→Green→Refactor cycle
+  for every change, applies SOLID principles to new code in this directory, and
+  explicitly forbids cascading refactors into the rest of AAMP to avoid merge
+  conflicts. Consult this file before any `AampRialtoPlayer` or
+  `AampRialtoMediaPipelineClient` work.
 ### Language-Specific
 - `cpp.instructions.md`  
 - `legacy-cpp-patterns.instructions.md`   
