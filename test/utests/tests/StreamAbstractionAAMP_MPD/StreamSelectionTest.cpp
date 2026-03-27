@@ -312,6 +312,18 @@ protected:
 		{
 			return mProfileCount; 
 		}
+		/**
+		 * @brief Test-only accessors for PTS restamping state.
+		 */
+		double GetNextPtsForTest() const { return mNextPts.inSeconds(); }
+		/**
+		 * @brief Test-only wrapper to invoke the full
+		 *        AdjustPtsOffsetAfterAdCancellation implementation.
+		 */
+		void CallAdjustPtsOffsetAfterAdCancellationCore()
+		{
+			AdjustPtsOffsetAfterAdCancellation();
+		}
 
 		class MediaStreamContext *GetMediaStreamContext(AampMediaType type)
 		{
@@ -591,7 +603,6 @@ TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 	mStreamAbstractionAAMP_MPD->InvokeStreamSelection();
 	EXPECT_EQ(pMediaStreamContext->representationIndex, params.expectedTrack); //what is new representation
 }
-
 INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 	::testing::ValuesIn(std::vector<StreamSelectionTestParams>{
 		/** Case 1 & 2: current number of profiles 5, start in second period (30+ pos),
@@ -627,3 +638,133 @@ INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 		{5, 32, 1, mVodManifestNotSame, AdState::IN_ADBREAK_AD_PLAYING, -1}
 	})
 );
+/**
+ * @brief InitializeMPD-based PTS offset adjustment test.
+ *
+ * This test exercises AdjustPtsOffsetAfterAdCancellation() on a fully
+ * initialized MPD instance created via InitializeMPD(), and validates the
+ * resulting mNextPts value via the test-only
+ * CallAdjustPtsOffsetAfterAdCancellationCore() wrapper available on
+ * TestableStreamAbstractionAAMP_MPD.
+ */
+TEST_F(StreamSelectionTests, AdjustPTSoffsetByInitializingMPD)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	// Reuse the VOD manifest with multiple video and audio adaptation sets
+	// from the original FunctionalTests.AdjustPTSoffsetByInitializingMPD.
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="vp09.00.10.08" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="vp9/video_init.mp4" media="vp9/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="h264/video_init.mp4" media="h264/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="opus" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="opus/audio_init.mp4" media="opus/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="4" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	// Expect initialization fragments to be cached: H264 video and AAC audio
+	// are preferred over VP9 and Opus respectively.
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Push the first video segment to present.
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_1.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+
+	// Push the first audio segment to present.
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_1.mp3");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_AUDIO));
+
+	// Push the second video segment so that the video fragment time advances
+	// beyond 0 and provides a non-zero basis for PTS adjustment.
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_2.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_VIDEO));
+
+	// Push the second audio segment so that the audio fragment time advances
+	// beyond 0 as well.
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_2.mp3");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_TRUE(PushNextFragment(eTRACK_AUDIO));
+
+	// CDAI state: single ad break on Period id "0" with a single ad whose
+	// basePeriodOffset yields a periodStartTime of 12s.
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	ASSERT_NE(cdaiObj, nullptr);
+
+	const std::string periodId = "0";
+	AdBreakObject adBreakObj;
+	adBreakObj.mAbsoluteAdBreakStartTime = AampTime(1.0); // 1s
+	cdaiObj->mAdBreaks[periodId] = adBreakObj;
+	cdaiObj->mCurPlayingBreakId = periodId;
+
+	// Set up the ad node with a basePeriodOffset of 1s, which should result in a 2s offset being applied to mNextPts after cancellation: the base offset of 1s plus the 1s that has already been presented from the period
+	AdNodeVectorPtr ads = std::make_shared<std::vector<AdNode>>();
+	AdNode adNode;
+	adNode.basePeriodId = periodId;
+	adNode.basePeriodOffset = 1000; // milliseconds
+	ads->push_back(adNode);
+	cdaiObj->mCurAds = ads;
+	cdaiObj->mCurAdIdx = 0;
+	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
+	cdaiObj->mAdBreaks[periodId].ads = ads;
+
+	// Invoke the full PTS adjustment logic via the test-only wrapper on
+	// AdjustPtsOffsetAfterAdCancellation() implementation.
+	mStreamAbstractionAAMP_MPD->CallAdjustPtsOffsetAfterAdCancellationCore();
+
+	double updatedPtsSeconds = mStreamAbstractionAAMP_MPD->GetNextPtsForTest();
+	// Initial mNextPTS value is set as 120
+	// Then after RestorePtsOffsetCalculation, it must be set to 0
+	// After that the offset is calculated as 2 seconds based on the basePeriodOffset of 1000ms set above for the ad, and added to mNextPTS, so the final expected value is 2 seconds.
+	EXPECT_EQ(updatedPtsSeconds, 2);
+}
