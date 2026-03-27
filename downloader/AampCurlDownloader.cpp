@@ -177,6 +177,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
 			bool loopAgain = false;
+			long long loopStartTime = NOW_STEADY_TS_MS;  // capture before retries begin
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 				if( mDnldCfg && mDnldCfg->bCurlThroughput )
@@ -258,6 +259,20 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			// update the download response metrics for success and failure case 
 			// and for last attempt only (if retries enabled)
 			updateResponseParams();
+			// Override total/downloadbps with cumulative wall time across all retry attempts.
+			// CURLINFO_TOTAL_TIME (set by updateResponseParams) only reflects the last attempt,
+			// which causes autotriage timeline tools to see a long idle gap instead of a long bar.
+			if (mDnldCfg && mDnldCfg->bNeedDownloadMetrics)
+			{
+				std::lock_guard<std::mutex> lock(mCurlMutex);
+				double cumulativeTotal = (NOW_STEADY_TS_MS - loopStartTime) / 1000.0;
+				if (cumulativeTotal > 0)
+				{
+					mDownloadResponse->downloadCompleteMetrics.total = cumulativeTotal;
+					mDownloadResponse->downloadCompleteMetrics.downloadbps =
+						(long)(mDownloadResponse->downloadCompleteMetrics.dlSize * 8 / cumulativeTotal);
+				}
+			}
 			mDownloadActive = false;
 			mDownloadResponse->iHttpRetValue = httpRetVal;		
 			if( mDnldCfg && mDnldCfg->bCurlThroughput )
