@@ -473,8 +473,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 	}
 	if(interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{
-		g_object_set(interfacePlayerPriv->gstPrivateContext->pipeline, "enable-live-latency", TRUE, NULL);
+		MW_LOG_INFO("Toggle on "enable-live-latency" property for rialtosink");
+		g_object_set(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, "enable-live-latency", TRUE, NULL);
 	}
+
 	if (interfacePlayerPriv->gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == interfacePlayerPriv->gstPrivateContext->rate)
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
