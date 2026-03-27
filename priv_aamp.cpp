@@ -3306,6 +3306,12 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 				AAMPLOG_ERR("Failed to pause the Pipeline");
 			}
 		}
+		// Inform the underflow monitor that the pipeline is now paused for
+		// buffering; it should disarm its deadline until resumed.
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+		}
 	}
 	else
 	{
@@ -3315,6 +3321,11 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 		}
 		UpdateSubtitleTimestamp();
 		SendBufferChangeEvent(false);
+		// Re-arm the underflow monitor now that the pipeline is live again.
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->NotifyPipelineResumedToUnderflowMonitor(rate);
+		}
 	}
 }
 
