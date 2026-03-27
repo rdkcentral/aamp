@@ -4556,6 +4556,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	if (mDownloadsEnabled)
 	{
 		int downloadTimeMS = 0;
+		int totalDownloadTimeMS = 0;  // cumulative wall time across all retry attempts
 		bool isDownloadStalled = false;
 		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
 		double connectTime = 0;
@@ -4837,6 +4838,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				downloadAttempt++;
 
 				downloadTimeMS = (int)(tEndTime - tStartTime);
+				totalDownloadTimeMS += downloadTimeMS;  // accumulate wall time across all retry attempts
 				bool loopAgain = false;
 				if (res == CURLE_OK)
 				{ // all data collected
@@ -5151,7 +5153,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if (AampLogManager::isLogLevelAllowed(reqEndLogLevel))
 				{
-					double totalPerformRequest = (double)(downloadTimeMS)/1000;
+					double totalPerformRequest = (double)(totalDownloadTimeMS)/1000;  // total wall time including retries
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
