@@ -4770,6 +4770,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, httpHeaders);
 			}
 			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
+			auto getFileStartTimeHR = std::chrono::steady_clock::now(); // captured before retries; used to compute totalPerformRequest including backoff sleeps
 			long long maxInitDownloadRetryUntil = maxInitDownloadTimeMS + NOW_STEADY_TS_MS;
 			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
 				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
@@ -5127,6 +5128,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					downloadbps = ((long)(buffer.size() / downloadTimeMS)*8000);
 				}
+				// NOTE: 'total' and all CURLINFO_* values below reflect the final curl attempt only.
+				// For a retried download, earlier attempts' timing is not captured here.
+				// The full end-to-end duration (including backoff waits) is in totalPerformRequest
+				// (logged as the first timing field of HttpRequestEnd).
 				total = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_TOTAL_TIME);
 				connect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_CONNECT_TIME);
 				resolve = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_NAMELOOKUP_TIME);
@@ -5134,6 +5139,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				connectTime = connect;
 				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
 				{
+					// Note: 'total' is CURLINFO_TOTAL_TIME of the last attempt; for multi-retry
+					// requests the totalPerformRequest field in HttpRequestEnd is a better
+					// indicator of overall slowness, but is not evaluated here to avoid
+					// promoting every retried download to WARN regardless of outcome.
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
 				if (mAampLLDashServiceData.lowLatencyMode && http_code == 206 && mediaType == eMEDIATYPE_VIDEO)
@@ -5142,7 +5151,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					// But log at warning level to indicate partial download
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
-				// Store the CMCD data irrespective of logging level
+				// CMCD metrics use last-attempt CURLINFO_* values; this is intentional as CMCD
+				// reports per-request connection quality rather than aggregate retry duration.
 				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
 				// IsTuneTypeNew set to false in streamabstraction.cpp once top profile has been reached
 				if(IsTuneTypeNew)
@@ -5162,7 +5172,17 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if (AampLogManager::isLogLevelAllowed(reqEndLogLevel))
 				{
-					double totalPerformRequest = (double)(downloadTimeMS)/1000;
+					// HttpRequestEnd field layout (comma-separated):
+					//   [appName,] telemetryType, mediaType, httpCode[timeoutClass],
+					//   totalPerformRequest  ← wall-clock across ALL attempts + backoff (this is what
+					//                           autotriage timeline tools use for bar width)
+					//   total               ← CURLINFO_TOTAL_TIME of the LAST attempt only
+					//   connect, startTransfer, resolve, appConnect, preTransfer, redirect
+					//                       ← all CURLINFO_* of last attempt only
+					//   dlSize, reqSize, downloadbps, bitrate, url[, range]
+					// Wall-clock time from before first attempt through any backoff sleeps to now, in seconds.
+					double totalPerformRequest = std::chrono::duration<double>(
+						std::chrono::steady_clock::now() - getFileStartTimeHR).count();
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
