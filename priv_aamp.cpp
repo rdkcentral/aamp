@@ -4556,7 +4556,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	if (mDownloadsEnabled)
 	{
 		int downloadTimeMS = 0;
-		int totalDownloadTimeMS = 0;  // cumulative wall time across all retry attempts
 		bool isDownloadStalled = false;
 		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
 		double connectTime = 0;
@@ -4760,6 +4759,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, httpHeaders);
 			}
 			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
+			auto getFileStartTimeHR = std::chrono::steady_clock::now(); // captured before retries; used to compute totalPerformRequest including backoff sleeps
 			long long maxInitDownloadRetryUntil = maxInitDownloadTimeMS + NOW_STEADY_TS_MS;
 			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
 				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
@@ -4838,7 +4838,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				downloadAttempt++;
 
 				downloadTimeMS = (int)(tEndTime - tStartTime);
-				totalDownloadTimeMS += downloadTimeMS;  // accumulate wall time across all retry attempts
 				bool loopAgain = false;
 				if (res == CURLE_OK)
 				{ // all data collected
@@ -5153,7 +5152,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if (AampLogManager::isLogLevelAllowed(reqEndLogLevel))
 				{
-					double totalPerformRequest = (double)(totalDownloadTimeMS)/1000;  // total wall time including retries
+					// Wall-clock time from before first attempt through any backoff sleeps to now, in seconds.
+					double totalPerformRequest = std::chrono::duration<double>(
+						std::chrono::steady_clock::now() - getFileStartTimeHR).count();
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
