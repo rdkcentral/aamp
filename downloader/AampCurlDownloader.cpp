@@ -177,7 +177,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
 			bool loopAgain = false;
-			long long loopStartTime = NOW_STEADY_TS_MS;  // capture before retries begin
+			// High-resolution start time captured before any retry so that total in
+			// downloadCompleteMetrics reflects the full wall-clock span including retries.
+			auto loopStartTimeHR = std::chrono::steady_clock::now();
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 				if( mDnldCfg && mDnldCfg->bCurlThroughput )
@@ -265,10 +267,12 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			if (mDnldCfg && mDnldCfg->bNeedDownloadMetrics)
 			{
 				std::lock_guard<std::mutex> lock(mCurlMutex);
-				double cumulativeTotal = (NOW_STEADY_TS_MS - loopStartTime) / 1000.0;
+				double cumulativeTotal = std::chrono::duration<double>(
+					std::chrono::steady_clock::now() - loopStartTimeHR).count();
+				// Always override total: CURLINFO_TOTAL_TIME only covers the last attempt.
+				mDownloadResponse->downloadCompleteMetrics.total = cumulativeTotal;
 				if (cumulativeTotal > 0)
 				{
-					mDownloadResponse->downloadCompleteMetrics.total = cumulativeTotal;
 					mDownloadResponse->downloadCompleteMetrics.downloadbps =
 						(long)(mDownloadResponse->downloadCompleteMetrics.dlSize * 8 / cumulativeTotal);
 				}
