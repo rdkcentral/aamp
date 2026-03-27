@@ -471,11 +471,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 			MW_LOG_WARN("Couldn't get video-sink");
 		}
 	}
-	if(interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
-	{
-		MW_LOG_INFO("Toggle on enable-live-latency property for rialtosink");
-		g_object_set(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, "enable-live-latency", TRUE, NULL);
-	}
 
 	if (interfacePlayerPriv->gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == interfacePlayerPriv->gstPrivateContext->rate)
 	{
@@ -2331,6 +2326,8 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 					g_object_set(vidsink, "has-drm", FALSE, NULL);
 				}
 				interfacePlayerPriv->gstPrivateContext->video_sink = vidsink;
+				MW_LOG_WARN("Toggle on enable-live-latency property for rialtomsevideosink");
+				g_object_set(stream->sinkbin, "enable-live-latency", TRUE, NULL);
 			}
 			else
 			{
