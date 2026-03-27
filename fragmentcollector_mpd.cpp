@@ -6815,7 +6815,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	double fragmentDurationSec = 0.0;
 	if (pMediaStreamContext->fragmentDescriptor.TimeScale == 0)
 	{
-		AAMPLOG_INFO("TimeScale is 0 while calculating fragmentDurationSec, treating fragmentDurationSec as 0");
+		AAMPLOG_WARN("TimeScale is 0 while calculating fragmentDurationSec, treating fragmentDurationSec as 0");
 	}
 	else
 	{
@@ -6826,7 +6826,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	// Add fragment duration offset to reduce from injected position for next fragment calculation
 	diffInInjectedDuration += fragmentDurationSec;
 
-	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
+	diffFragmentsDownloaded = static_cast<int>(static_cast<int64_t>(oldMediaSequenceNumber) - static_cast<int64_t>(pMediaStreamContext->fragmentDescriptor.Number));
 
 	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d],fragmentDurationSec[%lf]",
 			oldPlaylistPosition,pMediaStreamContext->fragmentTime,diffInFetchedDuration, pMediaStreamContext->GetLastInjectedPosition(),
