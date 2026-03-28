@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <string_view>
 
 #include "priv_aamp.h"
 
@@ -202,30 +203,31 @@ TEST_F(byteRangeTests, testThreadStart)
 
 TEST_F(byteRangeTests, testFormatFromExtension )
 {
-	static struct
+	struct TestCase
 	{
-		const char *data;
+		std::string_view data;
 		StreamOutputFormat format;
-	} test_data[] =
-	{
-        { "#EXTM3U8\r\nx.ts", FORMAT_MPEGTS },
-        { "#EXTM3U8\r\n\r\ny.ts", FORMAT_MPEGTS },
-		{ "#EXTM3U8\r\n#EXT-X-MEDIA\r\n#EXT-X-MAP foo.mp4", FORMAT_ISO_BMFF },
-		{ "a.b.x.aac", FORMAT_AUDIO_ES_AAC },
-		{ "x.ac3", FORMAT_AUDIO_ES_AC3 },    /**< AC3 Audio Elementary Stream */
-		{ "x.ec3", FORMAT_AUDIO_ES_EC3 },    /**< Dolby Digital Plus Elementary Stream */
-		{ "x.webvtt", FORMAT_SUBTITLE_WEBVTT }, /**< WebVTT subtitle Stream */
-		{ "x.vtt", FORMAT_SUBTITLE_WEBVTT }, /**< WebVTT subtitle Stream */
-		{ "foo", FORMAT_INVALID },
-		{ "foo.unk", FORMAT_INVALID },
-		{ "a.ts.x", FORMAT_INVALID }
 	};
-	for( size_t i=0; i<ARRAY_SIZE(test_data); i++ )
+
+	static constexpr TestCase test_data[] =
 	{
-        printf( "test#%zu: '%s'\n", i, test_data[i].data );
-		AampGrowableBuffer buffer;
-		buffer.assign(test_data[i].data, test_data[i].data + strlen(test_data[i].data));
-		StreamOutputFormat format = GetFormatFromFragmentExtension( buffer );
-		EXPECT_EQ( format, test_data[i].format );
+		{ "#EXTM3U8\r\nx.ts",                               FORMAT_MPEGTS          },
+		{ "#EXTM3U8\r\n\r\ny.ts",                           FORMAT_MPEGTS          },
+		{ "#EXTM3U8\r\n#EXT-X-MEDIA\r\n#EXT-X-MAP foo.mp4", FORMAT_ISO_BMFF        },
+		{ "a.b.x.aac",                                      FORMAT_AUDIO_ES_AAC    },
+		{ "x.ac3",                                          FORMAT_AUDIO_ES_AC3    },
+		{ "x.ec3",                                          FORMAT_AUDIO_ES_EC3    },
+		{ "x.webvtt",                                       FORMAT_SUBTITLE_WEBVTT },
+		{ "x.vtt",                                          FORMAT_SUBTITLE_WEBVTT },
+		{ "foo",                                            FORMAT_INVALID         },
+		{ "foo.unk",                                        FORMAT_INVALID         },
+		{ "a.ts.x",                                         FORMAT_INVALID         },
+	};
+
+	for (const auto& [data, expectedFormat] : test_data)
+	{
+		SCOPED_TRACE(data);
+		const std::vector<uint8_t> buffer(data.begin(), data.end());
+		EXPECT_EQ( GetFormatFromFragmentExtension(buffer), expectedFormat );
 	}
 }

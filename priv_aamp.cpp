@@ -66,7 +66,6 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "aampgstplayer.h"
 #include "AampStreamSinkManager.h"
 #include "SubtecFactory.hpp"
-#include "AampGrowableBuffer.h"
 
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
@@ -1635,7 +1634,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 /**
  * @brief PrivateInstanceAAMP Constructor
  */
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mBufferingStartTimeMS(-1), mDiscontinuityFound(false), mTelemetryInterval(0), mLock(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
@@ -3246,11 +3245,42 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(!bufferingStopped, GetSessionId());
 
 	SetBufUnderFlowStatus(bufferingStopped);
-	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s", (e->buffering() ? "End": "Start"));
+	// Calculating the duration for which buffering was happening and sending it as part of telemetry.
+	// This will help in understanding the buffering duration for each buffering event and also help in calculating the total buffering duration for a session.
+	long long bufferingDurationMs = 0;
+	if (bufferingStopped)
+	{
+		// Atomically set the start time only if no episode is already being tracked (-1).
+		// compare_exchange_strong ensures that concurrent SendBufferChangeEvent(true) calls
+		// from different threads (underflow monitor, GStreamer error path) cannot both "win"
+		// and reset the clock. Uses the monotonic steady clock to be immune to NTP jumps.
+		long long expected = -1LL;
+		mBufferingStartTimeMS.compare_exchange_strong(expected, NOW_STEADY_TS_MS);
+	}
+	else
+	{
+		// Atomically swap to -1 and capture the previous start time in one operation.
+		// This prevents two concurrent SendBufferChangeEvent(false) calls from both
+		// observing a valid start time and both computing (and reporting) a duration.
+		long long startTime = mBufferingStartTimeMS.exchange(-1LL);
+		if (startTime >= 0)
+		{
+			bufferingDurationMs = NOW_STEADY_TS_MS - startTime;
+			// Clamp to 0 as a safety net (should not happen with a monotonic clock).
+			if (bufferingDurationMs < 0)
+			{
+				bufferingDurationMs = 0;
+			}
+		}
+	}
+
+	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s durationMs: %lld", (e->buffering() ? "End": "Start"), bufferingDurationMs);
 #ifdef AAMP_TELEMETRY_SUPPORT
 	AAMPTelemetry2 at2(mAppName);
 	std::string telemetryName = bufferingStopped?"VideoBufferingStart":"VideoBufferingEnd";
-	at2.send(telemetryName,{/*int data*/},{/*string data*/},{/*float data*/});
+	std::map<std::string,int> intData;
+	intData["dur"] = static_cast<int>(bufferingDurationMs);
+	at2.send(telemetryName, intData, {/*string data*/}, {/*float data*/});
 #endif //AAMP_TELEMETRY_SUPPORT
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 
@@ -4348,17 +4378,12 @@ bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
 /**
  * @brief Set curl timeout(CURLOPT_TIMEOUT)
  */
-bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
-	bool timeoutChanged = false;
-
 	if(ContentType_EAS == mContentType)
-		return false;
-
+		return;
 	if(instance < eCURLINSTANCE_MAX && curl[instance])
 	{
-		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
-		
 		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
 		curlDLTimeout[instance] = timeoutMS;
 	}
@@ -4366,8 +4391,6 @@ bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	{
 		AAMPLOG_ERR("Failed to update timeout for curl instance %d",instance);
 	}
-
-	return timeoutChanged;
 }
 
 /**
@@ -4736,6 +4759,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, httpHeaders);
 			}
 			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
+			auto getFileStartTimeHR = std::chrono::steady_clock::now(); // captured before retries; used to compute totalPerformRequest including backoff sleeps
 			long long maxInitDownloadRetryUntil = maxInitDownloadTimeMS + NOW_STEADY_TS_MS;
 			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
 				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
@@ -5093,6 +5117,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					downloadbps = ((long)(buffer.size() / downloadTimeMS)*8000);
 				}
+				// NOTE: 'total' and all CURLINFO_* values below reflect the final curl attempt only.
+				// For a retried download, earlier attempts' timing is not captured here.
+				// The full end-to-end duration (including backoff waits) is in totalPerformRequest
+				// (logged as the first timing field of HttpRequestEnd).
 				total = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_TOTAL_TIME);
 				connect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_CONNECT_TIME);
 				resolve = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_NAMELOOKUP_TIME);
@@ -5100,6 +5128,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				connectTime = connect;
 				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
 				{
+					// Note: 'total' is CURLINFO_TOTAL_TIME of the last attempt; for multi-retry
+					// requests the totalPerformRequest field in HttpRequestEnd is a better
+					// indicator of overall slowness, but is not evaluated here to avoid
+					// promoting every retried download to WARN regardless of outcome.
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
 				if (mAampLLDashServiceData.lowLatencyMode && http_code == 206 && mediaType == eMEDIATYPE_VIDEO)
@@ -5108,7 +5140,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					// But log at warning level to indicate partial download
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
-				// Store the CMCD data irrespective of logging level
+				// CMCD metrics use last-attempt CURLINFO_* values; this is intentional as CMCD
+				// reports per-request connection quality rather than aggregate retry duration.
 				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
 				// IsTuneTypeNew set to false in streamabstraction.cpp once top profile has been reached
 				if(IsTuneTypeNew)
@@ -5128,7 +5161,17 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if (AampLogManager::isLogLevelAllowed(reqEndLogLevel))
 				{
-					double totalPerformRequest = (double)(downloadTimeMS)/1000;
+					// HttpRequestEnd field layout (comma-separated):
+					//   [appName,] telemetryType, mediaType, httpCode[timeoutClass],
+					//   totalPerformRequest  ← wall-clock across ALL attempts + backoff (this is what
+					//                           autotriage timeline tools use for bar width)
+					//   total               ← CURLINFO_TOTAL_TIME of the LAST attempt only
+					//   connect, startTransfer, resolve, appConnect, preTransfer, redirect
+					//                       ← all CURLINFO_* of last attempt only
+					//   dlSize, reqSize, downloadbps, bitrate, url[, range]
+					// Wall-clock time from before first attempt through any backoff sleeps to now, in seconds.
+					double totalPerformRequest = std::chrono::duration<double>(
+						std::chrono::steady_clock::now() - getFileStartTimeHR).count();
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
@@ -5850,6 +5893,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+	bool previousCCEnabled = false;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -6298,8 +6342,15 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 
 		// Retrieve the current closed‑captioning state and log it along with the in‑band CC flag.
-		subtitles_muted = !PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("SubtitlesMuted:%d isCCinBand:%d", subtitles_muted.load(), mIsInbandCC);
+		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
+		if (mIsInbandCC && !mCCStatusSetByApp.load())
+		{
+			// No API to set CC or subtitles has been called, so AAMP assumes that the app talks to CCManager directly.
+			// Set subtitles_muted based on the current CC status to ensure correct subtitle state is applied later on.
+			subtitles_muted = !previousCCEnabled;
+		}
+		AAMPLOG_MIL("previousCCEnabled:%d isCCinBand:%d subtitles_muted:%d mCCStatusSetByApp:%d",
+			previousCCEnabled, mIsInbandCC, subtitles_muted.load(), mCCStatusSetByApp.load());
 
 		if (!mbUsingExternalPlayer)
 		{
@@ -6429,7 +6480,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
 		{
-			PlayerCCManager::GetInstance()->RestoreCC(!subtitles_muted.load());
+			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
 		}
 	}
 
@@ -7094,7 +7145,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 	if(rc == eMEDIAFORMAT_UNKNOWN)
 	{
 		// no extension - sniff first few bytes of file to disambiguate
-		AampGrowableBuffer sniffedBytes("sniffedBytes");
+		std::vector<uint8_t> sniffedBytes{};
 		std::string effectiveUrl;
 		int http_error;
 		double downloadTime;
@@ -7107,7 +7158,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 		EnableMediaDownloads(eMEDIATYPE_MANIFEST);
 		bool gotManifest = GetFile(url,
 								   eMEDIATYPE_MANIFEST,
-								   sniffedBytes.GetVector(),
+								   sniffedBytes,
 								   effectiveUrl,
 								   http_error,
 								   &downloadTime,
@@ -7149,7 +7200,6 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 				}
 			}
 		}
-		sniffedBytes.Free();
 		CurlTerm(eCURLINSTANCE_MANIFEST_MAIN);
 	}
 	return rc;
@@ -7490,11 +7540,6 @@ void PrivateInstanceAAMP::detach()
 	{
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
-	// Gate any in-flight async callback before draining the queue.
-	// AsyncEvent() and SendEventSync() both check eSTATE_RELEASED and
-	// will skip dispatch if they observe it, preventing a use-after-free
-	// on teardown even when a callback has already popped its event.
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	// This will flush all the pending events.
 	mEventManager->FlushPendingEvents();
 }
@@ -7943,6 +7988,11 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 	{
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatencyMs(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
+}
+
+void PrivateInstanceAAMP::SetCCStatusSetByApp()
+{
+	mCCStatusSetByApp = true;
 }
 
 /**
@@ -10762,19 +10812,18 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 							newelem.type, newelem.url.c_str());
 						std::string playlistUrl;
 						std::string playlistEffectiveUrl;
-						AampGrowableBuffer playlistStore("playlistStore");
+						std::vector<uint8_t> playlistStore{};
 						int http_code;
 						double downloadTime;
 						bool ret = false;
 						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
 						{
 							std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-						  ret = GetFile(newelem.url, newelem.type, playlistStore.GetVector(), playlistEffectiveUrl, http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
+						  ret = GetFile(newelem.url, newelem.type, playlistStore, playlistEffectiveUrl, http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true );
 						  if(ret != false)
 						  {
 							  // If successful download , then insert into Cache
-							  getAampCacheHandler()->InsertToPlaylistCache(newelem.url, playlistStore.GetVector(), playlistEffectiveUrl, false, newelem.type);
-							  playlistStore.Free();
+							  getAampCacheHandler()->InsertToPlaylistCache(newelem.url, playlistStore, playlistEffectiveUrl, false, newelem.type);
 						  }
 						}
 					}
