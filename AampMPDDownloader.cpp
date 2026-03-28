@@ -399,7 +399,6 @@ void AampMPDDownloader::downloadMPDThread1()
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}
-		
 		if( IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 		{
 			if(!mMPDData->mMPDDownloadResponse->getString().empty())
