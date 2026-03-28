@@ -399,8 +399,7 @@ void AampMPDDownloader::downloadMPDThread1()
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}
-		long long tEndTime = NOW_STEADY_TS_MS;
-
+		
 		if( IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 		{
 			if(!mMPDData->mMPDDownloadResponse->getString().empty())
