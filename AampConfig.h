@@ -210,7 +210,7 @@ typedef enum
 	eAAMPConfig_MPDStitchingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
 	eAAMPConfig_SendUserAgent,						/**< To enable/disable sending user agent in the DRM license request header. Default enabled */
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */
-	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */
+	eAAMPConfig_TrackMemory,					/**< To enable/disable buffer track memory */
 	eAAMPConfig_UseSinglePipeline,					/**< To enable/disable using a single gstreamer pipeline */
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
