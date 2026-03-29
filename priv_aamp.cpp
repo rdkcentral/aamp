@@ -3321,11 +3321,12 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 		}
 		UpdateSubtitleTimestamp();
 		SendBufferChangeEvent(false);
-		// Re-arm the underflow monitor now that the pipeline is live again.
-		if (mpStreamAbstractionAAMP)
-		{
-			mpStreamAbstractionAAMP->NotifyPipelineResumedToUnderflowMonitor(rate);
-		}
+		// NOTE: NotifyPipelineResumedToUnderflowMonitor is intentionally NOT called here.
+		// SetBufferingState(false) is only ever called from AampUnderflowMonitor::NotifyVideoFragment,
+		// which rearmed the monitor directly after this call returns.  Calling it here would
+		// cause a same-thread deadlock on macOS: NotifyVideoFragmentToUnderflowMonitor holds
+		// mUnderflowMonitorMutex while calling NotifyVideoFragment, and
+		// NotifyPipelineResumedToUnderflowMonitor also needs that same non-recursive mutex.
 	}
 }
 

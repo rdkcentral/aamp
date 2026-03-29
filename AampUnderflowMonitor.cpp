@@ -190,7 +190,13 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
         AAMPLOG_INFO("[video] underflow ended. buffered=%.3f (>= resume threshold %.3f)",
                      bufferSec, resumeThreshold);
         mAamp->SetBufferingState(false);
-        // NotifyPipelineResumed() will be called by the pipeline-resume path to rearm.
+        // Directly rearm the deadline here rather than through SetBufferingState →
+        // NotifyPipelineResumedToUnderflowMonitor, which would try to re-acquire
+        // mUnderflowMonitorMutex on the same thread (deadlock on macOS).
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            RearmDeadline(bufferSec, playRate);
+        }
     }
     else if (mAamp->GetBufUnderFlowStatus())
     {
