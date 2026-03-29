@@ -50,8 +50,8 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
 		aamp->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment,
 		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
+		fragmentDiscarded = false;
 	}
-	fragmentDiscarded = false;
 } // InjectFragmentInternal
 
 /**
