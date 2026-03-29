@@ -120,7 +120,7 @@ bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>& buffer, double position
 		else
 		{
 			p_aamp->ProcessID3Metadata(buffer, (AampMediaType)type);
-			sendStream(buffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
+			ret = sendStream(buffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 		}
 	}
 	return ret;
@@ -411,15 +411,21 @@ bool IsoBmffProcessor::setTuneTimePTS(std::vector<uint8_t>& fragBuffer, double p
 /**
  *  @brief send stream based on media format
  */
-void IsoBmffProcessor::sendStream(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit)
+bool IsoBmffProcessor::sendStream(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit)
 {
+	if (buffer.empty())
+	{
+		AAMPLOG_ERR("IsoBmffProcessor %s sendStream: buffer is empty, skipping injection", IsoBmffProcessorTypeName[type]);
+		return false;
+	}
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
 		p_aamp->SendStreamTransfer((AampMediaType)type, buffer, position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+		return true;
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)type, buffer, position, position, duration);
+		return p_aamp->SendStreamCopy((AampMediaType)type, buffer, position, position, duration);
 	}
 }
 
