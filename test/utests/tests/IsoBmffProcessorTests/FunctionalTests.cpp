@@ -219,7 +219,9 @@ TEST_F(IsoBmffProcessorTests, abortTests4)
 //Call sendSegment after an abort and reset was called
 TEST_F(IsoBmffProcessorTests, abortTests5)
 {
-	std::vector<uint8_t> buffer;
+	// Non-empty buffer is required so the sendStream empty-buffer guard does not
+	// block injection before SendStreamCopy/SendStreamTransfer can be observed.
+	std::vector<uint8_t> buffer{0xAA, 0xBB, 0xCC, 0xDD};
 	bool ptsError = false;
 	Box *box = (Box*)(0xdeadbeef);
 
@@ -737,8 +739,10 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	uint64_t basePts = 240000;
 	uint32_t vCurrTS = 24000;
 
-	// 3 sendSegment calls and configured with HLS_MP4 content type
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).Times(3);
+	// 3 sendSegment calls and configured with HLS_MP4 content type.
+	// WillRepeatedly(Return(true)) is needed so that the bool result of
+	// SendStreamCopy propagates correctly into sendSegment()'s return value.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).Times(3).WillRepeatedly(Return(true));
 
 	// Expecting the timescale to be read first
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));

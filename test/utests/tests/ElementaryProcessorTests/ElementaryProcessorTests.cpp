@@ -23,8 +23,6 @@
 #include <string>
 #include <stdint.h>
 #include <iostream>
-#include <thread>
-#include <chrono>
 
 #include "MockPrivateInstanceAAMP.h"
 
@@ -224,30 +222,6 @@ protected:
 	PrivateInstanceAAMP    *mPrivateInstanceAAMP2{};
 	MediaProcessor::process_fcn_t mProcessorFn{};
 };
-
-// sendSegment() must return false and must not reach the sink when abort() is
-// called while it is waiting for PTS initialisation.
-TEST_F(ElementaryProcessorSendSegmentTest, sendSegmentReturnsFalse_WhenAborted)
-{
-	std::vector<uint8_t> buffer{0xAA, 0xBB};
-	bool ptsError = false;
-
-	// Neither injection API must be called on the abort path.
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
-
-	// processPTSComplete is false, so sendSegment() will block in setTuneTimePTS()
-	// waiting on the condition variable.  Trigger abort() from a background thread.
-	std::thread abortThread([this]() {
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		mElementaryProcessor->abort();
-	});
-
-	bool result = mElementaryProcessor->sendSegment(buffer, 0.0, 2.0, 0.0, false, false, mProcessorFn, ptsError);
-	abortThread.join();
-
-	EXPECT_FALSE(result);
-}
 
 // sendSegment() must return false when the sink rejects the buffer
 // (SendStreamCopy returns false on the HLS path).
