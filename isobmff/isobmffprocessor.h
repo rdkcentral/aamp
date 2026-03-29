@@ -45,7 +45,7 @@ enum IsoBmffProcessorType
 };
 
 /**
- * @struct InitRestampSegment
+ * @struct stInitRestampSegment
  * @brief structure to hold init details of fragment
  */
 typedef struct stInitRestampSegment

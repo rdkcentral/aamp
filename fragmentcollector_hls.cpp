@@ -2334,7 +2334,6 @@ void TrackState::ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_err
 
 		AcquirePlaylistLock();
 		playlist = std::move(newPlaylist);
-		aamp_utils::ClearAndRelease(newPlaylist);
 
 		AampTime culled{};
 		IndexPlaylist(true, culled);
