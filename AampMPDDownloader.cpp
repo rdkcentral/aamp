@@ -399,6 +399,7 @@ void AampMPDDownloader::downloadMPDThread1()
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
 			}
 		}
+		long long tEndTime = NOW_STEADY_TS_MS;
 
 		if( IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 		{
@@ -483,7 +484,6 @@ void AampMPDDownloader::downloadMPDThread1()
 				mMPDData->mMPDDownloadResponse->show();
 			}
 		}
-		long long tEndTime = NOW_STEADY_TS_MS;
 		showDownloadMetrics(mMPDData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
 		if(doPush)
 		{

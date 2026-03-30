@@ -83,7 +83,7 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in,out] buffer - fragment data as std::vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - PTS offset
@@ -93,7 +93,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -146,15 +146,15 @@ private:
 	/**
 	 * @fn sendStream
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] buffer - fragment data as std::vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - PTS offset
 	 * @param[in] discontinuous - true if discontinuous fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
-	 * @return void
+	 * @return true if the buffer was successfully injected into the sink, false otherwise
 	 */
-	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset, bool discontinuous,bool isInit);
+	bool sendStream(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit);
 
     /**
 	 * @fn setTuneTimePTS
