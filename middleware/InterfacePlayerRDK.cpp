@@ -2450,6 +2450,7 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 
 		stream->pendingSeek = false;
 	}
+
 	// For mp4 demux playback, there is no qtdemux element in the pipeline, so no need to send override event
 	if (!gstPrivateContext->isMp4DemuxPlayback)
 	{
