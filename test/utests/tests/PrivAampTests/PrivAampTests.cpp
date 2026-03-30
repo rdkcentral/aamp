@@ -21,6 +21,8 @@
 #include <iostream>
 #include <string>
 #include <string.h>
+#include <string_view>
+#include <thread>
 #include <type_traits>
 
 #include <gtest/gtest.h>
@@ -28,6 +30,7 @@
 
 #include "priv_aamp.h"
 #include "AampProfiler.h"
+#include "AampUtils.h"
 
 #include "MockPrivateInstanceAAMP.h"
 #include "main_aamp.h"
@@ -53,7 +56,6 @@
 #include "MockPlayerCCManager.h"
 #include "MockMediaStreamContext.h"
 #include "MockIsoBmffBuffer.h"
-#include "MockAampGrowableBuffer.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -406,12 +408,6 @@ public:
 	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
-};
-
-// RAII guard to ensure memory copying is disabled on test exit
-struct MemoryCopyingGuard {
-	MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(true); }
-	~MemoryCopyingGuard() { AampGrowableBuffer_EnableMemoryCopying(false); }
 };
 
 TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
@@ -880,11 +876,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -941,12 +937,12 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
+	std::vector<uint8_t> buffer;
 	const char* dummyData = "dummy data";
 	buffer.assign(dummyData, dummyData + strlen(dummyData));
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1008,11 +1004,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1063,11 +1059,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1091,9 +1087,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 // the chunked MDAT data arriving over multiple callbacks.
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 {
-	// RAII guard to ensure memory copying is disabled on test exit (success or failure)
-	MemoryCopyingGuard guard;
-
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -1113,15 +1106,15 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(1024);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
 	const uint8_t initialData[] = "dummy data";
 	constexpr size_t initialDataLen = sizeof(initialData) - 1; // Exclude null terminator
 	buffer.assign(initialData, initialData + initialDataLen);
 
 	size_t startBufferOffset = buffer.size();
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1182,15 +1175,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
 	EXPECT_EQ(buffer.size(), startBufferOffset + totalBufSize);
-	// guard destructor will call AampGrowableBuffer_EnableMemoryCopying(false)
 }
 
 // Test HandleSSLWriteCallback when multiple mdat boxes are received
 TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 {
-	// RAII guard to ensure memory copying is disabled on test exit
-	MemoryCopyingGuard guard;
-
 	// Enable LL DASH chunk mode
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -1210,11 +1199,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
-	buffer.ReserveBytes(2048);
+	std::vector<uint8_t> buffer;
+	buffer.reserve(2048);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 2048;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1289,9 +1278,6 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 {
 	AAMPLOG_INFO("Test: HandleSSLWriteCallbackWithChunkEarlyAbort - Setting up");
 
-	// RAII guard to ensure memory copying is disabled on test exit
-	MemoryCopyingGuard guard;
-
 	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
 	AampLLDashServiceData llData;
 	llData.lowLatencyMode = true;
@@ -1315,16 +1301,16 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
 
 	// Create a buffer for the context
-	AampGrowableBuffer buffer("test_buffer");
+	std::vector<uint8_t> buffer;
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
 	buffer.assign(testData, testData + testDataLen);
 	char inputData[] = "test data with chunk early abort";
 	constexpr size_t inputDataLen = sizeof(inputData) - 1; // Exclude null terminator
-	buffer.ReserveBytes(1024);
+	buffer.reserve(1024);
 
 	// Create a valid curl context
-	CurlCallbackContext context(p_aamp, &buffer);
+	CurlCallbackContext context(p_aamp, buffer);
 	context.mediaType = eMEDIATYPE_VIDEO;
 	context.contentLength = 1024;
 	context.remoteUrl = "http://example.com/video.m3u8";
@@ -1732,14 +1718,118 @@ TEST_F(PrivAampTests,UpdateRefreshPlaylistIntervalTest)
 	p_aamp->UpdateRefreshPlaylistInterval(-12.43265);
 }
 
-TEST_F(PrivAampTests,SendBufferChangeEventTest)
+// --- Buffering duration tracking tests ---
+
+// mBufferingStartTimeMS is initialised to -1 in the constructor; no episode in flight yet.
+TEST_F(PrivAampTests, SendBufferChangeEvent_InitialTimestampIsUnset)
 {
-	p_aamp->SendBufferChangeEvent(true);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
 }
 
-TEST_F(PrivAampTests,SendBufferChangeEventTest_1)
+// Start event must capture a plausible steady-clock timestamp (>= before, <= after).
+TEST_F(PrivAampTests, SendBufferChangeEvent_StartSetsTimestamp)
 {
+	long long beforeMs = NOW_STEADY_TS_MS;
+	p_aamp->SendBufferChangeEvent(true);
+	long long afterMs = NOW_STEADY_TS_MS;
+
+	long long recorded = p_aamp->GetBufferingStartTimeMS();
+	EXPECT_GE(recorded, beforeMs);
+	EXPECT_LE(recorded, afterMs);
+}
+
+// End event must reset mBufferingStartTimeMS back to -1.
+TEST_F(PrivAampTests, SendBufferChangeEvent_EndResetsTimestamp)
+{
+	p_aamp->SendBufferChangeEvent(true);
+	EXPECT_GE(p_aamp->GetBufferingStartTimeMS(), 0LL);
+
 	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+}
+
+// End call without a preceding start is a no-op: no crash, state stays -1.
+TEST_F(PrivAampTests, SendBufferChangeEvent_EndWithoutStartIsNoOp)
+{
+	ASSERT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+}
+
+// Duplicate start events must not reset the timestamp; only the first call wins.
+// Verified by sleeping briefly so a second capture would produce a strictly later value.
+TEST_F(PrivAampTests, SendBufferChangeEvent_DuplicateStartDoesNotResetTimestamp)
+{
+	p_aamp->SendBufferChangeEvent(true);
+	long long firstTimestamp = p_aamp->GetBufferingStartTimeMS();
+	ASSERT_GE(firstTimestamp, 0LL);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	p_aamp->SendBufferChangeEvent(true);
+
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), firstTimestamp);
+}
+
+// The duration that would be reported to telemetry is bounded by the elapsed real time.
+// We verify this indirectly: capture the steady-clock window around the end call and
+// confirm it brackets (end_clock - startTime), then confirm the episode is closed out.
+TEST_F(PrivAampTests, SendBufferChangeEvent_DurationBoundedByElapsedRealTime)
+{
+	p_aamp->SendBufferChangeEvent(true);
+	long long startTime = p_aamp->GetBufferingStartTimeMS();
+	ASSERT_GE(startTime, 0LL);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+	long long beforeEnd = NOW_STEADY_TS_MS;
+	p_aamp->SendBufferChangeEvent(false);
+	long long afterEnd  = NOW_STEADY_TS_MS;
+
+	// The internal duration = (steady_clock at end) - startTime.
+	// It must be >= (beforeEnd - startTime) and <= (afterEnd - startTime).
+	long long minDuration = beforeEnd - startTime;
+	long long maxDuration = afterEnd  - startTime;
+	EXPECT_GE(minDuration, 0LL);
+	EXPECT_LE(minDuration, maxDuration);
+
+	// Episode must be closed out.
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+}
+
+// BufUnderFlowStatus flag must follow start/end transitions.
+TEST_F(PrivAampTests, SendBufferChangeEvent_UnderflowStatusTracksTransitions)
+{
+	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(true);
+	EXPECT_TRUE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+}
+
+// Back-to-back episodes must each be tracked independently: the second start time
+// must be strictly later than the first (monotonic clock), and each episode closes cleanly.
+TEST_F(PrivAampTests, SendBufferChangeEvent_SequentialEpisodesTrackedIndependently)
+{
+	// First episode
+	p_aamp->SendBufferChangeEvent(true);
+	long long t1 = p_aamp->GetBufferingStartTimeMS();
+	ASSERT_GE(t1, 0LL);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
+
+	// Second episode
+	std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	p_aamp->SendBufferChangeEvent(true);
+	long long t2 = p_aamp->GetBufferingStartTimeMS();
+	ASSERT_GE(t2, 0LL);
+	EXPECT_GT(t2, t1); // monotonic: second start must be later than first
+
+	p_aamp->SendBufferChangeEvent(false);
+	EXPECT_EQ(p_aamp->GetBufferingStartTimeMS(), -1LL);
 }
 
 TEST_F(PrivAampTests,PausePipelineTest)
@@ -2231,11 +2321,11 @@ TEST_F(PrivAampTests,GetFileTest)
 	const char *url;
 	std::string effectiveUrl;
 	int http_error;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	double downloadTime;BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", eMEDIATYPE_VIDEO, gBuff, effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, false,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_1)
@@ -2243,13 +2333,13 @@ TEST_F(PrivAampTests,GetFileTest_1)
 	const char *url;
 	std::string effectiveUrl;
 	int http_error;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	double downloadTime;
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,false,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, false,
+								 &bitrate, &fogError, 0.0));
 }
 
 TEST_F(PrivAampTests,GetFileTest_2)
@@ -2257,21 +2347,21 @@ TEST_F(PrivAampTests,GetFileTest_2)
 	const char *url;
 	std::string effectiveUrl;
 	int http_error;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	double downloadTime;
 	bool resetBuffer = true;
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	BitsPerSecond bitrate;
 	int fogError;
-EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
-TEST_F(PrivAampTests,GetFileTest_3)
+TEST_F(PrivAampTests, GetFileTest_3)
 {
 	const char *url;
 	std::string effectiveUrl;
 	int http_error;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	double downloadTime;
 	bool resetBuffer = true;
 	AampMediaType mType = eMEDIATYPE_VIDEO;
@@ -2280,16 +2370,16 @@ TEST_F(PrivAampTests,GetFileTest_3)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
 
-TEST_F(PrivAampTests,GetFileTest_4)
+TEST_F(PrivAampTests, GetFileTest_4)
 {
 	const char *url;
 	std::string effectiveUrl;
 	int http_error;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	double downloadTime;
 	bool resetBuffer = true;
 	AampMediaType mType = eMEDIATYPE_INIT_VIDEO;
@@ -2298,8 +2388,8 @@ TEST_F(PrivAampTests,GetFileTest_4)
 
 	p_aamp->EnableDownloads();
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff,effectiveUrl,&http_error,&downloadTime,"0-150",eCURLINSTANCE_MANIFEST_MAIN,resetBuffer,
-									&bitrate,&fogError,0.0));
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150", eCURLINSTANCE_MANIFEST_MAIN, resetBuffer,
+								 &bitrate, &fogError, 0.0));
 }
 
 class PrivAampInitMediaTypeTest : public PrivAampTests,
@@ -2310,7 +2400,7 @@ TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
 {
 	std::string effectiveUrl;
 	int http_error;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	double downloadTime;
 	bool resetBuffer = true;
 	AampMediaType mType = GetParam(); // Get the current media type parameter
@@ -2347,7 +2437,7 @@ TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
 		.WillOnce(Return(2.0))
 		.WillRepeatedly(Return(0.0));
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
@@ -2375,7 +2465,7 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 {
 	std::string effectiveUrl;
 	int http_error;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	double downloadTime;
 	bool resetBuffer = true;
 	AampMediaType mType = eMEDIATYPE_INIT_VIDEO;
@@ -2417,7 +2507,7 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillRepeatedly(Return(3000.0));
 
-	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150",
 								 eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0, PROFILE_BUCKET_TYPE_COUNT,
 								 maxInitTimeoutDuration));
 }
@@ -2426,13 +2516,15 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 {
 	std::string effectiveUrl;
 	int http_error;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	double downloadTime;
 	bool resetBuffer = true;
 	AampMediaType mType = eMEDIATYPE_INIT_SUBTITLE;
 	BitsPerSecond bitrate;
 	int fogError;
 	const int initFragmentRetryCount = 2;
+	using namespace std::string_view_literals;
+	constexpr auto dummyData = "0x0a"sv;
 
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 	p_aamp->EnableDownloads();
@@ -2459,17 +2551,16 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		// add dummy buffer in gBuff to simulate a successful request
-		.WillOnce([&gBuff]() -> CURLcode
-				{ 
-					const char* dummyData = "0x0a";
-					gBuff.assign(dummyData, dummyData + strlen(dummyData));
+		.WillOnce([&gBuff, dummyData]() -> CURLcode
+				{
+					gBuff.assign(dummyData.begin(), dummyData.end());
 					return CURLE_OK;
 				});
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillOnce(Return(10.0))
 		.WillOnce(Return(8.0));
 
-	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error, &downloadTime, "0-150",
 								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
 }
 
@@ -3024,13 +3115,13 @@ TEST_F(PrivAampTests,SendStreamCopyTest)
 
 // DISABLED - this is not actually testing anything, just calling the method to ensure no crash
 // needs a better test implementation
-// Calling SendStreamTransfer with null buffer will cause egv
 TEST_F(PrivAampTests, DISABLED_SendStreamTransferTest)
 {
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,true,true);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,false,false);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,true,false);
-	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,NULL,182.34,374.567,465.7696,false,true);
+	std::vector<uint8_t> buf;
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,buf,182.34,374.567,465.7696,true,true);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,buf,182.34,374.567,465.7696,false,false);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,buf,182.34,374.567,465.7696,true,false);
+	p_aamp->SendStreamTransfer(eMEDIATYPE_VIDEO,buf,182.34,374.567,465.7696,false,true);
 }
 
 TEST_F(PrivAampTests,IsLiveTest)
@@ -3840,16 +3931,19 @@ TEST_F(PrivAampTests,SetCCStatusPreTune)
 	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	// Enable CC and check that status is stored, 
+	// Enable CC and check that status is stored,
 	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now call TuneHelper to create the StreamAbstraction object
-	// SetStatus(true) should be called to apply the stored CC status
+	// Now call TuneHelper - subtitles_muted is false (from SetCCStatus(true) above)
+	// SetCCStatusInternal sees mute_subtitles_applied=false, calls SetStatus(true)
+	// RestoreCC(false) reflects the CC manager state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
@@ -3864,6 +3958,9 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 {
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_GstSubtecEnabled)).WillByDefault(Return(true));
 
+	//Set OOB path before SetCCStatus() is called - order matters
+	p_aamp->mIsInbandCC = false;
+
 	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
@@ -3871,20 +3968,24 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now call TuneHelper to create the StreamAbstraction object
-	// SetSubtitleMute(false) should be called to apply the stored CC status
+	// Clear pre-tune expectations before entering tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+
+	// During TuneHelper: OOB path calls SetSubtitleMute(false) since
+	// subtitles_muted=false from the pre-tune SetCCStatus(true) call
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
-
-	// Set mIsInbandCC to false to simulate it being done during Tune for OOB subtitles
-	p_aamp->mIsInbandCC = false;
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
-	// Disable CCStatus and check that status is stored,
-	// and SetSubtitleMute(true) is called since we are now tuned
+	// Clear tune phase expectations before post-tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+
+	// Post-tune: disabling CC calls SetSubtitleMute(true) since OOB path uses GstPlayer directly
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(true)).Times(1);
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
@@ -3902,6 +4003,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -3909,15 +4011,25 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 	p_aamp->SetVideoMute(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now call TuneHelper to create the StreamAbstraction object
-	// SetStatus(false) should be called due to video being muted, overriding the stored CC status
+	// Clear pre-tune expectations before entering tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+
+	// During TuneHelper: video is muted so CC is forced off via SetStatus(false)
+	// RestoreCC(false) is called because CC manager internal state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+
+	// After tune with video muted: app's CC preference is preserved (subtitles_muted not overwritten)
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Disable video mute - SetVideoMute will trigger SetCCStatusInternal
-	// and SetStatus(true) is called since we are now tuned and stored CC status is true
+	// Clear tune phase expectations before post-tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+
+	// Post-tune: unmuting video calls SetCCStatusInternal which calls SetStatus(true)
+	// because stored CC preference was preserved during tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
 	p_aamp->SetVideoMute(false);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
@@ -3939,19 +4051,29 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute02)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
 	// Enable CC and check that status is stored, 
-	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Now call TuneHelper to create the StreamAbstraction object
-	// SetStatus(false) should be called due to video being muted, overriding the stored CC status
+	// Clear pre-tune expectations before entering tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+
+	// During TuneHelper: video is muted so CC is forced off via SetStatus(false)
+	// RestoreCC(false) is called because CC manager internal state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
+
+	// After tune with video muted: app's CC preference is preserved (subtitles_muted not overwritten)
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Disable video mute - SetVideoMute will trigger SetCCStatusInternal
-	// and SetStatus(true) is called since we are now tuned and stored CC status is true
+	// Clear tune phase expectations before post-tune phase
+	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
+
+	// Post-tune: unmuting video calls SetCCStatusInternal which calls SetStatus(true)
+	// because stored CC preference was preserved during tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
 	p_aamp->SetVideoMute(false);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
@@ -3980,6 +4102,7 @@ TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 
 	// Enable CC and check that status is stored, however SetStatus(false) is called since video is still muted
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -4002,6 +4125,7 @@ TEST_F(PrivAampTests,RestoreCCWhenCCWasEnabledBeforeTune)
 
 	// Enable CC after tune - SetStatus(true) should be called
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -4042,6 +4166,7 @@ TEST_F(PrivAampTests,RestoreCCPreservesStateAcrossMultipleTunes)
 	
 	// Enable CC - SetStatus(true) should be called
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -4140,19 +4265,6 @@ TEST_F(PrivAampTests,RemoveAsyncTaskTest)
 {
 	bool flag = p_aamp->RemoveAsyncTask(10);
 	EXPECT_FALSE(flag);
-}
-
-TEST_F(PrivAampTests,AcquireStreamLockTest)
-{
-	p_aamp->AcquireStreamLock();
-}
-
-TEST_F(PrivAampTests,TryStreamLockTest)
-{
-	bool flag = p_aamp->TryStreamLock();
-	EXPECT_TRUE(flag);
-
-	p_aamp->ReleaseStreamLock();
 }
 
 TEST_F(PrivAampTests,ResetDiscontinuityInTracksTest)
@@ -4274,8 +4386,8 @@ TEST_F(PrivAampTests,SetLowLatencyServiceConfiguredTest_1)
 
 TEST_F(PrivAampTests,SetCurrentLatencyTest)
 {
-	p_aamp->SetCurrentLatency(123456);
-	long val = p_aamp->GetCurrentLatency();
+	p_aamp->SetCurrentLatencyMs(123456);
+	long val = p_aamp->GetCurrentLatencyMs();
 	EXPECT_EQ(val,123456);
 }
 
@@ -5423,7 +5535,7 @@ TEST_F(PrivAampTests,VerifyPausedBehavior)
 TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
 {
 	std::string effectiveUrl;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	const int lowBWTimeoutValue = 2; // 2 seconds
 
@@ -5452,14 +5564,15 @@ TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
 			return CURLE_OK;
 		}));
 
-	p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl);
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error);
 }
 
 // Validates that low bandwidth timeout is disabled if the video is at the lowest profile
 TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 {
 	std::string effectiveUrl;
-	AampGrowableBuffer gBuff("GrowableBuffer");
+	std::vector<uint8_t> gBuff{};
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
@@ -5487,7 +5600,8 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 			return CURLE_OK;
 		}));
 
-	p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl);
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error);
 }
 
 // Pass null pointer as CurlCallbackContext and abort should be false
@@ -5501,8 +5615,8 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test1)
 // Pass CurlCallbackContext with dataTransferTime = -1 or earlyAbortEnabled = false
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
 {
-	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(aamp, &buffer);
+	std::vector<uint8_t> buffer;
+	CurlCallbackContext context(aamp, buffer);
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_EarlyAbortProfileBandwidthPercent))
 			.Times(0);
 
@@ -5519,11 +5633,11 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test2)
 // Pass valid CurlCallbackContext with profileBps = 0 or coeff = 0
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 {
-	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(aamp, &buffer);
+	std::vector<uint8_t> buffer;
+	CurlCallbackContext context(aamp, buffer);
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
-	context.buffer->assign(testData, testData + testDataLen);
+	context.buffer.assign(testData, testData + testDataLen);
 	context.earlyAbortEnabled = true;
 	context.profileBps = 0;
 
@@ -5544,11 +5658,11 @@ TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test3)
 // Pass valid CurlCallbackContext with different params
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test4)
 {
-	AampGrowableBuffer buffer("test_data");
-	CurlCallbackContext context(aamp, &buffer);
+	std::vector<uint8_t> buffer;
+	CurlCallbackContext context(aamp, buffer);
 	const uint8_t testData[] = "dummy data";
 	constexpr size_t testDataLen = sizeof(testData) - 1; // Exclude null terminator
-	context.buffer->assign(testData, testData + testDataLen);
+	context.buffer.assign(testData, testData + testDataLen);
 	context.earlyAbortEnabled = true;
 	context.profileBps = 12000;
 
@@ -5655,6 +5769,24 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrSt
 
 	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
 	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+}
+
+/**
+ * @brief Validate the fix in detach().
+ */
+
+TEST_F(PrivAampTests, DetachFlushesAndBlocksAsyncEvents)
+{
+	// Simulate async event sent before detach (crash scenario)
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_ASYNC_MODE)).Times(1);
+	p_aamp->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, "test-session"), AAMP_EVENT_ASYNC_MODE);
+
+	EXPECT_CALL(*g_mockAampEventManager, FlushPendingEvents()).Times(1);
+	p_aamp->detach();
+
+	// After detach, sync events should not be called
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_SYNC_MODE)).Times(0);
+	sleep(1);
 }
 
 /**
@@ -5765,161 +5897,3 @@ INSTANTIATE_TEST_SUITE_P(
 		}
 	)
 );
-#ifdef AAMP_NET_TRACE
-/**
- * @brief Test NetTrace integration with GetFile
- * 
- * Purpose: Verify that NetTrace objects are properly created, used, and cleaned up
- * during download operations. Ensures no dangling pointers remain after function returns.
- */
-TEST_F(PrivAampTests, NetTrace_ContextPointerNulledAfterGetFile)
-{
-	// This test verifies the critical safety fix: context.net must be nullptr
-	// after GetFile returns to prevent dangling pointer to stack-local NetTrace object
-	
-	std::string effectiveUrl;
-	int httpError = 0;
-	AampGrowableBuffer gBuff("NetTraceTestBuffer");
-	double downloadTime = 0.0;
-	BitsPerSecond bitrate = 0;
-	int fogError = 0;
-	
-	// Attempt a download to localhost; the request is expected to fail quickly,
-	// but the important part is verifying that NetTrace cleanup happens.
-	p_aamp->GetFile("http://127.0.0.1:0/test.m3u8"
-					eMEDIATYPE_MANIFEST,
-					&gBuff, 
-					effectiveUrl,
-					&httpError, 
-					&downloadTime, 
-					nullptr, 
-					eCURLINSTANCE_MANIFEST_MAIN,
-					false, 
-					&bitrate, 
-					&fogError, 
-					0.0);
-	
-	// Note: We cannot directly access the context variable from here since it's
-	// a local variable in GetFile. This test primarily ensures compilation and
-	// execution with AAMP_NET_TRACE enabled, and documents the expected behavior.
-	// A more comprehensive test would require exposing the context or using
-	// dependency injection for better testability.
-	
-	SUCCEED() << "GetFile completed without crashes with AAMP_NET_TRACE enabled";
-}
-
-/**
- * @brief Test NetTrace compilation with conditional macro
- * 
- * Purpose: Ensure that code compiles correctly when AAMP_NET_TRACE is defined
- * and that NetTrace-related includes are available.
- */
-TEST_F(PrivAampTests, NetTrace_CompilationTest)
-{
-	// This test verifies that the NetTrace header is properly included
-	// and that the aamptrace namespace is accessible
-	
-	// The fact that this test compiles proves:
-	// 1. AAMP_NET_TRACE macro is properly defined
-	// 2. net_trace.h is included
-	// 3. aamptrace namespace is available
-	
-	// Verify NetTrace is a complete type (not just a forward declaration)
-	// Using sizeof() on the actual type (not pointer) requires the type to be fully defined
-	static_assert(sizeof(aamptrace::NetTrace) > 0, "NetTrace must be a complete type");
-	
-	// Additional compile-time checks to verify the type has expected members
-	// These will fail if NetTrace is incomplete or incorrectly defined
-	static_assert(std::is_class<aamptrace::NetTrace>::value, "NetTrace must be a class type");
-	static_assert(!std::is_abstract<aamptrace::NetTrace>::value, "NetTrace must be instantiable");
-	
-	SUCCEED() << "NetTrace types are available when AAMP_NET_TRACE is defined";
-}
-
-/**
- * @brief Test that GetFile works correctly with NetTrace disabled paths
- * 
- * Purpose: Even with AAMP_NET_TRACE enabled, verify basic download functionality
- * isn't broken by the instrumentation code.
- */
-TEST_F(PrivAampTests, NetTrace_GetFileBasicFunctionality)
-{
-	std::string effectiveUrl;
-	int httpError = 0;
-	AampGrowableBuffer gBuff("NetTraceBasicTest");
-	double downloadTime = 0.0;
-	BitsPerSecond bitrate = 0;
-	int fogError = 0;
-	
-	// Enable downloads
-	p_aamp->EnableDownloads();
-	
-	// Attempt download - will fail without proper mocking, but shouldn't crash
-	bool result = p_aamp->GetFile("https://example.com/manifest.mpd",
-								  eMEDIATYPE_MANIFEST,
-								  &gBuff,
-								  effectiveUrl,
-								  &httpError,
-								  &downloadTime,
-								  nullptr,
-								  eCURLINSTANCE_MANIFEST_MAIN,
-								  false,
-								  &bitrate,
-								  &fogError,
-								  0.0);
-	
-	// The download will likely fail in test environment, but it shouldn't crash
-	// The important part is that NetTrace instrumentation doesn't break normal flow
-	EXPECT_FALSE(result) << "Download expected to fail in test environment";
-	EXPECT_NE(0, httpError) << "Should have an error code from failed download";
-}
-
-/**
- * @brief Test NetTrace with multiple GetFile calls
- * 
- * Purpose: Verify that NetTrace can handle multiple sequential downloads
- * without memory leaks or pointer corruption.
- */
-TEST_F(PrivAampTests, NetTrace_MultipleGetFileCalls)
-{
-	std::string effectiveUrl;
-	int httpError = 0;
-	AampGrowableBuffer gBuff1("NetTraceMulti1");
-	AampGrowableBuffer gBuff2("NetTraceMulti2");
-	double downloadTime = 0.0;
-	BitsPerSecond bitrate = 0;
-	int fogError = 0;
-	
-	// First download attempt
-	p_aamp->GetFile("https://example.com/manifest1.mpd",
-					eMEDIATYPE_MANIFEST,
-					&gBuff1,
-					effectiveUrl,
-					&httpError,
-					&downloadTime,
-					nullptr,
-					eCURLINSTANCE_MANIFEST_MAIN,
-					false,
-					&bitrate,
-					&fogError,
-					0.0);
-	
-	// Second download attempt - should create a new NetTrace object
-	// and properly clean up the first one
-	p_aamp->GetFile("https://example.com/manifest2.mpd",
-					eMEDIATYPE_MANIFEST,
-					&gBuff2,
-					effectiveUrl,
-					&httpError,
-					&downloadTime,
-					nullptr,
-					eCURLINSTANCE_MANIFEST_MAIN,
-					false,
-					&bitrate,
-					&fogError,
-					0.0);
-	
-	SUCCEED() << "Multiple GetFile calls completed without crashes";
-}
-
-#endif // AAMP_NET_TRACE

@@ -27,6 +27,7 @@
 #include "AampConfig.h"
 #include "priv_aamp.h"
 #include "aampgstplayer.h"
+#include "AampLatencyMonitor.h"
 
 #include "MockPrivateInstanceAAMP.h"
 
@@ -44,7 +45,7 @@ void MockAampReset(void)
 	gpGlobalConfig = gGlobalConfig.get();
 }
 
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false), mLatencyMonitor(nullptr)
 {
 }
 
@@ -256,14 +257,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
-void PrivateInstanceAAMP::enableEventProcessing()
-{
-}
-
-void PrivateInstanceAAMP::disableEventProcessing()
-{
-}
-
 void PrivateInstanceAAMP::detach()
 {
 }
@@ -316,15 +309,7 @@ void PrivateInstanceAAMP::EnableDownloads()
 {
 }
 
-void PrivateInstanceAAMP::AcquireStreamLock()
-{
-}
-
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
-{
-}
-
-void PrivateInstanceAAMP::ReleaseStreamLock()
 {
 }
 
@@ -343,11 +328,6 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 
 void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
-}
-
-bool PrivateInstanceAAMP::TryStreamLock()
-{
-	return false;
 }
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
@@ -390,7 +370,7 @@ long long PrivateInstanceAAMP::GetDurationMs()
 	return 0;
 }
 
-long PrivateInstanceAAMP::GetCurrentLatency()
+long PrivateInstanceAAMP::GetCurrentLatencyMs()
 {
 	return 0;
 }
@@ -1062,7 +1042,7 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 }
 
 void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId,
-												 uint64_t position, uint64_t absolutePositionMs, bool immediate)
+												 uint64_t position, uint64_t absolutePositionMs, bool immediate, const std::string &reason)
 {
 }
 
@@ -1115,10 +1095,23 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 }
 
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl,
-								  std::string &effectiveUrl, AampGrowableBuffer *fragment,
-								  unsigned int curlInstance, const char *range, int *http_code,
+								  std::string &effectiveUrl, std::vector<uint8_t>& fragment,
+								  unsigned int curlInstance, const char *range, int& http_code,
 								  double *downloadTime, AampMediaType fileType, int *fogError)
 {
+	// Deterministic defaults for mock implementation
+	effectiveUrl = fragmentUrl;
+	http_code = 0;
+	if (downloadTime != nullptr)
+	{
+		*downloadTime = 0.0;
+	}
+	if (fogError != nullptr)
+	{
+		*fogError = 0;
+	}
+	// Ensure output fragment buffer is in a known, empty state
+	fragment.clear();
 	return;
 }
 
@@ -1177,7 +1170,7 @@ void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string &manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type,
+void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type,
 		uint64_t timeStampOffset)
 {
 }

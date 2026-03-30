@@ -68,7 +68,7 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum()).WillRepeatedly(Return(eMEDIAFORMAT_HLS_MP4));
 			EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
 			EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_,_)).WillRepeatedly(Return(true));
-			EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_)).Times(AnyNumber());
+			EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(testing::A<uint8_t*>(), testing::A<size_t>())).Times(AnyNumber());
 
 			id3_callback_t id3Handler = nullptr;
 
@@ -114,7 +114,7 @@ class IsoBmffProcessorPTMTests : public IsoBmffProcessorBaseTests
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests1)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests1");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 
 	// Spawn thread to perform wait.
@@ -129,22 +129,21 @@ TEST_F(IsoBmffProcessorTests, abortTests1)
 	mIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(1000), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(10000), Return(true)));
 
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
 	t.join();
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
-	buffer.Free();
 }
 
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests2)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests2");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 
 	mIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
@@ -160,23 +159,22 @@ TEST_F(IsoBmffProcessorTests, abortTests2)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
 
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
 
 	this->asyncTask.join();
-	buffer.Free();
 }
 
 
 //Scenario where audio and subtitle processors are waiting for videoPTS and abort gets called
 TEST_F(IsoBmffProcessorTests, abortTests3)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests3");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 
 	mAudIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(1000), Return(true)));
-	mAudIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
 
 	// Simulate scenario for fragment, since this will go into a cond_wait, start an asyncTask to call abort()
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly([this]() {
@@ -190,17 +188,16 @@ TEST_F(IsoBmffProcessorTests, abortTests3)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
 
-	(void)mAudIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
+	(void)mAudIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
 	this->asyncTask.join();
-	buffer.Free();
 }
 
 //Race condition between InjectorLoop and reset calls
 //Call sendSegment after an abort was called
 TEST_F(IsoBmffProcessorTests, abortTests4)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests4");
+	std::vector<uint8_t> buffer;
 	bool ptsError = false;
 
 	mIsoBmffProcessor->setRate(AAMP_NORMAL_PLAY_RATE, PlayMode_normal);
@@ -214,16 +211,17 @@ TEST_F(IsoBmffProcessorTests, abortTests4)
 
 	// Call sendSegment after an abort was called
 	(void)mIsoBmffProcessor->abort();
-	(void)mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
+	(void)mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
 
-	buffer.Free();
 }
 
 //Race condition between InjectorLoop and reset calls
 //Call sendSegment after an abort and reset was called
 TEST_F(IsoBmffProcessorTests, abortTests5)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-abortTests5");
+	// Non-empty buffer is required so the sendStream empty-buffer guard does not
+	// block injection before SendStreamCopy/SendStreamTransfer can be observed.
+	std::vector<uint8_t> buffer{0xAA, 0xBB, 0xCC, 0xDD};
 	bool ptsError = false;
 	Box *box = (Box*)(0xdeadbeef);
 
@@ -235,7 +233,7 @@ TEST_F(IsoBmffProcessorTests, abortTests5)
 	// Expecting segments in order. 1. initfragment, 2. video fragment
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(1000), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(10000), Return(true)));
@@ -246,15 +244,14 @@ TEST_F(IsoBmffProcessorTests, abortTests5)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).WillOnce(Return(true));
 
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
-	buffer.Free();
 }
 
 //Processing of Init followed by 2 continuous video fragments
 TEST_F(IsoBmffProcessorTests, ptsTests)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-ptsTests");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double position = 0, duration = 0;
@@ -263,7 +260,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(24000), Return(true)));
 
-	mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	rslt = ceil((position) * vCurrTS);
 	duration = (double) vDuration / (double)vCurrTS;
@@ -271,7 +268,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	restampedPTS = mIsoBmffProcessor->getSumPTS() - vDuration;
@@ -281,9 +278,8 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(48048), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	buffer.Free();
 	rslt = ceil((position) * vCurrTS);
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	restampedPTS = mIsoBmffProcessor->getSumPTS() - vDuration;
@@ -295,7 +291,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests)
 //eBMFFPROCESSOR_INIT_TIMESCALE, eBMFFPROCESSOR_CONTINUE_TIMESCALE
 TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-timeScaleTests_1");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double vPosition = 0, aPosition = 0;
@@ -304,11 +300,11 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	double vSegDuration = 0, aSegDuration = 0;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(aCurrTS), Return(true)));
-	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, aPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	//eBMFFPROCESSOR_INIT_TIMESCALE
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_INIT_TIMESCALE);
@@ -318,7 +314,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((vPosition) * vCurrTS);
@@ -331,7 +327,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(aDuration));
 	aSegDuration = (double)aDuration / (double)aCurrTS;
-	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, aPosition, aSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mAudIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((aPosition) * aCurrTS);
@@ -341,7 +337,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, 0.0, discontinuous,true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, 0, 0.0, discontinuous,true, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_CONTINUE_TIMESCALE);
 
@@ -349,9 +345,8 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, vSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
 
-	buffer.Free();
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_TIMESCALE_COMPLETE);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
@@ -362,7 +357,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_1)
 
 //eBMFFPROCESSOR_INIT_TIMESCALE, eBMFFPROCESSOR_CONTINUE_TIMESCALE
 TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-timeScaleTests_2");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double vPosition = 0, aPosition = 0;
@@ -371,11 +366,11 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
 	double vSegDuration = 0, aSegDuration = 0;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(aCurrTS), Return(true)));
-	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, aPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	//eBMFFPROCESSOR_INIT_TIMESCALE
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_INIT_TIMESCALE);
@@ -385,7 +380,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((vPosition) * vCurrTS);
@@ -398,7 +393,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(aDuration));
 	aSegDuration = (double)aDuration / (double)aCurrTS;
-	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, aPosition, aSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mAudIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((aPosition) * aCurrTS);
@@ -408,7 +403,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, 0.0, discontinuous,true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, 0, 0.0, discontinuous,true, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_CONTINUE_TIMESCALE);
 
@@ -416,9 +411,8 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, vSegDuration, 0.0, discontinuous,false, mProcessorFn, ptsError);
 
-	buffer.Free();
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_TIMESCALE_COMPLETE);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
@@ -430,7 +424,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_2) {
 //eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE - BasePTS will change after discontinuity
 TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-timeScaleTests_3");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	bool discontinuous = false, ptsError = false;
@@ -439,7 +433,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(currTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
 
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_INIT_TIMESCALE);
 
@@ -447,7 +441,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
+	mIsoBmffProcessor->sendSegment(buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((position) * currTS);
@@ -460,7 +454,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 	position += vSegDuration;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(24000), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
 
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE);
 
@@ -468,9 +462,8 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDurationAfterABR));
-	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
+	mIsoBmffProcessor->sendSegment(buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
 
-	buffer.Free();
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_TIMESCALE_COMPLETE);
 	uint64_t newTS = mIsoBmffProcessor->getCurrentTimeScale();
 	rslt = ceil((position) * newTS);
@@ -482,16 +475,16 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_3)
 
 //eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE - Discontinuity (ad->content) and again rampup/down due to curl errors, hence 2 inits will be pushed back to back, BasePTS will be updated
 TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-timeScaleTests_4");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
-	bool discontinuous, ptsError = false;
+	bool discontinuous = false, ptsError = false;
 	uint64_t basePts = 0, vDuration = 60060, vDurationAfterABR = 48048, currTS = 30000, rslt = 0, restampedPTS = 0;
 	double position = 0, vSegDuration = (double)vDuration / (double)currTS;
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(currTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
 
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_INIT_TIMESCALE);
 
@@ -499,7 +492,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
+	mIsoBmffProcessor->sendSegment(buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError); //fragmentPTSoffset = 0.0
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((position) * currTS);
@@ -511,7 +504,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((position) * currTS);
@@ -523,7 +516,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
 	position += vSegDuration;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(24000), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, position, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE);
 
@@ -531,7 +524,7 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
 	discontinuous = false;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(24000), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, position, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE);
 
@@ -539,9 +532,8 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(0), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDurationAfterABR));
-	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	buffer.Free();
 	EXPECT_EQ(mIsoBmffProcessor->getTimeScaleChangeState(), eBMFFPROCESSOR_TIMESCALE_COMPLETE);
 	uint64_t newTS = mIsoBmffProcessor->getCurrentTimeScale();
 	rslt = ceil((position) * newTS);
@@ -554,22 +546,22 @@ TEST_F(IsoBmffProcessorTests, timeScaleTests_4) {
 //Difference in manifest duration vs buffer duration. Player should process the buffer one.
 TEST_F(IsoBmffProcessorTests, ptsTests_2)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-ptsTests_2");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
-	bool discontinuous, ptsError = false;
+	bool discontinuous = false, ptsError = false;
 	uint64_t basePts = 0, vDuration = 60060, /*vDurationAfterABR = 48048,*/ currTS = 30000, rslt = 0, restampedPTS = 0;
 	double position = 0, vSegDuration = (double)vDuration / (double)currTS;
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(currTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((position) * currTS);
@@ -580,7 +572,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
 	position += vSegDuration;
-	mIsoBmffProcessor->sendSegment(&buffer, position, vSegDuration-1, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, vSegDuration-1, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((position) * currTS);
@@ -592,7 +584,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_2)
 //Before disc, video ends at x, audio ends at x-1, after disc, both should be in sync and resume from x
 TEST_F(IsoBmffProcessorTests, ptsTests_3)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-ptsTests_3");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double vPosition = 0, aPosition = 0;
@@ -601,18 +593,18 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	double vSegDuration = 0, aSegDuration = 0;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(aCurrTS), Return(true)));
-	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, aPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	vSegDuration = (double)vDuration / (double)vCurrTS;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((vPosition) * vCurrTS);
@@ -623,7 +615,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(aDuration));
-	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, aPosition, aSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mAudIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((aPosition) * aCurrTS);
@@ -635,7 +627,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
 	rslt = ceil((vPosition) * vCurrTS);
@@ -646,12 +638,12 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	vPosition += vSegDuration;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(24000), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	discontinuous = true;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(48000), Return(true)));
-	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, aPosition, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	discontinuous = false;
 	vSegDuration = (double)vDuration / (double)vCurrTS;
@@ -659,7 +651,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(240240), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, vPosition, vSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	rslt = ceil((vPosition) * vCurrTS);
 	restampedPTS = mIsoBmffProcessor->getSumPTS() - vDuration;
@@ -670,9 +662,8 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(481280), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(aNewDuration));
-	mAudIsoBmffProcessor->sendSegment(&buffer, aPosition, aSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mAudIsoBmffProcessor->sendSegment(buffer, aPosition, aSegDuration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	buffer.Free();
 	rslt = ceil((aPosition) * aCurrTS);
 	restampedPTS = mAudIsoBmffProcessor->getSumPTS() - aNewDuration;
 	EXPECT_NE(restampedPTS, rslt); //Sync the audio PTS with the video pts.
@@ -683,7 +674,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_3)
 //Dup video fragments
 TEST_F(IsoBmffProcessorTests, ptsTests_4)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorTests-ptsTests_4");
+	std::vector<uint8_t> buffer;
 	Box *box = (Box*)(0xdeadbeef);
 
 	double position = 0, duration = 0;
@@ -692,14 +683,14 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	duration = (double) vDuration / (double)vCurrTS;
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	rslt = ceil((position) * vCurrTS);
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(basePts), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	restampedPTS = mIsoBmffProcessor->getSumPTS() - vDuration;
 	EXPECT_EQ(restampedPTS, rslt);
@@ -708,7 +699,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
 	rslt = ceil((position) * vCurrTS);
 	EXPECT_EQ(mIsoBmffProcessor->getBasePTS(), basePts);
@@ -717,15 +708,14 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillRepeatedly(DoAll(SetArgReferee<0>(24000), Return(true)));
-	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, 0, 0, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillRepeatedly(DoAll(SetArgReferee<0>(vDuration), Return(true)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getBox(_, TypedEq<size_t&>(0))).WillOnce(DoAll(SetArgReferee<1>(0), Return(box)));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(vDuration));
-	mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	buffer.Free();
 	restampedPTS = mIsoBmffProcessor->getSumPTS() - vDuration;
 	EXPECT_EQ(restampedPTS, rslt); // Restamped PTS will not update on dup fragment
 }
@@ -740,7 +730,7 @@ TEST_F(IsoBmffProcessorTests, PTMOnRestampOnTest)
 // Validates the sendSegment calls with PTM enabled and restamp disabled
 TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 {
-	AampGrowableBuffer buffer("IsoBmffProcessorPTMTests-passThroughTests1");
+	std::vector<uint8_t> buffer;
 	const char* sampleData = "SampleData";
 	buffer.assign(sampleData, sampleData + strlen(sampleData)); // Dummy data to simulate a buffer
 
@@ -749,8 +739,10 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	uint64_t basePts = 240000;
 	uint32_t vCurrTS = 24000;
 
-	// 3 sendSegment calls and configured with HLS_MP4 content type
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).Times(3);
+	// 3 sendSegment calls and configured with HLS_MP4 content type.
+	// WillRepeatedly(Return(true)) is needed so that the bool result of
+	// SendStreamCopy propagates correctly into sendSegment()'s return value.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).Times(3).WillRepeatedly(Return(true));
 
 	// Expecting the timescale to be read first
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
@@ -758,21 +750,91 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,ProcessID3Metadata(_,_,_))
 			.Times(3);
-	bool ret = mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
+	bool ret = mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
 	// Expecting the base PTS to be read
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(basePts), Return(true)));
 	
-	ret = mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	ret = mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
 	// Not expecting any more calls to parse buffer
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);
 
-	ret = mIsoBmffProcessor->sendSegment(&buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	ret = mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
-	buffer.Free();
+}
+
+// sendSegment must return false when the sink rejects the buffer (SendStreamCopy returns false)
+TEST_F(IsoBmffProcessorPTMTests, sendSegmentReturnsFalse_WhenSendStreamCopyFails)
+{
+	std::vector<uint8_t> buffer;
+	const char* sampleData = "SampleData";
+	buffer.assign(sampleData, sampleData + strlen(sampleData));
+
+	double position = 0, duration = 2.0;
+	bool discontinuous = false, ptsError = false;
+	uint64_t basePts = 240000;
+	uint32_t vCurrTS = 24000;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, _)).Times(AnyNumber());
+
+	// First two injections succeed; the third (the case under test) fails
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _))
+		.WillOnce(Return(true))   // init segment injection
+		.WillOnce(Return(true))   // first data fragment injection
+		.WillOnce(Return(false)); // negative case: sink unavailable / rejects buffer
+
+	// Step 1: process init segment
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
+
+	// Step 2: first data fragment — advances initSegmentProcessComplete
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(basePts), Return(true)));
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+
+	// Step 3: injection fails — sendSegment must propagate the failure
+	bool ret = mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	EXPECT_FALSE(ret);
+}
+
+// sendSegment must return false and must not call into the sink when the buffer is empty
+TEST_F(IsoBmffProcessorPTMTests, sendSegmentReturnsFalse_WhenBufferIsEmpty)
+{
+	std::vector<uint8_t> buffer;
+	const char* sampleData = "SampleData";
+	buffer.assign(sampleData, sampleData + strlen(sampleData));
+
+	double position = 0, duration = 2.0;
+	bool discontinuous = false, ptsError = false;
+	uint64_t basePts = 240000;
+	uint32_t vCurrTS = 24000;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, _)).Times(AnyNumber());
+
+	// Exactly two injections during setup; the empty-buffer call must not trigger a third
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _))
+		.WillOnce(Return(true))
+		.WillOnce(Return(true));
+
+	// Step 1: process init segment
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
+
+	// Step 2: first data fragment — advances initSegmentProcessComplete
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(basePts), Return(true)));
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+
+	// Step 3: empty buffer — sendStream must reject without calling SendStreamCopy
+	std::vector<uint8_t> emptyBuffer{};
+	bool ret = mIsoBmffProcessor->sendSegment(emptyBuffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	EXPECT_FALSE(ret);
+	// The Times(2) constraint on SendStreamCopy above verifies no extra injection occurred
 }

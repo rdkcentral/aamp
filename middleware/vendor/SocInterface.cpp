@@ -37,6 +37,8 @@ std::map<SocPlatformType, std::string> SocPlatformNames = {
 	{SOC_PLATFORM_MEDIATEK, "MediaTek"}
 };
 
+/**Initially re-sets the IsRialtoMode */
+bool SocInterface::mIsRialtoMode = false;
 /**
  * @brief Checks if the input string starts with the given prefix.
  *
@@ -161,6 +163,21 @@ SocPlatformType SocInterface::InferPlatformFromDeviceProperties( void )
 	return platform;
 }
 
+
+/**
+ * @brief Loads the instance with rialto mode or not 
+ *
+ * @return A pointer to the created SocInterface object, or nullptr on failure.
+ */
+std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
+{
+	if(isRialto == true)
+	{
+	    MW_LOG_MIL("Rialto is enabled and creating default soc");
+	}
+	mIsRialtoMode = isRialto;
+	return CreateSocInterface();
+}
 
 /**
  * @brief Creates an instance of the SoC-specific interface based on the detected platform.

@@ -398,7 +398,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 {
 	/* test
 	 * for a http 502 error then we will retry MANIFEST_DOWNLOAD_502_RETRY_COUNT times
-	 * for other http erros then we retry DEFAULT_DOWNLOAD_RETRY_COUNT
+	 * for other http errors then we retry DEFAULT_DOWNLOAD_RETRY_COUNT
 	 * */
 	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
 	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
@@ -542,4 +542,109 @@ TEST_F(FunctionalTests, Release_BeforeCleanupCurlHeaderResources_PreventRaceCond
 	
 	// Verify no crash occurred and state is clean
 	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+}
+
+/**
+ * @brief Verify that downloadCompleteMetrics.total uses cumulative wall-clock time, not CURLINFO_TOTAL_TIME.
+ *
+ * CURLINFO_TOTAL_TIME is obtained after the retry loop ends (last attempt only).
+ * Without the fix, total == 0.0 here because the fake mock returns 0.0 for any
+ * curl_easy_getinfo call that is not CURLINFO_RESPONSE_CODE.
+ * After the fix, total is overridden with the wall-clock elapsed time across all
+ * attempts, so total > 0 even for a single-attempt download.
+ */
+TEST_F(FunctionalTests, DownloadTest_Metrics_TotalIsWallClockNotCurlInfoTotal)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	// FakeCurl returns 0.0 for CURLINFO_TOTAL_TIME (only RESPONSE_CODE is mocked).
+	// Without the fix, total would remain 0.0. With the fix, total = wall-clock elapsed > 0.
+	EXPECT_GT(respData->downloadCompleteMetrics.total, 0.0);
+}
+
+/**
+ * @brief Verify that downloadCompleteMetrics.total accumulates across retry attempts.
+ *
+ * Simulates a throttled network: first curl attempt takes 50 ms (HTTP 503, retried),
+ * second attempt succeeds instantly (HTTP 200). The autotriage timeline tool reads
+ * the 'total' field to draw the download bar width; it must span both attempts.
+ *
+ * Without the fix:
+ *   total = CURLINFO_TOTAL_TIME of last attempt = 0.0 (mock returns 0 for non-RESPONSE_CODE)
+ *   → autotriage shows a 50 ms idle gap then an instant bar.
+ *
+ * After the fix:
+ *   total = wall-clock elapsed from before first attempt to after last attempt >= 0.050 s
+ *   → autotriage shows a single 50 ms wide bar.
+ */
+TEST_F(FunctionalTests, DownloadTest_Metrics_TotalCumulatesAcrossRetries)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownloadRetryCount = 1;
+	inpData->iDownloadRetryWaitMs = 0;  // no inter-retry sleep; all timing is from the slow first attempt
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	constexpr int kSlowAttemptMs = 50;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		// First attempt: slow (50 ms), HTTP 503 → triggers a retry
+		.WillOnce(DoAll(
+			InvokeWithoutArgs([&]() {
+				std::this_thread::sleep_for(std::chrono::milliseconds(kSlowAttemptMs));
+			}),
+			Return(CURLE_OK)))
+		// Retry: instant, HTTP 200
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(503), Return(CURLE_OK)))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	// Wall-clock total must include the 50 ms slow first attempt.
+	// Before fix: total = CURLINFO_TOTAL_TIME of the instant retry = 0.0 (mock default).
+	// After fix:  total = cumulative wall-clock elapsed >= 0.050 s.
+	EXPECT_GE(respData->downloadCompleteMetrics.total, kSlowAttemptMs / 1000.0);
 }

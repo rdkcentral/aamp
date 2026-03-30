@@ -177,6 +177,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
 			bool loopAgain = false;
+			// High-resolution start time captured before any retry so that total in
+			// downloadCompleteMetrics reflects the full wall-clock span including retries.
+			auto loopStartTimeHR = std::chrono::steady_clock::now();
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 				if( mDnldCfg && mDnldCfg->bCurlThroughput )
@@ -258,6 +261,22 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			// update the download response metrics for success and failure case 
 			// and for last attempt only (if retries enabled)
 			updateResponseParams();
+			// Override total/downloadbps with cumulative wall time across all retry attempts.
+			// CURLINFO_TOTAL_TIME (set by updateResponseParams) only reflects the last attempt,
+			// which causes autotriage timeline tools to see a long idle gap instead of a long bar.
+			if (mDnldCfg && mDnldCfg->bNeedDownloadMetrics)
+			{
+				std::lock_guard<std::mutex> lock(mCurlMutex);
+				double cumulativeTotal = std::chrono::duration<double>(
+					std::chrono::steady_clock::now() - loopStartTimeHR).count();
+				// Always override total: CURLINFO_TOTAL_TIME only covers the last attempt.
+				mDownloadResponse->downloadCompleteMetrics.total = cumulativeTotal;
+				if (cumulativeTotal > 0)
+				{
+					mDownloadResponse->downloadCompleteMetrics.downloadbps =
+						(long)(mDownloadResponse->downloadCompleteMetrics.dlSize * 8 / cumulativeTotal);
+				}
+			}
 			mDownloadActive = false;
 			mDownloadResponse->iHttpRetValue = httpRetVal;		
 			if( mDnldCfg && mDnldCfg->bCurlThroughput )
@@ -509,18 +528,25 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 {
 	size_t retSize = sz * nmemb;
-
 	if(retSize)
 	{
 		std::lock_guard<std::mutex> lock(mCurlMutex);
-		std::vector<std::uint8_t> op1;
-		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
-		std::uint8_t *bufferE = bufferS + retSize;
-		std::copy(bufferS, bufferE, std::back_inserter(this->mDownloadResponse->mDownloadData));
-		mDownloadUpdatedTime = NOW_STEADY_TS_MS;
-		mWriteCallbackBufferSize += retSize;
+		const std::uint8_t* bufferS = static_cast<const std::uint8_t*>(buffer);
+		const std::uint8_t* bufferE = bufferS + retSize;
+		try
+		{
+			this->mDownloadResponse->mDownloadData.insert(
+				this->mDownloadResponse->mDownloadData.end(), bufferS, bufferE);
+			mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+			mWriteCallbackBufferSize += retSize;
+		}
+		catch( const std::exception &e )
+		{
+			AAMPLOG_ERR("write_callback: buffer insert(%zu bytes) failed (%s); aborting transfer", retSize, e.what());
+			mDownloadResponse->mAbortReason = eCURL_ABORT_REASON_BUFFER_ALLOC_FAILURE;
+			return 0; // signals libcurl to abort with CURLE_WRITE_ERROR
+		}
 	}
-
 	return retSize;
 }
 

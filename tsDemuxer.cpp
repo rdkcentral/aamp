@@ -21,9 +21,10 @@
 
 #include "priv_aamp.h"
 #include "AampLogManager.h"
+#include "AampUtils.h"        // for aamp_utils::ClearAndRelease
 #include "DemuxDataTypes.h"  // for exchange utility
-
 // TS Demuxing defines
+
 
 #define PES_STATE_WAITING_FOR_HEADER  0
 #define PES_STATE_GETTING_HEADER  1
@@ -141,7 +142,7 @@ void Demuxer::send()
 
 		if (aamp)
 		{
-			aamp->SendStreamCopy(type, es.GetVector(), info.pts_s, info.dts_s, duration);
+			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, duration);
 		}
 		es.clear();
 	}
@@ -149,8 +150,8 @@ void Demuxer::send()
 
 void Demuxer::resetInternal()
 {
-	es.Free();
-	pes_header.Free();
+	aamp_utils::ClearAndRelease(es);
+	aamp_utils::ClearAndRelease(pes_header);
 }
 
 void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
@@ -159,15 +160,8 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 	{
 		if (CheckForSteadyState())
 		{
-			// Copy the segment data into a vector and pass it to the processing function
-			uint8_t * data_ptr = es.data();
-
-			const auto len = es.size();
-			std::vector<uint8_t> buf(len);
-			const auto info {UpdateSegmentInfo()};
-			buf.assign(data_ptr, data_ptr + len);
-			processor(type, std::move(info), std::move(buf));
-			es.clear();
+			processor(type, UpdateSegmentInfo(), std::move(es));
+			es.clear(); // move leaves es in valid-but-unspecified state; clear for determinism
 		}
 	}
 	else
@@ -204,10 +198,9 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 void Demuxer::flush()
 {
 	std::lock_guard<std::mutex> lock{mMutex};
-	auto len = es.size();
-	if (len > 0)
+	if (!es.empty())
 	{
-		AAMPLOG_INFO("demux : sending remaining bytes. es.len %d", (int)es.size());
+		AAMPLOG_INFO("demux : sending remaining bytes. es.len %zu", es.size());
 		send();
 	}
 	resetInternal();
@@ -258,7 +251,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 		/*Store the pts/dts*/
 		if (PAYLOAD_UNIT_START(packetStart))
 		{
-			if (es.size() > 0)
+			if (!es.empty())
 			{
 				if (processor)
 				{
@@ -447,18 +440,27 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					size = 0;
 					break;
 				case PES_STATE_GETTING_HEADER:
-					bytes_to_read = (int)(aamp_ts::pes_min_data - pes_header.size());
-					if( bytes_to_read<=0 )
+				{
+					const size_t headerSize = pes_header.size();
+					if (headerSize >= aamp_ts::pes_min_data)
 					{
-						AAMPLOG_WARN( "bad pes_header length" );
+						AAMPLOG_WARN("bad pes_header length %zu (>= pes_min_data %zu)",
+							headerSize, aamp_ts::pes_min_data);
+						// Reset state and discard remaining bytes in this packet to avoid infinite loop
+						pes_header.clear();
+						pes_state = PES_STATE_WAITING_FOR_HEADER;
+						size = 0;
 						break;
 					}
-					if (size < bytes_to_read)
-					{
-						bytes_to_read = size;
-					}
+
+					const size_t packetBytesRemaining = static_cast<size_t>(size);
+					const size_t headerBytesRemaining = aamp_ts::pes_min_data - headerSize;
+					const size_t bytesFromPacket = (packetBytesRemaining < headerBytesRemaining) ? packetBytesRemaining : headerBytesRemaining;
+
+					bytes_to_read = static_cast<int>(bytesFromPacket);
+
 					AAMPLOG_DEBUG("PES_STATE_GETTING_HEADER. size = %d, bytes_to_read =%d", size, bytes_to_read);
-					pes_header.insert(pes_header.GetVector().end(),
+					pes_header.insert(pes_header.end(),
 									  data,
 									  data + bytes_to_read);
 					data += bytes_to_read;
@@ -490,6 +492,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						}
 					}
 					break;
+				}
 				case PES_STATE_GETTING_HEADER_EXTENSION:
 					bytes_to_read = pes_header_ext_len - pes_header_ext_read;
 					if (bytes_to_read > size)
@@ -508,7 +511,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				case PES_STATE_GETTING_ES:
 					/*Handle padding?*/
 					AAMPLOG_TRACE("PES_STATE_GETTING_ES bytes_to_read = %d", size);
- 					es.insert(es.GetVector().end(),
+					es.insert(es.end(),
 							data,
 							data + size);
 					size = 0;

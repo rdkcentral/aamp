@@ -21,6 +21,7 @@
 #include <gmock/gmock.h>
 #include <thread>
 #include <chrono>
+#include <future>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampUtils.h"
@@ -45,6 +46,7 @@ using ::testing::WithArgs;
 using ::testing::Invoke;
 using ::testing::StrEq;
 using ::testing::DoAll;
+using ::testing::InvokeWithoutArgs;
 
 using namespace dash::xml;
 using namespace dash::mpd;
@@ -119,13 +121,13 @@ protected:
   }
 
 public:
-  bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
+  bool GetManifest(std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int& httpError)
   {
-    /* Setup fake AampGrowableBuffer contents. */
-    buffer->clear();
-    buffer->assign(mManifest, mManifest + strlen(mManifest));
+    /* Setup fake buffer contents. */
+    buffer.clear();
+    buffer.assign(mManifest, mManifest + strlen(mManifest));
     effectiveUrl = remoteUrl;
-    *httpError = 200;
+    httpError = 200;
 
     return true;
   }
@@ -162,8 +164,8 @@ public:
     else
     {
       EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
-              .WillOnce(WithArgs<4>(Invoke([httpError](int* err){
-                *err = httpError;
+              .WillOnce(WithArgs<4>(Invoke([httpError](int& err){
+                err = httpError;
                 return false;
               })));
     }
@@ -511,7 +513,13 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest, true);
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
+  // Use shared_ptr so the promise outlives this stack frame if wait_for times out and ASSERT
+  // returns early before TearDown shuts down the background ad thread.
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   std::string adInitUrl = GetFullURI(TEST_FOG_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
@@ -520,7 +528,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj created
@@ -973,11 +981,11 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
       .WillOnce(Return(true));
     // Set up the mock for GetFile before any SetAlternateContents calls
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
-      .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *httpError)
+      .WillOnce(WithArgs<0,2,3,4>(Invoke([this, periodId, manifest](std::string remoteUrl, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int& httpError)
         {
-            buffer->clear();
-            buffer->assign(manifest, manifest + strlen(manifest));
-            *httpError = 200;
+            buffer.clear();
+            buffer.assign(manifest, manifest + strlen(manifest));
+            httpError = 200;
             effectiveUrl = remoteUrl;
             if (!this->mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->empty())
             {
@@ -4296,31 +4304,30 @@ TEST_F(AdManagerMPDTests, NotifyReservationComplete_EmptyAdBreak_NotifiesAndReso
 }
 
 /**
- * @brief CancelReservation should set cancelAtReservationId when placement matches.
+ * @brief CancelReservation should set cancelAtReservationId for active placement.
  */
 TEST_F(AdManagerMPDTests, CancelReservation_MatchingPlacement_SetsCancelId)
 {
-  const std::string playingReservationId = "playingBrk";
+  const std::string activeReservationId = "playingBrk";
   const std::string cancelAtReservationId = "nextBrk";
 
-  mPrivateCDAIObjectMPD->mAdBreaks[playingReservationId] =
+  mPrivateCDAIObjectMPD->mAdBreaks[activeReservationId] =
     AdBreakObject(30000, nullptr, "", 0, 0);
-  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId = playingReservationId;
+  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId = activeReservationId;
 
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[playingReservationId].
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[activeReservationId].
     cancelAtPeriodId.empty());
 
-  mPrivateCDAIObjectMPD->CancelReservation(playingReservationId,
-    cancelAtReservationId);
+  mPrivateCDAIObjectMPD->CancelReservation(cancelAtReservationId);
 
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[playingReservationId].
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[activeReservationId].
     cancelAtPeriodId, cancelAtReservationId);
 }
 
 /**
- * @brief CancelReservation with empty inputs should not change ad break state.
+ * @brief CancelReservation with empty cancel id should not change ad break state.
  */
-TEST_F(AdManagerMPDTests, CancelReservation_EmptyInputs_NoChange)
+TEST_F(AdManagerMPDTests, CancelReservation_EmptyCancelId_NoChange)
 {
   const std::string periodId = "playingBrk";
 
@@ -4331,31 +4338,30 @@ TEST_F(AdManagerMPDTests, CancelReservation_EmptyInputs_NoChange)
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].
     cancelAtPeriodId.empty());
 
-  mPrivateCDAIObjectMPD->CancelReservation("", "");
+  mPrivateCDAIObjectMPD->CancelReservation("");
 
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].
     cancelAtPeriodId.empty());
 }
 
 /**
- * @brief CancelReservation with mismatched placement should not change ad break state.
+ * @brief CancelReservation with missing placement break should not change state.
  */
-TEST_F(AdManagerMPDTests, CancelReservation_MismatchedPlacement_NoChange)
+TEST_F(AdManagerMPDTests, CancelReservation_PlacementBreakMissing_NoChange)
 {
-  const std::string playingReservationId = "playingBrk";
+  const std::string existingBreakId = "existingBrk";
   const std::string cancelAtReservationId = "nextBrk";
-  const std::string actualPlacementId = "actualPlacementBrk";
 
-  mPrivateCDAIObjectMPD->mAdBreaks[actualPlacementId] =
+  mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId] =
     AdBreakObject(30000, nullptr, "", 0, 0);
-  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId = actualPlacementId;
+  mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId].mAdBreakPlaced = true;
+  mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.clear();
 
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[actualPlacementId].
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId].
     cancelAtPeriodId.empty());
 
-  mPrivateCDAIObjectMPD->CancelReservation(playingReservationId,
-    cancelAtReservationId);
+  mPrivateCDAIObjectMPD->CancelReservation(cancelAtReservationId);
 
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[actualPlacementId].
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[existingBreakId].
     cancelAtPeriodId.empty());
 }
