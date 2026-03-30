@@ -59,6 +59,11 @@ void PlayerExternalsInterface::GetDisplayResolution(int &width, int &height)
 {
 }
 
+bool PlayerExternalsInterface::GetDeviceConectedStatus()
+{
+	return false;
+}
+
 /**
  * @brief Check if  PlayerExternalsInterfaceInstance active
  */

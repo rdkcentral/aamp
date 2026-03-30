@@ -42,6 +42,7 @@ class PlayerExternalsInterfaceBase
 {
     protected:
         bool m_isHDCPEnabled;
+		bool m_isDisplayConnected;
         int m_displayWidth;
         int m_displayHeight;
 
@@ -105,6 +106,8 @@ class PlayerExternalsInterfaceBase
          * @param[out] height height of current resolution
          */
         virtual void GetDisplayResolution(int &width, int &height){}
+
+		virtual bool GetDeviceConectedStatus( ){return false;}		
 
         /**
          * @fn SetHDMIStatus

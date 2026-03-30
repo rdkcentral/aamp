@@ -154,6 +154,12 @@ public:
 		height = m_displayHeight;
 	}
 
+	
+	bool GetDeviceConectedStatus()
+	{
+		return false;
+	}	
+
 	void SetResolution(int width, int height)
 	{
 		// Validate input: reject zero, negative, or out-of-range values

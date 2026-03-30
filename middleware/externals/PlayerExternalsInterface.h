@@ -60,6 +60,9 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
          */
         void GetDisplayResolution(int &width, int &height) override{}
 
+		
+		bool GetDeviceConectedStatus() override{ return false;}
+
         /**
          * @fn SetHDMIStatus
          * @brief Checks Display Settings and sets HDMI parameters like video output resolution, HDCP protocol
@@ -177,6 +180,8 @@ public:
      * @param[out] height : Display height
      */
     void GetDisplayResolution(int &width, int &height);
+
+	bool GetDeviceConectedStatus();
 
     /**
      * @brief Set GstElement

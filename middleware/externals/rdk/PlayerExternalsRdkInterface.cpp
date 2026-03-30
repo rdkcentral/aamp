@@ -209,6 +209,12 @@ void PlayerExternalsRdkInterface::GetDisplayResolution(int &width, int &height)
     height  = m_displayHeight;
 }
 
+bool PlayerExternalsRdkInterface::GetDeviceConectedStatus( )
+{
+    return m_isDisplayConnected;
+}
+
+
 void PlayerExternalsRdkInterface::SetResolution(int width, int height)
 {
     MW_LOG_WARN(" Resolution : width %d height:%d\n",width,height);
@@ -299,6 +305,7 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
     }
 
     m_isHDCPEnabled = isHDCPEnabled;
+	m_isDisplayConnected = isConnected;
 
     if(m_isHDCPEnabled) {
         if(hdcpCurrentProtocol == dsHDCP_VERSION_2X) {

@@ -86,6 +86,11 @@ void PlayerExternalsInterface::GetDisplayResolution(int &width, int &height)
     m_pIarmInterface->GetDisplayResolution(width, height);
 }
 
+bool PlayerExternalsInterface::GetDeviceConectedStatus()
+{
+	return m_pIarmInterface->GetDeviceConectedStatus( );
+}
+
 /**
  * @brief Check if  PlayerExternalsInterfaceInstance active
  */

@@ -109,6 +109,9 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
          */
         void GetDisplayResolution(int &width, int &height) override;
 
+		
+		bool GetDeviceConectedStatus() override;
+
         /**
          * @fn SetHDMIStatus
          * @brief Checks Display Settings and sets HDMI parameters like video output resolution, HDCP protocol
