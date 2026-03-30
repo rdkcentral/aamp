@@ -2327,7 +2327,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				}
 				interfacePlayerPriv->gstPrivateContext->video_sink = vidsink;
 				MW_LOG_WARN("Toggle on enable-live-latency property for rialtomsevideosink");
-				g_object_set(stream->sinkbin, "enable-live-latency", TRUE, NULL);
+				g_object_set(vidsink, "enable-live-latency", TRUE, NULL);
 			}
 			else
 			{
