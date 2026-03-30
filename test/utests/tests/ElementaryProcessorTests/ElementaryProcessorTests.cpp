@@ -18,10 +18,13 @@
 */
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <ElementaryProcessor.h>
 #include <string>
 #include <stdint.h>
 #include <iostream>
+
+#include "MockPrivateInstanceAAMP.h"
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
@@ -186,4 +189,56 @@ TEST_F(ElementaryProcessorTest, setRateTest5)
     {
         mElementaryProcessor->setRate(rate, playerMode);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Fixture that wires up MockPrivateInstanceAAMP so injection API calls can be
+// observed.  Used to verify the new false-return contract of sendSegment().
+// ---------------------------------------------------------------------------
+class ElementaryProcessorSendSegmentTest : public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(gpGlobalConfig);
+		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+		// ElementaryProcessor constructor calls GetMediaFormatTypeEnum()
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum())
+			.WillRepeatedly(Return(eMEDIAFORMAT_HLS_MP4));
+		mElementaryProcessor = new ElementaryProcessor(mPrivateInstanceAAMP2);
+	}
+
+	void TearDown() override
+	{
+		delete mElementaryProcessor;
+		mElementaryProcessor = nullptr;
+		delete mPrivateInstanceAAMP2;
+		mPrivateInstanceAAMP2 = nullptr;
+		delete g_mockPrivateInstanceAAMP;
+		g_mockPrivateInstanceAAMP = nullptr;
+	}
+
+	ElementaryProcessor    *mElementaryProcessor{};
+	PrivateInstanceAAMP    *mPrivateInstanceAAMP2{};
+	MediaProcessor::process_fcn_t mProcessorFn{};
+};
+
+// sendSegment() must return false when the sink rejects the buffer
+// (SendStreamCopy returns false on the HLS path).
+TEST_F(ElementaryProcessorSendSegmentTest, sendSegmentReturnsFalse_WhenSinkRejectsBuffer)
+{
+	std::vector<uint8_t> buffer{0xAA, 0xBB};
+	bool ptsError = false;
+
+	// Unblock the PTS wait so sendSegment() reaches sendStream() synchronously.
+	mElementaryProcessor->abortInjectionWait();
+
+	// Sink signals failure.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
+
+	bool result = mElementaryProcessor->sendSegment(buffer, 0.0, 2.0, 0.0, false, false, mProcessorFn, ptsError);
+
+	EXPECT_FALSE(result);
 }
