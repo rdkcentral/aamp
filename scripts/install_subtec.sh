@@ -123,6 +123,18 @@ function subtec_install_fn() {
         popd
         return 1
     }
+
+    git apply -p1 "${1}/OSX/patches/subttxrend-app-homebrew-paths.patch" || {
+        echo "ERROR: Failed to apply subttxrend-app-homebrew-paths.patch"
+        popd
+        return 1
+    }
+
+    git apply -p1 "${1}/OSX/patches/websocket-ipplayer2-homebrew-includes.patch" --directory websocket-ipplayer2-utils || {
+        echo "ERROR: Failed to apply websocket-ipplayer2-homebrew-includes.patch"
+        popd
+        return 1
+    }
  
     echo "subtec-app source prepared"
     popd
@@ -211,7 +223,7 @@ function subtec_install_build_fn() {
     cd subtec-app/subttxrend-app/x86_builder/ || { echo "Failed to change to subtec build directory"; return 1; }
 
     if [ ! -d build/install ] ; then
-        PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
+        BOOST_ROOT="$(brew --prefix boost@1.85)" CMAKE_PREFIX_PATH="$(brew --prefix tinyxml2);$(brew --prefix websocketpp);$(brew --prefix boost@1.85)" PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
 
         if [ -f ./build/install/usr/local/bin/subttxrend-app ]; then
             echo "subtec-app has been built."
