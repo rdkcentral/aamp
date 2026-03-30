@@ -5610,7 +5610,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		// Retrieve the current closed‑captioning state and log it along with the in‑band CC flag.
 		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_MIL("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
+		if (mIsInbandCC && !mCCStatusSetByApp.load())
+		{
+			// No API to set CC or subtitles has been called, so AAMP assumes that the app talks to CCManager directly.
+			// Set subtitles_muted based on the current CC status to ensure correct subtitle state is applied later on.
+			subtitles_muted = !previousCCEnabled;
+		}
+		AAMPLOG_MIL("previousCCEnabled:%d isCCinBand:%d subtitles_muted:%d mCCStatusSetByApp:%d",
+			previousCCEnabled, mIsInbandCC, subtitles_muted.load(), mCCStatusSetByApp.load());
 
 		if (!mbUsingExternalPlayer)
 		{
@@ -5730,8 +5737,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
 		{
-			// Set subtitles_muted so that AAMP will not change the CC state when SetCCStatusInternal() is called.
-			subtitles_muted = !previousCCEnabled;
 			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
 		}
 	}
@@ -7247,6 +7252,11 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 	{
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
+}
+
+void PrivateInstanceAAMP::SetCCStatusSetByApp()
+{
+	mCCStatusSetByApp = true;
 }
 
 /**
