@@ -2582,7 +2582,11 @@ bool PrivateInstanceAAMP::IsAtLivePoint()
 {
 	if (IsLiveStream())
 	{
-		std::lock_guard<std::recursive_mutex> guard(GetStreamLock());
+		// Avoid acquiring StreamLock here to prevent a circular deadlock.
+		// One of the scenarios is listed below:
+		// 1. SetRateInternal() holds StreamLock and then waits for a lock in decoder
+		// 2. The decoder first-frame callback holds the lock and then calls
+		// NotifyFirstBufferProcessed() -> IsAtLivePoint(), which waits for StreamLock.
 		if (mpStreamAbstractionAAMP)
 		{
 			return mpStreamAbstractionAAMP->mIsAtLivePoint;
