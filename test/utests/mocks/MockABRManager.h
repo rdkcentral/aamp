@@ -21,7 +21,7 @@
 #define AAMP_MOCK_ABR_MANAGER_H
 
 #include <gmock/gmock.h>
-#include "abr.h"
+#include "ABRManager.h"
 
 class MockABRManager
 {

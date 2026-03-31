@@ -17,21 +17,5 @@
  * limitations under the License.
  */
 
-#ifndef AAMP_MOCK_AAMP_PRIV_AAMP_H
-#define AAMP_MOCK_AAMP_PRIV_AAMP_H
-
-#include <gmock/gmock.h>
-#include "priv_aamp.h"
-
-class MockPrivateInstanceAAMP
-{
-public:
-	MOCK_METHOD(void, Individualization, (const std::string &payload));
-	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
-	MOCK_METHOD(void, SendDrmErrorEvent, (DrmMetaDataEventPtr event, bool isRetryEnabled));
-	MOCK_METHOD(void, SendDRMMetaData, (DrmMetaDataEventPtr e));
-};
-
-extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
-
-#endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */
+// Redirect to the canonical mock header to avoid ODR violations
+#include "../../mocks/MockPrivateInstanceAAMP.h"
