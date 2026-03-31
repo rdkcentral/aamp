@@ -18,6 +18,9 @@
 */
 
 #include "ABRManager.h"
+#include "MockABRManager.h"
+
+MockABRManager *g_mockABRManager = nullptr;
 
 long ABRManager::mPersistBandwidth = 0;
 long long ABRManager::mPersistBandwidthUpdatedTime = 0;
@@ -28,78 +31,94 @@ ABRManager::ABRManager()
 
 int ABRManager::getProfileCount()
 {
+    if (g_mockABRManager) return g_mockABRManager->getProfileCount();
     return 0;
 }
 
 int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
 {
+    if (g_mockABRManager) return g_mockABRManager->getBestMatchedProfileIndexByBandWidth(bandwidth);
     return 0;
 }
 
 int ABRManager::getMaxBandwidthProfile(const std::string& periodId)
 {
+    if (g_mockABRManager) return g_mockABRManager->getMaxBandwidthProfile(periodId);
     return 0;
 }
 
 long ABRManager::getBandwidthOfProfile(int profileIndex)
 {
+    if (g_mockABRManager) return g_mockABRManager->getBandwidthOfProfile(profileIndex);
     return 0;
 }
 
 void ABRManager::clearProfiles()
 {
+    if (g_mockABRManager) { g_mockABRManager->clearProfiles(); return; }
     return;
 }
 
 void ABRManager::addProfile(ABRManager::ProfileInfo profile)
 {
+    if (g_mockABRManager) { g_mockABRManager->addProfile(profile); return; }
 }
 
 int ABRManager::getRampedDownProfileIndex(int currentProfileIndex, const std::string& periodId)
 {
+    if (g_mockABRManager) return g_mockABRManager->getRampedDownProfileIndex(currentProfileIndex, periodId);
     return 0;
 }
 
 int ABRManager::getUserDataOfProfile(int currentProfileIndex)
 {
+    if (g_mockABRManager) return g_mockABRManager->getUserDataOfProfile(currentProfileIndex);
     return 0;
 }
 
 void ABRManager::setDefaultInitBitrate(long defaultInitBitrate)
 {
+    if (g_mockABRManager) { g_mockABRManager->setDefaultInitBitrate(defaultInitBitrate); return; }
 }
 
 void ABRManager::updateProfile()
 {
+    if (g_mockABRManager) { g_mockABRManager->updateProfile(); return; }
 }
 
 int ABRManager::getDesiredIframeProfile() const
 {
+    if (g_mockABRManager) return g_mockABRManager->getDesiredIframeProfile();
     return 0;
 }
 
 int ABRManager::getInitialProfileIndex(bool chooseMediumProfile, const std::string& periodId)
 {
+    if (g_mockABRManager) return g_mockABRManager->getInitialProfileIndex(chooseMediumProfile, periodId);
     return 0;
 }
 
 int ABRManager::getLowestIframeProfile() const
 {
+    if (g_mockABRManager) return g_mockABRManager->getLowestIframeProfile();
     return 0;
 }
 
 int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, long currentBandwidth, long networkBandwidth, int nwConsistencyCnt, const std::string& periodId)
 {
+    if (g_mockABRManager) return g_mockABRManager->getProfileIndexByBitrateRampUpOrDown(currentProfileIndex, currentBandwidth, networkBandwidth, nwConsistencyCnt, periodId);
     return 0;
 }
 
 int ABRManager::getRampedUpProfileIndex(int currentProfileIndex, const std::string& periodId)
 {
+    if (g_mockABRManager) return g_mockABRManager->getRampedUpProfileIndex(currentProfileIndex, periodId);
     return 0;
 }
 
 bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std::string& periodId)
 {
+    if (g_mockABRManager) return g_mockABRManager->isProfileIndexBitrateLowest(currentProfileIndex, periodId);
     return true;
 }
 

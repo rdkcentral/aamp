@@ -48,6 +48,8 @@ public:
 	MOCK_METHOD(std::string, GetAvailableAudioTracks, (bool allTrack));
 	MOCK_METHOD(int,GetAudioTrack,());
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
+	MOCK_METHOD(void, SendDrmErrorEvent, (DrmMetaDataEventPtr event, bool isRetryEnabled));
+	MOCK_METHOD(void, SendDRMMetaData, (DrmMetaDataEventPtr e));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampGrowableBuffer*, double, double, double, double, bool, bool));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType, const void *, size_t, double, double, double));
@@ -91,6 +93,7 @@ public:
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
+	MOCK_METHOD(void, Individualization, (const std::string &payload));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

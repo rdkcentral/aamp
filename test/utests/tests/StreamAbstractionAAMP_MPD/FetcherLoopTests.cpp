@@ -1074,10 +1074,10 @@ TEST_F(FetcherLoopTests, FetcherLoopSkipsAdvanceTrackWhenExceedsLiveEdge)
 	AAMPStatusType status;
 
 	videoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoInitFragmentUrl, _, _, _, _, true, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
 		.Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(false));
