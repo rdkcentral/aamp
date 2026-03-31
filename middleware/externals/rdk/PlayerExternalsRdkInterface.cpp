@@ -211,6 +211,7 @@ void PlayerExternalsRdkInterface::GetDisplayResolution(int &width, int &height)
 
 bool PlayerExternalsRdkInterface::GetDeviceConectedStatus( )
 {
+    MW_LOG_WARN(" Device Connected Status : %d\n",m_isDisplayConnected);
     return m_isDisplayConnected;
 }
 
@@ -305,7 +306,8 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
     }
 
     m_isHDCPEnabled = isHDCPEnabled;
-	m_isDisplayConnected = isConnected;
+    m_isDisplayConnected = isConnected;
+    MW_LOG_WARN("status - Display connected[%d] HDCP[%d]\n", m_isDisplayConnected, m_isHDCPEnabled);
 
     if(m_isHDCPEnabled) {
         if(hdcpCurrentProtocol == dsHDCP_VERSION_2X) {

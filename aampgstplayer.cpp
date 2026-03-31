@@ -41,6 +41,7 @@
 #include "AampSegmentInfo.hpp"
 #include "AampBufferControl.h"
 #include "AampDefine.h"
+#include "PlayerExternalsInterface.h"
 #include <functional>
 #include <inttypes.h>
 
@@ -48,6 +49,8 @@
 
 #define AAMP_MIN_DECODE_ERROR_INTERVAL 10000                     /**< Minimum time interval in milliseconds between two decoder error CB to send anomaly error */
 #define INVALID_RATE -9999
+
+extern PlayerExternalsInterface *pPlayerExternalsInterface;
 
 /**
  * @struct AAMPGstPlayerPriv
@@ -572,6 +575,19 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			else if (busEvent.msg.find("Error parsing H.264 stream") != std::string::npos)
 			{ // note: surfacing this intermittent error can cause freeze on partner apps.
 				AAMPLOG_WARN("%s", errorDesc.c_str());
+			}
+			else if (busEvent.msg.find("Rialto dropped a frame that failed to decrypt") != std::string::npos)
+			{
+				bool isDeviceConnected = pPlayerExternalsInterface?pPlayerExternalsInterface->GetDeviceConectedStatus():false;
+				if(isDeviceConnected)
+				{
+					_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str(), false);
+					AAMPLOG_WARN("%s", errorDesc.c_str());
+				}
+				else
+				{
+					AAMPLOG_WARN("Ignore Error[%s] as Device connected status is [%d]", errorDesc.c_str(),isDeviceConnected);
+				}
 			}
 			else if (busEvent.msg.find("This file is corrupt and cannot be played") != std::string::npos)
 			{ // fatal error; disable retry flag to avoid failure loop
