@@ -64,7 +64,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 
 	fragmentDurationSeconds = fragmentDurationS;
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
-	CachedFragment *cachedFragment = GetFetchBuffer(true);
+	mStagingFragment.Clear();
+	CachedFragment *cachedFragment = &mStagingFragment;
 	BitsPerSecond bitrate = 0;
 	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
@@ -672,8 +673,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		return;
 	}
 
-	// Get active buffer
-	CachedFragment *cachedFragment = GetFetchBuffer(false);
+	// Get staging fragment populated by CacheFragment
+	CachedFragment *cachedFragment = &mStagingFragment;
 	mActiveDownloadInfo = nullptr;
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
@@ -808,6 +809,11 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 	else
 	{
+		// Move staging fragment into the cache slot for injection
+		CachedFragment *slot = GetFetchBuffer(false);
+		*slot = std::move(mStagingFragment);
+		cachedFragment = slot;
+
 		// Update buffer index after fetch for injection
 		UpdateTSAfterFetch(dlInfo->isInitSegment);
 
@@ -861,8 +867,8 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 		return;
 	}
 
-	// Get active buffer
-	CachedFragment *cachedFragment = GetFetchBuffer(false);
+	// Get staging fragment populated by CacheFragment
+	CachedFragment *cachedFragment = &mStagingFragment;
 	mActiveDownloadInfo = nullptr;
 	AAMPLOG_INFO("fragment fetch failed - Free cachedFragment for %d", cachedFragment->type);
 	aamp_utils::ClearAndRelease(cachedFragment->fragment);

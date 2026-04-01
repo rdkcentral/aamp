@@ -348,6 +348,7 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	bool discontinuity;
 	std::vector<uint8_t> mDownloadedFragment{};	/**< Fragment stored across ABR profile changes */
 	std::vector<uint8_t> mTempFragment{};		/**< Scratch buffer for init/download fragments */
+	CachedFragment mStagingFragment{};		/**< Staging buffer for fragment download in progress */
 
 	double fragmentTime; // Absolute Fragment time from Availability start
 	std::atomic<double> lastDownloadedPosition;
