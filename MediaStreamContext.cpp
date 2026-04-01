@@ -817,9 +817,9 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		// Update buffer index after fetch for injection
 		UpdateTSAfterFetch(dlInfo->isInitSegment);
 
-		// With AAMP TSB enabled, the chunk cache is used for any content type (SLD or LLD)
-		// When playing live SLD content, the fragment is written to the regular cache and to the chunk cache
-		if(tsbSessionManager && !IsLocalTSBInjection() && !aamp->GetLLDashChunkMode())
+		// For all DASH SLD content (with or without TSB), write the fragment into the chunk cache
+		// so the inject thread reads from mCachedFragmentChunks (unified cache path)
+		if(aamp->IsDashAsset() && !aamp->GetLLDashChunkMode())
 		{
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 			fragmentToCache->Copy(*cachedFragment);
@@ -830,10 +830,16 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		if(IsInjectionFromCachedFragmentChunks())
 		{
 			UpdateTSAfterInject();
-			auto timeBasedBufferManager = GetTimeBasedBufferManager();
-			if(timeBasedBufferManager)
+			// For LLD and AAMP TSB the fragment is handed off here, so consume the
+			// buffer now. For plain SLD DASH (routed via IsDashAsset), the inject
+			// thread in ProcessAndInjectFragment calls ConsumeBuffer after injection.
+			if (aamp->GetLLDashChunkMode() || aamp->IsLocalAAMPTsb())
 			{
-				timeBasedBufferManager->ConsumeBuffer(cachedFragment->duration);
+				auto timeBasedBufferManager = GetTimeBasedBufferManager();
+				if(timeBasedBufferManager)
+				{
+					timeBasedBufferManager->ConsumeBuffer(cachedFragment->duration);
+				}
 			}
 		}
 	}

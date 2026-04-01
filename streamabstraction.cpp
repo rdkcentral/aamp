@@ -1478,6 +1478,16 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		if(IsInjectionFromCachedFragmentChunks())
 		{
 			UpdateTSAfterChunkInject();
+			// Plain SLD DASH (not LLD chunk mode, not AAMP TSB) routes through the chunk
+			// cache but still needs time-based buffer accounting, as it did before.
+			if (!aamp->GetLLDashChunkMode() && !aamp->IsLocalAAMPTsb())
+			{
+				auto timeBasedBufferManager = GetTimeBasedBufferManager();
+				if (timeBasedBufferManager)
+				{
+					timeBasedBufferManager->ConsumeBuffer(inFragmentDuration);
+				}
+			}
 		}
 		else
 		{
@@ -4837,13 +4847,15 @@ void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
 
 bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 {
-	// CachedFragmentChunks is used for LL-DASH and for any content if AAMP TSB is enabled
+	// CachedFragmentChunks is used for LL-DASH, for any content if AAMP TSB is enabled,
+	// and for all DASH content (to unify the fragment cache path)
 	bool isLLDashChunkMode = aamp->GetLLDashChunkMode();
 	bool aampTsbEnabled = aamp->IsLocalAAMPTsb();
-	bool isInjectionFromCachedFragmentChunks = isLLDashChunkMode || aampTsbEnabled;
+	bool isDash = aamp->IsDashAsset();
+	bool isInjectionFromCachedFragmentChunks = isLLDashChunkMode || aampTsbEnabled || isDash;
 
-	AAMPLOG_TRACE("[%s] isLLDashChunkMode %d aampTsbEnabled %d ret %d",
-				  name, isLLDashChunkMode, aampTsbEnabled, isInjectionFromCachedFragmentChunks);
+	AAMPLOG_TRACE("[%s] isLLDashChunkMode %d aampTsbEnabled %d isDash %d ret %d",
+				  name, isLLDashChunkMode, aampTsbEnabled, isDash, isInjectionFromCachedFragmentChunks);
 	return isInjectionFromCachedFragmentChunks;
 }
 
