@@ -205,8 +205,8 @@ function install_asio_fn()
     cd ${LOCAL_DEPS_BUILD_DIR}
     if [ ! -d asio-1.18.2 ]; then
         echo "Installing asio"
-        curl -o asio-1.18.2.tar.gz "https://excellmedia.dl.sourceforge.net/project/asio/asio/1.18.2%20%28Stable%29/asio-1.18.2.tar.bz2?viasf=1"
-        tar -xf asio-1.18.2.tar.gz
+	curl -L -o asio-1.18.2.tar.bz2 "https://downloads.sourceforge.net/project/asio/asio/1.18.2%20%28Stable%29/asio-1.18.2.tar.bz2?viasf=1%22" --ssl-no-revoke
+        tar -xf asio-1.18.2.tar.bz2
         pushd asio-1.18.2
         mkdir build && cd build
         ../configure
