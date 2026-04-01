@@ -3549,12 +3549,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 				if (mLowLatencyMode && !liveAdjust)
 				{
-					float maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
+					int maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
 					//Chunk mode is applied when the seek position is between the live edge and the maximum allowed latency from it
 					if (seekPosition > (duration - maxLatency))
 					{
 						aamp->SetLLDashChunkMode(true);
-						AAMPLOG_MIL("Chunk mode set: seekPosition (%f) not exceeded maxLatency (%f) threshold, enabling LLDashChunkMode", seekPosition, maxLatency);
+						AAMPLOG_MIL("Chunk mode set: seekPosition (%f) not exceeded maxLatency (%d) threshold, enabling LLDashChunkMode", seekPosition, maxLatency);
 					}
 				}
 			}
@@ -12983,7 +12983,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 	{
 		AampLLDashServiceData stLLServiceData;
 		double currentOffset = 0;
-		float maxLatency = 0, minLatency = 0, targetLatency = 0;
+		int maxLatency=0,minLatency=0,TargetLatency=0;
 		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 		if((dnldInstance->IsMPDLowLatency(stLLServiceData))
 			&&	(stLLServiceData.availabilityTimeComplete == false ))
@@ -13026,7 +13026,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 			}
 
 			minLatency = GETCONFIGVALUE(eAAMPConfig_LLMinLatency);
-			targetLatency = GETCONFIGVALUE(eAAMPConfig_LLTargetLatency);
+			TargetLatency = GETCONFIGVALUE(eAAMPConfig_LLTargetLatency);
 			maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
 			if (aamp->mIsStream4K)
 			{
@@ -13041,7 +13041,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 
 			if(	stLLServiceData.minLatency <= 0)
 			{
-				if(minLatency <= 0 || minLatency > targetLatency )
+				if(minLatency <= 0 || minLatency > TargetLatency )
 				{
 					stLLServiceData.minLatency = DEFAULT_MIN_LOW_LATENCY*1000;
 				}
@@ -13068,7 +13068,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 				stLLServiceData.targetLatency > stLLServiceData.maxLatency )
 
 			{
-				if(targetLatency <=0 || targetLatency < minLatency || targetLatency > maxLatency )
+				if(TargetLatency <=0 || TargetLatency < minLatency || TargetLatency > maxLatency )
 				{
 					stLLServiceData.targetLatency = DEFAULT_TARGET_LOW_LATENCY*1000;
 					stLLServiceData.maxLatency = DEFAULT_MAX_LOW_LATENCY*1000;
@@ -13076,12 +13076,12 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 				}
 				else
 				{
-					stLLServiceData.targetLatency = targetLatency*1000;
+					stLLServiceData.targetLatency = TargetLatency*1000;
 				}
 			}
 			double latencyOffsetMin = stLLServiceData.minLatency/(double)1000;
 			double latencyOffsetMax = stLLServiceData.maxLatency/(double)1000;
-			AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-Dash] Min Latency: %ld Max Latency: %ld Target Latency: %ld",(long)latencyOffsetMin,(long)latencyOffsetMax,(long)targetLatency);
+			AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-Dash] Min Latency: %ld Max Latency: %ld Target Latency: %ld",(long)latencyOffsetMin,(long)latencyOffsetMax,(long)TargetLatency);
 			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_IgnoreAppLiveOffset, true);
 			//Ignore Low latency setting
 			if(!ISCONFIGSET(eAAMPConfig_ForceLLDFlow) && !ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && (currentOffset > latencyOffsetMax) && aamp->mIsStream4K) ||
