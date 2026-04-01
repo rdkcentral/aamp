@@ -182,10 +182,9 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 
-	// Mock buffer creation for the test
+	// Mock buffer slot returned when staging fragment is moved to the cache slot for injection.
+	// CacheFragment populates mStagingFragment; OnFragmentDownloadSuccess moves it into this slot.
 	auto cachedFragment = std::make_shared<CachedFragment>();
-	static constexpr auto testData = "test"sv;
-	cachedFragment->fragment.assign(testData.begin(), testData.end());
 	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false)).WillOnce(Return(cachedFragment.get()));
 
 	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(chunkMode));
@@ -248,11 +247,6 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_RampDownAttempt)
 	mMediaStreamContext->segDLFailCount = 0;
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
 
-	// Mock the behavior of GetFetchBuffer, create a dummy CachedFragment
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
-		.WillOnce(Return(cachedFragment.get()));
-
 	// Return false for CheckForRampDownLimitReached to allow ramp down, and true for CheckForRampDownProfile
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownLimitReached())
 		.WillOnce(Return(false));
@@ -280,11 +274,6 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_ValidDownloadInfoLowestPr
 	mMediaStreamContext->mSkipSegmentOnError = false;
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
 
-	// Mock the behavior of GetFetchBuffer, create a dummy CachedFragment
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
-		.WillOnce(Return(cachedFragment.get()));
-	
 	// Return true for CheckForRampDownLimitReached to indicate that the limit is reached
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownLimitReached())
 		.WillOnce(Return(true));
@@ -327,11 +316,6 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_LowestProfile_ConsumesTim
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
 		.WillRepeatedly(Return(false));
 
-	// Mock the behavior of GetFetchBuffer, create a dummy CachedFragment
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
-		.WillOnce(Return(cachedFragment.get()));
-
 	// Return false for CheckForRampDownLimitReached to indicate that the limit is reached
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownLimitReached())
 		.WillOnce(Return(false));
@@ -362,11 +346,6 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_RetryAttemptThreshold)
 	// This should not trigger a ramp down
 	mMediaStreamContext->segDLFailCount = 10;
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
-
-	// Mock the behavior of GetFetchBuffer, create a dummy CachedFragment
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
-		.WillOnce(Return(cachedFragment.get()));
 
 	//Ensure proper error event is sent
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, _))
@@ -413,10 +392,6 @@ TEST_F(FragmentDownloadTests, DownloadFragment_ValidDownloadInfo)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
-
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
-		.WillOnce(Return(cachedFragment.get()));
 
 	EXPECT_NO_THROW({
 		bool result = mMediaStreamContext->DownloadFragment(dlInfo);
@@ -560,10 +535,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillRepeatedly(Return(true));
 
-	// Expect exactly one cache buffer allocation and one successful "download".
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
-		.WillOnce(Return(cachedFragment.get()));
+	// Expect exactly one successful "download".
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.WillOnce(Return(true));
 
@@ -608,11 +580,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(false));
 
-	// Expect one buffer request and one "download" per call.
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
-		.Times(numCalls)
-		.WillRepeatedly(Return(cachedFragment.get()));
+	// Expect one successful "download" per call.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(numCalls)
 		.WillRepeatedly(Return(true));
@@ -686,15 +654,16 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 	mPrivateInstanceAAMP->SetBufUnderFlowStatus(true);
 	mStreamAbstractionAAMP_MPD->mTuneType = eTUNETYPE_SEEKTOLIVE;
 
-	// Populate fragment data so the tsbSessionManager block is entered.
-	auto cachedFragment = std::make_shared<CachedFragment>();
+	// Populate staging fragment with data so the tsbSessionManager block is entered.
 	constexpr std::string_view testData{"test_fragment_data"};
-	cachedFragment->fragment.assign(
+	mMediaStreamContext->mStagingFragment.fragment.assign(
 		reinterpret_cast<const uint8_t*>(testData.data()),
 		reinterpret_cast<const uint8_t*>(testData.data()) + testData.size());
 
 	// A second CachedFragment for CacheTsbFragment's GetFetchChunkBuffer call.
 	auto chunkBuffer = std::make_shared<CachedFragment>();
+	// A CachedFragment for the injection slot returned by GetFetchBuffer(false) in the else branch.
+	auto cachedFragment = std::make_shared<CachedFragment>();
 
 	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
 	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
