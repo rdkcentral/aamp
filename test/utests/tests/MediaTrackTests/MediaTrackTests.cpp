@@ -163,13 +163,15 @@ protected:
 		// A pointer to the test fragment in the cache buffer
 		CachedFragment* bufferedFragment{nullptr};
 
-		// Chunk buffer is used for low-latency or for all content if AAMP TSB is enabled
-		if (lowLatencyMode || aampTsb)
+		// Chunk buffer is used for low-latency, AAMP TSB, or any DASH content
+		// (mirrors IsInjectionFromCachedFragmentChunks() in MediaTrack)
+		bool isDash = (mPrivateInstanceAAMP->mMediaFormat == eMEDIAFORMAT_DASH);
+		if (lowLatencyMode || aampTsb || isDash)
 		{
 			bufferedFragment = mediaTrack.GetFetchChunkBuffer(true);
 			mediaTrack.numberOfFragmentChunksCached = 1;
 		}
-		// Standard buffer is used for SLD when AAMP TSB is disabled
+		// Standard buffer is used for non-DASH SLD when AAMP TSB is disabled
 		else
 		{
 			bufferedFragment = mediaTrack.GetFetchBuffer(true);
