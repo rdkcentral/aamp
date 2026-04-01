@@ -34,6 +34,7 @@
 #include "MockIsoBmffBuffer.h"
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
+#include "MockStreamAbstractionAAMP_MPD.h"
 
 using namespace testing;
 using ::testing::Values;
@@ -120,6 +121,7 @@ protected:
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockIsoBmffHelper = new NiceMock<MockIsoBmffHelper>();
 		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
+		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 
 		// A fake StreamAbstractionAAMP_MPD that derives from a *real* StreamAbstractionAAMP.
 		// The tests can't use a fake/mock StreamAbstractionAAMP base class because
@@ -130,6 +132,9 @@ protected:
 
 	void TearDown() override
 	{
+		delete g_mockStreamAbstractionAAMP_MPD;
+		g_mockStreamAbstractionAAMP_MPD = nullptr;
+
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -1019,4 +1024,55 @@ TEST_F(MediaTrackTests, WaitForManifestUpdateSnapshotRacePreventionTest)
 	EXPECT_EQ(future.wait_for(std::chrono::milliseconds(500)), std::future_status::ready)
 		<< "WaitForManifestUpdate(snapshotCounter) blocked even though the counter was "
 		   "already incremented — lost-wakeup race prevention is broken";
+}
+
+/**
+ * @brief Test that GetBufferStatus() returns BUFFER_STATUS_GREEN when the buffer is sufficient
+ * in low latency mode.
+ */
+TEST_F(MediaTrackTests, GetBufferStatus_ReturnsGreen_WhenBufferIsSufficient)
+{
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Low Latency mode enabled, which doesn't check for cached fragments
+	SetLowLatencyMode(true);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
+		.WillRepeatedly(Return(1.0)); // Set underflow threshold to 1 second
+	// Simulate sufficient buffered duration above the green threshold
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetBufferedDuration())
+		.WillOnce(Return(AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD + 2.0));
+	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_GREEN);
+}
+
+/**
+ * @brief Test that GetBufferStatus() returns BUFFER_STATUS_YELLOW
+ * when the buffer is below threshold and above underflow threshold in low latency mode.
+ */
+TEST_F(MediaTrackTests, GetBufferStatus_ReturnsYellow_WhenBufferIsBelowThreshold)
+{
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Low Latency mode enabled, which doesn't check for cached fragments
+	SetLowLatencyMode(true);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
+		.WillRepeatedly(Return(0.5)); // Set underflow threshold to 0.5 second
+	// Simulate buffered duration just below the threshold and above underflow threshold
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetBufferedDuration())
+		.WillOnce(Return(AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD - 0.1));
+	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_YELLOW);
+}
+
+/**
+ * @brief Test that GetBufferStatus() returns BUFFER_STATUS_RED
+ * when the buffer is below underflow threshold in low latency mode.
+ */
+TEST_F(MediaTrackTests, GetBufferStatus_ReturnsRed_WhenBufferIsBelowUnderflowThreshold)
+{
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Low Latency mode enabled, which doesn't check for cached fragments
+	SetLowLatencyMode(true);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
+		.WillRepeatedly(Return(0.5)); // Set underflow threshold to 0.5 second
+	// Simulate buffered duration just below the underflow threshold
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetBufferedDuration())
+		.WillOnce(Return(0.1));
+	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_RED);
 }
