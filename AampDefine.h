@@ -152,14 +152,14 @@
 #define DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS 1000	/**< Polling interval when buffer is medium in milliseconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS 2000		/**< Polling interval when buffer is high in milliseconds */
 
-#define DEFAULT_UNDERFLOW_DETECT_THRESHOLD_SEC 0.2		/**< Threshold to detect underflow in seconds */
+#define DEFAULT_UNDERFLOW_DETECT_THRESHOLD_SEC 0.0		/**< Threshold to detect underflow in seconds */
 #define DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC 1.0		/**< Threshold to resume from underflow in seconds */
 #define DEFAULT_UNDERFLOW_LOW_BUFFER_SEC 5.0			/**< Low buffer threshold in seconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC 10.0			/**< High buffer threshold in seconds */
 
 #define DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC 0.0  /*< Default is 0.0 means latency correction is enabled at all buffer values */
-#define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
-#define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 8.0	/*< LiveOffset(15s) - MaxLatency(7s) */
+#define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0		/*< Step value for latency increase when rebuffering occurs in seconds */
+#define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 6	/*< LiveOffset(15s) - MaxLatency(9s) */
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
@@ -193,9 +193,9 @@
 
 #define DEFAULT_LATENCY_MONITOR_DELAY_MS		5000		/**< Latency Monitor Delay */
 #define DEFAULT_LATENCY_MONITOR_INTERVAL_MS		1000		/**< Latency monitor interval */
-#define DEFAULT_MIN_LOW_LATENCY					5.0			/**< min Default Latency */
-#define DEFAULT_MAX_LOW_LATENCY					7.0			/**< max Default Latency */
-#define DEFAULT_TARGET_LOW_LATENCY				6.0			/**< Target Default Latency */
+#define DEFAULT_MIN_LOW_LATENCY					3			/**< min Default Latency */
+#define DEFAULT_MAX_LOW_LATENCY					9			/**< max Default Latency */
+#define DEFAULT_TARGET_LOW_LATENCY				6			/**< Target Default Latency */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED	1.00f		/**< Live Catchup Normal play rate */
