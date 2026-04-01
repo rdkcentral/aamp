@@ -55,7 +55,7 @@ function install_pkgs_darwin_fn()
             OPENSSL_PATH=$(brew --prefix ${DEFAULT_OPENSSL_VERSION})
             # link may not exist so don't fail
             OPENSSL_CUR_PATH=`readlink /usr/local/ssl` || true
-            if [ "$OPENSSL_CUR_PATH" != "{$OPENSSL_PATH}" ] ; then
+            if [ "$OPENSSL_CUR_PATH" != "${OPENSSL_PATH}" ] ; then
                 sudo rm -f /usr/local/ssl || true
                 sudo ln -s $OPENSSL_PATH /usr/local/ssl
             fi 
