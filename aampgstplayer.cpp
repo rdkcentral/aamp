@@ -554,7 +554,6 @@ static void HandleRedButtonCallback(const char *data, AAMPGstPlayer * _this)
 static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 {
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
-	AAMPLOG_WARN("VRN IN - %s", busEvent.msg.c_str());
 	switch(busEvent.msgType)
 	{
 		case MESSAGE_ERROR:
@@ -577,7 +576,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			{ // note: surfacing this intermittent error can cause freeze on partner apps.
 				AAMPLOG_WARN("%s", errorDesc.c_str());
 			}
-			else if (busEvent.msg.find("failed to decrypt") != std::string::npos)
+			else if (busEvent.msg.find("Rialto dropped a frame that failed to decrypt") != std::string::npos)
 			{
 				bool isDeviceConnected = pPlayerExternalsInterface?pPlayerExternalsInterface->GetDeviceConectedStatus():false;
 				if(isDeviceConnected)
