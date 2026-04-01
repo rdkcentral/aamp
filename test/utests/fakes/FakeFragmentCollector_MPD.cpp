@@ -94,7 +94,14 @@ double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS() { return 0; }
 
 MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type) { return nullptr; }
 
-double StreamAbstractionAAMP_MPD::GetBufferedDuration (void) { return 0; }
+double StreamAbstractionAAMP_MPD::GetBufferedDuration (void)
+{
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		return g_mockStreamAbstractionAAMP_MPD->GetBufferedDuration();
+	}
+	return 0;
+}
 
 int StreamAbstractionAAMP_MPD::GetBWIndex( BitsPerSecond bandwidth) { return 0; }
 
