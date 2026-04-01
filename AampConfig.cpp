@@ -311,7 +311,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"webVttNative",eAAMPConfig_WebVTTNative,false},
 	{false,"asyncTune",eAAMPConfig_AsyncTune,true},
 	{false,"disableUnderflow",eAAMPConfig_DisableUnderflow,false},
-	{true,"enableAampUnderflowMonitor",eAAMPConfig_EnableAampUnderflowMonitor,true},
+	{false,"enableAampUnderflowMonitor",eAAMPConfig_EnableAampUnderflowMonitor,true},
 	{false,"limitResolution",eAAMPConfig_LimitResolution,false},
 	{false,"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false},
 	{true,"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false},
@@ -430,6 +430,9 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_LATENCY_MONITOR_INTERVAL_MS,"latencyMonitorIntervalMs",eAAMPConfig_LatencyMonitorIntervalMs,false},
 	{DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxFragmentChunkCached,false},
 	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
+	{DEFAULT_MIN_LOW_LATENCY,"lowLatencyMinValue",eAAMPConfig_LLMinLatency,true},
+	{DEFAULT_TARGET_LOW_LATENCY,"lowLatencyTargetValue",eAAMPConfig_LLTargetLatency,true},
+	{DEFAULT_MAX_LOW_LATENCY,"lowLatencyMaxValue",eAAMPConfig_LLMaxLatency,true},
 	{MAX_SEG_DOWNLOAD_FAIL_COUNT,"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
 	{MAX_INIT_FRAGMENT_CACHE_PER_TRACK,"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
 	{FOG_MAX_CONCURRENT_DOWNLOADS,"fogMaxConcurrentDownloads",eAAMPConfig_FogMaxConcurrentDownloads, false },
@@ -515,10 +518,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC, "underflowHighBufferSec", eAAMPConfig_UnderflowHighBufferSec, true},
 	{DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC, "bufferLevelToEnableLatencySec", eAAMPConfig_BufferLevelToEnableCorrectionSec, false},
 	{DEFAULT_REBUFFER_LATENCY_STEP_SEC, "rebufferLatencyStepSec", eAAMPConfig_RebufferLatencyStepSec, false},
-	{DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC, "rebufferLatencyMaxIncrementSec", eAAMPConfig_RebufferLatencyMaxIncrementSec, false},
-	{DEFAULT_MIN_LOW_LATENCY, "lowLatencyMinValue", eAAMPConfig_LLMinLatency, true},
-	{DEFAULT_TARGET_LOW_LATENCY, "lowLatencyTargetValue", eAAMPConfig_LLTargetLatency, true},
-	{DEFAULT_MAX_LOW_LATENCY, "lowLatencyMaxValue", eAAMPConfig_LLMaxLatency, true}
+	{DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC, "rebufferLatencyMaxIncrementSec", eAAMPConfig_RebufferLatencyMaxIncrementSec, false}
 };
 
 /**
