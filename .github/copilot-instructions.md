@@ -207,4 +207,9 @@ Copilot must reference these files when generating language-specific code.
 - Correlate manifest, network, buffering, ABR, DRM, and player-state evidence before concluding root cause.
 - Prefer minimal safe fixes and minimal additional instrumentation.
 
+## Code analysis prompts
+
+- For accurate measurement of method or function cyclomatic complexity, use the reusable prompt file `/cyclomatic-complexity`.
+- When reporting complexity, show the counted decision points step by step and call out any ambiguity from macros or compile-time conditionals.
+
 ---
