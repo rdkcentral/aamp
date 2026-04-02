@@ -808,7 +808,9 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 		else
 		{
 			AAMPLOG_DEBUG("[%s] waiting for fragmentChunkInjected condition", name);
-			fragmentChunkInjected.wait(lock);
+			fragmentChunkInjected.wait(lock, [this] { //DJH - testing add predicate to avoid spurious wakeups
+				return numberOfFragmentChunksCached < mCachedFragmentChunksSize || abort;
+			});
 			AAMPLOG_DEBUG("[%s] wait complete for fragmentChunkInjected", name);
 		}
 		if (abort)
