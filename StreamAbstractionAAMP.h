@@ -368,6 +368,17 @@ public:
 	void UpdateTSAfterFetch(bool IsInitSegment);
 
 	/**
+	 * @fn UpdateTSAfterFetchStats
+	 * @brief Updates fetch statistics using a caller-supplied fragment without
+	 *        touching the mCachedFragment ring buffer. Use in place of
+	 *        UpdateTSAfterFetch() + UpdateTSAfterInject() when the fragment
+	 *        goes directly into mCachedFragmentChunks.
+	 * @param[in] cachedFragment - Fragment supplying duration and metadata
+	 * @param[in] isInitSegment  - true for initialization segments
+	 */
+	void UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment);
+
+	/**
 	 * @fn UpdateTSAfterChunkFetch
 	 *
 	 * @return void
