@@ -809,12 +809,14 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 	else
 	{
-		UpdateTSAfterFetchStats(&mStagingFragment, dlInfo->isInitSegment);
-
 		if (!aamp->GetLLDashChunkMode())
 		{
-			// Non-LLD DASH (SLD, AAMP TSB write-phase): route directly into the
-			// chunk cache. The inject thread reads from mCachedFragmentChunks.
+			// Non-LLD DASH (SLD, AAMP TSB write-phase): cache the fragment first
+			// so the inject thread is signalled (via fragmentChunkFetched.notify_one
+			// inside UpdateTSAfterChunkFetch) before UpdateTSAfterFetchStats runs.
+			// This mirrors the original ring-buffer ordering where
+			// fragmentFetched.notify_one() fired before NotifyFragmentCachingComplete,
+			// giving the inject thread a systematic head-start.
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 			fragmentToCache->Copy(mStagingFragment);
 			CacheTsbFragment(std::move(fragmentToCache));
@@ -837,6 +839,10 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 				timeBasedBufferManager->ConsumeBuffer(mStagingFragment.duration);
 			}
 		}
+		// Update fetch statistics after the inject thread has been signalled,
+		// so that any NotifyFragmentCachingComplete fired here arrives after
+		// the inject thread already has data to forward to GStreamer.
+		UpdateTSAfterFetchStats(&mStagingFragment, dlInfo->isInitSegment);
 		mStagingFragment.Clear();
 		cachedFragment = nullptr;
 	}
