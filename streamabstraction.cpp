@@ -575,6 +575,100 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 }
 
 /**
+ * @brief Updates fetch statistics using a caller-supplied fragment without
+ *        touching the mCachedFragment ring buffer.
+ *
+ * Use in place of UpdateTSAfterFetch() + UpdateTSAfterInject() when the
+ * fragment goes directly into mCachedFragmentChunks, so there is no need
+ * to allocate a ring buffer slot via GetFetchBuffer() only to free it
+ * immediately afterwards.
+ *
+ * @param[in] cachedFragment - Fragment supplying duration and metadata
+ * @param[in] isInitSegment  - true for initialization segments
+ */
+void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment)
+{
+	bool notifyCacheCompleted = false;
+	class StreamAbstractionAAMP* pContext = GetContext();
+	std::unique_lock<std::mutex> lock(mutex);
+
+	if (pContext)
+	{
+		cachedFragment->profileIndex = pContext->profileIdxForBandwidthNotification;
+		pContext->UpdateStreamInfoBitrateData(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo);
+	}
+	totalFetchedDuration += cachedFragment->duration;
+	currentInitialCacheDurationSeconds += cachedFragment->duration;
+
+	if ((eTRACK_VIDEO == type)
+		&& aamp->IsFragmentCachingRequired()
+		&& !cachingCompleted)
+	{
+		const int minInitialCacheSeconds = aamp->GetInitialBufferDuration();
+		if (currentInitialCacheDurationSeconds >= minInitialCacheSeconds)
+		{
+			AAMPLOG_WARN("##[%s] Caching Complete cacheDuration %d minInitialCacheSeconds %d##",
+						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
+			notifyCacheCompleted = true;
+			cachingCompleted = true;
+		}
+		else if (sinkBufferIsFull && numberOfFragmentChunksCached == mCachedFragmentChunksSize)
+		{
+			AAMPLOG_WARN("## [%s] Chunk Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
+						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
+			notifyCacheCompleted = true;
+			cachingCompleted = true;
+		}
+		else
+		{
+			AAMPLOG_INFO("## [%s] Caching Ongoing cacheDuration %d minInitialCacheSeconds %d##",
+						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
+		}
+	}
+	if (loadNewAudio && (eTRACK_AUDIO == type) && !isInitSegment)
+	{
+		if (playContext)
+		{
+			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
+						 cachedFragment->position, cachedFragment->PTSOffsetSec);
+			playContext->resetPTSOnAudioSwitch(cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
+		}
+		else
+		{
+			FlushAudioPositionDuringTrackSwitch(cachedFragment);
+		}
+		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_AUDIO);
+		NotifyCachedAudioFragmentAvailable();
+		loadNewAudio = false;
+		aamp->mDisableRateCorrection = false;
+	}
+	if (loadNewSubtitle && (eTRACK_SUBTITLE == type) && !isInitSegment)
+	{
+		if (playContext)
+		{
+			playContext->resetPTSOnSubtitleSwitch(cachedFragment->fragment, cachedFragment->position);
+		}
+		else
+		{
+			FlushSubtitlePositionDuringTrackSwitch(cachedFragment);
+		}
+		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_SUBTITLE);
+		NotifyCachedSubtitleFragmentAvailable();
+		loadNewSubtitle = false;
+		aamp->mDisableRateCorrection = false;
+	}
+	if (!isInitSegment)
+	{
+		totalFragmentsDownloaded++;
+	}
+	lock.unlock();
+	if (notifyCacheCompleted)
+	{
+		aamp->NotifyFragmentCachingComplete();
+	}
+}
+
+/**
  * @brief Process New Audio On Lang Switch
  */
 void MediaTrack::LoadNewAudio(bool val)

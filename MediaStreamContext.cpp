@@ -809,39 +809,36 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 	else
 	{
-		// Move staging fragment into the cache slot for injection
-		CachedFragment *slot = GetFetchBuffer(false);
-		*slot = std::move(mStagingFragment);
-		cachedFragment = slot;
+		UpdateTSAfterFetchStats(&mStagingFragment, dlInfo->isInitSegment);
 
-		// Update buffer index after fetch for injection
-		UpdateTSAfterFetch(dlInfo->isInitSegment);
-
-		// For all DASH SLD content (with or without TSB), write the fragment into the chunk cache
-		// so the inject thread reads from mCachedFragmentChunks (unified cache path)
-		if(aamp->IsDashAsset() && !aamp->GetLLDashChunkMode())
+		if (!aamp->GetLLDashChunkMode())
 		{
+			// Non-LLD DASH (SLD, AAMP TSB write-phase): route directly into the
+			// chunk cache. The inject thread reads from mCachedFragmentChunks.
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
-			fragmentToCache->Copy(*cachedFragment);
+			fragmentToCache->Copy(mStagingFragment);
 			CacheTsbFragment(std::move(fragmentToCache));
-		}
-
-		// If injection is from chunk buffer, remove the fragment for injection
-		if(IsInjectionFromCachedFragmentChunks())
-		{
-			UpdateTSAfterInject();
-			// For LLD and AAMP TSB the fragment is handed off here, so consume the
-			// buffer now. For plain SLD DASH (routed via IsDashAsset), the inject
-			// thread in ProcessAndInjectFragment calls ConsumeBuffer after injection.
-			if (aamp->GetLLDashChunkMode() || aamp->IsLocalAAMPTsb())
+			if (aamp->IsLocalAAMPTsb())
 			{
 				auto timeBasedBufferManager = GetTimeBasedBufferManager();
-				if(timeBasedBufferManager)
+				if (timeBasedBufferManager)
 				{
-					timeBasedBufferManager->ConsumeBuffer(cachedFragment->duration);
+					timeBasedBufferManager->ConsumeBuffer(mStagingFragment.duration);
 				}
 			}
 		}
+		else
+		{
+			// LLD DASH: media data already injected via CacheFragmentChunk callbacks.
+			// Consume the time-based buffer counter and discard the staging data.
+			auto timeBasedBufferManager = GetTimeBasedBufferManager();
+			if (timeBasedBufferManager)
+			{
+				timeBasedBufferManager->ConsumeBuffer(mStagingFragment.duration);
+			}
+		}
+		mStagingFragment.Clear();
+		cachedFragment = nullptr;
 	}
 
 	if (aamp->IsLive())
