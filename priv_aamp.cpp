@@ -4303,9 +4303,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 						if( res == CURLE_OPERATION_TIMEDOUT )
 						{
-							AampLogManager::LogNetworkError(effectiveUrl.c_str(), 
-							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ? 
-							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE), 
+							AampLogManager::LogNetworkError(effectiveUrl.c_str(),
+							AAMPNetworkErrorCurl, (int)((progressCtx.abortReason == eCURL_ABORT_REASON_NONE) ?
+							(CURLcode)GetCurlTimeoutFailureReason(curl) : CURLE_PARTIAL_FILE),
 							mediaType);
 						}
 						else
@@ -4318,7 +4318,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
-						
+
 						if(mpStreamAbstractionAAMP)
 						{
 							switch (mediaType)
@@ -5771,7 +5771,7 @@ void PrivateInstanceAAMP::ReloadTSB()
 /**
  * @brief Tune API
  */
-void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
+void PrivateInstanceAAMP::Tune(const char *mainManifestUrlX,
 								bool autoPlay,
 								const char *contentType,
 								bool bFirstAttempt,
@@ -5789,6 +5789,16 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	/** Disable iframe extraction by default*/
 	SetIsIframeExtractionEnabled(false);
 	TuneType tuneType =  eTUNETYPE_NEW_NORMAL;
+
+const char *a="https://tr.rogers-ipvod-hd.xcdn.net.rogers.com/ipvod5/3fa12b9a-b388-43d2-801b-28b205a8b8ff/1770831048/M/HD/manifest.mpd";
+const char *b="https://tr.rogersw-ipvod-iae.xcdn.net.rogers.com/v2/bmff/cenc/t/ipvod18/7c367b5c-44d8-459c-8cea-eade40ee706a/1770860512/M/HD/manifest.mpd";
+	const char *mainManifestUrl = mainManifestUrlX;
+
+    if (strcmp(mainManifestUrlX, a) == 0)
+	{
+		mainManifestUrl = b;
+	}
+
 	const char *remapUrl = mConfig->GetChannelOverride(mainManifestUrl);
 	if (remapUrl )
 	{
@@ -12411,17 +12421,17 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
  * @param[in] target Track to find
  * @return Index of track (0-based), or -1 if not found
  */
-int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks, 
+int PrivateInstanceAAMP::FindTextTrackIndex(const std::vector<TextTrackInfo>& tracks,
                                             const TextTrackInfo& target) const
 {
 	int index = -1;
 	auto iter = std::find(tracks.cbegin(), tracks.cend(), target);
-	
+
 	if (iter != tracks.cend())
 	{
 		index = static_cast<int>(std::distance(tracks.cbegin(), iter));
 	}
-	
+
 	return index;
 }
 
