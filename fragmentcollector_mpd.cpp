@@ -6724,25 +6724,35 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						while (delim != std::string::npos)
 						{
 							ParseCCStreamIDAndLang(value.substr(0, delim), id, lang);
-							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-								lang.c_str(), schemeId.c_str(), id.c_str());
+
 							TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 							textTrack.setInstreamId(id);
 							textTrack.setLanguage(lang);
 							textTrack.setType("captions");
-							tTracks.push_back(std::move(textTrack));
+							if (std::find(tTracks.begin(), tTracks.end(), textTrack) == tTracks.end())
+							{
+								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
+											 lang.c_str(), schemeId.c_str(), id.c_str());
+								// textTrack not in tTracks, add it
+								tTracks.push_back(std::move(textTrack));
+							}
 							value = value.substr(delim + 1);
 							delim = value.find(';');
 						}
 						ParseCCStreamIDAndLang(std::move(value), id, lang);
 						lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-							lang.c_str(), schemeId.c_str(), id.c_str());
+
 						TextTrackInfo textTrack = TextTrackInfo(true, std::move(schemeId));
 						textTrack.setInstreamId(id);
 						textTrack.setLanguage(lang);
 						textTrack.setType("captions");
-						tTracks.push_back(std::move(textTrack));
+						if (std::find(tTracks.begin(), tTracks.end(), textTrack) == tTracks.end())
+						{
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
+							lang.c_str(), schemeId.c_str(), id.c_str());
+							// textTrack not in tTracks, add it
+							tTracks.push_back(std::move(textTrack));
+						}
 					}
 					else
 					{
