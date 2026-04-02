@@ -47,6 +47,21 @@ function rialto_install_fn() {
        git checkout ${OPTION_RIALTO_GSTREAMER_REFERENCE}
        popd
     fi
+
+    # TODO: rialto-ocdm clone/checkout added to support direct-rialto
+    #       AampDrmBridge; should have been a separate, independently reviewed
+    #       change per direct-rialto.instructions.md scope boundary rules.
+    if [ -d "rialto-ocdm" ]; then
+        echo "rialto-ocdm exists"
+        INSTALL_STATUS_ARR+=("rialto-ocdm was already installed.")
+    else
+       do_clone_fn https://github.com/rdkcentral/rialto-ocdm.git rialto-ocdm
+       pushd rialto-ocdm
+       echo "Checkout rialto-ocdm '${OPTION_RIALTO_OCDM_REFERENCE}'"
+       git checkout ${OPTION_RIALTO_OCDM_REFERENCE}
+       popd
+    fi
+
 }
 
 function rialto_build_repo_fn()
@@ -89,6 +104,7 @@ function rialto_install_build_fn()
         rm -rf protobuf
         rm -rf rialto
         rm -rf rialto-gstreamer
+        rm -rf rialto-ocdm
     fi
 
     if [ ${OPTION_RIALTO_BUILD} == false ] ; then

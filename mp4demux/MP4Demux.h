@@ -247,8 +247,14 @@ private:
 	void ParseProtectionSchemeInfo();
 	/** @brief Parse sample auxiliary information offsets box */
 	void ParseSampleAuxiliaryInformationOffsets();
-	/** @brief Parse sample encryption box (SENC) */
-	void ParseSampleEncryption();
+	// TODO: Signature changed from ParseSampleEncryption() to
+	//       ParseSampleEncryption(const uint8_t *next) to support bounds
+	//       checking added for direct-rialto DRM; should have been a separate,
+	//       independently reviewed change per direct-rialto.instructions.md.
+	/** @brief Parse sample encryption box (SENC)
+	 * @param next Pointer to next box
+	 */
+	void ParseSampleEncryption(const uint8_t *next);
 	/** @brief Parse track run box (TRUN) */
 	void ParseTrackRun();
 	/** @brief Parse track fragment header box (TFHD) */

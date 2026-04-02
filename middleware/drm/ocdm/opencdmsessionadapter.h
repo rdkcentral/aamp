@@ -143,6 +143,10 @@ public:
 #if defined(USE_OPENCDM_ADAPTER)
 	void setKeyId(const std::vector<uint8_t>& keyId) override;
 #endif
+	// TODO: Override added to support direct-rialto/AampDrmBridge; should have
+	//       been a separate, independently reviewed change per
+	//       direct-rialto.instructions.md scope boundary rules.
+	int32_t getMediaKeySessionId() const override;
 	bool waitForState(KeyState state, const uint32_t timeout) override;
 };
 

@@ -31,6 +31,7 @@ set(TEST_SOURCES
 	AampRialtoPlayerTests.cpp
 	AampRialtoPlayerTestCases.cpp
 	FakeRialtoFactories.cpp
+	FakeAampDrmBridge.cpp
 )
 
 set(AAMP_SOURCES

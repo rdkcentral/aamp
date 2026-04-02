@@ -617,11 +617,19 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
  * - Subsample encryption information (clear/encrypted byte pairs)
  * - Cipher mode and pattern encryption settings
  */
-void Mp4Demux::ParseSampleEncryption()
+// TODO: Signature and body changes below (next parameter, bounds checks, and
+//       debug logging) were added to support direct-rialto DRM parsing and
+//       should have been a separate, independently reviewed change per
+//       direct-rialto.instructions.md scope boundary rules.
+void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t sampleCount = ReadU32();
 	uint64_t maxSampleCount = sampleOffset + sampleCount;
+	MP4_LOG_DEBUG("senc: sampleCount=%" PRIu32 " ivSize=%u flags=0x%x subSamplePresent=%d boxRemaining=%zu",
+		sampleCount, ivSize, flags,
+		(flags & SENC_SUBSAMPLE_ENCRYPTION_PRESENT) ? 1 : 0,
+		static_cast<size_t>(next - ptr));
 	if (samples.size() != maxSampleCount)
 	{
 		throw Mp4ParseException(MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH, "senc: sampleCount mismatch");
@@ -638,6 +646,8 @@ void Mp4Demux::ParseSampleEncryption()
 		}
 		if (ivSize)
 		{
+			if (ptr + ivSize > next)
+				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: IV OOB");
 			samples[iSample].mDrmMetadata.mIV = std::vector<uint8_t>(ptr, ptr + ivSize);
 			ptr += ivSize;
 		}
@@ -649,6 +659,8 @@ void Mp4Demux::ParseSampleEncryption()
 		{ // sub sample encryption
 			uint16_t numSubSamples = ReadU16();
 			size_t subSamplesSize = numSubSamples * MP4_SUBSAMPLE_ENTRY_SIZE;
+			if (ptr + subSamplesSize > next)
+				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: subsample data OOB");
 			samples[iSample].mDrmMetadata.mSubSamples = std::vector<uint8_t>(ptr, ptr + subSamplesSize);
 			samples[iSample].mDrmMetadata.mNumSubSamples = numSubSamples;
 			ptr += subSamplesSize;
@@ -1147,7 +1159,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ParseSampleAuxiliaryInformationSizes();
 				break;
 			case MultiChar_Constant("senc"): // modern, optional
-				ParseSampleEncryption();
+				ParseSampleEncryption(next);
 				break;
 			case MultiChar_Constant("tfhd"):
 				ParseTrackFragmentHeader();
@@ -1243,6 +1255,11 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ptr = next; // skip payload
 				break;
 			default:
+				// Unknown/unhandled box — skip payload and continue
+				// TODO: Skip-and-log behaviour added for direct-rialto DRM; should
+				//       have been a separate change per direct-rialto.instructions.md.
+				MP4_LOG_DEBUG("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
+				ptr = next;
 				break;
 		}
 		if (ptr != next)
@@ -1297,6 +1314,9 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 		}
 	} catch (const Mp4ParseException& ex) {
 		setParseError(ex.code());
+		// TODO: MP4_LOG_ERR call added for direct-rialto DRM diagnostics; should
+		//       have been a separate change per direct-rialto.instructions.md.
+		MP4_LOG_ERR("%s", ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error

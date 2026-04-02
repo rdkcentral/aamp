@@ -445,6 +445,7 @@ set(LIBAAMP_SOURCES
 	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
+	direct-rialto/AampDrmBridge.cpp
 	direct-rialto/AampRialtoMediaPipelineClient.cpp
 	direct-rialto/AampRialtoPlayer.cpp
 	direct-rialto/AampRialtoPlayer.h

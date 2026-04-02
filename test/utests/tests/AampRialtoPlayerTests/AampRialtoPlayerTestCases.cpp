@@ -37,6 +37,7 @@
 #include "MockIMediaPipelineFactory.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMp4Demux.h"
+#include "MockDrmBridge.h"
 
 using ::testing::_;
 using ::testing::AnyOf;
@@ -1147,4 +1148,595 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Must be the HEVC codec data from the second init fragment.
 	EXPECT_EQ(capturedCodecData[0]->data,
 		(std::vector<uint8_t>{0x01, 0x02}));
+}
+
+// ===========================================================================
+// Phase DRM — QueueProtectionEvent / ClearProtectionEvent / segment encryption
+// ===========================================================================
+
+/**
+ * @brief Fixture that adds a MockDrmBridge on top of the demux fixture.
+ */
+class AampRialtoPlayerDrmTest : public AampRialtoPlayerWithDemuxTest
+{
+protected:
+	void SetUp() override
+	{
+		AampRialtoPlayerWithDemuxTest::SetUp();
+		m_mockDrmBridge = std::make_shared<NiceMock<MockDrmBridge>>();
+		m_player->SetDrmBridgeForTesting(m_mockDrmBridge);
+	}
+
+	void TearDown() override
+	{
+		m_mockDrmBridge.reset();
+		AampRialtoPlayerWithDemuxTest::TearDown();
+	}
+
+	/// Build an encrypted AampMediaSample with CENC cipher.
+	AampMediaSample MakeEncryptedSample(
+		double pts = 0.1,
+		double duration = 0.033,
+		const std::vector<uint8_t> &keyId = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+		                                     0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,0x10},
+		const std::vector<uint8_t> &iv = {0xAA,0xBB,0xCC,0xDD,
+		                                  0xEE,0xFF,0x00,0x11,
+		                                  0x22,0x33,0x44,0x55,
+		                                  0x66,0x77,0x88,0x99})
+	{
+		AampMediaSample s{};
+		s.mPts      = pts;
+		s.mDuration = duration;
+		s.mDrmMetadata.mIsEncrypted    = true;
+		s.mDrmMetadata.mKeyId          = keyId;
+		s.mDrmMetadata.mIV             = iv;
+		s.mDrmMetadata.mCipher         = CIPHER_TYPE_CENC;
+		s.mDrmMetadata.mNumSubSamples  = 0;
+		return s;
+	}
+
+	std::shared_ptr<NiceMock<MockDrmBridge>> m_mockDrmBridge;
+};
+
+// ---------------------------------------------------------------------------
+// QueueProtectionEvent
+// ---------------------------------------------------------------------------
+
+/**
+ * @test QueueProtectionEvent for video stores the protection parameters
+ *       without immediately calling IDrmBridge::createSession.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	QueueProtectionEvent_Video_StoresParamsWithoutCallingBridge)
+{
+	const char *systemId = "com.widevine.alpha";
+	const uint8_t initData[] = {0x01, 0x02, 0x03};
+	const size_t  initLen    = sizeof(initData);
+
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).Times(0);
+
+	m_player->QueueProtectionEvent(
+		systemId, initData, initLen, eMEDIATYPE_VIDEO);
+}
+
+/**
+ * @test QueueProtectionEvent for audio stores the protection parameters
+ *       without immediately calling IDrmBridge::createSession.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	QueueProtectionEvent_Audio_StoresParamsWithoutCallingBridge)
+{
+	const char *systemId = "com.widevine.alpha";
+	const uint8_t initData[] = {0xAA, 0xBB};
+	const size_t  initLen    = sizeof(initData);
+
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).Times(0);
+
+	m_player->QueueProtectionEvent(
+		systemId, initData, initLen, eMEDIATYPE_AUDIO);
+}
+
+/**
+ * @test QueueProtectionEvent with a null DRM bridge must not crash.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	QueueProtectionEvent_NullBridge_DoesNotCrash)
+{
+	m_player->SetDrmBridgeForTesting(nullptr);
+	const uint8_t initData[] = {0x01};
+	EXPECT_NO_THROW(
+		m_player->QueueProtectionEvent(
+			"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO));
+}
+
+/**
+ * @test QueueProtectionEvent with null initData must not call createSession.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	QueueProtectionEvent_NullInitData_DoesNotCallBridge)
+{
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).Times(0);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", nullptr, 0, eMEDIATYPE_VIDEO);
+}
+
+// ---------------------------------------------------------------------------
+// ClearProtectionEvent
+// ---------------------------------------------------------------------------
+
+/**
+ * @test ClearProtectionEvent calls IDrmBridge::clearSessions().
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	ClearProtectionEvent_CallsClearSessions)
+{
+	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(1);
+	m_player->ClearProtectionEvent();
+}
+
+/**
+ * @test After ClearProtectionEvent, hasDrm=false is passed to the next
+ *       attachSource call (mks_id reset to -1).
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	ClearProtectionEvent_ResetsHasDrmOnNextAttach)
+{
+	const uint8_t initData[] = {0x01};
+	ON_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).WillByDefault(Return(5));
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	// Clear resets mks_id.
+	ON_CALL(*m_mockDrmBridge, clearSessions()).WillByDefault(Return());
+	m_player->ClearProtectionEvent();
+
+	// Now configure and attach — hasDrm must be false.
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_FALSE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+}
+
+// ---------------------------------------------------------------------------
+// attachSource hasDrm
+// ---------------------------------------------------------------------------
+
+/**
+ * @test When QueueProtectionEvent returns a valid mks_id, attachSource is
+ *       called with hasDrm=true for the video source.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachVideoSource_WithValidMksId_AttachesWithHasDrmTrue)
+{
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	// createSession is deferred: it must be called when the init fragment
+	// arrives (i.e. inside AttachVideoSource), not during QueueProtectionEvent.
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(10));
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+}
+
+/**
+ * @test Without QueueProtectionEvent, attachSource is called with hasDrm=false.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachVideoSource_WithoutMksId_AttachesWithHasDrmFalse)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_FALSE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+}
+
+/**
+ * @test QueueProtectionEvent for audio makes attachSource set hasDrm=true
+ *       on the audio source.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSource_WithValidMksId_AttachesWithHasDrmTrue)
+{
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_AUDIO);
+
+	// createSession is deferred: it must be called when the init fragment
+	// arrives (i.e. inside AttachAudioSource), not during QueueProtectionEvent.
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_AUDIO))
+		.WillOnce(Return(3));
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendAudioInitFragment();
+}
+
+// ---------------------------------------------------------------------------
+// InjectSamples — encryption metadata on addSegment
+// ---------------------------------------------------------------------------
+
+/**
+ * @test An encrypted video sample causes the MediaSegment to have
+ *       setEncrypted(true) and the correct mks_id set.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	InjectSamples_EncryptedVideoSample_SetsEncryptedAndMksId)
+{
+	const int32_t kMksId = 99;
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	ON_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).WillByDefault(Return(kMksId));
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+	SendVideoInitFragment();
+
+	// Capture the segment injected by the injection thread.
+	bool encryptedSet = false;
+	int32_t capturedMksId = -1;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&encryptedSet, &capturedMksId](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				encryptedSet    = seg->isEncrypted();
+				capturedMksId   = seg->getMediaKeySessionId();
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	// Inject a needData request then an encrypted sample.
+	m_player->OnNeedMediaData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/5);
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([this]() {
+			std::vector<AampMediaSample> s;
+			s.push_back(MakeEncryptedSample());
+			return s;
+		});
+	std::vector<uint8_t> buf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.1, 0.1, 0.033, 0, /*initFragment=*/false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	EXPECT_TRUE(encryptedSet);
+	EXPECT_EQ(capturedMksId, kMksId);
+}
+
+/**
+ * @test An encrypted sample carries the correct Key ID and IV on the segment.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	InjectSamples_EncryptedSample_SetsKeyIdAndIv)
+{
+	const int32_t kMksId = 3;
+	const std::vector<uint8_t> kKeyId = {0x11,0x22,0x33,0x44,
+	                                      0x55,0x66,0x77,0x88,
+	                                      0x99,0xaa,0xbb,0xcc,
+	                                      0xdd,0xee,0xff,0x00};
+	const std::vector<uint8_t> kIv    = {0xA1,0xB2,0xC3,0xD4,
+	                                      0xE5,0xF6,0x07,0x18,
+	                                      0x29,0x3a,0x4b,0x5c,
+	                                      0x6d,0x7e,0x8f,0x90};
+
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	ON_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).WillByDefault(Return(kMksId));
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+	SendVideoInitFragment();
+
+	std::vector<uint8_t> capturedKeyId;
+	std::vector<uint8_t> capturedIv;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&capturedKeyId, &capturedIv](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				capturedKeyId = seg->getKeyId();
+				capturedIv    = seg->getInitVector();
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	m_player->OnNeedMediaData(0, 1, 6);
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([this, kKeyId, kIv]() {
+			std::vector<AampMediaSample> s;
+			s.push_back(MakeEncryptedSample(0.1, 0.033, kKeyId, kIv));
+			return s;
+		});
+	std::vector<uint8_t> buf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.1, 0.1, 0.033, 0, /*initFragment=*/false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	EXPECT_EQ(capturedKeyId, kKeyId);
+	EXPECT_EQ(capturedIv, kIv);
+}
+
+/**
+ * @test A clear (non-encrypted) sample does NOT set encrypted on the segment,
+ *       even when a DRM session is active.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	InjectSamples_ClearSample_DoesNotSetEncrypted)
+{
+	const int32_t kMksId = 5;
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	ON_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).WillByDefault(Return(kMksId));
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+	SendVideoInitFragment();
+
+	bool encryptedSet = false;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&encryptedSet](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				encryptedSet = seg->isEncrypted();
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	m_player->OnNeedMediaData(0, 1, 8);
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			// mIsEncrypted defaults to false
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::vector<uint8_t> buf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.1, 0.1, 0.033, 0, false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	EXPECT_FALSE(encryptedSet);
+}
+
+/**
+ * @test An encrypted CBCS sample causes setEncryptionPattern to be called
+ *       with the crypt/skip byte block values from MediaDrmMetadata.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	InjectSamples_EncryptedCbcsSample_SetsEncryptionPattern)
+{
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	ON_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).WillByDefault(Return(1));
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+	SendVideoInitFragment();
+
+	uint32_t capturedCrypt = 0;
+	uint32_t capturedSkip  = 0;
+	firebolt::rialto::CipherMode capturedCipherMode = firebolt::rialto::CipherMode::UNKNOWN;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&capturedCrypt, &capturedSkip, &capturedCipherMode](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				capturedCipherMode = seg->getCipherMode();
+				seg->getEncryptionPattern(capturedCrypt, capturedSkip);
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	m_player->OnNeedMediaData(0, 1, 9);
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			ms.mDrmMetadata.mIsEncrypted   = true;
+			ms.mDrmMetadata.mCipher        = CIPHER_TYPE_CBCS;
+			ms.mDrmMetadata.mCryptByteBlock = 5;
+			ms.mDrmMetadata.mSkipByteBlock  = 9;
+			ms.mDrmMetadata.mKeyId = {0x01,0x02,0x03,0x04,
+			                           0x05,0x06,0x07,0x08,
+			                           0x09,0x0a,0x0b,0x0c,
+			                           0x0d,0x0e,0x0f,0x10};
+			ms.mDrmMetadata.mIV = {0xAA,0xBB,0xCC,0xDD,
+			                        0xEE,0xFF,0x00,0x11,
+			                        0x22,0x33,0x44,0x55,
+			                        0x66,0x77,0x88,0x99};
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::vector<uint8_t> buf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.1, 0.1, 0.033, 0, false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	EXPECT_EQ(capturedCipherMode, firebolt::rialto::CipherMode::CBCS);
+	EXPECT_EQ(capturedCrypt, 5u);
+	EXPECT_EQ(capturedSkip,  9u);
+}
+
+/**
+ * @test An encrypted sample with subsamples causes addSubSample to be called
+ *       the correct number of times with the correct byte counts.
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	InjectSamples_EncryptedWithSubSamples_AddsCorrectSubSamples)
+{
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	ON_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).WillByDefault(Return(2));
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+	SendVideoInitFragment();
+
+	std::vector<firebolt::rialto::SubSamplePair> capturedSubSamples;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&capturedSubSamples](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				capturedSubSamples = seg->getSubSamples();
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	m_player->OnNeedMediaData(0, 1, 10);
+
+	// Build two subsamples: {clear=100, enc=200} and {clear=50, enc=300}.
+	// Packed as big-endian uint16+uint32 pairs.
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			ms.mDrmMetadata.mIsEncrypted  = true;
+			ms.mDrmMetadata.mCipher       = CIPHER_TYPE_CENC;
+			ms.mDrmMetadata.mNumSubSamples = 2;
+			ms.mDrmMetadata.mKeyId = {0x01,0x02,0x03,0x04,
+			                           0x05,0x06,0x07,0x08,
+			                           0x09,0x0a,0x0b,0x0c,
+			                           0x0d,0x0e,0x0f,0x10};
+			ms.mDrmMetadata.mIV = {0xAA,0xBB,0xCC,0xDD,
+			                        0xEE,0xFF,0x00,0x11,
+			                        0x22,0x33,0x44,0x55,
+			                        0x66,0x77,0x88,0x99};
+			// Two subsamples packed big-endian: [{100, 200}, {50, 300}]
+			// Each is uint16_t clear + uint32_t enc = 6 bytes per entry.
+			ms.mDrmMetadata.mSubSamples = {
+				0x00, 0x64,              // clear = 100
+				0x00, 0x00, 0x00, 0xC8, // enc   = 200
+				0x00, 0x32,              // clear = 50
+				0x00, 0x00, 0x01, 0x2C  // enc   = 300
+			};
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::vector<uint8_t> buf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.1, 0.1, 0.033, 0, false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	ASSERT_EQ(capturedSubSamples.size(), 2u);
+	EXPECT_EQ(capturedSubSamples[0].numClearBytes,     100u);
+	EXPECT_EQ(capturedSubSamples[0].numEncryptedBytes, 200u);
+	EXPECT_EQ(capturedSubSamples[1].numClearBytes,     50u);
+	EXPECT_EQ(capturedSubSamples[1].numEncryptedBytes, 300u);
+}
+
+/**
+ * @test An encrypted sample with no subsamples causes a single subsample
+ *       covering the whole sample to be added (clear=0, enc=sampleSize).
+ */
+TEST_F(AampRialtoPlayerDrmTest,
+	InjectSamples_EncryptedWithNoSubSamples_AddsWholeSampleAsEncrypted)
+{
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	ON_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).WillByDefault(Return(2));
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+	SendVideoInitFragment();
+
+	std::vector<firebolt::rialto::SubSamplePair> capturedSubSamples;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&capturedSubSamples](
+				uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &seg)
+			{
+				capturedSubSamples = seg->getSubSamples();
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	m_player->OnNeedMediaData(0, 1, 11);
+
+	const size_t kSampleSize = 64;
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([kSampleSize, this]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			ms.mDrmMetadata.mIsEncrypted   = true;
+			ms.mDrmMetadata.mCipher        = CIPHER_TYPE_CENC;
+			ms.mDrmMetadata.mNumSubSamples = 0; // no subsamples
+			ms.mDrmMetadata.mKeyId = {0x01,0x02,0x03,0x04,
+			                           0x05,0x06,0x07,0x08,
+			                           0x09,0x0a,0x0b,0x0c,
+			                           0x0d,0x0e,0x0f,0x10};
+			ms.mDrmMetadata.mIV = {0xAA,0xBB,0xCC,0xDD,
+			                        0xEE,0xFF,0x00,0x11,
+			                        0x22,0x33,0x44,0x55,
+			                        0x66,0x77,0x88,0x99};
+			// Fake sample data of exactly kSampleSize bytes so that the
+			// fallback subsample (0, sampleSize) can be checked.
+			std::vector<uint8_t> data(kSampleSize, 0xBE);
+			ms.mData.AppendBytes(data.data(), data.size());
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::vector<uint8_t> buf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.1, 0.1, 0.033, 0, false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	ASSERT_EQ(capturedSubSamples.size(), 1u);
+	EXPECT_EQ(capturedSubSamples[0].numClearBytes,     0u);
+	EXPECT_EQ(capturedSubSamples[0].numEncryptedBytes, kSampleSize);
 }

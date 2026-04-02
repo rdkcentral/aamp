@@ -432,6 +432,16 @@ void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
 	m_keyId = keyId;
 }
 
+// TODO: This implementation was added to support direct-rialto/AampDrmBridge
+//       and should have been raised as a separate, independently reviewed
+//       change per direct-rialto.instructions.md scope boundary rules.
+int32_t OCDMSessionAdapter::getMediaKeySessionId() const
+{
+	if (m_pOpenCDMSession)
+		return opencdm_session_get_media_key_session_id(m_pOpenCDMSession);
+	return -1;
+}
+
 bool OCDMSessionAdapter::verifyOutputProtection()
 {
 	if (m_drmHelper->isHdcp22Required() && m_pOutputProtection->IsSourceUHD())

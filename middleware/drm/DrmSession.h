@@ -143,6 +143,19 @@ public:
 	 */
 	virtual const std::vector<std::vector<uint8_t>>& getUsableKeys() const;
 
+	// TODO: This virtual method was added to support direct-rialto/AampDrmBridge
+	//       and should have been raised as a separate, independently reviewed
+	//       change per direct-rialto.instructions.md scope boundary rules.
+	/**
+	 * @brief Returns the Rialto media key session ID for this DRM session.
+	 *
+	 * Only meaningful for sessions backed by the Rialto OCDM stack.
+	 * Returns -1 for all other session types.
+	 *
+	 * @retval Rialto mks_id (>= 0) or -1 if not applicable.
+	 */
+	virtual int32_t getMediaKeySessionId() const { return -1; }
+
 	/**
 	 * @fn DrmSession
 	 * @param keySystem : DRM key system uuid

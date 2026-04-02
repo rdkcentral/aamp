@@ -33,6 +33,7 @@
 #include "IClientLogHandler.h"
 #include "StreamOutputFormat.h"
 #include "AampDemuxDataTypes.h"
+#include "IDrmBridge.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -40,8 +41,10 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 #include <cstdint>
 
 class AAMPGstPlayer;
@@ -123,6 +126,19 @@ public:
 		std::function<void(firebolt::rialto::PlaybackState)> observer)
 	{
 		m_testPlaybackObserver = std::move(observer);
+	}
+
+	/**
+	 * @brief Install a DRM bridge for testing.
+	 *
+	 * For unit testing only.  Replaces the production IDrmBridge so tests can
+	 * control session creation and mks_id without a live OCDM stack.
+	 *
+	 * @param[in] bridge  Bridge to use; nullptr means no DRM session management.
+	 */
+	void SetDrmBridgeForTesting(std::shared_ptr<IDrmBridge> bridge)
+	{
+		m_drmBridge = std::move(bridge);
 	}
 
 	/**
@@ -325,13 +341,67 @@ private:
 	int32_t m_audioSampleRate{0}; ///< Audio sample rate (Hz)
 	int32_t m_audioChannels{0};   ///< Audio channel count
 
-	/// Codec data cached at attachSource time; applied to every MediaSegment.
-	std::shared_ptr<firebolt::rialto::CodecData> m_videoCodecData;
-	std::shared_ptr<firebolt::rialto::CodecData> m_audioCodecData;
+	/// Codec data staged by AttachVideoSource/AttachAudioSource and consumed
+	/// by SendTransfer's enqueue path, which stamps it onto the first sample
+	/// of the next non-init fragment.  Only accessed on the calling thread
+	/// (same thread as SendTransfer), so no mutex is required.
+	std::shared_ptr<firebolt::rialto::CodecData> m_pendingVideoCodecData;
+	std::shared_ptr<firebolt::rialto::CodecData> m_pendingAudioCodecData;
+
+	/// DRM bridge used to create key sessions and obtain mks_ids.
+	std::shared_ptr<IDrmBridge> m_drmBridge;
+	/// Rialto MediaKeySession IDs for each track (-1 = no active DRM session).
+	int32_t m_videoMksId{-1};
+	int32_t m_audioMksId{-1};
+
+	/**
+	 * @brief Protection parameters saved by QueueProtectionEvent.
+	 *
+	 * createSession() is deferred until the init fragment arrives so that the
+	 * license pre-fetcher has had time to acquire the license first, making
+	 * the DrmSessionManager::createDrmSession() call non-blocking in the
+	 * common case.
+	 */
+	struct ProtectionParams
+	{
+		std::string          systemId;
+		std::vector<uint8_t> initData;
+		AampMediaType        type;
+	};
+	std::optional<ProtectionParams> m_videoProt;
+	std::optional<ProtectionParams> m_audioProt;
 
 	// -----------------------------------------------------------------------
 	// Segment injection thread
 	// -----------------------------------------------------------------------
+
+	/**
+	 * @brief A sample queued for injection, carrying per-sample codec
+	 *        parameters stamped at enqueue time.
+	 *
+	 * Storing codec parameters on the sample (rather than in shared members)
+	 * ensures that an ABR codec change only takes effect at the correct
+	 * sample boundary — old samples in the queue retain the old parameters
+	 * and old samples play through cleanly before the update is applied.
+	 */
+	struct QueuedSample
+	{
+		AampMediaSample sample;
+		/// Non-null only on the first sample after a codec change.
+		std::shared_ptr<firebolt::rialto::CodecData> codecData;
+		/// Video frame dimensions at enqueue time (pixels).
+		int32_t width{0};
+		int32_t height{0};
+		/// Audio parameters at enqueue time.
+		int32_t sampleRate{0};
+		int32_t channels{0};
+
+		QueuedSample() = default;
+		QueuedSample(QueuedSample&&) = default;
+		QueuedSample& operator=(QueuedSample&&) = default;
+		QueuedSample(const QueuedSample&) = delete;
+		QueuedSample& operator=(const QueuedSample&) = delete;
+	};
 
 	/**
 	 * @brief Pending need-data request from Rialto, queued per source.
@@ -342,13 +412,17 @@ private:
 		size_t   frameCount;
 	};
 
+	/// Serialises AttachVideoSource / AttachAudioSource / CheckAllSourcesAttached
+	/// so that concurrent init-fragment delivery from the video and audio
+	/// download threads cannot race on m_videoSourceId / m_audioSourceId.
+	std::mutex              m_attachMutex;
 	std::mutex              m_injectorMutex;
 	std::condition_variable m_injectorCv;
 	std::atomic<bool>       m_stopInjection{false};
 	std::thread             m_injectionThread;
 
-	std::deque<AampMediaSample> m_videoSampleQueue;  ///< Buffered video samples
-	std::deque<AampMediaSample> m_audioSampleQueue;  ///< Buffered audio samples
+	std::deque<QueuedSample> m_videoSampleQueue;  ///< Buffered video samples
+	std::deque<QueuedSample> m_audioSampleQueue;  ///< Buffered audio samples
 	std::deque<PendingNeedData> m_videoPendingReqs;  ///< Pending video need-data
 	std::deque<PendingNeedData> m_audioPendingReqs;  ///< Pending audio need-data
 	bool m_videoEos{false}; ///< All video data has been queued
@@ -397,9 +471,9 @@ private:
 	void InjectSamples(
 		int32_t sourceId,
 		uint32_t requestId,
-		std::vector<AampMediaSample> &&samples,
+		std::vector<QueuedSample> &&samples,
 		bool eos,
-		std::deque<AampMediaSample> &requeueDest);
+		std::deque<QueuedSample> &requeueDest);
 
 	/// @brief Called (via callback) when the Rialto server changes state.
 	void OnPlaybackState(firebolt::rialto::PlaybackState state);
