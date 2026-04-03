@@ -522,6 +522,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 						  "video-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->video_sink)?0x1u:0x0u,
 						  "audio-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->audio_sink)?0x1u:0x0u,
 						  "text-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->subtitle_sink)?0x1u:0x0u,
+						  "enable-live-latency", G_TYPE_BOOLEAN, true,
 						  nullptr );
 		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
 		gst_context_unref(context);
@@ -2326,8 +2327,6 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 					g_object_set(vidsink, "has-drm", FALSE, NULL);
 				}
 				interfacePlayerPriv->gstPrivateContext->video_sink = vidsink;
-				MW_LOG_WARN("Toggle on enable-live-latency property for rialtomsevideosink");
-				g_object_set(vidsink, "enable-live-latency", TRUE, NULL);
 			}
 			else
 			{
