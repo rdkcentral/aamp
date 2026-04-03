@@ -285,7 +285,7 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
  */
 void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subFormat,
 										   bool bESChangeStatus, bool setReadyAfterPipelineCreation,
-										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
+										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl, bool enableLiveLatency)
 {
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
@@ -522,7 +522,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 						  "video-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->video_sink)?0x1u:0x0u,
 						  "audio-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->audio_sink)?0x1u:0x0u,
 						  "text-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->subtitle_sink)?0x1u:0x0u,
-						  "enable-live-latency", G_TYPE_BOOLEAN, true,
+						  "enable-live-latency", G_TYPE_BOOLEAN, enableLiveLatency,
 						  nullptr );
 		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
 		gst_context_unref(context);
