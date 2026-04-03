@@ -822,10 +822,11 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	PipelinePriority = envVal ? atoi(envVal) : -1;
 
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
+	bool isLiveRateCorrection = aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive();
 	/*Configure and create the pipeline*/
 	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(subFormat),
 									  bESChangeStatus,setReadyAfterPipelineCreation,
-									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
+									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str(), isLiveRateCorrection);
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 	StartMonitorAvTimer();
 }
