@@ -92,8 +92,9 @@ protected:
 		mTsbStore = new TSB::Store(tsbConfig, TsbLogger, kTestLoggerData, TSB::LogLevel::TRACE);
 
 		// Wait for the initial flush to complete, so that the Store is in a consistent state
-		// before the test runs
-		EXPECT_TRUE(WaitForFlush(kFlushDir));
+		// before the test runs. Use ASSERT_TRUE (fatal) so that if this times out on a loaded
+		// system the failure is reported here in SetUp, not misattributed to the test body.
+		ASSERT_TRUE(WaitForFlush(kFlushDir));
 	}
 
 	void TearDown() override
@@ -106,7 +107,7 @@ protected:
 		fs::remove_all(mTsbLocation);
 	}
 
-	bool WaitForFlush(const std::string& dir, std::chrono::milliseconds timeout = 20ms) const
+	bool WaitForFlush(const std::string& dir, std::chrono::milliseconds timeout = 500ms) const
 	{
 		auto timeWaited{0ms};
 		auto timeToSleep{1ms};

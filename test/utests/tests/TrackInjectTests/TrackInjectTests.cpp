@@ -55,55 +55,55 @@ public:
 	{
 	}
 
-	std::string &GetPlaylistUrl()
+	std::string &GetPlaylistUrl() override
 	{
 		return playlistURL;
 	}
 
-	void SetEffectivePlaylistUrl(std::string url)
+	void SetEffectivePlaylistUrl(std::string url) override
 	{
 		playlistURL = url;
 	}
 
-	std::string &GetEffectivePlaylistUrl()
+	std::string &GetEffectivePlaylistUrl() override
 	{
 		return playlistURL;
 	}
 
-	long long GetLastPlaylistDownloadTime()
+	long long GetLastPlaylistDownloadTime() override
 	{
 		return 0;
 	}
 
-	long GetMinUpdateDuration()
+	long GetMinUpdateDuration() override
 	{
 		return 2;
 	}
 
-	int GetDefaultDurationBetweenPlaylistUpdates()
+	int GetDefaultDurationBetweenPlaylistUpdates() override
 	{
 		return 0;
 	}
 
-	void SetLastPlaylistDownloadTime(long long time)
+	void SetLastPlaylistDownloadTime(long long time) override
 	{
 		return;
 	}
-	void ABRProfileChanged(void) {}
-	void updateSkipPoint(double position, double duration) {}
+	void ABRProfileChanged(void) override {}
+	void updateSkipPoint(double position, double duration) override {}
 
-	void setDiscontinuityState(bool isDiscontinuity) {}
+	void setDiscontinuityState(bool isDiscontinuity) override {}
 
-	void abortWaitForVideoPTS() {}
+	void abortWaitForVideoPTS() override {}
 
-	double GetBufferedDuration(void) { return 0.0; }
+	double GetBufferedDuration(void) override { return 0.0; }
 
-	class StreamAbstractionAAMP *GetContext()
+	class StreamAbstractionAAMP *GetContext() override
 	{
 		return aamp->mpStreamAbstractionAAMP;
 	}
 
-	void InjectFragmentInternal(CachedFragment *cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false)
+	void InjectFragmentInternal(CachedFragment *cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false) override
 	{
 		AAMPLOG_WARN("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d",
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);

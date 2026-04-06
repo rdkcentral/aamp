@@ -1096,6 +1096,9 @@ public:
 	VideoZoomMode zoom_mode;
 	std::atomic<bool> video_muted; /**< true if video plane is logically muted */
 	std::atomic<bool> subtitles_muted; /**< true if subtitle plane is logically muted */
+	std::atomic<bool> mCCStatusSetByApp{false}; /**< true once an AAMP CC/subtitle API has been called,
+												 * false while app talks to CCManager directly.
+												 * Once set to true, this flag is never reset to false. */
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
@@ -1567,10 +1570,9 @@ public:
 	/**
 	 * @fn SendBufferChangeEvent
 	 *
-	 * @param[in] bufferingStopped- Flag to indicate buffering stopped.Underflow = True
-	 * @return void
+	 * @param[in] bufferingStarted True if buffering started, false if buffering ended.
 	 */
-	void SendBufferChangeEvent(bool bufferingStopped=false);
+	void SendBufferChangeEvent(bool bufferingStart=false);
 
 	/**
 	 * @fn SendTuneMetricsEvent
@@ -2380,6 +2382,13 @@ public:
 	 *   @return void
 	 */
 	void SetVideoMute(bool muted);
+
+	/**
+	 *   @brief Mark that the application has called an external CC/subtitle API.
+	 *
+	 *   Sets mCCStatusSetByApp to true.
+	 */
+	void SetCCStatusSetByApp();
 
 	/**
 	 *   @brief Set subtitle mute state
