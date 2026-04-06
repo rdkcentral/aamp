@@ -434,6 +434,17 @@ void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
 
 bool OCDMSessionAdapter::verifyOutputProtection()
 {
+	if(!m_drmHelper)
+	{
+		MW_LOG_WARN("m_drmHelper is NULL, unable to verify output protection");
+		return false;
+	}
+	if(!m_pOutputProtection)
+	{
+		MW_LOG_WARN("Output Protection interface not present, unable to verify output protection");
+		return false;
+	}
+
 	if (m_drmHelper->isHdcp22Required() && m_pOutputProtection->IsSourceUHD())
 	{
 		// Source material is UHD
@@ -444,7 +455,6 @@ bool OCDMSessionAdapter::verifyOutputProtection()
 			return false;
 		}
 	}
-
 	return true;
 }
 

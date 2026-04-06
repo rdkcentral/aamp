@@ -53,6 +53,7 @@ PlayerExternalsInterface::PlayerExternalsInterface()
  */
 PlayerExternalsInterface::~PlayerExternalsInterface()
 {
+    MW_PRE_LOGGER_LOG("Deleting the PlayerExternalsInterface instance");
     m_pIarmInterface = nullptr;
     s_pPlayerOP = NULL;    
 }
@@ -104,7 +105,9 @@ bool PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive()
  */
 std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance()
 {
-    if(s_pPlayerOP == NULL) {
+    if(s_pPlayerOP == NULL) 
+    {
+        MW_PRE_LOGGER_LOG("Creating PlayerExternalsInterface instance");
         s_pPlayerOP = std::shared_ptr<PlayerExternalsInterface>(new PlayerExternalsInterface());
     }
 
