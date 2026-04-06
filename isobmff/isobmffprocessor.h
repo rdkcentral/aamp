@@ -308,9 +308,9 @@ private:
 	 * @param[in] fragmentPTSoffset - offset PTS value
 	 * @param[in] discontinuous - true if discontinuous fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
-	 * @return void
+	 * @return true if the buffer was successfully injected into the sink, false otherwise
 	 */
-	void sendStream(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit);
+	bool sendStream(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit);
 
 	/**
 	 * @brief Set peer instance of IsoBmffProcessor

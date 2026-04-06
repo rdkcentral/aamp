@@ -1350,6 +1350,87 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
+ * @brief PlaceAds cancels ad with early resumption and clears pendingAdCancel when next period is added before openPeriod is finished. This test verifies that scenario.
+ */
+TEST_F(AdManagerMPDTests, PlaceAds_EarlyResumptionTests)
+{
+  // Step 1: Initial manifest with only p1
+  static const char *manifest1 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic">
+  <Period id="p1" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="5" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+  // Step 2: Updated manifest with p1 and p2
+  static const char *manifest2 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic">
+  <Period id="p1" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="5" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="p2" start="PT30S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="5" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+  std::string periodId = "p1";
+  std::string nextPeriodId = "p2";
+
+  // Initial setup: only p1
+  ProcessSourceMPD(manifest1);
+  mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId, periodId, 5, 0, 25000, 0, false);
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
+  };
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, true, "adId1", "url", 30000, periodId, 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].cancelAtPeriodId = nextPeriodId;
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId] = Period2AdData(false, periodId, 25000,
+    { std::make_pair(0, AdOnPeriod(0, 0)) });
+
+  // First PlaceAds call: only p1 present
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  // Now update manifest to add p2 (next period)
+  ProcessSourceMPD(manifest2);
+
+  // Second PlaceAds call: p2 now present, triggers early resumption logic and should also clear pendingAdCancel
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  // Validate: pendingAdCancel is now false, ad cancelled, adNextOffset = 0
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdCancel);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).cancelled);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 0);
+	EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, periodId);
+	EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 27000);
+}
+
+/**
  * @brief Tests the functionality of the PlaceAds method when openPeriodID is finished and new period is added
  * 1. Verifies that the openPeriod is closed and ads are placed
  * 2. TODO: [VKB] Also verifies that newPeriod is not updated (shouldn't we fix it?)
