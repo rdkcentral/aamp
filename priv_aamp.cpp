@@ -11977,9 +11977,11 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	 * Keep persisted CC/subtitle state in sync even after Stop(), when
 	 * mpStreamAbstractionAAMP can be NULL.
 	 */
-	PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-
-	if (mpStreamAbstractionAAMP && !mIsInbandCC && isGstSubtecEnabled)
+	if (mIsInbandCC || !isGstSubtecEnabled)
+	{
+		PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+	}
+	else if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 		if (HasSidecarData())

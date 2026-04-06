@@ -3932,18 +3932,18 @@ TEST_F(PrivAampTests,SetCCStatusPreTune)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
 	// Enable CC and check that status is stored,
-	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
+	// but SetStatus(true) is called and SetSubtitleMute is not called since in-band CC path uses CC manager
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(1);
 	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
 	// Now call TuneHelper - subtitles_muted is false (from SetCCStatus(true) above)
 	// SetCCStatusInternal sees mute_subtitles_applied=false, calls SetStatus(true)
-	// RestoreCC(false) reflects the CC manager state was false before this tune
+	// RestoreCC(true) reflects the CC manager state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
-	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
@@ -4000,9 +4000,9 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
 	// Enable CC and check that status is stored, 
-	// but neither SetStatus() nor SetSubtitleMute() are called since we are not yet tuned
+	// but SetStatus(true) is called and SetSubtitleMute is not called since in-band CC path uses CC manager
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(1);
 	p_aamp->SetCCStatusSetByApp();
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
@@ -4016,9 +4016,9 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
 
 	// During TuneHelper: video is muted so CC is forced off via SetStatus(false)
-	// RestoreCC(false) is called because CC manager internal state was false before this tune
+	// RestoreCC(true) is called because CC manager internal state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
-	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(true)).Times(1);
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
@@ -4044,9 +4044,9 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute02)
 	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	// Set video mute - should not call SetStatus() since we are not yet tuned
+	// Set video mute - should call SetStatus()
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(_)).Times(0);
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(1);
 	p_aamp->SetVideoMute(true);
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
