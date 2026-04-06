@@ -94,6 +94,7 @@ public:
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
 	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopGstreamerPreBuffering));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
+	MOCK_METHOD(void, SetCCStatusSetByApp, ());
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
