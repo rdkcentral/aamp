@@ -2334,7 +2334,6 @@ void TrackState::ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_err
 
 		AcquirePlaylistLock();
 		playlist = std::move(newPlaylist);
-		aamp_utils::ClearAndRelease(newPlaylist);
 
 		AampTime culled{};
 		IndexPlaylist(true, culled);
@@ -4317,15 +4316,15 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				std::string defaultIframePlaylistEffectiveUrl;
 				//To avoid clashing with the http error for master manifest
 				int http_error = 0;
-				AampGrowableBuffer defaultIframePlaylist("defaultIframePlaylist");
+				std::vector<uint8_t> defaultIframePlaylist{};
 				HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(iframeStreamIdx);
 				aamp_ResolveURL(defaultIframePlaylistUrl, aamp->GetManifestUrl(), streamInfo->uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 				AAMPLOG_TRACE("StreamAbstractionAAMP_HLS:: Downloading iframe playlist");
 				bool bFiledownloaded = false;
-				if( !aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, defaultIframePlaylist.GetVector(), defaultIframePlaylistEffectiveUrl, eMEDIATYPE_PLAYLIST_IFRAME) )
+				if( !aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, eMEDIATYPE_PLAYLIST_IFRAME) )
 				{
 					double tempDownloadTime{0.0};
-					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, defaultIframePlaylist.GetVector(), defaultIframePlaylistEffectiveUrl, http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
+					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
 					AampTime downloadTime{tempDownloadTime};
 					//update videoend info
 					ManifestData manifestData(downloadTime.milliseconds(), defaultIframePlaylist.size());
@@ -4333,7 +4332,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				}
 				if (defaultIframePlaylist.size() && bFiledownloaded)
 				{
-					aamp->getAampCacheHandler()->InsertToPlaylistCache(defaultIframePlaylistUrl, defaultIframePlaylist.GetVector(), defaultIframePlaylistEffectiveUrl,aamp->IsLive(),eMEDIATYPE_PLAYLIST_IFRAME);
+					aamp->getAampCacheHandler()->InsertToPlaylistCache(defaultIframePlaylistUrl, defaultIframePlaylist, defaultIframePlaylistEffectiveUrl,aamp->IsLive(),eMEDIATYPE_PLAYLIST_IFRAME);
 					AAMPLOG_TRACE("StreamAbstractionAAMP_HLS:: Cached iframe playlist");
 				}
 				else
