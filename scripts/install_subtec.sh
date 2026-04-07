@@ -223,7 +223,14 @@ function subtec_install_build_fn() {
     cd subtec-app/subttxrend-app/x86_builder/ || { echo "Failed to change to subtec build directory"; return 1; }
 
     if [ ! -d build/install ] ; then
-        BOOST_ROOT="$(brew --prefix boost@1.85)" CMAKE_PREFIX_PATH="$(brew --prefix tinyxml2);$(brew --prefix websocketpp);$(brew --prefix boost@1.85)" PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH ./build.sh fast
+        if [ "$(uname)" = "Darwin" ] ; then
+            BOOST_ROOT="$(brew --prefix boost@1.85)" \
+            CMAKE_PREFIX_PATH="$(brew --prefix tinyxml2);$(brew --prefix websocketpp);$(brew --prefix boost@1.85)" \
+            PKG_CONFIG_PATH=/usr/local/opt/libffi/lib/pkgconfig:/usr/local/ssl/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH \
+            ./build.sh fast
+        else
+            ./build.sh fast
+        fi
 
         if [ -f ./build/install/usr/local/bin/subttxrend-app ]; then
             echo "subtec-app has been built."
