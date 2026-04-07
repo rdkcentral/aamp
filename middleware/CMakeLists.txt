@@ -129,6 +129,7 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	drm/DrmSystems.h
 	drm/DrmCallbacks.h
 	drm/ocdm/opencdmsessionadapter.h
+	drm/ocdm/IOpenCDM.h
 	drm/DrmJsonObject.h
 	vendor/SocInterface.h
 	vendor/amlogic/AmlogicSocInterface.h
@@ -156,7 +157,7 @@ install(FILES closedcaptions/CCTrackInfo.h
 	drm/aes/Aes.h
 	drm/DrmMemorySystem.h drm/DrmSessionManager.h drm/DrmSystems.h
 	drm/DrmData.h drm/DrmInfo.h drm/DrmMediaFormat.h drm/DrmCallbacks.h
-	drm/DrmSession.h drm/ClearKeyDrmSession.h drm/DrmSessionFactory.h drm/ocdm/opencdmsessionadapter.h
+	drm/DrmSession.h drm/ClearKeyDrmSession.h drm/DrmSessionFactory.h drm/ocdm/opencdmsessionadapter.h drm/ocdm/IOpenCDM.h
 	drm/helper/DrmHelper.h
 	drm/HlsDrmBase.h
 	drm/DrmConstants.h
@@ -268,10 +269,13 @@ endif()
 if(CMAKE_USE_OPENCDM_ADAPTER)
     message("Using OPEN CDM ADAPTER")
     # Include OpenCDM-related source files
-    set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} 
+    set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES}
         drm/ocdm/opencdmsessionadapter.cpp
         drm/ocdm/OcdmBasicSessionAdapter.cpp
         drm/ocdm/OcdmGstSessionAdapter.cpp
+        drm/ocdm/OpenCDMProvider.cpp
+        drm/ocdm/RialtoMediaKeysProvider.cpp
+        drm/ocdm/OpenCDMProviderFactory.cpp
     )
 
     # Add GStreamer video dependency
@@ -294,6 +298,13 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
     # Find GStreamer headers and include them
     find_path(STAGING_INCDIR gstreamer-1.0)
     include_directories(${STAGING_INCDIR}/gstreamer-1.0)
+
+    # Add Rialto client headers and library for RialtoMediaKeysProvider
+    if(NOT RIALTO_FOUND)
+        find_package(Rialto REQUIRED)
+    endif()
+    include_directories(${RIALTO_INCLUDE_DIRS})
+    set(LIBPLAYERGSTINTERFACE_DEPENDS ${LIBPLAYERGSTINTERFACE_DEPENDS} ${RIALTO_LIBRARIES})
 endif()
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES}  ${LIBPLAYERGSTINTERFACE_DRM_SOURCES} ${LIBPLAYERGSTINTERFACE_HELP_SOURCES} )
 

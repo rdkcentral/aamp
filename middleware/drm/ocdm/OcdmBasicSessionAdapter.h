@@ -31,8 +31,10 @@
 class OCDMBasicSessionAdapter : public OCDMSessionAdapter
 {
 public:
-	OCDMBasicSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
-	: OCDMSessionAdapter(drmHelper, drmCallbacks)
+	OCDMBasicSessionAdapter(DrmHelperPtr drmHelper,
+	                        std::unique_ptr<IOpenCDM> ocdm,
+	                        DrmCallbacks *drmCallbacks)
+	: OCDMSessionAdapter(drmHelper, std::move(ocdm), drmCallbacks)
 	{};
 	~OCDMBasicSessionAdapter() {};
 

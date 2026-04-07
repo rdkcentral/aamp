@@ -26,6 +26,7 @@
 #if defined(USE_OPENCDM_ADAPTER)
 #include "OcdmBasicSessionAdapter.h"
 #include "OcdmGstSessionAdapter.h"
+#include "OpenCDMProviderFactory.h"
 #endif
 #include "ClearKeyDrmSession.h"
 
@@ -47,12 +48,14 @@ DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallback
 		else
 #endif
 		{
-			return new OCDMBasicSessionAdapter(drmHelper, drmCallbacks);
+			auto ocdm = OpenCDMProviderFactory::instance().create(systemId);
+			return new OCDMBasicSessionAdapter(drmHelper, std::move(ocdm), drmCallbacks);
 		}
 	}
 	else
 	{
-		return new OCDMGSTSessionAdapter(drmHelper, drmCallbacks);
+		auto ocdm = OpenCDMProviderFactory::instance().create(systemId);
+		return new OCDMGSTSessionAdapter(drmHelper, std::move(ocdm), drmCallbacks);
 	}
 #else // No form of OCDM support. Attempt to fallback to hardcoded session classes
     if (systemId == CLEAR_KEY_SYSTEM_STRING)

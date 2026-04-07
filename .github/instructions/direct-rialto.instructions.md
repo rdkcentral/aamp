@@ -34,7 +34,8 @@ Every change to `direct-rialto/` must follow the **Red → Green → Refactor** 
   New classes added to `direct-rialto/` must have a corresponding test directory.
 - Always read `.github/instructions/testing.instructions.md` before writing or
   modifying any test.
-- Verify by building and running the affected test binary after every change:
+- Verify by building and running the affected test binary after every change, 
+  for example:
   ```
   cd test/utests/build/tests/AampRialtoPlayerTests && make && ./AampRialtoPlayerTests
   ```

@@ -23,6 +23,7 @@
 #include "opencdmsessionadapter.h"
 #include "MockDrmHelper.h"
 #include "MockOpenCdm.h"
+#include "MockIOpenCDM.h"
 #include "PlayerUtils.h"
 #include <cstring>
 
@@ -47,6 +48,7 @@ protected:
 	struct OpenCDMSystem *ocdmSystem = (OpenCDMSystem *)0x1234;
 	std::string systemId = "com.widevine.alpha";
 	std::shared_ptr<MockDrmHelper> drmHelper;
+	NiceMock<MockIOpenCDM>* m_mockOcdm = nullptr; // raw ptr; owned by the adapter
 
 	void SetUp() override
 	{
@@ -55,16 +57,18 @@ protected:
 
 		EXPECT_CALL(*drmHelper, keyProcessTimeout()).WillRepeatedly(Return(5000U));
 		EXPECT_CALL(*drmHelper, ocdmSystemId()).WillOnce(ReturnRef(systemId));
-		EXPECT_CALL(*g_mockopencdm, opencdm_create_system(MemBufEq(systemId.c_str(), systemId.length() + 1)))
-			.WillOnce(Return(ocdmSystem));
 
-		m_ocdmsessionadapter = new OCDMSessionAdapter(drmHelper, nullptr);
+		auto mockOcdm = std::make_unique<NiceMock<MockIOpenCDM>>();
+		m_mockOcdm = mockOcdm.get();
+
+		m_ocdmsessionadapter = new OCDMSessionAdapter(drmHelper, std::move(mockOcdm), nullptr);
 	}
 
 	void TearDown() override
 	{
 		delete m_ocdmsessionadapter;
 		m_ocdmsessionadapter = nullptr;
+		m_mockOcdm = nullptr; // owned by adapter; already deleted
 
 		delete g_mockopencdm;
 		g_mockopencdm = nullptr;

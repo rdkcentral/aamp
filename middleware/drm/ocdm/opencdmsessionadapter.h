@@ -28,11 +28,11 @@
 #include "PlayerExternalsInterface.h"
 #include "DrmSession.h"
 #include "DrmHelper.h"
-
-#include "open_cdm.h"
-#include "open_cdm_adapter.h"
+#include "IOpenCDM.h"
 #include <condition_variable>
 #include "DrmCallbacks.h"
+
+#include <memory>
 
 using namespace std;
 
@@ -81,6 +81,10 @@ public:
 /**
  * @class OCDMSessionAdapter
  * @brief Open CDM DRM session
+ *
+ * All OCDM C library calls are routed through m_ocdm (IOpenCDM) and
+ * m_session (IOpenCDMSession).  The correct concrete implementation is
+ * selected at construction time by DrmSessionFactory via OpenCDMProviderFactory.
  */
 class OCDMSessionAdapter : public DrmSession
 {
@@ -89,13 +93,11 @@ protected:
 
 	KeyState m_eKeyState;
 
-	OpenCDMSession* m_pOpenCDMSession;
-#ifdef USE_THUNDER_OCDM_API_0_2
-	struct OpenCDMSystem* m_pOpenCDMSystem;
-#else
-	struct OpenCDMAccessor* m_pOpenCDMSystem;
-#endif
-	OpenCDMSessionCallbacks m_OCDMSessionCallbacks;
+	/// Owned DRM system object — either real OCDM or Rialto IMediaKeys.
+	std::unique_ptr<IOpenCDM>        m_ocdm;
+	/// Active session — created in generateDRMSession(); may be nullptr before then.
+	std::unique_ptr<IOpenCDMSession> m_session;
+
 	std::shared_ptr<PlayerExternalsInterface> m_pOutputProtection;
 
 	std::string m_challenge;
@@ -118,7 +120,9 @@ protected:
 	DrmHelperPtr m_drmHelper;
 	DrmCallbacks *m_drmCallbacks;
 
+protected:
 	bool verifyOutputProtection();
+
 public:
 	void processOCDMChallenge(const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize);
 	void keysUpdatedOCDM();
@@ -126,16 +130,23 @@ public:
 	const std::vector<std::vector<uint8_t>>& getUsableKeys() const override;
 	long long timeBeforeCallback;
 
-private:
-	void initDRMSystem();
-
 public:
-    	OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *callbacks = nullptr);
+	/**
+	 * @brief Construct an OCDMSessionAdapter.
+	 *
+	 * @param drmHelper  DRM helper for this session.
+	 * @param ocdm       IOpenCDM provider — created by OpenCDMProviderFactory
+	 *                   and injected by DrmSessionFactory.  May not be null.
+	 * @param callbacks  Optional DRM lifecycle callbacks.
+	 */
+	OCDMSessionAdapter(DrmHelperPtr drmHelper,
+	                   std::unique_ptr<IOpenCDM> ocdm,
+	                   DrmCallbacks *callbacks = nullptr);
 	~OCDMSessionAdapter();
-    	OCDMSessionAdapter(const OCDMSessionAdapter&) = delete;
+	OCDMSessionAdapter(const OCDMSessionAdapter&) = delete;
 	OCDMSessionAdapter& operator=(const OCDMSessionAdapter&) = delete;
 	void generateDRMSession(const uint8_t *f_pbInitData,
-		uint32_t f_cbInitData, std::string &customData) override; 
+		uint32_t f_cbInitData, std::string &customData) override;
 	DrmData * generateKeyRequest(string& destinationURL, uint32_t timeout) override;
 	int processDRMKey(DrmData* key, uint32_t timeout) override;
 	KeyState getState() override;
@@ -143,9 +154,6 @@ public:
 #if defined(USE_OPENCDM_ADAPTER)
 	void setKeyId(const std::vector<uint8_t>& keyId) override;
 #endif
-	// TODO: Override added to support direct-rialto/AampDrmBridge; should have
-	//       been a separate, independently reviewed change per
-	//       direct-rialto.instructions.md scope boundary rules.
 	int32_t getMediaKeySessionId() const override;
 	bool waitForState(KeyState state, const uint32_t timeout) override;
 };

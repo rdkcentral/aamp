@@ -143,9 +143,6 @@ public:
 	 */
 	virtual const std::vector<std::vector<uint8_t>>& getUsableKeys() const;
 
-	// TODO: This virtual method was added to support direct-rialto/AampDrmBridge
-	//       and should have been raised as a separate, independently reviewed
-	//       change per direct-rialto.instructions.md scope boundary rules.
 	/**
 	 * @brief Returns the Rialto media key session ID for this DRM session.
 	 *

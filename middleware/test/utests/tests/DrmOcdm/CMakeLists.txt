@@ -71,6 +71,7 @@ set(PLAYER_SOURCES ${PLAYER_ROOT}/drm/DrmUtils.cpp
 					${PLAYER_ROOT}/drm/ocdm/opencdmsessionadapter.cpp
 					${PLAYER_ROOT}/drm/ocdm/OcdmBasicSessionAdapter.cpp
 					${PLAYER_ROOT}/drm/ocdm/OcdmGstSessionAdapter.cpp
+					${PLAYER_ROOT}/drm/ocdm/OpenCDMProvider.cpp
 					${PLAYER_ROOT}/drm/HlsOcdmBridge.cpp
 					${PLAYER_ROOT}/drm/HlsDrmSessionManager.cpp
 					${PLAYER_ROOT}/drm/processProtectionHls.cpp

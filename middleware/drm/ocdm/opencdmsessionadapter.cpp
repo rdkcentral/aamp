@@ -19,7 +19,12 @@
 
 /**
  * @file opencdmsessionadapter.cpp
- * @brief Handles operation with OCDM session to handle DRM License data
+ * @brief Handles operation with OCDM session to handle DRM License data.
+ *
+ * All OCDM C library calls are routed through m_ocdm (IOpenCDM) and
+ * m_session (IOpenCDMSession).  The concrete implementations
+ * (OpenCDMProvider / RialtoMediaKeysProvider) contain the library-specific
+ * code.
  */
 #include "opencdmsessionadapter.h"
 
@@ -48,57 +53,38 @@
  * @fn OCDMSessionAdapter
  * @brief OCDMSessionAdapter constructor
  */
-OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *callbacks) :
-		DrmSession(drmHelper->ocdmSystemId()),
-		m_eKeyState(KEY_INIT),
-		m_pOpenCDMSystem(NULL),
-		m_pOpenCDMSession(NULL),
-		m_pOutputProtection(NULL),
-		decryptMutex(),
-		m_sessionID(),
-		m_challenge(),
-		timeBeforeCallback(0),
-		m_challengeReady(),
-		m_challengeSize(0),
-		m_keyStatus(InternalError),
-		m_keyStateIndeterminate(false),
-		m_keyStatusReady(),
-		m_OCDMSessionCallbacks(),
-		m_destUrl(),
-		m_drmHelper(drmHelper),
-		m_drmCallbacks(callbacks),
-		m_keyStatusWait(),
-		m_keyId(),
-		m_keyStored(),
-		m_usableKeys(),
-		m_usableKeysMutex()
+OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper,
+                                       std::unique_ptr<IOpenCDM> ocdm,
+                                       DrmCallbacks *callbacks)
+	: DrmSession(drmHelper->ocdmSystemId())
+	, m_eKeyState(KEY_INIT)
+	, m_ocdm(std::move(ocdm))
+	, m_session(nullptr)
+	, m_pOutputProtection(nullptr)
+	, decryptMutex()
+	, m_sessionID()
+	, m_challenge()
+	, timeBeforeCallback(0)
+	, m_challengeReady()
+	, m_challengeSize(0)
+	, m_keyStatus(InternalError)
+	, m_keyStateIndeterminate(false)
+	, m_keyStatusReady()
+	, m_destUrl()
+	, m_drmHelper(drmHelper)
+	, m_drmCallbacks(callbacks)
+	, m_keyStatusWait()
+	, m_keyId()
+	, m_keyStored()
+	, m_usableKeys()
+	, m_usableKeysMutex()
 {
-	MW_LOG_WARN("OCDMSessionAdapter :: enter ");
+	MW_LOG_WARN("OCDMSessionAdapter :: enter");
 	MW_LOG_WARN("OCDMSessionAdapter :: key process timeout is %d", drmHelper->keyProcessTimeout());
-
-	initDRMSystem();
 
 	// Get output protection pointer
 	m_pOutputProtection = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-	MW_LOG_WARN("OCDMSessionAdapter :: exit ");
-}
-
-
-void OCDMSessionAdapter::initDRMSystem()
-{
-	std::lock_guard<std::mutex> guard(decryptMutex);
-	MW_LOG_WARN("initDRMSystem :: enter ");
-	if (m_pOpenCDMSystem == nullptr) {
-#ifdef USE_THUNDER_OCDM_API_0_2
-		m_pOpenCDMSystem = opencdm_create_system(m_keySystem.c_str());
-#else
-		m_pOpenCDMSystem = opencdm_create_system();
-#endif
-		if (m_pOpenCDMSystem == nullptr) {
-			MW_LOG_ERR("opencdm_create_system() FAILED");
-		}
-	}
-	MW_LOG_WARN("initDRMSystem :: exit ");
+	MW_LOG_WARN("OCDMSessionAdapter :: exit");
 }
 
 
@@ -106,76 +92,83 @@ OCDMSessionAdapter::~OCDMSessionAdapter()
 {
 	MW_LOG_WARN("[HHH]OCDMSessionAdapter destructor called! keySystem %s", m_keySystem.c_str());
 	clearDecryptContext();
-
-	if (m_pOpenCDMSystem) {
-#ifdef USE_THUNDER_OCDM_API_0_2
-		opencdm_destruct_system(m_pOpenCDMSystem);
-#endif
-		m_pOpenCDMSystem = NULL;
-	}
-
+	// m_ocdm is cleaned up by its unique_ptr destructor.
 }
 
 
 void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 		uint32_t f_cbInitData, std::string &customData)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_INFO("at %p", this);
 
 	std::lock_guard<std::mutex> guard(decryptMutex);
-	if (m_pOpenCDMSystem == nullptr)
+	if (!m_ocdm)
 	{
-		MW_LOG_WARN("OpenCDM system not present, unable to generate DRM session");
+		MW_LOG_WARN("OCDMSessionAdapter::generateDRMSession: no IOpenCDM provider");
 		m_eKeyState = KEY_ERROR;
+		return;
 	}
-	else
+
+	timeBeforeCallback = GetCurrentTimeMS();
+
+	// Wire callbacks using std::function captures — no void* userData required.
+	OpenCDMSessionCallbackSet callbacks;
+
+	callbacks.onChallenge = [this](const char* destUrl,
+	                               const uint8_t* challenge,
+	                               uint16_t challengeSize)
 	{
-		memset(&m_OCDMSessionCallbacks, 0, sizeof(m_OCDMSessionCallbacks));
-		timeBeforeCallback = GetCurrentTimeMS();
-		m_OCDMSessionCallbacks.process_challenge_callback = [](OpenCDMSession* session, void* userData, const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize) {
-			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
-			userSession->timeBeforeCallback = ((GetCurrentTimeMS())-(userSession->timeBeforeCallback));
-			MW_LOG_WARN( "Duration for process_challenge_callback %lld",(userSession->timeBeforeCallback));
-			userSession->processOCDMChallenge(destUrl, challenge, challengeSize);
-		};
+		timeBeforeCallback = GetCurrentTimeMS() - timeBeforeCallback;
+		MW_LOG_WARN("Duration for process_challenge_callback %lld", timeBeforeCallback);
+		processOCDMChallenge(destUrl, challenge, challengeSize);
+	};
 
-		m_OCDMSessionCallbacks.key_update_callback = [](OpenCDMSession* session, void* userData, const uint8_t key[], const uint8_t keySize) {
-			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
-			userSession->keyUpdateOCDM(key, keySize);
-		};
+	callbacks.onKeyUpdate = [this](const uint8_t* key, uint8_t keySize)
+	{
+		keyUpdateOCDM(key, keySize);
+	};
 
-		m_OCDMSessionCallbacks.error_message_callback = [](OpenCDMSession* session, void* userData, const char message[]) {
-		};
+	callbacks.onKeysUpdated = [this]()
+	{
+		keysUpdatedOCDM();
+	};
 
-		m_OCDMSessionCallbacks.keys_updated_callback = [](const OpenCDMSession* session, void* userData) {
-			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
-			userSession->keysUpdatedOCDM();
-		};
-		const unsigned char *customDataMessage = customData.empty() ? nullptr:reinterpret_cast<const unsigned char *>(customData.c_str()) ;
-		const uint16_t customDataMessageLength = customData.length();
-		MW_LOG_INFO("data length : %d: ", customDataMessageLength);
-#ifdef USE_THUNDER_OCDM_API_0_2
-	OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, LicenseType::Temporary, "cenc",
-#else
-    OpenCDMError ocdmRet = opencdm_construct_session(m_pOpenCDMSystem, m_keySystem.c_str(), LicenseType::Temporary, "cenc",
-#endif
-				  const_cast<unsigned char*>(f_pbInitData), f_cbInitData,
-				  customDataMessage, customDataMessageLength,
-				  &m_OCDMSessionCallbacks,
-				  static_cast<void*>(this),
-				  &m_pOpenCDMSession);
-		if (ocdmRet != ERROR_NONE)
+	// Route Rialto license renewals through the same DRM callback path used by
+	// the OCDM stack's processOCDMChallenge when messageType == "1".
+	callbacks.onLicenseRenewal = [this](const uint8_t* /*message*/, size_t /*size*/)
+	{
+		if (m_drmCallbacks)
 		{
-			MW_LOG_ERR("Error constructing OCDM session. OCDM err=0x%x", ocdmRet);
-			m_eKeyState = KEY_ERROR_SESSION_CREATE_FAILED;
+			m_drmCallbacks->LicenseRenewal(m_drmHelper, static_cast<DrmSession*>(this));
 		}
+	};
+
+	const uint8_t* customDataPtr = customData.empty()
+		? nullptr
+		: reinterpret_cast<const uint8_t*>(customData.c_str());
+	const uint16_t customDataLen = static_cast<uint16_t>(customData.length());
+
+	MW_LOG_INFO("customData length: %d", customDataLen);
+
+	m_session = m_ocdm->constructSession(
+		m_keySystem,
+		LicenseType::Temporary,
+		"cenc",
+		f_pbInitData, f_cbInitData,
+		customDataPtr, customDataLen,
+		callbacks);
+
+	if (!m_session)
+	{
+		MW_LOG_ERR("OCDMSessionAdapter::generateDRMSession: constructSession failed");
+		m_eKeyState = KEY_ERROR_SESSION_CREATE_FAILED;
 	}
 }
 
 
 void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize) {
 
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_INFO("at %p", this);
 
 	const std::string challengeData(reinterpret_cast<const char *>(challenge), challengeSize);
 	const std::set<std::string> individualisationTypes = {"individualization-request", "3"};
@@ -214,16 +207,16 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 }
 
 void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_INFO("at %p", this);
 	// Validate input parameters
 	if (key != nullptr && keySize > 0)
 	{
 		// Convert key to keyId - common for both branches
 		std::vector<uint8_t> keyData = RawKeyToKeyId(key, keySize);
 
-		if (m_pOpenCDMSession)
+		if (m_session)
 		{
-			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+			m_keyStatus = m_session->getStatus(key, keySize);
 			m_keyStateIndeterminate = false;
 		}
 		else
@@ -246,14 +239,14 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 }
 
 void OCDMSessionAdapter::keysUpdatedOCDM() {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_INFO("at %p", this);
 	m_keyStatusReady.signal();
 }
 
 
 DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_INFO("at %p", this);
 	DrmData * result = NULL;
 
 	m_eKeyState = KEY_ERROR;
@@ -283,29 +276,24 @@ DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_
 
 int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_INFO("at %p", this);
 	int retValue = -1;
-	const uint8_t* keyMessage = NULL;
-	uint16_t keyMessageLength = 0;
 
 	OpenCDMError status = OpenCDMError::ERROR_NONE;
 
 	if (key)
 	{
-		keyMessage = (const uint8_t *)key->getData().c_str();
-		keyMessageLength = key->getDataLength();
-	}
+		const uint8_t* keyMessage   = reinterpret_cast<const uint8_t*>(key->getData().c_str());
+		const uint16_t keyMsgLength = static_cast<uint16_t>(key->getDataLength());
 
-	if (keyMessage)
-	{
-		MW_LOG_INFO("Calling opencdm_session_update, key length=%u", keyMessageLength);
-		status = opencdm_session_update(m_pOpenCDMSession, keyMessage, keyMessageLength);
+		MW_LOG_INFO("Calling session update, key length=%u", keyMsgLength);
+		status = m_session->update(keyMessage, keyMsgLength);
 	}
 	else
 	{
 		// If no key data has been provided then this suggests the key acquisition
 		// will be performed by the DRM implementation itself. Hence there is no
-		// need to call opencdm_session_update
+		// need to call session update
 		MW_LOG_INFO("NULL key data provided, assuming external key acquisition");
 	}
 
@@ -315,24 +303,17 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 		}
 		// The key could be signalled ready before the session is even created, so we need to check we didn't miss it
 		if (m_keyStateIndeterminate) {
-			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, m_keyStored.data(), m_keyStored.size());
+			m_keyStatus = m_session->getStatus(m_keyStored.data(),
+			                                   static_cast<uint8_t>(m_keyStored.size()));
 			m_keyStateIndeterminate = false;
 			MW_LOG_WARN("Key arrived early, new state is %d", m_keyStatus);
 		}
-#ifdef USE_THUNDER_OCDM_API_0_2
-		if (m_keyStatus == Usable) {
-#else
 		if (m_keyStatus == KeyStatus::Usable) {
-#endif
 			MW_LOG_WARN("processKey: Key Usable!");
 			m_eKeyState = KEY_READY;
 			retValue = 0;
 		}
-#ifdef USE_THUNDER_OCDM_API_0_2
-		else if(m_keyStatus == HWError)
-#else
 		else if(m_keyStatus == KeyStatus::HWError)
-#endif
 		{
 			//  SAGE Hang .. Need to restart the wpecdmi process and then self kill player to recover
 			MW_LOG_WARN("processKey: Update() returned HWError.Restarting process...");
@@ -357,20 +338,12 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 			processHandler.SelfKill();
 		}
 		else {
-#ifdef USE_THUNDER_OCDM_API_0_2
-			if(m_keyStatus == OutputRestricted)
-#else
 			if(m_keyStatus == KeyStatus::OutputRestricted)
-#endif
 			{
 				MW_LOG_WARN("processKey: Update() Output restricted keystatus: %d", (int) m_keyStatus);
 				retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
 			}
-#ifdef USE_THUNDER_OCDM_API_0_2
-			else if(m_keyStatus == OutputRestrictedHDCP22)
-#else
 			else if(m_keyStatus == KeyStatus::OutputRestrictedHDCP22)
-#endif
 			{
 				MW_LOG_WARN("processKey: Update() Output Compliance error keystatus: %d\n", (int) m_keyStatus);
 				retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
@@ -412,10 +385,10 @@ void OCDMSessionAdapter:: clearDecryptContext()
 
 	std::lock_guard<std::mutex> guard(decryptMutex);
 
-	if (m_pOpenCDMSession) {
-		opencdm_session_close(m_pOpenCDMSession);
-		opencdm_destruct_session(m_pOpenCDMSession);
-		m_pOpenCDMSession = NULL;
+	if (m_session) {
+		m_session->close();
+		m_session->destruct();
+		m_session.reset();
 	}
 
 	// Clear usable keys when clearing the session
@@ -432,13 +405,10 @@ void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
 	m_keyId = keyId;
 }
 
-// TODO: This implementation was added to support direct-rialto/AampDrmBridge
-//       and should have been raised as a separate, independently reviewed
-//       change per direct-rialto.instructions.md scope boundary rules.
 int32_t OCDMSessionAdapter::getMediaKeySessionId() const
 {
-	if (m_pOpenCDMSession)
-		return opencdm_session_get_media_key_session_id(m_pOpenCDMSession);
+	if (m_session)
+		return m_session->getMediaKeySessionId();
 	return -1;
 }
 

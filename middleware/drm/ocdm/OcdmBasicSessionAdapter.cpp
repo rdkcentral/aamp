@@ -53,12 +53,13 @@ int OCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, con
 	EncryptionScheme encScheme = AesCtr_Cenc;
 	EncryptionPattern pattern = {0};
 	/* CID:313823 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
-	int retvalue = opencdm_session_decrypt(m_pOpenCDMSession,
-										   dataToSend,
-										   sizeToSend,
-										   encScheme, pattern,
-										   f_pbIV, f_cbIV,
-										   m_keyId.data(), m_keyId.size(), 0 );
+	int retvalue = m_session->decrypt(dataToSend,
+									   sizeToSend,
+									   encScheme, pattern,
+									   f_pbIV, f_cbIV,
+									   m_keyId.data(),
+									   static_cast<uint16_t>(m_keyId.size()),
+									   0);
 	if (retvalue != 0)
 	{
 		if (m_drmHelper->getMemorySystem() != nullptr)
