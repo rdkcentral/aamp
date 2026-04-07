@@ -6011,21 +6011,21 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						ParseCCStreamIDAndLang(std::move(value), id, lang);
 						lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
 
-						TextTrackInfo textTrack = TextTrackInfo(true, std::move(schemeId));
+						TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 						textTrack.setInstreamId(id);
 						textTrack.setLanguage(lang);
 						textTrack.setType("captions");
 						if (AddIfUnique(tTracks, textTrack))
 						{
 							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-							lang.c_str(), schemeId.c_str(), id.c_str());
+										 lang.c_str(), schemeId.c_str(), id.c_str());
 						}
 					}
 					else
 					{
 						// value = empty is highly discouraged as per spec, just added as fallback
 
-						TextTrackInfo textTrack = TextTrackInfo(true, std::move(schemeId));
+						TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 						textTrack.setAccessibilityItem(accessibilityNode);
 						textTrack.setAvailable(true);
 						if (AddIfUnique(tTracks, textTrack))
