@@ -1809,13 +1809,13 @@ void TSProcessor::setPtsOffset( double ptsOffset )
  * @brief Does configured operation on the segment and injects data to sink
  *        Process and send media fragment
  */
-bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool TSProcessor::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization
 	uint8_t *packetStart = nullptr;
-	uint8_t *segment = pBuffer->data();
-	size_t len = pBuffer->size();
+	uint8_t *segment = buffer.data();
+	size_t len = buffer.size();
 	bool ret = false;
 	ptsError = false;
 	{
@@ -1864,7 +1864,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		{
 			AAMPLOG_ERR("No valid ts packet found near the start of the segment");
 			packetStart = segment;
-			len = pBuffer->size();
+			len = buffer.size();
 			break;
 		}
 	}

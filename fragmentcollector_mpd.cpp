@@ -3549,12 +3549,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 				if (mLowLatencyMode && !liveAdjust)
 				{
-					int maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
+					float maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
 					//Chunk mode is applied when the seek position is between the live edge and the maximum allowed latency from it
 					if (seekPosition > (duration - maxLatency))
 					{
 						aamp->SetLLDashChunkMode(true);
-						AAMPLOG_MIL("Chunk mode set: seekPosition (%f) not exceeded maxLatency (%d) threshold, enabling LLDashChunkMode", seekPosition, maxLatency);
+						AAMPLOG_MIL("Chunk mode set: seekPosition (%f) not exceeded maxLatency (%f) threshold, enabling LLDashChunkMode", seekPosition, maxLatency);
 					}
 				}
 			}
@@ -6810,13 +6810,27 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number - 1;
 
 	/*Calculating the difference in Fetched duration, injected duration and diff in Media Sequence number */
+
+	//Finding the fragment duration in seconds, for calculating the diff in injected duration.
+	double fragmentDurationSec = 0.0;
+	if (pMediaStreamContext->fragmentDescriptor.TimeScale == 0)
+	{
+		AAMPLOG_WARN("TimeScale is 0 while calculating fragmentDurationSec, treating fragmentDurationSec as 0");
+	}
+	else
+	{
+		fragmentDurationSec = static_cast<double>(fragmentDuration) / pMediaStreamContext->fragmentDescriptor.TimeScale;
+	}
 	diffInFetchedDuration = oldPlaylistPosition - pMediaStreamContext->fragmentTime;
 	diffInInjectedDuration = ( pMediaStreamContext->GetLastInjectedPosition() - pMediaStreamContext->fragmentTime );
-	diffFragmentsDownloaded = static_cast<int>(oldMediaSequenceNumber - pMediaStreamContext->fragmentDescriptor.Number);
+	// Add fragment duration offset to reduce from injected position for next fragment calculation
+	diffInInjectedDuration += fragmentDurationSec;
 
-	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d]",
+	diffFragmentsDownloaded = static_cast<int>(static_cast<int64_t>(oldMediaSequenceNumber) - static_cast<int64_t>(pMediaStreamContext->fragmentDescriptor.Number));
+
+	AAMPLOG_INFO("Calculated oldPlaylistPosition[%lf] newPlaylistPosition[%lf] diffInFetchedDuration[%lf] LastInjectedDuration[%lf] Duration[%u], diffInInjectedDuration[%lf] oldMediaSequenceNumber[%" PRIu64 "] newMediaSequenceNumber[%" PRIu64 "] diffFragmentsDownloaded[%d],fragmentDurationSec[%lf]",
 			oldPlaylistPosition,pMediaStreamContext->fragmentTime,diffInFetchedDuration, pMediaStreamContext->GetLastInjectedPosition(),
-			fragmentDuration, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded);
+			fragmentDuration, diffInInjectedDuration,oldMediaSequenceNumber, pMediaStreamContext->fragmentDescriptor.Number,diffFragmentsDownloaded, fragmentDurationSec);
 
 	pMediaStreamContext->resetAbort(false);
 	pMediaStreamContext->OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
@@ -12969,7 +12983,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 	{
 		AampLLDashServiceData stLLServiceData;
 		double currentOffset = 0;
-		int maxLatency=0,minLatency=0,TargetLatency=0;
+		float maxLatency = 0, minLatency = 0, targetLatency = 0;
 		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 		if((dnldInstance->IsMPDLowLatency(stLLServiceData))
 			&&	(stLLServiceData.availabilityTimeComplete == false ))
@@ -13012,7 +13026,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 			}
 
 			minLatency = GETCONFIGVALUE(eAAMPConfig_LLMinLatency);
-			TargetLatency = GETCONFIGVALUE(eAAMPConfig_LLTargetLatency);
+			targetLatency = GETCONFIGVALUE(eAAMPConfig_LLTargetLatency);
 			maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
 			if (aamp->mIsStream4K)
 			{
@@ -13027,7 +13041,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 
 			if(	stLLServiceData.minLatency <= 0)
 			{
-				if(minLatency <= 0 || minLatency > TargetLatency )
+				if(minLatency <= 0 || minLatency > targetLatency )
 				{
 					stLLServiceData.minLatency = DEFAULT_MIN_LOW_LATENCY*1000;
 				}
@@ -13054,7 +13068,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 				stLLServiceData.targetLatency > stLLServiceData.maxLatency )
 
 			{
-				if(TargetLatency <=0 || TargetLatency < minLatency || TargetLatency > maxLatency )
+				if(targetLatency <=0 || targetLatency < minLatency || targetLatency > maxLatency )
 				{
 					stLLServiceData.targetLatency = DEFAULT_TARGET_LOW_LATENCY*1000;
 					stLLServiceData.maxLatency = DEFAULT_MAX_LOW_LATENCY*1000;
@@ -13062,12 +13076,12 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 				}
 				else
 				{
-					stLLServiceData.targetLatency = TargetLatency*1000;
+					stLLServiceData.targetLatency = targetLatency*1000;
 				}
 			}
 			double latencyOffsetMin = stLLServiceData.minLatency/(double)1000;
 			double latencyOffsetMax = stLLServiceData.maxLatency/(double)1000;
-			AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-Dash] Min Latency: %ld Max Latency: %ld Target Latency: %ld",(long)latencyOffsetMin,(long)latencyOffsetMax,(long)TargetLatency);
+			AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-Dash] Min Latency: %ld Max Latency: %ld Target Latency: %ld",(long)latencyOffsetMin,(long)latencyOffsetMax,(long)targetLatency);
 			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_IgnoreAppLiveOffset, true);
 			//Ignore Low latency setting
 			if(!ISCONFIGSET(eAAMPConfig_ForceLLDFlow) && !ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && (currentOffset > latencyOffsetMax) && aamp->mIsStream4K) ||

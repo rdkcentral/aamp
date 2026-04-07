@@ -46,7 +46,7 @@ class IsoBmffHelper
 		 *
 		 * @brief Restamp the PTS in the ISO BMFF boxes in the buffer, by adding an offset
 		 *
-		 * @param[in] buffer - Pointer to the AampGrowableBuffer
+		 * @param[in] buffer - buffer containing the ISO BMFF boxes to restamp
 		 * @param[in] ptsOffset - Offset to be added to PTS values
 		 * @param[in] fragmentUrl - Fragment URL, used in logging
 		 * @param[in] trackName - Media track name, used in logging
