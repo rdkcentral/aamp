@@ -53,6 +53,7 @@ PlayerExternalsInterface::PlayerExternalsInterface()
  */
 PlayerExternalsInterface::~PlayerExternalsInterface()
 {
+    MW_LOG_WARN(" PlayerExternalsInterface destructor called\n");
     m_pIarmInterface = nullptr;
     s_pPlayerOP = NULL;    
 }

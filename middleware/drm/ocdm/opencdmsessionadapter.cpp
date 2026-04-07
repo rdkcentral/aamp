@@ -80,6 +80,10 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 
 	// Get output protection pointer
 	m_pOutputProtection = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	MW_LOG_WARN("m_drmHelper addr: %p, use_count: %ld, m_pOutputProtection addr: %p, use_count: %ld",
+            m_drmHelper.get(),
+            m_drmHelper.use_count(), m_pOutputProtection.get(), m_pOutputProtection.use_count());
+
 	MW_LOG_WARN("OCDMSessionAdapter :: exit ");
 }
 
@@ -434,6 +438,20 @@ void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
 
 bool OCDMSessionAdapter::verifyOutputProtection()
 {
+	
+	MW_LOG_WARN("m_drmHelper addr: %p, use_count: %ld, m_pOutputProtection addr: %p, use_count: %ld",
+            m_drmHelper.get(),
+            m_drmHelper.use_count(), m_pOutputProtection.get(), m_pOutputProtection.use_count());
+
+	if(!m_drmHelper)
+	{
+		MW_LOG_WARN("m_drmHelper is NULL, unable to verify output protection");
+	}
+	if(!m_pOutputProtection)
+	{
+		MW_LOG_WARN("Output Protection interface not present, unable to verify output protection");
+	}
+
 	if (m_drmHelper->isHdcp22Required() && m_pOutputProtection->IsSourceUHD())
 	{
 		// Source material is UHD

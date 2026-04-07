@@ -196,6 +196,7 @@ void PlayerExternalsRdkInterface::OnResolutionPreChange(int width, int height)
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
 {
+    MW_LOG_WARN(" PlayerExternalsRdkInterface destructor called\n");
 #ifdef USE_DS_EVENT_SUPPORTED
 	RemoveDsClientEventHandlers();
 #endif
