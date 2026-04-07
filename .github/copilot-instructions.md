@@ -35,6 +35,26 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 ---
 
 # ==============================
+#  PROMPT FEEDBACK GUIDELINES
+# ==============================
+
+## Prompt Feedback (Compact)
+- Provide prompt-quality feedback for every prompt using the following format:
+- Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10 | Critique: <brief> | Improve: <specific edit>`.
+- Scoring: Completeness and Clarity are higher-is-better; Assumptions is lower-is-better.
+- Strict rubric for underspecified prompts:
+  - If the prompt is extremely vague (for example: "build something"), score it harshly.
+  - For these prompts, use: Completeness 0-3/10, Clarity 0-3/10, Assumptions 7-10/10.
+  - Never assign high scores to prompts that omit target, scope, constraints, or success criteria.
+- Keep it short and specific; avoid generic advice.
+- Suppress feedback when Completeness >= 8, Assumptions <= 2, and Clarity >= 8,
+  unless the user explicitly asks to apply feedback to the current prompt.
+- Prefer high-compliance guidance: suggest exact wording that reduces
+  ambiguity and improves instruction precision.
+
+---
+
+# ==============================
 #  COPILOT MASTER INSTRUCTIONS
 # ==============================
 
