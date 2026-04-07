@@ -3142,7 +3142,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  */
 TEST_F(FunctionalTests, CCMultipleAdaption_Test1)
 {
-	std::string fragmentUrl;
+
 	AAMPStatusType status;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="UTF-8"?>
@@ -3207,9 +3207,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
 	// Initialize MPD. The video initialization segment is cached.
-	fragmentUrl = std::string(TEST_BASE_URL) + std::string("manifest/track-video-repid-video00-tc-0-header.mp4");
-	//EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-	//	.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
@@ -3225,7 +3222,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
  */
 TEST_F(FunctionalTests, CCMultipleAdaption_Test2)
 {
-	std::string fragmentUrl;
 	AAMPStatusType status;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="UTF-8"?>
@@ -3293,9 +3289,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 </MPD>
 )";
 	// Initialize MPD. The video initialization segment is cached.
-	fragmentUrl = std::string(TEST_BASE_URL) + std::string("manifest/track-video-repid-video00-tc-0-header.mp4");
-	//EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-	//	.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
