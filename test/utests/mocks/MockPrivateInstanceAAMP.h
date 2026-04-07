@@ -94,6 +94,7 @@ public:
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(void, Individualization, (const std::string &payload));
+	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
