@@ -1744,6 +1744,17 @@ public:
 	bool IsUnderflowMonitorRunning() const;
 
 	/**
+	 * @fn NotifyBufferLevelToLatencyMonitor
+	 * @brief Notify the latency monitor of the current buffer level.
+	 *
+	 * Call this whenever a video fragment (or LL-DASH chunk) is successfully
+	 * queued for injection so the latency monitor can track buffer health
+	 * and wake promptly to reduce latency in detecting buffer dips.
+	 *
+	 * @param[in] bufferMs  Current buffered duration in milliseconds.
+	 */
+	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+	/**
 	 *   @fn GetBufferedAudioDurationSec
 	 *
 	 *   @return duration of currently buffered audio in seconds

@@ -229,6 +229,18 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 					name, mActiveDownloadInfo->chunkDurationSec, lastDownloadedPosition.load(),
 					cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
 				lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+				if (eTRACK_VIDEO == type)
+				{
+					// Notify the latency monitor so it can wake its worker early on
+					// danger-buffer onset rather than waiting for the next scheduled poll.
+					{
+						const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
+						if (bufferMs >= 0.0)
+						{
+							GetContext()->NotifyBufferLevelToLatencyMonitor(bufferMs);
+						}
+					}
+				}
 			}
 		}
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
@@ -688,6 +700,15 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		// reset count on video fragment success
 		context->mRampDownCount = 0;
+		// Notify the latency monitor so it can wake its worker early on
+		// danger-buffer onset rather than waiting for the next scheduled poll.
+		{
+			const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
+			if (bufferMs >= 0.0)
+			{
+				context->NotifyBufferLevelToLatencyMonitor(bufferMs);
+			}
+		}
 	}
 
 	if(tsbSessionManager && cachedFragment->fragment.size())

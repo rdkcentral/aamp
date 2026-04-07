@@ -3058,6 +3058,14 @@ bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	return (mUnderflowMonitor && mUnderflowMonitor->IsRunning());
 }
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+	if (aamp)
+	{
+		aamp->NotifyBufferLevelToLatencyMonitor(bufferMs);
+	}
+}
+
 /**
  *  @brief Check if playback has stalled and update related flags.
  */

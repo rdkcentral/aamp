@@ -3662,6 +3662,14 @@ public:
 	long GetCurrentLatencyMs();
 
 	/**
+	 * @fn NotifyBufferLevelToLatencyMonitor
+	 * @brief Forward the current buffer level to the latency monitor so it
+	 *        can track buffer health and apply threshold restoration steps.
+	 * @param[in] bufferMs  Current buffered duration in milliseconds.
+	 */
+	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+
+	/**
 	 *     @fn SetCurrentLatency
 	 *     @param[in] currentLatency - Current latency to set
 	 *     @return void

@@ -47,6 +47,10 @@ bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
 	return false;
 }
 
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+}
+
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
 {
 }
