@@ -576,6 +576,13 @@ public:
 
 protected:
 	/**
+	 * @fn AddIfUnique
+	 * @brief Adds a text track to the list if it is not already in list
+	 * @return true if the text track was added, false otherwise
+	 */
+	bool AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo& value);
+
+	/**
 	 * @fn StartFromAampLocalTsb
 	 *
 	 * @brief Start streaming from AAMP Local TSB
