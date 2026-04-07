@@ -1475,7 +1475,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							{
 								isCurrentAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
 							}
-							// Check if the ad fragment is within source period for live stream or cancelled ad break is within source period. 
+							// Check if the ad fragment is within source period for live stream or cancelled ad break is within source period.
 							// If not, skip the fragment to avoid potential issues. CheckForAdTerminate() mark EOS for stream at boundaries.
 							if (((liveEdgePeriodPlayback || isCurrentAdCancelled) && !baselineSourcePeriodCheck))
 							{
@@ -3105,7 +3105,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		this->mpd	=	tmpMPD;
 		// Parse for generic parameters
 		mMPDParseHelper	=	mpdDnldResp->GetMPDParseHelper();
-		
+
 		// this flag for current state of manifest ( Linear to VOD can happen)
 		if((mMPDParseHelper->IsLiveManifest() != mIsLiveManifest) && !init )
 		{
@@ -6337,25 +6337,35 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						while (delim != std::string::npos)
 						{
 							ParseCCStreamIDAndLang(value.substr(0, delim), id, lang);
-							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-								lang.c_str(), schemeId.c_str(), id.c_str());
+
 							TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 							textTrack.setInstreamId(id);
 							textTrack.setLanguage(lang);
 							textTrack.setType("captions");
-							tTracks.push_back(std::move(textTrack));
+							if (std::find(tTracks.begin(), tTracks.end(), textTrack) == tTracks.end())
+							{
+								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
+											 lang.c_str(), schemeId.c_str(), id.c_str());
+								// textTrack not in tTracks, add it
+								tTracks.push_back(std::move(textTrack));
+							}
 							value = value.substr(delim + 1);
 							delim = value.find(';');
 						}
 						ParseCCStreamIDAndLang(std::move(value), id, lang);
 						lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-							lang.c_str(), schemeId.c_str(), id.c_str());
+
 						TextTrackInfo textTrack = TextTrackInfo(true, std::move(schemeId));
 						textTrack.setInstreamId(id);
 						textTrack.setLanguage(lang);
 						textTrack.setType("captions");
-						tTracks.push_back(std::move(textTrack));
+						if (std::find(tTracks.begin(), tTracks.end(), textTrack) == tTracks.end())
+						{
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
+							lang.c_str(), schemeId.c_str(), id.c_str());
+							// textTrack not in tTracks, add it
+							tTracks.push_back(std::move(textTrack));
+						}
 					}
 					else
 					{
@@ -8586,9 +8596,9 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 			mCulledSeconds = firstPeriodStart;
 		}
-		
+
 		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(mPlayRate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
-		
+
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
 		{
 			// Handling edge case just before dynamic => static transition.
