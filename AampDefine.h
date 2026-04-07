@@ -60,7 +60,7 @@
 #define DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL 5
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
-#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 0			/**< Default ABR Bandwidth Estimation Algorithm */
+#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 1			/**< Default ABR Bandwidth Estimation Algorithm */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */
 #define DEFAULT_PROGRESS_LOGGING_DIVISOR 4			/**< Divisor of progress logging frequency to print logging */
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */

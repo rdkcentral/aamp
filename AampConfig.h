@@ -324,7 +324,10 @@ typedef enum
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
 	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
-	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator */
+	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator:
+													 ROLLING_MEDIAN_OUTLIER = 0
+													 HARMONIC_EWMA = 1
+													 */
 	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
