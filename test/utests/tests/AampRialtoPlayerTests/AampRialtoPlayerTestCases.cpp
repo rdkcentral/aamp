@@ -955,15 +955,15 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 			0.1, 0.1, 0.033, 0, false);
 	}
 
-	// Fire needData for both sources simultaneously.
-	m_player->OnNeedMediaData(0, 1, 50); // video
-	m_player->OnNeedMediaData(1, 1, 51); // audio
-
-	// Both sources should receive haveData(OK).
+	// Both sources should receive haveData(OK) — set up before triggering.
 	EXPECT_CALL(*m_mockPipelinePtr, haveData(_, AnyOf(50u, 51u)))
 		.Times(::testing::AtLeast(2));
 	EXPECT_CALL(*m_mockPipelinePtr, addSegment(_, _))
 		.Times(::testing::AtLeast(2));
+
+	// Fire needData for both sources simultaneously.
+	m_player->OnNeedMediaData(0, 1, 50); // video
+	m_player->OnNeedMediaData(1, 1, 51); // audio
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
@@ -1740,3 +1740,315 @@ TEST_F(AampRialtoPlayerDrmTest,
 	EXPECT_EQ(capturedSubSamples[0].numClearBytes,     0u);
 	EXPECT_EQ(capturedSubSamples[0].numEncryptedBytes, kSampleSize);
 }
+
+// ===========================================================================
+// Phase 13 — PlayerState state machine (GoF State pattern)
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Initial state
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerTest, StateMachine_InitialState_IsIdle)
+{
+	// Before any Configure() call the state machine must be in IDLE.
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::IDLE);
+}
+
+// ---------------------------------------------------------------------------
+// IDLE → PIPELINE_CREATED
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerTest, StateMachine_AfterSuccessfulConfigure_IsPipelineCreated)
+{
+	// load() succeeds (mocked to return true in the base fixture).
+	Configure();
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::PIPELINE_CREATED);
+}
+
+TEST_F(AampRialtoPlayerTest, StateMachine_AfterFailedLoad_RemainsIdle)
+{
+	// When load() fails the state machine must not advance.
+	EXPECT_CALL(*m_mockPipelinePtr, load(_, _, _)).WillOnce(Return(false));
+	Configure();
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::IDLE);
+}
+
+// ---------------------------------------------------------------------------
+// PIPELINE_CREATED → SOURCES_ATTACHING
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterFirstVideoInit_IsSourcesAttaching_ForDualTrack)
+{
+	// For a dual-track stream, only the video init fragment has arrived —
+	// the player waits for audio before calling allSourcesAttached().
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	// Audio source not yet attached → still SOURCES_ATTACHING.
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::SOURCES_ATTACHING);
+}
+
+// ---------------------------------------------------------------------------
+// SOURCES_ATTACHING → SOURCES_ATTACHED
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterBothInitFragments_IsSourcesAttached)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::SOURCES_ATTACHED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_VideoOnlyStream_IsSourcesAttachedAfterVideoInit)
+{
+	// For a video-only stream allSourcesAttached() fires immediately after
+	// the single video init fragment.
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	SendVideoInitFragment();
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::SOURCES_ATTACHED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AudioOnlyStream_IsSourcesAttachedAfterAudioInit)
+{
+	Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF);
+	SendAudioInitFragment();
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::SOURCES_ATTACHED);
+}
+
+// ---------------------------------------------------------------------------
+// SOURCES_ATTACHED → PLAYING (via notifyPlaybackState)
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterPlaybackStartedNotification_IsPlaying)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::PLAYING);
+}
+
+// ---------------------------------------------------------------------------
+// PLAYING → PAUSED
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterPausedNotification_IsPaused)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::PLAYING);
+
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::PAUSED);
+}
+
+// ---------------------------------------------------------------------------
+// PAUSED → PLAYING
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterResumeFromPaused_IsPlaying)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::PAUSED);
+
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::PLAYING);
+}
+
+// ---------------------------------------------------------------------------
+// → FLUSHING
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterFlushFromSourcesAttached_IsFlushing)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	m_player->Flush(0.0, 1, false);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::FLUSHING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterFlushFromPlaying_IsFlushing)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	m_player->Flush(0.0, 1, false);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::FLUSHING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterFlushFromPaused_IsFlushing)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+
+	m_player->Flush(0.0, 1, false);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::FLUSHING);
+}
+
+// ---------------------------------------------------------------------------
+// FLUSHING → SOURCES_ATTACHING (new init fragment after flush)
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterFlushThenReconfigure_ResetsToIdle)
+{
+	// Verify the FLUSHING → IDLE transition driven by onReconfigure().
+	// After Flush() the state is FLUSHING; a subsequent Configure() call
+	// fires onReconfigure() which resets to IDLE.  In the test environment
+	// the pipeline factory has been exhausted so load() is not called and
+	// the state stays at IDLE rather than advancing to PIPELINE_CREATED.
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	m_player->Flush(5.0, 1, false);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::FLUSHING);
+
+	// Re-configure fires onReconfigure(): FLUSHING → IDLE.
+	Configure();
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::IDLE);
+}
+
+// ---------------------------------------------------------------------------
+// → STOPPED
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterStop_IsStopped)
+{
+	Configure();
+	m_player->Stop(false);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::STOPPED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_StopFromPlaying_IsStopped)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	m_player->Stop(false);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::STOPPED);
+}
+
+// ---------------------------------------------------------------------------
+// → ERROR
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_AfterFailureNotification_IsError)
+{
+	Configure();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
+
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::ERROR);
+}
+
+// ---------------------------------------------------------------------------
+// Reconfigure (re-tune) resets to IDLE then PIPELINE_CREATED
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_Reconfigure_ResetsFromStoppedToIdle)
+{
+	// Verify the STOPPED → IDLE transition driven by onReconfigure().
+	// In the test environment the mock pipeline factory is exhausted after
+	// the first Configure(), so the second call stops at IDLE rather than
+	// advancing to PIPELINE_CREATED.  The important assertion is that the
+	// state is no longer STOPPED after the re-configure.
+	Configure();
+	m_player->Stop(false);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::STOPPED);
+
+	// Re-configure fires onReconfigure(): STOPPED → IDLE.
+	Configure();
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::IDLE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StateMachine_Reconfigure_ResetsFromErrorToIdle)
+{
+	// Verify the ERROR → IDLE transition driven by onReconfigure().
+	Configure();
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyPlaybackState(firebolt::rialto::PlaybackState::FAILURE);
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::ERROR);
+
+	// Re-configure fires onReconfigure(): ERROR → IDLE.
+	Configure();
+	EXPECT_EQ(m_player->GetPlayerStateForTesting(), PlayerStateId::IDLE);
+}
+
+// ---------------------------------------------------------------------------
+// Per-source workers: parallel injection is lock-free on IPC thread
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SourceWorker_OnNeedMediaData_DoesNotBlockCallerThread)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// If OnNeedMediaData acquires a global mutex that the injection thread
+	// holds during a (slow) addSegment call, the caller would block.
+	// This test verifies no deadlock occurs when needData events are fired
+	// rapidly from multiple simulated sources, confirming the per-source
+	// worker design.
+	for (int i = 0; i < 30; ++i)
+	{
+		m_player->OnNeedMediaData(0, 1, static_cast<uint32_t>(100 + i));
+		m_player->OnNeedMediaData(1, 1, static_cast<uint32_t>(200 + i));
+	}
+	// Must complete without blocking.
+	SUCCEED();
+}
+

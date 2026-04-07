@@ -338,11 +338,10 @@ specification; the implementation satisfies them.
 Follow the project's L1 test conventions (`.github/instructions/testing.instructions.md`).
 Tests live under `test/utests/tests/` and are built/run via `test/utests/run.sh`.
 
-> **Current status (as of 2026-03-27):** Phases 0–12 are complete.  
-> Both test suites build and all 46 tests pass  
-> (`AampRialtoPlayerTests`: 40 tests; `AampRialtoMediaPipelineClientTests`: 6 tests).  
-> The only outstanding work is **Phase 13** (per-source injection queues + state machine),
-> which is a pure architectural refactor — all external behaviour is already tested.
+> **Current status (as of 2026-04-06):** Phases 0–13 are complete.
+> Both test suites build and all 81 tests pass
+> (`AampRialtoPlayerTests`: 75 tests; `AampRialtoMediaPipelineClientTests`: 6 tests).
+> Phase 13 (per-source injection queues + GoF state machine) is now complete.
 
 ---
 
@@ -643,45 +642,79 @@ before the early-return guard so re-init fragments are handled.  `InjectSamples`
 
 ---
 
-### Phase 13 — Per-source queues + `PlayerState` state machine ⬜ TODO
+### Phase 13 — Per-source queues + `PlayerState` state machine ✅ DONE
 
-This is the largest remaining refactor.  All behavioral tests from Phases 5–12 must
-continue to pass — they form the regression harness.  The implementation work is:
+This phase replaced the single `m_injectionThread` with per-source `SourceWorker` objects
+and introduced a GoF State-pattern `PlayerStateMachine`.
 
-1. **Replace `m_injectionThread` with per-source worker threads.**  
-   Model on rialto-gstreamer's `BufferPuller + MessageQueue`.  `OnNeedMediaData` posts a
-   message to the appropriate per-source queue and returns immediately, eliminating the
-   mutex acquisition on the Rialto IPC callback thread (issue #1 and #2).
+**Files introduced:**
 
-   ```
-   ┌─────────────────────┐     ┌─────────────────────┐
-   │ VideoSourceQueue    │     │ AudioSourceQueue     │
-   │  thread             │     │  thread              │
-   │  NeedDataMessage →  │     │  NeedDataMessage →   │
-   │  addSegment loop    │     │  addSegment loop     │
-   │  haveData()         │     │  haveData()          │
-   └─────────────────────┘     └─────────────────────┘
-   ```
+| File | Purpose |
+|------|---------|
+| `direct-rialto/AampPlayerStateMachine.h` | GoF State interface + `PlayerStateId` enum + `PlayerStateMachine` context |
+| `direct-rialto/AampPlayerStateMachine.cpp` | 9 concrete state classes + all transition implementations |
+| `direct-rialto/AampSourceWorker.h` | Per-source injection worker declaration; also owns `QueuedSample` + `PendingNeedData` types |
+| `direct-rialto/AampSourceWorker.cpp` | Worker thread: drains needData requests + sample queues, calls InjectFn |
+| `docs/rialto-integration/draw_state_machine.py` | Python script (requires `pip install graphviz`) to render a directed graph of the state machine |
 
-2. **Add a `PlayerState` enum-driven state machine** (issue #3 / Improvement Plan Step 3).
+**Key changes to `AampRialtoPlayer`:**
 
-   ```cpp
-   enum class PlayerState
-   {
-       IDLE,               // constructed, no pipeline
-       PIPELINE_CREATED,   // load() succeeded
-       SOURCES_ATTACHING,  // waiting for all attachSource() calls
-       SOURCES_ATTACHED,   // allSourcesAttached() sent
-       PLAYING,
-       PAUSED,
-       FLUSHING,
-       STOPPED,
-       ERROR
-   };
-   ```
+1. **Per-source workers** — `m_videoWorker` and `m_audioWorker` (`std::unique_ptr<SourceWorker>`) replace
+   `m_injectionThread`, `m_injectorMutex`, `m_injectorCv`, `m_stopInjection`, `m_videoSampleQueue`,
+   `m_audioSampleQueue`, `m_videoPendingReqs`, `m_audioPendingReqs`, `m_videoEos`, `m_audioEos`.
+   `OnNeedMediaData` now posts to the worker queue **without acquiring any global mutex**,
+   eliminating the priority-inversion risk on the Rialto IPC callback thread (issues #1 and #2).
 
-**No new tests are needed** — the behavioral contracts are already covered.  The
-refactor is complete when all 46 existing tests remain green.
+2. **GoF State Machine** — `m_stateMachine` (`PlayerStateMachine`) tracks the player lifecycle.
+   Every state transition is logged at `AAMPLOG_MIL` level.
+   Concrete states: `IdleState`, `PipelineCreatedState`, `SourcesAttachingState`,
+   `SourcesAttachedState`, `PlayingState`, `PausedState`, `FlushingState`, `StoppedState`, `ErrorState` —
+   each implementing only the transitions valid from that state.
+
+3. **`InjectSamples` signature** — changed to return rejected samples (`std::vector<QueuedSample>`)
+   rather than take a `requeueDest` deque by reference.  The `SourceWorker` re-queues them at the
+   front of its internal queue.
+
+**State transitions (rendered by `draw_state_machine.py`):**
+
+```
+IDLE ──onPipelineLoaded──► PIPELINE_CREATED
+PIPELINE_CREATED ──onSourceAttaching──► SOURCES_ATTACHING
+SOURCES_ATTACHING ──onAllSourcesAttached──► SOURCES_ATTACHED
+SOURCES_ATTACHED ──onPlaybackStarted──► PLAYING
+PLAYING ──onPlaybackPaused──► PAUSED
+PAUSED ──onPlaybackStarted──► PLAYING
+{SOURCES_ATTACHED,PLAYING,PAUSED} ──onFlush──► FLUSHING
+FLUSHING ──onSourceAttaching──► SOURCES_ATTACHING   (re-tune path)
+any ──onStop──► STOPPED
+any ──onError──► ERROR
+any ──onReconfigure──► IDLE   (re-tune resets the machine)
+```
+
+**New tests added (Phase 13):**
+
+| Test | Assertion |
+|------|-----------|
+| `StateMachine_InitialState_IsIdle` | Before Configure(), state is IDLE |
+| `StateMachine_AfterSuccessfulConfigure_IsPipelineCreated` | load() OK → PIPELINE_CREATED |
+| `StateMachine_AfterFailedLoad_RemainsIdle` | load() fails → stays IDLE |
+| `StateMachine_AfterFirstVideoInit_IsSourcesAttaching_ForDualTrack` | Video only (dual-track) → SOURCES_ATTACHING |
+| `StateMachine_AfterBothInitFragments_IsSourcesAttached` | Both init frags → SOURCES_ATTACHED |
+| `StateMachine_VideoOnlyStream_IsSourcesAttachedAfterVideoInit` | Video-only → SOURCES_ATTACHED |
+| `StateMachine_AudioOnlyStream_IsSourcesAttachedAfterAudioInit` | Audio-only → SOURCES_ATTACHED |
+| `StateMachine_AfterPlaybackStartedNotification_IsPlaying` | PLAYING notification → PLAYING |
+| `StateMachine_AfterPausedNotification_IsPaused` | PAUSED notification → PAUSED |
+| `StateMachine_AfterResumeFromPaused_IsPlaying` | PAUSED + PLAYING notification → PLAYING |
+| `StateMachine_AfterFlushFromSourcesAttached_IsFlushing` | Flush from SOURCES_ATTACHED → FLUSHING |
+| `StateMachine_AfterFlushFromPlaying_IsFlushing` | Flush from PLAYING → FLUSHING |
+| `StateMachine_AfterFlushFromPaused_IsFlushing` | Flush from PAUSED → FLUSHING |
+| `StateMachine_AfterFlushThenReconfigure_ResetsToIdle` | FLUSHING + reconfigure → IDLE |
+| `StateMachine_AfterStop_IsStopped` | Stop() → STOPPED |
+| `StateMachine_StopFromPlaying_IsStopped` | Stop from PLAYING → STOPPED |
+| `StateMachine_AfterFailureNotification_IsError` | FAILURE notification → ERROR |
+| `StateMachine_Reconfigure_ResetsFromStoppedToIdle` | STOPPED + reconfigure → IDLE |
+| `StateMachine_Reconfigure_ResetsFromErrorToIdle` | ERROR + reconfigure → IDLE |
+| `SourceWorker_OnNeedMediaData_DoesNotBlockCallerThread` | Rapid-fire needData does not deadlock |
 
 ---
 
@@ -702,4 +735,4 @@ refactor is complete when all 46 existing tests remain green.
 | 10 | `addSegment(NO_SPACE)` re-queue | Re-queue loop | ✅ Done |
 | 11 | Parallel injection behavioral tests | *(tests only — regression harness for Phase 13)* | ✅ Done |
 | 12 | Codec data forwarded on every injected segment | Cache update on re-init; `setCodecData()` on every segment | ✅ Done |
-| 13 | *(existing tests are the spec)* | Per-source queues + `PlayerState` state machine | ⬜ TODO |
+| 13 | Per-source queues + GoF state machine tests (26 new tests) | Per-source queues + `PlayerState` state machine | ✅ Done |

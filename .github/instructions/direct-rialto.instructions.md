@@ -1,14 +1,16 @@
 ---
-description: TDD and SOLID rules for the direct-rialto AampRialtoPlayer component
+description: TDD and SOLID rules for all code in the direct-rialto/ directory
 applyTo:
   - "direct-rialto/**"
-  - "test/utests/tests/AampRialtoPlayerTests/**"
-  - "test/utests/tests/AampRialtoMediaPipelineClientTests/**"
+  - "test/utests/tests/AampRialto*/**"
 ---
 
 # Direct-Rialto Component Instructions
 
-These rules apply **only** to `direct-rialto/` and its companion test directories.
+These rules apply to **every file under `direct-rialto/`** — including existing
+classes (`AampRialtoPlayer`, `AampRialtoMediaPipelineClient`, `PlayerStateMachine`,
+`SourceWorker`) and any new class added to that directory in the future — and to
+their companion test directories.
 They intentionally do **not** extend to the rest of AAMP to avoid merge conflicts
 and the risk of breaking unrelated code.
 
@@ -27,8 +29,9 @@ Every change to `direct-rialto/` must follow the **Red → Green → Refactor** 
 
 ### Rules
 - Never modify `direct-rialto/` production code without a corresponding test.
-- Tests live in `test/utests/tests/AampRialtoPlayerTests/` or
-  `test/utests/tests/AampRialtoMediaPipelineClientTests/`.
+- Tests live under `test/utests/tests/` in a directory named after the class
+  under test (e.g. `AampRialtoPlayerTests/`, `AampRialtoMediaPipelineClientTests/`).
+  New classes added to `direct-rialto/` must have a corresponding test directory.
 - Always read `.github/instructions/testing.instructions.md` before writing or
   modifying any test.
 - Verify by building and running the affected test binary after every change:
@@ -59,8 +62,8 @@ refactor existing AAMP code outside this directory.
 ## Scope Boundary — Do Not Refactor the Rest of AAMP
 
 > **Hard rule:** Changes originating in `direct-rialto/` must not cascade into
-> files outside `direct-rialto/`, `test/utests/tests/AampRialtoPlayerTests/`, or
-> `test/utests/tests/AampRialtoMediaPipelineClientTests/`.
+> files outside `direct-rialto/` or its companion test directories under
+> `test/utests/tests/AampRialto*/`.
 
 Specifically:
 - Do **not** modify `StreamSink.h`, `priv_aamp.h`, `AampConfig.*`, or any other
@@ -74,16 +77,98 @@ the rest of the AAMP pipeline.
 
 ---
 
+## Coding Style — Mandatory for All Code in `direct-rialto/`
+
+These rules apply to every `.cpp` and `.h` file under `direct-rialto/`, regardless
+of whether the code is new or modified.
+
+### File naming
+Every source file under `direct-rialto/` must:
+- Be prefixed with `Aamp` (no underscore separator).
+- Use **CamelCase** for the remainder of the name.
+- Contain **no underscore characters** anywhere in the file name.
+
+```
+// BAD
+player_state_machine.cpp
+PlayerStateMachine.h
+
+// GOOD
+AampPlayerStateMachine.cpp
+AampPlayerStateMachine.h
+```
+
+### Single exit point per function
+Every function must have **at most one `return` statement**.  This makes control
+flow linear, eliminates hidden exit paths, and prevents resource-management bugs
+when locally acquired resources must be released before exiting.
+
+- **Avoid:** early `return` / `return <value>` guards deep inside a function.
+- **Prefer:** a single result variable declared at the top, modified via `if/else`
+  branches, and returned at the very end.
+- Lambdas follow the same rule.
+
+```cpp
+// BAD
+bool AampRialtoPlayer::DoSomething()
+{
+    if (!m_pipeline)
+        return false;       // early return
+    bool ok = m_pipeline->doSomething();
+    return ok;
+}
+
+// GOOD
+bool AampRialtoPlayer::DoSomething()
+{
+    bool ok = false;
+    if (!m_pipeline)
+    {
+        AAMPLOG_WARN("pipeline is null");
+    }
+    else
+    {
+        ok = m_pipeline->doSomething();
+    }
+    return ok;
+}
+```
+
+### Braces required for all blocks
+**Every** `if`, `else`, `for`, `while`, and `do` body must be enclosed in `{}`,
+even when it contains only a single statement.  This prevents accidental scope
+errors when lines are added later.
+
+```cpp
+// BAD
+if (m_worker) m_worker->flush();
+for (auto &s : samples) queue.push_back(s);
+
+// GOOD
+if (m_worker)
+{
+    m_worker->flush();
+}
+for (auto &s : samples)
+{
+    queue.push_back(s);
+}
+```
+
+---
+
 ## Architecture Guidance
 
 The target architecture is described in
 `docs/rialto-integration/aamp-rialto-player-analysis.md` (Improvement Plan,
 Steps 2–3 and TDD Phase 13).  Key design intentions:
 
-- **Phase 13 (outstanding):** Replace the single `m_injectionThread` with
-  per-source worker queues so video and audio injection are independent.
-  Add a `PlayerState` enum state machine to replace scattered booleans.
+- **Phase 13 (complete):** Per-source `SourceWorker` threads replace the single
+  `m_injectionThread`; a GoF State-pattern `PlayerStateMachine` replaces
+  scattered booleans.  All 81 L1 tests pass.
 - Model the injection architecture on `rialto-gstreamer`'s `BufferPuller +
   MessageQueue` pattern.
 - Prefer `std::thread` + `std::condition_variable` over platform-specific
-  primitives.  Keep all threading contained within `AampRialtoPlayer`.
+  primitives.
+- Any new class added to `direct-rialto/` must follow the same rules: TDD cycle,
+  SOLID principles, and a dedicated test directory.

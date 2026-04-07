@@ -34,6 +34,8 @@
 #include "StreamOutputFormat.h"
 #include "AampDemuxDataTypes.h"
 #include "IDrmBridge.h"
+#include "AampPlayerStateMachine.h"
+#include "AampSourceWorker.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -139,6 +141,17 @@ public:
 	void SetDrmBridgeForTesting(std::shared_ptr<IDrmBridge> bridge)
 	{
 		m_drmBridge = std::move(bridge);
+	}
+
+	/**
+	 * @brief Return the current player state identifier (for unit testing only).
+	 *
+	 * Allows tests to observe state transitions driven by the GoF state machine
+	 * without exposing the full PlayerStateMachine to callers.
+	 */
+	PlayerStateId GetPlayerStateForTesting() const
+	{
+		return m_stateMachine.currentState();
 	}
 
 	/**
@@ -375,58 +388,21 @@ private:
 	// Segment injection thread
 	// -----------------------------------------------------------------------
 
-	/**
-	 * @brief A sample queued for injection, carrying per-sample codec
-	 *        parameters stamped at enqueue time.
-	 *
-	 * Storing codec parameters on the sample (rather than in shared members)
-	 * ensures that an ABR codec change only takes effect at the correct
-	 * sample boundary — old samples in the queue retain the old parameters
-	 * and old samples play through cleanly before the update is applied.
-	 */
-	struct QueuedSample
-	{
-		AampMediaSample sample;
-		/// Non-null only on the first sample after a codec change.
-		std::shared_ptr<firebolt::rialto::CodecData> codecData;
-		/// Video frame dimensions at enqueue time (pixels).
-		int32_t width{0};
-		int32_t height{0};
-		/// Audio parameters at enqueue time.
-		int32_t sampleRate{0};
-		int32_t channels{0};
-
-		QueuedSample() = default;
-		QueuedSample(QueuedSample&&) = default;
-		QueuedSample& operator=(QueuedSample&&) = default;
-		QueuedSample(const QueuedSample&) = delete;
-		QueuedSample& operator=(const QueuedSample&) = delete;
-	};
-
-	/**
-	 * @brief Pending need-data request from Rialto, queued per source.
-	 */
-	struct PendingNeedData
-	{
-		uint32_t requestId;
-		size_t   frameCount;
-	};
+	// QueuedSample and PendingNeedData are defined in AampSourceWorker.h (included above).
 
 	/// Serialises AttachVideoSource / AttachAudioSource / CheckAllSourcesAttached
 	/// so that concurrent init-fragment delivery from the video and audio
 	/// download threads cannot race on m_videoSourceId / m_audioSourceId.
-	std::mutex              m_attachMutex;
-	std::mutex              m_injectorMutex;
-	std::condition_variable m_injectorCv;
-	std::atomic<bool>       m_stopInjection{false};
-	std::thread             m_injectionThread;
+	std::mutex m_attachMutex;
 
-	std::deque<QueuedSample> m_videoSampleQueue;  ///< Buffered video samples
-	std::deque<QueuedSample> m_audioSampleQueue;  ///< Buffered audio samples
-	std::deque<PendingNeedData> m_videoPendingReqs;  ///< Pending video need-data
-	std::deque<PendingNeedData> m_audioPendingReqs;  ///< Pending audio need-data
-	bool m_videoEos{false}; ///< All video data has been queued
-	bool m_audioEos{false}; ///< All audio data has been queued
+	// -----------------------------------------------------------------------
+	// Per-source injection workers (replace the single m_injectionThread)
+	// -----------------------------------------------------------------------
+
+	/// Injection worker for the video source (created in constructor).
+	std::unique_ptr<SourceWorker> m_videoWorker;
+	/// Injection worker for the audio source (created in constructor).
+	std::unique_ptr<SourceWorker> m_audioWorker;
 
 	/// Position (ns) stored by Flush(); used to set the initial GStreamer
 	/// segment via setSourcePosition() once each source is attached.
@@ -445,35 +421,30 @@ private:
 	/// Optional observer installed by tests to receive playback state changes.
 	std::function<void(firebolt::rialto::PlaybackState)> m_testPlaybackObserver;
 
-	/// @brief Start the segment injection thread (idempotent).
-	void StartInjectionThread();
-
-	/// @brief Signal and join the injection thread (idempotent).
-	void StopInjectionThread();
-
-	/// @brief Main loop executed by the injection thread.
-	void RunInjectionThread();
+	/// GoF State-pattern state machine tracking the player lifecycle.
+	PlayerStateMachine m_stateMachine;
 
 	/**
 	 * @brief Inject buffered samples for one source and call haveData.
 	 *
-	 * Samples that could not be sent (due to NO_SPACE) are pushed back to
-	 * the front of @p requeueDest so they are retried on the next needData
-	 * request.  The data pointers inside each AampMediaSample remain valid
-	 * until haveData() returns, satisfying the Rialto data-lifetime contract.
+	 * Called by each SourceWorker via its InjectFn callback.  Samples that
+	 * could not be sent (NO_SPACE) are returned so the worker can re-queue
+	 * them at the front for the next needData request.  The data pointers
+	 * inside each AampMediaSample remain valid until haveData() returns,
+	 * satisfying the Rialto data-lifetime contract.
 	 *
-	 * @param sourceId     Rialto source identifier.
-	 * @param requestId    The needDataRequestId to close out.
-	 * @param samples      Samples to inject (taken by value / moved in).
-	 * @param eos          True if these are the last samples for this source.
-	 * @param requeueDest  Deque to push rejected samples back to (front).
+	 * @param sourceId   Rialto source identifier.
+	 * @param requestId  The needDataRequestId to close out.
+	 * @param samples    Samples to inject (taken by value / moved in).
+	 * @param eos        True if these are the last samples for this source.
+	 * @returns          Samples that were not accepted (NO_SPACE) — caller
+	 *                   should re-queue them at the front.
 	 */
-	void InjectSamples(
+	std::vector<QueuedSample> InjectSamples(
 		int32_t sourceId,
 		uint32_t requestId,
-		std::vector<QueuedSample> &&samples,
-		bool eos,
-		std::deque<QueuedSample> &requeueDest);
+		std::vector<QueuedSample> samples,
+		bool eos);
 
 	/// @brief Called (via callback) when the Rialto server changes state.
 	void OnPlaybackState(firebolt::rialto::PlaybackState state);

@@ -37,6 +37,8 @@ set(TEST_SOURCES
 set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampRialtoPlayer.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoMediaPipelineClient.cpp
+	${AAMP_ROOT}/direct-rialto/AampPlayerStateMachine.cpp
+	${AAMP_ROOT}/direct-rialto/AampSourceWorker.cpp
 )
 
 add_executable(${EXEC_NAME}
