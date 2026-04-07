@@ -248,6 +248,7 @@ Network timeout configurations control how long AAMP waits for various network o
 | `useWesterosSink` | Boolean | false | Use Westeros sink for video decoding |
 | `useNewAdBreaker` | Boolean | false | Use new discontinuity processing based on PDT |
 | `useRetuneForUnpairedDiscontinuity` | Boolean | true | Retune on unpaired discontinuity |
+| `netTraceCsvDump` | Boolean | false | Write per-download AAMP's network trace CSV files to `/tmp` (`aamp_net_requests.csv`, `aamp_net_bursts.csv`).
 
 ## Best Practices
 

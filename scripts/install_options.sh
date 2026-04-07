@@ -133,7 +133,6 @@ function install_options_fn()
         [-b] Specify aamp branch name (default: current sprint branch)
         [-d] Local setup directory name (default: current working directory)
         [-c] Test coverage scan on
-        [-e] Enable network activity tracing (ENABLE_AAMP_NET_TRACE)
         [-f] Add compiler flags (e.g., -f \"-DENABLE_SOMETHING=ON\")
         [-g] Specify gtest release test to be built. Default - tags/release-1.11.0
         [-q] Quick build, skips installed (not built) dependency checks
