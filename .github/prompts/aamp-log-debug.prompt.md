@@ -49,6 +49,8 @@ Analyze the provided AAMP logs, and where relevant the currently open files, to 
 
 When analyzing logs:
 - Treat issues as potentially multi-layer, not single-component.
+- Look for an `AAMP_BUILD_INFO` line near startup and treat it as build-identification context when present.
+- Note that `AAMP_BUILD_INFO` is typically emitted only during AAMP startup; if logs are rotated or capture starts late, it may be absent.
 - Pay special attention to tune/startup sequencing, seeks, discontinuities, live edge movement, ABR switches, DRM timing, and fragment cadence.
 - Distinguish current behavior from expected playback behavior.
 - Call out any mismatch between DASH/HLS manifest behavior and player assumptions.
