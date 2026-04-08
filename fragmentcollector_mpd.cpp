@@ -2588,7 +2588,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					//it is not entering the loop which is leading to go back to 2 seconds of previous period content and play,
 					//then jump to next period. The issue here is complier is optimizing the value to 1.18999 for skiptime where as
 					//fragment duration is optimized to 1.190600. so adding floating point precision.
-					else if (skipTime >= fragmentDuration )
+					int64_t skipTimeMs = llround(skipTime * 1000);       
+					int64_t fragmentDurationMs = llround(fragmentDuration * 1000);
+					else if (skipTimeMs >= fragmentDurationMs)
 					{
 						if (updateFirstPTS)
 						{
