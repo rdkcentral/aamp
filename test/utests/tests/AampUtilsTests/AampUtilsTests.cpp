@@ -21,6 +21,7 @@
 #include <iostream>
 #include <string>
 #include <string.h>
+#include <vector>
 
 //include the google test dependencies
 #include <gtest/gtest.h>
@@ -28,6 +29,8 @@
 
 // unit under test
 #include <AampUtils.cpp>
+
+#include "middleware/baseConversion/_base64.h"
 
 #include "MockCurl.h"
 
@@ -757,6 +760,66 @@ TEST(_AampUtils, parseAndValidateSCTE35_3)
 	EXPECT_TRUE(result);
 }
 
+TEST(_AampUtils, parseAndValidateSCTE35ProgramResumption_invalid)
+{
+	EXPECT_FALSE(parseAndValidateSCTE35ProgramResumption(""));
+	EXPECT_FALSE(parseAndValidateSCTE35ProgramResumption("not-base64"));
+}
+
+TEST(_AampUtils, parseAndValidateSCTE35ProgramResumption_true)
+{
+	/* Start with a known-good SCTE35 signal and mutate the segmentation_type_id
+	 * byte to PROGRAM_IMMEDIATE_RESUMPTION (0x1A), then recompute CRC32.
+	 */
+	const std::string providerAdvertisementStart = "/DBcAABMcsOF///wBQb+MrpDwgBGAjNDVUVJAAAACX+/ASQ1MzhlNGMzOC1iYWFjLTQ1OGEtODE1MS1mYmJiNDU3OGM1NGE1AAACD0NVRUkAAAAKf78AABoAAMkTIBk=";
+	EXPECT_FALSE(parseAndValidateSCTE35ProgramResumption(providerAdvertisementStart));
+
+	size_t decodedLen = 0;
+	unsigned char *decoded = base64_Decode(providerAdvertisementStart.c_str(),
+			&decodedLen, providerAdvertisementStart.size());
+	ASSERT_NE(decoded, nullptr);
+	ASSERT_GT(decodedLen, 4u);
+
+	bool found = false;
+	for (size_t idx = 0; idx < decodedLen - 4; idx++)
+	{
+		/* 0x30 = PROVIDER_ADVERTISEMENT_START */
+		if (decoded[idx] != 0x30)
+		{
+			continue;
+		}
+
+		std::vector<unsigned char> mutated(decoded, decoded + decodedLen);
+		mutated[idx] = 0x1A; /* PROGRAM_IMMEDIATE_RESUMPTION */
+
+		const uint32_t crc = aamp_ComputeCRC32(mutated.data(),
+				(uint32_t)decodedLen - 4);
+		mutated[decodedLen - 4] = (unsigned char)((crc >> 24) & 0xff);
+		mutated[decodedLen - 3] = (unsigned char)((crc >> 16) & 0xff);
+		mutated[decodedLen - 2] = (unsigned char)((crc >> 8) & 0xff);
+		mutated[decodedLen - 1] = (unsigned char)(crc & 0xff);
+
+		if (aamp_ComputeCRC32(mutated.data(), (uint32_t)decodedLen) != 0)
+		{
+			continue;
+		}
+
+		char *encoded = base64_Encode(mutated.data(), decodedLen);
+		ASSERT_NE(encoded, nullptr);
+		const std::string candidate(encoded);
+		free(encoded);
+
+		if (parseAndValidateSCTE35ProgramResumption(candidate))
+		{
+			found = true;
+			break;
+		}
+	}
+
+	free(decoded);
+	EXPECT_TRUE(found);
+}
+
 TEST(_AampUtils, strstr )
 {
 	const char *haystack_ptr = "bob is my name. you can call me bobby bob";
@@ -799,4 +862,40 @@ TEST(_AampUtils, hex_char_to_int )
 	EXPECT_EQ( hexCharToInt('x'),-1);
 	EXPECT_EQ( hexCharToInt((char)0x00),-1);
 	EXPECT_EQ( hexCharToInt((char)0xff),-1);
+}
+
+/**
+ * @brief Verify ClearAndRelease empties the vector and releases its heap storage.
+ *
+ * A non-empty vector with reserved capacity is passed to ClearAndRelease.
+ * Afterwards the size must be zero and the capacity must equal that of a
+ * freshly default-constructed vector of the same element type, confirming
+ * that the swap-with-temporary idiom actually frees the backing allocation.
+ */
+TEST(_AampUtils, ClearAndRelease_EmptiesAndReleasesMemory)
+{
+	std::vector<uint8_t> v;
+	v.reserve(1024);
+	v.assign(512, 0xAB);
+
+	aamp_utils::ClearAndRelease(v);
+
+	EXPECT_TRUE(v.empty());
+	EXPECT_EQ(v.capacity(), std::vector<uint8_t>().capacity());
+}
+
+/**
+ * @brief Verify ClearAndRelease is a no-op on an already-empty vector.
+ *
+ * Calling ClearAndRelease on a default-constructed (empty)
+ * vector must leave it empty and must not throw or crash.
+ */
+TEST(_AampUtils, ClearAndRelease_OnEmptyVector_IsNoOp)
+{
+	std::vector<int> v;
+
+	aamp_utils::ClearAndRelease(v);
+
+	EXPECT_TRUE(v.empty());
+	EXPECT_EQ(v.capacity(), std::vector<int>().capacity());
 }

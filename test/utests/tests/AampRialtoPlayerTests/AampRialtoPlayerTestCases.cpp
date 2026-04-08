@@ -1746,7 +1746,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 			// Fake sample data of exactly kSampleSize bytes so that the
 			// fallback subsample (0, sampleSize) can be checked.
 			std::vector<uint8_t> data(kSampleSize, 0xBE);
-			ms.mData.AppendBytes(data.data(), data.size());
+			ms.mData.assign(data.data(), data.data() + data.size());
 			s.push_back(std::move(ms));
 			return s;
 		});

@@ -28,7 +28,6 @@ set(TEST_SOURCES
 )
 
 set(AAMP_SOURCES
-	${AAMP_ROOT}/AampGrowableBuffer.cpp
 	${AAMP_ROOT}/mp4demux/AampMp4Demuxer.cpp
 )
 

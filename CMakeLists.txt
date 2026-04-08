@@ -419,7 +419,6 @@ set(LIBAAMP_SOURCES
     AAMPAnomalyMessageType.h AuthTokenErrors.h
 	iso639map.cpp iso639map.h
 	AampCacheHandler.cpp AampCacheHandler.h
-	AampGrowableBuffer.cpp AampGrowableBuffer.h
 	AampBoxReader.h
 	CachedFragment.cpp CachedFragment.h
 	AampScheduler.cpp AampScheduler.h
@@ -509,6 +508,7 @@ set(LIBAAMP_SOURCES
 	mp4demux/MP4Demux.cpp mp4demux/MP4Demux.h
 	AampDemuxDataTypes.h
 	net_trace.h
+	AampLatencyMonitor.cpp AampLatencyMonitor.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -655,7 +655,7 @@ install(FILES
 	Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h
 	AampDefine.h AampEventListener.h AampMediaType.h AampLogManager.h
 	subtitle/vttCue.h AampUtils.h
-	AampProfiler.h AampConstants.h iso639map.h AampGrowableBuffer.h
+	AampProfiler.h AampConstants.h iso639map.h
 	AampScheduler.h
 	downloader/AampCurlStore.h
 	downloader/AampCurlDownloader.h

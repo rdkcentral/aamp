@@ -621,8 +621,34 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 
 	if ((mPipelineMode == ePIPELINEMODE_SINGLE) && mActiveGstPlayersMap.empty())
 	{
-		AAMPLOG_WARN("AampStreamSinkManager(%p) No active player, returning single-pipeline sink for PLAYER[%d]", this, aamp->mPlayerId);
-		sink_ptr = mGstPlayer;
+		// Check if there is any inactive player that has been tuned (excluding the calling aamp)
+		bool hasTunedInactivePlayer = false;
+		for (const auto& inactivePlayer : mInactiveGstPlayersMap)
+		{
+			if (inactivePlayer.first != aamp)
+			{
+				AAMPLOG_INFO("AampStreamSinkManager(%p) Inactive PLAYER[%d], tuned=%s",
+						this, inactivePlayer.first->mPlayerId, inactivePlayer.second->IsTuned() ? "true" : "false");
+				if (inactivePlayer.second->IsTuned())
+				{
+					hasTunedInactivePlayer = true;
+					break;
+				}
+			}
+		}
+
+		if (!hasTunedInactivePlayer)
+		{
+			AAMPLOG_INFO("AampStreamSinkManager(%p) No active player and no tuned inactive players, returning single-pipeline sink for PLAYER[%d]",
+					this, aamp->mPlayerId);
+			sink_ptr = mGstPlayer;
+		}
+		else
+		{
+			AAMPLOG_INFO("AampStreamSinkManager(%p) Has tuned inactive players, getting stream sink for PLAYER[%d]",
+					this, aamp->mPlayerId);
+			sink_ptr = GetStreamSinkNoLock(aamp);
+		}
 	}
 	else
 	{
@@ -631,6 +657,22 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 	}
 
 	return sink_ptr;
+}
+
+void AampStreamSinkManager::SetTuned(PrivateInstanceAAMP *aamp)
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+
+	auto it = mInactiveGstPlayersMap.find(aamp);
+	if (it != mInactiveGstPlayersMap.end())
+	{
+		it->second->SetTuned(true);
+		AAMPLOG_INFO("AampStreamSinkManager(%p) Set tuned flag for PLAYER[%d]", this, aamp->mPlayerId);
+	}
+	else
+	{
+		AAMPLOG_WARN("AampStreamSinkManager(%p) Could not find inactive stream sink for PLAYER[%d]", this, aamp->mPlayerId);
+	}
 }
 
 void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)

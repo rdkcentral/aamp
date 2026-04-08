@@ -31,8 +31,9 @@
 /**
  * @brief Fake MP4 Demuxer constructor
  */
-AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type) :
-    MediaProcessor(), mMp4Demux(nullptr), mAamp(aamp), mMediaType(type)
+AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bool enablePtsRestamp) :
+    MediaProcessor(), mMp4Demux(nullptr), mAamp(aamp), mMediaType(type),
+    mEnablePtsRestamp(enablePtsRestamp)
 {
 }
 
@@ -43,7 +44,7 @@ AampMp4Demuxer::~AampMp4Demuxer()
 {
 }
 
-bool AampMp4Demuxer::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, 
+bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, 
                                  double fragmentPTSoffset, bool discontinuous, bool isInit, 
                                  process_fcn_t processor, bool &ptsError)
 {

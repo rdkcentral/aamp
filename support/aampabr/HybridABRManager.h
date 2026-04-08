@@ -143,7 +143,6 @@ class HybridABRManager:public ABRManager
 
 		bool bLowLatencyStartABR;             /**<Low Latency ABR Start Status */
 		bool bLowLatencyServiceConfigured;    /**<Low Latency Service Configuration Status */
-		double mLLDashCurrentPlayRate;        /**<Low Latency Current play Rate */
 	public:
 
 		/** @brief Read Config values

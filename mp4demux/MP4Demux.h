@@ -30,6 +30,7 @@
 #include <vector>
 #include <stdexcept>
 #include <string>
+#include <chrono>
 #include "AampLogManager.h"
 #include "AampDemuxDataTypes.h" // for AampMediaSample
 #include "DemuxDataTypes.h"     // for MediaCodecInfo, MediaProtectionInfo
@@ -131,8 +132,57 @@ CipherType GetCipherTypeFromFourCC(const uint32_t fourCC);
 class Mp4Demux
 {
 private:
+	/**
+	 * @struct MetricStats
+	 * @brief Statistics accumulator for demux performance metrics
+	 */
+	struct MetricStats
+	{
+		uint64_t count;  /**< Number of Observations */
+		double sum;      /**< Sum of all values */
+		double min;      /**< Minimum value */
+		double max;      /**< Maximum value */
+
+		MetricStats() : count(0), sum(0.0), min(0.0), max(0.0) {}
+
+		void Update(double value)
+		{
+			if (count == 0)
+			{
+				min = value;
+				max = value;
+			}
+			else
+			{
+				if (value < min) min = value;
+				if (value > max) max = value;
+			}
+			sum += value;
+			++count;
+		}
+
+		double GetAverage() const
+		{
+			return (count > 0) ? (sum / count) : 0.0;
+		}
+
+		bool HasData() const
+		{
+			return count > 0;
+		}
+
+		void Reset()
+		{
+			count = 0;
+			sum = 0.0;
+			min = 0.0;
+			max = 0.0;
+		}
+	};
+
 	// Stream format and configuration
 	uint32_t streamFormat; /**< Stream format identifier */
+	const char* mMediaTypeName; /**< Media type name for logging */
 	// Encryption parameters
 	uint8_t ivSize; /**< Initialization vector size */
 	uint8_t cryptByteBlock; /**< Encrypted byte block count */
@@ -174,8 +224,28 @@ private:
 	uint64_t sampleOffset; /**< Current sample offset */
 	bool sencPresent; /**< SENC box present flag */
 	bool handledEncryptedSamples; /**< Flag indicating encrypted samples have been handled */
+
+	/**
+	 * @brief Pending sample payload data.
+	 */
+	struct PendingSamplePayload
+	{
+		const uint8_t* dataPtr; /**< Pointer into the parse buffer where sample data starts */
+		uint32_t sampleLen;     /**< Byte length of this sample's payload */
+		size_t sampleIdx;       /**< Index into samples[] where data must be placed */
+		double mDts;            /**< Decode timestamp in seconds */
+		double mPts;            /**< Presentation timestamp in seconds */
+		double mDuration;       /**< Sample duration in seconds */
+	};
+	std::vector<PendingSamplePayload> mSampleInfo; /**< sample payloads awaiting mdat bounds */
 	MediaCodecInfo codecInfo; /**< Codec information */
 	Mp4ParseError parseError; /**< Current parse error state */
+
+	// Performance metrics tracking
+	MetricStats mDemuxTimeMs;        /**< Demux time statistics in milliseconds */
+	MetricStats mFramesPerSecond;    /**< Frames per second statistics */
+	std::chrono::steady_clock::time_point mLastLogTime; /**< Last metrics log timestamp */
+	std::chrono::seconds mLogIntervalSeconds; /**< Logging interval in seconds */
 
 	/**
 	 * @brief log human readable parse error and update state
@@ -257,6 +327,10 @@ private:
 	void ParseSampleEncryption(const uint8_t *next);
 	/** @brief Parse track run box (TRUN) */
 	void ParseTrackRun();
+	/**
+	 * @brief Assign deferred sample payload data after mdat is parsed
+	 */
+	void ProcessSamples();
 	/** @brief Parse track fragment header box (TFHD) */
 	void ParseTrackFragmentHeader();
 	/** @brief Parse track fragment decode time box (TFDT) */
@@ -307,6 +381,26 @@ private:
 	 * @param end Pointer to end of data
 	 */
 	void DemuxHelper(const uint8_t *end);
+
+public:
+	/**
+	 * @brief Record metrics for a demux operation
+	 * @param demuxTimeMs Time taken to demux in milliseconds
+	 * @param fps Frames per second processed during demux
+	 */
+	void RecordDemuxMetrics(double demuxTimeMs, double fps);
+
+	/**
+	 * @brief Log accumulated metrics
+	 */
+	void LogMetrics();
+
+	/**
+	 * @brief Check if metrics should be logged based on time interval
+	 * @return true if 10 minutes have elapsed
+	 */
+	bool ShouldLogMetrics() const;
+
 public:
 	/** @brief Constructor */
 	Mp4Demux();

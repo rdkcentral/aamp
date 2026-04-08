@@ -229,7 +229,7 @@ public:
 	 *
 	 * @return void
 	 */
-	virtual void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) = 0;
+	virtual void ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_error) = 0;
 	/**
 	 * @fn GetPlaylistUrl
 	 *
@@ -749,7 +749,7 @@ protected:
 	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
+	void InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);
@@ -798,7 +798,7 @@ private:
 	 * @param[in] initFragment - true for init fragments, false for media fragments
 	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
 	 */
-	void TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
+	void TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &position, double &duration,
 							bool initFragment, bool  discontinuity);
 
 	/**
@@ -849,8 +849,8 @@ protected:
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
 	CachedFragment *mCachedFragment;    /**< storage for currently-downloaded fragment */
 	CachedFragment mCachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
-	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
-	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
+	std::vector<uint8_t> unparsedBufferChunk{}; /**< Unparsed buffer chunk for ISOBMFF chunk processing */
+	std::vector<uint8_t> parsedBufferChunk{};   /**< Parsed buffer chunk for ISOBMFF chunk processing */
 	bool abort;                         /**< Abort all operations if flag is set*/
 	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */

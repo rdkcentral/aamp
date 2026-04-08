@@ -36,7 +36,6 @@
 #include "DrmMediaFormat.h"
 #include "DrmCallbacks.h"
 #include <IPVideoStat.h>
-#include "AampGrowableBuffer.h"
 #include "CCTrackInfo.h"
 #include <signal.h>
 #include <semaphore.h>
@@ -79,6 +78,8 @@
 
 // forward declaration to avoid circular dependency
 class AampMPDDownloader;
+class AampLatencyMonitor;
+struct LatencyConfig;
 
 // forward declaration
 struct CurlCallbackContext;
@@ -117,7 +118,6 @@ namespace aamp
 #define MANIFEST_TIMEOUT_FOR_LLD 3      /**< 3 sec timeout for manifest refresh in case of LLD*/
 #define ABR_BUFFER_COUNTER_FOR_LLD 3		/** Counter for steady state rampup/rampdown for lld */
 
-#define AAMP_USER_AGENT_MAX_CONFIG_LEN  512    /**< Max Chars allowed in aamp.cfg for user-agent */
 #define SERVER_UTCTIME_DIRECT "urn:mpeg:dash:utc:direct:2014"
 #define SERVER_UTCTIME_HTTP "urn:mpeg:dash:utc:http-xsdate:2014"
 // MSO-specific VSS Service Zone identifier in URL
@@ -585,6 +585,13 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	//The position previously reported by MonitorProgress() (i.e. the position really sent, using SendEvent())
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
+	// The time when buffering started (steady clock ms), used to calculate buffering duration
+	// for telemetry. -1 means no episode is in progress. Declared atomic because
+	// SendBufferChangeEvent() is reached concurrently from the underflow monitor thread and
+	// from GStreamer error callbacks (via ScheduleRetune), with no common lock held at the
+	// call site. The compound check-and-set operations in SendBufferChangeEvent use
+	// compare_exchange_strong / exchange to keep the read-modify-write sequences race-free.
+	std::atomic<long long> mBufferingStartTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
@@ -1089,6 +1096,9 @@ public:
 	VideoZoomMode zoom_mode;
 	std::atomic<bool> video_muted; /**< true if video plane is logically muted */
 	std::atomic<bool> subtitles_muted; /**< true if subtitle plane is logically muted */
+	std::atomic<bool> mCCStatusSetByApp{false}; /**< true once an AAMP CC/subtitle API has been called,
+												 * false while app talks to CCManager directly.
+												 * Once set to true, this flag is never reset to false. */
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
@@ -1235,11 +1245,11 @@ public:
 	/**
 	 * @fn ProcessID3Metadata
 	 *
-	 * @param[in,out] segment - fragment buffer (non-const as buffer may be modified during parsing)
+	 * @param[in] segment - fragment buffer (read-only; parsed but not modified)
 	 * @param[in] type - AampMediaType
 	 * @param[in] timestampOffset - optional timestamp offset
 	 */
-	void ProcessID3Metadata(std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
+	void ProcessID3Metadata(const std::vector<uint8_t>& segment, AampMediaType type, uint64_t timestampOffset = 0);
 
 	/**
 	 * @fn ReportID3Metadata
@@ -1313,11 +1323,11 @@ public:
 	/**
 	 * @fn SetCurlTimeout
 	 *
-	 * @param[in] timeout - maximum time  in seconds curl request is allowed to take
+	 * @param[in] timeoutMs - maximum time  in milliseconds curl request is allowed to take
 	 * @param[in] instance - index of curl instance to which timeout to be set
-	 * @return void
+	 * @return true if timeout changed, else false
 	 */
-	void SetCurlTimeout(long timeout, AampCurlInstance instance);
+	bool SetCurlTimeout(long timeoutMs, AampCurlInstance instance);
 
 	/**
 	 * @brief Set manifest curl timeout
@@ -1370,25 +1380,37 @@ public:
 	/**
 	 * @fn GetFile
 	 *
-	 * @param [in] bucketType profiling bucket
-	 * @param[in] remoteUrl media file to download
-	 * @param[in] mediaType
-	 * @param[out] buffer receives downloaded bytes on success
-	 * @param[out] effectiveUrl - Final URL after HTTP redirection
-	 * @param[out] http_error - HTTP error code
-	 * @param[out] downloadTime
-	 * @param[in] range - Byte range
-	 * @param[in] curlInstance - Curl instance to be used
-	 * @param[in] resetBuffer - Flag to reset the out buffer
-	 * @param[in] bitrate
-	 * @param[out] fogError
-	 * @param[in] fragmentDurationS
-	 * @param[in] maxInitDownloadTimeMS - Max time to retry init segment downloads if AAMP TSB is enabled, 0 otherwise
-	 * @return true iff successful
+	 * @brief Download a file from the CDN and store it in memory.
+	 *
+	 * @param[in]  remoteUrl           URL of the media resource to download.
+	 * @param[in]  mediaType           Media type being downloaded.
+	 * @param[out] buffer              Buffer that receives the downloaded bytes
+	 *                                 on success.
+	 * @param[out] effectiveUrl        Final URL after any HTTP redirects.
+	 * @param[out] http_error          Reference that receives the HTTP response
+	 *                                 code on return.
+	 * @param[out] downloadTime        Optional pointer that receives the total
+	 *                                 download time in seconds; may be NULL.
+	 * @param[in]  range               Optional HTTP byte-range string; pass
+	 *                                 NULL to request the full object.
+	 * @param[in]  curlInstance        Curl instance index to use.
+	 * @param[in]  resetBuffer         When true the output buffer is cleared
+	 *                                 before the download begins.
+	 * @param[in]  bitrate             Optional pointer that receives the
+	 *                                 measured download bitrate; may be NULL.
+	 * @param[out] fogError            Optional pointer that receives any FOG
+	 *                                 error code; may be NULL.
+	 * @param[in]  fragmentDurationS   Duration of the fragment in seconds
+	 *                                 (0 if not applicable).
+	 * @param[in]  bucketType          Profiling bucket type.
+	 * @param[in]  maxInitDownloadTimeMS Max time (ms) to retry init-segment
+	 *                                 downloads when AAMP TSB is enabled;
+	 *                                 pass 0 otherwise.
+	 * @return true on success, false on failure.
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
 				std::vector<uint8_t> &buffer, std::string& effectiveUrl,
-				int *http_error = NULL, double *downloadTime = NULL,
+				int& http_error, double *downloadTime = NULL,
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
 				int *fogError = NULL, double fragmentDurationS = 0,
@@ -1432,17 +1454,26 @@ public:
 	/**
 	 * @fn LoadIDX
 	 *
-	 * @param[in] bucketType - Bucket type of the profiler
-	 * @param[in] fragmentUrl - Fragment URL
-	 * @param[out] buffer - Pointer to the output buffer
-	 * @param[out] len - Content length
-	 * @param[in] curlInstance - Curl instance to be used
-	 * @param[in] range - Byte range
-	 * @param[in] mediaType - File type
-	 * @param[out] fogError - Error from FOG
+ 	 * @brief Download an IDX resource and store it in memory.
+ 	 *
+ 	 * @param[in]  bucketType   Bucket type used for profiling the download.
+ 	 * @param[in]  fragmentUrl  URL of the IDX resource to download.
+ 	 * @param[out] effectiveUrl Final URL after redirects, if any.
+ 	 * @param[out] idx          Reference to the buffer that receives the
+ 	 *                          downloaded IDX bytes.
+ 	 * @param[in]  curlInstance Curl instance index to use for the download.
+ 	 * @param[in]  range        Optional HTTP byte range to request; pass NULL
+ 	 *                          to request the full object.
+ 	 * @param[out] http_code    Reference that receives the HTTP response code.
+ 	 * @param[out] downloadTime Optional pointer that receives the total
+ 	 *                          download time in seconds; may be NULL.
+ 	 * @param[in]  mediaType    Media type associated with the IDX resource.
+ 	 * @param[out] fogError     Optional pointer that receives any FOG error
+ 	 *                          code; may be NULL when FOG is not used.
+ 	 *
 	 * @return void
 	 */
-	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl,  AampGrowableBuffer *idx, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
+	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& idx, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST, int *fogError = NULL);
 
 	/**
 	 * @fn EndOfStreamReached
@@ -1539,10 +1570,9 @@ public:
 	/**
 	 * @fn SendBufferChangeEvent
 	 *
-	 * @param[in] bufferingStopped- Flag to indicate buffering stopped.Underflow = True
-	 * @return void
+	 * @param[in] bufferingStarted True if buffering started, false if buffering ended.
 	 */
-	void SendBufferChangeEvent(bool bufferingStopped=false);
+	void SendBufferChangeEvent(bool bufferingStart=false);
 
 	/**
 	 * @fn SendTuneMetricsEvent
@@ -1557,6 +1587,9 @@ public:
 	bool GetBufUnderFlowStatus() { return mBufUnderFlowStatus.load(); }
 	void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus.store(statusFlag); }
 	void ResetBufUnderFlowStatus() { mBufUnderFlowStatus.store(false);}
+	/** Returns the steady-clock timestamp (ms) at which the current buffering episode began,
+	 *  or -1 if no episode is in progress. Exposed for unit testing. */
+	long long GetBufferingStartTimeMS() const { return mBufferingStartTimeMS.load(); }
 
 	/**
 	 * @fn SendEvent
@@ -1612,11 +1645,10 @@ public:
 
 	/**
 	 * @brief Cancel ad reservation
-	 * @param[in] playingReservationId The reservation identifier which is currently playing
 	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
 	 * @return void
 	 */
-	void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId);
+	void CancelReservation(const std::string& cancelAtReservationId);
 
 	/**
 	 * @fn getLastInjectedPosition
@@ -1836,7 +1868,7 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  buffer - Pointer to the AampGrowableBuffer.
+	 *   @param[in,out]  buffer - Buffer containing the stream data (moved out and cleared).
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
@@ -1845,7 +1877,7 @@ public:
 	 *   @param[in]  discontinuity - flag for discontinuity
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
+	void SendStreamTransfer(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
 
 	/**
 	 *   @fn SendStreamTransfer
@@ -2352,6 +2384,13 @@ public:
 	void SetVideoMute(bool muted);
 
 	/**
+	 *   @brief Mark that the application has called an external CC/subtitle API.
+	 *
+	 *   Sets mCCStatusSetByApp to true.
+	 */
+	void SetCCStatusSetByApp();
+
+	/**
 	 *   @brief Set subtitle mute state
 	 *
 	 *   @param[in] muted - muted or unmuted
@@ -2531,8 +2570,9 @@ public:
 	 *   @param[in] position - Event position in terms of channel's timeline
 	 *   @param[in] absolutePositionMs - Event absolute position
 	 *   @param[in] immediate - Send it immediate or not
+	 *   @param[in] reason - Reason for reservation end (optional, applicable to END events)
 	 */
-	void SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate=false);
+	void SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate=false, const std::string &reason = "");
 
 	/**
 	 *   @fn SendAdPlacementEvent
@@ -3121,18 +3161,6 @@ public:
 	bool IsPlayEnabled();
 
 	/**
-	 *   @fn enableEventProcessing
-	 *
-	 *   @return void
-	 */
-	void enableEventProcessing();
-	/**
-	 *   @fn disableEventProcessing
-	 *
-	 *   @return void
-	 */
-	void disableEventProcessing();
-	/**
 	 * @fn detach
 	 *
 	 */
@@ -3565,40 +3593,6 @@ public:
 	 */
 	struct SpeedCache * GetLLDashSpeedCache();
 
-	 /**
-	  *   @brief Sets Low latency play rate
-	  *
-	  *   @param[in] rate - playback rate to set
-	  *   @return void
-	  */
-	void SetLLDashCurrentPlayBackRate(double rate) { mLLDashCurrentPlayRate = rate; }
-
-	/**
-	 *   @brief Gets Low Latency current play back rate
-	 *
-	 *   @return double
-	 */
-	double GetLLDashCurrentPlayBackRate(void);
-
-	/**
-	 *   @brief Turn off/on the player speed correction for Low latency Dash
-	 *
-	 *   @param[in] state - true or false
-	 *   @return void
-	 */
-	void SetLLDashAdjustSpeed(bool state)
-	{
-		AAMPLOG_INFO("Set LLDash adjust speed to %d", state);
-		bLLDashAdjustPlayerSpeed = state;
-	}
-
-	/**
-	 *   @brief Gets the state of the player speed correction for Low latency Dash
-	 *
-	 *   @return double
-	 */
-	bool GetLLDashAdjustSpeed(void);
-
 	/**
 	 *   @brief Set iframe extraction enabled or not
 	 *
@@ -3662,18 +3656,17 @@ public:
 	void SetLowLatencyServiceConfigured(bool bConfig);
 
 	/**
-	 *     @fn GetCurrentLatency
-	 *
-	 *     @return long
+	 * @fn GetCurrentLatencyMs
+	 * @return latency in milliseconds
 	 */
-	long GetCurrentLatency();
+	long GetCurrentLatencyMs();
 
 	/**
 	 *     @fn SetCurrentLatency
 	 *     @param[in] currentLatency - Current latency to set
 	 *     @return void
 	 */
-	void SetCurrentLatency(long currentLatency);
+	void SetCurrentLatencyMs(long currentLatency);
 
 	/**
 	 *     @brief Get Media Stream Context
@@ -4059,6 +4052,25 @@ public:
 	 */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
+	/**
+	 * @fn GetBufferedDurationSecs
+	 * @brief Get the buffered duration in seconds
+	 * @return Buffered duration in seconds
+	 */
+	double GetBufferedDurationSecs();
+
+	/**
+	 * @brief Enable or disable rate correction in latency monitor
+	 * @param enabled - true to enable rate correction, false to disable
+	 */
+	void EnableLatencyMonitor(bool enable);
+
+	/**
+	 * @brief Check if an ad is currently playing
+	 * @return true if an ad is playing, false otherwise
+	 */
+	bool IsAdPlaying();
+
 protected:
 
 	/**
@@ -4197,6 +4209,25 @@ protected:
 	 *   @return void
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
+
+	/**
+	 * @brief Build the latency configuration for the latency monitor
+	 * The configuration will be built based on the current stream and player state.
+	 */
+	void BuildLatencyConfig(LatencyConfig &config);
+
+	/**
+	 * @brief Start the latency monitor if conditions are met
+	 * If the latency monitor is already running, it will just enable the rate correction.
+	 * If the conditions are not met, the latency monitor will not be started.
+	 */
+	void StartLatencyMonitor();
+
+	/**
+	 * @brief Stop the latency monitor
+	 */
+	void StopLatencyMonitor();
+
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
@@ -4273,7 +4304,7 @@ protected:
 	struct SpeedCache speedCache;
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
-	long mCurrentLatency;
+	long mCurrentLatencyMs;         /**< Current latency in milliseconds */
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectangle */
 	bool mApplyContentRestriction;		/**< Status to apply content restriction */
 	videoRect mVideoRect;
@@ -4300,6 +4331,7 @@ protected:
 	bool mIsChunkMode;		/** LLD ChunkMode */
 	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
+	std::unique_ptr<AampLatencyMonitor> mLatencyMonitor; /**< Unified live latency monitor */
 
 private:
 	/**

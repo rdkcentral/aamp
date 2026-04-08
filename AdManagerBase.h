@@ -113,10 +113,18 @@ public:
 
 	/**
 	 * @brief Cancel ad reservation
-	 * @param[in] playingReservationId The reservation identifier which is currently playing
 	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
 	 */
-	virtual void CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId) {}
+	virtual void CancelReservation(const std::string& cancelAtReservationId) {}
+
+	/** 
+	 * @brief Check if an ad is currently playing
+	 * @return true if an ad is playing, false otherwise
+	 */
+	virtual bool IsAdPlaying()
+	{
+		return false;
+	}
 };
 
 

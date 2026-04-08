@@ -24,11 +24,11 @@ set(TEST_SOURCES
 	Mp4BoxParsingTests.cpp
 	FourCCMappingTest.cpp
 	EsdsReadLenTests.cpp
+	Mp4DemuxMetricsTests.cpp
 )
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/mp4demux/MP4Demux.cpp
-	${AAMP_ROOT}/AampGrowableBuffer.cpp
 )
 
 # Include common test directories

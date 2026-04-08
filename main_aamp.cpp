@@ -283,12 +283,12 @@ void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservatio
 /**
  *  @brief Cancel an ad reservation.
  */
-void PlayerInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId)
+void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
-    if (aamp)
-    {
-        aamp->CancelReservation(playingReservationId, cancelAtReservationId);
-    }
+	if (aamp)
+	{
+		aamp->CancelReservation(cancelAtReservationId);
+	}
 }
 
 /**
@@ -365,7 +365,12 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
+	UsingPlayerId(aamp->mPlayerId);
 	ManageAsyncTuneConfig(mainManifestUrl);
+	
+	// Set tuned flag before scheduling the tune task
+	AampStreamSinkManager::GetInstance().SetTuned(aamp);
+
 	if(mAsyncTuneEnabled)
 	{
 		const std::string manifest {mainManifestUrl};
@@ -697,10 +702,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
-			if (aamp->mbDetached)
-			{
-				aamp->enableEventProcessing();
-			}
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
@@ -892,7 +893,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					// Otherwise unpause the pipeline
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
-						retValue = false;
+						retValue = false; // Skip common notification to prevent premature state change
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
@@ -901,6 +902,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
+						// Notify speed change without state transition (keeps eSTATE_SEEKING)
+						// State will naturally transition to PLAYING when NotifyFirstBufferProcessed() is called after fragments arrive
+						aamp->NotifySpeedChanged(aamp->rate, false);
 					}
 					else
 					{
@@ -949,7 +953,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					{
 						// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
 						AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
-						aamp->SetLLDashAdjustSpeed(false);
+						aamp->EnableLatencyMonitor(false);
 					}
 					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is disabled due to the Pause operation!!");
 					aamp->mDisableRateCorrection = true;
@@ -1181,11 +1185,6 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 	{
 		AAMPPlayerState state = GetState();
 		aamp->StopPausePositionMonitoring("Seek() called");
-
-		if (aamp->mbDetached)
-		{
-			aamp->enableEventProcessing();
-		}
 
 		if ((aamp->mMediaFormat == eMEDIAFORMAT_HLS || aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4) && (eSTATE_INITIALIZING == state)  && aamp->mpStreamAbstractionAAMP)
 		{
@@ -1569,6 +1568,7 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
 void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
 	AAMPLOG_MIL("mute %s", muted?"true":"false");
+	aamp->SetCCStatusSetByApp();
 	aamp->SetSubtitleMute(muted);
 }
 
@@ -2991,6 +2991,8 @@ int PlayerInstanceAAMP::GetTextTrack()
  */
 void PlayerInstanceAAMP::SetCCStatus(bool enabled)
 {
+	AAMPLOG_MIL("enabled %s", enabled?"true":"false");
+	aamp->SetCCStatusSetByApp();
 	aamp->SetCCStatus(enabled);
 }
 

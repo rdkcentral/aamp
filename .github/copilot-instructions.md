@@ -205,4 +205,16 @@ The `.github/instructions/` directory contains deeper rules:
 
 Copilot must reference these files when generating language-specific code.
 
+## AAMP log debugging
+
+- For AAMP run-log analysis, use the reusable prompt file `/aamp-log-debug`.
+- When debugging logs, build a timeline first, identify the first abnormal event, and separate facts from hypotheses.
+- Correlate manifest, network, buffering, ABR, DRM, and player-state evidence before concluding root cause.
+- Prefer minimal safe fixes and minimal additional instrumentation.
+
+## Code analysis prompts
+
+- For accurate measurement of method or function cyclomatic complexity, use the reusable prompt file `/cyclomatic-complexity`.
+- When reporting complexity, show the counted decision points step by step and call out any ambiguity from macros or compile-time conditionals.
+
 ---

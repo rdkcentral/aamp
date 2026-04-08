@@ -29,12 +29,12 @@
 #include "AampTime.h"
 #include "priv_aamp.h"
 #include "fragmentcollector_mpd.h"
-#include "AampGrowableBuffer.h"
 
 #include "MockIsoBmffHelper.h"
 #include "MockIsoBmffBuffer.h"
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
+#include "MockStreamAbstractionAAMP_MPD.h"
 
 using namespace testing;
 using ::testing::Values;
@@ -58,18 +58,15 @@ static constexpr bool AAMP_TSB_DISABLED{false};
 
 AampConfig* gpGlobalConfig{nullptr};
 
-// The matcher is passed a std::cref() to avoid copy-constructing the fake AampGrowableBuffer, which
-// crashes and is not really desirable anyway. (Copy-construction of the argument is default matcher
-// behavior, done in case it's modified or destructed later.)
-MATCHER_P(AampGrowableBufferRefEq, bufferStdConstRef, "")
+// The matcher compares the data content of a std::vector<uint8_t> argument against a
+// std::vector<uint8_t> reference (wrapped in std::cref).  The buffer may be larger
+// than the expected data (e.g. due to LLD chunk accumulation), so only the leading
+// bytes are compared.
+MATCHER_P(VectorRefEq, vecStdConstRef, "")
 {
-	const AampGrowableBuffer& buffer = bufferStdConstRef.get();
-	return std::memcmp(arg.GetPtr(), buffer.data(), buffer.size()) == 0;
-}
-
-MATCHER_P(AampGrowableBufferPtrEq, bufferPtr, "")
-{
-	return std::memcmp(arg->GetPtr(), bufferPtr->GetPtr(), bufferPtr->size()) == 0;
+	const std::vector<uint8_t>& vec = vecStdConstRef.get();
+	return arg.size() >= vec.size() &&
+		   std::memcmp(arg.data(), vec.data(), vec.size()) == 0;
 }
 
 // MediaTrack is an abstract base class, so must be tested via a derived class
@@ -83,7 +80,7 @@ public:
 	}
 
 	// Provide overrides for pure virtuals - this is just to keep the compiler happy
-	void ProcessPlaylist(AampGrowableBuffer&, int) override {};
+	void ProcessPlaylist(std::vector<uint8_t>&, int) override {};
 	std::string& GetPlaylistUrl() override { return mFakeStr; };
 	std::string& GetEffectivePlaylistUrl() override { return mFakeStr; };
 	void SetEffectivePlaylistUrl(std::string) override {};
@@ -124,6 +121,7 @@ protected:
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockIsoBmffHelper = new NiceMock<MockIsoBmffHelper>();
 		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
+		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 
 		// A fake StreamAbstractionAAMP_MPD that derives from a *real* StreamAbstractionAAMP.
 		// The tests can't use a fake/mock StreamAbstractionAAMP base class because
@@ -134,6 +132,9 @@ protected:
 
 	void TearDown() override
 	{
+		delete g_mockStreamAbstractionAAMP_MPD;
+		g_mockStreamAbstractionAAMP_MPD = nullptr;
+
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -174,7 +175,7 @@ protected:
 			bufferedFragment = mediaTrack.GetFetchBuffer(true);
 			mediaTrack.numberOfFragmentsCached = 1;
 		}
-		bufferedFragment->Copy(&testFragment);
+		bufferedFragment->Copy(testFragment);
 		if (lowLatencyMode && !bufferedFragment->initFragment)
 		{
 			// Make the buffer parser return the correct position and duration
@@ -232,7 +233,7 @@ protected:
 		initFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 		CachedFragment* buf = videoTrack->GetFetchChunkBuffer(true);
 		videoTrack->numberOfFragmentChunksCached = 1;
-		buf->Copy(&initFragment);
+		buf->Copy(initFragment);
 		EXPECT_TRUE(videoTrack->InjectFragment());
 
 		// Queue a media fragment with the requested timescale
@@ -246,7 +247,7 @@ protected:
 
 		buf = videoTrack->GetFetchChunkBuffer(true);
 		videoTrack->numberOfFragmentChunksCached = 1;
-		buf->Copy(&mediaFragment);
+		buf->Copy(mediaFragment);
 
 		return {std::move(videoTrack), buf};
 	}
@@ -424,7 +425,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
 
 	EXPECT_CALL(*g_mockIsoBmffHelper,
-				SetTimescale(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+				SetTimescale(VectorRefEq(std::cref(testFragment.fragment)),
 									TRICKMODE_TIMESCALE))
 		.WillOnce(Return(true));
 
@@ -451,7 +452,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	int64_t expectedPts{restampedPts * TRICKMODE_TIMESCALE};
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
-		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+		SetPtsAndDuration(VectorRefEq(std::cref(testFragment.fragment)),
 								 expectedPts, expectedDuration))
 		.WillOnce(Return(true));
 
@@ -460,7 +461,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		// Check that the PTS that is (eventually) passed on to GStreamer is as expected
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
-									   AampGrowableBufferPtrEq(&(testFragment.fragment)),
+									   VectorRefEq(std::cref(testFragment.fragment)),
 									   restampedPts.inSeconds(), restampedPts.inSeconds(),
 									   restampedDuration.inSeconds(), _, _, _));
 	}
@@ -481,14 +482,14 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 		bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
 		EXPECT_CALL(*g_mockIsoBmffHelper,
-					SetTimescale(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+					SetTimescale(VectorRefEq(std::cref(testFragment.fragment)),
 								 TRICKMODE_TIMESCALE)
 					).WillOnce(Return(true));
 		if (testParam.lowLatencyMode)
 		{	// PTS / DTS is not relevant for init segment, so ignore the values
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 						SendStreamTransfer(eMEDIATYPE_VIDEO,
-										   AampGrowableBufferPtrEq(&(testFragment.fragment)),
+										   VectorRefEq(std::cref(testFragment.fragment)),
 										   _,  _, _,
 										   _, _, _));
 		}
@@ -512,7 +513,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		expectedPts = static_cast<int64_t>(restampedPts * TRICKMODE_TIMESCALE);
 		EXPECT_CALL(
 			*g_mockIsoBmffHelper,
-			SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+			SetPtsAndDuration(VectorRefEq(std::cref(testFragment.fragment)),
 									 expectedPts, expectedDuration))
 			.WillOnce(Return(true));
 
@@ -521,7 +522,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 			// Check that the PTS that is (eventually) passed on to GStreamer is as expected
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 						SendStreamTransfer(eMEDIATYPE_VIDEO,
-										   AampGrowableBufferPtrEq(&(testFragment.fragment)),
+										   VectorRefEq(std::cref(testFragment.fragment)),
 										   restampedPts.inSeconds(), restampedPts.inSeconds(),
 										   restampedDuration.inSeconds(), _, _, _));
 		}
@@ -574,6 +575,8 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -594,26 +597,54 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 
 	ASSERT_TRUE(videoTrack.InjectFragment());
 
-	// Media segment
+	// Media segment (normal case: UseMp4Demux disabled)
 	testFragment.initFragment = false;
 	testFragment.duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
 	EXPECT_CALL(*g_mockIsoBmffHelper,
-				RestampPts(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+				RestampPts(VectorRefEq(std::cref(testFragment.fragment)),
 								  (PTS_OFFSET_SEC * PLAYBACK_TIMESCALE), expectedUri, "video", PLAYBACK_TIMESCALE));
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
 	if (lowLatencyMode)
 	{
-		// Check that the PTS that is (eventually) passed on to GStreamer is as expected
+		// In chunk mode, PTS offset is applied to fpts/fdts
+		// (FIRST_PTS + PTS_OFFSET_SEC) and also passed separately to
+		// GStreamer via the fragmentPTSoffset argument
 		double expectedPts = FIRST_PTS.inSeconds() + PTS_OFFSET_SEC;
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
-									   AampGrowableBufferPtrEq(&(testFragment.fragment)),
-									   expectedPts, expectedPts, _, _, _, _));
+									VectorRefEq(std::cref(testFragment.fragment)),
+									expectedPts, expectedPts, _, _, _, _));
 	}
-
 	ASSERT_TRUE(videoTrack.InjectFragment());
 	ASSERT_DOUBLE_EQ(videoTrack.GetTotalInjectedDuration(), FRAGMENT_DURATION.inSeconds());
+
+	// Media segment (UseMp4Demux enabled: RestampPts should NOT be called)	
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillRepeatedly(Return(true));
+	testFragment = CachedFragment{};
+	testFragment.initFragment = false;
+	testFragment.duration = FRAGMENT_DURATION.inSeconds();
+	testFragment.position = FIRST_PTS.inSeconds();
+	testFragment.PTSOffsetSec = PTS_OFFSET_SEC;
+	testFragment.timeScale = PLAYBACK_TIMESCALE;
+	testFragment.uri = expectedUri;
+	testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
+	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
+	videoTrack.numberOfFragmentsCached = 1;
+	ASSERT_NE(bufferedFragment, nullptr);
+	ASSERT_GT(bufferedFragment->fragment.size(), 0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockIsoBmffHelper, SetPtsAndDuration(_, _, _)).Times(0);
+	if (lowLatencyMode)
+	{
+		// In chunk mode, PTS offset is passed separately to GStreamer
+		double expectedPts = FIRST_PTS.inSeconds();
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+					SendStreamTransfer(eMEDIATYPE_VIDEO,
+									VectorRefEq(std::cref(testFragment.fragment)),
+									expectedPts, expectedPts, _, _, _, _));
+	}
+	ASSERT_TRUE(videoTrack.InjectFragment());
 }
 
 AampTsbTestData aampTsbTestData[] =
@@ -750,7 +781,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	// Assume no change in restamped duration on discontinuity
 	restampedPts += restampedDuration;
 	EXPECT_CALL(*g_mockIsoBmffHelper,
-				SetTimescale(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+				SetTimescale(VectorRefEq(std::cref(testFragment.fragment)),
 									TRICKMODE_TIMESCALE))
 		.WillOnce(Return(true));
 	ASSERT_TRUE(iframeTrack.InjectFragment());
@@ -770,7 +801,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
-		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+		SetPtsAndDuration(VectorRefEq(std::cref(testFragment.fragment)),
 								 expectedPts, expectedDuration))
 		.WillOnce(Return(true));
 
@@ -794,7 +825,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	expectedPts = static_cast<int64_t>(restampedPts.inSeconds() * TRICKMODE_TIMESCALE);
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
-		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+		SetPtsAndDuration(VectorRefEq(std::cref(testFragment.fragment)),
 								 expectedPts, expectedDuration))
 		.WillOnce(Return(true));
 
@@ -993,4 +1024,55 @@ TEST_F(MediaTrackTests, WaitForManifestUpdateSnapshotRacePreventionTest)
 	EXPECT_EQ(future.wait_for(std::chrono::milliseconds(500)), std::future_status::ready)
 		<< "WaitForManifestUpdate(snapshotCounter) blocked even though the counter was "
 		   "already incremented — lost-wakeup race prevention is broken";
+}
+
+/**
+ * @brief Test that GetBufferStatus() returns BUFFER_STATUS_GREEN when the buffer is sufficient
+ * in low latency mode.
+ */
+TEST_F(MediaTrackTests, GetBufferStatus_ReturnsGreen_WhenBufferIsSufficient)
+{
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Low Latency mode enabled, which doesn't check for cached fragments
+	SetLowLatencyMode(true);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
+		.WillRepeatedly(Return(1.0)); // Set underflow threshold to 1 second
+	// Simulate sufficient buffered duration above the green threshold
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetBufferedDuration())
+		.WillOnce(Return(AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD + 2.0));
+	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_GREEN);
+}
+
+/**
+ * @brief Test that GetBufferStatus() returns BUFFER_STATUS_YELLOW
+ * when the buffer is below threshold and above underflow threshold in low latency mode.
+ */
+TEST_F(MediaTrackTests, GetBufferStatus_ReturnsYellow_WhenBufferIsBelowThreshold)
+{
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Low Latency mode enabled, which doesn't check for cached fragments
+	SetLowLatencyMode(true);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
+		.WillRepeatedly(Return(0.5)); // Set underflow threshold to 0.5 second
+	// Simulate buffered duration just below the threshold and above underflow threshold
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetBufferedDuration())
+		.WillOnce(Return(AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD - 0.1));
+	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_YELLOW);
+}
+
+/**
+ * @brief Test that GetBufferStatus() returns BUFFER_STATUS_RED
+ * when the buffer is below underflow threshold in low latency mode.
+ */
+TEST_F(MediaTrackTests, GetBufferStatus_ReturnsRed_WhenBufferIsBelowUnderflowThreshold)
+{
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Low Latency mode enabled, which doesn't check for cached fragments
+	SetLowLatencyMode(true);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
+		.WillRepeatedly(Return(0.5)); // Set underflow threshold to 0.5 second
+	// Simulate buffered duration just below the underflow threshold
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetBufferedDuration())
+		.WillOnce(Return(0.1));
+	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_RED);
 }

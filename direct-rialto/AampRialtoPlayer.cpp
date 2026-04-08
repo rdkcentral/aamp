@@ -1307,7 +1307,7 @@ std::vector<QueuedSample> AampRialtoPlayer::InjectSamples(
 			segment->setData(
 				static_cast<uint32_t>(sample.mData.size()),
 				reinterpret_cast<const uint8_t *>(
-					sample.mData.GetPtr()));
+					sample.mData.data()));
 
 			auto addStatus =
 				m_pipeline->addSegment(requestId, segment);

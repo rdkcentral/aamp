@@ -63,17 +63,16 @@ void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
 }
 
 /**
- *  @brief Set buffer from a read-only pointer and size.
- *         The const_cast here is intentional and contained: the internal
- *         member must remain uint8_t* to support mutating operations on
- *         non-const buffers. Callers using this overload must ensure that
- *         no mutating IsoBmffBuffer operations (e.g. restampPTS) are
- *         subsequently invoked.
+ *  @brief Set buffer from a const vector (read-only use only)
+ * 		const_cast is safe here because the read-only query methods
+ * 		(getFirstPTS, isInitSegment, getTimeScale, getSampleDuration, etc.)
+ * 		do not modify the buffer contents.  Callers using this overload
+ * 		must not call mutating methods (restampPts, truncate, etc.).
  */
-void IsoBmffBuffer::setBuffer(const uint8_t* buffer, size_t bufferLen)
+void IsoBmffBuffer::setBuffer(const std::vector<uint8_t> &buffer)
 {
-	this->buffer = const_cast<uint8_t*>(buffer);
-	this->bufSize = bufferLen;
+	this->buffer = const_cast<uint8_t *>(buffer.data());
+	this->bufSize = buffer.size();
 }
 
 /**
@@ -88,7 +87,7 @@ void IsoBmffBuffer::setBuffer(const uint8_t* buffer, size_t bufferLen)
 *	@return true if parsed or false
 *  	@brief Parse ISOBMFF boxes from buffer
 */
-bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, uint32_t timeScale,
 	size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration)
 {
 	size_t mdatCount = 0;
@@ -703,7 +702,7 @@ bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, 
 /**
  *  @brief Get list of box handles in a parsed buffer
  */
-int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
+int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
 {
 	std::vector<Box*> *pBoxes = getParsedBoxes();
 	size_t mdatCount;

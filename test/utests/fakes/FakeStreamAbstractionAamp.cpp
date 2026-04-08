@@ -260,7 +260,7 @@ bool MediaTrack::isPlaylistDownloaderThreadStarted()
 	return true;
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name), aamp(aamp), type(type)
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : name(name), aamp(aamp), type(type), abort(false), abortInject(false)
 {
 }
 
@@ -332,15 +332,24 @@ bool MediaTrack::SignalIfEOSReached()
 
 void MediaTrack::SetLocalTSBInjection(bool value)
 {
+	if (g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->SetLocalTSBInjection(value);
+	}
 }
 
 bool MediaTrack::IsLocalTSBInjection()
 {
 	bool localTsbInjection = false;
 
-	// When using mock, delegate to mock implementation
-	if (auto* mock = dynamic_cast<MockMediaTrack*>(this)) {
-		localTsbInjection = mock->IsLocalTSBInjection();
+	if (auto* mockObj = dynamic_cast<MockMediaTrack*>(this))
+	{
+		localTsbInjection = mockObj->IsLocalTSBInjection();
+	}
+
+	if (g_mockMediaTrack != nullptr)
+	{
+		localTsbInjection = g_mockMediaTrack->IsLocalTSBInjection();
 	}
 
 	return localTsbInjection;
