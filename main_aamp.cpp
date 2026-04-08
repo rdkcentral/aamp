@@ -132,7 +132,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
 		pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
 		pExternalsInterface->SetPowerEvent(powerEvt);
 		pExternalsInterface->Initialize();	
@@ -143,7 +142,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	}
 
 	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
 	pExternalsInterface->SetDoFakeTuneCallBack(doFakeTune);
 	pExternalsInterface->SetPowerEvent(powerEvt);
 	pExternalsInterface->Initialize();

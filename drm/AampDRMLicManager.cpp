@@ -121,7 +121,6 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
     getConfigs(mDrmSessionManager, aampInstance);
     mLicenseDownloader = new AampCurlDownloader[mMaxDRMSessions];
     mLicensePrefetcher = new AampLicensePreFetcher(aampInstance);
-    ContentSecurityManager::UseFireboltSDK(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
     mLicensePrefetcher->Init();
 }
 
