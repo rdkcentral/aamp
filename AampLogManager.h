@@ -51,7 +51,7 @@ extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtil
 do { \
 if( (LEVEL) >= AampLogManager::aampLoglevel ) \
 { \
-logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+logprintf( LEVEL, __FILE__, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 } \
 } while(0)
 
@@ -126,7 +126,7 @@ struct AAMPAbrInfo
  * @param[in] format - printf style string
  * @return void
  */
-extern void logprintf(AAMP_LogLevel level, const char* func, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
+extern void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line, const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
 
 extern thread_local int gPlayerId;
 
@@ -156,6 +156,7 @@ public:
 	static AAMP_LogLevel aampLoglevel;
 	static bool locked;
 	static bool enableEthanLogRedirection;  /**<  Enables Ethan log redirection which uses Ethan lib for logging */
+	static bool logFilename;				/**<  Include source filename in log output */
 	
 	/**
 	 * @fn aampLogger
@@ -169,7 +170,7 @@ public:
 		/* loggerData is the playerId ... set it in case we are in a helper thread that the
 		** caller has spawned. */
 		UsingPlayerId playerId(loggerData);
-		logprintf(eLOGLEVEL_MIL, __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
+		logprintf(eLOGLEVEL_MIL, __FILE__, __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
 	}
 	
 	/**
@@ -186,7 +187,7 @@ public:
 		std::string location;
 		std::string symptom;
 		ParseContentUrl(url, location, symptom, type);
-		logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__, "AAMPLogNetworkLatency downloadTime=%d downloadThreshold=%d type='%s' location='%s' symptom='%s' url='%s'",
+		logprintf( eLOGLEVEL_WARN, __FILE__, __FUNCTION__, __LINE__, "AAMPLogNetworkLatency downloadTime=%d downloadThreshold=%d type='%s' location='%s' symptom='%s' url='%s'",
 				  downloadTime, downloadThresholdTimeoutMs, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url);
 	}
 	
@@ -211,14 +212,14 @@ public:
 			{
 				if(errorCode >= 400)
 				{
-					logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='http error %d' type='%s' location='%s' symptom='%s' url='%s'",
+					logprintf( eLOGLEVEL_ERROR, __FILE__, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='http error %d' type='%s' location='%s' symptom='%s' url='%s'",
 							  errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
 				}
 			}
 				break; /*AAMPNetworkErrorHttp*/
 				
 			case AAMPNetworkErrorTimeout:
-				logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
+				logprintf( eLOGLEVEL_ERROR, __FILE__, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
 							  errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
 				break; /*AAMPNetworkErrorTimeout*/
 				
@@ -226,7 +227,7 @@ public:
 			{
 				if(errorCode > 0)
 				{
-					logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='curl error %d' type='%s' location='%s' symptom='%s' url='%s'",
+					logprintf( eLOGLEVEL_ERROR, __FILE__, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='curl error %d' type='%s' location='%s' symptom='%s' url='%s'",
 							  errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
 				}
 			}
@@ -353,7 +354,7 @@ public:
 				symptom += " (or) freeze/buffering";
 			}
 			
-			logprintf( eLOGLEVEL_WARN, __FUNCTION__, __LINE__,
+			logprintf( eLOGLEVEL_WARN, __FILE__, __FUNCTION__, __LINE__,
 					  "AAMPLogABRInfo : switching to '%s' profile '%d -> %d' currentBandwidth[%" BITSPERSECOND_FORMAT "]->desiredBandwidth[%" BITSPERSECOND_FORMAT "] nwBandwidth[%" BITSPERSECOND_FORMAT "] reason='%s' symptom='%s'",
 					  profile.c_str(),
 					  pstAbrInfo->currentProfileIndex,
