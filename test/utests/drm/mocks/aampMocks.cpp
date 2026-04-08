@@ -617,8 +617,9 @@ void PrivateInstanceAAMP::UpdateDuration(double seconds)
 {
 }
 
-void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
+	return false;
 }
 
 void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount,
