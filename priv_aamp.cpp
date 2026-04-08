@@ -2582,7 +2582,11 @@ bool PrivateInstanceAAMP::IsAtLivePoint()
 {
 	if (IsLiveStream())
 	{
-		std::lock_guard<std::recursive_mutex> guard(GetStreamLock());
+		// Avoid acquiring StreamLock here to prevent a circular deadlock.
+		// One of the scenarios is listed below:
+		// 1. SetRateInternal() holds StreamLock and then waits for a lock in decoder
+		// 2. The decoder first-frame callback holds the lock and then calls
+		// NotifyFirstBufferProcessed() -> IsAtLivePoint(), which waits for StreamLock.
 		if (mpStreamAbstractionAAMP)
 		{
 			return mpStreamAbstractionAAMP->mIsAtLivePoint;
@@ -3235,20 +3239,22 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 
 /**
  * @brief Sends UnderFlow Event messages
+ * @param[in] bufferingStarted True if buffering started, false if buffering ended.
  */
-void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
 	// Buffer Change event indicate buffer availability
-	// Buffering stop notification need to be inverted to indicate if buffer available or not
+	// bufferingStarted need to be inverted to indicate if buffer available or not
 	// BufferChangeEvent with False = Underflow / non-availability of buffer to play
 	// BufferChangeEvent with True  = Availability of buffer to play
-	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(!bufferingStopped, GetSessionId());
+	bool bufferAvailable = !bufferingStarted;
+	BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(bufferAvailable, GetSessionId());
 
-	SetBufUnderFlowStatus(bufferingStopped);
+	SetBufUnderFlowStatus(bufferingStarted);
 	// Calculating the duration for which buffering was happening and sending it as part of telemetry.
 	// This will help in understanding the buffering duration for each buffering event and also help in calculating the total buffering duration for a session.
 	long long bufferingDurationMs = 0;
-	if (bufferingStopped)
+	if (bufferingStarted)
 	{
 		// Atomically set the start time only if no episode is already being tracked (-1).
 		// compare_exchange_strong ensures that concurrent SendBufferChangeEvent(true) calls
@@ -3277,7 +3283,7 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Buffer Change event status (Buffering): %s durationMs: %lld", (e->buffering() ? "End": "Start"), bufferingDurationMs);
 #ifdef AAMP_TELEMETRY_SUPPORT
 	AAMPTelemetry2 at2(mAppName);
-	std::string telemetryName = bufferingStopped?"VideoBufferingStart":"VideoBufferingEnd";
+	std::string telemetryName = bufferingStarted?"VideoBufferingStart":"VideoBufferingEnd";
 	std::map<std::string,int> intData;
 	intData["dur"] = static_cast<int>(bufferingDurationMs);
 	at2.send(telemetryName, intData, {/*string data*/}, {/*float data*/});
@@ -3285,7 +3291,7 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 
 	// If rebuffering started, notify latency monitor to relax the latency band
-	if (bufferingStopped)
+	if (bufferingStarted)
 	{
 		mLatencyMonitor->OnRebufferingStart();
 	}
@@ -4378,12 +4384,17 @@ bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
 /**
  * @brief Set curl timeout(CURLOPT_TIMEOUT)
  */
-void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
+	bool timeoutChanged = false;
+
 	if(ContentType_EAS == mContentType)
-		return;
+		return false;
+
 	if(instance < eCURLINSTANCE_MAX && curl[instance])
 	{
+		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
+		
 		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
 		curlDLTimeout[instance] = timeoutMS;
 	}
@@ -4391,6 +4402,8 @@ void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	{
 		AAMPLOG_ERR("Failed to update timeout for curl instance %d",instance);
 	}
+
+	return timeoutChanged;
 }
 
 /**
