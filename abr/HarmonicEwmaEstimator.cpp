@@ -315,10 +315,24 @@ double HarmonicEwmaEstimator::GetPredictedDownloadTimeSeconds(
 
 /**
  * @brief Reset only the currently available bandwidth estimate.
+ *
+ * Called after every profile change to prevent stale high-bandwidth estimates
+ * from triggering an immediate ramp-up.  After this call,
+ * GetBandwidthBitsPerSecond() returns -1 until the next UpdateDownloadMetrics()
+ * completes, matching the behaviour of RollingMedianOutlierEstimator::Reset-
+ * CurrentlyAvailableBandwidth() which clears its rolling cache.
+ *
+ * m_history is deliberately preserved: the EWMA accumulators and harmonic mean
+ * are recomputed from that history on the very next UpdateDownloadMetrics()
+ * call, so the estimator reconverges quickly without discarding prior data.
  */
 void HarmonicEwmaEstimator::ResetCurrentlyAvailableBandwidth()
 {
-	// TODO: Implement if needed
+	m_ewma_fast_BytesPerSecond = 0.0;
+	m_ewma_slow_BytesPerSecond = 0.0;
+	m_harmonic_BytesPerSecond  = 0.0;
+	m_progressHasSample        = false;
+	m_progressBytesPerSecond   = 0.0;
 }
 
 /**
