@@ -1348,7 +1348,8 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  * @brief Inject AampMediaSample to gstreamer pipeline
  * 
  * @param[in] mediaType - Media type
- * @param[in,out] sample - Media sample to inject
+ * @param[in] sample - Media sample to inject; ownership is transferred and
+ *            its contents are moved/consumed by this call
  * @return true if sample is successfully injected, false otherwise
  */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
