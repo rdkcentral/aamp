@@ -939,3 +939,28 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 		))).Times(1);
 	logprintf(level, file.c_str(), func.c_str(), line, "%s", message3.c_str());
 }
+
+/*
+	Test logprintf with logFilename enabled
+	When AampLogManager::logFilename is true, the base filename must appear in the log
+	output in square brackets immediately before the function name.
+*/
+TEST_F(AampLogManagerTest, logprintf_LogFilenameEnabled)
+{
+	AampLogManager::logFilename = true;
+
+	AAMP_LogLevel level = eLOGLEVEL_WARN;
+	std::string file("path/to/MySource.cpp");
+	std::string func("testFunc");
+	int line = 42;
+	std::string message("filename test message");
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(
+			HasSubstr("[MySource.cpp]"),
+			HasSubstr("[" + func + "]"),
+			HasSubstr(message))));
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
+
+	AampLogManager::logFilename = false;
+}
