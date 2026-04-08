@@ -1468,7 +1468,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							// For live stream, ad break scheduling fragment should be within source period.
 							// Otherwise, it may be beyond control if ad break cancellation is requested by server.
-							const bool baselineSourcePeriodCheck = (pMediaStreamContext->fragmentTime < (mPeriodStartTime + (mPeriodDuration / 1000)));
+							const bool baselineSourcePeriodCheck = ((pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset) < (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration / 1000.0));
 
 							bool isCurrentAdCancelled = false;
 							if (mCdaiObject->mCurAds && mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < static_cast<int>(mCdaiObject->mCurAds->size()))
@@ -1479,7 +1479,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							// If not, skip the fragment to avoid potential issues. CheckForAdTerminate() mark EOS for stream at boundaries.
 							if (((liveEdgePeriodPlayback || isCurrentAdCancelled) && !baselineSourcePeriodCheck))
 							{
-								AAMPLOG_INFO("Ad break playing fragment is not within source period. fragmentTime: %f, mPeriodEndTime: %f", pMediaStreamContext->fragmentTime, (mPeriodStartTime + (mPeriodDuration / 1000)));
+								AAMPLOG_INFO("Ad break fragment is not within source period. fragment offset:%lf, placedDuration: %lf", (pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset), (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration / 1000.0));
 								return false;
 							}
 						}
