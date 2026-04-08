@@ -52,6 +52,7 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 - Suppress displayed feedback when Completeness >= 8, Assumptions <= 2,
   and Clarity >= 8,
   unless the user explicitly asks to apply feedback to the current prompt.
+- Determine suppression from the current user prompt only; retrospective analysis of earlier prompts should be provided only when explicitly requested.
 - Prefer high-compliance guidance: suggest exact wording that reduces
   ambiguity and improves instruction precision.
 
