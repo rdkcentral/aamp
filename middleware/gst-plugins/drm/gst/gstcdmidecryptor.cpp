@@ -641,7 +641,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	cdmidecryptor->streamEncrypted = true;
 	if (errorCode != 0 || cdmidecryptor->hdcpOpProtectionFailCount)
 	{
-		printf("VRN Decrypt Fails or HDCP fails ERR[%d]\n",errorCode, cdmidecryptor->hdcpOpProtectionFailCount);
+		printf("VRN Decrypt Fails or HDCP fails ERR[%d] FC[%d]\n",errorCode, cdmidecryptor->hdcpOpProtectionFailCount);
 	if(errorCode == HDCP_OUTPUT_PROTECTION_FAILURE)
 	{
 		printf("VRN HDCP OP PR ERROR REC[%d]\n",cdmidecryptor->hdcpOpProtectionFailCount+1);
