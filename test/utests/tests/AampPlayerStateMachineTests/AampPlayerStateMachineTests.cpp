@@ -18,30 +18,14 @@
  */
 
 /**
- * @file MockDrmBridge.h
- * @brief Google Mock for IDrmBridge used in AampRialtoPlayer unit tests.
+ * @file AampPlayerStateMachineTests.cpp
+ * @brief Test runner for AampPlayerStateMachine unit tests.
  */
 
-#pragma once
+#include <gtest/gtest.h>
 
-#include <gmock/gmock.h>
-#include "IDrmBridge.h"
-
-/**
- * @class MockDrmBridge
- * @brief Google Mock implementation of IDrmBridge.
- */
-class MockDrmBridge : public IDrmBridge
+int main(int argc, char **argv)
 {
-public:
-	MOCK_METHOD(int32_t, createSession,
-		(const char *systemId, const void *initData, size_t len, AampMediaType type),
-		(override));
-
-	MOCK_METHOD(void, clearSessions, (), (override));
-};
-
-/// Global mock instance delegated to by FakeAampDrmBridge.
-/// Tests that exercise DRM behaviour point this at their local MockDrmBridge
-/// in SetUp() and reset it to nullptr in TearDown().
-extern MockDrmBridge *g_mockDrmBridge;
+	testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
+}

@@ -42,4 +42,8 @@ public:
 	// clang-format on
 };
 
+/// Global mock instance returned by IMediaPipelineFactory::createFactory() in
+/// the fake implementation.  Tests set this in SetUp() and reset it in TearDown().
+extern std::shared_ptr<MockIMediaPipelineFactory> g_mockPipelineFactory;
+
 #endif // MOCK_IMEDIA_PIPELINE_FACTORY_H

@@ -101,72 +101,15 @@ public:
 		bool setReadyAfterPipelineCreation = false) override;
 
 	/**
-	 * @brief Inject a custom pipeline factory before calling Configure().
+	 * @brief Return the current player state identifier.
 	 *
-	 * For unit testing only.  Passing a non-null factory makes Configure()
-	 * use it instead of the production singleton, allowing tests to inject
-	 * a MockIMediaPipelineFactory without a live Rialto server.
-	 *
-	 * @param[in] factory  Factory to use; nullptr restores production behaviour.
+	 * Returns the live state from the GoF state machine.  Useful for
+	 * diagnostics, logging, and unit test assertions.
 	 */
-	void SetPipelineFactoryForTesting(
-		std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> factory)
-	{
-		m_pipelineFactory = std::move(factory);
-	}
-
-	/**
-	 * @brief Install a playback-state observer for testing.
-	 *
-	 * For unit testing only.  The observer is called whenever
-	 * OnPlaybackState() is invoked (i.e. when the pipeline client's
-	 * notifyPlaybackState fires).
-	 *
-	 * @param observer  Callable to invoke with the new PlaybackState.
-	 */
-	void SetPlaybackObserverForTesting(
-		std::function<void(firebolt::rialto::PlaybackState)> observer)
-	{
-		m_testPlaybackObserver = std::move(observer);
-	}
-
-	/**
-	 * @brief Install a DRM bridge for testing.
-	 *
-	 * For unit testing only.  Replaces the production IDrmBridge so tests can
-	 * control session creation and mks_id without a live OCDM stack.
-	 *
-	 * @param[in] bridge  Bridge to use; nullptr means no DRM session management.
-	 */
-	void SetDrmBridgeForTesting(std::shared_ptr<IDrmBridge> bridge)
-	{
-		m_drmBridge = std::move(bridge);
-	}
-
-	/**
-	 * @brief Return the current player state identifier (for unit testing only).
-	 *
-	 * Allows tests to observe state transitions driven by the GoF state machine
-	 * without exposing the full PlayerStateMachine to callers.
-	 */
-	PlayerStateId GetPlayerStateForTesting() const
+	PlayerStateId GetCurrentPlayerState() const
 	{
 		return m_stateMachine.currentState();
 	}
-
-	/**
-	 * @brief Simulate a Rialto need-data event (for unit testing only).
-	 *
-	 * Bypasses the IPC callback path so tests can drive injection without
-	 * running a live Rialto server.
-	 */
-	void OnNeedMediaData(
-		int32_t sourceId, size_t frameCount, uint32_t requestId);
-
-	/**
-	 * @brief Simulate a Rialto cancel-need-data event (for unit testing only).
-	 */
-	void OnCancelNeedMediaData(int32_t sourceId);
 
 	/// @copydoc StreamSink::SendCopy
 	bool SendCopy(
@@ -337,11 +280,8 @@ private:
 
 	PrivateInstanceAAMP *m_aamp{nullptr}; ///< Owning AAMP instance
 	std::shared_ptr<RialtoLogHandler> m_rialtoLogHandler; ///< Rialto log bridge
-	/// Factory override set via SetPipelineFactoryForTesting(); null in production.
+	/// Rialto pipeline factory; null until Configure() calls createFactory().
 	std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> m_pipelineFactory;
-#ifdef USE_AAMP_GST_PLAYER
-	std::unique_ptr<AAMPGstPlayer> mGstPlayer; ///< Underlying GStreamer player
-#else
 	std::shared_ptr<AampRialtoMediaPipelineClient> m_client;
 	std::shared_ptr<firebolt::rialto::IMediaPipeline> m_pipeline;
 	std::unique_ptr<Mp4Demux> m_videoDemuxer;
@@ -418,9 +358,6 @@ private:
 	/// Stream() reads this to decide whether it can call play() immediately.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
-	/// Optional observer installed by tests to receive playback state changes.
-	std::function<void(firebolt::rialto::PlaybackState)> m_testPlaybackObserver;
-
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;
 
@@ -446,6 +383,12 @@ private:
 		std::vector<QueuedSample> samples,
 		bool eos);
 
+	/// @brief Dispatches need-data events from the pipeline client to workers.
+	void OnNeedMediaData(int32_t sourceId, size_t frameCount, uint32_t requestId);
+
+	/// @brief Dispatches cancel-need-data events from the pipeline client.
+	void OnCancelNeedMediaData(int32_t sourceId);
+
 	/// @brief Called (via callback) when the Rialto server changes state.
 	void OnPlaybackState(firebolt::rialto::PlaybackState state);
 
@@ -460,7 +403,6 @@ private:
 	 *        been attached.
 	 */
 	void CheckAllSourcesAttached();
-#endif
 };
 
 #endif // AAMP_RIALTO_PLAYER_H

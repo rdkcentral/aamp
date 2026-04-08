@@ -19,30 +19,41 @@
 
 /**
  * @file FakeAampDrmBridge.cpp
- * @brief Stub implementation of AampDrmBridge for unit tests.
+ * @brief Fake implementation of AampDrmBridge for L1 tests.
  *
- * Provides link-time resolution of AampDrmBridge symbols so that
- * AampRialtoPlayer can construct the object in the test binary without
- * pulling in the full DrmSessionManager / OCDM / priv_aamp dependency
- * chain.  All methods are no-ops; individual tests replace m_drmBridge
- * via SetDrmBridgeForTesting() with a MockDrmBridge before exercising
- * DRM behaviour, so this stub is never called by any test case.
+ * Methods delegate to g_mockDrmBridge when non-null, allowing test cases to
+ * place EXPECT_CALL expectations on a MockDrmBridge without any injection
+ * seam in the production AampRialtoPlayer constructor.
+ * g_mockDrmBridge is declared in MockDrmBridge.h.
  */
 
 #include "AampDrmBridge.h"
+#include "MockDrmBridge.h"
+
+/// Definition of the global declared in MockDrmBridge.h.
+MockDrmBridge *g_mockDrmBridge = nullptr;
 
 AampDrmBridge::AampDrmBridge(PrivateInstanceAAMP * /*aamp*/)
 	: m_aamp(nullptr)
 {}
 
 int32_t AampDrmBridge::createSession(
-	const char    * /*systemId*/,
-	const void    * /*initData*/,
-	size_t          /*len*/,
-	AampMediaType   /*type*/)
+	const char    *systemId,
+	const void    *initData,
+	size_t         len,
+	AampMediaType  type)
 {
+	if (g_mockDrmBridge)
+	{
+		return g_mockDrmBridge->createSession(systemId, initData, len, type);
+	}
 	return -1;
 }
 
 void AampDrmBridge::clearSessions()
-{}
+{
+	if (g_mockDrmBridge)
+	{
+		g_mockDrmBridge->clearSessions();
+	}
+}

@@ -19,26 +19,28 @@
 
 /**
  * @file FakeRialtoFactories.cpp
- * @brief Linker stubs for Rialto factory singletons used in L1 tests.
+ * @brief Fake Rialto factory singletons for L1 tests.
  *
- * In production, IMediaPipelineFactory::createFactory() and
- * IClientLogControlFactory::createFactory() connect to the Rialto server.
- * In unit tests these are never called (AampRialtoPlayer uses
- * SetPipelineFactoryForTesting() to inject mocks, and the log bridge is
- * suppressed when the factory returns nullptr), but the linker still
- * requires the symbols to resolve.
+ * IMediaPipelineFactory::createFactory() returns g_mockPipelineFactory so that
+ * AampRialtoPlayer::Configure() obtains the test-controlled mock without any
+ * injection seam in the production constructor.  Tests set g_mockPipelineFactory
+ * in their fixture SetUp() and reset it in TearDown().
  */
 
 #include "IMediaPipeline.h"
 #include "IClientLogControl.h"
+#include "MockIMediaPipelineFactory.h"
 #include <memory>
+
+/// Definition of the global declared in MockIMediaPipelineFactory.h.
+std::shared_ptr<MockIMediaPipelineFactory> g_mockPipelineFactory;
 
 namespace firebolt::rialto
 {
 
 std::shared_ptr<IMediaPipelineFactory> IMediaPipelineFactory::createFactory()
 {
-	return nullptr;
+	return g_mockPipelineFactory;
 }
 
 std::shared_ptr<IClientLogControlFactory> IClientLogControlFactory::createFactory()
