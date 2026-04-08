@@ -155,9 +155,11 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 
 	if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
 	{
-		AAMPLOG_MIL("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
-					 name, bufferedTime, injectedDuration, pContext->GetElapsedTime());
-		if (bufferedTime <= 0)
+		double underflowDetectThreshold = GETCONFIGVALUE(eAAMPConfig_UnderflowDetectThresholdSec);
+		AAMPLOG_MIL("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f threshold %f",
+					name, bufferedTime, injectedDuration,
+					pContext->GetElapsedTime(), underflowDetectThreshold);
+		if (bufferedTime <= underflowDetectThreshold)
 		{
 			bStatus = BUFFER_STATUS_RED;
 		}
@@ -1837,7 +1839,6 @@ CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 			AAMPLOG_WARN("fragment.ptr already set - possible memory leak");
 		}
 		cachedFragment->fragment.clear();
-		//memset(&cachedFragment->fragment, 0x00, sizeof(AampGrowableBuffer));
 	}
 	return cachedFragment;
 }
@@ -2441,11 +2442,11 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 				mABRLowBufferCounter = (mABRLowBufferCounter >= mABRBufferCounter)? 0 : mABRLowBufferCounter ;
 			}
 		}
-	}
 
-	if(currProfileIndex != newProfileIndex)
-	{
-		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
+		if(currProfileIndex != newProfileIndex)                
+		{
+			AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);				
+		}
 	}
 	else
 	{

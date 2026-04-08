@@ -216,24 +216,6 @@ protected:
 	}
 
 public:
-	/**
-	 * @brief Get manifest helper method
-	 *
-	 * @param[in] remoteUrl Manifest url
-	 * @param[out] buffer Buffer containing manifest data
-	 * @retval true on success
-	*/
-	bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer)
-	{
-		EXPECT_STREQ(remoteUrl.c_str(), mManifestUrl.c_str());
-
-		/* Setup fake AampGrowableBuffer contents. */
-		buffer->clear();
-		buffer->assign(mManifest, mManifest + strlen(mManifest));
-
-		return true;
-	}
-
 
 	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
@@ -2838,16 +2820,16 @@ TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
 	EXPECT_CALL(*g_mockAampMPDDownloader, IsMPDLowLatency (_))
 		.WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_)))
-	.WillRepeatedly([](AAMPConfigSettingInt config) {
-	// Check if the config is maxLatencyConfig, return 9(default value); otherwise, return 0
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_)))
+	.WillRepeatedly([](AAMPConfigSettingFloat config) {
+	// Check if the config is maxLatencyConfig, return 9 for the test usecase; otherwise, return 0
 	if (config == eAAMPConfig_LLMaxLatency) {
-		return 9;
+		return 9.0;
 	}
-	return 0;
+	return 0.0;
 	});
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
 	//For this test case we need EnableLowLatencyDash as true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
 		.WillRepeatedly(Return(false));

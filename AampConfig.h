@@ -209,7 +209,7 @@ typedef enum
 	eAAMPConfig_MPDStitchingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
 	eAAMPConfig_SendUserAgent,						/**< To enable/disable sending user agent in the DRM license request header. Default enabled */
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */
-	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */
+	eAAMPConfig_TrackMemory,					/**< To enable/disable buffer track memory */
 	eAAMPConfig_UseSinglePipeline,					/**< To enable/disable using a single gstreamer pipeline */
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
@@ -282,9 +282,6 @@ typedef enum
 	eAAMPConfig_LatencyMonitorIntervalMs,           				/**< Latency Monitor Interval */
 	eAAMPConfig_MaxFragmentChunkCached,           				/**< fragment chunk cache length*/
 	eAAMPConfig_ABRChunkThresholdSize,                			/**< AAMP ABR Chunk threshold size*/
-	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
-	eAAMPConfig_LLTargetLatency,						/**< Low Latency Target Latency */
-	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FragmentDownloadFailThreshold, 				/**< Retry attempts for non-init fragment curl timeout failures*/
 	eAAMPConfig_MaxInitFragCachePerTrack,					/**< Max no of Init fragment cache per track */
 	eAAMPConfig_FogMaxConcurrentDownloads,                                  /**< Concurrent download posted to fog from player*/
@@ -327,7 +324,7 @@ typedef enum
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
 	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
-	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator */
+	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator: 0=ROLLING_MEDIAN_OUTLIER, 1=HARMONIC_EWMA */
 	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
@@ -362,6 +359,9 @@ typedef enum
 	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
+	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
+	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
+	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)

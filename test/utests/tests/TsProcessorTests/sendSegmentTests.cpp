@@ -302,7 +302,7 @@ TEST_F(sendSegmentTests, CallsetBasePTSTest5)
 
 TEST_F(sendSegmentTests, CallsetBasePTSTest6)
 {
-    double position = LLONG_MAX;
+    double position = DBL_MAX;
     long long pts = LLONG_MIN;
     mTSProcessor->CallsetBasePTS(position, pts);
 }
@@ -925,8 +925,7 @@ TEST_F(sendSegmentTests, SendSegmentTest)
 {
     size_t size = 100;
     char segment[100];
-    AampGrowableBuffer buf("ts-processor-buffer-send-test");
-    buf.assign(segment, segment + size);
+    std::vector<uint8_t> buf(segment, segment + size);
     double position = 0.0;
     double duration = 10.0;
 	double offset = 0.0;
@@ -935,9 +934,8 @@ TEST_F(sendSegmentTests, SendSegmentTest)
 	bool init = false;
     bool ptsError = true;
     bool result;
-    result = mTSProcessor->sendSegment(&buf, position, duration, offset, discontinuous,init, nullptr, ptsError);
+    result = mTSProcessor->sendSegment(buf, position, duration, offset, discontinuous,init, nullptr, ptsError);
     ASSERT_FALSE(result);
-    buf.Free();
 }
 
 TEST_F(sendSegmentTests, SetApplyOffsetFlagFalse)
@@ -948,7 +946,7 @@ TEST_F(sendSegmentTests, SetApplyOffsetFlagFalse)
 TEST_F(sendSegmentTests, esMP3test)
 {
     unsigned char segment[tsPacketLength * 2] = {};
-    AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
+    std::vector<uint8_t> buffer(segment, segment + sizeof(segment));
     double position = 0;
     double duration = 2.43;
 	double offset = 0.0;
@@ -956,14 +954,11 @@ TEST_F(sendSegmentTests, esMP3test)
 	bool init = false;
     bool ptsError = false;
 
-    buffer.assign(segment, segment + sizeof(segment));
-    mTSProcessor->sendSegment(&buffer, position, duration, offset, discontinuous, init,
+    mTSProcessor->sendSegment(buffer, position, duration, offset, discontinuous, init,
         [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
             mPrivateInstanceAAMP->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
         },
         ptsError);
-
-    buffer.Free();
 }
 
 TEST_F(sendSegmentTests, SetRateTest)
