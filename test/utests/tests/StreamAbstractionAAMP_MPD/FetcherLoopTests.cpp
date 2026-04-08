@@ -49,6 +49,7 @@ using ::testing::Invoke;
 using ::testing::WithArg;
 using ::testing::WithArgs;
 using ::testing::WithoutArgs;
+using ::testing::DoAll;
 
 /**
  * @brief LinearTests tests common base class.
@@ -2535,10 +2536,13 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 	if (mockIDXDownload)
 	{
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
-			.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
-			{
-				idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
-			})));
+			.WillRepeatedly(DoAll(
+				WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+				{
+					idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+				})),
+				WithArg<4>(SetArgReferee(200))
+			));
 	}
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
