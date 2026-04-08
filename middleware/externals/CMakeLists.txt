@@ -46,10 +46,7 @@ include_directories(${MW_ROOT})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager/IFirebolt)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk/IIarm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk/IFirebolt)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/IFirebolt)
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 
@@ -105,7 +102,6 @@ set(SECMGR_SOURCES contentsecuritymanager/PlayerMemoryUtils.cpp
     ${MW_ROOT}/PlayerScheduler.cpp)
 
 if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
-	set(SECMGR_SOURCES ${SECMGR_SOURCES}  contentsecuritymanager/IFirebolt/ContentProtectionFirebolt.cpp)
 	if(CMAKE_USE_SECMANAGER)
 		set(SECMGR_SOURCES ${SECMGR_SOURCES} contentsecuritymanager/ThunderAccessPlayer.cpp contentsecuritymanager/SecManagerThunder.cpp)
 	endif()
@@ -124,8 +120,6 @@ if(CMAKE_IARM_MGR)
     set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DIARM_MGR=1")
     set(EXT_SOURCES "${EXT_SOURCES}" rdk/PlayerExternalsRdkInterface.cpp)
     set(EXT_SOURCES "${EXT_SOURCES}" rdk/IIarm/DeviceIARMInterface.cpp)
-    set(EXT_SOURCES "${EXT_SOURCES}" rdk/IFirebolt/DeviceFireboltInterface.cpp)
-    set(EXT_SOURCES "${EXT_SOURCES}" IFirebolt/FireboltInterface.cpp)
     list(APPEND LIB_EXT_DEPENDS -lIARMBus -lds -ldshalcli)
 endif()
 
@@ -138,13 +132,11 @@ endif()
 #secmanager/client macros
 if(CMAKE_USE_SECCLIENT)
 	message("CMAKE_USE_SECCLIENT set")
-	set(LIB_EXT_DEPENDS "${LIB_EXT_DEPENDS}  -lFireboltSDK")
 	set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_SECCLIENT")
     list(APPEND LIB_EXT_DEPENDS -lSecClient )
 endif()
 if(CMAKE_USE_SECMANAGER)
 	message("CMAKE_USE_SECMANAGER set")
-	set(LIB_EXT_DEPENDS "${LIB_EXT_DEPENDS}  -lFireboltSDK")
 	set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_SECMANAGER")
 endif()
 
@@ -175,10 +167,6 @@ target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
 target_link_libraries(playerfbinterface playerlogmanager)
 target_link_libraries(playerfbinterface baseconversion)
 target_link_libraries(playerfbinterface playerjsonobject)
-if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
-   find_package(FireboltAamp CONFIG REQUIRED)
-   target_link_libraries(playerfbinterface FireboltAamp::FireboltAamp)
-endif()
 
 # Install the library and its headers
 install(TARGETS playerfbinterface

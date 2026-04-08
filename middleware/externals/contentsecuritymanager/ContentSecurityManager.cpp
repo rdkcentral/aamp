@@ -22,7 +22,6 @@
  * @brief Class impl for ContentSecurityManager
  */
 
-#include "ContentProtectionFirebolt.h"
 #include "ContentSecurityManager.h"
 #include "PlayerLogManager.h"
 #include <string.h>
@@ -58,11 +57,6 @@ ContentSecurityManager* ContentSecurityManager::GetInstance()
 	{
 /* Firebolt is applicable to all builds which uses either secmanager or secclient */
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-		if(mUseFireboltSDK)
-		{
-			Instance = new ContentProtectionFirebolt();
-		}
-		else
 		{
 #if defined(USE_SECMANAGER)
 			Instance = new SecManagerThunder();

@@ -25,7 +25,6 @@
 #include "PlayerExternalUtils.h"
 #include "DeviceInterfaceBase.h"
 #include "DeviceIARMInterface.h"
-#include "DeviceFireboltInterface.h"
 #include "PlayerExternalsInterface.h"
 #include <utility>
 
@@ -73,23 +72,9 @@ void PlayerExternalsRdkInterface::Initialize()
     //initialize only if needed
     if(m_initialized != InitState::NOT_INITIALIZED)
     {
-        if(m_initialized == InitState::FIREBOLT && (m_use_firebolt_sdk || IsContainerEnvironment()))
-        {
-            MW_PRE_LOGGER_LOG("Firebolt already Inited \n");
-            //firebolt already inited
-            return;
-        }
-        else if(m_initialized == InitState::IARM && (!m_use_firebolt_sdk) && (!IsContainerEnvironment()))
-        {
             MW_PRE_LOGGER_LOG("IARM already Inited \n");
             //IARM already inited
             return;
-        }
-        else
-        {
-            MW_PRE_LOGGER_LOG("m_use_firebolt_sdk or IsContainerEnvironment() has changed, init again \n");
-            //m_use_firebolt_sdk has changed init again
-        }
     }
     else
     {
@@ -105,16 +90,6 @@ void PlayerExternalsRdkInterface::Initialize()
     MW_PRE_LOGGER_LOG("m_use_firebolt_sdk : %d, IsContainerEnvironment() : %d \n", m_use_firebolt_sdk, IsContainerEnvironment());
 
     //remove-start
-    if(m_use_firebolt_sdk || IsContainerEnvironment()) //if explicitly config'd to or if in container go for firebolt
-    {
-    //remove-end
-        MW_PRE_LOGGER_LOG("Using Firebolt \n");
-        m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
-        DeviceFireboltInterface::Initialize();
-    //remove-start
-        m_initialized = PlayerExternalsRdkInterface::InitState::FIREBOLT;
-    }
-    else
     {
         MW_PRE_LOGGER_LOG("Using IARM \n");
         m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
