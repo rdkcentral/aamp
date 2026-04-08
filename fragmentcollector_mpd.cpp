@@ -1931,8 +1931,7 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 	{
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			double skipTime = seekPositionSeconds;
-			SkipFragments(mMediaStreamContext[i], skipTime, true);
+			SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true);
 		}
 		else
 		{
@@ -9357,13 +9356,29 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 
 		// CID:190371 - Data race condition
 		// Get and clear mContentSeekOffset atomically.
-		std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
-		seekPositionSeconds = mCdaiObject->mContentSeekOffset;
-		mCdaiObject->mContentSeekOffset = 0;
-
+		{
+			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+			seekPositionSeconds = mCdaiObject->mContentSeekOffset;
+			mCdaiObject->mContentSeekOffset = 0;
+		}
 		if (seekPositionSeconds)
 		{
-			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf]", currentPeriodId.c_str(), seekPositionSeconds);
+			/* seekPositionSeconds is relative to the start of the period but SeekInPeriod() takes a
+			* value that is relative to the first segment currently present in the manifest.
+			* adjust seekPositionSeconds to be relative to the first segment
+			*/
+			double startDelta = mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mCurrentPeriod);
+			if (seekPositionSeconds > startDelta )
+			{
+				seekPositionSeconds -= startDelta;
+			}
+			else
+			{
+				// Requested position is at or before the first available segment;
+				// clamp to the earliest playable point (first segment).
+				seekPositionSeconds = 0.0;
+			}
+			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf] startDelta [%f]", currentPeriodId.c_str(), seekPositionSeconds, startDelta);
 			if (mPlayRate > AAMP_RATE_PAUSE)
 			{
 				SeekInPeriod(seekPositionSeconds);
