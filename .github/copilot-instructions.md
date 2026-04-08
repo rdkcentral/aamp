@@ -35,6 +35,30 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 ---
 
 # ==============================
+#  PROMPT FEEDBACK GUIDELINES
+# ==============================
+
+## Prompt Feedback (Compact)
+- Assess prompt quality for every prompt.
+- When feedback is not suppressed, use the following format:
+- Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10 | Critique: <brief> | Improve: <specific edit>`.
+- Scoring: Completeness and Clarity are higher-is-better; Assumptions is lower-is-better.
+- Strict rubric for underspecified prompts:
+  - If the prompt is extremely vague (for example: "build something"), score it harshly.
+  - For these prompts, use: Completeness 0-3/10, Clarity 0-3/10, Assumptions 7-10/10.
+  - If target, scope, constraints, or success criteria are omitted,
+    cap Completeness and Clarity at 7/10 and set Assumptions to at least 3/10.
+- Keep it short and specific; avoid generic advice.
+- Suppress displayed feedback when Completeness >= 8, Assumptions <= 2,
+  and Clarity >= 8,
+  unless the user explicitly asks to apply feedback to the current prompt.
+- Determine suppression from the current user prompt only; retrospective analysis of earlier prompts should be provided only when explicitly requested.
+- Prefer high-compliance guidance: suggest exact wording that reduces
+  ambiguity and improves instruction precision.
+
+---
+
+# ==============================
 #  COPILOT MASTER INSTRUCTIONS
 # ==============================
 
@@ -199,5 +223,17 @@ The `.github/instructions/` directory contains deeper rules:
 - `js.instructions.md`  
 
 Copilot must reference these files when generating language-specific code.
+
+## AAMP log debugging
+
+- For AAMP run-log analysis, use the reusable prompt file `/aamp-log-debug`.
+- When debugging logs, build a timeline first, identify the first abnormal event, and separate facts from hypotheses.
+- Correlate manifest, network, buffering, ABR, DRM, and player-state evidence before concluding root cause.
+- Prefer minimal safe fixes and minimal additional instrumentation.
+
+## Code analysis prompts
+
+- For accurate measurement of method or function cyclomatic complexity, use the reusable prompt file `/cyclomatic-complexity`.
+- When reporting complexity, show the counted decision points step by step and call out any ambiguity from macros or compile-time conditionals.
 
 ---
