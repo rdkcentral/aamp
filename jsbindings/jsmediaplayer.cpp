@@ -3996,7 +3996,7 @@ private:
 			LOG_WARN_EX("[XREReceiver]:received enable boolean %d", enable_value);
 
 			PlayerCCManager::GetInstance()->SetStatus(enable_value);
-			if(enable_value)
+			if(enable_value && PlayerCCManager::GetInstance()->GetTrack().empty())
 			{
 				const auto textTracks = PlayerCCManager::GetInstance()->getLastTextTracks();
 				std::string defaultTrack;
@@ -4009,7 +4009,6 @@ private:
 					defaultTrack = "CC1";
 
 				LOG_WARN_EX("[XREReceiver]: found %d tracks, selected default textTrack = '%s'", (int)textTracks.size(), defaultTrack.c_str());
-
 				PlayerCCManager::GetInstance()->SetTrack(defaultTrack);
 			}
 		}
