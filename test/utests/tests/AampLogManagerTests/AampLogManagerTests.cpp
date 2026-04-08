@@ -581,7 +581,6 @@ TEST_F(AampLogManagerTest, logprintf_Test1)
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunction");
-	//const char* func = "testFunction";
 	int line = 2;
 	const char *format = "s3";
 	const char *format2 = "s4";
