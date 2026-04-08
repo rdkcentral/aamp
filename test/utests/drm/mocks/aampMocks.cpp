@@ -184,8 +184,9 @@ bool AampLogManager::disableLogRedirection = false;
 bool AampLogManager::enableEthanLogRedirection = false;
 AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
 bool AampLogManager::locked = false;
+bool AampLogManager::logFilename = false;
 
-void logprintf(AAMP_LogLevel level, const char *func, int line, const char *format,
+void logprintf(AAMP_LogLevel level, const char *file, const char *func, int line, const char *format,
 			   ...)
 {
 	int playerId = -1;
