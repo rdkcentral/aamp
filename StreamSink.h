@@ -93,7 +93,7 @@ public:
      *
      *   @param[in]  mediaType - Type of the media.
      *   @param[in]  sample - Media sample (consumed on call)
-     *   @return void
+     *   @return true iff Sempld was successfully sent to sink
      */
     virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
 
