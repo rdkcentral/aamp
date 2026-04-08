@@ -578,6 +578,11 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 				AAMPLOG_ERR("%s", errorDesc.c_str());
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,errorDesc.c_str(), false);
 			}
+			else if (busEvent.msg.find("Rialto dropped a frame that failed to decrypt") != std::string::npos)
+			{
+				AAMPLOG_WARN("VRN MDFD: %s", errorDesc.c_str());
+				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str(), false);
+			}
 			else
 			{
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str());
