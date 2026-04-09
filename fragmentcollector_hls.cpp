@@ -7159,10 +7159,12 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		std::vector<CCTrackInfo> updatedTextTracks;
 		aamp->UpdateCCTrackInfo(textTracksCopy, updatedTextTracks);
+		AAMPLOG_INFO("Siva:: Updated CC Tracks:%zu", updatedTextTracks.size());
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
 	{
+		AAMPLOG_INFO("Siva:: Updated CC Tracks:0");
 		PlayerCCManager::GetInstance()->updateLastTextTracks({});
 		AAMPLOG_ERR("StreamAbstractionAAMP_HLS:: Fail to get available audio/text tracks, mMediaCount=%d and profileCount=%d!", mMediaCount, mProfileCount);
 	}

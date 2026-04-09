@@ -3993,7 +3993,7 @@ private:
 		if(JSValueIsBoolean(ctx, param_enable_value))
 		{
 			const bool enable_value = JSValueToBoolean(ctx, param_enable_value);
-			LOG_WARN_EX("[XREReceiver]:received enable boolean %d", enable_value);
+			LOG_WARN_EX("Siva [XREReceiver]:received enable boolean %d, current track '%s', last track '%s'", enable_value, PlayerCCManager::GetInstance()->GetTrack().empty() ? "none" : PlayerCCManager::GetInstance()->GetTrack().c_str(), PlayerCCManager::GetInstance()->getLastTextTracks().empty() ? "none" : PlayerCCManager::GetInstance()->getLastTextTracks().front().instreamId.c_str());
 
 			PlayerCCManager::GetInstance()->SetStatus(enable_value);
 			if(enable_value && PlayerCCManager::GetInstance()->GetTrack().empty())

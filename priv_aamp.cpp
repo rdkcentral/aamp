@@ -11206,6 +11206,7 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 		std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		AAMPLOG_INFO("Siva:: Updated CC Tracks:%zu", updatedTextTracks.size());
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 
 		if (!trackInfo.empty())

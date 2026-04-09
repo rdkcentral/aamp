@@ -12585,6 +12585,7 @@ void StreamAbstractionAAMP_MPD::SetTextTrackInfo(const std::vector<TextTrackInfo
 
 	std::vector<CCTrackInfo> updatedTextTracks;
 	aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+	AAMPLOG_INFO("Siva:: Updated CC Tracks:%zu", updatedTextTracks.size());
 	PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 
 	if (tracksChanged)
