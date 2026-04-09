@@ -34,6 +34,8 @@
 #include "MockTSBReader.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "StreamAbstractionAAMP.h"
+#include "AampDownloadInfo.hpp"
+#include <functional>
 #include <string_view>
 
 using namespace testing;
@@ -760,4 +762,99 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 
 	// --- Execute ---
 	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
+}
+
+// ---------------------------------------------------------------------------
+// Regression: wasUnderFlowActive guard prevents discarding the recovery fragment
+// ---------------------------------------------------------------------------
+// The hook defined in FakeStreamAbstractionAamp.cpp is called inside
+// NotifyVideoFragmentToUnderflowMonitor. Tests in this binary can register a
+// callback to simulate state changes that happen between the wasUnderFlowActive
+// snapshot and the discard check.
+extern std::function<void()> g_notifyVideoFragmentSideEffect;
+
+/**
+ * @brief Regression test for the wasUnderFlowActive guard in OnFragmentDownloadSuccess.
+ *
+ * The race this test replicates:
+ *   1. wasUnderFlowActive is snapshotted as true (mBufUnderFlowStatus == true).
+ *   2. NotifyVideoFragmentToUnderflowMonitor calls SetBufferingState(false), clearing
+ *      mBufUnderFlowStatus and resuming the GStreamer pipeline.
+ *   3. GStreamer fires a buffering(0) event on a separate thread, re-setting
+ *      mSinkPaused = true before the discard check runs.
+ *   4. At the discard check the state is:
+ *        isPipelinePaused        = true   (mSinkPaused re-set by step 3)
+ *        !GetBufUnderFlowStatus()= true   (cleared in step 2)
+ *        !wasUnderFlowActive     = false  (captured as true in step 1)
+ *
+ * Without the guard the discard condition would be:
+ *   tsbSessionManager && isPipelinePaused && !GetBufUnderFlowStatus()
+ *   = true && true && true → fragment DISCARDED (stall bug)
+ *
+ * With the guard (!wasUnderFlowActive must also be true):
+ *   condition = true && true && true && false → false → fragment INJECTED (correct)
+ *
+ * The g_notifyVideoFragmentSideEffect hook simulates steps 2+3 atomically
+ * within the notify call so the discard check sees the post-race state.
+ *
+ * Using an empty cachedFragment avoids the EnqueueWrite/GetPeriod path while
+ * still exercising the discard check with a non-null tsbSessionManager.
+ */
+TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_FragmentInjected)
+{
+	// --- Arrange ---
+	// (1) Underflow is active when wasUnderFlowActive is snapshotted.
+	mPrivateInstanceAAMP->SetBufUnderFlowStatus(true);
+	mPrivateInstanceAAMP->mSinkPaused.store(false);
+
+	// (2+3) The side effect simulates SetBufferingState(false) + buffering(0) race.
+	g_notifyVideoFragmentSideEffect = [this]()
+	{
+		mPrivateInstanceAAMP->ResetBufUnderFlowStatus(); // cleared by SetBufferingState(false)
+		mPrivateInstanceAAMP->mSinkPaused.store(true);  // re-set by GStreamer buffering(0)
+	};
+
+	// An empty cachedFragment: skips EnqueueWrite (avoids GetPeriod call) but
+	// still lets the discard check run with tsbSessionManager != null.
+	auto cachedFragment = std::make_shared<CachedFragment>();
+	// fragment data left intentionally empty — triggers the EnqueueWrite guard
+	// (if(tsbSessionManager && cachedFragment->fragment.size())) to be false.
+
+	// --- Mock setup ---
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillOnce(Return(mMockTSBSessionMgr.get())); // non-null → discard guard activates
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode())
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
+		.WillOnce(Return(cachedFragment.get()));
+	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks())
+		.WillRepeatedly(Return(false));
+
+	// KEY assertion: UpdateTSAfterFetch is called iff the fragment is NOT discarded.
+	// Without the !wasUnderFlowActive guard this call would be suppressed (bug).
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch(false)).Times(1);
+	// IsLocalTSBInjection() is called twice in OnFragmentDownloadSuccess:
+	//   1. in the discard-guard condition
+	//   2. in the SLD-copy-to-TSB guard inside the inject path
+	// Both must be non-blocking with StrictMock.
+	EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection()).WillRepeatedly(Return(false));
+
+	// --- Build dlInfo ---
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->pts                = 10.0;
+	dlInfo->absolutePosition   = 10.0;
+	dlInfo->fragmentDurationSec= 2.0;
+	dlInfo->isDiscontinuity    = false;
+	dlInfo->isInitSegment      = false;
+	dlInfo->mediaType          = eMEDIATYPE_VIDEO;
+	dlInfo->url                = "http://example.com/fragment";
+
+	// --- Execute ---
+	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
+
+	// --- Cleanup ---
+	g_notifyVideoFragmentSideEffect = nullptr;
 }

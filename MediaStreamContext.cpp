@@ -231,6 +231,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 				lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
 				if (eTRACK_VIDEO == type)
 				{
+<<<<<<< HEAD
 					// Notify the latency monitor so it can wake its worker early on
 					// danger-buffer onset rather than waiting for the next scheduled poll.
 					{
@@ -240,6 +241,12 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 							GetContext()->NotifyBufferLevelToLatencyMonitor(bufferMs);
 						}
 					}
+=======
+					// Notify the underflow monitor for LL-DASH chunks.
+					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
+						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
+						aamp->rate);
+>>>>>>> 5527cfc3 (VPLAY-13176 underflow detection refactoring (#1252))
 				}
 			}
 		}
@@ -696,10 +703,20 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 				 GetMediaTypeName(dlInfo->mediaType),
 				 lastDownloadedPosition.load(),
 				 dlInfo->absolutePosition);
+	// Snapshot the underflow state BEFORE calling NotifyVideoFragmentToUnderflowMonitor.
+	// That call may invoke SetBufferingState(false), which clears mBufUnderFlowStatus and
+	// resumes the GStreamer pipeline.  Shortly afterwards GStreamer may fire a buffering(0)
+	// event on another thread, re-setting mSinkPaused=true.  The TSB discard check below
+	// (isPipelinePaused && !GetBufUnderFlowStatus()) would then incorrectly throw away this
+	// fragment — the one that just ended the underflow — leaving the inject loop starved and
+	// the player in a permanent stall.  Carrying the pre-notify flag forward ensures we
+	// always inject the fragment that triggered underflow recovery.
+	const bool wasUnderFlowActive = aamp->GetBufUnderFlowStatus();
 	if ((eTRACK_VIDEO == type) && (!dlInfo->isInitSegment))
 	{
 		// reset count on video fragment success
 		context->mRampDownCount = 0;
+<<<<<<< HEAD
 		// Notify the latency monitor so it can wake its worker early on
 		// danger-buffer onset rather than waiting for the next scheduled poll.
 		{
@@ -709,6 +726,12 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 				context->NotifyBufferLevelToLatencyMonitor(bufferMs);
 			}
 		}
+=======
+		// Notify the underflow monitor — re-arms the drain deadline.
+		context->NotifyVideoFragmentToUnderflowMonitor(
+			dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
+			aamp->rate);
+>>>>>>> 5527cfc3 (VPLAY-13176 underflow detection refactoring (#1252))
 	}
 
 	if(tsbSessionManager && cachedFragment->fragment.size())
@@ -765,10 +788,13 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		CacheTsbFragment(std::move(fragmentToTsbSessionMgr));
 	}
 
-	// If playing back from local TSB, or pending playing back from local TSB as paused, but not paused due to underflow
+	// If playing back from local TSB, or pending playing back from local TSB as paused, but not paused due to underflow.
+	// Use wasUnderFlowActive (captured before the underflow-monitor notify above) to guard against a race where
+	// GStreamer's buffering(0) message re-sets mSinkPaused=true after SetBufferingState(false) has already
+	// cleared mBufUnderFlowStatus — which would otherwise cause this recovery fragment to be discarded.
 	bool isPipelinePaused = aamp->mSinkPaused.load();
 	if (tsbSessionManager &&
-		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus())))
+		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus() && !wasUnderFlowActive)))
 	{
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
 			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());

@@ -1744,6 +1744,7 @@ public:
 	bool IsUnderflowMonitorRunning() const;
 
 	/**
+<<<<<<< HEAD
 	 * @fn NotifyBufferLevelToLatencyMonitor
 	 * @brief Notify the latency monitor of the current buffer level.
 	 *
@@ -1754,6 +1755,31 @@ public:
 	 * @param[in] bufferMs  Current buffered duration in milliseconds.
 	 */
 	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+=======
+	 * @fn NotifyVideoFragmentToUnderflowMonitor
+	 * @brief Notify the underflow monitor that a video fragment (or chunk) has
+	 *        been queued for injection.  Re-arms the underflow deadline.
+	 * @param[in] endPosition  Absolute end position of the queued content (seconds).
+	 * @param[in] playRate     Current play rate.
+	 */
+	void NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate);
+
+	/**
+	 * @fn NotifyPipelinePausedToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the pipeline has been paused for
+	 *        buffering.  Disarms the deadline until resumption.
+	 */
+	void NotifyPipelinePausedToUnderflowMonitor();
+
+	/**
+	 * @fn NotifyPipelineResumedToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the pipeline has resumed after
+	 *        buffering.  Re-arms the deadline using the current video buffer position.
+	 * @param[in] playRate     Current play rate.
+	 */
+	void NotifyPipelineResumedToUnderflowMonitor(float playRate);
+
+>>>>>>> 5527cfc3 (VPLAY-13176 underflow detection refactoring (#1252))
 	/**
 	 *   @fn GetBufferedAudioDurationSec
 	 *
