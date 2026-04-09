@@ -311,7 +311,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"webVttNative",eAAMPConfig_WebVTTNative,false},
 	{false,"asyncTune",eAAMPConfig_AsyncTune,true},
 	{false,"disableUnderflow",eAAMPConfig_DisableUnderflow,false},
-	{false,"enableAampUnderflowMonitor",eAAMPConfig_EnableAampUnderflowMonitor,true},
+	{true,"enableAampUnderflowMonitor",eAAMPConfig_EnableAampUnderflowMonitor,true},
 	{false,"limitResolution",eAAMPConfig_LimitResolution,false},
 	{false,"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false},
 	{true,"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false},
