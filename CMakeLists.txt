@@ -450,6 +450,7 @@ set(LIBAAMP_SOURCES
 	direct-rialto/AampRialtoPlayer.h
 	direct-rialto/AampPlayerStateMachine.cpp
 	direct-rialto/AampSourceWorker.cpp
+	direct-rialto/PrivateInstanceAAMPNotifiable.cpp
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h

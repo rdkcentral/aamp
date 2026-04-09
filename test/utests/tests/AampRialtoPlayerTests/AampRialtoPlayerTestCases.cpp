@@ -38,6 +38,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMp4Demux.h"
 #include "MockDrmBridge.h"
+#include "MockIStreamSinkNotifiable.h"
 
 using ::testing::_;
 using ::testing::AnyOf;
@@ -163,6 +164,7 @@ protected:
 
 		m_player = std::make_unique<AampRialtoPlayer>(
 			reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
+			&m_mockNotifiable,
 			/*id3HandlerCallback=*/nullptr);
 	}
 
@@ -173,6 +175,33 @@ protected:
 		delete g_mockPrivateInstanceAAMP;
 		g_mockPrivateInstanceAAMP = nullptr;
 		m_nextSourceId = 0;
+	}
+
+	/// Post a playback-state notification via the captured client.
+	void PostPlaybackState(firebolt::rialto::PlaybackState state)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostPlaybackState";
+		client->notifyPlaybackState(state);
+	}
+
+	/// Post a position notification (nanoseconds) via the captured client.
+	void PostPosition(int64_t positionNs)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostPosition";
+		client->notifyPosition(positionNs);
+	}
+
+	/// Post a duration notification (nanoseconds) via the captured client.
+	void PostDuration(int64_t durationNs)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostDuration";
+		client->notifyDuration(durationNs);
 	}
 
 	/// Post a needData event via the real IPC callback path.
@@ -290,6 +319,7 @@ protected:
 	NiceMock<MockIMediaPipeline> *                       m_mockPipelinePtr{nullptr};
 	std::unique_ptr<AampRialtoPlayer>                    m_player;
 	std::weak_ptr<firebolt::rialto::IMediaPipelineClient> m_capturedClient;
+	NiceMock<MockIStreamSinkNotifiable>                  m_mockNotifiable;
 	int m_nextSourceId{0};
 };
 
@@ -336,7 +366,8 @@ TEST_F(AampRialtoPlayerTest, Configure_NullFactory_DoesNotCrash)
 	m_player.reset();
 	m_player = std::make_unique<AampRialtoPlayer>(
 		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
-		nullptr);
+		&m_mockNotifiable,
+		/*id3HandlerCallback=*/nullptr);
 	EXPECT_NO_THROW(
 		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_UNKNOWN, false, false));
 	// Restore so subsequent tests in this fixture are not affected.
@@ -2070,5 +2101,242 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	}
 	// Must complete without blocking.
 	SUCCEED();
+}
+
+// ===========================================================================
+// IStreamSinkNotifiable — OnPlaybackState notifications
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Initial tune: first PLAYING notification
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_FirstTime_CallsAllFirstFrameNotifications)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+
+	// All four first-frame / tune-complete methods must fire exactly once.
+	EXPECT_CALL(m_mockNotifiable, LogFirstFrame()).Times(1);
+	EXPECT_CALL(m_mockNotifiable, LogTuneComplete()).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(/*ccHandle=*/0UL))
+		.Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_FirstTime_DoesNotCallSpeedChanged)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+
+	EXPECT_CALL(m_mockNotifiable, NotifySpeedChanged(_, _)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+// ---------------------------------------------------------------------------
+// Second PLAYING after seek (post-seek recovery)
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_PostSeek_CallsNotifyFirstBufferAndFrame)
+{
+	Configure();
+
+	// First PLAYING fires the initial-tune path.
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	// Now report SEEKING state so the second PLAYING takes the post-seek path.
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_SEEKING));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(0UL)).Times(1);
+	// Log calls must NOT fire on the second PLAYING.
+	EXPECT_CALL(m_mockNotifiable, LogFirstFrame()).Times(0);
+	EXPECT_CALL(m_mockNotifiable, LogTuneComplete()).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+// ---------------------------------------------------------------------------
+// Second PLAYING after pause (resume)
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_ResumeFromPause_CallsNotifySpeedChanged)
+{
+	Configure();
+
+	// First PLAYING (initial tune).
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	// Now paused – GetState() returns eSTATE_PAUSED, not eSTATE_SEEKING.
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_PAUSED));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
+	EXPECT_CALL(m_mockNotifiable,
+		NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, /*changeState=*/true))
+		.Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+// ---------------------------------------------------------------------------
+// End-of-stream
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_EndOfStream_CallsNotifyEOSReached)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, NotifyEOSReached()).Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_EndOfStream_DoesNotCallFirstFrameNotifications)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
+}
+
+// ---------------------------------------------------------------------------
+// PAUSED state (no notification expected on IStreamSinkNotifiable)
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Paused_DoesNotCallNotifiable)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyEOSReached()).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifySpeedChanged(_, _)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(_, _)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+}
+
+// ===========================================================================
+// IStreamSinkNotifiable — position and duration callbacks
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyPosition_CallsMonitorProgress)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(/*sync=*/false, /*bos=*/false))
+		.Times(1);
+
+	constexpr int64_t kTwoSecondsNs = 2'000'000'000LL;
+	PostPosition(kTwoSecondsNs);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_ReturnsLatestNotifiedPosition)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, MonitorProgress(_, _))
+		.WillByDefault(Return());
+
+	constexpr int64_t kFiveSecondsNs  = 5'000'000'000LL;
+	constexpr long long kExpectedMs   = 5'000LL;
+
+	PostPosition(kFiveSecondsNs);
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpectedMs);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_BeforeConfigure_ReturnsZero)
+{
+	// Player constructed but Configure() not yet called → no pipeline.
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetDurationMilliseconds_ReturnsLatestNotifiedDuration)
+{
+	Configure();
+
+	constexpr int64_t kOneHourNs  = 3'600'000'000'000LL;
+	constexpr long     kExpectedMs = 3'600'000L;
+
+	PostDuration(kOneHourNs);
+
+	EXPECT_EQ(m_player->GetDurationMilliseconds(), kExpectedMs);
+}
+
+// ===========================================================================
+// SetVideoRectangle / GetVideoRectangle
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoRectangle_ReturnsStringSetBySetVideoRectangle)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, setVideoWindow(_, _, _, _))
+		.WillByDefault(Return(true));
+
+	m_player->SetVideoRectangle(10, 20, 640, 480);
+
+	EXPECT_EQ(m_player->GetVideoRectangle(), "10,20,640,480");
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetVideoRectangle_CallsPipelineSetVideoWindow)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setVideoWindow(/*x=*/0u, /*y=*/0u, /*w=*/1920u, /*h=*/1080u))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	m_player->SetVideoRectangle(0, 0, 1920, 1080);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_FirstTime_PassesVideoRectangleToNotifyFirstBuffer)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, setVideoWindow(_, _, _, _))
+		.WillByDefault(Return(true));
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+
+	m_player->SetVideoRectangle(5, 10, 320, 240);
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyFirstBufferProcessed(std::string{"5,10,320,240"}))
+		.Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 

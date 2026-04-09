@@ -59,6 +59,14 @@ public:
 	/// Parameter: PlaybackState
 	using PlaybackStateCallback = std::function<void(PlaybackState)>;
 
+	/// Callback invoked when Rialto reports current position.
+	/// Parameter: position in nanoseconds
+	using PositionCallback = std::function<void(int64_t)>;
+
+	/// Callback invoked when Rialto reports stream duration.
+	/// Parameter: duration in nanoseconds
+	using DurationCallback = std::function<void(int64_t)>;
+
 	AampRialtoMediaPipelineClient();
 	~AampRialtoMediaPipelineClient() override;
 
@@ -80,6 +88,18 @@ public:
 	void SetPlaybackStateCallback(PlaybackStateCallback cb)
 	{
 		m_playbackStateCallback = std::move(cb);
+	}
+
+	/// @brief Install callback for notifyPosition events.
+	void SetPositionCallback(PositionCallback cb)
+	{
+		m_positionCallback = std::move(cb);
+	}
+
+	/// @brief Install callback for notifyDuration events.
+	void SetDurationCallback(DurationCallback cb)
+	{
+		m_durationCallback = std::move(cb);
 	}
 
 	// IMediaPipelineClient Implementation (All required pure virtuals)
@@ -113,6 +133,8 @@ private:
 	NeedDataCallback m_needDataCallback;
 	CancelNeedDataCallback m_cancelNeedDataCallback;
 	PlaybackStateCallback m_playbackStateCallback;
+	PositionCallback m_positionCallback;
+	DurationCallback m_durationCallback;
 };
 
 #endif // AAMP_RIALTO_MEDIA_PIPELINE_CLIENT_H

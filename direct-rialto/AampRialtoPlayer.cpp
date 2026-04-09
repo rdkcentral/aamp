@@ -27,6 +27,7 @@
 #include "AampRialtoMediaPipelineClient.h"
 #include "AampDrmBridge.h"
 #include "AampLogManager.h"
+#include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
 #include "mp4demux/MP4Demux.h"
 #include "AampSourceWorker.h"
@@ -86,11 +87,34 @@ AampRialtoPlayer::AampRialtoPlayer(
 	PrivateInstanceAAMP *aamp,
 	id3_callback_t id3HandlerCallback,
 	std::function<void(const unsigned char *, int, int, int)> exportFrames)
+	: AampRialtoPlayer(
+		aamp,
+		/*notifiable=*/nullptr,
+		id3HandlerCallback,
+		std::move(exportFrames))
+{
+}
+
+AampRialtoPlayer::AampRialtoPlayer(
+	PrivateInstanceAAMP *aamp,
+	IStreamSinkNotifiable *notifiable,
+	id3_callback_t id3HandlerCallback,
+	std::function<void(const unsigned char *, int, int, int)> exportFrames)
 	: m_aamp(aamp)
 	, m_drmBridge(std::make_shared<AampDrmBridge>(aamp))
 	, m_client(nullptr)
 	, m_pipeline(nullptr)
 {
+	// Build the production adapter when no test-injected notifiable is supplied.
+	if (notifiable == nullptr)
+	{
+		m_notifiableAdapter = std::make_unique<PrivateInstanceAAMPNotifiable>(aamp);
+		m_notifiable = m_notifiableAdapter.get();
+	}
+	else
+	{
+		m_notifiable = notifiable;
+	}
 	// Create per-source injection workers.  Both threads start immediately
 	// and block until the first needData + samples arrive.
 	auto makeInjectFn = [this](int32_t sid, uint32_t rid,
@@ -138,6 +162,10 @@ void AampRialtoPlayer::Configure(
 	// (re-tune or first tune).  This resets to IDLE from whatever previous
 	// state the player was in.
 	m_stateMachine.onReconfigure();
+
+	// Reset first-frame flag so the new tune session forwards the initial
+	// PLAYING notification correctly.
+	m_firstFrameNotified.store(false, std::memory_order_relaxed);
 
 	if (!m_client)
 	{
@@ -239,6 +267,14 @@ void AampRialtoPlayer::Configure(
 				m_client->SetPlaybackStateCallback(
 					[this](firebolt::rialto::PlaybackState state) {
 						OnPlaybackState(state);
+					});
+				m_client->SetPositionCallback(
+					[this](int64_t posNs) {
+						OnPosition(posNs);
+					});
+				m_client->SetDurationCallback(
+					[this](int64_t durNs) {
+						OnDuration(durNs);
 					});
 
 				// Advance state machine: pipeline is now created and loaded.
@@ -907,15 +943,17 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 long AampRialtoPlayer::GetDurationMilliseconds()
 {
 	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return 0;
+	long result = static_cast<long>(m_durationMs.load(std::memory_order_relaxed));
+	AAMPLOG_INFO("EXIT result=%ld", result);
+	return result;
 }
 
 long long AampRialtoPlayer::GetPositionMilliseconds()
 {
 	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return 0;
+	long long result = m_positionMs.load(std::memory_order_relaxed);
+	AAMPLOG_INFO("EXIT result=%lld", result);
+	return result;
 }
 
 long long AampRialtoPlayer::GetVideoPTS()
@@ -928,6 +966,14 @@ long long AampRialtoPlayer::GetVideoPTS()
 void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
 {
 	AAMPLOG_INFO("ENTRY x=%d y=%d w=%d h=%d", x, y, w, h);
+	m_videoRectangle = std::to_string(x) + "," + std::to_string(y)
+	                 + "," + std::to_string(w) + "," + std::to_string(h);
+	if (m_pipeline)
+	{
+		m_pipeline->setVideoWindow(
+			static_cast<uint32_t>(x), static_cast<uint32_t>(y),
+			static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
@@ -1074,7 +1120,7 @@ std::string AampRialtoPlayer::GetVideoRectangle()
 {
 	AAMPLOG_INFO("ENTRY");
 	AAMPLOG_INFO("EXIT");
-	return {};
+	return m_videoRectangle;
 }
 
 void AampRialtoPlayer::StopBuffering(bool forceStop)
@@ -1409,10 +1455,45 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 	switch (state)
 	{
 		case firebolt::rialto::PlaybackState::PLAYING:
+		{
 			m_stateMachine.onPlaybackStarted();
+
+			const bool firstFrame =
+				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
+
+			if (firstFrame)
+			{
+				// ── Initial tune: first transition to PLAYING ──────────────
+				// Log profiler timestamps then drive AAMP to eSTATE_PLAYING
+				// via NotifyFirstFrameReceived (which also signals
+				// waitforplaystart, fires the tuned event, and inits CC).
+				m_notifiable->LogFirstFrame();
+				m_notifiable->LogTuneComplete();
+				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+				m_notifiable->NotifyFirstFrameReceived(/*ccDecoderHandle=*/0);
+			}
+			else if (m_notifiable->GetState() == eSTATE_SEEKING)
+			{
+				// ── Post-seek recovery ─────────────────────────────────────
+				// NotifyFirstBufferProcessed checks for eSTATE_SEEKING and
+				// transitions to eSTATE_PLAYING when it is the current state.
+				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+				m_notifiable->NotifyFirstFrameReceived(/*ccDecoderHandle=*/0);
+			}
+			else
+			{
+				// ── Resume from pause (PAUSED → PLAYING) ──────────────────
+				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+				m_notifiable->NotifySpeedChanged(
+					AAMP_NORMAL_PLAY_RATE, /*changeState=*/true);
+			}
 			break;
+		}
 		case firebolt::rialto::PlaybackState::PAUSED:
 			m_stateMachine.onPlaybackPaused();
+			break;
+		case firebolt::rialto::PlaybackState::END_OF_STREAM:
+			m_notifiable->NotifyEOSReached();
 			break;
 		case firebolt::rialto::PlaybackState::FAILURE:
 			m_stateMachine.onError();
@@ -1420,4 +1501,18 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		default:
 			break;
 	}
+}
+
+void AampRialtoPlayer::OnPosition(int64_t positionNs)
+{
+	constexpr int64_t kNsPerMs = 1'000'000LL;
+	m_positionMs.store(positionNs / kNsPerMs, std::memory_order_relaxed);
+	m_notifiable->MonitorProgress();
+}
+
+void AampRialtoPlayer::OnDuration(int64_t durationNs)
+{
+	constexpr int64_t kNsPerMs = 1'000'000LL;
+	m_durationMs.store(durationNs / kNsPerMs, std::memory_order_relaxed);
+	AAMPLOG_INFO("duration updated: %" PRId64 " ms", m_durationMs.load());
 }

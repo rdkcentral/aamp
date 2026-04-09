@@ -36,6 +36,7 @@
 #include "IDrmBridge.h"
 #include "AampPlayerStateMachine.h"
 #include "AampSourceWorker.h"
+#include "IStreamSinkNotifiable.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -51,6 +52,7 @@
 
 class AAMPGstPlayer;
 class PrivateInstanceAAMP;
+class PrivateInstanceAAMPNotifiable;
 class AampRialtoMediaPipelineClient;
 class Mp4Demux;
 
@@ -67,7 +69,11 @@ class AampRialtoPlayer : public StreamSink
 {
 public:
 	/**
-	 * @brief Construct an AampRialtoPlayer and its underlying AAMPGstPlayer.
+	 * @brief Construct an AampRialtoPlayer for production use.
+	 *
+	 * Internally wraps @p aamp in a PrivateInstanceAAMPNotifiable adapter so
+	 * that all notification calls go through the IStreamSinkNotifiable
+	 * interface.
 	 *
 	 * @param[in] aamp               Pointer to the owning PrivateInstanceAAMP.
 	 * @param[in] id3HandlerCallback Callback invoked for each ID3 metadata
@@ -77,6 +83,29 @@ public:
 	 */
 	explicit AampRialtoPlayer(
 		PrivateInstanceAAMP *aamp,
+		id3_callback_t id3HandlerCallback,
+		std::function<void(const unsigned char *, int, int, int)> exportFrames = nullptr);
+
+	/**
+	 * @brief Construct an AampRialtoPlayer with an injected notifiable.
+	 *
+	 * Intended for unit tests: callers supply their own IStreamSinkNotifiable
+	 * implementation (e.g. a GoogleMock object) so notification calls can be
+	 * asserted without instantiating the full AAMP player.
+	 *
+	 * @param[in] aamp               Pointer to the owning PrivateInstanceAAMP
+	 *                               (used for non-notification calls such as
+	 *                               ResumeTrackDownloads).  May point to a
+	 *                               fake/stub in tests.
+	 * @param[in] notifiable         Non-null pointer to the notification
+	 *                               listener.  Must outlive this player.
+	 * @param[in] id3HandlerCallback Callback invoked for each ID3 metadata
+	 *                               packet encountered in the stream.
+	 * @param[in] exportFrames       Optional YUV-frame export callback.
+	 */
+	AampRialtoPlayer(
+		PrivateInstanceAAMP *aamp,
+		IStreamSinkNotifiable *notifiable,
 		id3_callback_t id3HandlerCallback,
 		std::function<void(const unsigned char *, int, int, int)> exportFrames = nullptr);
 
@@ -278,7 +307,33 @@ private:
 			const std::string &message) override;
 	};
 
-	PrivateInstanceAAMP *m_aamp{nullptr}; ///< Owning AAMP instance
+	PrivateInstanceAAMP *m_aamp{nullptr}; ///< Owning AAMP instance (non-notification calls)
+
+	/// Notifiable interface used for all push-notification calls.  Points
+	/// either at m_notifiableAdapter (production) or at an injected mock
+	/// (tests).  Never null after construction.
+	IStreamSinkNotifiable *m_notifiable{nullptr};
+
+	/// Owns the PrivateInstanceAAMPNotifiable adapter on the production path.
+	/// Null when a test-injected notifiable was supplied.
+	std::unique_ptr<PrivateInstanceAAMPNotifiable> m_notifiableAdapter;
+
+	/// True once the first PLAYING notification has been forwarded to AAMP
+	/// for this tune session.  Reset to false at the start of Configure().
+	std::atomic<bool> m_firstFrameNotified{false};
+
+	/// Last known playback position in milliseconds, updated via
+	/// notifyPosition callbacks from the Rialto server.
+	std::atomic<int64_t> m_positionMs{0};
+
+	/// Last known stream duration in milliseconds, updated via
+	/// notifyDuration callbacks from the Rialto server.
+	std::atomic<int64_t> m_durationMs{0};
+
+	/// Current video rectangle stored as "x,y,w,h".  Updated by
+	/// SetVideoRectangle() and returned by GetVideoRectangle().
+	std::string m_videoRectangle;
+
 	std::shared_ptr<RialtoLogHandler> m_rialtoLogHandler; ///< Rialto log bridge
 	/// Rialto pipeline factory; null until Configure() calls createFactory().
 	std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> m_pipelineFactory;
@@ -391,6 +446,12 @@ private:
 
 	/// @brief Called (via callback) when the Rialto server changes state.
 	void OnPlaybackState(firebolt::rialto::PlaybackState state);
+
+	/// @brief Called when the Rialto server reports a new playback position.
+	void OnPosition(int64_t positionNs);
+
+	/// @brief Called when the Rialto server reports the stream duration.
+	void OnDuration(int64_t durationNs);
 
 	/// @brief Attach video source after parsing the init segment.
 	void AttachVideoSource(Mp4Demux &demuxer);

@@ -76,6 +76,10 @@ void AampRialtoMediaPipelineClient::notifyPlaybackState(PlaybackState state)
 void AampRialtoMediaPipelineClient::notifyPosition(int64_t position)
 {
 	AAMPLOG_INFO("ENTRY position=%" PRId64, position);
+	if (m_positionCallback)
+	{
+		m_positionCallback(position);
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
@@ -109,6 +113,10 @@ void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
 void AampRialtoMediaPipelineClient::notifyDuration(int64_t duration)
 {
 	AAMPLOG_INFO("ENTRY duration=%" PRId64, duration);
+	if (m_durationCallback)
+	{
+		m_durationCallback(duration);
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
