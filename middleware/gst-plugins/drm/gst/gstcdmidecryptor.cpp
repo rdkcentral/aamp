@@ -641,15 +641,15 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	cdmidecryptor->streamEncrypted = true;
 	if (errorCode != 0 || cdmidecryptor->hdcpOpProtectionFailCount)
 	{
-		printf("VRN Decrypt Fails or HDCP fails ERR[%d] FC[%d]\n",errorCode, cdmidecryptor->hdcpOpProtectionFailCount);
+		GST_INFO_OBJECT(cdmidecryptor, "VRN Decrypt Fails or HDCP fails ERR[%d] FC[%d]\n",errorCode, cdmidecryptor->hdcpOpProtectionFailCount);
 	if(errorCode == HDCP_OUTPUT_PROTECTION_FAILURE)
 	{
-		printf("VRN HDCP OP PR ERROR REC[%d]\n",cdmidecryptor->hdcpOpProtectionFailCount+1);
+		GST_INFO_OBJECT(cdmidecryptor, "VRN HDCP OP PR ERROR REC[%d]\n",cdmidecryptor->hdcpOpProtectionFailCount+1);
 		cdmidecryptor->hdcpOpProtectionFailCount++;
 	}
 	else if(cdmidecryptor->hdcpOpProtectionFailCount)
 	{
-		printf("VRN Got Error other error code[%d] code[%d]\n",errorCode,cdmidecryptor->hdcpOpProtectionFailCount);
+		GST_INFO_OBJECT(cdmidecryptor, "VRN Got Error other error code[%d] code[%d]\n",errorCode,cdmidecryptor->hdcpOpProtectionFailCount);
 		if(cdmidecryptor->hdcpOpProtectionFailCount >= DECRYPT_FAILURE_THRESHOLD) {
 			GstStructure *newmsg = gst_structure_new("HDCPProtectionFailure", "message", G_TYPE_STRING,"HDCP Output Protection Error", NULL);
 			gst_element_post_message(reinterpret_cast<GstElement*>(cdmidecryptor),gst_message_new_application (GST_OBJECT (cdmidecryptor), newmsg));
@@ -659,7 +659,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	else
 	{
 		GST_ERROR_OBJECT(cdmidecryptor, "decryption failed; error code %d\n",errorCode);
-		printf("VRN decryption failed; error code %d DC[%d]\n",errorCode,cdmidecryptor->decryptFailCount);
+		GST_INFO_OBJECT(cdmidecryptor, "VRN decryption failed; error code %d DC[%d]\n",errorCode,cdmidecryptor->decryptFailCount);
 		cdmidecryptor->decryptFailCount++;
 		if(cdmidecryptor->decryptFailCount >= DECRYPT_FAILURE_THRESHOLD && cdmidecryptor->notifyDecryptError )
 		{
@@ -685,7 +685,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 		cdmidecryptor->decryptFailCount = 0;
 	cdmidecryptor->hdcpOpProtectionFailCount = 0;
-		printf("VRN DECRYPT SUCCESS\n");
+		GST_INFO_OBJECT(cdmidecryptor, "VRN DECRYPT SUCCESS\n");
 		if (cdmidecryptor->mediaType == eGST_MEDIATYPE_AUDIO)
 		{
 			GST_DEBUG_OBJECT(cdmidecryptor, "Decryption successful for Audio packets");
