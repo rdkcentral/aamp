@@ -391,3 +391,87 @@ INSTANTIATE_TEST_SUITE_P(
 		MediaStreamContextTest,
 		::testing::ValuesIn(testCases)
 		);
+
+// ---------------------------------------------------------------------------
+// Underflow-recovery race: wasUnderFlowActive guard
+// ---------------------------------------------------------------------------
+// Declare the side-effect hook defined in FakeStreamAbstractionAamp.cpp.
+extern std::function<void()> g_notifyVideoFragmentSideEffect;
+
+/**
+ * @brief Regression test for the wasUnderFlowActive guard in OnFragmentDownloadSuccess.
+ *
+ * Scenario (replicates the real race):
+ *  1. Underflow is active (mBufUnderFlowStatus = true) when the snapshot is taken
+ *     — wasUnderFlowActive is captured as true.
+ *  2. NotifyVideoFragmentToUnderflowMonitor fires SetBufferingState(false), clearing
+ *     mBufUnderFlowStatus to false and unpausing the pipeline.
+ *  3. GStreamer's buffering(0) message fires on another thread, re-setting
+ *     mSinkPaused = true before the discard check runs.
+ *  4. At the discard check:
+ *       isPipelinePaused         = true   (mSinkPaused re-set by buffering(0))
+ *       GetBufUnderFlowStatus()  = false  (cleared by SetBufferingState(false))
+ *       wasUnderFlowActive       = true   (captured before the notify)
+ *
+ * OLD behaviour (no guard):  condition = isPipelinePaused && !underflow
+ *                           = true && true  → fragment DISCARDED  (bug)
+ * NEW behaviour (with guard): condition = isPipelinePaused && !underflow && !wasUnderFlowActive
+ *                           = true && true && false → fragment INJECTED (correct)
+ *
+ * The side-effect hook in NotifyVideoFragmentToUnderflowMonitor simulates steps 2–3
+ * by clearing mBufUnderFlowStatus and setting mSinkPaused atomically within the
+ * notify so the discard check sees the post-race state.
+ */
+TEST_F(MediaStreamContextTest, UnderflowRecoveryRace_FragmentInjectedWhenWasUnderFlowActive)
+{
+	// Arrange: TSB enabled (discard path only executes when tsbSessionManager != null),
+	// pipeline initially NOT paused, underflow IS active.
+	const bool lowlatency = false;
+	const bool chunk      = false;
+	const bool tsb        = true;
+	const bool eos        = false;
+	const bool paused     = false; // Will be set to true by the side effect below
+	const bool underflow  = true;  // Active at snapshot → wasUnderFlowActive = true
+	const bool init       = false;
+	const float rate      = AAMP_NORMAL_PLAY_RATE;
+	Initialize(lowlatency, chunk, tsb, eos, paused, underflow, init, rate);
+
+	// Register the side effect that fires inside NotifyVideoFragmentToUnderflowMonitor.
+	// This simulates:
+	//  a) SetBufferingState(false) clearing mBufUnderFlowStatus
+	//  b) GStreamer's buffering(0) re-setting mSinkPaused
+	g_notifyVideoFragmentSideEffect = [this]()
+	{
+		mPrivateInstanceAAMP->ResetBufUnderFlowStatus(); // clears to false
+		mPrivateInstanceAAMP->mSinkPaused.store(true);   // GStreamer buffering(0) race
+	};
+
+	URIInfo uriInfo;
+	uriInfo.url = "remoteUrl";
+	URLBitrateMap urlList = { { 0, uriInfo } };
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>(
+		eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO,
+		/*absolutePosition=*/10.0, /*fragmentDurationSec=*/2.0,
+		"", -1, 0,
+		/*isInitSegment=*/false, /*isDiscontinuity=*/false,
+		/*isPlayingAd=*/false, /*failoverContentSegment=*/false,
+		/*pts=*/0.0, /*fragmentNumber=*/0, /*timeScale=*/1,
+		/*bandwidth=*/0, /*ptsOffset=*/0, urlList);
+
+	bool retResult = mMediaStreamContext->CacheFragment("remoteUrl", 0, 10, 0, nullptr, init, false, false, 0);
+	if (retResult)
+	{
+		mMediaStreamContext->OnFragmentDownloadSuccess(mMediaStreamContext->mActiveDownloadInfo);
+	}
+
+	// Clear the side effect so it doesn't bleed into other tests.
+	g_notifyVideoFragmentSideEffect = nullptr;
+
+	// Assert: the recovery fragment must have been enqueued into the TSB chunk
+	// cache (numberOfFragmentChunksCached == 1), not discarded.
+	// Before the wasUnderFlowActive guard this would be 0 (fragment discarded).
+	EXPECT_EQ(mMediaStreamContext->numberOfFragmentChunksCached, 1)
+		<< "Recovery fragment must be injected when wasUnderFlowActive==true, "
+		   "even if mSinkPaused is re-set by a GStreamer buffering(0) race.";
+	EXPECT_EQ(mMediaStreamContext->numberOfFragmentsCached, 0);
+}
