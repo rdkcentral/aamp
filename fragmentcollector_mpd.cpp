@@ -1168,22 +1168,30 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 						bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mMPDParseHelper->mUpperBoundaryPeriod);
 						uint64_t fragmentNumberBackUp = pMediaStreamContext->fragmentDescriptor.Number;
-						if (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
+						const bool curAdBoundaryCheck = (mCdaiObject &&
+														 mCdaiObject->mCurAds &&
+														 mCdaiObject->mCurAdIdx >= 0 &&
+														 mCdaiObject->mCurAdIdx < static_cast<int>(mCdaiObject->mCurAds->size()));
+						if (curAdBoundaryCheck && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
 						{
 							// For live stream, ad break scheduling fragment should be within source period.
 							// Otherwise, it may be beyond control if ad break cancellation is requested by server.
-							const bool baselineSourcePeriodCheck = ((pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset) < (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration / 1000.0));
-
-							bool isCurrentAdCancelled = false;
-							if (mCdaiObject->mCurAds && mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < static_cast<int>(mCdaiObject->mCurAds->size()))
-							{
-								isCurrentAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
-							}
+							//
+							// placedDuration is set incrementally by PlaceAds() as manifest periods become
+							// available.  If PlaceAds() hasn't run yet for the current ad (placedDuration==0),
+							// treat the check as passing (allow all fragments) rather than as failing (block
+							// all fragments).  Blocking when placedDuration==0 stalls the FetcherLoop
+							// indefinitely — fragmentTime never advances, CheckForAdTerminate never fires —
+							// which delays seeks and causes test window violations on slow CI runners.
+							const uint32_t curPlacedDuration = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration;
+							const bool baselineSourcePeriodCheck = (curPlacedDuration == 0) ||
+								((pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset) < (curPlacedDuration / 1000.0));
+							const bool isCurrentAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
 							// Check if the ad fragment is within source period for live stream or cancelled ad break is within source period.
 							// If not, skip the fragment to avoid potential issues. CheckForAdTerminate() mark EOS for stream at boundaries.
 							if (((liveEdgePeriodPlayback || isCurrentAdCancelled) && !baselineSourcePeriodCheck))
 							{
-								AAMPLOG_INFO("Ad break fragment is not within source period. fragment offset:%lf, placedDuration: %lf", (pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset), (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration / 1000.0));
+								AAMPLOG_INFO("Ad break fragment is not within source period. fragment offset:%lf, placedDuration: %lf", (pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset), (curPlacedDuration / 1000.0));
 								return false;
 							}
 						}

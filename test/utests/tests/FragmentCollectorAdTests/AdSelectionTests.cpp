@@ -2001,9 +2001,10 @@ TEST_F(AdSelectionTests, PushNextFragment_DoesNotFetchWhenCurrentAdCancelled)
 	};
 	auto ads = cdaiObj->mAdBreaks[adPeriodId].ads;
 	ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
-		"adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, nullptr /*mpd*/);
+		"adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/,
+		nullptr /*mpd*/, true /*cancelled*/);
 	// Mark current ad as cancelled so PushNextFragment should not fetch
-	ads->at(0).cancelled = true;
+	ads->at(0).placedDuration = 10000; // Mark ad as partially placed
 	cdaiObj->mCurAds = ads;
 	cdaiObj->mCurAdIdx = 0;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
