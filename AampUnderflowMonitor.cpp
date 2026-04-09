@@ -46,8 +46,11 @@
  * While underflow is active (mBufUnderFlowStatus == true), NotifyVideoFragment()
  * accumulates buffered content but does NOT resume the pipeline itself.
  * Instead it calls SetBufferingState(false) once bufferSec >= kResumeThresholdSec,
- * which unpauses the pipeline.  The pipeline-resume path must then call
- * NotifyPipelineResumed() to re-arm the timer for the next cycle.
+ * which unpauses the pipeline.  The deadline is then re-armed directly inside
+ * NotifyVideoFragment() (not via NotifyPipelineResumed()) to avoid re-acquiring
+ * mMutex on the same call stack, which would deadlock on some platforms.
+ * NotifyPipelineResumed() remains available for callers that resume the pipeline
+ * through an independent path (e.g. an external seek or tune).
  *
  * No polling, no GStreamer sinkCacheEmpty, no position-change heuristics.
  */
@@ -272,7 +275,10 @@ void AampUnderflowMonitor::Run()
             break;
         }
 
-        const float rate       = mAamp->rate;
+        // Use the cached play rate (updated under mMutex in NotifyVideoFragment) rather
+        // than reading mAamp->rate directly — the latter is a plain non-atomic float
+        // that would constitute a C++ data race with the writer thread.
+        const float rate       = mCurrentPlayRate;
         const bool  isTrickplay = (rate != AAMP_NORMAL_PLAY_RATE &&
                                    rate != AAMP_SLOWMOTION_RATE  &&
                                    rate != AAMP_RATE_PAUSE);

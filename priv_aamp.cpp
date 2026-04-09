@@ -3314,7 +3314,9 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 		}
 		// Inform the underflow monitor that the pipeline is now paused for
 		// buffering; it should disarm its deadline until resumed.
-		if (mpStreamAbstractionAAMP)
+		// Only notify if the pipeline is actually paused — if PausePipeline()
+		// failed mSinkPaused remains false and we must not disarm the monitor.
+		if (mSinkPaused.load() && mpStreamAbstractionAAMP)
 		{
 			mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 		}
