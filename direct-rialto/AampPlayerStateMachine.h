@@ -36,8 +36,8 @@
  * Every valid transition is logged at MILESTONE level via AAMPLOG_MIL.
  */
 
-#ifndef PLAYER_STATE_MACHINE_H
-#define PLAYER_STATE_MACHINE_H
+#ifndef AAMP_PLAYER_STATE_MACHINE_H
+#define AAMP_PLAYER_STATE_MACHINE_H
 
 #include <memory>
 #include <mutex>
@@ -202,4 +202,4 @@ private:
 	std::unique_ptr<IPlayerState> m_state;
 };
 
-#endif // PLAYER_STATE_MACHINE_H
+#endif // AAMP_PLAYER_STATE_MACHINE_H

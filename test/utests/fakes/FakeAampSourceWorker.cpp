@@ -28,7 +28,11 @@
 
 #include "AampSourceWorker.h"
 
-SourceWorker::SourceWorker(InjectFn /*injectFn*/) {}
+SourceWorker::SourceWorker(
+	InjectFn   /*injectFn*/,
+	ThrottleFn /*throttleFn*/,
+	ResumeFn   /*resumeFn*/,
+	size_t     /*threshold*/) {}
 SourceWorker::~SourceWorker() {}
 
 void SourceWorker::postNeedData(

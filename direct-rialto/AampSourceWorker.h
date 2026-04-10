@@ -35,8 +35,8 @@
  *   retried on the next needData (fixes issue #3).
  */
 
-#ifndef SOURCE_WORKER_H
-#define SOURCE_WORKER_H
+#ifndef AAMP_SOURCE_WORKER_H
+#define AAMP_SOURCE_WORKER_H
 
 #include "AampDemuxDataTypes.h" // AampMediaSample
 
@@ -111,6 +111,11 @@ struct PendingNeedData
  * injection callback.  Rejected samples (NO_SPACE) are returned by
  * injectFn and re-inserted at the front of the sample queue.
  *
+ * Back-pressure is applied when the sample queue depth reaches
+ * @p threshold entries: @p throttleFn is invoked once to signal that the
+ * upstream producer should pause.  @p resumeFn is invoked once the queue
+ * drains back below the threshold, signalling the producer to continue.
+ *
  * @note The worker thread starts at construction and runs until stop() is
  *       called (or the destructor fires).
  */
@@ -130,11 +135,36 @@ public:
 			std::vector<QueuedSample> samples,
 			bool     eos)>;
 
+	/// Callback invoked (once) when the sample queue reaches the threshold.
+	/// Called from the enqueueSamples() caller thread — must not acquire
+	/// the worker's internal mutex.
+	using ThrottleFn = std::function<void()>;
+
+	/// Callback invoked (once) when the sample queue drains below the
+	/// threshold after being throttled.  Called from the worker thread or
+	/// from flush() — must not acquire the worker's internal mutex.
+	using ResumeFn = std::function<void()>;
+
+	/// Default maximum number of queued samples before back-pressure fires.
+	/// Typical value covers ~2 DASH VoD segments at 30 fps.
+	static constexpr size_t kDefaultMaxQueuedSamples{120};
+
 	/**
 	 * @brief Construct a SourceWorker and start its injection thread.
-	 * @param[in] injectFn  Callback used to push segments to the pipeline.
+	 *
+	 * @param[in] injectFn    Callback used to push segments to the pipeline.
+	 * @param[in] throttleFn  Optional callback invoked when the queue reaches
+	 *                        @p threshold samples.  Pass {} to disable
+	 *                        back-pressure.
+	 * @param[in] resumeFn    Optional callback invoked when the queue drains
+	 *                        below @p threshold after being throttled.
+	 * @param[in] threshold   Sample queue depth at which throttling activates.
 	 */
-	explicit SourceWorker(InjectFn injectFn);
+	explicit SourceWorker(
+		InjectFn   injectFn,
+		ThrottleFn throttleFn = {},
+		ResumeFn   resumeFn   = {},
+		size_t     threshold  = kDefaultMaxQueuedSamples);
 
 	SourceWorker(const SourceWorker &) = delete;
 	SourceWorker &operator=(const SourceWorker &) = delete;
@@ -205,7 +235,10 @@ private:
 	/// Main loop executed on the worker thread.
 	void run();
 
-	InjectFn m_injectFn;
+	InjectFn   m_injectFn;
+	ThrottleFn m_throttleFn;
+	ResumeFn   m_resumeFn;
+	size_t     m_threshold;
 
 	std::mutex              m_mutex;
 	std::condition_variable m_cv;
@@ -214,8 +247,9 @@ private:
 	std::deque<QueuedSample>    m_sampleQueue;
 	bool                        m_eos{false};
 	bool                        m_stop{false};
+	bool                        m_throttled{false};
 
 	std::thread m_thread;
 };
 
-#endif // SOURCE_WORKER_H
+#endif // AAMP_SOURCE_WORKER_H

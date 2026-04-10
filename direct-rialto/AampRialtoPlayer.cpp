@@ -117,13 +117,21 @@ AampRialtoPlayer::AampRialtoPlayer(
 	}
 	// Create per-source injection workers.  Both threads start immediately
 	// and block until the first needData + samples arrive.
+	// Back-pressure callbacks gate the AAMP download thread so the
+	// in-memory sample queue stays bounded.
 	auto makeInjectFn = [this](int32_t sid, uint32_t rid,
 		std::vector<QueuedSample> samples, bool eos)
 	{
 		return InjectSamples(sid, rid, std::move(samples), eos);
 	};
-	m_videoWorker = std::make_unique<SourceWorker>(makeInjectFn);
-	m_audioWorker = std::make_unique<SourceWorker>(makeInjectFn);
+	m_videoWorker = std::make_unique<SourceWorker>(
+		makeInjectFn,
+		[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_VIDEO); },
+		[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO); });
+	m_audioWorker = std::make_unique<SourceWorker>(
+		makeInjectFn,
+		[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_AUDIO); },
+		[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO); });
 
 	AAMPLOG_INFO("AampRialtoPlayer: constructed, aamp=%p", aamp);
 }
@@ -821,8 +829,14 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	{
 		return InjectSamples(sid, rid, std::move(samples), eos);
 	};
-	m_videoWorker = std::make_unique<SourceWorker>(makeInjectFn);
-	m_audioWorker = std::make_unique<SourceWorker>(makeInjectFn);
+	m_videoWorker = std::make_unique<SourceWorker>(
+		makeInjectFn,
+		[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_VIDEO); },
+		[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO); });
+	m_audioWorker = std::make_unique<SourceWorker>(
+		makeInjectFn,
+		[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_AUDIO); },
+		[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO); });
 
 	if (m_pipeline)
 	{

@@ -30,8 +30,15 @@
 // Construction / destruction
 // ---------------------------------------------------------------------------
 
-SourceWorker::SourceWorker(InjectFn injectFn)
+SourceWorker::SourceWorker(
+	InjectFn   injectFn,
+	ThrottleFn throttleFn,
+	ResumeFn   resumeFn,
+	size_t     threshold)
 	: m_injectFn(std::move(injectFn))
+	, m_throttleFn(std::move(throttleFn))
+	, m_resumeFn(std::move(resumeFn))
+	, m_threshold(threshold)
 	, m_thread(&SourceWorker::run, this)
 {
 }
@@ -67,14 +74,25 @@ void SourceWorker::enqueueSamples(std::vector<QueuedSample> samples)
 {
 	if (!samples.empty())
 	{
+		bool shouldThrottle = false;
 		{
 			std::lock_guard<std::mutex> lock(m_mutex);
 			for (auto &s : samples)
 			{
 				m_sampleQueue.push_back(std::move(s));
 			}
+			if (!m_throttled && m_sampleQueue.size() >= m_threshold)
+			{
+				m_throttled    = true;
+				shouldThrottle = true;
+			}
 		}
 		m_cv.notify_one();
+		// Invoke outside the lock to avoid lock-order inversion.
+		if (shouldThrottle && m_throttleFn)
+		{
+			m_throttleFn();
+		}
 	}
 }
 
@@ -89,10 +107,20 @@ void SourceWorker::setEos()
 
 void SourceWorker::flush()
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
-	m_sampleQueue.clear();
-	m_pendingReqs.clear();
-	m_eos = false;
+	bool wasThrottled = false;
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		m_sampleQueue.clear();
+		m_pendingReqs.clear();
+		m_eos         = false;
+		wasThrottled  = m_throttled;
+		m_throttled   = false;
+	}
+	// Unblock the download thread if it was paused for back-pressure.
+	if (wasThrottled && m_resumeFn)
+	{
+		m_resumeFn();
+	}
 }
 
 void SourceWorker::stop()
@@ -168,6 +196,22 @@ void SourceWorker::run()
 			{
 				m_sampleQueue.push_front(std::move(*it));
 			}
+
+			// Release back-pressure once the queue drains below the threshold.
+			bool shouldResume = false;
+			if (m_throttled && m_sampleQueue.size() < m_threshold)
+			{
+				m_throttled  = false;
+				shouldResume = true;
+			}
+
+			// Invoke resume callback outside the lock to avoid inversion.
+			lock.unlock();
+			if (shouldResume && m_resumeFn)
+			{
+				m_resumeFn();
+			}
+			lock.lock();
 		}
 	}
 

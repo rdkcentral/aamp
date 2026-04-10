@@ -354,7 +354,7 @@ TEST_F(AampSourceWorkerTest, InjectFn_NoSpace_RequeuesSamples)
 {
 	// First call rejects all; subsequent calls accept.
 	std::atomic<int> callCount{0};
-	std::vector<std::vector<QueuedSample>> capturedSamples;
+	std::vector<size_t>           capturedSamples;
 	std::mutex capturedMutex;
 	std::condition_variable capturedCv;
 
@@ -365,7 +365,7 @@ TEST_F(AampSourceWorkerTest, InjectFn_NoSpace_RequeuesSamples)
 			int n = callCount.fetch_add(1, std::memory_order_relaxed) + 1;
 			{
 				std::lock_guard<std::mutex> lock(capturedMutex);
-				capturedSamples.push_back(samples);
+				capturedSamples.push_back(samples.size());
 			}
 			capturedCv.notify_all();
 			if (n == 1)
@@ -405,7 +405,7 @@ TEST_F(AampSourceWorkerTest, InjectFn_NoSpace_RequeuesSamples)
 	{
 		std::lock_guard<std::mutex> lock(capturedMutex);
 		ASSERT_GE(capturedSamples.size(), 2u);
-		EXPECT_EQ(capturedSamples[1].size(), 1u);
+		EXPECT_EQ(capturedSamples[1], 1u);
 	}
 }
 
@@ -487,4 +487,182 @@ TEST_F(AampSourceWorkerTest, HighFrequency_MultiThreaded_NoDeadlock)
 	// Allow remaining work to drain; test passes if no deadlock or crash.
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	SUCCEED();
+}
+
+// ===========================================================================
+// Back-pressure / memory control
+// ===========================================================================
+
+/**
+ * @test When enqueueSamples pushes the queue at or above the threshold,
+ *       the throttle callback is invoked exactly once.
+ */
+TEST_F(AampSourceWorkerTest,
+	BackPressure_EnqueueAboveThreshold_CallsThrottleFn)
+{
+	std::atomic<int> throttleCalls{0};
+	std::atomic<int> resumeCalls{0};
+
+	SourceWorker worker(
+		spy.MakeFn(),
+		[&throttleCalls]() { throttleCalls.fetch_add(1, std::memory_order_relaxed); },
+		[&resumeCalls]()   { resumeCalls.fetch_add(1,   std::memory_order_relaxed); },
+		/*threshold=*/3);
+
+	// Enqueue 3 samples in a single call — should hit the threshold.
+	std::vector<QueuedSample> samples;
+	samples.push_back(MakeSample(0.1));
+	samples.push_back(MakeSample(0.2));
+	samples.push_back(MakeSample(0.3));
+	worker.enqueueSamples(std::move(samples));
+
+	EXPECT_EQ(throttleCalls.load(), 1);
+	EXPECT_EQ(resumeCalls.load(),   0);
+}
+
+/**
+ * @test When enqueueSamples keeps the queue below the threshold,
+ *       the throttle callback is never invoked.
+ */
+TEST_F(AampSourceWorkerTest,
+	BackPressure_EnqueueBelowThreshold_NoThrottleCalled)
+{
+	std::atomic<int> throttleCalls{0};
+
+	SourceWorker worker(
+		spy.MakeFn(),
+		[&throttleCalls]() { throttleCalls.fetch_add(1, std::memory_order_relaxed); },
+		{},
+		/*threshold=*/5);
+
+	// Enqueue 2 samples — below threshold of 5.
+	std::vector<QueuedSample> samples;
+	samples.push_back(MakeSample(0.1));
+	samples.push_back(MakeSample(0.2));
+	worker.enqueueSamples(std::move(samples));
+
+	EXPECT_EQ(throttleCalls.load(), 0);
+}
+
+/**
+ * @test Once throttled, subsequent enqueueSamples calls do not fire the
+ *       throttle callback a second time while the queue stays above threshold.
+ */
+TEST_F(AampSourceWorkerTest,
+	BackPressure_ThrottleFn_CalledOnlyOnce_WhileQueueRemainsHigh)
+{
+	std::atomic<int> throttleCalls{0};
+
+	SourceWorker worker(
+		spy.MakeFn(),
+		[&throttleCalls]() { throttleCalls.fetch_add(1, std::memory_order_relaxed); },
+		{},
+		/*threshold=*/2);
+
+	// First batch pushes queue to threshold — throttle fires.
+	std::vector<QueuedSample> first;
+	first.push_back(MakeSample(0.1));
+	first.push_back(MakeSample(0.2));
+	worker.enqueueSamples(std::move(first));
+	ASSERT_EQ(throttleCalls.load(), 1);
+
+	// Second batch — queue still above threshold; throttle must NOT fire again.
+	std::vector<QueuedSample> second;
+	second.push_back(MakeSample(0.3));
+	worker.enqueueSamples(std::move(second));
+
+	EXPECT_EQ(throttleCalls.load(), 1);
+}
+
+/**
+ * @test After the worker thread drains the queue below the threshold,
+ *       the resume callback is invoked exactly once.
+ */
+TEST_F(AampSourceWorkerTest,
+	BackPressure_Drain_BelowThreshold_CallsResumeFn)
+{
+	std::atomic<int> throttleCalls{0};
+	std::atomic<int> resumeCalls{0};
+	std::condition_variable resumeCv;
+	std::mutex resumeMutex;
+
+	SourceWorker worker(
+		spy.MakeFn(),
+		[&throttleCalls]() { throttleCalls.fetch_add(1, std::memory_order_relaxed); },
+		[&]() {
+			resumeCalls.fetch_add(1, std::memory_order_relaxed);
+			resumeCv.notify_all();
+		},
+		/*threshold=*/2);
+
+	// Exceed threshold — throttle fires.
+	std::vector<QueuedSample> samples;
+	samples.push_back(MakeSample(0.1));
+	samples.push_back(MakeSample(0.2));
+	worker.enqueueSamples(std::move(samples));
+	ASSERT_EQ(throttleCalls.load(), 1);
+
+	// Drain via needData — worker thread consumes both samples, queue drops
+	// below threshold, resume callback must fire.
+	worker.postNeedData(0, 1, 10);
+
+	std::unique_lock<std::mutex> lock(resumeMutex);
+	resumeCv.wait_for(lock, std::chrono::milliseconds(200),
+		[&]() { return resumeCalls.load() >= 1; });
+
+	EXPECT_EQ(resumeCalls.load(), 1);
+}
+
+/**
+ * @test Calling flush() while the queue is above threshold immediately
+ *       invokes the resume callback (clears the throttle state).
+ */
+TEST_F(AampSourceWorkerTest,
+	BackPressure_Flush_ResumesThrottledWorker)
+{
+	std::atomic<int> throttleCalls{0};
+	std::atomic<int> resumeCalls{0};
+
+	SourceWorker worker(
+		spy.MakeFn(),
+		[&throttleCalls]() { throttleCalls.fetch_add(1, std::memory_order_relaxed); },
+		[&resumeCalls]()   { resumeCalls.fetch_add(1,   std::memory_order_relaxed); },
+		/*threshold=*/2);
+
+	// Push queue above threshold.
+	std::vector<QueuedSample> samples;
+	samples.push_back(MakeSample(0.1));
+	samples.push_back(MakeSample(0.2));
+	worker.enqueueSamples(std::move(samples));
+	ASSERT_EQ(throttleCalls.load(), 1);
+
+	// flush() must call the resume callback synchronously.
+	worker.flush();
+
+	EXPECT_EQ(resumeCalls.load(), 1);
+}
+
+/**
+ * @test flush() while the queue is below threshold does NOT invoke the
+ *       resume callback (worker was never throttled).
+ */
+TEST_F(AampSourceWorkerTest,
+	BackPressure_Flush_NoResumeIfNotThrottled)
+{
+	std::atomic<int> resumeCalls{0};
+
+	SourceWorker worker(
+		spy.MakeFn(),
+		{},
+		[&resumeCalls]() { resumeCalls.fetch_add(1, std::memory_order_relaxed); },
+		/*threshold=*/5);
+
+	// Enqueue below threshold — not throttled.
+	std::vector<QueuedSample> samples;
+	samples.push_back(MakeSample(0.1));
+	worker.enqueueSamples(std::move(samples));
+
+	worker.flush();
+
+	EXPECT_EQ(resumeCalls.load(), 0);
 }

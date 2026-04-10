@@ -2340,3 +2340,120 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
+// ===========================================================================
+// Phase 13 — Back-pressure / memory control (integration)
+// ===========================================================================
+
+/**
+ * @test After exceeding the back-pressure threshold and then draining the
+ *       queue via needData, subsequent injection continues to deliver samples
+ *       correctly.  This exercises the full throttle→resume cycle through
+ *       AampRialtoPlayer's wiring without relying on observable
+ *       StopTrackDownloads/ResumeTrackDownloads calls (which go to the
+ *       no-op fake in the test binary).
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	BackPressure_QueueAboveThreshold_ThenDrain_InjectionContinues)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	SendVideoInitFragment();
+
+	// Build a sample batch whose size equals kDefaultMaxQueuedSamples so the
+	// video worker's throttle callback fires.
+	const size_t kThreshold = SourceWorker::kDefaultMaxQueuedSamples;
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([kThreshold]() {
+			std::vector<AampMediaSample> samples;
+			for (size_t i = 0; i < kThreshold; ++i)
+			{
+				AampMediaSample ms{};
+				ms.mPts      = static_cast<double>(i) * 0.033;
+				ms.mDuration = 0.033;
+				samples.push_back(std::move(ms));
+			}
+			return samples;
+		});
+
+	// Enqueue one large fragment (at or above threshold).
+	std::vector<uint8_t> buf(4, 0x01);
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.0, 0.0, 3.0, 0, /*initFragment=*/false);
+
+	// Drain the queue via needData — all samples should be injected.
+	int addedCount = 0;
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&addedCount](uint32_t,
+				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &)
+				-> firebolt::rialto::AddSegmentStatus
+			{
+				++addedCount;
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	PostNeedData(0, static_cast<uint32_t>(kThreshold), 1u);
+
+	// Wait for the worker to fully drain.
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	EXPECT_GT(addedCount, 0);
+}
+
+/**
+ * @test Calling Flush() while the video worker is throttled invokes the
+ *       resume callback (no-op in test binary), clears the queue, and allows
+ *       a subsequent fragment to be injected normally.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	BackPressure_FlushWhileThrottled_InjectionResumesAfterFlush)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	SendVideoInitFragment();
+
+	const size_t kThreshold = SourceWorker::kDefaultMaxQueuedSamples;
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([kThreshold]() {
+			std::vector<AampMediaSample> samples;
+			for (size_t i = 0; i < kThreshold; ++i)
+			{
+				AampMediaSample ms{};
+				ms.mPts      = static_cast<double>(i) * 0.033;
+				ms.mDuration = 0.033;
+				samples.push_back(std::move(ms));
+			}
+			return samples;
+		});
+
+	// Push queue above threshold.
+	std::vector<uint8_t> buf(4, 0x01);
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.0, 0.0, 3.0, 0, /*initFragment=*/false);
+
+	// Flush — should clear the queue and invoke the resume callback.
+	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
+
+	// After flush, sending one sample and draining with needData must work.
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+
+	EXPECT_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 77)).Times(1);
+
+	PostNeedData(0, 1, 77);
+
+	std::vector<uint8_t> freshBuf = {0x02};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(freshBuf),
+		0.1, 0.1, 0.033, 0, /*initFragment=*/false);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+}
