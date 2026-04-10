@@ -10,37 +10,46 @@ any action performed during the transition.
 
 Dependencies
 ~~~~~~~~~~~~
-    pip install graphviz          # Python bindings
+    pip install graphviz          # Python bindings (not needed for plantuml)
     apt install graphviz          # or: brew install graphviz (macOS)
 
 Usage
 ~~~~~
     python3 docs/rialto-integration/draw_state_machine.py
+    python3 docs/rialto-integration/draw_state_machine.py --format plantuml
 
 Outputs
 ~~~~~~~
-    docs/rialto-integration/player_state_machine.svg  (default)
-    docs/rialto-integration/player_state_machine.png  (--format png)
+    docs/rialto-integration/player_state_machine.svg   (default)
+    docs/rialto-integration/player_state_machine.png   (--format png)
+    docs/rialto-integration/player_state_machine.puml  (--format plantuml)
 
 Optional flags
 ~~~~~~~~~~~~~~
-    --format  dot|svg|png|pdf   (default: svg)
-    --output  <path>            override output file path
-    --view                      open the rendered image after generation
+    --format  dot|svg|png|pdf|plantuml   (default: svg)
+    --output  <path>                     override output file path
+    --view                               open the rendered image after generation
+    --no-reconfigure                     omit onReconfigure arcs
 """
 
 import argparse
 import sys
-try:
-    import graphviz
-except ImportError:
-    sys.exit(
-        "ERROR: 'graphviz' Python package not found.\n"
-        "Install it with:  pip install graphviz\n"
-        "and make sure the Graphviz binaries are also installed:\n"
-        "  Linux:  sudo apt install graphviz\n"
-        "  macOS:  brew install graphviz"
-    )
+
+# ---------------------------------------------------------------------------
+# Graphviz is optional — only needed for non-plantuml formats
+# ---------------------------------------------------------------------------
+def _require_graphviz():
+    try:
+        import graphviz
+        return graphviz
+    except ImportError:
+        sys.exit(
+            "ERROR: 'graphviz' Python package not found.\n"
+            "Install it with:  pip install graphviz\n"
+            "and make sure the Graphviz binaries are also installed:\n"
+            "  Linux:  sudo apt install graphviz\n"
+            "  macOS:  brew install graphviz"
+        )
 
 # ---------------------------------------------------------------------------
 # State machine definition
@@ -131,10 +140,86 @@ EDGE_COLOURS = {
 DEFAULT_EDGE_COLOUR = "#333333"
 
 # ---------------------------------------------------------------------------
-# Build graph
+# PlantUML colour mappings
+# ---------------------------------------------------------------------------
+# Map our hex fill colours to PlantUML named/hex colours.
+# PlantUML state background: #RRGGBB or named colour.
+PUML_STATE_COLOURS = {
+    "IDLE":              "#E8F4FD",
+    "PIPELINE_CREATED":  "#E3F2FD",
+    "SOURCES_ATTACHING": "#FFF8E1",
+    "SOURCES_ATTACHED":  "#E8F5E9",
+    "PLAYING":           "#F3E5F5",
+    "PAUSED":            "#FBE9E7",
+    "FLUSHING":          "#EFEBE9",
+    "STOPPED":           "#FAFAFA",
+    "ERROR":             "#FFEBEE",
+}
+
+# Map event → PlantUML line colour for the arrow.
+PUML_EDGE_COLOURS = {
+    "onStop":        "#757575",
+    "onError":       "#C62828",
+    "onReconfigure": "#0288D1",
+}
+PUML_DEFAULT_EDGE_COLOUR = "#333333"
+
+# States that are rendered as end-states (double circle) in PlantUML.
+TERMINAL_STATES = {"STOPPED", "ERROR"}
+
+
+def build_plantuml(show_reconfigure: bool = True) -> str:
+    """Return a PlantUML @startuml … @enduml string for the state machine."""
+    lines = []
+    lines.append("@startuml AampRialtoPlayer_StateMachine")
+    lines.append("hide empty description")
+    lines.append("")
+    lines.append("title AampRialtoPlayer — GoF State Machine\\n"
+                 "(direct-rialto/AampPlayerStateMachine.cpp)")
+    lines.append("")
+    lines.append("' ── Skinparam ──────────────────────────────────────────")
+    lines.append("skinparam state {")
+    lines.append("    FontName Helvetica")
+    lines.append("    FontSize 11")
+    lines.append("    BorderColor #333333")
+    lines.append("}")
+    lines.append("skinparam ArrowFontName Helvetica")
+    lines.append("skinparam ArrowFontSize 9")
+    lines.append("")
+    lines.append("' ── State declarations ──────────────────────────────────")
+    for state, tooltip in STATES:
+        fill = PUML_STATE_COLOURS.get(state, "#FFFFFF")
+        if state in TERMINAL_STATES:
+            # Double-border via <<end>> stereotype won't keep custom colours;
+            # use a note instead and mark with bold border.
+            lines.append(f'state "{state}" as {state} {fill}##[bold]')
+        else:
+            lines.append(f'state "{state}" as {state} {fill}')
+        lines.append(f'    {state} : {tooltip}')
+    lines.append("")
+    lines.append("' ── Initial state ───────────────────────────────────────")
+    lines.append("[*] --> IDLE")
+    lines.append("")
+    lines.append("' ── Transitions ─────────────────────────────────────────")
+    for (src, event, action, dst) in TRANSITIONS:
+        if not show_reconfigure and event == "onReconfigure":
+            continue
+        colour = PUML_EDGE_COLOURS.get(event, PUML_DEFAULT_EDGE_COLOUR)
+        label = f"{event}\\n[{action}]" if action else event
+        is_dashed = event in ("onStop", "onError", "onReconfigure")
+        arrow = f"-[{colour},dashed]->" if is_dashed else f"-[{colour}]->"
+        lines.append(f"{src} {arrow} {dst} : {label}")
+    lines.append("")
+    lines.append("@enduml")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Build graph (Graphviz)
 # ---------------------------------------------------------------------------
 
-def build_graph(show_reconfigure: bool = True) -> graphviz.Digraph:
+def build_graph(show_reconfigure: bool = True):
+    graphviz = _require_graphviz()
     dot = graphviz.Digraph(
         name="AampRialtoPlayer State Machine",
         comment="GoF State pattern — PlayerStateMachine",
@@ -206,8 +291,9 @@ def main():
         description="Draw the AampRialtoPlayer GoF state machine."
     )
     parser.add_argument(
-        "--format", choices=["dot", "svg", "png", "pdf"], default="svg",
-        help="Output format (default: svg)."
+        "--format", choices=["dot", "svg", "png", "pdf", "plantuml"],
+        default="svg",
+        help="Output format (default: svg). Use 'plantuml' to emit a .puml file."
     )
     parser.add_argument(
         "--output", default=None,
@@ -216,7 +302,7 @@ def main():
     )
     parser.add_argument(
         "--view", action="store_true",
-        help="Open the rendered image after generation."
+        help="Open the rendered image after generation (not supported for plantuml)."
     )
     parser.add_argument(
         "--no-reconfigure", action="store_true",
@@ -229,7 +315,17 @@ def main():
     default_out = os.path.join(script_dir, "player_state_machine")
     output_path = args.output or default_out
 
-    dot = build_graph(show_reconfigure=not args.no_reconfigure)
+    show_reconfigure = not args.no_reconfigure
+
+    if args.format == "plantuml":
+        puml_path = output_path + ".puml"
+        content = build_plantuml(show_reconfigure=show_reconfigure)
+        with open(puml_path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        print(f"PlantUML source written to: {puml_path}")
+        return
+
+    dot = build_graph(show_reconfigure=show_reconfigure)
 
     if args.format == "dot":
         # Write raw DOT source
