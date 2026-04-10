@@ -120,9 +120,6 @@ protected:
 
 	void TearDown() override
 	{
-		EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
-		mAampTSBSessionManager->Flush();
-
 		delete g_mockAampTsbMetaDataManager;
 		g_mockAampTsbMetaDataManager = nullptr;
 
@@ -145,6 +142,9 @@ protected:
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
+
+		delete aamp;
+		aamp = nullptr;
 	}
 
 };
@@ -256,6 +256,9 @@ TEST_F(FunctionalTests, TSBWriteTests)
 
 	mAampTSBSessionManager->Init();
 	EXPECT_TRUE(mAampTSBSessionManager->IsActive());
+	// TearDown deletes mAampTSBSessionManager; its destructor calls Flush() which
+	// reaches mTSBStore->Flush() because mInitialized_ is true after re-Init().
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
 }
 
 TEST_F(FunctionalTests, Cullsegments)
@@ -652,4 +655,31 @@ TEST_F(FunctionalTests, AdMetadataBoundaryTest)
 	// Test with zero duration
 	EXPECT_TRUE(mAampTSBSessionManager->StartAdPlacement(
 		TEST_AD_ID, TEST_REL_POSITION, zeroPos, 0.0, TEST_OFFSET));
+}
+
+/**
+ * @brief Verify that Flush() calls NotifyVideoTsbWaiters().
+ * The effect of NotifyVideoTsbWaiters() is observed by a thread
+ * blocking in WaitForVideoTsbContentOrAbort(): if that thread
+ * unblocks after Flush() is called, NotifyVideoTsbWaiters() was invoked.
+ */
+TEST_F(FunctionalTests, FlushCallsNotifyVideoTsbWaiters)
+{
+	// Spawn a thread that blocks on WaitForVideoTsbContentOrAbort(). The real
+	// NotifyVideoTsbWaiters() (called by Flush()) must unblock it.
+	std::atomic<bool> waiterUnblocked{false};
+	std::thread waiter([&]() {
+		mAampTSBSessionManager->WaitForVideoTsbContentOrAbort();
+		waiterUnblocked.store(true);
+	});
+
+	// Brief pause to let the waiter thread enter the condition-variable wait.
+	std::this_thread::sleep_for(std::chrono::milliseconds(25));
+
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
+	mAampTSBSessionManager->Flush();
+
+	// If NotifyVideoTsbWaiters() was called, the waiter thread is now unblocked.
+	waiter.join();
+	EXPECT_TRUE(waiterUnblocked.load());
 }

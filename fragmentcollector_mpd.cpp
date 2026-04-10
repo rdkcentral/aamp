@@ -10082,15 +10082,9 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				}
 				if(cacheFullStatus[eMEDIATYPE_VIDEO] || (vEOS && !aEOS))
 				{
-					// play cache is full , wait until cache is available to inject next, max wait of 1sec
-					int timeoutMs = MAX_WAIT_TIMEOUT_MS;
 					int trackIdx = (vEOS && !aEOS) ? eMEDIATYPE_AUDIO : eMEDIATYPE_VIDEO;
-					//AAMPLOG_INFO("Cache full state track(%d), no download until(%d) Time(%lld)",trackIdx,timeoutMs,aamp_GetCurrentTimeMS());
-					bool temp =  mMediaStreamContext[trackIdx]->WaitForCachedFragmentChunkInjected(timeoutMs);
-					if(temp == false)
-					{
-						//AAMPLOG_INFO("Waiting for FreeFragmentAvailable");  //CID:82355 - checked return
-					}
+					// play cache is full , wait until cache is available to inject next, max wait of MAX_WAIT_TIMEOUT_MS
+					(void)mMediaStreamContext[trackIdx]->WaitForCachedFragmentChunkInjected(MAX_WAIT_TIMEOUT_MS);
 				}
 				else
 				{
@@ -10610,13 +10604,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			{
 				aamp->mDRMLicenseManager->notifyCleanup();
 			}
-		}
-		if(tsbReaderThreadID.joinable())
-		{
-			abortTsbReader = true;
-			// Signal TsbReader thread to exit wait for manifest update if waiting
-			AbortWaitForManifestUpdate();
-			tsbReaderThreadID.join();
 		}
 	}
 
