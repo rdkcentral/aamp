@@ -162,6 +162,25 @@ TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_UseInac
 }
 
 /* Test Procedure: -
+    @brief When the shared single-pipeline GstPlayer has been rebound to the tuning
+             player, GetStreamSink should return that shared sink instead of the
+             player's inactive stub sink.
+*/
+TEST_F(AampStreamSinkManagerTests, GetStreamSink_SinglePipelineMode_ReturnsSharedSinkAfterUpdate)
+{
+	AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+	AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+	StreamSink *activeSink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+	AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
+	EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(1);
+	AampStreamSinkManager::GetInstance().UpdateTuningPlayer(mPrivateInstanceAAMP1);
+
+	StreamSink *sinkAfterUpdate = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+	EXPECT_EQ(activeSink, sinkAfterUpdate);
+}
+
+/* Test Procedure: -
     @brief Test UpdateTuningPlayer where we wouldn't expect the player to be changed.
 */
 TEST_F(AampStreamSinkManagerTests, UpdateTuningPlayer_SinglePipelineMode_NoChange)

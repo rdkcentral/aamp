@@ -353,6 +353,10 @@ void PrivateInstanceAAMP::ResumeDownloads()
 
 void PrivateInstanceAAMP::EnableDownloads()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->EnableDownloads();
+	}
 }
 
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)

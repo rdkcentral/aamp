@@ -28,6 +28,8 @@
 
 // unit under test
 #include "AampMp4Demuxer.h"
+#include "MockAampGstPlayer.h"
+#include "MockAampStreamSinkManager.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMp4Demux.h"
 
@@ -66,6 +68,10 @@ protected:
 
 	void TearDown() override
 	{
+		delete g_mockAampStreamSinkManager;
+		g_mockAampStreamSinkManager = nullptr;
+		delete g_mockAampGstPlayer;
+		g_mockAampGstPlayer = nullptr;
 		delete mDemuxer;
 		mDemuxer = nullptr;
 		delete mPrivateInstanceAAMP;

@@ -37,6 +37,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <any>
+#include <memory>
 #include "SocInterface.h"
 #include "InterfacePlayerRDK.h"
 #include "GstUtils.h"
@@ -131,6 +132,7 @@ struct gst_media_stream
 	bool eosReached;           /**< To indicate the status of End of Stream reached */
 	bool sourceConfigured; /**< To indicate that the current source is initialized and configured */
 	pthread_mutex_t sourceLock;
+	std::unique_ptr<MediaCodecInfo> pendingCodecInfo; /**< Deferred codec caps to apply once appsrc exists */
 	uint32_t timeScale;
 	int32_t trackId;                   /**< Current Audio Track Id,so far it is implemented for AC4 track selection only */
 	bool firstBufferProcessed; /**< Indicates if the first buffer is processed in this stream */
@@ -139,7 +141,7 @@ struct gst_media_stream
 
 	gst_media_stream() : sinkbin(NULL), source(NULL), format(GST_FORMAT_INVALID),
 	pendingSeek(false), resetPosition(false),
-	bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER), timeScale(1), trackId(-1), firstBufferProcessed(false), demuxPad(NULL), demuxProbeId(0)
+	bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER), pendingCodecInfo(nullptr), timeScale(1), trackId(-1), firstBufferProcessed(false), demuxPad(NULL), demuxProbeId(0)
 	{
 	}
 

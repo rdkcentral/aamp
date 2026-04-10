@@ -174,6 +174,10 @@ void AAMPGstPlayer::GetVideoSize(int &w, int &h)
 
 void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *ptr, size_t len, AampMediaType type)
 {
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		g_mockAampGstPlayer->QueueProtectionEvent(protSystemId, ptr, len, type);
+	}
 }
 
 void AAMPGstPlayer::ClearProtectionEvent()

@@ -3011,6 +3011,7 @@ TEST_F(InterfacePlayerTests, SetStreamCaps_ValidVideoCodecFormat)
 	MediaCodecInfo codecInfo;
 	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
 	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].source = &gst_element_pipeline;
 	GstCaps caps;
 	GstStructure s;
 	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
@@ -3037,6 +3038,7 @@ TEST_F(InterfacePlayerTests, SetStreamCaps_EncryptedAudioCodecFormat)
 	codecInfo.mCodecFormat = GST_FORMAT_AUDIO_ES_AAC_RAW;
 	codecInfo.mCodecData = std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01};
 	codecInfo.mIsEncrypted = true;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUDIO].source = &gst_element_pipeline;
 	GstCaps caps;
 	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
 	GstBuffer buffer;
@@ -3052,4 +3054,31 @@ TEST_F(InterfacePlayerTests, SetStreamCaps_EncryptedAudioCodecFormat)
 	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_AUDIO, std::move(codecInfo));
 
 	delete g_mockGstUtils;
+}
+
+/**
+ * SetStreamCaps defers codec info until appsrc exists
+ */
+TEST_F(InterfacePlayerTests, SetStreamCaps_DefersUntilSourceExists)
+{
+	MediaCodecInfo codecInfo;
+	codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_HEVC;
+	codecInfo.mCodecData = std::vector<uint8_t>{0x01, 0x02, 0x03};
+	codecInfo.mIsEncrypted = true;
+	codecInfo.mInfo.video.mWidth = 640;
+	codecInfo.mInfo.video.mHeight = 360;
+
+	EXPECT_EQ(mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].pendingCodecInfo,
+		nullptr);
+
+	mInterfaceGstPlayer->SetStreamCaps(eGST_MEDIATYPE_VIDEO,
+		std::move(codecInfo));
+
+	ASSERT_NE(mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].pendingCodecInfo,
+		nullptr);
+	EXPECT_EQ(
+		mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].pendingCodecInfo->mCodecFormat,
+		GST_FORMAT_VIDEO_ES_HEVC);
+	EXPECT_EQ(mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].format,
+		GST_FORMAT_INVALID);
 }

@@ -79,6 +79,7 @@ public:
 	MOCK_METHOD(void, UpdateLocalAAMPTsbInjection, ());
 	MOCK_METHOD(void, StopDownloads, ());
 	MOCK_METHOD(void, ResumeDownloads, ());
+	MOCK_METHOD(void, EnableDownloads, ());
 	MOCK_METHOD(void, DisableDownloads, ());
 	MOCK_METHOD(void, TuneHelper, (TuneType tuneType, bool seekWhilePaused));
 	MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());

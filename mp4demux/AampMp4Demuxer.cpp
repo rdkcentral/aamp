@@ -118,7 +118,8 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					codecInfo.mCodecFormat != GST_FORMAT_UNKNOWN)
 				{
 					// Invoke SetStreamCaps for proper codec info
-					AAMPLOG_INFO("Updating codecInfo with format:%d", codecInfo.mCodecFormat);
+					AAMPLOG_INFO("mp4demux SetStreamCaps: type[%s] format:%d isEncrypted:%d isInit:%d",
+						GetMediaTypeName(mMediaType), codecInfo.mCodecFormat, codecInfo.mIsEncrypted, isInit);
 					mAamp->SetStreamCaps(mMediaType, std::move(codecInfo));
 				}
 				else

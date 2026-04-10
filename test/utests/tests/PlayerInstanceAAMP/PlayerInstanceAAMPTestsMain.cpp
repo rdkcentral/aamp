@@ -28,6 +28,7 @@
 #include "main_aamp.h"
 
 using ::testing::_;
+using ::testing::InSequence;
 using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
@@ -251,6 +252,44 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternalTest)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes))
 		.WillOnce(Return(true));
 	mplayer->SetRate_Internal(rate, overshootcorrection);
+}
+
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_BackgroundToForegroundEnablesDownloadsBeforeInjection)
+{
+	float rate = AAMP_NORMAL_PLAY_RATE;
+	int overshootcorrection = 0;
+
+	mplayer->aamp->mbUsingExternalPlayer = false;
+	mplayer->aamp->mSinkPaused = true;
+	mplayer->aamp->mbPlayEnabled = false;
+	mplayer->aamp->mbDetached = true;
+	mplayer->aamp->mbSeeked = true;
+	mplayer->aamp->mVideoFormat = FORMAT_INVALID;
+	mplayer->aamp->mAudioFormat = FORMAT_INVALID;
+	mplayer->aamp->mSubtitleFormat = FORMAT_INVALID;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring(_)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetPauseOnStartPlayback(false)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(mplayer->aamp))
+		.WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_, _, _, _, _)).Times(1);
+
+	{
+		InSequence sequence;
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, EnableDownloads()).Times(1);
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeDownloads()).Times(1);
+		EXPECT_CALL(*g_mockStreamAbstractionAAMP, StartInjection()).Times(1);
+	}
+
+	mplayer->SetRate_Internal(rate, overshootcorrection);
+
+	EXPECT_FALSE(mplayer->aamp->mSinkPaused.load());
+	EXPECT_FALSE(mplayer->aamp->mbSeeked);
+	EXPECT_TRUE(mplayer->aamp->mbPlayEnabled);
 }
 
 /**

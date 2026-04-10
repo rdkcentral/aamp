@@ -43,6 +43,8 @@ public:
 
     MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *));
 
+    MOCK_METHOD(void, QueueProtectionEvent, (const char *, const void *, size_t, AampMediaType), (override));
+
 	MOCK_METHOD(void, Stop, (bool), (override));
 
     MOCK_METHOD(void, SetSubtitleMute, (bool), (override));

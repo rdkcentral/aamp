@@ -263,6 +263,9 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
 
+static bool InterfacePlayerRDK_ApplyStreamCapsToSource(InterfacePlayerRDK *player,
+	GstMediaType type, GstElement *source, MediaCodecInfo&& codecInfo);
+
 /**
  * @brief Decorate a GstBuffer with DRM metadata
  * @param[in] buffer The GstBuffer to decorate
@@ -1375,6 +1378,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
+		stream->pendingCodecInfo.reset();
 	}
 	pthread_mutex_unlock(&stream->sourceLock);
 	if (mediaType == eGST_MEDIATYPE_VIDEO)
@@ -1874,6 +1878,14 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		 */
 		MW_LOG_WARN("Caps could not be established for source[type:%d], enabling typefind", mediaType);
 		g_object_set(source, "typefind", TRUE, NULL);
+	}
+	if (stream->pendingCodecInfo)
+	{
+		stream->format = stream->pendingCodecInfo->mCodecFormat;
+		MW_LOG_INFO("Applying deferred stream caps for source[type:%d]", mediaType);
+		InterfacePlayerRDK_ApplyStreamCapsToSource(_this, mediaType,
+			GST_ELEMENT(source), std::move(*stream->pendingCodecInfo));
+		stream->pendingCodecInfo.reset();
 	}
 	stream->sourceConfigured = true;
 }
@@ -5327,86 +5339,109 @@ void AddBufferFieldToStructure(GstStructure *structure, const char *fieldName, c
  */
 void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codecInfo)
 {
-	GstCaps *caps = GetCaps(codecInfo.mCodecFormat);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
-	stream->format = codecInfo.mCodecFormat;
 	interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback = true;
-	if (caps)
+	pthread_mutex_lock(&stream->sourceLock);
+	if (stream->source == nullptr)
 	{
-		// Append some additional info to caps
-		if (!codecInfo.mCodecData.empty())
+		stream->pendingCodecInfo.reset(new MediaCodecInfo(std::move(codecInfo)));
+		MW_LOG_WARN("Deferring stream caps for type[%d] until appsrc is created", type);
+		pthread_mutex_unlock(&stream->sourceLock);
+		return;
+	}
+	stream->format = codecInfo.mCodecFormat;
+	stream->pendingCodecInfo.reset();
+	InterfacePlayerRDK_ApplyStreamCapsToSource(this, type, stream->source,
+		std::move(codecInfo));
+	pthread_mutex_unlock(&stream->sourceLock);
+}
+
+static bool InterfacePlayerRDK_ApplyStreamCapsToSource(InterfacePlayerRDK *player,
+	GstMediaType type, GstElement *source, MediaCodecInfo&& codecInfo)
+{
+	GstCaps *caps = GetCaps(codecInfo.mCodecFormat);
+	if (caps == nullptr)
+	{
+		MW_LOG_ERR("Failed to get caps for type[%d] format[%d]", type,
+			codecInfo.mCodecFormat);
+		return false;
+	}
+
+	if (!codecInfo.mCodecData.empty())
+	{
+		AddBufferFieldToStructure(gst_caps_get_structure(caps, 0),
+			"codec_data", codecInfo.mCodecData);
+	}
+
+	if (type == eGST_MEDIATYPE_VIDEO)
+	{
+		if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_H264)
 		{
-			AddBufferFieldToStructure(gst_caps_get_structure (caps, 0), "codec_data", codecInfo.mCodecData);
+			gst_caps_set_simple(caps,
+				"stream-format", G_TYPE_STRING, "avc",
+				"alignment", G_TYPE_STRING, "au",
+				"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+				"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
+				"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+				NULL);
 		}
-		if (type == eGST_MEDIATYPE_VIDEO)
+		else if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_HEVC)
 		{
-			if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_H264)
-			{
-				gst_caps_set_simple(caps,
-									"stream-format", G_TYPE_STRING, "avc",
-									"alignment", G_TYPE_STRING, "au",
-									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
-									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
-									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-									NULL);
-			}
-			else if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_HEVC)
-			{
-				gst_caps_set_simple(caps,
-									"stream-format", G_TYPE_STRING, "hvc1",
-									"alignment", G_TYPE_STRING, "au",
-									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
-									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
-									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-									NULL);
-			}
+			gst_caps_set_simple(caps,
+				"stream-format", G_TYPE_STRING, "hvc1",
+				"alignment", G_TYPE_STRING, "au",
+				"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
+				"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
+				"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+				NULL);
 		}
-		else if (type == eGST_MEDIATYPE_AUDIO)
+	}
+	else if (type == eGST_MEDIATYPE_AUDIO)
+	{
+		if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_AAC_RAW)
 		{
-			if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_AAC_RAW)
-			{
-				gst_caps_set_simple(caps,
-									"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
-									"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
-									NULL);
-			}
-			else if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_EC3)
-			{
-				gst_caps_set_simple(caps,
-									"framed", G_TYPE_BOOLEAN, TRUE,
-									"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
-									"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
-									NULL);
-			}
+			gst_caps_set_simple(caps,
+				"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+				"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+				NULL);
 		}
-		if (codecInfo.mIsEncrypted)
+		else if (codecInfo.mCodecFormat == GST_FORMAT_AUDIO_ES_EC3)
 		{
-			GstStructure *s = gst_caps_get_structure (caps, 0);
-			if (s)
+			gst_caps_set_simple(caps,
+				"framed", G_TYPE_BOOLEAN, TRUE,
+				"rate", G_TYPE_INT, codecInfo.mInfo.audio.mSampleRate,
+				"channels", G_TYPE_INT, codecInfo.mInfo.audio.mChannelCount,
+				NULL);
+		}
+	}
+
+	if (codecInfo.mIsEncrypted)
+	{
+		GstStructure *s = gst_caps_get_structure(caps, 0);
+		if (s)
+		{
+			gst_structure_set(s,
+				"original-media-type", G_TYPE_STRING, gst_structure_get_name(s),
+				NULL);
+			if (player->mDrmSystem != NULL)
 			{
-				gst_structure_set (s,
-					"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
+				gst_structure_set(s,
+					GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING,
+					player->mDrmSystem,
 					NULL);
-				if (mDrmSystem != NULL)
-				{
-					gst_structure_set (s,
-						GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, mDrmSystem,
-						NULL);
-				}
-				// Same for both cenc and cbcs
-				gst_structure_set_name (s, "application/x-cenc");
 			}
+			gst_structure_set_name(s, "application/x-cenc");
+			MW_LOG_WARN("[CDAI][CP4-Caps] Encrypted caps (application/x-cenc) applied for type[%d] - decryptors will be required", type);
 		}
-		gchar* capsStr = gst_caps_to_string(caps);
-		MW_LOG_MIL("Setting stream caps for type[%d] format[%d]: %s", type, codecInfo.mCodecFormat, capsStr);
-		g_free(capsStr);
-		gst_app_src_set_caps(GST_APP_SRC(stream->source), caps);
-		gst_caps_unref(caps);
 	}
-	else
-	{
-		MW_LOG_ERR("Failed to get caps for type[%d] format[%d]", type, codecInfo.mCodecFormat);
-	}
+
+	gchar *capsStr = gst_caps_to_string(caps);
+	MW_LOG_MIL("Setting stream caps for type[%d] format[%d]: %s", type,
+		codecInfo.mCodecFormat, capsStr);
+	g_free(capsStr);
+	gst_app_src_set_caps(GST_APP_SRC(source), caps);
+	gst_caps_unref(caps);
+	return true;
 }
 
 /**
@@ -5414,17 +5449,18 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
  * @param[in] buffer The GstBuffer to decorate
  * @param[in] drmMetadata The DRM metadata
  */
-static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMetadata &drmMetadata)
+static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer,
+	const MediaDrmMetadata &drmMetadata)
 {
 	GstStructure *metadata = NULL;
 	if (drmMetadata.mIsEncrypted)
 	{
 		metadata = gst_structure_new(
-									"application/x-cenc",
-									"encrypted", G_TYPE_BOOLEAN, TRUE,
-									// TODO : cipher-mode to be added in caps and not drmMetadata, complying with qtdemux
-									"cipher-mode", G_TYPE_STRING, CipherTypeToString(drmMetadata.mCipher),
-									NULL);
+			"application/x-cenc",
+			"encrypted", G_TYPE_BOOLEAN, TRUE,
+			// TODO : cipher-mode to be added in caps and not drmMetadata, complying with qtdemux
+			"cipher-mode", G_TYPE_STRING, CipherTypeToString(drmMetadata.mCipher),
+			NULL);
 
 		if (!metadata)
 		{
@@ -5441,36 +5477,36 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
 		{
 			AddBufferFieldToStructure(metadata, "iv", drmMetadata.mIV);
 			gst_structure_set(metadata,
-							"iv_size", G_TYPE_UINT, drmMetadata.mIV.size(),
-							NULL);
+				"iv_size", G_TYPE_UINT, drmMetadata.mIV.size(),
+				NULL);
 		}
 
 		if (!drmMetadata.mSubSamples.empty())
 		{
-			AddBufferFieldToStructure(metadata, "subsamples", drmMetadata.mSubSamples);
+			AddBufferFieldToStructure(metadata, "subsamples",
+				drmMetadata.mSubSamples);
 			gst_structure_set(metadata,
-							"subsample_count", G_TYPE_UINT, drmMetadata.mNumSubSamples,
-							NULL);
+				"subsample_count", G_TYPE_UINT, drmMetadata.mNumSubSamples,
+				NULL);
 		}
 		else
 		{
 			gst_structure_set(metadata,
-							"subsample_count", G_TYPE_UINT, 0,
-							NULL);
+				"subsample_count", G_TYPE_UINT, 0,
+				NULL);
 		}
 
 		if (drmMetadata.mCipher == CIPHER_TYPE_CBCS)
 		{
 			gst_structure_set(metadata,
-							"crypt_byte_block", G_TYPE_UINT, drmMetadata.mCryptByteBlock,
-							"skip_byte_block", G_TYPE_UINT, drmMetadata.mSkipByteBlock,
-							NULL );
+				"crypt_byte_block", G_TYPE_UINT, drmMetadata.mCryptByteBlock,
+				"skip_byte_block", G_TYPE_UINT, drmMetadata.mSkipByteBlock,
+				NULL);
 		}
 	}
 
 	if (metadata)
 	{
-		// serialize and print the metadata
 		gchar *metaStr = gst_structure_to_string(metadata);
 		MW_LOG_DEBUG("Added drm metadata: %s", metaStr);
 		g_free(metaStr);

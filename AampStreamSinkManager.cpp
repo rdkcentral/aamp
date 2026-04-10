@@ -395,6 +395,10 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 				{
 					//Do not edit or remove this log - it is used in L2 test
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating active PLAYER[%d]", this, aamp->mPlayerId);
+					// Pipeline will be torn down and recreated for the next player.
+					// Reset the injected flag so encrypted headers are re-injected
+					// into the fresh pipeline session, but keep the headers data.
+					mEncryptedHeadersInjected = false;
 				}
 				mActiveGstPlayersMap.erase(aamp);
 			}
@@ -578,6 +582,14 @@ StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
 StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PrivateInstanceAAMP *aamp)
 {
 	StreamSink *sink_ptr = nullptr;
+
+	if ((mPipelineMode == ePIPELINEMODE_SINGLE) &&
+		(mGstPlayer != nullptr) &&
+		mGstPlayer->IsAssociatedAamp(aamp))
+	{
+		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning shared single-pipeline Stream Sink for PLAYER[%d]", this, aamp->mPlayerId);
+		return mGstPlayer;
+	}
 
 	if (mClientStreamSinkMap.count(aamp) != 0)
 	{

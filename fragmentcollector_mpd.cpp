@@ -48,6 +48,7 @@
 #include <cctype>
 #include <regex>
 #include "AampCacheHandler.h"
+#include "mp4demux/AampMp4Demuxer.h"
 #include "AampUtils.h"
 #include "AampMPDUtils.h"
 #include <chrono>
@@ -8702,14 +8703,14 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 	{
 		AAMPLOG_WARN("Pushing encrypted header for %s fragmentUrl %s", GetMediaTypeName(AampMediaType(trackIdx)), headerUrl.c_str());
 		bool temp = false;
+		DownloadInfoPtr info = std::make_shared<DownloadInfo>();
 		try
 		{
-			DownloadInfoPtr info = std::make_shared<DownloadInfo>();
 			info->absolutePosition = 0;
 			info->ptsOffset = 0;
 			info->isInitSegment = true;
 			info->mediaType = (AampMediaType)trackIdx;
-			mMediaStreamContext[trackIdx]->mActiveDownloadInfo = std::move(info);
+			mMediaStreamContext[trackIdx]->mActiveDownloadInfo = info;
 			temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0);
 		}
 		catch(const std::regex_error& e)
@@ -8720,7 +8721,18 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 		{
 			AAMPLOG_ERR("unknown exception calling CacheFragment");
 		}
-		mMediaStreamContext[trackIdx]->mActiveDownloadInfo = nullptr;
+		if (temp)
+		{
+			AAMPLOG_WARN("Queueing encrypted init header for %s on the normal cached-fragment path",
+				GetMediaTypeName(AampMediaType(trackIdx)));
+			mMediaStreamContext[trackIdx]->OnFragmentDownloadSuccess(info);
+		}
+		else
+		{
+			mMediaStreamContext[trackIdx]->mActiveDownloadInfo = nullptr;
+		}
+		AAMPLOG_WARN("[CDAI][CP2-EncHdr] CacheEncryptHeader result: track[%s] url='%s' success=%d",
+			GetMediaTypeName(AampMediaType(trackIdx)), headerUrl.c_str(), static_cast<int>(temp));
 		if(!temp)
 		{
 			AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", headerUrl.c_str(), mMediaStreamContext[trackIdx]->fragmentTime); //CID:84438 - checked return
@@ -8829,6 +8841,8 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 										ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , std::move(initialization), aamp->mConfig);
 
 										mappedHeaders[i] = std::move(fragmentUrl);
+										AAMPLOG_WARN("[CDAI][CP1-EncHdr] GetEncryptedHeaders: track[%s] period[%u] encryptedInitUrl='%s'",
+											GetMediaTypeName(AampMediaType(i)), iPeriod, mappedHeaders[i].c_str());
 
 										SAFE_DELETE(fragmentDescriptor);
 										ret = true;
