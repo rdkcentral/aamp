@@ -1323,11 +1323,11 @@ public:
 	/**
 	 * @fn SetCurlTimeout
 	 *
-	 * @param[in] timeout - maximum time  in seconds curl request is allowed to take
+	 * @param[in] timeoutMs - maximum time  in milliseconds curl request is allowed to take
 	 * @param[in] instance - index of curl instance to which timeout to be set
-	 * @return void
+	 * @return true if timeout changed, else false
 	 */
-	void SetCurlTimeout(long timeout, AampCurlInstance instance);
+	bool SetCurlTimeout(long timeoutMs, AampCurlInstance instance);
 
 	/**
 	 * @brief Set manifest curl timeout
@@ -1570,10 +1570,9 @@ public:
 	/**
 	 * @fn SendBufferChangeEvent
 	 *
-	 * @param[in] bufferingStopped- Flag to indicate buffering stopped.Underflow = True
-	 * @return void
+	 * @param[in] bufferingStarted True if buffering started, false if buffering ended.
 	 */
-	void SendBufferChangeEvent(bool bufferingStopped=false);
+	void SendBufferChangeEvent(bool bufferingStart=false);
 
 	/**
 	 * @fn SendTuneMetricsEvent
