@@ -5339,7 +5339,9 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
 	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
 	p_aamp->culledSeconds = SEEK_POS;
 
-	EXPECT_DOUBLE_EQ(p_aamp->GetTSBSessionManager()->GetTotalStoreDuration(eMEDIATYPE_VIDEO), 0);
+	// Empty TSB is represented by a null session manager in this test context
+	// (no manager created = no TSB data, equivalent to GetTotalStoreDuration() == 0)
+	EXPECT_EQ(p_aamp->GetTSBSessionManager(), nullptr);
 	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 	EXPECT_FALSE(p_aamp->IsLocalAAMPTsbInjection());
 }
