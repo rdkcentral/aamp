@@ -633,7 +633,10 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			if (busEvent.msg.find("HDCPProtectionFailure") != std::string::npos)
 			{
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
-				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
+				
+				// Removed flush(teardown) here as injection threads may still be running
+				// Allow retune to reset everything but mute video as HDCP failed
+				_this->SetVideoMute(true);
 				_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
 			}
 			break;
