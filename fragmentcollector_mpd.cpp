@@ -1172,18 +1172,18 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							// For live stream, ad break scheduling fragment should be within source period.
 							// Otherwise, it may be beyond control if ad break cancellation is requested by server.
-							const bool baselineSourcePeriodCheck = (pMediaStreamContext->fragmentTime < (mPeriodStartTime + (mPeriodDuration / 1000)));
+							const bool baselineSourcePeriodCheck = ((pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset) < (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration / 1000.0));
 
 							bool isCurrentAdCancelled = false;
 							if (mCdaiObject->mCurAds && mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < static_cast<int>(mCdaiObject->mCurAds->size()))
 							{
 								isCurrentAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
 							}
-							// Check if the ad fragment is within source period for live stream or cancelled ad break is within source period. 
+							// Check if the ad fragment is within source period for live stream or cancelled ad break is within source period.
 							// If not, skip the fragment to avoid potential issues. CheckForAdTerminate() mark EOS for stream at boundaries.
 							if (((liveEdgePeriodPlayback || isCurrentAdCancelled) && !baselineSourcePeriodCheck))
 							{
-								AAMPLOG_INFO("Ad break playing fragment is not within source period. fragmentTime: %f, mPeriodEndTime: %f", pMediaStreamContext->fragmentTime, (mPeriodStartTime + (mPeriodDuration / 1000)));
+								AAMPLOG_INFO("Ad break fragment is not within source period. fragment offset:%lf, placedDuration: %lf", (pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset), (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration / 1000.0));
 								return false;
 							}
 						}
@@ -1931,8 +1931,7 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 	{
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			double skipTime = seekPositionSeconds;
-			SkipFragments(mMediaStreamContext[i], skipTime, true);
+			SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true);
 		}
 		else
 		{
@@ -2748,7 +2747,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		this->mpd	=	tmpMPD;
 		// Parse for generic parameters
 		mMPDParseHelper	=	mpdDnldResp->GetMPDParseHelper();
-		
+
 		// this flag for current state of manifest ( Linear to VOD can happen)
 		if((mMPDParseHelper->IsLiveManifest() != mIsLiveManifest) && !init )
 		{
@@ -9335,13 +9334,29 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 
 		// CID:190371 - Data race condition
 		// Get and clear mContentSeekOffset atomically.
-		std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
-		seekPositionSeconds = mCdaiObject->mContentSeekOffset;
-		mCdaiObject->mContentSeekOffset = 0;
-
+		{
+			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+			seekPositionSeconds = mCdaiObject->mContentSeekOffset;
+			mCdaiObject->mContentSeekOffset = 0;
+		}
 		if (seekPositionSeconds)
 		{
-			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf]", currentPeriodId.c_str(), seekPositionSeconds);
+			/* seekPositionSeconds is relative to the start of the period but SeekInPeriod() takes a
+			* value that is relative to the first segment currently present in the manifest.
+			* adjust seekPositionSeconds to be relative to the first segment
+			*/
+			double startDelta = mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mCurrentPeriod);
+			if (seekPositionSeconds > startDelta )
+			{
+				seekPositionSeconds -= startDelta;
+			}
+			else
+			{
+				// Requested position is at or before the first available segment;
+				// clamp to the earliest playable point (first segment).
+				seekPositionSeconds = 0.0;
+			}
+			AAMPLOG_INFO("[CDAI]: Resuming channel playback at PeriodID[%s] at Position[%lf] startDelta [%f]", currentPeriodId.c_str(), seekPositionSeconds, startDelta);
 			if (mPlayRate > AAMP_RATE_PAUSE)
 			{
 				SeekInPeriod(seekPositionSeconds);

@@ -579,13 +579,14 @@ TEST_F(AampLogManagerTest, logprintf_Test1)
 {
 	//Arrange: Creating the variables for passing to arguments
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
-	const char* func = "testFunction";
+	std::string file("test.cpp");
+	std::string func("testFunction");
 	int line = 2;
 	const char *format = "s3";
 	const char *format2 = "s4";
 
 	//Act: Calling the function for test
-	logprintf(level,func,line,format,format2);
+	logprintf(level, file.c_str(), func.c_str(), line, format, format2);
 }
 
 TEST_F(AampLogManagerTest, timestampStringify )
@@ -752,6 +753,7 @@ TEST_F(AampLogManagerTest, setLogLevelError_AAMPLOG_MIL)
 TEST_F(AampLogManagerTest, logprintf_TRACE)
 {
 	AAMP_LogLevel level = eLOGLEVEL_TRACE;
+	std::string file("test.cpp");
 	std::string func("testFunc");
 	int line = 2;
 	std::string message("message");
@@ -763,12 +765,13 @@ TEST_F(AampLogManagerTest, logprintf_TRACE)
 			HasSubstr("[TRACE]"),
 			HasSubstr("[" + func + "]"),
 			HasSubstr(message))));
-	logprintf(level, func.c_str(), line, "%s", message.c_str());
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
 TEST_F(AampLogManagerTest, logprintf_INFO)
 {
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
+	std::string file("test.cpp");
 	std::string func("testFunc");
 	int line = 2;
 	std::string message("message");
@@ -780,7 +783,7 @@ TEST_F(AampLogManagerTest, logprintf_INFO)
 			HasSubstr("[INFO]"),
 			HasSubstr("[" + func + "]"),
 			HasSubstr(message))));
-	logprintf(level, func.c_str(), line, "%s", message.c_str());
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
 /*
@@ -792,6 +795,7 @@ const int MAX_DEBUG_LOG_BUFF_SIZE = 512;
 TEST_F(AampLogManagerTest, logprintf_LongFile)
 {
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
+	std::string file("test.cpp");
 	std::string func("testFunc");
 	int line = 2;
 	std::string message("message");
@@ -801,7 +805,7 @@ TEST_F(AampLogManagerTest, logprintf_LongFile)
 			HasSubstr("[" + std::to_string(-1) + "]"),
 			HasSubstr("[INFO]"),
 			HasSubstr("[" + func + "]"))));
-	logprintf(level, func.c_str(), line, "%s", message.c_str());
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
 /*
@@ -811,6 +815,7 @@ TEST_F(AampLogManagerTest, logprintf_LongFile)
 TEST_F(AampLogManagerTest, logprintf_LongMessage)
 {
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
+	std::string file("test.cpp");
 	std::string func("testFunc");
 	int line = 2;
 	std::string message(MAX_DEBUG_LOG_BUFF_SIZE, '*');
@@ -820,7 +825,7 @@ TEST_F(AampLogManagerTest, logprintf_LongMessage)
 			HasSubstr("[" + std::to_string(-1) + "]"),
 			HasSubstr("[INFO]"),
 			HasSubstr("[" + func + "]"))));
-	logprintf(level, func.c_str(), line, "%s", message.c_str());
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
 /*
@@ -830,6 +835,7 @@ TEST_F(AampLogManagerTest, logprintf_LongMessage)
 TEST_F(AampLogManagerTest, logprintf_MaxMessage)
 {
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
+	std::string file("test.cpp");
 	std::string func("testFunc");
 	int line = 2;
 	std::ostringstream ossthread;
@@ -843,7 +849,7 @@ TEST_F(AampLogManagerTest, logprintf_MaxMessage)
 			HasSubstr("[INFO]"),
 			HasSubstr("[" + func + "]"),
 			HasSubstr(message))));
-	logprintf(level, func.c_str(), line, "%s", message.c_str());
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
 }
 
 TEST_F(AampLogManagerTest, snprintf_tests)
@@ -912,7 +918,7 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 			HasSubstr("[WARN]"),
 			HasSubstr(message1)
 		))).Times(1);
-	logprintf(level, func.c_str(), line, "%s", message1.c_str());
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message1.c_str());
 	seqNum++;
 
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
@@ -921,7 +927,7 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 			HasSubstr("[WARN]"),
 			HasSubstr(message2)
 		))).Times(1);
-	logprintf(level, func.c_str(), line, "%s", message2.c_str());
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message2.c_str());
 	seqNum++;
 
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
@@ -930,5 +936,30 @@ TEST_F(AampLogManagerTest, logprintf_SequentialNumbers)
 			HasSubstr("[WARN]"),
 			HasSubstr(message3)
 		))).Times(1);
-	logprintf(level, func.c_str(), line, "%s", message3.c_str());
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message3.c_str());
+}
+
+/*
+	Test logprintf with logFilename enabled
+	When AampLogManager::logFilename is true, the base filename must appear in the log
+	output in square brackets immediately before the function name.
+*/
+TEST_F(AampLogManagerTest, logprintf_LogFilenameEnabled)
+{
+	AampLogManager::logFilename = true;
+
+	AAMP_LogLevel level = eLOGLEVEL_WARN;
+	std::string file("path/to/MySource.cpp");
+	std::string func("testFunc");
+	int line = 42;
+	std::string message("filename test message");
+
+	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+		AllOf(
+			HasSubstr("[MySource.cpp]"),
+			HasSubstr("[" + func + "]"),
+			HasSubstr(message))));
+	logprintf(level, file.c_str(), func.c_str(), line, "%s", message.c_str());
+
+	AampLogManager::logFilename = false;
 }

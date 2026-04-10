@@ -374,6 +374,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
+	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
+	{false, "logFilename", eAAMPConfig_LogFilename, false},
 
 };
 
@@ -1834,6 +1836,8 @@ void AampConfig::ConfigureLogSettings()
 		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 		AampLogManager::lockLogLevel(true);
 	}
+
+	AampLogManager::logFilename = configValueBool[eAAMPConfig_LogFilename].value;
 }
 
 /**
