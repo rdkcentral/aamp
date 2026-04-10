@@ -1183,7 +1183,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							// all fragments).  Blocking when placedDuration==0 stalls the FetcherLoop
 							// indefinitely — fragmentTime never advances, CheckForAdTerminate never fires —
 							// which delays seeks and causes test window violations on slow CI runners.
-							const uint32_t curPlacedDuration = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration;
+							const auto curPlacedDuration = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration;
 							const bool baselineSourcePeriodCheck = (curPlacedDuration == 0) ||
 								((pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset) < (curPlacedDuration / 1000.0));
 							const bool isCurrentAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
@@ -6883,6 +6883,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	for (int i = 0; i < mMaxTracks; i++)
 	{
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[i];
+		if (!pMediaStreamContext)
+		{
+			continue;
+		}
 		size_t numAdaptationSets = period->GetAdaptationSets().size();
 		int  selAdaptationSetIndex = -1;
 		int selRepresentationIndex = -1;
@@ -7056,7 +7060,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 	}
 
-	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+	if(1 == mNumberOfTracks && mMediaStreamContext[eMEDIATYPE_VIDEO] && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
 		{
