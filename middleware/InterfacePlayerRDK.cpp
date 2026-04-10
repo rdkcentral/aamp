@@ -472,6 +472,23 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		}
 	}
 
+	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
+	{
+		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+		GstContext *context = gst_context_new("streams-info", false);
+		GstStructure *contextStructure = gst_context_writable_structure(context);
+		if( !interfacePlayerPriv->gstPrivateContext->subtitle_sink ) MW_LOG_WARN( "subtitle_sink==NULL" );
+		gst_structure_set(
+						  contextStructure,
+						  "video-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->video_sink)?0x1u:0x0u,
+						  "audio-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->audio_sink)?0x1u:0x0u,
+						  "text-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->subtitle_sink)?0x1u:0x0u,
+						  "enable-live-latency", G_TYPE_BOOLEAN, enableLiveLatency,
+						  nullptr );
+		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
+		gst_context_unref(context);
+	}
+
 	if (interfacePlayerPriv->gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == interfacePlayerPriv->gstPrivateContext->rate)
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
@@ -511,22 +528,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorMsgTimeMS = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorCBCount = 0;
-	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
-	{
-		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",interfacePlayerPriv->gstPrivateContext->subtitle_sink);
-		GstContext *context = gst_context_new("streams-info", false);
-		GstStructure *contextStructure = gst_context_writable_structure(context);
-		if( !interfacePlayerPriv->gstPrivateContext->subtitle_sink ) MW_LOG_WARN( "subtitle_sink==NULL" );
-		gst_structure_set(
-						  contextStructure,
-						  "video-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->video_sink)?0x1u:0x0u,
-						  "audio-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->audio_sink)?0x1u:0x0u,
-						  "text-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->subtitle_sink)?0x1u:0x0u,
-						  "enable-live-latency", G_TYPE_BOOLEAN, enableLiveLatency,
-						  nullptr );
-		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
-		gst_context_unref(context);
-	}
 }
 
 /**
