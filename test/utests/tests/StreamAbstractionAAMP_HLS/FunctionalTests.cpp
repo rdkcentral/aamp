@@ -2900,3 +2900,225 @@ TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
 	EXPECT_EQ("rend0",trackInfo.rendition);
 	EXPECT_EQ("trackName0",trackInfo.name);
 }
+
+TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrackSubType)
+{
+	std::vector<TextTrackInfo> tracks;
+	TextTrackInfo trackInfo;
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "","","","",0));
+	tracks.push_back(TextTrackInfo("idx1", "lang0", true, "","","","",0));
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+
+	// Verify CLOSED-CAPTIONS preference selects CC track (isCC=true)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index);
+	EXPECT_TRUE(trackInfo.isCC) << "CLOSED-CAPTIONS preference should select CC track";
+
+	// Verify SUBTITLES preference selects subtitle track (isCC=false)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index);
+	EXPECT_FALSE(trackInfo.isCC) << "SUBTITLES preference should select subtitle track";
+
+	// Verify SUBTITLES preference still selects subtitle track (repeated)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index);
+	EXPECT_FALSE(trackInfo.isCC) << "SUBTITLES preference should select subtitle track";
+
+	// Verify CLOSED-CAPTIONS preference still selects CC track (repeated)
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index);
+	EXPECT_TRUE(trackInfo.isCC) << "CLOSED-CAPTIONS preference should select CC track";
+
+	// Verify empty sub-type preference doesn't award bonus
+	// With no sub-type preference, both tracks have equal language score,
+	// so the first track (idx0) should be selected
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Empty sub-type preference should not award bonus";
+
+	// Verify unrecognized sub-type preference doesn't award bonus
+	// With unrecognized preference, both tracks have equal language score,
+	// so the first track (idx0) should be selected
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "UNKNOWN";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Unrecognized sub-type preference should not award bonus";
+
+	// Verify sub-type bonus overrides track order
+	// Create tracks with different languages but matching sub-type
+	tracks.clear();
+	tracks.push_back(TextTrackInfo("idx0", "lang1", false, "","","","",0)); // First, but wrong sub-type
+	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "","","","",0));  // Second, but matches sub-type
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang1";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "CLOSED-CAPTIONS";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang1",trackInfo.language);
+	EXPECT_EQ("idx1",trackInfo.index) << "Sub-type bonus should select CC track even if not first";
+	EXPECT_TRUE(trackInfo.isCC);
+
+	// Verify SUBTITLES sub-type bonus overrides track order
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang1";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextSubTypeString = "SUBTITLES";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang1",trackInfo.language);
+	EXPECT_EQ("idx0",trackInfo.index) << "Sub-type bonus should select subtitle track";
+	EXPECT_FALSE(trackInfo.isCC);
+}
+
+/**
+ * @brief Test that when DisableWebVTT is enabled, non-CC subtitle tracks are
+ *        excluded from the text track list by PopulateAudioAndTextTracks.
+ */
+TEST_F(StreamAbstractionAAMP_HLSTest, PopulateAudioAndTextTracks_DisableWebVTT_ExcludesSubtitleTracks)
+{
+	// Set up a stream profile so the media population path is entered
+	HlsStreamInfo streamInfo;
+	streamInfo.enabled = true;
+	streamInfo.isIframeTrack = false;
+	streamInfo.validity = true;
+	streamInfo.codecs = "h264";
+	mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+
+	// Add a non-CC subtitle track (WebVTT) and a CC track to mediaInfoStore
+	MediaInfo subtitleMedia;
+	subtitleMedia.type = eMEDIATYPE_SUBTITLE;
+	subtitleMedia.language = "en";
+	subtitleMedia.group_id = "subs";
+	subtitleMedia.name = "English";
+	subtitleMedia.isCC = false; // non-CC / WebVTT subtitle
+	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(subtitleMedia);
+
+	MediaInfo ccMedia;
+	ccMedia.type = eMEDIATYPE_SUBTITLE;
+	ccMedia.language = "en";
+	ccMedia.group_id = "cc";
+	ccMedia.name = "CC1";
+	ccMedia.instreamID = "CC1";
+	ccMedia.isCC = true; // Closed caption track
+	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(ccMedia);
+
+	// Expect DisableWebVTT to return true, which should filter out non-CC subtitles
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableWebVTT))
+		.WillOnce(Return(true));
+
+	mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+	const auto& textTracks = mStreamAbstractionAAMP_HLS->GetAvailableTextTracks();
+	ASSERT_EQ(textTracks.size(), 1u) << "Only CC tracks should be present when DisableWebVTT is set";
+	EXPECT_TRUE(textTracks[0].isCC) << "The remaining track must be a CC track";
+}
+
+/**
+ * @brief Test that when DisableWebVTT is enabled, CC subtitle tracks are
+ *        retained in the text track list by PopulateAudioAndTextTracks.
+ */
+TEST_F(StreamAbstractionAAMP_HLSTest, PopulateAudioAndTextTracks_DisableWebVTT_RetainsCCTracks)
+{
+	HlsStreamInfo streamInfo;
+	streamInfo.enabled = true;
+	streamInfo.isIframeTrack = false;
+	streamInfo.validity = true;
+	streamInfo.codecs = "h264";
+	mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+
+	// Add two CC tracks to mediaInfoStore
+	MediaInfo ccMedia1;
+	ccMedia1.type = eMEDIATYPE_SUBTITLE;
+	ccMedia1.language = "en";
+	ccMedia1.group_id = "cc";
+	ccMedia1.name = "CC1";
+	ccMedia1.instreamID = "CC1";
+	ccMedia1.isCC = true;
+	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(ccMedia1);
+
+	MediaInfo ccMedia2;
+	ccMedia2.type = eMEDIATYPE_SUBTITLE;
+	ccMedia2.language = "fr";
+	ccMedia2.group_id = "cc";
+	ccMedia2.name = "CC3";
+	ccMedia2.instreamID = "CC3";
+	ccMedia2.isCC = true;
+	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(ccMedia2);
+
+	// Expect DisableWebVTT to return true
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableWebVTT))
+		.WillOnce(Return(true));
+
+	mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+	const auto& textTracks = mStreamAbstractionAAMP_HLS->GetAvailableTextTracks();
+	ASSERT_EQ(textTracks.size(), 2u) << "All CC tracks should be retained when DisableWebVTT is set";
+	for (const auto& track : textTracks)
+	{
+		EXPECT_TRUE(track.isCC) << "Every retained track must be a CC track";
+	}
+}
+
+/**
+ * @brief Test that when DisableWebVTT is disabled, both CC and non-CC subtitle
+ *        tracks are included by PopulateAudioAndTextTracks.
+ */
+TEST_F(StreamAbstractionAAMP_HLSTest, PopulateAudioAndTextTracks_WebVTTEnabled_IncludesAllSubtitleTracks)
+{
+	HlsStreamInfo streamInfo;
+	streamInfo.enabled = true;
+	streamInfo.isIframeTrack = false;
+	streamInfo.validity = true;
+	streamInfo.codecs = "h264";
+	mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
+
+	// Add one non-CC subtitle and one CC track
+	MediaInfo subtitleMedia;
+	subtitleMedia.type = eMEDIATYPE_SUBTITLE;
+	subtitleMedia.language = "en";
+	subtitleMedia.group_id = "subs";
+	subtitleMedia.name = "English";
+	subtitleMedia.isCC = false;
+	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(subtitleMedia);
+
+	MediaInfo ccMedia;
+	ccMedia.type = eMEDIATYPE_SUBTITLE;
+	ccMedia.language = "en";
+	ccMedia.group_id = "cc";
+	ccMedia.name = "CC1";
+	ccMedia.instreamID = "CC1";
+	ccMedia.isCC = true;
+	mStreamAbstractionAAMP_HLS->mediaInfoStore.push_back(ccMedia);
+
+	// DisableWebVTT is false, so all tracks should be included
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_DisableWebVTT))
+		.WillOnce(Return(false));
+
+	mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
+
+	const auto& textTracks = mStreamAbstractionAAMP_HLS->GetAvailableTextTracks();
+	ASSERT_EQ(textTracks.size(), 2u) << "Both CC and subtitle tracks should be present when DisableWebVTT is not set";
+
+	bool foundCC = false;
+	bool foundSubtitle = false;
+	for (const auto& track : textTracks)
+	{
+		if (track.isCC) foundCC = true;
+		else foundSubtitle = true;
+	}
+	EXPECT_TRUE(foundCC) << "CC track should be present";
+	EXPECT_TRUE(foundSubtitle) << "Non-CC subtitle track should be present";
+}
