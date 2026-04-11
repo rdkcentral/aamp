@@ -63,6 +63,14 @@
 #include "AampUtils.h"
 #include <stdexcept>
 
+// Minimum buffered content remaining (seconds) below which a deadline expiry is
+// treated as a genuine underflow.  If more than this much content is still ahead
+// of the current playback position when the deadline fires, the expiry is a false
+// alarm — e.g. a CDAI period-boundary injection gap, or a brief live-edge stall
+// where GStreamer has content queued but the download loop is momentarily idle.
+// In those cases the deadline is rearmed for the remaining drain time.
+static constexpr double kFalseAlarmGuardSec = 1.0;
+
 // ---------------------------------------------------------------------------
 // Construction / destruction
 // ---------------------------------------------------------------------------
@@ -291,6 +299,25 @@ void AampUnderflowMonitor::Run()
                           rate, (int)isTrickplay, (int)isSeeking);
             mDeadlineArmed = false;
             continue;
+        }
+
+        // Re-read the actual buffer depth before declaring underflow.  If GStreamer
+        // still has content queued (e.g. CDAI period-boundary injection gap or a
+        // brief live-edge stall), the deadline expiry is premature — rearm the
+        // timer for the remaining drain time and wait rather than pausing the pipeline.
+        // GetPositionMs() is safe to call under mMutex (same pattern used in
+        // NotifyVideoFragment); mCurrentEndPosition is guarded by the same mutex.
+        {
+            const double posNow  = mAamp->GetPositionMs() / 1000.0;
+            const double bufLeft = mCurrentEndPosition - posNow;
+            if (bufLeft > kFalseAlarmGuardSec)
+            {
+                AAMPLOG_INFO("[video] deadline expired but %.3fs still buffered; "
+                             "rearming (period gap / live-edge stall, not underflow)",
+                             bufLeft);
+                RearmDeadline(bufLeft, rate);
+                continue;
+            }
         }
 
         if (!mAamp->GetBufUnderFlowStatus())
