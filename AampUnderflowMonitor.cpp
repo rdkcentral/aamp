@@ -217,6 +217,27 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
     mCV.notify_one();
 }
 
+void AampUnderflowMonitor::NotifyRateChange(float rate)
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mCurrentPlayRate = rate;
+        // If transitioning to trickplay, disarm immediately so the stale deadline
+        // (armed at the old rate) cannot fire before the first trickplay fragment
+        // arrives and rearmed the timer via NotifyVideoFragment.
+        const bool isTrickplay = (rate != AAMP_NORMAL_PLAY_RATE &&
+                                  rate != AAMP_SLOWMOTION_RATE  &&
+                                  rate != AAMP_RATE_PAUSE);
+        if (isTrickplay)
+        {
+            AAMPLOG_INFO("[video] AampUnderflowMonitor: rate changed to %.2f (trickplay); disarming deadline",
+                         rate);
+            mDeadlineArmed = false;
+        }
+    }
+    mCV.notify_one();
+}
+
 void AampUnderflowMonitor::NotifyPipelinePaused()
 {
     {
