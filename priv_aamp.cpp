@@ -10388,10 +10388,13 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
-		if( ISCONFIGSET_PRIV(eAAMPConfig_DisableWebVTT) )
+		for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 		{
-			trackInfo.swap(textTracksCopy);
-			AAMPLOG_DEBUG("Filtered track list to include only in-band CC tracks");
+			AAMPLOG_WARN("textTracksCopy name:%s isCC:%d",iter->name.c_str(),iter->isCC);
+		}
+		for (auto iter = textTracksCopy.begin(); iter != textTracksCopy.end(); iter++)
+		{
+			AAMPLOG_WARN("textTracksCopy name:%s isCC:%d",iter->name.c_str(),iter->isCC);
 		}
 		if (!trackInfo.empty())
 		{
@@ -10802,7 +10805,7 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 }
 
 /**
- * @brief Get current audio track index
+ * @brief Get current text track index
  */
 std::string PrivateInstanceAAMP::GetTextTrackInfo()
 {
