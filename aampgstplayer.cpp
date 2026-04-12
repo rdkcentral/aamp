@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <glib.h>
 #include "priv_aamp.h"
+#include "StreamAbstractionAAMP.h"
 #include <atomic>
 #include <algorithm>
 #include "AampDRMLicManager.h"
