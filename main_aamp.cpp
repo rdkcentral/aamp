@@ -987,7 +987,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// prevents a stale normal-play deadline from firing and declaring a
 				// false underflow during the gap between the rate change and the first
 				// trickplay fragment arriving (AAMP-TSB-5016, AAMP-CDAI-8003).
-				if (ISCONFIGSET_PRIV(eAAMPConfig_EnableAampUnderflowMonitor) &&
+				if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) &&
 					aamp->mpStreamAbstractionAAMP)
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyRateChangeToUnderflowMonitor(rate);
