@@ -150,7 +150,9 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 	else if (pContext)
 	{
 		bufferedTime 	    = injectedDuration - pContext->GetElapsedTime();
-		CachedFragmentsOrChunks = numberOfFragmentsCached ;
+		CachedFragmentsOrChunks = IsInjectionFromCachedFragmentChunks()
+			? numberOfFragmentChunksCached
+			: numberOfFragmentsCached;
 	}
 
 	if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
@@ -3039,8 +3041,14 @@ bool StreamAbstractionAAMP::CheckIfPlayerRunningDry()
 	{
 		return false;
 	}
-	bool videoBufferIsEmpty = videoTrack->numberOfFragmentsCached == 0 && aamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
-	bool audioBufferIsEmpty = (audioTrack->Enabled() ? (audioTrack->numberOfFragmentsCached == 0) : true) && aamp->IsSinkCacheEmpty(eMEDIATYPE_AUDIO);
+	bool videoBufferIsEmpty = (videoTrack->IsInjectionFromCachedFragmentChunks()
+		? videoTrack->numberOfFragmentChunksCached == 0
+		: videoTrack->numberOfFragmentsCached == 0) && aamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
+	bool audioBufferIsEmpty = (audioTrack->Enabled()
+		? (audioTrack->IsInjectionFromCachedFragmentChunks()
+			? audioTrack->numberOfFragmentChunksCached == 0
+			: audioTrack->numberOfFragmentsCached == 0)
+		: true) && aamp->IsSinkCacheEmpty(eMEDIATYPE_AUDIO);
 	if (videoBufferIsEmpty || audioBufferIsEmpty) /* Changed the condition from '&&' to '||', because if video getting stalled it doesn't need to wait until audio become dry */
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP: Stall detected. Buffer status is RED!");
@@ -3244,7 +3252,10 @@ void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
 		if(mediatrack != NULL)
 		{
 			int stalltimeout = GETCONFIGVALUE(eAAMPConfig_StallTimeoutMS);
-			if (!mNetworkDownDetected && (timeElapsedSinceLastFragment > stalltimeout) && mediatrack->numberOfFragmentsCached == 0)
+			bool cacheEmpty = mediatrack->IsInjectionFromCachedFragmentChunks()
+				? mediatrack->numberOfFragmentChunksCached == 0
+				: mediatrack->numberOfFragmentsCached == 0;
+			if (!mNetworkDownDetected && (timeElapsedSinceLastFragment > stalltimeout) && cacheEmpty)
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP: Didn't download a new fragment for a long time(%f) and cache empty!", timeElapsedSinceLastFragment);
 				mIsPlaybackStalled = true;

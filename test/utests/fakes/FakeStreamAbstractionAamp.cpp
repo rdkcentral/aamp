@@ -315,6 +315,10 @@ void MediaTrack::UpdateTSAfterFetch(bool isInitSegment)
 	}
 }
 
+void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment)
+{
+}
+
 bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 {
 	return true;
