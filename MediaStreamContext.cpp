@@ -1149,7 +1149,6 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			// Assign the new download info to mActiveDownloadInfo
 			mActiveDownloadInfo = dlInfo;
 		}
-		int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); // Max cached fragments per track
 		auto DownloadsEnabled = [this]()
 		{
 			return aamp->DownloadsAreEnabled() && !abort;
@@ -1164,8 +1163,10 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 				   aamp->GetLLDashServiceData()->lowLatencyMode &&
 				   !aamp->TrackDownloadsAreEnabled(mediaType);
 		};
-		// Wait for free fragment only if the number of fragments cached is equal to the max cached fragments per track
-		if (numberOfFragmentsCached == maxCachedFragmentsPerTrack)
+		// Wait for a free cache slot before starting the download.
+		// IsFragmentCacheFull() dispatches to the chunk cache for DASH and the
+		// ring buffer for HLS, so the wait always targets the right structure.
+		if (IsFragmentCacheFull())
 		{
 			while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
 			{
