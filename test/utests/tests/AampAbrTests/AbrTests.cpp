@@ -178,9 +178,28 @@ TEST_F(AbrTests, RMORejectsOutlierSamplesBeyondConfiguredThreshold)
 	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
 	abrManager.AddBandwidthSample(1000, false);
 	abrManager.AddBandwidthSample(1100, false);
-	abrManager.AddBandwidthSample(100000, false);
+	abrManager.AddBandwidthSample(100000, false); // Gets rejected
 
 	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), 1050);
+}
+
+/**
+ * @brief Test RMO estimator rejects high outlier but not low from 2 samples
+ */
+TEST_F(AbrTests, RMORejectsHigherOutlierWhen2SamplesPresent)
+{
+	eAAMPAbrConfig.abrCacheLength = 10;
+	eAAMPAbrConfig.abrCacheOutlier = 5000;
+
+	// Previously both samples would get rejected and bandwidth would be unavailable (-1).
+	// Now with the fix to reject only samples greater than the outlier threshold, the bandwidth
+	// should be available and calculated from the remaining sample.
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.AddBandwidthSample(1000, false);
+	abrManager.AddBandwidthSample(100000, false); // Gets rejected as outlier
+
+	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), 1000);
 }
 
 /**
