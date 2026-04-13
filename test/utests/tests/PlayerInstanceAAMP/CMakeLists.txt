@@ -28,7 +28,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES PauseOnPlaybackTests.cpp
                  PlayerInstanceAAMPTestsMain.cpp
-                 PlayerInstanceAAMPTests.cpp)
+                 PlayerInstanceAAMPTests.cpp
+                 PlayerStateTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp
                  ${AAMP_ROOT}/CachedFragment.cpp)
