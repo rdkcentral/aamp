@@ -89,10 +89,43 @@ static void gst_widevinedecryptor_class_init(GstwidevinedecryptorClass * klass)
 static void gst_widevinedecryptor_init(Gstwidevinedecryptor *widevinedecryptor)
 {
     DEBUG_FUNC();
+    g_warning("HariPriya: gst_widevinedecryptor_init - Creating new Widevine decryptor element=%p, ref_count=%u, name=%s, timestamp=%lld",
+            widevinedecryptor,
+            G_OBJECT(widevinedecryptor)->ref_count,
+            GST_ELEMENT_NAME(widevinedecryptor),
+            (long long)g_get_monotonic_time());
 }
 
 static void gst_widevinedecryptor_finalize(GObject * object)
 {
     DEBUG_FUNC();
+    
+    // HariPriya: Check element validity and ref count at finalize
+    guint ref_count = G_OBJECT(object)->ref_count;
+    gboolean is_valid_element = GST_IS_ELEMENT(object);
+    GstElement *element = GST_ELEMENT_CAST(object);
+    GstState current_state = GST_STATE_NULL;
+    GstState pending_state = GST_STATE_VOID_PENDING;
+    const gchar* element_name = "<invalid>";
+    
+    if (is_valid_element) {
+        current_state = GST_STATE(element);
+        pending_state = GST_STATE_PENDING(element);
+        element_name = GST_ELEMENT_NAME(element);
+    }
+    
+    long long timestamp = g_get_monotonic_time();
+    g_warning("HariPriya: gst_widevinedecryptor_finalize ENTER - element=%p, ref_count=%u, is_valid_element=%d, current_state=%d, pending_state=%d, name=%s, timestamp=%lld",
+              object, ref_count, is_valid_element, current_state, pending_state, element_name, timestamp);
+    
+    // Check parent element
+    if (is_valid_element && GST_ELEMENT_PARENT(element)) {
+        GstElement* parent = GST_ELEMENT_PARENT(element);
+        g_warning("HariPriya: gst_widevinedecryptor_finalize - parent=%p, parent_name=%s, parent_ref_count=%u",
+                  parent, GST_ELEMENT_NAME(parent), G_OBJECT(parent)->ref_count);
+    }
+    
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
+    
+    g_warning("HariPriya: gst_widevinedecryptor_finalize EXIT - element=%p, timestamp=%lld", object, (long long)g_get_monotonic_time());
 }

@@ -1308,6 +1308,14 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		rc = gst_element_set_state(element, targetState);					/* Set the state of the element to the targetState, this function is MT-safe*/
 		if(syncOnlyTransition)
 		{
+			// HariPriya: Log the return code for NULL/READY transitions
+			const char* rc_str = (rc == GST_STATE_CHANGE_SUCCESS) ? "SUCCESS" :
+			                     (rc == GST_STATE_CHANGE_ASYNC) ? "ASYNC" :
+			                     (rc == GST_STATE_CHANGE_FAILURE) ? "FAILURE" :
+			                     (rc == GST_STATE_CHANGE_NO_PREROLL) ? "NO_PREROLL" : "UNKNOWN";
+			MW_LOG_WARN("HariPriya: gst_element_set_state(%s, %s) returned %s (%d)",
+			            SafeName(element).c_str(), gst_element_state_get_name(targetState), rc_str, rc);
+			
 			MW_LOG_MIL("InterfacePlayerRDK: %s state set to %s",  SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
 		else
@@ -1325,8 +1333,19 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 
 void InterfacePlayerRDK::TearDownStream(int type)
 {
-	tearDownCb(true, type);
+	// HariPriya: Log teardown entry with element info
 	gst_media_stream* stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
+	GstElement* element_to_teardown = (type == eGST_MEDIATYPE_VIDEO) ? interfacePlayerPriv->gstPrivateContext->video_dec : 
+	                                   (type == eGST_MEDIATYPE_AUDIO) ? interfacePlayerPriv->gstPrivateContext->audio_dec : NULL;
+	if (element_to_teardown && GST_IS_ELEMENT(element_to_teardown)) {
+		guint ref_count = G_OBJECT(element_to_teardown)->ref_count;
+		GstState current_state = GST_STATE(element_to_teardown);
+		GstState pending_state = GST_STATE_PENDING(element_to_teardown);
+		MW_LOG_WARN("HariPriya: TearDownStream type=%d ENTER - element=%p, ref_count=%u, current_state=%d, pending_state=%d",
+		            type, element_to_teardown, ref_count, current_state, pending_state);
+	}
+	
+	tearDownCb(true, type);
 	RemoveProbe(type);
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;
@@ -1372,13 +1391,54 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	pthread_mutex_unlock(&stream->sourceLock);
 	if (mediaType == eGST_MEDIATYPE_VIDEO)
 	{
+		// HariPriya: Log ref count before clearing video_dec
+		if (interfacePlayerPriv->gstPrivateContext->video_dec && 
+		    GST_IS_ELEMENT(interfacePlayerPriv->gstPrivateContext->video_dec)) {
+			guint ref_count = G_OBJECT(interfacePlayerPriv->gstPrivateContext->video_dec)->ref_count;
+			MW_LOG_WARN("HariPriya: Before g_clear_object(video_dec) - element=%p, ref_count=%u",
+			            interfacePlayerPriv->gstPrivateContext->video_dec, ref_count);
+		}
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->video_dec);
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->video_sink);
+		MW_LOG_WARN("HariPriya: After g_clear_object(video_dec)");
 	}
 	else if (mediaType == eGST_MEDIATYPE_AUDIO)
 	{
+		// HariPriya: Log ref count before clearing audio_dec
+		if (interfacePlayerPriv->gstPrivateContext->audio_dec && 
+		    GST_IS_ELEMENT(interfacePlayerPriv->gstPrivateContext->audio_dec)) {
+			guint ref_count = G_OBJECT(interfacePlayerPriv->gstPrivateContext->audio_dec)->ref_count;
+			const gchar* element_name = GST_ELEMENT_NAME(interfacePlayerPriv->gstPrivateContext->audio_dec);
+			const gchar* factory_name = GST_OBJECT_NAME(gst_element_get_factory(interfacePlayerPriv->gstPrivateContext->audio_dec));
+			GstState current_state = GST_STATE(interfacePlayerPriv->gstPrivateContext->audio_dec);
+			MW_LOG_WARN("HariPriya: Before g_clear_object(audio_dec) - element=%p, ref_count=%u, name=%s, factory=%s, state=%d",
+			            interfacePlayerPriv->gstPrivateContext->audio_dec, ref_count, element_name, factory_name, current_state);
+			
+			// Check for widevine decryptor in the pipeline
+			GstElement* pipeline = interfacePlayerPriv->gstPrivateContext->pipeline;
+			if (pipeline) {
+				GstIterator* it = gst_bin_iterate_elements(GST_BIN(pipeline));
+				GstElement* element;
+				GValue item = G_VALUE_INIT;
+				while (gst_iterator_next(it, &item) == GST_ITERATOR_OK) {
+					element = static_cast<GstElement*>(g_value_get_object(&item));
+					if (element && GST_IS_ELEMENT(element)) {
+						const gchar* elem_factory_name = GST_OBJECT_NAME(gst_element_get_factory(element));
+						if (g_strcmp0(elem_factory_name, "widevinedecryptor") == 0) {
+							guint wv_ref = G_OBJECT(element)->ref_count;
+							MW_LOG_WARN("HariPriya: Found widevinedecryptor in pipeline - element=%p, ref_count=%u, name=%s",
+							            element, wv_ref, GST_ELEMENT_NAME(element));
+						}
+					}
+					g_value_reset(&item);
+				}
+				g_value_unset(&item);
+				gst_iterator_free(it);
+			}
+		}
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->audio_dec);
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->audio_sink);
+		MW_LOG_WARN("HariPriya: After g_clear_object(audio_dec)");
 	}
 	else if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 	{
@@ -2039,7 +2099,42 @@ static void gst_found_source(GObject * object, GObject * orig, GParamSpec * pspe
 	{
 		gst_media_stream *stream;
 		stream = &privatePlayer->gstPrivateContext->stream[mediaType];
+		
+		// HariPriya: Log before getting source reference
+		MW_LOG_WARN("HariPriya: gst_found_source - Before g_object_get source for mediaType=%d, orig=%p", mediaType, orig);
+		
 		g_object_get(orig, pspec->name, &stream->source, NULL);
+		
+		// HariPriya: Log after getting source reference
+		if (stream->source && GST_IS_ELEMENT(stream->source)) {
+			guint ref_count = G_OBJECT(stream->source)->ref_count;
+			const gchar* source_name = GST_ELEMENT_NAME(stream->source);
+			const gchar* factory_name = GST_OBJECT_NAME(gst_element_get_factory(stream->source));
+			MW_LOG_WARN("HariPriya: gst_found_source - After g_object_get source=%p, ref_count=%u, name=%s, factory=%s, mediaType=%d",
+			            stream->source, ref_count, source_name, factory_name, mediaType);
+			
+			// Check if there's a decryptor in the bin
+			if (GST_IS_BIN(stream->source)) {
+				GstIterator* it = gst_bin_iterate_elements(GST_BIN(stream->source));
+				GstElement* element;
+				GValue item = G_VALUE_INIT;
+				while (gst_iterator_next(it, &item) == GST_ITERATOR_OK) {
+					element = static_cast<GstElement*>(g_value_get_object(&item));
+					if (element && GST_IS_ELEMENT(element)) {
+						const gchar* elem_factory_name = GST_OBJECT_NAME(gst_element_get_factory(element));
+						if (g_strcmp0(elem_factory_name, "widevinedecryptor") == 0) {
+							guint wv_ref = G_OBJECT(element)->ref_count;
+							MW_LOG_WARN("HariPriya: gst_found_source - Found widevinedecryptor in source bin - element=%p, ref_count=%u",
+							            element, wv_ref);
+						}
+					}
+					g_value_reset(&item);
+				}
+				g_value_unset(&item);
+				gst_iterator_free(it);
+			}
+		}
+		
 		gstInitializeSource(pInterfacePlayerRDK, G_OBJECT(stream->source), mediaType);
 	}
 }

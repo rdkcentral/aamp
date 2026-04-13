@@ -209,6 +209,10 @@ static void gst_cdmidecryptor_init(
 		GstCDMIDecryptor *cdmidecryptor)
 {
 	DEBUG_FUNC();
+	GST_ERROR("HariPriya: gst_cdmidecryptor_init - Creating new decryptor element=%p, ref_count=%u, name=%s",
+			cdmidecryptor,
+			G_OBJECT(cdmidecryptor)->ref_count,
+			GST_ELEMENT_NAME(cdmidecryptor));
 	const char* ocdmgsttransformcaps = "opencdm_gstreamer_transform_caps";
 	GstBaseTransform* base = GST_BASE_TRANSFORM(cdmidecryptor);
 
@@ -254,6 +258,12 @@ void gst_cdmidecryptor_dispose(GObject * object)
 	GstCDMIDecryptor *cdmidecryptor =
 			GST_CDMI_DECRYPTOR(object);
 
+	// HariPriya: Check reference count before dispose
+	guint ref_count = G_OBJECT(object)->ref_count;
+	gboolean is_valid_element = GST_IS_ELEMENT(object);
+	g_warning("HariPriya: gst_cdmidecryptor_dispose ENTER - element=%p, ref_count=%u, is_valid_element=%d",
+	          object, ref_count, is_valid_element);
+
 	GST_DEBUG_OBJECT(cdmidecryptor, "dispose");
 
 	if (cdmidecryptor->protectionEvent)
@@ -270,7 +280,14 @@ void gst_cdmidecryptor_dispose(GObject * object)
 	g_mutex_clear(&cdmidecryptor->mutex);
 	g_cond_clear(&cdmidecryptor->condition);
 
+	// HariPriya: Check state before calling parent dispose
+	guint ref_count_before_parent = G_OBJECT(object)->ref_count;
+	g_warning("HariPriya: gst_cdmidecryptor_dispose BEFORE parent dispose - ref_count=%u",
+	          ref_count_before_parent);
+
 	G_OBJECT_CLASS(gst_cdmidecryptor_parent_class)->dispose(object);
+
+	g_warning("HariPriya: gst_cdmidecryptor_dispose EXIT");
 }
 
 /*
@@ -978,12 +995,20 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 	{
 	case GST_STATE_CHANGE_READY_TO_PAUSED:
 		GST_DEBUG_OBJECT(cdmidecryptor, "READY->PAUSED");
+		GST_ERROR("HariPriya: cdmidecryptor state change READY->PAUSED - element=%p, name=%s, ref_count=%u",
+				cdmidecryptor,
+				GST_ELEMENT_NAME(cdmidecryptor),
+				G_OBJECT(cdmidecryptor)->ref_count);
 		g_mutex_lock(&cdmidecryptor->mutex);
 		cdmidecryptor->canWait = true;
 		g_mutex_unlock(&cdmidecryptor->mutex);
 		break;
 	case GST_STATE_CHANGE_PAUSED_TO_READY:
 		GST_DEBUG_OBJECT(cdmidecryptor, "PAUSED->READY");
+		GST_ERROR("HariPriya: cdmidecryptor state change PAUSED->READY - element=%p, name=%s, ref_count=%u",
+				cdmidecryptor,
+				GST_ELEMENT_NAME(cdmidecryptor),
+				G_OBJECT(cdmidecryptor)->ref_count);
 		g_mutex_lock(&cdmidecryptor->mutex);
 		cdmidecryptor->canWait = false;
 		g_cond_signal(&cdmidecryptor->condition);
@@ -991,11 +1016,19 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 		break;
 	case GST_STATE_CHANGE_NULL_TO_READY:
 		GST_DEBUG_OBJECT(cdmidecryptor, "NULL->READY");
+		GST_ERROR("HariPriya: cdmidecryptor state change NULL->READY - element=%p, name=%s, ref_count=%u",
+				cdmidecryptor,
+				GST_ELEMENT_NAME(cdmidecryptor),
+				G_OBJECT(cdmidecryptor)->ref_count);
 		if (cdmidecryptor->svpCtx == NULL)
 		 socInterface->SvpGetContext(&cdmidecryptor->svpCtx, 0);
 		break;
 	case GST_STATE_CHANGE_READY_TO_NULL:
 		GST_DEBUG_OBJECT(cdmidecryptor, "READY->NULL");
+		GST_ERROR("HariPriya: cdmidecryptor state change READY->NULL - element=%p, name=%s, ref_count=%u",
+				cdmidecryptor,
+				GST_ELEMENT_NAME(cdmidecryptor),
+				G_OBJECT(cdmidecryptor)->ref_count);
 		if (cdmidecryptor->svpCtx) {
 			socInterface->SvpFreeContext(cdmidecryptor->svpCtx);
 			cdmidecryptor->svpCtx = NULL;	
@@ -1026,6 +1059,11 @@ static void gst_cdmidecryptor_set_property(GObject * object,
 				(DrmCallbacks*) g_value_get_pointer(value);
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Received player instance from appsrc\n");
+		GST_ERROR("HariPriya: Set PROP_DRM_SESSION_MANAGER - element=%p, name=%s, player=%p, ref_count=%u",
+				cdmidecryptor,
+				GST_ELEMENT_NAME(cdmidecryptor),
+				cdmidecryptor->player,
+				G_OBJECT(cdmidecryptor)->ref_count);
 		GST_OBJECT_UNLOCK(cdmidecryptor);
 		break;
 	case PROP_PLAYER:
@@ -1034,6 +1072,11 @@ static void gst_cdmidecryptor_set_property(GObject * object,
 				(DrmSessionManager*)g_value_get_pointer(value);
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Received DRM session manager");
+		GST_ERROR("HariPriya: Set PROP_PLAYER (session manager) - element=%p, name=%s, sessionManager=%p, ref_count=%u",
+				cdmidecryptor,
+				GST_ELEMENT_NAME(cdmidecryptor),
+				cdmidecryptor->sessionManager,
+				G_OBJECT(cdmidecryptor)->ref_count);
 		GST_OBJECT_UNLOCK(cdmidecryptor);
 		break;
 

@@ -77,6 +77,8 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
  */
 DrmSessionManager::~DrmSessionManager()
 {
+	MW_LOG_WARN("HariPriya: DrmSessionManager destructor ENTER - sessionID=[%" PRId64 "]",
+	            mContentSecurityManagerSession.getSessionID());
 	clearAccessToken();
 	clearSessionData();
 	MW_SAFE_DELETE_ARRAY(drmSessionContexts);
@@ -84,6 +86,7 @@ DrmSessionManager::~DrmSessionManager()
 	MW_SAFE_DELETE(playerSecInstance);
 	MW_SAFE_DELETE(m_drmConfigParam);
 	ContentSecurityManager::setWatermarkSessionEvent_CB(nullptr);
+	MW_LOG_WARN("HariPriya: DrmSessionManager destructor EXIT");
 }
 void DrmSessionManager::UpdateDRMConfig(
                 bool useSecManager,
@@ -110,8 +113,13 @@ void DrmSessionManager::clearSessionData()
 	{
 		if (drmSessionContexts != NULL && drmSessionContexts[i].drmSession != NULL)
 		{
+			// HariPriya: Log session info before clearing
+			int64_t sessionID = mContentSecurityManagerSession.getSessionID();
+			MW_LOG_WARN("HariPriya: Clearing DRM session[%d] - sessionID=[%" PRId64 "], drmSession=%p",
+			            i, sessionID, drmSessionContexts[i].drmSession);
 			MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
 			drmSessionContexts[i] = DrmSessionContext();
+			MW_LOG_WARN("HariPriya: Cleared DRM session[%d]", i);
 		}
 
 		{
