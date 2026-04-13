@@ -93,7 +93,7 @@ public:
      *
      *   @param[in]  mediaType - Type of the media.
      *   @param[in]  sample - Media sample (consumed on call)
-     *   @return true iff Sempld was successfully sent to sink
+     *   @return true iff sample was successfully sent to sink
      */
     virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
 
@@ -101,7 +101,7 @@ public:
      *   @brief  Checks pipeline is configured for media type
      *
      *   @param[in]  mediaType - Media Type
-     *   @return void
+     *   @return true if pipeline is configured for the given media type, false otherwise
      */
     virtual bool PipelineConfiguredForMedia(AampMediaType type){return true;}
 
