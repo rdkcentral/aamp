@@ -36,7 +36,6 @@
 #include "fragmentcollector_progressive.h"
 #include "MediaStreamContext.h"
 #include "AampLatencyMonitor.h"
-#ifdef AAMP_NET_TRACE
 #include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
 
 /**
@@ -56,7 +55,6 @@ static constexpr double kNetTraceBurstGapThresholdS = 0.005;  // 5 milliseconds
  * Late bursts indicate potential network congestion or server-side delays.
  */
 static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
-#endif
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
 #include "ota_shim.h"
@@ -1093,12 +1091,10 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 		ret = numBytesForBlock;
 		if(ptr && numBytesForBlock > 0)
 		{
-#ifdef AAMP_NET_TRACE
 			// Record burst timing BEFORE appending bytes; this captures ingress cadence
 			if (context->net) {
 				context->net->OnWrite(size*nmemb, aamptrace::now_monotonic_s());
 			}
-#endif
 			if (context->buffer.size() == 0)
 			{
 				// First byte received, record data transfer start time
@@ -1332,12 +1328,10 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		{
 			AAMPLOG_INFO( "chunkedDownload: '%.*s'", (int)len, ptr );
 			context->chunkedDownload = true;
-#ifdef AAMP_NET_TRACE
 			// Mark request as chunked for the recorder (request-level metadata)
 			if (context->net) {
 				context->net->MarkChunked();
 			}
-#endif
 		}
 		else if (0 == context->buffer.capacity() )
 		{
@@ -3312,6 +3306,14 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 				AAMPLOG_ERR("Failed to pause the Pipeline");
 			}
 		}
+		// Inform the underflow monitor that the pipeline is now paused for
+		// buffering; it should disarm its deadline until resumed.
+		// Only notify if the pipeline is actually paused — if PausePipeline()
+		// failed mSinkPaused remains false and we must not disarm the monitor.
+		if (mSinkPaused.load() && mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+		}
 	}
 	else
 	{
@@ -3321,6 +3323,12 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 		}
 		UpdateSubtitleTimestamp();
 		SendBufferChangeEvent(false);
+		// NOTE: NotifyPipelineResumedToUnderflowMonitor is intentionally NOT called here.
+		// SetBufferingState(false) is only ever called from AampUnderflowMonitor::NotifyVideoFragment,
+		// which rearmed the monitor directly after this call returns.  Calling it here would
+		// cause a same-thread deadlock on macOS: NotifyVideoFragmentToUnderflowMonitor holds
+		// mUnderflowMonitorMutex while calling NotifyVideoFragment, and
+		// NotifyPipelineResumedToUnderflowMonitor also needs that same non-recursive mutex.
 	}
 }
 
@@ -4579,23 +4587,33 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		CurlCallbackContext context(this, buffer);
 		
 		// ==== Begin additive instrumentation - no behavior change ====
-#ifdef AAMP_NET_TRACE
-		using aamptrace::NetTrace;
-		static std::atomic<uint64_t> g_req_id{1};
-		// Per-PID CSV files to prevent cross-process interleaving/garbling.
-		// Env override supported; otherwise default to /tmp
-		// Use std::call_once to initialize paths only once per process
-		static std::once_flag init_paths_flag;
-		std::call_once(init_paths_flag, []() {
-			if (const char* R = std::getenv("AAMP_REQ_CSV")) {
-				if (const char* B = std::getenv("AAMP_BUR_CSV")) NetTrace::SetPathsWithPid(R, B);
-				else NetTrace::SetPathsWithPid(R, "/tmp/aamp_net_bursts.csv");
+		// CSV path init: fires lazily on the first download where either the env
+		// override or netTraceCsvDump config is active. Double-checked locking
+		// ensures paths are set exactly once even under concurrent downloads.
+		// Unlike call_once, this retries on every download until a condition holds,
+		// so setting netTraceCsvDump=true in aamp.cfg is always honoured at runtime.
+		const bool netTracerEnabled = GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump);
+		{
+			static std::mutex csv_init_mtx;
+			static std::atomic<bool> paths_set{false};
+			if (!paths_set.load(std::memory_order_acquire)) {
+				std::lock_guard<std::mutex> lk(csv_init_mtx);
+				if (!paths_set.load(std::memory_order_relaxed)) {
+					if (const char* R = std::getenv("AAMP_REQ_CSV")) {
+						const char* B = std::getenv("AAMP_BUR_CSV");
+						aamptrace::NetTrace::SetPathsWithPid(R, B ? B : "/tmp/aamp_net_bursts.csv");
+						paths_set.store(true, std::memory_order_release);
+					}
+					else if (netTracerEnabled) {
+						aamptrace::NetTrace::SetPathsWithPid(
+							"/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
+						paths_set.store(true, std::memory_order_release);
+					}
+					// Neither condition: retry next download until config is true
+				}
 			}
-			else {
-				NetTrace::SetPathsWithPid("/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
-			}
-		});
-		
+		}
+
 		// extract path component (after domain) from URL
 		static const auto pathOnly = [](const std::string& u)->std::string {
 			size_t s = 0, p = u.find("://");
@@ -4608,19 +4626,23 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
 		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
 		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
-		
-		NetTrace net(g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
-					 /*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
-		
-		// RAII guard to ensure context.net is automatically nulled when 'net' goes out of scope
-		// This prevents dangling pointer issues on all return paths (normal and early returns)
+
+		static std::atomic<uint64_t> g_req_id{1};
+		std::unique_ptr<aamptrace::NetTrace> net_owner;
+		if (netTracerEnabled) {
+			net_owner = std::make_unique<aamptrace::NetTrace>(
+				g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
+				/*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
+		}
+
+		// RAII guard: nulls context.net when net_owner goes out of scope,
+		// preventing a dangling pointer on all return paths (normal and early).
 		struct NetTraceGuard {
 			aamptrace::NetTrace** ptrRef;
 			NetTraceGuard(aamptrace::NetTrace** ref, aamptrace::NetTrace* obj) : ptrRef(ref) { *ptrRef = obj; }
 			~NetTraceGuard() { *ptrRef = nullptr; }
 		};
-		NetTraceGuard netGuard(&context.net, &net);
-#endif
+		NetTraceGuard netGuard(&context.net, net_owner.get());
 		// ==== End additive instrumentation ====
 		
 		if (curl)
@@ -4800,8 +4822,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
 
 				// ---- Finalize recorder immediately after the perform ----
-#ifdef AAMP_NET_TRACE
-				{
+				if (context.net) {
 					double t_namelookup=0, t_connect=0, t_appconnect=0, t_pretransfer=0;
 					double t_starttransfer=0, t_total=0, t_redirect=0;
 					char*  primary_ip = nullptr;
@@ -4824,18 +4845,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 #else
 					size_download = static_cast<curl_off_t>(aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD));
 #endif
-					if (context.net) {
-						context.net->OnCompleteBytes();
-						context.net->SetCurlTimings(
-													  t_namelookup, t_connect, t_appconnect, t_pretransfer,
-													  t_starttransfer, t_total, t_redirect,
-													  http_code_local, (num_connects==0),
-													  primary_ip?std::string(primary_ip):std::string(), local_port,
-													  size_download);
-						// Note: FlushCsv() moved outside retry loop to ensure only one CSV row per GetFile call
-					}
+					context.net->OnCompleteBytes();
+					context.net->SetCurlTimings(
+												  t_namelookup, t_connect, t_appconnect, t_pretransfer,
+												  t_starttransfer, t_total, t_redirect,
+												  http_code_local, (num_connects==0),
+												  primary_ip?std::string(primary_ip):std::string(), local_port,
+												  size_download);
+					// Note: FlushCsv() is called outside the retry loop
 				}
-#endif
 				
 				if(!mAampLLDashServiceData.lowLatencyMode)
 				{
@@ -5246,13 +5264,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 		}
 
-#ifdef AAMP_NET_TRACE
 		// Flush NetTrace CSV after retry loop completes (success or terminal failure)
 		// This ensures only one CSV row per GetFile call, regardless of retry attempts
 		if (context.net) {
 			context.net->FlushCsv();
 		}
-#endif
 
 		if (http_code == 200 || http_code == 206 || IsCurlTimeoutFailure (http_code) )
 		{

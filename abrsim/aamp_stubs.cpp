@@ -48,7 +48,7 @@ public:
 AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
 
 // Stub logging function - must match AAMP's declaration exactly
-void logprintf(AAMP_LogLevel level, const char* file, int line, const char* format, ...) {
+void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line, const char *format, ...) {
 	// Simple implementation for simulation - could be enhanced if needed
 	if (level < AampLogManager::aampLoglevel) {
 		return;
