@@ -219,7 +219,9 @@ TEST_F(IsoBmffProcessorTests, abortTests4)
 //Call sendSegment after an abort and reset was called
 TEST_F(IsoBmffProcessorTests, abortTests5)
 {
-	std::vector<uint8_t> buffer;
+	// Non-empty buffer is required so the sendStream empty-buffer guard does not
+	// block injection before SendStreamCopy/SendStreamTransfer can be observed.
+	std::vector<uint8_t> buffer{0xAA, 0xBB, 0xCC, 0xDD};
 	bool ptsError = false;
 	Box *box = (Box*)(0xdeadbeef);
 
@@ -737,8 +739,10 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	uint64_t basePts = 240000;
 	uint32_t vCurrTS = 24000;
 
-	// 3 sendSegment calls and configured with HLS_MP4 content type
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).Times(3);
+	// 3 sendSegment calls and configured with HLS_MP4 content type.
+	// WillRepeatedly(Return(true)) is needed so that the bool result of
+	// SendStreamCopy propagates correctly into sendSegment()'s return value.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).Times(3).WillRepeatedly(Return(true));
 
 	// Expecting the timescale to be read first
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
@@ -762,4 +766,75 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	ret = mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
+}
+
+// sendSegment must return false when the sink rejects the buffer (SendStreamCopy returns false)
+TEST_F(IsoBmffProcessorPTMTests, sendSegmentReturnsFalse_WhenSendStreamCopyFails)
+{
+	std::vector<uint8_t> buffer;
+	const char* sampleData = "SampleData";
+	buffer.assign(sampleData, sampleData + strlen(sampleData));
+
+	double position = 0, duration = 2.0;
+	bool discontinuous = false, ptsError = false;
+	uint64_t basePts = 240000;
+	uint32_t vCurrTS = 24000;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, _)).Times(AnyNumber());
+
+	// First two injections succeed; the third (the case under test) fails
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _))
+		.WillOnce(Return(true))   // init segment injection
+		.WillOnce(Return(true))   // first data fragment injection
+		.WillOnce(Return(false)); // negative case: sink unavailable / rejects buffer
+
+	// Step 1: process init segment
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
+
+	// Step 2: first data fragment — advances initSegmentProcessComplete
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(basePts), Return(true)));
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+
+	// Step 3: injection fails — sendSegment must propagate the failure
+	bool ret = mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	EXPECT_FALSE(ret);
+}
+
+// sendSegment must return false and must not call into the sink when the buffer is empty
+TEST_F(IsoBmffProcessorPTMTests, sendSegmentReturnsFalse_WhenBufferIsEmpty)
+{
+	std::vector<uint8_t> buffer;
+	const char* sampleData = "SampleData";
+	buffer.assign(sampleData, sampleData + strlen(sampleData));
+
+	double position = 0, duration = 2.0;
+	bool discontinuous = false, ptsError = false;
+	uint64_t basePts = 240000;
+	uint32_t vCurrTS = 24000;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, _)).Times(AnyNumber());
+
+	// Exactly two injections during setup; the empty-buffer call must not trigger a third
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _))
+		.WillOnce(Return(true))
+		.WillOnce(Return(true));
+
+	// Step 1: process init segment
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
+
+	// Step 2: first data fragment — advances initSegmentProcessComplete
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(basePts), Return(true)));
+	mIsoBmffProcessor->sendSegment(buffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+
+	// Step 3: empty buffer — sendStream must reject without calling SendStreamCopy
+	std::vector<uint8_t> emptyBuffer{};
+	bool ret = mIsoBmffProcessor->sendSegment(emptyBuffer, position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
+	EXPECT_FALSE(ret);
+	// The Times(2) constraint on SendStreamCopy above verifies no extra injection occurred
 }

@@ -32,7 +32,7 @@ set(TEST_SOURCES PauseAtTests.cpp
                  PrivateInstanceAAMPTests.cpp
                  LocalTSBTests.cpp
                  ChunkedTransferTests.cpp
-                 )
+                 PlayerStateTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
                  ${AAMP_ROOT}/CachedFragment.cpp)

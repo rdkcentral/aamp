@@ -230,6 +230,8 @@ typedef enum
 	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
 	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
+	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
+	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -283,9 +285,6 @@ typedef enum
 	eAAMPConfig_LatencyMonitorIntervalMs,           				/**< Latency Monitor Interval */
 	eAAMPConfig_MaxFragmentChunkCached,           				/**< fragment chunk cache length*/
 	eAAMPConfig_ABRChunkThresholdSize,                			/**< AAMP ABR Chunk threshold size*/
-	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
-	eAAMPConfig_LLTargetLatency,						/**< Low Latency Target Latency */
-	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FragmentDownloadFailThreshold, 				/**< Retry attempts for non-init fragment curl timeout failures*/
 	eAAMPConfig_MaxInitFragCachePerTrack,					/**< Max no of Init fragment cache per track */
 	eAAMPConfig_FogMaxConcurrentDownloads,                                  /**< Concurrent download posted to fog from player*/
@@ -363,6 +362,9 @@ typedef enum
 	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
+	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
+	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
+	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)

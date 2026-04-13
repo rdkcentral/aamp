@@ -101,6 +101,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mLLDashCurrentPlayRate(AAMP_NORMAL_PLAY_RATE),
 	mEventManager(NULL),
 	mbDetached(false),
+	mSeekOperationInProgress(false),
 	mIsFakeTune(false),
 	mIsDefaultOffset(false),
 	mNextPeriodDuration(0),
@@ -138,6 +139,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsChunkMode(false),
 	mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 {
+	mbPlayEnabled = true;
+	mPauseOnFirstVideoFrameDisp = false;
+	mFirstVideoFrameDisplayedEnabled = false;
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
@@ -212,6 +216,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
+	mSeekOperationInProgress = false;
 }
 
 void PrivateInstanceAAMP::SetAudioTrack(int)
@@ -306,7 +311,7 @@ void PrivateInstanceAAMP::NotifyOnEnteringLive()
 
 bool PrivateInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
 {
-	return false;
+	return mPauseOnFirstVideoFrameDisp;
 }
 
 long long PrivateInstanceAAMP::GetPositionMilliseconds()
@@ -352,6 +357,27 @@ void PrivateInstanceAAMP::EnableDownloads()
 
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
+	// Mirror the real implementation: reset flags first, then enable
+	// mSeekOperationInProgress for seek-type tunes, and only set the
+	// pause-on-first-frame flags when both seekWhilePaused is requested
+	// AND a seek operation is in progress (matching the real gating in
+	// priv_aamp.cpp lines ~5857–5875 and ~6272–6275).
+	mPauseOnFirstVideoFrameDisp = false;
+	mFirstVideoFrameDisplayedEnabled = false;
+
+	if (tuneType == eTUNETYPE_SEEK ||
+		tuneType == eTUNETYPE_SEEKTOLIVE ||
+		tuneType == eTUNETYPE_SEEKTOEND)
+	{
+		mSeekOperationInProgress = true;
+	}
+
+	if (seekWhilePaused && mSeekOperationInProgress)
+	{
+		mPauseOnFirstVideoFrameDisp = true;
+		mFirstVideoFrameDisplayedEnabled = true;
+	}
+
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		g_mockPrivateInstanceAAMP->TuneHelper(tuneType, seekWhilePaused);
@@ -746,8 +772,9 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	}
 }
 
-void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
+	return false;
 }
 
 void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName)
@@ -1547,6 +1574,10 @@ bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 
 void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
 {
+	if (!mFirstVideoFrameDisplayedEnabled && GetState() != eSTATE_IDLE)
+	{
+		SetState(eSTATE_PLAYING);
+	}
 }
 
 void PrivateInstanceAAMP::NotifyEOSReached()
@@ -1559,6 +1590,29 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 {
+	if (!mFirstVideoFrameDisplayedEnabled)
+	{
+		return;
+	}
+
+	mFirstVideoFrameDisplayedEnabled = false;
+
+	if (GetState() == eSTATE_IDLE)
+	{
+		return;
+	}
+
+	if (mPauseOnFirstVideoFrameDisp)
+	{
+		mPauseOnFirstVideoFrameDisp = false;
+		if (GetState() == eSTATE_SEEKING)
+		{
+			SetState(eSTATE_PAUSED);
+		}
+		return;
+	}
+
+	SetState(eSTATE_PLAYING);
 }
 
 void PrivateInstanceAAMP::LogFirstFrame(void)
@@ -1575,7 +1629,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long)
 
 bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
-	return false;
+	return mFirstVideoFrameDisplayedEnabled;
 }
 
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
@@ -1603,10 +1657,16 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 
 bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->PausePipeline(
+			pause, forceStopGstreamerPreBuffering);
+	}
+
 	return false;
 }
 
-void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
 }
 
