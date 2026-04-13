@@ -2664,10 +2664,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /*
- * Multiple adaption sets all with the same CC language. Check that we only get one CC entry listed
+ * Multiple adaptation sets all with the same CC language. Check that we only get one CC entry listed
  * in the subtitle tracks, not 3 entries for the same language.
  */
-TEST_F(FunctionalTests, CCMultipleAdaption_Test1)
+TEST_F(FunctionalTests, CCMultipleAdaptation_Test1)
 {
 
 	AAMPStatusType status;
