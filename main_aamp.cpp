@@ -982,6 +982,16 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					aamp->mJumpToLiveFromPause = false;
 				}
 				aamp->rate = rate;
+				// Notify the underflow monitor of the new rate immediately — before
+				// TuneHelper starts downloading fragments at the new rate.  This
+				// prevents a stale normal-play deadline from firing and declaring a
+				// false underflow during the gap between the rate change and the first
+				// trickplay fragment arriving (AAMP-TSB-5016, AAMP-CDAI-8003).
+				if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) &&
+					aamp->mpStreamAbstractionAAMP)
+				{
+					aamp->mpStreamAbstractionAAMP->NotifyRateChangeToUnderflowMonitor(rate);
+				}
 				aamp->mSinkPaused = false;
 				aamp->mSeekFromPausedState = false;
 				/* Clear setting playerrate flag */

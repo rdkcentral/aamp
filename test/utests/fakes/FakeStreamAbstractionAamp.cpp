@@ -74,6 +74,10 @@ void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRa
 {
 }
 
+void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
+{
+}
+
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
 {
 }
