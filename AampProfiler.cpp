@@ -208,12 +208,13 @@ void ProfileEventAAMP::TuneBegin(void)
 	rateCorrection = 0;
 	bitrateChange = 0;
 	bufferChange = 0;
+	cJSON *newParam = cJSON_CreateObject();
 	{
 		std::lock_guard<std::mutex> lock(discontinuityParamMutex);
 		mLldLowBuffObject = NULL;
 		cJSON_Delete(telemetryParam);
 		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
-		telemetryParam = cJSON_CreateObject();
+		telemetryParam = newParam;
 	}
 }
 
