@@ -768,6 +768,10 @@ void Mp4Demux::ParseTrackRun()
 		mSampleInfo.emplace_back(pendingSample);
 		dataPtr += sampleLen;
 		dts += sampleDuration;
+
+		AAMPLOG_INFO("Parsed sample %zu: dataPtr=%p, len=%u, dts=%.3f, pts=%.3f, duration=%.3f",
+				samples.size() - 1, pendingSample.dataPtr, pendingSample.sampleLen,
+				pendingSample.mDts, pendingSample.mPts, pendingSample.mDuration);
 	}
 }
 
