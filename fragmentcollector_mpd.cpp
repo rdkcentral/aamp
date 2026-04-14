@@ -14237,14 +14237,20 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 {
 	/* Determine if early stream sink flush is needed based on configuration and playback state
 	 * Do flush to PTS position from manifest when:
-	 * 1. EnableMediaProcessor is disabled or EnableMediaProcessor enabled but segment timeline enabled (media processor will not flush in this case), OR
-	 * 2. EnablePTSReStamp is disabled, or play rate is normal (AAMP_NORMAL_PLAY_RATE). Here, we are using the flush(0) that occurs else where
+	 * 1. EnableMediaProcessor is disabled or EnableMediaProcessor enabled but segment timeline enabled (media processor will not flush in this case), AND
+	 * 2. EnablePTSReStamp is disabled, or play rate is normal (AAMP_NORMAL_PLAY_RATE). Here, we are using the flush(0) that occurs else where, AND
+	 * 3. Skip early flush when using mp4demux with PTS restamping disabled during trickplay (flush(0) will be used)
 	 */
 	bool enableMediaProcessor = ISCONFIGSET(eAAMPConfig_EnableMediaProcessor);
 	bool enablePTSReStamp = ISCONFIGSET(eAAMPConfig_EnablePTSReStamp);
+	bool useMp4Demux = ISCONFIGSET(eAAMPConfig_UseMp4Demux);
+	
 	bool doFlush = ((!enableMediaProcessor || mIsSegmentTimelineEnabled) &&
-					(!enablePTSReStamp || rate == AAMP_NORMAL_PLAY_RATE));
-	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
+					(!enablePTSReStamp || rate == AAMP_NORMAL_PLAY_RATE) &&
+					!(useMp4Demux && !enablePTSReStamp && rate != AAMP_NORMAL_PLAY_RATE));
+	
+	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f, useMp4Demux=%d, enablePTSReStamp=%d", 
+				 doFlush, newTune, rate, useMp4Demux, enablePTSReStamp);
 	return doFlush;
 }
 

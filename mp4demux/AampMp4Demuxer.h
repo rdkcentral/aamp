@@ -131,12 +131,48 @@ public:
 	void setTrackOffset(double offset) override { }
 
 private:
+	enum class TrickmodeState
+	{
+		UNDEF,
+		INIT,
+		FIRST_SAMPLE,
+		STEADY
+	};
+
+	/**
+	 * @brief Apply trickmode PTS restamping to a sample
+	 * @param[in,out] sample - Sample to restamp
+	 * @param[in] duration - Fragment duration
+	 */
+	void TrickmodePtsRestamp(AampMediaSample& sample, double duration);
+
+	/**
+	 * @brief Apply trickmode PTS offset similar to qtdemux approach
+	 * Uses first PTS as offset and applies rate-based adjustment
+	 * @param[in,out] sample - Sample to adjust
+	 * @param[in] duration - Fragment duration
+	 */
+	void TrickmodePtsOffset(AampMediaSample& sample, double duration);
+
 	std::unique_ptr<Mp4Demux> mMp4Demux;
 	PrivateInstanceAAMP* mAamp;
 	AampMediaType mMediaType;
 	bool mEnablePtsRestamp; // Flag to enable PTS restamping
 	// A separate flag to enable logging for PTS restamping for better control.
 	bool mEnablePtsRestampLogging {false}; // Flag to enable logging for PTS restamping
+	
+	// Trickmode state variables
+	int mTrickPlayFPS {0};					/**< Trickplay frames per second */
+	double mLastSamplePts {0.0};			/**< PTS of the previous sample, used in trick modes */
+	double mRestampedPts {0.0};				/**< Restamped PTS of the sample, used in trick modes */
+	double mRestampedDuration {0.0};		/**< Restamped sample duration, used in trick modes */
+	
+	// qtdemux-style trickmode variables
+	double mAampBasePts {-1.0};				/**< Base PTS for qtdemux-style offset calculation */
+	double mAampPtsOffset {0.0};			/**< Accumulated PTS offset for continuity */
+	double mAampLastPts {-1.0};				/**< Last processed PTS for jump detection */
+	
+	TrickmodeState mTrickmodeState {TrickmodeState::UNDEF}; /**< Current trick mode state */
 };
 
 #endif /* __AAMPMP4DEMUXER_H__ */
