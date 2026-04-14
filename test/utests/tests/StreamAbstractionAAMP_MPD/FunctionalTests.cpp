@@ -2664,6 +2664,171 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /*
+ * Multiple adaption sets all with the same CC language. Check that we only get one CC entry listed
+ * in the subtitle tracks, not 3 entries for the same language.
+ */
+TEST_F(FunctionalTests, CCMultipleAdaption_Test1)
+{
+
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="static" id="sonypictures.comDIAS0000000016158904-DIAS0000000016158905" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT0H0M2.919S" maxSegmentDuration="PT0H0M2.919548582S" mediaPresentationDuration="PT1H49M35.419S">
+  <Period id="1" start="PT0H0M0.000S">
+    <AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="20002,30002" />
+      <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC1=en"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-video-repid-$RepresentationID$-tc-0-header.mp4" media="manifest/track-video-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="180180" r="3282"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="video00" bandwidth="250400" codecs="avc1.4d401f" width="320" height="180" frameRate="24000/1001"/>
+    </AdaptationSet>
+    <AdaptationSet id="20002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="10002,30002" />
+      <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC1=en"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-video-repid-$RepresentationID$-tc-0-header.mp4" media="manifest/track-video-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="180180" r="3282"/>
+          <S t="594262194" d="262762" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="video05" bandwidth="2089600" codecs="avc1.640029" width="1280" height="720" frameRate="24000/1001"/>
+    </AdaptationSet>
+    <AdaptationSet id="30002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="10002,20002" />
+      <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC1=en"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-video-repid-$RepresentationID$-tc-0-header.mp4" media="manifest/track-video-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="180180" r="3282"/>
+          <S t="594262194" d="262762" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="video06" bandwidth="3632400" codecs="avc1.640029" width="1920" height="1080" frameRate="24000/1001"/>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="en">
+      <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-audio-repid-$RepresentationID$-tc-0-header.mp4" media="manifest/track-audio-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="180480" r="11"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="audio_AAC_eng_02_false_00" bandwidth="139600" codecs="mp4a.40.5" audioSamplingRate="24000"/>
+    </AdaptationSet>
+    <AdaptationSet id="4" contentType="audio" mimeType="audio/mp4" lang="en">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="f801"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest-eac3/track-audio-repid-$RepresentationID$-tc-0-header.mp4" media="manifest-eac3/track-audio-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="181440" r="1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="audio_EAC3_eng_01_false_06" bandwidth="251200" codecs="ec-3" audioSamplingRate="48000"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	// Initialize MPD. The video initialization segment is cached.
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	status = InitializeMPD(manifest);
+	std::vector<TextTrackInfo> textTracks = mStreamAbstractionAAMP_MPD->GetAvailableTextTracks();
+	//To verify whether the CC attribute parsed from video
+	ASSERT_EQ(1,textTracks.size());
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+}
+
+/*
+ * Multiple adaption sets 2x CC languages. Check that we only get one CC entry listed for each language
+ */
+TEST_F(FunctionalTests, CCMultipleAdaption_Test2)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="static" id="sonypictures.comDIAS0000000016158904-DIAS0000000016158905" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT0H0M2.919S" maxSegmentDuration="PT0H0M2.919548582S" mediaPresentationDuration="PT1H49M35.419S">
+  <Period id="1" start="PT0H0M0.000S">
+    <AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="20002,30002" />
+      <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC1=en"/>
+	  <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC2=fr"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-video-repid-$RepresentationID$-tc-0-header.mp4" media="manifest/track-video-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="180180" r="3282"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="video00" bandwidth="250400" codecs="avc1.4d401f" width="320" height="180" frameRate="24000/1001"/>
+    </AdaptationSet>
+    <AdaptationSet id="20002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="10002,30002" />
+      <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC1=en"/>
+	<Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC2=fr"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-video-repid-$RepresentationID$-tc-0-header.mp4" media="manifest/track-video-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="180180" r="3282"/>
+          <S t="594262194" d="262762" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="video05" bandwidth="2089600" codecs="avc1.640029" width="1280" height="720" frameRate="24000/1001"/>
+    </AdaptationSet>
+    <AdaptationSet id="30002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="10002,20002" />
+      <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC1=en"/>
+	  <Accessibility schemeIdUri="urn:scte:dash:cc:cea-608:2015" value="CC2=fr"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-video-repid-$RepresentationID$-tc-0-header.mp4" media="manifest/track-video-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="180180" r="3282"/>
+          <S t="594262194" d="262762" r="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="video06" bandwidth="3632400" codecs="avc1.640029" width="1920" height="1080" frameRate="24000/1001"/>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="audio" mimeType="audio/mp4" lang="en">
+      <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest/track-audio-repid-$RepresentationID$-tc-0-header.mp4" media="manifest/track-audio-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="180480" r="11"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="audio_AAC_eng_02_false_00" bandwidth="139600" codecs="mp4a.40.5" audioSamplingRate="24000"/>
+    </AdaptationSet>
+    <AdaptationSet id="4" contentType="audio" mimeType="audio/mp4" lang="en">
+      <AudioChannelConfiguration schemeIdUri="tag:dolby.com,2014:dash:audio_channel_configuration:2011" value="f801"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate initialization="manifest-eac3/track-audio-repid-$RepresentationID$-tc-0-header.mp4" media="manifest-eac3/track-audio-repid-$RepresentationID$-tc-0-frag-$Number$.mp4" timescale="90000" startNumber="1" presentationTimeOffset="2731254">
+        <SegmentTimeline>
+          <S t="2731254" d="181440" r="1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="audio_EAC3_eng_01_false_06" bandwidth="251200" codecs="ec-3" audioSamplingRate="48000"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+	// Initialize MPD. The video initialization segment is cached.
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	status = InitializeMPD(manifest);
+	std::vector<TextTrackInfo> textTracks = mStreamAbstractionAAMP_MPD->GetAvailableTextTracks();
+	//To verify whether the CC attribute parsed from video
+	ASSERT_EQ(2,textTracks.size());
+	ASSERT_EQ("en",textTracks[0].language);
+	ASSERT_EQ("fr",textTracks[1].language);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+}
+
+/*
  * @brief Test to make sure ChunkMode is turned off for non-LLD streams.
  * This test checks that ChunkMode (used for lld) is not
  * activated when playing a regular non lld stream.Testing under below three situation
