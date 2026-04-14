@@ -1768,6 +1768,16 @@ public:
 	void NotifyPipelineResumedToUnderflowMonitor(float playRate);
 
 	/**
+	 * @fn NotifyRateChangeToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the playback rate has changed.
+	 *        Updates the cached rate and disarms the deadline when entering trickplay,
+	 *        preventing a stale deadline from causing a false underflow before the
+	 *        first fragment at the new rate is downloaded.
+	 * @param[in] rate  New play rate.
+	 */
+	void NotifyRateChangeToUnderflowMonitor(float rate);
+
+	/**
 	 *   @fn GetBufferedAudioDurationSec
 	 *
 	 *   @return duration of currently buffered audio in seconds
