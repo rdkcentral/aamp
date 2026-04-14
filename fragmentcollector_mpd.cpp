@@ -7159,9 +7159,10 @@ static bool IsWebmVideoCodec(const std::string &codec )
  * @param codec Codec string from MPD Representation
  * @return true if codec is HEVC, false otherwise
  */
-static bool IsHEVCVideoCodec(const std::string &codec)
+static bool IsVideoCodecHEVC(const std::string &codec)
 {
-	return codec.rfind("hvc1.", 0) == 0 || codec.rfind("hev1.", 0) == 0;
+	return codec.rfind("hvc1.", 0) == 0 || codec.rfind("hev1.", 0) == 0 ||
+	       codec == "hvc1" || codec == "hev1";
 }
 
 /**
@@ -7170,9 +7171,9 @@ static bool IsHEVCVideoCodec(const std::string &codec)
  * @param codec Codec string from MPD Representation
  * @return true if codec is AVC, false otherwise
  */
-static bool IsAVCVideoCodec(const std::string &codec)
+static bool IsVideoCodecAVC(const std::string &codec)
 {
-	return codec.rfind("avc1.", 0) == 0;
+	return codec.rfind("avc1.", 0) == 0 || codec == "avc1";
 }
 
 /**
@@ -7398,6 +7399,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						for (int reprIdx = 0; reprIdx < representations.size(); reprIdx++)
 						{
 							IRepresentation *representation = representations.at(reprIdx);
+							// Reset selection-state fields before (re-)populating this slot so that
+							// stale values from a previous UpdateTrackInfo call cannot leak through
+							// the filtering logic below (enabled/validity drive GetVideoBitrates()
+							// and GetBWIndex()).
+							mStreamInfo[idx].enabled = false;
+							mStreamInfo[idx].validity = false;
 							mStreamInfo[idx].bandwidthBitsPerSecond = representation->GetBandwidth();
 							mStreamInfo[idx].isIframeTrack = ShouldCheckOnlyIframeAdaptation();
 							mStreamInfo[idx].resolution.height = representation->GetHeight();
@@ -7429,8 +7436,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// Track which codec families are present across all chosen AdaptationSets.
 							// Used below to restrict the ABR pool to a single family and prevent
 							// codec switches at runtime (e.g. AVC <-> HEVC).
-							if (IsHEVCVideoCodec(mStreamInfo[idx].codecs))     bHasHEVC = true;
-							else if (IsAVCVideoCodec(mStreamInfo[idx].codecs))  bHasAVC  = true;
+							if (IsVideoCodecHEVC(mStreamInfo[idx].codecs))     bHasHEVC = true;
+							else if (IsVideoCodecAVC(mStreamInfo[idx].codecs))  bHasAVC  = true;
 							if(repFrameRate.empty())
 								repFrameRate = adapFrameRate;
 							if(!repFrameRate.empty())
@@ -7511,8 +7518,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						}
 						else if (preferredVideoFormat != FORMAT_INVALID &&
 								 !mStreamInfo[pidx].codecs.empty() &&
-								 ((preferredVideoFormat == FORMAT_VIDEO_ES_HEVC && !IsHEVCVideoCodec(mStreamInfo[pidx].codecs)) ||
-								  (preferredVideoFormat == FORMAT_VIDEO_ES_H264 && !IsAVCVideoCodec(mStreamInfo[pidx].codecs))))
+								 ((preferredVideoFormat == FORMAT_VIDEO_ES_HEVC && !IsVideoCodecHEVC(mStreamInfo[pidx].codecs)) ||
+								  (preferredVideoFormat == FORMAT_VIDEO_ES_H264 && !IsVideoCodecAVC(mStreamInfo[pidx].codecs))))
 						{
 							// Exclude representations from the non-preferred codec family to prevent
 							// cross-codec ABR switches (e.g. AVC<->HEVC) which require decoder
