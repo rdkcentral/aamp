@@ -3089,6 +3089,15 @@ void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 	}
 }
 
+void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->NotifyRateChange(rate);
+	}
+}
+
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
 {
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
