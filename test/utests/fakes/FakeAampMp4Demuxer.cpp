@@ -63,3 +63,19 @@ bool AampMp4Demuxer::getPTSRestampStatus() const
 	}
 	return false;
 }
+
+void AampMp4Demuxer::setRate(double rate, PlayMode mode)
+{
+}
+
+void AampMp4Demuxer::setFrameRateForTM(int frameRate)
+{
+}
+
+void AampMp4Demuxer::abort()
+{
+}
+
+void AampMp4Demuxer::reset()
+{
+}
