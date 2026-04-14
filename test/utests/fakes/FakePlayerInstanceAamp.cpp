@@ -192,11 +192,11 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	double PlayerInstanceAAMP::GetPlaybackDuration(void) { return 0; }
 	std::string PlayerInstanceAAMP::GetAudioLanguage() { return ""; }
 	std::string PlayerInstanceAAMP::GetDRM() { return ""; }
-    std::string PlayerInstanceAAMP::GetPreferredLanguages() { return ""; }
+	std::string PlayerInstanceAAMP::GetPreferredLanguages() { return ""; }
 	DRMSystems PlayerInstanceAAMP::GetPreferredDRM() { return eDRM_NONE; }
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
-    std::string PlayerInstanceAAMP::GetManifest(void) { return {}; }
+	std::string PlayerInstanceAAMP::GetManifest(void) { return {}; }
 	std::string PlayerInstanceAAMP::GetAvailableVideoTracks() { return {}; }
 	std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack) { return {}; }
 	std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack) { return {}; }
