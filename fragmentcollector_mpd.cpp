@@ -2358,7 +2358,17 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							//If we land at the mid of a segment, the position reminder is added to fragment time. This corrects the epoch value to its original segment start time
 							pMediaStreamContext->fragmentTime += mVideoPosRemainder;
 							/*Keep the lower PTS */
-							if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == eTRACK_VIDEO))
+							// Skip mFirstPTS update when using mp4demux during trickplay, as mp4demux restamps PTS starting from 0.0
+							bool useMp4Demux = ISCONFIGSET(eAAMPConfig_UseMp4Demux);
+							bool isTrickplay = (aamp->rate != AAMP_NORMAL_PLAY_RATE);
+							bool skipFirstPtsUpdate = (useMp4Demux && isTrickplay);
+							
+							if (skipFirstPtsUpdate && pMediaStreamContext->type == eTRACK_VIDEO)
+							{
+								AAMPLOG_INFO("[%s] Skipping mFirstPTS update (useMp4Demux=%d, rate=%.2f) - mp4demux will restamp PTS from 0.0", 
+											 pMediaStreamContext->name, useMp4Demux, aamp->rate);
+							}
+							else if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == eTRACK_VIDEO))
 							{
 								AAMPLOG_INFO("[%s] mFirstPTS %f -> %f ", pMediaStreamContext->name, mFirstPTS, firstPTS);
 								mFirstPTS = firstPTS;
@@ -2452,16 +2462,29 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 					if(!aamp->IsLive())
 					{
-						if( timeScale )
+						// Skip mFirstPTS update when using mp4demux during trickplay, as mp4demux restamps PTS starting from 0.0
+						bool useMp4Demux = ISCONFIGSET(eAAMPConfig_UseMp4Demux);
+						bool isTrickplay = (aamp->rate != AAMP_NORMAL_PLAY_RATE);
+						bool skipFirstPtsUpdate = (useMp4Demux && isTrickplay);
+						
+						if (!skipFirstPtsUpdate)
 						{
-							mFirstPTS = (double)segmentTemplates.GetPresentationTimeOffset() / (double)timeScale;
+							if( timeScale )
+							{
+								mFirstPTS = (double)segmentTemplates.GetPresentationTimeOffset() / (double)timeScale;
+							}
+							if( updateFirstPTS )
+							{
+								mFirstPTS += skipTime;
+								// Here, PTO is known from manifest, so set it as final PTS
+								mIsFinalFirstPTS = true;
+								AAMPLOG_DEBUG("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type, mFirstPTS, skipTime);
+							}
 						}
-						if( updateFirstPTS )
+						else
 						{
-							mFirstPTS += skipTime;
-							// Here, PTO is known from manifest, so set it as final PTS
-							mIsFinalFirstPTS = true;
-							AAMPLOG_DEBUG("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type, mFirstPTS, skipTime);
+							AAMPLOG_INFO("Type[%d] Skipping mFirstPTS update (useMp4Demux=%d, rate=%.2f) - mp4demux will restamp PTS from 0.0",
+										 pMediaStreamContext->type, useMp4Demux, aamp->rate);
 						}
 					}
 					if (skipTime >= segmentDuration)
@@ -14237,14 +14260,18 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 {
 	/* Determine if early stream sink flush is needed based on configuration and playback state
 	 * Do flush to PTS position from manifest when:
-	 * 1. EnableMediaProcessor is disabled or EnableMediaProcessor enabled but segment timeline enabled (media processor will not flush in this case), OR
-	 * 2. EnablePTSReStamp is disabled, or play rate is normal (AAMP_NORMAL_PLAY_RATE). Here, we are using the flush(0) that occurs else where
+	 * 1. EnableMediaProcessor is disabled or EnableMediaProcessor enabled but segment timeline enabled (media processor will not flush in this case), AND
+	 * 2. EnablePTSReStamp is disabled, or play rate is normal (AAMP_NORMAL_PLAY_RATE). Here, we are using the flush(0) that occurs else where, AND
+	 * 3. Skip early flush when using mp4demux with PTS restamping disabled during trickplay (flush(0) will be used)
 	 */
 	bool enableMediaProcessor = ISCONFIGSET(eAAMPConfig_EnableMediaProcessor);
 	bool enablePTSReStamp = ISCONFIGSET(eAAMPConfig_EnablePTSReStamp);
+	
 	bool doFlush = ((!enableMediaProcessor || mIsSegmentTimelineEnabled) &&
 					(!enablePTSReStamp || rate == AAMP_NORMAL_PLAY_RATE));
-	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
+	
+	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f, enablePTSReStamp=%d", 
+				 doFlush, newTune, rate, enablePTSReStamp);
 	return doFlush;
 }
 

@@ -1070,7 +1070,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		parsedBufferChunk.insert(parsedBufferChunk.end(),
 				unparsedBufferChunk.data(),
 				unparsedBufferChunk.data() + parsedBufferSize);
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 		{
 			if (pContext && pContext->trickplayMode)
 			{
@@ -1080,13 +1080,10 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			else
 			{
-				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
-				{
-					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-					(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
-												 name, cachedFragment->timeScale);
-					fpts += cachedFragment->PTSOffsetSec;
-				}
+				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+												name, cachedFragment->timeScale);
+				fpts += cachedFragment->PTSOffsetSec;
 			}
 		}
 
@@ -1358,7 +1355,11 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	else
 	{
 		// Restamp 2.0 only for DASH streams
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+		/*
+		* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
+		* after parsing the segment before sending to gstreamer.
+		*/
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 		{
 			if ((pContext && pContext->trickplayMode))
 			{
@@ -1366,26 +1367,19 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 			else
 			{
-				/*
-				 * Ignore restamping for mp4demux here as the restamping will be done in the mp4demux
-				 * after parsing the segment before sending to gstreamer.
-				 */
-				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+				if (!cachedFragment->initFragment)
 				{
-					if (!cachedFragment->initFragment)
-					{
-						// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
-						// would then be missing and it is important for l2 tests
-						int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
+					// would then be missing and it is important for l2 tests
+					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 
-						(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
-														cachedFragment->uri, name,
-														cachedFragment->timeScale);
-					}
-					else
-					{
-						ClearMediaHeaderDuration(cachedFragment);
-					}
+					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+													cachedFragment->uri, name,
+													cachedFragment->timeScale);
+				}
+				else
+				{
+					ClearMediaHeaderDuration(cachedFragment);
 				}
 			}
 		}
