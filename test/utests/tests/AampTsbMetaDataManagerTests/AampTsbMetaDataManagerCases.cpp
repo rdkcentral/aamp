@@ -731,7 +731,7 @@ TEST_F(AampTsbMetaDataManagerTest, ThreadSafetyTest)
 	}
 
 	// Verify the manager is still in a valid state
-	(void)manager->RemoveMetaData(UINT64_MAX);
+	(void)manager->RemoveMetaData(static_cast<double>(UINT64_MAX));
 	EXPECT_EQ(manager->GetSize(), 1);
 }
 
