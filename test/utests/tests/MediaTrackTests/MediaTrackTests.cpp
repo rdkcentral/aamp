@@ -843,7 +843,9 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 	CachedFragment* bufferedFragment3{nullptr};
 
 	mPrivateInstanceAAMP->rate = FASTEST_TRICKPLAY_RATE;
-	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	// HLS format: IsInjectionFromCachedFragmentChunks() returns false, so
+	// FlushFetchedFragments operates on the ring buffer that this test populates.
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))

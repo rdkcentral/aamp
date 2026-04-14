@@ -64,10 +64,12 @@ TestParams testCases[] =
 {
 	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
 	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	// Non-TSB, non-LLD-chunk DASH: isDash=1 in IsInjectionFromCachedFragmentChunks() routes
+	// fragments through CacheTsbFragment → chunk cache, so expectedFragmentChunksCached=1.
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 
 	// Test with AAMP TSB enabled, chunk cache is used for non-chunked fragments
 	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
@@ -88,10 +90,12 @@ TestParams testCases[] =
 	// Test with pipeline paused
 	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
 	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
-	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	// Non-TSB, non-LLD-chunk DASH paused (no underflow): no tsbSessionManager so the paused
+	// guard doesn't apply; else block calls CacheTsbFragment → chunk cache.
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 
 	// Test with AAMP TSB enabled and pipeline paused
 	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},

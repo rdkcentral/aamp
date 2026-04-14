@@ -168,6 +168,14 @@ class FragmentDownloadSuccessParamTest
 
 /**
  * @brief Test case for OnFragmentDownloadSuccess with various configurations
+ *
+ * After unifying DASH to use the chunk cache path (IsInjectionFromCachedFragmentChunks
+ * returns true for all DASH), OnFragmentDownloadSuccess no longer uses the ring buffer
+ * (GetFetchBuffer / UpdateTSAfterFetch).  Instead:
+ *  - Non-LLD (chunkMode=false): CacheTsbFragment is called, which writes the staging
+ *    fragment into a chunk buffer slot via GetFetchChunkBuffer / UpdateTSAfterChunkFetch.
+ *  - LLD (chunkMode=true): media data was already pushed during SSL callbacks; here only
+ *    the time-based buffer counter is consumed.
  */
 TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 {
@@ -182,40 +190,49 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 	dlInfo->isDiscontinuity = false;
 	dlInfo->ptsOffset = 1000;
 
+	// Pre-populate the staging fragment so CacheTsbFragment has data to process on the
+	// non-LLD path.  Without this the fragment is empty and CacheTsbFragment is a no-op.
+	static constexpr uint8_t kTestData[] = {0xAA, 0xBB, 0xCC, 0xDD};
+	mMediaStreamContext->mStagingFragment.fragment.assign(kTestData, kTestData + sizeof(kTestData));
+
 	// Mock necessary method calls and return values
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-
-	// Mock buffer slot returned when staging fragment is moved to the cache slot for injection.
-	// CacheFragment populates mStagingFragment; OnFragmentDownloadSuccess moves it into this slot.
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false)).WillOnce(Return(cachedFragment.get()));
-
-	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(chunkMode));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunkMode));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(ptsRestampEnabled));
+
+	// LLD path: staging data was already pushed to the pipeline via SSL callbacks;
+	// OnFragmentDownloadSuccess only consumes the time-based buffer entry.
+	// Non-LLD path: time-based buffer consumption only happens when IsLocalAAMPTsb() is
+	// true, which it is not in this test.
 	EXPECT_CALL(*g_mockAampTimeBasedBufferManager, ConsumeBuffer(dlInfo->fragmentDurationSec)).Times(chunkMode ? 1 : 0);
 
-	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch(_));
-	if (chunkMode)
+	// For non-LLD DASH, CacheTsbFragment writes the staging fragment into a chunk buffer
+	// slot.  Verify the position is propagated correctly.
+	auto chunkSlot = std::make_shared<CachedFragment>();
+	if (!chunkMode)
 	{
-		EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterInject());
+		EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true)).WillOnce(Return(chunkSlot.get()));
+		EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
 	}
 
 	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
 
-	// PTS restamp expectation
-	if (ptsRestampEnabled)
+	// PTS restamp expectation — verified through the chunk slot that CacheTsbFragment
+	// populated (non-LLD only; in LLD mode data is pre-injected via SSL callbacks).
+	if (!chunkMode)
 	{
-		EXPECT_EQ(cachedFragment->position, dlInfo->pts + dlInfo->ptsOffset.inSeconds());
+		if (ptsRestampEnabled)
+		{
+			EXPECT_EQ(chunkSlot->position, dlInfo->pts + dlInfo->ptsOffset.inSeconds());
+		}
+		else
+		{
+			EXPECT_EQ(chunkSlot->position, dlInfo->pts);
+		}
+		aamp_utils::ClearAndRelease(chunkSlot->fragment);
 	}
-	else
-	{
-		EXPECT_EQ(cachedFragment->position, dlInfo->pts);
-	}
-
-	aamp_utils::ClearAndRelease(cachedFragment->fragment);
 }
 
 /**
@@ -665,10 +682,8 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 		reinterpret_cast<const uint8_t*>(testData.data()),
 		reinterpret_cast<const uint8_t*>(testData.data()) + testData.size());
 
-	// A second CachedFragment for CacheTsbFragment's GetFetchChunkBuffer call.
+	// A CachedFragment for CacheTsbFragment's GetFetchChunkBuffer call.
 	auto chunkBuffer = std::make_shared<CachedFragment>();
-	// A CachedFragment for the injection slot returned by GetFetchBuffer(false) in the else branch.
-	auto cachedFragment = std::make_shared<CachedFragment>();
 
 	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
 	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
@@ -682,10 +697,6 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 	// --- Mock expectations ---
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillRepeatedly(Return(true));
-
-	// GetFetchBuffer returns our cachedFragment with data.
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
-		.WillOnce(Return(cachedFragment.get()));
 
 	// TSB session manager is non-null to trigger the CheckEos path.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
@@ -721,13 +732,10 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateLocalAAMPTsbInjection())
 		.Times(1);
 
-	// Else block: UpdateTSAfterFetch, SLD re-cache via CacheTsbFragment.
-	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch(false));
+	// Else block: SLD re-cache via CacheTsbFragment.
 	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
 		.WillOnce(Return(chunkBuffer.get()));
 	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
-	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks())
-		.WillOnce(Return(false));
 
 	// --- Execute ---
 	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
