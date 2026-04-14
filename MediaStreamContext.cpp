@@ -794,6 +794,22 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// giving the inject thread a systematic head-start.
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 			fragmentToCache->Copy(mStagingFragment);
+			// Populate stream info on the chunk slot before handing it to the inject
+			// thread.  UpdateTSAfterFetchStats runs after CacheTsbFragment so the copy
+			// that the inject thread picks up would otherwise have empty
+			// cacheFragStreamInfo (all zeros), causing NotifyBitRateUpdate to silently
+			// skip AAMP_EVENT_BITRATE_CHANGED (gated on bandwidthBitsPerSecond != 0).
+			// This mirrors what OnFragmentDownloadSuccess already does for the TSB path.
+			if (fragmentToCache->initFragment)
+			{
+				class StreamAbstractionAAMP* pContext = GetContext();
+				if (pContext)
+				{
+					fragmentToCache->profileIndex = pContext->profileIdxForBandwidthNotification;
+					pContext->UpdateStreamInfoBitrateData(fragmentToCache->profileIndex, fragmentToCache->cacheFragStreamInfo);
+				}
+			}
+			fragmentToCache->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
 			CacheTsbFragment(std::move(fragmentToCache));
 			if (aamp->IsLocalAAMPTsb())
 			{
