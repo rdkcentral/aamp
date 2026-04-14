@@ -819,13 +819,19 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// giving the inject thread a systematic head-start.
 			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 			fragmentToCache->Copy(mStagingFragment);
-			// Populate stream info on the chunk slot before handing it to the inject
-			// thread.  UpdateTSAfterFetchStats runs after CacheTsbFragment so the copy
-			// that the inject thread picks up would otherwise have empty
+			// Populate profileIndex and cacheFragStreamInfo on the chunk slot BEFORE
+			// handing it to the inject thread.  UpdateTSAfterFetchStats runs after
+			// CacheTsbFragment on mStagingFragment (a separate object), so the chunk
+			// slot consumed by the inject thread would otherwise carry empty
 			// cacheFragStreamInfo (all zeros), causing NotifyBitRateUpdate to silently
 			// skip AAMP_EVENT_BITRATE_CHANGED (gated on bandwidthBitsPerSecond != 0).
-			// This mirrors what OnFragmentDownloadSuccess already does for the TSB path.
-			if (fragmentToCache->initFragment)
+			// Mirror UpdateTSAfterFetchStats exactly: read profileIdxForBandwidthNotification
+			// and call UpdateStreamInfoBitrateData for ALL fragments (init and media)
+			// so that (profileIndex, bps, resolution, framerate) are all consistent and
+			// sourced from the ABR stream info, avoiding any mismatch between profileIndex
+			// and bandwidthBitsPerSecond that would fire a spurious bitrate-change event
+			// with wrong data (which then persists the profile index, blocking the correct
+			// event from firing later).
 			{
 				class StreamAbstractionAAMP* pContext = GetContext();
 				if (pContext)
@@ -834,7 +840,6 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 					pContext->UpdateStreamInfoBitrateData(fragmentToCache->profileIndex, fragmentToCache->cacheFragStreamInfo);
 				}
 			}
-			fragmentToCache->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
 			CacheTsbFragment(std::move(fragmentToCache));
 			if (aamp->IsLocalAAMPTsb())
 			{
