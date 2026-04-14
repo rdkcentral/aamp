@@ -1172,7 +1172,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							// For live stream, ad break scheduling fragment should be within source period.
 							// Otherwise, it may be beyond control if ad break cancellation is requested by server.
-							const bool baselineSourcePeriodCheck = (pMediaStreamContext->fragmentTime < (mPeriodStartTime + (mPeriodDuration / 1000)));
+							const bool baselineSourcePeriodCheck = ((pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset) < (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration / 1000.0));
 
 							bool isCurrentAdCancelled = false;
 							if (mCdaiObject->mCurAds && mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < static_cast<int>(mCdaiObject->mCurAds->size()))
@@ -1183,7 +1183,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							// If not, skip the fragment to avoid potential issues. CheckForAdTerminate() mark EOS for stream at boundaries.
 							if (((liveEdgePeriodPlayback || isCurrentAdCancelled) && !baselineSourcePeriodCheck))
 							{
-								AAMPLOG_INFO("Ad break playing fragment is not within source period. fragmentTime: %f, mPeriodEndTime: %f", pMediaStreamContext->fragmentTime, (mPeriodStartTime + (mPeriodDuration / 1000)));
+								AAMPLOG_INFO("Ad break fragment is not within source period. fragment offset:%lf, placedDuration: %lf", (pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset), (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).placedDuration / 1000.0));
 								return false;
 							}
 						}
@@ -7154,6 +7154,29 @@ static bool IsWebmVideoCodec(const std::string &codec )
 }
 
 /**
+ * @brief Is this an HEVC video codec (hvc1 or hev1)
+ *
+ * @param codec Codec string from MPD Representation
+ * @return true if codec is HEVC, false otherwise
+ */
+static bool IsVideoCodecHEVC(const std::string &codec)
+{
+	return codec.rfind("hvc1.", 0) == 0 || codec.rfind("hev1.", 0) == 0 ||
+	       codec == "hvc1" || codec == "hev1";
+}
+
+/**
+ * @brief Is this an AVC/H.264 video codec (avc1)
+ *
+ * @param codec Codec string from MPD Representation
+ * @return true if codec is AVC, false otherwise
+ */
+static bool IsVideoCodecAVC(const std::string &codec)
+{
+	return codec.rfind("avc1.", 0) == 0 || codec == "avc1";
+}
+
+/**
  * @brief Updates track information based on current state
  */
 AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
@@ -7307,6 +7330,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					int representationCount = 0;
 					std::set<uint32_t> blAdaptationIdxs;
 					bool bSeenNonWebmCodec = false;
+					bool bHasHEVC = false; /**< At least one HEVC representation is present */
+					bool bHasAVC  = false; /**< At least one AVC representation is present */
 
 					const auto &blacklistedProfiles = aamp->GetBlacklistedProfiles();
 					// Filter the blacklisted profiles in the period
@@ -7374,6 +7399,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						for (int reprIdx = 0; reprIdx < representations.size(); reprIdx++)
 						{
 							IRepresentation *representation = representations.at(reprIdx);
+							// Reset selection-state fields before (re-)populating this slot so that
+							// stale values from a previous UpdateTrackInfo call cannot leak through
+							// the filtering logic below (enabled/validity drive GetVideoBitrates()
+							// and GetBWIndex()).
+							mStreamInfo[idx].enabled = false;
+							mStreamInfo[idx].validity = false;
 							mStreamInfo[idx].bandwidthBitsPerSecond = representation->GetBandwidth();
 							mStreamInfo[idx].isIframeTrack = ShouldCheckOnlyIframeAdaptation();
 							mStreamInfo[idx].resolution.height = representation->GetHeight();
@@ -7402,9 +7433,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 									bSeenNonWebmCodec = true;
 								}
 							}
-
-							mStreamInfo[idx].enabled = false;
-							mStreamInfo[idx].validity = false;
+							// Track which codec families are present across all chosen AdaptationSets.
+							// Used below to restrict the ABR pool to a single family and prevent
+							// codec switches at runtime (e.g. AVC <-> HEVC).
+							if (IsVideoCodecHEVC(mStreamInfo[idx].codecs))     bHasHEVC = true;
+							else if (IsVideoCodecAVC(mStreamInfo[idx].codecs))  bHasAVC  = true;
 							if(repFrameRate.empty())
 								repFrameRate = adapFrameRate;
 							if(!repFrameRate.empty())
@@ -7457,6 +7490,19 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						}
 					}
 					mProfileCount = idx;
+					// When both HEVC and AVC AdaptationSets are present, restrict the ABR pool
+					// to representations from the preferred codec family only.  Mixing codec
+					// families in the pool would cause GStreamer pipeline failures whenever ABR
+					// crosses between them (different init segments, codec reconfiguration
+					// required, no discontinuity signalled).
+					StreamOutputFormat preferredVideoFormat = FORMAT_INVALID; // FORMAT_INVALID = no restriction
+					if (bHasHEVC && bHasAVC)
+					{
+						bool preferHEVC = ISCONFIGSET(eAAMPConfig_PreferHEVC);
+						preferredVideoFormat = preferHEVC ? FORMAT_VIDEO_ES_HEVC : FORMAT_VIDEO_ES_H264;
+						AAMPLOG_WARN("Multiple video codec families present (HEVC+AVC); restricting ABR pool to %s codec family",
+									 preferHEVC ? "HEVC" : "AVC");
+					}
 					for (int pidx = 0; pidx < idx; pidx++)
 					{
 						if (false == aamp->userProfileStatus && resolutionCheckEnabled && (mStreamInfo[pidx].resolution.width > aamp->mDisplayWidth) &&
@@ -7469,6 +7515,20 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						{
 							// Don't use VP8 or VP9 codecs if others are listed.
 							AAMPLOG_INFO("Video Profile ignoring for codec %s resolution= %d:%d display= %d:%d BW=%" BITSPERSECOND_FORMAT, mStreamInfo[pidx].codecs.c_str(), mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height, aamp->mDisplayWidth, aamp->mDisplayHeight, mStreamInfo[pidx].bandwidthBitsPerSecond);
+						}
+						else if (preferredVideoFormat != FORMAT_INVALID &&
+								 !mStreamInfo[pidx].codecs.empty() &&
+								 ((preferredVideoFormat == FORMAT_VIDEO_ES_HEVC && !IsVideoCodecHEVC(mStreamInfo[pidx].codecs)) ||
+								  (preferredVideoFormat == FORMAT_VIDEO_ES_H264 && !IsVideoCodecAVC(mStreamInfo[pidx].codecs))))
+						{
+							// Exclude representations from the non-preferred codec family to prevent
+							// cross-codec ABR switches (e.g. AVC<->HEVC) which require decoder
+							// reconfiguration and are not supported at runtime.
+							AAMPLOG_INFO("Video Profile ignoring codec %s (preferred %s family) res= %d:%d BW=%" BITSPERSECOND_FORMAT,
+										 mStreamInfo[pidx].codecs.c_str(),
+										 preferredVideoFormat == FORMAT_VIDEO_ES_HEVC ? "HEVC" : "AVC",
+										 mStreamInfo[pidx].resolution.width, mStreamInfo[pidx].resolution.height,
+										 mStreamInfo[pidx].bandwidthBitsPerSecond);
 						}
 						else
 						{
@@ -10082,15 +10142,9 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				}
 				if(cacheFullStatus[eMEDIATYPE_VIDEO] || (vEOS && !aEOS))
 				{
-					// play cache is full , wait until cache is available to inject next, max wait of 1sec
-					int timeoutMs = MAX_WAIT_TIMEOUT_MS;
 					int trackIdx = (vEOS && !aEOS) ? eMEDIATYPE_AUDIO : eMEDIATYPE_VIDEO;
-					//AAMPLOG_INFO("Cache full state track(%d), no download until(%d) Time(%lld)",trackIdx,timeoutMs,aamp_GetCurrentTimeMS());
-					bool temp =  mMediaStreamContext[trackIdx]->WaitForCachedFragmentChunkInjected(timeoutMs);
-					if(temp == false)
-					{
-						//AAMPLOG_INFO("Waiting for FreeFragmentAvailable");  //CID:82355 - checked return
-					}
+					// play cache is full , wait until cache is available to inject next, max wait of MAX_WAIT_TIMEOUT_MS
+					(void)mMediaStreamContext[trackIdx]->WaitForCachedFragmentChunkInjected(MAX_WAIT_TIMEOUT_MS);
 				}
 				else
 				{
@@ -10610,13 +10664,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			{
 				aamp->mDRMLicenseManager->notifyCleanup();
 			}
-		}
-		if(tsbReaderThreadID.joinable())
-		{
-			abortTsbReader = true;
-			// Signal TsbReader thread to exit wait for manifest update if waiting
-			AbortWaitForManifestUpdate();
-			tsbReaderThreadID.join();
 		}
 	}
 
