@@ -1366,9 +1366,23 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 {
-	// Move AampMediaSample's vector into a MediaSample with shared ownership.
-	// Downstream (SendHelper → GstBuffer notify) will release the last reference.
-	MediaSample gstSample(std::move(sample.mData), sample.mPts, sample.mDts, sample.mDuration, 0.0);
+	// Build a MediaSample that aliases sample.mDataPtr into the shared segment.
+	// The aliasing shared_ptr shares the segment's refcount but presents a raw
+	// byte pointer, matching MediaSample::mData (shared_ptr<uint8_t>).
+	// When the GstBuffer notify fires, it releases this reference; once no more
+	// samples alias the segment, the segment vector is freed automatically.
+	MediaSample gstSample;
+	// Aliasing constructor: shares the segment's refcount while presenting the
+	// raw byte pointer to GStreamer.  The const_cast is safe: mDataPtr points
+	// into mSegment (a non-const vector<uint8_t>); const was imposed by the
+	// Parse() call chain which receives a const buffer view.
+	gstSample.mData = std::shared_ptr<uint8_t>(
+		sample.mSegment,
+		const_cast<uint8_t*>(sample.mDataPtr));
+	gstSample.mDataSize    = sample.mDataSize;
+	gstSample.mPts         = sample.mPts;
+	gstSample.mDts         = sample.mDts;
+	gstSample.mDuration    = sample.mDuration;
 	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
 
 	return SendHelper(mediaType, std::move(gstSample));

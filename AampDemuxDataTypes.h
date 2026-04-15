@@ -20,20 +20,26 @@
 #ifndef __AAMP_DEMUX_DATA_TYPES_H__
 #define __AAMP_DEMUX_DATA_TYPES_H__
 
-#include <string>
 #include <vector>
 #include <cstdint>
+#include <memory>
 #include "DemuxDataTypes.h" // for MediaDrmMetadata
 
 /**
  * @struct AampMediaSample
  * @brief Media sample structure.
  *
+ * mDataPtr and mDataSize give zero-copy access to raw bytes inside the owning
+ * segment buffer.  mSegment holds the shared_ptr that keeps that buffer alive
+ * for as long as any sample derived from it exists.
+ *
  * In future, we can consider unifying this with MediaSample in DemuxDataTypes.h
  */
 struct AampMediaSample
 {
-	std::vector<uint8_t> mData{};  /**< Sample data buffer */
+	const uint8_t* mDataPtr{nullptr};                  /**< Raw pointer into the segment buffer (zero-copy) */
+	size_t mDataSize{0};                               /**< Byte count of the sample payload */
+	std::shared_ptr<std::vector<uint8_t>> mSegment{};  /**< Keeps the segment buffer alive */
 	double mPts{0.0};
 	double mDts{0.0};
 	double mDuration{0.0};

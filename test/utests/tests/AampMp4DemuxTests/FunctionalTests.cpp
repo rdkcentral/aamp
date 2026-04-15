@@ -188,7 +188,10 @@ TEST_F(AampMp4DemuxerTests, SendSegmentDifferentMediaTypes)
 			std::vector<AampMediaSample> samples;
 			AampMediaSample sample;
 			const char* audioSample = "audio_sample";
-			sample.mData.assign(audioSample, audioSample + strlen(audioSample));
+			auto seg = std::make_shared<std::vector<uint8_t>>(audioSample, audioSample + strlen(audioSample));
+			sample.mDataPtr  = seg->data();
+			sample.mDataSize = seg->size();
+			sample.mSegment  = seg;
 			samples.push_back(std::move(sample));
 			return samples;
 		}));

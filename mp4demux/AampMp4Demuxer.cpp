@@ -69,10 +69,15 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 {
 	bool ret = true;
 	(void) processor;
-	if (mMp4Demux.get() && !buffer.empty())
+	if (mMp4Demux && !buffer.empty())
 	{
+		// Move the caller's buffer into a shared_ptr so that every AampMediaSample
+		// derived from this segment can alias into it without copying bytes.
+		// The buffer is consumed here; callers must not rely on its contents
+		// after sendSegment() returns.
+		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
-		ret = mMp4Demux->Parse(buffer.data(), buffer.size());
+		ret = mMp4Demux->Parse(segment->data(), segment->size());
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
@@ -80,10 +85,13 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 		else
 		{
 			auto samples = mMp4Demux->GetSamples();
-			if (samples.size() > 0)
+			if (!samples.empty())
 			{
 				for (auto& sample : samples)
 				{
+					// Bind each sample to the segment so the buffer stays alive
+					// for the lifetime of every sample derived from it.
+					sample.mSegment = segment;
 					// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
 					if (mEnablePtsRestamp)
 					{
@@ -125,7 +133,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 	}
 	else
 	{
-		AAMPLOG_ERR("Demuxer instance(%p) is invalid or buffer is empty (size=%zu)", mMp4Demux.get(), buffer.size());
+		AAMPLOG_ERR("Demuxer instance(%p) is invalid or buffer is empty (size=%zu)", static_cast<void*>(mMp4Demux.get()), buffer.size());
 		ret = false;
 	}
 	ptsError = false;

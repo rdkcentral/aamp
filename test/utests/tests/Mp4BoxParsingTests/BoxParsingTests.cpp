@@ -140,14 +140,14 @@ TEST_F(Mp4DemuxFunctionalTests, ParseFragmentAndValidateSamples)
 	EXPECT_EQ(samples.size(), 2) << "Should have exactly 2 samples";
 	
 	// Validate Sample 0
-	EXPECT_EQ(samples[0].mData.size(), 32) << "Sample 0 should be 32 bytes";
+	EXPECT_EQ(samples[0].mDataSize, 32u) << "Sample 0 should be 32 bytes";
 	EXPECT_NEAR(samples[0].mPts, 0.0, 1e-6) << "Sample 0 PTS should be 0";
 	EXPECT_NEAR(samples[0].mDts, 0.0, 1e-6) << "Sample 0 DTS should be 0";
 	EXPECT_NEAR(samples[0].mDuration, 0.1, 1e-6) << "Sample 0 duration should be 0.1";
 	EXPECT_FALSE(samples[0].mDrmMetadata.mIsEncrypted) << "Sample 0 should not be encrypted";
 	
 	// Validate Sample 1
-	EXPECT_EQ(samples[1].mData.size(), 64) << "Sample 1 should be 64 bytes";
+	EXPECT_EQ(samples[1].mDataSize, 64u) << "Sample 1 should be 64 bytes";
 	EXPECT_NEAR(samples[1].mPts, 0.1, 1e-6) << "Sample 1 PTS should be 0.1";
 	EXPECT_NEAR(samples[1].mDts, 0.1, 1e-6) << "Sample 1 DTS should be 0.1";
 	EXPECT_NEAR(samples[1].mDuration, 0.1, 1e-6) << "Sample 1 duration should be 0.1";
@@ -551,17 +551,17 @@ TEST(Mp4Demux_Gaps, TST2052_LLDMultipleMoofMdatPairs) {
 	ASSERT_EQ(samples.size(), 3u) << "Expected 3 samples total (2 from moof1 + 1 from moof2)";
 	
 	// ---- validate moof1 samples (data from mdat1) ----
-	ASSERT_EQ(samples[0].mData.size(), 10u) << "Sample 0: 10 bytes from mdat1";
-	EXPECT_EQ(samples[0].mData[0], uint8_t(0xAA))
+	ASSERT_EQ(samples[0].mDataSize, 10u) << "Sample 0: 10 bytes from mdat1";
+	EXPECT_EQ(samples[0].mDataPtr[0], uint8_t(0xAA))
 	<< "Sample 0 first byte should match first byte of mdat1 payload";
 	
-	ASSERT_EQ(samples[1].mData.size(), 10u) << "Sample 1: 10 bytes from mdat1";
-	EXPECT_EQ(samples[1].mData[0], uint8_t(0xAA + 10))
+	ASSERT_EQ(samples[1].mDataSize, 10u) << "Sample 1: 10 bytes from mdat1";
+	EXPECT_EQ(samples[1].mDataPtr[0], uint8_t(0xAA + 10))
 	<< "Sample 1 first byte should match second chunk of mdat1 payload";
 	
 	// ---- validate moof2 sample (data from mdat2, NOT mdat1) ----
-	ASSERT_EQ(samples[2].mData.size(), 15u) << "Sample 2: 15 bytes from mdat2";
-	EXPECT_EQ(samples[2].mData[0], uint8_t(0xBB))
+	ASSERT_EQ(samples[2].mDataSize, 15u) << "Sample 2: 15 bytes from mdat2";
+	EXPECT_EQ(samples[2].mDataPtr[0], uint8_t(0xBB))
 	<< "Sample 2 first byte must come from mdat2, not mdat1";
 }
 
@@ -662,8 +662,8 @@ TEST(Mp4Demux_Gaps, MultiMoofMdatNoBoundaryError)
 	ASSERT_EQ(samples.size(), 2u) << "Should extract one sample per moof+mdat pair";
 	
 	// Validate sample 0 is bound to mdat1 payload (0xA0–0xA7)
-	EXPECT_EQ(samples[0].mData.size(), 8u) << "Sample 0 should be 8 bytes (mdat1 payload)";
-	const auto& s0 = samples[0].mData;
+	ASSERT_EQ(samples[0].mDataSize, 8u) << "Sample 0 should be 8 bytes (mdat1 payload)";
+	const uint8_t* s0 = samples[0].mDataPtr;
 	for (int i = 0; i < 8; ++i)
 	{
 		EXPECT_EQ(s0[i], uint8_t(0xA0 + i))
@@ -672,8 +672,8 @@ TEST(Mp4Demux_Gaps, MultiMoofMdatNoBoundaryError)
 	}
 	
 	// Validate sample 1 is bound to mdat2 payload (0xB0–0xB7)
-	EXPECT_EQ(samples[1].mData.size(), 8u) << "Sample 1 should be 8 bytes (mdat2 payload)";
-	const auto& s1 = samples[1].mData;
+	ASSERT_EQ(samples[1].mDataSize, 8u) << "Sample 1 should be 8 bytes (mdat2 payload)";
+	const uint8_t* s1 = samples[1].mDataPtr;
 	for (int i = 0; i < 8; ++i)
 	{
 		EXPECT_EQ(s1[i], uint8_t(0xB0 + i))
