@@ -580,7 +580,11 @@ bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::strin
 	else
 	{
 		  errorCode =  static_cast<int>(drmSession.error());
-		  MW_LOG_ERR("openDrmSession: Firebolt Error: \"%d\"", errorCode);
+		  std::string errorStr;
+		  Firebolt::IFireboltAampAccessor::Instance()
+			.ContentProtectionInterface()
+			.ErrorToString(errorCode, errorStr)
+		  MW_LOG_ERR("openDrmSession: Firebolt Error: %s(%d)", errorStr,errorCode);
 	}
 	return ret;
 }
@@ -606,7 +610,11 @@ bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, int32_t &err
 	else
 	{
 		errorCode =  static_cast<int>(drmSession.error());
-		MW_LOG_ERR("updateDrmSession: Firebolt Error: \"%d\"", errorCode);
+		std::string errorStr;
+		Firebolt::IFireboltAampAccessor::Instance()
+		.ContentProtectionInterface()
+		.ErrorToString(errorCode, errorStr)
+		MW_LOG_ERR("updateDrmSession: Firebolt Error: %s(%d)", errorStr,errorCode);
 	}
 	return ret;
 }
