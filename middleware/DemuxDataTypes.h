@@ -20,6 +20,7 @@
 #ifndef __DEMUX_DATA_TYPES_H__
 #define __DEMUX_DATA_TYPES_H__
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <cstring> // for std::memset
@@ -234,73 +235,97 @@ struct MediaDrmMetadata
 
 /*
  * @struct MediaSample
- * @brief Media sample structure
+ * @brief Media sample structure.
+ *
+ * The media payload is held in mData, a shared_ptr<uint8_t> pointing at the
+ * raw byte array, with mDataSize holding the byte count.  Using a raw-byte
+ * shared_ptr (rather than shared_ptr<vector>) means this struct is already
+ * shaped for the future zero-copy stage where AampMediaSample will expose a
+ * raw pointer into an upstream segment buffer instead of owning a vector.
+ *
+ * Ownership model:
+ *  - When constructed from std::vector&&, the aliasing constructor is used:
+ *    the vector is moved to the heap (owned by a shared_ptr<vector>), and
+ *    mData aliases that control block while pointing at vector::data().  The
+ *    vector is freed when the last mData copy is released.
+ *  - When constructed from a raw ptr/size, a private byte array is allocated
+ *    and freed via delete[] when the last mData copy is released.
+ *  - In the future zero-copy stage, mData can be constructed with the aliasing
+ *    constructor directly from a shared_ptr to the upstream segment buffer,
+ *    keeping the segment alive as long as any GstBuffer holds a reference.
  */
 struct MediaSample
 {
-	std::vector<uint8_t> mData; // Media data buffer (replaces raw pointer + size)
-	double mPts;
-	double mDts;
-	double mDuration;
-	double mPtsOffset;
-	MediaDrmMetadata mDrmMetadata; // DRM metadata for encrypted samples
+	/// Shared ownership of the raw payload bytes.  nullptr means no data.
+	std::shared_ptr<uint8_t> mData{};
+	/// Byte count of the payload pointed to by mData.
+	size_t mDataSize{0};
+	double mPts{0.0};
+	double mDts{0.0};
+	double mDuration{0.0};
+	double mPtsOffset{0.0};
+	MediaDrmMetadata mDrmMetadata{}; // DRM metadata for encrypted samples
 
 	/**
 	 * @brief Default constructor for MediaSample
 	 */
-	MediaSample()
-		: mData()
-		, mPts(0.0)
-		, mDts(0.0)
-		, mDuration(0.0)
-		, mPtsOffset(0.0)
-		, mDrmMetadata()
-	{
-	}
+	MediaSample() = default;
 
 	/**
-	 * @brief Constructor with data from vector (move semantics)
-	 * @param data Vector of data (moved into sample)
-	 * @param pts Presentation timestamp
-	 * @param dts Decode timestamp
-	 * @param duration Sample duration
+	 * @brief Constructor from vector (zero-copy via aliasing shared_ptr).
+	 *
+	 * Moves the vector to the heap and uses the shared_ptr aliasing constructor
+	 * so that mData points at the raw bytes while the control block owns the
+	 * heap-allocated vector.  No byte-level copy is performed.
+	 *
+	 * @param data      Vector to take ownership of (moved).
+	 * @param pts       Presentation timestamp
+	 * @param dts       Decode timestamp
+	 * @param duration  Sample duration
 	 * @param ptsOffset PTS offset
 	 */
 	MediaSample(std::vector<uint8_t>&& data, double pts, double dts, double duration, double ptsOffset = 0.0)
-		: mData(std::move(data))
-		, mPts(pts)
+		: mPts(pts)
 		, mDts(dts)
 		, mDuration(duration)
 		, mPtsOffset(ptsOffset)
-		, mDrmMetadata()
 	{
+		auto heapVec = std::make_shared<std::vector<uint8_t>>(std::move(data));
+		mDataSize = heapVec->size();
+		// Aliasing constructor: mData shares the refcount with heapVec but
+		// points directly at the raw bytes.  The vector is destroyed when
+		// the last mData copy is released.
+		mData = std::shared_ptr<uint8_t>(heapVec, heapVec->data());
 	}
 
 	/**
-	 * @brief Constructor from raw pointer (takes ownership via copy)
-	 * @param ptr Pointer to data to copy
-	 * @param size Size of data
-	 * @param pts Presentation timestamp
-	 * @param dts Decode timestamp
-	 * @param duration Sample duration
+	 * @brief Constructor from raw pointer (copies bytes into owned storage).
+	 * @param ptr       Pointer to data to copy
+	 * @param size      Number of bytes
+	 * @param pts       Presentation timestamp
+	 * @param dts       Decode timestamp
+	 * @param duration  Sample duration
 	 * @param ptsOffset PTS offset
 	 */
 	MediaSample(const void* ptr, size_t size, double pts, double dts, double duration, double ptsOffset = 0.0)
-		: mData(static_cast<const uint8_t*>(ptr), static_cast<const uint8_t*>(ptr) + size)
+		: mDataSize(size)
 		, mPts(pts)
 		, mDts(dts)
 		, mDuration(duration)
 		, mPtsOffset(ptsOffset)
-		, mDrmMetadata()
 	{
+		auto* buf = new uint8_t[size];
+		std::memcpy(buf, static_cast<const uint8_t*>(ptr), size);
+		mData = std::shared_ptr<uint8_t>(buf, [](uint8_t* p) noexcept { delete[] p; });
 	}
 
 	/**
-	 * @brief Move constructor for MediaSample
+	 * @brief Move constructor for MediaSample.
 	 * @param other Source MediaSample to move from
 	 */
 	MediaSample(MediaSample&& other) noexcept
-		: mData(exchange(other.mData, {}))
+		: mData(exchange(other.mData, nullptr))
+		, mDataSize(exchange(other.mDataSize, 0u))
 		, mPts(exchange(other.mPts, 0.0))
 		, mDts(exchange(other.mDts, 0.0))
 		, mDuration(exchange(other.mDuration, 0.0))
@@ -310,7 +335,7 @@ struct MediaSample
 	}
 
 	/**
-	 * @brief Move assignment operator for MediaSample
+	 * @brief Move assignment operator for MediaSample.
 	 * @param other Source MediaSample to move from
 	 * @return Reference to this object
 	 */
@@ -318,9 +343,10 @@ struct MediaSample
 	{
 		if (this != &other)
 		{
-			mData = exchange(other.mData, {});
-			mPts = exchange(other.mPts, 0.0);
-			mDts = exchange(other.mDts, 0.0);
+			mData     = exchange(other.mData, nullptr);
+			mDataSize = exchange(other.mDataSize, 0u);
+			mPts      = exchange(other.mPts, 0.0);
+			mDts      = exchange(other.mDts, 0.0);
 			mDuration = exchange(other.mDuration, 0.0);
 			mPtsOffset = exchange(other.mPtsOffset, 0.0);
 			mDrmMetadata = exchange(other.mDrmMetadata, {});
@@ -332,24 +358,17 @@ struct MediaSample
 	MediaSample(const MediaSample&) = delete;
 	MediaSample& operator=(const MediaSample&) = delete;
 
-	/**
-	 * @brief Get pointer to data (for compatibility with legacy APIs)
-	 * @return Pointer to data or nullptr if empty
-	 */
-	const uint8_t* data() const { return mData.empty() ? nullptr : mData.data(); }
-	uint8_t* data() { return mData.empty() ? nullptr : mData.data(); }
+	/// @brief Read-only pointer to payload bytes, or nullptr if no data.
+	const uint8_t* data() const noexcept { return mData.get(); }
 
-	/**
-	 * @brief Get size of data
-	 * @return Size in bytes
-	 */
-	size_t size() const { return mData.size(); }
+	/// @brief Mutable pointer to payload bytes, or nullptr if no data.
+	uint8_t* data() noexcept { return mData.get(); }
 
-	/**
-	 * @brief Check if sample is empty
-	 * @return true if no data
-	 */
-	bool empty() const { return mData.empty(); }
+	/// @brief Byte count of the payload.
+	size_t size() const noexcept { return mDataSize; }
+
+	/// @brief True if there is no payload data.
+	bool empty() const noexcept { return mDataSize == 0; }
 };
 
 #endif /* __DEMUX_DATA_TYPES_H__ */

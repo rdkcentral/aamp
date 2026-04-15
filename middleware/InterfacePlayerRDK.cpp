@@ -3057,15 +3057,23 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 			pts_offset = 0;
 		}
 
-		std::vector<uint8_t>* heapVector = new std::vector<uint8_t>(std::move(sample.mData));
-		
+		// Capture size and raw pointer before transferring shared ownership to
+		// GStreamer.  A heap-allocated copy of the shared_ptr is used as
+		// user_data so the notify callback can release the last reference,
+		// which frees the underlying storage (vector or buffer array) via
+		// the shared_ptr's deleter.  This is RAII without raw new/delete in
+		// the production code path.
+		const gsize dataSize = static_cast<gsize>(sample.mDataSize);
+		gpointer rawPtr = static_cast<gpointer>(sample.mData.get());
+		auto* lifetimeRef = new std::shared_ptr<uint8_t>(std::move(sample.mData));
+
 		buffer = gst_buffer_new_wrapped_full(
 			GST_MEMORY_FLAG_READONLY,
-			(gpointer)heapVector->data(), heapVector->size(),
-			0, heapVector->size(),
-			heapVector,
-			[](gpointer user_data) {
-				delete static_cast<std::vector<uint8_t>*>(user_data);
+			rawPtr, dataSize,
+			0, dataSize,
+			lifetimeRef,
+			[](gpointer user_data) noexcept {
+				delete static_cast<std::shared_ptr<uint8_t>*>(user_data);
 			}
 		);
 
@@ -3085,11 +3093,12 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 			}
 
 			MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT " len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT " ptsOffset:%" G_GINT64_FORMAT,
-						mediaType, pts, dts, heapVector->size(), initFragment, discontinuity, duration, pts_offset);
+						mediaType, pts, dts, static_cast<size_t>(dataSize), initFragment, discontinuity, duration, pts_offset);
 		}
 		else
 		{
-			delete heapVector;
+			// gst_buffer_new_wrapped_full failed; release our reference manually.
+			delete lifetimeRef;
 			bPushBuffer = false;
 		}
 

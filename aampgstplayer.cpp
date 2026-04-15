@@ -1366,6 +1366,8 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 {
+	// Move AampMediaSample's vector into a MediaSample with shared ownership.
+	// Downstream (SendHelper → GstBuffer notify) will release the last reference.
 	MediaSample gstSample(std::move(sample.mData), sample.mPts, sample.mDts, sample.mDuration, 0.0);
 	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
 
