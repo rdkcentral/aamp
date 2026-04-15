@@ -10620,10 +10620,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			tsbMgr->NotifyVideoTsbWaiters();
 		}
-		AAMPLOG_INFO("patrick 1")
+		AAMPLOG_INFO("patrick 1");
 		// Signal TsbReader thread to exit wait for manifest update if waiting
 		AbortWaitForManifestUpdate();
-		AAMPLOG_INFO("patrick 2")
+		AAMPLOG_INFO("patrick 2");
 		tsbReaderThreadID.join();
 		AAMPLOG_INFO("Joined tsbReaderThreadID");
 	}
