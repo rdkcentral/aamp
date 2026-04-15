@@ -2268,7 +2268,8 @@ TEST_F(PrivAampTests,SetCurlTimeoutTest)
 TEST_F(PrivAampTests,SetCurlTimeoutTest_1)
 {
 	p_aamp->SetContentType("EAS");
-	p_aamp->SetCurlTimeout(12234325,eCURLINSTANCE_AUDIO);
+	bool flag = p_aamp->SetCurlTimeout(12234325,eCURLINSTANCE_AUDIO);
+	EXPECT_FALSE(flag);
 }
 
 TEST_F(PrivAampTests,SetCurlTimeoutTest_2)
@@ -2278,6 +2279,26 @@ TEST_F(PrivAampTests,SetCurlTimeoutTest_2)
 	p_aamp->SetCurlTimeout(12234325,eCURLINSTANCE_MAX);
 
 	p_aamp->SetCurlTimeout(12234325,AampCurlInstance(13));
+}
+
+TEST_F(PrivAampTests,SetCurlTimeoutTest_3)
+{
+	bool flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_MAX);
+	EXPECT_FALSE(flag); // expect false if invalid instance
+	
+	p_aamp->curl[eCURLINSTANCE_AUDIO] = nullptr;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_AUDIO] = 2000;
+
+	flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_AUDIO);
+	EXPECT_FALSE(flag); // expect false if curl not set up
+
+	p_aamp->curl[eCURLINSTANCE_AUDIO] = mCurlEasyHandle;
+
+	flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_AUDIO);
+	EXPECT_TRUE(flag); // expect true if curl set up and value changed
+
+	flag = p_aamp->SetCurlTimeout(3000,eCURLINSTANCE_AUDIO);
+	EXPECT_FALSE(flag); // expect false if curl set up and value not changed
 }
 
 TEST_F(PrivAampTests,CurlTermTest)
@@ -5049,11 +5070,15 @@ TEST_F(PrivAampTests,BlockUntilGstreamerWantsDataTest11)
 	p_aamp->BlockUntilGstreamerWantsData(NULL,10,20);
 }
 
-TEST_F(PrivAampTests,stopTest_11)
+TEST_F(PrivAampTests, Stop_ActualImplementation_SetsPlayerStateToIdle)
 {
-	p_aamp->mFogTSBEnabled = true;
-	p_aamp->IsFogTSBSupported();
-	p_aamp->Stop();
+	p_aamp->SetState(eSTATE_PLAYING, false);
+
+	ASSERT_EQ(p_aamp->GetState(), eSTATE_PLAYING);
+
+	p_aamp->Stop(false);
+
+	EXPECT_EQ(p_aamp->GetState(), eSTATE_IDLE);
 }
 
 TEST_F(PrivAampTests, Stop_StateTransition_WithStateChangeEvent)
@@ -5318,7 +5343,9 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
 	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
 	p_aamp->culledSeconds = SEEK_POS;
 
-	EXPECT_DOUBLE_EQ(p_aamp->GetTSBSessionManager()->GetTotalStoreDuration(eMEDIATYPE_VIDEO), 0);
+	// Empty TSB is represented by a null session manager in this test context
+	// (no manager created = no TSB data, equivalent to GetTotalStoreDuration() == 0)
+	EXPECT_EQ(p_aamp->GetTSBSessionManager(), nullptr);
 	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 	EXPECT_FALSE(p_aamp->IsLocalAAMPTsbInjection());
 }

@@ -97,6 +97,8 @@ public:
 
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 
+	MOCK_METHOD(bool, IsInitialCachingSupported, (), (override));
+
 	MOCK_METHOD(void, ReinitializeInjection, (double rate));
 
 	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));

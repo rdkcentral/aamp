@@ -184,8 +184,9 @@ bool AampLogManager::disableLogRedirection = false;
 bool AampLogManager::enableEthanLogRedirection = false;
 AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
 bool AampLogManager::locked = false;
+bool AampLogManager::logFilename = false;
 
-void logprintf(AAMP_LogLevel level, const char *func, int line, const char *format,
+void logprintf(AAMP_LogLevel level, const char *file, const char *func, int line, const char *format,
 			   ...)
 {
 	int playerId = -1;
@@ -616,8 +617,9 @@ void PrivateInstanceAAMP::UpdateDuration(double seconds)
 {
 }
 
-void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
+	return false;
 }
 
 void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount,
@@ -1309,7 +1311,7 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 	return false;
 }
 
-void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
 }
 

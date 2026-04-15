@@ -96,6 +96,7 @@ typedef enum
 	eAAMPConfig_StereoOnly,							/**< Enable Stereo Only playback, disables EC3/ATMOS.  */
 	eAAMPConfig_DescriptiveTrackName,					/**< Enable Descriptive track name*/
 	eAAMPConfig_DisableAC3,							/**< Disable AC3 Audio */
+	eAAMPConfig_PreferHEVC,							/**< When multiple video codec families are present (e.g. HEVC and AVC in separate AdaptationSets), prefer HEVC. Prevents cross-codec ABR switches at runtime. */
 	eAAMPConfig_DisablePlaylistIndexEvent,					/**< Disable playlist index event*/
 	eAAMPConfig_EnableSubscribedTags,					/**< Enabled subscribed tags*/
 	eAAMPConfig_DASHIgnoreBaseURLIfSlash,					/**< Ignore the constructed URI of DASH, if it is / */
@@ -229,6 +230,8 @@ typedef enum
 	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
 	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
+	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
+	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -282,9 +285,6 @@ typedef enum
 	eAAMPConfig_LatencyMonitorIntervalMs,           				/**< Latency Monitor Interval */
 	eAAMPConfig_MaxFragmentChunkCached,           				/**< fragment chunk cache length*/
 	eAAMPConfig_ABRChunkThresholdSize,                			/**< AAMP ABR Chunk threshold size*/
-	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
-	eAAMPConfig_LLTargetLatency,						/**< Low Latency Target Latency */
-	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FragmentDownloadFailThreshold, 				/**< Retry attempts for non-init fragment curl timeout failures*/
 	eAAMPConfig_MaxInitFragCachePerTrack,					/**< Max no of Init fragment cache per track */
 	eAAMPConfig_FogMaxConcurrentDownloads,                                  /**< Concurrent download posted to fog from player*/
@@ -327,7 +327,7 @@ typedef enum
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
 	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
-	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator */
+	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator: 0=ROLLING_MEDIAN_OUTLIER, 1=HARMONIC_EWMA */
 	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
@@ -362,6 +362,9 @@ typedef enum
 	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
+	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
+	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
+	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)
