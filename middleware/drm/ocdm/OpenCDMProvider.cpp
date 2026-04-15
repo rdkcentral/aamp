@@ -49,11 +49,11 @@ OpenCDMSessionProvider::OpenCDMSessionProvider(OpenCDMSession* handle,
 
 	if (m_gstDecrypt)
 	{
-		MW_LOG_WARN("OpenCDMSessionProvider: resolved opencdm_gstreamer_session_decrypt_buffer");
+		MW_LOG_WARN("[DRM_FLOW] OpenCDMSessionProvider: resolved opencdm_gstreamer_session_decrypt_buffer");
 	}
 	else
 	{
-		MW_LOG_WARN("OpenCDMSessionProvider: opencdm_gstreamer_session_decrypt_buffer not found, will use legacy fallback");
+		MW_LOG_WARN("[DRM_FLOW] OpenCDMSessionProvider: opencdm_gstreamer_session_decrypt_buffer not found, will use legacy fallback");
 	}
 }
 
@@ -254,10 +254,11 @@ std::unique_ptr<IOpenCDMSession> OpenCDMProvider::constructSession(
 
 	if (err != ERROR_NONE || !rawSession)
 	{
-		MW_LOG_ERR("OpenCDMProvider::constructSession: opencdm_construct_session failed, err=0x%x", err);
+		MW_LOG_ERR("[DRM_FLOW] OpenCDMProvider::constructSession: opencdm_construct_session FAILED for %s, err=0x%x", keySystem.c_str(), err);
 		delete cbCopy;
 		return nullptr;
 	}
 
+	MW_LOG_WARN("[DRM_FLOW] OpenCDMProvider::constructSession: OK for %s", keySystem.c_str());
 	return std::make_unique<OpenCDMSessionProvider>(rawSession, cbCopy);
 }

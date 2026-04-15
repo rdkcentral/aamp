@@ -468,7 +468,9 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	/**
 	 * Create drm session without primaryKeyId markup OR retrieve old DRM session.
 	 */
+	MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 1 - getDrmSession");
 	code = getDrmSession(err, drmHelper, selectedSlot,  Instance);
+	MW_LOG_WARN("[DRM_FLOW] createDrmSession: getDrmSession returned code=%d slot=%d", code, selectedSlot);
 	/**
 	 * KEY_READY code indicates that a previously created session is being reused.
 	 */
@@ -483,18 +485,21 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	mCustomData = ContentUpdateCb(drmHelper, streamType, keyId, isContentProcess);
 	if (code == KEY_READY)
 	{
+		MW_LOG_WARN("[DRM_FLOW] createDrmSession: reusing existing READY session at slot=%d", selectedSlot);
 		return drmSessionContexts[selectedSlot].drmSession;
 	}
 
 	if ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT))
 	{
-		MW_LOG_WARN(" Unable to get DrmSession : Key State %d ", code);
+		MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 1 FAILED - Unable to get DrmSession code=%d", code);
 		return nullptr;
 	}
+	MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 2 - initializeDrmSession slot=%d", selectedSlot);
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);
+	MW_LOG_WARN("[DRM_FLOW] createDrmSession: initializeDrmSession returned code=%d err=%d", code, err);
 	if (code != KEY_INIT)
 	{
-		MW_LOG_WARN(" Unable to initialize DrmSession : Key State %d, err code: %d", code, err);
+		MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 2 FAILED - initialization code=%d err=%d", code, err);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 		if (cachedKeyIDs)
 		{
@@ -505,7 +510,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 
 	if(m_drmConfigParam->mIsFakeTune)
 	{
-		MW_LOG_MIL( "Exiting fake tune after DRM initialization.");
+		MW_LOG_MIL( "[DRM_FLOW] createDrmSession: exiting fake tune after DRM initialization.");
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 		if (cachedKeyIDs)
 		{
@@ -513,10 +518,12 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 		}
 		return nullptr;
 	}
+	MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 3 - AcquireLicense slot=%d", selectedSlot);
 	code =this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+	MW_LOG_WARN("[DRM_FLOW] createDrmSession: AcquireLicense returned code=%d cdmError=%d responseCode=%d", code, cdmError, responseCode);
 	if (code != KEY_READY)
 	{
-		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
+		MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 3 FAILED - license not ready code=%d", code);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 		if (cachedKeyIDs)
 		{
@@ -532,25 +539,26 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	}
 	if (code == KEY_READY && isMultiKeySession)
 	{
-		// Multiple KeyIDs present for this session, validate them
+		MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 4 - ValidateMultiKeySlot slot=%d", selectedSlot);
 		if(!ValidateMultiKeySlot(keyId, selectedSlot))
 		{
 			// Validation failed as current keyId is marked as failed
 			std::lock_guard<std::mutex> guard(cachedKeyMutex);
 			cachedKeyIDs[selectedSlot].isFailedKeyEntries = true;
-			MW_LOG_WARN("ValidateMultiKeySlot failed for slot %d", selectedSlot);
+			MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 4 FAILED - ValidateMultiKeySlot slot=%d", selectedSlot);
 			return nullptr;
 		}
+		MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 4 OK - all keys validated slot=%d", selectedSlot);
 	}
 
 	// License acquisition was done, so mContentSecurityManagerSession will be populated now
 	const auto &localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if (localSession.isSessionValid())
 	{
-		MW_LOG_WARN(" Setting sessionId[%" PRId64 "] to current drmSession", localSession.getSessionID());
+		MW_LOG_WARN("[DRM_FLOW] createDrmSession: setting secManager sessionId[%" PRId64 "] on drmSession", localSession.getSessionID());
 		drmSessionContexts[selectedSlot].drmSession->setSecManagerSession(localSession);
 	}
-
+	MW_LOG_WARN("[DRM_FLOW] createDrmSession: SUCCESS - returning drmSession for slot=%d", selectedSlot);
 	return drmSessionContexts[selectedSlot].drmSession;
 }
 
@@ -879,10 +887,11 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	}
         this->ProfileUpdateCb();
 
+	MW_LOG_WARN("[DRM_FLOW] getDrmSession: calling DrmSessionFactory::GetDrmSession for %s slot=%d", systemId.c_str(), sessionSlot);
 	drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance);
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
-		MW_LOG_INFO("Created new DrmSession for DrmSystemId %s", systemId.c_str());
+		MW_LOG_WARN("[DRM_FLOW] getDrmSession: factory created DrmSession for %s slot=%d", systemId.c_str(), sessionSlot);
 		drmSessionContexts[sessionSlot].data = keyIdArray;
 		code = drmSessionContexts[sessionSlot].drmSession->getState();
 		// exception : by default for all types of drm , outputprotection is not handled in player
@@ -918,12 +927,14 @@ KeyState DrmSessionManager::initializeDrmSession(std::shared_ptr<DrmHelper> drmH
 
 	std::lock_guard<std::mutex> guard(drmSessionContexts[sessionSlot].sessionMutex);
 	MW_LOG_INFO("DRM session Custom Data - %s ", mCustomData.empty()?"NULL":mCustomData.c_str());
+	MW_LOG_WARN("[DRM_FLOW] initializeDrmSession: calling generateDRMSession slot=%d initDataLen=%u", sessionSlot, (uint32_t)drmInitData.size());
 	drmSessionContexts[sessionSlot].drmSession->generateDRMSession(drmInitData.data(), (uint32_t)drmInitData.size(), mCustomData);
 
 	code = drmSessionContexts[sessionSlot].drmSession->getState();
+	MW_LOG_WARN("[DRM_FLOW] initializeDrmSession: post-generateDRMSession state=%d slot=%d", code, sessionSlot);
 	if (code != KEY_INIT)
 	{
-		MW_LOG_ERR("DRM session was not initialized : Key State %d ", code);
+		MW_LOG_ERR("[DRM_FLOW] initializeDrmSession: FAILED code=%d slot=%d", code, sessionSlot);
 		if (code == KEY_ERROR_EMPTY_SESSION_ID)
 		{
 			MW_LOG_ERR("DRM session ID is empty: Key State %d ", code);
