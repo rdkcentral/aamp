@@ -10620,8 +10620,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			tsbMgr->NotifyVideoTsbWaiters();
 		}
+		AAMPLOG_INFO("patrick 1")
 		// Signal TsbReader thread to exit wait for manifest update if waiting
 		AbortWaitForManifestUpdate();
+		AAMPLOG_INFO("patrick 2")
 		tsbReaderThreadID.join();
 		AAMPLOG_INFO("Joined tsbReaderThreadID");
 	}
@@ -14301,6 +14303,7 @@ void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t snapshotCounter)
  */
 void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
 {
+	AAMPLOG_INFO("Enter");
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	if (video)
 	{
@@ -14311,4 +14314,5 @@ void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
 		// Video should be always present. In case of audio-only playback, it's currently masked as a video track.
 		AAMPLOG_WARN("BUG! Video track is not available to abort wait for manifest update");
 	}
+	AAMPLOG_INFO("Exit");
 }
