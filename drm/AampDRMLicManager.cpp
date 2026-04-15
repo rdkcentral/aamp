@@ -230,9 +230,12 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 	int32_t httpResponseCode = -1;
 	int32_t httpExtendedStatusCode = -1;
 	KeyState code = KEY_ERROR;
+	AAMPLOG_WARN("[DRM_FLOW] acquireLicense: enter slot=%d streamType=%d isRenewal=%d metaDataPtr=%s",
+		sessionSlot, (int)streamType, (int)isLicenseRenewal, metaDataPtr ? "ok" : "NULL");
 #ifdef USE_PREINIT_DECODING
 	if(aampInstance->mManifestUrl == FAKE_TUNE_URL)
 	{
+		AAMPLOG_WARN("[DRM_FLOW] acquireLicense: early exit - fake tune URL");
 		return code;
 	}
 #endif

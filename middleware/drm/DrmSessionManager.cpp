@@ -518,8 +518,17 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 		}
 		return nullptr;
 	}
-	MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 3 - AcquireLicense slot=%d", selectedSlot);
-	code =this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+	MW_LOG_WARN("[DRM_FLOW] createDrmSession: step 3 - AcquireLicense slot=%d cbRegistered=%s",
+		selectedSlot, AcquireLicenseCb ? "yes" : "NO");
+	if (!AcquireLicenseCb)
+	{
+		MW_LOG_ERR("[DRM_FLOW] createDrmSession: AcquireLicenseCb not registered - cannot acquire license");
+		std::lock_guard<std::mutex> guard(cachedKeyMutex);
+		if (cachedKeyIDs)
+			cachedKeyIDs[selectedSlot].isFailedKeyEntries = true;
+		return nullptr;
+	}
+	code = this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
 	MW_LOG_WARN("[DRM_FLOW] createDrmSession: AcquireLicense returned code=%d cdmError=%d responseCode=%d", code, cdmError, responseCode);
 	if (code != KEY_READY)
 	{
