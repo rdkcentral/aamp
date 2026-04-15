@@ -19,6 +19,29 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 - Review **`instructions/testing.instructions.md`** before creating any tests.
 - All tests must run via the CI pipeline.
 
+### L1 Test Workflow (Mandatory)
+For L1 test creation, review, validity checks, or failure diagnosis, prefer
+the **L1 Test Engineer** agent (`@l1-test-engineer`). It enforces the full
+workflow below automatically. When the agent is not explicitly selected,
+Copilot must still follow these steps:
+
+1. **Identify the component under test** before writing any code.
+2. **Check for existing tests** under `test/utests/tests/` — do not create
+   duplicate suites. See `instructions/l1-structure.instructions.md`.
+3. **Follow the approved build/run workflow exactly.** For new tests, the
+   mandatory first step is `cd test/utests && ./run.sh`. Do not invent
+   alternate build commands. See `instructions/l1-build-run.instructions.md`.
+4. **Use AAMP fakes and mocks**, not generic GoogleTest patterns. Fake
+   behavior intentionally differs from production — adapt expectations.
+   See `instructions/l1-fakes-mocks.instructions.md`.
+5. **Test component behavior, not fake/mock behavior.** Every assertion
+   must verify how the component under test responds, not how a
+   dependency stub works.
+6. **Do not invent file names, paths, or CMake structure.** Follow the
+   exact conventions in `instructions/l1-structure.instructions.md`.
+7. **When reviewing tests**, use the verdict language and checklist from
+   `instructions/l1-validity-review.instructions.md`.
+
 ## 3. Version Control
 - Use meaningful, imperative commit messages (“Add X”, “Fix Y”).
 - Break large changes into small, focused commits.
@@ -39,7 +62,7 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 # ==============================
 
 ## Prompt Feedback (Compact)
-- Assess prompt quality for every prompt.
+- Always assess prompt quality for every prompt and emit scores unless the scoring thresholds for suppression are met.
 - When feedback is not suppressed, use the following format:
 - Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10 | Critique: <brief> | Improve: <specific edit>`.
 - Scoring: Completeness and Clarity are higher-is-better; Assumptions is lower-is-better.
@@ -49,6 +72,8 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
   - If target, scope, constraints, or success criteria are omitted,
     cap Completeness and Clarity at 7/10 and set Assumptions to at least 3/10.
 - Keep it short and specific; avoid generic advice.
+- Never suppress scored feedback for underspecified prompts (including
+  prompts that fall under the strict rubric above).
 - Suppress displayed feedback when Completeness >= 8, Assumptions <= 2,
   and Clarity >= 8,
   unless the user explicitly asks to apply feedback to the current prompt.
@@ -215,7 +240,25 @@ The `.github/instructions/` directory contains deeper rules:
   Describes AAMP’s architecture, modules, and legacy constraints.
 
 - `testing.instructions.md`  
-  **Critical:** L1 Test structure, build flow, Fake framework, Google Test rules.
+  General testing philosophy, Python/JS patterns, and integration testing.
+
+### L1 Unit Testing (read all four for any L1 work)
+- `l1-build-run.instructions.md`  
+  Mandatory build/run workflow. Do not skip or improvise.
+
+- `l1-structure.instructions.md`  
+  Directory layout, file naming, CMake patterns, existing-test checks.
+
+- `l1-fakes-mocks.instructions.md`  
+  AAMP-specific fake/mock guidance. Golden rule: test the component, not the fake.
+
+- `l1-validity-review.instructions.md`  
+  Review checklist and verdict language for L1 test quality.
+
+### L1 Test Engineer Agent
+- `agents/l1-test-engineer.agent.md`  
+  Preferred specialist for L1 test creation, review, diagnosis, and explanation.
+  Reads and enforces all four L1 instruction files. Select via `@l1-test-engineer`.
 
 ### Language-Specific
 - `cpp.instructions.md`  
