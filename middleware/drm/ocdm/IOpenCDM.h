@@ -80,6 +80,12 @@ struct OpenCDMSessionCallbackSet
 	/// The OCDM path delivers renewals through onChallenge with message type "1".
 	std::function<void(const uint8_t* message, size_t size)>
 		onLicenseRenewal;
+
+	/// The C-level callback struct passed to opencdm_construct_session.
+	/// Stored here (on the heap) so the pointer passed to the OCDM library
+	/// remains valid for the lifetime of the session.
+	/// Populated and used exclusively by OpenCDMProvider::constructSession.
+	OpenCDMSessionCallbacks cCallbacks{};
 };
 
 /**
