@@ -18,7 +18,11 @@
 */
 
 #include <gst/gst.h>
+#ifdef __APPLE__
 #include <JavaScriptCore/JavaScriptCore.h>
+#else
+#include <JavaScriptCore/JavaScript.h>
+#endif
 
 #include <iostream>
 #include <fstream>
