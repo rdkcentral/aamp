@@ -109,6 +109,11 @@ private:
 	double m_ewma_slow_BytesPerSecond = 0.0; // stable
 	double m_harmonic_BytesPerSecond = 0.0;	 // conservative
 
+	// One-shot suppression flag set by ResetCurrentlyAvailableBandwidth().
+	// Causes GetBandwidthBitsPerSecond() to return -1 until the next completed
+	// segment clears it via UpdateDownloadMetrics().  EWMA history is preserved.
+	bool m_bandwidthReportSuppressed = false;
+
 	// Exponentially Weighted Moving Average (EWMA) tuning
 	static constexpr double ALPHA_FAST = 0.5;
 	static constexpr double ALPHA_SLOW = 0.2;
