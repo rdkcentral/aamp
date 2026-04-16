@@ -384,6 +384,15 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	}
 }
 
+void PrivateInstanceAAMP::SetCCStatusSetByApp()
+{
+	mCCStatusSetByApp = true;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetCCStatusSetByApp();
+	}
+}
+
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 {
 }
