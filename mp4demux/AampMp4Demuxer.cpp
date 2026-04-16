@@ -54,7 +54,9 @@ AampMp4Demuxer::~AampMp4Demuxer()
 /**
  * @fn sendSegment
  *
- * @param[in] buffer - fragment data; ownership is transferred (consumed by this call).\n *                    Callers must pass via std::move() and must not read the buffer after\n *                    sendSegment() returns.
+ * @param[in] buffer - fragment data; ownership is transferred (consumed by this call).
+ *                     Callers must pass via std::move() and must not read the buffer after
+ *                     sendSegment() returns.
  * @param[in] position - position of fragment
  * @param[in] duration - duration of fragment
  * @param[in] fragmentPTSoffset - offset PTS of fragment
