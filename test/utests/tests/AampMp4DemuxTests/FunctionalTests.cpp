@@ -107,7 +107,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
 		.WillOnce(Return(true));
 
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
 		.WillOnce(Invoke([]() {
 			std::vector<AampMediaSample> mockSamples;
 			AampMediaSample sample1, sample2;
@@ -183,7 +183,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentDifferentMediaTypes)
 	std::vector<uint8_t> buffer(audioData, audioData + strlen(audioData));
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
 		.WillOnce(Invoke([]() {
 			std::vector<AampMediaSample> samples;
 			AampMediaSample sample;
@@ -214,7 +214,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
 		.WillOnce(Invoke([]() {
 			return std::vector<AampMediaSample>(); // No samples
 		}));
@@ -244,7 +244,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
 
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
 		.WillOnce(Invoke([]() {
 			return std::vector<AampMediaSample>(); // No samples
 		}));
@@ -279,7 +279,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 		.WillOnce(Return(false)); // Simulate parse failure
 
 	// No calls to GetSamples or SendStreamTransfer should occur
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
 		.Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
 		.Times(0);
@@ -323,7 +323,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 	// GetTimeScale only called (while logging) when eAAMPConfig_EnablePTSReStampLogging set
 	//	EXPECT_CALL(*g_mockMp4Demux, GetTimeScale())
 	//		.WillOnce(Return(90000));
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
 		.WillOnce(Invoke([=]() {
 			std::vector<AampMediaSample> mockSamples;
 			AampMediaSample sample;

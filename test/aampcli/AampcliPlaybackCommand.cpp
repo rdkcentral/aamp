@@ -1141,7 +1141,7 @@ void PlaybackCommand::parse( const char *path )
 							gMp4Demux = std::make_shared<Mp4Demux>();
 						}
 						gMp4Demux->Parse(ptr,len);
-						auto samples = gMp4Demux->GetSamples();
+						auto samples = gMp4Demux->GetSamples(nullptr); // static byte array outlives samples within this test
 						if (samples.empty())
 						{
 							AAMPCLI_PRINTF("No samples found in file '%s'\n", path );

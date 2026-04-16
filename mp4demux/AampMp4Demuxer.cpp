@@ -82,14 +82,11 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		}
 		else
 		{
-			auto samples = mMp4Demux->GetSamples();
+			auto samples = mMp4Demux->GetSamples(segment);
 			if (!samples.empty())
 			{
 				for (auto& sample : samples)
 				{
-					// Bind each sample to the segment so the buffer stays alive
-					// for the lifetime of every sample derived from it.
-					sample.mSegment = segment;
 					// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
 					if (mEnablePtsRestamp)
 					{

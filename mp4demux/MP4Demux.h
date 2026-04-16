@@ -434,10 +434,17 @@ public:
 	 * @return Protection data vector with ownership transferred to caller
 	 */
 	std::vector<MediaProtectionInfo> GetProtectionEvents();
-	/** @brief Get parsed media samples
+
+	/**
+	 * @brief Get parsed media samples with lifetime tracking.
+	 *
+	 * Each returned sample's mSegment is set to @p segment so that the
+	 * backing buffer stays alive for the lifetime of every sample derived
+	 * from it.  
+	 *
+	 * @param segment Shared ownership of the buffer that was passed to Parse().
 	 * @return Media samples vector with ownership transferred to caller
 	 */
-	std::vector<AampMediaSample> GetSamples();
+	std::vector<AampMediaSample>  GetSamples(std::shared_ptr<std::vector<uint8_t>> segment);
 };
 #endif /* __MP4_DEMUX_H__ */
-

@@ -103,7 +103,7 @@ TEST_F(Mp4DemuxFunctionalTests, ParseInitSegmentAndValidateCodecData)
 	EXPECT_GT(timescale, 0) << "Timescale should be greater than 0";
 	EXPECT_EQ(timescale, 30000) << "Timescale from MDHD should be 30000";
 	
-	auto samples = mDemuxer->GetSamples();
+	auto samples = mDemuxer->GetSamples(nullptr); // static byte array outlives samples within this test
 	EXPECT_EQ(samples.size(), 0) << "Sample count should be zero";
 	
 	auto codecInfo = mDemuxer->GetCodecInfo();
@@ -134,7 +134,7 @@ TEST_F(Mp4DemuxFunctionalTests, ParseFragmentAndValidateSamples)
 	EXPECT_EQ(mDemuxer->GetLastError(), MP4_PARSE_OK);
 	
 	// Get samples
-	auto samples = mDemuxer->GetSamples();
+	auto samples = mDemuxer->GetSamples(nullptr); // static byte array outlives samples within this test
 	
 	// Validate sample count
 	EXPECT_EQ(samples.size(), 2) << "Should have exactly 2 samples";
@@ -170,7 +170,7 @@ TEST_F(Mp4DemuxFunctionalTests, ParseEncryptedFragmentWithSencBox)
 	EXPECT_TRUE(result) << "Parse should succeed for encrypted fragment with SENC";
 	EXPECT_EQ(mDemuxer->GetLastError(), MP4_PARSE_OK);
 	
-	auto samples = mDemuxer->GetSamples();
+	auto samples = mDemuxer->GetSamples(nullptr); // static byte array outlives samples within this test
 	EXPECT_EQ(samples.size(), 2) << "Should have exactly 2 samples";
 	
 	// Validate DRM metadata for each sample
@@ -204,7 +204,7 @@ TEST_F(Mp4DemuxFunctionalTests, ParseEncryptedFragmentWithSaioSaizBoxes)
 	ASSERT_TRUE(result) << "Parse should succeed for encrypted fragment with SAIO/SAIZ";
 	EXPECT_EQ(mDemuxer->GetLastError(), MP4_PARSE_OK);
 	
-	auto samples = mDemuxer->GetSamples();
+	auto samples = mDemuxer->GetSamples(nullptr); // static byte array outlives samples within this test
 	EXPECT_EQ(samples.size(), 2) << "Should have exactly 2 samples";
 	// Validate DRM metadata for each sample
 	EXPECT_TRUE(samples[0].mDrmMetadata.mIsEncrypted) << "Sample should be marked as encrypted";
@@ -547,7 +547,7 @@ TEST(Mp4Demux_Gaps, TST2052_LLDMultipleMoofMdatPairs) {
 	<< "LLD [moof][mdat][moof][mdat] must parse without error";
 	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
 	
-	auto samples = d.GetSamples();
+	auto samples = d.GetSamples(nullptr); // stack-local buf outlives samples within this test
 	ASSERT_EQ(samples.size(), 3u) << "Expected 3 samples total (2 from moof1 + 1 from moof2)";
 	
 	// ---- validate moof1 samples (data from mdat1) ----
@@ -658,7 +658,7 @@ TEST(Mp4Demux_Gaps, MultiMoofMdatNoBoundaryError)
 	EXPECT_TRUE(ok) << "Multi-moof+mdat segment (LL-DASH) should parse without errors";
 	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK) << "Should not raise DATA_BOUNDARY_MISMATCH";
 	
-	auto samples = d.GetSamples();
+	auto samples = d.GetSamples(nullptr); // stack-local buf outlives samples within this test
 	ASSERT_EQ(samples.size(), 2u) << "Should extract one sample per moof+mdat pair";
 	
 	// Validate sample 0 is bound to mdat1 payload (0xA0–0xA7)

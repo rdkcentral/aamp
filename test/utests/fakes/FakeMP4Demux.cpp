@@ -110,14 +110,10 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
  * @brief Fake GetSamples implementation
  * @return Empty samples vector or mock-provided samples
  */
-std::vector<AampMediaSample> Mp4Demux::GetSamples()
+std::vector<AampMediaSample> Mp4Demux::GetSamples(std::shared_ptr<std::vector<uint8_t>> segment)
 {
-    // Delegate to mock if available
-    if (g_mockMp4Demux) {
-        return g_mockMp4Demux->GetSamples();
-    }
-    
-    // Default fake - no samples
+    if (g_mockMp4Demux)
+        return g_mockMp4Demux->GetSamples(segment);
     return std::vector<AampMediaSample>();
 }
 
