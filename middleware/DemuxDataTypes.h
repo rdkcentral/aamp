@@ -238,21 +238,19 @@ struct MediaDrmMetadata
  * @brief Media sample structure.
  *
  * The media payload is held in mData, a shared_ptr<uint8_t> pointing at the
- * raw byte array, with mDataSize holding the byte count.  Using a raw-byte
- * shared_ptr (rather than shared_ptr<vector>) means this struct is already
- * shaped for the future zero-copy stage where AampMediaSample will expose a
- * raw pointer into an upstream segment buffer instead of owning a vector.
+ * raw byte array, with mDataSize holding the byte count.
  *
  * Ownership model:
- *  - When constructed from std::vector&&, the aliasing constructor is used:
- *    the vector is moved to the heap (owned by a shared_ptr<vector>), and
- *    mData aliases that control block while pointing at vector::data().  The
- *    vector is freed when the last mData copy is released.
- *  - When constructed from a raw ptr/size, a private byte array is allocated
+ *  - Zero-copy MP4 path (AampMp4Demuxer): mData is built via the aliasing
+ *    constructor from AampMediaSample::mSegment (a shared_ptr<vector<uint8_t>>),
+ *    pointing at the raw sample bytes inside the segment buffer.  The segment
+ *    buffer is kept alive until the last GstBuffer referencing it is released.
+ *  - When constructed from std::vector&&: the vector is moved to the heap
+ *    (owned by a shared_ptr<vector>), and mData aliases that control block
+ *    while pointing at vector::data().  The vector is freed when the last
+ *    mData copy is released.
+ *  - When constructed from a raw ptr/size: a private byte array is allocated
  *    and freed via delete[] when the last mData copy is released.
- *  - In the future zero-copy stage, mData can be constructed with the aliasing
- *    constructor directly from a shared_ptr to the upstream segment buffer,
- *    keeping the segment alive as long as any GstBuffer holds a reference.
  */
 struct MediaSample
 {
