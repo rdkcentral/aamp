@@ -6274,7 +6274,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		// Retrieve the current closed‑captioning state and log it along with the in‑band CC flag.
 		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
-		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d", previousCCEnabled, mIsInbandCC);
+		if (mIsInbandCC && !mCCStatusSetByApp.load())
+		{
+			// No API to set CC or subtitles has been called, so AAMP assumes that the app talks to CCManager directly.
+			// Set subtitles_muted based on the current CC status to ensure correct subtitle state is applied later on.
+			subtitles_muted = !previousCCEnabled;
+		}
+		AAMPLOG_MIL("previousCCEnabled:%d isCCinBand:%d subtitles_muted:%d mCCStatusSetByApp:%d",
+			previousCCEnabled, mIsInbandCC, subtitles_muted.load(), mCCStatusSetByApp.load());
 
 		if (!mbUsingExternalPlayer)
 		{
@@ -7924,6 +7931,11 @@ void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
 	{
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
+}
+
+void PrivateInstanceAAMP::SetCCStatusSetByApp()
+{
+	mCCStatusSetByApp = true;
 }
 
 /**
@@ -11140,11 +11152,7 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
-		if( ISCONFIGSET_PRIV(eAAMPConfig_DisableWebVTT) )
-		{
-			trackInfo.swap(textTracksCopy);
-			AAMPLOG_DEBUG("Filtered track list to include only in-band CC tracks");
-		}
+
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
@@ -11554,7 +11562,7 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 }
 
 /**
- * @brief Get current audio track index
+ * @brief Get current text track index
  */
 std::string PrivateInstanceAAMP::GetTextTrackInfo()
 {
@@ -11905,7 +11913,7 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 		// Mute subtitles if either video is muted or subtitles are muted
 		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
-		AAMPLOG_TRACE("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+		AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
 					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
 
 		if (mIsInbandCC || !isGstSubtecEnabled)

@@ -927,13 +927,15 @@ TEST_F(PlayerInstanceAAMPTests, SetVideoMute_False) {
 	mPlayerInstance->SetVideoMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSubtitleMuteTest1) {
-	//checking true condition
-	bool muted = true;
+    //checking true condition
+    bool muted = true;
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetCCStatusSetByApp());
    mPlayerInstance->SetSubtitleMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSubtitleMuteTest2) {
-	//checking false condition
-	bool muted = false;
+    //checking false condition
+    bool muted = false;
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetCCStatusSetByApp());
    mPlayerInstance->SetSubtitleMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetAudioVolumeTest1) {
@@ -2029,8 +2031,9 @@ TEST_F(PlayerInstanceAAMPTests, GetTextTrackTest)
 
 TEST_F(PlayerInstanceAAMPTests, SetCCStatusTest)
 {
-	mPlayerInstance->SetCCStatus(true);
-	EXPECT_FALSE(mPlayerInstance->GetCCStatus());
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetCCStatusSetByApp());
+    mPlayerInstance->SetCCStatus(true);
+    EXPECT_FALSE(mPlayerInstance->GetCCStatus());
 }
 
 TEST_F(PlayerInstanceAAMPTests, SetTextStyleTest)
