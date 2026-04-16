@@ -54,7 +54,7 @@ AampMp4Demuxer::~AampMp4Demuxer()
 /**
  * @fn sendSegment
  *
- * @param[in] buffer - buffer containing the fragment data
+ * @param[in] buffer - fragment data; ownership is transferred (consumed by this call).\n *                    Callers must pass via std::move() and must not read the buffer after\n *                    sendSegment() returns.
  * @param[in] position - position of fragment
  * @param[in] duration - duration of fragment
  * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -64,7 +64,7 @@ AampMp4Demuxer::~AampMp4Demuxer()
  * @param[out] ptsError - flag indicates if any PTS error occurred
  * @return true if fragment was sent, false otherwise
  */
-bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool ret = true;
@@ -73,8 +73,6 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 	{
 		// Move the caller's buffer into a shared_ptr so that every AampMediaSample
 		// derived from this segment can alias into it without copying bytes.
-		// The buffer is consumed here; callers must not rely on its contents
-		// after sendSegment() returns.
 		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
 		ret = mMp4Demux->Parse(segment->data(), segment->size());

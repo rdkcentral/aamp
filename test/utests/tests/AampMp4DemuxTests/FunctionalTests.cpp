@@ -139,7 +139,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
 	bool ptsError = false;
 
 	// Call sendSegment
-	bool result = mDemuxer->sendSegment(buffer, position, duration, fragmentPTSoffset,
+	bool result = mDemuxer->sendSegment(std::move(buffer), position, duration, fragmentPTSoffset,
 									   discontinuous, isInit, processor, ptsError);
 
 	// Verify results
@@ -164,7 +164,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithEmptyBuffer)
 		.Times(0);
 
 	// Call sendSegment with empty buffer
-	bool result = mDemuxer->sendSegment(emptyBuffer, 0.0, 0.0, 0.0, false, false, nullptr, ptsError);
+	bool result = mDemuxer->sendSegment(std::move(emptyBuffer), 0.0, 0.0, 0.0, false, false, nullptr, ptsError);
 
 	// Should return false but not process anything
 	EXPECT_FALSE(result);
@@ -197,7 +197,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentDifferentMediaTypes)
 		}));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_AUDIO, _));
 	bool ptsError = false;
-	bool result = audDemuxer->sendSegment(buffer, 2.0, 1.5, 0.0, false, false, nullptr, ptsError);
+	bool result = audDemuxer->sendSegment(std::move(buffer), 2.0, 1.5, 0.0, false, false, nullptr, ptsError);
 
 	EXPECT_TRUE(result);
 	EXPECT_FALSE(ptsError);
@@ -228,7 +228,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1); // Should set stream caps
 	bool ptsError = false;
-	bool result = mDemuxer->sendSegment(initBuffer, 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
+	bool result = mDemuxer->sendSegment(std::move(initBuffer), 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
 
 	EXPECT_TRUE(result);
 	EXPECT_FALSE(ptsError);
@@ -259,7 +259,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(0); // Should set stream caps
 	bool ptsError = false;
-	bool result = mDemuxer->sendSegment(initBuffer, 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
+	bool result = mDemuxer->sendSegment(std::move(initBuffer), 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
 
 	EXPECT_FALSE(result);
 	EXPECT_FALSE(ptsError);
@@ -296,7 +296,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 	bool ptsError = false;
 
 	// Call sendSegment
-	bool result = mDemuxer->sendSegment(buffer, position, duration, fragmentPTSoffset,
+	bool result = mDemuxer->sendSegment(std::move(buffer), position, duration, fragmentPTSoffset,
 									   discontinuous, isInit, processor, ptsError);
 
 	// Verify results
@@ -340,7 +340,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 		}));
 
 	bool ptsError = false;
-	bool result = restampDemuxer.sendSegment(buffer, 10.0, 5.0, kFragmentPtsOffset,
+	bool result = restampDemuxer.sendSegment(std::move(buffer), 10.0, 5.0, kFragmentPtsOffset,
 			false, false, nullptr, ptsError);
 
 	EXPECT_TRUE(result);

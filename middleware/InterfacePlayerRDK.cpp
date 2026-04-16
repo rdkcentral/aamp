@@ -3061,8 +3061,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		// GStreamer.  A heap-allocated copy of the shared_ptr is used as
 		// user_data so the notify callback can release the last reference,
 		// which frees the underlying storage (vector or buffer array) via
-		// the shared_ptr's deleter.  This is RAII without raw new/delete in
-		// the production code path.
+		// the shared_ptr's deleter.
 		const gsize dataSize = static_cast<gsize>(sample.mDataSize);
 		gpointer rawPtr = static_cast<gpointer>(sample.mData.get());
 		auto* lifetimeRef = new std::shared_ptr<uint8_t>(std::move(sample.mData));
