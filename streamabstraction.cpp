@@ -4955,14 +4955,16 @@ void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
 bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 {
 	// CachedFragmentChunks is used for LL-DASH, for any content if AAMP TSB is enabled,
-	// and for all DASH content (to unify the fragment cache path)
+	// and for all DASH and HLS content (to unify the fragment cache path)
 	bool isLLDashChunkMode = aamp->GetLLDashChunkMode();
 	bool aampTsbEnabled = aamp->IsLocalAAMPTsb();
 	bool isDash = aamp->IsDashAsset();
-	bool isInjectionFromCachedFragmentChunks = isLLDashChunkMode || aampTsbEnabled || isDash;
+	bool isHls = (aamp->mMediaFormat == eMEDIAFORMAT_HLS ||
+				  aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4);
+	bool isInjectionFromCachedFragmentChunks = isLLDashChunkMode || aampTsbEnabled || isDash || isHls;
 
-	AAMPLOG_TRACE("[%s] isLLDashChunkMode %d aampTsbEnabled %d isDash %d ret %d",
-				  name, isLLDashChunkMode, aampTsbEnabled, isDash, isInjectionFromCachedFragmentChunks);
+	AAMPLOG_TRACE("[%s] isLLDashChunkMode %d aampTsbEnabled %d isDash %d isHls %d ret %d",
+				  name, isLLDashChunkMode, aampTsbEnabled, isDash, isHls, isInjectionFromCachedFragmentChunks);
 	return isInjectionFromCachedFragmentChunks;
 }
 
