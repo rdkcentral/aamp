@@ -186,14 +186,15 @@ std::unique_ptr<IOpenCDMSession> OpenCDMProvider::constructSession(
 
 	// Build C-style callback struct, bridging to the std::function set.
 	// The OCDMSessionAdapter instance is captured via userData.
-	OpenCDMSessionCallbacks cCallbacks{};
-
-	// We need a heap-allocated copy of the callback set so the C lambdas
-	// can capture it via the userData pointer.  The copy lives for the
-	// lifetime of the session.
+	//
+	// IMPORTANT: cCallbacks is stored inside cbCopy (heap-allocated) rather than
+	// as a local stack variable.  The OCDM library retains the pointer passed to
+	// opencdm_construct_session and fires it asynchronously (e.g. from a WorkerPool
+	// thread during opencdm_session_update).  A stack-allocated struct would be a
+	// dangling pointer once this function returns, causing a SIGILL crash.
 	auto* cbCopy = new OpenCDMSessionCallbackSet(callbacks);
 
-	cCallbacks.process_challenge_callback = [](OpenCDMSession*, void* userData,
+	cbCopy->cCallbacks.process_challenge_callback = [](OpenCDMSession*, void* userData,
 	                                           const char destUrl[],
 	                                           const uint8_t challenge[],
 	                                           const uint16_t challengeSize)
@@ -205,7 +206,7 @@ std::unique_ptr<IOpenCDMSession> OpenCDMProvider::constructSession(
 		}
 	};
 
-	cCallbacks.key_update_callback = [](OpenCDMSession*, void* userData,
+	cbCopy->cCallbacks.key_update_callback = [](OpenCDMSession*, void* userData,
 	                                    const uint8_t key[],
 	                                    const uint8_t keySize)
 	{
@@ -216,9 +217,9 @@ std::unique_ptr<IOpenCDMSession> OpenCDMProvider::constructSession(
 		}
 	};
 
-	cCallbacks.error_message_callback = [](OpenCDMSession*, void*, const char[]) {};
+	cbCopy->cCallbacks.error_message_callback = [](OpenCDMSession*, void*, const char[]) {};
 
-	cCallbacks.keys_updated_callback = [](const OpenCDMSession*, void* userData)
+	cbCopy->cCallbacks.keys_updated_callback = [](const OpenCDMSession*, void* userData)
 	{
 		auto* cb = static_cast<OpenCDMSessionCallbackSet*>(userData);
 		if (cb->onKeysUpdated)
@@ -236,7 +237,7 @@ std::unique_ptr<IOpenCDMSession> OpenCDMProvider::constructSession(
 		initDataType.c_str(),
 		const_cast<uint8_t*>(initData), initDataSize,
 		customData, customDataSize,
-		&cCallbacks,
+		&cbCopy->cCallbacks,
 		static_cast<void*>(cbCopy),
 		&rawSession);
 #else
@@ -247,7 +248,7 @@ std::unique_ptr<IOpenCDMSession> OpenCDMProvider::constructSession(
 		initDataType.c_str(),
 		const_cast<uint8_t*>(initData), initDataSize,
 		customData, customDataSize,
-		&cCallbacks,
+		&cbCopy->cCallbacks,
 		static_cast<void*>(cbCopy),
 		&rawSession);
 #endif
