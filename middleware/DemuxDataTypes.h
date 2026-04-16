@@ -23,7 +23,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <cstring> // for std::memset
 #include <utility> // for std::exchange
 #include "GstUtils.h" // for GstStreamOutputFormat
 
@@ -294,27 +293,6 @@ struct MediaSample
 		// points directly at the raw bytes.  The vector is destroyed when
 		// the last mData copy is released.
 		mData = std::shared_ptr<uint8_t>(heapVec, heapVec->data());
-	}
-
-	/**
-	 * @brief Constructor from raw pointer (copies bytes into owned storage).
-	 * @param ptr       Pointer to data to copy
-	 * @param size      Number of bytes
-	 * @param pts       Presentation timestamp
-	 * @param dts       Decode timestamp
-	 * @param duration  Sample duration
-	 * @param ptsOffset PTS offset
-	 */
-	MediaSample(const void* ptr, size_t size, double pts, double dts, double duration, double ptsOffset = 0.0)
-		: mDataSize(size)
-		, mPts(pts)
-		, mDts(dts)
-		, mDuration(duration)
-		, mPtsOffset(ptsOffset)
-	{
-		auto* buf = new uint8_t[size];
-		std::memcpy(buf, static_cast<const uint8_t*>(ptr), size);
-		mData = std::shared_ptr<uint8_t>(buf, [](uint8_t* p) noexcept { delete[] p; });
 	}
 
 	/**
