@@ -696,4 +696,89 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithNullConfig)
     // Cleanup: restore the original gpGlobalConfig
     gpGlobalConfig = savedConfig;
 }
+TEST_F(AampProfilertests, TestDecodeTime)
+{
+    TuneEndMetrics metrics;
+    metrics.success = 1;
+    metrics.contentType = ContentType_VOD;
+    metrics.streamType = 1;
+    metrics.mFirstTune = true;
+    metrics.mTimedMetadataStartTime = 0;
+    metrics.mTimedMetadataDuration = 0;
+    metrics.mTuneAttempts = 1;
+    metrics.mTotalTime = 0;
+
+    std::string appName = "TestApp";
+    std::string playerActiveMode = "Active";
+    int playerId = 1;
+    bool playerPreBuffered = true;
+    unsigned int durationSeconds = 60;
+    bool interfaceWifi = true;
+    std::string failureReason = "None";
+
+    // Test that with no profile values logged, decode time is zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint == 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
+    // Test that with first buffer but no first frame, decode time is zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint == 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
+    // Test that with first buffer and first frame, decode time is greater than zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
+        usleep(5000);
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_FRAME);
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint > 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
+}
 
