@@ -1323,7 +1323,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());
 			double downloadTime = 0;
-			
+
 			cachedFragment->discontinuityIndex = 0;
 			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 			{ // TODO: optimize me
@@ -1352,7 +1352,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					}
 				}
 			}
-			
+
 			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
 			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
@@ -7130,7 +7130,12 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 			}
 		}
 	}
-	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
+
+	if(currentTextTrackProfileIndex > -1 )
+	{
+		aamp->mIsInbandCC = mediaInfoStore[currentTextTrackProfileIndex].isCC;
+	}
+	AAMPLOG_WARN("TextTrack Selected :%d inBandCC:%d", currentTextTrackProfileIndex, aamp->mIsInbandCC);
 }
 /**
  * @brief Stops the Track Injection,Restarts once the track has been changed
@@ -7274,6 +7279,7 @@ void TrackState::SwitchAudioTrack()
  */
 void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 {
+	const bool disableWebVTT = ISCONFIGSET(eAAMPConfig_DisableWebVTT);
 	if (mMediaCount > 0 && mProfileCount > 0)
 	{
 		bool tracksChanged{false};
@@ -7293,7 +7299,10 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
 //				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, group_id.c_str(), name.c_str(), instreamID.c_str(), characteristics.c_str());
-				mTextTracks.push_back(TextTrackInfo(index, language, media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
+				if (!disableWebVTT || media.isCC)
+				{
+					mTextTracks.push_back(TextTrackInfo(index, language, media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));	
+				}
 			}
 			i++;
 		}
