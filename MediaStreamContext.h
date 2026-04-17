@@ -375,6 +375,14 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	std::mutex fetchChunkBufferMutex;
 	DownloadInfoPtr mActiveDownloadInfo;
 	std::recursive_mutex mMediaStreamContextMutex; /**< Recursive mutex to protect MediaStreamContext state during ABR profile changes and playlist updates */
+
+private:
+	/**
+	 * @fn CacheStagingFragmentForInjection
+	 * @brief Copy the staging fragment into a chunk-cache slot for the inject
+	 *        thread (non-LLD DASH path only).
+	 */
+	void CacheStagingFragmentForInjection();
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */
