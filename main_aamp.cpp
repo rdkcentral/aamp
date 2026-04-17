@@ -1010,14 +1010,17 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// Do not update state if fragments caching is ongoing and pipeline not paused,
 				// target state will be updated once caching completed
 				bool isPipelinePaused = aamp->mSinkPaused.load();
+		AAMPLOG_INFO("ANJ: Before NotifySpeedChanged(): PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 				aamp->NotifySpeedChanged(isPipelinePaused ? 0 : aamp->rate,
 										 (!aamp->IsFragmentCachingRequired() || isPipelinePaused));
+		AAMPLOG_INFO("ANJ: After NotifySpeedChanged(): PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 			}
 		}
 		else
 		{
 			AAMPLOG_WARN("aamp_SetRate rate[%f] - mpStreamAbstractionAAMP[%p] state[%d]", aamp->rate, aamp->mpStreamAbstractionAAMP, state);
 		}
+		AAMPLOG_INFO("ANJ: End PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 	}
 }
 
