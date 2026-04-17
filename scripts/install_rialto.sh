@@ -77,6 +77,14 @@ function rialto_build_repo_fn()
     popd
 }   
 
+function rialto_copy_headers_fn()
+{
+    local dest="${LOCAL_DEPS_BUILD_DIR}/include/rialto"
+    echo "Copying rialto public headers to ${dest}"
+    mkdir -p "${dest}"
+    cp "${LOCAL_DEPS_BUILD_DIR}/rialto/media/public/include/"*.h "${dest}/"
+}
+
 function rialto_build_fn() 
 {
     echo "Building protobuf"
@@ -107,11 +115,17 @@ function rialto_install_build_fn()
         rm -rf rialto-ocdm
     fi
 
+    # Clone repositories regardless of OPTION_RIALTO_BUILD so that header
+    # files are available for L1 tests (where the libraries are mocked).
+    rialto_install_fn
+
+    # Copy rialto public headers to the expected include directory so that
+    # L1 tests can find them without building the rialto libraries.
+    rialto_copy_headers_fn
+
     if [ ${OPTION_RIALTO_BUILD} == false ] ; then
         return 0
     fi
-
-    rialto_install_fn
 
     rialto_build_fn ${LOCAL_DEPS_BUILD_DIR}
 }
