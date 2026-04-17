@@ -2673,6 +2673,11 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 {
 	long long rc = 0;
+#if 1//anj
+	GstState current{};
+	GstState pending{};
+	constexpr GstClockTime timeout = 0;
+#endif
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
 	{
 		MW_LOG_ERR("Pipeline is NULL");
@@ -2683,15 +2688,23 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		MW_LOG_ERR("Position query is NULL");
 		return rc;
 	}
+
+	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
 	// Perform gstreamer query and related operation only when pipeline is playing or if deliberately put in paused
-	if (interfacePlayerPriv->gstPrivateContext->pipelineState != GST_STATE_PLAYING &&
+	if ( (ret != GST_STATE_CHANGE_SUCCESS) || (interfacePlayerPriv->gstPrivateContext->pipelineState != GST_STATE_PLAYING &&
 		!(interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) &&
 		// The player should be (and probably soon will be) in the playing state so don't exit early.
-		GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline) != GST_STATE_PLAYING)
+		GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline) != GST_STATE_PLAYING) )
 	{
-		MW_LOG_INFO("Pipeline is in %s state %s target state, paused=%d returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, rc);
+		MW_LOG_INFO("ANJ: Pipeline is in %s state %s target state, paused=%d, state change ret=%d, (current state=%d, pending=%d), returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, ret, current, pending, rc);
+		//MW_LOG_INFO("Pipeline is in %s state %s target state, paused=%d returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, rc);
 		return rc;
 	}
+
+#if 1//anj
+	MW_LOG_INFO("ANJ: Pipeline is in %s state %s target state, paused=%d", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused);
+#endif//anj
+
 	gst_media_stream* video = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	// segment.start needs to be queried
 	if (interfacePlayerPriv->gstPrivateContext->segmentStart == -1)
