@@ -111,35 +111,18 @@ public:
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
-	void fillCachedFragment(bool isInit, bool isDisc, bool isLLD)
+	void fillCachedFragment(bool isInit, bool isDisc, bool /*isLLD*/)
 	{
 		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
-		int fragmentIdxToFetch = 0;
-		// int fragmentIdxToFetch = 0;
-		CachedFragment *cachFragment = nullptr;
-		if (isLLD)
-		{
-			cachFragment = &this->mCachedFragmentChunks[fragmentIdxToFetch];
-		}
-		else
-		{
-			// cachFragment = GetFetchBuffer(true);
-			this->mCachedFragment = new CachedFragment[3];
-			cachFragment = &this->mCachedFragment[fragmentIdxToFetch];
-		}
+		// All paths now use the chunk cache: the old ring-buffer path is dead code
+		// after IsInjectionFromCachedFragmentChunks() was removed.
+		CachedFragment *cachFragment = &this->mCachedFragmentChunks[0];
 		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
 		cachFragment->fragment.assign(data, data + sizeof(data));
-		if (isLLD)
-		{
-			UpdateTSAfterChunkFetch();
-		}
-		else
-		{
-			UpdateTSAfterFetch(false);
-		}
+		UpdateTSAfterChunkFetch();
 	}
 };
 

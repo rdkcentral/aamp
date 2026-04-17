@@ -854,11 +854,18 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 		mPrivateInstanceAAMP->mSinkPaused.store(true);  // re-set by GStreamer buffering(0)
 	};
 
-	// An empty cachedFragment: skips EnqueueWrite (avoids GetPeriod call) but
-	// still lets the discard check run with tsbSessionManager != null.
-	auto cachedFragment = std::make_shared<CachedFragment>();
-	// fragment data left intentionally empty — triggers the EnqueueWrite guard
-	// (if(tsbSessionManager && cachedFragment->fragment.size())) to be false.
+	// Pre-populate the staging fragment so CacheTsbFragment has data to write.
+	// An empty fragment would short-circuit through the "Empty cachedFragment ignored"
+	// warning path, preventing GetFetchChunkBuffer from ever being called.
+	// EnqueueWrite (fake no-op) evaluates context->GetPeriod()->GetId() as an
+	// argument, so GetPeriod() must be stubbed to return a valid period.
+	static constexpr uint8_t kTestData[] = {0xAA, 0xBB, 0xCC, 0xDD};
+	mMediaStreamContext->mStagingFragment.fragment.assign(
+		kTestData, kTestData + sizeof(kTestData));
+
+	DummyPeriod dummyPeriod;
+	// A CachedFragment for CacheTsbFragment's GetFetchChunkBuffer call.
+	auto chunkBuffer = std::make_shared<CachedFragment>();
 
 	// --- Mock setup ---
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
@@ -867,18 +874,18 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 		.WillOnce(Return(mMockTSBSessionMgr.get())); // non-null → discard guard activates
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode())
 		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
-		.WillOnce(Return(cachedFragment.get()));
-	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks())
-		.WillRepeatedly(Return(false));
+	// EnqueueWrite evaluates context->GetPeriod()->GetId() as an argument.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetPeriod())
+		.WillOnce(Return(&dummyPeriod));
 
-	// KEY assertion: UpdateTSAfterFetch is called iff the fragment is NOT discarded.
-	// Without the !wasUnderFlowActive guard this call would be suppressed (bug).
-	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch(false)).Times(1);
-	// IsLocalTSBInjection() is called twice in OnFragmentDownloadSuccess:
-	//   1. in the discard-guard condition
-	//   2. in the SLD-copy-to-TSB guard inside the inject path
-	// Both must be non-blocking with StrictMock.
+	// KEY assertion: GetFetchChunkBuffer + UpdateTSAfterChunkFetch are called iff
+	// the fragment is NOT discarded.  Without the !wasUnderFlowActive guard the
+	// discard path would be taken and neither call would occur (stall bug).
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+		.WillOnce(Return(chunkBuffer.get()));
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch()).Times(1);
+	// IsLocalTSBInjection() is checked in the discard-guard condition;
+	// must be non-blocking with StrictMock.
 	EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection()).WillRepeatedly(Return(false));
 
 	// --- Build dlInfo ---

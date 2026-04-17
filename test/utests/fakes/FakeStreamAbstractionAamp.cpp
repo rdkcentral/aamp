@@ -573,19 +573,6 @@ void MediaTrack::FlushFragmentChunks()
 {
 }
 
-bool MediaTrack::IsInjectionFromCachedFragmentChunks()
-{
-	if (g_mockMediaTrack != nullptr)
-	{
-		return g_mockMediaTrack->IsInjectionFromCachedFragmentChunks();
-	}
-	else
-	{
-		bool ret = false;
-		return ret;
-	}
-}
-
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)
 {
 }
