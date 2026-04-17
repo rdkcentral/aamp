@@ -575,13 +575,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 }
 
 /**
- * @brief Updates fetch statistics using a caller-supplied fragment without
- *        touching the mCachedFragment ring buffer.
- *
- * Use in place of UpdateTSAfterFetch() + UpdateTSAfterInject() when the
- * fragment goes directly into mCachedFragmentChunks, so there is no need
- * to allocate a ring buffer slot via GetFetchBuffer() only to free it
- * immediately afterwards.
+ * @brief Updates fetch statistics using a caller-supplied fragment.
  *
  * @param[in] cachedFragment - Fragment supplying duration and metadata
  * @param[in] isInitSegment  - true for initialization segments
@@ -589,7 +583,7 @@ void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
 void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment)
 {
 	bool notifyCacheCompleted = false;
-	class StreamAbstractionAAMP* pContext = GetContext();
+	auto* pContext = GetContext();
 	std::unique_lock<std::mutex> lock(mutex);
 
 	if (pContext)
@@ -782,7 +776,7 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 		else
 		{
 			AAMPLOG_DEBUG("[%s] waiting for fragmentChunkInjected condition", name);
-			fragmentChunkInjected.wait(lock, [this] { //DJH - testing add predicate to avoid spurious wake ups
+			fragmentChunkInjected.wait(lock, [this] { // Predicate to avoid spurious wake ups
 				return numberOfFragmentChunksCached < mCachedFragmentChunksSize || abort;
 			});
 			AAMPLOG_DEBUG("[%s] wait complete for fragmentChunkInjected", name);
