@@ -62,6 +62,7 @@ public:
 	BitsPerSecond GetCurrentlyAvailableBandwidth();
 	BitsPerSecond GetNetworkBandwidth();
 	bool HasBandwidthEstimator() const;
+	double GetPredictedDownloadTimeSeconds(std::size_t segmentSizeBytes) const;
 	
 	struct ProfileInfo {
 		/**
