@@ -204,7 +204,10 @@ bool ABRManager::HasBandwidthEstimator() const
 double ABRManager::GetPredictedDownloadTimeSeconds(std::size_t segmentSizeBytes) const
 {
 	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
-	if (!mBandwidthEstimator) return 0.0;
+	if (!mBandwidthEstimator)
+	{
+		return 0.0;
+	}
 	return mBandwidthEstimator->GetPredictedDownloadTimeSeconds(segmentSizeBytes);
 }
 
