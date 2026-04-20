@@ -40,6 +40,27 @@ If a proposed test can only be justified by
 "the code currently behaves this way"
 then reject or rewrite the test.
 
+## Testability assessment
+
+Before writing tests for a method, assess whether it is testable at L1:
+
+**Warning signs that a method is too complex for L1:**
+- Requires more than ~5 mock setups to reach a single code path
+- Has cyclomatic complexity > 15 (use `/cyclomatic-complexity` to measure)
+- Mixes I/O, state mutation, and control flow in a single method
+- Requires reaching into private state to verify outcomes
+- Has deeply nested conditionals that make path isolation impractical
+
+**When a method fails this assessment:**
+1. State that the method is not practically testable at L1 in its current form.
+2. Recommend refactoring into smaller, testable units (extract method, split
+   responsibilities) before writing tests.
+3. If refactoring is out of scope, defer to L2 integration testing and
+   document the gap with a skipped-test comment explaining why.
+
+Do not write brittle, implementation-coupled tests just to achieve coverage
+on an overly complex method.
+
 ## Required output during review
 
 For each test, state:

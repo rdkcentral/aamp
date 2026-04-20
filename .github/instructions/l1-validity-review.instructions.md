@@ -32,6 +32,7 @@ A valid L1 test in this repository:
 | Expecting real config persistence from `FakeAampConfig` | Fake `SetConfigValue(bool)` is a no-op |
 | Testing only the happy path | Missing error and boundary coverage |
 | Creating a new test suite when one already exists for the component | Duplicate coverage; extend the existing suite |
+| Instantiating real dependency objects in test code | Defeats isolation even if CMake only links fakes |
 | Inventing build commands not in `l1-build-run.instructions.md` | May not work in CI; causes confusion |
 | Test name like `Test1`, `TestA` | Non-descriptive; use `Class_Method_Behavior` |
 
@@ -45,6 +46,7 @@ A valid L1 test in this repository:
 - [ ] No `memcmp` on fake buffer data
 - [ ] No verification of fake state changes without testing component response
 - [ ] Mock return values set via `EXPECT_CALL().WillOnce(Return())` or `WillRepeatedly(Return())`
+- [ ] No real dependency objects instantiated in test code (use fakes/mocks)
 
 ### Component Behavior Focus
 - [ ] Tests verify component member variables and state after operations
