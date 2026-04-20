@@ -581,8 +581,8 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			}
 			else if (busEvent.msg.find("OUTPUT-RESTRICTED") != std::string::npos)
 			{ // fatal error; disable retry flag to avoid failure loop
-				AAMPLOG_ERR("%s", errorDesc.c_str());
-				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,errorDesc.c_str(), false);
+				AAMPLOG_ERR("IGNORE ERR: %s", errorDesc.c_str());
+				//_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,errorDesc.c_str(), false);
 			}
 			else
 			{
