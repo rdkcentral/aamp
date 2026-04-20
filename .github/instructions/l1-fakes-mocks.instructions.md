@@ -19,19 +19,37 @@ If it instead answers "Does the fake behave correctly?", the test is wrong.
 
 ## AAMP Fake/Mock Architecture
 
-- **Fakes** live in `test/utests/fakes/` (e.g., `FakeAampGrowableBuffer.cpp`).
+- **Fakes** live in `test/utests/fakes/` (e.g., `FakeAampConfig.cpp`).
   They are intentionally simplified stand-ins — not full reimplementations.
-- **Mocks** live in `test/utests/mocks/` as Google Mock interfaces.
+- **Mocks** live in `test/utests/mocks/` as Google Mock interfaces
+  (e.g., `MockAampConfig.h`).
 - AAMP uses **both** in non-textbook ways. Follow repo-local patterns,
   not generic GoogleTest handbook advice.
+
+### Call Chain (Critical)
+
+The AAMP L1 test architecture uses a specific indirection:
+
+1. **Test** calls the **component under test** (production code).
+2. **Component** calls its dependencies — but at link time, **fakes** are
+   linked instead of real implementations.
+3. **Fakes** delegate to **mocks** (via a global mock pointer), enabling
+   `EXPECT_CALL` verification and return-value control.
+
+```
+Test → Component (real code) → Fake (linked in place of dep) → Mock (for verification)
+```
+
+This means: your test exercises real component logic, fakes provide the
+seams, and mocks give you observability and control.
 
 ### Key Fake Behavior Differences
 
 | Fake | Real behavior | Fake behavior |
 |---|---|---|
-| `AampGrowableBuffer::AppendBytes` | Deep-copies data into allocated buffer | Assigns pointer directly (`ptr = srcPtr`) |
-| `AampGrowableBuffer::Free` | Frees memory, resets length to 0 | No-op — length unchanged |
-| `AampGrowableBuffer::Clear` | Resets all fields | May not reset all fields |
+| `AampConfig::SetConfigValue(bool)` | Persists value in config store with owner priority | No-op — value is discarded |
+| `AampConfig::GetConfigValue(int)` | Reads from config store | Returns `-1` or delegates to `MockAampConfig` |
+| `AampConfig::IsConfigSet(bool)` | Checks whether config was explicitly set | Returns `false` or delegates to `MockAampConfig` |
 
 **Adapt test expectations to fake behavior.** Do not expect real implementation
 semantics from fakes.
@@ -44,43 +62,48 @@ semantics from fakes.
 
 ```cpp
 // WRONG — proves the fake works, not your component
-cachedFragment->fragment.AppendBytes(testData, testDataSize);
-EXPECT_GT(cachedFragment->fragment.GetLen(), 0);        // tests the fake
-EXPECT_NE(cachedFragment->fragment.GetPtr(), nullptr);  // tests the fake
+config.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableABR, true);
+EXPECT_TRUE(config.IsConfigSet(eAAMPConfig_EnableABR));  // tests the fake
+EXPECT_TRUE(config.GetConfigValue(eAAMPConfig_EnableABR)); // tests the fake
 ```
 
 ```cpp
-// CORRECT — proves your component set its own state correctly
-EXPECT_DOUBLE_EQ(cachedFragment->position, expectedPosition);
-EXPECT_EQ(cachedFragment->type, expectedType);
+// CORRECT — use EXPECT_CALL to control the mock, then test component behavior
+EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableABR))
+    .WillOnce(testing::Return(true));
+EXPECT_TRUE(component.isAdaptiveBitrateEnabled());
 ```
 
-### Anti-pattern 2: Testing memory contents of a fake
+### Anti-pattern 2: Testing fake default return values
 
 ```cpp
-// WRONG — fake uses pointer assignment, not memcpy
-EXPECT_EQ(memcmp(buffer.GetPtr(), expected, size), 0);
+// WRONG — fake returns -1 by default, not a meaningful config value
+int val = config.GetConfigValue(eAAMPConfig_ABRCacheLife);
+EXPECT_EQ(val, -1);  // tests the fake's hardcoded default
 ```
 
 ```cpp
 // CORRECT — if you need to verify data flow, use EXPECT_CALL on a mock
-EXPECT_CALL(mockSink, ReceiveData(testing::_, testing::Eq(size)))
-    .Times(1);
-component.push(data, size);
+EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ABRCacheLife))
+    .WillOnce(testing::Return(5000));
+component.refreshCache();
+EXPECT_EQ(component.getCacheLifetime(), 5000);
 ```
 
 ### Anti-pattern 3: Verifying fake state without testing component response
 
 ```cpp
-// WRONG — only checks that the fake changed
-mockBuffer.AppendBytes(data, size);
-EXPECT_GT(mockBuffer.GetLen(), 0);
+// WRONG — only checks that the fake was called
+config.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_MaxABRNWBufferRampUp, 10);
+EXPECT_EQ(config.GetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp), 10);
 ```
 
 ```cpp
-// CORRECT — checks how the component responded
-component.ingest(data, size);
-EXPECT_EQ(component.getStatus(), READY);
+// CORRECT — checks how the component responded to the config
+EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp))
+    .WillOnce(testing::Return(10));
+component.configure();
+EXPECT_EQ(component.getBufferRampUp(), 10);
 ```
 
 ---
@@ -110,9 +133,9 @@ component.startTune(url);
 ### Multiple return values
 
 ```cpp
-EXPECT_CALL(mockBuffer, GetLen())
-    .WillOnce(testing::Return(50))
-    .WillOnce(testing::Return(100))
+EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ABRCacheLife))
+    .WillOnce(testing::Return(5000))
+    .WillOnce(testing::Return(10000))
     .WillOnce(testing::Return(0));
 ```
 
@@ -127,8 +150,8 @@ If a fake's simplification makes a test meaningless:
 
 ```cpp
 /**
- * @brief Skipped — FakeAampGrowableBuffer uses pointer assignment,
- * making memory-isolation verification impossible at L1 level.
+ * @brief Skipped — FakeAampConfig::SetConfigValue(bool) is a no-op,
+ * making config-persistence verification impossible at L1 level.
  * Tested at L2 integration level instead.
  */
 ```
