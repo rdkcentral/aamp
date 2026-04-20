@@ -25,8 +25,10 @@
 #include "AampCurlDownloader.h"
 #include "AampUtils.h"
 #include <vector>
+#include <unistd.h>
 #include "AampLogManager.h"
 #include "AampDefine.h"
+#include "../AampNetworkPersona.h"
 
 void _downloadConfig::show()
 {
@@ -186,7 +188,30 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					AAMPLOG_MIL( "curl-begin type=%d", eMEDIATYPE_MANIFEST);
 				}
+
+				// ── Network persona: TTFB sleep (test only) ─────────────────────
+				double personaTtfbMs = 0.0;
+				if (AampNetworkPersona::Instance().IsLoaded())
+				{
+					personaTtfbMs = AampNetworkPersona::Instance().SampleTtfbMs();
+					if (personaTtfbMs > 0.5)
+						usleep(static_cast<useconds_t>(personaTtfbMs * 1000.0));
+				}
+				const long long tBeforeCurl = NOW_STEADY_TS_MS;
+
 				httpRetVal = curl_easy_perform(mCurl);
+
+				// ── Network persona: idle sleep to reach predicted transfer time ─
+				const long long tActualCurlMs = NOW_STEADY_TS_MS - tBeforeCurl;
+				if (AampNetworkPersona::Instance().IsLoaded() && httpRetVal == CURLE_OK)
+				{
+					const double predictedTransferMs =
+						AampNetworkPersona::Instance().SampleTransferMs(
+							mDownloadResponse ? mDownloadResponse->mDownloadData.size() : 0);
+					const double idleMs = predictedTransferMs - static_cast<double>(tActualCurlMs);
+					if (idleMs > 1.0)
+						usleep(static_cast<useconds_t>(idleMs * 1000.0));
+				}
 				loopAgain = false;
 				numDownloadAttempts++;
 				if(httpRetVal == CURLE_OK)

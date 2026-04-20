@@ -36,6 +36,8 @@
 #include "fragmentcollector_progressive.h"
 #include "MediaStreamContext.h"
 #include "AampLatencyMonitor.h"
+#include "AampNetworkPersona.h"
+#include <unistd.h>
 #include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
 
 /**
@@ -4819,8 +4821,35 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				abortReason = eCURL_ABORT_REASON_NONE;
 
 				long long tStartTime = NOW_STEADY_TS_MS;
-				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
 
+			// ── Network persona: TTFB sleep (test only) ─────────────────────
+			// Lazy-load on first download if a persona file is configured.
+			{
+				const std::string personaPath = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
+				if (!personaPath.empty())
+					AampNetworkPersona::Instance().LoadFromFile(personaPath);
+			}
+			double personaTtfbMs = 0.0;
+			if (AampNetworkPersona::Instance().IsLoaded())
+			{
+				personaTtfbMs = AampNetworkPersona::Instance().SampleTtfbMs();
+				if (personaTtfbMs > 0.5)
+					usleep(static_cast<useconds_t>(personaTtfbMs * 1000.0));
+			}
+			long long tBeforeCurl = NOW_STEADY_TS_MS;
+
+			CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+
+			// ── Network persona: idle sleep to reach predicted transfer time ─
+			const long long tActualCurlMs = NOW_STEADY_TS_MS - tBeforeCurl;
+			if (AampNetworkPersona::Instance().IsLoaded() && res == CURLE_OK)
+			{
+				const double predictedTransferMs =
+					AampNetworkPersona::Instance().SampleTransferMs(buffer.size());
+				const double idleMs = predictedTransferMs - static_cast<double>(tActualCurlMs);
+				if (idleMs > 1.0)
+					usleep(static_cast<useconds_t>(idleMs * 1000.0));
+			}
 				// ---- Finalize recorder immediately after the perform ----
 				if (context.net) {
 					double t_namelookup=0, t_connect=0, t_appconnect=0, t_pretransfer=0;
