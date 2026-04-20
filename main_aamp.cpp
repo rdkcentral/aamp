@@ -1528,6 +1528,7 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
 void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
 	AAMPLOG_MIL("mute %s", muted?"true":"false");
+	aamp->SetCCStatusSetByApp();
 	aamp->SetSubtitleMute(muted);
 }
 
@@ -2934,6 +2935,8 @@ int PlayerInstanceAAMP::GetTextTrack()
  */
 void PlayerInstanceAAMP::SetCCStatus(bool enabled)
 {
+	AAMPLOG_MIL("enabled %s", enabled?"true":"false");
+	aamp->SetCCStatusSetByApp();
 	aamp->SetCCStatus(enabled);
 }
 
