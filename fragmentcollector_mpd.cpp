@@ -2310,7 +2310,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double videoRem
 	}
 
 	int nextPeriodIdx = mCurrentPeriodIdx + 1;
-	while ((nextPeriodIdx < mMPDParseHelper->GetNumberOfPeriods()) && IsEmptyPeriod(nextPeriodIdx))
+	while ((nextPeriodIdx < mMPDParseHelper->GetNumberOfPeriods()) && mMPDParseHelper->IsEmptyPeriod(nextPeriodIdx, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
 	{
 		nextPeriodIdx++;
 	}
@@ -2326,8 +2326,8 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double videoRem
 	mBasePeriodId = mCurrentPeriod->GetId();
 	AAMPLOG_INFO("SeekInPeriod: Switching to next period %d with id %s for seek remainder %lf", mCurrentPeriodIdx, mBasePeriodId.c_str(), videoRemainingSeek);
 	mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
-	mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
-	mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
+	mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+	mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
 
 	mUpdateStreamInfo = true;
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
