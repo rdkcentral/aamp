@@ -2374,7 +2374,7 @@ double remainingSeekPosition = seekPositionSeconds;
 			double trackRemainingSeek = 0.0;
 			if (eMEDIATYPE_SUBTITLE == i)
 			{
-				trackRemainingSeek = SkipFragment(mMediaStreamContext[i], remainingSeekPosition, true);
+				trackRemainingSeek = SkipFragments(mMediaStreamContext[i], remainingSeekPosition, true);
 			}
 			else
 			{
