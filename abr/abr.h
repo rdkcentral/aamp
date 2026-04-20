@@ -21,6 +21,7 @@
 #ifndef ABR_H
 #define ABR_H
 
+#include <cstddef>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -62,6 +63,7 @@ public:
 	BitsPerSecond GetCurrentlyAvailableBandwidth();
 	BitsPerSecond GetNetworkBandwidth();
 	bool HasBandwidthEstimator() const;
+	double GetPredictedDownloadTimeSeconds(std::size_t segmentSizeBytes) const;
 	
 	struct ProfileInfo {
 		/**

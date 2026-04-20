@@ -201,6 +201,16 @@ bool ABRManager::HasBandwidthEstimator() const
 	return (mBandwidthEstimator != nullptr);
 }
 
+double ABRManager::GetPredictedDownloadTimeSeconds(std::size_t segmentSizeBytes) const
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (!mBandwidthEstimator)
+	{
+		return 0.0;
+	}
+	return mBandwidthEstimator->GetPredictedDownloadTimeSeconds(segmentSizeBytes);
+}
+
 /**
  * @brief Get initial profile index, choose the medium profile or
  * the profile whose bitrate >= the default bitrate.
