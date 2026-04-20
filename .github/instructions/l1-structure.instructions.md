@@ -8,6 +8,15 @@ applyTo:
 
 ---
 
+## Terminology
+
+A **component** is the class or compilation unit under test, typically
+corresponding to a single `.cpp` source file. AAMP does not always follow
+one-class-per-file, so when in doubt use the source file name (without
+extension) as the component name.
+
+---
+
 ## Required Directory Path
 
 All L1 tests live under:
@@ -26,13 +35,17 @@ test/utests/tests/[ComponentName]Tests/
 
 ## Required Files
 
-Every L1 test suite directory must contain exactly three files:
+Every L1 test suite directory must contain at minimum these three files:
 
 | File | Purpose |
 |---|---|
 | `[ComponentName]Tests.cpp` | Test runner (matches directory name exactly) |
 | `[ComponentName]TestCases.cpp` | Test cases and fixtures |
 | `CMakeLists.txt` | Build configuration |
+
+Additional `*TestCases.cpp` files are acceptable when a suite needs separate
+fixtures, parameterized tests, or the test count is large enough to warrant
+splitting for readability.
 
 ### Naming Convention
 
@@ -114,7 +127,7 @@ aamp_utest_run_add(${EXEC_NAME})
 
 - **Link `fakes` first** in `target_link_libraries`.
 - **Only include the component being tested** in `AAMP_SOURCES`.
-- **Do not add real dependency `.cpp` files** (e.g., `AampGrowableBuffer.cpp`)
+- **Do not add real dependency `.cpp` files** (e.g., `AampConfig.cpp`)
   if a fake in `test/utests/fakes/` already provides them.
 - Include `test/utests/mocks/` headers with `SYSTEM` to suppress warnings.
 - All new files require the RDK copyright header.
@@ -126,7 +139,7 @@ aamp_utest_run_add(${EXEC_NAME})
 
 ```cpp
 /*
- * Copyright <Year> RDK Management
+ * Copyright <Current Year> RDK Management
  * ... full copyright header ...
  */
 

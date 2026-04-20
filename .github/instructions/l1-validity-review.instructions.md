@@ -27,9 +27,9 @@ A valid L1 test in this repository:
 
 | Pattern | Why it is invalid |
 |---|---|
-| Asserting on `mockBuffer.GetLen()` or `mockBuffer.GetPtr()` | Tests the fake, not the component |
+| Asserting on `config.IsConfigSet()` or `config.GetConfigValue()` directly | Tests the fake, not the component |
 | Including real `.cpp` dependencies in CMake | Defeats isolation; should use fakes |
-| Expecting real memory semantics from `FakeAampGrowableBuffer` | Fake uses pointer assignment, not deep copy |
+| Expecting real config persistence from `FakeAampConfig` | Fake `SetConfigValue(bool)` is a no-op |
 | Testing only the happy path | Missing error and boundary coverage |
 | Creating a new test suite when one already exists for the component | Duplicate coverage; extend the existing suite |
 | Inventing build commands not in `l1-build-run.instructions.md` | May not work in CI; causes confusion |
@@ -44,7 +44,7 @@ A valid L1 test in this repository:
 - [ ] No assertions on fake method return values (unless via `EXPECT_CALL`)
 - [ ] No `memcmp` on fake buffer data
 - [ ] No verification of fake state changes without testing component response
-- [ ] Mock return values set via `EXPECT_CALL().WillOnce(Return())`
+- [ ] Mock return values set via `EXPECT_CALL().WillOnce(Return())` or `WillRepeatedly(Return())`
 
 ### Component Behavior Focus
 - [ ] Tests verify component member variables and state after operations
@@ -57,7 +57,7 @@ A valid L1 test in this repository:
 - [ ] Files: runner `.cpp`, cases `.cpp`, `CMakeLists.txt`
 - [ ] `CMakeLists.txt` links `fakes` first
 - [ ] `CMakeLists.txt` does not include real dependency sources
-- [ ] Copyright header present in all files
+- [ ] Copyright header present in all files (with current year)
 - [ ] Doxygen tags on all test methods
 - [ ] Builds and passes via `cd test/utests && ./run.sh`
 
