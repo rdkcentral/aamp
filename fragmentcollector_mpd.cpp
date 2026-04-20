@@ -2283,22 +2283,114 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 	return retval;
 }
 
+/**
+ * @brief If the current SkipFragments loop reaches EOS and additional periods are available, switch to the next period. Return true if the switch succeeds and the seek should be retried; otherwise, return false.
+ */
+bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double videoRemainingSeek,
+	bool skipToEnd, int maxPeriodSwitchCount, int &periodSwitchCount,
+	double &remainingSeekPosition)
+{
+	MediaStreamContext *videoContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
+	bool switchToNextPeriod = (!skipToEnd) &&
+		(mpd != NULL) &&
+		(mMPDParseHelper != NULL) &&
+		(videoContext != NULL) &&
+		(videoContext->eos);
+
+	if (!switchToNextPeriod)
+	{
+		AAMPLOG_INFO("SeekInPeriod: Seek completed within current period with remaining seek %lf", videoRemainingSeek);
+		return false;
+	}
+
+	if (periodSwitchCount >= maxPeriodSwitchCount)
+	{
+		AAMPLOG_WARN("SeekInPeriod: Reached max period-switch attempts while carrying seek remainder %lf", videoRemainingSeek);
+		return false;
+	}
+
+	int nextPeriodIdx = mCurrentPeriodIdx + 1;
+	while ((nextPeriodIdx < mMPDParseHelper->GetNumberOfPeriods()) && IsEmptyPeriod(nextPeriodIdx))
+	{
+		nextPeriodIdx++;
+	}
+
+	if (nextPeriodIdx >= mMPDParseHelper->GetNumberOfPeriods())
+	{
+		AAMPLOG_INFO("SeekInPeriod: No next playable period available for seek remainder %lf", videoRemainingSeek);
+		return false;
+	}
+
+	mCurrentPeriodIdx = nextPeriodIdx;
+	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
+	mBasePeriodId = mCurrentPeriod->GetId();
+	AAMPLOG_INFO("SeekInPeriod: Switching to next period %d with id %s for seek remainder %lf", mCurrentPeriodIdx, mBasePeriodId.c_str(), videoRemainingSeek);
+	mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
+	mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
+	mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
+
+	mUpdateStreamInfo = true;
+	AAMPStatusType ret = UpdateTrackInfo(true, true);
+	if (ret != eAAMPSTATUS_OK)
+	{
+		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d", mCurrentPeriodIdx);
+		return false;
+	}
+
+	for (int i = 0; i < mNumberOfTracks; i++)
+	{
+		if (mMediaStreamContext[i])
+		{
+			mMediaStreamContext[i]->eos = false;
+		}
+	}
+
+	AAMPLOG_INFO("SeekInPeriod: Switched to period %d and re-seeking with remainder %lf", mCurrentPeriodIdx, videoRemainingSeek);
+	remainingSeekPosition = videoRemainingSeek;
+	periodSwitchCount++;
+	return true;
+}
+
 
 /**
  * @brief Seek current period by a given time
  */
 void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool skipToEnd)
 {
-	for (int i = 0; i < mNumberOfTracks; i++)
+double remainingSeekPosition = seekPositionSeconds;
+	int maxPeriodSwitchCount = (mpd != NULL) ? (int)mpd->GetPeriods().size() : 0;
+	int periodSwitchCount = 0;
+
+	while (true)
 	{
-		if (eMEDIATYPE_SUBTITLE == i)
+		double videoRemainingSeek = 0.0;
+		for (int i = 0; i < mNumberOfTracks; i++)
 		{
-			double skipTime = seekPositionSeconds;
-			SkipFragments(mMediaStreamContext[i], skipTime, true);
+			if (!mMediaStreamContext[i])
+			{
+				continue;
+			}
+
+			double trackRemainingSeek = 0.0;
+			if (eMEDIATYPE_SUBTITLE == i)
+			{
+				trackRemainingSeek = SkipFragment(mMediaStreamContext[i], remainingSeekPosition, true);
+			}
+			else
+			{
+				trackRemainingSeek = SkipFragments(mMediaStreamContext[i], remainingSeekPosition, true, skipToEnd);
+			}
+
+			if (i == eMEDIATYPE_VIDEO)
+			{
+				videoRemainingSeek = trackRemainingSeek;
+			}
 		}
-		else
+
+		if (!HandleSeekEOSAndPeriodTransition(videoRemainingSeek, skipToEnd,
+			maxPeriodSwitchCount, periodSwitchCount, remainingSeekPosition))
 		{
-			SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
+			break;
 		}
 	}
 }
