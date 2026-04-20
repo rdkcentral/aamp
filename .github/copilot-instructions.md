@@ -28,18 +28,21 @@ Copilot must still follow these steps:
 1. **Identify the component under test** before writing any code.
 2. **Check for existing tests** under `test/utests/tests/` — do not create
    duplicate suites. See `instructions/l1-structure.instructions.md`.
-3. **Follow the approved build/run workflow exactly.** For new tests, the
+3. **Derive the behavioral contract and correctness oracle** before
+   proposing or reviewing tests.
+   See `instructions/l1-oracle-design.instructions.md`.
+4. **Follow the approved build/run workflow exactly.** For new tests, the
    mandatory first step is `cd test/utests && ./run.sh`. Do not invent
    alternate build commands. See `instructions/l1-build-run.instructions.md`.
-4. **Use AAMP fakes and mocks**, not generic GoogleTest patterns. Fake
+5. **Use AAMP fakes and mocks**, not generic GoogleTest patterns. Fake
    behavior intentionally differs from production — adapt expectations.
    See `instructions/l1-fakes-mocks.instructions.md`.
-5. **Test component behavior, not fake/mock behavior.** Every assertion
+6. **Test component behavior, not fake/mock behavior.** Every assertion
    must verify how the component under test responds, not how a
    dependency stub works.
-6. **Do not invent file names, paths, or CMake structure.** Follow the
+7. **Do not invent file names, paths, or CMake structure.** Follow the
    exact conventions in `instructions/l1-structure.instructions.md`.
-7. **When reviewing tests**, use the verdict language and checklist from
+8. **When reviewing tests**, use the verdict language and checklist from
    `instructions/l1-validity-review.instructions.md`.
 
 ## 3. Version Control
@@ -242,7 +245,7 @@ The `.github/instructions/` directory contains deeper rules:
 - `testing.instructions.md`  
   General testing philosophy, Python/JS patterns, and integration testing.
 
-### L1 Unit Testing (read all four for any L1 work)
+### L1 Unit Testing (read all five for any L1 work)
 - `l1-build-run.instructions.md`  
   Mandatory build/run workflow. Do not skip or improvise.
 
@@ -252,13 +255,16 @@ The `.github/instructions/` directory contains deeper rules:
 - `l1-fakes-mocks.instructions.md`  
   AAMP-specific fake/mock guidance. Golden rule: test the component, not the fake.
 
+- `l1-oracle-design.instructions.md`  
+  Behavioral contract and correctness oracle derivation. Required before writing or reviewing tests.
+
 - `l1-validity-review.instructions.md`  
   Review checklist and verdict language for L1 test quality.
 
 ### L1 Test Engineer Agent
 - `agents/l1-test-engineer.agent.md`  
   Preferred specialist for L1 test creation, review, diagnosis, and explanation.
-  Reads and enforces all four L1 instruction files. Select via `@l1-test-engineer`.
+  Reads and enforces all five L1 instruction files. Select via `@l1-test-engineer`.
 
 ### Language-Specific
 - `cpp.instructions.md`  
