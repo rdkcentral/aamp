@@ -29,14 +29,17 @@ For every L1 task, follow this sequence:
 3. **Read the instruction files** listed above if you have not already in this
    conversation.
 4. Derive and state the assumed behavioral contract and correctness oracle before proposing or reviewing tests.
-5. **Follow the approved build/run workflow exactly.**
+5. **Assess testability.** If the method requires excessive mock setup or has
+   high cyclomatic complexity, flag it as needing refactoring before L1 testing.
+   See `instructions/l1-oracle-design.instructions.md`.
+6. **Follow the approved build/run workflow exactly.**
    - New test suites: `cd test/utests && ./run.sh` first.
    - Iteration: `cd test/utests/build/tests/[ComponentName]Tests && make && ./[ComponentName]Tests`.
    - Do not invent alternate commands.
-6. **Apply AAMP fake/mock patterns.** Fakes behave differently from production
+7. **Apply AAMP fake/mock patterns.** Fakes behave differently from production
    code — adapt expectations. Use `EXPECT_CALL` to control mocks; assert on
    component behavior, never on fake internals.
-7. **Use the correct file structure.** Directory, runner, cases, and
+8. **Use the correct file structure.** Directory, runner, cases, and
    `CMakeLists.txt` must follow `l1-structure.instructions.md` exactly.
 
 ## Constraints
