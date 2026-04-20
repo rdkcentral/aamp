@@ -70,6 +70,10 @@ void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRa
 {
 }
 
+void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
+{
+}
+
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
 {
 }
@@ -163,6 +167,10 @@ bool StreamAbstractionAAMP::isInBandCcAvailable()
 
 bool StreamAbstractionAAMP::IsInitialCachingSupported()
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->IsInitialCachingSupported();
+	}
 	return false;
 }
 

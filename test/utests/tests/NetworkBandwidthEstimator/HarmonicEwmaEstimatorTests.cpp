@@ -187,3 +187,43 @@ TEST_F(HarmonicEwmaEstimatorTests, EstimatorProgressUpdateTest)
 			kEpsilon);
 	}
 }
+
+/**
+ * @brief Test that ResetCurrentlyAvailableBandwidth() suppresses the estimate for
+ *        exactly one download cycle without discarding EWMA history.
+ *
+ * Steps:
+ *  1. Seed the estimator with a completed-segment sample so it holds a positive estimate.
+ *  2. Call ResetCurrentlyAvailableBandwidth() (simulating a forced profile switch).
+ *  3. Verify GetBandwidthBitsPerSecond() now returns -1 (suppressed).
+ *  4. Feed a second completed-segment sample via UpdateDownloadMetrics().
+ *  5. Verify GetBandwidthBitsPerSecond() returns a positive value again (suppression cleared).
+ */
+TEST_F(HarmonicEwmaEstimatorTests, ResetCurrentlyAvailableBandwidth_SuppressesForOneCycle)
+{
+	HarmonicEwmaEstimator estimator;
+
+	// Step 1: seed with a completed segment so the estimator has a positive estimate.
+	DownloadMetrics firstSample;
+	firstSample.m_size_download_bytes     = 112463;
+	firstSample.m_total_time_seconds      = 0.398257;
+	firstSample.m_time_to_first_byte_seconds = 0.249254;
+	estimator.UpdateDownloadMetrics(firstSample);
+	EXPECT_GT(estimator.GetBandwidthBitsPerSecond(), static_cast<BitsPerSecond>(0));
+
+	// Step 2: simulate a forced profile switch.
+	estimator.ResetCurrentlyAvailableBandwidth();
+
+	// Step 3: estimate must be suppressed (returns -1) without touching EWMA history.
+	EXPECT_EQ(estimator.GetBandwidthBitsPerSecond(), static_cast<BitsPerSecond>(-1));
+
+	// Step 4: complete another segment download — this clears the one-shot flag.
+	DownloadMetrics secondSample;
+	secondSample.m_size_download_bytes     = 112463;
+	secondSample.m_total_time_seconds      = 0.130057;
+	secondSample.m_time_to_first_byte_seconds = 0.048034;
+	estimator.UpdateDownloadMetrics(secondSample);
+
+	// Step 5: suppression must be lifted; estimate must be positive again.
+	EXPECT_GT(estimator.GetBandwidthBitsPerSecond(), static_cast<BitsPerSecond>(0));
+}

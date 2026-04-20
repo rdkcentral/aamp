@@ -122,6 +122,20 @@ public:
      */
     void NotifyPipelineResumed(double endPosition, float playRate);
 
+    /**
+     * @fn NotifyRateChange
+     * @brief Called immediately after the playback rate changes (SetRate / trickplay).
+     *
+     * Updates the cached play rate so that the background thread's trickplay-
+     * suppression check uses the new rate before any fragment at the new rate
+     * has been received.  If the new rate is a trickplay rate, the current
+     * deadline is also disarmed — the first fragment at the new rate will rearm
+     * it via NotifyVideoFragment.
+     *
+     * @param[in] rate  New play rate (may be negative for rewind).
+     */
+    void NotifyRateChange(float rate);
+
 private:
     /**
      * @fn Run
