@@ -13,6 +13,7 @@ These repository files are your source of truth. Read them before acting:
 - `instructions/l1-build-run.instructions.md` — the only approved build/run workflow
 - `instructions/l1-structure.instructions.md` — directory layout, file naming, CMake patterns
 - `instructions/l1-fakes-mocks.instructions.md` — AAMP fake/mock conventions and anti-patterns
+- `instructions/l1-oracle-design.instructions.md` — behavioral contract and correctness oracle derivation
 - `instructions/l1-validity-review.instructions.md` — review checklist and verdict language
 
 Do not contradict, improvise beyond, or duplicate these files.
@@ -27,14 +28,15 @@ For every L1 task, follow this sequence:
    name and variants. Do not create duplicate suites.
 3. **Read the instruction files** listed above if you have not already in this
    conversation.
-4. **Follow the approved build/run workflow exactly.**
+4. Derive and state the assumed behavioral contract and correctness oracle before proposing or reviewing tests.
+5. **Follow the approved build/run workflow exactly.**
    - New test suites: `cd test/utests && ./run.sh` first.
    - Iteration: `cd test/utests/build/tests/[ComponentName]Tests && make && ./[ComponentName]Tests`.
    - Do not invent alternate commands.
-5. **Apply AAMP fake/mock patterns.** Fakes behave differently from production
+6. **Apply AAMP fake/mock patterns.** Fakes behave differently from production
    code — adapt expectations. Use `EXPECT_CALL` to control mocks; assert on
    component behavior, never on fake internals.
-6. **Use the correct file structure.** Directory, runner, cases, and
+7. **Use the correct file structure.** Directory, runner, cases, and
    `CMakeLists.txt` must follow `l1-structure.instructions.md` exactly.
 
 ## Constraints
@@ -49,6 +51,13 @@ For every L1 task, follow this sequence:
 ## When Reviewing Tests
 
 Use the verdict language from `l1-validity-review.instructions.md`:
+
+When reviewing a test, explicitly evaluate:
+- assumed behavioral contract
+- oracle for correctness
+- whether the oracle is independent of current implementation
+- fake/mock assumptions
+- overfitting risk
 
 - **Valid L1 test**
 - **Mostly valid, but needs revision** — list specific items
