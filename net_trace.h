@@ -30,6 +30,7 @@
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>   // getpid()
 #endif
+#include "simnet/net_persona_fitter.h"
 
 namespace aamptrace {
 
@@ -232,6 +233,14 @@ public:
 		}
 		state.req_ofs.flush();
 		state.burst_ofs.flush();
+
+		// Forward data to persona fitter for in-memory accumulation
+		auto& fitter = NetPersonaFitter::GetInstance();
+		fitter.AddRequest(mStartXferS, mConnReused);
+		for (const auto& b : mBursts)
+		{
+			fitter.AddBurst(mReqId, b.index, b.duration, b.bytes, b.gapBefore);
+		}
 	}
 	
 	/**
