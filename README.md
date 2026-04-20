@@ -511,6 +511,8 @@ note: the branch changes over time - dev_sprint_YY_Q
 currently dev_sprint_25_2
 ```
 cd aamp
+brew update
+brew upgrade
 bash install-aamp.sh
 ```
 select aamp-cli as default project
