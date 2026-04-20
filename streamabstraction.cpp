@@ -722,6 +722,11 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 			AAMPLOG_DEBUG("[%s] abort set, returning false", name);
 			ret = false;
 		}
+		else if (numberOfFragmentChunksCached == mCachedFragmentChunksSize)
+		{
+			AAMPLOG_WARN("[%s] no free cache, returning false", name);
+			ret = false;
+		}
 	}
 
 	AAMPLOG_DEBUG("[%s] fragmentChunkIdxToFetch = %d numberOfFragmentChunksCached %d mCachedFragmentChunksSize %zu",
