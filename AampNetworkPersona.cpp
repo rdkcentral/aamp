@@ -107,14 +107,16 @@ void AampNetworkPersona::ParsePersonaParams(const std::string& json, PersonaPara
 
 bool AampNetworkPersona::IsLoaded() const
 {
-    std::lock_guard<std::mutex> lk(mMutex);
-    return mLoaded;
+    // Atomic load — no mutex needed on the hot download path.
+    return mLoaded.load(std::memory_order_acquire);
 }
 
 bool AampNetworkPersona::LoadFromFile(const std::string& path)
 {
+    // Fast path: already loaded — avoid taking the mutex on every playback call.
+    if (mLoaded.load(std::memory_order_acquire)) return true;
     std::lock_guard<std::mutex> lk(mMutex);
-    if (mLoaded) return true;   // idempotent
+    if (mLoaded.load(std::memory_order_relaxed)) return true;  // double-check under lock
 
     std::ifstream ifs(path);
     if (!ifs)
@@ -170,7 +172,7 @@ bool AampNetworkPersona::LoadFromFile(const std::string& path)
         return false;
     }
 
-    mLoaded = true;
+    mLoaded.store(true, std::memory_order_release);
     return true;
 }
 

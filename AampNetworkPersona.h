@@ -54,6 +54,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <mutex>
@@ -157,8 +158,8 @@ private:
     const PersonaParams& CurrentParamsLocked() const;
 
     // ── State ─────────────────────────────────────────────────────────────────
-    mutable std::mutex       mMutex;          ///< guards all mutable state
-    bool                     mLoaded = false;
+    mutable std::mutex         mMutex;             ///< guards mSequence / mRng / sequence clock
+    std::atomic<bool>          mLoaded{false};     ///< set once; read lock-free on hot download path
     std::vector<PersonaEntry> mSequence;      ///< one entry for single persona, N for sequence
     mutable bool             mSequenceStarted = false;
     mutable std::chrono::steady_clock::time_point mSequenceStart;
