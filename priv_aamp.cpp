@@ -2101,6 +2101,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		double latency = 0;
+		bool reachedStart = false;
 
 
 		//Report Progress report position based on Availability Start Time
@@ -2124,16 +2125,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// If beginningOfStream is true or position < start, it means rewind has reached BoS
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
-		{ // clamp start or handle BOS during rewind
-			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
-				position, start, beginningOfStream, rate);
+		{
+			AAMPLOG_WARN( "clamp position %fms < start %fms", position, start );
 			position = start;
-			// Check the rate so that PlayFromTsbStart() is not called repeatedly
-			if (rate < AAMP_RATE_PAUSE)
-			{
-				PlayFromTsbStart();
-			}
+			reachedStart = true;
 		}
+
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
 
@@ -2321,6 +2318,14 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 			mReportProgressPosn = position;
+			if (reachedStart)
+			{
+				// Check the rate so that PlayFromTsbStart() is not called more than once
+				if (rate < AAMP_RATE_PAUSE)
+				{
+					PlayFromTsbStart();
+				}
+			}
 		}
 	}
 }
@@ -2620,6 +2625,7 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 {
 	AAMPTuneFailure actualFailure = tuneFailure;
 	bool retryStatus = true;
+	bool reachedStart = false;
 
 	if(tuneFailure >= 0 && tuneFailure < AAMP_TUNE_FAILURE_UNKNOWN)
 	{
@@ -3360,8 +3366,42 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		/* If rate is normal play, no need to seek to live etc. This can be due to the EPG changing rate from RWD to play near begging of the TSB. */
 		if (rate < AAMP_RATE_PAUSE)
 		{
+			seek_pos_seconds = culledSeconds;
+			AAMPLOG_WARN("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
+			if (trickStartUTCMS == -1)
+			{
+				// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables MonitorProgress to
+				// send BOS event to JSPP
+				ResetTrickStartUTCTime();
+				AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
+			}
 			// A new report progress event to be emitted with position 0 when rewind reaches BOS
 			MonitorProgress(true, true);
+			// VPLAY-11912: Preserve trickplay rate during mid-roll/post-roll ad transitions.
+			// Reset to normal rate ONLY for main content at BOS (no ad in progress).
+			// For VOD mid-roll ads during rewind, preserve trickplay rate.
+			if (mAdProgressId.empty() && culledSeconds == 0)
+			{
+				// Main content reached BOS - reset to normal playback
+				rate = AAMP_NORMAL_PLAY_RATE;
+				AAMPLOG_WARN("HariPriya Main content reached BOS (position 0), resetting to normal rate");
+			}
+			else if (!mAdProgressId.empty() && culledSeconds == 0)
+			{
+				// Ad in progress at position 0 - likely mid-roll ad during rewind
+				// Preserve trickplay rate to avoid momentary ad playback
+				AAMPLOG_WARN("HariPriya Ad at position 0 during rewind (adId not empty), preserving trickplay rate %f", rate);
+				// Don't change rate - let AdRewindPlayController handle ad playback decision
+			}
+			else
+			{
+				// Mid-roll/post-roll ad ended, back to content - preserve rate
+				AAMPLOG_WARN("HariPriya Mid-roll/post-roll ad ended during trickplay, preserving rate %f for main content at position %f", rate, culledSeconds);
+			}
+			AcquireStreamLock();
+			TuneHelper(eTUNETYPE_SEEK);
+			ReleaseStreamLock();
+			NotifySpeedChanged(rate);
 		}
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
