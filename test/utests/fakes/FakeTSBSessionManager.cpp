@@ -184,12 +184,12 @@ bool AampTSBSessionManager::StartAdReservation(const std::string &adBreakId, uin
 	return ret;
 }
 
-bool AampTSBSessionManager::EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition)
+bool AampTSBSessionManager::EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition, const std::string &reason)
 {
 	bool ret = false;
 	if (g_mockTSBSessionManager)
 	{
-		ret = g_mockTSBSessionManager->EndAdReservation(adBreakId, periodPosition, absPosition);
+		ret = g_mockTSBSessionManager->EndAdReservation(adBreakId, periodPosition, absPosition, reason);
 	}
 	return ret;
 }
@@ -245,4 +245,16 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType mediatype)
 {
 	return nullptr;
+}
+
+void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
+{
+}
+
+void AampTSBSessionManager::NotifyVideoTsbWaiters()
+{
+	if (g_mockTSBSessionManager)
+	{
+		g_mockTSBSessionManager->NotifyVideoTsbWaiters();
+	}
 }

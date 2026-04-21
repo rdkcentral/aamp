@@ -70,7 +70,15 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData) {  }
 
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
-double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
+double StreamAbstractionAAMP_MPD::GetFirstPTS()
+{
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		return g_mockStreamAbstractionAAMP_MPD->GetFirstPTS();
+	}
+
+	return 0;
+}
 
 double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() {
 
@@ -86,7 +94,14 @@ double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS() { return 0; }
 
 MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type) { return nullptr; }
 
-double StreamAbstractionAAMP_MPD::GetBufferedDuration (void) { return 0; }
+double StreamAbstractionAAMP_MPD::GetBufferedDuration (void)
+{
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		return g_mockStreamAbstractionAAMP_MPD->GetBufferedDuration();
+	}
+	return 0;
+}
 
 int StreamAbstractionAAMP_MPD::GetBWIndex( BitsPerSecond bandwidth) { return 0; }
 
@@ -310,4 +325,21 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 {
 	return false;
+}
+
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
+{
+}
+
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t counter)
+{
+}
+
+void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
+{
+}
+
+uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
+{
+	return 0;
 }

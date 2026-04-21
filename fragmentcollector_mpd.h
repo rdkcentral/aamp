@@ -71,26 +71,33 @@ struct ProfileInfo
 };
 
 /**
- * @struct TimeSyncClient
+ * @class TimeSyncClient
  *
  * @brief Maintains state for periodic synchronization of the local clock
  * with a remote UTC time server, used in DASH manifest processing.
  *
- * This struct tracks the last successful synchronization time and the
+ * This class tracks the last successful synchronization time and the
  * cached offset between the local system clock and the server's UTC time.
  * It supports logic to determine when a new synchronization request should
  * be made based on elapsed time and configuration.
  */
-struct TimeSyncClient
+class TimeSyncClient
 {
-	long long lastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
-	double lastOffset; /**< Cached time delta (in seconds) between local and server time. */
-	bool hasSynced; /**< Flag indicating whether at least one successful sync has occurred. */
-	
+private:
+	long long mLastSync; /**< Timestamp (milliseconds since epoch) of the last successful sync. */
+	bool mHasSynced;		/**< Flag indicating whether at least one successful sync has occurred. */
+	double mDeltaTime;	/**< Cached time delta (in seconds) between local and server time. */
+	bool mHasServerUtcTime; /**<true if time has been obtained from the server or manifest */
+	double mServerUtcTime; /**< Time periodically read from UTC time server and then updated from epoch time */
+public:
 	/**
-	 * @brief Constructor initializes lastSync with current time and resets other members.
+	 * @brief Constructor initializes mLastSync with current time and resets other members.
 	 */
 	TimeSyncClient();
+	double GetDelta() const { return mDeltaTime; };
+	bool HasServerUtcTime() const { return mHasServerUtcTime; };
+	double GetServerUtcTime() const { return mServerUtcTime; };
+	bool FindServerUTCTime(PrivateInstanceAAMP *aamp, Node *root);
 };
 
 class AampDashWorkerJob : public aamp::AampTrackWorkerJob
@@ -343,7 +350,6 @@ public:
 	 * @fn GetFirstPeriodStartTime
 	 */
 	double GetFirstPeriodStartTime(void) override;
-	void MonitorLatency();
 	void StartSubtitleParser() override;
 	void PauseSubtitleParser(bool pause) override;
 	/**
@@ -597,6 +603,14 @@ protected:
 	void RestorePtsOffsetCalculation(void);
 
 	/**
+	 * @fn AdjustPtsOffsetAfterAdCancellation
+	 *
+	 * @brief Adjust the PTS offset calculation,
+	 *        if the calculated nextPTS needs adjustment after ad cancellation.
+	 */
+	void AdjustPtsOffsetAfterAdCancellation(void);
+
+	/**
 	 * @fn printSelectedTrack
 	 * @param[in] trackIndex - selected track index
 	 * @param[in] media - Media type
@@ -619,9 +633,9 @@ protected:
 	 * @param[out] waitForFreeFrag - waitForFreeFragmentAvailable flag
 	 * @param[out] bCacheFullState - cache status for track
 	 *
-	 * @return void
+	 * @return bool - true if a segment was found and cached, false otherwise
 	 */
-	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState);
+	bool AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState);
 
 	/**
 	 * @fn FetcherLoop
@@ -715,13 +729,6 @@ protected:
 	 */
 	AAMPStatusType UpdateMPD(bool init = false);
 
-	/**
-	 * @fn FindServerUTCTime
-	 * @param mpd:  MPD top level element
-	 * @param root: XML root node
-	 */
-	bool FindServerUTCTime(Node* root);
-	
 	/**
 	 * @fn FetchDashManifest
 	 */
@@ -878,7 +885,9 @@ protected:
 
 	/**
 	 * @fn SeekInPeriod
-	 * @param seekPositionSeconds seek position in seconds
+	 * @param seekPositionSeconds seek position in seconds relative to the first
+	 *        segment currently present in the manifest for this period (after any
+	 *        culling)
 	 */
 	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);
 	/**
@@ -964,12 +973,7 @@ protected:
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 
 	double GetEncoderDisplayLatency();
-	/**
-	 * @fn StartLatencyMonitorThread
-	 * @return void
-	 */
-	void StartLatencyMonitorThread();
-	LatencyStatus GetLatencyStatus() { return latencyStatus; }
+
 	/**
 	 * @fn GetPreferredCodecIndex
 	 * @param adaptationSet Adaptation set object
@@ -1107,9 +1111,10 @@ protected:
 	 * @param[in] position Period position of the ad break
 	 * @param[in] absolutePosition Absolute position
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
+	 * @param[in] reason Reason for reservation end (optional, applicable to END events)
 	 */
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
-							   uint64_t position, AampTime absolutePosition, bool immediate);
+							   uint64_t position, AampTime absolutePosition, bool immediate, const std::string& reason = "");
 
 	/**
 	 * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline
@@ -1184,8 +1189,7 @@ protected:
 	double mAvailabilityStartTime;
 	std::map<std::string, int> mDrmPrefs;
 	int mMaxTracks; /* Max number of tracks for this session */
-	double mDeltaTime;
-	bool mHasServerUtcTime;
+
 	uint32_t prevTimeScale;
 	bool mIsFcsRepresentation;
 	int mFcsRepresentationId;
@@ -1276,30 +1280,61 @@ protected:
 	 */
 	bool IsEmptyPeriod(int iPeriodIndex) const;
 
+	/**
+	 * @fn GetManifestUpdateCounter
+	 * @brief Returns the current manifest update counter.
+	 *        Snapshot this BEFORE any check or download work that might
+	 *        lead to WaitForManifestUpdate(snapshotCounter), so that a
+	 *        concurrent AbortWaitForManifestUpdate() cannot be missed.
+	 */
+	uint32_t GetManifestUpdateCounter();
+
+	/**
+	 * @fn WaitForManifestUpdate
+	 * @brief Wait for manifest to be updated.
+	 * Called when the fetcher loop is waiting for the next manifest update.
+	 * This is used to avoid tight looping in fetcher loop and also to sync the manifest update and fetcher loop.
+	 */
+	void WaitForManifestUpdate();
+
+	/**
+	 * @fn WaitForManifestUpdate
+	 * @brief Overload accepting a caller-supplied counter snapshot.
+	 *        Blocks until the counter advances past snapshotCounter.
+	 *        Handles the case where AbortWaitForManifestUpdate() fires between
+	 *        the snapshot and the wait call — no lost-wakeup.
+	 * @param[in] snapshotCounter Snapshot from GetManifestUpdateCounter()
+	 *            taken before the caller's check or download work.
+	 */
+	void WaitForManifestUpdate(uint32_t snapshotCounter);
+
+	/**
+	 * @fn AbortWaitForManifestUpdate
+	 * @brief Abort waiting for manifest update.
+	 * This is used to stop the fetcher loop from waiting either on a manifest update or tear down.
+	 */
+	void AbortWaitForManifestUpdate();
+
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/
 
-	LatencyStatus latencyStatus; 		 /**< Latency status of the playback*/
-	LatencyStatus prevLatencyStatus;	 /**< Previous latency status of the playback*/
-	std::thread latencyMonitorThreadID;	 /**< Fragment injector thread id*/
 	int mProfileCount;			 /**< Total video profile count*/
 	std::unique_ptr<SubtitleParser> mSubtitleParser;	/**< Parser for subtitle data*/
 	bool mMultiVideoAdaptationPresent;
-	double mLocalUtcTime;
 	ABRMode mABRMode;					 /**< ABR mode*/
 	size_t mLastManifestFileSize;
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
-	
+
 public:
 	/**
 	 * @brief Client used for server time synchronization.
 	 *
-	 * @note TimeSyncClient maintains internal mutable state (e.g. lastSync,
-	 *       lastOffset, hasSynced) and is not internally thread-safe.
+	 * @note TimeSyncClient maintains internal mutable state (e.g. mLastSync,
+	 *       mHasSynced) and is not internally thread-safe.
 	 *       All accesses to mTimeSyncClient (including via FindServerUTCTime
 	 *       in the implementation) are expected to be serialized by the
 	 *       caller. By design, this member is accessed only from the

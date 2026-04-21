@@ -32,29 +32,34 @@
 
 class AampMp4Demuxer : public MediaProcessor
 {
-
 public:
-    AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type);
-    ~AampMp4Demuxer();
+	/**
+	 * @brief MP4 Demuxer Constructor
+	 * @param[in] aamp - Pointer to the PrivateInstanceAAMP
+	 * @param[in] type - Media type (audio/video/subtitle)
+	 * @param[in] enablePtsRestamp - Flag to enable PTS restamping
+	 */
+	AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bool enablePtsRestamp = false);
+	~AampMp4Demuxer();
 
 
-    AampMp4Demuxer(const AampMp4Demuxer&) = delete;
+	AampMp4Demuxer(const AampMp4Demuxer&) = delete;
 	AampMp4Demuxer& operator=(const AampMp4Demuxer&) = delete;
 
 	/**
 	 * @brief given TS media segment (not yet injected), extract and report first PTS
 	 */
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override { return 0.0; };
+	double getFirstPts( const std::vector<uint8_t>& buffer ) override { return 0.0; };
 
 	/**
 	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
 	 */
 	void setPtsOffset( double ptsOffset ) override { };
 
-    /**
+	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in,out] buffer - fragment data as std::vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -64,8 +69,8 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
-								bool isInit, process_fcn_t processor, bool &ptsError) override;
+	bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+						bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
 	 * @brief Set playback rate
@@ -76,7 +81,7 @@ public:
 	 */
 	void setRate(double rate, PlayMode mode) override { };
 
-    /**
+	/**
 	 * @brief Enable or disable throttle
 	 *
 	 * @param[in] enable - throttle enable/disable
@@ -92,7 +97,7 @@ public:
 	 */
 	void setFrameRateForTM (int frameRate) override { }
 
-    /**
+	/**
 	 * @brief Abort all operations
 	 *
 	 * @return void
@@ -106,7 +111,7 @@ public:
 	 */
 	void reset() override { }
 
-    /**
+	/**
 	 * @brief Function to abort wait for injecting the segment
 	 */
 	void abortInjectionWait() override { }
@@ -124,9 +129,12 @@ public:
 	void setTrackOffset(double offset) override { }
 
 private:
-    std::unique_ptr<Mp4Demux> mMp4Demux;
-    PrivateInstanceAAMP* mAamp;
+	std::unique_ptr<Mp4Demux> mMp4Demux;
+	PrivateInstanceAAMP* mAamp;
 	AampMediaType mMediaType;
+	bool mEnablePtsRestamp; // Flag to enable PTS restamping
+	// A separate flag to enable logging for PTS restamping for better control.
+	bool mEnablePtsRestampLogging {false}; // Flag to enable logging for PTS restamping
 };
 
 #endif /* __AAMPMP4DEMUXER_H__ */

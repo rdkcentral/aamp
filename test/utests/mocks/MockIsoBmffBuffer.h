@@ -33,6 +33,7 @@ public:
     MOCK_METHOD(Box*, getBox, (const char *, size_t &));
     MOCK_METHOD(void, getSampleDuration, (Box *, uint64_t &));
     MOCK_METHOD(void, setBuffer, (std::vector<uint8_t>&));
+    MOCK_METHOD(void, setBuffer, (const std::vector<uint8_t>&));
     MOCK_METHOD(void, setBuffer, (uint8_t *, size_t));
     MOCK_METHOD(bool, parseBuffer, (bool, int));
     MOCK_METHOD(void, restampPts, (int64_t));
@@ -41,9 +42,9 @@ public:
     MOCK_METHOD(bool, getMdatBoxCount, (size_t&));
     MOCK_METHOD(size_t, getParsedBoxesSize, ());
     MOCK_METHOD(bool, getChunkedfBoxMetaData, (uint32_t &, std::string &, uint32_t &));
-    MOCK_METHOD(int, UpdateBufferData, (size_t , char* &, size_t &, size_t& ));
+    MOCK_METHOD(int, UpdateBufferData, (size_t , uint8_t* &, size_t &, size_t& ));
     MOCK_METHOD(uint64_t, getTotalChunkDurationInTicks, (int));
-    MOCK_METHOD(bool, ParseChunkData, (const char* , char* &, uint32_t,	size_t & , size_t &, double& , double &));
+    MOCK_METHOD(bool, ParseChunkData, (const char* , uint8_t* &, uint32_t,	size_t & , size_t &, double& , double &));
     MOCK_METHOD(bool, setTrickmodeTimescale, (uint32_t));
     MOCK_METHOD(bool, setMediaHeaderDuration, (uint64_t));
     MOCK_METHOD(bool, getMdatBoxInfo, (size_t, size_t&, size_t&));

@@ -64,13 +64,13 @@ public:
 	 *
 	 * @return None
 	 */
-	~AampTSBSessionManager();
+	virtual ~AampTSBSessionManager();
 	/**
 	 * @brief AampTSBSessionManager Init function
 	 *
 	 * @return None
 	 */
-	void Init();
+	virtual void Init();
 	/**
 	 * @brief Write - function to enqueue data for writing to AAMP TSB
 	 *
@@ -83,11 +83,19 @@ public:
 	 *
 	 * @return None
 	 */
-	void Flush();
+	virtual void Flush();
 	/**
 	 * @brief Monitors the write queue and writes any pending data to AAMP TSB
 	 */
 	void ProcessWriteQueue();
+	/**
+	 * @brief Wait for new TSB video fragment to be available or abort signal. Abort signal is set when downloads are disabled.
+	 */
+	void WaitForVideoTsbContentOrAbort();
+	/**
+	 * @brief Notifies waiting threads when new video TSB content is available or downloads are disabled
+	 */
+	virtual void NotifyVideoTsbWaiters();
 	/**
 	 * @brief Set TSB length
 	 *
@@ -126,7 +134,7 @@ public:
 	 *
 	 * @return duration
 	 */
-	double GetTotalStoreDuration(AampMediaType mediaType);
+	virtual double GetTotalStoreDuration(AampMediaType mediaType);
 	/**
 	 * @brief Culling of Segments based on the Max TSB configuration
 	 *
@@ -145,7 +153,7 @@ public:
 	 *
 	 * @return ptr of tsbReader
 	 */
-	std::shared_ptr<AampTsbReader> GetTsbReader(AampMediaType);
+	virtual std::shared_ptr<AampTsbReader> GetTsbReader(AampMediaType);
 	/**
 	 * @brief Invoke TSB Readers
 	 * @param[in,out] startPosSec - Start absolute position, seconds since 1970; in: requested, out: selected
@@ -154,7 +162,7 @@ public:
 	 *
 	 * @return AAMPSTatusType - OK if success
 	 */
-	AAMPStatusType InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType);
+	virtual AAMPStatusType InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType);
 	/**
 	 * @brief InitializeDataManagers
 	 *
@@ -180,7 +188,7 @@ public:
 	 * @param[in] numFreeFragments number of free fragment spaces in the cache
 	 * @return bool - true if cached fragment
 	 */
-	bool PushNextTsbFragment(MediaStreamContext *pMediaStreamContext, uint32_t numFreeFragments);
+	virtual bool PushNextTsbFragment(MediaStreamContext *pMediaStreamContext, uint32_t numFreeFragments);
 	/**
 	 * @brief UpdateProgress - Progress updates
 	 *
@@ -227,16 +235,17 @@ public:
 	 * @param[in] absPosition - event absolute position
 	 * @return bool - true if success
 	 */
-	bool StartAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition);
+	virtual bool StartAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition);
 
 	/**
 	 * @brief End an ad reservation
 	 * @param[in] adBreakId - ID of the ad break
 	 * @param[in] periodPosition - event position in terms of channel's timeline
 	 * @param[in] absPosition - event absolute position of the ad reservation end
+	 * @param[in] reason - reason for the reservation end (optional)
 	 * @return bool - true if success
 	 */
-	bool EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition);
+	virtual bool EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition, const std::string &reason = "");
 
 	/**
 	 * @brief Start an ad placement
@@ -247,7 +256,7 @@ public:
 	 * @param[in] offset - offset point of the current ad
 	 * @return bool - true if success
 	 */
-	bool StartAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
+	virtual bool StartAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
 
 	/**
 	 * @brief End an ad placement
@@ -258,7 +267,7 @@ public:
 	 * @param[in] offset - offset point of the current ad
 	 * @return bool - true if success
 	 */
-	bool EndAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
+	virtual bool EndAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
 
 	/**
 	 * @brief End an ad placement with error
@@ -269,7 +278,7 @@ public:
 	 * @param[in] offset - offset point of the current ad
 	 * @return bool - true if success
 	 */
-	bool EndAdPlacementWithError(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
+	virtual bool EndAdPlacementWithError(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
 
 	/**
 	 * @brief Shift future ad events to the position of mCurrentWritePosition
@@ -277,7 +286,7 @@ public:
 	 * metadata events whose position is greater than mCurrentWritePosition to 
 	 * mCurrentWritePosition.
 	 */
-	void ShiftFutureAdEvents();
+	virtual void ShiftFutureAdEvents();
 
 protected:
 	/**
@@ -407,6 +416,7 @@ private:
 	std::mutex mWriteQueueMutex;			// Mutex to synchronize access to the write queue.
 	std::mutex mReadMutex;					// Mutex to synchronize access to the data manager from reader and writer.
 	std::condition_variable mWriteThreadCV; // Condition variable to signal when data is available in the write queue
+	std::condition_variable mNewVideoTsbContentCV;	// Conditional variable used to signal when content has been written to the TSB
 	std::queue<TSBWriteData> mWriteQueue;	// Queue to store write data.
 	double mLastVideoPos;
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
@@ -414,6 +424,7 @@ private:
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
 	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
 	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
+	bool mStopWaitingForVideoTsb;			// Flag to signal video TSB reader to stop waiting (new content available or downloads disabled)
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */

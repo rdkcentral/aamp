@@ -778,6 +778,7 @@ protected:
 TEST_F(AdReservationEventTest, AdReservationEventMethodsTest) {
     EXPECT_EQ(adReservationEvent->getAdBreakId(), adBreakId);
     EXPECT_EQ(adReservationEvent->getPosition(), position);
+    EXPECT_EQ(adReservationEvent->getReason(), "");
 }
 
 // Test functions of AdPlacementEvent

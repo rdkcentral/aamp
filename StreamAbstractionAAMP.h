@@ -162,11 +162,23 @@ public:
 	void AbortWaitForPlaylistDownload();
 
 	/**
-	 * @fn AbortFragmentDownloaderWait
+	 * @fn AbortWaitForManifestUpdate
 	 *
 	 * @return void
 	 */
-	void AbortFragmentDownloaderWait();
+	void AbortWaitForManifestUpdate();
+
+	/**
+	 * @fn GetManifestUpdateCounter
+	 * @brief Returns the current manifest update counter.
+	 *        Callers should snapshot this value BEFORE performing any
+	 *        check or download work that leads to the decision to wait,
+	 *        then pass it to WaitForManifestUpdate(snapshotCounter).
+	 *        This closes the race window where AbortWaitForManifestUpdate()
+	 *        fires between the caller's work and the wait call.
+	 * @return Current counter value.
+	 */
+	uint32_t GetManifestUpdateCounter();
 
 	/**
 	 * @fn AbortWaitForCachedFragmentChunk
@@ -181,6 +193,19 @@ public:
 	 * @return void
 	 */
 	void WaitForManifestUpdate();
+
+	/**
+	 * @fn WaitForManifestUpdate
+	 * @brief Overload that accepts a caller-supplied counter snapshot.
+	 *        Blocks until the live counter differs from snapshotCounter.
+	 *        If AbortWaitForManifestUpdate() already fired after the snapshot
+	 *        was taken, the predicate is immediately true and no blocking
+	 *        occurs — no lost-wakeup.
+	 * @param[in] snapshotCounter Snapshot obtained from GetManifestUpdateCounter()
+	 *            before the caller began its check or download work.
+	 * @return void
+	 */
+	void WaitForManifestUpdate(uint32_t snapshotCounter);
 
 	/**
 	 * @fn PlaylistDownloader
@@ -204,7 +229,7 @@ public:
 	 *
 	 * @return void
 	 */
-	virtual void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) = 0;
+	virtual void ProcessPlaylist(std::vector<uint8_t>& newPlaylist, int http_error) = 0;
 	/**
 	 * @fn GetPlaylistUrl
 	 *
@@ -266,13 +291,6 @@ public:
 	AampMediaType GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe);
 
 	/**
-	 * @fn NotifyFragmentCollectorWait
-	 *
-	 * @return void
-	 */
-	void NotifyFragmentCollectorWait() {fragmentCollectorWaitingForPlaylistUpdate = true;}
-
-	/**
 	 * @fn EnterTimedWaitForPlaylistRefresh
 	 *
 	 * @param[in] timeInMs timeout in milliseconds
@@ -295,6 +313,8 @@ public:
 
 	/**
 	 * @fn ProcessFragmentChunk
+	 * @brief Process next cached fragment chunk
+	 * @retval true if chunk should be removed from the cached fragment chunk buffer, false otherwise
 	 */
 	bool ProcessFragmentChunk();
 
@@ -729,7 +749,7 @@ protected:
 	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
+	void InjectFragmentChunkInternal(AampMediaType mediaType, std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);
@@ -778,7 +798,7 @@ private:
 	 * @param[in] initFragment - true for init fragments, false for media fragments
 	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
 	 */
-	void TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
+	void TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &position, double &duration,
 							bool initFragment, bool  discontinuity);
 
 	/**
@@ -829,8 +849,8 @@ protected:
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
 	CachedFragment *mCachedFragment;    /**< storage for currently-downloaded fragment */
 	CachedFragment mCachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
-	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
-	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
+	std::vector<uint8_t> unparsedBufferChunk{}; /**< Unparsed buffer chunk for ISOBMFF chunk processing */
+	std::vector<uint8_t> parsedBufferChunk{};   /**< Parsed buffer chunk for ISOBMFF chunk processing */
 	bool abort;                         /**< Abort all operations if flag is set*/
 	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
@@ -883,8 +903,8 @@ private:
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
-	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collector is waiting for ongoing playlist download, used for profile changes*/
-	std::condition_variable frDownloadWait;	/**< Conditional variable for signaling timed wait*/
+	uint32_t mManifestUpdateCounter;        /**< Monotonically increasing counter incremented by AbortWaitForManifestUpdate. */
+	std::condition_variable mManifestUpdateWait;	/**< Conditional variable for signaling manifest update */
 	std::condition_variable audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 	double lastInjectedPosition;             /**< Last injected position */
 	double lastInjectedDuration;             /**< Last injected fragment end position */
@@ -1722,6 +1742,40 @@ public:
 	 * @return true if running, false otherwise
 	 */
 	bool IsUnderflowMonitorRunning() const;
+
+	/**
+	 * @fn NotifyVideoFragmentToUnderflowMonitor
+	 * @brief Notify the underflow monitor that a video fragment (or chunk) has
+	 *        been queued for injection.  Re-arms the underflow deadline.
+	 * @param[in] endPosition  Absolute end position of the queued content (seconds).
+	 * @param[in] playRate     Current play rate.
+	 */
+	void NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate);
+
+	/**
+	 * @fn NotifyPipelinePausedToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the pipeline has been paused for
+	 *        buffering.  Disarms the deadline until resumption.
+	 */
+	void NotifyPipelinePausedToUnderflowMonitor();
+
+	/**
+	 * @fn NotifyPipelineResumedToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the pipeline has resumed after
+	 *        buffering.  Re-arms the deadline using the current video buffer position.
+	 * @param[in] playRate     Current play rate.
+	 */
+	void NotifyPipelineResumedToUnderflowMonitor(float playRate);
+
+	/**
+	 * @fn NotifyRateChangeToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the playback rate has changed.
+	 *        Updates the cached rate and disarms the deadline when entering trickplay,
+	 *        preventing a stale deadline from causing a false underflow before the
+	 *        first fragment at the new rate is downloaded.
+	 * @param[in] rate  New play rate.
+	 */
+	void NotifyRateChangeToUnderflowMonitor(float rate);
 
 	/**
 	 *   @fn GetBufferedAudioDurationSec

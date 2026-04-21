@@ -23,7 +23,10 @@
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
 #include "vendor/default/DefaultSocInterface.h"
+#include "vendor/mtk/MtkSocInterface.h"
 
+/**Initially re-sets the IsRialtoMode */
+bool SocInterface::mIsRialtoMode = false;
 /**
  * @brief Checks if the input string starts with the given prefix.
  *
@@ -60,6 +63,7 @@ SocPlatformType InferPlatformFromPluginScan()
 		{"amlhalasink", SOC_PLATFORM_AMLOGIC},
 		{"omxeac3dec", SOC_PLATFORM_REALTEK},
 		{"brcmaudiodecoder", SOC_PLATFORM_BROADCOM},
+		{"mtkaudiosink", SOC_PLATFORM_MEDIATEK},
 	};
 	
 	GstRegistry* registry = gst_registry_get();
@@ -126,6 +130,11 @@ SocPlatformType SocInterface::InferPlatformFromDeviceProperties( void )
 						platform = SOC_PLATFORM_BROADCOM;
 						break;
 					}
+					else if (strcmp(socName, "MEDIATEK") == 0)
+					{
+						platform = SOC_PLATFORM_MEDIATEK;
+						break;
+					}
 				}
 				else
 				{
@@ -144,6 +153,21 @@ SocPlatformType SocInterface::InferPlatformFromDeviceProperties( void )
 
 
 /**
+ * @brief Loads the instance with rialto mode or not 
+ *
+ * @return A pointer to the created SocInterface object, or nullptr on failure.
+ */
+std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
+{
+	if(isRialto == true)
+	{
+	    MW_LOG_MIL("Rialto is enabled and creating default soc");
+	}
+	mIsRialtoMode = isRialto;
+	return CreateSocInterface();
+}
+
+/**
  * @brief Creates an instance of the SoC-specific interface based on the detected platform.
  *
  * @return A pointer to the created SocInterface object, or nullptr on failure.
@@ -156,20 +180,32 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 		SocPlatformType platformType = InferPlatformFromDeviceProperties();
 		if(platformType == SOC_PLATFORM_DEFAULT)
 		{
-			platformType = InferPlatformFromPluginScan();
+			if(!mIsRialtoMode)
+			{
+				MW_LOG_MIL("Performing InterfacePluginScan| Rialto-Enabled");
+				platformType = InferPlatformFromPluginScan();
+            }
 		}
 		switch (platformType)
 		{
 			case SOC_PLATFORM_AMLOGIC:
+				MW_LOG_MIL("Setting up SoC Interface for AMLOGIC");
 				socInterface = std::make_shared<AmlogicSocInterface>();
 				break;
 			case SOC_PLATFORM_BROADCOM:
+				MW_LOG_MIL("Setting up SoC Interface for BROADCOM");
 				socInterface = std::make_shared<BrcmSocInterface>();
 				break;
 			case SOC_PLATFORM_REALTEK:
+				MW_LOG_MIL("Setting up SoC Interface for REALTEK");
 				socInterface = std::make_shared<RealtekSocInterface>();
 				break;
+			case SOC_PLATFORM_MEDIATEK:
+				MW_LOG_MIL("Setting up SoC Interface for MEDIATEK");
+				socInterface = std::make_shared<MtkSocInterface>();
+				break;
 			default:
+				MW_LOG_MIL("Setting up SoC Interface for Default");
 				socInterface = std::make_shared<DefaultSocInterface>();
 				break;
 		}

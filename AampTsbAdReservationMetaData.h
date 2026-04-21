@@ -38,9 +38,11 @@ public:
 	 * @param[in] adPosition Advert position in absolute time
 	 * @param[in] adBreakId Identifier for the ad break
 	 * @param[in] periodPosition Start position of the ad break
+	 * @param[in] reason Reason for the reservation end (optional)
 	 */
 	AampTsbAdReservationMetaData(EventType eventType, const AampTime& adPosition,
-								 std::string adBreakId, uint64_t periodPosition);
+								 std::string adBreakId, uint64_t periodPosition,
+								 std::string reason = "");
 
 	/**
 	 * @brief Copy constructor
@@ -77,6 +79,7 @@ public:
 private:
 	std::string mAdBreakId;    /**< Reservation Id */
 	uint64_t mPeriodPosition;  /**< Adbreak's start position */
+	std::string mReason;       /**< Reason for reservation end */
 };
 
 #endif // AAMP_TSB_AD_RESERVATION_METADATA_H

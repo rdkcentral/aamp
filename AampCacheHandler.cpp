@@ -18,7 +18,6 @@
 */
 
 #include "AampCacheHandler.h"
-#include "AampGrowableBuffer.h"
 
 AampCacheHandler::AampCacheHandler( int playerId ): mAsyncCleanUpTaskThreadId(), mCacheActive(false),mAsyncCacheCleanUpThread(false), mCondVarMutex(), mCondVar(), mPlaylistCache(eCACHE_TYPE_PLAYLIST), mbCleanUpTaskInitialized(false), mInitFragmentCache(eCACHE_TYPE_INIT_FRAGMENT), mPlayerId(playerId)
 {
@@ -68,11 +67,7 @@ bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string &url, std::ve
 	if (cachedData)
 	{
 		effectiveUrl = cachedData->effectiveUrl.empty() ? url : cachedData->effectiveUrl;
-		size_t prevCap = buffer.capacity();
-		// Assume cachedData->buffer is always valid and assign directly.
 		buffer = *cachedData->buffer;
-		size_t newCap = buffer.capacity();
-		AampGrowableBuffer::AccountCapacityTransition(prevCap, newCap); // Temporarily required for accounting to stay valid in global NETMEMORY counters
 		AAMPLOG_TRACE("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
 		ret = true;
 	}
@@ -125,11 +120,7 @@ bool AampCacheHandler::RetrieveFromInitFragmentCache(const std::string &url, std
 	if (cachedData)
 	{
 		effectiveUrl = cachedData->effectiveUrl.empty() ? url : cachedData->effectiveUrl;
-		size_t prevCap = buffer.capacity();
-		// Assume cachedData->buffer is always valid and assign directly.
 		buffer = *cachedData->buffer;
-		size_t newCap = buffer.capacity();
-		AampGrowableBuffer::AccountCapacityTransition(prevCap, newCap); // Temporarily required for accounting to stay valid in global NETMEMORY counters
 		AAMPLOG_INFO("%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str());
 		ret = true;
 	}

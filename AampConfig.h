@@ -96,6 +96,7 @@ typedef enum
 	eAAMPConfig_StereoOnly,							/**< Enable Stereo Only playback, disables EC3/ATMOS.  */
 	eAAMPConfig_DescriptiveTrackName,					/**< Enable Descriptive track name*/
 	eAAMPConfig_DisableAC3,							/**< Disable AC3 Audio */
+	eAAMPConfig_PreferHEVC,							/**< When multiple video codec families are present (e.g. HEVC and AVC in separate AdaptationSets), prefer HEVC. Prevents cross-codec ABR switches at runtime. */
 	eAAMPConfig_DisablePlaylistIndexEvent,					/**< Disable playlist index event*/
 	eAAMPConfig_EnableSubscribedTags,					/**< Enabled subscribed tags*/
 	eAAMPConfig_DASHIgnoreBaseURLIfSlash,					/**< Ignore the constructed URI of DASH, if it is / */
@@ -152,7 +153,18 @@ typedef enum
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
 	eAAMPConfig_BulkTimedMetaReportLive,					/**< Enabled Bulk TimedMetadata event reporting for live stream */
 	eAAMPConfig_AvgBWForABR,						/**< Enables usage of AverageBandwidth if available for ABR */
-	eAAMPConfig_NativeCCRendering,						/**< If native CC rendering to be supported */
+	eAAMPConfig_NativeCCRendering,					/**< Controls whether AAMP manages CC visibility/styles
+														directly via PlayerCCManager (true), or defers to an
+														external CC controller such as XREReceiver (false).
+														Default: false.
+														On X1 platforms XREReceiver owns CC; set to false so
+														AAMP does not interfere with trickplay muting, parental
+														control gating, or CC track selection.
+														On platforms without XREReceiver, set to true so AAMP
+														takes over the full CC lifecycle.
+														Note: Regardless of this flag, AAMP's CC APIs still
+														route through PlayerCCManager and apps must refrain from
+														using them when the flag is set to false.*/
 	eAAMPConfig_Subtec_subtitle,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_WebVTTNative,						/**< Enable subtec-based subtitles */
 	eAAMPConfig_AsyncTune,						 	/**< To enable Asynchronous tune */
@@ -198,7 +210,7 @@ typedef enum
 	eAAMPConfig_MPDStitchingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
 	eAAMPConfig_SendUserAgent,						/**< To enable/disable sending user agent in the DRM license request header. Default enabled */
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */
-	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */
+	eAAMPConfig_TrackMemory,					/**< To enable/disable buffer track memory */
 	eAAMPConfig_UseSinglePipeline,					/**< To enable/disable using a single gstreamer pipeline */
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
@@ -217,6 +229,9 @@ typedef enum
 	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
 	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
 	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
+	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
+	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
+	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -266,13 +281,10 @@ typedef enum
 	eAAMPConfig_LivePauseBehavior,                                          /**< player paused state behavior */
 	eAAMPConfig_GstVideoBufBytes,                                           /**< Gstreamer Max Video buffering bytes*/
 	eAAMPConfig_GstAudioBufBytes,                                           /**< Gstreamer Max Audio buffering bytes*/
-	eAAMPConfig_LatencyMonitorDelay,               				/**< Latency Monitor Delay */
-	eAAMPConfig_LatencyMonitorInterval,           				/**< Latency Monitor Interval */
+	eAAMPConfig_LatencyMonitorDelayMs,               				/**< Latency Monitor Delay */
+	eAAMPConfig_LatencyMonitorIntervalMs,           				/**< Latency Monitor Interval */
 	eAAMPConfig_MaxFragmentChunkCached,           				/**< fragment chunk cache length*/
 	eAAMPConfig_ABRChunkThresholdSize,                			/**< AAMP ABR Chunk threshold size*/
-	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
-	eAAMPConfig_LLTargetLatency,						/**< Low Latency Target Latency */
-	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FragmentDownloadFailThreshold, 				/**< Retry attempts for non-init fragment curl timeout failures*/
 	eAAMPConfig_MaxInitFragCachePerTrack,					/**< Max no of Init fragment cache per track */
 	eAAMPConfig_FogMaxConcurrentDownloads,                                  /**< Concurrent download posted to fog from player*/
@@ -315,7 +327,7 @@ typedef enum
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
 	eAAMPConfig_UTCSyncMinIntervalSec,				/**< Minimum interval between sync attempts */
-	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator */
+	eAAMPConfig_ABRBandwidthEstimator,				/**< Select ABR bandwidth estimator: 0=ROLLING_MEDIAN_OUTLIER, 1=HARMONIC_EWMA */
 	eAAMPConfig_EarlyAbortProfileBandwidthPercent,	/**< Early abort threshold as percentage of profile bandwidth */
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
@@ -347,6 +359,12 @@ typedef enum
 	eAAMPConfig_UnderflowResumeThresholdSec,		/**< Underflow resume threshold in seconds */
 	eAAMPConfig_UnderflowLowBufferSec,				/**< Low buffer threshold in seconds */
 	eAAMPConfig_UnderflowHighBufferSec,				/**< High buffer threshold in seconds */
+	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
+	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
+	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
+	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
+	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
+	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)

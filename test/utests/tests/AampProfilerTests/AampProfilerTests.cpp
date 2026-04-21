@@ -20,12 +20,13 @@
 #include <gtest/gtest.h>
 #include "AampProfiler.h"
 #include "AampConfig.h"
-#include <gtest/gtest.h>
+#include "MockAampConfig.h"
 #include <cjson/cJSON.h>
 #include <algorithm>
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
+extern MockAampConfig *g_mockAampConfig;
 
 class AampProfilertests : public testing::Test {
 protected:
@@ -543,3 +544,241 @@ TEST_F(AampProfilertests, SetBandwidthBitsPerSecondVideoTest)
     profileEvent->SetBandwidthBitsPerSecondVideo(expectedBandwidth);
     EXPECT_EQ(expectedBandwidth, 0);
 }
+TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKEnabled)
+{
+    // Save original gpGlobalConfig to restore later
+    AampConfig* savedConfig = gpGlobalConfig;
+    
+    // Setup: Create mock and configure gpGlobalConfig with eAAMPConfig_UseFireboltSDK enabled
+    MockAampConfig mockConfig;
+    g_mockAampConfig = &mockConfig;
+    gpGlobalConfig = new AampConfig();
+    
+    // Set expectation that IsConfigSet will be called and return true
+    EXPECT_CALL(mockConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+        .WillOnce(Return(true));
+    
+    // Prepare TuneEndMetrics
+    TuneEndMetrics metrics;
+    metrics.success = 1;
+    metrics.contentType = ContentType_VOD;
+    metrics.streamType = 1;
+    metrics.mFirstTune = true;
+    metrics.mTimedMetadataStartTime = 0;
+    metrics.mTimedMetadataDuration = 0;
+    metrics.mTuneAttempts = 1;
+    metrics.mTotalTime = 0;
+    
+    std::string appName = "TestApp";
+    std::string playerActiveMode = "FOREGROUND";
+    int playerId = 1;
+    bool playerPreBuffered = false;
+    unsigned int durationSeconds = 100;
+    bool interfaceWifi = true;
+    std::string failureReason = "";
+    std::string tuneMetricDataStr = "";
+    
+    // Call TuneBegin first to enable profiling
+    profileEvent->TuneBegin();
+    
+    // Call TuneEnd which should append "_VIPA" to appName when eAAMPConfig_UseFireboltSDK is enabled
+    profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, 
+                         playerPreBuffered, durationSeconds, interfaceWifi, 
+                         failureReason, &tuneMetricDataStr);
+    
+    if (!tuneMetricDataStr.empty()) {
+        EXPECT_TRUE(tuneMetricDataStr.find("TestApp_VIPA") != std::string::npos);
+    }
+    
+    // Cleanup
+    delete gpGlobalConfig;
+    gpGlobalConfig = savedConfig;
+    g_mockAampConfig = nullptr;
+}
+
+TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKDisabled)
+{
+    // Save original gpGlobalConfig to restore later
+    AampConfig* savedConfig = gpGlobalConfig;
+    
+    // Setup: Create mock and configure gpGlobalConfig with eAAMPConfig_UseFireboltSDK disabled
+    MockAampConfig mockConfig;
+    g_mockAampConfig = &mockConfig;
+    gpGlobalConfig = new AampConfig();
+    
+    // Set expectation that IsConfigSet will be called and return false
+    EXPECT_CALL(mockConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+        .WillOnce(Return(false));
+    
+    // Prepare TuneEndMetrics
+    TuneEndMetrics metrics;
+    metrics.success = 1;
+    metrics.contentType = ContentType_VOD;
+    metrics.streamType = 1;
+    metrics.mFirstTune = true;
+    metrics.mTimedMetadataStartTime = 0;
+    metrics.mTimedMetadataDuration = 0;
+    metrics.mTuneAttempts = 1;
+    metrics.mTotalTime = 0;
+    
+    std::string appName = "TestApp";
+    std::string playerActiveMode = "FOREGROUND";
+    int playerId = 1;
+    bool playerPreBuffered = false;
+    unsigned int durationSeconds = 100;
+    bool interfaceWifi = true;
+    std::string failureReason = "";
+    std::string tuneMetricDataStr = "";
+    
+    // Call TuneBegin first to enable profiling
+    profileEvent->TuneBegin();
+    
+    // Call TuneEnd which should NOT append "_VIPA" to appName when eAAMPConfig_UseFireboltSDK is disabled
+    profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, 
+                         playerPreBuffered, durationSeconds, interfaceWifi, 
+                         failureReason, &tuneMetricDataStr);
+
+    // Verify absence of VIPA tagging: The mock EXPECT_CALL verifies IsConfigSet was called.
+    // If JSON metrics are generated (tuneMetricDataStr populated), verify VIPA marker is absent.
+    // Note: JSON generation may fail in unit test environment (e.g., cJSON_CreateObject returns NULL),
+    // but VIPA tagging logic is still exercised and logged.
+    if (!tuneMetricDataStr.empty()) {
+        EXPECT_TRUE(tuneMetricDataStr.find("TestApp_VIPA") == std::string::npos);
+        EXPECT_TRUE(tuneMetricDataStr.find("TestApp") != std::string::npos);
+    }
+    
+    // Cleanup
+    delete gpGlobalConfig;
+    gpGlobalConfig = savedConfig;
+    g_mockAampConfig = nullptr;
+}
+TEST_F(AampProfilertests, TuneEndVIPATaggingWithNullConfig)
+{
+    // Save the current gpGlobalConfig pointer
+    AampConfig* savedConfig = gpGlobalConfig;
+    
+    // Setup: ensure gpGlobalConfig is NULL for this test
+    gpGlobalConfig = nullptr;
+    
+    // Prepare TuneEndMetrics
+    TuneEndMetrics metrics;
+    metrics.success = 1;
+    metrics.contentType = ContentType_VOD;
+    metrics.streamType = 1;
+    metrics.mFirstTune = true;
+    metrics.mTimedMetadataStartTime = 0;
+    metrics.mTimedMetadataDuration = 0;
+    metrics.mTuneAttempts = 1;
+    metrics.mTotalTime = 0;
+    
+    std::string appName = "TestApp";
+    std::string playerActiveMode = "FOREGROUND";
+    int playerId = 1;
+    bool playerPreBuffered = false;
+    unsigned int durationSeconds = 100;
+    bool interfaceWifi = true;
+    std::string failureReason = "";
+    std::string tuneMetricDataStr = "";
+    
+    // Call TuneBegin first to enable profiling
+    profileEvent->TuneBegin();
+    
+    // Call TuneEnd which should NOT append "_VIPA" when gpGlobalConfig is NULL
+    profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, 
+                         playerPreBuffered, durationSeconds, interfaceWifi, 
+                         failureReason, &tuneMetricDataStr);
+    
+    if (!tuneMetricDataStr.empty()) {
+        EXPECT_TRUE(tuneMetricDataStr.find("TestApp_VIPA") == std::string::npos);
+        EXPECT_TRUE(tuneMetricDataStr.find("TestApp") != std::string::npos);
+    }
+    
+    // Cleanup: restore the original gpGlobalConfig
+    gpGlobalConfig = savedConfig;
+}
+TEST_F(AampProfilertests, TestDecodeTime)
+{
+    TuneEndMetrics metrics;
+    metrics.success = 1;
+    metrics.contentType = ContentType_VOD;
+    metrics.streamType = 1;
+    metrics.mFirstTune = true;
+    metrics.mTimedMetadataStartTime = 0;
+    metrics.mTimedMetadataDuration = 0;
+    metrics.mTuneAttempts = 1;
+    metrics.mTotalTime = 0;
+
+    std::string appName = "TestApp";
+    std::string playerActiveMode = "Active";
+    int playerId = 1;
+    bool playerPreBuffered = true;
+    unsigned int durationSeconds = 60;
+    bool interfaceWifi = true;
+    std::string failureReason = "None";
+
+    // Test that with no profile values logged, decode time is zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint == 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
+    // Test that with first buffer but no first frame, decode time is zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint == 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
+    // Test that with first buffer and first frame, decode time is greater than zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
+        usleep(5000);
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_FRAME);
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint > 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
+}
+

@@ -65,6 +65,7 @@ protected:
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
 	const char *mManifest;
+	uint64_t mLastPlaylistDownloadTimeMs;
 	static constexpr const char *TEST_HOST_URL = "http://host/";
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
@@ -128,7 +129,7 @@ protected:
 	};
 
 	IntConfigSettings mIntConfigSettings;
-	
+
 	void SetUp()
 	{
 		if(gpGlobalConfig == nullptr)
@@ -156,6 +157,8 @@ protected:
 
 		g_mockIsoBmffProcessor = new NiceMock<MockIsoBmffProcessor>();
 
+		g_mockABRManager = new NiceMock<MockABRManager>();
+
 		mStreamAbstractionAAMP_MPD = nullptr;
 
 		mManifest = nullptr;
@@ -163,6 +166,7 @@ protected:
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
 		mCdaiObj = nullptr;
+		mLastPlaylistDownloadTimeMs = 0;
 	}
 
 	void TearDown()
@@ -210,28 +214,13 @@ protected:
 		delete g_mockAampStreamSinkManager;
 		g_mockAampStreamSinkManager = nullptr;
 
+		delete g_mockABRManager;
+		g_mockABRManager = nullptr;
+
 		mManifest = nullptr;
 	}
 
 public:
-	/**
-	 * @brief Get manifest helper method
-	 *
-	 * @param[in] remoteUrl Manifest url
-	 * @param[out] buffer Buffer containing manifest data
-	 * @retval true on success
-	*/
-	bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer)
-	{
-		EXPECT_STREQ(remoteUrl.c_str(), mManifestUrl.c_str());
-
-		/* Setup fake AampGrowableBuffer contents. */
-		buffer->clear();
-		buffer->assign(mManifest, mManifest + strlen(mManifest));
-
-		return true;
-	}
-
 
 	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
@@ -273,6 +262,7 @@ public:
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;
 		response->mMPDDownloadResponse->mDownloadData.assign(mManifest, mManifest + strlen(mManifest));
+		response->mLastPlaylistDownloadTimeMs = mLastPlaylistDownloadTimeMs;
 		GetMPDFromManifest(response);
 		mResponse = response;
 		return response;
@@ -414,6 +404,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 		mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext, 0);
 	}
+
+	void SetLastPlaylistDownloadTimeMs(uint64_t timeMs)
+	{
+		mLastPlaylistDownloadTimeMs = timeMs;
+	}
 };
 
 class FunctionalTests_1 : public ::testing::Test
@@ -456,6 +451,7 @@ protected:
 	class TestableStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 	{
 	public:
+
 		// Constructor to pass parameters to the base class constructor
 		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
 											double seekpos, float rate)
@@ -467,7 +463,7 @@ protected:
 		{
 			this->mMPDParseHelper = mpdParseHelperPtr;
 		}
-		
+
 		void CallPrintSelectedTrack(const std::string &trackIndex, AampMediaType media)
 		{
 			printSelectedTrack(trackIndex, media);
@@ -516,7 +512,7 @@ protected:
 
 		bool CallFindServerUTCTime(Node *root)
 		{
-			return FindServerUTCTime(root);
+			return mTimeSyncClient.FindServerUTCTime(aamp, root);
 		}
 		AAMPStatusType CallFetchDashManifest()
 		{
@@ -610,11 +606,6 @@ protected:
 			return GetProducerReferenceTimeForAdaptationSet(adaptationSet);
 		}
 
-		LatencyStatus CallGetLatencyStatus()
-		{
-			return GetLatencyStatus();
-		}
-
 		void CallQueueContentProtection(IPeriod *period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false)
 		{
 			QueueContentProtection(period, adaptationSetIdx, mediaType, qGstProtectEvent, isVssPeriod);
@@ -702,7 +693,7 @@ protected:
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	TestableStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
-	
+
 	void SetUp() override
 	{
 		// Set up your objects before each test case
@@ -710,15 +701,13 @@ protected:
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
+		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockAampUtils = new StrictMock<MockAampUtils>();
 
 		// Ensure mMPDParseHelper is initialized to avoid NULL dereference
 		mStreamAbstractionAAMP_MPD->SetMPDParseHelper( std::make_shared<AampMPDParseHelper>() );
-		
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
 		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
-
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
-		g_mockAampUtils = new StrictMock<MockAampUtils>();
 		g_mockABRManager = new NiceMock<MockABRManager>();
 	}
 
@@ -973,6 +962,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
 	deltaTime = currentTime - availabilityStartTime;
 	timeMS = 1000LL*((long long)currentTime);
+	SetLastPlaylistDownloadTimeMs(timeMS);
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(timeMS));
@@ -1967,11 +1957,6 @@ TEST_F(FunctionalTests_1, GetFirstPeriodStartTimeTest)
 	EXPECT_EQ(result, 0.0);
 }
 
-TEST_F(FunctionalTests_1, MonitorLatencyTest)
-{
-	_instanceStreamAbstractionAAMP_MPD->MonitorLatency();
-}
-
 TEST_F(FunctionalTests_1, StartSubtitleParserTest)
 {
 	_instanceStreamAbstractionAAMP_MPD->StartSubtitleParser();
@@ -2493,11 +2478,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidCurrMPDPeriodTest)
 	PeriodInfo result = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(currMPDPeriodDetails); (void)result;
 }
 
-TEST_F(StreamAbstractionAAMP_MPDTest, GetLatencyStatusTest)
-{
-	LatencyStatus result = mStreamAbstractionAAMP_MPD->CallGetLatencyStatus(); (void)result;
-}
-
 TEST_F(StreamAbstractionAAMP_MPDTest, QueueContentProtectionTest)
 {
 	IPeriod *period = NULL;
@@ -2774,9 +2754,6 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	double seekPosition = 0;
 	int rate = 1 ; //Normal playrate test
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
-		.WillRepeatedly(Return(true));
-
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 	//For this test case we need EnableLowLatencyDash as true
@@ -2842,25 +2819,22 @@ TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
 	double seekPosition = 1552; ///Total duration : 1560
 	int rate = 1 ; //Normal playrate test
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
-		.WillRepeatedly(Return(true));
-
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampMPDDownloader, IsMPDLowLatency (_))
 		.WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_)))
-	.WillRepeatedly([](AAMPConfigSettingInt config) {
-	// Check if the config is maxLatencyConfig, return 9(default value); otherwise, return 0
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_)))
+	.WillRepeatedly([](AAMPConfigSettingFloat config) {
+	// Check if the config is maxLatencyConfig, return 9 for the test usecase; otherwise, return 0
 	if (config == eAAMPConfig_LLMaxLatency) {
-		return 9;
+		return 9.0;
 	}
-	return 0;
+	return 0.0;
 	});
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
 	//For this test case we need EnableLowLatencyDash as true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
 		.WillRepeatedly(Return(false));
@@ -3055,7 +3029,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
 	const double serverTime = 1000000.5; // Server UTC time
 	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
 		.WillOnce(Return(serverTime));
-	
+
 	// Create manifest XML with UTCTiming
 	const char *manifestXml =
 		R"(<?xml version="1.0" encoding="utf-8"?>
@@ -3067,16 +3041,21 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncOnStartup)
 	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
 	ASSERT_NE(reader, nullptr);
 	ASSERT_TRUE(xmlTextReaderRead(reader));
-	
+
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
 	// Call FindServerUTCTime - should perform network sync
 	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
-	
+
 	// Verify sync occurred
 	EXPECT_TRUE(result);
-
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3100,11 +3079,14 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 	// Setup time progression
 	const long long startTimeMS = 1000000000LL;
 	const long long secondCallTimeMS = startTimeMS + 30000LL; // 30 seconds later (less than interval)
-	
+
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
-		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
+		//1st call to CallFindServerUTCTime
+		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
+		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+		//2nd call to CallFindServerUTCTime
+		.WillOnce(Return(secondCallTimeMS)); // long long currentTimeMS = aamp_GetCurrentTimeMS();
 
 	// Expect network call only on first sync
 	const double serverTime = 1000000.5;
@@ -3121,18 +3103,25 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SkipSyncBeforeInterval)
 	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
 	ASSERT_NE(reader, nullptr);
 	ASSERT_TRUE(xmlTextReaderRead(reader));
-	
+
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
-	// First call - should sync
+	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
 
 	// Second call before interval - should use cached value, not sync
+	// Second call is 30Sec later but since interval is 60Sec, it should use cached offset, so local time should be serverTime + 30Sec
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2); // Should still return true using cached offset
-
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime+30, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3156,12 +3145,15 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 	// Setup time progression
 	const long long startTimeMS = 1000000000LL;
 	const long long secondCallTimeMS = startTimeMS + 61000LL; // 61 seconds later (more than interval)
-	
+
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
-		.WillOnce(Return(secondCallTimeMS))  // Second call: elapsed time check
-		.WillOnce(Return(secondCallTimeMS)); // Second call: record sync time
+		//1st call to CallFindServerUTCTime
+		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
+		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+		//2nd call to CallFindServerUTCTime
+		.WillOnce(Return(secondCallTimeMS)) // long long currentTimeMS = aamp_GetCurrentTimeMS();
+		.WillOnce(Return(secondCallTimeMS));       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
 
 	// Expect network call on both syncs
 	const double serverTime1 = 1000000.5;
@@ -3180,18 +3172,24 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_SyncAfterInterval)
 	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
 	ASSERT_NE(reader, nullptr);
 	ASSERT_TRUE(xmlTextReaderRead(reader));
-	
+
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
-	// First call - should sync
+	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime1, 0.001);
 
-	// Second call after interval - should sync again
+	// Second call after interval - should get server time from network again
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2);
-
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime2, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3215,11 +3213,15 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 	// Setup time - second call is well before interval
 	const long long startTimeMS = 1000000000LL;
 	const long long secondCallTimeMS = startTimeMS + 10000LL; // 10 seconds later
-	
+
 	// Mock time calls in sequence
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillOnce(Return(startTimeMS))       // First call: record sync time
-		.WillOnce(Return(secondCallTimeMS)); // Second call: elapsed time check
+		//1st call to CallFindServerUTCTime
+		.WillOnce(Return(startTimeMS))       // long long currentTimeMS = aamp_GetCurrentTimeMS();
+		.WillOnce(Return(startTimeMS))       // mTimeSyncClient.lastSync = aamp_GetCurrentTimeMS();
+		//2nd call to CallFindServerUTCTime
+		.WillOnce(Return(secondCallTimeMS)); // long long currentTimeMS = aamp_GetCurrentTimeMS();
+
 
 	// Only first call should trigger network sync
 	const double serverTime = 1000000.5;
@@ -3236,18 +3238,25 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_UseCachedOffset)
 	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
 	ASSERT_NE(reader, nullptr);
 	ASSERT_TRUE(xmlTextReaderRead(reader));
-	
+
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
 
-	// First call - performs sync
+	// 1st call - should get server time from network
 	bool result1 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result1);
+	// ASSERT_NEAR is intentional: a failure here should abort immediately to avoid
+	// cascading mock expectation mismatches from subsequent calls. The resulting
+	// rootNode/reader leak is benign since the test process exits shortly after.
+	// TODO: refactor to RAII (unique_ptr<Node> + xmlTextReader RAII wrapper) to
+	// make cleanup unconditional and remove this concern.
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime, 0.001);
 
 	// Second call - uses cached offset, still returns true
 	bool result2 = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_TRUE(result2);
-
+	//2nd call happens 10Sec later
+	ASSERT_NEAR(mStreamAbstractionAAMP_MPD->mTimeSyncClient.GetServerUtcTime(),serverTime+10, 0.001);
 	// Cleanup
 	delete rootNode;
 	xmlFreeTextReader(reader);
@@ -3283,7 +3292,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisable
 	// No network call should occur
 	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime(testing::_, testing::_, testing::_))
 		.Times(0);
-	
+
 	// Create manifest XML
 	const char *manifestXml =
 		R"(<?xml version="1.0" encoding="utf-8"?>
@@ -3294,10 +3303,10 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FindServerUTCTime_NoSyncWhenStartupDisable
 	xmlTextReaderPtr reader = xmlReaderForMemory(manifestXml, strlen(manifestXml), NULL, NULL, 0);
 	ASSERT_NE(reader, nullptr);
 	ASSERT_TRUE(xmlTextReaderRead(reader));
-	
+
 	Node *rootNode = MPDProcessNode(&reader, "http://example.com/manifest.mpd");
 	ASSERT_NE(rootNode, nullptr);
-	
+
 	// Call should not sync and return false (no sync occurred)
 	bool result = mStreamAbstractionAAMP_MPD->CallFindServerUTCTime(rootNode);
 	EXPECT_FALSE(result);
@@ -3540,6 +3549,39 @@ TEST_F(StreamAbstractionAAMP_MPDTest, InitTsbReaderTest)
 	EXPECT_FLOAT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), livePlayPosition);
 }
 
+/*
+ * @brief Test to verify Stop() calls NotifyVideoTsbWaiters() when TSB reader thread is active
+*/
+TEST_F(StreamAbstractionAAMP_MPDTest, Stop_NotifiesVideoTsbWaiters)
+{
+	double livePlayPosition = 123.456;
+	std::unique_ptr<AampTSBSessionManager> tsbSessionManager = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
+	std::shared_ptr<AampTsbDataManager> dataMgr;
+	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
+
+	// Setup InitTsbReader to start the TSB reader thread
+	mPrivateInstanceAAMP->rate = 2;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition()).WillOnce(Return(livePlayPosition));
+	// For InitTsbReader, Stop and other calls
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(tsbSessionManager.get()));
+	EXPECT_CALL(*g_mockTSBSessionManager, InvokeTsbReaders(livePlayPosition, 2, eTUNETYPE_SEEKTOLIVE))
+		.WillOnce(Return(eAAMPSTATUS_OK));
+	// Handle GetTsbReader for all media types - return nullptr by default, then override for VIDEO
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
+
+	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillOnce(Return(true));
+	// Start the TSB reader thread	
+	mStreamAbstractionAAMP_MPD->Start();
+	EXPECT_CALL(*g_mockTSBSessionManager, NotifyVideoTsbWaiters()).Times(1);
+
+	// Execute Stop() - this should trigger NotifyVideoTsbWaiters for the TSB reader thread
+	mStreamAbstractionAAMP_MPD->Stop(false);
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
 {
 	// Set up test parameters for start event
@@ -3563,14 +3605,14 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
 
 	// Test START event
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate))
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate, _))
 		.Times(1);
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
 		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition, startImmediate);
 
 	// Test END event
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate))
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate, _))
 		.Times(1);
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
 		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition, endImmediate);
@@ -3604,7 +3646,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjec
 			.Times(1);
 	}
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate))
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition.milliseconds(), startImmediate, _))
 		.Times(1);
 
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
@@ -3613,13 +3655,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjec
 	// Test END event
 	{
 		testing::InSequence seq;
-		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition))
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition, _))
 			.WillOnce(Return(true));
 		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
 			.Times(0);
 	}
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
-		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate))
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition.milliseconds(), endImmediate, _))
 		.Times(1);
 
 	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
@@ -3646,7 +3688,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInje
 		.WillRepeatedly(Return(true));
 
 	// No SendAdReservationEvent calls expected due to local injection
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_,_,_,_,_))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_,_,_,_,_,_))
 		.Times(0);
 
 	// Test START event
@@ -3663,7 +3705,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInje
 	// Test END event
 	{
 		testing::InSequence seq;
-		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition))
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(endAdBreakId, endPeriodPosition, endAbsPosition, _))
 			.WillOnce(Return(true));
 		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
 			.Times(0);
@@ -4089,7 +4131,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithNonEmptyFirstPeriod
 {
 	// Create period info with first period having content
 	std::vector<PeriodInfo> periodDetails;
-	
+
 	PeriodInfo period1;
 	period1.periodId = "period1";
 	period1.duration = 60000; // 60 seconds in milliseconds
@@ -4099,7 +4141,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithNonEmptyFirstPeriod
 	period1.periodStartTime = 0.0;
 	period1.periodEndTime = 60.0;
 	period1.isEmptyPeriod = false;
-	
+
 	PeriodInfo period2;
 	period2.periodId = "period2";
 	period2.duration = 60000;
@@ -4109,13 +4151,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithNonEmptyFirstPeriod
 	period2.periodStartTime = 60.0;
 	period2.periodEndTime = 120.0;
 	period2.isEmptyPeriod = false;
-	
+
 	periodDetails.push_back(period1);
 	periodDetails.push_back(period2);
-	
+
 	// Test GetFirstValidCurrMPDPeriod
 	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-	
+
 	// Verify that the first period is returned
 	EXPECT_EQ(validPeriod.periodId, "period1");
 	EXPECT_EQ(validPeriod.duration, 60000);
@@ -4132,7 +4174,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyFirstPeriod)
 {
 	// Create period info with first period being empty
 	std::vector<PeriodInfo> periodDetails;
-	
+
 	PeriodInfo emptyPeriod;
 	emptyPeriod.periodId = "ad-period";
 	emptyPeriod.duration = 30000; // 30 seconds
@@ -4142,7 +4184,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyFirstPeriod)
 	emptyPeriod.periodStartTime = 0.0;
 	emptyPeriod.periodEndTime = 30.0;
 	emptyPeriod.isEmptyPeriod = true; // Empty period (SCTE35)
-	
+
 	PeriodInfo contentPeriod;
 	contentPeriod.periodId = "content-period";
 	contentPeriod.duration = 60000;
@@ -4152,13 +4194,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyFirstPeriod)
 	contentPeriod.periodStartTime = 30.0;
 	contentPeriod.periodEndTime = 90.0;
 	contentPeriod.isEmptyPeriod = false; // Valid content period
-	
+
 	periodDetails.push_back(emptyPeriod);
 	periodDetails.push_back(contentPeriod);
-	
+
 	// Test GetFirstValidCurrMPDPeriod
 	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-	
+
 	// Verify that the second period (first non-empty) is returned
 	EXPECT_EQ(validPeriod.periodId, "content-period");
 	EXPECT_EQ(validPeriod.duration, 60000);
@@ -4174,7 +4216,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyFirstPeriod)
 TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithMultipleEmptyPeriods)
 {
 	std::vector<PeriodInfo> periodDetails;
-	
+
 	// Add multiple empty periods
 	for (int i = 0; i < 3; i++)
 	{
@@ -4189,7 +4231,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithMultipleEmptyPeriod
 		emptyPeriod.isEmptyPeriod = true;
 		periodDetails.push_back(emptyPeriod);
 	}
-	
+
 	// Add content period
 	PeriodInfo contentPeriod;
 	contentPeriod.periodId = "content-period";
@@ -4200,12 +4242,12 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithMultipleEmptyPeriod
 	contentPeriod.periodStartTime = 45.0;
 	contentPeriod.periodEndTime = 105.0;
 	contentPeriod.isEmptyPeriod = false;
-	
+
 	periodDetails.push_back(contentPeriod);
-	
+
 	// Test GetFirstValidCurrMPDPeriod
 	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-	
+
 	// Verify that the content period is returned, skipping all empty periods
 	EXPECT_EQ(validPeriod.periodId, "content-period");
 	EXPECT_EQ(validPeriod.duration, 60000);
@@ -4221,7 +4263,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithMultipleEmptyPeriod
 TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithZeroDurationPeriod)
 {
 	std::vector<PeriodInfo> periodDetails;
-	
+
 	PeriodInfo zeroDurationPeriod;
 	zeroDurationPeriod.periodId = "zero-duration";
 	zeroDurationPeriod.duration = 0; // Zero duration
@@ -4231,7 +4273,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithZeroDurationPeriod)
 	zeroDurationPeriod.periodStartTime = 0.0;
 	zeroDurationPeriod.periodEndTime = 0.0;
 	zeroDurationPeriod.isEmptyPeriod = false;
-	
+
 	PeriodInfo validPeriod1;
 	validPeriod1.periodId = "valid-period";
 	validPeriod1.duration = 60000;
@@ -4241,13 +4283,13 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithZeroDurationPeriod)
 	validPeriod1.periodStartTime = 0.0;
 	validPeriod1.periodEndTime = 60.0;
 	validPeriod1.isEmptyPeriod = false;
-	
+
 	periodDetails.push_back(zeroDurationPeriod);
 	periodDetails.push_back(validPeriod1);
-	
+
 	// Test GetFirstValidCurrMPDPeriod
 	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-	
+
 	// Verify that the period with valid duration is returned
 	EXPECT_EQ(validPeriod.periodId, "valid-period");
 	EXPECT_EQ(validPeriod.duration, 60000);
@@ -4262,7 +4304,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithZeroDurationPeriod)
 TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithAllEmptyPeriods)
 {
 	std::vector<PeriodInfo> periodDetails;
-	
+
 	// Add multiple empty periods
 	for (int i = 0; i < 3; i++)
 	{
@@ -4277,10 +4319,10 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithAllEmptyPeriods)
 		emptyPeriod.isEmptyPeriod = true;
 		periodDetails.push_back(emptyPeriod);
 	}
-	
+
 	// Test GetFirstValidCurrMPDPeriod
 	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-	
+
 	// With all periods empty, it should return the first one as fallback
 	EXPECT_EQ(validPeriod.periodId, "empty-period-0");
 }
@@ -4294,10 +4336,10 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithAllEmptyPeriods)
 TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidPeriodWithEmptyVector)
 {
 	std::vector<PeriodInfo> periodDetails; // Empty vector
-	
+
 	// Test GetFirstValidCurrMPDPeriod
 	PeriodInfo validPeriod = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(periodDetails);
-	
+
 	// With empty vector, should return default initialized period
 	EXPECT_EQ(validPeriod.periodId, "");
 	EXPECT_EQ(validPeriod.periodIndex, -1);
@@ -4906,3 +4948,122 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
 	EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
 }
+
+/**
+ * @brief Multi-codec ABR pool restriction: preferHEVC=true selects HEVC representations only.
+ *
+ * Stream contains two video AdaptationSets — one HEVC (hvc1.*) and one AVC (avc1.*).  With
+ * preferHEVC=true the HEVC init segment must be selected and GetVideoBitrates() must return
+ * only the HEVC bitrate, confirming AVC representations have been excluded from the ABR pool.
+ */
+TEST_F(FunctionalTests, MultiCodecABR_PreferHEVC_SelectsHEVCOnly)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="h1" mimeType="video/mp4" codecs="hvc1.1.6.L93.90" bandwidth="2000000" width="1280" height="720" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="hevc/video_init.mp4" media="hevc/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S t="0" d="25600" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video">
+			<Representation id="a1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="avc/video_init.mp4" media="avc/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S t="0" d="25600" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio">
+			<Representation id="au1" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp4" startNumber="1">
+					<SegmentTimeline><S t="0" d="96000" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* preferHEVC=true: HEVC init segment must be selected, AVC must be excluded. */
+	mBoolConfigSettings[eAAMPConfig_PreferHEVC] = true;
+
+	/* Accept any init segment URL — the codec-family check is validated via GetVideoBitrates(). */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	/* Only the HEVC profile should be added to the ABR pool; allow getProfileCount to
+	 * reflect the number actually added so GetVideoBitrates() can iterate mStreamInfo. */
+	EXPECT_CALL(*g_mockABRManager, getProfileCount()).WillRepeatedly(Return(1));
+
+	status = InitializeMPD(manifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	/* ABR pool must contain only the HEVC bitrate (2 Mbps); AVC (1 Mbps) must be absent. */
+	std::vector<BitsPerSecond> bitrates = mStreamAbstractionAAMP_MPD->GetVideoBitrates();
+	ASSERT_EQ(bitrates.size(), 1u);
+	EXPECT_EQ(bitrates[0], 2000000);
+}
+
+/**
+ * @brief Multi-codec ABR pool restriction: preferHEVC=false selects AVC representations only.
+ *
+ * Same dual-codec stream as above.  With preferHEVC=false the AVC init segment must be
+ * selected and GetVideoBitrates() must return only the AVC bitrate, confirming HEVC
+ * representations have been excluded from the ABR pool.
+ */
+TEST_F(FunctionalTests, MultiCodecABR_PreferAVC_SelectsAVCOnly)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="h1" mimeType="video/mp4" codecs="hvc1.1.6.L93.90" bandwidth="2000000" width="1280" height="720" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="hevc/video_init.mp4" media="hevc/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S t="0" d="25600" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video">
+			<Representation id="a1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="avc/video_init.mp4" media="avc/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S t="0" d="25600" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio">
+			<Representation id="au1" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp4" startNumber="1">
+					<SegmentTimeline><S t="0" d="96000" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* preferHEVC=false: AVC init segment must be selected, HEVC must be excluded. */
+	mBoolConfigSettings[eAAMPConfig_PreferHEVC] = false;
+
+	/* Accept any init segment URL — the codec-family check is validated via GetVideoBitrates(). */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	/* Only the AVC profile should be added to the ABR pool; allow getProfileCount to
+	 * reflect the number actually added so GetVideoBitrates() can iterate mStreamInfo. */
+	EXPECT_CALL(*g_mockABRManager, getProfileCount()).WillRepeatedly(Return(1));
+
+	status = InitializeMPD(manifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	/* ABR pool must contain only the AVC bitrate (1 Mbps); HEVC (2 Mbps) must be absent. */
+	std::vector<BitsPerSecond> bitrates = mStreamAbstractionAAMP_MPD->GetVideoBitrates();
+	ASSERT_EQ(bitrates.size(), 1u);
+	EXPECT_EQ(bitrates[0], 1000000);
+}
+

@@ -24,17 +24,18 @@
 
 // AampTsbAdReservationMetaData implementation
 AampTsbAdReservationMetaData::AampTsbAdReservationMetaData(
-	EventType eventType, const AampTime& adPosition, std::string adBreakId, uint64_t periodPosition)
+	EventType eventType, const AampTime& adPosition, std::string adBreakId, uint64_t periodPosition, std::string reason)
 	: AampTsbAdMetaData(AdType::RESERVATION, eventType, adPosition),
 	  mAdBreakId(std::move(adBreakId)),
-	  mPeriodPosition(periodPosition)
+	  mPeriodPosition(periodPosition),
+	  mReason(std::move(reason))
 {
 }
 
 void AampTsbAdReservationMetaData::Dump(const std::string &message) const
 {
-	AAMPLOG_INFO("%sAampTsbAdReservationMetaData: Position=%" PRIu64 "ms, EventType=%d, AdBreakId=%s, PeriodPosition=%" PRIu64,
-				 message.c_str(), mPosition.milliseconds(), static_cast<int>(mEventType), mAdBreakId.c_str(), mPeriodPosition);
+	AAMPLOG_INFO("%sAampTsbAdReservationMetaData: Position=%" PRIu64 "ms, EventType=%d, AdBreakId=%s, PeriodPosition=%" PRIu64 ", Reason=%s",
+				 message.c_str(), mPosition.milliseconds(), static_cast<int>(mEventType), mAdBreakId.c_str(), mPeriodPosition, mReason.c_str());
 }
 
 void AampTsbAdReservationMetaData::SendEvent(PrivateInstanceAAMP* aamp) const
@@ -47,7 +48,7 @@ void AampTsbAdReservationMetaData::SendEvent(PrivateInstanceAAMP* aamp) const
 				aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, mAdBreakId, mPeriodPosition, mPosition.milliseconds());
 				break;
 			case EventType::END:
-				aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, mAdBreakId, mPeriodPosition, mPosition.milliseconds());
+				aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, mAdBreakId, mPeriodPosition, mPosition.milliseconds(), false, mReason);
 				break;
 			default:
 				AAMPLOG_WARN("Unknown reservation event type: %d", static_cast<int>(mEventType));

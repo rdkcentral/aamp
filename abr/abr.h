@@ -21,6 +21,7 @@
 #ifndef ABR_H
 #define ABR_H
 
+#include <cstddef>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -30,6 +31,7 @@
 #include <mutex>
 #include "AampMediaType.h"
 #include "BandwidthEstimatorBase.h"
+#include "AampCurlDefine.h"
 
 enum BandwidthEstimationAlgorithm
 {
@@ -61,6 +63,7 @@ public:
 	BitsPerSecond GetCurrentlyAvailableBandwidth();
 	BitsPerSecond GetNetworkBandwidth();
 	bool HasBandwidthEstimator() const;
+	double GetPredictedDownloadTimeSeconds(std::size_t segmentSizeBytes) const;
 	
 	struct ProfileInfo {
 		/**
@@ -374,20 +377,6 @@ public:
 		abrThresholdSize(0), abrMaxBuffer(0), abrMinBuffer(0), abrCacheOutlier(0),
 		abrBufferCounter(0), infologging(false), tracelogging(false),
 		warnlogging(false), debuglogging(false), bandwidthEstimatorType(0) {}
-	};
-	
-	/**
-	 * @brief Http Header Type
-	 */
-	enum CurlAbortReason
-	{
-		eCURL_ABORT_REASON_NONE = 0,
-		eCURL_ABORT_REASON_STALL_TIMEDOUT,
-		eCURL_ABORT_REASON_START_TIMEDOUT,
-		eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT,
-		eCURL_ABORT_REASON_CHUNKED_PARSER_ERROR,
-		eCURL_ABORT_REASON_FIRST_CHUNK_SLOW,
-		eCURL_ABORT_REASON_INVALID_CHUNK_BOUNDARY
 	};
 	
 	/**

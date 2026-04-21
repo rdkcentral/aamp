@@ -106,7 +106,15 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 
 	cJSON_AddNumberToObject(item, "gps", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart);
 	cJSON_AddNumberToObject(item, "gff", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
-	cJSON_AddNumberToObject(item, "gdt", (buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - (buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish ? buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart)));
+
+	if (buckets[PROFILE_BUCKET_FIRST_FRAME].tStart > 0)
+	{
+		cJSON_AddNumberToObject(item, "gdt", (buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - (buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish ? buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart)));
+	}
+	else
+	{
+		cJSON_AddNumberToObject(item, "gdt", buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
+	}
 
 	cJSON_AddNumberToObject(item, "cnt", tuneMetricsData.contentType);
 	cJSON_AddNumberToObject(item, "stt", tuneMetricsData.streamType);
@@ -293,7 +301,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	}
 	enabled = false;
 	unsigned int licenseAcqNWTime = bucketDuration(PROFILE_BUCKET_LA_NETWORK);
-	char tuneTimeStrPrefix[64];
+	char tuneTimeStrPrefix[128];
 	memset(tuneTimeStrPrefix, '\0', sizeof(tuneTimeStrPrefix));
 	int mTotalTime;
  	int mTimedMetadataStartTime = static_cast<int> (mTuneEndMetrics.mTimedMetadataStartTime - tuneStartMonotonicBase);
@@ -304,7 +312,11 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	auto tPreBufferStart = buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart;
 	
 	// compute gstreamer decode time, excluding decryption. For clear streams, measure from first buffer start time
-	auto tDecode = tFirstFrameStart - (tDecryptVideoFinish?tDecryptVideoFinish:tFirstBufferStart);
+	auto tDecode = tFirstFrameStart;
+	if (tDecode > 0)
+	{
+		tDecode -= (tDecryptVideoFinish?tDecryptVideoFinish:tFirstBufferStart);
+	}
 
 	if (mTuneEndMetrics.success > 0)
 	{
@@ -316,6 +328,10 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	}
 	if (!appName.empty())
 	{
+		if (gpGlobalConfig && gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
+		{
+			appName += "_VIPA";
+		}
 		snprintf(tuneTimeStrPrefix, sizeof(tuneTimeStrPrefix), "%s PLAYER[%d] APP: %s IP_AAMP_TUNETIME", playerActiveMode.c_str(),playerId,appName.c_str());
 	}
 	else

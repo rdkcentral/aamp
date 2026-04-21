@@ -169,7 +169,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer) {  }
 	void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported) {  }
 	void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservationId) {  }
-	void PlayerInstanceAAMP::CancelReservation(const std::string& playingReservationId, const std::string& cancelAtReservationId) { }
+	void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId) { }
 	bool PlayerInstanceAAMP::IsLive() { return false; }
 	bool PlayerInstanceAAMP::GetVideoMute(void) { return false; }
 	bool PlayerInstanceAAMP::GetCCStatus(void) { return false; }
@@ -192,25 +192,25 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	double PlayerInstanceAAMP::GetPlaybackDuration(void) { return 0; }
 	std::string PlayerInstanceAAMP::GetAudioLanguage() { return ""; }
 	std::string PlayerInstanceAAMP::GetDRM() { return ""; }
-    std::string PlayerInstanceAAMP::GetPreferredLanguages() { return ""; }
+	std::string PlayerInstanceAAMP::GetPreferredLanguages() { return ""; }
 	DRMSystems PlayerInstanceAAMP::GetPreferredDRM() { return eDRM_NONE; }
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
-    std::string PlayerInstanceAAMP::GetManifest(void) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAvailableVideoTracks() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetVideoRectangle() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAudioTrackInfo() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetTextTrackInfo() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetPreferredAudioProperties() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetTextStyle() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }
+	std::string PlayerInstanceAAMP::GetManifest(void) { return {}; }
+	std::string PlayerInstanceAAMP::GetAvailableVideoTracks() { return {}; }
+	std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack) { return {}; }
+	std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack) { return {}; }
+	std::string PlayerInstanceAAMP::GetVideoRectangle() { return {}; }
+	std::string PlayerInstanceAAMP::GetAudioTrackInfo() { return {}; }
+	std::string PlayerInstanceAAMP::GetTextTrackInfo() { return {}; }
+	std::string PlayerInstanceAAMP::GetPreferredAudioProperties() { return {}; }
+	std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return {}; }
+	std::string PlayerInstanceAAMP::GetTextStyle() { return {}; }
+	std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void) { return {}; }
+	std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd) { return {}; }
+	std::string PlayerInstanceAAMP::GetAAMPConfig() { return {}; }
+	std::string PlayerInstanceAAMP::GetPlaybackStats() { return {}; }
+	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return {}; }
 	bool PlayerInstanceAAMP::SetUserAgent(std::string &userAgent){ return false; }
 	void PlayerInstanceAAMP::updateManifest(const char *manifestData){}
 	bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void){ return false; }

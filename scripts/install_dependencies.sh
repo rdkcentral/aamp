@@ -55,13 +55,21 @@ function install_pkgs_darwin_fn()
             OPENSSL_PATH=$(brew --prefix ${DEFAULT_OPENSSL_VERSION})
             # link may not exist so don't fail
             OPENSSL_CUR_PATH=`readlink /usr/local/ssl` || true
-            if [ "$OPENSSL_CUR_PATH" != "{$OPENSSL_PATH}" ] ; then
+            if [ "$OPENSSL_CUR_PATH" != "${OPENSSL_PATH}" ] ; then
                 sudo rm -f /usr/local/ssl || true
                 sudo ln -s $OPENSSL_PATH /usr/local/ssl
             fi 
         fi
         PKGDIR="`brew --prefix ${PKG}`/lib/pkgconfig:"
         INSTALLED_PKGCONFIG=$PKGDIR$INSTALLED_PKGCONFIG
+
+        # Symlink openjdk so the system java wrapper can find it
+        if [ "$PKG" = "openjdk@21" ]; then
+            if [ ! -e /Library/Java/JavaVirtualMachines/openjdk-21.jdk ]; then
+                JAVA_PREFIX=$(brew --prefix "$PKG")
+                sudo ln -sfn "$JAVA_PREFIX/libexec/openjdk.jdk" /Library/Java/JavaVirtualMachines/openjdk-21.jdk
+            fi
+        fi
 
 	# Add the path to the pkgconfig directory to the PKG_CONFIG_PATH for openldap and krb5
         if [ "${PKG}" = "openldap" ] || [ "${PKG}" = "krb5" ]; then
@@ -197,8 +205,8 @@ function install_asio_fn()
     cd ${LOCAL_DEPS_BUILD_DIR}
     if [ ! -d asio-1.18.2 ]; then
         echo "Installing asio"
-        curl -o asio-1.18.2.tar.gz "https://excellmedia.dl.sourceforge.net/project/asio/asio/1.18.2%20%28Stable%29/asio-1.18.2.tar.bz2?viasf=1"
-        tar -xf asio-1.18.2.tar.gz
+        curl -L -o asio-1.18.2.tar.bz2 "https://downloads.sourceforge.net/project/asio/asio/1.18.2%20%28Stable%29/asio-1.18.2.tar.bz2?viasf=1" --ssl-no-revoke
+        tar -xf asio-1.18.2.tar.bz2
         pushd asio-1.18.2
         mkdir build && cd build
         ../configure
@@ -227,7 +235,7 @@ function install_pkgs_fn()
           brew update
       fi
 
-      install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl
+      install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl wavpack
       install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5 "openjdk@21"
 
       # Check if running on arm64 with macOS 15.5 or later

@@ -63,6 +63,19 @@ void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
 }
 
 /**
+ *  @brief Set buffer from a const vector (read-only use only)
+ * 		const_cast is safe here because the read-only query methods
+ * 		(getFirstPTS, isInitSegment, getTimeScale, getSampleDuration, etc.)
+ * 		do not modify the buffer contents.  Callers using this overload
+ * 		must not call mutating methods (restampPts, truncate, etc.).
+ */
+void IsoBmffBuffer::setBuffer(const std::vector<uint8_t> &buffer)
+{
+	this->buffer = const_cast<uint8_t *>(buffer.data());
+	this->bufSize = buffer.size();
+}
+
+/**
 *  	@fn ParseChunkData
 *  	@param[in] name - name of the track
 *  	@param[in,out] unParsedBuffer - Total unparsed buffer
@@ -74,7 +87,7 @@ void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
 *	@return true if parsed or false
 *  	@brief Parse ISOBMFF boxes from buffer
 */
-bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, uint32_t timeScale,
 	size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration)
 {
 	size_t mdatCount = 0;
@@ -689,7 +702,7 @@ bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, 
 /**
  *  @brief Get list of box handles in a parsed buffer
  */
-int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
+int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
 {
 	std::vector<Box*> *pBoxes = getParsedBoxes();
 	size_t mdatCount;

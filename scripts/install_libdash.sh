@@ -65,11 +65,29 @@ function install_build_libdash_fn()
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0010-RDKAAMP-121-Failover-Tag-on-SegmentTemplate.patch || { echo "ERROR: Failed to apply patch 0010"; return 1; }
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0011-RDKAAMP-61-AAMP-low-latency-dash-stream-evaluation.patch || { echo "ERROR: Failed to apply patch 0011"; return 1; }
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0012-To-retrieves-the-text-content-of-CDATA-section.patch || { echo "ERROR: Failed to apply patch 0012"; return 1; }
-        
         mkdir -p build
         cd build || { echo "ERROR: Failed to change to build directory"; return 1; }
         
-        cmake .. -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" -DCMAKE_MACOSX_RPATH=TRUE || {
+        # Propagate sanitizer flags to libdash so it matches the ASAN
+        # instrumentation level of libaamp. ASAN is enabled by the build
+        # configuration (for example, on macOS builds or on Ubuntu via the
+        # -u flag).
+        local SANITIZER_FLAGS=""
+        if [[ "${PLATFORM}" == "darwin" || "${OPTION_UBUNTU_SANITIZER}" == "true" ]]; then
+            SANITIZER_FLAGS="-fsanitize=address"
+        fi
+
+        local EXTRA_C_FLAGS="${SANITIZER_FLAGS}"
+        local EXTRA_CXX_FLAGS="${SANITIZER_FLAGS}"
+        local EXTRA_LINK_FLAGS="${SANITIZER_FLAGS}"
+
+        cmake .. \
+            -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" \
+            -DCMAKE_MACOSX_RPATH=TRUE \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_C_FLAGS="${EXTRA_C_FLAGS}" \
+            -DCMAKE_CXX_FLAGS="${EXTRA_CXX_FLAGS}" \
+            -DCMAKE_SHARED_LINKER_FLAGS="${EXTRA_LINK_FLAGS}" || {
             echo "ERROR: CMake configuration failed"
             return 1
         }

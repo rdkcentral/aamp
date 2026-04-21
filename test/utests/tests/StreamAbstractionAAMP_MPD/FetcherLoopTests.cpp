@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <iterator>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
@@ -44,6 +45,8 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::StrictMock;
+using ::testing::Invoke;
+using ::testing::WithArg;
 using ::testing::WithArgs;
 using ::testing::WithoutArgs;
 
@@ -226,6 +229,7 @@ protected:
 						</Period>
 				</MPD>
 				)";
+
 	ManifestDownloadResponsePtr mResponse;
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
 	using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
@@ -718,6 +722,71 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 }
 
 /**
+ * @brief IndexSelectedPeriod test when Short Ad occurs and we return to play rest of base period
+ *
+ */
+TEST_F(FetcherLoopTests, IndexSelectedPeriodTests3)
+{
+
+	bool periodChanged = false;
+	bool adStateChanged = true;
+	bool requireStreamSelection = false;
+	std::string currentPeriodId = "p1";
+	AAMPStatusType status;
+	bool ret = false;
+	/* important INFO from mLiveManifest2
+	 * t="2816000" - presentationTimeOffset="1817600" = 998400
+	 * 998400/12800 = 78.0 seconds
+	 * i.e 78 seconds has been dropped from the beginning of the period
+	 */
+	static constexpr const char *liveManifest2 = R"(<?xml version="1.0" encoding="utf-8"?>
+				<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT30S" type="dynamic">
+						<Period id="p1" start="PT0S">
+						<AdaptationSet id="0" contentType="video">
+						<Representation id="1080p" mimeType="video/mp4" codecs="hvc1.1.6.L93.90" bandwidth="5000000" width="1920" height="1080" frameRate="25/1">
+						<SegmentTemplate timescale="12800" initialization="dash/1080p_init.m4s" media="dash/1080p_$Number%03d$.m4s" startNumber="111" presentationTimeOffset="1817600">
+						<SegmentTimeline>
+						<S t="2816000" d="25600" r="14" />
+						</SegmentTimeline>
+						</SegmentTemplate>
+						</Representation>
+						</AdaptationSet>
+						</Period>
+				</MPD>
+				)";
+	/* Initialize MPD. The video initialization segment is cached. */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	status = InitializeMPD(liveManifest2);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	(void)status;
+
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+
+	const double seekPos = 88;	// We want to seek 88 from the period start
+	const double ptoDelta = 78; // Value determined by manifest. See comments in liveManifest2 for details.
+
+	/* Relative to the period start:
+	 * we want to seek to position seekPos (88s)
+	 * but ptoDelta (78s) has been dropped from the
+	 * beginning of the period, so the actual move forward will be seekPos - ptoDelta (10s)
+	 */
+	double initialFragTime = pMediaStreamContext->fragmentTime;
+	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number, 118);
+	auto cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mContentSeekOffset = seekPos;
+
+	ret = mTestableStreamAbstractionAAMP_MPD->InvokeIndexSelectedPeriod(periodChanged, adStateChanged, requireStreamSelection, currentPeriodId);
+	double positionMove = pMediaStreamContext->fragmentTime - initialFragTime;
+	AAMPLOG_INFO("fragmentTime %f initialFragTime  %f", pMediaStreamContext->fragmentTime, initialFragTime);
+	EXPECT_TRUE((positionMove >= seekPos - ptoDelta) && (positionMove <= seekPos - ptoDelta + 1)); // Seems like it rounds to 11Sec
+	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number, 123);								   // 123 -118 = 5 segments which is 10Sec
+}
+
+/**
  * @brief DetectDiscotinuityAndFetchInit tests.
  *
  * The tests verify the DetectDiscotinuityAndFetchInit method of StreamAbstractionAAMP_MPD without discontinuity detection.
@@ -949,7 +1018,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(AnyNumber());
 
 	/*
 	 * Test the scenario where ad is not placed and we are waiting for base period to catchup
@@ -1783,6 +1852,52 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 }
 
 /**
+ * @brief FetcherLoop tests.
+ *
+ * Verifies that when playing ad content at the live edge, AdvanceTrack is skipped
+ * if the fragment time exceeds the live edge.
+ */
+TEST_F(FetcherLoopTests, FetcherLoopSkipsAdvanceTrackWhenExceedsLiveEdge)
+{
+	std::string videoInitFragmentUrl;
+	AAMPStatusType status;
+
+	videoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoInitFragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
+		.Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+
+	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 0.0);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
+
+	auto *cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	ASSERT_NE(cdaiObj, nullptr);
+	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+
+	mPrivateInstanceAAMP->mAbsoluteEndPosition = 10.0;
+	MediaTrack *track = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(track, nullptr);
+	auto *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	pMediaStreamContext->fragmentTime = 11.0;
+
+	int downloadsCounter = 0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly([&downloadsCounter]()
+			{
+				return (++downloadsCounter < 3);
+			});
+
+	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+}
+
+/**
  * @brief BasicFetcherLoop tests.
  *
  * The tests verify the basic fetcher loop functionality for a Live multi-period MPD.
@@ -2108,7 +2223,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(1);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(2);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(2);
 
 	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
 		.Times(AnyNumber())
@@ -2149,10 +2264,12 @@ struct TestParams
 {
 	const char *manifest;
 	double seekPos;
+	bool mockIDXDownload;
 	const char *videoInitFragment;
 	const char *audioInitFragment;
 	const char *videoFragmentP1;
 	const char *audioFragmentP1;
+	const char *endVideoFragmentP1;
 };
 
 // Test cases
@@ -2203,10 +2320,12 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		24.0,
+		false,
 		"video_p0_init.mp4",
 		"audio_p0_init.mp4",
 		"video_p1_init.mp4",
-		"audio_p1_init.mp4"},
+		"audio_p1_init.mp4",
+		"video_p1_18.m4s"},
 	{
 		R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2253,10 +2372,12 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		0,
+		false,
 		"video_p0_init.m4s",
 		"audio_p0_init.m4s",
 		"video_p1_init.m4s",
-		"audio_p1_init.m4s"},
+		"audio_p1_init.m4s",
+		"video_p1_2.m4s"},
 	{
 		R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2307,10 +2428,12 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		0,
+		false,
 		"video_p0.m4s",
 		"audio_p0.m4s",
 		"video_p1.m4s",
-		"audio_p1.m4s"},
+		"audio_p1.m4s",
+		"video_p1.m4s"},
 	{
 		R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2345,10 +2468,12 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		0,
+		true,
 		"video_p0.m4s",
 		"audio_p0.m4s",
 		"video_p1.m4s",
-		"audio_p1.m4s"},
+		"audio_p1.m4s",
+		"video_p1.m4s"},
 	{
 		R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2391,17 +2516,52 @@ TestParams testCases[] = {
 			</MPD>
 		)",
 		0,
+		true,
 		"video_p0.m4s",
 		"audio_p0.m4s",
 		"video_p1.m4s",
-		"audio_p1.m4s"}};
+		"audio_p1.m4s",
+		"video_p1.m4s"}
+};
+
+// Sample SIDX box for testing IndexedSegment download scenarios.
+// Contains 2 segment references with 2-second durations each.
+// timescale=1000, total duration=4000ms (4 seconds)
+static const uint8_t sidxBox[] = {
+	// Box size = 56
+	0x00, 0x00, 0x00, 0x38,
+	// Type = 'sidx'
+	0x73, 0x69, 0x64, 0x78,
+	// version=0, flags=0
+	0x00, 0x00, 0x00, 0x00,
+	// reference_ID = 1
+	0x00, 0x00, 0x00, 0x01,
+	// timescale = 1000
+	0x00, 0x00, 0x03, 0xE8,
+	// earliest_presentation_time = 0 (32-bit, version 0)
+	0x00, 0x00, 0x00, 0x00,
+	// first_offset = 0
+	0x00, 0x00, 0x00, 0x00,
+	// reserved = 0
+	0x00, 0x00,
+	// reference_count = 2
+	0x00, 0x02,
+	// Reference 0: size=16384, duration=2000, flags
+	0x00, 0x00, 0x40, 0x00,
+	0x00, 0x00, 0x07, 0xD0,
+	0x90, 0x00, 0x00, 0x00,
+	// Reference 1: size=12288, duration=2000, flags
+	0x00, 0x00, 0x30, 0x00,
+	0x00, 0x00, 0x07, 0xD0,
+	0x90, 0x00, 0x00, 0x00,
+};
 
 class AdvancedFetcherLoopTests : public FetcherLoopTests, public ::testing::WithParamInterface<TestParams>
 {
 public:
 	void SetUp() override
 	{
-		counter = 0;
+		shouldExitTest = false;
 		FetcherLoopTests::SetUp();
 	}
 
@@ -2409,7 +2569,7 @@ public:
 	{
 		FetcherLoopTests::TearDown();
 	}
-	int counter;
+	bool shouldExitTest;
 };
 
 /**
@@ -2428,14 +2588,24 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 	TestParams param = GetParam();
 	const char *manifest = param.manifest;
 	double seekPos = param.seekPos;
+	bool mockIDXDownload = param.mockIDXDownload;
 	const char *videoInitFragment = param.videoInitFragment;
 	const char *audioInitFragment = param.audioInitFragment;
 	const char *videoFragmentP1 = param.videoFragmentP1;
 	const char *audioFragmentP1 = param.audioFragmentP1;
+	std::string endVideoFragmentUrl = std::string(TEST_BASE_URL) + std::string(param.endVideoFragmentP1);
 
 	/* Initialize MPD. The video/audio initialization segment is cached. */
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string(videoInitFragment);
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string(audioInitFragment);
+	if (mockIDXDownload)
+	{
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+			.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+			{
+				idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+			})));
+	}
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
@@ -2447,19 +2617,20 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	/* Push the first video segment to present.
-	 * The segment starts at time 40.0s and has a duration of 2.0s.
-	 */
+	// Run test until the end segment of the period is cached, then exit
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
-		.WillRepeatedly([this]() { return (++counter < 20); });
+		.WillRepeatedly([this]() { return !shouldExitTest; });
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string(videoFragmentP1);
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string(audioFragmentP1);
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
 
+	// Default expect
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _)).WillRepeatedly(Return(true));
-
+	// Expect the last segment of the period to be cached, and then exit the test
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(endVideoFragmentUrl, _, _, _, _, false, _, _, _))
+		.WillOnce([this]() { shouldExitTest = true; return true; });
 	/* Invoke the fetcher loop. */
 	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);

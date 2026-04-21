@@ -21,10 +21,17 @@
 #include "AampUnderflowMonitor.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockMediaTrack.h"
+#include <functional>
 #include <memory>
 
 MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
 MockMediaTrack *g_mockMediaTrack = nullptr;
+
+// Optional callback invoked inside NotifyVideoFragmentToUnderflowMonitor.
+// Tests that need to simulate the underflow-recovery race (mBufUnderFlowStatus
+// cleared inside the notify, then mSinkPaused re-set before the discard check)
+// can set this before calling OnFragmentDownloadSuccess and clear it afterwards.
+std::function<void()> g_notifyVideoFragmentSideEffect;
 
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
 {
@@ -45,6 +52,26 @@ void StreamAbstractionAAMP::StopUnderflowMonitor()
 bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
 {
 	return false;
+}
+
+void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate)
+{
+	if (g_notifyVideoFragmentSideEffect)
+	{
+		g_notifyVideoFragmentSideEffect();
+	}
+}
+
+void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
+{
+}
+
+void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
+{
+}
+
+void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
+{
 }
 
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
@@ -140,6 +167,10 @@ bool StreamAbstractionAAMP::isInBandCcAvailable()
 
 bool StreamAbstractionAAMP::IsInitialCachingSupported()
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->IsInitialCachingSupported();
+	}
 	return false;
 }
 
@@ -260,7 +291,7 @@ bool MediaTrack::isPlaylistDownloaderThreadStarted()
 	return true;
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name), aamp(aamp), type(type)
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : name(name), aamp(aamp), type(type), abort(false), abortInject(false)
 {
 }
 
@@ -293,6 +324,19 @@ void MediaTrack::WaitForManifestUpdate()
 {
 }
 
+void MediaTrack::WaitForManifestUpdate(uint32_t counter)
+{
+}
+
+void MediaTrack::AbortWaitForManifestUpdate()
+{
+}
+
+uint32_t MediaTrack::GetManifestUpdateCounter()
+{
+	return 0;
+}
+
 bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 {
 	return true;
@@ -319,15 +363,24 @@ bool MediaTrack::SignalIfEOSReached()
 
 void MediaTrack::SetLocalTSBInjection(bool value)
 {
+	if (g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->SetLocalTSBInjection(value);
+	}
 }
 
 bool MediaTrack::IsLocalTSBInjection()
 {
 	bool localTsbInjection = false;
 
-	// When using mock, delegate to mock implementation
-	if (auto* mock = dynamic_cast<MockMediaTrack*>(this)) {
-		localTsbInjection = mock->IsLocalTSBInjection();
+	if (auto* mockObj = dynamic_cast<MockMediaTrack*>(this))
+	{
+		localTsbInjection = mockObj->IsLocalTSBInjection();
+	}
+
+	if (g_mockMediaTrack != nullptr)
+	{
+		localTsbInjection = g_mockMediaTrack->IsLocalTSBInjection();
 	}
 
 	return localTsbInjection;

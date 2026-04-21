@@ -28,11 +28,11 @@ IsoBMFFMetadataProcessor::IsoBMFFMetadataProcessor(id3_callback_t id3_hdl,
 {}
 
 void IsoBMFFMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		AampMediaType type,
-		bool discontinuity, 
-		const double proc_position,
-		bool & ptsError, 
-		const std::string & uri)
+	AampMediaType type,
+	bool discontinuity, 
+	const double proc_position,
+	bool & ptsError, 
+	const std::string & uri)
 {}
 
 bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
@@ -40,7 +40,7 @@ bool IsoBMFFMetadataProcessor::SetTuneTimePTS()
 	return true;
 }
 
-void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len)
+void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std::vector<uint8_t>& data)
 {}
 
 TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
@@ -50,10 +50,10 @@ TSMetadataProcessor::TSMetadataProcessor(id3_callback_t id3_hdl,
 {}
 
 void TSMetadataProcessor::ProcessFragmentMetadata(const CachedFragment * cachedFragment,
-		AampMediaType type,
-		bool discontinuity, 
-		const double proc_position,
-		bool & ptsError, 
-		const std::string & uri)
+	AampMediaType type,
+	bool discontinuity, 
+	const double proc_position,
+	bool & ptsError, 
+	const std::string & uri)
 {}
 }

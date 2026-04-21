@@ -120,22 +120,20 @@ void dumpBytes(uint8_t* &b_ptr, uint32_t num_bytes)
 
 TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 {
-	AampGrowableBuffer src_data{"srcData"};
-
 	EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillRepeatedly(callMalloc);
 	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
 
 	test_data_t td = GetParam();
-	src_data.assign(td.input_data, td.input_data + td.input_data_len);
+	std::vector<uint8_t> src_data(td.input_data, td.input_data + td.input_data_len);
 
 	EXPECT_TRUE(helper->ConvertToKeyFrame(src_data));
 	EXPECT_EQ(src_data.size(), td.expected_data_len);
-	auto memcmp_actual_vs_expected = std::memcmp(src_data.GetPtr(), td.expected_data,  td.expected_data_len);
+	auto memcmp_actual_vs_expected = std::memcmp(src_data.data(), td.expected_data,  td.expected_data_len);
 	EXPECT_EQ(0, memcmp_actual_vs_expected);
 	if (memcmp_actual_vs_expected)
 	{
 		std::cout << "Result differs from expected!"  << std::endl;
-		uint8_t* res = (uint8_t*)src_data.GetPtr();
+		uint8_t* res = src_data.data();
 		uint8_t* exp = td.expected_data;
 		uint32_t ii = 0;
 		dumpCommonBytes(res, exp, ii);
@@ -147,8 +145,7 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 		dumpBytes(res, to_display);
 	}
 
-	// Note: No longer expecting g_free() since AampGrowableBuffer now uses std::vector
-	// which manages its own memory via RAII
+	// Note: No longer expecting g_free() since std::vector manages its own memory via RAII
 }
 
 INSTANTIATE_TEST_SUITE_P(IsoBmffConvertToKeyFrameTests, IsoBmffConvertToKeyFrameTestsP, testing::ValuesIn(test_data), IsoBmffConvertToKeyFrameTestsP::PrintToStringParamName());

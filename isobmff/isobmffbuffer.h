@@ -180,7 +180,7 @@ public:
 	 * @fn UpdateBufferData
 	 * @return true if parsed or false
 	 */
-	int UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
+	int UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize);
 
 	/**
 	 * @fn getTotalChunkDurationInTicks
@@ -196,6 +196,20 @@ public:
 	 * @return void
 	 */
 	void setBuffer(std::vector<uint8_t>& buffer);
+
+	/**
+	 * @fn setBuffer
+	 *
+	 * @brief Set buffer from a const vector.
+	 *        Use this overload when the caller only intends to parse and query
+	 *        the buffer (e.g. getFirstPTS, isInitSegment, getTimeScale).
+	 *        The caller must not call mutating methods (restampPts, truncate,
+	 *        setPtsAndDuration, etc.) after using this overload.
+	 *
+	 * @param[in] buffer - const buffer vector reference
+	 * @return void
+	 */
+	void setBuffer(const std::vector<uint8_t>& buffer);
 
 	/**
 	 * @fn setBuffer
@@ -230,7 +244,7 @@ public:
 	*	@return true if parsed or false
 	*  	@brief Parse ISOBMFF boxes from buffer
 	*/
-	bool ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
+	bool ParseChunkData(const char* name, uint8_t* &unParsedBuffer, uint32_t timeScale,
 	 size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration);
 
 	/**

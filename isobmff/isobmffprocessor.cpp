@@ -40,7 +40,7 @@ static const char *IsoBmffProcessorTypeName[] =
 IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, bool passThrough,
 	IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
-	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
+	processPTSComplete(false), timeScale(0),
 	playRate(1.0f), aborted(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
 	isRestampConfigEnabled(false),
 	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0), startPos(DEFAULT_DURATION),
@@ -91,7 +91,7 @@ IsoBmffProcessor::~IsoBmffProcessor()
 /**
  *  @brief Process and send ISOBMFF fragment
  */
-bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
+bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 									bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	AAMPLOG_INFO("IsoBmffProcessor %s sending segment at pos:%f dur:%f fragmentPTSoffset: %.3f", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset);
@@ -103,11 +103,11 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 		{
 			// Populate the PTS and timeScale values for the first time without caching or syncing
 			// Its required for resetPTSOnSubtitleSwitch and resetPTSOnAudioSwitch
-			ret = updatePTSAndTimeScaleFromBuffer(pBuffer);
+			ret = updatePTSAndTimeScaleFromBuffer(buffer);
 		}
 		else
 		{
-			ret = setTuneTimePTS(pBuffer,position,duration,discontinuous,isInit);
+			ret = setTuneTimePTS(buffer, position, duration, discontinuous, isInit);
 		}
 	}
 	if (ret)
@@ -115,20 +115,20 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 		if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 		{
 			AAMPLOG_INFO("IsoBmffProcessor %s Restamping PTS", IsoBmffProcessorTypeName[type]);
-			restampPTSAndSendSegment(pBuffer,position,duration,discontinuous,isInit);
+			restampPTSAndSendSegment(buffer, position, duration, discontinuous, isInit);
 		}
 		else
 		{
-			p_aamp->ProcessID3Metadata(pBuffer->GetVector(), (AampMediaType)type);
-			sendStream(pBuffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
+			p_aamp->ProcessID3Metadata(buffer, (AampMediaType)type);
+			ret = sendStream(buffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 		}
 	}
-	return true;
+	return ret;
 }
 /**
  *  @brief Update PTS and send pts for flush subtitle
  */
-void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position)
+void IsoBmffProcessor::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, double position)
 {
 	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
@@ -159,7 +159,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 	}
 	else
 	{
-		buffer.setBuffer(pBuffer->GetVector());
+		buffer.setBuffer(fragment);
 		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 		if(buffer.getFirstPTS(currentPTS))
@@ -174,7 +174,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 /**
  *  @brief Update PTS and send pts for flush audio
  */
-void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position, double ptsOffset)
+void IsoBmffProcessor::resetPTSOnAudioSwitch(std::vector<uint8_t>& fragment, double position, double ptsOffset)
 {
 	IsoBmffBuffer buffer;
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
@@ -205,7 +205,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 	}
 	else
 	{
-		buffer.setBuffer(pBuffer->GetVector());
+		buffer.setBuffer(fragment);
 		buffer.parseBuffer();
 		uint64_t currentPTS = 0;
 
@@ -222,7 +222,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 /**
  *  @brief Process and set tune time PTS
  */
-bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double position, double duration, bool discontinuous, bool isInit)
+bool IsoBmffProcessor::setTuneTimePTS(std::vector<uint8_t>& fragBuffer, double position, double duration, bool discontinuous, bool isInit)
 {
 	bool ret = true;
 
@@ -237,7 +237,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 		if (ret && !processPTSComplete)
 		{
 			IsoBmffBuffer buffer;
-			buffer.setBuffer(fragBuffer->GetVector());
+			buffer.setBuffer(fragBuffer);
 			buffer.parseBuffer();
 
 			if (buffer.isInitSegment())
@@ -250,7 +250,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					AAMPLOG_INFO("IsoBmffProcessor %s TimeScale %u (%u)", IsoBmffProcessorTypeName[type], currTimeScale,currTimeScale);
 				}
 				AAMPLOG_INFO("IsoBmffProcessor %s caching init fragment %u (%u)", IsoBmffProcessorTypeName[type], currTimeScale,currTimeScale);
-				cacheInitSegment(fragBuffer->GetVector());
+				cacheInitSegment(fragBuffer);
 				ret = false;
 			}
 			else
@@ -283,7 +283,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					// We have no cached init fragment, maybe audio download was delayed very much
 					// Push this fragment with calculated PTS
 					currTimeScale = timeScale;
-					sendStream(fragBuffer,pos,duration, 0.0, discontinuous,isInit);
+					sendStream(fragBuffer, pos, duration, 0.0, discontinuous, isInit);
 					ret = false;
 				}
 				initSegmentProcessComplete = true;
@@ -298,7 +298,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 	{
 		// We need to parse PTS from first buffer
 		IsoBmffBuffer buffer;
-		buffer.setBuffer(fragBuffer->GetVector());
+		buffer.setBuffer(fragBuffer);
 		buffer.parseBuffer();
 
 		if (buffer.isInitSegment())
@@ -310,7 +310,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				currTimeScale = tScale;
 			}
 			AAMPLOG_INFO("IsoBmffProcessor %s TimeScale (%u) (%u) ", IsoBmffProcessorTypeName[type], currTimeScale,timeScale);
-			cacheInitSegment(fragBuffer->GetVector());
+			cacheInitSegment(fragBuffer);
 			ret = false;
 		}
 		else
@@ -411,27 +411,33 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 /**
  *  @brief send stream based on media format
  */
-void IsoBmffProcessor::sendStream(AampGrowableBuffer *pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit)
+bool IsoBmffProcessor::sendStream(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit)
 {
+	if (buffer.empty())
+	{
+		AAMPLOG_ERR("IsoBmffProcessor %s sendStream: buffer is empty, skipping injection", IsoBmffProcessorTypeName[type]);
+		return false;
+	}
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
-		p_aamp->SendStreamTransfer((AampMediaType)type, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+		p_aamp->SendStreamTransfer((AampMediaType)type, buffer, position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+		return true;
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)type, pBuffer->GetVector(), position, position, duration);
+		return p_aamp->SendStreamCopy((AampMediaType)type, buffer, position, position, duration);
 	}
 }
 
 /**
  *  @brief restamp PTS and send segment to GST
  */
-void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,double position, double duration,bool isDiscontinuity,bool isInit)
+void IsoBmffProcessor::restampPTSAndSendSegment(std::vector<uint8_t>& fragBuffer, double position, double duration, bool isDiscontinuity, bool isInit)
 {
 	uint32_t tScale = 0;
 	bool ret = true;
 	IsoBmffBuffer buffer;
-	buffer.setBuffer(pBuffer->GetVector());
+	buffer.setBuffer(fragBuffer);
 	buffer.parseBuffer();
 
 	/* Step 1: Check is it Init fragment */
@@ -454,8 +460,8 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 								IsoBmffProcessorTypeName[type], timeScaleChangeState );
 
 				currTimeScale = timeScale;
-				p_aamp->ProcessID3Metadata(pBuffer->GetVector(), (AampMediaType)type);
-				sendStream(pBuffer,position,duration, 0.0, isDiscontinuity, isInit);
+				p_aamp->ProcessID3Metadata(fragBuffer, (AampMediaType)type);
+				sendStream(fragBuffer, position, duration, 0.0, isDiscontinuity, isInit);
 			}
 			/*check is current time scale same. If same then save the init fragment*/
 			else if ( currTimeScale == tScale && sumPTS != 0 && isDiscontinuity == false )
@@ -463,7 +469,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 				if( timeScaleChangeState == eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE)
 				{
 					clearRestampInitSegment();
-					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetVector(), position, duration, isDiscontinuity);
+					cacheRestampInitSegment((AampMediaType)type, fragBuffer, position, duration, isDiscontinuity);
 					/*
 					Here, eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE state indicates
 					already init fragment for  ad<->to<->content is cached,
@@ -479,13 +485,13 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 				}
 				else if(timeScaleChangeState == eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE )
 				{
-					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetVector(), position, duration, isDiscontinuity);
+					cacheRestampInitSegment((AampMediaType)type, fragBuffer, position, duration, isDiscontinuity);
 					AAMPLOG_INFO("IsoBmffProcessor %s  wait for main init push to complete ts-changeState: %d",IsoBmffProcessorTypeName[type], timeScaleChangeState);
 				}
 				else
 				{
 					clearRestampInitSegment();
-					cacheRestampInitSegment((AampMediaType)type, pBuffer->GetVector(), position, duration, isDiscontinuity);
+					cacheRestampInitSegment((AampMediaType)type, fragBuffer, position, duration, isDiscontinuity);
 					timeScaleChangeState = eBMFFPROCESSOR_CONTINUE_TIMESCALE; //Init fragment need to be pushed in same time scale
 					AAMPLOG_INFO("IsoBmffProcessor %s  continue in same time scale ts-changeState: %d",IsoBmffProcessorTypeName[type], timeScaleChangeState);
 				}
@@ -498,14 +504,14 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 								IsoBmffProcessorTypeName[type], currTimeScale, tScale, isDiscontinuity);
 
 				clearRestampInitSegment();
-				cacheRestampInitSegment((AampMediaType)type, pBuffer->GetVector(), position, duration, isDiscontinuity);
+				cacheRestampInitSegment((AampMediaType)type, fragBuffer, position, duration, isDiscontinuity);
 				timeScaleChangeState = eBMFFPROCESSOR_CONTINUE_WITH_ABR_CHANGED_TIMESCALE; //init fragment need to be pushed in different timescale
-				cacheInitBufferForRestampingPTS(pBuffer->GetVector(), tScale, position, true); // timescale changed with abr scale the pts to continue push
+				cacheInitBufferForRestampingPTS(fragBuffer, tScale, position, true); // timescale changed with abr scale the pts to continue push
 			}
 			else
 			{
 				//time scale is changed save the init buffer for new time scale*/
-				cacheInitBufferForRestampingPTS(pBuffer->GetVector(), tScale, position);
+				cacheInitBufferForRestampingPTS(fragBuffer, tScale, position);
 			}
 		}
 		AAMPLOG_WARN("IsoBmffProcessor %s timeScaleChangeState=%d",IsoBmffProcessorTypeName[type], timeScaleChangeState );
@@ -589,7 +595,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			}
 
 			//Step 6.Now time to restamp the PTS
-			buffer.restampPTS(sumPTS,currentPTS,(uint8_t *)(pBuffer->GetPtr()),(uint32_t)(pBuffer->size()));
+			buffer.restampPTS(sumPTS, currentPTS, fragBuffer.data(), static_cast<uint32_t>(fragBuffer.size()));
 			double newPos = ((double)sumPTS / (double) currTimeScale);
 			prevPTS = currentPTS;
 
@@ -599,8 +605,8 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 							" restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " position = %.02lf newPos = %0.2lf", IsoBmffProcessorTypeName[type], durationFromFragment, currentPTS,
 							sumPTS-durationFromFragment, sumPTS, position, newPos);
 
-			p_aamp->ProcessID3Metadata(pBuffer->GetVector(), (AampMediaType)type);
-			sendStream(pBuffer, newPos, duration, 0.0, isDiscontinuity, isInit);
+			p_aamp->ProcessID3Metadata(fragBuffer, (AampMediaType)type);
+			sendStream(fragBuffer, newPos, duration, 0.0, isDiscontinuity, isInit);
 		}
 		prevPosition = position;
 		prevDuration = duration;
@@ -1181,15 +1187,7 @@ void IsoBmffProcessor::setRestampBasePTS(uint64_t pts)
 void IsoBmffProcessor::cacheRestampInitSegment(AampMediaType type, const std::vector<uint8_t>& segment, double pos, double duration, bool isDiscontinuity)
 {
 	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
-	stInitRestampSegment *pSt = new stInitRestampSegment;
-	memset(pSt,0,sizeof(stInitRestampSegment));
-	pSt->buffer =  new AampGrowableBuffer("cached-restamp-init-segment");
-	pSt->buffer->assign(segment.data(), segment.data() + segment.size());
-	pSt->type = type;
-	pSt->position = pos;
-	pSt->duration = duration;
-	pSt->isDiscontinuity = isDiscontinuity;
-	resetPTSInitSegment.push_back(pSt);
+	resetPTSInitSegment.push_back({type, segment, pos, duration, isDiscontinuity});
 }
 
 /**
@@ -1200,9 +1198,7 @@ void IsoBmffProcessor::cacheInitSegment(const std::vector<uint8_t>& segment)
 	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
 	// Save init segment for later. Init segment will be pushed once basePTS is calculated
 	AAMPLOG_INFO("IsoBmffProcessor::[%s] Caching init fragment", IsoBmffProcessorTypeName[type]);
-	AampGrowableBuffer *buffer = new AampGrowableBuffer("cached-init-segment");
-	buffer->assign(segment.data(), segment.data() + segment.size());
-	initSegment.push_back(buffer);
+	initSegment.push_back(segment);
 }
 
 /**
@@ -1211,16 +1207,13 @@ void IsoBmffProcessor::cacheInitSegment(const std::vector<uint8_t>& segment)
 void IsoBmffProcessor::pushRestampInitSegment()
 {
 	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
-	if (resetPTSInitSegment.size() > 0)
+	if (!resetPTSInitSegment.empty())
 	{
-		for (auto it = resetPTSInitSegment.begin(); it != resetPTSInitSegment.end();)
+		for (auto& entry : resetPTSInitSegment)
 		{
-			stInitRestampSegment *Pst = *it;
-			sendStream(Pst->buffer, Pst->position, Pst->duration, 0.0, Pst->isDiscontinuity, true);
-			SAFE_DELETE(Pst->buffer);
-			SAFE_DELETE(Pst);
-			it = resetPTSInitSegment.erase(it);
+			sendStream(entry.buffer, entry.position, entry.duration, 0.0, entry.isDiscontinuity, true);
 		}
+		resetPTSInitSegment.clear();
 	}
 	else
 	{
@@ -1236,16 +1229,11 @@ void IsoBmffProcessor::pushInitSegment(double position)
 	// Push init segment now, duration = 0
 	AAMPLOG_WARN("IsoBmffProcessor:: [%s] Push init fragment", IsoBmffProcessorTypeName[type]);
 	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
-	if (initSegment.size() > 0)
+	for (auto& buf : initSegment)
 	{
-		for (auto it = initSegment.begin(); it != initSegment.end();)
-		{
-			AampGrowableBuffer *buf = *it;
-			p_aamp->SendStreamTransfer((AampMediaType)type, buf, position, position, 0, 0.0, true);
-			SAFE_DELETE(buf);
-			it = initSegment.erase(it);
-		}
+		p_aamp->SendStreamTransfer((AampMediaType)type, buf, position, position, 0, 0.0, true);
 	}
+	initSegment.clear();
 }
 
 /**
@@ -1254,16 +1242,7 @@ void IsoBmffProcessor::pushInitSegment(double position)
 void IsoBmffProcessor::clearRestampInitSegment()
 {
 	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
-	if (resetPTSInitSegment.size() > 0)
-	{
-		for (auto it = resetPTSInitSegment.begin(); it != resetPTSInitSegment.end();)
-		{
-			stInitRestampSegment *Pst = *it;
-			SAFE_DELETE(Pst->buffer);
-			SAFE_DELETE(Pst);
-			it = resetPTSInitSegment.erase(it);
-		}
-	}
+	resetPTSInitSegment.clear();
 }
 
 /**
@@ -1272,15 +1251,7 @@ void IsoBmffProcessor::clearRestampInitSegment()
 void IsoBmffProcessor::clearInitSegment()
 {
 	std::lock_guard<std::mutex> lock(initSegmentTransferMutex);
-	if (initSegment.size() > 0)
-	{
-		for (auto it = initSegment.begin(); it != initSegment.end();)
-		{
-			AampGrowableBuffer *buf = *it;
-			SAFE_DELETE(buf);
-			it = initSegment.erase(it);
-		}
-	}
+	initSegment.clear();
 }
 
 /**
@@ -1328,20 +1299,20 @@ void IsoBmffProcessor::initProcessorForRestamp()
 	// Hence setting timeScale changed state to complete
 	timeScaleChangeState = eBMFFPROCESSOR_TIMESCALE_COMPLETE;
 }
-/*
+/**
  * @fn updatePTSAndTimeScaleFromBuffer
  *
- * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+ * @param[in] fragBuffer - fragment data as std::vector
  * @return true if PTS and time scale read successfully, false otherwise
  */
-bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer)
+bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(std::vector<uint8_t>& fragBuffer)
 {
 	bool ret = false;
 	std::unique_lock<std::mutex> lock(m_mutex);
-	if (pBuffer && !pBuffer->empty())
+	if (!fragBuffer.empty())
 	{
 		IsoBmffBuffer buffer;
-		buffer.setBuffer(pBuffer->GetVector());
+		buffer.setBuffer(fragBuffer);
 		buffer.parseBuffer();
 		if(buffer.isInitSegment())
 		{
@@ -1369,7 +1340,7 @@ bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuff
 	}
 	else
 	{
-		AAMPLOG_WARN("IsoBmffProcessor %s readPTSAndTimeScaleFromBuffer: Buffer(%p) is empty or null", IsoBmffProcessorTypeName[type], pBuffer);
+		AAMPLOG_WARN("IsoBmffProcessor %s readPTSAndTimeScaleFromBuffer: Buffer is empty", IsoBmffProcessorTypeName[type]);
 	}
 	return ret;
 }

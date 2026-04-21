@@ -71,7 +71,7 @@ public:
 	 */
 	void setFrameRateForTM (int frameRate) override { };
 
-	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	double getFirstPts( const std::vector<uint8_t>& buffer ) override
 	{
 		return 0;
 	}
@@ -83,7 +83,7 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in,out] buffer - fragment data as std::vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - PTS offset
@@ -93,7 +93,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -146,20 +146,20 @@ private:
 	/**
 	 * @fn sendStream
 	 *
-	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @param[in] buffer - fragment data as std::vector
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - PTS offset
 	 * @param[in] discontinuous - true if discontinuous fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
-	 * @return void
+	 * @return true if the buffer was successfully injected into the sink, false otherwise
 	 */
-	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset, bool discontinuous,bool isInit);
+	bool sendStream(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit);
 
     /**
 	 * @fn setTuneTimePTS
 	 *
-	 * @param[in] segment - fragment buffer pointer
+	 * @param[in] segment - fragment buffer pointer (binary data)
 	 * @param[in] size - fragment buffer size
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
@@ -167,7 +167,7 @@ private:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return false if base was set, true otherwise
 	 */
-	bool setTuneTimePTS(char *segment, const size_t& size, double position, double duration, bool discontinuous, bool &ptsError);
+	bool setTuneTimePTS(const uint8_t *segment, size_t size, double position, double duration, bool discontinuous, bool &ptsError);
 
 	/**
 	 * @fn setBasePTS
