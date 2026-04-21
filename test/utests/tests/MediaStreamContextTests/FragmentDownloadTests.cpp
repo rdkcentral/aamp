@@ -19,6 +19,14 @@
 #include <gtest/gtest.h>
 #include "MediaStreamContext.h"
 #include "fragmentcollector_mpd.h"
+
+/** Thin subclass that promotes protected members needed by unit tests. */
+class TestableMediaStreamContext : public MediaStreamContext
+{
+public:
+	using MediaStreamContext::MediaStreamContext;
+	using MediaStreamContext::mStagingFragment;
+};
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
@@ -62,7 +70,7 @@ protected:
 		}
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 123.45, 12.34);
-		mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
+		mMediaStreamContext = new TestableMediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockMediaTrack = new StrictMock<MockMediaTrack>();
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
@@ -120,7 +128,7 @@ protected:
 public:
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
-	MediaStreamContext *mMediaStreamContext;
+	TestableMediaStreamContext *mMediaStreamContext;
 	std::unique_ptr<AampTSBSessionManager> mTsbSessionMgr;
 	std::unique_ptr<NiceMock<MockTSBSessionManager>> mMockTSBSessionMgr;
 	std::shared_ptr<AampTsbReader> mTsbReader;
