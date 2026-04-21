@@ -625,6 +625,14 @@ void AampCurlDownloader::updateCurlParams()
 	}
 	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 
+#ifdef CURL_HTTP_VERSION_3ONLY
+	if(mDnldCfg->bEnableHTTP3)
+	{
+		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY);
+		AAMPLOG_INFO("HTTP/3 (QUIC) enabled for manifest download");
+	}
+#endif
+
 	if (mDnldCfg->sCustomHeaders.size() > 0)
 	{
 		std::string customHeader;

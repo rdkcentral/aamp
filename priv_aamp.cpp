@@ -808,10 +808,14 @@ static const char *ChunkedTransferStateToName( ChunkedTransferState state )
  * @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
  *
  * This callback is invoked by the downloader whenever a new block of bytes is
- * received for a request that uses HTTP/1.1 chunked transfer encoding. It
- * implements an incremental parser driven by a state machine stored in
- * CurlCallbackContext::m_ChunkedTransferState. The parser consumes the input buffer,
- * interpreting chunk-size lines, chunk payload, and the required CR/LF
+ * received for a request that uses HTTP/1.1 chunked transfer encoding.
+ *
+ * @note This code does not handle the HTTP/3 case, which uses a different
+ *       framing mechanism and is handled separately.
+ *
+ * It implements an incremental parser driven by a state machine stored in
+ * CurlCallbackContext::m_ChunkedTransferState. The parser consumes the input
+ * buffer, interpreting chunk-size lines, chunk payload, and the required CR/LF
  * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
  *
  * The state machine transitions between:
@@ -4510,10 +4514,28 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
 			}
+			context.remoteUrl = remoteUrl;
+#ifdef CURL_HTTP_VERSION_3ONLY
+			if( ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3) && mediaType != eMEDIATYPE_LICENCE )
+			{
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY);
+				AAMPLOG_INFO("HTTP/3 (QUIC) enabled for mediaType=%d", mediaType);
+			}
+			else
+#else
+			if( ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3) && mediaType != eMEDIATYPE_LICENCE )
+			{
+				static bool warnedHTTP3 = false;
+				if (!warnedHTTP3)
+				{
+					AAMPLOG_WARN("enableHTTP3 config is set but HTTP/3 is not available in this build (libcurl lacks QUIC support)");
+					warnedHTTP3 = true;
+				}
+			}
+#endif
 			if(this->mAampLLDashServiceData.lowLatencyMode)
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-				context.remoteUrl = remoteUrl;
 			}
 			context.aamp = this;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
@@ -4763,6 +4785,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
 					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
 					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
+#ifdef CURL_HTTP_VERSION_3ONLY
+					{
+						long httpVersion = 0;
+						curl_off_t speedDownload = 0;
+						curl_easy_getinfo(curl, CURLINFO_HTTP_VERSION, &httpVersion);
+						curl_easy_getinfo(curl, CURLINFO_SPEED_DOWNLOAD_T, &speedDownload);
+						AAMPLOG_INFO("NET_TRACE mediaType=%d httpVersion=%ld speedBps=%" CURL_FORMAT_CURL_OFF_T " appconnect=%.3f total=%.3f reused=%ld",
+							mediaType, httpVersion, speedDownload, t_appconnect, t_total, (num_connects == 0) ? 1L : 0L);
+					}
+#endif
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					size_download = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
@@ -4978,6 +5010,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
+#ifdef CURL_HTTP_VERSION_3ONLY
+					if (res == CURLE_HTTP3)
+					{
+						AAMPLOG_ERR("QUIC connection failed (CURLE_HTTP3=%d) mediaType=%d url=%s", res, mediaType, remoteUrl.c_str());
+					}
+#endif
 					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
 
@@ -14396,6 +14434,14 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->bVerbose	=      ISCONFIGSET_PRIV(eAAMPConfig_CurlLogging);
 	inpData->mDnldConfig->bCurlThroughput = ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput);
 	inpData->mDnldConfig->networkPersonaFile = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
+#ifdef CURL_HTTP_VERSION_3ONLY
+	inpData->mDnldConfig->bEnableHTTP3 = ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3);
+#else
+	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3))
+	{
+		AAMPLOG_WARN("enableHTTP3 config is set but HTTP/3 is not available in this build (libcurl lacks QUIC support)");
+	}
+#endif
 
 	struct curl_slist* headers = GetCustomHeaders(eMEDIATYPE_MANIFEST);
 	std::unordered_map<std::string, std::vector<std::string>> sCustomHeaders;
