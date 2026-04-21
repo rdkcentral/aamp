@@ -78,7 +78,31 @@ AampNetworkPersona& AampNetworkPersona::Instance()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LoadFromFile
+// ParsePersonaParams  (static helper)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/*static*/
+void AampNetworkPersona::ParsePersonaParams(const std::string& json, PersonaParams& p)
+{
+    FindNumber(json, "base_rtt_ms",         p.baseRttMs);
+    FindNumber(json, "rtt_jitter_ms",       p.rttJitterMs);
+    FindNumber(json, "ttfb_spike_p",        p.ttfbSpikeP);
+    FindNumber(json, "ttfb_spike_ms",       p.ttfbSpikeMs);
+    FindNumber(json, "thr_sigma_ln",        p.thrSigmaLn);
+    FindNumber(json, "flush_jitter_ms",     p.flushJitterMs);
+    FindNumber(json, "late_chunk_p",        p.lateChunkP);
+    FindNumber(json, "late_chunk_extra_ms", p.lateChunkExtraMs);
+    FindNumber(json, "p_conn_reuse",        p.pConnReuse);
+    FindNumber(json, "new_conn_penalty_ms", p.newConnPenaltyMs);
+    FindInt   (json, "bursts_per_segment",  p.burstsPerSegment);
+
+    double meanMbps = 0.0;
+    if (FindNumber(json, "mean_thr_mbps", meanMbps) && meanMbps > 0.0)
+        p.meanThrLn = std::log(meanMbps * 1e6 / 8.0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IsLoaded / LoadFromFile
 // ─────────────────────────────────────────────────────────────────────────────
 
 bool AampNetworkPersona::IsLoaded() const
@@ -103,31 +127,78 @@ bool AampNetworkPersona::LoadFromFile(const std::string& path)
     buf << ifs.rdbuf();
     const std::string json = buf.str();
 
-    // Parse known fields; unrecognised fields are silently ignored.
-    FindNumber(json, "base_rtt_ms",         mBaseRttMs);
-    FindNumber(json, "rtt_jitter_ms",        mRttJitterMs);
-    FindNumber(json, "ttfb_spike_p",         mTtfbSpikeP);
-    FindNumber(json, "ttfb_spike_ms",        mTtfbSpikeMs);
-    FindNumber(json, "thr_sigma_ln",         mThrSigmaLn);
-    FindNumber(json, "flush_jitter_ms",      mFlushJitterMs);
-    FindNumber(json, "late_chunk_p",         mLateChunkP);
-    FindNumber(json, "late_chunk_extra_ms",  mLateChunkExtraMs);
-    FindNumber(json, "p_conn_reuse",         mPConnReuse);
-    FindNumber(json, "new_conn_penalty_ms",  mNewConnPenaltyMs);
-    FindInt   (json, "bursts_per_segment",   mBurstsPerSegment);
-
-    double meanMbps = 0.0;
-    if (FindNumber(json, "mean_thr_mbps", meanMbps) && meanMbps > 0.0)
+    // ── Detect sequence (array) vs single persona (object) ──────────────────
+    const std::size_t first = json.find_first_not_of(" \t\n\r");
+    if (first != std::string::npos && json[first] == '[')
     {
-        const double meanBytesPerSec = meanMbps * 1e6 / 8.0;
-        mMeanThrLn = std::log(meanBytesPerSec);
+        // Array of persona entries.  Extract each top-level {...} block.
+        int depth = 0;
+        std::size_t objStart = std::string::npos;
+        for (std::size_t i = 0; i < json.size(); ++i)
+        {
+            if (json[i] == '{') {
+                if (depth == 0) objStart = i;
+                ++depth;
+            } else if (json[i] == '}') {
+                --depth;
+                if (depth == 0 && objStart != std::string::npos) {
+                    const std::string entryJson = json.substr(objStart, i - objStart + 1);
+                    PersonaEntry entry;
+                    FindNumber(entryJson, "duration_s", entry.durationS);
+                    ParsePersonaParams(entryJson, entry.params);
+                    mSequence.push_back(std::move(entry));
+                    objStart = std::string::npos;
+                }
+            }
+        }
+        AAMPLOG_INFO("AampNetworkPersona: loaded sequence of %zu persona(s) from '%s'",
+                     mSequence.size(), path.c_str());
+    }
+    else
+    {
+        // Single persona object — backward-compatible.
+        PersonaEntry entry;
+        entry.durationS = 0.0; // run forever
+        ParsePersonaParams(json, entry.params);
+        mSequence.push_back(std::move(entry));
+        AAMPLOG_INFO("AampNetworkPersona: loaded single persona from '%s'", path.c_str());
+    }
+
+    if (mSequence.empty())
+    {
+        AAMPLOG_WARN("AampNetworkPersona: no valid entries found in '%s'", path.c_str());
+        return false;
     }
 
     mLoaded = true;
-    AAMPLOG_INFO("AampNetworkPersona: loaded '%s' "
-                 "(mean=%.1f Mbps, rtt=%.0f±%.0f ms, spike_p=%.3f)",
-                 path.c_str(), meanMbps, mBaseRttMs, mRttJitterMs, mTtfbSpikeP);
     return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CurrentParamsLocked  (must be called under mMutex)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AampNetworkPersona::PersonaParams& AampNetworkPersona::CurrentParamsLocked() const
+{
+    // For single-entry sequences there is nothing to track.
+    if (mSequence.size() == 1) return mSequence[0].params;
+
+    // Lazily start the sequence clock on the first sampling call.
+    if (!mSequenceStarted) {
+        mSequenceStarted = true;
+        mSequenceStart   = std::chrono::steady_clock::now();
+    }
+
+    const double elapsedS = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - mSequenceStart).count();
+
+    double cumulative = 0.0;
+    for (const auto& entry : mSequence) {
+        if (entry.durationS <= 0.0) return entry.params; // last/forever entry
+        cumulative += entry.durationS;
+        if (elapsedS < cumulative) return entry.params;
+    }
+    return mSequence.back().params; // past end of all explicit durations
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,29 +209,30 @@ double AampNetworkPersona::SampleTtfbMs(bool assumeNewConnection)
 {
     std::lock_guard<std::mutex> lk(mMutex);
     if (!mLoaded) return 0.0;
+    const PersonaParams& p = CurrentParamsLocked();
 
     double ttfbMs = 0.0;
 
     // New-connection TCP handshake / DNS penalty
     if (assumeNewConnection)
     {
-        ttfbMs += mNewConnPenaltyMs;
+        ttfbMs += p.newConnPenaltyMs;
     }
     else
     {
-        std::bernoulli_distribution connReuseDist(mPConnReuse);
+        std::bernoulli_distribution connReuseDist(p.pConnReuse);
         if (!connReuseDist(mRng))
-            ttfbMs += mNewConnPenaltyMs;
+            ttfbMs += p.newConnPenaltyMs;
     }
 
     // Base RTT with Gaussian jitter
-    std::normal_distribution<double> rttDist(mBaseRttMs, mRttJitterMs);
+    std::normal_distribution<double> rttDist(p.baseRttMs, p.rttJitterMs);
     ttfbMs += std::max(1.0, rttDist(mRng));
 
     // Occasional TTFB spike (server hiccup / head-of-line blocking)
-    std::bernoulli_distribution spikeDist(mTtfbSpikeP);
+    std::bernoulli_distribution spikeDist(p.ttfbSpikeP);
     if (spikeDist(mRng))
-        ttfbMs += mTtfbSpikeMs;
+        ttfbMs += p.ttfbSpikeMs;
 
     return ttfbMs;
 }
@@ -173,22 +245,23 @@ double AampNetworkPersona::SampleTransferMs(std::size_t bytes)
 {
     std::lock_guard<std::mutex> lk(mMutex);
     if (!mLoaded || bytes == 0) return 0.0;
+    const PersonaParams& p = CurrentParamsLocked();
 
     // Per-download independent throughput sample from the marginal lognormal
-    // distribution (no AR(1) carry-over between requests).
-    std::normal_distribution<double> thrDist(mMeanThrLn, mThrSigmaLn);
+    // distribution of the current persona (no AR(1) carry-over between requests).
+    std::normal_distribution<double> thrDist(p.meanThrLn, p.thrSigmaLn);
     const double effectiveBytesPerSec = std::exp(thrDist(mRng));
     double transferMs = (static_cast<double>(bytes) / effectiveBytesPerSec) * 1000.0;
 
     // Per-burst TCP flush jitter (models irregular delivery within a segment)
-    std::normal_distribution<double> flushDist(0.0, mFlushJitterMs);
-    for (int b = 0; b < mBurstsPerSegment; ++b)
+    std::normal_distribution<double> flushDist(0.0, p.flushJitterMs);
+    for (int b = 0; b < p.burstsPerSegment; ++b)
         transferMs += std::abs(flushDist(mRng));
 
     // Occasional stall — packet loss / retransmit event
-    std::bernoulli_distribution lateDist(mLateChunkP);
+    std::bernoulli_distribution lateDist(p.lateChunkP);
     if (lateDist(mRng))
-        transferMs += mLateChunkExtraMs;
+        transferMs += p.lateChunkExtraMs;
 
     return transferMs;
 }
