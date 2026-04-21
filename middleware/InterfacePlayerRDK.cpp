@@ -2713,7 +2713,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		// Send query to video playbin in pipeline.
 		// Special case include trickplay, where only video playbin is active
 		// This is to get the actual start position from video decoder/sink. If these element doesn't support the query appsrc should respond
-		if (gst_element_query(video->source, segmentQuery) == TRUE)setSourcePosition
+		if (gst_element_query(video->source, segmentQuery) == TRUE)
 		{
 			gint64 start;
 			gst_query_parse_segment(segmentQuery, NULL, NULL, &start, NULL);
