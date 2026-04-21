@@ -28,10 +28,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <map>
 #include <numeric>
 #include <unistd.h>
-#include <cjson/cJSON.h>
 
 #include "../AampLogManager.h"
 
@@ -447,46 +447,44 @@ bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath) const
 	FitRequests(requests, persona);
 	FitBursts(bursts, persona);
 
-	// Build JSON via cJSON
-	cJSON* root = cJSON_CreateObject();
-	if (!root) return false;
-
-	cJSON_AddNumberToObject(root, "base_rtt_ms", persona.baseRttMs);
-	cJSON_AddNumberToObject(root, "rtt_jitter_ms", persona.rttJitterMs);
-	cJSON_AddNumberToObject(root, "ttfb_spike_p", persona.ttfbSpikeP);
-	cJSON_AddNumberToObject(root, "ttfb_spike_ms", persona.ttfbSpikeMs);
-	cJSON_AddNumberToObject(root, "mean_thr_mbps", persona.meanThrMbps);
-	cJSON_AddNumberToObject(root, "thr_sigma_ln", persona.thrSigmaLn);
-	cJSON_AddNumberToObject(root, "thr_rho", persona.thrRho);
-	cJSON_AddNumberToObject(root, "bursts_per_segment", persona.burstsPerSegment);
-	cJSON_AddNumberToObject(root, "burst_bytes_cv", persona.burstBytesCv);
-	cJSON_AddNumberToObject(root, "cadence_ms", persona.cadenceMs);
-	cJSON_AddNumberToObject(root, "cadence_jitter_ms", persona.cadenceJitterMs);
-	cJSON_AddNumberToObject(root, "flush_jitter_ms", persona.flushJitterMs);
-	cJSON_AddNumberToObject(root, "late_chunk_p", persona.lateChunkP);
-	cJSON_AddNumberToObject(root, "late_chunk_extra_ms", persona.lateChunkExtraMs);
-	cJSON_AddNumberToObject(root, "p_conn_reuse", persona.pConnReuse);
-	cJSON_AddNumberToObject(root, "new_conn_penalty_ms", persona.newConnPenaltyMs);
-	cJSON_AddNumberToObject(root, "capacity_drop_p", persona.capacityDropP);
-	cJSON_AddNumberToObject(root, "capacity_drop_factor", persona.capacityDropFactor);
-	cJSON_AddNumberToObject(root, "rtt_inflation_ms", persona.rttInflationMs);
-
-	char* jsonStr = cJSON_Print(root);
-	cJSON_Delete(root);
-	if (!jsonStr) return false;
-
-	// Write to <basePath>.<pid>
+	// Write persona JSON using stream formatting (no external JSON library required)
 	std::string outputPath = basePath + "." + std::to_string(getpid());
 	std::ofstream ofs{outputPath, std::ios::trunc};
 	if (!ofs.is_open())
 	{
 		AAMPLOG_ERR("NetPersonaFitter: failed to open %s for writing", outputPath.c_str());
-		cJSON_free(jsonStr);
 		return false;
 	}
-	ofs << jsonStr;
+
+	ofs << std::setprecision(15);
+	ofs << "{\n"
+		<< "\t\"base_rtt_ms\": "         << persona.baseRttMs         << ",\n"
+		<< "\t\"rtt_jitter_ms\": "       << persona.rttJitterMs        << ",\n"
+		<< "\t\"ttfb_spike_p\": "        << persona.ttfbSpikeP         << ",\n"
+		<< "\t\"ttfb_spike_ms\": "       << persona.ttfbSpikeMs        << ",\n"
+		<< "\t\"mean_thr_mbps\": "       << persona.meanThrMbps        << ",\n"
+		<< "\t\"thr_sigma_ln\": "        << persona.thrSigmaLn         << ",\n"
+		<< "\t\"thr_rho\": "             << persona.thrRho             << ",\n"
+		<< "\t\"bursts_per_segment\": "  << persona.burstsPerSegment   << ",\n"
+		<< "\t\"burst_bytes_cv\": "      << persona.burstBytesCv       << ",\n"
+		<< "\t\"cadence_ms\": "          << persona.cadenceMs          << ",\n"
+		<< "\t\"cadence_jitter_ms\": "   << persona.cadenceJitterMs    << ",\n"
+		<< "\t\"flush_jitter_ms\": "     << persona.flushJitterMs      << ",\n"
+		<< "\t\"late_chunk_p\": "        << persona.lateChunkP         << ",\n"
+		<< "\t\"late_chunk_extra_ms\": " << persona.lateChunkExtraMs   << ",\n"
+		<< "\t\"p_conn_reuse\": "        << persona.pConnReuse         << ",\n"
+		<< "\t\"new_conn_penalty_ms\": " << persona.newConnPenaltyMs   << ",\n"
+		<< "\t\"capacity_drop_p\": "     << persona.capacityDropP      << ",\n"
+		<< "\t\"capacity_drop_factor\": "<< persona.capacityDropFactor << ",\n"
+		<< "\t\"rtt_inflation_ms\": "    << persona.rttInflationMs     << "\n"
+		<< "}\n";
+
+	if (!ofs)
+	{
+		AAMPLOG_ERR("NetPersonaFitter: write error for %s", outputPath.c_str());
+		return false;
+	}
 	ofs.close();
-	cJSON_free(jsonStr);
 
 	AAMPLOG_MIL("NetPersonaFitter: wrote persona JSON to %s (%zu requests, %zu bursts)",
 				outputPath.c_str(), requests.size(), bursts.size());

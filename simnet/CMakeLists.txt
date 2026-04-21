@@ -20,22 +20,16 @@ project(NetPersonaFitter)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBCJSON REQUIRED libcjson)
-
 # Parent AAMP root is one level up from this directory
 set(AAMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 include_directories(
     ${AAMP_ROOT}
-    ${LIBCJSON_INCLUDE_DIRS}
 )
 
 add_library(net_persona_fitter STATIC net_persona_fitter.cpp)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-
-target_link_libraries(net_persona_fitter ${LIBCJSON_LINK_LIBRARIES})
 
 set_target_properties(net_persona_fitter PROPERTIES
     PUBLIC_HEADER "net_persona_fitter.h"
@@ -45,3 +39,4 @@ install(TARGETS net_persona_fitter
     DESTINATION lib
     PUBLIC_HEADER DESTINATION include
 )
+
