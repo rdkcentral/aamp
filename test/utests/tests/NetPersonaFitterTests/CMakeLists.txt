@@ -23,7 +23,6 @@ include_directories(${AAMP_ROOT})
 include_directories(${AAMP_ROOT}/simnet)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
-include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 set(TEST_SOURCES
     NetPersonaFitterTests.cpp
@@ -47,7 +46,6 @@ target_link_libraries(${EXEC_NAME}
     net_persona_fitter
     fakes
     -lpthread
-    ${LIBCJSON_LINK_LIBRARIES}
     ${OS_LD_FLAGS}
     ${GMOCK_LINK_LIBRARIES}
     ${GTEST_LINK_LIBRARIES}

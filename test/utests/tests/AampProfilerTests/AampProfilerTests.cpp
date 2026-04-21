@@ -64,7 +64,7 @@ TEST_F(AampProfilertests, SetLatencyParamTest13)
 TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
 {
     TuneEndMetrics tuneMetricsData;
-    char tuneTimeStrPrefixdata[] = {1,2,3,4,5};
+    char tuneTimeStrPrefixdata[] = {1,2,3,4,5,'\0'};
     char *tuneTimeStrPrefix = tuneTimeStrPrefixdata;
     unsigned int licenseAcqNWTime = 2;
     bool playerPreBuffered = true;

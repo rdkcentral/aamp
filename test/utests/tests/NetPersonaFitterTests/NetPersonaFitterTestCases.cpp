@@ -28,12 +28,12 @@
 
 #include "net_persona_fitter.h"
 #include <gtest/gtest.h>
-#include <cjson/cJSON.h>
+#include <cmath>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <cstdio>
-#include <cmath>
 #include <unistd.h>
 
 namespace {
@@ -52,6 +52,18 @@ std::string ReadFile(const std::string& path)
 std::string GetOutputPath(const std::string& basePath)
 {
 	return basePath + "." + std::to_string(getpid());
+}
+
+/// Extract a numeric value from a flat JSON string for the given key.
+/// Returns NaN if the key is not found or the value is not parseable.
+double ExtractJsonDouble(const std::string& json, const std::string& key)
+{
+	std::string needle = "\"" + key + "\": ";
+	auto pos = json.find(needle);
+	if (pos == std::string::npos) return std::numeric_limits<double>::quiet_NaN();
+	pos += needle.size();
+	try { return std::stod(json.substr(pos)); }
+	catch (...) { return std::numeric_limits<double>::quiet_NaN(); }
 }
 
 } // anonymous namespace
@@ -147,13 +159,10 @@ TEST_F(NetPersonaFitterTest, RealisticDataProducesValidJson)
 	// Generate persona JSON
 	ASSERT_TRUE(fitter.GeneratePersonaJson(kBasePath));
 
-	// Read and parse the output
+	// Read the output file
 	std::string outputPath = GetOutputPath(kBasePath);
-	std::string jsonStr = ReadFile(outputPath);
-	ASSERT_FALSE(jsonStr.empty()) << "Persona JSON file is empty or missing: " << outputPath;
-
-	cJSON* root = cJSON_Parse(jsonStr.c_str());
-	ASSERT_NE(root, nullptr) << "Failed to parse persona JSON";
+	std::string json = ReadFile(outputPath);
+	ASSERT_FALSE(json.empty()) << "Persona JSON file is empty or missing: " << outputPath;
 
 	// Verify all 19 fields are present
 	const char* expectedFields[] = {
@@ -167,49 +176,42 @@ TEST_F(NetPersonaFitterTest, RealisticDataProducesValidJson)
 	};
 	for (const auto* field : expectedFields)
 	{
-		cJSON* item = cJSON_GetObjectItem(root, field);
-		EXPECT_NE(item, nullptr) << "Missing field: " << field;
-		if (item)
-		{
-			EXPECT_TRUE(cJSON_IsNumber(item)) << "Field not a number: " << field;
-		}
+		EXPECT_NE(json.find(field), std::string::npos) << "Missing field: " << field;
 	}
 
 	// Verify RTT estimates are in sane range
-	double baseRtt = cJSON_GetObjectItem(root, "base_rtt_ms")->valuedouble;
+	double baseRtt = ExtractJsonDouble(json, "base_rtt_ms");
 	EXPECT_GT(baseRtt, 20.0) << "base_rtt_ms too low";
 	EXPECT_LT(baseRtt, 40.0) << "base_rtt_ms too high (should reflect reused conns ~25-33ms)";
 
 	// Verify connection reuse probability
-	double pReuse = cJSON_GetObjectItem(root, "p_conn_reuse")->valuedouble;
+	double pReuse = ExtractJsonDouble(json, "p_conn_reuse");
 	EXPECT_NEAR(pReuse, 20.0 / 30.0, 0.05);
 
 	// Verify new connection penalty is positive (fresh > reused)
-	double penalty = cJSON_GetObjectItem(root, "new_conn_penalty_ms")->valuedouble;
+	double penalty = ExtractJsonDouble(json, "new_conn_penalty_ms");
 	EXPECT_GT(penalty, 0.0);
 
 	// Verify bursts per segment is reasonable (we fed 3-4 per request)
-	double bps = cJSON_GetObjectItem(root, "bursts_per_segment")->valuedouble;
+	double bps = ExtractJsonDouble(json, "bursts_per_segment");
 	EXPECT_GE(bps, 3.0);
 	EXPECT_LE(bps, 5.0);
 
 	// Verify cadence is in ~200ms range (our simulated gap)
-	double cadence = cJSON_GetObjectItem(root, "cadence_ms")->valuedouble;
+	double cadence = ExtractJsonDouble(json, "cadence_ms");
 	EXPECT_GT(cadence, 150.0);
 	EXPECT_LT(cadence, 250.0);
 
 	// Verify throughput is positive and finite
-	double thr = cJSON_GetObjectItem(root, "mean_thr_mbps")->valuedouble;
+	double thr = ExtractJsonDouble(json, "mean_thr_mbps");
 	EXPECT_GT(thr, 0.0);
 	EXPECT_TRUE(std::isfinite(thr));
 
 	// Static defaults
-	EXPECT_DOUBLE_EQ(cJSON_GetObjectItem(root, "capacity_drop_p")->valuedouble, 0.0);
-	EXPECT_DOUBLE_EQ(cJSON_GetObjectItem(root, "capacity_drop_factor")->valuedouble, 0.6);
-	EXPECT_DOUBLE_EQ(cJSON_GetObjectItem(root, "rtt_inflation_ms")->valuedouble, 0.0);
-	EXPECT_DOUBLE_EQ(cJSON_GetObjectItem(root, "flush_jitter_ms")->valuedouble, 6.0);
-
-	cJSON_Delete(root);
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "capacity_drop_p"),      0.0);
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "capacity_drop_factor"),  0.6);
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "rtt_inflation_ms"),      0.0);
+	EXPECT_DOUBLE_EQ(ExtractJsonDouble(json, "flush_jitter_ms"),       6.0);
 }
 
 /**
