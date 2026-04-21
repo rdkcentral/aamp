@@ -2696,7 +2696,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		// The player should be (and probably soon will be) in the playing state so don't exit early.
 		GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline) != GST_STATE_PLAYING) )
 	{
-		MW_LOG_INFO("ANJ: Pipeline is in %s state %s target state, paused=%d, state change ret=%d, (current state=%d, pending=%d), returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, ret, current, pending, rc);
+		MW_LOG_INFO("ANJ: Pipeline is in %s state %s target state, paused=%d, state change ret=%d, (current state=%d, pending=%d), Can't query position; returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, ret, current, pending, rc);
 		//MW_LOG_INFO("Pipeline is in %s state %s target state, paused=%d returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, rc);
 		return rc;
 	}
@@ -2713,7 +2713,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		// Send query to video playbin in pipeline.
 		// Special case include trickplay, where only video playbin is active
 		// This is to get the actual start position from video decoder/sink. If these element doesn't support the query appsrc should respond
-		if (gst_element_query(video->source, segmentQuery) == TRUE)
+		if (gst_element_query(video->source, segmentQuery) == TRUE)setSourcePosition
 		{
 			gint64 start;
 			gst_query_parse_segment(segmentQuery, NULL, NULL, &start, NULL);

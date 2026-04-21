@@ -1032,8 +1032,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 		return;
 	}
 
-	AAMPLOG_INFO("Flush start");
-	aamp->mIsFlushOperationInProgress = true;
+	AAMPLOG_INFO("ANJ:Flush start");
 	AAMPPlayerState state = aamp->GetState();
 	bool isAppSeek = false;
 	if(state == eSTATE_SEEKING)
@@ -1051,8 +1050,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 
 		aamp->mCorrectionRate = (double)AAMP_NORMAL_PLAY_RATE;
 	}
-	aamp->mIsFlushOperationInProgress = false;
-	AAMPLOG_INFO("Flush End");
+	AAMPLOG_INFO("ANJ:Flush End");
 }
 
 /**
