@@ -4829,16 +4829,26 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				if (!personaPath.empty())
 					AampNetworkPersona::Instance().LoadFromFile(personaPath);
 			}
-			double personaTtfbMs = 0.0;
 			if (AampNetworkPersona::Instance().IsLoaded())
 			{
-				personaTtfbMs = AampNetworkPersona::Instance().SampleTtfbMs();
-				if (personaTtfbMs > 0.5)
-					usleep(static_cast<useconds_t>(personaTtfbMs * 1000.0));
+				// Chunk the TTFB sleep into 50 ms slices so that StopDownloads()
+				// can interrupt it within one slice rather than the full TTFB delay.
+				double ttfbRemMs = AampNetworkPersona::Instance().SampleTtfbMs();
+				constexpr long long kTtfbChunkMs = 50LL;
+				while (ttfbRemMs > 0.5 && mDownloadsEnabled)
+				{
+					const long long sleepMs = std::min(ttfbRemMs, static_cast<double>(kTtfbChunkMs));
+					usleep(static_cast<useconds_t>(sleepMs * 1000.0));
+					ttfbRemMs -= static_cast<double>(sleepMs);
+				}
 			}
+			// Reset progress-callback start timestamps to after the TTFB sleep so
+			// that start/stall/low-BW timeout checks measure only actual curl
+			// transfer time, not the simulated pre-transfer delay.
+			progressCtx.downloadStartTime = context.downloadStartTime = NOW_STEADY_TS_MS;
 			long long tBeforeCurl = NOW_STEADY_TS_MS;
 
-			CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+			res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
 
 			// ── Network persona: idle sleep to reach predicted transfer time ─
 			const long long tActualCurlMs = NOW_STEADY_TS_MS - tBeforeCurl;
@@ -4846,9 +4856,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				const double predictedTransferMs =
 					AampNetworkPersona::Instance().SampleTransferMs(buffer.size());
-				const double idleMs = predictedTransferMs - static_cast<double>(tActualCurlMs);
-				if (idleMs > 1.0)
-					usleep(static_cast<useconds_t>(idleMs * 1000.0));
+				double idleMs = predictedTransferMs - static_cast<double>(tActualCurlMs);
+				// Chunk into 50 ms slices so that StopDownloads() can interrupt
+				// within one slice rather than blocking for the full idle duration.
+				constexpr long long kIdleChunkMs = 50LL;
+				while (idleMs > 0.5 && mDownloadsEnabled)
+				{
+					const long long sleepMs = std::min(idleMs, static_cast<double>(kIdleChunkMs));
+					usleep(static_cast<useconds_t>(sleepMs * 1000.0));
+					idleMs -= static_cast<double>(sleepMs);
+				}
 			}
 				// ---- Finalize recorder immediately after the perform ----
 				if (context.net) {

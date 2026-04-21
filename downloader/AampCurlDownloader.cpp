@@ -28,7 +28,7 @@
 #include <unistd.h>
 #include "AampLogManager.h"
 #include "AampDefine.h"
-#include "../AampNetworkPersona.h"
+#include "AampNetworkPersona.h"
 
 void _downloadConfig::show()
 {
@@ -199,11 +199,25 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 
 				// ── Network persona: TTFB sleep (test only) ─────────────────────
 				// Sleep before curl_easy_perform to simulate time-to-first-byte.
+				// The sleep is chunked into 50 ms slices so that Release() or a
+				// track-abort can interrupt it without waiting for the full TTFB delay.
+				// ttfbAborted is a separate flag so that httpRetVal (which may be
+				// non-zero on a retry iteration) does not incorrectly gate the sleep
+				// or the subsequent curl_easy_perform call.
+				bool ttfbAborted = false;
 				if (personaActive)
 				{
-					const double personaTtfbMs = AampNetworkPersona::Instance().SampleTtfbMs();
-					if (personaTtfbMs > 0.5)
-						usleep(static_cast<useconds_t>(personaTtfbMs * 1000.0));
+					double ttfbRemMs = AampNetworkPersona::Instance().SampleTtfbMs();
+					constexpr long long kTtfbChunkMs = 50LL;
+					while (ttfbRemMs > 0.5 && !ttfbAborted)
+					{
+						const long long sleepMs = std::min(ttfbRemMs, static_cast<double>(kTtfbChunkMs));
+						usleep(static_cast<useconds_t>(sleepMs * 1000.0));
+						ttfbRemMs -= static_cast<double>(sleepMs);
+						std::lock_guard<std::mutex> lk(mCurlMutex);
+						if (!mDownloadActive)
+							ttfbAborted = true;
+					}
 				}
 
 				// Reset download-progress timers AFTER the TTFB sleep so that
@@ -212,7 +226,10 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				// time that includes the simulated TTFB delay.
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 
-				httpRetVal = curl_easy_perform(mCurl);
+				if (ttfbAborted)
+					httpRetVal = CURLE_ABORTED_BY_CALLBACK;
+				else
+					httpRetVal = curl_easy_perform(mCurl);
 
 				// ── Network persona: idle sleep to reach predicted transfer time ─
 				// Pads remaining wall-clock time so that total elapsed
