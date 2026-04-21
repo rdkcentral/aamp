@@ -115,24 +115,6 @@ AampRialtoPlayer::AampRialtoPlayer(
 	{
 		m_notifiable = notifiable;
 	}
-	// Create per-source injection workers.  Both threads start immediately
-	// and block until the first needData + samples arrive.
-	// Back-pressure callbacks gate the AAMP download thread so the
-	// in-memory sample queue stays bounded.
-	auto makeInjectFn = [this](int32_t sid, uint32_t rid,
-		std::vector<QueuedSample> samples, bool eos)
-	{
-		return InjectSamples(sid, rid, std::move(samples), eos);
-	};
-	m_videoWorker = std::make_unique<SourceWorker>(
-		makeInjectFn,
-		[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_VIDEO); },
-		[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO); });
-	m_audioWorker = std::make_unique<SourceWorker>(
-		makeInjectFn,
-		[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_AUDIO); },
-		[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO); });
-
 	AAMPLOG_INFO("AampRialtoPlayer: constructed, aamp=%p", aamp);
 }
 
@@ -186,14 +168,35 @@ void AampRialtoPlayer::Configure(
 	m_videoMksId = -1;
 	m_audioMksId = -1;
 
-	// Flush per-source workers so stale queues don't bleed into the new tune.
+	// Re-use existing workers if present (re-tune path): flush clears all
+	// queued samples and pending requests without stopping the thread.
+	// Create workers on first tune when they do not yet exist.
+	auto makeInjectFn = [this](int32_t sid, uint32_t rid,
+		std::vector<QueuedSample> samples, bool eos)
+	{
+		return InjectSamples(sid, rid, std::move(samples), eos);
+	};
 	if (m_videoWorker)
 	{
 		m_videoWorker->flush();
 	}
+	else
+	{
+		m_videoWorker = std::make_unique<SourceWorker>(
+			makeInjectFn,
+			[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_VIDEO); },
+			[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO); });
+	}
 	if (m_audioWorker)
 	{
 		m_audioWorker->flush();
+	}
+	else
+	{
+		m_audioWorker = std::make_unique<SourceWorker>(
+			makeInjectFn,
+			[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_AUDIO); },
+			[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO); });
 	}
 	// NOTE: m_videoProt / m_audioProt are intentionally NOT reset here.
 	// QueueProtectionEvent() is called by AAMP before Configure() in the
@@ -818,25 +821,13 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	if (m_videoWorker)
 	{
 		m_videoWorker->stop();
+		m_videoWorker.reset();
 	}
 	if (m_audioWorker)
 	{
 		m_audioWorker->stop();
+		m_audioWorker.reset();
 	}
-	// Recreate workers so the player can be re-used after re-Configure().
-	auto makeInjectFn = [this](int32_t sid, uint32_t rid,
-		std::vector<QueuedSample> samples, bool eos)
-	{
-		return InjectSamples(sid, rid, std::move(samples), eos);
-	};
-	m_videoWorker = std::make_unique<SourceWorker>(
-		makeInjectFn,
-		[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_VIDEO); },
-		[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO); });
-	m_audioWorker = std::make_unique<SourceWorker>(
-		makeInjectFn,
-		[this]() { m_aamp->StopTrackDownloads(eMEDIATYPE_AUDIO); },
-		[this]() { m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO); });
 
 	if (m_pipeline)
 	{
