@@ -31,7 +31,7 @@ public:
     MOCK_METHOD(uint32_t, GetTimeScale, (), (const));
     MOCK_METHOD(MediaCodecInfo, GetCodecInfo, ());
     MOCK_METHOD(std::vector<MediaProtectionInfo>, GetProtectionEvents, ());
-    MOCK_METHOD(std::vector<AampMediaSample>, GetSamples, (std::shared_ptr<std::vector<uint8_t>> segment));
+    MOCK_METHOD(std::vector<AampMediaSample>, GetSamples, (const std::shared_ptr<std::vector<uint8_t>>& segment));
     MOCK_METHOD(Mp4ParseError, GetLastError, (), (const));
 };
 

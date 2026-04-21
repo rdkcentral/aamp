@@ -443,8 +443,10 @@ public:
 	 * from it.  
 	 *
 	 * @param segment Shared ownership of the buffer that was passed to Parse().
+	 *              May be nullptr when the caller guarantees the buffer outlives
+	 *              all returned samples (e.g. static test data).
 	 * @return Media samples vector with ownership transferred to caller
 	 */
-	std::vector<AampMediaSample>  GetSamples(std::shared_ptr<std::vector<uint8_t>> segment);
+	std::vector<AampMediaSample>  GetSamples(const std::shared_ptr<std::vector<uint8_t>>& segment);
 };
 #endif /* __MP4_DEMUX_H__ */

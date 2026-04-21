@@ -1475,7 +1475,7 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
  * @param segment Shared ownership of the buffer passed to Parse().
  * @return Media samples vector with ownership transferred to caller
  */
-std::vector<AampMediaSample> Mp4Demux::GetSamples(std::shared_ptr<std::vector<uint8_t>> segment)
+std::vector<AampMediaSample> Mp4Demux::GetSamples(const std::shared_ptr<std::vector<uint8_t>>& segment)
 {
 	for (auto& s : samples)
 		s.mSegment = segment;
