@@ -3970,7 +3970,7 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 	gint64 currentPos = 0;
 
         /* Gets the currentPTS from the 'video-pts' property of the element */
-	gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &currentPos)
+	gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &currentPos);
 
 	//if (currentPTS == privatePlayer->gstPrivateContext->lastKnownPTS)
 	if (currentPos == privatePlayer->gstPrivateContext->lastKnownPosition)
@@ -4056,17 +4056,12 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 				privatePlayer->gstPrivateContext->lastKnownPTS = pInterfacePlayerRDK->GetVideoPTS();			/* Gets the currentPTS from the 'video-pts' property of the element */
 #if 1//anj
 				{
-//				privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin//anj
-				//gint64 position = GST_CLOCK_TIME_NONE;
 				//gint64 pos = GST_CLOCK_TIME_NONE;
 				//gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
-				//if( gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &position) )
+				//if( gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &pos) )
 				if( gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &privatePlayer->gstPrivateContext->lastKnownPosition) )
 				{
-					long long play_pos_ms = GST_TIME_AS_MSECONDS(privatePlayer->gstPrivateContext->lastKnownPosition);
-					//long long play_pos_ms = GST_TIME_AS_MSECONDS(position);
-					MW_LOG_WARN("##ANJ:play_pos_ms = %" G_GINT64_FORMAT ", position(nano sec) = %" G_GINT64_FORMAT " ##", play_pos_ms, privatePlayer->gstPrivateContext->lastKnownPosition);
-					//MW_LOG_WARN("##ANJ:play_pos_ms = %" G_GINT64_FORMAT ", position = %lld ##", play_pos_ms, position);
+					MW_LOG_WARN("##ANJ:play_pos_ms = %" G_GINT64_FORMAT ", position(nano sec) = %" G_GINT64_FORMAT " ##", GST_TIME_AS_MSECONDS(privatePlayer->gstPrivateContext->lastKnownPosition), privatePlayer->gstPrivateContext->lastKnownPosition);
 				}
 				}
 #endif//anj
