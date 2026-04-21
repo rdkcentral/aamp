@@ -2722,11 +2722,30 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 			else
 			{
-				// For HLS Live, calculate latency based on live edge; round to nearest ms
-				latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
-				if(latency < 0)
-				{ // this should never happen!
-					AAMPLOG_ERR("HLS negative live latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+				if(mProgramDateTime > 0.0)
+				{
+					// For HLS Live with EXT-X-PROGRAM-DATE-TIME: calculate latency as the
+					// difference between the current wall-clock time and the wall-clock time
+					// at the player's current playback position (PDT origin + elapsed position).
+					// This avoids the sawtooth fluctuation caused by the live edge advancing
+					// in discrete segment-sized steps on each manifest refresh.
+					long long nowMs = aamp_GetCurrentTimeMS();
+					long long pdtAtCurrentPosMs = static_cast<long long>((mProgramDateTime + (reportFormattedCurrPos / 1000.0)) * 1000.0);
+					latency = static_cast<long>(nowMs - pdtAtCurrentPosMs);
+					if(latency < 0)
+					{ // this should never happen!
+						AAMPLOG_ERR("HLS PDT-based negative live latency = %ldms, nowMs = %lldms, pdtAtCurrentPosMs = %lldms", latency, nowMs, pdtAtCurrentPosMs);
+					}
+				}
+				else
+				{
+					// Fallback for HLS streams without EXT-X-PROGRAM-DATE-TIME:
+					// calculate latency based on live edge; round to nearest ms.
+					latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
+					if(latency < 0)
+					{ // this should never happen!
+						AAMPLOG_ERR("HLS negative live latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+					}
 				}
 			}
 			SetCurrentLatencyMs(latency);
