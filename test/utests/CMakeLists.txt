@@ -48,10 +48,8 @@ pkg_check_modules(GMOCK REQUIRED gmock)
 # "ignoring duplicate libraries".  Tests that only link GTEST_LINK_LIBRARIES
 # are unaffected because they don't use gmock and won't see duplication.
 foreach(_lib IN LISTS GMOCK_LINK_LIBRARIES)
-    list(REMOVE_ITEM GTEST_LINK_LIBRARIES ${_lib})
+	list(REMOVE_ITEM GTEST_LINK_LIBRARIES ${_lib})
 endforeach()
-message(STATUS "  GTest libraries: ${GTEST_LINK_LIBRARIES}")
-message(STATUS "  GMock libraries: ${GMOCK_LINK_LIBRARIES}")
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
