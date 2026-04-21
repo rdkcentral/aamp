@@ -59,7 +59,6 @@ developer layout), the canned personas from `aamp_test_internal` are
 immediately usable:
 
 ```
-~/repos/
   aamp/                          ← this repo
   aamp_test_internal/
     test/tools/abrsim/personas/
