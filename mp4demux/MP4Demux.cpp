@@ -1478,7 +1478,9 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
 std::vector<AampMediaSample> Mp4Demux::GetSamples(const std::shared_ptr<std::vector<uint8_t>>& segment)
 {
 	for (auto& s : samples)
+	{
 		s.mSegment = segment;
+	}
 	return std::move(samples);
 }
 
