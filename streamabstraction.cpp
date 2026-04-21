@@ -767,11 +767,10 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 	{
 		if (timeoutMs >= 0)
 		{
-			if (std::cv_status::timeout == fragmentChunkInjected.wait_for(lock,std::chrono::milliseconds(timeoutMs)))
-			{
-				AAMPLOG_DEBUG("[%s] pthread_cond_timedwait timed out", name);
-				ret = false;
-			}
+			AAMPLOG_DEBUG("[%s] waiting for fragmentChunkInjected condition (timeout %dms)", name, timeoutMs);
+			fragmentChunkInjected.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this] { // Predicate to avoid spurious wake ups
+				return numberOfFragmentChunksCached < mCachedFragmentChunksSize || abort;
+			});
 		}
 		else
 		{
@@ -786,9 +785,9 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 			AAMPLOG_DEBUG("[%s] abort set, returning false", name);
 			ret = false;
 		}
-		else if (numberOfFragmentChunksCached == mCachedFragmentChunksSize)
+		if (numberOfFragmentChunksCached == mCachedFragmentChunksSize)
 		{
-			AAMPLOG_DEBUG("[%s] cache still full (%d/%zu), returning false", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
+			AAMPLOG_DEBUG("[%s] fragmentChunkInjected timed out, buffer still full", name);
 			ret = false;
 		}
 	}
