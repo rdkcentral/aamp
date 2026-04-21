@@ -207,6 +207,7 @@ struct GstPlayerPriv
 	guint buffering_timeout_cnt;                                                     /**< make sure buffering_timeout doesn't get stuck */
 	GstState buffering_target_state;                                                 /**< the target state after buffering */
 	gint64 lastKnownPTS;                                                                     /**< To store the PTS of last displayed video */
+	gint64 lastKnownPosition;                                                                /**< To store the position of last displayed video */
 	long long ptsUpdatedTimeMS;                                                              /**< Timestamp when PTS was last updated */
 	guint ptsCheckForEosOnUnderflowIdleTaskId;                               /**< ID of task to ensure video PTS is not moving before notifying EOS on underflow. */
 	int numberOfVideoBuffersSent;                                                    /**< Number of video buffers sent to pipeline */

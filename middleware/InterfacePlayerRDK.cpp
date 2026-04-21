@@ -147,7 +147,8 @@ firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPen
 using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
-lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
+lastKnownPTS(0), lastKnownPosition(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
+/*lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),*/
 numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL),
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
@@ -1480,6 +1481,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	DestroyPipeline();
 	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
 	interfacePlayerPriv->gstPrivateContext->lastKnownPTS = 0;
+	interfacePlayerPriv->gstPrivateContext->lastKnownPosition = 0;
 	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
 	interfacePlayerPriv->gstPrivateContext->paused = false;
 	interfacePlayerPriv->gstPrivateContext->pipelineState = GST_STATE_NULL;
@@ -3965,15 +3967,22 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *) user_data;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gint64 currentPTS = pInterfacePlayerRDK->GetVideoPTS();                       /* Gets the currentPTS from the 'video-pts' property of the element */
+	gint64 currentPos = 0;
 
-	if (currentPTS == privatePlayer->gstPrivateContext->lastKnownPTS)
+        /* Gets the currentPTS from the 'video-pts' property of the element */
+	gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &currentPos)
+
+	//if (currentPTS == privatePlayer->gstPrivateContext->lastKnownPTS)
+	if (currentPos == privatePlayer->gstPrivateContext->lastKnownPosition)
 	{
-		MW_LOG_MIL("PTS not changed");
+		MW_LOG_MIL("Play position not changed");
+		//MW_LOG_MIL("PTS not changed");
 		pInterfacePlayerRDK->NotifyEOS();                                                             /* Notify EOS if the PTS has not changed */
 	}
 	else
 	{
-		MW_LOG_MIL("Video PTS still moving lastKnownPTS %" G_GUINT64_FORMAT " currentPTS %" G_GUINT64_FORMAT " ##", privatePlayer->gstPrivateContext->lastKnownPTS, currentPTS);
+//		MW_LOG_MIL("Video PTS still moving lastKnownPTS %" G_GUINT64_FORMAT " currentPTS %" G_GUINT64_FORMAT " ##", privatePlayer->gstPrivateContext->lastKnownPTS, currentPTS);
+		MW_LOG_MIL("Video Position still moving lastKnownPosition %" G_GUINT64_FORMAT " currentPosition %" G_GUINT64_FORMAT " ##", privatePlayer->gstPrivateContext->lastKnownPosition, currentPos);
 	}
 	privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = GST_TASK_ID_INVALID;
 	return G_SOURCE_REMOVE;
@@ -4045,6 +4054,22 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 			if (!privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 			{
 				privatePlayer->gstPrivateContext->lastKnownPTS = pInterfacePlayerRDK->GetVideoPTS();			/* Gets the currentPTS from the 'video-pts' property of the element */
+#if 1//anj
+				{
+//				privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin//anj
+				//gint64 position = GST_CLOCK_TIME_NONE;
+				//gint64 pos = GST_CLOCK_TIME_NONE;
+				//gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
+				//if( gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &position) )
+				if( gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &privatePlayer->gstPrivateContext->lastKnownPosition) )
+				{
+					long long play_pos_ms = GST_TIME_AS_MSECONDS(privatePlayer->gstPrivateContext->lastKnownPosition);
+					//long long play_pos_ms = GST_TIME_AS_MSECONDS(position);
+					MW_LOG_WARN("##ANJ:play_pos_ms = %" G_GINT64_FORMAT ", position(nano sec) = %" G_GINT64_FORMAT " ##", play_pos_ms, privatePlayer->gstPrivateContext->lastKnownPosition);
+					//MW_LOG_WARN("##ANJ:play_pos_ms = %" G_GINT64_FORMAT ", position = %lld ##", play_pos_ms, position);
+				}
+				}
+#endif//anj
 				privatePlayer->gstPrivateContext->ptsUpdatedTimeMS = NOW_STEADY_TS_MS;
 				privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = g_timeout_add(GST_DELAY_BETWEEN_PTS_CHECK_FOR_EOS_ON_UNDERFLOW, VideoDecoderPtsCheckerForEOS, pInterfacePlayerRDK);
 				/*g_timeout_add - Sets the function VideoDecoderPtsCheckerForEOS to be called at regular intervals*/
