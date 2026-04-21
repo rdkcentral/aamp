@@ -622,7 +622,8 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		AAMPLOG_TRACE("[%" BITSPERSECOND_FORMAT "] : %s,",url.first, url.second.url.c_str());
 	}
 
-	double scaledPts = static_cast<double>(pMediaStreamContext->fragmentDescriptor.Time) / static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale);
+	AampTicks ticks(pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->fragmentDescriptor.TimeScale);
+	double scaledPts = AampTime(ticks).inSeconds();
 	DownloadInfoPtr downloadInfo = std::make_shared<DownloadInfo>(
 		static_cast<AampMediaType>(pMediaStreamContext->type),
 		static_cast<AampCurlInstance>(curlInstance),

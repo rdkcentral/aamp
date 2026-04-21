@@ -79,6 +79,15 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
 		cachedFragment->PTSOffsetSec = mActiveDownloadInfo->ptsOffset.inSeconds();
+		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
+		 * the last segment from the previous period has been injected, hence we copy it
+		 */
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		{
+			// apply pts offset to position which ends up getting put into gst_buffer in sendHelper
+			position += mActiveDownloadInfo->ptsOffset.inSeconds();
+			AAMPLOG_INFO("Type[%d] position after restamp = %fs", type, position);
+		}
 	}
 	else
 	{
@@ -562,12 +571,6 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	};
 
 	cachedFragment->position = dlInfo->pts;
-	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
-	{
-		// apply pts offset to position for restamped pts
-		cachedFragment->position += dlInfo->ptsOffset.inSeconds();
-		AAMPLOG_INFO("Type[%s] position after restamp = %fs", name, cachedFragment->position);
-	}
 	cachedFragment->duration = dlInfo->fragmentDurationSec;
 	cachedFragment->discontinuity = dlInfo->isDiscontinuity;
 	segDLFailCount = 0;

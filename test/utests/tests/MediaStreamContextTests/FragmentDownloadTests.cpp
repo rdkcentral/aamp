@@ -33,11 +33,6 @@
 #include "StreamAbstractionAAMP.h"
 
 using namespace testing;
-// Named constants for clarity
-static constexpr bool CHUNK_MODE_ENABLED{true};
-static constexpr bool CHUNK_MODE_DISABLED{false};
-static constexpr bool PTS_RESTAMP_ENABLED{true};
-static constexpr bool PTS_RESTAMP_DISABLED{false};
 
 /*
  * Test cases for FragmentDownloadTests
@@ -109,92 +104,72 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_NullActiveDownloadInfo)
 }
 
 /**
- * @brief Struct to hold parameterized test data for download success scenarios
+ * @brief Test case for OnFragmentDownloadSuccess with a valid download info
  */
-struct DownloadSuccessTestData
+TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_ValidDownloadInfo)
 {
-	bool chunkMode;
-	bool ptsRestampEnabled;
-};
-
-/**
- * @brief Parameterized test cases for OnFragmentDownloadSuccess
- */
-DownloadSuccessTestData validDownloadTestData[] = {
-	{CHUNK_MODE_DISABLED, PTS_RESTAMP_DISABLED},
-	{CHUNK_MODE_DISABLED, PTS_RESTAMP_ENABLED},
-	{CHUNK_MODE_ENABLED, PTS_RESTAMP_DISABLED},
-	{CHUNK_MODE_ENABLED, PTS_RESTAMP_ENABLED}};
-
-/**
- * @brief Parameterized test fixture for OnFragmentDownloadSuccess
- */
-class FragmentDownloadSuccessParamTest
-	: public FragmentDownloadTests,
-	  public ::testing::WithParamInterface<DownloadSuccessTestData>
-{
-};
-
-/**
- * @brief Test case for OnFragmentDownloadSuccess with various configurations
- */
-TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
-{
-	const auto &param = GetParam();
-	bool chunkMode = param.chunkMode;
-	bool ptsRestampEnabled = param.ptsRestampEnabled;
-
 	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
 	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
 	dlInfo->pts = 123.45;
 	dlInfo->fragmentDurationSec = 5.0;
 	dlInfo->isDiscontinuity = false;
-	dlInfo->ptsOffset = 1000;
 
-	// Mock necessary method calls and return values
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 
-	// Mock buffer creation for the test
+	// Mock the behavior of GetFetchBuffer, create a dummy CachedFragment
+	// and append some data to it to simulate a buffer
 	auto cachedFragment = std::make_shared<CachedFragment>();
-	const char* testData = "test";
-	cachedFragment->fragment.assign(testData, testData + strlen(testData));
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false)).WillOnce(Return(cachedFragment.get()));
+	cachedFragment->fragment.AppendBytes("test", 4);
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
+		.WillOnce(Return(cachedFragment.get()));
 
-	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(chunkMode));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunkMode));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(ptsRestampEnabled));
-	EXPECT_CALL(*g_mockAampTimeBasedBufferManager, ConsumeBuffer(dlInfo->fragmentDurationSec)).Times(chunkMode ? 1 : 0);
+	// Mock the behavior of IsInjectionFromCachedFragmentChunks, return as non-chunk/non-TSB mode
+	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks())
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 
+	// Test the behavior of OnFragmentDownloadSuccess in non-chunk mode	
 	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch(_));
-	if (chunkMode)
-	{
-		EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterInject());
-	}
-
 	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
-
-	// PTS restamp expectation
-	if (ptsRestampEnabled)
-	{
-		EXPECT_EQ(cachedFragment->position, dlInfo->pts + dlInfo->ptsOffset.inSeconds());
-	}
-	else
-	{
-		EXPECT_EQ(cachedFragment->position, dlInfo->pts);
-	}
-
+	// Free the cached fragment
 	cachedFragment->fragment.Free();
 }
 
 /**
- * @brief Instantiate parameterized tests for OnFragmentDownloadSuccess
+ * @brief Test case for OnFragmentDownloadSuccess with a valid download info as chunk mode
  */
-INSTANTIATE_TEST_SUITE_P(
-	AllDownloadVariants,
-	FragmentDownloadSuccessParamTest,
-	::testing::ValuesIn(validDownloadTestData));
+TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_ValidDownloadInfoChunk)
+{
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->pts = 123.45;
+	dlInfo->fragmentDurationSec = 5.0;
+	dlInfo->isDiscontinuity = false;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+
+	// Mock the behavior of GetFetchBuffer, create a dummy CachedFragment
+	// and append some data to it to simulate a buffer
+	auto cachedFragment = std::make_shared<CachedFragment>();
+	cachedFragment->fragment.AppendBytes("test", 4);
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
+		.WillOnce(Return(cachedFragment.get()));
+	
+	// Mock the behavior of IsInjectionFromCachedFragmentChunks, return as chunk mode
+	EXPECT_CALL(*g_mockMediaTrack, IsInjectionFromCachedFragmentChunks())
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
+	
+	// Tes the behaviour of OnFragmentDownloadSuccess in chunk mode
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch(_));
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterInject());
+	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
+	cachedFragment->fragment.Free();
+}
 
 /**
  * @brief Test case for onFragmentDownloadFailed with null active download info
