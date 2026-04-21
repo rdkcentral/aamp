@@ -2125,9 +2125,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// If beginningOfStream is true or position < start, it means rewind has reached BoS
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
-		{ // clamp start or handle BOS during rewind
-			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
-				position, start, beginningOfStream, rate);
+		{
+			AAMPLOG_WARN( "clamp position %fms < start %fms", position, start );
 			position = start;
 			reachedStart = true;
 		}
@@ -3366,8 +3365,22 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		/* If rate is normal play, no need to seek to live etc. This can be due to the EPG changing rate from RWD to play near begging of the TSB. */
 		if (rate < AAMP_RATE_PAUSE)
 		{
+			seek_pos_seconds = culledSeconds;
+			AAMPLOG_WARN("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
+			if (trickStartUTCMS == -1)
+			{
+				// Resetting trickStartUTCMS if it's default due to no first frame on high speed rewind. This enables MonitorProgress to
+				// send BOS event to JSPP
+				ResetTrickStartUTCTime();
+				AAMPLOG_INFO("Resetting trickStartUTCMS to %lld since no first frame on trick play rate %f", trickStartUTCMS, rate);
+			}
 			// A new report progress event to be emitted with position 0 when rewind reaches BOS
 			MonitorProgress(true, true);
+			rate = AAMP_NORMAL_PLAY_RATE;
+			AcquireStreamLock();
+			TuneHelper(eTUNETYPE_SEEK);
+			ReleaseStreamLock();
+			NotifySpeedChanged(rate);
 		}
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
