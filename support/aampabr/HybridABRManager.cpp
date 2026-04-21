@@ -54,12 +54,10 @@
 	} while (0)
 
 
-#define AAMPABRLOG_TRACE(FORMAT, ...) AAMPABRLOG(eAAMPAbrConfig.tracelogging,"TRACE",FORMAT, ##__VA_ARGS__)
-#define AAMPABRLOG_INFO(FORMAT, ...)  AAMPABRLOG(eAAMPAbrConfig.infologging,"INFO",FORMAT, ##__VA_ARGS__)
-#define AAMPABRLOG_WARN(FORMAT, ...)  AAMPABRLOG(eAAMPAbrConfig.warnlogging,"WARN",FORMAT, ##__VA_ARGS__)
-#define AAMPABRLOG_ERR(FORMAT, ...)   AAMPABRLOG(eAAMPAbrConfig.debuglogging,"ERROR",FORMAT, ##__VA_ARGS__)
-
-HybridABRManager::AampAbrConfig eAAMPAbrConfig;
+#define AAMPABRLOG_TRACE(FORMAT, ...) AAMPABRLOG(mAbrConfig.tracelogging,"TRACE",FORMAT, ##__VA_ARGS__)
+#define AAMPABRLOG_INFO(FORMAT, ...)  AAMPABRLOG(mAbrConfig.infologging,"INFO",FORMAT, ##__VA_ARGS__)
+#define AAMPABRLOG_WARN(FORMAT, ...)  AAMPABRLOG(mAbrConfig.warnlogging,"WARN",FORMAT, ##__VA_ARGS__)
+#define AAMPABRLOG_ERR(FORMAT, ...)   AAMPABRLOG(mAbrConfig.debuglogging,"ERROR",FORMAT, ##__VA_ARGS__)
 
 /**
  * @struct SpeedCache
@@ -90,23 +88,23 @@ struct SpeedCache
  */
 void HybridABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 {
-	eAAMPAbrConfig.abrCacheLife     =  mAampAbrConfig->abrCacheLife;
-	eAAMPAbrConfig.abrCacheLength   =  mAampAbrConfig->abrCacheLength;
-	eAAMPAbrConfig.abrSkipDuration  =  mAampAbrConfig->abrSkipDuration;
-	eAAMPAbrConfig.abrNwConsistency =  mAampAbrConfig->abrNwConsistency;
-	eAAMPAbrConfig.abrThresholdSize =  mAampAbrConfig->abrThresholdSize;
-	eAAMPAbrConfig.abrMaxBuffer     =  mAampAbrConfig->abrMaxBuffer;
-	eAAMPAbrConfig.abrMinBuffer     =  mAampAbrConfig->abrMinBuffer;
-	eAAMPAbrConfig.abrCacheOutlier  =  mAampAbrConfig->abrCacheOutlier;
-	eAAMPAbrConfig.abrBufferCounter =  mAampAbrConfig->abrBufferCounter;
+	mAbrConfig.abrCacheLife     =  mAampAbrConfig->abrCacheLife;
+	mAbrConfig.abrCacheLength   =  mAampAbrConfig->abrCacheLength;
+	mAbrConfig.abrSkipDuration  =  mAampAbrConfig->abrSkipDuration;
+	mAbrConfig.abrNwConsistency =  mAampAbrConfig->abrNwConsistency;
+	mAbrConfig.abrThresholdSize =  mAampAbrConfig->abrThresholdSize;
+	mAbrConfig.abrMaxBuffer     =  mAampAbrConfig->abrMaxBuffer;
+	mAbrConfig.abrMinBuffer     =  mAampAbrConfig->abrMinBuffer;
+	mAbrConfig.abrCacheOutlier  =  mAampAbrConfig->abrCacheOutlier;
+	mAbrConfig.abrBufferCounter =  mAampAbrConfig->abrBufferCounter;
 
 	//Logging Level 
 
-	eAAMPAbrConfig.infologging     =  mAampAbrConfig->infologging;
-	eAAMPAbrConfig.debuglogging    = mAampAbrConfig->debuglogging;
-	eAAMPAbrConfig.tracelogging    = mAampAbrConfig->tracelogging;
-	eAAMPAbrConfig.warnlogging     = mAampAbrConfig->warnlogging;
-	logprintf("[%s][%d]PlayerConfig : ABRCacheLife %d ,ABRCacheLength %d ,ABRSkipDuration %d , ABRNwConsistency %d ,ABRThresholdSize %d ,ABRMaxBuffer %d ,ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",__FUNCTION__,__LINE__,eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
+	mAbrConfig.infologging     =  mAampAbrConfig->infologging;
+	mAbrConfig.debuglogging    = mAampAbrConfig->debuglogging;
+	mAbrConfig.tracelogging    = mAampAbrConfig->tracelogging;
+	mAbrConfig.warnlogging     = mAampAbrConfig->warnlogging;
+	logprintf("[%s][%d]PlayerConfig : ABRCacheLife %d ,ABRCacheLength %d ,ABRSkipDuration %d , ABRNwConsistency %d ,ABRThresholdSize %d ,ABRMaxBuffer %d ,ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",__FUNCTION__,__LINE__,mAbrConfig.abrCacheLife,mAbrConfig.abrCacheLength,mAbrConfig.abrSkipDuration,mAbrConfig.abrNwConsistency,mAbrConfig.abrThresholdSize,mAbrConfig.abrMaxBuffer,mAbrConfig.abrMinBuffer,mAbrConfig.abrCacheOutlier,mAbrConfig.abrBufferCounter);
 }
 
 
@@ -143,7 +141,7 @@ void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLength(std::vector < std:
 	}
 	else
 	{
-		if(mAbrBitrateData.size() > eAAMPAbrConfig.abrCacheLength)
+		if(mAbrBitrateData.size() > mAbrConfig.abrCacheLength)
 			mAbrBitrateData.erase(mAbrBitrateData.begin());
 	}
 }
@@ -159,7 +157,7 @@ void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::p
 	for (bitrateIter = mAbrBitrateData.begin(); bitrateIter != mAbrBitrateData.end();)
 	{
 		//AAMPLOG_WARN("Sz[%d] TimeCheck Pre[%lld] Sto[%lld] diff[%lld] bw[%ld] ",mAbrBitrateData.size(),presentTime,(*bitrateIter).first,(presentTime - (*bitrateIter).first),(long)(*bitrateIter).second);
-		if ((bitrateIter->first <= 0) || (presentTime - bitrateIter->first > eAAMPAbrConfig.abrCacheLife))
+		if ((bitrateIter->first <= 0) || (presentTime - bitrateIter->first > mAbrConfig.abrCacheLife))
 		{
 			bitrateIter = mAbrBitrateData.erase(bitrateIter);
 		}
@@ -198,7 +196,7 @@ long HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long
 
 	long diffOutlier = 0;
 	avg = 0;
-	abrOutlierDiffBytes = eAAMPAbrConfig.abrCacheOutlier ;
+	abrOutlierDiffBytes = mAbrConfig.abrCacheOutlier ;
 	for (tmpDataIter = tmpData.begin();tmpDataIter != tmpData.end();)
 	{
 		diffOutlier = (*tmpDataIter) > medianbps ? (*tmpDataIter) - medianbps : medianbps - (*tmpDataIter);
@@ -238,7 +236,7 @@ bool HybridABRManager::CheckProfileChange(double totalFetchedDuration ,int currP
 	bool checkProfileChange = true;
 	long currBW = getBandwidthOfProfile(currProfileIndex);
 	//Avoid doing ABR during initial buffering which will affect tune times adversely
-	if ( totalFetchedDuration > 0 && totalFetchedDuration < eAAMPAbrConfig.abrSkipDuration)
+	if ( totalFetchedDuration > 0 && totalFetchedDuration < mAbrConfig.abrSkipDuration)
 	{
 		AAMPABRLOG_TRACE("[%s][%d] TotalFetchedDuration %lf ",__FUNCTION__,__LINE__,totalFetchedDuration);
 		//For initial fragment downloads, check available bw is less than default bw
@@ -273,7 +271,7 @@ void HybridABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newPr
 		{
 			// Rampup attempt . check if buffer availability is good before profile change
 			// else retain current profile
-			if(bufferValue < eAAMPAbrConfig.abrMaxBuffer)
+			if(bufferValue < mAbrConfig.abrMaxBuffer)
 				newProfileIndex = currProfileIndex;
 		}
 		else if (! GetLowLatencyServiceConfigured())
@@ -310,7 +308,7 @@ void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newP
 		AAMPABRLOG_WARN("Attempted rampup from steady state ->currProf:%d newProf:%d bufferValue:%lf threshold:%d(30)",
 				currProfileIndex,newProfileIndex,bufferValue,abrThreshold);
 		mRampupFromSteadyStateLoop = (++mRampupFromSteadyStateLoop >4)?1:mRampupFromSteadyStateLoop;
-		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,mRampupFromSteadyStateLoop);
+		mMaxBufferCountCheck =  pow(mAbrConfig.abrBufferCounter,mRampupFromSteadyStateLoop);
 		mhBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL;
 	}
 }
@@ -322,7 +320,7 @@ void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newP
 void HybridABRManager::CheckRampdownFromSteadyState(int currProfileIndex, int &newProfileIndex,BitrateChangeReason &mBitrateReason,int mABRLowBufferCounter,const std::string& periodId)
 {
 	AAMPABRLOG_INFO("[%s][%d] currProfileIndex %d ,newProfileIndex %d, mABRLowBufferCounter %d",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,mABRLowBufferCounter);
-	if(mABRLowBufferCounter >= eAAMPAbrConfig.abrBufferCounter)
+	if(mABRLowBufferCounter >= mAbrConfig.abrBufferCounter)
 	{
 		newProfileIndex = getRampedDownProfileIndex(currProfileIndex,periodId);
 		if(newProfileIndex  != currProfileIndex)
@@ -426,7 +424,7 @@ void HybridABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcach
  */
 long HybridABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
 {
-	double bufferPercentage = ((double)currentBuffer / eAAMPAbrConfig.abrMaxBuffer) * 100;
+	double bufferPercentage = ((double)currentBuffer / mAbrConfig.abrMaxBuffer) * 100;
 	long desiredProfilebw = 0;
 	long currentbw = getBandwidthOfProfile(currentProfileIndex);
 	std::vector<ProfileInfo> availableProfiles = getProfileInfo();

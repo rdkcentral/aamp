@@ -514,6 +514,12 @@ public:
 	 */
 	BitsPerSecond FragmentfailureRampdown(int currentBuffer,int currentProfileIndex);
 	
+	/**
+	 * @brief Get the current ABR configuration (read-only)
+	 * @return const reference to the per-instance ABR configuration
+	 */
+	const AampAbrConfig& getAbrConfig() const { return mAbrConfig; }
+	
 private:
 	bool bLowLatencyStartABR;             /**<Low Latency ABR Start Status */
 	bool bLowLatencyServiceConfigured;    /**<Low Latency Service Configuration Status */
@@ -580,6 +586,11 @@ private:
 	 * @brief Default iframe bitrate
 	 */
 	BitsPerSecond mDefaultIframeBitrate = 0;
+	/**
+	 * @brief Per-instance ABR configuration
+	 */
+	AampAbrConfig mAbrConfig{};
+
 	/**
 	 * @brief Default init bitrate value.
 	 */
