@@ -64,8 +64,8 @@ TestParams testCases[] =
 {
 	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
 	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
-	// Non-TSB, non-LLD-chunk DASH: isDash=1 in IsInjectionFromCachedFragmentChunks() routes
-	// fragments through CacheTsbFragment → chunk cache, so expectedFragmentChunksCached=1.
+	// Non-TSB, non-LLD-chunk DASH: CacheStagingFragmentForInjection() routes all plain SLD
+	// DASH fragments through the chunk cache, so expectedFragmentChunksCached=1.
 	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},

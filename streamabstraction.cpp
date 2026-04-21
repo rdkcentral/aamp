@@ -2001,6 +2001,18 @@ void MediaTrack::FlushFragments()
 	totalFragmentChunksDownloaded = 0;
 	// We need to revisit if these variables should be also sync using mTrackParamsMutex
 	totalInjectedChunksDuration = 0;
+
+	// For audio/subtitle tracks that are not mid-switch, reset the business-logic
+	// lifetime counters so that post-flush callers (GetBufferStatus, HandleTrackChange,
+	// ABR) start from a clean slate for the new track content.  These counters are
+	// protected by mTrackParamsMutex (separate from the ring-buffer mutex above).
+	if (( type == eTRACK_AUDIO && !loadNewAudio ) || ( type == eTRACK_SUBTITLE && !loadNewSubtitle ))
+	{
+		std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+		totalFetchedDuration = 0;
+		totalFragmentsDownloaded = 0;
+		totalInjectedDuration = 0;
+	}
 }
 
 
