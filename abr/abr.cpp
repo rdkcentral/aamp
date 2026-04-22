@@ -278,7 +278,6 @@ void ABRManager::updateProfile()
 			iframeTrackInfo.push_back(info);
 		}
 	}
-	lock.unlock();
 	
 	// Exists iframe track
 	size_t iframeTrackCount = iframeTrackInfo.size();
@@ -336,6 +335,7 @@ void ABRManager::updateProfile()
 			}
 		}
 	}
+	lock.unlock();
 	
 #if defined(DEBUG_ENABLED)
 	AAMPLOG_MIL("Update profile info, mDesiredIframeProfile = %d, mLowestIframeProfile = %d", mDesiredIframeProfile, mLowestIframeProfile);

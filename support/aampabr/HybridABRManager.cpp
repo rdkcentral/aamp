@@ -307,11 +307,10 @@ void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newP
 		newProfileIndex = nProfileIdx;
 	if(newProfileIndex  != currProfileIndex)
 	{
-		static int loop = 1;
 		AAMPABRLOG_WARN("Attempted rampup from steady state ->currProf:%d newProf:%d bufferValue:%lf threshold:%d(30)",
 				currProfileIndex,newProfileIndex,bufferValue,abrThreshold);
-		loop = (++loop >4)?1:loop;
-		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,loop);
+		mRampupFromSteadyStateLoop = (++mRampupFromSteadyStateLoop >4)?1:mRampupFromSteadyStateLoop;
+		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,mRampupFromSteadyStateLoop);
 		mhBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL;
 	}
 }
