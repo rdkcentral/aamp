@@ -3552,7 +3552,7 @@ bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
 		}
 		count--;
 	}
-	AAMPLOG_WARN("track %s numberOfFragmentChunksCached - %d, cachedDuration - %f", name, numberOfFragmentChunksCached, cachedDuration);
+	AAMPLOG_WARN("track %s numberOfFragmentChunksCached %d, cachedDuration %f", name, numberOfFragmentChunksCached, cachedDuration);
 
 	return ret;
 }
