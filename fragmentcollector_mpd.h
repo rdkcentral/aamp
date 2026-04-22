@@ -922,11 +922,10 @@ protected:
 	/**
 	 * @fn HandleSeekEOSAndPeriodTransition
 	 * @param remainingSeek remaining seek time after skipping fragments
-	 * @param pMediaStreamContext current track context from SeekInPeriod
 	 * @param skipToEnd true when seek operation is a seek-to-end
 	 * @return true if period switched; false otherwise
 	 */
-	bool HandleSeekEOSAndPeriodTransition(double remainingSeek, MediaStreamContext *pMediaStreamContext, bool skipToEnd);
+	bool HandleSeekEOSAndPeriodTransition(double remainingSeek, bool skipToEnd);
 
 	/**
 	 * @fn SeekInPeriod

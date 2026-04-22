@@ -2287,14 +2287,18 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
  * @brief If SkipFragments reaches EOS and an additional playable period is available, switch to the next period.
  */
 bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainingSeek,
-	MediaStreamContext *pMediaStreamContext,
 	bool skipToEnd)
 {
-	bool switchToNextPeriod = (!skipToEnd) &&
-		(mpd != NULL) &&
-		(mMPDParseHelper != NULL) &&
-		(pMediaStreamContext != NULL) &&
-		(pMediaStreamContext->eos);
+	bool switchToNextPeriod = false;
+
+	for (int i = 0; i < mNumberOfTracks; i++)
+	{
+		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->eos)
+		{
+			switchToNextPeriod = true;
+			break;
+		}
+	}
 
 	if (!switchToNextPeriod)
 	{
@@ -2342,6 +2346,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
  */
 void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool skipToEnd)
 {
+	double trackRemainingSeek = 0.0;
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
 		if (!mMediaStreamContext[i])
@@ -2349,7 +2354,6 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 			continue;
 		}
 
-		double trackRemainingSeek = 0.0;
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
 			double skipTime = seekPositionSeconds;
@@ -2360,8 +2364,8 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
 		}
 
-		HandleSeekEOSAndPeriodTransition(trackRemainingSeek, mMediaStreamContext[i], skipToEnd);
 	}
+	HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd);
 }
 
 /**
