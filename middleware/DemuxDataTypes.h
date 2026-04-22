@@ -274,6 +274,35 @@ struct MediaSample
 	MediaSample() = default;
 
 	/**
+	 * @brief Constructor from shared_ptr (zero-copy; for pre-allocated buffers).
+	 *
+	 * Takes shared ownership of an existing byte buffer (e.g. an aliased
+	 * pointer produced by the MP4 demuxer) without any byte-level copy.
+	 * Typically used when bridging from AampMediaSample to MediaSample across
+	 * the GStreamer domain boundary.
+	 *
+	 * @param data      Shared ownership of the raw payload bytes.
+	 * @param dataSize  Byte count of the payload.
+	 * @param pts       Presentation timestamp
+	 * @param dts       Decode timestamp
+	 * @param duration  Sample duration
+	 * @param drm       DRM metadata (consumed)
+	 * @param ptsOffset PTS offset (default 0.0)
+	 */
+	MediaSample(std::shared_ptr<uint8_t> data, size_t dataSize,
+	            double pts, double dts, double duration,
+	            MediaDrmMetadata&& drm, double ptsOffset = 0.0)
+		: mData(std::move(data))
+		, mDataSize(dataSize)
+		, mPts(pts)
+		, mDts(dts)
+		, mDuration(duration)
+		, mPtsOffset(ptsOffset)
+		, mDrmMetadata(std::move(drm))
+	{
+	}
+
+	/**
 	 * @brief Constructor from vector (zero-copy via aliasing shared_ptr).
 	 *
 	 * Moves the vector to the heap and uses the shared_ptr aliasing constructor

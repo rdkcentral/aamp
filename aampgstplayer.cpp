@@ -1361,7 +1361,7 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  * @brief Inject AampMediaSample to gstreamer pipeline
  * 
  * @param[in] mediaType - Media type
- * @param[in,out] sample - Media sample to inject
+ * @param[in] sample - Media sample to inject (consumed; caller must not access after this call)
  * @return true if sample is successfully injected, false otherwise
  */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
@@ -1372,13 +1372,12 @@ bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample
 	// when the buffer is flagged GST_MEMORY_FLAG_READONLY.  The underlying
 	// vector<uint8_t> is genuinely non-const; const was imposed at parse time
 	// to signal that the demuxer domain must not write to sample data.
-	MediaSample gstSample;
-	gstSample.mData        = std::const_pointer_cast<uint8_t>(sample.mData);
-	gstSample.mDataSize    = sample.mDataSize;
-	gstSample.mPts         = sample.mPts;
-	gstSample.mDts         = sample.mDts;
-	gstSample.mDuration    = sample.mDuration;
-	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
-
-	return SendHelper(mediaType, std::move(gstSample));
+	return SendHelper(mediaType, MediaSample{
+		std::const_pointer_cast<uint8_t>(sample.mData),
+		sample.mDataSize,
+		sample.mPts,
+		sample.mDts,
+		sample.mDuration,
+		std::move(sample.mDrmMetadata)
+	});
 }

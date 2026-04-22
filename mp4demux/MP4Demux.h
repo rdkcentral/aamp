@@ -409,11 +409,12 @@ public:
 	/**
 	 * @brief Parse MP4 data with shared ownership of the backing buffer.
 	 *
-	 * Stores @p segment internally during parsing so that sample data
-	 * pointers (mDataPtr) remain valid, stamps every extracted sample's
-	 * mSegment field with the shared_ptr, then releases the internal
-	 * hold before returning.  Callers therefore do not need to pass the
-	 * shared_ptr to GetSamples().
+	 * Stores @p segment internally during parsing. Each extracted sample's
+	 * mData field is set via an aliasing shared_ptr that shares the segment's
+	 * reference count while pointing directly at the sample payload bytes.
+	 * The internal reference is released before returning; only the individual
+	 * samples hold a reference thereafter.  Callers do not need to track the
+	 * segment after this call.
 	 *
 	 * @param segment Shared ownership of the buffer to parse (must not be null).
 	 * @return true if parsing succeeded, false on error
@@ -448,9 +449,9 @@ public:
 	/**
 	 * @brief Return parsed media samples.
 	 *
-	 * Each sample's mSegment field holds the shared_ptr that was passed to
-	 * Parse(), keeping the backing buffer alive for the lifetime of every
-	 * returned sample.
+	 * Each sample's mData is an aliasing shared_ptr<const uint8_t> that keeps
+	 * the backing segment buffer alive for the sample's lifetime, enabling
+	 * zero-copy access to the parsed payload.
 	 *
 	 * @return Media samples vector with ownership transferred to caller
 	 */

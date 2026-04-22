@@ -40,9 +40,9 @@ struct AampMediaSample
 {
 	std::shared_ptr<const uint8_t> mData{};  /**< Aliased pointer into the segment buffer (zero-copy) */
 	size_t mDataSize{0};                     /**< Byte count of the sample payload */
-	double mPts{0.0};
-	double mDts{0.0};
-	double mDuration{0.0};
+	double mPts{0.0};                        /**< Presentation timestamp in seconds */
+	double mDts{0.0};                        /**< Decode timestamp in seconds */
+	double mDuration{0.0};                   /**< Sample duration in seconds */
 	MediaDrmMetadata mDrmMetadata{}; /**< DRM metadata for encrypted samples */
 
 	// Move constructor and move assignment (allow efficient transfers)
