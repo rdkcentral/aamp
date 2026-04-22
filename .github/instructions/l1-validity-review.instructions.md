@@ -23,6 +23,8 @@ A valid L1 test in this repository:
 
 ---
 
+<!-- Keep in sync with l1-fakes-mocks.instructions.md anti-patterns -->
+
 ## Common Invalid Patterns
 
 | Pattern | Why it is invalid |
@@ -36,6 +38,9 @@ A valid L1 test in this repository:
 | Inventing build commands not in `l1-build-run.instructions.md` | May not work in CI; causes confusion |
 | Test name like `Test1`, `TestA` | Non-descriptive; use `Class_Method_Behavior` |
 | `EXPECT_EQ` / `ASSERT_EQ` on `float` or `double` values | Exact equality is unreliable for floating-point; use `EXPECT_DOUBLE_EQ`, `EXPECT_FLOAT_EQ`, or `EXPECT_NEAR` |
+| `EXPECT_TRUE(x == y)` or `EXPECT_FALSE(x != y)` | Hides operand values on failure; use `EXPECT_EQ`, `EXPECT_NE`, `EXPECT_THAT` with matchers |
+| `EXPECT_EQ(x, true)` / `EXPECT_EQ(x, false)` | Verbose; use `EXPECT_TRUE(x)` / `EXPECT_FALSE(x)` |
+| `sleep()` / `usleep()` / `sleep_for()` for synchronization | Causes CI flakiness and slow suites; use polling with deadline, condition variable, or latch |
 
 ---
 
@@ -51,6 +56,15 @@ A valid L1 test in this repository:
 
 ### Assertion Correctness
 - [ ] No `EXPECT_EQ` / `ASSERT_EQ` on `float` or `double` values — use `EXPECT_DOUBLE_EQ`, `EXPECT_FLOAT_EQ`, or `EXPECT_NEAR`
+- [ ] No `EXPECT_TRUE(x == y)` — use `EXPECT_EQ`, `EXPECT_NE`, `EXPECT_THAT` for diagnostic output
+- [ ] No `EXPECT_EQ(x, true/false)` — use `EXPECT_TRUE` / `EXPECT_FALSE`
+
+### Timing & Synchronization
+- [ ] No `sleep()` / `usleep()` / `sleep_for()` — use polling with deadline, condition variable, or latch
+- [ ] Any unavoidable short sleep (< 100 ms, negative assertions only) has a justifying comment
+
+### Mock Strictness
+- [ ] `NiceMock<T>` used by default; bare mock or `StrictMock<T>` only with clear rationale
 
 ### Component Behavior Focus
 - [ ] Tests verify component member variables and state after operations
