@@ -78,6 +78,86 @@ namespace {
 	constexpr int64_t kNsPerSecond = 1'000'000'000LL;
 }
 
+// ---------------------------------------------------------------------------
+// [EARLY_ATTACH] Experiment toggle.
+// Set to 1 and fill in the constants below with values captured from
+// [EARLY_ATTACH] log output to call attachSource() during Configure()
+// instead of waiting for init fragments.
+// ---------------------------------------------------------------------------
+#define EARLY_ATTACH_HARDCODED 1
+
+#if EARLY_ATTACH_HARDCODED
+namespace {
+
+// ── Hardcoded values from [EARLY_ATTACH] log output ──────────────────────
+// VIDEO
+constexpr int32_t  kEarlyVideoWidth        = 842;
+constexpr int32_t  kEarlyVideoHeight       = 474;
+constexpr int       kEarlyVideoCodecFormat  = 10;   // GST_FORMAT_VIDEO_ES_H264
+//   10 → H264  ("video/h264",  StreamFormat::AVC)
+//   11 → HEVC  ("video/h265",  StreamFormat::HVC1)
+const char *const  kEarlyVideoCodecDataHex =
+	"014d401effe1001e674d401eeca06a1ef249ff82780277880000030008000003019078b16cb001000568ebe1b2c8";
+
+// AUDIO
+constexpr int32_t  kEarlyAudioSampleRate   = 48000;
+constexpr int32_t  kEarlyAudioChannels     = 2;
+constexpr int       kEarlyAudioCodecFormat  = 5;    // GST_FORMAT_AUDIO_ES_AAC_RAW
+//    5 → AAC_RAW  ("audio/aac",      StreamFormat::RAW)
+//    7 → EC3      ("audio/x-eac3",   StreamFormat::UNDEFINED)
+//    9 → AC4      ("audio/x-ac4",    StreamFormat::UNDEFINED)
+const char *const  kEarlyAudioCodecDataHex = "118856e500";
+
+std::vector<uint8_t> hexToBytes(const char *hex)
+{
+	std::vector<uint8_t> bytes;
+	while (hex && *hex)
+	{
+		unsigned int byte = 0;
+		if (sscanf(hex, "%2x", &byte) != 1) break;
+		bytes.push_back(static_cast<uint8_t>(byte));
+		hex += 2;
+	}
+	return bytes;
+}
+
+struct EarlyCodecParams
+{
+	std::string mimeType;
+	firebolt::rialto::StreamFormat streamFormat;
+};
+
+EarlyCodecParams videoCodecParams(int codecFormat)
+{
+	switch (codecFormat)
+	{
+		case 10: // GST_FORMAT_VIDEO_ES_H264
+			return {"video/h264", firebolt::rialto::StreamFormat::AVC};
+		case 11: // GST_FORMAT_VIDEO_ES_HEVC
+			return {"video/h265", firebolt::rialto::StreamFormat::HVC1};
+		default:
+			return {"", firebolt::rialto::StreamFormat::UNDEFINED};
+	}
+}
+
+EarlyCodecParams audioCodecParams(int codecFormat)
+{
+	switch (codecFormat)
+	{
+		case 5: // GST_FORMAT_AUDIO_ES_AAC_RAW
+			return {"audio/aac", firebolt::rialto::StreamFormat::RAW};
+		case 7: // GST_FORMAT_AUDIO_ES_EC3
+			return {"audio/x-eac3", firebolt::rialto::StreamFormat::UNDEFINED};
+		case 9: // GST_FORMAT_AUDIO_ES_AC4
+			return {"audio/x-ac4", firebolt::rialto::StreamFormat::UNDEFINED};
+		default:
+			return {"", firebolt::rialto::StreamFormat::UNDEFINED};
+	}
+}
+
+} // namespace
+#endif // EARLY_ATTACH_HARDCODED
+
 
 // ---------------------------------------------------------------------------
 // Construction / destruction
@@ -290,6 +370,120 @@ void AampRialtoPlayer::Configure(
 
 				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();
+
+#if EARLY_ATTACH_HARDCODED
+				// ── [EARLY_ATTACH] attach sources now with hardcoded data ──
+				{
+					auto vp = videoCodecParams(kEarlyVideoCodecFormat);
+					if (vp.mimeType.empty())
+					{
+						AAMPLOG_ERR("[EARLY_ATTACH] unknown video codecFormat=%d", kEarlyVideoCodecFormat);
+					}
+					else
+					{
+						std::vector<uint8_t> vcBytes = hexToBytes(kEarlyVideoCodecDataHex);
+						std::shared_ptr<firebolt::rialto::CodecData> vcData;
+						if (!vcBytes.empty())
+						{
+							vcData = std::make_shared<firebolt::rialto::CodecData>();
+							vcData->data = vcBytes;
+						}
+
+						m_videoWidth  = kEarlyVideoWidth;
+						m_videoHeight = kEarlyVideoHeight;
+						m_pendingVideoCodecData = vcData;
+
+						m_stateMachine.onSourceAttaching();
+						auto videoSrc = std::make_unique<
+							firebolt::rialto::IMediaPipeline::MediaSourceVideo>(
+							vp.mimeType, /*hasDrm=*/false,
+							kEarlyVideoWidth, kEarlyVideoHeight,
+							firebolt::rialto::SegmentAlignment::AU,
+							vp.streamFormat, vcData);
+						std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource>
+							videoBase = std::move(videoSrc);
+						if (!m_pipeline->attachSource(videoBase))
+						{
+							AAMPLOG_ERR("[EARLY_ATTACH] attachSource (video) failed");
+						}
+						else
+						{
+							m_videoSourceId = videoBase->getId();
+							AAMPLOG_WARN("[EARLY_ATTACH] Attached video id=%d w=%d h=%d",
+								m_videoSourceId, kEarlyVideoWidth, kEarlyVideoHeight);
+						}
+					}
+
+					auto ap = audioCodecParams(kEarlyAudioCodecFormat);
+					if (ap.mimeType.empty())
+					{
+						AAMPLOG_ERR("[EARLY_ATTACH] unknown audio codecFormat=%d", kEarlyAudioCodecFormat);
+					}
+					else
+					{
+						std::vector<uint8_t> acBytes = hexToBytes(kEarlyAudioCodecDataHex);
+						std::shared_ptr<firebolt::rialto::CodecData> acData;
+						if (!acBytes.empty())
+						{
+							acData = std::make_shared<firebolt::rialto::CodecData>();
+							acData->data = acBytes;
+						}
+
+						m_audioSampleRate = kEarlyAudioSampleRate;
+						m_audioChannels   = kEarlyAudioChannels;
+						m_pendingAudioCodecData = acData;
+
+						m_stateMachine.onSourceAttaching();
+						firebolt::rialto::AudioConfig audioConfig;
+						audioConfig.numberOfChannels =
+							static_cast<uint32_t>(kEarlyAudioChannels);
+						audioConfig.sampleRate =
+							static_cast<uint32_t>(kEarlyAudioSampleRate);
+						if (!acBytes.empty())
+						{
+							audioConfig.codecSpecificConfig = acBytes;
+						}
+
+						auto audioSrc = std::make_unique<
+							firebolt::rialto::IMediaPipeline::MediaSourceAudio>(
+							ap.mimeType, /*hasDrm=*/false, audioConfig,
+							firebolt::rialto::SegmentAlignment::UNDEFINED,
+							ap.streamFormat, acData);
+						std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource>
+							audioBase = std::move(audioSrc);
+						if (!m_pipeline->attachSource(audioBase))
+						{
+							AAMPLOG_ERR("[EARLY_ATTACH] attachSource (audio) failed");
+						}
+						else
+						{
+							m_audioSourceId = audioBase->getId();
+							AAMPLOG_WARN("[EARLY_ATTACH] Attached audio id=%d rate=%d ch=%d",
+								m_audioSourceId, kEarlyAudioSampleRate,
+								kEarlyAudioChannels);
+						}
+					}
+
+					// Set source positions if a flush position was staged.
+					const int64_t posNs =
+						m_pendingFlushPositionNs.load(std::memory_order_relaxed);
+					if (posNs >= 0)
+					{
+						if (m_videoSourceId >= 0)
+						{
+							m_pipeline->setSourcePosition(
+								m_videoSourceId, posNs, /*resetTime=*/true);
+						}
+						if (m_audioSourceId >= 0)
+						{
+							m_pipeline->setSourcePosition(
+								m_audioSourceId, posNs, /*resetTime=*/true);
+						}
+					}
+
+					CheckAllSourcesAttached();
+				}
+#endif // EARLY_ATTACH_HARDCODED
 			}
 		}
 	}
@@ -459,6 +653,27 @@ void AampRialtoPlayer::AttachVideoSource(Mp4Demux &demuxer)
 			codecInfo.mInfo.video.mWidth,
 			codecInfo.mInfo.video.mHeight);
 
+		// [EARLY_ATTACH] Log all values needed to reproduce this
+		// attachSource() call at Configure time with hardcoded data.
+		AAMPLOG_WARN("[EARLY_ATTACH] VIDEO codecFormat=%d",
+			static_cast<int>(codecInfo.mCodecFormat));
+		AAMPLOG_WARN("[EARLY_ATTACH] VIDEO width=%u",
+			codecInfo.mInfo.video.mWidth);
+		AAMPLOG_WARN("[EARLY_ATTACH] VIDEO height=%u",
+			codecInfo.mInfo.video.mHeight);
+		{
+			std::string hex;
+			hex.reserve(codecInfo.mCodecData.size() * 2);
+			for (uint8_t b : codecInfo.mCodecData)
+			{
+				char tmp[3];
+				snprintf(tmp, sizeof(tmp), "%02x", b);
+				hex += tmp;
+			}
+			AAMPLOG_WARN("[EARLY_ATTACH] VIDEO codecDataHex=%s",
+				hex.c_str());
+		}
+
 		std::string mimeType;
 		firebolt::rialto::StreamFormat streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
 		bool validCodec = true;
@@ -582,6 +797,27 @@ void AampRialtoPlayer::AttachAudioSource(Mp4Demux &demuxer)
 	else
 	{
 		MediaCodecInfo codecInfo = demuxer.GetCodecInfo();
+
+		// [EARLY_ATTACH] Log all values needed to reproduce this
+		// attachSource() call at Configure time with hardcoded data.
+		AAMPLOG_WARN("[EARLY_ATTACH] AUDIO codecFormat=%d",
+			static_cast<int>(codecInfo.mCodecFormat));
+		AAMPLOG_WARN("[EARLY_ATTACH] AUDIO sampleRate=%u",
+			codecInfo.mInfo.audio.mSampleRate);
+		AAMPLOG_WARN("[EARLY_ATTACH] AUDIO channelCount=%u",
+			codecInfo.mInfo.audio.mChannelCount);
+		{
+			std::string hex;
+			hex.reserve(codecInfo.mCodecData.size() * 2);
+			for (uint8_t b : codecInfo.mCodecData)
+			{
+				char tmp[3];
+				snprintf(tmp, sizeof(tmp), "%02x", b);
+				hex += tmp;
+			}
+			AAMPLOG_WARN("[EARLY_ATTACH] AUDIO codecDataHex=%s",
+				hex.c_str());
+		}
 
 		std::string mimeType;
 		firebolt::rialto::StreamFormat streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
