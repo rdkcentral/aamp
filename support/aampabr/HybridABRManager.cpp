@@ -191,8 +191,8 @@ long HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long
 	}
 	else
 	{
-		long m1 = tmpData.at(tmpData.size()/2);
-		long m2 = tmpData.at(tmpData.size()/2)+1;
+		long m1 = tmpData.at(tmpData.size()/2 - 1);
+		long m2 = tmpData.at(tmpData.size()/2);
 		medianbps = (m1+m2)/2;
 	}
 
