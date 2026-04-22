@@ -2332,14 +2332,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 
 	AAMPLOG_INFO("SeekInPeriod: Switched to period %d, calling SkipFragments with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
 
-	if (eMEDIATYPE_SUBTITLE == pMediaStreamContext->type)
-	{
-		SkipFragments(pMediaStreamContext, remainingSeek, true);
-	}
-	else
-	{
-		SkipFragments(pMediaStreamContext, remainingSeek, true, skipToEnd);
-	}
+	SeekInPeriod(remainingSeek, skipToEnd);
 	return true;
 }
 
