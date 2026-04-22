@@ -786,7 +786,9 @@ void Mp4Demux::ProcessSamples()
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: sample payload OOB");
 		}
 		AampMediaSample& s = samples[pending.sampleIdx];
-		s.mDataPtr  = dataPtr;
+		// Aliasing constructor: mData shares mCurrentSegment's refcount but
+		// points directly at the sample payload within that buffer.
+		s.mData     = std::shared_ptr<const uint8_t>(mCurrentSegment, dataPtr);
 		s.mDataSize = sampleLen;
 		s.mDts      = pending.mDts;
 		s.mPts      = pending.mPts;
@@ -1328,24 +1330,30 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 }
 
 /**
- * @brief Parse MP4 data segment
- * Main entry point for MP4 parsing. Resets sample data from previous
- * segments while preserving metadata, then initiates recursive parsing
- * of the MP4 container structure. Handles both initialization segments
- * and media fragments.
+ * @brief Parse MP4 data segment with shared ownership of the backing buffer.
  *
- * @param ptr Pointer to MP4 data buffer
- * @param len Length of data buffer in bytes
+ * Stores @p segment internally during parsing so that every extracted sample's
+ * mData field (aliasing shared_ptr) keeps the buffer alive exactly as long as
+ * the sample exists. Resets sample data from previous segments while preserving
+ * metadata, then initiates recursive parsing of the MP4 container structure.
+ * Handles both initialization segments and media fragments.
+ * The internal mCurrentSegment hold is released before returning; only the
+ * individual samples carry a shared reference thereafter.
+ *
+ * @param segment Shared ownership of the buffer to parse (must not be null/empty).
  * @return true if parsing succeeded, false on error
  */
-
-bool Mp4Demux::Parse(const void *data, size_t len)
+bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 {
-	bool ret = false;
-	if (!data || len == 0) {
-		setParseError( MP4_PARSE_ERROR_INVALID_INPUT );
+	if (!segment || segment->empty())
+	{
+		setParseError(MP4_PARSE_ERROR_INVALID_INPUT);
 		return false;
 	}
+	mCurrentSegment = std::move(segment);
+
+	const void *data = mCurrentSegment->data();
+	size_t len = mCurrentSegment->size();
 	MP4_LOG_DEBUG("Parsing MP4 data segment, ptr:%p len=%zu", data, len);
 
 	// Start timing for metrics
@@ -1365,10 +1373,11 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 	mdatEnd = nullptr;
 	this->ptr = (const uint8_t *)data;
 
+	bool ret = false;
 	try {
 		DemuxHelper(&this->ptr[len]);
 		ret = true;
-		// Force encrypted flag if any encrypted samples were handled previously
+		// Force encrypted flag if any encrypted samples were handled previously.
 		// For GStreamer, renegotiation will fail if the caps change from
 		// encrypted to clear, so we need to keep the encrypted flag set.
 		if (handledEncryptedSamples && codecInfo.mIsEncrypted == false)
@@ -1401,13 +1410,15 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 		setParseError(MP4_PARSE_ERROR_INVALID_BOX);
 		ret = false;
 	}
+
+	mCurrentSegment = nullptr;
 	return ret;
 }
 
-
-void Mp4Demux::ParseOrThrow(const void *data, size_t len)
+void Mp4Demux::ParseOrThrow(std::shared_ptr<std::vector<uint8_t>>&& segment)
 {
-	if (!Parse(data, len)) {
+	if (!Parse(std::move(segment)))
+	{
 		throw Mp4ParseException(GetLastError(), "Parse failed");
 	}
 }
@@ -1475,12 +1486,8 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
  * @param segment Shared ownership of the buffer passed to Parse().
  * @return Media samples vector with ownership transferred to caller
  */
-std::vector<AampMediaSample> Mp4Demux::GetSamples(const std::shared_ptr<std::vector<uint8_t>>& segment)
+std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
-	for (auto& s : samples)
-	{
-		s.mSegment = segment;
-	}
 	return std::move(samples);
 }
 

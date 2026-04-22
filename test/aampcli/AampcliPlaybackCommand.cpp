@@ -1127,11 +1127,11 @@ void PlaybackCommand::parse( const char *path )
 			if( pos>=0 )
 			{
 				size_t len = (size_t)pos;
-				void *ptr = malloc(len);
-				if( ptr )
+				auto segment = std::make_shared<std::vector<uint8_t>>(len);
+				if (!segment->empty())
 				{
 					fseek(f,0,SEEK_SET);
-					size_t rc = fread(ptr,1,len,f);
+					size_t rc = fread(segment->data(),1,len,f);
 					if( rc == len )
 					{
 						// Lazy initialization of global MP4 demuxer
@@ -1140,8 +1140,8 @@ void PlaybackCommand::parse( const char *path )
 						{
 							gMp4Demux = std::make_shared<Mp4Demux>();
 						}
-						gMp4Demux->Parse(ptr,len);
-						auto samples = gMp4Demux->GetSamples(nullptr); // static byte array outlives samples within this test
+						gMp4Demux->Parse(std::move(segment));
+						auto samples = gMp4Demux->GetSamples();
 						if (samples.empty())
 						{
 							AAMPCLI_PRINTF("No samples found in file '%s'\n", path );
@@ -1165,7 +1165,7 @@ void PlaybackCommand::parse( const char *path )
 							for (auto &sample : samples)
 							{
 								AAMPCLI_PRINTF("Sample PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf, DRM:%d\n",
-										sample.mDataPtr,
+										sample.mData.get(),
 										sample.mDataSize,
 										(double)sample.mPts,
 										(double)sample.mDts,
@@ -1202,7 +1202,6 @@ void PlaybackCommand::parse( const char *path )
 							}
 						}
 					}
-					free( ptr );
 				}
 			}
 			fclose( f );

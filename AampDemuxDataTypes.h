@@ -29,17 +29,17 @@
  * @struct AampMediaSample
  * @brief Media sample structure.
  *
- * mDataPtr and mDataSize give zero-copy access to raw bytes inside the owning
- * segment buffer.  mSegment holds the shared_ptr that keeps that buffer alive
- * for as long as any sample derived from it exists.
+ * mData is a shared_ptr<const uint8_t> built with the aliasing constructor
+ * so that it points at the raw sample bytes inside the owning segment buffer
+ * while the segment buffer's reference count keeps that storage alive.
+ * mDataSize gives the byte count of the payload.
  *
  * In future, we can consider unifying this with MediaSample in DemuxDataTypes.h
  */
 struct AampMediaSample
 {
-	const uint8_t* mDataPtr{nullptr};                  /**< Raw pointer into the segment buffer (zero-copy) */
-	size_t mDataSize{0};                               /**< Byte count of the sample payload */
-	std::shared_ptr<std::vector<uint8_t>> mSegment{};  /**< Keeps the segment buffer alive */
+	std::shared_ptr<const uint8_t> mData{};  /**< Aliased pointer into the segment buffer (zero-copy) */
+	size_t mDataSize{0};                     /**< Byte count of the sample payload */
 	double mPts{0.0};
 	double mDts{0.0};
 	double mDuration{0.0};

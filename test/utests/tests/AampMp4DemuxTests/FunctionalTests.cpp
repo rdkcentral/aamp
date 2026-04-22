@@ -104,10 +104,10 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
 	std::vector<uint8_t> buffer(videoData, videoData + strlen(videoData));
 
 	// Set expectations for Mp4Demux mock
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.WillOnce(Return(true));
 
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			std::vector<AampMediaSample> mockSamples;
 			AampMediaSample sample1, sample2;
@@ -156,7 +156,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithEmptyBuffer)
 	bool ptsError = false;
 
 	// Verify no calls were made to the mocked dependencies
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
 		.Times(0);
@@ -182,16 +182,15 @@ TEST_F(AampMp4DemuxerTests, SendSegmentDifferentMediaTypes)
 	const char* audioData = "audio_data";
 	std::vector<uint8_t> buffer(audioData, audioData + strlen(audioData));
 
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			std::vector<AampMediaSample> samples;
 			AampMediaSample sample;
 			const char* audioSample = "audio_sample";
 			auto seg = std::make_shared<std::vector<uint8_t>>(audioSample, audioSample + strlen(audioSample));
-			sample.mDataPtr  = seg->data();
+			sample.mData     = std::shared_ptr<const uint8_t>(seg, seg->data());
 			sample.mDataSize = seg->size();
-			sample.mSegment  = seg;
 			samples.push_back(std::move(sample));
 			return samples;
 		}));
@@ -213,8 +212,8 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 	const char* initData = "init_data";
 	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
 
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			return std::vector<AampMediaSample>(); // No samples
 		}));
@@ -243,8 +242,8 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 	const char* initData = "init_data";
 	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
 
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			return std::vector<AampMediaSample>(); // No samples
 		}));
@@ -275,11 +274,11 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 	std::vector<uint8_t> buffer(videoData, videoData + strlen(videoData));
 
 	// Set expectations for Mp4Demux mock to simulate parse failure
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.WillOnce(Return(false)); // Simulate parse failure
 
 	// No calls to GetSamples or SendStreamTransfer should occur
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
 		.Times(0);
@@ -318,12 +317,12 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 	constexpr double kBaseDts{9.5};
 	constexpr double kFragmentPtsOffset{2.5};
 	
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.WillOnce(Return(true));
 	// GetTimeScale only called (while logging) when eAAMPConfig_EnablePTSReStampLogging set
 	//	EXPECT_CALL(*g_mockMp4Demux, GetTimeScale())
 	//		.WillOnce(Return(90000));
-	EXPECT_CALL(*g_mockMp4Demux, GetSamples(_))
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([=]() {
 			std::vector<AampMediaSample> mockSamples;
 			AampMediaSample sample;
@@ -334,7 +333,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 		}));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
-		.WillOnce(Invoke([=](AampMediaType /*mediaType*/, AampMediaSample& sample) {
+		.WillOnce(Invoke([=](AampMediaType /*mediaType*/, AampMediaSample&& sample) {
 			EXPECT_DOUBLE_EQ(sample.mPts, kBasePts + kFragmentPtsOffset);
 			EXPECT_DOUBLE_EQ(sample.mDts, kBaseDts + kFragmentPtsOffset);
 		}));

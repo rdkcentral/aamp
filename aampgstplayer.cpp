@@ -1364,21 +1364,16 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  * @param[in,out] sample - Media sample to inject
  * @return true if sample is successfully injected, false otherwise
  */
-bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
 {
-	// Build a MediaSample that aliases sample.mDataPtr into the shared segment.
-	// The aliasing shared_ptr shares the segment's refcount but presents a raw
-	// byte pointer, matching MediaSample::mData (shared_ptr<uint8_t>).
-	// When the GstBuffer notify fires, it releases this reference; once no more
-	// samples alias the segment, the segment vector is freed automatically.
+	// Bridge AampMediaSample (shared_ptr<const uint8_t>) to MediaSample
+	// (shared_ptr<uint8_t>).  The const_pointer_cast is required because
+	// GStreamer's C API takes gpointer (void*) rather than const void*, even
+	// when the buffer is flagged GST_MEMORY_FLAG_READONLY.  The underlying
+	// vector<uint8_t> is genuinely non-const; const was imposed at parse time
+	// to signal that the demuxer domain must not write to sample data.
 	MediaSample gstSample;
-	// Aliasing constructor: shares the segment's refcount while presenting the
-	// raw byte pointer to GStreamer.  The const_cast is safe: mDataPtr points
-	// into mSegment (a non-const vector<uint8_t>); const was imposed by the
-	// Parse() call chain which receives a const buffer view.
-	gstSample.mData = std::shared_ptr<uint8_t>(
-		sample.mSegment,
-		const_cast<uint8_t*>(sample.mDataPtr));
+	gstSample.mData        = std::const_pointer_cast<uint8_t>(sample.mData);
 	gstSample.mDataSize    = sample.mDataSize;
 	gstSample.mPts         = sample.mPts;
 	gstSample.mDts         = sample.mDts;

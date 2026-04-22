@@ -92,7 +92,7 @@ public:
      *   @param[in]  sample - Media sample
      *   @return void
      */
-    virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) = 0;
+    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type

@@ -240,10 +240,15 @@ struct MediaDrmMetadata
  * raw byte array, with mDataSize holding the byte count.
  *
  * Ownership model:
- *  - Zero-copy MP4 path (AampMp4Demuxer): mData is built via the aliasing
- *    constructor from AampMediaSample::mSegment (a shared_ptr<vector<uint8_t>>),
- *    pointing at the raw sample bytes inside the segment buffer.  The segment
- *    buffer is kept alive until the last GstBuffer referencing it is released.
+ *  - Zero-copy MP4 path (AampMp4Demuxer): AampMediaSample::mData is a
+ *    shared_ptr<const uint8_t> built with the aliasing constructor so that
+ *    it points at the raw sample bytes inside the segment buffer while
+ *    keeping that buffer alive.  AAMPGstPlayer::SendSample bridges to
+ *    MediaSample via const_pointer_cast (required by GStreamer's C API which
+ *    takes gpointer/void* rather than const void*; the buffer is passed as
+ *    GST_MEMORY_FLAG_READONLY so GStreamer will not mutate the data).
+ *    The segment buffer is kept alive until the last GstBuffer referencing
+ *    it is released.
  *  - When constructed from std::vector&&: the vector is moved to the heap
  *    (owned by a shared_ptr<vector>), and mData aliases that control block
  *    while pointing at vector::data().  The vector is freed when the last

@@ -1886,7 +1886,7 @@ public:
 	 *   @param[in]  sample - Media sample
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample);
 
 	/**
 	 * @fn IsLive

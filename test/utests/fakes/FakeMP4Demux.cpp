@@ -44,17 +44,14 @@ Mp4Demux::~Mp4Demux()
 
 /**
  * @brief Fake Parse implementation - delegates to mock if available
- * @param ptr Pointer to MP4 data
- * @param len Length of data
+ * @param segment Shared ownership of the buffer to parse
  * @return true if parsing was successful
  */
-bool Mp4Demux::Parse(const void *ptr, size_t len)
+bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 {
-	// Delegate to mock if available
 	if (g_mockMp4Demux) {
-		return g_mockMp4Demux->Parse(ptr, len);
+		return g_mockMp4Demux->Parse(std::move(segment));
 	}
-	// Otherwise, do nothing (fake behavior)
 	return true;
 }
 
@@ -110,10 +107,10 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
  * @brief Fake GetSamples implementation
  * @return Empty samples vector or mock-provided samples
  */
-std::vector<AampMediaSample> Mp4Demux::GetSamples(const std::shared_ptr<std::vector<uint8_t>> &segment)
+std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
 	if (g_mockMp4Demux) {
-		return g_mockMp4Demux->GetSamples(segment);
+		return g_mockMp4Demux->GetSamples();
 	}
 	return std::vector<AampMediaSample>();
 }
