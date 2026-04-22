@@ -35,6 +35,7 @@ A valid L1 test in this repository:
 | Instantiating real dependency objects in test code | Defeats isolation even if CMake only links fakes |
 | Inventing build commands not in `l1-build-run.instructions.md` | May not work in CI; causes confusion |
 | Test name like `Test1`, `TestA` | Non-descriptive; use `Class_Method_Behavior` |
+| `EXPECT_EQ` / `ASSERT_EQ` on `float` or `double` values | Exact equality is unreliable for floating-point; use `EXPECT_DOUBLE_EQ`, `EXPECT_FLOAT_EQ`, or `EXPECT_NEAR` |
 
 ---
 
@@ -47,6 +48,9 @@ A valid L1 test in this repository:
 - [ ] No verification of fake state changes without testing component response
 - [ ] Mock return values set via `EXPECT_CALL().WillOnce(Return())` or `WillRepeatedly(Return())`
 - [ ] No real dependency objects instantiated in test code (use fakes/mocks)
+
+### Assertion Correctness
+- [ ] No `EXPECT_EQ` / `ASSERT_EQ` on `float` or `double` values — use `EXPECT_DOUBLE_EQ`, `EXPECT_FLOAT_EQ`, or `EXPECT_NEAR`
 
 ### Component Behavior Focus
 - [ ] Tests verify component member variables and state after operations

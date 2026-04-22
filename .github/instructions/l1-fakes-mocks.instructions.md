@@ -106,6 +106,25 @@ component.configure();
 EXPECT_EQ(component.getBufferRampUp(), 10);
 ```
 
+### Anti-pattern 4: Using EXPECT_EQ / ASSERT_EQ on floating-point values
+
+```cpp
+// WRONG — exact equality is unreliable for float/double
+EXPECT_EQ(component.GetRate(), 1.0);
+ASSERT_EQ(result, 0.0);
+```
+
+```cpp
+// CORRECT — use the GoogleTest floating-point matchers
+EXPECT_DOUBLE_EQ(component.GetRate(), 1.0);   // tolerance: 4 ULPs
+EXPECT_NEAR(result, 0.0, 1e-9);               // explicit tolerance
+EXPECT_FLOAT_EQ(resultF, 0.0f);               // for float types
+```
+
+Never use `EXPECT_EQ` or `ASSERT_EQ` to compare `float` or `double` values.
+Use `EXPECT_DOUBLE_EQ` / `EXPECT_FLOAT_EQ` (4 ULPs tolerance) or
+`EXPECT_NEAR` (explicit epsilon) instead.
+
 ---
 
 ## When to Use EXPECT_CALL
