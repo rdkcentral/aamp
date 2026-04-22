@@ -294,7 +294,12 @@ void HybridABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newPr
 
 void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,long nwBandwidth,double bufferValue,long newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
 {
-	int abrThreshold = (int)((newBandwidth - nwBandwidth) * 100) / (int)nwBandwidth;
+	if (nwBandwidth <= 0)
+	{
+		AAMPABRLOG_INFO("nwBandwidth is %ld, skipping rampup check", nwBandwidth);
+		return;
+	}
+	int abrThreshold = (int)(((int64_t)(newBandwidth - nwBandwidth) * 100) / (int64_t)nwBandwidth);
 	AAMPABRLOG_INFO("[%s][%d]  currProfileIndex %d, newProfileIndex %d ,nwBandwidth %ld ,bufferValue %lf ,newBandwidth %ld threshold %d(30)",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage
