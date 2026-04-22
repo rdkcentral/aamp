@@ -1292,8 +1292,19 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 
 			if (aamp->rate != AAMP_NORMAL_PLAY_RATE)
 			{
-				aamp->rate = AAMP_NORMAL_PLAY_RATE;
-				sentSpeedChangedEv = true;
+				if (tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
+				{
+					// Seeking to live/end during trickplay: reset to normal rate and notify
+					aamp->rate = AAMP_NORMAL_PLAY_RATE;
+					sentSpeedChangedEv = true;
+				}
+				else
+				{
+					// Seeking to a specific position during trickplay: preserve the trickplay
+					// rate to avoid sending a spurious speed=1 event. A subsequent SetRate
+					// call (already queued) will set the correct new rate.
+					AAMPLOG_INFO("Seek during trickplay at rate(%f) - maintaining rate, skipping speed-change notification", aamp->rate);
+				}
 			}
 
 			/**Set the flag true to indicate seeked **/
