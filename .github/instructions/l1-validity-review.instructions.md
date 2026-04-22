@@ -59,7 +59,7 @@ A valid L1 test in this repository:
 - [ ] Files: runner `.cpp`, cases `.cpp`, `CMakeLists.txt`
 - [ ] `CMakeLists.txt` links `fakes` first
 - [ ] `CMakeLists.txt` does not include real dependency sources
-- [ ] Copyright header present in all files (with current year)
+- [ ] Copyright header present in all new files (with current year)
 - [ ] Doxygen tags on all test methods
 - [ ] Builds and passes via `cd test/utests && ./run.sh`
 
