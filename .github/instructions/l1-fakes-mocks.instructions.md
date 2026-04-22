@@ -125,6 +125,98 @@ Never use `EXPECT_EQ` or `ASSERT_EQ` to compare `float` or `double` values.
 Use `EXPECT_DOUBLE_EQ` / `EXPECT_FLOAT_EQ` (4 ULPs tolerance) or
 `EXPECT_NEAR` (explicit epsilon) instead.
 
+### Anti-pattern 5: EXPECT_TRUE / EXPECT_FALSE with comparison operators
+
+```cpp
+// WRONG — on failure prints "Expected: true, Actual: false" with no values
+EXPECT_TRUE(result == nullptr);
+EXPECT_TRUE(url.find("video_p0_5.m4s") != std::string::npos);
+EXPECT_TRUE(position >= seekPos && position <= seekPos + 1);
+```
+
+```cpp
+// CORRECT — prints both operands on failure
+EXPECT_EQ(result, nullptr);
+EXPECT_THAT(url, ::testing::HasSubstr("video_p0_5.m4s"));
+EXPECT_GE(position, seekPos);
+EXPECT_LE(position, seekPos + 1);
+```
+
+Never wrap a comparison in `EXPECT_TRUE()` / `EXPECT_FALSE()`. Use the
+specific GoogleTest macro (`EXPECT_EQ`, `EXPECT_NE`, `EXPECT_GE`,
+`EXPECT_THAT` with matchers) so failure messages show actual values.
+
+### Anti-pattern 6: EXPECT_EQ with bool literals
+
+```cpp
+// WRONG — verbose and less readable
+EXPECT_EQ(result, true);
+EXPECT_EQ(aampConfig.CustomSearch(url, playerId, appname), false);
+```
+
+```cpp
+// CORRECT
+EXPECT_TRUE(result);
+EXPECT_FALSE(aampConfig.CustomSearch(url, playerId, appname));
+```
+
+Use `EXPECT_TRUE` / `EXPECT_FALSE` for boolean assertions, not
+`EXPECT_EQ(x, true)` or `EXPECT_EQ(x, false)`.
+
+### Anti-pattern 7: sleep() / usleep() / sleep_for() as synchronization
+
+Raw sleeps in L1 tests are **not acceptable**. They cause:
+- **CI flakiness** — timing varies across build machines and load.
+- **Slow test suites** — a single `sleep(20)` wastes 20 seconds of CI time.
+- **False passes** — the sleep may mask a race the test should detect.
+
+```cpp
+// WRONG — blocks for a fixed duration, slow and flaky
+sleep(5);
+EXPECT_TRUE(component.isReady());
+
+std::this_thread::sleep_for(std::chrono::milliseconds(25));
+EXPECT_EQ(component.getState(), kIdle);
+```
+
+```cpp
+// CORRECT — poll with a deadline
+bool ready = WaitForCondition(
+    [&]() { return component.isReady(); },
+    std::chrono::milliseconds(500));
+EXPECT_TRUE(ready);
+
+// CORRECT — use a latch or condition variable
+std::latch done(1);
+component.onComplete([&]() { done.count_down(); });
+component.start();
+EXPECT_TRUE(done.try_wait_for(std::chrono::milliseconds(500)));
+```
+
+When you must wait for an asynchronous result:
+1. **Preferred:** Poll with a tight loop + deadline (see `WaitForRate()`
+   pattern in AampLatencyMonitorTests).
+2. **Acceptable:** `std::condition_variable` or `std::latch` with a timeout.
+3. **Not acceptable:** Any fixed `sleep()`, `usleep()`, or `sleep_for()`.
+
+If a short sleep is genuinely the only option for a negative assertion
+(proving something did *not* happen), add a comment explaining why, keep
+it under 100 ms, and flag it in the PR description.
+
+---
+
+## Choosing Mock Strictness
+
+| Type | Behavior on uninteresting calls | When to use |
+|---|---|---|
+| `NiceMock<T>` | Silently returns default | Default choice — most AAMP components trigger many incidental dependency calls |
+| `T` (bare mock) | Prints a warning per call | When you want visibility into unexpected interactions during development |
+| `StrictMock<T>` | **Fails the test** | Only when the test specifically needs to assert that *no other* calls are made |
+
+Prefer `NiceMock<T>` for AAMP L1 tests. Bare mocks produce noisy warnings
+that hide real failures. Use `StrictMock<T>` sparingly and only with a
+clear rationale.
+
 ---
 
 ## When to Use EXPECT_CALL
