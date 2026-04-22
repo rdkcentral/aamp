@@ -52,3 +52,9 @@ if (COVERAGE_ENABLED)
 endif()
 target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${UUID_LINK_LIBRARIES})
 aamp_utest_run_add(${EXEC_NAME})
+
+add_executable(HybridAbrTests HybridAbrTests.cpp
+	../../../../support/aampabr/HybridABRManager.cpp
+	../../../../support/aampabr/ABRManager.cpp
+)
+target_link_libraries(HybridAbrTests PRIVATE gtest gmock gtest_main)
