@@ -1019,7 +1019,7 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 {
 	if (nwBandwidth <= 0)
 	{
-		AAMPLOG_WARN("nwBandwidth is %" BITSPERSECOND_FORMAT ", skipping rampup check", nwBandwidth);
+		AAMPLOG_INFO("nwBandwidth is %" BITSPERSECOND_FORMAT ", skipping rampup check", nwBandwidth);
 		return;
 	}
 	int abrThreshold = (int)((newBandwidth - nwBandwidth) * 100) / (int)nwBandwidth;

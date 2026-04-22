@@ -296,7 +296,7 @@ void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newP
 {
 	if (nwBandwidth <= 0)
 	{
-		AAMPABRLOG_WARN("nwBandwidth is %ld, skipping rampup check", nwBandwidth);
+		AAMPABRLOG_INFO("nwBandwidth is %ld, skipping rampup check", nwBandwidth);
 		return;
 	}
 	int abrThreshold = (int)((newBandwidth - nwBandwidth) * 100) / (int)nwBandwidth;
