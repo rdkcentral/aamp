@@ -122,6 +122,7 @@ class HybridABRManager:public ABRManager
 
 		int mABRHighBufferCounter;	    /**< ABR High buffer counter */
 		int mABRLowBufferCounter;	    /**< ABR Low Buffer counter */
+		int mRampupFromSteadyStateLoop{1};	/**< Per-instance exponential backoff counter for steady-state rampup */
 
 		/**
 		 * @brief Different reasons for bitrate change

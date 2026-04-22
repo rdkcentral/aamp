@@ -355,3 +355,82 @@ TEST_F(AbrTests, CheckRampupFromSteadyState_ValidBandwidth_RampsUp)
 	EXPECT_EQ(newProfileIndex, 1);
 	EXPECT_EQ(reason, ABRManager::eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL);
 }
+
+/**
+ * @brief updateProfile correctly selects the desired iframe profile
+ *        from a set of mixed video + iframe profiles.
+ */
+TEST_F(AbrTests, UpdateProfile_SelectsCorrectIframeProfile)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	// Add video profiles (not iframe)
+	ABRManager::ProfileInfo video{};
+	video.isIframeTrack = false;
+	video.bandwidthBitsPerSecond = 3000000;
+	video.width = 1920;
+	video.height = 1080;
+	abrManager.addProfile(video); // index 0
+
+	video.bandwidthBitsPerSecond = 6000000;
+	abrManager.addProfile(video); // index 1
+
+	// Add iframe profiles
+	ABRManager::ProfileInfo iframe{};
+	iframe.isIframeTrack = true;
+	iframe.width = 640;
+	iframe.height = 360;
+
+	iframe.bandwidthBitsPerSecond = 500000;
+	abrManager.addProfile(iframe); // index 2
+
+	iframe.bandwidthBitsPerSecond = 1500000;
+	abrManager.addProfile(iframe); // index 3
+
+	abrManager.updateProfile();
+
+	// Non-4K, no default iframe bitrate: should pick lowest as lowest,
+	// second as desired (legacy "first two" logic)
+	EXPECT_EQ(abrManager.getLowestIframeProfile(), 2);
+	EXPECT_EQ(abrManager.getDesiredIframeProfile(), 3);
+}
+
+/**
+ * @brief updateProfile with default iframe bitrate selects the profile
+ *        below the configured default.
+ */
+TEST_F(AbrTests, UpdateProfile_DefaultIframeBitrate_SelectsBelowDefault)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.setDefaultIframeBitrate(1200000);
+
+	ABRManager::ProfileInfo video{};
+	video.isIframeTrack = false;
+	video.bandwidthBitsPerSecond = 3000000;
+	video.width = 1920;
+	video.height = 1080;
+	abrManager.addProfile(video); // index 0
+
+	ABRManager::ProfileInfo iframe{};
+	iframe.isIframeTrack = true;
+	iframe.width = 640;
+	iframe.height = 360;
+
+	iframe.bandwidthBitsPerSecond = 500000;
+	abrManager.addProfile(iframe); // index 1
+
+	iframe.bandwidthBitsPerSecond = 1000000;
+	abrManager.addProfile(iframe); // index 2
+
+	iframe.bandwidthBitsPerSecond = 2000000;
+	abrManager.addProfile(iframe); // index 3
+
+	abrManager.updateProfile();
+
+	// Default iframe bitrate = 1200000: should pick highest below that = index 2 (1000000)
+	EXPECT_EQ(abrManager.getLowestIframeProfile(), 1);
+	EXPECT_EQ(abrManager.getDesiredIframeProfile(), 2);
+}
+
