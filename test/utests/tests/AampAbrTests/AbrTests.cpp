@@ -254,3 +254,104 @@ TEST_F(AbrTests, SwitchingEstimatorsUsesNewEstimatorState)
 	abrManager.ReportDownloadComplete(0, false, metrics);
 	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), expectedBitsPerSecond);
 }
+
+/**
+ * @brief Helper to add video profiles to an ABRManager for rampup tests.
+ */
+static void AddTestProfiles(ABRManager &mgr)
+{
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	p.bandwidthBitsPerSecond = 1000000; // index 0
+	mgr.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 2000000; // index 1
+	mgr.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 4000000; // index 2
+	mgr.addProfile(p);
+}
+
+/**
+ * @brief CheckRampupFromSteadyState must not modify newProfileIndex
+ *        when nwBandwidth is zero (divide-by-zero guard).
+ */
+TEST_F(AbrTests, CheckRampupFromSteadyState_ZeroBandwidth_NoChange)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	AddTestProfiles(abrManager);
+
+	int currProfileIndex = 0;
+	int newProfileIndex = currProfileIndex;
+	BitsPerSecond nwBandwidth = 0;
+	double bufferValue = 20.0;
+	BitsPerSecond newBandwidth = 2000000;
+	ABRManager::BitrateChangeReason reason = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
+	int maxBufferCountCheck = 1;
+
+	abrManager.CheckRampupFromSteadyState(
+		currProfileIndex, newProfileIndex, nwBandwidth, bufferValue,
+		newBandwidth, reason, maxBufferCountCheck);
+
+	EXPECT_EQ(newProfileIndex, currProfileIndex);
+	EXPECT_EQ(reason, ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR);
+	EXPECT_EQ(maxBufferCountCheck, 1);
+}
+
+/**
+ * @brief CheckRampupFromSteadyState must not modify newProfileIndex
+ *        when nwBandwidth is negative.
+ */
+TEST_F(AbrTests, CheckRampupFromSteadyState_NegativeBandwidth_NoChange)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	AddTestProfiles(abrManager);
+
+	int currProfileIndex = 1;
+	int newProfileIndex = currProfileIndex;
+	BitsPerSecond nwBandwidth = -1;
+	double bufferValue = 15.0;
+	BitsPerSecond newBandwidth = 4000000;
+	ABRManager::BitrateChangeReason reason = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
+	int maxBufferCountCheck = 1;
+
+	abrManager.CheckRampupFromSteadyState(
+		currProfileIndex, newProfileIndex, nwBandwidth, bufferValue,
+		newBandwidth, reason, maxBufferCountCheck);
+
+	EXPECT_EQ(newProfileIndex, currProfileIndex);
+	EXPECT_EQ(reason, ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR);
+}
+
+/**
+ * @brief CheckRampupFromSteadyState allows rampup when nwBandwidth is valid
+ *        and threshold is within range.
+ */
+TEST_F(AbrTests, CheckRampupFromSteadyState_ValidBandwidth_RampsUp)
+{
+	eAAMPAbrConfig.abrBufferCounter = 2;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	AddTestProfiles(abrManager);
+
+	int currProfileIndex = 0;
+	int newProfileIndex = currProfileIndex;
+	BitsPerSecond nwBandwidth = 1800000;
+	double bufferValue = 20.0;
+	// newBandwidth 2000000 is ~11% above nwBandwidth, within the 0-30% threshold
+	BitsPerSecond newBandwidth = 2000000;
+	ABRManager::BitrateChangeReason reason = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
+	int maxBufferCountCheck = 1;
+
+	abrManager.CheckRampupFromSteadyState(
+		currProfileIndex, newProfileIndex, nwBandwidth, bufferValue,
+		newBandwidth, reason, maxBufferCountCheck);
+
+	// Should ramp up to the next profile (index 1)
+	EXPECT_EQ(newProfileIndex, 1);
+	EXPECT_EQ(reason, ABRManager::eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL);
+}
