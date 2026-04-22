@@ -254,3 +254,23 @@ TEST_F(AbrTests, SwitchingEstimatorsUsesNewEstimatorState)
 	abrManager.ReportDownloadComplete(0, false, metrics);
 	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), expectedBitsPerSecond);
 }
+
+TEST_F(AbrTests, UpdateABRBitrateDataBasedOnCacheOutlierEven)
+{
+	std::vector<long> tmpData = {100, 200, 300, 400, 500, 600};
+	long result = HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(tmpData);
+	// Median of {100, 200, 300, 400, 500, 600} is (300+400)/2 = 350.
+	// Outlier diff is 1000000, so no outliers will be removed.
+	// Average is (100+200+300+400+500+600)/6 = 350.
+	ASSERT_EQ(result, 350);
+}
+
+TEST_F(AbrTests, UpdateABRBitrateDataBasedOnCacheOutlierOdd)
+{
+	std::vector<long> tmpData = {100, 200, 300, 400, 500};
+	long result = HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(tmpData);
+	// Median of {100, 200, 300, 400, 500} is 300.
+	// Outlier diff is 1000000, so no outliers will be removed.
+	// Average is (100+200+300+400+500)/5 = 300.
+	ASSERT_EQ(result, 300);
+}
