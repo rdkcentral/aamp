@@ -73,7 +73,12 @@ public:
 	}
 	/**
 	 *   @fn SendSample
-	 *   @brief stub implementation for Inactive aamp instance
+	 *   @brief Stub implementation for Inactive aamp instance.
+	 *   @param[in] mediaType - Media type.
+	 *   @param[in] sample - Media sample; ownership would be consumed (rvalue-ref
+	 *                       to match the StreamSink interface), but this stub
+	 *                       discards the sample and returns false.
+	 *   @return Always false.
 	 */
 	virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample)
 	{

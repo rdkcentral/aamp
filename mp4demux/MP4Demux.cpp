@@ -1477,14 +1477,15 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
 }
 
 /**
- * @brief Get parsed media samples with lifetime tracking.
+ * @brief Return parsed media samples with lifetime tracking.
+ *
  * Returns all media samples extracted from the current MP4 fragment,
  * including sample data, timing information, and encryption metadata.
- * Each returned sample's mSegment is set to @p segment so the backing
- * buffer stays alive for the lifetime of every sample derived from it.
+ * Each sample's mData is an aliasing shared_ptr<const uint8_t> that keeps
+ * the backing segment buffer (previously passed to Parse()) alive for the
+ * sample's lifetime, enabling zero-copy access to the parsed payload.
  *
- * @param segment Shared ownership of the buffer passed to Parse().
- * @return Media samples vector with ownership transferred to caller
+ * @return Media samples vector with ownership transferred to caller.
  */
 std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
