@@ -2284,28 +2284,21 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 }
 
 /**
- * @brief If the current SkipFragments loop reaches EOS and additional periods are available, switch to the next period. Return true if the switch succeeds and the seek should be retried; otherwise, return false.
+ * @brief If SkipFragments reaches EOS and an additional playable period is available, switch to the next period.
  */
-bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double videoRemainingSeek,
-	bool skipToEnd, int maxPeriodSwitchCount, int &periodSwitchCount,
-	double &remainingSeekPosition)
+bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainingSeek,
+	MediaStreamContext *pMediaStreamContext,
+	bool skipToEnd)
 {
-	MediaStreamContext *videoContext = mMediaStreamContext[eMEDIATYPE_VIDEO];
 	bool switchToNextPeriod = (!skipToEnd) &&
 		(mpd != NULL) &&
 		(mMPDParseHelper != NULL) &&
-		(videoContext != NULL) &&
-		(videoContext->eos);
+		(pMediaStreamContext != NULL) &&
+		(pMediaStreamContext->eos);
 
 	if (!switchToNextPeriod)
 	{
-		AAMPLOG_INFO("SeekInPeriod: Seek completed within current period with remaining seek %lf", videoRemainingSeek);
-		return false;
-	}
-
-	if (periodSwitchCount >= maxPeriodSwitchCount)
-	{
-		AAMPLOG_WARN("SeekInPeriod: Reached max period-switch attempts while carrying seek remainder %lf", videoRemainingSeek);
+		AAMPLOG_INFO("SeekInPeriod: Seek completed within current period with remaining seek %lf", remainingSeek);
 		return false;
 	}
 
@@ -2317,18 +2310,18 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double videoRem
 
 	if (nextPeriodIdx >= mMPDParseHelper->GetNumberOfPeriods())
 	{
-		AAMPLOG_INFO("SeekInPeriod: No next playable period available for seek remainder %lf", videoRemainingSeek);
+		AAMPLOG_INFO("SeekInPeriod: No next playable period available for seek remainder %lf", remainingSeek);
 		return false;
 	}
 
 	mCurrentPeriodIdx = nextPeriodIdx;
 	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 	mBasePeriodId = mCurrentPeriod->GetId();
-	AAMPLOG_INFO("SeekInPeriod: Switching to next period %d with id %s for seek remainder %lf", mCurrentPeriodIdx, mBasePeriodId.c_str(), videoRemainingSeek);
+	AAMPLOG_INFO("SeekInPeriod: Switching to next period %d with id %s for seek remainder %lf", mCurrentPeriodIdx, mBasePeriodId.c_str(), remainingSeek);
 	mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
 	mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
 	mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
-
+	StreamSelection(true);
 	mUpdateStreamInfo = true;
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
@@ -2337,17 +2330,16 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double videoRem
 		return false;
 	}
 
-	for (int i = 0; i < mNumberOfTracks; i++)
-	{
-		if (mMediaStreamContext[i])
-		{
-			mMediaStreamContext[i]->eos = false;
-		}
-	}
+	AAMPLOG_INFO("SeekInPeriod: Switched to period %d, calling SkipFragments with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
 
-	AAMPLOG_INFO("SeekInPeriod: Switched to period %d and re-seeking with remainder %lf", mCurrentPeriodIdx, videoRemainingSeek);
-	remainingSeekPosition = videoRemainingSeek;
-	periodSwitchCount++;
+	if (eMEDIATYPE_SUBTITLE == pMediaStreamContext->type)
+	{
+		SkipFragments(pMediaStreamContext, remainingSeek, true);
+	}
+	else
+	{
+		SkipFragments(pMediaStreamContext, remainingSeek, true, skipToEnd);
+	}
 	return true;
 }
 
@@ -2357,41 +2349,25 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double videoRem
  */
 void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool skipToEnd)
 {
-double remainingSeekPosition = seekPositionSeconds;
-	int maxPeriodSwitchCount = (mpd != NULL) ? (int)mpd->GetPeriods().size() : 0;
-	int periodSwitchCount = 0;
-
-	while (true)
+	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		double videoRemainingSeek = 0.0;
-		for (int i = 0; i < mNumberOfTracks; i++)
+		if (!mMediaStreamContext[i])
 		{
-			if (!mMediaStreamContext[i])
-			{
-				continue;
-			}
-
-			double trackRemainingSeek = 0.0;
-			if (eMEDIATYPE_SUBTITLE == i)
-			{
-				trackRemainingSeek = SkipFragments(mMediaStreamContext[i], remainingSeekPosition, true);
-			}
-			else
-			{
-				trackRemainingSeek = SkipFragments(mMediaStreamContext[i], remainingSeekPosition, true, skipToEnd);
-			}
-
-			if (i == eMEDIATYPE_VIDEO)
-			{
-				videoRemainingSeek = trackRemainingSeek;
-			}
+			continue;
 		}
 
-		if (!HandleSeekEOSAndPeriodTransition(videoRemainingSeek, skipToEnd,
-			maxPeriodSwitchCount, periodSwitchCount, remainingSeekPosition))
+		double trackRemainingSeek = 0.0;
+		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			break;
+			double skipTime = seekPositionSeconds;
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], skipTime, true);
 		}
+		else
+		{
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
+		}
+
+		HandleSeekEOSAndPeriodTransition(trackRemainingSeek, mMediaStreamContext[i], skipToEnd);
 	}
 }
 

@@ -921,16 +921,12 @@ protected:
 
 	/**
 	 * @fn HandleSeekEOSAndPeriodTransition
-	 * @param videoRemainingSeek remaining seek time after skipping fragments
+	 * @param remainingSeek remaining seek time after skipping fragments
+	 * @param pMediaStreamContext current track context from SeekInPeriod
 	 * @param skipToEnd true when seek operation is a seek-to-end
-	 * @param maxPeriodSwitchCount maximum allowed period switches for this seek
-	 * @param periodSwitchCount running period switch counter
-	 * @param remainingSeekPosition updated seek remainder after period switch
-	 * @return true if period switched and caller should continue seek loop
+	 * @return true if period switched; false otherwise
 	 */
-	bool HandleSeekEOSAndPeriodTransition(double videoRemainingSeek, bool skipToEnd,
-		int maxPeriodSwitchCount, int &periodSwitchCount,
-		double &remainingSeekPosition);
+	bool HandleSeekEOSAndPeriodTransition(double remainingSeek, MediaStreamContext *pMediaStreamContext, bool skipToEnd);
 
 	/**
 	 * @fn SeekInPeriod
