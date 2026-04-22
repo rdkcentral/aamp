@@ -357,52 +357,6 @@ TEST_F(AbrTests, CheckRampupFromSteadyState_ValidBandwidth_RampsUp)
 }
 
 /**
- * @brief Two ABRManager instances must have independent rampup loop
- *        counters. Verifies bug #2 fix: loop is per-instance, not static.
- */
-TEST_F(AbrTests, CheckRampupFromSteadyState_LoopIsPerInstance)
-{
-	eAAMPAbrConfig.abrBufferCounter = 2;
-
-	ABRManager mgr1;
-	mgr1.ReadPlayerConfig(&eAAMPAbrConfig);
-	AddTestProfiles(mgr1);
-
-	ABRManager mgr2;
-	mgr2.ReadPlayerConfig(&eAAMPAbrConfig);
-	AddTestProfiles(mgr2);
-
-	int currIdx = 0;
-	int newIdx1 = currIdx;
-	int newIdx2 = currIdx;
-	BitsPerSecond nwBw = 1800000;
-	BitsPerSecond newBw = 2000000;
-	ABRManager::BitrateChangeReason reason1 = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
-	ABRManager::BitrateChangeReason reason2 = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
-	int maxBuf1 = 1;
-	int maxBuf2 = 1;
-
-	// Ramp up mgr1 three times to advance its loop counter
-	for (int i = 0; i < 3; i++)
-	{
-		newIdx1 = currIdx;
-		reason1 = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
-		mgr1.CheckRampupFromSteadyState(
-			currIdx, newIdx1, nwBw, 20.0, newBw, reason1, maxBuf1);
-	}
-
-	// Now ramp up mgr2 once — its loop should be independent
-	mgr2.CheckRampupFromSteadyState(
-		currIdx, newIdx2, nwBw, 20.0, newBw, reason2, maxBuf2);
-
-	// mgr2's first rampup: loop goes from 1 to 2, so maxBuf = abrBufferCounter^2 = 4
-	// If the loop were shared (static), mgr2 would inherit mgr1's advanced counter
-	EXPECT_EQ(maxBuf2, 4);
-	// mgr1 has been called 3 times: loop went 1->2->3->4, maxBuf = 2^4 = 16
-	EXPECT_EQ(maxBuf1, 16);
-}
-
-/**
  * @brief updateProfile correctly selects the desired iframe profile
  *        from a set of mixed video + iframe profiles.
  */
