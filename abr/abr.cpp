@@ -201,6 +201,16 @@ bool ABRManager::HasBandwidthEstimator() const
 	return (mBandwidthEstimator != nullptr);
 }
 
+double ABRManager::GetPredictedDownloadTimeSeconds(std::size_t segmentSizeBytes) const
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (!mBandwidthEstimator)
+	{
+		return 0.0;
+	}
+	return mBandwidthEstimator->GetPredictedDownloadTimeSeconds(segmentSizeBytes);
+}
+
 /**
  * @brief Get initial profile index, choose the medium profile or
  * the profile whose bitrate >= the default bitrate.
@@ -1007,7 +1017,12 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 
 void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,BitsPerSecond nwBandwidth,double bufferValue,BitsPerSecond newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
 {
-	int abrThreshold = (int)((newBandwidth - nwBandwidth) * 100) / (int)nwBandwidth;
+	if (nwBandwidth <= 0)
+	{
+		AAMPLOG_INFO("nwBandwidth is %" BITSPERSECOND_FORMAT ", skipping rampup check", nwBandwidth);
+		return;
+	}
+	int abrThreshold = (int)(((int64_t)(newBandwidth - nwBandwidth) * 100) / (int64_t)nwBandwidth);
 	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d nwBandwidth %" BITSPERSECOND_FORMAT " bufferValue %lf newBandwidth %" BITSPERSECOND_FORMAT " threshold %d", currProfileIndex, newProfileIndex, nwBandwidth, bufferValue, newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage

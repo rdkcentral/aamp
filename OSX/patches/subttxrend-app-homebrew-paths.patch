@@ -1,0 +1,31 @@
+diff --git a/subttxrend-app/x86_builder/build.sh b/subttxrend-app/x86_builder/build.sh
+index 3faa7f0..a6f4b95 100755
+--- a/subttxrend-app/x86_builder/build.sh
++++ b/subttxrend-app/x86_builder/build.sh
+@@ -42,6 +42,16 @@ get_abs_filename() {
+ function build_project_cmake {
+     echo "Building project: $2"
+ 
++    # On macOS, add Homebrew prefix so cmake finds brew-installed packages
++    local FIND_ROOT="$3"
++    local EXTRA_PREFIX_PATH=""
++    if [[ "$OSTYPE" == "darwin"* ]]; then
++        local BREW_PREFIX
++        BREW_PREFIX=$(brew --prefix)
++        FIND_ROOT="$3;${BREW_PREFIX}"
++        EXTRA_PREFIX_PATH="-DCMAKE_PREFIX_PATH=${BREW_PREFIX}"
++    fi
++
+     mkdir -p $2
+     pushd $2
+ 
+@@ -49,7 +59,8 @@ function build_project_cmake {
+         -DCMAKE_INSTALL_PREFIX=$3/usr/local \
+         -DCMAKE_MODULE_PATH=$3/usr/local/share/cmake/Modules \
+         -DCMAKE_BUILD_TYPE=Debug \
+-        -DCMAKE_FIND_ROOT_PATH=$3 \
++        -DCMAKE_FIND_ROOT_PATH="$FIND_ROOT" \
++        ${EXTRA_PREFIX_PATH} \
+         -DCMAKE_INSTALL_NAME_DIR=$3/usr/local/lib \
+         -DCMAKE_CXX_FLAGS="-DPC_BUILD" \
+         $4 \
