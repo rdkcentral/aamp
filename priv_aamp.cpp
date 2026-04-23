@@ -2642,14 +2642,18 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
 			position = start;
-			// Check the rate so that PlayFromTsbStart() is not called repeatedly
+		}
+		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
+		ReportAdProgress(position);
+
+		if (position == start)
+		{
+			// Check the rate so that PlayFromTsbStart() is not called more than once
 			if (rate < AAMP_RATE_PAUSE)
 			{
 				PlayFromTsbStart();
 			}
 		}
-		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
-		ReportAdProgress(position);
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 		{
