@@ -164,14 +164,8 @@ struct MediaSample
 	/// @brief Read-only pointer to payload bytes, or nullptr if no data.
 	const uint8_t* data() const noexcept { return mData.get(); }
 
-	/// @brief Mutable pointer to payload bytes, or nullptr if no data.
-	uint8_t* data() noexcept { return mData.get(); }
-
 	/// @brief Byte count of the payload.
 	size_t size() const noexcept { return mDataSize; }
-
-	/// @brief True if there is no payload data.
-	bool empty() const noexcept { return mDataSize == 0; }
 };
 
 #endif /* __MEDIA_SAMPLE_H__ */
