@@ -71,7 +71,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 	(void) processor;
 	if (mMp4Demux.get() && !buffer.empty())
 	{
-		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
+		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d, bufferSize: %zu", mMediaType, position, duration, isInit, buffer.size());
 		ret = mMp4Demux->Parse(buffer.data(), buffer.size());
 		if (!ret)
 		{
@@ -82,6 +82,10 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 			auto samples = mMp4Demux->GetSamples();
 			if (samples.size() > 0)
 			{
+				size_t totalSampleBytes = 0;
+				for (const auto& s : samples) { totalSampleBytes += s.mData.size(); }
+				AAMPLOG_INFO("[MemTrace][%s] sampleCount: %zu, totalSampleBytes: %zu, segDuration: %f",
+					GetMediaTypeName(mMediaType), samples.size(), totalSampleBytes, duration);
 				for (auto& sample : samples)
 				{
 					// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
@@ -102,6 +106,8 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 							sample.mDuration * timeScale);
 						}
 					}
+					AAMPLOG_INFO("[MemTrace][%s] sampleSize: %zu, pts: %f, dts: %f, duration: %f",
+						GetMediaTypeName(mMediaType), sample.mData.size(), sample.mPts, sample.mDts, sample.mDuration);
 					mAamp->SendStreamTransfer(mMediaType, sample);
 				}
 			}

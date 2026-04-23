@@ -1353,6 +1353,8 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
 {
+	AAMPLOG_INFO("[MemTrace][%s] GstSendSample sampleSize: %zu, pts: %f, dts: %f, duration: %f",
+		GetMediaTypeName(mediaType), sample.mData.size(), sample.mPts, sample.mDts, sample.mDuration);
 	MediaSample gstSample(std::move(sample.mData), sample.mPts, sample.mDts, sample.mDuration, 0.0);
 	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
 
