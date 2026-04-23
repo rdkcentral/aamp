@@ -1296,7 +1296,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
 			if (!cachedFragment)
 			{
-				AAMPLOG_WARN("[%s] GetFetchChunkBuffer returned null in FetchFragmentHelper", name);
+				AAMPLOG_WARN("[%s] GetFetchChunkBuffer returned null", name);
 				ReleasePlaylistLock();
 				return false;
 			}

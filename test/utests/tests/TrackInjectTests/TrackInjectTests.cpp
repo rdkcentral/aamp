@@ -114,8 +114,9 @@ public:
 	void fillCachedFragment(bool isInit, bool isDisc, bool /*isLLD*/)
 	{
 		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
-		// All paths now use the chunk cache: the old ring-buffer path is dead code
-		// after IsInjectionFromCachedFragmentChunks() was removed.
+		// DASH now routes all fragments through the chunk cache (see
+		// MediaStreamContext::CacheStagingFragmentForInjection); the old per-fragment
+		// ring-buffer path is no longer populated here.
 		CachedFragment *cachFragment = &this->mCachedFragmentChunks[0];
 		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;

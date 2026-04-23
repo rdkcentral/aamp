@@ -177,13 +177,13 @@ class FragmentDownloadSuccessParamTest
 /**
  * @brief Test case for OnFragmentDownloadSuccess with various configurations
  *
- * After unifying DASH to use the chunk cache path (IsInjectionFromCachedFragmentChunks
- * returns true for all DASH), OnFragmentDownloadSuccess no longer uses the ring buffer
- * (GetFetchBuffer / UpdateTSAfterFetch).  Instead:
- *  - Non-LLD (chunkMode=false): CacheTsbFragment is called, which writes the staging
- *    fragment into a chunk buffer slot via GetFetchChunkBuffer / UpdateTSAfterChunkFetch.
- *  - LLD (chunkMode=true): media data was already pushed during SSL callbacks; here only
- *    the time-based buffer counter is consumed.
+ * After unifying DASH onto the chunk cache, OnFragmentDownloadSuccess no longer
+ * uses the per-fragment ring buffer (GetFetchBuffer / UpdateTSAfterFetch). Instead:
+ *  - Non-LLD (chunkMode=false): CacheStagingFragmentForInjection() copies the
+ *    staging fragment into a chunk-buffer slot via GetFetchChunkBuffer /
+ *    UpdateTSAfterChunkFetch so the inject thread picks it up.
+ *  - LLD (chunkMode=true): media data was already pushed during SSL callbacks;
+ *    here only the time-based buffer counter is consumed.
  */
 TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 {
@@ -198,8 +198,9 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 	dlInfo->isDiscontinuity = false;
 	dlInfo->ptsOffset = 1000;
 
-	// Pre-populate the staging fragment so CacheTsbFragment has data to process on the
-	// non-LLD path.  Without this the fragment is empty and CacheTsbFragment is a no-op.
+	// Pre-populate the staging fragment so CacheStagingFragmentForInjection has data
+	// to process on the non-LLD path.  Without this the fragment is empty and
+	// CacheStagingFragmentForInjection is a no-op.
 	static constexpr uint8_t kTestData[] = {0xAA, 0xBB, 0xCC, 0xDD};
 	mMediaStreamContext->mStagingFragment.fragment.assign(kTestData, kTestData + sizeof(kTestData));
 
@@ -216,8 +217,8 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 	// true, which it is not in this test.
 	EXPECT_CALL(*g_mockAampTimeBasedBufferManager, ConsumeBuffer(dlInfo->fragmentDurationSec)).Times(chunkMode ? 1 : 0);
 
-	// For non-LLD DASH, CacheTsbFragment writes the staging fragment into a chunk buffer
-	// slot.  Verify the position is propagated correctly.
+	// For non-LLD DASH, CacheStagingFragmentForInjection writes the staging fragment
+	// into a chunk buffer slot.  Verify the position is propagated correctly.
 	auto chunkSlot = std::make_shared<CachedFragment>();
 	if (!chunkMode)
 	{
@@ -227,8 +228,9 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 
 	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
 
-	// PTS restamp expectation — verified through the chunk slot that CacheTsbFragment
-	// populated (non-LLD only; in LLD mode data is pre-injected via SSL callbacks).
+	// PTS restamp expectation — verified through the chunk slot that
+	// CacheStagingFragmentForInjection populated (non-LLD only; in LLD mode data
+	// is pre-injected via SSL callbacks).
 	if (!chunkMode)
 	{
 		if (ptsRestampEnabled)
@@ -690,7 +692,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 		reinterpret_cast<const uint8_t*>(testData.data()),
 		reinterpret_cast<const uint8_t*>(testData.data()) + testData.size());
 
-	// A CachedFragment for CacheTsbFragment's GetFetchChunkBuffer call.
+	// A CachedFragment for CacheStagingFragmentForInjection's GetFetchChunkBuffer call.
 	auto chunkBuffer = std::make_shared<CachedFragment>();
 
 	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
@@ -731,8 +733,8 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetPeriod())
 		.WillOnce(Return(&dummyPeriod));
 
-	// LLDash chunk mode off: CacheTsbFragment skipped inside CheckEos,
-	// but called in the SLD re-cache path after the TSB injection check.
+	// LLDash chunk mode off: the LLD CacheTsbFragment branch inside CheckEos is
+	// skipped; the SLD re-cache path below runs via CacheStagingFragmentForInjection.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode())
 		.WillRepeatedly(Return(false));
 
@@ -740,7 +742,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateLocalAAMPTsbInjection())
 		.Times(1);
 
-	// Else block: SLD re-cache via CacheTsbFragment.
+	// Else block: SLD re-cache via CacheStagingFragmentForInjection.
 	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
 		.WillOnce(Return(chunkBuffer.get()));
 	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
@@ -862,7 +864,8 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 		mPrivateInstanceAAMP->mSinkPaused.store(true);  // re-set by GStreamer buffering(0)
 	};
 
-	// Pre-populate the staging fragment so CacheTsbFragment has data to write.
+	// Pre-populate the staging fragment so CacheStagingFragmentForInjection has
+	// data to write.
 	// An empty fragment would short-circuit through the "Empty cachedFragment ignored"
 	// warning path, preventing GetFetchChunkBuffer from ever being called.
 	// EnqueueWrite (fake no-op) evaluates context->GetPeriod()->GetId() as an
@@ -872,7 +875,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 		kTestData, kTestData + sizeof(kTestData));
 
 	DummyPeriod dummyPeriod;
-	// A CachedFragment for CacheTsbFragment's GetFetchChunkBuffer call.
+	// A CachedFragment for CacheStagingFragmentForInjection's GetFetchChunkBuffer call.
 	auto chunkBuffer = std::make_shared<CachedFragment>();
 
 	// --- Mock setup ---

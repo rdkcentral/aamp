@@ -91,7 +91,7 @@ TestParams testCases[] =
 	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
 	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 	// Non-TSB, non-LLD-chunk DASH paused (no underflow): no tsbSessionManager so the paused
-	// guard doesn't apply; else block calls CacheTsbFragment → chunk cache.
+	// guard doesn't apply; else block calls CacheStagingFragmentForInjection → chunk cache.
 	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
 	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .rate = AAMP_NORMAL_PLAY_RATE, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
