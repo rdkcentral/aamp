@@ -227,3 +227,82 @@ TEST_F(HarmonicEwmaEstimatorTests, ResetCurrentlyAvailableBandwidth_SuppressesFo
 	// Step 5: suppression must be lifted; estimate must be positive again.
 	EXPECT_GT(estimator.GetBandwidthBitsPerSecond(), static_cast<BitsPerSecond>(0));
 }
+
+/**
+ * @brief Regression test for stale in-flight progress estimate after an aborted download.
+ *
+ * Scenario (mirrors the intermittent test_6002 EWMA failure):
+ *  1. An in-flight progress update arrives with a very high instantaneous
+ *     throughput (simulating the initial burst before a server stall).
+ *  2. The download is aborted; UpdateDownloadMetrics() is called with a
+ *     near-zero byte count (16 KB received out of a full segment, over ~9 s).
+ *  3. After the aborted-download metrics are recorded, neither
+ *     GetThroughputBytesPerSecond() nor GetBandwidthBitsPerSecond() must
+ *     reflect the prior high progress burst — they must use only the
+ *     completed-sample EWMA history.
+ *
+ * Without the fix in UpdateDownloadMetrics() that clears m_progressBytesPerSecond,
+ * m_progressHasSample, and m_progressContextValid, step 3 would return the
+ * inflated progress value (100s of Mbit/s) causing ABR to ramp up to the
+ * highest profile while the link is severely bandwidth-constrained, and the
+ * UnderflowMonitor would never see a stable filled buffer within the test
+ * time window.
+ */
+TEST_F(HarmonicEwmaEstimatorTests, ProgressEstimateInvalidatedAfterAbortedDownload)
+{
+	HarmonicEwmaEstimator estimator;
+
+	// Step 1: simulate the initial burst that arrives before a server-induced stall.
+	// ~16 KB lands almost instantly (1 ms), giving a very high instantaneous rate.
+	const double burstNow = 1000.0; // arbitrary monotonic base time
+	const std::size_t burstBytes = 16384;
+	const std::size_t totalBytes = 2000000; // full segment never arrives
+
+	DownloadProgressInfo burst;
+	burst.m_now_seconds = burstNow;
+	burst.m_total_bytes = totalBytes;
+	burst.m_now_bytes   = 0; // initialise context
+
+	estimator.UpdateDownloadProgress(burst); // establishes context
+
+	burst.m_now_seconds = burstNow + 0.001; // 1 ms later
+	burst.m_now_bytes   = burstBytes;
+	estimator.UpdateDownloadProgress(burst);
+
+	// The progress estimate must now be very high (the burst inflated it).
+	const double progressThroughput = estimator.GetThroughputBytesPerSecond();
+	EXPECT_GT(progressThroughput, 1e6) // well above 1 MB/s
+		<< "Pre-condition failed: progress burst should produce a high estimate";
+	EXPECT_GT(estimator.GetBandwidthBitsPerSecond(), static_cast<BitsPerSecond>(0));
+
+	// Step 2: download is aborted after ~9 s — only the 16 KB burst was received.
+	// This mirrors curl error 18 / lowBWTimeout in the L2 test scenario.
+	DownloadMetrics abortedSample;
+	abortedSample.m_size_download_bytes      = burstBytes; // only the burst bytes
+	abortedSample.m_total_time_seconds       = 9.013;      // total wall time including stall
+	abortedSample.m_time_to_first_byte_seconds = 0.001;    // TTFB was fast (burst)
+	estimator.UpdateDownloadMetrics(abortedSample);
+
+	// Step 3: after recording the aborted sample the stale progress must be gone.
+	// The EWMA history now holds one low-bandwidth sample: 16384 / (9.013 - 0.001)
+	// ≈ 1817 bytes/s.  GetThroughputBytesPerSecond() must reflect that, NOT the
+	// prior burst value.
+	const double postAbortThroughput = estimator.GetThroughputBytesPerSecond();
+	EXPECT_LT(postAbortThroughput, progressThroughput)
+		<< "Throughput after aborted download must be lower than the prior progress burst";
+
+	// More specifically: it must be in the same order of magnitude as the true
+	// aborted-download rate (~1817 bytes/s), not orders of magnitude higher.
+	const double expectedAbortedRate =
+		static_cast<double>(burstBytes) /
+		(abortedSample.m_total_time_seconds - abortedSample.m_time_to_first_byte_seconds);
+	EXPECT_NEAR(postAbortThroughput, expectedAbortedRate, expectedAbortedRate * 0.01)
+		<< "Throughput after aborted download should match the EWMA of the aborted sample";
+
+	// Bandwidth in bits/s must also reflect the low aborted rate.
+	const BitsPerSecond postAbortBandwidth = estimator.GetBandwidthBitsPerSecond();
+	EXPECT_GT(postAbortBandwidth, static_cast<BitsPerSecond>(0));
+	EXPECT_LT(static_cast<double>(postAbortBandwidth),
+			  progressThroughput * 8.0)
+		<< "Bandwidth after aborted download must not reflect the prior progress burst";
+}
