@@ -33,7 +33,7 @@
 #include <numeric>
 #include <unistd.h>
 
-#include "../AampLogManager.h"
+#include "AampLogManager.h"
 
 namespace aamptrace {
 

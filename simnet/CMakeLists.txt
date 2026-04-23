@@ -29,10 +29,9 @@ include_directories(
 
 add_library(net_persona_fitter STATIC net_persona_fitter.cpp)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-
 set_target_properties(net_persona_fitter PROPERTIES
     PUBLIC_HEADER "net_persona_fitter.h"
+    POSITION_INDEPENDENT_CODE ON
 )
 
 install(TARGETS net_persona_fitter

@@ -52,7 +52,7 @@ struct RequestRecord {
 struct BurstRecord {
 	uint64_t reqId{0};		///< Parent request identifier
 	int burstIdx{0};		///< Burst index within the request
-	double durationS{0.0};	///< Burst duration (seconds, >= 1 ms floor)
+	double durationS{0.0};	///< Burst duration (seconds, >= 0.1 ms floor)
 	std::size_t bytes{0};	///< Bytes received in this burst
 	double gapBeforeS{0.0};	///< Idle gap preceding this burst (seconds)
 };
