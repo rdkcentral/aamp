@@ -59,9 +59,9 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in,out] buffer - fragment data; ownership is transferred (moved) into
-	 *                        an internal shared_ptr.  The buffer will be empty
-	 *                        on return — callers must not access it afterwards.
+	 * @param[in] buffer - fragment data; ownership is transferred (moved) into
+	 *                    an internal shared_ptr.  The buffer will be empty on
+	 *                    return — callers must not access it afterwards.
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS of fragment

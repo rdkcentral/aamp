@@ -34,7 +34,7 @@
  * while the segment buffer's reference count keeps that storage alive.
  * mDataSize gives the byte count of the payload.
  *
- * In future, we can consider unifying this with MediaSample in DemuxDataTypes.h
+ * In future, we can consider unifying this with MediaSample in middleware/MediaSample.h
  */
 struct AampMediaSample
 {
