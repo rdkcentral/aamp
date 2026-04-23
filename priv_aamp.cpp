@@ -4824,11 +4824,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 			// ── Network persona: TTFB sleep (test only) ─────────────────────
 			// Lazy-load on first download if a persona file is configured.
-			{
+			// std::call_once ensures GetConfigValue (string by-value copy) is
+			// called at most once per process, so production builds with no
+			// persona configured pay only a single cheap once_flag check per
+			// download rather than a heap allocation on every attempt.
+			static std::once_flag sPersonaLoadFlag;
+			std::call_once(sPersonaLoadFlag, [this]() {
 				const std::string personaPath = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
 				if (!personaPath.empty())
 					AampNetworkPersona::Instance().LoadFromFile(personaPath);
-			}
+			});
 			if (AampNetworkPersona::Instance().IsLoaded())
 			{
 				// Chunk the TTFB sleep into 50 ms slices so that StopDownloads()
