@@ -434,3 +434,109 @@ TEST_F(AbrTests, UpdateProfile_DefaultIframeBitrate_SelectsBelowDefault)
 	EXPECT_EQ(abrManager.getDesiredIframeProfile(), 2);
 }
 
+/**
+ * @brief Bug #11: FragmentfailureRampdown must skip iframe tracks when
+ *        selecting a rampdown target, matching every other ABR function.
+ */
+TEST_F(AbrTests, FragmentfailureRampdown_SkipsIframeTrack)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	// Profile 0: 500 kbps video
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	abrManager.addProfile(p);
+
+	// Profile 1: 800 kbps iframe — should be skipped
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 800000;
+	p.width = 640; p.height = 360;
+	abrManager.addProfile(p);
+
+	// Profile 2: 1 Mbps video
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	abrManager.addProfile(p);
+
+	// Profile 3: 2 Mbps video (current)
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	abrManager.addProfile(p);
+
+	// Buffer at 15/30 = 50%.  Sorted video BWs: 500k, 1M, 2M.
+	// Profile percentages (relative to max 2M): 25%, 50%, 100%.
+	// Iterating descending: 100% !< 50% skip, 50% !< 50% skip, 25% < 50% → 500k.
+	BitsPerSecond result = abrManager.FragmentfailureRampdown(15, 3);
+	EXPECT_EQ(result, 500000);
+}
+
+TEST_F(AbrTests, FragmentfailureRampdown_NoIframes_NormalBehavior)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	abrManager.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	abrManager.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	abrManager.addProfile(p);
+
+	// Buffer 21/30 = 70%.  Profile percentages: 25%, 50%, 100%.
+	// Descending: 100% !< 70%, 50% < 70% AND 1M < 2M → 1M.
+	BitsPerSecond result = abrManager.FragmentfailureRampdown(21, 2);
+	EXPECT_EQ(result, 1000000);
+}
+
+TEST_F(AbrTests, FragmentfailureRampdown_FallbackLowestIsNotIframe)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	// Profile 0: 200 kbps iframe — lowest BW overall but should be excluded
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 200000;
+	p.width = 160; p.height = 120;
+	abrManager.addProfile(p);
+
+	// Profile 1: 500 kbps video — lowest video profile
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	abrManager.addProfile(p);
+
+	// Profile 2: 2 Mbps video (current)
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	abrManager.addProfile(p);
+
+	// Buffer 1/30 ≈ 3.3%.  Sorted video BWs: 500k, 2M.
+	// Profile percentages: 25%, 100%.  Both ≥ 3.3%, but only 500k < currentbw.
+	// 25% < 3.3% is false, so no profile matches → fallback to lowest.
+	// Without the fix, fallback would return 200k (the iframe track).
+	BitsPerSecond result = abrManager.FragmentfailureRampdown(1, 2);
+	EXPECT_EQ(result, 500000);
+}
+
