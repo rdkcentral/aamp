@@ -760,6 +760,52 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 }
 
 // ---------------------------------------------------------------------------
+// CacheTsbFragment: move semantics transfer data without copying
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Verify that CacheTsbFragment uses move semantics to transfer
+ *        fragment data into the ring buffer slot, avoiding a deep copy.
+ *
+ * After the call the destination (ring buffer slot) must own the data
+ * and the source fragment must be left in a moved-from (empty) state.
+ */
+TEST_F(FragmentDownloadTests, CacheTsbFragment_MoveSemantics_TransfersOwnership)
+{
+	// --- Arrange ---
+	constexpr std::string_view testPayload{"MOVE_SEMANTICS_TEST_DATA"};
+	auto sourceFragment = std::make_shared<CachedFragment>();
+	sourceFragment->fragment.assign(
+		reinterpret_cast<const uint8_t*>(testPayload.data()),
+		reinterpret_cast<const uint8_t*>(testPayload.data()) + testPayload.size());
+	sourceFragment->position = 42.0;
+	sourceFragment->duration = 2.0;
+	sourceFragment->initFragment = true;
+	sourceFragment->discontinuity = true;
+
+	// The ring buffer slot that GetFetchChunkBuffer will return.
+	auto ringBufferSlot = std::make_shared<CachedFragment>();
+
+	// WaitForCachedFragmentChunkInjected is handled by the fake (always returns true).
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+		.WillOnce(Return(ringBufferSlot.get()));
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
+
+	// --- Act ---
+	bool result = mMediaStreamContext->CacheTsbFragment(std::move(sourceFragment));
+
+	// --- Assert ---
+	EXPECT_TRUE(result);
+
+	// Destination should now own the fragment data and metadata.
+	EXPECT_EQ(ringBufferSlot->fragment.size(), testPayload.size());
+	EXPECT_EQ(ringBufferSlot->position, 42.0);
+	EXPECT_EQ(ringBufferSlot->duration, 2.0);
+	EXPECT_TRUE(ringBufferSlot->initFragment);
+	EXPECT_TRUE(ringBufferSlot->discontinuity);
+}
+
+// ---------------------------------------------------------------------------
 // Regression: wasUnderFlowActive guard prevents discarding the recovery fragment
 // ---------------------------------------------------------------------------
 // The hook defined in FakeStreamAbstractionAamp.cpp is called inside
