@@ -3058,7 +3058,13 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		}
 
 		std::vector<uint8_t>* heapVector = new std::vector<uint8_t>(std::move(sample.mData));
-		
+		size_t bufferBytes = heapVector->size();
+
+		// Capture mediaType and size for the destroy-notify so we can log
+		// when GStreamer (or the downstream Rialto MSE sink) frees the buffer.
+		struct GstBufCtx { int type; size_t size; };
+		auto *ctx = new GstBufCtx{type, bufferBytes};
+
 		buffer = gst_buffer_new_wrapped_full(
 			GST_MEMORY_FLAG_READONLY,
 			(gpointer)heapVector->data(), heapVector->size(),
@@ -3068,6 +3074,24 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 				delete static_cast<std::vector<uint8_t>*>(user_data);
 			}
 		);
+
+		if (buffer)
+		{
+			// Attach a mini-object weak-ref so we get a log line when GStreamer
+			// unrefs the last reference to this buffer (= memory freed).
+			gst_mini_object_weak_ref(
+				GST_MINI_OBJECT_CAST(buffer),
+				[](gpointer data, GstMiniObject *) {
+					auto *c = static_cast<GstBufCtx *>(data);
+					MW_LOG_INFO("[MemTrace] GstBufferFreed mediaType=%d size=%zu", c->type, c->size);
+					delete c;
+				},
+				ctx);
+		}
+		else
+		{
+			delete ctx;
+		}
 
 		if (buffer)
 		{
@@ -3084,6 +3108,8 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 				GST_BUFFER_OFFSET(buffer) = pts_offset;
 			}
 
+			MW_LOG_INFO("[MemTrace] GstBufferPushed mediaType=%d size=%zu pts=%" G_GUINT64_FORMAT " dts=%" G_GUINT64_FORMAT " dur=%" G_GUINT64_FORMAT,
+						mediaType, bufferBytes, pts, dts, duration);
 			MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT " len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT " ptsOffset:%" G_GINT64_FORMAT,
 						mediaType, pts, dts, heapVector->size(), initFragment, discontinuity, duration, pts_offset);
 		}
