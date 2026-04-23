@@ -383,6 +383,13 @@ bool AampRialtoPlayer::SendTransfer(
 		auto samples = demuxer->GetSamples();
 		if (!samples.empty())
 		{
+			// Compute total sample bytes before samples are std::move'd
+			size_t totalSampleBytes = 0;
+			for (const auto &s : samples)
+			{
+				totalSampleBytes += s.mData.size();
+			}
+
 			switch (mediaType)
 			{
 				case eMEDIATYPE_VIDEO:
@@ -434,6 +441,10 @@ bool AampRialtoPlayer::SendTransfer(
 				default:
 					break;
 			}
+			const char *typeName = (mediaType == eMEDIATYPE_VIDEO) ? "video" :
+				(mediaType == eMEDIATYPE_AUDIO) ? "audio" : "other";
+			AAMPLOG_INFO("[MemTrace][%s] RialtoQueued sampleCount=%zu totalBytes=%zu segDuration=%f",
+				typeName, samples.size(), totalSampleBytes, fDuration);
 			AAMPLOG_INFO("Queued %zu samples for mediaType=%d", samples.size(),
 				static_cast<int>(mediaType));
 		}
@@ -1240,6 +1251,7 @@ std::vector<QueuedSample> AampRialtoPlayer::InjectSamples(
 	{
 		bool isVideo = (sourceId == m_videoSourceId);
 		size_t addedSegments = 0;
+		size_t injectedBytes = 0;
 
 		// samples must stay alive until haveData() returns because
 		// MediaSegment::setData() stores a raw pointer into each sample's
@@ -1382,6 +1394,7 @@ std::vector<QueuedSample> AampRialtoPlayer::InjectSamples(
 			else
 			{
 				++addedSegments;
+				injectedBytes += sample.mData.size();
 			}
 		}
 
@@ -1409,6 +1422,15 @@ std::vector<QueuedSample> AampRialtoPlayer::InjectSamples(
 		AAMPLOG_INFO("Injected %zu/%zu segments sourceId=%d requestId=%u eos=%d status=%d rejected=%zu",
 			addedSegments, samples.size(), sourceId, requestId,
 			eos, static_cast<int>(haveDataStatus), rejected.size());
+
+		size_t rejectedBytes = 0;
+		for (const auto &r : rejected)
+		{
+			rejectedBytes += r.sample.mData.size();
+		}
+		AAMPLOG_INFO("[MemTrace][%s] RialtoInjected count=%zu totalBytes=%zu rejectedCount=%zu rejectedBytes=%zu",
+			isVideo ? "video" : "audio",
+			addedSegments, injectedBytes, rejected.size(), rejectedBytes);
 	} // end else: m_pipeline valid
 	return rejected;
 }
