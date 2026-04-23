@@ -158,8 +158,10 @@ TEST_F(HybridAbrTests, CheckAbrThresholdSize_SmallFragment_NoTruncation)
 TEST_F(HybridAbrTests, CheckAbrThresholdSize_LargeFragment_Correct)
 {
 	// 125000 bytes in 1000 ms → (125000 * 8000) / 1000 = 1000000 bps
+	// Use fragmentDurationMs=1500 so downloadTimeMs(1000) >= fragmentDurationMs/2(750)
+	// to avoid the guard clause that resets downloadbps to currentProfilebps
 	long result = abrManager.CheckAbrThresholdSize(
-		125000, 1000, 2000000, 4000,
+		125000, 1000, 2000000, 1500,
 		HybridABRManager::eCURL_ABORT_REASON_NONE);
 	EXPECT_EQ(result, 1000000);
 }
