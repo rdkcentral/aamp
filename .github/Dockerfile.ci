@@ -42,6 +42,10 @@ ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
 RUN bash -c '\
   set -euo pipefail && \
   export LOCAL_DEPS_BUILD_DIR=/opt/local_deps && \
+  if [[ "$OSTYPE" == "darwin"* ]]; then export PLATFORM="darwin"; \
+  elif [[ "$OSTYPE" == "linux"* ]]; then export PLATFORM="linux"; \
+  else echo "ERROR: Unsupported platform: $OSTYPE" && exit 1; fi && \
+  export OPTION_UBUNTU_SANITIZER="false" && \
   mkdir -p "$LOCAL_DEPS_BUILD_DIR" && \
   source scripts/tools.sh && \
   source scripts/install_clone.sh && \
