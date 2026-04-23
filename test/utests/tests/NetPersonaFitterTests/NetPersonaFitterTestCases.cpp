@@ -71,14 +71,20 @@ double ExtractJsonDouble(const std::string& json, const std::string& key)
 /**
  * @brief Test fixture for NetPersonaFitter
  *
- * Note: NetPersonaFitter is a Meyer's singleton so data accumulates across tests.
- * Tests are designed to be additive — each test adds data on top of previous ones.
- * The fixture manages cleanup of output files.
+ * SetUp() resets the process-wide singleton before every test so that cases
+ * are fully independent of execution order, --gtest_shuffle, and sharding.
+ * The fixture also manages cleanup of any output files written during the test.
  */
 class NetPersonaFitterTest : public ::testing::Test
 {
 protected:
 	static constexpr const char* kBasePath = "/tmp/aamp_net_persona_test.json";
+
+	void SetUp() override
+	{
+		// Start each test from a known-empty singleton state.
+		aamptrace::NetPersonaFitter::GetInstance().ResetForTesting();
+	}
 
 	void TearDown() override
 	{
@@ -90,22 +96,14 @@ protected:
 
 /**
  * @brief Verify GeneratePersonaJson returns false with no data
- *
- * The singleton starts empty on first use. With no AddRequest/AddBurst calls,
- * generation should fail gracefully.
  */
 TEST_F(NetPersonaFitterTest, EmptyDataReturnsFalse)
 {
-	// Fresh singleton has no data from prior tests (first test to run)
-	// But since it's a singleton, we can only test this if it's truly empty.
-	// We use a separate fitter instance approach here — but since GetInstance()
-	// is singleton, we just verify the counts.
-	// If data was already added by another test, skip this check.
+	// SetUp() guarantees the singleton is empty here, so no conditional needed.
 	auto& fitter = aamptrace::NetPersonaFitter::GetInstance();
-	if (fitter.GetRequestCount() == 0 && fitter.GetBurstCount() == 0)
-	{
-		EXPECT_FALSE(fitter.GeneratePersonaJson(kBasePath));
-	}
+	EXPECT_EQ(fitter.GetRequestCount(), 0u);
+	EXPECT_EQ(fitter.GetBurstCount(), 0u);
+	EXPECT_FALSE(fitter.GeneratePersonaJson(kBasePath));
 }
 
 /**

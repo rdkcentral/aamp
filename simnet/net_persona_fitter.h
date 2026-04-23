@@ -126,6 +126,18 @@ public:
 	 */
 	std::size_t GetBurstCount() const;
 
+#ifdef AAMP_TEST_BUILD
+	/**
+	 * @brief Reset all accumulated data to empty state.
+	 *
+	 * FOR TESTING ONLY. Allows each unit-test case to start from a clean
+	 * singleton state, preventing order-dependence under --gtest_shuffle
+	 * or when new tests are added.  Available only when AAMP_TEST_BUILD is
+	 * defined so the method is never present in production binaries.
+	 */
+	void ResetForTesting();
+#endif
+
 private:
 	NetPersonaFitter() = default;
 
