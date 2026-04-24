@@ -8684,6 +8684,12 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mProgressReportOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
+	// Generate persona JSON from accumulated NetTrace data before going idle
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump))
+	{
+		aamptrace::NetPersonaFitter::GetInstance().GeneratePersonaJson(
+			aamptrace::NetPersonaFitter::kDefaultBasePath);
+	}
 	// Set state to IDLE irrespective of sending state change event or not
 	SetState(eSTATE_IDLE, sendStateChangeEvent);
 
