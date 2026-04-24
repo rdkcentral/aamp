@@ -214,7 +214,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 }
 
 void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	// Validate input parameters
 	if (key != nullptr && keySize > 0)
 	{
@@ -224,6 +224,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 		if (m_pOpenCDMSession)
 		{
 			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+			MW_LOG_WARN("VRN opencdm_session_status[%d]",m_keyStatus);
 			m_keyStateIndeterminate = false;
 		}
 		else
@@ -246,7 +247,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 }
 
 void OCDMSessionAdapter::keysUpdatedOCDM() {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	m_keyStatusReady.signal();
 }
 
