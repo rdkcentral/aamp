@@ -767,8 +767,13 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
  * @brief Verify that CacheTsbFragment uses move semantics to transfer
  *        fragment data into the ring buffer slot, avoiding a deep copy.
  *
- * After the call the destination (ring buffer slot) must own the data
- * and the source fragment must be left in a moved-from (empty) state.
+ * The source shared_ptr is passed by value (not moved at the call site) so
+ * that sourceFragment still points to the same CachedFragment object after
+ * the call.  The move assignment inside CacheTsbFragment empties that object,
+ * which is then observable through sourceFragment.  If the implementation
+ * were changed to Copy() instead of move, sourceFragment->fragment would
+ * still hold the original data and the source-empty assertions below would
+ * fail, catching the regression.
  */
 TEST_F(FragmentDownloadTests, CacheTsbFragment_MoveSemantics_TransfersOwnership)
 {
@@ -792,17 +797,28 @@ TEST_F(FragmentDownloadTests, CacheTsbFragment_MoveSemantics_TransfersOwnership)
 	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
 
 	// --- Act ---
-	bool result = mMediaStreamContext->CacheTsbFragment(std::move(sourceFragment));
+	// Pass sourceFragment by value (shared_ptr copy) — NOT std::move — so that
+	// sourceFragment still aliases the same CachedFragment after the call and
+	// we can assert the underlying object was moved-from (not copied).
+	bool result = mMediaStreamContext->CacheTsbFragment(sourceFragment);
 
 	// --- Assert ---
 	EXPECT_TRUE(result);
 
-	// Destination should now own the fragment data and metadata.
+	// Destination ring buffer slot must own the data.
 	EXPECT_EQ(ringBufferSlot->fragment.size(), testPayload.size());
-	EXPECT_EQ(ringBufferSlot->position, 42.0);
-	EXPECT_EQ(ringBufferSlot->duration, 2.0);
+	EXPECT_DOUBLE_EQ(ringBufferSlot->position, 42.0);
+	EXPECT_DOUBLE_EQ(ringBufferSlot->duration, 2.0);
 	EXPECT_TRUE(ringBufferSlot->initFragment);
 	EXPECT_TRUE(ringBufferSlot->discontinuity);
+
+	// Source CachedFragment must be in a moved-from (empty) state, proving
+	// that a move — not a copy — transferred the payload.
+	EXPECT_TRUE(sourceFragment->fragment.empty());
+	EXPECT_DOUBLE_EQ(sourceFragment->position, 0.0);
+	EXPECT_DOUBLE_EQ(sourceFragment->duration, 0.0);
+	EXPECT_FALSE(sourceFragment->initFragment);
+	EXPECT_FALSE(sourceFragment->discontinuity);
 }
 
 // ---------------------------------------------------------------------------

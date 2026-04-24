@@ -628,8 +628,8 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 		}
 		if(!cachedFragment->fragment.empty())
 		{
-			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
-			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
+			// Slot was not cleared after previous use; the assignment below will overwrite and release the old data.
+			AAMPLOG_WARN("Fetch buffer has junk data; previous slot was not cleared after use");
 		}
 		*cachedFragment = std::move(*fragment);
 		if(!cachedFragment->fragment.empty())
