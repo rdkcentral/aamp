@@ -1734,8 +1734,12 @@ void TrackState::FetchFragment()
 			AAMPLOG_WARN("%s cachedFragment->fragment has no allocated data buffer", name);
 		}
 		mSkipAbr = false; //To enable ABR since we have cached fragment after init fragment
-		UpdateTSAfterFetchStats(cachedFragment, false);
+		// Order matters: UpdateTSAfterChunkFetch() increments numberOfFragmentChunksCached,
+		// which UpdateTSAfterFetchStats() then reads for its cache-full / caching-complete
+		// decision. Calling the stats function first would observe a stale (pre-increment)
+		// count and miss the "chunk cache is full" abort trigger on the slot-filling fragment.
 		UpdateTSAfterChunkFetch();
+		UpdateTSAfterFetchStats(cachedFragment, false);
 	}
 }
 
@@ -6103,8 +6107,11 @@ void TrackState::FetchInitFragment()
 			mSkipAbr = true;				  // Skip ABR, since last fragment cached is init fragment.
 			mCheckForInitialFragEnc = false;  // Push encrypted header is a one-time operation
 			mFirstEncInitFragmentInfo = NULL; // reset init fragment, since encrypted header already pushed
-			UpdateTSAfterFetchStats(cachedFragment, true);
+			// Order matters: UpdateTSAfterChunkFetch() increments numberOfFragmentChunksCached,
+			// which UpdateTSAfterFetchStats() reads for cache-full / caching-complete handling.
+			// Kept consistent with FetchFragment() to avoid divergent stale-count behaviour.
 			UpdateTSAfterChunkFetch();
+			UpdateTSAfterFetchStats(cachedFragment, true);
 		}
 		else if (type == eTRACK_VIDEO && aamp->CheckABREnabled() && !context->CheckForRampDownLimitReached())
 		{
