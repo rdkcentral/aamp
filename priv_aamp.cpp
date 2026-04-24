@@ -2101,6 +2101,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		double latency = 0;
+		bool reachedStart = false;
 
 
 		//Report Progress report position based on Availability Start Time
@@ -2128,18 +2129,10 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
 			position = start;
+			reachedStart = true;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
-
-		if (position == start)
-		{
-			// Check the rate so that PlayFromTsbStart() is not called more than once
-			if (rate < AAMP_RATE_PAUSE)
-			{
-				PlayFromTsbStart();
-			}
-		}
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 		{
@@ -2325,6 +2318,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 			mReportProgressPosn = position;
+
+			if (reachedStart)
+			{
+				// Check the rate so that PlayFromTsbStart() is not called more than once
+				if (rate < AAMP_RATE_PAUSE)
+				{
+					PlayFromTsbStart();
+				}
+			}
 		}
 	}
 }
