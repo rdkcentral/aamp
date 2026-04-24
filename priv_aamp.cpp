@@ -4867,6 +4867,20 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				double idleMs = predictedTransferMs - static_cast<double>(tActualCurlMs);
 				AAMPLOG_WARN("priv_aamp: persona idle: bytes=%zu predicted=%.0fms actualCurl=%lldms idle=%.0fms",
 						 buffer.size(), predictedTransferMs, tActualCurlMs, idleMs);
+				// Cap idle to the remaining download-timeout budget so that
+				// TTFB + curl + idle never exceeds the configured fragment
+				// download timeout — matching the constraint in AampCurlDownloader.
+				// curlDownloadTimeoutMS == 0 means no timeout (init segments etc.),
+				// in which case the cap is skipped.
+				if (curlDownloadTimeoutMS > 0)
+				{
+					const long long elapsedMs = NOW_STEADY_TS_MS - tStartTime;
+					const long long budgetRemainingMs = static_cast<long long>(curlDownloadTimeoutMS) - elapsedMs;
+					if (budgetRemainingMs <= 0)
+						idleMs = 0.0;
+					else
+						idleMs = std::min(idleMs, static_cast<double>(budgetRemainingMs));
+				}
 				// Chunk into 50 ms slices so that StopDownloads() can interrupt
 				// within one slice rather than blocking for the full idle duration.
 				constexpr double kIdleChunkMs = 50.0;
