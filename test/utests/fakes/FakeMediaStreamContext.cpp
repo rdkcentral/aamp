@@ -108,11 +108,11 @@ void MediaStreamContext::abortWaitForVideoPTS()
 {
 }
 
-bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragment)
+bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& fragment)
 {
 	if (g_mockMediaStreamContext != nullptr)
 	{
-		return g_mockMediaStreamContext->CacheTsbFragment(fragment);
+		return g_mockMediaStreamContext->CacheTsbFragment(std::move(fragment));
 	}
 	else
 	{
