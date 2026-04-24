@@ -224,6 +224,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 		if (m_pOpenCDMSession)
 		{
 			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+			MW_LOG_WARN("VRN opencdm_session_status[%d]",m_keyStatus);
 			m_keyStateIndeterminate = false;
 		}
 		else
