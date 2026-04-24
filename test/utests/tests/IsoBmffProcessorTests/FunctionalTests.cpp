@@ -244,6 +244,8 @@ TEST_F(IsoBmffProcessorTests, abortTests5)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _)).WillOnce(Return(true));
 
+	// Repopulate after the previous std::move left buffer in a moved-from state.
+	buffer = {0xAA, 0xBB, 0xCC, 0xDD};
 	mIsoBmffProcessor->sendSegment(std::move(buffer), 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
 }
@@ -756,13 +758,16 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	// Expecting the base PTS to be read
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(basePts), Return(true)));
-	
+
+	// Repopulate after the previous std::move left buffer in a moved-from state.
+	buffer.assign(sampleData, sampleData + strlen(sampleData));
 	ret = mIsoBmffProcessor->sendSegment(std::move(buffer), position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
 	// Not expecting any more calls to parse buffer
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).Times(0);
 
+	buffer.assign(sampleData, sampleData + strlen(sampleData));
 	ret = mIsoBmffProcessor->sendSegment(std::move(buffer), position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 	EXPECT_TRUE(ret);
 
@@ -793,12 +798,16 @@ TEST_F(IsoBmffProcessorPTMTests, sendSegmentReturnsFalse_WhenSendStreamCopyFails
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getTimeScale(_)).WillOnce(DoAll(SetArgReferee<0>(vCurrTS), Return(true)));
 	mIsoBmffProcessor->sendSegment(std::move(buffer), position, duration, 0.0, discontinuous, true, mProcessorFn, ptsError);
 
-	// Step 2: first data fragment — advances initSegmentProcessComplete
+	// Step 2: first data fragment — advances initSegmentProcessComplete.
+	// Repopulate after the previous std::move left buffer in a moved-from state.
+	buffer.assign(sampleData, sampleData + strlen(sampleData));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(basePts), Return(true)));
 	mIsoBmffProcessor->sendSegment(std::move(buffer), position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 
-	// Step 3: injection fails — sendSegment must propagate the failure
+	// Step 3: injection fails — sendSegment must propagate the failure.
+	// Repopulate so step 3 exercises the same non-empty input path as steps 1 and 2.
+	buffer.assign(sampleData, sampleData + strlen(sampleData));
 	bool ret = mIsoBmffProcessor->sendSegment(std::move(buffer), position, duration, 0.0, discontinuous, false, mProcessorFn, ptsError);
 	EXPECT_FALSE(ret);
 }

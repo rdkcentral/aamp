@@ -1127,7 +1127,17 @@ void PlaybackCommand::parse( const char *path )
 			if( pos>=0 )
 			{
 				size_t len = (size_t)pos;
-				auto segment = std::make_shared<std::vector<uint8_t>>(len);
+				std::shared_ptr<std::vector<uint8_t>> segment;
+				try
+				{
+					segment = std::make_shared<std::vector<uint8_t>>(len);
+				}
+				catch (const std::bad_alloc &)
+				{
+					AAMPCLI_PRINTF( "allocation failed for %zu bytes while reading '%s'\n", len, path );
+					fclose( f );
+					return;
+				}
 				if (!segment->empty())
 				{
 					fseek(f,0,SEEK_SET);

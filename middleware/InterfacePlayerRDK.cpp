@@ -3061,10 +3061,24 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		// GStreamer.  A heap-allocated copy of the shared_ptr is used as
 		// user_data so the notify callback can release the last reference,
 		// which frees the underlying storage (vector or buffer array) via
-		// the shared_ptr's deleter.
+		// the shared_ptr's deleter.  mData is shared_ptr<const uint8_t>; we
+		// cast to the mutable gpointer type required by GStreamer's C API only
+		// here at the boundary, and pass GST_MEMORY_FLAG_READONLY so GStreamer
+		// will not mutate the underlying bytes.
 		const gsize dataSize = static_cast<gsize>(sample.mDataSize);
-		gpointer rawPtr = static_cast<gpointer>(sample.mData.get());
-		auto* lifetimeRef = new std::shared_ptr<uint8_t>(std::move(sample.mData));
+		gpointer rawPtr = const_cast<gpointer>(
+			static_cast<gconstpointer>(sample.mData.get()));
+
+		// Guard: GStreamer does not defend against null data with non-zero
+		// size (or zero size), either of which would lead to UB in downstream
+		// gst_buffer_map / appsrc push.  Reject early without leaking state.
+		if (!rawPtr || dataSize == 0)
+		{
+			pthread_mutex_unlock(&stream->sourceLock);
+			return false;
+		}
+
+		auto* lifetimeRef = new std::shared_ptr<const uint8_t>(std::move(sample.mData));
 
 		buffer = gst_buffer_new_wrapped_full(
 			GST_MEMORY_FLAG_READONLY,
@@ -3072,7 +3086,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 			0, dataSize,
 			lifetimeRef,
 			[](gpointer user_data) noexcept {
-				delete static_cast<std::shared_ptr<uint8_t>*>(user_data);
+				delete static_cast<std::shared_ptr<const uint8_t>*>(user_data);
 			}
 		);
 

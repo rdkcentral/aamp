@@ -696,6 +696,19 @@ void AAMPGstPlayer::NotifyInjectorToResume()
  */
 bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool initFragment, bool discontinuity)
 {
+	// Reject malformed samples up-front.  With the shared_ptr-backed
+	// MediaSample, mData and mDataSize are independent fields so a caller
+	// could construct an inconsistent pair (null data with non-zero size, or
+	// a non-null pointer with zero size).  Both would cause downstream UB:
+	// IsValidHeader() dereferences the pointer when size >= 10, and
+	// gst_buffer_new_wrapped_full() does not defend against null/zero.
+	// Fail fast here so we also avoid mutating mbNewSegmentEvtSent[] for a
+	// sample that never actually ships.
+	if (!sample.data() || sample.size() == 0)
+	{
+		return false;
+	}
+
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		if (eMEDIATYPE_VIDEO == mediaType)
@@ -1366,14 +1379,12 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
 {
-	// Bridge AampMediaSample (shared_ptr<const uint8_t>) to MediaSample
-	// (shared_ptr<uint8_t>).  The const_pointer_cast is required because
-	// GStreamer's C API takes gpointer (void*) rather than const void*, even
-	// when the buffer is flagged GST_MEMORY_FLAG_READONLY.  The underlying
-	// vector<uint8_t> is genuinely non-const; const was imposed at parse time
-	// to signal that the demuxer domain must not write to sample data.
+	// Bridge AampMediaSample to MediaSample. The single cast to the mutable gpointer type
+	// required by GStreamer's C API is pushed to the C-API boundary inside
+	// InterfacePlayerRDK, where the buffer is wrapped with
+	// GST_MEMORY_FLAG_READONLY so GStreamer will not mutate the data.
 	return SendHelper(mediaType, MediaSample{
-		std::const_pointer_cast<uint8_t>(sample.mData),
+		std::move(sample.mData),
 		sample.mDataSize,
 		sample.mPts,
 		sample.mDts,

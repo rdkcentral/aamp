@@ -34,7 +34,10 @@
  * while the segment buffer's reference count keeps that storage alive.
  * mDataSize gives the byte count of the payload.
  *
- * In future, we can consider unifying this with MediaSample in middleware/MediaSample.h
+ * AampMediaSample is the demuxer-domain sample; MediaSample
+ * (middleware/MediaSample.h) is the sink-domain sample.  Both now hold
+ * shared_ptr<const uint8_t>, so AAMPGstPlayer::SendSample bridges between
+ * them without any const_pointer_cast.
  */
 struct AampMediaSample
 {

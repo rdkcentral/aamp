@@ -31,19 +31,18 @@
  * @struct MediaSample
  * @brief Media sample transport structure delivered to the stream sink.
  *
- * The media payload is held in mData, a shared_ptr<uint8_t> pointing at the
- * raw byte array, with mDataSize holding the byte count.
+ * The media payload is held in mData, a shared_ptr<const uint8_t> pointing
+ * at the raw byte array, with mDataSize holding the byte count.  The sample
+ * is a read-only view of the underlying storage; mutation is only permitted
+ * at the C-API boundary to GStreamer (which takes gpointer/void* but is
+ * given GST_MEMORY_FLAG_READONLY so it will not mutate the data).
  *
  * Ownership model:
  *  - Zero-copy MP4 path (AampMp4Demuxer): AampMediaSample::mData is a
  *    shared_ptr<const uint8_t> built with the aliasing constructor so that
  *    it points at the raw sample bytes inside the segment buffer while
- *    keeping that buffer alive.  AAMPGstPlayer::SendSample bridges to
- *    MediaSample via const_pointer_cast (required by GStreamer's C API which
- *    takes gpointer/void* rather than const void*; the buffer is passed as
- *    GST_MEMORY_FLAG_READONLY so GStreamer will not mutate the data).
- *    The segment buffer is kept alive until the last GstBuffer referencing
- *    it is released.
+ *    keeping that buffer alive.  The segment buffer stays alive until the
+ *    last GstBuffer referencing it is released.
  *  - When constructed from std::vector&&: the vector is moved to the heap
  *    (owned by a shared_ptr<vector>), and mData aliases that control block
  *    while pointing at vector::data().  The vector is freed when the last
@@ -51,8 +50,8 @@
  */
 struct MediaSample
 {
-	/// Shared ownership of the raw payload bytes.  nullptr means no data.
-	std::shared_ptr<uint8_t> mData{};
+	/// Shared read-only ownership of the raw payload bytes.  nullptr means no data.
+	std::shared_ptr<const uint8_t> mData{};
 	/// Byte count of the payload pointed to by mData.
 	size_t mDataSize{0};
 	double mPts{0.0};
@@ -82,7 +81,7 @@ struct MediaSample
 	 * @param drm       DRM metadata (consumed)
 	 * @param ptsOffset PTS offset (default 0.0)
 	 */
-	MediaSample(std::shared_ptr<uint8_t> data, size_t dataSize,
+	MediaSample(std::shared_ptr<const uint8_t> data, size_t dataSize,
 	            double pts, double dts, double duration,
 	            MediaDrmMetadata&& drm, double ptsOffset = 0.0)
 		: mData(std::move(data))
@@ -119,7 +118,7 @@ struct MediaSample
 		// Aliasing constructor: mData shares the refcount with heapVec but
 		// points directly at the raw bytes.  The vector is destroyed when
 		// the last mData copy is released.
-		mData = std::shared_ptr<uint8_t>(heapVec, heapVec->data());
+		mData = std::shared_ptr<const uint8_t>(heapVec, heapVec->data());
 	}
 
 	/**
