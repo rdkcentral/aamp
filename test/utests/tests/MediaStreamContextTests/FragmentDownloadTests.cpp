@@ -797,10 +797,11 @@ TEST_F(FragmentDownloadTests, CacheTsbFragment_MoveSemantics_TransfersOwnership)
 	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
 
 	// --- Act ---
-	// Pass sourceFragment by value (shared_ptr copy) — NOT std::move — so that
-	// sourceFragment still aliases the same CachedFragment after the call and
-	// we can assert the underlying object was moved-from (not copied).
-	bool result = mMediaStreamContext->CacheTsbFragment(sourceFragment);
+	// std::move transfers the shared_ptr into the && parameter without
+	// decrementing the ref count, so sourceFragment still aliases the same
+	// CachedFragment after the call.  The move assignment inside
+	// CacheTsbFragment empties that object, observable through sourceFragment.
+	bool result = mMediaStreamContext->CacheTsbFragment(std::move(sourceFragment));
 
 	// --- Assert ---
 	EXPECT_TRUE(result);

@@ -612,7 +612,7 @@ int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
  * @param fragment TSB fragment pointer
  * @retval true on success
  */
-bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragment)
+bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& fragment)
 {
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
