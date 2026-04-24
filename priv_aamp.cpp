@@ -2318,14 +2318,14 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 			mReportProgressPosn = position;
+		}
 
-			if (reachedStart)
+		if (reachedStart)
+		{
+			// Check the rate so that PlayFromTsbStart() is not called more than once
+			if (rate < AAMP_RATE_PAUSE)
 			{
-				// Check the rate so that PlayFromTsbStart() is not called more than once
-				if (rate < AAMP_RATE_PAUSE)
-				{
-					PlayFromTsbStart();
-				}
+				PlayFromTsbStart();
 			}
 		}
 	}
