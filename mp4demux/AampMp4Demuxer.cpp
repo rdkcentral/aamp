@@ -346,27 +346,9 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				{
 					for (auto& sample : samples)
 					{
-						// Choose trickmode method based on PTS restamp configuration
-						// If PTS restamping is disabled, use qtdemux-style offset approach
-						// Otherwise, use the custom restamping logic
-						if (!mEnablePtsRestamp)
-						{
-							// qtdemux-style: use first PTS as offset and apply rate adjustment
-							TrickmodePtsOffset(sample, duration);
-							
-							// Skip sample if marked invalid (PTS < 0)
-							if (sample.mPts < 0.0)
-							{
-								AAMPLOG_INFO("[TrickmodePtsOffset][%s] Skipping invalid sample", GetMediaTypeName(mMediaType));
-								continue;
-							}
-						}
-						else
-						{
-							// Custom AAMP restamping with state machine
-							TrickmodePtsRestamp(sample, duration);
-						}
-						
+						// Apply trickmode PTS restamping to the sample. This modifies the sample timestamps based on the current trickmode state and rate, 
+						// which helps ensure smoother playback during trickplay by providing consistent frame timing.
+						TrickmodePtsRestamp(sample, duration);
 						// Send the sample to the pipeline
 						mAamp->SendStreamTransfer(mMediaType, sample);
 					}
