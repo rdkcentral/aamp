@@ -4821,6 +4821,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				abortReason = eCURL_ABORT_REASON_NONE;
 
 				long long tStartTime = NOW_STEADY_TS_MS;
+				double ttfbSleptMs = 0.0; // accumulated persona TTFB sleep; used to synthesize startTransfer in HttpRequestEnd
 
 			// ── Network persona: TTFB sleep (test only) ─────────────────────
 			// Lazy-load on first download if a persona file is configured.
@@ -4831,20 +4832,24 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			static std::once_flag sPersonaLoadFlag;
 			std::call_once(sPersonaLoadFlag, [this]() {
 				const std::string personaPath = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
+				AAMPLOG_WARN("priv_aamp: persona call_once fired — path='%s'", personaPath.c_str());
 				if (!personaPath.empty())
 					AampNetworkPersona::Instance().LoadFromFile(personaPath);
 			});
+			AAMPLOG_WARN("priv_aamp: download url=%s personaLoaded=%d", remoteUrl.c_str(), AampNetworkPersona::Instance().IsLoaded() ? 1 : 0);
 			if (AampNetworkPersona::Instance().IsLoaded())
 			{
 				// Chunk the TTFB sleep into 50 ms slices so that StopDownloads()
 				// can interrupt it within one slice rather than the full TTFB delay.
 				double ttfbRemMs = AampNetworkPersona::Instance().SampleTtfbMs();
-				constexpr long long kTtfbChunkMs = 50LL;
-				while (ttfbRemMs > 0.5 && mDownloadsEnabled)
+				AAMPLOG_WARN("priv_aamp: persona TTFB sleep=%.0fms", ttfbRemMs);
+				constexpr double kTtfbChunkMs = 50.0;
+				while (ttfbRemMs >= 1.0 && mDownloadsEnabled)
 				{
-					const long long sleepMs = std::min(ttfbRemMs, static_cast<double>(kTtfbChunkMs));
+					const double sleepMs = std::min(ttfbRemMs, kTtfbChunkMs);
 					usleep(static_cast<useconds_t>(sleepMs * 1000.0));
-					ttfbRemMs -= static_cast<double>(sleepMs);
+					ttfbRemMs -= sleepMs;
+					ttfbSleptMs += sleepMs;
 				}
 			}
 			// Reset progress-callback start timestamps to after the TTFB sleep so
@@ -4862,14 +4867,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				const double predictedTransferMs =
 					AampNetworkPersona::Instance().SampleTransferMs(buffer.size());
 				double idleMs = predictedTransferMs - static_cast<double>(tActualCurlMs);
+				AAMPLOG_WARN("priv_aamp: persona idle: bytes=%zu predicted=%.0fms actualCurl=%lldms idle=%.0fms",
+						 buffer.size(), predictedTransferMs, tActualCurlMs, idleMs);
 				// Chunk into 50 ms slices so that StopDownloads() can interrupt
 				// within one slice rather than blocking for the full idle duration.
-				constexpr long long kIdleChunkMs = 50LL;
-				while (idleMs > 0.5 && mDownloadsEnabled)
+				constexpr double kIdleChunkMs = 50.0;
+				while (idleMs >= 1.0 && mDownloadsEnabled)
 				{
-					const long long sleepMs = std::min(idleMs, static_cast<double>(kIdleChunkMs));
+					const double sleepMs = std::min(idleMs, kIdleChunkMs);
 					usleep(static_cast<useconds_t>(sleepMs * 1000.0));
-					idleMs -= static_cast<double>(sleepMs);
+					idleMs -= sleepMs;
 				}
 			}
 				// ---- Finalize recorder immediately after the perform ----
@@ -5208,12 +5215,19 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				resolve = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_NAMELOOKUP_TIME);
 				startTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_STARTTRANSFER_TIME);
 				connectTime = connect;
+				// When a network persona is active, synthesize CURLINFO_TOTAL_TIME and
+				// CURLINFO_STARTTRANSFER_TIME to reflect simulated delays so that HttpRequestEnd
+				// is indistinguishable from a real impaired-network session. Raw curl values are
+				// preserved in rawCurl* for CMCD, which reports per-request CDN connection quality.
+				const double rawCurlTotal = total;
+				const double rawCurlStartTransfer = startTransfer;
+				if (AampNetworkPersona::Instance().IsLoaded() && res == CURLE_OK)
+				{
+					startTransfer += ttfbSleptMs / 1000.0;
+					total = static_cast<double>(downloadTimeMS) / 1000.0;
+				}
 				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
 				{
-					// Note: 'total' is CURLINFO_TOTAL_TIME of the last attempt; for multi-retry
-					// requests the totalPerformRequest field in HttpRequestEnd is a better
-					// indicator of overall slowness, but is not evaluated here to avoid
-					// promoting every retried download to WARN regardless of outcome.
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
 				if (mAampLLDashServiceData.lowLatencyMode && http_code == 206 && mediaType == eMEDIATYPE_VIDEO)
@@ -5222,9 +5236,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					// But log at warning level to indicate partial download
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
-				// CMCD metrics use last-attempt CURLINFO_* values; this is intentional as CMCD
-				// reports per-request connection quality rather than aggregate retry duration.
-				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
+				// CMCD metrics use last-attempt raw CURLINFO_* values (not persona-synthesized)
+				// because CMCD reports actual CDN connection quality, not simulated conditions.
+				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(rawCurlStartTransfer*1000),(int)(rawCurlTotal*1000),(int)(resolve*1000));
 				// IsTuneTypeNew set to false in streamabstraction.cpp once top profile has been reached
 				if(IsTuneTypeNew)
 				{

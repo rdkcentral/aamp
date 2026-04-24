@@ -183,6 +183,13 @@ bool AampNetworkPersona::LoadFromFile(const std::string& path)
 	}
 
 	mLoaded.store(true, std::memory_order_release);
+	const PersonaParams& p0 = mSequence[0].params;
+	AAMPLOG_WARN("AampNetworkPersona: active — base_rtt=%.0fms mean_thr=%.2fMbps (ln=%.3f sigma=%.3f) ttfb_spike_p=%.2f new_conn=%.0fms entries=%zu",
+				 p0.baseRttMs,
+				 std::exp(p0.meanThrLn) * 8.0 / 1e6,
+				 p0.meanThrLn, p0.thrSigmaLn,
+				 p0.ttfbSpikeP, p0.newConnPenaltyMs,
+				 mSequence.size());
 	return true;
 }
 
@@ -282,5 +289,7 @@ double AampNetworkPersona::SampleTransferMs(std::size_t bytes)
 	if (lateDist(mRng))
 		transferMs += p.lateChunkExtraMs;
 
+	AAMPLOG_WARN("AampNetworkPersona::SampleTransferMs bytes=%zu predicted=%.0fms (effectiveBytesPerSec=%.0f rawBytesPerSec=%.0f)",
+				 bytes, transferMs, effectiveBytesPerSec, rawBytesPerSec);
 	return transferMs;
 }
