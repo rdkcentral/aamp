@@ -214,7 +214,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 }
 
 void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	// Validate input parameters
 	if (key != nullptr && keySize > 0)
 	{
@@ -224,6 +224,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 		if (m_pOpenCDMSession)
 		{
 			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+			MW_LOG_WARN("VRN opencdm_session_status[%d]",m_keyStatus);
 			m_keyStateIndeterminate = false;
 		}
 		else
@@ -246,14 +247,14 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 }
 
 void OCDMSessionAdapter::keysUpdatedOCDM() {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	m_keyStatusReady.signal();
 }
 
 
 DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	DrmData * result = NULL;
 
 	m_eKeyState = KEY_ERROR;
@@ -283,7 +284,7 @@ DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_
 
 int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	int retValue = -1;
 	const uint8_t* keyMessage = NULL;
 	uint16_t keyMessageLength = 0;
@@ -298,7 +299,7 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 
 	if (keyMessage)
 	{
-		MW_LOG_INFO("Calling opencdm_session_update, key length=%u", keyMessageLength);
+		MW_LOG_WARN("Calling opencdm_session_update, key length=%u", keyMessageLength);
 		status = opencdm_session_update(m_pOpenCDMSession, keyMessage, keyMessageLength);
 	}
 	else
