@@ -219,7 +219,7 @@ void ProfileEventAAMP::TuneBegin(void)
 	cJSON *newParam = cJSON_CreateObject();
 	{
 		std::lock_guard<std::mutex> lock(discontinuityParamMutex);
-		mLldLowBuffObject = NULL;
+		mLldLowBuffObject = nullptr;
 		cJSON_Delete(telemetryParam);
 		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 		telemetryParam = newParam;
@@ -634,7 +634,7 @@ void ProfileEventAAMP::GetTelemetryParam()
 		char *jsonStr = cJSON_PrintUnformatted(telemetryParam);
 		AAMPLOG_MIL("Telemetry values %s", jsonStr);
 		cJSON_free(jsonStr);
-		mLldLowBuffObject = NULL;
+		mLldLowBuffObject = nullptr;
 		cJSON_Delete(telemetryParam);
 		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 		telemetryParam = cJSON_CreateObject();
