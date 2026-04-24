@@ -17,42 +17,10 @@
  * limitations under the License.
  */
 
-/**
- * @file FakeAampUnderflowMonitor.cpp
- * @brief Fake implementation of AampUnderflowMonitor for unit testing.
- */
+#include <gtest/gtest.h>
 
-#include "AampUnderflowMonitor.h"
-
-AampUnderflowMonitor::AampUnderflowMonitor(PrivateInstanceAAMP* aamp)
-	: mAamp(aamp)
+int main(int argc, char** argv)
 {
-}
-
-AampUnderflowMonitor::~AampUnderflowMonitor()
-{
-}
-
-void AampUnderflowMonitor::Start()
-{
-}
-
-void AampUnderflowMonitor::Stop()
-{
-}
-
-void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRate)
-{
-}
-
-void AampUnderflowMonitor::NotifyPipelinePaused()
-{
-}
-
-void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playRate)
-{
-}
-
-void AampUnderflowMonitor::NotifyRateChange(float rate)
-{
+	testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
 }

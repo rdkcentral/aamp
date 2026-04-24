@@ -250,6 +250,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"stereoOnly",eAAMPConfig_StereoOnly,true},
 	{false,"descriptiveTrackName",eAAMPConfig_DescriptiveTrackName,false},
 	{false,"disableAC3",eAAMPConfig_DisableAC3,true},
+	{true,"preferHEVC",eAAMPConfig_PreferHEVC,true},
 	{true,"disablePlaylistIndexEvent",eAAMPConfig_DisablePlaylistIndexEvent,false},
 	{true,"enableSubscribedTags",eAAMPConfig_EnableSubscribedTags,false},
 	{false,"dashIgnoreBaseUrlIfSlash",eAAMPConfig_DASHIgnoreBaseURLIfSlash,false},
@@ -311,7 +312,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"webVttNative",eAAMPConfig_WebVTTNative,false},
 	{false,"asyncTune",eAAMPConfig_AsyncTune,true},
 	{false,"disableUnderflow",eAAMPConfig_DisableUnderflow,false},
-	{false,"enableAampUnderflowMonitor",eAAMPConfig_EnableAampUnderflowMonitor,true},
+	{true,"enableAampUnderflowMonitor",eAAMPConfig_EnableAampUnderflowMonitor,true},
 	{false,"limitResolution",eAAMPConfig_LimitResolution,false},
 	{false,"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false},
 	{true,"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false},
@@ -374,6 +375,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
+	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 
 };

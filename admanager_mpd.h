@@ -140,6 +140,7 @@ struct AdNode {
 	std::string  adId;             /**< Ad's identifier */
 	std::string  url;              /**< Ad's manifest URL */
 	uint64_t     duration;         /**< Duration of the Ad in milliseconds*/
+	uint32_t     placedDuration;   /**< Duration of the Ad placed so far in milliseconds */
 	std::string  basePeriodId;     /**< Id of the base period at the beginning of the Ad */
 	int          basePeriodOffset; /**< Offset of the base period at the beginning of the Ad in milliseconds */
 	MPD*         mpd;              /**< Pointer to the MPD object */
@@ -147,7 +148,7 @@ struct AdNode {
 	/**
 	* @brief AdNode default constructor
 	*/
-	AdNode() : invalid(false), placed(false), resolved(false), cancelled(false), adId(), url(), duration(0), basePeriodId(), basePeriodOffset(0), mpd(nullptr)
+	AdNode() : invalid(false), placed(false), resolved(false), cancelled(false), adId(), url(), duration(0), placedDuration(0), basePeriodId(), basePeriodOffset(0), mpd(nullptr)
 	{
 
 	}
@@ -168,7 +169,7 @@ struct AdNode {
 	*/
 	AdNode(bool invalid, bool placed, bool resolved, std::string adId, std::string url, uint64_t duration,
 		std::string basePeriodId, int basePeriodOffset, MPD* mpd, bool cancelled = false)
-		: invalid(invalid), placed(placed), resolved(resolved), cancelled(cancelled), adId(std::move(adId)), url(std::move(url)), duration(duration), basePeriodId(std::move(basePeriodId)),
+		: invalid(invalid), placed(placed), resolved(resolved), cancelled(cancelled), adId(std::move(adId)), url(std::move(url)), duration(duration), placedDuration(0), basePeriodId(std::move(basePeriodId)),
 		basePeriodOffset(basePeriodOffset), mpd(mpd)
 	{
 
@@ -181,7 +182,7 @@ struct AdNode {
 	*/
 	AdNode(const AdNode& adNode)
 		: invalid(adNode.invalid), placed(adNode.placed), resolved(adNode.resolved), cancelled(adNode.cancelled), adId(adNode.adId),
-		url(adNode.url), duration(adNode.duration), basePeriodId(adNode.basePeriodId),
+		url(adNode.url), duration(adNode.duration), placedDuration(adNode.placedDuration), basePeriodId(adNode.basePeriodId),
 		basePeriodOffset(adNode.basePeriodOffset), mpd(adNode.mpd)
 	{
 	}

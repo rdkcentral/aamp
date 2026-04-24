@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <glib.h>
 #include "priv_aamp.h"
+#include "StreamAbstractionAAMP.h"
 #include <atomic>
 #include <algorithm>
 #include "AampDRMLicManager.h"
@@ -640,7 +641,10 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			if (busEvent.msg.find("HDCPProtectionFailure") != std::string::npos)
 			{
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
-				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
+				
+				// Removed flush(teardown) here as injection threads may still be running
+				// Allow retune to reset everything but mute video as HDCP failed
+				_this->SetVideoMute(true);
 				_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
 			}
 			break;
@@ -1066,6 +1070,15 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 	else if(shouldHaltBuffering)
 	{
 		StopBuffering(true);
+		// Disarm the underflow monitor during codec-change EOS/flush sequence.
+		// GstPlayer_SignalEOS() has been sent; no video fragments will arrive until
+		// after pipeline reinitialisation.  Without this call the monitor would fire
+		// during the flush gap and falsely pause the pipeline, preventing GST_MESSAGE_EOS
+		// from being processed and AAMP_EVENT_STATE_CHANGED: COMPLETE from ever firing.
+		if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) && aamp->mpStreamAbstractionAAMP)
+		{
+			aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+		}
 	}
 	return ret;
 }

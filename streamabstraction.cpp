@@ -3028,9 +3028,8 @@ void StreamAbstractionAAMP::StartUnderflowMonitor()
 	{
 		try
 		{
-			mUnderflowMonitor = std::make_unique<AampUnderflowMonitor>(this, aamp);
+			mUnderflowMonitor = std::make_unique<AampUnderflowMonitor>(aamp);
 			mUnderflowMonitor->Start();
-			AAMPLOG_INFO("Started AampUnderflowMonitor for video");
 		}
 		catch (const std::exception &e)
 		{
@@ -3071,6 +3070,47 @@ bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	return (mUnderflowMonitor && mUnderflowMonitor->IsRunning());
 }
+
+void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate)
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->NotifyVideoFragment(endPosition, playRate);
+	}
+}
+
+void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->NotifyPipelinePaused();
+	}
+}
+
+void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->NotifyRateChange(rate);
+	}
+}
+
+void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		// Reconstruct end-of-buffer position: currentPosition + bufferedDuration.
+		const double positionSec = aamp->GetPositionMs() / 1000.0;
+		const double buffered    = GetBufferedVideoDurationSec();
+		const double endPosition = positionSec + (buffered > 0.0 ? buffered : 0.0);
+		mUnderflowMonitor->NotifyPipelineResumed(endPosition, playRate);
+	}
+}
+
 /**
  *  @brief Check if playback has stalled and update related flags.
  */

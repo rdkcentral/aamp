@@ -60,7 +60,7 @@
 #define DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL 5
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
-#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 0			/**< Default ABR Bandwidth Estimation Algorithm */
+#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 1			/**< Default ABR bandwidth estimation algorithm; value must stay in sync with BandwidthEstimationAlgorithm ordinal 1 in abr/abr.h */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */
 #define DEFAULT_PROGRESS_LOGGING_DIVISOR 4			/**< Divisor of progress logging frequency to print logging */
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
@@ -203,7 +203,6 @@
 #define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback; 4 sec to ABR; So Allow ABR first*/
 #define DEFAULT_MIN_BUFFER_LOW_LATENCY          (2.0f)      /**< Default minimum buffer for Low latency stream*/
 #define DEFAULT_TARGET_BUFFER_LOW_LATENCY       (4.0f)      /**< Default minimum buffer for Low latency stream*/
-#define DEFAULT_ALLOWED_DELAY_LOW_LATENCY       (2.5f)      /**< Default allowed server delay for Low latency stream*/
 
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD 4               /**< 2 fragments for MSO specific linear streams. */
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD 1           /**< LLD 1 sec minimum buffer to alert */

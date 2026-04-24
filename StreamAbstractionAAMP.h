@@ -1744,6 +1744,40 @@ public:
 	bool IsUnderflowMonitorRunning() const;
 
 	/**
+	 * @fn NotifyVideoFragmentToUnderflowMonitor
+	 * @brief Notify the underflow monitor that a video fragment (or chunk) has
+	 *        been queued for injection.  Re-arms the underflow deadline.
+	 * @param[in] endPosition  Absolute end position of the queued content (seconds).
+	 * @param[in] playRate     Current play rate.
+	 */
+	void NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate);
+
+	/**
+	 * @fn NotifyPipelinePausedToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the pipeline has been paused for
+	 *        buffering.  Disarms the deadline until resumption.
+	 */
+	void NotifyPipelinePausedToUnderflowMonitor();
+
+	/**
+	 * @fn NotifyPipelineResumedToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the pipeline has resumed after
+	 *        buffering.  Re-arms the deadline using the current video buffer position.
+	 * @param[in] playRate     Current play rate.
+	 */
+	void NotifyPipelineResumedToUnderflowMonitor(float playRate);
+
+	/**
+	 * @fn NotifyRateChangeToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the playback rate has changed.
+	 *        Updates the cached rate and disarms the deadline when entering trickplay,
+	 *        preventing a stale deadline from causing a false underflow before the
+	 *        first fragment at the new rate is downloaded.
+	 * @param[in] rate  New play rate.
+	 */
+	void NotifyRateChangeToUnderflowMonitor(float rate);
+
+	/**
 	 *   @fn GetBufferedAudioDurationSec
 	 *
 	 *   @return duration of currently buffered audio in seconds
