@@ -427,6 +427,7 @@ std::size_t NetPersonaFitter::GetBurstCount() const
 	return mBursts.size();
 }
 
+#ifdef AAMP_TEST_BUILD
 void NetPersonaFitter::ResetForTesting()
 {
 	std::lock_guard<std::mutex> lock{mMutex};
@@ -436,6 +437,7 @@ void NetPersonaFitter::ResetForTesting()
 	// with the C runtime and cannot be un-registered; re-registering on the next
 	// AddRequest() call would just add a duplicate entry.
 }
+#endif
 
 bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath) const
 {
