@@ -75,12 +75,6 @@ STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) #disabli
 #endif()
 
 add_subdirectory(fakes)
-
-# Build net_persona_fitter as a library target so tests that pull in priv_aamp.cpp
-# can link against it (priv_aamp.cpp references aamptrace::NetPersonaFitter via net_trace.h)
-if(NOT TARGET net_persona_fitter)
-	add_subdirectory(${AAMP_ROOT}/simnet ${CMAKE_CURRENT_BINARY_DIR}/simnet)
-endif()
 if (CMAKE_XCODE_BUILD_SYSTEM)
 	# ARM64 will fail to build utest schemes in XCode unless this is set
 	set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
