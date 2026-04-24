@@ -3458,10 +3458,28 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 			if(rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				// Step 2: Configure Subtitle track for the playback
-				ConfigureTextTrack();
+
 				// Generate audio and text track structures
 				PopulateAudioAndTextTracks();
+
+				// Select preferred text track based on user language preferences
+				TextTrackInfo selectedTextTrack;
+				if (SelectPreferredTextTrack(selectedTextTrack))
+				{
+					AAMPLOG_INFO("Selected text track - lang:%s, name:%s, rendition:%s",
+								 selectedTextTrack.language.c_str(),
+								 selectedTextTrack.name.c_str(),
+								 selectedTextTrack.rendition.c_str());
+					aamp->SetPreferredTextTrack(selectedTextTrack);
+				}
+				else
+				{
+					AAMPLOG_WARN("No text track matched user preferences, will use default selection");
+				}
+
+				// Configure Subtitle track for the playback
+				ConfigureTextTrack();
+
 				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
 				{
 					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
@@ -7298,7 +7316,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 			{
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
-//				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, group_id.c_str(), name.c_str(), instreamID.c_str(), characteristics.c_str());
+				//AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, group_id.c_str(), name.c_str(), instreamID.c_str(), characteristics.c_str());
 				if (!disableWebVTT || media.isCC)
 				{
 					mTextTracks.push_back(TextTrackInfo(index, language, media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));	
