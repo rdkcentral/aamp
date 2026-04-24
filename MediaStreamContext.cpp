@@ -1184,8 +1184,8 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 				   !aamp->TrackDownloadsAreEnabled(mediaType);
 		};
 		// Wait for a free cache slot before starting the download.
-		// IsFragmentCacheFull() dispatches to the chunk cache for DASH and the
-		// ring buffer for HLS, so the wait always targets the right structure.
+		// IsFragmentCacheFull() checks the unified fragment chunk cache usage, so
+		// this wait throttles downloads until shared cache capacity is available.
 		if (IsFragmentCacheFull())
 		{
 			while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
