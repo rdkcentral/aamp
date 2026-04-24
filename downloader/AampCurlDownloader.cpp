@@ -178,6 +178,14 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				mDownloadResponse->sEffectiveUrl = urlStr;
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
+			// ── Network persona: load once before first download ────────────────
+			// Manifest downloads always precede segment downloads, so loading here
+			// ensures the persona is active for every subsequent GetFile call.
+			// LoadFromFile is internally double-check guarded so this is safe to
+			// call on every manifest refresh; the file is only parsed once.
+			if (mDnldCfg && !mDnldCfg->networkPersonaFile.empty())
+				AampNetworkPersona::Instance().LoadFromFile(mDnldCfg->networkPersonaFile);
+
 			bool loopAgain = false;
 			// High-resolution start time captured before any retry so that total in
 			// downloadCompleteMetrics reflects the full wall-clock span including retries.

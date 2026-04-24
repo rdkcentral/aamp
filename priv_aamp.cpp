@@ -4824,18 +4824,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				double ttfbSleptMs = 0.0; // accumulated persona TTFB sleep; used to synthesize startTransfer in HttpRequestEnd
 
 			// ── Network persona: TTFB sleep (test only) ─────────────────────
-			// Lazy-load on first download if a persona file is configured.
-			// std::call_once ensures GetConfigValue (string by-value copy) is
-			// called at most once per process, so production builds with no
-			// persona configured pay only a single cheap once_flag check per
-			// download rather than a heap allocation on every attempt.
-			static std::once_flag sPersonaLoadFlag;
-			std::call_once(sPersonaLoadFlag, [this]() {
+			// The persona is normally loaded by AampCurlDownloader on the first
+			// manifest download (which always precedes segment downloads for
+			// IP video). This call is a fallback for non-DASH streams or any
+			// path that bypasses AampCurlDownloader. LoadFromFile is internally
+			// double-check guarded so calling it here when already loaded is free.
+			{
 				const std::string personaPath = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
-				AAMPLOG_WARN("priv_aamp: persona call_once fired — path='%s'", personaPath.c_str());
 				if (!personaPath.empty())
 					AampNetworkPersona::Instance().LoadFromFile(personaPath);
-			});
+			}
 			AAMPLOG_WARN("priv_aamp: download url=%s personaLoaded=%d", remoteUrl.c_str(), AampNetworkPersona::Instance().IsLoaded() ? 1 : 0);
 			if (AampNetworkPersona::Instance().IsLoaded())
 			{
@@ -14518,6 +14516,7 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->lSupportedTLSVersion = mSupportedTLSVersion;
 	inpData->mDnldConfig->bVerbose	=      ISCONFIGSET_PRIV(eAAMPConfig_CurlLogging);
 	inpData->mDnldConfig->bCurlThroughput = ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput);
+	inpData->mDnldConfig->networkPersonaFile = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
 
 	struct curl_slist* headers = GetCustomHeaders(eMEDIATYPE_MANIFEST);
 	std::unordered_map<std::string, std::vector<std::string>> sCustomHeaders;
