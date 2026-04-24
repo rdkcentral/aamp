@@ -128,7 +128,6 @@ void RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheLife(std::ve
  */
 BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector<BitsPerSecond> &tmpData)
 {
-	BitsPerSecond ret = -1;
 	BitsPerSecond medianbps = 0;
 
 	size_t initialSize = tmpData.size();
