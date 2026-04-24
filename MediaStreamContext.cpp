@@ -612,7 +612,7 @@ int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
  * @param fragment TSB fragment pointer
  * @retval true on success
  */
-bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragment)
+bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& fragment)
 {
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
@@ -621,12 +621,17 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
 		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
+		if(!cachedFragment)
+		{
+			AAMPLOG_ERR("[%s] GetFetchChunkBuffer returned null", name);
+			return false;
+		}
 		if(!cachedFragment->fragment.empty())
 		{
-			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
-			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
+			// Slot was not cleared after previous use; the assignment below will overwrite and release the old data.
+			AAMPLOG_WARN("Fetch buffer has junk data; previous slot was not cleared after use");
 		}
-		cachedFragment->Copy(*fragment);
+		*cachedFragment = std::move(*fragment);
 		if(!cachedFragment->fragment.empty())
 		{
 			ret = true;
@@ -730,7 +735,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// If reader is at EOS, inject the last data in AAMP TSB
 			if (aamp->GetLLDashChunkMode())
 			{
-				CacheTsbFragment(fragmentToTsbSessionMgr);
+				auto fragmentForChunkCache = std::make_shared<CachedFragment>(*fragmentToTsbSessionMgr);
+				CacheTsbFragment(std::move(fragmentForChunkCache));
 			}
 			SetLocalTSBInjection(false);
 			// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
@@ -741,7 +747,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// In chunk mode, media segments are added to the chunk cache in the SSL callback, but init segments are added here
 			if (aamp->GetLLDashChunkMode())
 			{
-				CacheTsbFragment(fragmentToTsbSessionMgr);
+				auto fragmentForChunkCache = std::make_shared<CachedFragment>(*fragmentToTsbSessionMgr);
+				CacheTsbFragment(std::move(fragmentForChunkCache));
 			}
 		}
 		tsbSessionManager->EnqueueWrite(std::move(dlInfo->url), std::move(fragmentToTsbSessionMgr), context->GetPeriod()->GetId());

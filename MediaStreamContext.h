@@ -146,10 +146,10 @@ bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double po
 
 /**
  * @fn CacheTsbFragment
- * @param[in] fragment TSB fragment pointer
+ * @param[in] fragment TSB fragment pointer (must be passed with std::move)
  * @retval true on success
  */
-bool CacheTsbFragment(std::shared_ptr<CachedFragment> fragment);
+bool CacheTsbFragment(std::shared_ptr<CachedFragment>&& fragment);
 
 /**
  * @fn CacheFragmentChunk
