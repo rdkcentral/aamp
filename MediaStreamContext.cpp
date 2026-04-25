@@ -41,7 +41,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
 		};
-		fragmentDiscarded = !playContext->sendSegment(cachedFragment->fragment, cachedFragment->position,
+		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment), cachedFragment->position,
 														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
 	}
 	else

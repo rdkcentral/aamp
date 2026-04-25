@@ -89,7 +89,9 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in,out] buffer - fragment data as std::vector; may be modified (e.g. PTS restamping)
+	 * @param[in] buffer - fragment data; ownership is transferred to the implementation.
+	 *                    Callers must pass via std::move() and must not read the buffer
+	 *                    after this call returns.
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -99,9 +101,8 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	virtual bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	virtual bool sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError) = 0;
-
 	/**
 	 * @brief Set playback rate
 	 *

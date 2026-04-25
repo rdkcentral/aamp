@@ -26,8 +26,8 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback
 {
 }
 
-bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
-						                bool isInit, process_fcn_t processor, bool &ptsError)
+bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+								            bool isInit, process_fcn_t processor, bool &ptsError)
 {
     return true;
 }
