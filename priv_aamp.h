@@ -1883,10 +1883,12 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  sample - Media sample
+	 *   @param[in]  sample - Media sample; ownership is transferred (consumed).
+	 *                        Callers must pass via std::move() and must not
+	 *                        access the sample after this call returns.
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample);
 
 	/**
 	 * @fn IsLive

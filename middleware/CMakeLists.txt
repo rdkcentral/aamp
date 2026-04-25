@@ -139,6 +139,7 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	subtitle/vttCue.h
 	ProcessHandler.h
 	DemuxDataTypes.h
+	MediaSample.h
 	)
 
 install(FILES closedcaptions/CCTrackInfo.h
@@ -175,6 +176,7 @@ install(FILES closedcaptions/CCTrackInfo.h
 	playerisobmff/playerisobmffbuffer.h
 	playerisobmff/playerisobmffbox.h
 	DemuxDataTypes.h
+	MediaSample.h
 	DESTINATION include)
 
 set(SOURCES
