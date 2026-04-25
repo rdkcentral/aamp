@@ -1779,7 +1779,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}
 
-		fragmentDiscarded = !playContext->sendSegment(cachedFragment->fragment,
+		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment),
 			position.inSeconds(),
 			cachedFragment->duration,
 			cachedFragment->PTSOffsetSec,

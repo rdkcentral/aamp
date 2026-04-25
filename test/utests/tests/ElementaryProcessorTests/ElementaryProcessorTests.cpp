@@ -238,7 +238,7 @@ TEST_F(ElementaryProcessorSendSegmentTest, sendSegmentReturnsFalse_WhenSinkRejec
 		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
 
-	bool result = mElementaryProcessor->sendSegment(buffer, 0.0, 2.0, 0.0, false, false, mProcessorFn, ptsError);
+	bool result = mElementaryProcessor->sendSegment(std::move(buffer), 0.0, 2.0, 0.0, false, false, mProcessorFn, ptsError);
 
 	EXPECT_FALSE(result);
 }

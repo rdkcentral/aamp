@@ -44,7 +44,7 @@ AampMp4Demuxer::~AampMp4Demuxer()
 {
 }
 
-bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, 
+bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, 
                                  double fragmentPTSoffset, bool discontinuous, bool isInit, 
                                  process_fcn_t processor, bool &ptsError)
 {
