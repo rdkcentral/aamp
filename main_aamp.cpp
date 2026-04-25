@@ -1361,9 +1361,10 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				}
 				else
 				{
-					// Seeking to a specific position during trickplay: preserve the trickplay
-					// rate to avoid sending a spurious speed=1 event. A subsequent SetRate
-					// call (already queued) will set the correct new rate.
+					// Seeking to a specific position during trickplay: preserve the current
+					// trickplay rate and avoid sending a spurious speed=1 event here.
+					// Callers that want to resume normal playback after the seek must
+					// explicitly call SetRate(AAMP_NORMAL_PLAY_RATE).
 					AAMPLOG_INFO("Seek during trickplay at rate(%f) - maintaining rate, skipping speed-change notification", aamp->rate);
 				}
 			}
