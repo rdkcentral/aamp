@@ -410,28 +410,7 @@ struct ThumbnailData {
 	int y;    /**< y coordinate of Thumbnail within tile */
 };
 
-/**
- * @struct SpeedCache
- * @brief Stores the information for cache speed
- */
-struct SpeedCache
-{
-    long last_sample_time_val;
-    long prev_dlnow;
-    long prevSampleTotalDownloaded;
-    long totalDownloaded;
-    long speed_now;
-    long start_val;
-    bool bStart;
-
-    double totalWeight;
-    double weightedBitsPerSecond;
-    std::vector< std::pair<double,long> > mChunkSpeedData;
-
-    SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false) , totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
-    {
-    }
-};
+#include "AampSpeedCache.h"
 
 
 /**
