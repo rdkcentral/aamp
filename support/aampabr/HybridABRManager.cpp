@@ -117,7 +117,11 @@ void HybridABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 
 long HybridABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
 {
-	long downloadbps = (static_cast<long>(bufferlen) * 8000L) / downloadTimeMs;
+	long downloadbps = 0;
+	if (downloadTimeMs > 0)
+	{
+		downloadbps = static_cast<long>((static_cast<long long>(bufferlen) * 8000LL) /downloadTimeMs);
+	}
 	// extra coding to avoid picking lower profile
 	// Avoid this reset for Low bandwidth timeout cases
 	if(downloadbps < currentProfilebps && fragmentDurationMs && downloadTimeMs < fragmentDurationMs/2 && (abortReason != eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)) 
