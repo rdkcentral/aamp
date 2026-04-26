@@ -39,6 +39,7 @@
 #endif
 #include <sys/time.h>
 #include <algorithm>
+#include "AampSpeedCache.h"
 
 #define MAX_DEBUG_LOG_BUFF_SIZE 1024
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH	10					/**< Default ABR chunk cache length */
@@ -60,30 +61,6 @@
 #define AAMPABRLOG_ERR(FORMAT, ...)   AAMPABRLOG(eAAMPAbrConfig.debuglogging,"ERROR",FORMAT, ##__VA_ARGS__)
 
 HybridABRManager::AampAbrConfig eAAMPAbrConfig;
-
-/**
- * @struct SpeedCache
- * @brief Stores the information for cache speed
- */
-
-struct SpeedCache
-{
-	long last_sample_time_val;
-	long prev_dlnow;
-	long prevSampleTotalDownloaded;
-	long totalDownloaded;
-	long speed_now;
-	long start_val;
-	bool bStart;
-
-	double totalWeight;
-	double weightedBitsPerSecond;
-	std::vector< std::pair<double,long> > mChunkSpeedData;
-
-	SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false) , totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
-	{
-	}
-};
 
 /** @brief Read Config values
  *  @return none
