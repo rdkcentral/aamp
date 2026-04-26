@@ -30,7 +30,7 @@
 #include "AampScheduler.h"
 #include "StreamSink.h"
 #include "TimedMetadata.h"
-
+#include "AampSpeedCache.h"
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
@@ -409,9 +409,6 @@ struct ThumbnailData {
 	int x;    /**< x coordinate of thumbnail within tile */
 	int y;    /**< y coordinate of Thumbnail within tile */
 };
-
-#include "AampSpeedCache.h"
-
 
 /**
  * @brief To store video rectangle properties
