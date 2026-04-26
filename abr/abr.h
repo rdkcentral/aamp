@@ -32,6 +32,7 @@
 #include "AampMediaType.h"
 #include "BandwidthEstimatorBase.h"
 #include "AampCurlDefine.h"
+#include "AampSpeedCache.h"
 
 enum BandwidthEstimationAlgorithm
 {
