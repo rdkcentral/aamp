@@ -27,7 +27,6 @@
 #include <string>
 #include <cstdio>
 #include "ABRManager.h"
-#include "AampSpeedCache.h"
 
 class HybridABRManager:public ABRManager
 {
