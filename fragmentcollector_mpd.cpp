@@ -1921,23 +1921,107 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 	return retval;
 }
 
+/**
+ * @brief If SkipFragments reaches EOS and an additional playable period is available, switch to the next period.
+ */
+bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainingSeek,
+	bool skipToEnd)
+{
+	bool switchToNextPeriod = false;
+
+	// Check whether any track hit EOS during the seek. Any enabled track reaching EOS
+	// is sufficient to trigger a period transition: DASH spec requires all tracks in a
+	// period to end at the same presentation time, so this is safe for well-formed content.
+	// The mPlayRate and remainingSeek guards (comment 2 & 3) prevent false positives:
+	//   - mPlayRate >= AAMP_RATE_PAUSE: for reverse playback (mPlayRate < 0), EOS means
+	//     beginning-of-period, not end-of-period, so we must not advance to the next period.
+	//   - remainingSeek >= 0: a negative remainder also indicates the seek overshot backward
+	//     rather than forward, so no forward period transition is appropriate.
+	for (int i = 0; i < mNumberOfTracks; i++)
+	{
+		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
+		{
+			switchToNextPeriod = true;
+			break;
+		}
+	}
+
+	if (!switchToNextPeriod)
+	{
+		AAMPLOG_INFO("SeekInPeriod: Seek completed within current period with remaining seek %lf", remainingSeek);
+		return false;
+	}
+
+	int nextPeriodIdx = mCurrentPeriodIdx + 1;
+	while ((nextPeriodIdx < mMPDParseHelper->GetNumberOfPeriods()) && mMPDParseHelper->IsEmptyPeriod(nextPeriodIdx, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+	{
+		nextPeriodIdx++;
+	}
+
+	if (nextPeriodIdx >= mMPDParseHelper->GetNumberOfPeriods())
+	{
+		AAMPLOG_INFO("SeekInPeriod: No next playable period available for seek remainder %lf", remainingSeek);
+		return false;
+	}
+
+	mCurrentPeriodIdx = nextPeriodIdx;
+	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
+	mBasePeriodId = mCurrentPeriod->GetId();
+	AAMPLOG_INFO("SeekInPeriod: Switching to next period %d with id %s for seek remainder %lf", mCurrentPeriodIdx, mBasePeriodId.c_str(), remainingSeek);
+	mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
+	mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+	mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+	StreamSelection(true);
+	mUpdateStreamInfo = true;
+	AAMPStatusType ret = UpdateTrackInfo(true, true);
+	if (ret != eAAMPSTATUS_OK)
+	{
+		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d", mCurrentPeriodIdx);
+		return false;
+	}
+
+	AAMPLOG_INFO("SeekInPeriod: Switched to period %d, calling SkipFragments with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
+
+	// TODO: This recursive call works correctly for the expected case where remainingSeek
+	// is fully absorbed by the next period (recursion depth = 1). On content with many
+	// consecutive short periods it could theoretically recurse once per period. A future
+	// refactor should convert SeekInPeriod into an iterative loop (driven by the bool
+	// return value of this function) to eliminate the theoretical stack-growth risk.
+	SeekInPeriod(remainingSeek, skipToEnd);
+	return true;
+}
+
 
 /**
  * @brief Seek current period by a given time
  */
 void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool skipToEnd)
 {
+	double trackRemainingSeek = 0.0;
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
+		if (!mMediaStreamContext[i])
+		{
+			continue;
+		}
+
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true);
+			double skipTime = seekPositionSeconds;
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], skipTime, true);
 		}
 		else
 		{
-			SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
 		}
+
 	}
+	// trackRemainingSeek holds the SkipFragments return value of the last processed
+	// track (comment 1). All non-subtitle tracks seek to the same seekPositionSeconds so
+	// their remaining-seek values are expected to converge. HandleSeekEOSAndPeriodTransition
+	// only uses this value for a sign check (>= 0) and as the carry-over seek offset into
+	// the next period, so using the last track's value is acceptable in practice.
+	HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd);
 }
 
 /**
