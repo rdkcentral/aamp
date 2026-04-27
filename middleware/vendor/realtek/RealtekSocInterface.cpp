@@ -243,6 +243,7 @@ long long RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *v
 	if (element)
 	{
 		g_object_get(element, "video-pts", &currentPTS, NULL);	/* Gets the 'video-pts' from the element into the currentPTS */
+		MW_LOG_MIL("ANJ: RealtekSocInterface::GetVideoPts: after g_object_get - video-pts: %" G_GINT64_FORMAT , currentPTS);
 	}
 	return (long long)currentPTS;
 }

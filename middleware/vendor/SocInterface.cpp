@@ -230,9 +230,11 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
 	if(video_dec)
 	{
 		g_object_get(video_dec, "video-pts", &currentPTS, NULL);
+		MW_LOG_MIL("ANJ: vendor/SocInterface.cpp: after g_object_get - video-pts: %" G_GINT64_FORMAT , currentPTS);
 		if(!isWesteros)
 		{
 			currentPTS *= 2;
+			MW_LOG_MIL("ANJ: vendor/SocInterface.cpp: !isWesteros - video-pts: %" G_GINT64_FORMAT , currentPTS);
 		}
 	}
 	return (long long)currentPTS;
