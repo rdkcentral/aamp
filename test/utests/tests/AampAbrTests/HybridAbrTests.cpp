@@ -20,6 +20,8 @@
 
 #include <gtest/gtest.h>
 #include "support/aampabr/HybridABRManager.h"
+// SpeedCache is provided by AampSpeedCache.h, included (or defined inline as
+// a fallback) by HybridABRManager.h above.
 
 extern HybridABRManager::AampAbrConfig eAAMPAbrConfig;
 
@@ -113,4 +115,52 @@ TEST_F(HybridAbrTests, UpdateABRBitrateDataBasedOnCacheOutlierOdd)
 	// Outlier diff is 1000000, so no outliers will be removed.
 	// Average is (100+200+300+400+500)/5 = 300.
 	ASSERT_EQ(result, 300);
+}
+
+/**
+ * @brief Bug #6: CheckAbrThresholdSize must multiply before dividing to
+ *        avoid integer truncation when bufferlen < downloadTimeMs.
+ */
+TEST_F(HybridAbrTests, CheckAbrThresholdSize_SmallFragment_NoTruncation)
+{
+	// 500 bytes in 1000 ms → (500 * 8000) / 1000 = 4000 bps
+	// Old code: (500 / 1000) * 8000 = 0 * 8000 = 0  (BUG)
+	long result = abrManager.CheckAbrThresholdSize(
+		500, 1000, 100000, 2000,
+		HybridABRManager::eCURL_ABORT_REASON_NONE);
+	EXPECT_EQ(result, 4000);
+}
+
+TEST_F(HybridAbrTests, CheckAbrThresholdSize_LargeFragment_Correct)
+{
+	// 125000 bytes in 1000 ms → (125000 * 8000) / 1000 = 1000000 bps
+	// Use fragmentDurationMs=1500 so downloadTimeMs(1000) >= fragmentDurationMs/2(750)
+	// to avoid the guard clause that resets downloadbps to currentProfilebps
+	long result = abrManager.CheckAbrThresholdSize(
+		125000, 1000, 2000000, 1500,
+		HybridABRManager::eCURL_ABORT_REASON_NONE);
+	EXPECT_EQ(result, 1000000);
+}
+
+/**
+ * @brief Bug #17: CheckLLDashABRSpeedStoreSize must multiply before dividing
+ *        to avoid integer truncation when total_dl_diff < time_diff.
+ */
+TEST_F(HybridAbrTests, CheckLLDashABRSpeedStoreSize_SmallChunk_NoTruncation)
+{
+	SpeedCache sc{};
+	long bps = 0;
+	// 500 bytes downloaded in 1000 ms diff → (500 * 8000) / 1000 = 4000 bps
+	// Old code: (500 / 1000) * 8000 = 0  (BUG)
+	abrManager.CheckLLDashABRSpeedStoreSize(&sc, bps, 2000, 500, 1000, 500);
+	EXPECT_EQ(sc.speed_now, 4000);
+}
+
+TEST_F(HybridAbrTests, CheckLLDashABRSpeedStoreSize_LargeChunk_Correct)
+{
+	SpeedCache sc{};
+	long bps = 0;
+	// 10000 bytes in 500 ms → (10000 * 8000) / 500 = 160000 bps
+	abrManager.CheckLLDashABRSpeedStoreSize(&sc, bps, 1000, 10000, 500, 10000);
+	EXPECT_EQ(sc.speed_now, 160000);
 }

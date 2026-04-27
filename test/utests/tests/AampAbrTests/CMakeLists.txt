@@ -58,3 +58,4 @@ add_executable(HybridAbrTests HybridAbrTests.cpp
 	../../../../support/aampabr/ABRManager.cpp
 )
 target_link_libraries(HybridAbrTests PRIVATE gtest gmock gtest_main)
+aamp_utest_run_add(HybridAbrTests)
