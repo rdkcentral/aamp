@@ -410,6 +410,10 @@ long HybridABRManager::FragmentfailureRampdown(int currentBuffer, int currentPro
 	long desiredProfilebw = 0;
 	long currentbw = getBandwidthOfProfile(currentProfileIndex);
 	std::vector<ProfileInfo> availableProfiles = getProfileInfo();
+	availableProfiles.erase(
+		std::remove_if(availableProfiles.begin(), availableProfiles.end(),
+			[](const ProfileInfo &p) { return p.isIframeTrack; }),
+		availableProfiles.end());
 	int len = (int)availableProfiles.size() - 1;
 	std::sort(availableProfiles.begin(), availableProfiles.end(), [](const ProfileInfo& a, const ProfileInfo& b) {
         return a.bandwidthBitsPerSecond < b.bandwidthBitsPerSecond;
