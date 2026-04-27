@@ -1839,6 +1839,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 
 	// Ensure the correct CC variant class will be used
 	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
+    AAMPLOG_WARN("Value of useRialtoSink config is %d", GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
 
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
