@@ -929,7 +929,8 @@ void PlayerCCManagerBase::ResetState()
  *  @brief Set the variant required
  */
 void PlayerCCManager::SetRialto(bool bIsRialto)
-{
+{	MW_LOG_WARN("[INBANDCC_FLOW] PlayerCCManager::SetRialto: ENTRY - bIsRialto=%d, current mIsRialto=%d", bIsRialto, mIsRialto);
+
 	if (mInstance == NULL)
 	{
 		MW_LOG_INFO("PlayerCCManager::IsRialto:%d", bIsRialto);
