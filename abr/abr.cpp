@@ -1117,10 +1117,20 @@ void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,Bits
  */
 BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
 {
+	if (eAAMPAbrConfig.abrMaxBuffer <= 0)
+	{
+		AAMPLOG_ERR("abrMaxBuffer is %d, cannot compute buffer percentage",
+			eAAMPAbrConfig.abrMaxBuffer);
+		return 0;
+	}
 	double bufferPercentage = ((double)currentBuffer / eAAMPAbrConfig.abrMaxBuffer) * 100;
 	BitsPerSecond desiredProfilebw = 0;
 	BitsPerSecond currentbw = getBandwidthOfProfile(currentProfileIndex);
-	std::vector<ProfileInfo> availableProfiles = mProfiles;
+	std::vector<ProfileInfo> availableProfiles;
+	{
+		std::lock_guard<std::mutex> lock(mProfileLock);
+		availableProfiles = mProfiles;
+	}
 	availableProfiles.erase(
 		std::remove_if(availableProfiles.begin(), availableProfiles.end(),
 			[](const ProfileInfo &p) { return p.isIframeTrack; }),
