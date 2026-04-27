@@ -6784,10 +6784,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	 * if aamp->Tune is called, aamp plugins should be used, so set priority to a greater value
 	 * than that of that of webkit plugins*/
 	static bool gstPluginsInitialized = false;
-	if ((!gstPluginsInitialized) && (!mbUsingExternalPlayer))
+	bool useRialtoDirect = ISCONFIGSET_PRIV(eAAMPConfig_useRialtoDirect);
+
+	if ((!gstPluginsInitialized) && (!mbUsingExternalPlayer) && !(useRialtoDirect))
 	{
 		gstPluginsInitialized = true;
+		AAMPLOG_WARN("InitializeAAMPGstreamerPlugins Pre");
 		AAMPGstPlayer::InitializeAAMPGstreamerPlugins();
+		AAMPLOG_WARN("InitializeAAMPGstreamerPlugins Pst");
 	}
 
 	mbPlayEnabled = autoPlay;
