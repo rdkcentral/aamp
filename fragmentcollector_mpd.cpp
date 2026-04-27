@@ -2293,7 +2293,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->eos)
+		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
 		{
 			switchToNextPeriod = true;
 			break;

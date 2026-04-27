@@ -3904,8 +3904,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 // L1: Verify mFirstPTS is updated via SeekInPeriod when seek crosses from period-1 to period-2.
 TEST_F(FunctionalTests, L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS)
 {
-	printf("[TRACE] L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS: start\n");
-	fflush(stdout);
 	AAMPStatusType status;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
@@ -3939,13 +3937,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
-	printf("[TRACE] L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS: before InitializeMPD\n");
-	fflush(stdout);
 	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 0.0, AAMP_NORMAL_PLAY_RATE, false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	printf("[TRACE] L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS: after InitializeMPD status=%d\n", status);
-	fflush(stdout);
-
 	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
 	ASSERT_NE(track, nullptr);
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
@@ -3958,16 +3951,12 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// Seek position is greater than period-1 duration (10s), so SeekInPeriod should transition to period-2
 	// with remaining seek value and still update mFirstPTS from SkipFragments path.
 	const double seekPositionSeconds = 12.0;
-	printf("[TRACE] L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS: before CallSeekInPeriod seek=%f\n", seekPositionSeconds);
-	fflush(stdout);
-	static_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD)->CallSeekInPeriod(seekPositionSeconds);
-	printf("[TRACE] L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS: after CallSeekInPeriod\n");
-	fflush(stdout);
-
+	TestableFunctionalStreamAbstractionAAMP_MPD *testableStreamAbstractionAAMP_MPD =
+    dynamic_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+	ASSERT_NE(testableStreamAbstractionAAMP_MPD, nullptr);
+	testableStreamAbstractionAAMP_MPD->CallSeekInPeriod(seekPositionSeconds);
 	// Verify: mFirstPTS updated after period transition and remaining-seek skip in period-2.
 	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTS(), 102.000000);
-	printf("[TRACE] L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS: end\n");
-	fflush(stdout);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, clearFirstPTS)
