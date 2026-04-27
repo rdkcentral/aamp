@@ -3307,7 +3307,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			{
 				for (int i = 0; i < mNumberOfTracks; i++)
 				{
-					if (mMediaStreamContext[i] != NULL)
+					if (mMediaStreamContext[i] != nullptr)
 					{
 						mMediaStreamContext[i]->SetLocalTSBInjection(true);
 					}
