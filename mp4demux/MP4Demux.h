@@ -247,6 +247,9 @@ private:
 	std::chrono::steady_clock::time_point mLastLogTime; /**< Last metrics log timestamp */
 	std::chrono::seconds mLogIntervalSeconds; /**< Logging interval in seconds */
 
+	/** Temporary hold on the segment shared_ptr during Parse(shared_ptr); cleared before returning. */
+	std::shared_ptr<std::vector<uint8_t>> mCurrentSegment{};
+
 	/**
 	 * @brief log human readable parse error and update state
 	 * @param parseError one of Mp4ParseError
@@ -375,7 +378,6 @@ private:
 	 * @param end Pointer to end of data
 	 */
 	void DemuxHelper(const uint8_t *end);
-
 public:
 	/**
 	 * @brief Record metrics for a demux operation
@@ -405,18 +407,27 @@ public:
 	/** @brief Assignment operator (deleted) */
 	Mp4Demux& operator=(const Mp4Demux & other) = delete;
 	/**
-	 * @brief Parse MP4 data
-	 * @param ptr Pointer to MP4 data
-	 * @param len Length of data
+	 * @brief Parse MP4 data with shared ownership of the backing buffer.
+	 *
+	 * Stores @p segment internally during parsing. Each extracted sample's
+	 * mData field is set via an aliasing shared_ptr that shares the segment's
+	 * reference count while pointing directly at the sample payload bytes.
+	 * The internal reference is released before returning; only the individual
+	 * samples hold a reference thereafter.  Callers do not need to track the
+	 * segment after this call.
+	 *
+	 * @param segment Shared ownership of the buffer to parse (must not be null).
 	 * @return true if parsing succeeded, false on error
 	 */
-	bool Parse(const void *ptr, size_t len);
+	bool Parse(std::shared_ptr<std::vector<uint8_t>>&& segment);
 
 	/**
-	 * @brief Throwing variant for tests/power users.
+	 * @brief Throwing variant with shared ownership of the backing buffer.
+	 * Delegates to Parse(shared_ptr) and throws on failure.
+	 * @param segment Shared ownership of the buffer to parse (must not be null).
 	 * @throws Mp4ParseException on parse failure
 	 */
-	void ParseOrThrow(const void *ptr, size_t len);
+	void ParseOrThrow(std::shared_ptr<std::vector<uint8_t>>&& segment);
 
 	/** @brief Get last parser error
 	 * @return Mp4ParseError indicating the last error that occurred
@@ -434,10 +445,16 @@ public:
 	 * @return Protection data vector with ownership transferred to caller
 	 */
 	std::vector<MediaProtectionInfo> GetProtectionEvents();
-	/** @brief Get parsed media samples
+
+	/**
+	 * @brief Return parsed media samples.
+	 *
+	 * Each sample's mData is an aliasing shared_ptr<const uint8_t> that keeps
+	 * the backing segment buffer alive for the sample's lifetime, enabling
+	 * zero-copy access to the parsed payload.
+	 *
 	 * @return Media samples vector with ownership transferred to caller
 	 */
 	std::vector<AampMediaSample> GetSamples();
 };
 #endif /* __MP4_DEMUX_H__ */
-
