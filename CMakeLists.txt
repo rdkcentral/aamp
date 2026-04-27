@@ -707,6 +707,7 @@ install(FILES
 	abr/RollingMedianOutlierEstimator.h
 	abr/HarmonicEwmaEstimator.h
 	abr/BandwidthEstimatorBase.h
+	AampSpeedCache.h
 	DESTINATION include
 )
 
