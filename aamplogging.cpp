@@ -179,6 +179,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 						ethanLogLevel = ETHAN_LOG_MILESTONE;
 						break;
 				}
+				format_ptr[format_bytes-1] = 0x00; // Ethan logger appends line termination
 				vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
 			}
 			else
