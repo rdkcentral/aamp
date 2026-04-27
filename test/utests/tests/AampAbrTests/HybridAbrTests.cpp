@@ -370,3 +370,84 @@ TEST_F(HybridAbrTests, GetBestMatchedProfile_IframeOnly_ReturnsInvalid)
 	const int expected = ABRManager::INVALID_PROFILE;
 	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(2000000), expected);
 }
+TEST_F(HybridAbrTests, UpdateProfile_4K_MiddleIndex_ExcludesIframeTracks)
+{
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	// Video profiles
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1920; p.height = 1080;
+	mgr.addProfile(p); // index 0
+
+	// Iframe interleaved
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 3000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 1
+
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 5000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 2
+
+	// Iframe tracks for 4K + selection
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 1920; p.height = 1080;
+	mgr.addProfile(p); // index 3
+
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 5000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 4
+
+	mgr.updateProfile();
+
+	// Video BWs: {2M, 5M}. Middle = 5M. Iframe at 5M = index 4.
+	EXPECT_EQ(mgr.getDesiredIframeProfile(), 4);
+}
+
+/**
+ * @brief Bug #12: updateProfile 4K must not treat iframe index 0 as
+ *        "not found" (legacy ABR).
+ */
+TEST_F(HybridAbrTests, UpdateProfile_4K_IframeAtIndex0_NotTreatedAsNotFound)
+{
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 4000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 0
+
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1920; p.height = 1080;
+	mgr.addProfile(p); // index 1
+
+	p.bandwidthBitsPerSecond = 4000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 2
+
+	p.bandwidthBitsPerSecond = 8000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 3
+
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 8000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 4
+
+	mgr.updateProfile();
+
+	// Middle video BW = 4M. Iframe at index 0 has 4M → match.
+	EXPECT_EQ(mgr.getDesiredIframeProfile(), 0);
+	EXPECT_EQ(mgr.getLowestIframeProfile(), 0);
+}
