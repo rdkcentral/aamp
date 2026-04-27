@@ -2291,6 +2291,14 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 {
 	bool switchToNextPeriod = false;
 
+	// Check whether any track hit EOS during the seek. Any enabled track reaching EOS
+	// is sufficient to trigger a period transition: DASH spec requires all tracks in a
+	// period to end at the same presentation time, so this is safe for well-formed content.
+	// The mPlayRate and remainingSeek guards (comment 2 & 3) prevent false positives:
+	//   - mPlayRate >= AAMP_RATE_PAUSE: for reverse playback (mPlayRate < 0), EOS means
+	//     beginning-of-period, not end-of-period, so we must not advance to the next period.
+	//   - remainingSeek >= 0: a negative remainder also indicates the seek overshot backward
+	//     rather than forward, so no forward period transition is appropriate.
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
 		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
@@ -2336,6 +2344,11 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 
 	AAMPLOG_INFO("SeekInPeriod: Switched to period %d, calling SkipFragments with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
 
+	// TODO: This recursive call works correctly for the expected case where remainingSeek
+	// is fully absorbed by the next period (recursion depth = 1). On content with many
+	// consecutive short periods it could theoretically recurse once per period. A future
+	// refactor should convert SeekInPeriod into an iterative loop (driven by the bool
+	// return value of this function) to eliminate the theoretical stack-growth risk.
 	SeekInPeriod(remainingSeek, skipToEnd);
 	return true;
 }
@@ -2365,6 +2378,11 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 		}
 
 	}
+	// trackRemainingSeek holds the SkipFragments return value of the last processed
+	// track (comment 1). All non-subtitle tracks seek to the same seekPositionSeconds so
+	// their remaining-seek values are expected to converge. HandleSeekEOSAndPeriodTransition
+	// only uses this value for a sign check (>= 0) and as the carry-over seek offset into
+	// the next period, so using the last track's value is acceptable in practice.
 	HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd);
 }
 
