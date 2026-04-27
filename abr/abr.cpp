@@ -28,6 +28,7 @@
 #include <string>
 #include <cstdio>
 #include <cmath>
+#include <climits>
 #include <chrono>
 #include <stdarg.h>
 #include <sys/time.h>
@@ -348,31 +349,46 @@ void ABRManager::updateProfile()
  */
 int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
 {
-	// a) Check if network bandwidth changed from starting bandwidth
-	// b) Check if netwwork bandwidth is different from persisted bandwidth( needed for first time reporting)
-	// find the profile for the newbandwidth
 	int desiredProfileIndex = 0;
 	std::lock_guard<std::mutex> lock(mProfileLock);
-	size_t profileCount = mProfiles.size();
-	for (int i = 0; i < (int)profileCount; i++) {
-		const ProfileInfo& profile = mProfiles[i];
-		if (!profile.isIframeTrack) {
-			if (profile.bandwidthBitsPerSecond == bandwidth) {
-				// Good case, most manifest url will have same bandwidth in fragment file with configured profile bandwidth
-				desiredProfileIndex = i;
-				break;
-			} else if (profile.bandwidthBitsPerSecond < bandwidth) {
-				// fragment file name bandwidth doesn't match the profile bandwidth, will be always less
-				if (static_cast<size_t>(i + 1) == profileCount) {
-					desiredProfileIndex = i;
-					break;
-				}
-				else
-					desiredProfileIndex = (i + 1);
+	long bestDiff = LONG_MAX;
+
+	for (const auto& periodEntry : mSortedBWProfileList)
+	{
+		const auto& bwMap = periodEntry.second;
+		if (bwMap.empty())
+		{
+			continue;
+		}
+
+		// lower_bound finds first entry with bandwidth >= target
+		auto it = bwMap.lower_bound(bandwidth);
+
+		if (it != bwMap.end())
+		{
+			long diff = it->first - bandwidth;
+			if (diff < bestDiff)
+			{
+				bestDiff = diff;
+				desiredProfileIndex = it->second;
+			}
+		}
+
+		// Also check the entry just below target (if any) for a closer match
+		if (it != bwMap.begin())
+		{
+			--it;
+			long diff = bandwidth - it->first;
+			if (diff < bestDiff)
+			{
+				bestDiff = diff;
+				desiredProfileIndex = it->second;
 			}
 		}
 	}
+
 #if defined(DEBUG_ENABLED)
+	size_t profileCount = mProfiles.size();
 	AAMPLOG_MIL("Get best matched profile index = %d bitrate = %" BITSPERSECOND_FORMAT,
 				desiredProfileIndex, (desiredProfileIndex != INVALID_PROFILE &&	static_cast<size_t>(desiredProfileIndex) < profileCount) ?
 				mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);

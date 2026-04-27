@@ -25,6 +25,7 @@
 #include <sys/time.h>
 #include <cstring>
 #include <algorithm>
+#include <climits>
 
 #if !defined(__APPLE__)
 #if defined(USE_SYSTEMD_JOURNAL_PRINT)
@@ -301,30 +302,45 @@ void ABRManager::updateProfile() {
 int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
 
   std::lock_guard<std::mutex> lock(mProfileLock);
-  // a) Check if network bandwidth changed from starting bandwidth
-  // b) Check if netwwork bandwidth is different from persisted bandwidth( needed for first time reporting)
-  // find the profile for the newbandwidth
   int desiredProfileIndex = 0;
-  int profileCount = getProfileCountUnlocked();
-  for (int i = 0; i < profileCount; i++) {
-    const ProfileInfo& profile = mProfiles[i];
-    if (!profile.isIframeTrack) {
-        if (profile.bandwidthBitsPerSecond == bandwidth) {
-            // Good case ,most manifest url will have same bandwidth in fragment file with configured profile bandwidth
-            desiredProfileIndex = i;
-            break;
-        } else if (profile.bandwidthBitsPerSecond < bandwidth) {
-            // fragment file name bandwidth doesn't match the profile bandwidth, will be always less
-            if((i+1) == profileCount) {
-                desiredProfileIndex = i;
-                break;
-            }
-            else
-                desiredProfileIndex = (i + 1);
-        }
-    }
+  long bestDiff = LONG_MAX;
+
+  for (const auto& periodEntry : mSortedBWProfileList)
+  {
+      const auto& bwMap = periodEntry.second;
+      if (bwMap.empty())
+      {
+          continue;
+      }
+
+      // lower_bound finds first entry with bandwidth >= target
+      auto it = bwMap.lower_bound(bandwidth);
+
+      if (it != bwMap.end())
+      {
+          long diff = it->first - bandwidth;
+          if (diff < bestDiff)
+          {
+              bestDiff = diff;
+              desiredProfileIndex = it->second;
+          }
+      }
+
+      // Also check the entry just below target (if any) for a closer match
+      if (it != bwMap.begin())
+      {
+          --it;
+          long diff = bandwidth - it->first;
+          if (diff < bestDiff)
+          {
+              bestDiff = diff;
+              desiredProfileIndex = it->second;
+          }
+      }
   }
+
 #if defined(DEBUG_ENABLED)
+  int profileCount = getProfileCountUnlocked();
   logprintf("%s:%d Get best matched profile index = %d bitrate = %ld\n",
     __FUNCTION__, __LINE__, desiredProfileIndex,
     (profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
