@@ -39,7 +39,6 @@
 #endif
 #include <sys/time.h>
 #include <algorithm>
-#include "AampSpeedCache.h"
 
 #define MAX_DEBUG_LOG_BUFF_SIZE 1024
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH	10					/**< Default ABR chunk cache length */

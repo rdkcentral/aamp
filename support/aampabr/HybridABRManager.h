@@ -34,8 +34,6 @@
 #  if __has_include("AampSpeedCache.h")
 #    include "AampSpeedCache.h"
 #  endif
-#else
-#  include "AampSpeedCache.h"
 #endif
 
 #ifndef AAMP_SPEED_CACHE_H
