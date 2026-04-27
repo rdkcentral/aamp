@@ -216,13 +216,23 @@ void ProfileEventAAMP::TuneBegin(void)
 	rateCorrection = 0;
 	bitrateChange = 0;
 	bufferChange = 0;
-	if(telemetryParam != NULL)
+	cJSON *newParam = cJSON_CreateObject();
+	if (!newParam)
 	{
-		cJSON_Delete(telemetryParam);
+		AAMPLOG_ERR("TuneBegin: cJSON_CreateObject() failed (OOM); retaining existing telemetry state");
 	}
-	// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
-	mLldLowBuffObject = NULL;
-	telemetryParam = cJSON_CreateObject();
+	else
+	{
+		cJSON *oldParam;
+		{
+			std::lock_guard<std::mutex> lock(discontinuityParamMutex);
+			mLldLowBuffObject = nullptr;
+			// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted below
+			oldParam = telemetryParam;
+			telemetryParam = newParam;
+		}
+		cJSON_Delete(oldParam); // delete outside the lock to keep the critical section small
+	}
 }
 
 /**
@@ -627,16 +637,27 @@ void ProfileEventAAMP::IncrementChangeCount(CountType type)
  */
 void ProfileEventAAMP::GetTelemetryParam()
 {
-	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
-	if(telemetryParam != NULL)
+	cJSON *newParam = cJSON_CreateObject();
+	if (!newParam)
 	{
-		char *jsonStr = cJSON_PrintUnformatted(telemetryParam);
+		AAMPLOG_ERR("GetTelemetryParam: cJSON_CreateObject() failed (OOM); retaining existing telemetry state");
+		return;
+	}
+	cJSON *oldParam;
+	{
+		std::lock_guard<std::mutex> lock(discontinuityParamMutex);
+		mLldLowBuffObject = nullptr;
+		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted below
+		oldParam = telemetryParam;
+		telemetryParam = newParam;
+	}
+	// Log and delete the old tree outside the lock to keep the critical section small
+	if (oldParam != nullptr)
+	{
+		char *jsonStr = cJSON_PrintUnformatted(oldParam);
 		AAMPLOG_MIL("Telemetry values %s", jsonStr);
 		cJSON_free(jsonStr);
-		cJSON_Delete(telemetryParam);
-		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
-		mLldLowBuffObject = NULL;
-		telemetryParam = cJSON_CreateObject();
+		cJSON_Delete(oldParam);
 	}
 }
 

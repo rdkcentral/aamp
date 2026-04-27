@@ -264,10 +264,6 @@ endif()
 message("Adding tsb folder")
 add_subdirectory(tsb)
 
-message("Adding simnet folder")
-add_subdirectory(simnet)
-set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} net_persona_fitter)
-
 install(TARGETS tsb
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
@@ -481,6 +477,7 @@ set(LIBAAMP_SOURCES
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	AampNetworkPersona.cpp AampNetworkPersona.h
 	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
@@ -710,6 +707,7 @@ install(FILES
 	abr/RollingMedianOutlierEstimator.h
 	abr/HarmonicEwmaEstimator.h
 	abr/BandwidthEstimatorBase.h
+	AampSpeedCache.h
 	DESTINATION include
 )
 
