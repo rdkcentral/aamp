@@ -96,7 +96,7 @@ long HybridABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,
 	long downloadbps = 0;
 	if (downloadTimeMs > 0)
 	{
-		downloadbps = static_cast<long>((static_cast<long long>(bufferlen) * 8000LL) / downloadTimeMs);
+		downloadbps = static_cast<long>((static_cast<long long>(bufferlen) * 8000LL) /downloadTimeMs);
 	}
 	// extra coding to avoid picking lower profile
 	// Avoid this reset for Low bandwidth timeout cases
