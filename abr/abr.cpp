@@ -1122,6 +1122,10 @@ BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int current
 	BitsPerSecond desiredProfilebw = 0;
 	BitsPerSecond currentbw = getBandwidthOfProfile(currentProfileIndex);
 	std::vector<ProfileInfo> availableProfiles = mProfiles;
+	availableProfiles.erase(
+		std::remove_if(availableProfiles.begin(), availableProfiles.end(),
+			[](const ProfileInfo &p) { return p.isIframeTrack; }),
+		availableProfiles.end());
 	int i = (int)availableProfiles.size();
 	if( i>0 )
 	{
