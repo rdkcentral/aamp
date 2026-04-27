@@ -1975,7 +1975,7 @@ void MediaTrack::FlushFetchedFragments()
 		mCachedFragmentChunks[fragmentChunkIdxToInject].Clear();
 
 		fragmentChunkIdxToInject++;
-		if (fragmentChunkIdxToInject == maxCachedFragmentChunksPerTrack)
+		if (fragmentChunkIdxToInject == mCachedFragmentChunksSize)
 		{
 			fragmentChunkIdxToInject = 0;
 		}
@@ -1992,7 +1992,7 @@ void MediaTrack::FlushFetchedFragments()
 void MediaTrack::FlushFragments()
 {
 	AAMPLOG_WARN("[%s]", name);
-	for (int i = 0; i < maxCachedFragmentChunksPerTrack; i++)
+	for (size_t i = 0; i < mCachedFragmentChunksSize; i++)
 	{
 		mCachedFragmentChunks[i].Clear();
 	}
@@ -3524,7 +3524,7 @@ bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
 
 	index = fragmentChunkIdxToInject;
 	count = numberOfFragmentChunksCached;
-	maxFrags = maxCachedFragmentChunksPerTrack;
+	maxFrags = static_cast<int>(mCachedFragmentChunksSize);
 	pCachedFragment = mCachedFragmentChunks;
 
 	while (count > 0)
