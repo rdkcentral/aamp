@@ -4106,6 +4106,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	ASSERT_NE(track, nullptr);
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
 
 	// Reset mFirstPTS before seek
 	mStreamAbstractionAAMP_MPD->clearFirstPTS();
