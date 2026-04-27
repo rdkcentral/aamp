@@ -93,7 +93,11 @@ void HybridABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 
 long HybridABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
 {
-	long downloadbps = ((long)(bufferlen / downloadTimeMs)*8000);
+	long downloadbps = 0;
+	if (downloadTimeMs > 0)
+	{
+		downloadbps = static_cast<long>((static_cast<long long>(bufferlen) * 8000LL) /downloadTimeMs);
+	}
 	// extra coding to avoid picking lower profile
 	// Avoid this reset for Low bandwidth timeout cases
 	if(downloadbps < currentProfilebps && fragmentDurationMs && downloadTimeMs < fragmentDurationMs/2 && (abortReason != eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)) 
@@ -376,7 +380,7 @@ void HybridABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcach
 {
 	speedcache->last_sample_time_val = time_now;
 	//speed @ bits per second
-	speedcache->speed_now = ((long)(total_dl_diff / time_diff)* 8000);
+	speedcache->speed_now = (total_dl_diff * 8000L) / time_diff;
 
 	double weight = std::sqrt((double)total_dl_diff);
 	speedcache->weightedBitsPerSecond += weight * speedcache->speed_now;
