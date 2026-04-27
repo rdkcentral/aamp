@@ -885,6 +885,8 @@ bool PlayerCCManager::mIsRialto = false;
  */
 PlayerCCManagerBase *PlayerCCManager::GetInstance()
 {
+	MW_LOG_WARN("PlayerCCManager::GetInstance: ENTRY - mInstance=%p, mIsRialto=%d", mInstance, mIsRialto);
+
 	if (mInstance == NULL)
 	{
 #if defined(SUBTITLE_SUPPORTED)
@@ -902,6 +904,10 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
 		MW_LOG_WARN("No CC support on simulators. Creating a dummy instance!");
 		mInstance = new PlayerFakeCCManager();
 #endif
+	}
+	else
+	{
+		MW_LOG_WARN("PlayerCCManager::GetInstance: Reusing existing instance=%p, mIsRialto=%d", mInstance, mIsRialto);
 	}
 	return mInstance;
 }
