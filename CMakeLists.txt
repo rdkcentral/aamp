@@ -477,6 +477,7 @@ set(LIBAAMP_SOURCES
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	AampNetworkPersona.cpp AampNetworkPersona.h
 	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
