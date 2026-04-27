@@ -4105,6 +4105,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
 	ASSERT_NE(track, nullptr);
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	(void)pMediaStreamContext;
 	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
 		.WillRepeatedly(Return(nullptr));
