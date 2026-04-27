@@ -938,7 +938,15 @@ void PlayerCCManager::SetRialto(bool bIsRialto)
 	}
 	else if (mIsRialto != bIsRialto)
 	{
-		MW_LOG_ERR("PlayerCCManager::IsRialto:%d while incompatible singleton instance exists", bIsRialto);
+		MW_LOG_WARN("PlayerCCManager::SetRialto: Switching CC manager mode from %d to %d. Destroying existing singleton instance=%p",
+			mIsRialto, bIsRialto, mInstance);
+		DestroyInstance();
+		mIsRialto = bIsRialto;
+		MW_LOG_WARN("PlayerCCManager::SetRialto: Mode switch complete. New singleton will be created on next GetInstance() call");
+	}
+	else
+	{
+		MW_LOG_WARN("PlayerCCManager::SetRialto: mInstance already exists and mode unchanged (mIsRialto=%d)", mIsRialto);
 	}
 }
 
