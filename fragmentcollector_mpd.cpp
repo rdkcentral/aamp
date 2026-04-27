@@ -2291,17 +2291,20 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 {
 	bool switchToNextPeriod = false;
 
-	// Check whether any track hit EOS during the seek. Any enabled track reaching EOS
-	// is sufficient to trigger a period transition: DASH spec requires all tracks in a
-	// period to end at the same presentation time, so this is safe for well-formed content.
-	// The mPlayRate and remainingSeek guards (comment 2 & 3) prevent false positives:
+	// Check whether any enabled track hit EOS during the seek. Only enabled tracks
+	// participate in playback; a disabled or unselected track (e.g. an alternate audio
+	// track, or a subtitle track when subtitles are off) may carry stale eos=true from
+	// a prior operation and must not trigger a spurious period transition.
+	// DASH spec requires all tracks in a period to end at the same presentation time,
+	// so any single enabled track reaching EOS is sufficient.
+	// The mPlayRate and remainingSeek guards prevent false positives:
 	//   - mPlayRate >= AAMP_RATE_PAUSE: for reverse playback (mPlayRate < 0), EOS means
 	//     beginning-of-period, not end-of-period, so we must not advance to the next period.
 	//   - remainingSeek >= 0: a negative remainder also indicates the seek overshot backward
 	//     rather than forward, so no forward period transition is appropriate.
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
+		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
 		{
 			switchToNextPeriod = true;
 			break;
@@ -2326,6 +2329,15 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		return false;
 	}
 
+	// Save current period state so we can restore it if UpdateTrackInfo fails,
+	// leaving the object in a consistent state rather than half-switched.
+	const int      savedPeriodIdx      = mCurrentPeriodIdx;
+	IPeriod       *savedPeriod         = mCurrentPeriod;
+	std::string    savedBasePeriodId   = mBasePeriodId;
+	const double   savedPeriodStart    = mPeriodStartTime;
+	const double   savedPeriodDuration = mPeriodDuration;
+	const double   savedPeriodEnd      = mPeriodEndTime;
+
 	mCurrentPeriodIdx = nextPeriodIdx;
 	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 	mBasePeriodId = mCurrentPeriod->GetId();
@@ -2338,7 +2350,13 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
 	{
-		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d", mCurrentPeriodIdx);
+		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d, restoring previous period state", mCurrentPeriodIdx);
+		mCurrentPeriodIdx = savedPeriodIdx;
+		mCurrentPeriod    = savedPeriod;
+		mBasePeriodId     = savedBasePeriodId;
+		mPeriodStartTime  = savedPeriodStart;
+		mPeriodDuration   = savedPeriodDuration;
+		mPeriodEndTime    = savedPeriodEnd;
 		return false;
 	}
 
@@ -2360,6 +2378,10 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 	// to signal that SkipFragments should be run again on the new period.
 	while (true)
 	{
+		// Capture remaining seek from the primary (video) track, or the first enabled
+		// non-subtitle track if video is absent. Subtitle is intentionally excluded:
+		// it is called without skipToEnd and may return a different remainder than A/V,
+		// which would drive an incorrect period transition or carry-over seek offset.
 		double trackRemainingSeek = 0.0;
 		for (int i = 0; i < mNumberOfTracks; i++)
 		{
@@ -2371,18 +2393,18 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 			if (eMEDIATYPE_SUBTITLE == i)
 			{
 				double skipTime = seekPositionSeconds;
-				trackRemainingSeek = SkipFragments(mMediaStreamContext[i], skipTime, true);
+				SkipFragments(mMediaStreamContext[i], skipTime, true);
 			}
 			else
 			{
-				trackRemainingSeek = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
+				double remaining = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
+				// Keep the first enabled non-subtitle result (video if present).
+				if (i == eMEDIATYPE_VIDEO || (trackRemainingSeek == 0.0 && mMediaStreamContext[i]->enabled))
+				{
+					trackRemainingSeek = remaining;
+				}
 			}
 		}
-		// trackRemainingSeek holds the SkipFragments return value of the last processed
-		// track. All non-subtitle tracks seek to the same seekPositionSeconds so their
-		// remaining-seek values are expected to converge. HandleSeekEOSAndPeriodTransition
-		// only uses this value for a sign check (>= 0) and as the carry-over seek offset
-		// into the next period, so using the last track's value is acceptable in practice.
 		if (!HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd))
 		{
 			break;
