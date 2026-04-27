@@ -19,14 +19,6 @@
 #include <gtest/gtest.h>
 #include "MediaStreamContext.h"
 #include "fragmentcollector_mpd.h"
-
-/** Thin subclass that promotes protected members needed by unit tests. */
-class TestableMediaStreamContext : public MediaStreamContext
-{
-public:
-	using MediaStreamContext::MediaStreamContext;
-	using MediaStreamContext::mStagingFragment;
-};
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
@@ -45,6 +37,14 @@ public:
 #include "AampDownloadInfo.hpp"
 #include <functional>
 #include <string_view>
+
+/** Thin subclass that promotes protected members needed by unit tests. */
+class TestableMediaStreamContext : public MediaStreamContext
+{
+public:
+	using MediaStreamContext::MediaStreamContext;
+	using MediaStreamContext::mStagingFragment;
+};
 
 using namespace testing;
 using namespace std::literals;
