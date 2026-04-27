@@ -264,9 +264,7 @@ endif()
 message("Adding tsb folder")
 add_subdirectory(tsb)
 
-message("Adding simnet folder")
-add_subdirectory(simnet)
-set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} net_persona_fitter)
+message("Linking simnet to aamp")
 
 install(TARGETS tsb
 		DESTINATION lib
@@ -537,6 +535,7 @@ set(LIBAAMP_SOURCES
 	AampDemuxDataTypes.h
 	net_trace.h
 	AampLatencyMonitor.cpp AampLatencyMonitor.h
+	simnet/net_persona_fitter.cpp simnet/net_persona_fitter.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
