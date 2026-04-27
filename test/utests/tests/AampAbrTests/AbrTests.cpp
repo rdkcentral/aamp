@@ -32,23 +32,28 @@ using ::testing::_;
 
 AampConfig *gpGlobalConfig{nullptr};
 
-extern ABRManager::AampAbrConfig eAAMPAbrConfig;
+static ABRManager::AampAbrConfig MakeDefaultTestConfig()
+{
+	ABRManager::AampAbrConfig cfg{};
+	// Cache life is interpreted as milliseconds by the estimator.
+	// Use a large value to avoid timing-related flakes in unit tests.
+	cfg.abrCacheLife = 600000;
+	cfg.abrCacheLength = 3;
+	cfg.abrCacheOutlier = 1000000;
+	cfg.bandwidthEstimatorType = BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER;
+	return cfg;
+}
 
 class AbrTests : public ::testing::Test
 {
 protected:
+	ABRManager::AampAbrConfig mTestConfig;
+
 	void SetUp() override
 	{
 		ABRManager::mPersistBandwidth = 0;
 		ABRManager::mPersistBandwidthUpdatedTime = 0;
-
-		eAAMPAbrConfig = ABRManager::AampAbrConfig();
-		// Cache life is interpreted as milliseconds by the estimator.
-		// Use a large value to avoid timing-related flakes in unit tests.
-		eAAMPAbrConfig.abrCacheLife = 600000;
-		eAAMPAbrConfig.abrCacheLength = 3;
-		eAAMPAbrConfig.abrCacheOutlier = 1000000;
-		eAAMPAbrConfig.bandwidthEstimatorType =	BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER;
+		mTestConfig = MakeDefaultTestConfig();
 	}
 };
 
@@ -107,16 +112,17 @@ TEST_F(AampAbrConfigTests, LoadAampAbrConfig)
 
 	aamp->LoadAampAbrConfig();
 
-	EXPECT_EQ(eAAMPAbrConfig.abrCacheLife, 3);
-	EXPECT_EQ(eAAMPAbrConfig.abrCacheLength, 2);
-	EXPECT_EQ(eAAMPAbrConfig.abrSkipDuration, 6);
-	EXPECT_EQ(eAAMPAbrConfig.abrNwConsistency, 2);
-	EXPECT_EQ(eAAMPAbrConfig.abrThresholdSize, 3);
-	EXPECT_EQ(eAAMPAbrConfig.abrMaxBuffer, 15);
-	EXPECT_EQ(eAAMPAbrConfig.abrMinBuffer, 10);
-	EXPECT_EQ(eAAMPAbrConfig.abrCacheOutlier, 10000);
-	EXPECT_EQ(eAAMPAbrConfig.abrBufferCounter, 4);
-	EXPECT_EQ(eAAMPAbrConfig.bandwidthEstimatorType, BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA);
+	const auto &cfg = aamp->mhAbrManager.getAbrConfig();
+	EXPECT_EQ(cfg.abrCacheLife, 3);
+	EXPECT_EQ(cfg.abrCacheLength, 2);
+	EXPECT_EQ(cfg.abrSkipDuration, 6);
+	EXPECT_EQ(cfg.abrNwConsistency, 2);
+	EXPECT_EQ(cfg.abrThresholdSize, 3);
+	EXPECT_EQ(cfg.abrMaxBuffer, 15);
+	EXPECT_EQ(cfg.abrMinBuffer, 10);
+	EXPECT_EQ(cfg.abrCacheOutlier, 10000);
+	EXPECT_EQ(cfg.abrBufferCounter, 4);
+	EXPECT_EQ(cfg.bandwidthEstimatorType, BANDWIDTH_ESTIMATION_ALGORITHM_HARMONIC_EWMA);
 }
 
 /**
@@ -137,11 +143,11 @@ TEST_F(AbrTests, DefaultEstimatorIsRMOAndUnavailableInitially)
  */
 TEST_F(AbrTests, RMOAveragesSamplesWithConfiguredCacheLength)
 {
-	eAAMPAbrConfig.abrCacheLength = 3;
-	eAAMPAbrConfig.abrCacheOutlier = 1000000;
+	mTestConfig.abrCacheLength = 3;
+	mTestConfig.abrCacheOutlier = 1000000;
 
 	ABRManager abrManager;
-	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.ReadPlayerConfig(&mTestConfig);
 	abrManager.AddBandwidthSample(1000, false);
 	abrManager.AddBandwidthSample(2000, false);
 	abrManager.AddBandwidthSample(3000, false);
@@ -154,11 +160,11 @@ TEST_F(AbrTests, RMOAveragesSamplesWithConfiguredCacheLength)
  */
 TEST_F(AbrTests, RMOTrimsSamplesToConfiguredCacheLength)
 {
-	eAAMPAbrConfig.abrCacheLength = 2;
-	eAAMPAbrConfig.abrCacheOutlier = 1000000;
+	mTestConfig.abrCacheLength = 2;
+	mTestConfig.abrCacheOutlier = 1000000;
 
 	ABRManager abrManager;
-	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.ReadPlayerConfig(&mTestConfig);
 	abrManager.AddBandwidthSample(1000, false);
 	abrManager.AddBandwidthSample(2000, false);
 	abrManager.AddBandwidthSample(3000, false);
@@ -171,11 +177,11 @@ TEST_F(AbrTests, RMOTrimsSamplesToConfiguredCacheLength)
  */
 TEST_F(AbrTests, RMORejectsOutlierSamplesBeyondConfiguredThreshold)
 {
-	eAAMPAbrConfig.abrCacheLength = 10;
-	eAAMPAbrConfig.abrCacheOutlier = 5000;
+	mTestConfig.abrCacheLength = 10;
+	mTestConfig.abrCacheOutlier = 5000;
 
 	ABRManager abrManager;
-	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.ReadPlayerConfig(&mTestConfig);
 	abrManager.AddBandwidthSample(1000, false);
 	abrManager.AddBandwidthSample(1100, false);
 	abrManager.AddBandwidthSample(100000, false); // Gets rejected
@@ -188,14 +194,14 @@ TEST_F(AbrTests, RMORejectsOutlierSamplesBeyondConfiguredThreshold)
  */
 TEST_F(AbrTests, RMORejectsHigherOutlierWhen2SamplesPresent)
 {
-	eAAMPAbrConfig.abrCacheLength = 10;
-	eAAMPAbrConfig.abrCacheOutlier = 5000;
+	mTestConfig.abrCacheLength = 10;
+	mTestConfig.abrCacheOutlier = 5000;
 
 	// Previously both samples would get rejected and bandwidth would be unavailable (-1).
 	// Now with the fix to reject only samples greater than the outlier threshold, the bandwidth
 	// should be available and calculated from the remaining sample.
 	ABRManager abrManager;
-	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.ReadPlayerConfig(&mTestConfig);
 	abrManager.AddBandwidthSample(1000, false);
 	abrManager.AddBandwidthSample(100000, false); // Gets rejected as outlier
 
@@ -229,11 +235,11 @@ TEST_F(AbrTests, HarmonicEWMAComputesBandwidthFromDownloadMetrics)
  */
 TEST_F(AbrTests, SwitchingEstimatorsUsesNewEstimatorState)
 {
-	eAAMPAbrConfig.abrCacheLength = 3;
-	eAAMPAbrConfig.abrCacheOutlier = 1000000;
+	mTestConfig.abrCacheLength = 3;
+	mTestConfig.abrCacheOutlier = 1000000;
 
 	ABRManager abrManager;
-	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.ReadPlayerConfig(&mTestConfig);
 	abrManager.AddBandwidthSample(1000, false);
 	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), 1000);
 
@@ -256,6 +262,7 @@ TEST_F(AbrTests, SwitchingEstimatorsUsesNewEstimatorState)
 }
 
 /**
+<<<<<<< HEAD
  * @brief Helper to add video profiles to an ABRManager for rampup tests.
  */
 static void AddTestProfiles(ABRManager &mgr)
@@ -434,3 +441,46 @@ TEST_F(AbrTests, UpdateProfile_DefaultIframeBitrate_SelectsBelowDefault)
 	EXPECT_EQ(abrManager.getDesiredIframeProfile(), 2);
 }
 
+/**
+ * @brief Test that ReadPlayerConfig is per-instance, not global.
+ *
+ * Two ABRManager instances configured with different abrSkipDuration values
+ * must exhibit independent CheckProfileChange behavior.
+ */
+TEST_F(AbrTests, ReadPlayerConfig_IsPerInstance)
+{
+	ABRManager mgr1;
+	ABRManager mgr2;
+
+	// Give both managers a video profile so getBandwidthOfProfile works
+	ABRManager::ProfileInfo profile{};
+	profile.isIframeTrack = false;
+	profile.bandwidthBitsPerSecond = 5000000;
+	profile.width = 1920;
+	profile.height = 1080;
+	mgr1.addProfile(profile);
+	mgr2.addProfile(profile);
+
+	// Configure mgr1 with abrSkipDuration = 100 (skip ABR for first 100s)
+	ABRManager::AampAbrConfig cfg1 = MakeDefaultTestConfig();
+	cfg1.abrSkipDuration = 100;
+	mgr1.ReadPlayerConfig(&cfg1);
+
+	// Configure mgr2 with abrSkipDuration = 0 (never skip ABR)
+	ABRManager::AampAbrConfig cfg2 = MakeDefaultTestConfig();
+	cfg2.abrSkipDuration = 0;
+	mgr2.ReadPlayerConfig(&cfg2);
+
+	// Verify configs are independent
+	EXPECT_EQ(mgr1.getAbrConfig().abrSkipDuration, 100);
+	EXPECT_EQ(mgr2.getAbrConfig().abrSkipDuration, 0);
+
+	// With totalFetchedDuration=50 (< 100), mgr1 should skip profile change
+	// (returns false because availBW > currBW won't trigger rampdown)
+	bool mgr1Change = mgr1.CheckProfileChange(50.0, 0, 6000000);
+	EXPECT_FALSE(mgr1Change);
+
+	// With totalFetchedDuration=50 (> 0 = skipDuration), mgr2 should allow change
+	bool mgr2Change = mgr2.CheckProfileChange(50.0, 0, 6000000);
+	EXPECT_TRUE(mgr2Change);
+}
