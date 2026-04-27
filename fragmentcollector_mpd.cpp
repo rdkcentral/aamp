@@ -2287,7 +2287,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
  * @brief If SkipFragments reaches EOS and an additional playable period is available, switch to the next period.
  */
 bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainingSeek,
-	bool skipToEnd)
+	bool /*skipToEnd*/) // reserved for future use; see header for rationale
 {
 	bool switchToNextPeriod = false;
 

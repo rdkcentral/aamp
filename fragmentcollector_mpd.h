@@ -922,7 +922,9 @@ protected:
 	/**
 	 * @fn HandleSeekEOSAndPeriodTransition
 	 * @param remainingSeek remaining seek time after skipping fragments
-	 * @param skipToEnd true when seek operation is a seek-to-end
+	 * @param skipToEnd reserved for future use (e.g. direction-aware empty-period
+	 *                  skipping); currently unused inside this function — the caller
+	 *                  (SeekInPeriod) uses it when invoking SkipFragments directly.
 	 * @return true if period switched; false otherwise
 	 */
 	bool HandleSeekEOSAndPeriodTransition(double remainingSeek, bool skipToEnd);
