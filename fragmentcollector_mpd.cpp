@@ -1942,7 +1942,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	//     rather than forward, so no forward period transition is appropriate.
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
+		if (mMediaStreamContext[i] != nullptr && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
 		{
 			switchToNextPeriod = true;
 			break;
@@ -1998,7 +1998,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		return false;
 	}
 
-	AAMPLOG_INFO("SeekInPeriod: Switched to period %d, calling SkipFragments with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
+AAMPLOG_INFO("SeekInPeriod: Switched to period %d; caller will re-run SkipFragments on the new period with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
 
 	// Caller (SeekInPeriod) will invoke SkipFragments on the new period in its loop.
 	return true;
@@ -2021,6 +2021,7 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 		// it is called without skipToEnd and may return a different remainder than A/V,
 		// which would drive an incorrect period transition or carry-over seek offset.
 		double trackRemainingSeek = 0.0;
+		bool primaryCaptured = false;
 		for (int i = 0; i < mNumberOfTracks; i++)
 		{
 			if (!mMediaStreamContext[i])
@@ -2036,10 +2037,14 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 			else
 			{
 				double remaining = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
-				// Keep the first enabled non-subtitle result (video if present).
-				if (i == eMEDIATYPE_VIDEO || (trackRemainingSeek == 0.0 && mMediaStreamContext[i]->enabled))
+				// Capture the first enabled non-subtitle track as the period-transition
+				// primary: video (index 0) if enabled, otherwise audio (index 1).
+				// Using a flag rather than a 0.0 sentinel avoids ambiguity when the
+				// primary track legitimately returns a remainder of exactly 0.0.
+				if (!primaryCaptured && mMediaStreamContext[i]->enabled)
 				{
 					trackRemainingSeek = remaining;
+					primaryCaptured = true;
 				}
 			}
 		}
