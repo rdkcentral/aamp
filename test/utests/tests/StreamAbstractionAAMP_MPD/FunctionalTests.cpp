@@ -4096,7 +4096,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 
