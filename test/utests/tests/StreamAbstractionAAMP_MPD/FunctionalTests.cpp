@@ -4117,7 +4117,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// with remaining seek value and still update mFirstPTS from SkipFragments path.
 	const double seekPositionSeconds = 12.0;
 	TestableFunctionalStreamAbstractionAAMP_MPD *testableStreamAbstractionAAMP_MPD =
-    dynamic_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+		dynamic_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
 	ASSERT_NE(testableStreamAbstractionAAMP_MPD, nullptr);
 	testableStreamAbstractionAAMP_MPD->CallSeekInPeriod(seekPositionSeconds);
 	// Verify: mFirstPTS updated after period transition and remaining-seek skip in period-2.
