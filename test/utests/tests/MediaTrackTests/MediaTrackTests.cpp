@@ -1076,3 +1076,114 @@ TEST_F(MediaTrackTests, GetBufferStatus_ReturnsRed_WhenBufferIsBelowUnderflowThr
 		.WillOnce(Return(0.1));
 	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_RED);
 }
+
+/**
+ * @brief When the chunk cache is not full, WaitForCachedFragmentChunkInjected returns
+ * true immediately without waiting.
+ */
+TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_CacheHasSpace_ReturnsTrueImmediately)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Cache is empty (not full), so no wait is entered and the function returns true.
+	ASSERT_LT(videoTrack.numberOfFragmentChunksCached,
+			  static_cast<int>(videoTrack.GetCachedFragmentChunksSize()));
+	EXPECT_TRUE(videoTrack.WaitForCachedFragmentChunkInjected(0));
+}
+
+/**
+ * @brief When the chunk cache is full and the timeout expires with no signal,
+ * WaitForCachedFragmentChunkInjected returns false.
+ */
+TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_TimeoutWithCacheFull_ReturnsFalse)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
+	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+
+	// No signal is ever fired; the short timeout must cause a false return.
+	EXPECT_FALSE(videoTrack.WaitForCachedFragmentChunkInjected(50 /*ms*/));
+}
+
+/**
+ * @brief Exercises the "signaled but still full" branch (streamabstraction.cpp ~R725-R729):
+ * the cache is full, the condition variable is signaled without the abort flag being set
+ * and without numberOfFragmentChunksCached being decremented.
+ * WaitForCachedFragmentChunkInjected must return false because the cache is still full
+ * after the wakeup.
+ */
+TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_SignaledButStillFull_ReturnsFalse)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
+	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+
+	// From a background thread: signal the CV without draining the cache and without
+	// setting abort — this mirrors the scenario introduced at ~R725-R729 where the
+	// caller is woken up spuriously or by an unrelated event.
+	std::thread signalThread([&videoTrack]() {
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		// AbortWaitForCachedFragmentChunk signals fragmentChunkInjected but does NOT
+		// decrement numberOfFragmentChunksCached or set the abort flag.
+		videoTrack.AbortWaitForCachedFragmentChunk();
+	});
+
+	// Must return false: was signaled, abort is clear, but cache is still full.
+	bool result = videoTrack.WaitForCachedFragmentChunkInjected(5000 /*ms*/);
+	signalThread.join();
+
+	EXPECT_FALSE(result);
+}
+
+/**
+ * @brief When the condition variable is signaled and numberOfFragmentChunksCached is
+ * decremented before the caller wakes up, WaitForCachedFragmentChunkInjected returns true.
+ * This is the complementary positive case confirming the non-full path still works.
+ */
+TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_SignaledAndCacheCleared_ReturnsTrue)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
+	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+
+	// From a background thread: simulate an injector consuming a slot, then signal.
+	std::thread signalThread([&videoTrack]() {
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		// Decrement the cache count (simulating a completed injection), then notify.
+		videoTrack.numberOfFragmentChunksCached--;
+		videoTrack.AbortWaitForCachedFragmentChunk();
+	});
+
+	// Must return true: was signaled and cache now has a free slot.
+	bool result = videoTrack.WaitForCachedFragmentChunkInjected(5000 /*ms*/);
+	signalThread.join();
+
+	EXPECT_TRUE(result);
+}
