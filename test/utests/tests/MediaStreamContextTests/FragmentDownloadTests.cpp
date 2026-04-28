@@ -765,6 +765,69 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 }
 
 // ---------------------------------------------------------------------------
+// CacheTsbFragment: move semantics transfer data without copying
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Verify that CacheTsbFragment uses move semantics to transfer
+ *        fragment data into the ring buffer slot, avoiding a deep copy.
+ *
+ * The source shared_ptr is passed by value (not moved at the call site) so
+ * that sourceFragment still points to the same CachedFragment object after
+ * the call.  The move assignment inside CacheTsbFragment empties that object,
+ * which is then observable through sourceFragment.  If the implementation
+ * were changed to Copy() instead of move, sourceFragment->fragment would
+ * still hold the original data and the source-empty assertions below would
+ * fail, catching the regression.
+ */
+TEST_F(FragmentDownloadTests, CacheTsbFragment_MoveSemantics_TransfersOwnership)
+{
+	// --- Arrange ---
+	constexpr std::string_view testPayload{"MOVE_SEMANTICS_TEST_DATA"};
+	auto sourceFragment = std::make_shared<CachedFragment>();
+	sourceFragment->fragment.assign(
+		reinterpret_cast<const uint8_t*>(testPayload.data()),
+		reinterpret_cast<const uint8_t*>(testPayload.data()) + testPayload.size());
+	sourceFragment->position = 42.0;
+	sourceFragment->duration = 2.0;
+	sourceFragment->initFragment = true;
+	sourceFragment->discontinuity = true;
+
+	// The ring buffer slot that GetFetchChunkBuffer will return.
+	auto ringBufferSlot = std::make_shared<CachedFragment>();
+
+	// WaitForCachedFragmentChunkInjected is handled by the fake (always returns true).
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+		.WillOnce(Return(ringBufferSlot.get()));
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
+
+	// --- Act ---
+	// std::move transfers the shared_ptr into the && parameter without
+	// decrementing the ref count, so sourceFragment still aliases the same
+	// CachedFragment after the call.  The move assignment inside
+	// CacheTsbFragment empties that object, observable through sourceFragment.
+	bool result = mMediaStreamContext->CacheTsbFragment(std::move(sourceFragment));
+
+	// --- Assert ---
+	EXPECT_TRUE(result);
+
+	// Destination ring buffer slot must own the data.
+	EXPECT_EQ(ringBufferSlot->fragment.size(), testPayload.size());
+	EXPECT_DOUBLE_EQ(ringBufferSlot->position, 42.0);
+	EXPECT_DOUBLE_EQ(ringBufferSlot->duration, 2.0);
+	EXPECT_TRUE(ringBufferSlot->initFragment);
+	EXPECT_TRUE(ringBufferSlot->discontinuity);
+
+	// Source CachedFragment must be in a moved-from (empty) state, proving
+	// that a move — not a copy — transferred the payload.
+	EXPECT_TRUE(sourceFragment->fragment.empty());
+	EXPECT_DOUBLE_EQ(sourceFragment->position, 0.0);
+	EXPECT_DOUBLE_EQ(sourceFragment->duration, 0.0);
+	EXPECT_FALSE(sourceFragment->initFragment);
+	EXPECT_FALSE(sourceFragment->discontinuity);
+}
+
+// ---------------------------------------------------------------------------
 // Regression: wasUnderFlowActive guard prevents discarding the recovery fragment
 // ---------------------------------------------------------------------------
 // The hook defined in FakeStreamAbstractionAamp.cpp is called inside

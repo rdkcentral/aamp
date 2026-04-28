@@ -430,7 +430,7 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vecto
 		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
 			type, fpts, fDuration, fragmentPTSOffset, init, buffer.size());
 		bool ptsError = false;
-		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
+		if (!playContext->sendSegment(std::move(buffer), fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
 		{
 			AAMPLOG_INFO("Type[%d] Fragment discarded", mediaType);
 		}

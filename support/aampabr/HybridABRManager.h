@@ -28,6 +28,37 @@
 #include <cstdio>
 #include "ABRManager.h"
 
+// Include AampSpeedCache.h if available (AAMP build); otherwise define SpeedCache inline
+// so that consumers like FOG, which install only HybridABRManager.h remain buildable without needing AampSpeedCache.h as a separate installed header.
+#ifdef __has_include
+#  if __has_include("AampSpeedCache.h")
+#    include "AampSpeedCache.h"
+#  endif
+#endif
+
+#ifndef AAMP_SPEED_CACHE_H
+#define AAMP_SPEED_CACHE_H
+#include <utility>
+struct SpeedCache
+{
+	long last_sample_time_val;
+	long prev_dlnow;
+	long prevSampleTotalDownloaded;
+	long totalDownloaded;
+	long speed_now;
+	long start_val;
+	bool bStart;
+
+	double totalWeight;
+	double weightedBitsPerSecond;
+	std::vector< std::pair<double,long> > mChunkSpeedData;
+
+	SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false), totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
+	{
+	}
+};
+#endif /* AAMP_SPEED_CACHE_H */
+
 class HybridABRManager:public ABRManager
 {
 	public:
@@ -122,6 +153,7 @@ class HybridABRManager:public ABRManager
 
 		int mABRHighBufferCounter;	    /**< ABR High buffer counter */
 		int mABRLowBufferCounter;	    /**< ABR Low Buffer counter */
+		int mRampupFromSteadyStateLoop{1};	/**< Per-instance exponential backoff counter for steady-state rampup */
 
 		/**
 		 * @brief Different reasons for bitrate change
