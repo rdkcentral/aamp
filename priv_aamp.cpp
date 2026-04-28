@@ -2730,8 +2730,16 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 					// This avoids the sawtooth fluctuation caused by the live edge advancing
 					// in discrete segment-sized steps on each manifest refresh.
 					long long nowMs = aamp_GetCurrentTimeMS();
-					long long pdtAtCurrentPosMs = static_cast<long long>((mProgramDateTime + (reportFormattedCurrPos / 1000.0)) * 1000.0);
+					static long long firstPDTMs = 0.0;
+					double diffFromPDTSeconds = (nowMs / 1000.0) - mProgramDateTime;
+					AAMPLOG_WARN("Time since mProgramDateTime: %.3f seconds (nowMs=%lldms, mProgramDateTime=%.3fs)", diffFromPDTSeconds, nowMs, mProgramDateTime);
+					if (mProgramDateTime > 0.0 && firstPDTMs == 0.0)
+					{
+						firstPDTMs = static_cast<long long>(mProgramDateTime * 1000.0);
+					}
+					long long pdtAtCurrentPosMs = static_cast<long long>(firstPDTMs + reportFormattedCurrPos);
 					latency = static_cast<long>(nowMs - pdtAtCurrentPosMs);
+					AAMPLOG_WARN("Siva live latency = %ldms, nowMs = %lldms, mProgramDateTime = %lfms, reportFormattedCurrPos = %lfms", latency, nowMs, mProgramDateTime, reportFormattedCurrPos);
 					if(latency < 0)
 					{ // this should never happen!
 						AAMPLOG_ERR("HLS PDT-based negative live latency = %ldms, nowMs = %lldms, pdtAtCurrentPosMs = %lldms", latency, nowMs, pdtAtCurrentPosMs);
