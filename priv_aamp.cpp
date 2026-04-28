@@ -10263,12 +10263,21 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 	if (mpStreamAbstractionAAMP)
 	{
 		std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks(allTrack);
+		for (const auto& track : trackInfo)
+		{
+			AAMPLOG_INFO("Text Track - name:%s, label:%s, language:%s, isCC:%d, isAvailable:%d", track.name.c_str(), track.label.c_str(), track.language.c_str(), track.isCC, track.isAvailable);
+		}
+		AAMPLOG_INFO("GetAvailableTextTracks trackInfo size:%zu", trackInfo.size());
 
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
+		for(const auto& track : updatedTextTracks)
+		{
+			AAMPLOG_INFO("Updated CC Text Track - lang:%s, instreamId:%s", track.language.c_str(), track.instreamId.c_str());
+		}
 
 		if (!trackInfo.empty())
 		{
