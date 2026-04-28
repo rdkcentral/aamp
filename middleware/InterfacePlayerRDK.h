@@ -515,6 +515,13 @@ class InterfacePlayerRDK
         	 * @return The video PTS value.
         	 */
         	long long GetVideoPTS(void);
+		/**
+		 * @brief Gets the current video playback position via
+		 *        gst_element_query_position on the video sinkbin.
+		 * @return The playback position in milliseconds, or 0 if the
+		 *         pipeline is not in PLAYING/PAUSED state or the query fails.
+		 */
+		long long GetVideoPosition(void);
         	/**
         	 * @brief Sets the callback for the first frame.
         	 * @param[in] callback The callback function to be called on the first frame.

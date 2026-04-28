@@ -2726,19 +2726,14 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		{
 			// Deduct segment.start to find the actual time of media that's played.
 			rc = (GST_TIME_AS_MSECONDS(pos) - interfacePlayerPriv->gstPrivateContext->segmentStart) * rate;
-			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld SegStart -%" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(pos), rc,interfacePlayerPriv->gstPrivateContext->segmentStart);
+			MW_LOG_DEBUG("positionQuery pos: %" G_GINT64_FORMAT " rc: %lld SegStart -%" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(pos), rc,interfacePlayerPriv->gstPrivateContext->segmentStart);
 		}
 		else
 		{
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
-			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
+			MW_LOG_DEBUG("positionQuery pos: %" G_GINT64_FORMAT " rc: %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
-		MW_LOG_MIL("ANJ: InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
-		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
-		{
-			gint64 currentPTS = GetVideoPTS();
-			MW_LOG_MIL("ANJ: InterfacePlayerRDK: video-pts parsed is: %" G_GINT64_FORMAT , currentPTS);
-		}
+		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos: %" G_GINT64_FORMAT " rc: %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
 	return rc;
@@ -3966,7 +3961,62 @@ long long InterfacePlayerRDK::GetVideoPTS(void)
 {
 	gint64 currentPTS = 0;
 	currentPTS = interfacePlayerPriv->socInterface->GetVideoPts(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->using_westerossink);
+	if(currentPTS == -1)
+	{
+		/* The 'video-pts' property is not supported on this platform.
+		 * Fall back to gst_element_query_position and convert ms to 90 kHz
+		 * ticks (1 ms = 90 ticks) so that callers relying on PTS units
+		 * (90 kHz) keep working. */
+		currentPTS = 90 * GetVideoPosition();
+	}
 	return (long long)currentPTS;
+}
+
+/**
+ *  @brief Gets the current video playback position using
+ *         gst_element_query_position on the video sinkbin.
+ *
+ *  @retval Current playback position in milliseconds, or 0 if the
+ *          pipeline is not in PLAYING/PAUSED state or the query fails.
+ */
+long long InterfacePlayerRDK::GetVideoPosition(void)
+{
+	gint64 position = 0;
+	GstElement *pipeline = interfacePlayerPriv->gstPrivateContext->pipeline;
+	GstElement *videoSinkbin =
+		interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin;
+	if(pipeline && videoSinkbin)
+	{
+		/* Position can only be queried reliably when the pipeline is in
+		 * PLAYING or PAUSED state, so we first verify the pipeline state
+		 * via gst_element_get_state before issuing the position query. */
+		GstState state = GST_STATE_NULL;
+		GstState pending = GST_STATE_NULL;
+		GstClockTime timeout = 0;	/* non-blocking state query */
+		GstStateChangeReturn rc =
+			gst_element_get_state(pipeline, &state, &pending, timeout);
+		if(rc == GST_STATE_CHANGE_SUCCESS &&
+		   (state == GST_STATE_PLAYING || state == GST_STATE_PAUSED))
+		{
+			if(!gst_element_query_position(videoSinkbin, GST_FORMAT_TIME, &position))
+			{
+				MW_LOG_WARN("InterfacePlayerRDK: gst_element_query_position failed");
+				position = 0;
+			}
+		}
+		else
+		{
+			MW_LOG_INFO("InterfacePlayerRDK: pipeline not in PLAYING/PAUSED (state=%d, rc=%d), cannot query video position",
+						state, rc);
+		}
+	}
+	else
+	{
+		MW_LOG_WARN("InterfacePlayerRDK: cannot query video position; pipeline=%p videoSinkbin=%p",
+					pipeline, videoSinkbin);
+	}
+	MW_LOG_INFO("InterfacePlayerRDK: position in ms = %" G_GINT64_FORMAT , GST_TIME_AS_MSECONDS(position));
+	return (long long)(GST_TIME_AS_MSECONDS(position));
 }
 
 /**

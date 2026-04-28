@@ -3053,3 +3053,236 @@ TEST_F(InterfacePlayerTests, SetStreamCaps_EncryptedAudioCodecFormat)
 
 	delete g_mockGstUtils;
 }
+
+/**
+ * @test GetVideoPosition_PipelineNull
+ * @brief Verify GetVideoPosition returns 0 when pipeline pointer is NULL.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPosition_PipelineNull)
+{
+	mPlayerContext->pipeline = nullptr;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &gst_element_pipeline;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query_position(_, _, _)).Times(0);
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPosition(), 0);
+}
+
+/**
+ * @test GetVideoPosition_VideoSinkbinNull
+ * @brief Verify GetVideoPosition returns 0 when the video sinkbin is NULL.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPosition_VideoSinkbinNull)
+{
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = nullptr;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query_position(_, _, _)).Times(0);
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPosition(), 0);
+}
+
+/**
+ * @test GetVideoPosition_StateNotPlayingOrPaused
+ * @brief When the pipeline state is neither PLAYING nor PAUSED, the position
+ *        query must be skipped and 0 returned.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPosition_StateNotPlayingOrPaused)
+{
+	GstElement video_sinkbin = {.object = {.name = (gchar *)"video_sinkbin"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &video_sinkbin;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_READY),
+			SetArgPointee<2>(GST_STATE_READY),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query_position(_, _, _)).Times(0);
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPosition(), 0);
+}
+
+/**
+ * @test GetVideoPosition_GetStateFails
+ * @brief When gst_element_get_state does not return SUCCESS the position
+ *        query must be skipped and 0 returned.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPosition_GetStateFails)
+{
+	GstElement video_sinkbin = {.object = {.name = (gchar *)"video_sinkbin"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &video_sinkbin;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_FAILURE)));
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query_position(_, _, _)).Times(0);
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPosition(), 0);
+}
+
+/**
+ * @test GetVideoPosition_QueryFails
+ * @brief When state is PLAYING but gst_element_query_position fails, return 0.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPosition_QueryFails)
+{
+	GstElement video_sinkbin = {.object = {.name = (gchar *)"video_sinkbin"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &video_sinkbin;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+	EXPECT_CALL(*g_mockGStreamer,
+				gst_element_query_position(&video_sinkbin, GST_FORMAT_TIME, _))
+		.WillOnce(Return(FALSE));
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPosition(), 0);
+}
+
+/**
+ * @test GetVideoPosition_QuerySucceedsPlaying
+ * @brief Position is returned in milliseconds (ns -> ms) when state is PLAYING
+ *        and the position query succeeds.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPosition_QuerySucceedsPlaying)
+{
+	GstElement video_sinkbin = {.object = {.name = (gchar *)"video_sinkbin"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &video_sinkbin;
+
+	const gint64 positionNs = 7000000;	/* 7 ms in nanoseconds */
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+	EXPECT_CALL(*g_mockGStreamer,
+				gst_element_query_position(&video_sinkbin, GST_FORMAT_TIME, _))
+		.WillOnce(DoAll(SetArgPointee<2>(positionNs), Return(TRUE)));
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPosition(), 7);
+}
+
+/**
+ * @test GetVideoPosition_QuerySucceedsPaused
+ * @brief Position is also queried in PAUSED state.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPosition_QuerySucceedsPaused)
+{
+	GstElement video_sinkbin = {.object = {.name = (gchar *)"video_sinkbin"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &video_sinkbin;
+
+	const gint64 positionNs = 12000000;	/* 12 ms in nanoseconds */
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_PAUSED),
+			SetArgPointee<2>(GST_STATE_PAUSED),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+	EXPECT_CALL(*g_mockGStreamer,
+				gst_element_query_position(&video_sinkbin, GST_FORMAT_TIME, _))
+		.WillOnce(DoAll(SetArgPointee<2>(positionNs), Return(TRUE)));
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPosition(), 12);
+}
+
+/**
+ * @test GetVideoPTS_PropertySupported
+ * @brief When 'video-pts' is exposed, GetVideoPTS returns the value provided
+ *        by the SoC interface (no fallback to position query).
+ */
+TEST_F(InterfacePlayerTests, GetVideoPTS_PropertySupported)
+{
+	GstElement video_dec = {.object = {.name = (gchar *)"video_dec"}};
+	mPlayerContext->video_dec = &video_dec;
+	mPlayerContext->using_westerossink = true;	/* avoid the *2 scaling */
+
+	GParamSpec dummyPspec{};
+	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
+		.WillOnce(Return(&dummyPspec));
+
+	const gint64 ptsValue = 4500;
+	EXPECT_CALL(*g_mockGLib,
+				g_object_get(&video_dec, StrEq("video-pts"),
+							 Matcher<gint64 *>(_)))
+		.WillOnce(DoAll(SetArgPointee<2>(ptsValue), Return()));
+
+	/* Position fallback must NOT be used when the property is supported. */
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query_position(_, _, _)).Times(0);
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPTS(), ptsValue);
+}
+
+/**
+ * @test GetVideoPTS_PropertyNotSupportedFallsBackToPosition
+ * @brief When 'video-pts' is not exposed, GetVideoPts() returns -1 and
+ *        InterfacePlayerRDK::GetVideoPTS falls back to
+ *        90 * GetVideoPosition() (90 kHz ticks per millisecond).
+ */
+TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyNotSupportedFallsBackToPosition)
+{
+	GstElement video_dec = {.object = {.name = (gchar *)"video_dec"}};
+	GstElement video_sinkbin = {.object = {.name = (gchar *)"video_sinkbin"}};
+	mPlayerContext->video_dec = &video_dec;
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &video_sinkbin;
+
+	/* Property not supported -> probe returns nullptr. */
+	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
+		.WillOnce(Return(nullptr));
+	/* g_object_get for video-pts must NOT be invoked when unsupported. */
+	EXPECT_CALL(*g_mockGLib,
+				g_object_get(_, StrEq("video-pts"), Matcher<gint64 *>(_)))
+		.Times(0);
+
+	const gint64 positionNs = 10000000;	/* 10 ms */
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+	EXPECT_CALL(*g_mockGStreamer,
+				gst_element_query_position(&video_sinkbin, GST_FORMAT_TIME, _))
+		.WillOnce(DoAll(SetArgPointee<2>(positionNs), Return(TRUE)));
+
+	/* Expected: 90 * 10 ms = 900 (90 kHz ticks per ms). */
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPTS(), 900);
+}
+
+/**
+ * @test GetVideoPTS_PropertyProbeCachedAcrossCalls
+ * @brief The 'video-pts' property is probed only once; subsequent calls must
+ *        not re-invoke g_object_class_find_property.
+ */
+TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyProbeCachedAcrossCalls)
+{
+	GstElement video_dec = {.object = {.name = (gchar *)"video_dec"}};
+	mPlayerContext->video_dec = &video_dec;
+	mPlayerContext->using_westerossink = true;
+
+	GParamSpec dummyPspec{};
+	/* The probe must run exactly once for two GetVideoPTS calls. */
+	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
+		.Times(1)
+		.WillOnce(Return(&dummyPspec));
+
+	const gint64 ptsValue = 1234;
+	EXPECT_CALL(*g_mockGLib,
+				g_object_get(&video_dec, StrEq("video-pts"),
+							 Matcher<gint64 *>(_)))
+		.Times(2)
+		.WillRepeatedly(DoAll(SetArgPointee<2>(ptsValue), Return()));
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPTS(), ptsValue);
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPTS(), ptsValue);
+}

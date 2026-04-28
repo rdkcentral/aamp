@@ -90,6 +90,13 @@ protected:
 	
 	/*config to indicate platforms using westeros sink*/
 	bool mUsingWesterosSink = false;
+
+	/* Cached result of the one-time 'video-pts' GObject property probe.
+	 * Once probed against a non-NULL video sink/decoder, the result is
+	 * reused for the lifetime of this SocInterface instance to avoid
+	 * repeated g_object_class_find_property() calls on hot paths. */
+	bool mVideoPtsPropertyChecked = false;
+	bool mVideoPtsPropertySupported = false;
 	
 public:
 	SocInterface() {}
@@ -375,6 +382,23 @@ public:
 	 * @return Video PTS in nanoseconds, or -1 on error.
 	 */
 	virtual long long GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros);
+
+	/**
+	 * @brief Check whether the 'video-pts' GObject property is supported by
+	 *        either the video sink or the video decoder.
+	 *
+	 * The video sink is probed first; if not available, the video decoder
+	 * is probed. The result is intentionally not cached here because the
+	 * underlying elements may be created/destroyed across pipeline
+	 * lifecycles; callers may cache the result if desired.
+	 *
+	 * @param video_sink The video sink element (may be NULL).
+	 * @param video_dec  The video decoder element (may be NULL).
+	 *
+	 * @return true if the 'video-pts' property is exposed on either
+	 *         element, false otherwise.
+	 */
+	virtual bool IsVideoPtsPropertySupported(GstElement *video_sink, GstElement *video_dec);
 	
 	/**
 	 * @brief Notify first video frame.

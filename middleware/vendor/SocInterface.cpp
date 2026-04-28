@@ -226,19 +226,50 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
  */
 long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
-	gint64 currentPTS = -1;
-	MW_LOG_MIL("ANJ: vendor/SocInterface.cpp: before g_object_get - video-pts: %" G_GINT64_FORMAT , currentPTS);
+	gint64 currentPTS = 0;
 	if(video_dec)
 	{
+		if(!IsVideoPtsPropertySupported(video_sink, video_dec))
+		{
+			/* The 'video-pts' property is not exposed on this platform.
+			 * Signal to the caller so it can fall back to
+			 * gst_element_query_position. */
+			return -1;
+		}
 		g_object_get(video_dec, "video-pts", &currentPTS, NULL);
-		MW_LOG_MIL("ANJ: vendor/SocInterface.cpp: after g_object_get - video-pts: %" G_GINT64_FORMAT , currentPTS);
 		if(!isWesteros)
 		{
 			currentPTS *= 2;
-			MW_LOG_MIL("ANJ: vendor/SocInterface.cpp: !isWesteros - video-pts: %" G_GINT64_FORMAT , currentPTS);
 		}
 	}
 	return (long long)currentPTS;
+}
+
+/**
+ * @brief Check whether the 'video-pts' GObject property is supported by
+ *        either the video sink or the video decoder.
+ *
+ * @param video_sink The video sink element (may be NULL).
+ * @param video_dec  The video decoder element (may be NULL).
+ *
+ * @return true if 'video-pts' is supported on either element, false otherwise.
+ */
+bool SocInterface::IsVideoPtsPropertySupported(GstElement *video_sink, GstElement *video_dec)
+{
+	if(!mVideoPtsPropertyChecked)
+	{
+		GstElement *element = video_sink ? video_sink : video_dec;
+		if(element)
+		{
+			GParamSpec *pspec = g_object_class_find_property(
+				G_OBJECT_GET_CLASS(element), "video-pts");
+			mVideoPtsPropertySupported = (pspec != NULL);
+			mVideoPtsPropertyChecked = true;
+		}
+		/* If neither element is available yet, leave the flags untouched
+		 * so the probe is retried on the next call. */
+	}
+	return mVideoPtsPropertySupported;
 }
 
 /**
