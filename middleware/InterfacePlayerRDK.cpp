@@ -5136,9 +5136,11 @@ bool InterfacePlayerRDK::SignalSubtitleClock(gint64 vPTS, bool state)
 void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 {
 	// Ensure GST is initialized
+	MW_LOG_WARN("gst_init_check Pre");
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
 	}
+	MW_LOG_WARN("gst_init_check Pre");
 
 #define PLUGINS_TO_LOWER_RANK_MAX    2
 	static const char *plugins_to_lower_rank[PLUGINS_TO_LOWER_RANK_MAX] = {

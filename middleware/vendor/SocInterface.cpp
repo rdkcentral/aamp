@@ -56,9 +56,12 @@ SocPlatformType InferPlatformFromPluginScan()
 {
 	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
 	// Ensure GST is initialized
+	MW_LOG_WARN("gst_init_check Pre");
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
 	}
+	MW_LOG_WARN("gst_init_check Pst");
+
 	static const std::pair<const char*, SocPlatformType> plugins[] = {
 		{"amlhalasink", SOC_PLATFORM_AMLOGIC},
 		{"omxeac3dec", SOC_PLATFORM_REALTEK},
