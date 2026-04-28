@@ -33,6 +33,7 @@
 #include <sys/time.h>
 #include <algorithm>
 #include "AampLogManager.h"
+#include "AampSpeedCache.h"
 
 //#define DEBUG_ENABLED
 
@@ -278,7 +279,6 @@ void ABRManager::updateProfile()
 			iframeTrackInfo.push_back(info);
 		}
 	}
-	lock.unlock();
 	
 	// Exists iframe track
 	size_t iframeTrackCount = iframeTrackInfo.size();
@@ -336,6 +336,7 @@ void ABRManager::updateProfile()
 			}
 		}
 	}
+	lock.unlock();
 	
 #if defined(DEBUG_ENABLED)
 	AAMPLOG_MIL("Update profile info, mDesiredIframeProfile = %d, mLowestIframeProfile = %d", mDesiredIframeProfile, mLowestIframeProfile);
@@ -837,30 +838,6 @@ int ABRManager::getClosestProfileIndexByBandwidth( BitsPerSecond inputBandwidth 
 	}
 }
 
-/**
- * @struct SpeedCache
- * @brief Stores the information for cache speed
- */
-
-struct SpeedCache
-{
-	long last_sample_time_val;
-	long prev_dlnow;
-	long prevSampleTotalDownloaded;
-	long totalDownloaded;
-	long speed_now;
-	long start_val;
-	bool bStart;
-	
-	double totalWeight;
-	double weightedBitsPerSecond;
-	std::vector< std::pair<double,long> > mChunkSpeedData;
-	
-	SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false), totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
-	{
-	}
-};
-
 /** @brief Read Config values
  *  @return none
  */
@@ -1145,6 +1122,10 @@ BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int current
 	BitsPerSecond desiredProfilebw = 0;
 	BitsPerSecond currentbw = getBandwidthOfProfile(currentProfileIndex);
 	std::vector<ProfileInfo> availableProfiles = mProfiles;
+	availableProfiles.erase(
+		std::remove_if(availableProfiles.begin(), availableProfiles.end(),
+			[](const ProfileInfo &p) { return p.isIframeTrack; }),
+		availableProfiles.end());
 	int i = (int)availableProfiles.size();
 	if( i>0 )
 	{

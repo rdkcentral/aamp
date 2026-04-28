@@ -22,7 +22,6 @@
 
 #include <string>
 #include <vector>
-#include <cstring> // for std::memset
 #include <utility> // for std::exchange
 #include "GstUtils.h" // for GstStreamOutputFormat
 
@@ -230,126 +229,6 @@ struct MediaDrmMetadata
 	// Delete copy constructor and copy assignment to prevent accidental copies
 	MediaDrmMetadata(const MediaDrmMetadata&) = delete;
 	MediaDrmMetadata& operator=(const MediaDrmMetadata&) = delete;
-};
-
-/*
- * @struct MediaSample
- * @brief Media sample structure
- */
-struct MediaSample
-{
-	std::vector<uint8_t> mData; // Media data buffer (replaces raw pointer + size)
-	double mPts;
-	double mDts;
-	double mDuration;
-	double mPtsOffset;
-	MediaDrmMetadata mDrmMetadata; // DRM metadata for encrypted samples
-
-	/**
-	 * @brief Default constructor for MediaSample
-	 */
-	MediaSample()
-		: mData()
-		, mPts(0.0)
-		, mDts(0.0)
-		, mDuration(0.0)
-		, mPtsOffset(0.0)
-		, mDrmMetadata()
-	{
-	}
-
-	/**
-	 * @brief Constructor with data from vector (move semantics)
-	 * @param data Vector of data (moved into sample)
-	 * @param pts Presentation timestamp
-	 * @param dts Decode timestamp
-	 * @param duration Sample duration
-	 * @param ptsOffset PTS offset
-	 */
-	MediaSample(std::vector<uint8_t>&& data, double pts, double dts, double duration, double ptsOffset = 0.0)
-		: mData(std::move(data))
-		, mPts(pts)
-		, mDts(dts)
-		, mDuration(duration)
-		, mPtsOffset(ptsOffset)
-		, mDrmMetadata()
-	{
-	}
-
-	/**
-	 * @brief Constructor from raw pointer (takes ownership via copy)
-	 * @param ptr Pointer to data to copy
-	 * @param size Size of data
-	 * @param pts Presentation timestamp
-	 * @param dts Decode timestamp
-	 * @param duration Sample duration
-	 * @param ptsOffset PTS offset
-	 */
-	MediaSample(const void* ptr, size_t size, double pts, double dts, double duration, double ptsOffset = 0.0)
-		: mData(static_cast<const uint8_t*>(ptr), static_cast<const uint8_t*>(ptr) + size)
-		, mPts(pts)
-		, mDts(dts)
-		, mDuration(duration)
-		, mPtsOffset(ptsOffset)
-		, mDrmMetadata()
-	{
-	}
-
-	/**
-	 * @brief Move constructor for MediaSample
-	 * @param other Source MediaSample to move from
-	 */
-	MediaSample(MediaSample&& other) noexcept
-		: mData(exchange(other.mData, {}))
-		, mPts(exchange(other.mPts, 0.0))
-		, mDts(exchange(other.mDts, 0.0))
-		, mDuration(exchange(other.mDuration, 0.0))
-		, mPtsOffset(exchange(other.mPtsOffset, 0.0))
-		, mDrmMetadata(exchange(other.mDrmMetadata, {}))
-	{
-	}
-
-	/**
-	 * @brief Move assignment operator for MediaSample
-	 * @param other Source MediaSample to move from
-	 * @return Reference to this object
-	 */
-	MediaSample& operator=(MediaSample&& other) noexcept
-	{
-		if (this != &other)
-		{
-			mData = exchange(other.mData, {});
-			mPts = exchange(other.mPts, 0.0);
-			mDts = exchange(other.mDts, 0.0);
-			mDuration = exchange(other.mDuration, 0.0);
-			mPtsOffset = exchange(other.mPtsOffset, 0.0);
-			mDrmMetadata = exchange(other.mDrmMetadata, {});
-		}
-		return *this;
-	}
-
-	// Delete copy constructor and copy assignment to prevent accidental copies
-	MediaSample(const MediaSample&) = delete;
-	MediaSample& operator=(const MediaSample&) = delete;
-
-	/**
-	 * @brief Get pointer to data (for compatibility with legacy APIs)
-	 * @return Pointer to data or nullptr if empty
-	 */
-	const uint8_t* data() const { return mData.empty() ? nullptr : mData.data(); }
-	uint8_t* data() { return mData.empty() ? nullptr : mData.data(); }
-
-	/**
-	 * @brief Get size of data
-	 * @return Size in bytes
-	 */
-	size_t size() const { return mData.size(); }
-
-	/**
-	 * @brief Check if sample is empty
-	 * @return true if no data
-	 */
-	bool empty() const { return mData.empty(); }
 };
 
 #endif /* __DEMUX_DATA_TYPES_H__ */
