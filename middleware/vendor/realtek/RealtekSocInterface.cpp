@@ -242,7 +242,7 @@ long long RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *v
 
 	if (element)
 	{
-		if(!IsVideoPtsPropertySupported(video_sink, video_dec))
+		if(!IsVideoPtsPropertySupported(element))
 		{
 			/* The 'video-pts' property is not exposed on this platform.
 			 * Signal to the caller so it can fall back to

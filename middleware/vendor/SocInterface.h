@@ -385,20 +385,17 @@ public:
 
 	/**
 	 * @brief Check whether the 'video-pts' GObject property is supported by
-	 *        either the video sink or the video decoder.
+	 *        the supplied GStreamer element.
 	 *
-	 * The video sink is probed first; if not available, the video decoder
-	 * is probed. The result is intentionally not cached here because the
-	 * underlying elements may be created/destroyed across pipeline
-	 * lifecycles; callers may cache the result if desired.
+	 * The result is cached for the lifetime of this SocInterface instance,
+	 * so the underlying g_object_class_find_property() call runs at most
+	 * once.
 	 *
-	 * @param video_sink The video sink element (may be NULL).
-	 * @param video_dec  The video decoder element (may be NULL).
+	 * @param element The GStreamer element to probe (may be NULL).
 	 *
-	 * @return true if the 'video-pts' property is exposed on either
-	 *         element, false otherwise.
+	 * @return true if 'video-pts' is exposed on the element, false otherwise.
 	 */
-	virtual bool IsVideoPtsPropertySupported(GstElement *video_sink, GstElement *video_dec);
+	virtual bool IsVideoPtsPropertySupported(GstElement *element);
 	
 	/**
 	 * @brief Notify first video frame.

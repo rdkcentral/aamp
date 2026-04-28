@@ -229,7 +229,7 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
 	gint64 currentPTS = 0;
 	if(video_dec)
 	{
-		if(!IsVideoPtsPropertySupported(video_sink, video_dec))
+		if(!IsVideoPtsPropertySupported(video_dec))
 		{
 			/* The 'video-pts' property is not exposed on this platform.
 			 * Signal to the caller so it can fall back to
@@ -247,27 +247,32 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
 
 /**
  * @brief Check whether the 'video-pts' GObject property is supported by
- *        either the video sink or the video decoder.
+ *        the supplied GStreamer element.
  *
- * @param video_sink The video sink element (may be NULL).
- * @param video_dec  The video decoder element (may be NULL).
+ * @param element The GStreamer element to probe (may be NULL).
  *
- * @return true if 'video-pts' is supported on either element, false otherwise.
+ * @return true if 'video-pts' is exposed on the element, false otherwise.
  */
-bool SocInterface::IsVideoPtsPropertySupported(GstElement *video_sink, GstElement *video_dec)
+bool SocInterface::IsVideoPtsPropertySupported(GstElement *element)
 {
 	if(!mVideoPtsPropertyChecked)
 	{
-		GstElement *element = video_sink ? video_sink : video_dec;
 		if(element)
 		{
 			GParamSpec *pspec = g_object_class_find_property(
 				G_OBJECT_GET_CLASS(element), "video-pts");
 			mVideoPtsPropertySupported = (pspec != NULL);
 			mVideoPtsPropertyChecked = true;
+			MW_LOG_WARN("SocInterface: 'video-pts' property is %s on %s",
+					mVideoPtsPropertySupported ? "supported" : "NOT supported",
+					GST_ELEMENT_NAME(element));
 		}
-		/* If neither element is available yet, leave the flags untouched
-		 * so the probe is retried on the next call. */
+		else
+		{
+			/* Leave the flags untouched so the probe is retried on the
+			 * next call once the element is available. */
+			MW_LOG_WARN("SocInterface: cannot probe 'video-pts' property, element is NULL");
+		}
 	}
 	return mVideoPtsPropertySupported;
 }
