@@ -217,7 +217,7 @@ public:
 	 * early so it can apply the threshold shift on its next iteration rather
 	 * than waiting for the next scheduled poll interval.  Subsequent
 	 * notifications within the same episode are no-ops (the episode guard
-	 * suppresses redundant wakeups).
+	 * suppresses redundant wake-ups).
 	 *
 	 * When @p bufferMs is **at or above** dangerBufferMs and a danger episode
 	 * is active (mBelowDangerShifted is set), Run() is woken once so it can
@@ -364,7 +364,7 @@ private:
 	/// so the next distinct dip triggers a fresh shift.
 	///
 	/// OnBufferLevelUpdate() also reads this atomically (without holding mThresholdMutex)
-	/// to suppress redundant wakeups: once Run() has already shifted for the current
+	/// to suppress redundant wake-ups: once Run() has already shifted for the current
 	/// episode, further low-buffer fragment notifications do not re-signal the thread.
 	///
 	/// Atomic so that OnBufferLevelUpdate() can load it cheaply from the downloader
