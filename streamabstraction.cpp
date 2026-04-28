@@ -3087,6 +3087,14 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	}
 }
 
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+	if (aamp)
+	{
+		aamp->NotifyBufferLevelToLatencyMonitor(bufferMs);
+	}
+}
+
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);

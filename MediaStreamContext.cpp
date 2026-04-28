@@ -231,7 +231,10 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 				lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
 				if (eTRACK_VIDEO == type)
 				{
-<<<<<<< HEAD
+					// Notify the underflow monitor for LL-DASH chunks.
+					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
+						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
+						aamp->rate);
 					// Notify the latency monitor so it can wake its worker early on
 					// danger-buffer onset rather than waiting for the next scheduled poll.
 					{
@@ -241,12 +244,6 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 							GetContext()->NotifyBufferLevelToLatencyMonitor(bufferMs);
 						}
 					}
-=======
-					// Notify the underflow monitor for LL-DASH chunks.
-					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
-						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
-						aamp->rate);
->>>>>>> 5527cfc3 (VPLAY-13176 underflow detection refactoring (#1252))
 				}
 			}
 		}
@@ -721,7 +718,10 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	{
 		// reset count on video fragment success
 		context->mRampDownCount = 0;
-<<<<<<< HEAD
+		// Notify the underflow monitor — re-arms the drain deadline.
+		context->NotifyVideoFragmentToUnderflowMonitor(
+			dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
+			aamp->rate);
 		// Notify the latency monitor so it can wake its worker early on
 		// danger-buffer onset rather than waiting for the next scheduled poll.
 		{
@@ -731,12 +731,6 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 				context->NotifyBufferLevelToLatencyMonitor(bufferMs);
 			}
 		}
-=======
-		// Notify the underflow monitor — re-arms the drain deadline.
-		context->NotifyVideoFragmentToUnderflowMonitor(
-			dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
-			aamp->rate);
->>>>>>> 5527cfc3 (VPLAY-13176 underflow detection refactoring (#1252))
 	}
 
 	if(tsbSessionManager && cachedFragment->fragment.size())
