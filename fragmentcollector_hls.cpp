@@ -2579,6 +2579,11 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 				AAMPLOG_WARN("GetPlaylistURI : SubtitleTrack: language selected is %s playlistURI %s mTextTrackIndex %s", GetLanguageCode(currentTextTrackProfileIndex).c_str(), playlistURI.c_str(), mTextTrackIndex.c_str());
 				SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_SubTitleLanguage,(std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
 				if (format) *format = (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE) ? FORMAT_SUBTITLE_WEBVTT : FORMAT_UNKNOWN;
+				bool isdisableWebVTT = ISCONFIGSET(eAAMPConfig_DisableWebVTT);
+				if (isdisableWebVTT && format && *format == FORMAT_SUBTITLE_WEBVTT)
+				{					*format = FORMAT_INVALID; // WebVTT subtitle is disabled by configuration, set format to invalid to ignore the subtitle track zero value
+					AAMPLOG_WARN("StreamAbstractionAAMP_HLS: WebVTT subtitle is disabled by configuration, ignoring subtitle track %s", playlistURI.c_str());
+				}
 				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s format %d", mediaInfoStore[currentTextTrackProfileIndex].language.c_str(), playlistURI.c_str(), *format);
 			}
 			else

@@ -786,6 +786,7 @@ void AAMPGstPlayer::Stream()
 void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
 {
 	bool isSubEnable = aamp->IsGstreamerSubsEnabled();
+	AAMPLOG_INFO("entering AAMPGstPlayer_Configure bESChangeStatus %d forwardAudioToAux %d setReadyAfterPipelineCreation %d isSubEnable %d", bESChangeStatus, forwardAudioToAux, setReadyAfterPipelineCreation, isSubEnable);
 	int32_t trackId = aamp->GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
