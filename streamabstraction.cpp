@@ -724,7 +724,7 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 		}
 		else if (numberOfFragmentChunksCached == mCachedFragmentChunksSize)
 		{
-			AAMPLOG_WARN("[%s] no free cache, returning false", name);
+			AAMPLOG_DEBUG("[%s] cache still full (%d/%zu), returning false", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
 			ret = false;
 		}
 	}
