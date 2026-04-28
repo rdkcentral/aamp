@@ -3285,11 +3285,16 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 	at2.send(telemetryName, intData, {/*string data*/}, {/*float data*/});
 #endif //AAMP_TELEMETRY_SUPPORT
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+}
 
-	// If rebuffering started, notify latency monitor to relax the latency band
-	if (bufferingStarted)
+/**
+ * @brief Forward the current buffer level to the latency monitor.
+ */
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+	if (mLatencyMonitor)
 	{
-		mLatencyMonitor->OnRebufferingStart();
+		mLatencyMonitor->OnBufferLevelUpdate(bufferMs);
 	}
 }
 
@@ -15058,7 +15063,10 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	{
 		return mpStreamAbstractionAAMP->GetBufferedDuration();
 	}
-	return 0.0;
+	// Return a negative sentinel so callers can distinguish a genuine empty
+	// buffer from a transient lock-contention failure.  0.0 would be
+	// indistinguishable from an actually-empty buffer.
+	return -1.0;
 }
 
 /**
@@ -15086,6 +15094,8 @@ void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
 		config.maxLatencyMs = mAampLLDashServiceData.maxLatency;
 		config.rebufferingLatencyStepMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyStepSec) * 1000;
 		config.rebufferingLatencyMaxIncrementMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyMaxIncrementSec) * 1000;
+		config.dangerBufferMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyDangerBufferSec) * 1000;
+		config.latencyStableSec = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyStableDurationSec);
 		AAMPLOG_MIL("LL DASH Latency Config - minPlaybackRate: %f, maxPlaybackRate: %f, minLatencyMs: %f, targetLatencyMs: %f, maxLatencyMs: %f",
 			config.minPlaybackRate, config.maxPlaybackRate, config.minLatencyMs, config.targetLatencyMs, config.maxLatencyMs);
 		return;
