@@ -50,7 +50,7 @@ if (COVERAGE_ENABLED)
 	include(CodeCoverage)
 	APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
-target_link_libraries(${EXEC_NAME} fakes net_persona_fitter -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${UUID_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${UUID_LINK_LIBRARIES})
 aamp_utest_run_add(${EXEC_NAME})
 
 add_executable(HybridAbrTests HybridAbrTests.cpp
@@ -58,3 +58,4 @@ add_executable(HybridAbrTests HybridAbrTests.cpp
 	../../../../support/aampabr/ABRManager.cpp
 )
 target_link_libraries(HybridAbrTests PRIVATE gtest gmock gtest_main)
+aamp_utest_run_add(HybridAbrTests)
