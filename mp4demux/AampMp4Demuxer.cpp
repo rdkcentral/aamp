@@ -304,9 +304,6 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		// so each sample keeps the segment buffer alive for its lifetime.
 		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
-<<<<<<< HEAD
-		ret = mMp4Demux->Parse(std::move(segment));
-=======
 		
 		// Check if we are in trickmode (fast-forward or rewind)
 		bool isTrickMode = (mAamp->rate > AAMP_NORMAL_PLAY_RATE) || (mAamp->rate < 0);
@@ -328,7 +325,6 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		}
 		
 		ret = mMp4Demux->Parse(buffer.data(), buffer.size());
->>>>>>> 69b33978 (VPLAY-13151 [LLD channel]: Trickplay not functioning correctly when useMp4Demux=true)
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
@@ -338,17 +334,31 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 			auto samples = mMp4Demux->GetSamples();
 			if (!samples.empty())
 			{
-<<<<<<< HEAD
-				for (auto&& sample : samples)
-=======
 				if (isTrickMode)
->>>>>>> 69b33978 (VPLAY-13151 [LLD channel]: Trickplay not functioning correctly when useMp4Demux=true)
 				{
 					for (auto& sample : samples)
 					{
-						// Apply trickmode PTS restamping to the sample. This modifies the sample timestamps based on the current trickmode state and rate, 
-						// which helps ensure smoother playback during trickplay by providing consistent frame timing.
-						TrickmodePtsRestamp(sample, duration);
+						// Choose trickmode method based on PTS restamp configuration
+						// If PTS restamping is disabled, use qtdemux-style offset approach
+						// Otherwise, use the custom restamping logic
+						if (!mEnablePtsRestamp)
+						{
+							// qtdemux-style: use first PTS as offset and apply rate adjustment
+							TrickmodePtsOffset(sample, duration);
+							
+							// Skip sample if marked invalid (PTS < 0)
+							if (sample.mPts < 0.0)
+							{
+								AAMPLOG_INFO("[TrickmodePtsOffset][%s] Skipping invalid sample", GetMediaTypeName(mMediaType));
+								continue;
+							}
+						}
+						else
+						{
+							// Custom AAMP restamping with state machine
+							TrickmodePtsRestamp(sample, duration);
+						}
+						
 						// Send the sample to the pipeline
 						mAamp->SendStreamTransfer(mMediaType, sample);
 					}
@@ -384,10 +394,6 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 						}
 						mAamp->SendStreamTransfer(mMediaType, sample);
 					}
-<<<<<<< HEAD
-					mAamp->SendStreamTransfer(mMediaType, std::move(sample));
-=======
->>>>>>> 69b33978 (VPLAY-13151 [LLD channel]: Trickplay not functioning correctly when useMp4Demux=true)
 				}
 			}
 			else
