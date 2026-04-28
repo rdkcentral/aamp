@@ -226,7 +226,8 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
  */
 long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
-	gint64 currentPTS = 0;
+	gint64 currentPTS = -1;
+	MW_LOG_MIL("ANJ: vendor/SocInterface.cpp: before g_object_get - video-pts: %" G_GINT64_FORMAT , currentPTS);
 	if(video_dec)
 	{
 		g_object_get(video_dec, "video-pts", &currentPTS, NULL);
