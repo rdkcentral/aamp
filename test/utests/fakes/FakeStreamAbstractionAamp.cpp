@@ -62,6 +62,10 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	}
 }
 
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+}
+
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
 }

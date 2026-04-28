@@ -236,6 +236,15 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
 						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
 						aamp->rate);
+					// Notify the latency monitor so it can wake its worker early on
+					// danger-buffer onset rather than waiting for the next scheduled poll.
+					{
+						const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
+						if (bufferMs >= 0.0)
+						{
+							GetContext()->NotifyBufferLevelToLatencyMonitor(bufferMs);
+						}
+					}
 				}
 			}
 		}
@@ -738,6 +747,15 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		context->NotifyVideoFragmentToUnderflowMonitor(
 			dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
 			aamp->rate);
+		// Notify the latency monitor so it can wake its worker early on
+		// danger-buffer onset rather than waiting for the next scheduled poll.
+		{
+			const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
+			if (bufferMs >= 0.0)
+			{
+				context->NotifyBufferLevelToLatencyMonitor(bufferMs);
+			}
+		}
 	}
 
 	if(tsbSessionManager && cachedFragment->fragment.size())

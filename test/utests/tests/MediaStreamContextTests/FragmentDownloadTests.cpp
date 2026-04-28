@@ -76,6 +76,11 @@ protected:
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 		g_mockAampTimeBasedBufferManager = new StrictMock<aamp::MockAampTimeBasedBufferManager>();
+		// GetBufferedDurationSecs() is called for every video-track fragment via
+		// NotifyBufferLevelToLatencyMonitor.  Allow any number of calls so all tests
+		// in this fixture pass without needing per-test EXPECT_CALL boilerplate.
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetBufferedDurationSecs())
+			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
 		mTsbSessionMgr = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
 		mMockTSBSessionMgr = std::make_unique<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
 		g_mockTSBSessionManager = mMockTSBSessionMgr.get();
