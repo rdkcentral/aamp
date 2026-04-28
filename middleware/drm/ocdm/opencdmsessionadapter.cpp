@@ -141,6 +141,7 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 
 		m_OCDMSessionCallbacks.key_update_callback = [](OpenCDMSession* session, void* userData, const uint8_t key[], const uint8_t keySize) {
 			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
+			MW_LOG_WARN("Keyupdateocdm called from key_update CB");
 			userSession->keyUpdateOCDM(key, keySize);
 		};
 
