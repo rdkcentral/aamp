@@ -1838,7 +1838,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCMCDCollector = new AampCMCDCollector();
 
 	// Ensure the correct CC variant class will be used
-	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
+	PlayerCCManager::SetRialto(1); //Temporary fix to see if this will solve ib cc not rendered issue
     AAMPLOG_WARN("Value of useRialtoSink config is %d", GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
 
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
