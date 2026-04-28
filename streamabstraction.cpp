@@ -651,9 +651,9 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 			AAMPLOG_DEBUG("[%s] abort set, returning false", name);
 			ret = false;
 		}
-		if (numberOfFragmentChunksCached == mCachedFragmentChunksSize)
+		else if (numberOfFragmentChunksCached == mCachedFragmentChunksSize)
 		{
-			AAMPLOG_DEBUG("[%s] fragmentChunkInjected timed out, buffer still full", name);
+			AAMPLOG_DEBUG("[%s] cache still full (%d/%zu), returning false", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
 			ret = false;
 		}
 	}
@@ -2302,9 +2302,9 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 			}
 		}
 
-		if(currProfileIndex != newProfileIndex)                
+		if(currProfileIndex != newProfileIndex)
 		{
-			AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);				
+			AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
 		}
 	}
 	else
