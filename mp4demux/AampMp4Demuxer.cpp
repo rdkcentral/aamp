@@ -324,7 +324,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 			}
 		}
 		
-		ret = mMp4Demux->Parse(buffer.data(), buffer.size());
+		ret = mMp4Demux->Parse(std::make_shared<std::vector<uint8_t>>(buffer));
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
@@ -360,7 +360,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 						}
 						
 						// Send the sample to the pipeline
-						mAamp->SendStreamTransfer(mMediaType, sample);
+						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 					}
 				}
 				else
@@ -392,7 +392,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 								sample.mDuration * timeScale);
 							}
 						}
-						mAamp->SendStreamTransfer(mMediaType, sample);
+						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 					}
 				}
 			}
