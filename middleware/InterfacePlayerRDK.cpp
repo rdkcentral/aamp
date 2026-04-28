@@ -2733,14 +2733,14 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		{
 			// Deduct segment.start to find the actual time of media that's played.
 			rc = (GST_TIME_AS_MSECONDS(pos) - interfacePlayerPriv->gstPrivateContext->segmentStart) * rate;
-			MW_LOG_DEBUG("positionQuery pos: %" G_GINT64_FORMAT " rc: %lld SegStart -%" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(pos), rc,interfacePlayerPriv->gstPrivateContext->segmentStart);
+			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld SegStart -%" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(pos), rc,interfacePlayerPriv->gstPrivateContext->segmentStart);
 		}
 		else
 		{
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
-			MW_LOG_DEBUG("positionQuery pos: %" G_GINT64_FORMAT " rc: %lld" , GST_TIME_AS_MSECONDS(pos), rc);
+			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
-		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos: %" G_GINT64_FORMAT " rc: %lld", GST_TIME_AS_MSECONDS(pos), rc);
+		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
 	return rc;
