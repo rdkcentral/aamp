@@ -1530,6 +1530,7 @@ void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 		aamp->AcquireStreamLock();
 		if (aamp->mpStreamAbstractionAAMP)
 		{
+			aamp->SetCCStatusSetByApp();				
 			aamp->SetSubtitleMute(muted);
 		}
 		else
@@ -2921,6 +2922,8 @@ int PlayerInstanceAAMP::GetTextTrack()
  */
 void PlayerInstanceAAMP::SetCCStatus(bool enabled)
 {
+	AAMPLOG_WARN("enabled %s", enabled?"true":"false");
+	aamp->SetCCStatusSetByApp();	
 	aamp->SetCCStatus(enabled);
 }
 

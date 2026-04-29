@@ -1323,7 +1323,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());
 			double downloadTime = 0;
-			
+
 			cachedFragment->discontinuityIndex = 0;
 			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 			{ // TODO: optimize me
@@ -1352,7 +1352,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					}
 				}
 			}
-			
+
 			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
 			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
@@ -2572,13 +2572,20 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 		break;
 	case eTRACK_SUBTITLE:
 		{
-			if (currentTextTrackProfileIndex != -1)
+			if ( currentTextTrackProfileIndex != -1 && currentTextTrackProfileIndex < (int)mediaInfoStore.size() )
 			{
 				playlistURI = mediaInfoStore[currentTextTrackProfileIndex].uri;
 				mTextTrackIndex = std::to_string(currentTextTrackProfileIndex);
 				SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_SubTitleLanguage,(std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
-				if (format) *format = (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE) ? FORMAT_SUBTITLE_WEBVTT : FORMAT_UNKNOWN;
-//				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s", mediaInfoStore[currentTextTrackProfileIndex].language, playlistURI);
+
+				if (format && mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE)
+				{
+					/* For closedCaption subtitles then we need a subtitle track setup in Rialto for control. The actual subtitle
+					* data is included in the video track. In this case we are using FORMAT_INVALID. Otherwise we use FORMAT_SUBTITLE_WEBVTT
+					*/
+					*format = mediaInfoStore[currentTextTrackProfileIndex].isCC ? FORMAT_INVALID : FORMAT_SUBTITLE_WEBVTT;
+				}
+				AAMPLOG_INFO("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s format %d", mediaInfoStore[currentTextTrackProfileIndex].language.c_str(), playlistURI.c_str(), *format);
 			}
 			else
 			{
@@ -3458,10 +3465,28 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 			if(rate == AAMP_NORMAL_PLAY_RATE)
 			{
-				// Step 2: Configure Subtitle track for the playback
-				ConfigureTextTrack();
+
 				// Generate audio and text track structures
 				PopulateAudioAndTextTracks();
+
+				// Select preferred text track based on user language preferences
+				TextTrackInfo selectedTextTrack;
+				if (SelectPreferredTextTrack(selectedTextTrack))
+				{
+					AAMPLOG_INFO("Selected text track - lang:%s, name:%s, rendition:%s",
+								 selectedTextTrack.language.c_str(),
+								 selectedTextTrack.name.c_str(),
+								 selectedTextTrack.rendition.c_str());
+					aamp->SetPreferredTextTrack(selectedTextTrack);
+				}
+				else
+				{
+					AAMPLOG_WARN("No text track matched user preferences, will use default selection");
+				}
+
+				// Configure Subtitle track for the playback
+				ConfigureTextTrack();
+
 				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
 				{
 					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
@@ -3583,12 +3608,14 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		if (subtitle->enabled)
 		{
+			AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Subtitle playlist download started");
 			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(subtitle->mPlaylistUrl, &subtitle->playlist, subtitle->mEffectiveUrl, eMEDIATYPE_PLAYLIST_SUBTITLE))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::subtitle playlist retrieved from cache");
 			}
 			if (!subtitle->playlist.GetLen() )
 			{
+				AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Subtitle playlist fetching");
 				subtitle->FetchPlaylist();
 			}
 			if (!subtitle->playlist.GetLen() )
@@ -3799,6 +3826,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					//Configure parser for subtitle
 					if (!subtitleDisabled)
 					{
+						AAMPLOG_WARN("Configure subtitle format based on fragment extension:%d", format);
 						ts->streamOutputFormat = format;
 						SubtitleMimeType type = (format == FORMAT_SUBTITLE_WEBVTT) ? eSUB_TYPE_WEBVTT : eSUB_TYPE_UNKNOWN;
 						if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
@@ -3811,6 +3839,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 							AAMPLOG_WARN("GST subtec");
 							if (aamp->WebVTTCueListenersRegistered())
 							{
+								AAMPLOG_WARN("WebVTT cue listeners are registered, creating WebVTT parser");
 								int width = 0, height = 0;
 								PlayerCallbacks playerCallBack = {};
 								this->InitializePlayerCallbacks(playerCallBack);
@@ -3819,11 +3848,13 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 								if(ts->mSubtitleParser)
 								{
 									ts->mSubtitleParser->RegisterCallback(playerCallBack);
+									AAMPLOG_WARN("WebVTT parser created and callback registered");
 								}
 							}
 						}
 						if (!ts->mSubtitleParser)
 						{
+							AAMPLOG_WARN("Failed to create subtitle parser");
 							if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 							{
 								AAMPLOG_WARN("No subtec, no sub parser");
@@ -3836,6 +3867,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					}
 					else
 					{
+						AAMPLOG_WARN("Disable subtitle format - trick play or unsupported format");
 						ts->streamOutputFormat = FORMAT_INVALID;
 						ts->fragmentURI.clear();
 						ts->enabled = false;
@@ -4561,6 +4593,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 			}
 		}
 		std::string uri = GetPlaylistURI((TrackType)iTrack, &ts->streamOutputFormat);
+		AAMPLOG_INFO("StreamAbstractionAAMP_HLS::InitTracks - track %s uri %s streamOutputFormat %d", ts->name, uri.c_str(), ts->streamOutputFormat);
 		if( !uri.empty() )
 		{
 			aamp_ResolveURL(ts->mPlaylistUrl, aamp->GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
@@ -7113,16 +7146,25 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 {
 	TextTrackInfo track = aamp->GetPreferredTextTrack();
+	for (int i = 0; i < mMediaCount; i++)
+	{
+		if (mediaInfoStore[i].type == eTRACK_SUBTITLE)
+		{
+			AAMPLOG_INFO("Available Text Track [%d] groupId:%s language:%s name:%s", i, mediaInfoStore[i].group_id.c_str(), mediaInfoStore[i].language.c_str(), mediaInfoStore[i].name.c_str());
+		}
+	}
 	currentTextTrackProfileIndex = -1;
 	if (!track.index.empty())
 	{
 		currentTextTrackProfileIndex = std::stoi(track.index);
+		AAMPLOG_WARN("TextTrack Selected based on index:%d", currentTextTrackProfileIndex);
 	}
 	else
 	{
 		for (const auto& LangStr : aamp->preferredSubtitleLanguageVctr)
 		{
 			currentTextTrackProfileIndex = GetMediaIndexForLanguage(LangStr, eTRACK_SUBTITLE);
+			AAMPLOG_WARN("TextTrack Selected based on language:%s index:%d", LangStr.c_str(), currentTextTrackProfileIndex);
 
 			if(currentTextTrackProfileIndex > -1 )
 			{
@@ -7130,7 +7172,12 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 			}
 		}
 	}
-	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);
+
+	if(currentTextTrackProfileIndex > -1 )
+	{
+		aamp->mIsInbandCC = mediaInfoStore[currentTextTrackProfileIndex].isCC;
+	}
+	AAMPLOG_WARN("TextTrack Selected :%d inBandCC:%d", currentTextTrackProfileIndex, aamp->mIsInbandCC);
 }
 /**
  * @brief Stops the Track Injection,Restarts once the track has been changed
@@ -7274,6 +7321,7 @@ void TrackState::SwitchAudioTrack()
  */
 void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 {
+	const bool disableWebVTT = ISCONFIGSET(eAAMPConfig_DisableWebVTT);
 	if (mMediaCount > 0 && mProfileCount > 0)
 	{
 		bool tracksChanged{false};
@@ -7292,8 +7340,11 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 			{
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
-//				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, group_id.c_str(), name.c_str(), instreamID.c_str(), characteristics.c_str());
-				mTextTracks.push_back(TextTrackInfo(index, language, media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
+				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
+				if (!disableWebVTT || media.isCC)
+				{
+					mTextTracks.push_back(TextTrackInfo(index, language, media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));	
+				}
 			}
 			i++;
 		}
@@ -7311,17 +7362,28 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		tracksChanged = false;
 		if (-1 != aamp->mCurrentTextTrackIndex && aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex)
 		{
+			AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text track index changed from %d to %d", aamp->mCurrentTextTrackIndex, currentTextTrackProfileIndex);
 			tracksChanged = true;
 		}
 		aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
+		AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Current Text track index %d", aamp->mCurrentTextTrackIndex);
 		if (tracksChanged)
 		{
+			AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Notifying text track change for index %d", aamp->mCurrentTextTrackIndex);
 			aamp->NotifyTextTracksChanged();
 		}
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
+		for (const auto& track : textTracksCopy)
+		{
+			AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: CC Text Track - lang:%s, isCC:%d, name:%s, instreamId:%s, characteristics:%s", track.language.c_str(), track.isCC, track.name.c_str(), track.instreamId.c_str(), track.characteristics.c_str());
+		}
 		std::vector<CCTrackInfo> updatedTextTracks;
 		aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		for(const auto& track : updatedTextTracks)
+		{
+			AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Updated CC Text Track - lang:%s,instreamId:%s", track.language.c_str(), track.instreamId.c_str());
+		}
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
@@ -7361,10 +7423,12 @@ int StreamAbstractionAAMP_HLS::GetMediaIndexForLanguage(std::string lang, TrackT
 		if (type == eTRACK_AUX_AUDIO)
 		{
 			group = streamInfo->audio.c_str();
+			AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: track [%d] group [%s], language [%s]", type, group, lang.c_str());
 		}
 		else if (type == eTRACK_SUBTITLE)
 		{
 			group = streamInfo->subtitles.c_str();
+			AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: track [%d] group [%s], language [%s]", type, group, lang.c_str());
 		}
 	}
 	if (group)
@@ -7379,6 +7443,7 @@ int StreamAbstractionAAMP_HLS::GetMediaIndexForLanguage(std::string lang, TrackT
 				if (lang == mediaLang)
 				{
 					//Found media tag with preferred language
+					AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Found media tag with preferred language [%s] at index [%d]", lang.c_str(), ii);
 					index = ii;
 					break;
 				}
@@ -7386,7 +7451,7 @@ int StreamAbstractionAAMP_HLS::GetMediaIndexForLanguage(std::string lang, TrackT
 			ii++;
 		}
 	}
-
+	AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Returning index [%d] for track [%d] language [%s]", index, type, lang.c_str());
 	return index;
 }
 
@@ -7540,7 +7605,7 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 		{
 			if (!mTextTracks[j].isCC)
 			{
-		firstAvailTextTrack = &mTextTracks[j];
+				firstAvailTextTrack = &mTextTracks[j];
 				break;
 			}
 		}
@@ -7561,6 +7626,10 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 	unsigned long long bestScore = 0;
 
 	std::vector<TextTrackInfo> availableTracks = GetAvailableTextTracks();
+	for (const auto& track : availableTracks)
+	{
+		AAMPLOG_INFO("Available Text Track - lang:%s, isCC:%d, name:%s, instreamId:%s, characteristics:%s", track.language.c_str(), track.isCC, track.name.c_str(), track.instreamId.c_str(), track.characteristics.c_str());
+	}
 
 	for (const auto& track : availableTracks)
 	{
@@ -7589,6 +7658,7 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 			selectedTextTrack = track;
 		}
 	}
+	AAMPLOG_INFO("Selected Text Track - lang:%s, isCC:%d, name:%s, instreamId:%s, characteristics:%s bestTrackFound=%d", selectedTextTrack.language.c_str(), selectedTextTrack.isCC, selectedTextTrack.name.c_str(), selectedTextTrack.instreamId.c_str(), selectedTextTrack.characteristics.c_str(), bestTrackFound);
 	return bestTrackFound;
 }
 

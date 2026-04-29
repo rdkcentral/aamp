@@ -27,7 +27,7 @@ int PlayerCCManagerBase::Init(void *handle)
 {
 	return 0;
 }
-void PlayerCCManagerBase::RestoreCC()
+void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 {
 }
 void PlayerCCManagerBase::Release(int iID)
