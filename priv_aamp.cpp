@@ -2725,21 +2725,31 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				if(mProgramDateTime > 0.0)
 				{
 					// For HLS Live with EXT-X-PROGRAM-DATE-TIME: calculate latency as the
-					// difference between the current wall-clock time and the wall-clock time
-					// at the player's current playback position (PDT origin + elapsed position).
+					// difference between the current wall-clock time and the absolute wall-clock
+					// time at the player's current playback position.
+					// mProgramDateTime is the current playlist-window start in epoch seconds.
+					// reportFormattedCurrPos is the player's position in ms, measured from the
+					// same window start (i.e. relative to culledSeconds). Adding them together
+					// gives the epoch-based wall-clock time of the current playback position,
+					// and subtracting from nowMs yields the true live latency.
 					// This avoids the sawtooth fluctuation caused by the live edge advancing
 					// in discrete segment-sized steps on each manifest refresh.
 					long long nowMs = aamp_GetCurrentTimeMS();
-					static long long firstPDTMs = 0.0;
-					double diffFromPDTSeconds = (nowMs / 1000.0) - mProgramDateTime;
-					AAMPLOG_WARN("Time since mProgramDateTime: %.3f seconds (nowMs=%lldms, mProgramDateTime=%.3fs)", diffFromPDTSeconds, nowMs, mProgramDateTime);
-					if (mProgramDateTime > 0.0 && firstPDTMs == 0.0)
+					// playbackOffsetFromWindowStartMs: how far into the current playlist
+					// window the player is. start is culledSeconds*1000 (in ms), already
+					// offset-adjusted by GetFormatPositionOffsetInMSecs(). Clamp to >= 0
+					// to guard against transient position-behind-start edge cases.
+					double playbackOffsetFromWindowStartMs = reportFormattedCurrPos - (culledSeconds*1000.0);
+					if (playbackOffsetFromWindowStartMs < 0.0)
 					{
-						firstPDTMs = static_cast<long long>(mProgramDateTime * 1000.0);
+						playbackOffsetFromWindowStartMs = 0.0;
 					}
-					long long pdtAtCurrentPosMs = static_cast<long long>(firstPDTMs + reportFormattedCurrPos);
+					long long pdtAtCurrentPosMs = static_cast<long long>(
+						(mProgramDateTime * 1000.0) + playbackOffsetFromWindowStartMs);
 					latency = static_cast<long>(nowMs - pdtAtCurrentPosMs);
-					AAMPLOG_WARN("Siva live latency = %ldms, nowMs = %lldms, mProgramDateTime = %lfms, reportFormattedCurrPos = %lfms", latency, nowMs, mProgramDateTime, reportFormattedCurrPos);
+					AAMPLOG_WARN("HLS PDT latency = %ldms, nowMs = %lldms, mProgramDateTime = %.3fs, "
+						"start = %.3fms, culledSeconds = %.3fms, reportFormattedCurrPos = %.3fms, playbackOffsetFromWindowStartMs = %.3fms",
+						latency, nowMs, mProgramDateTime, start, culledSeconds*1000.0, reportFormattedCurrPos, playbackOffsetFromWindowStartMs);
 					if(latency < 0)
 					{ // this should never happen!
 						AAMPLOG_ERR("HLS PDT-based negative live latency = %ldms, nowMs = %lldms, pdtAtCurrentPosMs = %lldms", latency, nowMs, pdtAtCurrentPosMs);
