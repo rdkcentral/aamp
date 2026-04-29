@@ -35,7 +35,6 @@ public:
 	MOCK_METHOD(void, UpdateTSAfterFetch, (bool isInitSegment));
 	MOCK_METHOD(void, UpdateTSAfterChunkFetch, ());
 	MOCK_METHOD(void, UpdateTSAfterInject, ());
-	MOCK_METHOD(bool, IsInjectionFromCachedFragmentChunks, ());
 	MOCK_METHOD(void, SetLocalTSBInjection, (bool value));
 	MOCK_METHOD(bool, IsLocalTSBInjection, ());
 	MOCK_METHOD(bool, Enabled, ());
