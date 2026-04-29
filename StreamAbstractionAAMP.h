@@ -362,8 +362,7 @@ public:
 
 	/**
 	 * @fn UpdateTSAfterFetchStats
-	 * @brief Updates fetch statistics using a caller-supplied fragment without
-	 *        touching the chunk cache.
+	 * @brief Updates fetch statistics using a caller-supplied fragment.
 	 * @param[in] cachedFragment - Fragment supplying duration and metadata
 	 * @param[in] isInitSegment  - true for initialization segments
 	 */
