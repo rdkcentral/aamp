@@ -78,7 +78,12 @@ When `CURLE_OPERATION_TIMEDOUT` is returned, AAMP inspects curl timing metrics (
 | `eCURL_TIMEOUT_CONNECT` | `CURLINFO_CONNECT_TIME == 0` | DNS resolved but TCP connect timed out |
 | `eCURL_TIMEOUT_DATA` | Both non-zero | Timed out during data transfer |
 
-`IsCurlTimeoutFailure()` returns `true` for `CURLE_OPERATION_TIMEDOUT`, `eCURL_TIMEOUT_DNS`, and `eCURL_TIMEOUT_CONNECT` (but **not** `eCURL_TIMEOUT_DATA`).
+`IsCurlTimeoutFailure()` returns `true` for `CURLE_OPERATION_TIMEDOUT`,
+`eCURL_TIMEOUT_DNS`, and `eCURL_TIMEOUT_CONNECT`. Because
+`eCURL_TIMEOUT_DATA` shares the same numeric value as
+`CURLE_OPERATION_TIMEDOUT`, the function also treats it as a timeout
+failure, but it cannot distinguish data-transfer timeouts as a separate
+case based on that value alone.
 
 ---
 
