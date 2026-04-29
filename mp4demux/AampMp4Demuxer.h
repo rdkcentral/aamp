@@ -72,7 +72,7 @@ public:
 	 * @return true if fragment was sent, false otherwise
 	 */
 	bool sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
-						bool isInit, process_fcn_t processor, bool &ptsError) override;
+					bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
 	 * @brief Set playback rate
@@ -81,7 +81,7 @@ public:
 	 * @param[in] mode - playback mode
 	 * @return void
 	 */
-	void setRate(double rate, PlayMode mode) override { };
+	void setRate(double rate, PlayMode mode) override;
 
 	/**
 	 * @brief Enable or disable throttle
@@ -97,21 +97,21 @@ public:
 	 * @param[in] frameRate - rate per second
 	 * @return void
 	 */
-	void setFrameRateForTM (int frameRate) override { }
+	void setFrameRateForTM (int frameRate) override;
 
 	/**
 	 * @brief Abort all operations
 	 *
 	 * @return void
 	 */
-	void abort() override { }
+	void abort() override;
 
 	/**
 	 * @brief Reset all variables
 	 *
 	 * @return void
 	 */
-	void reset() override { }
+	void reset() override;
 
 	/**
 	 * @brief Function to abort wait for injecting the segment
@@ -131,9 +131,10 @@ public:
 	void setTrackOffset(double offset) override { }
 
 private:
-	enum class TrickmodeState
+	enum class Mp4TrickPhase
 	{
 		UNDEF,
+		INIT,
 		FIRST_SAMPLE,
 		STEADY
 	};
@@ -162,11 +163,12 @@ private:
 	
 	// Trickmode state variables
 	int mTrickPlayFPS {0};					/**< Trickplay frames per second */
+	double mRate {1.0};						/**< Current playback rate */
+	bool mIsTrickMode {false};				/**< True if in trickmode (rate != 1.0) */
 	double mLastSamplePts {0.0};			/**< PTS of the previous sample, used in trick modes */
 	double mRestampedPts {0.0};				/**< Restamped PTS of the sample, used in trick modes */
-	double mRestampedDuration {0.0};		/**< Restamped sample duration, used in trick modes */
 		
-	TrickmodeState mTrickmodeState {TrickmodeState::UNDEF}; /**< Current trick mode state */
+	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::UNDEF}; /**< Current trick mode state */
 	double mLastTrickRate {0.0}; /**< Last used trickplay rate for state reset */
 };
 

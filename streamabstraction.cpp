@@ -4252,6 +4252,14 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
+					
+					// Set playback rate
+					track->playContext->setRate(aamp->rate, PlayMode_normal);
+					
+					// Set trickplay FPS for the demuxer
+					int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+					
+					track->playContext->setFrameRateForTM(trickPlayFPS);
 				}
 				else
 				{
