@@ -2572,19 +2572,20 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 		break;
 	case eTRACK_SUBTITLE:
 		{
-			if (currentTextTrackProfileIndex != -1)
+			if ( currentTextTrackProfileIndex != -1 && currentTextTrackProfileIndex < (int)mediaInfoStore.size() )
 			{
 				playlistURI = mediaInfoStore[currentTextTrackProfileIndex].uri;
 				mTextTrackIndex = std::to_string(currentTextTrackProfileIndex);
-				AAMPLOG_WARN("GetPlaylistURI : SubtitleTrack: language selected is %s playlistURI %s mTextTrackIndex %s", GetLanguageCode(currentTextTrackProfileIndex).c_str(), playlistURI.c_str(), mTextTrackIndex.c_str());
 				SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_SubTitleLanguage,(std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
-				if (format) *format = (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE) ? FORMAT_SUBTITLE_WEBVTT : FORMAT_UNKNOWN;
-				bool isdisableWebVTT = ISCONFIGSET(eAAMPConfig_DisableWebVTT);
-				if (isdisableWebVTT && format && *format == FORMAT_SUBTITLE_WEBVTT)
-				{					*format = FORMAT_INVALID; // WebVTT subtitle is disabled by configuration, set format to invalid to ignore the subtitle track zero value
-					AAMPLOG_WARN("StreamAbstractionAAMP_HLS: WebVTT subtitle is disabled by configuration, ignoring subtitle track %s", playlistURI.c_str());
+
+				if (format && mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE)
+				{
+					/* For closedCaption subtitles then we need a subtitle track setup in Rialto for control. The actual subtitle
+					* data is included in the video track. In this case we are using FORMAT_INVALID. Otherwise we use FORMAT_SUBTITLE_WEBVTT
+					*/
+					*format = mediaInfoStore[currentTextTrackProfileIndex].isCC ? FORMAT_INVALID : FORMAT_SUBTITLE_WEBVTT;
 				}
-				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s format %d", mediaInfoStore[currentTextTrackProfileIndex].language.c_str(), playlistURI.c_str(), *format);
+				AAMPLOG_INFO("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s format %d", mediaInfoStore[currentTextTrackProfileIndex].language.c_str(), playlistURI.c_str(), *format);
 			}
 			else
 			{
