@@ -94,6 +94,9 @@ public:
 	void abortWaitForVideoPTS() override {};
 	double GetBufferedDuration() override { return 0; };
 
+	// Promote protected members so tests can set them directly.
+	using MediaTrack::fragmentChunkIdxToFetch;
+
 protected:
 	// Must return something non-null to avoid a crash
 	StreamAbstractionAAMP* GetContext() override { return mContext; };
@@ -163,18 +166,9 @@ protected:
 		// A pointer to the test fragment in the cache buffer
 		CachedFragment* bufferedFragment{nullptr};
 
-		// Chunk buffer is used for low-latency or for all content if AAMP TSB is enabled
-		if (lowLatencyMode || aampTsb)
-		{
-			bufferedFragment = mediaTrack.GetFetchChunkBuffer(true);
-			mediaTrack.numberOfFragmentChunksCached = 1;
-		}
-		// Standard buffer is used for SLD when AAMP TSB is disabled
-		else
-		{
-			bufferedFragment = mediaTrack.GetFetchBuffer(true);
-			mediaTrack.numberOfFragmentsCached = 1;
-		}
+		// Always use the chunk cache buffer
+		bufferedFragment = mediaTrack.GetFetchChunkBuffer(true);
+		mediaTrack.numberOfFragmentChunksCached = 1;
 		bufferedFragment->Copy(testFragment);
 		if (lowLatencyMode && !bufferedFragment->initFragment)
 		{
@@ -841,7 +835,6 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 	CachedFragment* bufferedFragment3{nullptr};
 
 	mPrivateInstanceAAMP->rate = FASTEST_TRICKPLAY_RATE;
-	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
@@ -855,36 +848,38 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 
-	bufferedFragment1 = videoTrack.GetFetchBuffer(true);
+	// Init fragment at chunk slot 0
+	bufferedFragment1 = videoTrack.GetFetchChunkBuffer(true);
 	bufferedFragment1->initFragment = true;
 	bufferedFragment1->fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-	videoTrack.UpdateTSAfterFetch(bufferedFragment1->initFragment);
+	videoTrack.numberOfFragmentChunksCached = 1;
+	videoTrack.fragmentChunkIdxToFetch = 1;
 
-	// First media segment
-	bufferedFragment2 = videoTrack.GetFetchBuffer(true);
+	// First media fragment at chunk slot 1
+	bufferedFragment2 = videoTrack.GetFetchChunkBuffer(true);
 	bufferedFragment2->initFragment = false;
 	bufferedFragment2->duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment2->position = FIRST_PTS.inSeconds();
 	bufferedFragment2->fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-	videoTrack.UpdateTSAfterFetch(bufferedFragment2->initFragment);
+	videoTrack.numberOfFragmentChunksCached = 2;
+	videoTrack.fragmentChunkIdxToFetch = 2;
 
-	// Second media segment, not updated for injection
-	bufferedFragment3 = videoTrack.GetFetchBuffer(true);
+	// Second media fragment at chunk slot 2 (not counted for injection)
+	bufferedFragment3 = videoTrack.GetFetchChunkBuffer(true);
 	bufferedFragment3->initFragment = false;
 	bufferedFragment3->duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment3->position = 2 * FIRST_PTS.inSeconds();
 	bufferedFragment3->fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 
-	ASSERT_EQ(videoTrack.numberOfFragmentsCached, 2);
+	ASSERT_EQ(videoTrack.numberOfFragmentChunksCached, 2);
 	ASSERT_EQ(bufferedFragment1->position, 0);
 	ASSERT_EQ(bufferedFragment2->position, FIRST_PTS.inSeconds());
 	ASSERT_EQ(bufferedFragment3->position, (2 * FIRST_PTS.inSeconds()));
 
 	videoTrack.FlushFetchedFragments();
 
-	// Check that the fragments added for injection have been removed
-	// But the current fragment has not been cleared
-	EXPECT_EQ(videoTrack.numberOfFragmentsCached, 0);
+	// Fragments at slots 0 and 1 (counted) should be cleared; slot 2 (uncounted) should not
+	EXPECT_EQ(videoTrack.numberOfFragmentChunksCached, 0);
 	EXPECT_EQ(bufferedFragment1->position, 0);
 	EXPECT_EQ(bufferedFragment2->position, 0);
 	EXPECT_EQ(bufferedFragment3->position, (2 * FIRST_PTS.inSeconds()));
@@ -1075,4 +1070,115 @@ TEST_F(MediaTrackTests, GetBufferStatus_ReturnsRed_WhenBufferIsBelowUnderflowThr
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetBufferedDuration())
 		.WillOnce(Return(0.1));
 	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_RED);
+}
+
+/**
+ * @brief When the chunk cache is not full, WaitForCachedFragmentChunkInjected returns
+ * true immediately without waiting.
+ */
+TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_CacheHasSpace_ReturnsTrueImmediately)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Cache is empty (not full), so no wait is entered and the function returns true.
+	ASSERT_LT(videoTrack.numberOfFragmentChunksCached,
+			  static_cast<int>(videoTrack.GetCachedFragmentChunksSize()));
+	EXPECT_TRUE(videoTrack.WaitForCachedFragmentChunkInjected(0));
+}
+
+/**
+ * @brief When the chunk cache is full and the timeout expires with no signal,
+ * WaitForCachedFragmentChunkInjected returns false.
+ */
+TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_TimeoutWithCacheFull_ReturnsFalse)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
+	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+
+	// No signal is ever fired; the short timeout must cause a false return.
+	EXPECT_FALSE(videoTrack.WaitForCachedFragmentChunkInjected(50 /*ms*/));
+}
+
+/**
+ * @brief Exercises the "signaled but still full" branch (streamabstraction.cpp ~R725-R729):
+ * the cache is full, the condition variable is signaled without the abort flag being set
+ * and without numberOfFragmentChunksCached being decremented.
+ * WaitForCachedFragmentChunkInjected must return false because the cache is still full
+ * after the wakeup.
+ */
+TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_SignaledButStillFull_ReturnsFalse)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
+	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+
+	// From a background thread: signal the CV without draining the cache and without
+	// setting abort — this mirrors the scenario introduced at ~R725-R729 where the
+	// caller is woken up spuriously or by an unrelated event.
+	std::thread signalThread([&videoTrack]() {
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		// AbortWaitForCachedFragmentChunk signals fragmentChunkInjected but does NOT
+		// decrement numberOfFragmentChunksCached or set the abort flag.
+		videoTrack.AbortWaitForCachedFragmentChunk();
+	});
+
+	// Must return false: was signaled, abort is clear, but cache is still full.
+	bool result = videoTrack.WaitForCachedFragmentChunkInjected(5000 /*ms*/);
+	signalThread.join();
+
+	EXPECT_FALSE(result);
+}
+
+/**
+ * @brief When the condition variable is signaled and numberOfFragmentChunksCached is
+ * decremented before the caller wakes up, WaitForCachedFragmentChunkInjected returns true.
+ * This is the complementary positive case confirming the non-full path still works.
+ */
+TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_SignaledAndCacheCleared_ReturnsTrue)
+{
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
+	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+
+	// From a background thread: simulate an injector consuming a slot, then signal.
+	std::thread signalThread([&videoTrack]() {
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		// Decrement the cache count (simulating a completed injection), then notify.
+		videoTrack.numberOfFragmentChunksCached--;
+		videoTrack.AbortWaitForCachedFragmentChunk();
+	});
+
+	// Must return true: was signaled and cache now has a free slot.
+	bool result = videoTrack.WaitForCachedFragmentChunkInjected(5000 /*ms*/);
+	signalThread.join();
+
+	EXPECT_TRUE(result);
 }
