@@ -361,18 +361,9 @@ public:
 	void RunInjectLoop();
 
 	/**
-	 * @fn UpdateTSAfterFetch
-	 * @param[in] IsInitSegment - Set to true for initialization segments; otherwise, set to false
-	 * @return void
-	 */
-	void UpdateTSAfterFetch(bool IsInitSegment);
-
-	/**
 	 * @fn UpdateTSAfterFetchStats
 	 * @brief Updates fetch statistics using a caller-supplied fragment without
-	 *        touching the mCachedFragment ring buffer. Use in place of
-	 *        UpdateTSAfterFetch() + UpdateTSAfterInject() when the fragment
-	 *        goes directly into mCachedFragmentChunks.
+	 *        touching the chunk cache.
 	 * @param[in] cachedFragment - Fragment supplying duration and metadata
 	 * @param[in] isInitSegment  - true for initialization segments
 	 */
@@ -447,21 +438,6 @@ public:
 	 *   @return buffer value
 	 */
 	virtual double GetBufferedDuration (void) = 0;
-
-	/**
-	 * @brief Get number of fragments downloaded
-	 *
-	 * @return Number of downloaded fragments
-	 */
-	int GetTotalFragmentsFetched(){ return totalFragmentsDownloaded; }
-
-	/**
-	 * @fn GetFetchBuffer
-	 *
-	 * @param[in] initialize - Buffer to to initialized or not
-	 * @return Fragment cache buffer
-	 */
-	CachedFragment* GetFetchBuffer(bool initialize);
 
 	/**
 	 * @fn GetFetchChunkBuffer
@@ -695,25 +671,11 @@ public:
 
 protected:
 	/**
-	 * @fn UpdateTSAfterInject
-	 *
-	 * @return void
-	 */
-	void UpdateTSAfterInject();
-
-	/**
 	 * @brief Update segment cache and inject buffer to gstreamer
 	 *
 	 * @return void
 	 */
 	void UpdateTSAfterChunkInject();
-
-	/**
-	 * @fn WaitForCachedFragmentAvailable
-	 *
-	 * @return TRUE if fragment available, FALSE if aborted/fragment not available.
-	 */
-	bool WaitForCachedFragmentAvailable();
 
 	/**
 	 * @fn WaitForCachedFragmentChunkAvailable
@@ -825,7 +787,6 @@ private:
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
-	int numberOfFragmentsCached;        /**< Number of fragments cached in this track*/
 	int numberOfFragmentChunksCached;   /**< Number of fragments cached in this track*/
 	const char* name;                   /**< Track name used for debugging*/
 	double fragmentDurationSeconds;     /**< duration in seconds for current fragment-of-interest */
@@ -836,7 +797,6 @@ public:
 	std::unique_ptr<SubtitleParser> mSubtitleParser;    /**< Parser for subtitle data*/
 	bool refreshSubtitles;              /**< Switch subtitle track in the FetchLoop */
 	bool refreshAudio;                  /** Switch audio track in the FetcherLoop */
-	int maxCachedFragmentsPerTrack;
 	int maxCachedFragmentChunksPerTrack;
 	std::condition_variable fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
@@ -849,7 +809,6 @@ public:
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
-	CachedFragment *mCachedFragment;    /**< storage for currently-downloaded fragment */
 	CachedFragment mCachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
 	std::vector<uint8_t> unparsedBufferChunk{}; /**< Unparsed buffer chunk for ISOBMFF chunk processing */
 	std::vector<uint8_t> parsedBufferChunk{};   /**< Parsed buffer chunk for ISOBMFF chunk processing */
@@ -861,9 +820,7 @@ protected:
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
-	int fragmentIdxToInject;            	/**< Write position */
 	int fragmentChunkIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;             	/**< Read position */
 	int fragmentChunkIdxToFetch;        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
@@ -877,8 +834,6 @@ private:
 		DISCONTINUITY,
 		STEADY
 	};
-	std::condition_variable fragmentFetched;     	/**< Signaled after a fragment is fetched*/
-	std::condition_variable fragmentInjected;    	/**< Signaled after a fragment is injected*/
 
 	std::mutex injectorStartMutex;  		/**< Mutex to protect injector start */
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
@@ -886,7 +841,6 @@ private:
 	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
-	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/

@@ -111,7 +111,7 @@ public:
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
-	void fillCachedFragment(bool isInit, bool isDisc, bool /*isLLD*/)
+	void fillCachedFragment(bool isInit, bool isDisc)
 	{
 		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 		// DASH now routes all fragments through the chunk cache (see
@@ -272,7 +272,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(false, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
@@ -298,7 +298,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(true, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(true, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
@@ -324,7 +324,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(false, false);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
@@ -363,7 +363,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(true, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(true, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))

@@ -368,24 +368,6 @@ void MediaTrack::UpdateSubtitleClockTask()
 /**
  * @brief Update segment cache and inject buffer to gstreamer
  */
-void MediaTrack::UpdateTSAfterInject()
-{
-	std::lock_guard<std::mutex> guard(mutex);
-	AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
-				  name, fragmentIdxToInject, numberOfFragmentsCached);
-	aamp_utils::ClearAndRelease(mCachedFragment[fragmentIdxToInject].fragment);
-	fragmentIdxToInject++;
-	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
-	{
-		fragmentIdxToInject = 0;
-	}
-	numberOfFragmentsCached--;
-	fragmentInjected.notify_one();
-}
-
-/**
- * @brief Update segment cache and inject buffer to gstreamer
- */
 void MediaTrack::UpdateTSAfterChunkInject()
 {
 	std::lock_guard<std::mutex> guard(mutex);
@@ -476,104 +458,6 @@ void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFr
 		AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,aamp->GetAudTimeScale());
 	}
 }
-/**
- *  @brief Updates internal state after a fragment fetch
- */
-void MediaTrack::UpdateTSAfterFetch(bool IsInitSegment)
-{
-	bool notifyCacheCompleted = false;
-	class StreamAbstractionAAMP* pContext = GetContext();
-	std::unique_lock<std::mutex> lock(mutex);
-
-	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToFetch];
-
-	if (pContext)
-	{
-		cachedFragment->profileIndex = pContext->profileIdxForBandwidthNotification;
-		pContext->UpdateStreamInfoBitrateData(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo);
-	}
-	totalFetchedDuration += cachedFragment->duration;
-	numberOfFragmentsCached++;
-	assert(numberOfFragmentsCached <= maxCachedFragmentsPerTrack);
-	currentInitialCacheDurationSeconds += cachedFragment->duration;
-
-	if( (eTRACK_VIDEO == type)
-	   && aamp->IsFragmentCachingRequired()
-	   && !cachingCompleted)
-	{
-		const int minInitialCacheSeconds = aamp->GetInitialBufferDuration();
-		if(currentInitialCacheDurationSeconds >= minInitialCacheSeconds)
-		{
-			AAMPLOG_WARN("##[%s] Caching Complete cacheDuration %d minInitialCacheSeconds %d##",
-						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
-			notifyCacheCompleted = true;
-			cachingCompleted = true;
-		}
-		else if (sinkBufferIsFull && numberOfFragmentsCached == maxCachedFragmentsPerTrack)
-		{
-			AAMPLOG_WARN("## [%s] Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
-						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
-			notifyCacheCompleted = true;
-			cachingCompleted = true;
-		}
-		else
-		{
-			AAMPLOG_INFO("## [%s] Caching Ongoing cacheDuration %d minInitialCacheSeconds %d##",
-						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
-		}
-	}
-	if(loadNewAudio && (eTRACK_AUDIO == type) && !IsInitSegment)
-	{
-		if(playContext)
-		{
-			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
-						 cachedFragment->position, cachedFragment->PTSOffsetSec);
-			playContext->resetPTSOnAudioSwitch(cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
-		}
-		else
-		{
-			//Enters this case, when the Mediaprocessor is not enabled
-			FlushAudioPositionDuringTrackSwitch( cachedFragment );
-		}
-		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_AUDIO);
-		NotifyCachedAudioFragmentAvailable();
-		loadNewAudio = false;
-		aamp->mDisableRateCorrection = false;
-	}
-	if(loadNewSubtitle && (eTRACK_SUBTITLE == type) && !IsInitSegment)
-	{
-		if(playContext)
-		{
-			playContext->resetPTSOnSubtitleSwitch(cachedFragment->fragment, cachedFragment->position);
-		}
-		else
-		{
-			//Enters this case, when the Mediaprocessor is not enabled
-			FlushSubtitlePositionDuringTrackSwitch( cachedFragment );
-		}
-		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_SUBTITLE);
-		NotifyCachedSubtitleFragmentAvailable();
-		loadNewSubtitle = false;
-		aamp->mDisableRateCorrection = false;
-	}
-	fragmentIdxToFetch++;
-	if (fragmentIdxToFetch == maxCachedFragmentsPerTrack)
-	{
-		fragmentIdxToFetch = 0;
-	}
-	if(!IsInitSegment)
-	{
-		totalFragmentsDownloaded++;
-	}
-
-	fragmentFetched.notify_one();
-	lock.unlock();
-	if(notifyCacheCompleted)
-	{
-		aamp->NotifyFragmentCachingComplete();
-	}
-}
-
 /**
  * @brief Updates fetch statistics using a caller-supplied fragment.
  *
@@ -693,7 +577,6 @@ void MediaTrack::UpdateTSAfterChunkFetch()
 	AAMPLOG_DEBUG("[%s] updated fragmentChunkIdxToFetch [%d] numberOfFragmentChunksCached [%d]",
 				  name, fragmentChunkIdxToFetch, numberOfFragmentChunksCached);
 
-	totalFragmentChunksDownloaded++;
 	fragmentChunkFetched.notify_one();
 }
 
@@ -732,23 +615,6 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 	{
 		ret = WaitForCachedFragmentChunkInjected(timeoutMs);
 	}
-	return ret;
-}
-
-/**
- *  @brief Wait till cached fragment available
- */
-bool MediaTrack::WaitForCachedFragmentAvailable()
-{
-	std::unique_lock<std::mutex> lock(mutex);
-	if ((numberOfFragmentsCached == 0) && !(abort || abortInject))
-	{
-		if (!eosReached)
-		{
-			fragmentFetched.wait(lock);
-		}
-	}
-	bool ret = !(abort || abortInject || (numberOfFragmentsCached == 0));
 	return ret;
 }
 
@@ -834,7 +700,6 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	if (immediate)
 	{
 		abort = true;
-		fragmentInjected.notify_one();
 		AAMPLOG_DEBUG("[%s] signal fragmentChunkInjected condition", name);
 		// For TSB playback, WaitForCachedFragmentChunkInject is invoked from TSBReader and CacheFragmentChunk threads
 		fragmentChunkInjected.notify_all();
@@ -842,7 +707,6 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	AAMPLOG_DEBUG("[%s] signal fragmentChunkFetched condition", name);
 	fragmentChunkFetched.notify_one();
 	aamp->waitforplaystart.notify_one();
-	fragmentFetched.notify_one();
 	lock.unlock();
 
 	GetContext()?GetContext()->AbortWaitForDiscontinuity(): void();
@@ -858,7 +722,6 @@ void MediaTrack::AbortWaitForCachedFragment()
 	fragmentChunkFetched.notify_one();
 
 	abortInject = true;
-	fragmentFetched.notify_one();
 	lock.unlock();
 
 	GetContext()?GetContext()->AbortWaitForDiscontinuity():void();
@@ -1615,14 +1478,14 @@ bool MediaTrack::InjectFragment()
 			}
 			else
 			{
-				AAMPLOG_WARN("%s - NULL ptr to inject. fragmentIdxToInject %d", name, fragmentIdxToInject);
+				AAMPLOG_WARN("%s - NULL ptr to inject. fragmentChunkIdxToInject %d", name, fragmentChunkIdxToInject);
 			}
 			ret = false;
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("WaitForCachedFragmentAvailable %s aborted LowLatency: %d ChunkMode %d", name, lowLatency,isChunkMode);
+		AAMPLOG_WARN("WaitForCachedFragmentChunkAvailable %s aborted LowLatency: %d ChunkMode %d", name, lowLatency,isChunkMode);
 		//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
 		SignalIfEOSReached();
 		ret = false;
@@ -1880,24 +1743,6 @@ bool MediaTrack::isPlaylistDownloaderThreadStarted()
 }
 
 /**
- *  @brief Get buffer to store the downloaded fragment content to cache next fragment
- */
-CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
-{
-	/*Make sure fragmentDurationSeconds updated before invoking this*/
-	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToFetch];
-	if(initialize)
-	{
-		if (cachedFragment->fragment.capacity() != 0)
-		{
-			AAMPLOG_WARN("fragment.ptr already set - possible memory leak");
-		}
-		cachedFragment->fragment.clear();
-	}
-	return cachedFragment;
-}
-
-/**
  *  @brief Get buffer to fetch and cache next fragment chunk
  */
 CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
@@ -2002,7 +1847,6 @@ void MediaTrack::FlushFragments()
 	fragmentChunkIdxToFetch = 0;
 	std::lock_guard<std::mutex> guard(mutex);
 	numberOfFragmentChunksCached = 0;
-	totalFragmentChunksDownloaded = 0;
 	// We need to revisit if these variables should be also sync using mTrackParamsMutex
 	totalInjectedChunksDuration = 0;
 
@@ -2041,15 +1885,15 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
  *  @brief MediaTrack Constructor
  */
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
-		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0),
-		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
+		eosReached(false), enabled(false), numberOfFragmentChunksCached(0), fragmentChunkIdxToInject(0),
+		fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0),
 		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
 		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
 		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
-		discontinuityProcessed(false), ptsError(false), mCachedFragment(NULL), name(name), type(type), aamp(aamp),
-		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
-		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
+		discontinuityProcessed(false), ptsError(false), name(name), type(type), aamp(aamp),
+		mutex(), abortInject(false),
+		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false),
 		mCachedFragmentChunks{}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		abortPlaylistDownloader(true), plDownloadWait()
@@ -2062,11 +1906,10 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
 		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
-	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
-	mCachedFragment = new CachedFragment[(maxCachedFragmentsPerTrack) ? maxCachedFragmentsPerTrack : 1];
+	const int sldChunkCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 
 	maxCachedFragmentChunksPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached);
-	SetCachedFragmentChunksSize((aamp->GetLLDashChunkMode()) ? maxCachedFragmentChunksPerTrack : maxCachedFragmentsPerTrack);
+	SetCachedFragmentChunksSize((aamp->GetLLDashChunkMode()) ? maxCachedFragmentChunksPerTrack : sldChunkCacheSize);
 }
 
 
@@ -2095,8 +1938,6 @@ MediaTrack::~MediaTrack()
 			AAMPLOG_ERR("Unable to join subtitleClockThreadID for UpdateSubtitleClockTask!");
 		}
 	}
-
-	SAFE_DELETE_ARRAY(mCachedFragment);
 }
 
 /**
