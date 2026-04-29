@@ -64,7 +64,7 @@ Beyond `CURLOPT_TIMEOUT`, the progress callback (`aamp_progress_callback`) enfor
 | Stall detection (`eCURL_ABORT_REASON_STALL_TIMEDOUT`) | `eAAMPConfig_CurlStallTimeout` | 10,000 ms (`DEFAULT_STALL_DETECTION_TIMEOUT`) | No bytes received for this duration |
 | Low-bandwidth (`eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT`) | `eAAMPConfig_CurlDownloadLowBWTimeout` | `NetworkTimeout × LOW_BW_TIMEOUT_FACTOR` (floor: `DEFAULT_LOW_BW_TIMEOUT`) | Projected total download time exceeds network timeout |
 
-All three abort reasons cause the transfer to be interrupted; the resulting `res` is returned as `CURLE_OPERATION_TIMEDOUT`. Note that `LOW_BANDWIDTH_TIMEDOUT` **does not trigger a retry** (see below); it drives ABR profile rampdown instead.
+All three abort reasons interrupt the transfer. In `GetFile()`, curl typically reports the immediate result as `CURLE_ABORTED_BY_CALLBACK`; AAMP later maps the associated timeout-style `http_code` to `CURLE_OPERATION_TIMEDOUT` (and may then further sub-classify it, for example to 130-133). Note that `LOW_BANDWIDTH_TIMEDOUT` **does not trigger a retry** (see below); it drives ABR profile rampdown instead.
 
 ---
 
