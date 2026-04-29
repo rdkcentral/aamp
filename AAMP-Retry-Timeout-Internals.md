@@ -120,10 +120,9 @@ maxDownloadAttempt = 1 + retryCount
 | HTTP status | Retry behaviour | Wait between retries |
 |---|---|---|
 | `200`, `204`, `206` | Success — no retry | — |
-| `408` | At least 1 retry always (attempt budget raised to minimum 1 if it was 0) | `eAAMPConfig_Http5XXRetryWaitInterval` (default **1,000 ms**) |
 | `5xx` (excluding `502`) | Retry while `downloadAttempt < maxDownloadAttempt` | `eAAMPConfig_Http5XXRetryWaitInterval` (default **1,000 ms**) |
 | `502` | Retry up to `DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT` = **1** time (independent of the normal attempt budget) | `eAAMPConfig_Http5XXRetryWaitInterval` (default **1,000 ms**) |
-| Other `4xx` | No retry | — |
+| Any `4xx` (including `408`) | No retry | — |
 
 ### Curl / Timeout Error Handling
 
@@ -145,9 +144,9 @@ Used by `AampMPDDownloader` for background DASH MPD polling. Simpler loop in `Aa
 
 | Error class | Max retries | Retry wait |
 |---|---|---|
-| HTTP `408` | 1 (forced minimum) | `iDownloadRetryWaitMs` (default **1,000 ms**) |
+| HTTP `408` | 1 (forced minimum) | `iDownloadRetryWaitMs` (**50 ms** — `_downloadConfig()` constructor default; no caller currently overrides this field) |
 | HTTP `502` | `iDownload502RetryCount` — **10** for manifests (`MANIFEST_DOWNLOAD_502_RETRY_COUNT`), **1** for fragments (`DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT`) | `MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS` = **1,000 ms** |
-| Other HTTP `5xx` | `iDownloadRetryCount` = `DEFAULT_DOWNLOAD_RETRY_COUNT` = **1** | `iDownloadRetryWaitMs` (default **1,000 ms**) |
+| Other HTTP `5xx` | `iDownloadRetryCount` = `DEFAULT_DOWNLOAD_RETRY_COUNT` = **1** | `iDownloadRetryWaitMs` (**50 ms** — `_downloadConfig()` constructor default; no caller currently overrides this field) |
 | `CURLE_COULDNT_CONNECT` or timeout | `numRetriesAllowed` (same as above) | — |
 
 The much higher 502 retry count for manifests (10 vs 1) reflects that manifest `502` errors are typically transient CDN propagation issues that resolve within seconds.
