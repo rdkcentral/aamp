@@ -1670,6 +1670,10 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
 }
 
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+}
+
 long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate,
 																	 long long trickStartUTCMS)
 {

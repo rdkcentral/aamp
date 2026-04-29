@@ -85,7 +85,7 @@ void AampLatencyMonitor::ResetToNormalRate()
 {
 }
 
-void AampLatencyMonitor::OnRebufferingStart()
+void AampLatencyMonitor::OnBufferLevelUpdate(double bufferMs)
 {
 }
 
