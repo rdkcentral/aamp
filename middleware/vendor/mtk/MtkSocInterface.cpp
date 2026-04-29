@@ -103,7 +103,7 @@ bool MtkSocInterface::IsAudioOrVideoDecoder(const char* name)
     {
         AudioOrVideoDecoder = true;
     }
-
+	MW_LOG_WARN("InterfacePlayerRDK: AudioOrVideoDecoder check for element %s returns %d", name, AudioOrVideoDecoder);
     return AudioOrVideoDecoder;
 }
 
