@@ -29,6 +29,8 @@
 #include "StreamSink.h"
 #include "ID3Metadata.hpp"
 #include "IMediaPipeline.h"
+#include "IControl.h"
+#include "IControlClient.h"
 #include "IClientLogControl.h"
 #include "IClientLogHandler.h"
 #include "StreamOutputFormat.h"
@@ -307,6 +309,52 @@ private:
 			const std::string &message) override;
 	};
 
+	/**
+	 * @brief IControlClient implementation used to observe Rialto's
+	 *        application-state transitions.
+	 *
+	 * Workaround for a race in firebolt::rialto::client::MediaPipeline where
+	 * the proxy constructor's notifyApplicationState() can run after
+	 * ClientController has already broadcast RUNNING, leaving the
+	 * MediaPipeline's m_currentAppState observably stuck at UNKNOWN.  By
+	 * registering our own IControlClient before creating any MediaPipeline
+	 * we can deterministically wait until the controller reports RUNNING;
+	 * subsequent createMediaPipeline() calls then see a stable state from
+	 * registerClient() and the proxy ctor stamps the MediaPipeline with
+	 * RUNNING — no later UNKNOWN write can occur.
+	 */
+	class AppStateClient : public firebolt::rialto::IControlClient
+	{
+	public:
+		void notifyApplicationState(
+			firebolt::rialto::ApplicationState state) override;
+
+		/// Block up to @p timeoutMs for the application state to become
+		/// RUNNING.  Returns true if RUNNING was observed in time.
+		bool waitForRunning(int timeoutMs);
+
+		/// Seed the client with the state returned by IControl::registerClient.
+		void setInitialState(firebolt::rialto::ApplicationState state);
+
+	private:
+		std::mutex              m_mu;
+		std::condition_variable m_cv;
+		firebolt::rialto::ApplicationState m_state{
+			firebolt::rialto::ApplicationState::UNKNOWN};
+	};
+
+	/**
+	 * @brief Ensure Rialto has reported application state RUNNING before
+	 *        any MediaPipeline is created.
+	 *
+	 * Lazily creates the IControl + AppStateClient on first call.  Subsequent
+	 * calls are cheap when the state is already RUNNING.
+	 *
+	 * @param[in] timeoutMs Maximum time to wait for RUNNING.
+	 * @return true if RUNNING was observed within the timeout.
+	 */
+	bool EnsureRialtoRunning(int timeoutMs);
+
 	PrivateInstanceAAMP *m_aamp{nullptr}; ///< Owning AAMP instance (non-notification calls)
 
 	/// Notifiable interface used for all push-notification calls.  Points
@@ -337,6 +385,10 @@ private:
 	std::shared_ptr<RialtoLogHandler> m_rialtoLogHandler; ///< Rialto log bridge
 	/// Rialto pipeline factory; null until Configure() calls createFactory().
 	std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> m_pipelineFactory;
+	/// Rialto control object owning our application-state subscription.
+	std::shared_ptr<firebolt::rialto::IControl> m_control;
+	/// IControlClient used to observe application-state transitions.
+	std::shared_ptr<AppStateClient> m_appStateClient;
 	std::shared_ptr<AampRialtoMediaPipelineClient> m_client;
 	std::shared_ptr<firebolt::rialto::IMediaPipeline> m_pipeline;
 	std::unique_ptr<Mp4Demux> m_videoDemuxer;
