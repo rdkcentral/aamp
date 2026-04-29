@@ -56,7 +56,7 @@ SocPlatformType InferPlatformFromPluginScan()
 {
 	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
 	// Ensure GST is initialized
-	MW_LOG_WARN("gst_init_check Pre");
+	MW_LOG_WARN("gst_init_check Pre, is_initialized %d", gst_is_initialized());
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
 	}
