@@ -35,7 +35,7 @@
 #include "AampDemuxDataTypes.h"
 #include "IDrmBridge.h"
 #include "AampPlayerStateMachine.h"
-#include "AampSourceWorker.h"
+#include "AampDemuxDataTypes.h"
 #include "IStreamSinkNotifiable.h"
 
 #include <atomic>
@@ -380,24 +380,47 @@ private:
 	std::optional<ProtectionParams> m_audioProt;
 
 	// -----------------------------------------------------------------------
-	// Segment injection thread
+	// Segment injection pacing
 	// -----------------------------------------------------------------------
-
-	// QueuedSample and PendingNeedData are defined in AampSourceWorker.h (included above).
 
 	/// Serialises AttachVideoSource / AttachAudioSource / CheckAllSourcesAttached
 	/// so that concurrent init-fragment delivery from the video and audio
 	/// download threads cannot race on m_videoSourceId / m_audioSourceId.
 	std::mutex m_attachMutex;
 
-	// -----------------------------------------------------------------------
-	// Per-source injection workers (replace the single m_injectionThread)
-	// -----------------------------------------------------------------------
+	/**
+	 * @brief Per-track pacing state used to coordinate Rialto's
+	 *        needData/haveData IPC handshake with AAMP's push-style
+	 *        SendTransfer calls without an internal sample queue.
+	 *
+	 * SendTransfer (running on AAMP's per-track injector thread) blocks on
+	 * @c cv until a needData request arrives from the Rialto server.  Each
+	 * sample is then injected directly via @c IMediaPipeline::addSegment;
+	 * once the requested @c frameCount has been reached, @c haveData(OK) is
+	 * called and the request is cleared.  AAMP's existing fragment cache
+	 * therefore acts as the only buffer between the network and the
+	 * pipeline, eliminating the in-class sample queue.
+	 */
+	struct SourceState
+	{
+		std::mutex              mu;
+		std::condition_variable cv;
 
-	/// Injection worker for the video source (created in constructor).
-	std::unique_ptr<SourceWorker> m_videoWorker;
-	/// Injection worker for the audio source (created in constructor).
-	std::unique_ptr<SourceWorker> m_audioWorker;
+		bool     hasPending{false};      ///< True while a needData request is open
+		uint32_t pendingRequestId{0};    ///< Token returned via haveData()
+		size_t   pendingFrameCount{0};   ///< Max segments to deliver for this request
+		size_t   addedInPending{0};      ///< Segments accepted so far for this request
+
+		bool eos{false};                 ///< Set by EndOfStreamReached()
+
+		/// Bumped by Flush()/Stop() to invalidate any in-flight SendTransfer
+		/// batch.  SendTransfer captures the current value at entry and aborts
+		/// when it observes a different value.
+		uint64_t generation{0};
+	};
+
+	SourceState m_videoSrc;
+	SourceState m_audioSrc;
 
 	/// Position (ns) stored by Flush(); used to set the initial GStreamer
 	/// segment via setSourcePosition() once each source is attached.
@@ -417,26 +440,39 @@ private:
 	PlayerStateMachine m_stateMachine;
 
 	/**
-	 * @brief Inject buffered samples for one source and call haveData.
+	 * @brief Block until a needData request arrives for @p sourceId, then
+	 *        deliver one sample via @c addSegment.
 	 *
-	 * Called by each SourceWorker via its InjectFn callback.  Samples that
-	 * could not be sent (NO_SPACE) are returned so the worker can re-queue
-	 * them at the front for the next needData request.  The data pointers
-	 * inside each AampMediaSample remain valid until haveData() returns,
-	 * satisfying the Rialto data-lifetime contract.
+	 * Called by SendTransfer() once per demuxed sample.  The call returns
+	 * after @c addSegment has been issued (and @c haveData when the current
+	 * request is satisfied), or earlier if the batch was invalidated by
+	 * @c Flush()/@c Stop().
 	 *
-	 * @param sourceId   Rialto source identifier.
-	 * @param requestId  The needDataRequestId to close out.
-	 * @param samples    Samples to inject (taken by value / moved in).
-	 * @param eos        True if these are the last samples for this source.
-	 * @returns          Samples that were not accepted (NO_SPACE) — caller
-	 *                   should re-queue them at the front.
+	 * @param[in]      sourceId   Rialto source identifier.
+	 * @param[in,out]  st         Per-source pacing state.
+	 * @param[in]      capturedGen Generation value captured by SendTransfer
+	 *                             at the start of the current batch.
+	 * @param[in]      sample     Demuxed sample (moved in).
+	 * @param[in]      isVideo    True for video, false for audio.
+	 * @param[in]      width      Frame width (video only).
+	 * @param[in]      height     Frame height (video only).
+	 * @param[in]      sampleRate Sample rate (audio only).
+	 * @param[in]      channels   Channel count (audio only).
+	 * @param[in]      codecData  Optional codec data to stamp on the segment.
+	 * @returns                   True if @p sample was injected; false if the
+	 *                            batch was aborted (caller should stop the loop).
 	 */
-	std::vector<QueuedSample> InjectSamples(
+	bool InjectOneSample(
 		int32_t sourceId,
-		uint32_t requestId,
-		std::vector<QueuedSample> samples,
-		bool eos);
+		SourceState &st,
+		uint64_t capturedGen,
+		AampMediaSample &&sample,
+		bool isVideo,
+		int32_t width,
+		int32_t height,
+		int32_t sampleRate,
+		int32_t channels,
+		std::shared_ptr<firebolt::rialto::CodecData> codecData);
 
 	/// @brief Dispatches need-data events from the pipeline client to workers.
 	void OnNeedMediaData(int32_t sourceId, size_t frameCount, uint32_t requestId);
