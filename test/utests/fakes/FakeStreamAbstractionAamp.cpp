@@ -319,6 +319,10 @@ void MediaTrack::UpdateTSAfterFetch(bool isInitSegment)
 	}
 }
 
+void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment)
+{
+}
+
 bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 {
 	return true;
@@ -567,19 +571,6 @@ void StreamAbstractionAAMP::SendVTTCueDataHandler(VTTCue* cueData)
 
 void MediaTrack::FlushFragmentChunks()
 {
-}
-
-bool MediaTrack::IsInjectionFromCachedFragmentChunks()
-{
-	if (g_mockMediaTrack != nullptr)
-	{
-		return g_mockMediaTrack->IsInjectionFromCachedFragmentChunks();
-	}
-	else
-	{
-		bool ret = false;
-		return ret;
-	}
 }
 
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)

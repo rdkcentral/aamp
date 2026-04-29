@@ -1922,6 +1922,10 @@ TEST_F(TrackStateTests, GetBufferStatusTest)
 TEST_F(TrackStateTests, WaitForFreeFragmentAvailableTests)
 {
 	int timeoutMs = 100;
+	// Ensure the chunk cache has capacity so WaitForCachedFragmentChunkInjected
+	// can return true immediately (numberOfFragmentChunksCached=0 < size=4).
+	TrackStateobj->maxCachedFragmentChunksPerTrack = DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK;
+	TrackStateobj->SetCachedFragmentChunksSize(DEFAULT_CACHED_FRAGMENTS_PER_TRACK);
 	bool result = TrackStateobj->WaitForFreeFragmentAvailable(timeoutMs);
 	ASSERT_TRUE(result);
 }
