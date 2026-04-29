@@ -235,7 +235,7 @@ void Aampcli::initPlayerLoop(int argc, char **argv)
 	if (!mInitialized)
 	{
 		mInitialized = true;
-//		PlayerCliGstInit(&argc, &argv);
+		PlayerCliGstInit(&argc, &argv);
 
 		mAampGstPlayerMainLoop = g_main_loop_new(NULL, FALSE);
 		mAampMainLoopThread = g_thread_new("AAMPGstPlayerLoop", &aampGstPlayerStreamThread, NULL );

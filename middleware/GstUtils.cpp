@@ -147,7 +147,9 @@ GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
 
 void PlayerCliGstInit(int *argc, char ***argv)
 {
+	g_print("gst_init Pre, is_initialized %d", gst_is_initialized());
 	gst_init(argc,argv);
+	MW_LOG_WARN("gst_init Pst");
 }
 
 /**

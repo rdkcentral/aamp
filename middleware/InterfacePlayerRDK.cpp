@@ -91,6 +91,9 @@ InterfacePlayerRDK::InterfacePlayerRDK(bool isRialto) :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
 {
+	MW_LOG_WARN("gst_is_initialized %d", gst_is_initialized());
+
+
 	interfacePlayerPriv = new InterfacePlayerPriv(isRialto);
 	MW_LOG_MIL("InterfacePlayerRDK constructed using built-in library");
 	m_gstConfigParam = new Configs();
