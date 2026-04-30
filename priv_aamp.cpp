@@ -4621,22 +4621,23 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 		}
 
-		// extract path component (after domain) from URL
+		// extract path component (after domain) from URL — lambda defined once as
+		// a static local; actual call and media-type string only evaluated when the
+		// tracer is enabled to avoid per-download work on the disabled hot path.
 		static const auto pathOnly = [](const std::string& u)->std::string {
 			size_t s = 0, p = u.find("://");
 			s = (p==std::string::npos) ? 0 : (p+3);
 			s = u.find('/', s);
 			return (s==std::string::npos) ? u : u.substr(s);
 		};
-		const char* mt_str =
-		(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
-		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
-		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
-		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
-
 		static std::atomic<uint64_t> g_req_id{1};
 		std::unique_ptr<aamptrace::NetTrace> net_owner;
 		if (netTracerEnabled) {
+			const char* mt_str =
+			(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
+			(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
+			(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
+			(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
 			net_owner = std::make_unique<aamptrace::NetTrace>(
 				g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
 				/*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
