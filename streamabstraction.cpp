@@ -875,6 +875,20 @@ void MediaTrack::AbortWaitForCachedFragmentChunk()
 }
 
 /**
+ * @brief Check whether PTS re-stamping should be applied for this track.
+ */
+bool MediaTrack::IsPTSRestampEnabled() const
+{
+	// Restamp 2.0: restamping is applied outside playContext for DASH streams
+	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+	{
+		return true;
+	}
+	// All other cases (e.g. HLS ISOBMFF): restamping is handled inside playContext
+	return playContext && playContext->getPTSRestampStatus();
+}
+
+/**
  *  @brief Process next cached fragment
  */
 bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fragmentDiscarded, bool& isDiscontinuity, bool &ret)
@@ -949,8 +963,9 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				{
 					AAMPLOG_WARN("Pipeline not yet configured for %s! Process discontinuity...", name);
 				}
-
-				if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+				// Check whether PTS re-stamping is active for this track before processing
+				// discontinuity.
+				if(IsPTSRestampEnabled())
 				{
 					if (context->GetESChangeStatus() || context->GetPipelineFlushStatus())
 					{
