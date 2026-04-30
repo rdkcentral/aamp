@@ -48,7 +48,7 @@ GST_DEBUG_CATEGORY(gst_clearkeydecryptor_debug_category);
 
 static GstStaticPadTemplate gst_clearkeydecryptor_src_template =
 GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-		GST_STATIC_CAPS("video/x-h264;audio/mpeg;video/x-h265;audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3"));
+		GST_STATIC_CAPS("video/x-h264;audio/mpeg;video/x-h265;audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3;audio/x-ac4"));
 
 static GstStaticPadTemplate gst_clearkeydecryptor_sink_template =
 GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
@@ -58,6 +58,7 @@ GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
 			"application/x-cenc, original-media-type=(string)audio/x-eac3, protection-system=(string)" CLEARKEY_PROTECTION_SYSTEM_ID "; "
 			"application/x-cenc, original-media-type=(string)audio/x-ac3, protection-system=(string)" CLEARKEY_PROTECTION_SYSTEM_ID "; "
 			"application/x-cenc, original-media-type=(string)audio/x-gst-fourcc-ec_3, protection-system=(string)" CLEARKEY_PROTECTION_SYSTEM_ID "; "
+			"application/x-cenc, original-media-type=(string)audio/x-ac4, protection-system=(string)" CLEARKEY_PROTECTION_SYSTEM_ID "; "
 			"application/x-cenc, original-media-type=(string)audio/mpeg, protection-system=(string)" CLEARKEY_PROTECTION_SYSTEM_ID));
 
 static GstStaticPadTemplate gst_clearkeydecryptor_dummy_sink_template =
