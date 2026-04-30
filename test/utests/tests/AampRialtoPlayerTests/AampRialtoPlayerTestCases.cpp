@@ -905,7 +905,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
 	SendVideoInitFragment();
 
-	// Enqueue two samples, return NO_SPACE on the first addSegment call.
+	// Two samples per fragment; the first addSegment call returns NO_SPACE,
+	// closing out the current needData.  SendTransfer then blocks waiting
+	// for the next needData and retries the same sample on the second pass.
 	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
@@ -928,38 +930,31 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 				-> firebolt::rialto::AddSegmentStatus
 			{
 				const int call = ++addSegmentCalls;
-				// First call: no space.
-				if (call == 1)
-				{
-					return firebolt::rialto::AddSegmentStatus::NO_SPACE;
-				}
-				return firebolt::rialto::AddSegmentStatus::OK;
+				// First call: no space.  All subsequent calls: OK.
+				return (call == 1)
+					? firebolt::rialto::AddSegmentStatus::NO_SPACE
+					: firebolt::rialto::AddSegmentStatus::OK;
 			}));
 
 	PostNeedData(0, 2, 10);
 
+	// SendTransfer blocks once it hits NO_SPACE; run it in a worker thread.
 	std::vector<uint8_t> buf = {0x01, 0x02};
-	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
-		0.1, 0.1, 0.033, 0, false);
+	std::thread sender([this, b = std::move(buf)]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+	});
 
 	WaitFor([&addSegmentCalls]{ return addSegmentCalls.load() >= 1; });
-
-	// Only 1 addSegment call because NO_SPACE stopped the loop.
 	EXPECT_EQ(addSegmentCalls.load(), 1);
 
-	// The rejected sample should be re-queued and sent on the next needData.
-	addSegmentCalls = 0;
-	std::atomic<bool> haveDataCalled{false};
-	EXPECT_CALL(*m_mockPipelinePtr, addSegment(_, _))
-		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
-	EXPECT_CALL(*m_mockPipelinePtr, haveData(
-		firebolt::rialto::MediaSourceStatus::OK, 11))
-		.WillOnce(DoAll(
-			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
-			Return(true)));
+	// A new needData arrives; SendTransfer retries the rejected sample
+	// and then injects the second sample.
+	PostNeedData(0, 2, 11);
+	WaitFor([&addSegmentCalls]{ return addSegmentCalls.load() >= 3; });
+	EXPECT_GE(addSegmentCalls.load(), 3);
 
-	PostNeedData(0, 1, 11);
-	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
+	sender.join();
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
@@ -980,40 +975,37 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 			return s;
 		});
 
-	// Always NO_SPACE to force full requeue.
-	std::atomic<bool> noSpaceAttempted{false};
+	// First addSegment call returns NO_SPACE (atomic toggle); all subsequent
+	// calls return OK so the second needData drains the rejected samples.
+	std::atomic<int> addSegmentCalls{0};
 	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
 		.WillByDefault(Invoke(
-			[&noSpaceAttempted](uint32_t, const auto &)
+			[&addSegmentCalls](uint32_t, const auto &)
 				-> firebolt::rialto::AddSegmentStatus
 			{
-				noSpaceAttempted = true;
-				return firebolt::rialto::AddSegmentStatus::NO_SPACE;
+				const int call = ++addSegmentCalls;
+				return (call == 1)
+					? firebolt::rialto::AddSegmentStatus::NO_SPACE
+					: firebolt::rialto::AddSegmentStatus::OK;
 			}));
 
 	PostNeedData(0, 2, 20);
 
 	std::vector<uint8_t> buf = {0x01, 0x02};
-	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
-		0.5, 0.5, 0.033, 0, false);
+	std::thread sender([this, b = std::move(buf)]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(b),
+			0.5, 0.5, 0.033, 0, false);
+	});
 
-	WaitFor([&noSpaceAttempted]{ return noSpaceAttempted.load(); });
+	// Wait for the NO_SPACE attempt.
+	WaitFor([&addSegmentCalls]{ return addSegmentCalls.load() >= 1; });
 
-	// Now switch to OK and send another needData — should drain requeued samples.
-	std::atomic<int> acceptedCount{0};
-	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
-		.WillByDefault(Invoke(
-			[&acceptedCount](uint32_t, const auto &)
-				-> firebolt::rialto::AddSegmentStatus
-			{
-				++acceptedCount;
-				return firebolt::rialto::AddSegmentStatus::OK;
-			}));
-
+	// Second needData drains the rejected sample plus the remaining one.
 	PostNeedData(0, 2, 21);
-	WaitFor([&acceptedCount]{ return acceptedCount.load() >= 2; });
+	WaitFor([&addSegmentCalls]{ return addSegmentCalls.load() >= 3; });
+	EXPECT_GE(addSegmentCalls.load(), 3);
 
-	EXPECT_EQ(acceptedCount.load(), 2);
+	sender.join();
 }
 
 // ===========================================================================
@@ -1027,36 +1019,6 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	// Enqueue video samples.
-	{
-		ON_CALL(*g_mockMp4Demux, GetSamples())
-			.WillByDefault([]() {
-				std::vector<AampMediaSample> s;
-				AampMediaSample ms{}; ms.mPts=0.1; ms.mDuration=0.033;
-				s.push_back(std::move(ms));
-				return s;
-			});
-		ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
-		std::vector<uint8_t> vbuf = {0x01};
-		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(vbuf),
-			0.1, 0.1, 0.033, 0, false);
-	}
-	// Enqueue audio samples.
-	{
-		ON_CALL(*g_mockMp4Demux, GetSamples())
-			.WillByDefault([]() {
-				std::vector<AampMediaSample> s;
-				AampMediaSample ms{}; ms.mPts=0.1; ms.mDuration=0.033;
-				s.push_back(std::move(ms));
-				return s;
-			});
-		ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
-		std::vector<uint8_t> abuf = {0x02};
-		m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(abuf),
-			0.1, 0.1, 0.033, 0, false);
-	}
-
-	// Both sources should receive haveData(OK) — set up before triggering.
 	std::atomic<int> haveDataCount{0};
 	EXPECT_CALL(*m_mockPipelinePtr, haveData(_, AnyOf(50u, 51u)))
 		.Times(::testing::AtLeast(2))
@@ -1066,9 +1028,25 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_CALL(*m_mockPipelinePtr, addSegment(_, _))
 		.Times(::testing::AtLeast(2));
 
-	// Fire needData for both sources simultaneously.
+	// Pre-arm needData for both sources so SendTransfer does not block.
 	PostNeedData(0, 1, 50); // video
 	PostNeedData(1, 1, 51); // audio
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{}; ms.mPts=0.1; ms.mDuration=0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+
+	std::vector<uint8_t> vbuf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(vbuf),
+		0.1, 0.1, 0.033, 0, false);
+	std::vector<uint8_t> abuf = {0x02};
+	m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(abuf),
+		0.1, 0.1, 0.033, 0, false);
 
 	WaitFor([&haveDataCount]{ return haveDataCount.load() >= 2; });
 }
@@ -2140,27 +2118,23 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // ---------------------------------------------------------------------------
-// Per-source workers: parallel injection is lock-free on IPC thread
+// IPC thread is non-blocking: OnNeedMediaData must return promptly even
+// while a SendTransfer call is blocked waiting for needData.
 // ---------------------------------------------------------------------------
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	SourceWorker_OnNeedMediaData_DoesNotBlockCallerThread)
+	OnNeedMediaData_DoesNotBlockCallerThread)
 {
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	// If OnNeedMediaData acquires a global mutex that the injection thread
-	// holds during a (slow) addSegment call, the caller would block.
-	// This test verifies no deadlock occurs when needData events are fired
-	// rapidly from multiple simulated sources, confirming the per-source
-	// worker design.
+	// Rapid bursts of needData/cancel must complete without blocking.
 	for (int i = 0; i < 30; ++i)
 	{
 		PostNeedData(0, 1, static_cast<uint32_t>(100 + i));
 		PostNeedData(1, 1, static_cast<uint32_t>(200 + i));
 	}
-	// Must complete without blocking.
 	SUCCEED();
 }
 
@@ -2402,102 +2376,21 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // ===========================================================================
-// Phase 13 — Back-pressure / memory control (integration)
+// Phase 13 — Back-pressure (synchronous pacing replaces the in-class queue)
 // ===========================================================================
 
 /**
- * @test After exceeding the back-pressure threshold and then draining the
- *       queue via needData, subsequent injection continues to deliver samples
- *       correctly.  This exercises the full throttle→resume cycle through
- *       AampRialtoPlayer's wiring without relying on observable
- *       StopTrackDownloads/ResumeTrackDownloads calls (which go to the
- *       no-op fake in the test binary).
+ * @test SendTransfer with no pending needData blocks until a needData
+ *       request arrives, providing natural back-pressure to AAMP's per-track
+ *       injector thread without an in-class sample queue.
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	BackPressure_QueueAboveThreshold_ThenDrain_InjectionContinues)
+	BackPressure_SendTransfer_BlocksUntilNeedData)
 {
 	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
 	SendVideoInitFragment();
 
-	// Build a sample batch whose size equals kDefaultMaxQueuedSamples so the
-	// video worker's throttle callback fires.
-	const size_t kThreshold = SourceWorker::kDefaultMaxQueuedSamples;
-
 	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
-	ON_CALL(*g_mockMp4Demux, GetSamples())
-		.WillByDefault([kThreshold]() {
-			std::vector<AampMediaSample> samples;
-			for (size_t i = 0; i < kThreshold; ++i)
-			{
-				AampMediaSample ms{};
-				ms.mPts      = static_cast<double>(i) * 0.033;
-				ms.mDuration = 0.033;
-				samples.push_back(std::move(ms));
-			}
-			return samples;
-		});
-
-	// Enqueue one large fragment (at or above threshold).
-	std::vector<uint8_t> buf(4, 0x01);
-	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
-		0.0, 0.0, 3.0, 0, /*initFragment=*/false);
-
-	// Drain the queue via needData — all samples should be injected.
-	std::atomic<int> addedCount{0};
-	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
-		.WillByDefault(Invoke(
-			[&addedCount](uint32_t,
-				const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &)
-				-> firebolt::rialto::AddSegmentStatus
-			{
-				++addedCount;
-				return firebolt::rialto::AddSegmentStatus::OK;
-			}));
-
-	PostNeedData(0, static_cast<uint32_t>(kThreshold), 1u);
-
-	// Spin-poll until the worker has injected at least one sample.
-	WaitFor([&addedCount]{ return addedCount.load() > 0; });
-
-	EXPECT_GT(addedCount.load(), 0);
-}
-
-/**
- * @test Calling Flush() while the video worker is throttled invokes the
- *       resume callback (no-op in test binary), clears the queue, and allows
- *       a subsequent fragment to be injected normally.
- */
-TEST_F(AampRialtoPlayerWithDemuxTest,
-	BackPressure_FlushWhileThrottled_InjectionResumesAfterFlush)
-{
-	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
-	SendVideoInitFragment();
-
-	const size_t kThreshold = SourceWorker::kDefaultMaxQueuedSamples;
-
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
-	ON_CALL(*g_mockMp4Demux, GetSamples())
-		.WillByDefault([kThreshold]() {
-			std::vector<AampMediaSample> samples;
-			for (size_t i = 0; i < kThreshold; ++i)
-			{
-				AampMediaSample ms{};
-				ms.mPts      = static_cast<double>(i) * 0.033;
-				ms.mDuration = 0.033;
-				samples.push_back(std::move(ms));
-			}
-			return samples;
-		});
-
-	// Push queue above threshold.
-	std::vector<uint8_t> buf(4, 0x01);
-	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
-		0.0, 0.0, 3.0, 0, /*initFragment=*/false);
-
-	// Flush — should clear the queue and invoke the resume callback.
-	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
-
-	// After flush, sending one sample and draining with needData must work.
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -2507,6 +2400,81 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 			return s;
 		});
 
+	std::atomic<bool> sendDone{false};
+	std::atomic<int>  addSegmentCalls{0};
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&addSegmentCalls](uint32_t, const auto &)
+				-> firebolt::rialto::AddSegmentStatus
+			{
+				++addSegmentCalls;
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	// Run SendTransfer on a worker thread — it must block until needData.
+	std::vector<uint8_t> buf = {0x01};
+	std::thread sender([this, b = std::move(buf), &sendDone]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+		sendDone = true;
+	});
+
+	// Confirm SendTransfer is still blocked while there is no needData.
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+	EXPECT_EQ(addSegmentCalls.load(), 0);
+
+	// Posting needData unblocks the sender.
+	PostNeedData(0, 1, 1);
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	EXPECT_EQ(addSegmentCalls.load(), 1);
+
+	sender.join();
+}
+
+/**
+ * @test Calling Flush() while a SendTransfer call is blocked waiting for
+ *       needData unblocks the sender (it returns without injecting), and a
+ *       subsequent fragment can be injected normally after a fresh needData.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	BackPressure_FlushWhileBlocked_UnblocksSendTransfer)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	SendVideoInitFragment();
+
+	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+
+	std::atomic<bool> sendDone{false};
+	std::vector<uint8_t> buf = {0x01};
+	std::thread sender([this, b = std::move(buf), &sendDone]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+		sendDone = true;
+	});
+
+	// Sender is blocked.
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+
+	// Flush should wake the sender so it returns immediately.
+	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	sender.join();
+
+	// After flush, the next fragment must inject normally on the next needData.
 	std::atomic<bool> haveDataCalled{false};
 	EXPECT_CALL(*m_mockPipelinePtr, haveData(
 		firebolt::rialto::MediaSourceStatus::OK, 77))
@@ -2515,10 +2483,10 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 			Return(true)));
 
 	PostNeedData(0, 1, 77);
-
 	std::vector<uint8_t> freshBuf = {0x02};
 	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(freshBuf),
-		0.1, 0.1, 0.033, 0, /*initFragment=*/false);
+		0.1, 0.1, 0.033, 0, false);
 
 	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
+	EXPECT_TRUE(haveDataCalled.load());
 }

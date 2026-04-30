@@ -55,6 +55,13 @@ if( RIALTO_FOUND )
     set( RIALTO_LIBRARIES ${RIALTO_LIBRARY} )
     set( RIALTO_INCLUDE_DIRS ${RIALTO_INCLUDE_DIR} )
 endif()
+if( RIALTO_INCLUDE_DIR )
+    # Populate RIALTO_INCLUDE_DIRS even if RIALTO_FOUND is false so that
+    # dependent targets can still compile, albeit without linking to Rialto.
+    # For example, this allows AampRialtoPlayer to be built in L1-test builds
+    # where Rialto is mocked and the library is not present.
+    set( RIALTO_INCLUDE_DIRS ${RIALTO_INCLUDE_DIR} )
+endif()
 
 if( RIALTO_FOUND AND NOT TARGET Rialto::RialtoClient )
     add_library( Rialto::RialtoClient SHARED IMPORTED )
