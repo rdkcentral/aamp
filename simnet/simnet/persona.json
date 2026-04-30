@@ -2,7 +2,7 @@
   "base_rtt_ms": 41.834500000000006,
   "burst_bytes_cv": 0.053355394585347396,
   "bursts_per_segment": 2,
-  "cadence_jitter_ms": NaN,
+  "cadence_jitter_ms": 0.0,
   "cadence_ms": 101.123,
   "capacity_drop_factor": 0.6,
   "capacity_drop_p": 0.0,
