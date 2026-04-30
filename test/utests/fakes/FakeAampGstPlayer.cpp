@@ -28,6 +28,8 @@ MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
 {
+	mEncryptedAampId = -1;
+	mEncryptedAamp = nullptr;
 }
 
 AAMPGstPlayer::~AAMPGstPlayer()
@@ -217,6 +219,12 @@ bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aamp)
 	return false;
 }
 
+const int AAMPGstPlayer::GetEncryptedAampId(void) const
+{
+	// Return the id of the encrypted player
+	return (mEncryptedAamp ? mEncryptedAampId : -1);
+}
+
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	if (g_mockAampGstPlayer != nullptr)
@@ -231,6 +239,9 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 	{
 		g_mockAampGstPlayer->SetEncryptedAamp(aamp);
 	}
+	// Update the encrypted player id as the mock will not
+	mEncryptedAampId = (aamp ? aamp->mPlayerId : -1);
+	mEncryptedAamp = aamp;
 }
 
 void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)

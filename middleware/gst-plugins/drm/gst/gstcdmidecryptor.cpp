@@ -793,12 +793,20 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 		if(cdmidecryptor->sessionManager == NULL)
 		{
-		GST_ERROR_OBJECT(cdmidecryptor,
-                "cdmidecryptor unable to retrieve player instance\n");
-		result = FALSE;
-		break;
+			GST_ERROR_OBJECT(cdmidecryptor,
+					"cdmidecryptor unable to retrieve player instance\n");
+			gst_object_unref(sinkpad);
+			result = FALSE;
+			break;
 		}
-
+		else if(cdmidecryptor->sessionManager->m_drmConfigParam == NULL)
+		{
+			GST_ERROR_OBJECT(cdmidecryptor,
+					"cdmidecryptor has an invalid player instance\n");
+			gst_object_unref(sinkpad);
+			result = FALSE;
+			break;
+		}
 
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Received encrypted event: Proceeding to parse initData\n");
