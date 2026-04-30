@@ -222,7 +222,6 @@ void ABRManager::updateProfile() {
       iframeTrackInfo[iframeTrackIdx].idx = i;
     }
   }
-  lock.unlock();
 
   // Exists iframe track
   if(iframeTrackIdx >= 0) {
@@ -286,6 +285,7 @@ void ABRManager::updateProfile() {
       }
     }
   }
+  lock.unlock();
   delete[] iframeTrackInfo;
 
 #if defined(DEBUG_ENABLED)

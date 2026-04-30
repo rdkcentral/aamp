@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <glib.h>
 #include "priv_aamp.h"
+#include "StreamAbstractionAAMP.h"
 #include <atomic>
 #include <algorithm>
 #include "AampDRMLicManager.h"
@@ -640,7 +641,10 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			if (busEvent.msg.find("HDCPProtectionFailure") != std::string::npos)
 			{
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
-				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
+				
+				// Removed flush(teardown) here as injection threads may still be running
+				// Allow retune to reset everything but mute video as HDCP failed
+				_this->SetVideoMute(true);
 				_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
 			}
 			break;
@@ -692,6 +696,19 @@ void AAMPGstPlayer::NotifyInjectorToResume()
  */
 bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool initFragment, bool discontinuity)
 {
+	// Reject malformed samples up-front.  With the shared_ptr-backed
+	// MediaSample, mData and mDataSize are independent fields so a caller
+	// could construct an inconsistent pair (null data with non-zero size, or
+	// a non-null pointer with zero size).  Both would cause downstream UB:
+	// IsValidHeader() dereferences the pointer when size >= 10, and
+	// gst_buffer_new_wrapped_full() does not defend against null/zero.
+	// Fail fast here so we also avoid mutating mbNewSegmentEvtSent[] for a
+	// sample that never actually ships.
+	if (!sample.data() || sample.size() == 0)
+	{
+		return false;
+	}
+
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		if (eMEDIATYPE_VIDEO == mediaType)
@@ -1067,6 +1084,15 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 	else if(shouldHaltBuffering)
 	{
 		StopBuffering(true);
+		// Disarm the underflow monitor during codec-change EOS/flush sequence.
+		// GstPlayer_SignalEOS() has been sent; no video fragments will arrive until
+		// after pipeline reinitialisation.  Without this call the monitor would fire
+		// during the flush gap and falsely pause the pipeline, preventing GST_MESSAGE_EOS
+		// from being processed and AAMP_EVENT_STATE_CHANGED: COMPLETE from ever firing.
+		if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) && aamp->mpStreamAbstractionAAMP)
+		{
+			aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+		}
 	}
 	return ret;
 }
@@ -1349,13 +1375,21 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  * @brief Inject AampMediaSample to gstreamer pipeline
  * 
  * @param[in] mediaType - Media type
- * @param[in,out] sample - Media sample to inject
+ * @param[in] sample - Media sample to inject (consumed; caller must not access after this call)
  * @return true if sample is successfully injected, false otherwise
  */
-bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
 {
-	MediaSample gstSample(std::move(sample.mData), sample.mPts, sample.mDts, sample.mDuration, 0.0);
-	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
-
-	return SendHelper(mediaType, std::move(gstSample));
+	// Bridge AampMediaSample to MediaSample. The single cast to the mutable gpointer type
+	// required by GStreamer's C API is pushed to the C-API boundary inside
+	// InterfacePlayerRDK, where the buffer is wrapped with
+	// GST_MEMORY_FLAG_READONLY so GStreamer will not mutate the data.
+	return SendHelper(mediaType, MediaSample{
+		std::move(sample.mData),
+		sample.mDataSize,
+		sample.mPts,
+		sample.mDts,
+		sample.mDuration,
+		std::move(sample.mDrmMetadata)
+	});
 }

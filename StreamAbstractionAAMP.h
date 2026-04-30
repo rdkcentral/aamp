@@ -368,6 +368,17 @@ public:
 	void UpdateTSAfterFetch(bool IsInitSegment);
 
 	/**
+	 * @fn UpdateTSAfterFetchStats
+	 * @brief Updates fetch statistics using a caller-supplied fragment without
+	 *        touching the mCachedFragment ring buffer. Use in place of
+	 *        UpdateTSAfterFetch() + UpdateTSAfterInject() when the fragment
+	 *        goes directly into mCachedFragmentChunks.
+	 * @param[in] cachedFragment - Fragment supplying duration and metadata
+	 * @param[in] isInitSegment  - true for initialization segments
+	 */
+	void UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment);
+
+	/**
 	 * @fn UpdateTSAfterChunkFetch
 	 *
 	 * @return void
@@ -672,15 +683,6 @@ public:
 	 * @brief Reset trick mode PTS restamping
 	 */
 	virtual void ResetTrickModePtsRestamping(void);
-
-	/**
-	 * @fn IsInjectionFromCachedFragmentChunks
-	 *
-	 * @brief Are fragments to inject coming from mCachedFragmentChunks
-	 *
-	 * @return True if fragments to inject are coming from mCachedFragmentChunks
-	 */
-	bool IsInjectionFromCachedFragmentChunks();
 
 	/**
 	 * @fn GetTimeBasedBufferManager 
@@ -1753,6 +1755,18 @@ public:
 	void NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate);
 
 	/**
+	 * @fn NotifyBufferLevelToLatencyMonitor
+	 * @brief Notify the latency monitor of the current buffer level.
+	 *
+	 * Call this whenever a video fragment (or LL-DASH chunk) is successfully
+	 * queued for injection so the latency monitor can track buffer health
+	 * and wake promptly to reduce latency in detecting buffer dips.
+	 *
+	 * @param[in] bufferMs  Current buffered duration in milliseconds.
+	 */
+	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+
+	/**
 	 * @fn NotifyPipelinePausedToUnderflowMonitor
 	 * @brief Notify the underflow monitor that the pipeline has been paused for
 	 *        buffering.  Disarms the deadline until resumption.
@@ -1766,6 +1780,16 @@ public:
 	 * @param[in] playRate     Current play rate.
 	 */
 	void NotifyPipelineResumedToUnderflowMonitor(float playRate);
+
+	/**
+	 * @fn NotifyRateChangeToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the playback rate has changed.
+	 *        Updates the cached rate and disarms the deadline when entering trickplay,
+	 *        preventing a stale deadline from causing a false underflow before the
+	 *        first fragment at the new rate is downloaded.
+	 * @param[in] rate  New play rate.
+	 */
+	void NotifyRateChangeToUnderflowMonitor(float rate);
 
 	/**
 	 *   @fn GetBufferedAudioDurationSec

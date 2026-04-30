@@ -62,11 +62,19 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	}
 }
 
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+}
+
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
 }
 
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
+{
+}
+
+void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 {
 }
 
@@ -163,6 +171,10 @@ bool StreamAbstractionAAMP::isInBandCcAvailable()
 
 bool StreamAbstractionAAMP::IsInitialCachingSupported()
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		return g_mockStreamAbstractionAAMP->IsInitialCachingSupported();
+	}
 	return false;
 }
 
@@ -305,6 +317,10 @@ void MediaTrack::UpdateTSAfterFetch(bool isInitSegment)
 	{
 		g_mockMediaTrack->UpdateTSAfterFetch(isInitSegment);
 	}
+}
+
+void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment)
+{
 }
 
 bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
@@ -555,19 +571,6 @@ void StreamAbstractionAAMP::SendVTTCueDataHandler(VTTCue* cueData)
 
 void MediaTrack::FlushFragmentChunks()
 {
-}
-
-bool MediaTrack::IsInjectionFromCachedFragmentChunks()
-{
-	if (g_mockMediaTrack != nullptr)
-	{
-		return g_mockMediaTrack->IsInjectionFromCachedFragmentChunks();
-	}
-	else
-	{
-		bool ret = false;
-		return ret;
-	}
 }
 
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)

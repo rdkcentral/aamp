@@ -29,7 +29,24 @@ function jsbindings_install_build_darwin_fn()
 
 function jsbindings_install_build_linux_fn()
 {
-    echo "Placeholder for Linux jsbindings build"
+    echo "Build aamp-jsbindings and uveExecuter"
+    cd "${AAMP_DIR}/build" || { echo "Failed to change to build directory: ${AAMP_DIR}/build"; return 1; }
+
+    make aampjsbindings
+    if [[ ! -f "libaampjsbindings.so" ]]; then
+        echo "****aampjsbindings build FAILED****"
+        return 1
+    fi
+    echo "****aampjsbindings build PASSED****"
+
+    make uveExecuter
+    if [[ ! -f "uveExecuter" ]]; then
+        echo "****uveExecuter build FAILED****"
+        return 1
+    fi
+    echo "****uveExecuter build PASSED****"
+
+    make install
 }
 
 function jsbindings_install_build_fn()

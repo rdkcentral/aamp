@@ -52,3 +52,7 @@ void AampUnderflowMonitor::NotifyPipelinePaused()
 void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playRate)
 {
 }
+
+void AampUnderflowMonitor::NotifyRateChange(float rate)
+{
+}

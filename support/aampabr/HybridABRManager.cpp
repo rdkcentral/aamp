@@ -61,30 +61,6 @@
 
 HybridABRManager::AampAbrConfig eAAMPAbrConfig;
 
-/**
- * @struct SpeedCache
- * @brief Stores the information for cache speed
- */
-
-struct SpeedCache
-{
-	long last_sample_time_val;
-	long prev_dlnow;
-	long prevSampleTotalDownloaded;
-	long totalDownloaded;
-	long speed_now;
-	long start_val;
-	bool bStart;
-
-	double totalWeight;
-	double weightedBitsPerSecond;
-	std::vector< std::pair<double,long> > mChunkSpeedData;
-
-	SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false) , totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
-	{
-	}
-};
-
 /** @brief Read Config values
  *  @return none
  */
@@ -117,7 +93,11 @@ void HybridABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 
 long HybridABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
 {
-	long downloadbps = ((long)(bufferlen / downloadTimeMs)*8000);
+	long downloadbps = 0;
+	if (downloadTimeMs > 0)
+	{
+		downloadbps = static_cast<long>((static_cast<long long>(bufferlen) * 8000LL) /downloadTimeMs);
+	}
 	// extra coding to avoid picking lower profile
 	// Avoid this reset for Low bandwidth timeout cases
 	if(downloadbps < currentProfilebps && fragmentDurationMs && downloadTimeMs < fragmentDurationMs/2 && (abortReason != eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)) 
@@ -191,8 +171,8 @@ long HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long
 	}
 	else
 	{
-		long m1 = tmpData.at(tmpData.size()/2);
-		long m2 = tmpData.at(tmpData.size()/2)+1;
+		long m1 = tmpData.at(tmpData.size()/2 - 1);
+		long m2 = tmpData.at(tmpData.size()/2);
 		medianbps = (m1+m2)/2;
 	}
 
@@ -294,7 +274,12 @@ void HybridABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newPr
 
 void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,long nwBandwidth,double bufferValue,long newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
 {
-	int abrThreshold = (int)((newBandwidth - nwBandwidth) * 100) / (int)nwBandwidth;
+	if (nwBandwidth <= 0)
+	{
+		AAMPABRLOG_INFO("nwBandwidth is %ld, skipping rampup check", nwBandwidth);
+		return;
+	}
+	int abrThreshold = (int)(((int64_t)(newBandwidth - nwBandwidth) * 100) / (int64_t)nwBandwidth);
 	AAMPABRLOG_INFO("[%s][%d]  currProfileIndex %d, newProfileIndex %d ,nwBandwidth %ld ,bufferValue %lf ,newBandwidth %ld threshold %d(30)",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage
@@ -302,11 +287,10 @@ void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newP
 		newProfileIndex = nProfileIdx;
 	if(newProfileIndex  != currProfileIndex)
 	{
-		static int loop = 1;
 		AAMPABRLOG_WARN("Attempted rampup from steady state ->currProf:%d newProf:%d bufferValue:%lf threshold:%d(30)",
 				currProfileIndex,newProfileIndex,bufferValue,abrThreshold);
-		loop = (++loop >4)?1:loop;
-		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,loop);
+		mRampupFromSteadyStateLoop = (++mRampupFromSteadyStateLoop >4)?1:mRampupFromSteadyStateLoop;
+		mMaxBufferCountCheck =  pow(eAAMPAbrConfig.abrBufferCounter,mRampupFromSteadyStateLoop);
 		mhBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL;
 	}
 }
@@ -396,7 +380,7 @@ void HybridABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcach
 {
 	speedcache->last_sample_time_val = time_now;
 	//speed @ bits per second
-	speedcache->speed_now = ((long)(total_dl_diff / time_diff)* 8000);
+	speedcache->speed_now = (total_dl_diff * 8000L) / time_diff;
 
 	double weight = std::sqrt((double)total_dl_diff);
 	speedcache->weightedBitsPerSecond += weight * speedcache->speed_now;
@@ -426,6 +410,10 @@ long HybridABRManager::FragmentfailureRampdown(int currentBuffer, int currentPro
 	long desiredProfilebw = 0;
 	long currentbw = getBandwidthOfProfile(currentProfileIndex);
 	std::vector<ProfileInfo> availableProfiles = getProfileInfo();
+	availableProfiles.erase(
+		std::remove_if(availableProfiles.begin(), availableProfiles.end(),
+			[](const ProfileInfo &p) { return p.isIframeTrack; }),
+		availableProfiles.end());
 	int len = (int)availableProfiles.size() - 1;
 	std::sort(availableProfiles.begin(), availableProfiles.end(), [](const ProfileInfo& a, const ProfileInfo& b) {
         return a.bandwidthBitsPerSecond < b.bandwidthBitsPerSecond;

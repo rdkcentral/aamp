@@ -146,10 +146,10 @@ bool CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double po
 
 /**
  * @fn CacheTsbFragment
- * @param[in] fragment TSB fragment pointer
+ * @param[in] fragment TSB fragment pointer (must be passed with std::move)
  * @retval true on success
  */
-bool CacheTsbFragment(std::shared_ptr<CachedFragment> fragment);
+bool CacheTsbFragment(std::shared_ptr<CachedFragment>&& fragment);
 
 /**
  * @fn CacheFragmentChunk
@@ -374,6 +374,17 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	std::mutex fetchChunkBufferMutex;
 	DownloadInfoPtr mActiveDownloadInfo;
 	std::recursive_mutex mMediaStreamContextMutex; /**< Recursive mutex to protect MediaStreamContext state during ABR profile changes and playlist updates */
+
+protected:
+	CachedFragment mStagingFragment{};		/**< Staging buffer for fragment download in progress */
+
+private:
+	/**
+	 * @fn CacheStagingFragmentForInjection
+	 * @brief Copy the staging fragment into a chunk-cache slot for the inject
+	 *        thread (non-LLD DASH path only).
+	 */
+	void CacheStagingFragmentForInjection();
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */
