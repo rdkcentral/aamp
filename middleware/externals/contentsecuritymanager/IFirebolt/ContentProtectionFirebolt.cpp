@@ -109,10 +109,10 @@ void ContentProtectionFirebolt::SubscribeEvents()
 	}
 	else
 	{
-		auto info = result.errorInfo();
+		const auto& info = result.errorInfo();
 		MW_LOG_ERR("Failed to subscribe to watermark events: %d Message: %s",
-			info ? static_cast<int>(info->error()) : static_cast<int>(result.error()),
-			(info && info->message()) ? info->message() : "No Firebolt error details available");
+			static_cast<int>(info.error()),
+			!info.message().empty() ? info.message().c_str() : "No Firebolt error details available");
 	}
 }
 
@@ -123,10 +123,10 @@ void ContentProtectionFirebolt::UnSubscribeEvents()
 		Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribe(mSubscriptionId);
 	if (result.error() != Firebolt::Error::None)
 	{
-		auto info = result.errorInfo();
+		const auto& info = result.errorInfo();
 		MW_LOG_ERR("Failed to Unsubscribe to watermark events: %d Message: %s",
-			info ? static_cast<int>(info->error()) : static_cast<int>(result.error()),
-			(info && info->message()) ? info->message() : "No Firebolt error details available");
+			static_cast<int>(info.error()),
+			!info.message().empty() ? info.message().c_str() : "No Firebolt error details available");
 	}
 }
 
@@ -452,10 +452,10 @@ void ContentProtectionFirebolt::CloseDrmSession(int64_t sessionId)
 	else
 	{
 		// An error occurred, log the error
-		auto info = result.errorInfo();
+		const auto& info = result.errorInfo();
 		MW_LOG_ERR("CloseDrmSession: failed for sessionID: %" PRId64 " Firebolt Error: \"%d\" Message: %s", sessionId,
-			info ? static_cast<int>(info->error()) : static_cast<int>(result.error()),
-			(info && info->message()) ? info->message() : "No Firebolt error details available");
+			static_cast<int>(info.error()),
+			!info.message().empty() ? info.message().c_str() : "No Firebolt error details available");
 	}
 }
 bool ContentProtectionFirebolt::SetDrmSessionState(int64_t sessionId, bool active)
@@ -490,10 +490,10 @@ bool ContentProtectionFirebolt::SetDrmSessionState(int64_t sessionId, bool activ
 	else
 	{
 		// An error occurred, log the error
-		auto info = result.errorInfo();
+		const auto& info = result.errorInfo();
 		MW_LOG_ERR("DRM session state failed to set to %d for sessionId: %" PRId64 ", Firebolt Error: \"%d\" Message: %s", static_cast<int>(sessionState), sessionId,
-			info ? static_cast<int>(info->error()) : static_cast<int>(result.error()),
-			(info && info->message()) ? info->message() : "No Firebolt error details available");
+			static_cast<int>(info.error()),
+			!info.message().empty() ? info.message().c_str() : "No Firebolt error details available");
 	}
 	return ret;
 }
@@ -522,10 +522,10 @@ bool ContentProtectionFirebolt::SetPlaybackPosition(int64_t sessionId, float spe
 	else
 	{
 		// An error occurred, log the error
-		auto info = result.errorInfo();
+		const auto& info = result.errorInfo();
 		MW_LOG_ERR("SetPlaybackPosition failed to set for ID: %" PRId64 " Firebolt Error: \"%d\" Message: %s", sessionId,
-			info ? static_cast<int>(info->error()) : static_cast<int>(result.error()),
-			(info && info->message()) ? info->message() : "No Firebolt error details available");
+			static_cast<int>(info.error()),
+			!info.message().empty() ? info.message().c_str() : "No Firebolt error details available");
 	}
 	return ret;
 }
@@ -549,10 +549,10 @@ void ContentProtectionFirebolt::ShowWatermark(bool show, int64_t sessionId)
 		MW_LOG_INFO("ShowWatermark visibility set successfully. Show: %d", show);
 	} else {
 		// An error occurred, log the error
-		auto info = result.errorInfo();
+		const auto& info = result.errorInfo();
 		MW_LOG_ERR("showWatermark failed. Firebolt Error: \"%d\" Message: %s",
-			info ? static_cast<int>(info->error()) : static_cast<int>(result.error()),
-			(info && info->message()) ? info->message() : "No Firebolt error details available");
+			static_cast<int>(info.error()),
+			!info.message().empty() ? info.message().c_str() : "No Firebolt error details available");
 	}
 }
 static Firebolt::ContentProtection::KeySystem convertStringToKeySystem(const std::string& keySystemStr)
@@ -597,10 +597,10 @@ bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::strin
 	}
 	else
 	{
-		  auto info = drmSession.errorInfo();
-		  errorCode = info ? static_cast<int>(info->error()) : static_cast<int>(drmSession.error());
+		  const auto& info = drmSession.errorInfo();
+		  errorCode = static_cast<int>(info.error());
 		  MW_LOG_ERR("openDrmSession: Firebolt Error: \"%d\" Message: %s", errorCode,
-			  (info && info->message()) ? info->message() : "No Firebolt error details available");
+			  !info.message().empty() ? info.message().c_str() : "No Firebolt error details available");
 	}
 	return ret;
 }
@@ -625,10 +625,10 @@ bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, int32_t &err
 	}
 	else
 	{
-		auto info = drmSession.errorInfo();
-		errorCode = info ? static_cast<int>(info->error()) : static_cast<int>(drmSession.error());
+		const auto& info = drmSession.errorInfo();
+		errorCode = static_cast<int>(info.error());
 		MW_LOG_ERR("updateDrmSession: Firebolt Error: \"%d\" Message: %s", errorCode,
-			(info && info->message()) ? info->message() : "No Firebolt error details available");
+			!info.message().empty() ? info.message().c_str() : "No Firebolt error details available");
 	}
 	return ret;
 }
