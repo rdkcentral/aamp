@@ -30,6 +30,7 @@
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>   // getpid()
 #endif
+#include "simnet/net_persona_fitter.h"
 
 namespace aamptrace {
 
@@ -198,40 +199,50 @@ public:
 	 */
 	void FlushCsv() {
 		EnsureFilesOpen();
-		auto& state = GetFileState();
-		std::lock_guard<std::mutex> g(state.mutex);
-		
-		// aggregate
-		double gap_time_s = 0, burst_time_s = 0; int late_count = 0; size_t bytes = 0;
-		for (auto& b : mBursts) {
-			gap_time_s   += b.gapBefore;
-			burst_time_s += b.duration;
-			bytes        += b.bytes;
-			late_count   += b.isLate ? 1 : 0;
+		{
+			auto& state = GetFileState();
+			std::lock_guard<std::mutex> g(state.mutex);
+
+			// aggregate
+			double gap_time_s = 0, burst_time_s = 0; int late_count = 0; size_t bytes = 0;
+			for (auto& b : mBursts) {
+				gap_time_s   += b.gapBefore;
+				burst_time_s += b.duration;
+				bytes        += b.bytes;
+				late_count   += b.isLate ? 1 : 0;
+			}
+			double avg_burst_rate_Bps = (burst_time_s > 0) ? (static_cast<double>(bytes) / burst_time_s) : 0.0;
+
+			// request row
+			state.req_ofs <<
+			mReqId << ',' << mT0 << ',' << CsvEscape(mUrlPath) << ',' << CsvEscape(mMediaType) << ',' <<
+			mBytesTotal << ',' << mHttpCode << ',' << mConnReused << ',' <<
+			CsvEscape(mPrimaryIp) << ',' << mLocalPort << ',' <<
+			mStartXferS << ',' << mTotalS << ',' <<
+			mNameS << ',' << mConnectS << ',' << mAppconnectS << ',' <<
+			mPreXferS << ',' << mRedirectS << ',' <<
+			(mChunkedHdrSeen ? 1 : 0) << ',' <<
+			gap_time_s << ',' << burst_time_s << ',' <<
+			mBursts.size() << ',' << late_count << ',' << avg_burst_rate_Bps <<
+			'\n';
+
+			// burst rows
+			for (auto& b : mBursts) {
+				state.burst_ofs << mReqId << ',' << b.index << ',' << b.startTime << ',' <<
+				b.duration << ',' << b.bytes << ',' << b.gapBefore << ',' <<
+				(b.isLate ? "late" : "normal") << '\n';
+			}
+			state.req_ofs.flush();
+			state.burst_ofs.flush();
+		} // release FileState::mutex before acquiring NetPersonaFitter's mutex
+
+		// Forward data to persona fitter for in-memory accumulation
+		auto& fitter = NetPersonaFitter::GetInstance();
+		fitter.AddRequest(mStartXferS, mConnReused);
+		for (const auto& b : mBursts)
+		{
+			fitter.AddBurst(mReqId, b.index, b.duration, b.bytes, b.gapBefore);
 		}
-		double avg_burst_rate_Bps = (burst_time_s > 0) ? (static_cast<double>(bytes) / burst_time_s) : 0.0;
-		
-		// request row
-		state.req_ofs <<
-		mReqId << ',' << mT0 << ',' << CsvEscape(mUrlPath) << ',' << CsvEscape(mMediaType) << ',' <<
-		mBytesTotal << ',' << mHttpCode << ',' << mConnReused << ',' <<
-		CsvEscape(mPrimaryIp) << ',' << mLocalPort << ',' <<
-		mStartXferS << ',' << mTotalS << ',' <<
-		mNameS << ',' << mConnectS << ',' << mAppconnectS << ',' <<
-		mPreXferS << ',' << mRedirectS << ',' <<
-		(mChunkedHdrSeen ? 1 : 0) << ',' <<
-		gap_time_s << ',' << burst_time_s << ',' <<
-		mBursts.size() << ',' << late_count << ',' << avg_burst_rate_Bps <<
-		'\n';
-		
-		// burst rows
-		for (auto& b : mBursts) {
-			state.burst_ofs << mReqId << ',' << b.index << ',' << b.startTime << ',' <<
-			b.duration << ',' << b.bytes << ',' << b.gapBefore << ',' <<
-			(b.isLate ? "late" : "normal") << '\n';
-		}
-		state.req_ofs.flush();
-		state.burst_ofs.flush();
 	}
 	
 	/**
