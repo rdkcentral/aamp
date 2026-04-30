@@ -335,7 +335,11 @@ static void FitBursts(const std::vector<BurstRecord>& bursts, Persona& persona)
 		for (const auto& kv : bytesPerReq)
 		{
 			const auto& arr = kv.second;
-			if (arr.size() < 2) continue;
+			if (arr.size() < 2)
+			{
+				cvSeries.push_back(0.0);
+				continue;
+			}
 			double mean = std::accumulate(arr.begin(), arr.end(), 0.0) / static_cast<double>(arr.size());
 			if (mean <= 0.0) continue;
 			double sumSq = 0.0;

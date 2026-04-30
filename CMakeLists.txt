@@ -264,8 +264,6 @@ endif()
 message("Adding tsb folder")
 add_subdirectory(tsb)
 
-message("Linking simnet to aamp")
-
 install(TARGETS tsb
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include

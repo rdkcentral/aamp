@@ -82,9 +82,11 @@ protected:
 
 	void TearDown() override
 	{
-		// Clean up any generated files
-		std::string path = GetOutputPath(kBasePath);
-		std::remove(path.c_str());
+		// Clean up the test-specific output file
+		std::remove(GetOutputPath(kBasePath).c_str());
+		// Clean up the atexit-registered default output file so CI runs
+		// do not leave artifacts under /tmp
+		std::remove(GetOutputPath(aamptrace::NetPersonaFitter::kDefaultBasePath).c_str());
 	}
 };
 
