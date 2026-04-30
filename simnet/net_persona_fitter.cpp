@@ -431,21 +431,26 @@ std::size_t NetPersonaFitter::GetBurstCount() const
 	return mBursts.size();
 }
 
-bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath) const
+bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath)
 {
 	std::vector<RequestRecord> requests;
 	std::vector<BurstRecord> bursts;
 
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
+		if (mGenerated)
+		{
+			// Data was already consumed by a prior call (e.g., Stop() fired
+			// before the atexit safety-net). Silently skip rather than warn.
+			return false;
+		}
 		if (mRequests.empty() && mBursts.empty())
 		{
 			AAMPLOG_WARN("NetPersonaFitter: no data collected, skipping persona generation");
 			return false;
 		}
-		// Swap in O(1) so the mutex is held only for pointer exchanges, not
-		// for copying potentially thousands of records. mRequests/mBursts are
-		// declared mutable to permit this from a const method.
+		// Swap in O(1): hold the mutex only for pointer exchanges, then do
+		// the O(N) statistical fitting outside the lock.
 		requests.swap(mRequests);
 		bursts.swap(mBursts);
 	} // lock released before the O(N) statistical fitting
@@ -496,6 +501,11 @@ bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath) const
 		return false;
 	}
 	ofs.close();
+
+	{
+		std::lock_guard<std::mutex> lock{mMutex};
+		mGenerated = true;
+	}
 
 	AAMPLOG_MIL("NetPersonaFitter: wrote persona JSON to %s (%zu requests, %zu bursts)",
 				outputPath.c_str(), requests.size(), bursts.size());

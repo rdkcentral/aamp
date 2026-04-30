@@ -309,8 +309,7 @@ private:
 	
 	// Meyer's singleton pattern for shared file state
 	struct FileState {
-		std::mutex mutex;
-		std::string req_path = "/tmp/aamp_net_requests.csv";
+		std::once_flag openOnce;			///< Ensures files are opened exactly once, race-free		std::mutex mutex;				///< Serializes stream writes and path mutations		std::string req_path = "/tmp/aamp_net_requests.csv";
 		std::string burst_path = "/tmp/aamp_net_bursts.csv";
 		std::ofstream req_ofs;
 		std::ofstream burst_ofs;
@@ -371,31 +370,26 @@ private:
 	
 	/**
 	 * @brief Open CSV output files if not already open
-	 * 
+	 *
 	 * Purpose: Lazily opens requests and bursts CSV files and writes headers if
-	 * files are new. Uses append mode to preserve existing data. Thread-safe via
-	 * mutex protection.
-	 * 
-	 * Thread Safety: Protected by FileState::mutex
+	 * files are new. Uses append mode to preserve existing data.
+	 *
+	 * Thread Safety: std::call_once guarantees the open+header-write block
+	 * executes exactly once across all threads, with no data race on the
+	 * stream state. Subsequent calls return immediately at the once_flag check.
 	 */
 	static void EnsureFilesOpen() {
 		auto& state = GetFileState();
-		// Fast path: skip mutex if both files are already open. Safe because
-		// once opened the streams are never closed before process exit.
-		if (state.req_ofs.is_open() && state.burst_ofs.is_open()) return;
-		std::lock_guard<std::mutex> g(state.mutex);
-		if (!state.req_ofs.is_open()) {
+		std::call_once(state.openOnce, [&state]() {
 			state.req_ofs.open(state.req_path, std::ios::app);
 			if (state.req_ofs.tellp() == 0) {
 				state.req_ofs << "req_id,when_start_s,url_path,media_type,bytes_total,http_code,conn_reused,primary_ip,local_port,ttfb_s,total_s,namelookup_s,connect_s,appconnect_s,pretransfer_s,redirect_s,chunked,gap_time_s,burst_time_s,burst_count,late_gap_count,avg_burst_rate_Bps\n";
 			}
-		}
-		if (!state.burst_ofs.is_open()) {
 			state.burst_ofs.open(state.burst_path, std::ios::app);
 			if (state.burst_ofs.tellp() == 0) {
 				state.burst_ofs << "req_id,burst_idx,t_start_s,duration_s,bytes,gap_before_s,class\n";
 			}
-		}
+		});
 	}
 	
 	// request identity

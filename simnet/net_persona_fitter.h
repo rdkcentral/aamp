@@ -108,11 +108,17 @@ public:
 	 * a 19-field persona JSON. The output filename is suffixed with the
 	 * process ID (e.g., /tmp/aamp_net_persona.json.12345).
 	 *
+	 * Note: This method is deliberately non-const. It swaps out (consumes)
+	 * the accumulated request/burst vectors in O(1) under the mutex, then
+	 * performs O(N) statistical fitting lock-free. After the first call the
+	 * vectors are empty; subsequent calls (e.g., the atexit safety-net) will
+	 * log nothing and return false without noisy warnings.
+	 *
 	 * @param[in] basePath Base output path (PID is appended)
 	 * @return true if JSON was written successfully, false on error or
 	 *         insufficient data
 	 */
-	bool GeneratePersonaJson(const std::string& basePath) const;
+	bool GeneratePersonaJson(const std::string& basePath);
 
 	/**
 	 * @brief Return the number of accumulated request records
@@ -138,10 +144,11 @@ private:
 	 */
 	static void AtExitHandler();
 
-	mutable std::mutex mMutex;						///< Protects mRequests and mBursts
-	mutable std::vector<RequestRecord> mRequests;	///< mutable to allow O(1) swap in const GeneratePersonaJson
-	mutable std::vector<BurstRecord> mBursts;		///< mutable to allow O(1) swap in const GeneratePersonaJson
-	bool mAtExitRegistered{false};		///< True after AtExit() has been called
+	mutable std::mutex mMutex;				///< Protects all mutable state below
+	std::vector<RequestRecord> mRequests;	///< Consumed (swapped out) on first GeneratePersonaJson call
+	std::vector<BurstRecord> mBursts;		///< Consumed (swapped out) on first GeneratePersonaJson call
+	bool mAtExitRegistered{false};			///< True after atexit() has been registered
+	bool mGenerated{false};					///< True after GeneratePersonaJson has successfully run once
 };
 
 } // namespace aamptrace
