@@ -309,7 +309,9 @@ private:
 	
 	// Meyer's singleton pattern for shared file state
 	struct FileState {
-		std::once_flag openOnce;			///< Ensures files are opened exactly once, race-free		std::mutex mutex;				///< Serializes stream writes and path mutations		std::string req_path = "/tmp/aamp_net_requests.csv";
+		std::once_flag openOnce;		///< Ensures files are opened exactly once, race-free
+		std::mutex mutex;				///< Serializes stream writes and path mutations
+		std::string req_path = "/tmp/aamp_net_requests.csv";
 		std::string burst_path = "/tmp/aamp_net_bursts.csv";
 		std::ofstream req_ofs;
 		std::ofstream burst_ofs;
