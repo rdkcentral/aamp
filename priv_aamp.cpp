@@ -5129,6 +5129,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+	bool previousCCEnabled = false;
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -5587,6 +5588,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			IncreaseGSTBufferSize();
 		}
 
+		// Retrieve the current closed‑captioning state and log it along with the in‑band CC flag.
+		previousCCEnabled = PlayerCCManager::GetInstance()->GetStatus();
+		if (mIsInbandCC && !mCCStatusSetByApp.load())
+		{
+			// No API to set CC or subtitles has been called, so AAMP assumes that the app talks to CCManager directly.
+			// Set subtitles_muted based on the current CC status to ensure correct subtitle state is applied later on.
+			subtitles_muted = !previousCCEnabled;
+		}
+		AAMPLOG_WARN("previousCCEnabled:%d isCCinBand:%d subtitles_muted:%d mCCStatusSetByApp:%d",
+			previousCCEnabled, mIsInbandCC, subtitles_muted, mCCStatusSetByApp.load());
+
 		if (!mbUsingExternalPlayer)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -5699,7 +5711,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
-			PlayerCCManager::GetInstance()->RestoreCC();
+		{
+			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
+		}
 	}
 
 	if (newTune && !mIsFakeTune)
@@ -7153,6 +7167,11 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	{
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
+}
+
+void PrivateInstanceAAMP::SetCCStatusSetByApp()
+{
+	mCCStatusSetByApp = true;
 }
 
 /**
@@ -10250,11 +10269,7 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
-		if( ISCONFIGSET_PRIV(eAAMPConfig_DisableWebVTT) )
-		{
-			trackInfo.swap(textTracksCopy);
-			AAMPLOG_DEBUG("Filtered track list to include only in-band CC tracks");
-		}
+		
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
@@ -10662,7 +10677,7 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 }
 
 /**
- * @brief Get current audio track index
+ * @brief Get current text track index
  */
 std::string PrivateInstanceAAMP::GetTextTrackInfo()
 {
@@ -10990,18 +11005,32 @@ int PrivateInstanceAAMP::GetTextTrack()
  */
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
-	PlayerCCManager::GetInstance()->SetStatus(enabled);
+	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
 	AcquireStreamLock();
 	subtitles_muted = !enabled;
+	// Mute subtitles if either video is muted or subtitles are muted
+	bool mute_subtitles_applied = video_muted || subtitles_muted;
+	bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
+	AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted, subtitles_muted);
 	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
-		if (HasSidecarData())
-		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+		
+		
+		if (mIsInbandCC || !isGstSubtecEnabled)
+		{
+			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+		}
+		else
+		{
+			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
+			if (HasSidecarData())
+			{ // has sidecar data
+				mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
+			}
 		}
 	}
-	SetSubtitleMute(subtitles_muted);
+	SetSubtitleMute(mute_subtitles_applied);
 	ReleaseStreamLock();
 }
 
