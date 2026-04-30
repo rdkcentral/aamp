@@ -380,6 +380,9 @@ private:
 	 */
 	static void EnsureFilesOpen() {
 		auto& state = GetFileState();
+		// Fast path: skip mutex if both files are already open. Safe because
+		// once opened the streams are never closed before process exit.
+		if (state.req_ofs.is_open() && state.burst_ofs.is_open()) return;
 		std::lock_guard<std::mutex> g(state.mutex);
 		if (!state.req_ofs.is_open()) {
 			state.req_ofs.open(state.req_path, std::ios::app);

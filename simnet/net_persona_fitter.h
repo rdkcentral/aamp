@@ -138,9 +138,9 @@ private:
 	 */
 	static void AtExitHandler();
 
-	mutable std::mutex mMutex;			///< Protects mRequests and mBursts
-	std::vector<RequestRecord> mRequests;
-	std::vector<BurstRecord> mBursts;
+	mutable std::mutex mMutex;						///< Protects mRequests and mBursts
+	mutable std::vector<RequestRecord> mRequests;	///< mutable to allow O(1) swap in const GeneratePersonaJson
+	mutable std::vector<BurstRecord> mBursts;		///< mutable to allow O(1) swap in const GeneratePersonaJson
 	bool mAtExitRegistered{false};		///< True after AtExit() has been called
 };
 
