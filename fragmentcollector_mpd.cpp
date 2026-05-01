@@ -10620,7 +10620,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	mTrackState = eDISCONTINUITY_FREE;
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		// Flush fragments from mCachedFragment, potentially cached during Live SLD
+		// Flush fragments cached during Live SLD
 		mMediaStreamContext[i]->FlushFetchedFragments();
 
 		// Flush fragments from mCachedFragmentChunks
@@ -10631,11 +10631,11 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 
 		if ((mTuneType == eTUNETYPE_SEEKTOLIVE) && (aamp->GetLLDashChunkMode()))
 		{
-			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(mMediaStreamContext[i]->maxCachedFragmentChunksPerTrack));
+			mMediaStreamContext[i]->SetCachedFragmentChunksSize(static_cast<size_t>(mMediaStreamContext[i]->maxCachedFragmentChunksPerTrack));
 		}
 		else
 		{
-			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(mMediaStreamContext[i]->maxCachedFragmentsPerTrack));
+			mMediaStreamContext[i]->SetCachedFragmentChunksSize(static_cast<size_t>(GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached)));
 		}
 
 		mMediaStreamContext[i]->eosReached = false;
