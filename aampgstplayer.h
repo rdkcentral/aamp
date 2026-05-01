@@ -102,6 +102,7 @@ private:
 public:
 	class PrivateInstanceAAMP *aamp;
 	class PrivateInstanceAAMP *mEncryptedAamp;
+	int mEncryptedAampId;
 	InterfacePlayerRDK* playerInterface;
 	/**
 		 * @fn Configure
@@ -139,7 +140,7 @@ public:
 	 * @param[in] mediaType stream type
 	 * @param[in] sample media sample
 	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample& sample) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample) override;
 
 	/**
 		 * @fn PipelineConfiguredForMedia
@@ -375,6 +376,13 @@ public:
    	 * @param[in] aampInstance - pointer to new instance of PrivateInstanceAAMP
 	 */
 	bool IsAssociatedAamp(PrivateInstanceAAMP *aampInstance);
+
+	/**
+	 * @fn GetEncryptedAampId
+	 * @brief Return encrypted player id
+   	 * @return ID of encrypted player else -1
+	 */
+	const int GetEncryptedAampId(void) const;
 
 	/**
 	 * @fn SetEncryptedAamp

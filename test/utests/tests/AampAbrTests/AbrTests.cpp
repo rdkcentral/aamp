@@ -254,3 +254,289 @@ TEST_F(AbrTests, SwitchingEstimatorsUsesNewEstimatorState)
 	abrManager.ReportDownloadComplete(0, false, metrics);
 	EXPECT_EQ(abrManager.GetCurrentlyAvailableBandwidth(), expectedBitsPerSecond);
 }
+
+/**
+ * @brief Helper to add video profiles to an ABRManager for rampup tests.
+ */
+static void AddTestProfiles(ABRManager &mgr)
+{
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	p.bandwidthBitsPerSecond = 1000000; // index 0
+	mgr.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 2000000; // index 1
+	mgr.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 4000000; // index 2
+	mgr.addProfile(p);
+}
+
+/**
+ * @brief CheckRampupFromSteadyState must not modify newProfileIndex
+ *        when nwBandwidth is zero (divide-by-zero guard).
+ */
+TEST_F(AbrTests, CheckRampupFromSteadyState_ZeroBandwidth_NoChange)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	AddTestProfiles(abrManager);
+
+	int currProfileIndex = 0;
+	int newProfileIndex = currProfileIndex;
+	BitsPerSecond nwBandwidth = 0;
+	double bufferValue = 20.0;
+	BitsPerSecond newBandwidth = 2000000;
+	ABRManager::BitrateChangeReason reason = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
+	int maxBufferCountCheck = 1;
+
+	abrManager.CheckRampupFromSteadyState(
+		currProfileIndex, newProfileIndex, nwBandwidth, bufferValue,
+		newBandwidth, reason, maxBufferCountCheck);
+
+	EXPECT_EQ(newProfileIndex, currProfileIndex);
+	EXPECT_EQ(reason, ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR);
+	EXPECT_EQ(maxBufferCountCheck, 1);
+}
+
+/**
+ * @brief CheckRampupFromSteadyState must not modify newProfileIndex
+ *        when nwBandwidth is negative.
+ */
+TEST_F(AbrTests, CheckRampupFromSteadyState_NegativeBandwidth_NoChange)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	AddTestProfiles(abrManager);
+
+	int currProfileIndex = 1;
+	int newProfileIndex = currProfileIndex;
+	BitsPerSecond nwBandwidth = -1;
+	double bufferValue = 15.0;
+	BitsPerSecond newBandwidth = 4000000;
+	ABRManager::BitrateChangeReason reason = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
+	int maxBufferCountCheck = 1;
+
+	abrManager.CheckRampupFromSteadyState(
+		currProfileIndex, newProfileIndex, nwBandwidth, bufferValue,
+		newBandwidth, reason, maxBufferCountCheck);
+
+	EXPECT_EQ(newProfileIndex, currProfileIndex);
+	EXPECT_EQ(reason, ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR);
+}
+
+/**
+ * @brief CheckRampupFromSteadyState allows rampup when nwBandwidth is valid
+ *        and threshold is within range.
+ */
+TEST_F(AbrTests, CheckRampupFromSteadyState_ValidBandwidth_RampsUp)
+{
+	eAAMPAbrConfig.abrBufferCounter = 2;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	AddTestProfiles(abrManager);
+
+	int currProfileIndex = 0;
+	int newProfileIndex = currProfileIndex;
+	BitsPerSecond nwBandwidth = 1800000;
+	double bufferValue = 20.0;
+	// newBandwidth 2000000 is ~11% above nwBandwidth, within the 0-30% threshold
+	BitsPerSecond newBandwidth = 2000000;
+	ABRManager::BitrateChangeReason reason = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
+	int maxBufferCountCheck = 1;
+
+	abrManager.CheckRampupFromSteadyState(
+		currProfileIndex, newProfileIndex, nwBandwidth, bufferValue,
+		newBandwidth, reason, maxBufferCountCheck);
+
+	// Should ramp up to the next profile (index 1)
+	EXPECT_EQ(newProfileIndex, 1);
+	EXPECT_EQ(reason, ABRManager::eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL);
+}
+
+/**
+ * @brief updateProfile correctly selects the desired iframe profile
+ *        from a set of mixed video + iframe profiles.
+ */
+TEST_F(AbrTests, UpdateProfile_SelectsCorrectIframeProfile)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	// Add video profiles (not iframe)
+	ABRManager::ProfileInfo video{};
+	video.isIframeTrack = false;
+	video.bandwidthBitsPerSecond = 3000000;
+	video.width = 1920;
+	video.height = 1080;
+	abrManager.addProfile(video); // index 0
+
+	video.bandwidthBitsPerSecond = 6000000;
+	abrManager.addProfile(video); // index 1
+
+	// Add iframe profiles
+	ABRManager::ProfileInfo iframe{};
+	iframe.isIframeTrack = true;
+	iframe.width = 640;
+	iframe.height = 360;
+
+	iframe.bandwidthBitsPerSecond = 500000;
+	abrManager.addProfile(iframe); // index 2
+
+	iframe.bandwidthBitsPerSecond = 1500000;
+	abrManager.addProfile(iframe); // index 3
+
+	abrManager.updateProfile();
+
+	// Non-4K, no default iframe bitrate: should pick lowest as lowest,
+	// second as desired (legacy "first two" logic)
+	EXPECT_EQ(abrManager.getLowestIframeProfile(), 2);
+	EXPECT_EQ(abrManager.getDesiredIframeProfile(), 3);
+}
+
+/**
+ * @brief updateProfile with default iframe bitrate selects the profile
+ *        below the configured default.
+ */
+TEST_F(AbrTests, UpdateProfile_DefaultIframeBitrate_SelectsBelowDefault)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	abrManager.setDefaultIframeBitrate(1200000);
+
+	ABRManager::ProfileInfo video{};
+	video.isIframeTrack = false;
+	video.bandwidthBitsPerSecond = 3000000;
+	video.width = 1920;
+	video.height = 1080;
+	abrManager.addProfile(video); // index 0
+
+	ABRManager::ProfileInfo iframe{};
+	iframe.isIframeTrack = true;
+	iframe.width = 640;
+	iframe.height = 360;
+
+	iframe.bandwidthBitsPerSecond = 500000;
+	abrManager.addProfile(iframe); // index 1
+
+	iframe.bandwidthBitsPerSecond = 1000000;
+	abrManager.addProfile(iframe); // index 2
+
+	iframe.bandwidthBitsPerSecond = 2000000;
+	abrManager.addProfile(iframe); // index 3
+
+	abrManager.updateProfile();
+
+	// Default iframe bitrate = 1200000: should pick highest below that = index 2 (1000000)
+	EXPECT_EQ(abrManager.getLowestIframeProfile(), 1);
+	EXPECT_EQ(abrManager.getDesiredIframeProfile(), 2);
+}
+
+/**
+ * @brief Bug #11: FragmentfailureRampdown must skip iframe tracks when
+ *        selecting a rampdown target, matching every other ABR function.
+ */
+TEST_F(AbrTests, FragmentfailureRampdown_SkipsIframeTrack)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	// Profile 0: 500 kbps video
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	abrManager.addProfile(p);
+
+	// Profile 1: 800 kbps iframe — should be skipped
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 800000;
+	p.width = 640; p.height = 360;
+	abrManager.addProfile(p);
+
+	// Profile 2: 1 Mbps video
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	abrManager.addProfile(p);
+
+	// Profile 3: 2 Mbps video (current)
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	abrManager.addProfile(p);
+
+	// Buffer at 15/30 = 50%.  Sorted video BWs: 500k, 1M, 2M.
+	// Profile percentages (relative to max 2M): 25%, 50%, 100%.
+	// Iterating descending: 100% !< 50% skip, 50% !< 50% skip, 25% < 50% → 500k.
+	BitsPerSecond result = abrManager.FragmentfailureRampdown(15, 3);
+	EXPECT_EQ(result, 500000);
+}
+
+TEST_F(AbrTests, FragmentfailureRampdown_NoIframes_NormalBehavior)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	abrManager.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	abrManager.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	abrManager.addProfile(p);
+
+	// Buffer 21/30 = 70%.  Profile percentages: 25%, 50%, 100%.
+	// Descending: 100% !< 70%, 50% < 70% AND 1M < 2M → 1M.
+	BitsPerSecond result = abrManager.FragmentfailureRampdown(21, 2);
+	EXPECT_EQ(result, 1000000);
+}
+
+TEST_F(AbrTests, FragmentfailureRampdown_FallbackLowestIsNotIframe)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	// Profile 0: 200 kbps iframe — lowest BW overall but should be excluded
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 200000;
+	p.width = 160; p.height = 120;
+	abrManager.addProfile(p);
+
+	// Profile 1: 500 kbps video — lowest video profile
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	abrManager.addProfile(p);
+
+	// Profile 2: 2 Mbps video (current)
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	abrManager.addProfile(p);
+
+	// Buffer 1/30 ≈ 3.3%.  Sorted video BWs: 500k, 2M.
+	// Profile percentages: 25%, 100%.  Both ≥ 3.3%, but only 500k < currentbw.
+	// 25% < 3.3% is false, so no profile matches → fallback to lowest.
+	// Without the fix, fallback would return 200k (the iframe track).
+	BitsPerSecond result = abrManager.FragmentfailureRampdown(1, 2);
+	EXPECT_EQ(result, 500000);
+}
+

@@ -44,7 +44,7 @@ ElementaryProcessor::~ElementaryProcessor()
 /**
  *  @brief Process and send Elementary fragment
  */
-bool ElementaryProcessor::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool ElementaryProcessor::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 										bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	ptsError = false;

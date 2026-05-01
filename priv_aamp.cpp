@@ -36,6 +36,8 @@
 #include "fragmentcollector_progressive.h"
 #include "MediaStreamContext.h"
 #include "AampLatencyMonitor.h"
+#include "AampNetworkPersona.h"
+#include <unistd.h>
 #include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
 
 /**
@@ -3283,11 +3285,16 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 	at2.send(telemetryName, intData, {/*string data*/}, {/*float data*/});
 #endif //AAMP_TELEMETRY_SUPPORT
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+}
 
-	// If rebuffering started, notify latency monitor to relax the latency band
-	if (bufferingStarted)
+/**
+ * @brief Forward the current buffer level to the latency monitor.
+ */
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+	if (mLatencyMonitor)
 	{
-		mLatencyMonitor->OnRebufferingStart();
+		mLatencyMonitor->OnBufferLevelUpdate(bufferMs);
 	}
 }
 
@@ -4614,22 +4621,23 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 		}
 
-		// extract path component (after domain) from URL
+		// extract path component (after domain) from URL — lambda defined once as
+		// a static local; actual call and media-type string only evaluated when the
+		// tracer is enabled to avoid per-download work on the disabled hot path.
 		static const auto pathOnly = [](const std::string& u)->std::string {
 			size_t s = 0, p = u.find("://");
 			s = (p==std::string::npos) ? 0 : (p+3);
 			s = u.find('/', s);
 			return (s==std::string::npos) ? u : u.substr(s);
 		};
-		const char* mt_str =
-		(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
-		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
-		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
-		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
-
 		static std::atomic<uint64_t> g_req_id{1};
 		std::unique_ptr<aamptrace::NetTrace> net_owner;
 		if (netTracerEnabled) {
+			const char* mt_str =
+			(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
+			(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
+			(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
+			(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
 			net_owner = std::make_unique<aamptrace::NetTrace>(
 				g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
 				/*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
@@ -4819,8 +4827,76 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				abortReason = eCURL_ABORT_REASON_NONE;
 
 				long long tStartTime = NOW_STEADY_TS_MS;
-				CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+				double ttfbSleptMs = 0.0; // accumulated persona TTFB sleep; used to synthesize startTransfer in HttpRequestEnd
 
+			// ── Network persona: TTFB sleep (test only) ─────────────────────
+			// The persona is normally loaded by AampCurlDownloader on the first
+			// manifest download (which always precedes segment downloads for
+			// IP video). This call is a fallback for non-DASH streams or any
+			// path that bypasses AampCurlDownloader. LoadFromFile is internally
+			// double-check guarded so calling it here when already loaded is free.
+			{
+				const std::string personaPath = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
+				if (!personaPath.empty())
+					AampNetworkPersona::Instance().LoadFromFile(personaPath);
+			}
+			AAMPLOG_WARN("priv_aamp: download url=%s personaLoaded=%d", remoteUrl.c_str(), AampNetworkPersona::Instance().IsLoaded() ? 1 : 0);
+			if (AampNetworkPersona::Instance().IsLoaded())
+			{
+				// Chunk the TTFB sleep into 50 ms slices so that StopDownloads()
+				// can interrupt it within one slice rather than the full TTFB delay.
+				double ttfbRemMs = AampNetworkPersona::Instance().SampleTtfbMs();
+				AAMPLOG_WARN("priv_aamp: persona TTFB sleep=%.0fms", ttfbRemMs);
+				constexpr double kTtfbChunkMs = 50.0;
+				while (ttfbRemMs >= 1.0 && mDownloadsEnabled)
+				{
+					const double sleepMs = std::min(ttfbRemMs, kTtfbChunkMs);
+					usleep(static_cast<useconds_t>(sleepMs * 1000.0));
+					ttfbRemMs -= sleepMs;
+					ttfbSleptMs += sleepMs;
+				}
+			}
+			// Reset progress-callback start timestamps to after the TTFB sleep so
+			// that start/stall/low-BW timeout checks measure only actual curl
+			// transfer time, not the simulated pre-transfer delay.
+			progressCtx.downloadStartTime = context.downloadStartTime = NOW_STEADY_TS_MS;
+			long long tBeforeCurl = NOW_STEADY_TS_MS;
+
+			res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+
+			// ── Network persona: idle sleep to reach predicted transfer time ─
+			const long long tActualCurlMs = NOW_STEADY_TS_MS - tBeforeCurl;
+			if (AampNetworkPersona::Instance().IsLoaded() && res == CURLE_OK)
+			{
+				const double predictedTransferMs =
+					AampNetworkPersona::Instance().SampleTransferMs(buffer.size());
+				double idleMs = predictedTransferMs - static_cast<double>(tActualCurlMs);
+				AAMPLOG_WARN("priv_aamp: persona idle: bytes=%zu predicted=%.0fms actualCurl=%lldms idle=%.0fms",
+						 buffer.size(), predictedTransferMs, tActualCurlMs, idleMs);
+				// Cap idle to the remaining download-timeout budget so that
+				// TTFB + curl + idle never exceeds the configured fragment
+				// download timeout — matching the constraint in AampCurlDownloader.
+				// curlDownloadTimeoutMS == 0 means no timeout (init segments etc.),
+				// in which case the cap is skipped.
+				if (curlDownloadTimeoutMS > 0)
+				{
+					const long long elapsedMs = NOW_STEADY_TS_MS - tStartTime;
+					const long long budgetRemainingMs = static_cast<long long>(curlDownloadTimeoutMS) - elapsedMs;
+					if (budgetRemainingMs <= 0)
+						idleMs = 0.0;
+					else
+						idleMs = std::min(idleMs, static_cast<double>(budgetRemainingMs));
+				}
+				// Chunk into 50 ms slices so that StopDownloads() can interrupt
+				// within one slice rather than blocking for the full idle duration.
+				constexpr double kIdleChunkMs = 50.0;
+				while (idleMs >= 1.0 && mDownloadsEnabled)
+				{
+					const double sleepMs = std::min(idleMs, kIdleChunkMs);
+					usleep(static_cast<useconds_t>(sleepMs * 1000.0));
+					idleMs -= sleepMs;
+				}
+			}
 				// ---- Finalize recorder immediately after the perform ----
 				if (context.net) {
 					double t_namelookup=0, t_connect=0, t_appconnect=0, t_pretransfer=0;
@@ -5157,12 +5233,19 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				resolve = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_NAMELOOKUP_TIME);
 				startTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_STARTTRANSFER_TIME);
 				connectTime = connect;
+				// When a network persona is active, synthesize CURLINFO_TOTAL_TIME and
+				// CURLINFO_STARTTRANSFER_TIME to reflect simulated delays so that HttpRequestEnd
+				// is indistinguishable from a real impaired-network session. Raw curl values are
+				// preserved in rawCurl* for CMCD, which reports per-request CDN connection quality.
+				const double rawCurlTotal = total;
+				const double rawCurlStartTransfer = startTransfer;
+				if (AampNetworkPersona::Instance().IsLoaded() && res == CURLE_OK)
+				{
+					startTransfer += ttfbSleptMs / 1000.0;
+					total = static_cast<double>(downloadTimeMS) / 1000.0;
+				}
 				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
 				{
-					// Note: 'total' is CURLINFO_TOTAL_TIME of the last attempt; for multi-retry
-					// requests the totalPerformRequest field in HttpRequestEnd is a better
-					// indicator of overall slowness, but is not evaluated here to avoid
-					// promoting every retried download to WARN regardless of outcome.
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
 				if (mAampLLDashServiceData.lowLatencyMode && http_code == 206 && mediaType == eMEDIATYPE_VIDEO)
@@ -5171,9 +5254,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					// But log at warning level to indicate partial download
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
-				// CMCD metrics use last-attempt CURLINFO_* values; this is intentional as CMCD
-				// reports per-request connection quality rather than aggregate retry duration.
-				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
+				// CMCD metrics use last-attempt raw CURLINFO_* values (not persona-synthesized)
+				// because CMCD reports actual CDN connection quality, not simulated conditions.
+				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(rawCurlStartTransfer*1000),(int)(rawCurlTotal*1000),(int)(resolve*1000));
 				// IsTuneTypeNew set to false in streamabstraction.cpp once top profile has been reached
 				if(IsTuneTypeNew)
 				{
@@ -8417,12 +8500,12 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vecto
 	aamp_utils::ClearAndRelease(buffer);
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SendSample(mediaType, sample);
+		sink->SendSample(mediaType, std::move(sample));
 	}
 }
 
@@ -8607,6 +8690,12 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mProgressReportOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
+	// Generate persona JSON from accumulated NetTrace data before going idle
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump))
+	{
+		aamptrace::NetPersonaFitter::GetInstance().GeneratePersonaJson(
+			aamptrace::NetPersonaFitter::kDefaultBasePath);
+	}
 	// Set state to IDLE irrespective of sending state change event or not
 	SetState(eSTATE_IDLE, sendStateChangeEvent);
 
@@ -14453,6 +14542,7 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->lSupportedTLSVersion = mSupportedTLSVersion;
 	inpData->mDnldConfig->bVerbose	=      ISCONFIGSET_PRIV(eAAMPConfig_CurlLogging);
 	inpData->mDnldConfig->bCurlThroughput = ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput);
+	inpData->mDnldConfig->networkPersonaFile = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
 
 	struct curl_slist* headers = GetCustomHeaders(eMEDIATYPE_MANIFEST);
 	std::unordered_map<std::string, std::vector<std::string>> sCustomHeaders;
@@ -14980,7 +15070,10 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	{
 		return mpStreamAbstractionAAMP->GetBufferedDuration();
 	}
-	return 0.0;
+	// Return a negative sentinel so callers can distinguish a genuine empty
+	// buffer from a transient lock-contention failure.  0.0 would be
+	// indistinguishable from an actually-empty buffer.
+	return -1.0;
 }
 
 /**
@@ -15008,6 +15101,8 @@ void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
 		config.maxLatencyMs = mAampLLDashServiceData.maxLatency;
 		config.rebufferingLatencyStepMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyStepSec) * 1000;
 		config.rebufferingLatencyMaxIncrementMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyMaxIncrementSec) * 1000;
+		config.dangerBufferMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyDangerBufferSec) * 1000;
+		config.latencyStableSec = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyStableDurationSec);
 		AAMPLOG_MIL("LL DASH Latency Config - minPlaybackRate: %f, maxPlaybackRate: %f, minLatencyMs: %f, targetLatencyMs: %f, maxLatencyMs: %f",
 			config.minPlaybackRate, config.maxPlaybackRate, config.minLatencyMs, config.targetLatencyMs, config.maxLatencyMs);
 		return;

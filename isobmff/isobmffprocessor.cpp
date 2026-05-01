@@ -89,9 +89,18 @@ IsoBmffProcessor::~IsoBmffProcessor()
 }
 
 /**
+ * @brief Check whether the processor performs PTS restamping internally.
+ * @return true if internal PTS restamping is configured and active
+ */
+bool IsoBmffProcessor::getPTSRestampStatus() const
+{
+	return isRestampConfigEnabled && (AAMP_NORMAL_PLAY_RATE == playRate);
+}
+
+/**
  *  @brief Process and send ISOBMFF fragment
  */
-bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 									bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	AAMPLOG_INFO("IsoBmffProcessor %s sending segment at pos:%f dur:%f fragmentPTSoffset: %.3f", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset);

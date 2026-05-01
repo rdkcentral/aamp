@@ -289,7 +289,7 @@ if(CMAKE_USE_ETHAN_LOG)
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 # Building jsbindings
-if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
+if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
 
 	set(LIBJSBINDINGS_SOURCES
@@ -370,6 +370,47 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
 		xcode_define_schema(aampjsbindings)
 		xcode_define_schema(uveExecuter)
 
+    elseif(CMAKE_PLATFORM_UBUNTU)
+        # On Ubuntu use the system JavaScriptCore provided by webkitgtk
+        pkg_check_modules(JSC javascriptcoregtk-4.1)
+        if(NOT JSC_FOUND)
+            pkg_check_modules(JSC javascriptcoregtk-4.0)
+        endif()
+        if(NOT JSC_FOUND)
+            message(FATAL_ERROR "JavaScriptCore library not found on Ubuntu. "
+                "Please install libjavascriptcoregtk-4.1-dev or libjavascriptcoregtk-4.0-dev.")
+        endif()
+        message("Found JavaScriptCore: ${JSC_LINK_LIBRARIES}")
+
+        include_directories(${JSC_INCLUDE_DIRS})
+        set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${JSC_LINK_LIBRARIES})
+        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+
+        target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${LIBAAMPJSBINDINGS_DEPENDS})
+        set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
+
+        install(TARGETS aampjsbindings DESTINATION lib)
+
+        set(LIBJSBINDINGS_SIMULATOR_SOURCES test/jsBindingTest/UVEBinding.cpp)
+
+        add_executable(uveExecuter ${LIBJSBINDINGS_SIMULATOR_SOURCES})
+
+        set_target_properties(uveExecuter PROPERTIES
+            COMPILE_FLAGS "${OS_CXX_FLAGS} ${LIBAAMP_DEFINES}")
+
+        target_include_directories(uveExecuter PRIVATE
+            ${JSC_INCLUDE_DIRS}
+            ${GSTREAMER_INCLUDE_DIRS}
+        )
+
+        target_link_libraries(uveExecuter PRIVATE
+            aampjsbindings
+            ${GSTREAMER_LINK_LIBRARIES}
+            ${JSC_LINK_LIBRARIES}
+        )
+
+        install(TARGETS uveExecuter DESTINATION bin)
+
     else()
         pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
         if(NOT WPE_WEBKIT_FOUND)
@@ -436,6 +477,7 @@ set(LIBAAMP_SOURCES
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	AampNetworkPersona.cpp AampNetworkPersona.h
 	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
@@ -491,6 +533,7 @@ set(LIBAAMP_SOURCES
 	AampDemuxDataTypes.h
 	net_trace.h
 	AampLatencyMonitor.cpp AampLatencyMonitor.h
+	simnet/net_persona_fitter.cpp simnet/net_persona_fitter.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -665,6 +708,7 @@ install(FILES
 	abr/RollingMedianOutlierEstimator.h
 	abr/HarmonicEwmaEstimator.h
 	abr/BandwidthEstimatorBase.h
+	AampSpeedCache.h
 	DESTINATION include
 )
 

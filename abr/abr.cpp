@@ -33,6 +33,7 @@
 #include <sys/time.h>
 #include <algorithm>
 #include "AampLogManager.h"
+#include "AampSpeedCache.h"
 
 //#define DEBUG_ENABLED
 
@@ -201,6 +202,16 @@ bool ABRManager::HasBandwidthEstimator() const
 	return (mBandwidthEstimator != nullptr);
 }
 
+double ABRManager::GetPredictedDownloadTimeSeconds(std::size_t segmentSizeBytes) const
+{
+	std::lock_guard<std::mutex> lock(mBandwidthEstimatorLock);
+	if (!mBandwidthEstimator)
+	{
+		return 0.0;
+	}
+	return mBandwidthEstimator->GetPredictedDownloadTimeSeconds(segmentSizeBytes);
+}
+
 /**
  * @brief Get initial profile index, choose the medium profile or
  * the profile whose bitrate >= the default bitrate.
@@ -268,7 +279,6 @@ void ABRManager::updateProfile()
 			iframeTrackInfo.push_back(info);
 		}
 	}
-	lock.unlock();
 	
 	// Exists iframe track
 	size_t iframeTrackCount = iframeTrackInfo.size();
@@ -326,6 +336,7 @@ void ABRManager::updateProfile()
 			}
 		}
 	}
+	lock.unlock();
 	
 #if defined(DEBUG_ENABLED)
 	AAMPLOG_MIL("Update profile info, mDesiredIframeProfile = %d, mLowestIframeProfile = %d", mDesiredIframeProfile, mLowestIframeProfile);
@@ -827,30 +838,6 @@ int ABRManager::getClosestProfileIndexByBandwidth( BitsPerSecond inputBandwidth 
 	}
 }
 
-/**
- * @struct SpeedCache
- * @brief Stores the information for cache speed
- */
-
-struct SpeedCache
-{
-	long last_sample_time_val;
-	long prev_dlnow;
-	long prevSampleTotalDownloaded;
-	long totalDownloaded;
-	long speed_now;
-	long start_val;
-	bool bStart;
-	
-	double totalWeight;
-	double weightedBitsPerSecond;
-	std::vector< std::pair<double,long> > mChunkSpeedData;
-	
-	SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false), totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
-	{
-	}
-};
-
 /** @brief Read Config values
  *  @return none
  */
@@ -1007,7 +994,12 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 
 void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfileIndex,BitsPerSecond nwBandwidth,double bufferValue,BitsPerSecond newBandwidth,BitrateChangeReason &mhBitrateReason,int &mMaxBufferCountCheck,const std::string& periodId)
 {
-	int abrThreshold = (int)((newBandwidth - nwBandwidth) * 100) / (int)nwBandwidth;
+	if (nwBandwidth <= 0)
+	{
+		AAMPLOG_INFO("nwBandwidth is %" BITSPERSECOND_FORMAT ", skipping rampup check", nwBandwidth);
+		return;
+	}
+	int abrThreshold = (int)(((int64_t)(newBandwidth - nwBandwidth) * 100) / (int64_t)nwBandwidth);
 	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d nwBandwidth %" BITSPERSECOND_FORMAT " bufferValue %lf newBandwidth %" BITSPERSECOND_FORMAT " threshold %d", currProfileIndex, newProfileIndex, nwBandwidth, bufferValue, newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage
@@ -1130,6 +1122,10 @@ BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int current
 	BitsPerSecond desiredProfilebw = 0;
 	BitsPerSecond currentbw = getBandwidthOfProfile(currentProfileIndex);
 	std::vector<ProfileInfo> availableProfiles = mProfiles;
+	availableProfiles.erase(
+		std::remove_if(availableProfiles.begin(), availableProfiles.end(),
+			[](const ProfileInfo &p) { return p.isIframeTrack; }),
+		availableProfiles.end());
 	int i = (int)availableProfiles.size();
 	if( i>0 )
 	{
