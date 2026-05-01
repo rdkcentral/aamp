@@ -680,3 +680,39 @@ TEST_F(AampStreamSinkManagerTests, MediaHeader_AddGetRemove)
     auto removed = manager.GetMediaHeader(trackId);
     EXPECT_EQ(removed, nullptr);
 }
+
+/*  @brief : - Specific error case leading to invalid encrypted headers
+*/
+TEST_F(AampStreamSinkManagerTests, CheckEncryptedHeaders_PlayerNotDeactivated)
+{
+    std::map<int, std::string> set_headers1;
+    std::map<int, std::string> set_headers2;
+    set_headers1.insert({1, "Test String1"});
+    set_headers2.insert({1, "Test String2"});
+	
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP2);
+    
+    AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
+
+    // Only expect one call to SetEncryptedAamp for the same player
+    EXPECT_CALL(*g_mockAampGstPlayer, SetEncryptedAamp(mPrivateInstanceAAMP1)).Times(1);
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP1, set_headers1);
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP1, set_headers1);
+
+    //-- not called here as expected: AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
+
+    AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
+
+    // called after next player activated
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
+
+    // Check that the encrypted info is still updated for the new player
+    EXPECT_CALL(*g_mockAampGstPlayer, SetEncryptedAamp(mPrivateInstanceAAMP2));
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP2, set_headers2);
+
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP2, true);
+}
+
