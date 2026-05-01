@@ -50,7 +50,7 @@ enum
 #define DEBUG_FUNC()
 #endif
 
-static const gchar *srcMimeTypes[] = { "video/x-h264", "video/x-h264(memory:SecMem)", "audio/mpeg", "video/x-h265", "video/x-h265(memory:SecMem)", "audio/x-eac3", "audio/x-gst-fourcc-ec_3", "audio/x-ac3","audio/x-opus", nullptr };
+static const gchar *srcMimeTypes[] = { "video/x-h264", "video/x-h264(memory:SecMem)", "audio/mpeg", "video/x-h265", "video/x-h265(memory:SecMem)", "audio/x-eac3", "audio/x-gst-fourcc-ec_3", "audio/x-ac3","audio/x-opus","audio/x-ac4", nullptr };
 
 /* class initialization */
 G_DEFINE_TYPE_WITH_CODE (GstAampCDMIDecryptor, gst_aampcdmidecryptor, GST_TYPE_BASE_TRANSFORM,
@@ -776,7 +776,7 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 			{
 				aampcdmidecryptor->streamtype = eMEDIATYPE_AUDIO;
 			}
-			else if (!g_strcmp0(capsinfo, "audio/x-eac3") || !g_strcmp0(capsinfo, "audio/x-ac3"))
+			else if (!g_strcmp0(capsinfo, "audio/x-eac3") || !g_strcmp0(capsinfo, "audio/x-ac3") || !g_strcmp0(capsinfo, "audio/x-ac4"))
 			{
 				aampcdmidecryptor->streamtype = eMEDIATYPE_AUDIO;
 			}
