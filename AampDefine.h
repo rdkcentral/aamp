@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.11"
+#define AAMP_VERSION "8.03"
 #define AAMP_TUNETIME_VERSION 8
 
 //Stringification of Macro : use two levels of macros
@@ -152,10 +152,17 @@
 #define DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS 1000	/**< Polling interval when buffer is medium in milliseconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS 2000		/**< Polling interval when buffer is high in milliseconds */
 
-#define DEFAULT_UNDERFLOW_DETECT_THRESHOLD_SEC 0.0		/**< Threshold to detect underflow in seconds */
+#define DEFAULT_UNDERFLOW_DETECT_THRESHOLD_SEC 0.2		/**< Threshold to detect underflow in seconds */
 #define DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC 1.0		/**< Threshold to resume from underflow in seconds */
 #define DEFAULT_UNDERFLOW_LOW_BUFFER_SEC 5.0			/**< Low buffer threshold in seconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC 10.0			/**< High buffer threshold in seconds */
+
+#define DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC 0.0  /*< Default is 0.0 means latency correction is enabled at all buffer values */
+#define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
+#define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 8.0	/*< LiveOffset(15s) - MaxLatency(7s) */
+#define DEFAULT_LATENCY_STABLE_DURATION_SEC 300.0		/*< Duration (s) of consecutive healthy buffer (latencyStableDurationSec) required before one restoration step */
+#define DEFAULT_LATENCY_DANGER_BUFFER_SEC 1.0			/*< Buffer level (s) below which latency thresholds are increased; buffer must stay above this level for latencyStableDurationSec before thresholds are restored */
+
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
@@ -187,15 +194,14 @@
 #define MAX_GST_VIDEO_BUFFER_BYTES			(GST_VIDEOBUFFER_SIZE_BYTES)
 #define MAX_GST_AUDIO_BUFFER_BYTES			(GST_AUDIOBUFFER_SIZE_BYTES)
 
-#define DEFAULT_LATENCY_MONITOR_DELAY			9					/**< Latency Monitor Delay */
-#define DEFAULT_LATENCY_MONITOR_INTERVAL		6					/**< Latency monitor Interval */
-#define DEFAULT_MIN_LOW_LATENCY			3					/**< min Default Latency */
-#define DEFAULT_MAX_LOW_LATENCY			9					/**< max Default Latency */
-#define DEFAULT_TARGET_LOW_LATENCY			6					/**< Target Default Latency */
+#define DEFAULT_LATENCY_MONITOR_DELAY_MS		5000		/**< Latency Monitor Delay */
+#define DEFAULT_LATENCY_MONITOR_INTERVAL_MS		1000		/**< Latency monitor interval */
+#define DEFAULT_MIN_LOW_LATENCY					5.0			/**< min Default Latency */
+#define DEFAULT_MAX_LOW_LATENCY					7.0			/**< max Default Latency */
+#define DEFAULT_TARGET_LOW_LATENCY				6.0			/**< Target Default Latency */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
-#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED    1.00f	   	/**< Live Catchup Normal play rate */
-#define AAMP_LLD_LATENCY_MONITOR_INTERVAL 		(1)   		/**< Latency monitor interval for LLD*/
+#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED	1.00f		/**< Live Catchup Normal play rate */
 #define AAMP_LLD_MINIMUM_CACHE_SEGMENTS 		(2)     	/**< Number of segments to be cached minimum before rate change*/
 #define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback; 4 sec to ABR; So Allow ABR first*/
 #define DEFAULT_MIN_BUFFER_LOW_LATENCY          (2.0f)      /**< Default minimum buffer for Low latency stream*/
@@ -287,19 +293,6 @@ typedef enum
 	AAMP_CUSTOM_DEV_CFG_SETTING     = 6,		/**< Highest priority */
 	AAMP_MAX_SETTING
 }ConfigPriority;
-
-/**
- * @brief Latency status
- */
-enum LatencyStatus
-{
-	LATENCY_STATUS_UNKNOWN=-1,     /**< The latency is Unknown */
-	LATENCY_STATUS_MIN,            /**< The latency is within range but less than minimum latency */
-	LATENCY_STATUS_THRESHOLD_MIN,  /**< The latency is within range but less than target latency but greater than minimum latency */
-	LATENCY_STATUS_THRESHOLD,      /**< The latency is equal to given latency from mpd */
-	LATENCY_STATUS_THRESHOLD_MAX,  /**< The latency is more that target latency but less than maximum latency */
-	LATENCY_STATUS_MAX             /**< The latency is more than maximum latency */
-};
 
 /**
  * @brief AAMP Function return values

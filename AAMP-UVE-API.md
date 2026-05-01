@@ -89,7 +89,7 @@ This document is targeted to application developers who are interested in evalua
 	<body>
 		<div id="videoContainer">
 			<video style="height:100%; width:100%; position:absolute; bottom:0; left:0">
-			    <source src="dummy.mp4" type=”video/ave”> <!-- hole  punching -->
+			    <source src="dummy.mp4" type="video/ave"> <!-- "video/ave" required as WPE browser hint to signal hole punching -->
 			</video>
 		</div>
 	</body>
@@ -163,16 +163,18 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | iframeDefaultBitrate | Number | 0 | Default bitrate for iframe track selection for non-4K assets (0 = auto). |
 | iframeDefaultBitrate4K | Number | 0 | Default bitrate for iframe track selection for 4K assets (0 = auto). |
 | initRampdownLimit | Number | 0 | Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. |
-| latencyMonitorDelay | Number | 9 | Delay in seconds before starting latency monitoring after tune completion. |
-| latencyMonitorInterval | Number | 1 | Time between latency checks in seconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
+| latencyMonitorDelayMs | Number | 5000 | Delay in milliseconds before starting latency monitoring after tune completion. |
+| latencyMonitorIntervalMs | Number | 1000 | Time between latency checks in milliseconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
+| latencyDangerBufferSec | Float | 1.0 | Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate the low-buffer condition. Once the buffer recovers above this level and remains healthy for `latencyStableDurationSec`, the thresholds are gradually restored toward their configured defaults. Zero disables the adaptive threshold feature entirely. |
+| latencyStableDurationSec | Float | 300.0 | Duration (seconds) of consecutive healthy buffer (above `latencyDangerBufferSec`) required before one restoration step is applied to the latency thresholds. Zero disables dynamic restoration entirely. |
 | licenseAnonymousRequest | Boolean | false | Enable/disable acquiring of license without token. |
 | licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time (milliseconds). |
 | licenseRetryWaitTime | Number | 500 | License retry wait interval (milliseconds). |
 | licenseServerUrl | String | - | URL to be used for license requests for encrypted(PR/WV) assets. |
 | linearTrickPlayFps | Number | 8 | Specify the framerate for Linear trickplay. |
-| lowLatencyMinValue | Number | 3 | Minimum acceptable latency (seconds). Avoids getting too close to live edge, preventing buffering. If latency drops below this, playback slows down to increase delay and avoid buffer underrun. |
+| lowLatencyMinValue | Number | 5 | Minimum acceptable latency (seconds). Avoids getting too close to live edge, preventing buffering. If latency drops below this, playback slows down to increase delay and avoid buffer underrun. |
 | lowLatencyTargetValue | Number | 6 | Target latency for playback (seconds). If reduced, playback will be closer to live edge, but with increased chance of buffering. |
-| lowLatencyMaxValue | Number | 9 | Maximum acceptable latency (seconds). Ensures playback does not fall too far behind live stream. If latency exceeds this, playback speeds up to catch up with live edge. |
+| lowLatencyMaxValue | Number | 7 | Maximum acceptable latency (seconds). Ensures playback does not fall too far behind live stream. If latency exceeds this, playback speeds up to catch up with live edge. |
 | lowLatencyMinBuffer | Float | 2 | Minimum buffer level the player should maintain for low latency buffering (seconds). |
 | lowLatencyTargetBuffer | Float | 4 | Target buffer size for low latency mode (seconds). Balances latency and stability by keeping a healthy buffer. |
 | maxABRBufferRampup | Number | 15 | Maximum ABR Buffer for Rampup in secs. |
@@ -180,6 +182,8 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |
 | minLatencyCorrectionPlaybackRate | Float | 0.97 | Minimum playback speed for latency correction. When the player detects that it’s too close to the live edge (or ahead of target latency), it can slow down playback slightly to increase latency without causing noticeable slow motion. |
 | normalLatencyCorrectionPlaybackRate | Float | 1.0 | Normal playback speed when latency is within acceptable range. Maintains standard playback when no correction is needed. |
+| rebufferLatencyMaxIncrementSec | Float | 8.0 | Maximum total accumulated increment (seconds) that can be added to latency thresholds across all rebuffering events. Caps the upward drift of `lowLatencyMinValue`, `lowLatencyTargetValue`, and `lowLatencyMaxValue`. Zero means no cap. |
+| rebufferLatencyStepSec | Float | 1.0 | Step size (seconds) added to all three latency thresholds (`lowLatencyMinValue`, `lowLatencyTargetValue`, `lowLatencyMaxValue`) each time the buffer drops below `latencyDangerBufferSec`. Allows the player to tolerate higher latency during poor network conditions. Zero disables the adaptive threshold feature entirely. |
 | playreadyOutputProtection | Boolean | false | Enable/disable HDCP output protection for DASH-PlayReady playback. |
 | preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 - No DRM, 1 - Widevine, 2 - PlayReady (Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
 | ceaFormat | Number | -1 | Preferred CEA option for closed captions. Default is stream-based. 0 - CEA 608, 1 - CEA 708 |
@@ -258,6 +262,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | preferredAudioType | String | - | Preferred accessibility type for descriptive audio in the available audio tracks list. Same can be done with setAudioTrack API also. |
 | langCodePreference | Number | 0 | Set the preferred format for language codes in other events/APIs. Available in version 2.6. Values: 0 - NO_LANGCODE_PREFERENCE, 1 - 3_CHAR_BIBLIOGRAPHIC_LANGCODE, 2 - 3_CHAR_TERMINOLOGY_LANGCODE, 3 - 2_CHAR_LANGCODE |
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions. |
+| preferredTextLabel | String | - | Label of desired text track in the available text tracks list. |
 | nativeCCRendering | Boolean | false | Use native closed caption support in AAMP. Available in version 2.6. |
 | enableLiveLatencyCorrection | Boolean | false | Enable correction of playback delay during regular live streaming (non-LLD). Keeps the video close to real-time by adjusting playback speed if it drifts behind. |
 | liveOffsetDriftCorrectionInterval | Number | 1 | The allowed delta from live offset configured (seconds). |
@@ -1262,6 +1267,8 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | Name  | Type | Description |
 | ---- | ---- | ---- |
 | name  | String | Human readable language name e.g: sub_eng. |
+| label  | String | Represents the label of the text track. |
+| instreamId | String | Identifier for in-band closed captions (for example, "CC1", "SERVICE1"). Typically present for CLOSED-CAPTIONS / in-band CEA-608/708 tracks when signaled via DASH MPD `<Accessibility ... value=...>`. |
 | language  | String | iso language code. e.g: eng |
 | codec  | String | codec associated with text track. e.g: stpp |
 | rendition  | String | Role for DASH. e.g: caption,subtitle,main. |
@@ -1390,14 +1397,15 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 |Name|Type|Description|
 |----|----|-----------|
 | language | String | ISO-639 text language preference. 2-character and 3-character codes are supported. |
-| languages | String | comma-delimited ISO-639 text language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
+| languages | String or String[] | For JSON input, either a single ISO-639 text language code string or an array of ISO-639 language codes in priority order (for example, ["eng","spa"]). When setPreferredTextLanguage is called with a non-JSON string parameter, a comma-delimited list of ISO-639 codes from highest to lowest priority (‘<HIGHEST>,<...>,<LOWEST>’) is also accepted. |
 | rendition | String | Optional preferred rendition for automatic text selection |
 | instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
-| label	| String | Preferred Label for automatic text selection |
-| accessibilityType | String |	Optional preferred accessibility Node for descriptive audio.|
-| accessibility | Object | Optional preferred accessibility object for audio |
-| accessibility.scheme | String | Preferred Accessibility scheme Id  |
-| accessibility.int_value | Number | Preferred Accessibility scheme Id value |
+| label	| String | Optional preferred label for automatic text selection |
+| accessibilityType | String | Optional preferred DASH role/type string for text track selection. This is used as the `preferred-text-type` value and is matched against `<Accessibility ... value=...>` entries with scheme `urn:mpeg:dash:role:2011`. |
+| accessibility | Object | Optional preferred Accessibility node criteria for text (for example, to select descriptive / VI tracks). This corresponds to the full `<Accessibility ...>` element and is independent of `accessibilityType`. |
+| accessibility.scheme | String | Preferred Accessibility scheme Id for the Accessibility node. |
+| accessibility.string_value | String | Preferred Accessibility scheme Id value for the Accessibility node when expressed as a string. |
+| accessibility.int_value | Number | Preferred Accessibility scheme Id value for the Accessibility node when expressed as a number. |
 
 - ###### Example :
 ```js
@@ -1405,6 +1413,7 @@ var trackPreferenceObject =
 {
     "languages": ["en", "de", "mul"],
     "rendition": "subtitle",
+    "label": "native",
     "accessibility":
     {
         "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
@@ -1426,22 +1435,45 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 ### getTextTrackInfo
 - Supported UVE version 4.4 and above.
 - Returns playing Text track information in JSON format.
-- Currently support is limited to only out-of-band captions.
+- Supports both out-of-band captions and in-band closed captions (when available).
+- Note: The in-band CC identifier field for this API is named `instreamID`
+  (capital `ID`), whereas `getAvailableTextTracks` uses `instreamId`.
+  Use the exact casing expected by each API when consuming these fields.
 
-- ###### Example :
+- ###### Examples :
+
+  - Out-of-band text track (e.g., WebVTT or TTML sidecar):
+
 ```js
-{
-    "name": "English"
-    "languages": "eng",
-    "codec": "stpp"
-    "type": "CLOSED-CAPTIONS"
-    "rendition": "alternate",
-    "accessibility":
+[
     {
-        "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
-        "int_value": 2
+        "name": "English",
+        "label": "native",
+        "language": "eng",
+        "codec": "stpp",
+        "type": "captions",
+        "rendition": "alternate",
+        "accessibility":
+        {
+            "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
+            "int_value": 2
+        }
     }
-}
+]
+```
+
+  - In-band closed captions (instream CC):
+
+```js
+[
+    {
+        "name": "CC1",
+        "label": "Service 1",
+        "language": "eng",
+        "type": "captions",
+        "instreamID": "1"
+    }
+]
 ```
 ---
 
@@ -1452,13 +1484,13 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 - ###### Example :
 ```js
 {
-    "preferred-text-languages" : ["eng", "ger", "mul"],
-    "preferred-text-labels": "subtitle",
-    "preferred-text-rendition": "",
-    "preferred-text-type": ""
+    "preferred-text-languages" : "eng,ger,mul",
+    "preferred-text-labels": "native",
+    "preferred-text-rendition": "alternate",
+    "preferred-text-type": "captions",
     "preferred-text-accessibility":
     {
-        "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
+        "schemeId": "urn:tva:metadata:cs:AudioPurposeCS:2007",
         "int_value": 2
     }
 }
@@ -2436,7 +2468,7 @@ Example:
 - sessionHandle:string
 - system:string Identifies the content watermarking protection provider, i.e. "fmts_asid" (FriendMTS).  Note: this is only valid when using SecManager.
 - status:string Additional information regarding security system state.  See below table:
-  
+
 | Code      | Name         |   Definition
 | --------- |------------- |--------------
 | 1         | GRANTED      | No security issues
@@ -2679,12 +2711,12 @@ Response:
 ```
 
 
-## Inband (CEA608/708) Closed Caption Management (legacy XREReceiver API) 
+## Inband (CEA608/708) Closed Caption Management (legacy XREReceiver API)
 * on scaled X1 devices this is mapped directly to receiver APIs interacting with RDK CC Manager
     * here by default will inherit X1 caption style settings as set by user through guide settings
     * apps can override caption styling, but typically wouldn't need to do so
 * on non-XRE devices this is implemented as a wrapper for backwards compatibility, but with limitations - only default styles will ever be applied, and with no way for app to change, and won't reflect guide settings
- 
+
 To use legacy XREReceiver inband closed captions, first register an event listener to discover decoder handle:
 ```
 player.addEventListener("decoderAvailable", decoderHandleAvailable);
@@ -2749,15 +2781,17 @@ player.setClosedCaptionStatus(false); // hide captions
 
 Get/Set CC track:
 ```js
-player.getTextTrack();             // returns JSON object listing track attributes
-player.setTextTrack(trackIdentifier);
+player.getTextTrack();             // returns the numeric index of the currently selected text track
+player.setTextTrack(trackIndex);   // set by numeric index (as returned by getTextTrack), or -1 to disable
 ```
 
 Get/Set CC style options:
 ```js
-player.getTextStyleOptions();      // returns JSON object reflecting current styling options
+player.getTextStyleOptions();      // returns a JSON-formatted string reflecting current styling options
 player.setTextStyleOptions(options); // set styling options (see setTextStyleOptions API for format)
 ```
+
+On newer devices there is no need to call `setTextStyleOptions`, as the Text Track plugin will automatically map guide-configured caption styling.
 
 ---
 

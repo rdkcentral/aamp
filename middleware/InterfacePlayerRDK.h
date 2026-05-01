@@ -40,7 +40,6 @@
 
 // Forward declarations
 class InterfacePlayerPriv;
-class AampGrowableBuffer;
 
 struct MonitorAVState
 {
@@ -166,8 +165,8 @@ class InterfacePlayerRDK
 		std::map<InterfaceCB, std::function<void(int)>> setupStreamCallbackMap;
         
 		PlayerScheduler mScheduler;
-        	InterfacePlayerRDK();
-        	~InterfacePlayerRDK();
+		InterfacePlayerRDK(bool isRialto = false);
+		~InterfacePlayerRDK();
 		InterfacePlayerPriv* GetPrivatePlayer();
 		/**
 		 * @brief Clears the flags for an idle task.

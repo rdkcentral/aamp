@@ -20,10 +20,13 @@
 #ifndef __ISOBMFFHELPER_H__
 #define __ISOBMFFHELPER_H__
 
+#include <cstdint>
 #include <cstdlib>
 #include <string>
-#include "AampGrowableBuffer.h"
+#include <vector>
 #include "AampLogManager.h"
+
+class IsoBmffBuffer;
 
 class IsoBmffHelper
 {
@@ -36,14 +39,14 @@ class IsoBmffHelper
 		 * @param[in,out] buffer ISOBMFF segment, contains a single key frame when the function returns
 		 * @retval false in case of failure, true otherwise
 		 */
-		bool ConvertToKeyFrame(AampGrowableBuffer &buffer);
+		bool ConvertToKeyFrame(std::vector<uint8_t> &buffer);
 
 		/**
 		 * @fn RestampPts
 		 *
 		 * @brief Restamp the PTS in the ISO BMFF boxes in the buffer, by adding an offset
 		 *
-		 * @param[in] buffer - Pointer to the AampGrowableBuffer
+		 * @param[in] buffer - buffer containing the ISO BMFF boxes to restamp
 		 * @param[in] ptsOffset - Offset to be added to PTS values
 		 * @param[in] fragmentUrl - Fragment URL, used in logging
 		 * @param[in] trackName - Media track name, used in logging
@@ -52,7 +55,7 @@ class IsoBmffHelper
 		 * @retval true  - PTS values were restamped
 		 * @retval false - There was a problem restamping PTS values
 		 */
-		bool RestampPts(AampGrowableBuffer &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale);
+		bool RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale);
 
 		/**
 		 * @fn SetTimescale
@@ -65,7 +68,7 @@ class IsoBmffHelper
 		 * @retval true  - Timescale was set in the ISO BMFF box
 		 * @retval false - There was a problem setting the timescale
 		 */
-		bool SetTimescale(AampGrowableBuffer &buffer, uint32_t timeScale);
+		bool SetTimescale(std::vector<uint8_t> &buffer, uint32_t timeScale);
 
 		/**
 		 * @fn SetPtsAndDuration
@@ -83,7 +86,7 @@ class IsoBmffHelper
 		 * @retval true  - PTS and duration were set in the ISOBMFF boxes
 		 * @retval false - Setting failed
 		 */
-		bool SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration);
+		bool SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint64_t duration);
 
 		/**
 		 * @fn ClearMediaHeaderDuration
@@ -95,7 +98,17 @@ class IsoBmffHelper
 		 * @retval true  - Sample duration was cleared in the ISO BMFF box
 		 * @retval false - Failed to parse the buffer or clear the sample duration
 		 */
-		bool ClearMediaHeaderDuration(AampGrowableBuffer &buffer);
+		bool ClearMediaHeaderDuration(std::vector<uint8_t> &buffer);
+
+	private:
+		/**
+		 * @brief Create an IsoBmffBuffer from a data buffer and parse it
+		 *
+		 * @param[out] isoBmffBuffer - The IsoBmffBuffer to initialise and parse
+		 * @param[in]  buffer - The raw data buffer
+		 * @return true if parsing succeeded, false otherwise
+		 */
+		bool InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8_t> &buffer);
 };
 
 #endif /* __ISOBMFFHELPER_H__ */

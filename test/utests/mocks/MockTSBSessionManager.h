@@ -29,7 +29,7 @@ public:
 	MOCK_METHOD(void, Init, ());
 	MOCK_METHOD(std::shared_ptr<AampTsbReader>, GetTsbReader, (AampMediaType mediaType));
 	MOCK_METHOD(bool, StartAdReservation, (const std::string &, uint64_t, AampTime));
-	MOCK_METHOD(bool, EndAdReservation, (const std::string &, uint64_t, AampTime));
+	MOCK_METHOD(bool, EndAdReservation, (const std::string &, uint64_t, AampTime, const std::string &));
 	MOCK_METHOD(bool, StartAdPlacement, (const std::string &, uint32_t, AampTime, double, uint32_t));
 	MOCK_METHOD(bool, EndAdPlacement, (const std::string &, uint32_t, AampTime, double, uint32_t));
 	MOCK_METHOD(bool, EndAdPlacementWithError, (const std::string &, uint32_t, AampTime, double, uint32_t));
@@ -38,6 +38,7 @@ public:
 	MOCK_METHOD(bool, PushNextTsbFragment, (MediaStreamContext*, uint32_t));
 	MOCK_METHOD(AAMPStatusType, InvokeTsbReaders, (double &, float, TuneType));
 	MOCK_METHOD(double, GetTotalStoreDuration, (AampMediaType));
+	MOCK_METHOD(void, NotifyVideoTsbWaiters, ());
 };
 
 extern MockTSBSessionManager *g_mockTSBSessionManager;

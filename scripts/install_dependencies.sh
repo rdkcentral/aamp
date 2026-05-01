@@ -63,6 +63,14 @@ function install_pkgs_darwin_fn()
         PKGDIR="`brew --prefix ${PKG}`/lib/pkgconfig:"
         INSTALLED_PKGCONFIG=$PKGDIR$INSTALLED_PKGCONFIG
 
+        # Symlink openjdk so the system java wrapper can find it
+        if [ "$PKG" = "openjdk@21" ]; then
+            if [ ! -e /Library/Java/JavaVirtualMachines/openjdk-21.jdk ]; then
+                JAVA_PREFIX=$(brew --prefix "$PKG")
+                sudo ln -sfn "$JAVA_PREFIX/libexec/openjdk.jdk" /Library/Java/JavaVirtualMachines/openjdk-21.jdk
+            fi
+        fi
+
 	# Add the path to the pkgconfig directory to the PKG_CONFIG_PATH for openldap and krb5
         if [ "${PKG}" = "openldap" ] || [ "${PKG}" = "krb5" ]; then
             brew link $PKG --force
@@ -227,7 +235,7 @@ function install_pkgs_fn()
           brew update
       fi
 
-      install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl
+      install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl wavpack
       install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5 "openjdk@21"
 
       # Check if running on arm64 with macOS 15.5 or later

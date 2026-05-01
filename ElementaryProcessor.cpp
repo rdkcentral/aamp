@@ -44,32 +44,38 @@ ElementaryProcessor::~ElementaryProcessor()
 /**
  *  @brief Process and send Elementary fragment
  */
-bool ElementaryProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
-										bool isInit,process_fcn_t processor, bool &ptsError)
+bool ElementaryProcessor::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+										bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	ptsError = false;
 	bool ret = true;
-	ret = setTuneTimePTS(pBuffer->data(), pBuffer->size(), position, duration, discontinuous, ptsError);
+	ret = setTuneTimePTS(buffer.data(), buffer.size(), position, duration, discontinuous, ptsError);
 	if (ret)
 	{
-		AAMPLOG_INFO("IsoBmffProcessor:: eMEDIATYPE_SUBTITLE sending segment at pos:%f dur:%f", position, duration);
-		sendStream(pBuffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
+		AAMPLOG_INFO("ElementaryProcessor::sendSegment pos:%f dur:%f", position, duration);
+		ret = sendStream(buffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 	}
-	return true;
+	return ret;
 }
 
 /**
  *  @brief send stream based on media format
  */
-void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset,bool discontinuous,bool isInit)
+bool ElementaryProcessor::sendStream(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit)
 {
+	if (buffer.empty())
+	{
+		AAMPLOG_ERR("ElementaryProcessor::sendStream: buffer is empty, skipping injection");
+		return false;
+	}
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
-		p_aamp->SendStreamTransfer((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+		p_aamp->SendStreamTransfer((AampMediaType)eMEDIATYPE_SUBTITLE, buffer, position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+		return true;
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetVector(), position, position, duration);
+		return p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, buffer, position, position, duration);
 	}
 }
 

@@ -27,6 +27,7 @@
 #include "aampgstplayer.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamSink.h"
+#include "MockStreamAbstractionAAMP.h"
 #include "MockPrivateInstanceAAMP.h"
 
 using ::testing::_;
@@ -61,7 +62,11 @@ protected:
 
         g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 
+        g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP2);
+
         g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP1);
+
+        mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
         const auto id3_callback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP1, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
         mId3HandlerCallback1 = id3_callback;
@@ -78,6 +83,10 @@ protected:
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
+
+        mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = nullptr;
+        delete g_mockStreamAbstractionAAMP;
+        g_mockStreamAbstractionAAMP = nullptr;
 
         delete mPrivateInstanceAAMP2;
         mPrivateInstanceAAMP2 = nullptr;
@@ -327,13 +336,174 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _)).Times(0);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
 
-    /* ActivatePlayer() calls PrivateInstanceAAMP::GetPositionMs() to get the current position of the
-    second AAMP private instance and AAMPGstPlayer::Flush() with the position in seconds. */
-    long long positionMs = 5000;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs()).WillOnce(Return(positionMs));
-    double positionSec = (positionMs / 1000.0);
+    mPrivateInstanceAAMP2->mMediaFormat = eMEDIAFORMAT_DASH;
+    /* ActivatePlayer() calls GetFirstPTS() of StreamAbstractionAAMP to get the
+    flush position of the second AAMP private instance and
+    AAMPGstPlayer::Flush() gets called with this position in seconds. */
+    double flushPosition = 5.0;
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetFirstPTS()).WillOnce(Return(flushPosition));
+
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _)).Times(1);
-    EXPECT_CALL(*g_mockAampGstPlayer, Flush(positionSec, _, true)).Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, Flush(flushPosition, _, true)).Times(1);
+    AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
+}
+
+/*
+    @brief: - Tests SetTuned sets the tuned flag for an inactive player
+    Test Procedure: -
+    Create a stream sink and deactivate it (making it inactive).
+    Call SetTuned to mark it as tuned.
+    Verify the tuned flag can be read back via GetStreamSink and checking IsTuned.
+*/
+TEST_F(AampStreamSinkManagerTests, SetTuned_MarksInactivePlayerAsTuned)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    // Set the tuned flag
+    AampStreamSinkManager::GetInstance().SetTuned(mPrivateInstanceAAMP1);
+
+    // Get the inactive sink and verify it's tuned
+    StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+    ASSERT_NE(sink, nullptr);
+
+    AampStreamSinkInactive *inactiveSink = dynamic_cast<AampStreamSinkInactive*>(sink);
+    ASSERT_NE(inactiveSink, nullptr);
+    EXPECT_TRUE(inactiveSink->IsTuned());
+}
+
+/*
+    @brief: - Tests that IsTuned returns false by default for a newly created inactive sink
+    Test Procedure: -
+    Create a stream sink and deactivate it.
+    Without calling SetTuned, verify IsTuned returns false.
+*/
+TEST_F(AampStreamSinkManagerTests, IsTuned_DefaultsToFalse)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    // Get the inactive sink and verify it's not tuned by default
+    StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+    ASSERT_NE(sink, nullptr);
+
+    AampStreamSinkInactive *inactiveSink = dynamic_cast<AampStreamSinkInactive*>(sink);
+    ASSERT_NE(inactiveSink, nullptr);
+    EXPECT_FALSE(inactiveSink->IsTuned());
+}
+
+/*
+    @brief: - Tests GetStoppingStreamSink returns single pipeline sink when no tuned inactive players exist
+    Test Procedure: -
+    In single pipeline mode with no active players and no tuned inactive players,
+    GetStoppingStreamSink should return the single pipeline sink (mGstPlayer).
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_NoTunedInactivePlayers_ReturnsSinglePipeline)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    StreamSink *singlePipelineSink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+    // Deactivate player but don't tune it
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+
+    // GetStoppingStreamSink should return the single pipeline sink
+    StreamSink *stoppingSink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+    EXPECT_EQ(singlePipelineSink, stoppingSink);
+}
+
+/*
+    @brief: - Tests GetStoppingStreamSink returns inactive sink when tuned inactive players exist
+    Test Procedure: -
+    In single pipeline mode with no active players but a tuned inactive player exists,
+    GetStoppingStreamSink should NOT return the single pipeline sink but the specific player's sink.
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_WithTunedInactivePlayers_ReturnsSpecificSink)
+{
+    // Create two players
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+
+    StreamSink *singlePipelineSink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+    // Deactivate both players
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP2, false);
+
+    // Mark player2 as tuned
+    AampStreamSinkManager::GetInstance().SetTuned(mPrivateInstanceAAMP2);
+
+    // GetStoppingStreamSink for player1 should NOT return the single pipeline sink
+    // because player2 is tuned
+    StreamSink *stoppingSink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+    StreamSink *player1Sink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+    EXPECT_EQ(player1Sink, stoppingSink);
+    EXPECT_NE(singlePipelineSink, stoppingSink);
+}
+
+/*
+    @brief: - Tests GetStoppingStreamSink ignores the calling aamp when checking for tuned players
+    Test Procedure: -
+    In single pipeline mode with no active players, if only the calling player is tuned,
+    GetStoppingStreamSink should still return the single pipeline sink.
+*/
+TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_IgnoresCallingPlayerTunedStatus)
+{
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    StreamSink *singlePipelineSink = AampStreamSinkManager::GetInstance().GetStreamSink(mPrivateInstanceAAMP1);
+
+    // Deactivate and tune player1
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, false);
+    AampStreamSinkManager::GetInstance().SetTuned(mPrivateInstanceAAMP1);
+
+    // GetStoppingStreamSink for player1 should return the single pipeline sink
+    // because the calling player (player1) itself should be ignored
+    StreamSink *stoppingSink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(mPrivateInstanceAAMP1);
+    EXPECT_EQ(singlePipelineSink, stoppingSink);
+}
+
+/*
+    @brief: - verifies that progressive ActivatePlayer() uses stream position
+    Test Procedure
+    Initialize AampStreamSinkManager into single pipeline mode.
+    Create 1 sink, it will be the active sink.
+    For second player with progressive format, verify GetStreamPosition() is used
+*/
+TEST_F(AampStreamSinkManagerTests, ChangeAampTests_ProgressiveUsesStreamPosition)
+{
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _))
+        .Times(0);
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _))
+        .Times(0);
+
+    AampStreamSinkManager::GetInstance().CreateStreamSink(
+        mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(
+        mPrivateInstanceAAMP1);
+
+    AampStreamSinkManager::GetInstance().CreateStreamSink(
+        mPrivateInstanceAAMP2, mId3HandlerCallback2);
+
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP1, _))
+        .Times(0);
+    AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
+
+    mPrivateInstanceAAMP2->mMediaFormat = eMEDIAFORMAT_PROGRESSIVE;
+    /* ActivatePlayer() calls GetStreamPosition() of StreamAbstractionAAMP to get the
+    flush position of the second AAMP private instance and
+    AAMPGstPlayer::Flush() gets called with this position in seconds. */
+    double flushPosition = 7.0;
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetStreamPosition())
+        .WillOnce(Return(flushPosition));
+
+    EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _))
+        .Times(1);
+    EXPECT_CALL(*g_mockAampGstPlayer, Flush(flushPosition, _, true)).Times(1);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
 }
 

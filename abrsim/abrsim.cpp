@@ -220,52 +220,35 @@ public:
 			ttfbMs += mChar.ttfb_spike_ms;
 		}
 		
-		// Burst structure
-		int numBursts = mChar.bursts_per_segment;
-		result.numBursts = numBursts;
-		
-		// Distribute segment bytes across bursts with variation
-		std::vector<double> burstSizes = distributeBytesAcrossBursts(segmentBytes, numBursts);
-		
-		// Simulate data transfer with pacing
-		double transferTimeMs = 0.0;
-		double totalBytesTransferred = 0.0;
-		
-		for (int b = 0; b < numBursts; ++b) {
-			// Update throughput state (AR(1) lognormal)
-			updateThroughputState();
-			double burstThrBps = std::exp(mThrStateLn);
-			
-			// Burst transmission time
-			double burstBytes = burstSizes[b];
-			double burstTimeMs = (burstBytes / burstThrBps) * 1000.0;
-			
-			// Add flush jitter
-			std::normal_distribution<double> flushDist(0.0, mChar.flush_jitter_ms);
-			burstTimeMs += std::abs(flushDist(mRng));
-			
-			transferTimeMs += burstTimeMs;
-			totalBytesTransferred += burstBytes;
-			
-			// Inter-burst gap (cadence)
-			if (b < numBursts - 1) {
-				std::normal_distribution<double> cadenceDist(
-					mChar.cadence_ms, mChar.cadence_jitter_ms);
-				double gapMs = std::max(0.0, cadenceDist(mRng));
-				
-				// Occasional late chunk
-				std::bernoulli_distribution lateDist(mChar.late_chunk_p);
-				if (lateDist(mRng)) {
-					gapMs += mChar.late_chunk_extra_ms;
-					result.hadStall = true;
-				}
-				
-				transferTimeMs += gapMs;
-			}
+		// mean_thr_mbps is the effective goodput of the link — it governs how long
+		// the download takes.  Cadence/burst parameters model *how* bytes arrive
+		// (bursty vs smooth) but do NOT add idle time on top of the data transfer;
+		// that mistake caused cadence gaps to reduce effective throughput far below
+		// the persona's stated bandwidth.
+		result.numBursts = mChar.bursts_per_segment;
+
+		// Update throughput state (AR(1) lognormal around mean_thr_mbps)
+		updateThroughputState();
+		double effectiveBytesPerSec = std::exp(mThrStateLn);
+
+		// Core transfer time driven by effective goodput
+		double transferTimeMs = (segmentBytes / effectiveBytesPerSec) * 1000.0;
+
+		// Small per-burst flush jitter (TCP delivery irregularity within the window)
+		std::normal_distribution<double> flushDist(0.0, mChar.flush_jitter_ms);
+		for (int b = 0; b < mChar.bursts_per_segment; ++b) {
+			transferTimeMs += std::abs(flushDist(mRng));
 		}
-		
+
+		// Occasional late-chunk stall (packet loss / retransmit)
+		std::bernoulli_distribution lateDist(mChar.late_chunk_p);
+		if (lateDist(mRng)) {
+			transferTimeMs += mChar.late_chunk_extra_ms;
+			result.hadStall = true;
+		}
+
 		result.durationMs = setupDelayMs + ttfbMs + transferTimeMs;
-		result.throughputBps = (totalBytesTransferred * 8000.0) / result.durationMs;
+		result.throughputBps = (segmentBytes * 8000.0) / result.durationMs;
 		
 		return result;
 	}
@@ -283,27 +266,6 @@ private:
 		mThrStateLn = mMeanThrLn * (1.0 - mChar.thr_rho) + mChar.thr_rho * mThrStateLn + innov(mRng);
 	}
 	
-	std::vector<double> distributeBytesAcrossBursts(size_t totalBytes, int numBursts) {
-		std::vector<double> sizes(numBursts);
-		
-		// Generate weights with variation
-		std::gamma_distribution<double> gammaDist(
-			1.0 / (mChar.burst_bytes_cv * mChar.burst_bytes_cv),
-			mChar.burst_bytes_cv * mChar.burst_bytes_cv);
-		
-		double sumWeights = 0.0;
-		for (int i = 0; i < numBursts; ++i) {
-			sizes[i] = gammaDist(mRng);
-			sumWeights += sizes[i];
-		}
-		
-		// Normalize to sum to totalBytes
-		for (int i = 0; i < numBursts; ++i) {
-			sizes[i] = (sizes[i] / sumWeights) * totalBytes;
-		}
-		
-		return sizes;
-	}
 };
 
 // =============================================================================
@@ -857,45 +819,46 @@ public:
 			profile->avgSegmentBytes, profile->segmentSizeStdDev);
 		double segmentBytes = std::max(1000.0, sizeDist(mRng));
 		
+		// Log buffer level at download start (pre-download high point).
+		// Together with the nadir and post-injection events this produces the
+		// correct sawtooth: drain during download, vertical jump at injection,
+		// gradual drain until the next segment is needed.
+		SimulationEvent startEvent{};
+		startEvent.timeS = mSimTimeS;
+		startEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
+		startEvent.profileIndex = mCurrentProfile;
+		startEvent.downloadTimeMs = 0.0;
+		startEvent.throughputBps = 0.0;
+		startEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+		startEvent.description = "segment_start";
+		mLogger.log(startEvent);
+
 		// Simulate download
 		auto result = mNetSim.simulateDownload(static_cast<size_t>(segmentBytes));
 		double downloadTimeS = result.durationMs / 1000.0;
 		
-		// During download, playback continues (buffer consumed)
-		// Only consume if not rebuffering
-		if (!mBuffer.isRebuffering()) {
+		// During download, playback continues (buffer consumed).
+		// Segment 0 is initial fill — playback hasn't started yet.
+		// Calling consumeBuffer on an empty buffer would push it negative and
+		// incorrectly trigger rebuffering state before tune-in is complete.
+		if (!mBuffer.isRebuffering() && mCurrentSegmentNum > 0) {
 			mBuffer.consumeBuffer(downloadTimeS);
 			mPlaybackTimeS += downloadTimeS;
-		} else {
+		} else if (mBuffer.isRebuffering()) {
 			// Rebuffering - playback stalled, track rebuffer time
 			mBuffer.addRebufferTime(downloadTimeS);
 		}
-			
-		// Log buffer BEFORE segment injection (after download consumption)
-		SimulationEvent bufferBeforeEvent{};
-		bufferBeforeEvent.timeS = mSimTimeS + downloadTimeS;
-		bufferBeforeEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
-		bufferBeforeEvent.profileIndex = mCurrentProfile;
-		bufferBeforeEvent.downloadTimeMs = 0.0;
-		bufferBeforeEvent.throughputBps = 0.0;
-		bufferBeforeEvent.bufferLevelS = mBuffer.getCurrentBuffer();
-		bufferBeforeEvent.description = "Before segment injection";
-		mLogger.log(bufferBeforeEvent);
-		
+
+		// Capture pre-injection buffer level (nadir — lowest point, shows drain risk).
+		double preInjectionBuffer = mBuffer.getCurrentBuffer();
+
 		// Download completes - add segment to buffer
 		mBuffer.addSegment(mLadder.segmentDurationS);
-		
-		// Log buffer AFTER segment injection (show the jump)
-		SimulationEvent bufferAfterEvent{};
-		bufferAfterEvent.timeS = mSimTimeS + downloadTimeS;
-		bufferAfterEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
-		bufferAfterEvent.profileIndex = mCurrentProfile;
-		bufferAfterEvent.downloadTimeMs = 0.0;
-		bufferAfterEvent.throughputBps = 0.0;
-		bufferAfterEvent.bufferLevelS = mBuffer.getCurrentBuffer();
-		bufferAfterEvent.description = "After segment injection (+" + std::to_string(mLadder.segmentDurationS) + "s)";
-		mLogger.log(bufferAfterEvent);
-		if (mBuffer.isRebuffering() && mBuffer.getCurrentBuffer() > mBuffer.getMinBuffer()) {
+
+		// Resume playback as soon as one full segment is available.
+		// Using segmentDurationS (rather than minBuffer=2.0) avoids the case where
+		// minBuffer > segmentDuration causes extra flat segments during recovery.
+		if (mBuffer.isRebuffering() && mBuffer.getCurrentBuffer() >= mLadder.segmentDurationS) {
 			SimulationEvent resumeEvent{};
 			resumeEvent.timeS = mPlaybackTimeS;
 			resumeEvent.type = SimulationEvent::REBUFFER_END;
@@ -910,14 +873,14 @@ public:
 		mSimTimeS += downloadTimeS;
 		mCurrentSegmentNum++;
 		
-		// Log download event
+		// Log download event (nadir: pre-injection level).
 		SimulationEvent downloadEvent{};
 		downloadEvent.timeS = mSimTimeS;
 		downloadEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
 		downloadEvent.profileIndex = mCurrentProfile;
 		downloadEvent.downloadTimeMs = result.durationMs;
 		downloadEvent.throughputBps = result.throughputBps;
-		downloadEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+		downloadEvent.bufferLevelS = preInjectionBuffer;
 		if (mIsLive) {
 			double latency = mLiveEdgeS - mPlaybackTimeS;
 			downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + 
@@ -926,8 +889,21 @@ public:
 			downloadEvent.description = "Profile " + std::to_string(profile->bitrateBps / 1000) + " kbps";
 		}
 		mLogger.log(downloadEvent);
+
+		// Log post-injection event at the same timestamp so the chart shows a
+		// vertical jump up (instantaneous injection) rather than a gradual ramp.
+		// downloadTimeMs=0 and throughputBps=0 exclude it from bandwidth/timeline charts.
+		SimulationEvent injectEvent{};
+		injectEvent.timeS = mSimTimeS;
+		injectEvent.type = SimulationEvent::SEGMENT_DOWNLOAD;
+		injectEvent.profileIndex = mCurrentProfile;
+		injectEvent.downloadTimeMs = 0.0;
+		injectEvent.throughputBps = 0.0;
+		injectEvent.bufferLevelS = mBuffer.getCurrentBuffer();
+		injectEvent.description = "segment_injected";
+		mLogger.log(injectEvent);
 		
-		// ABR decision
+		// ABR decision — happens after injection
 		int newProfile = makeABRDecision(result, profile);
 		if (newProfile != mCurrentProfile) {
 			SimulationEvent profileEvent{};
