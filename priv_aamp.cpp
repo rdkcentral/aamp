@@ -3285,11 +3285,16 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 	at2.send(telemetryName, intData, {/*string data*/}, {/*float data*/});
 #endif //AAMP_TELEMETRY_SUPPORT
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+}
 
-	// If rebuffering started, notify latency monitor to relax the latency band
-	if (bufferingStarted)
+/**
+ * @brief Forward the current buffer level to the latency monitor.
+ */
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+	if (mLatencyMonitor)
 	{
-		mLatencyMonitor->OnRebufferingStart();
+		mLatencyMonitor->OnBufferLevelUpdate(bufferMs);
 	}
 }
 
@@ -4616,22 +4621,23 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 		}
 
-		// extract path component (after domain) from URL
+		// extract path component (after domain) from URL — lambda defined once as
+		// a static local; actual call and media-type string only evaluated when the
+		// tracer is enabled to avoid per-download work on the disabled hot path.
 		static const auto pathOnly = [](const std::string& u)->std::string {
 			size_t s = 0, p = u.find("://");
 			s = (p==std::string::npos) ? 0 : (p+3);
 			s = u.find('/', s);
 			return (s==std::string::npos) ? u : u.substr(s);
 		};
-		const char* mt_str =
-		(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
-		(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
-		(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
-		(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
-
 		static std::atomic<uint64_t> g_req_id{1};
 		std::unique_ptr<aamptrace::NetTrace> net_owner;
 		if (netTracerEnabled) {
+			const char* mt_str =
+			(mediaType==eMEDIATYPE_VIDEO)    ? "video" :
+			(mediaType==eMEDIATYPE_AUDIO)    ? "audio" :
+			(mediaType==eMEDIATYPE_SUBTITLE) ? "text"  :
+			(mediaType==eMEDIATYPE_MANIFEST) ? "manifest" : "other";
 			net_owner = std::make_unique<aamptrace::NetTrace>(
 				g_req_id.fetch_add(1), pathOnly(remoteUrl), mt_str,
 				/*chunked=*/false, kNetTraceBurstGapThresholdS, kNetTraceLateGapThresholdS);
@@ -8684,6 +8690,12 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mProgressReportOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
+	// Generate persona JSON from accumulated NetTrace data before going idle
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_NetTraceCsvDump))
+	{
+		aamptrace::NetPersonaFitter::GetInstance().GeneratePersonaJson(
+			aamptrace::NetPersonaFitter::kDefaultBasePath);
+	}
 	// Set state to IDLE irrespective of sending state change event or not
 	SetState(eSTATE_IDLE, sendStateChangeEvent);
 
@@ -15058,7 +15070,10 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	{
 		return mpStreamAbstractionAAMP->GetBufferedDuration();
 	}
-	return 0.0;
+	// Return a negative sentinel so callers can distinguish a genuine empty
+	// buffer from a transient lock-contention failure.  0.0 would be
+	// indistinguishable from an actually-empty buffer.
+	return -1.0;
 }
 
 /**
@@ -15086,6 +15101,8 @@ void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
 		config.maxLatencyMs = mAampLLDashServiceData.maxLatency;
 		config.rebufferingLatencyStepMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyStepSec) * 1000;
 		config.rebufferingLatencyMaxIncrementMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyMaxIncrementSec) * 1000;
+		config.dangerBufferMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyDangerBufferSec) * 1000;
+		config.latencyStableSec = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyStableDurationSec);
 		AAMPLOG_MIL("LL DASH Latency Config - minPlaybackRate: %f, maxPlaybackRate: %f, minLatencyMs: %f, targetLatencyMs: %f, maxLatencyMs: %f",
 			config.minPlaybackRate, config.maxPlaybackRate, config.minLatencyMs, config.targetLatencyMs, config.maxLatencyMs);
 		return;
