@@ -27,9 +27,10 @@ MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
 // AAMPGstPlayer::id3_callback_t mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t & ){ };
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
+	: aamp(aamp),
+	  mEncryptedAamp(nullptr),
+	  mEncryptedAampId(-1)
 {
-	mEncryptedAampId = -1;
-	mEncryptedAamp = nullptr;
 }
 
 AAMPGstPlayer::~AAMPGstPlayer()
