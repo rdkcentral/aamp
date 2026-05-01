@@ -2400,14 +2400,29 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 			if(tsbSessionManager)
 			{
+				const double sinkBuffer = bufferValue; /**< Actual GStreamer sink buffer depth */
 				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
-				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
-				bufferValue += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
+				double inverseBuffer = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
+				inverseBuffer += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
 				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
-							 bufferValue, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
-				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
+							 inverseBuffer, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
+				if(inverseBuffer < 0) /** Correct the inverse buffer; it may become -ve*/
 				{
-					bufferValue = 0;
+					inverseBuffer = 0;
+				}
+				const double sinkLowThreshold = 2.0 * track->fragmentDurationSeconds;
+				if(sinkBuffer < sinkLowThreshold)
+				{
+					/**< Sink is critically low; inverse buffer is an unreliable ABR signal.
+					 *   Use the actual GStreamer sink depth so ABR can downswitch before
+					 *   the pipeline starves (VPAAMP-238). */
+					AAMPLOG_WARN("Sink buffer (%.02lf)s below threshold (%.02lf)s during TSB live-edge; using sink depth for ABR instead of inverse buffer (%.02lf)s",
+								 sinkBuffer, sinkLowThreshold, inverseBuffer);
+					bufferValue = sinkBuffer;
+				}
+				else
+				{
+					bufferValue = inverseBuffer;
 				}
 			}
 			else
