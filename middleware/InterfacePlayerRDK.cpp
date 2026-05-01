@@ -3365,6 +3365,18 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			if (nextState != validateStateWithMsTimeout(this,nextState, 100))
 			{
 				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED GstState %d", nextState);
+				if (nextState == GST_STATE_PAUSED)
+				{
+					/* The PAUSED transition timed out.  Cancel it by requesting PLAYING so
+					 * GStreamer does not settle into PAUSED with no recovery path.
+					 * Return false so PausePipeline skips mSinkPaused=true, keeping the
+					 * SetBufferingState(false) resume path reachable (VPAAMP-238). */
+					SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING);
+					interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
+					interfacePlayerPriv->gstPrivateContext->paused = false;
+					interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
+					return false;
+				}
 			}
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
