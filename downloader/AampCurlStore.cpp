@@ -356,10 +356,9 @@ CURL* CurlStore::CurlEasyInitWithOpt ( PrivateInstanceAAMP *aamp, const std::str
 	long dns_cache_timeout = GETCONFIGVALUE(eAAMPConfig_Dns_CacheTimeout);
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
 	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SHARE, aamp->mCurlShared);
-
 	aamp->curlDLTimeout[instId] = DEFAULT_CURL_TIMEOUT * 1000;
 
-	AAMPLOG_TRACE("CurlConnectTimeout : %d CurlTimeout : %ld curlDLTimeout : %ld instId : %d set for curlEasyhdl : %p",CurlConnectTimeout,DEFAULT_CURL_TIMEOUT,aamp->curlDLTimeout[instId],instId,curlEasyhdl);
+	AAMPLOG_INFO("CurlConnectTimeout : %d CurlTimeout : %ld curlDLTimeout : %ld instId : %d set for curlEasyhdl : %p dns_cache_timeout : %ld",CurlConnectTimeout,DEFAULT_CURL_TIMEOUT,aamp->curlDLTimeout[instId],instId,curlEasyhdl,dns_cache_timeout);
 	if (!proxyName.empty())
 	{
 		/* use this proxy */
