@@ -652,7 +652,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	testFragment.uri = expectedUri;
 	testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
-	videoTrack.numberOfFragmentsCached = 1;
+	videoTrack.numberOfFragmentChunksCached = 1;
 	ASSERT_NE(bufferedFragment, nullptr);
 	ASSERT_GT(bufferedFragment->fragment.size(), 0);
 	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
