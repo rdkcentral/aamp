@@ -23,6 +23,7 @@
  */
 
 #include "AampEventManager.h"
+#include "AampUtils.h"  // NOW_STEADY_TS_MS
 
 
 //#define EVENT_DEBUGGING 1
@@ -290,6 +291,12 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 		}
 		else if(eventMode==AAMP_EVENT_ASYNC_MODE)
 		{
+			// DEBUG: log async path for state-change and tuned events; async goes through g_idle_add_full (GLib main loop)
+			if (eventType == AAMP_EVENT_STATE_CHANGED || eventType == AAMP_EVENT_TUNED)
+			{
+				AAMPLOG_MIL("[DBG-T3T4] SendEvent ASYNC (AAMP_EVENT_ASYNC_MODE): type=%d sId=%u asyncQ=%zu ts=%lld ms",
+					eventType, sId, mEventWorkerDataQue.size(), NOW_STEADY_TS_MS);
+			}
 			SendEventAsync(eventData);
 		}
 		else
@@ -297,6 +304,14 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 			//For other events if asyncTune enabled or callee from non-UI thread , then send the event as Async
 			if (mAsyncTuneEnabled || sId == 0)
 			{
+				// DEBUG: log when state-change/tuned event goes async due to non-UI thread (sId==0) or asyncTune
+				// If sId==0 here, the PlayerScheduler thread is calling from a non-GLib-main-loop thread
+				// → event is queued via g_idle_add_full → delayed until GLib main loop is free (JS thread!)
+				if (eventType == AAMP_EVENT_STATE_CHANGED || eventType == AAMP_EVENT_TUNED)
+				{
+					AAMPLOG_MIL("[DBG-T3T4] SendEvent ASYNC (non-UI/asyncTune): type=%d sId=%u asyncTune=%d asyncQ=%zu ts=%lld ms",
+						eventType, sId, (int)mAsyncTuneEnabled, mEventWorkerDataQue.size(), NOW_STEADY_TS_MS);
+				}
 				SendEventAsync(eventData);
 			}
 			else
@@ -384,6 +399,12 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 				eventData->GetSessionId().c_str());
 		}
 	}
+	// DEBUG: capture timestamp just before dispatching to listeners (this is effectively T4)
+	long long dispatchStartTs = NOW_STEADY_TS_MS;
+	if (eventType == AAMP_EVENT_STATE_CHANGED || eventType == AAMP_EVENT_TUNED)
+	{
+		AAMPLOG_MIL("[DBG-T3T4] SendEventSync: pre-dispatch type=%d ts=%lld ms", eventType, dispatchStartTs);
+	}
 	// Build list of registered event listeners.
 	ListenerData* pList = NULL;
 	ListenerData* pListener = mEventListeners[eventType];
@@ -417,6 +438,19 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		}
 		pList = pCurrent->pNext;
 		SAFE_DELETE(pCurrent);
+	}
+	// DEBUG: log total listener dispatch time for state-change and tuned events
+	// (slow listener = JS/C++ bridge is busy; for tuned event this is T4→T5 gap)
+	if (eventType == AAMP_EVENT_STATE_CHANGED || eventType == AAMP_EVENT_TUNED)
+	{
+		long long dispatchMs = NOW_STEADY_TS_MS - dispatchStartTs;
+		AAMPLOG_MIL("[DBG-T3T4] SendEventSync: post-dispatch type=%d listeners took %lld ms ts=%lld ms",
+			eventType, dispatchMs, NOW_STEADY_TS_MS);
+		if (dispatchMs > 50)
+		{
+			AAMPLOG_MIL("[DBG-T3T4] SendEventSync: WARNING slow listener dispatch type=%d took %lld ms (JS/C++ bridge may be busy)",
+				eventType, dispatchMs);
+		}
 	}
 #ifdef EVENT_DEBUGGING
 	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));

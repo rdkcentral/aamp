@@ -24,6 +24,7 @@
 
 #include "PlayerScheduler.h"
 #include "PlayerLogManager.h"
+#include <chrono>
 
 /**
  * @brief PlayerScheduler Constructor
@@ -83,8 +84,16 @@ int PlayerScheduler::ScheduleTask(PlayerAsyncTaskObj obj)
 				mNextTaskId = PLAYER_SCHEDULER_ID_DEFAULT;
 			}
 			obj.mId = id;
+			size_t qDepth = mTaskQueue.size(); // DEBUG: capture depth before push
 			mTaskQueue.push_back(obj);
 			mQCond.notify_one();
+			if (qDepth > 0)
+			{
+				// DEBUG: non-zero queue depth means the scheduler thread is busy — tasks will be delayed
+				MW_LOG_MIL("[DBG-T3T4] ScheduleTask: task='%s' queued behind %zu pending task(s) ts=%lld",
+					obj.mTaskName.c_str(), qDepth,
+					(long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+			}
 		}
 		else
 		{

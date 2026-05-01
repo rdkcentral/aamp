@@ -8149,6 +8149,8 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	if (eTUNED_EVENT_ON_GST_PLAYING == GetTuneEventConfig(IsLive()))
 	{
 		// This is an idle callback, so we can sent event synchronously
+		// DEBUG: path A - tuned event fired from NotifyFirstFrameReceived (first GST frame decoded)
+		AAMPLOG_MIL("[DBG-T3T4] NotifyFirstFrameReceived: triggering SendTunedEvent (eTUNED_EVENT_ON_GST_PLAYING) ts=%lld ms", NOW_STEADY_TS_MS);
 		if (SendTunedEvent())
 		{
 			AAMPLOG_MIL("aamp: - sent tune event on Tune Completion.");
@@ -8531,8 +8533,12 @@ bool PrivateInstanceAAMP::SendTunedEvent(bool isSynchronous)
 	}
 	if(ret)
 	{
+		// DEBUG: log just before AAMP_EVENT_TUNED is dispatched to listeners (JS onTuned / playbackStarted)
+		AAMPLOG_MIL("[DBG-T3T4] SendTunedEvent: dispatching AAMP_EVENT_TUNED (type=14) isSynchronous=%d ts=%lld ms",
+			(int)isSynchronous, NOW_STEADY_TS_MS);
 		AAMPEventPtr ev = std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, GetSessionId());
 		mEventManager->SendEvent(ev , AAMP_EVENT_SYNC_MODE);
+		AAMPLOG_MIL("[DBG-T3T4] SendTunedEvent: AAMP_EVENT_TUNED dispatch returned ts=%lld ms", NOW_STEADY_TS_MS);
 	}
 	return ret;
 }
@@ -9220,6 +9226,8 @@ void PrivateInstanceAAMP::NotifyFirstFragmentDecrypted()
 		if (eTUNED_EVENT_ON_FIRST_FRAGMENT_DECRYPTED == GetTuneEventConfig(IsLive()))
 		{
 			// For HLS - This is invoked by fetcher thread, so we have to sent asynchronously
+			// DEBUG: path B - tuned event fired from NotifyFirstFragmentDecrypted (fetcher thread, goes async)
+			AAMPLOG_MIL("[DBG-T3T4] NotifyFirstFragmentDecrypted: triggering SendTunedEvent (async, fetcher thread) ts=%lld ms", NOW_STEADY_TS_MS);
 			if (SendTunedEvent(false))
 			{
 				AAMPLOG_WARN("aamp: %s - sent tune event after first fragment fetch and decrypt", mMediaFormatName[mMediaFormat]);
@@ -10593,6 +10601,8 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	}
 
 	mFirstVideoFrameDisplayedEnabled = false;
+	// DEBUG: timestamp when Rialto fires firstVideoFrameDisplayed callback (gap from T3 = Rialto display latency)
+	AAMPLOG_MIL("[DBG-T3T4] NotifyFirstVideoFrameDisplayed: Rialto display callback received ts=%lld ms", NOW_STEADY_TS_MS);
 
 	// In the middle of stop processing we can receive state changing callback
 	AAMPPlayerState state = GetState();

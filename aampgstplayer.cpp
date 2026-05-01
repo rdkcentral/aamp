@@ -383,6 +383,9 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 		}
 
 		requireFirstVideoFrameDisplay = aamp->IsFirstVideoFrameDisplayedRequired();
+		// DEBUG: T3 anchor - log timestamp and whether we will wait for Rialto display callback
+		AAMPLOG_MIL("[DBG-T3T4] FirstFrameDecoded(T3): waitForRialtoDisplay=%d ts=%lld ms",
+			(int)requireFirstVideoFrameDisplay, NOW_STEADY_TS_MS);
 	}
 };
 

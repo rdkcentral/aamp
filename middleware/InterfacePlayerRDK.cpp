@@ -26,6 +26,7 @@
 #include "PlayerLogManager.h"
 #include "GstUtils.h"
 #include <sys/time.h>
+#include <chrono>
 #include "PlayerExternalsInterface.h"						//ToDo: Replace once outputprotection moved to middleware
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
@@ -799,6 +800,9 @@ gboolean InterfacePlayerRDK::IdleCallbackFirstVideoFrameDisplayed(gpointer user_
 	InterfacePlayerPriv* privatePlayer = nullptr;
 	if (pInterfacePlayerRDK)
 	{
+		// DEBUG: timestamp when scheduler actually executes this task (gap from scheduling = scheduler latency)
+		MW_LOG_MIL("[DBG-T3T4] IdleCallbackFirstVideoFrameDisplayed executing ts=%lld ms",
+			(long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 	        privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameDisplayed);
 		pInterfacePlayerRDK->IdleTaskRemove(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask);
@@ -3802,6 +3806,9 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 
 		if (requireFirstVideoFrameDisplay)
 		{
+			// DEBUG: log timestamp when we submit the firstVideoFrameDisplayed idle task
+			MW_LOG_MIL("[DBG-T3T4] Scheduling IdleCallbackFirstVideoFrameDisplayed ts=%lld ms",
+				(long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 			if ( !IdleTaskAdd(interfacePlayerPriv->gstPrivateContext->firstVideoFrameDisplayedCallbackTask, IdleCallbackFirstVideoFrameDisplayed))
 			{
 				MW_LOG_WARN("IdleCallbackFirstVideoFrameDisplayed was not added.");
