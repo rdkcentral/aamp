@@ -297,6 +297,12 @@ public:
 	 */
 	bool getPassThroughMode() { return passThroughMode; }
 
+	/**
+	 * @brief Check whether the processor performs PTS restamping internally.
+	 * @return true if internal PTS restamping is configured and active
+	 */
+	bool getPTSRestampStatus() const override;
+
 private:
 
 	/**

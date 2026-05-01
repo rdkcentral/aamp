@@ -30,11 +30,8 @@ public:
 		: MediaTrack(type, aamp, name) {}
 	MockMediaTrack()
 		: MediaTrack(eTRACK_VIDEO, nullptr, "mock") {}
-	MOCK_METHOD(CachedFragment*, GetFetchBuffer, (bool initialize));
 	MOCK_METHOD(CachedFragment*, GetFetchChunkBuffer, (bool initialize));
-	MOCK_METHOD(void, UpdateTSAfterFetch, (bool isInitSegment));
 	MOCK_METHOD(void, UpdateTSAfterChunkFetch, ());
-	MOCK_METHOD(void, UpdateTSAfterInject, ());
 	MOCK_METHOD(void, SetLocalTSBInjection, (bool value));
 	MOCK_METHOD(bool, IsLocalTSBInjection, ());
 	MOCK_METHOD(bool, Enabled, ());
