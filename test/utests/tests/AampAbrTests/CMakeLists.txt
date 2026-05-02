@@ -57,5 +57,5 @@ add_executable(HybridAbrTests HybridAbrTests.cpp
 	../../../../support/aampabr/HybridABRManager.cpp
 	../../../../support/aampabr/ABRManager.cpp
 )
-target_link_libraries(HybridAbrTests PRIVATE gtest gmock gtest_main)
+target_link_libraries(HybridAbrTests PRIVATE gtest gmock gtest_main $<$<STREQUAL:${CMAKE_SYSTEM_NAME},Linux>:atomic>)
 aamp_utest_run_add(HybridAbrTests)
