@@ -85,10 +85,9 @@ public:
    * read together during manifest parsing. Using a single atomic
    * struct guarantees the reader always sees a consistent pair.
    */
-  struct PersistBandwidthData
-  {
-      BitsPerSecond bandwidth{0};
-      int64_t updatedTimeMs{0};
+  struct PersistBandwidthData {
+    BitsPerSecond bandwidth{0};
+    int64_t updatedTimeMs{0};
   };
   static std::atomic<PersistBandwidthData> mPersistBandwidthData;
 public:

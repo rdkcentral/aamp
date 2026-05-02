@@ -23,7 +23,6 @@
 #include <cstddef>
 #include <thread>
 #include <atomic>
-#include <vector>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
