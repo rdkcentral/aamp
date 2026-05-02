@@ -302,7 +302,7 @@ void ABRManager::updateProfile() {
 int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
 
   std::lock_guard<std::mutex> lock(mProfileLock);
-  int desiredProfileIndex = 0;
+  int desiredProfileIndex = INVALID_PROFILE;
   long bestDiff = LONG_MAX;
 
   for (const auto& periodEntry : mSortedBWProfileList)
@@ -339,6 +339,11 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
       }
   }
 
+  if (desiredProfileIndex == INVALID_PROFILE)
+  {
+    logprintf("%s:%d getBestMatchedProfileIndexByBandWidth: no candidate found for bandwidth %d (sorted list empty or contains only iframe profiles)\n",
+      __FUNCTION__, __LINE__, bandwidth);
+  }
 #if defined(DEBUG_ENABLED)
   int profileCount = getProfileCountUnlocked();
   logprintf("%s:%d Get best matched profile index = %d bitrate = %ld\n",

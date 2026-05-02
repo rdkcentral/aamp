@@ -721,3 +721,31 @@ TEST_F(AbrTests, GetBestMatchedProfile_SkipsIframeTracks)
 	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(2000000), 1);
 }
 
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns INVALID_PROFILE
+ *        when no profiles have been added.
+ */
+TEST_F(AbrTests, GetBestMatchedProfile_EmptyList_ReturnsInvalid)
+{
+	ABRManager abrManager;
+	const int expected = ABRManager::INVALID_PROFILE;
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(2000000), expected);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns INVALID_PROFILE
+ *        when only iframe tracks are present (they are excluded from the
+ *        sorted list).
+ */
+TEST_F(AbrTests, GetBestMatchedProfile_IframeOnly_ReturnsInvalid)
+{
+	ABRManager abrManager;
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 2000000;
+	abrManager.addProfile(p);
+
+	const int expected = ABRManager::INVALID_PROFILE;
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(2000000), expected);
+}
+

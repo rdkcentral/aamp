@@ -343,3 +343,30 @@ TEST_F(HybridAbrTests, GetBestMatchedProfile_ClosestMatch_UnsortedProfiles)
 	// Above all → closest to 4M → index 0
 	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(5000000), 0);
 }
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns INVALID_PROFILE
+ *        when no profiles have been added (legacy ABR).
+ */
+TEST_F(HybridAbrTests, GetBestMatchedProfile_EmptyList_ReturnsInvalid)
+{
+	HybridABRManager mgr;
+	const int expected = ABRManager::INVALID_PROFILE;
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(2000000), expected);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns INVALID_PROFILE
+ *        when only iframe tracks are present (legacy ABR).
+ */
+TEST_F(HybridAbrTests, GetBestMatchedProfile_IframeOnly_ReturnsInvalid)
+{
+	HybridABRManager mgr;
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 2000000;
+	mgr.addProfile(p);
+
+	const int expected = ABRManager::INVALID_PROFILE;
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(2000000), expected);
+}

@@ -349,7 +349,7 @@ void ABRManager::updateProfile()
  */
 int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
 {
-	int desiredProfileIndex = 0;
+	int desiredProfileIndex = INVALID_PROFILE;
 	std::lock_guard<std::mutex> lock(mProfileLock);
 	long bestDiff = LONG_MAX;
 
@@ -387,6 +387,10 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
 		}
 	}
 
+	if (desiredProfileIndex == INVALID_PROFILE)
+	{
+		AAMPLOG_WARN("getBestMatchedProfileIndexByBandWidth: no candidate found for bandwidth %d (sorted list empty or contains only iframe profiles)", bandwidth);
+	}
 #if defined(DEBUG_ENABLED)
 	size_t profileCount = mProfiles.size();
 	AAMPLOG_MIL("Get best matched profile index = %d bitrate = %" BITSPERSECOND_FORMAT,
