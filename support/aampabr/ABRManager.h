@@ -281,7 +281,7 @@ public:
     */
    static void setPersistBandwidth(long bitrate, int64_t timeMs)
    {
-       mPersistBandwidthData.store({bitrate, timeMs}, std::memory_order_release);
+       mPersistBandwidthData.store(PersistBandwidthData{bitrate, timeMs}, std::memory_order_release);
    }
    /**
     * @brief Get the atomically paired persist bandwidth and timestamp.
