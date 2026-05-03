@@ -620,8 +620,7 @@ void PrivateInstanceAAMP::UpdatePersistBandwidth(BitsPerSecond bandwidth)
 		return;
 	}
 
-	ABRManager::setPersistBandwidth(bandwidth);
-	ABRManager::mPersistBandwidthUpdatedTime = aamp_GetCurrentTimeMS();
+	ABRManager::setPersistBandwidth(bandwidth, aamp_GetCurrentTimeMS());
 }
 
 /**

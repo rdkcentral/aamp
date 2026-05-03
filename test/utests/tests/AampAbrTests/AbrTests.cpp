@@ -21,6 +21,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <cstddef>
+#include <thread>
+#include <atomic>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
@@ -39,8 +41,7 @@ class AbrTests : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		ABRManager::mPersistBandwidth = 0;
-		ABRManager::mPersistBandwidthUpdatedTime = 0;
+		ABRManager::setPersistBandwidth(0, 0);
 
 		eAAMPAbrConfig = ABRManager::AampAbrConfig();
 		// Cache life is interpreted as milliseconds by the estimator.
@@ -538,5 +539,88 @@ TEST_F(AbrTests, FragmentfailureRampdown_FallbackLowestIsNotIframe)
 	// Without the fix, fallback would return 200k (the iframe track).
 	BitsPerSecond result = abrManager.FragmentfailureRampdown(1, 2);
 	EXPECT_EQ(result, 500000);
+}
+
+/**
+ * @brief setPersistBandwidth round-trips bandwidth and timestamp correctly.
+ */
+TEST_F(AbrTests, PersistBandwidth_SetGetRoundTrip)
+{
+	ABRManager::setPersistBandwidth(5000000, 12345);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 5000000);
+	EXPECT_EQ(data.updatedTimeMs, 12345);
+
+	ABRManager::setPersistBandwidth(0, 0);
+	data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 0);
+	EXPECT_EQ(data.updatedTimeMs, 0);
+}
+
+/**
+ * @brief Large 64-bit timestamp values round-trip correctly, covering
+ *        values that would produce torn reads on ARM without atomics.
+ */
+TEST_F(AbrTests, PersistBandwidthUpdatedTime_LargeValueRoundTrip)
+{
+	constexpr int64_t largeTime = INT64_C(0x1234567890ABCDEF);
+	ABRManager::setPersistBandwidth(42, largeTime);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 42);
+	EXPECT_EQ(data.updatedTimeMs, largeTime);
+}
+
+/**
+ * @brief Concurrent writers and readers must always observe a consistent
+ *        (bandwidth, timestamp) pair — never a mix of two different writes.
+ *
+ * Writers alternate between two distinct pairs. Readers verify every
+ * observation matches one of those pairs. A torn or unpaired read would
+ * produce a combination from two different writes, failing the test.
+ * This is the primary regression test for abr-bugs.md #4.
+ */
+TEST_F(AbrTests, PersistBandwidthData_ConcurrentAccessConsistentPair)
+{
+	constexpr BitsPerSecond kBwA = 1000000;
+	constexpr int64_t kTimeA = INT64_C(0x00000000FFFFFFFF);
+	constexpr BitsPerSecond kBwB = 9000000;
+	constexpr int64_t kTimeB = INT64_C(0xFFFFFFFF00000000);
+	constexpr int kIterations = 100000;
+
+	std::atomic<bool> stop{false};
+	std::atomic<bool> failure{false};
+
+	// Writer thread: alternates between two known pairs
+	std::thread writer([&]() {
+		for (int i = 0; i < kIterations; ++i)
+		{
+			if (i % 2 == 0)
+				ABRManager::setPersistBandwidth(kBwA, kTimeA);
+			else
+				ABRManager::setPersistBandwidth(kBwB, kTimeB);
+		}
+		stop.store(true, std::memory_order_release);
+	});
+
+	// Reader thread: verifies consistent pairing
+	std::thread reader([&]() {
+		while (!stop.load(std::memory_order_acquire))
+		{
+			auto data = ABRManager::getPersistBandwidth();
+			bool isZero = (data.bandwidth == 0 && data.updatedTimeMs == 0);
+			bool isPairA = (data.bandwidth == kBwA && data.updatedTimeMs == kTimeA);
+			bool isPairB = (data.bandwidth == kBwB && data.updatedTimeMs == kTimeB);
+			if (!isZero && !isPairA && !isPairB)
+			{
+				failure.store(true, std::memory_order_release);
+				break;
+			}
+		}
+	});
+
+	writer.join();
+	reader.join();
+
+	EXPECT_FALSE(failure.load());
 }
 
