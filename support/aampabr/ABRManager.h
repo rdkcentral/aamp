@@ -28,7 +28,6 @@
 #include <cstdio>
 #include <cstdint>
 #include <mutex>
-#include <atomic>
 
 typedef long BitsPerSecond;
 #define BITSPERSECOND_FORMAT "ld"
@@ -79,17 +78,14 @@ public:
   };
 
   /**
-   * @brief Atomically paired persist bandwidth and timestamp.
-   *
-   * Both fields are written together in UpdatePersistBandwidth() and
-   * read together during manifest parsing. Using a single atomic
-   * struct guarantees the reader always sees a consistent pair.
+   * @brief Persist Network Bandwidth 
    */
-  struct PersistBandwidthData {
-    BitsPerSecond bandwidth{0};
-    int64_t updatedTimeMs{0};
-  };
-  static std::atomic<PersistBandwidthData> mPersistBandwidthData;
+  static long mPersistBandwidth;
+
+  /**
+   * @brief Persist Network Bandwidth Updated Time
+   */
+  static long long mPersistBandwidthUpdatedTime;
 public:
   /**
    * @fn ABRManager
@@ -279,19 +275,13 @@ public:
     *
     * @param network bitrate
     */
-   static void setPersistBandwidth(long bitrate, int64_t timeMs)
-   {
-       mPersistBandwidthData.store(PersistBandwidthData{bitrate, timeMs}, std::memory_order_release);
-   }
+   static void setPersistBandwidth(long bitrate){mPersistBandwidth = bitrate;}
    /**
-    * @brief Get the atomically paired persist bandwidth and timestamp.
+    * @brief Get Persisted Network Bandwidth
     *
-    * @return PersistBandwidthData with bandwidth and updatedTimeMs
+    * @return  bandwidth
     */
-   static PersistBandwidthData getPersistBandwidth()
-   {
-       return mPersistBandwidthData.load(std::memory_order_acquire);
-   }
+   static long getPersistBandwidth() { return mPersistBandwidth;}
    
    /**
     * @brief Get the available profiles

@@ -139,7 +139,8 @@ void ABRLogger(const char* levelstr,const char* file, int line,const char *fmt, 
 #endif
 }
 
-std::atomic<ABRManager::PersistBandwidthData> ABRManager::mPersistBandwidthData{};
+long ABRManager::mPersistBandwidth = 0;
+long long ABRManager::mPersistBandwidthUpdatedTime = 0;
 /**
  * @brief Constructor of ABRManager
  */
