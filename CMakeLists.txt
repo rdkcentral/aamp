@@ -276,6 +276,18 @@ if(CMAKE_SYSTEMD_JOURNAL)
 	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
 endif()
+# std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
+# GCC emits __atomic_load_16 / __atomic_store_16 which require the atomic
+# library.  ARM64 handles them natively so the library is not needed there,
+# but linking it is harmless when present.  Use find_library so that the build
+# does not fail on cross-compile toolchains (e.g. RDK) that do not ship it.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	find_library(LIBATOMIC atomic)
+	if(LIBATOMIC)
+		set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} ${LIBATOMIC})
+		set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${LIBATOMIC})
+	endif()
+endif()
 #Enabling ethan log macro and lib
 if(CMAKE_USE_ETHAN_LOG)
 	message("DCMAKE_USE_ETHAN_LOG set")

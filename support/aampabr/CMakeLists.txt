@@ -31,8 +31,12 @@ endif()
 
 # On Linux/x86_64, std::atomic<16-byte struct> requires the atomic library for
 # __atomic_load_16 / __atomic_store_16 (ARM64 handles them natively).
+# Use find_library so the build is safe on cross-compile toolchains that omit it.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	target_link_libraries(abr PUBLIC atomic)
+	find_library(LIBATOMIC atomic)
+	if(LIBATOMIC)
+		target_link_libraries(abr PUBLIC ${LIBATOMIC})
+	endif()
 endif()
 
 set_target_properties(abr PROPERTIES PUBLIC_HEADER "ABRManager.h;HybridABRManager.h")
