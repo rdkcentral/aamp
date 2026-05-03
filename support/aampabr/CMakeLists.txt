@@ -26,7 +26,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wno-multichar")
 if(CMAKE_SYSTEMD_JOURNAL)
 	message("CMAKE_SYSTEMD_JOURNAL set")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-	target_link_libraries (abr "-lsystemd")
+	target_link_libraries(abr PUBLIC "-lsystemd")
 endif()
 
 # std::atomic<16-byte struct> requires the atomic support library on Linux/x86_64.
