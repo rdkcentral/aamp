@@ -26,13 +26,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wno-multichar")
 if(CMAKE_SYSTEMD_JOURNAL)
 	message("CMAKE_SYSTEMD_JOURNAL set")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-	target_link_libraries (abr "-lsystemd")
+	target_link_libraries(abr PUBLIC "-lsystemd")
 endif()
 
-# On Linux/x86_64, std::atomic<16-byte struct> requires the atomic library for
-# __atomic_load_16 / __atomic_store_16 (ARM64 handles them natively).
+# std::atomic<16-byte struct> requires the atomic support library on Linux/x86_64.
+# ARM64 handles 16-byte atomics natively; GCC always ships this library for
+# its target so it is safe to link unconditionally on Linux.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	target_link_libraries(abr PUBLIC atomic)
+	target_link_libraries(abr PUBLIC "-latomic")
 endif()
 
 set_target_properties(abr PROPERTIES PUBLIC_HEADER "ABRManager.h;HybridABRManager.h")
