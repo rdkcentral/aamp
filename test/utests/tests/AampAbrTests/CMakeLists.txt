@@ -57,8 +57,8 @@ add_executable(HybridAbrTests HybridAbrTests.cpp
 	../../../../support/aampabr/HybridABRManager.cpp
 	../../../../support/aampabr/ABRManager.cpp
 )
-if(LIBATOMIC)
-	target_link_libraries(HybridAbrTests PRIVATE gtest gmock gtest_main ${LIBATOMIC})
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	target_link_libraries(HybridAbrTests PRIVATE gtest gmock gtest_main "-latomic")
 else()
 	target_link_libraries(HybridAbrTests PRIVATE gtest gmock gtest_main)
 endif()
