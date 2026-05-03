@@ -29,6 +29,12 @@ if(CMAKE_SYSTEMD_JOURNAL)
 	target_link_libraries (abr "-lsystemd")
 endif()
 
+# On Linux/x86_64, std::atomic<16-byte struct> requires the atomic library for
+# __atomic_load_16 / __atomic_store_16 (ARM64 handles them natively).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	target_link_libraries(abr PUBLIC atomic)
+endif()
+
 set_target_properties(abr PROPERTIES PUBLIC_HEADER "ABRManager.h;HybridABRManager.h")
 install(TARGETS abr
 		DESTINATION lib

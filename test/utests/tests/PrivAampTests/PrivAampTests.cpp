@@ -5737,8 +5737,7 @@ struct GetStreamFormatTestParams {
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigEnabledAndPlayEnabled_UpdatesAbrStatics)
 {
-	ABRManager::mPersistBandwidth = 0;
-	ABRManager::mPersistBandwidthUpdatedTime = 0;
+	ABRManager::setPersistBandwidth(0, 0);
 
 	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
@@ -5750,8 +5749,9 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigEnabledAndPlayEnabled_Updates
 	p_aamp->mbPlayEnabled = true;
 	p_aamp->UpdatePersistBandwidth(5000);
 
-	EXPECT_EQ(ABRManager::getPersistBandwidth(), 5000);
-	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 1234);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 5000);
+	EXPECT_EQ(data.updatedTimeMs, 1234);
 }
 
 /**
@@ -5759,8 +5759,7 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigEnabledAndPlayEnabled_Updates
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigDisabled_DoesNotUpdateAbrStatics)
 {
-	ABRManager::mPersistBandwidth = 123;
-	ABRManager::mPersistBandwidthUpdatedTime = 999;
+	ABRManager::setPersistBandwidth(123, 999);
 
 	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
@@ -5773,8 +5772,9 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigDisabled_DoesNotUpdateAbrStat
 	p_aamp->mbPlayEnabled = true;
 	p_aamp->UpdatePersistBandwidth(5000);
 
-	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
-	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 123);
+	EXPECT_EQ(data.updatedTimeMs, 999);
 }
 
 /**
@@ -5782,8 +5782,7 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigDisabled_DoesNotUpdateAbrStat
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrStatics)
 {
-	ABRManager::mPersistBandwidth = 123;
-	ABRManager::mPersistBandwidthUpdatedTime = 999;
+	ABRManager::setPersistBandwidth(123, 999);
 
 	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
@@ -5794,8 +5793,9 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrSt
 	p_aamp->mbPlayEnabled = false;
 	p_aamp->UpdatePersistBandwidth(5000);
 
-	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
-	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 123);
+	EXPECT_EQ(data.updatedTimeMs, 999);
 }
 
 /**
@@ -5821,8 +5821,7 @@ TEST_F(PrivAampTests, DetachFlushesAndBlocksAsyncEvents)
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_ZeroBandwidth_DoesNotUpdateAbrStatics)
 {
-	ABRManager::mPersistBandwidth = 123;
-	ABRManager::mPersistBandwidthUpdatedTime = 999;
+	ABRManager::setPersistBandwidth(123, 999);
 
 	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
@@ -5833,8 +5832,9 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ZeroBandwidth_DoesNotUpdateAbrStati
 	p_aamp->mbPlayEnabled = true;
 	p_aamp->UpdatePersistBandwidth(0);
 
-	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
-	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 123);
+	EXPECT_EQ(data.updatedTimeMs, 999);
 }
 
 // This function is used by Google Test to print the parameter value.
