@@ -220,7 +220,7 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
 			return -1;
 		}
 	}
-	return (long long)currentPTS;
+	return static_cast<long long>(currentPTS);
 }
 bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
 {

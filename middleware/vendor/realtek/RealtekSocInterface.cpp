@@ -252,7 +252,7 @@ long long RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *v
 			currentPTS = -1;
 		}
 	}
-	return (long long)currentPTS;
+	return static_cast<long long>(currentPTS);
 }
 
 /**

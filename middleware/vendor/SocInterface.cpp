@@ -243,7 +243,7 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
 			currentPTS = -1;
 		}
 	}
-	return (long long)currentPTS;
+	return static_cast<long long>(currentPTS);
 }
 
 /**
