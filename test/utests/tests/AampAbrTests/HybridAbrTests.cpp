@@ -53,7 +53,7 @@ TEST_F(HybridAbrTests, UpdateABRBitrateDataBasedOnCacheOutlierEven)
 /**
  * @brief Two HybridABRManager instances must have independent rampup loop
  *        counters. Verifies the per-instance mRampupFromSteadyStateLoop fix
- *        in HybridABRManager (VPAAMP-173).
+ *        in HybridABRManager.
  */
 TEST_F(HybridAbrTests, CheckRampupFromSteadyState_LoopIsPerInstance)
 {

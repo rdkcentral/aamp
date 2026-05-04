@@ -463,7 +463,7 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
 			if(isRateCorrectionDefaultOnPlaying)
 			{
 				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
-				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
+				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyRateCorrection) && aamp->IsLive())
 				{
 					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
@@ -840,7 +840,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	PipelinePriority = envVal ? atoi(envVal) : -1;
 
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
-	bool isLiveRateCorrection = aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive();
+	bool isLiveRateCorrection = aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyRateCorrection) && aamp->IsLive();
 	/*Configure and create the pipeline*/
 	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(subFormat),
 									  bESChangeStatus,setReadyAfterPipelineCreation,
