@@ -66,13 +66,6 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
 
-/**
- * @brief PTS ticks per millisecond on the MPEG / 'video-pts' 90 kHz clock.
- *        Used to convert a millisecond playback position into 90 kHz ticks
- *        when the 'video-pts' property is not exposed by the platform.
- */
-static constexpr long long MPEG_PTS_TICKS_PER_MS = 90LL;
-
 std::pair <CipherType, const char *> CipherToStringMap[] = {
 	{CIPHER_TYPE_CENC, "cenc"},
 	{CIPHER_TYPE_CBC1, "cbc1"},
@@ -3974,10 +3967,10 @@ long long InterfacePlayerRDK::GetVideoPTS(void)
 		 * Fall back to gst_element_query_position and convert ms to 90 kHz
 		 * ticks (1 ms = 90 ticks) so that callers relying on PTS units
 		 * (90 kHz) keep working. */
-		MW_LOG_INFO("InterfacePlayerRDK - 'video-pts' property is not supported on this platform; Fall back to gst_element_query_position");
+		MW_LOG_TRACE("InterfacePlayerRDK-'video-pts' property is not supported on this platform; Fall back to gst_element_query_position");
 		currentPTS = MPEG_PTS_TICKS_PER_MS * GetVideoPosition();
 	}
-	return (long long)currentPTS;
+	return static_cast<long long>(currentPTS);
 }
 
 /**
@@ -4024,7 +4017,7 @@ long long InterfacePlayerRDK::GetVideoPosition(void)
 	}
 
 	MW_LOG_INFO("InterfacePlayerRDK: position(ms) = %" G_GINT64_FORMAT , GST_TIME_AS_MSECONDS(position));
-	return (long long)(GST_TIME_AS_MSECONDS(position));
+	return static_cast<long long>( (GST_TIME_AS_MSECONDS(position)) );
 }
 
 /**

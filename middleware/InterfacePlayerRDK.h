@@ -42,6 +42,13 @@
 // Forward declarations
 class InterfacePlayerPriv;
 
+/**
+ * @brief PTS ticks per millisecond on the MPEG / 'video-pts' 90 kHz clock.
+ *        Used to convert a millisecond playback position into 90 kHz ticks
+ *        when the 'video-pts' property is not exposed by the platform.
+ */
+inline constexpr long long MPEG_PTS_TICKS_PER_MS = 90LL;
+
 struct MonitorAVState
 {
 	int64_t tLastReported;

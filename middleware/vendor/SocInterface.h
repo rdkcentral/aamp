@@ -395,7 +395,7 @@ public:
 	 *
 	 * @return true if 'video-pts' is exposed on the element, false otherwise.
 	 */
-	virtual bool IsVideoPtsPropertySupported(GstElement *element);
+	[[nodiscard]] virtual bool IsVideoPtsPropertySupported(GstElement *element);
 	
 	/**
 	 * @brief Notify first video frame.

@@ -229,17 +229,18 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
 	gint64 currentPTS = 0;
 	if(video_dec)
 	{
-		if(!IsVideoPtsPropertySupported(video_dec))
+		if(IsVideoPtsPropertySupported(video_dec))
 		{
-			/* The 'video-pts' property is not exposed on this platform.
-			 * Signal to the caller so it can fall back to
-			 * gst_element_query_position. */
-			return -1;
+			g_object_get(video_dec, "video-pts", &currentPTS, NULL);
+			if(!isWesteros)
+			{
+				currentPTS *= 2;
+			}
 		}
-		g_object_get(video_dec, "video-pts", &currentPTS, NULL);
-		if(!isWesteros)
+		else
 		{
-			currentPTS *= 2;
+			/* The 'video-pts' property is not exposed on this platform.*/
+			currentPTS = -1;
 		}
 	}
 	return (long long)currentPTS;

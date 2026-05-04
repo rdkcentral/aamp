@@ -242,14 +242,15 @@ long long RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *v
 
 	if (element)
 	{
-		if(!IsVideoPtsPropertySupported(element))
+		if(IsVideoPtsPropertySupported(element))
 		{
-			/* The 'video-pts' property is not exposed on this platform.
-			 * Signal to the caller so it can fall back to
-			 * gst_element_query_position. */
-			return -1;
+			g_object_get(element, "video-pts", &currentPTS, NULL);	/* Gets the 'video-pts' from the element into the currentPTS */
 		}
-		g_object_get(element, "video-pts", &currentPTS, NULL);	/* Gets the 'video-pts' from the element into the currentPTS */
+		else
+		{
+			/* The 'video-pts' property is not exposed on this platform.*/
+			currentPTS = -1;
+		}
 	}
 	return (long long)currentPTS;
 }
