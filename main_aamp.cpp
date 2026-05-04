@@ -889,6 +889,21 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				{
 					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 					// Resuming payback from pause
+					// When transitioning from background to foreground at trickplay rate,
+					// TuneHelper ran with mbPlayEnabled=false and skipped pipeline
+					// configuration and injection. Set them up now before resuming.
+					if (aamp->playerStartedWithTrickPlay)
+					{
+						AAMPLOG_INFO("PLAYER[%d] Configuring pipeline for BG->FG trickplay transition.", aamp->mPlayerId);
+						aamp->ActivatePlayer();
+						StreamSink *sinkForTrickplay = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+						if (sinkForTrickplay)
+						{
+							sinkForTrickplay->Configure(aamp->mVideoFormat, aamp->mAudioFormat, aamp->mSubtitleFormat,
+								aamp->mpStreamAbstractionAAMP->GetESChangeStatus());
+						}
+						aamp->mpStreamAbstractionAAMP->StartInjection();
+					}
 					// If have local TSB, but playing from Live then seek into the TSB
 					// Otherwise unpause the pipeline
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
