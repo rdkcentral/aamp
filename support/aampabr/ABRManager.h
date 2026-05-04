@@ -283,11 +283,6 @@ public:
     */
    static long getPersistBandwidth() { return mPersistBandwidth;}
    
-   /**
-    * @brief Get the available profiles
-    */
-   std::vector<ProfileInfo> getProfileInfo() { return mProfiles;}
-
 protected:
 	/**
 	 * @brief Logger

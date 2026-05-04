@@ -1113,13 +1113,14 @@ void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,Bits
 /**
  * @brief - Fn to rampdown during fragment download failure based on buffer
  * @param - current available buffer
- * @return - desired profile based on buffer
+ * @return - desired profile based on buffer, or 0 if abrMaxBuffer <= 0
+ *           (misconfiguration sentinel — caller must treat 0 as a rampdown failure)
  */
 BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
 {
 	if (eAAMPAbrConfig.abrMaxBuffer <= 0)
 	{
-		AAMPLOG_ERR("abrMaxBuffer is %d, cannot compute buffer percentage",
+		AAMPLOG_WARN("abrMaxBuffer is %d, cannot compute buffer percentage",
 			eAAMPAbrConfig.abrMaxBuffer);
 		return 0;
 	}
