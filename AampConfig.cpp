@@ -274,7 +274,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"appSrcForProgressivePlayback",eAAMPConfig_UseAppSrcForProgressivePlayback,false},
 	{false,"descriptiveAudioTrack",eAAMPConfig_DescriptiveAudioTrack,false},
 	{true,"reportBufferEvent",eAAMPConfig_ReportBufferEvent,false},
-	{false,"info",eAAMPConfig_InfoLogging,true},
+	{true,"info",eAAMPConfig_InfoLogging,true},
 	{true,"debug",eAAMPConfig_DebugLogging,false},
 	{true,"trace",eAAMPConfig_TraceLogging,false},
 	{true,"warn",eAAMPConfig_WarnLogging,false},
