@@ -25,6 +25,7 @@
 #include <vector>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <gst/base/gstbasesink.h>
 #include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
@@ -380,9 +381,10 @@ public:
 	 * @param video_dec The video decoder element.
 	 * @param isWesteros A flag for Westeros logic.
 	 *
-	 * @return Video PTS in nanoseconds, or -1 on error.
+	 * @return Video PTS in 90 kHz ticks, or std::nullopt if the 'video-pts'
+	 *         property is not supported on this platform.
 	 */
-	virtual long long GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros);
+	virtual std::optional<long long> GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros);
 
 	/**
 	 * @brief Check whether the 'video-pts' GObject property is supported by
@@ -392,12 +394,12 @@ public:
 	 * so the underlying g_object_class_find_property() call runs at most
 	 * once.
 	 *
-	 * @param element The GStreamer element to probe (may be NULL).
+	 * @param element The GStreamer element to probe
 	 *
 	 * @return true if 'video-pts' is exposed on the element, false otherwise.
 	 */
 	[[nodiscard]] virtual bool IsVideoPtsPropertySupported(GstElement *element);
-	
+
 	/**
 	 * @brief Notify first video frame.
 	 */
@@ -508,5 +510,18 @@ public:
 	 * @return 'true' if video master otherwise false.
 	 */
 	virtual bool IsVideoMaster(GstElement *videoSink) = 0;
+
+protected:
+	/**
+	 * @brief Read the raw 'video-pts' value from a GStreamer element.
+	 *
+	 * Encapsulates the null-guard, property probe, and g_object_get call
+	 * shared by all SocInterface subclass overrides of GetVideoPts().
+	 *
+	 * @param element The GStreamer element to query
+	 * @return The PTS value in 90 kHz ticks, std::nullopt if the 'video-pts'
+	 *         property is not supported, or 0 if element is NULL.
+	 */
+	[[nodiscard]] std::optional<long long> ReadVideoPts(GstElement *element);
 };
 #endif

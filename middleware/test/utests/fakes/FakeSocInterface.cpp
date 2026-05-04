@@ -200,27 +200,33 @@ bool SocInterface::IsVideoPtsPropertySupported(GstElement *element)
 	}
 	return mVideoPtsPropertySupported;
 }
-long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+std::optional<long long> SocInterface::ReadVideoPts(GstElement *element)
 {
-	gint64 currentPTS = 0;
-	GstElement *element;
-	element = video_dec;
+	std::optional<long long> result;
 	if(element)
 	{
 		if(IsVideoPtsPropertySupported(element))
 		{
+			gint64 currentPTS = 0;
 			g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */
-			if(!isWesteros)
-			{
-				currentPTS = currentPTS * 2;
-			}
+			result = static_cast<long long>(currentPTS);
 		}
-		else
-		{
-			return -1;
-		}
+		/* else: property not supported, result remains std::nullopt */
 	}
-	return static_cast<long long>(currentPTS);
+	else
+	{
+		result = 0LL;
+	}
+	return result;
+}
+std::optional<long long> SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+{
+	auto result = ReadVideoPts(video_dec);
+	if(result.has_value() && !isWesteros)
+	{
+		*result *= 2;
+	}
+	return result;
 }
 bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
 {

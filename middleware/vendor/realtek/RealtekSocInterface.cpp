@@ -229,30 +229,12 @@ void RealtekSocInterface::GetCCDecoderHandle(gpointer *dec_handle, GstElement *v
  * @param video_dec The video decoder element.
  * @param isWesteros A flag for Westeros logic.
  *
- * @return Video PTS in nanoseconds, or -1 on error.
+ * @return Video PTS in 90 kHz ticks, or std::nullopt if the 'video-pts'
+ *         property is not supported on this platform.
  */
-long long RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+std::optional<long long> RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
-	gint64 currentPTS = 0;
-	GstElement *element = nullptr;
-	if(video_sink)
-	{
-		element = video_sink;
-	}
-
-	if (element)
-	{
-		if(IsVideoPtsPropertySupported(element))
-		{
-			g_object_get(element, "video-pts", &currentPTS, NULL);	/* Gets the 'video-pts' from the element into the currentPTS */
-		}
-		else
-		{
-			/* The 'video-pts' property is not exposed on this platform.*/
-			currentPTS = -1;
-		}
-	}
-	return static_cast<long long>(currentPTS);
+	return ReadVideoPts(video_sink);
 }
 
 /**

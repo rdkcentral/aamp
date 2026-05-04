@@ -197,9 +197,10 @@ class RealtekSocInterface : public SocInterface
 		 * @param video_dec The video decoder element.
 		 * @param isWesteros A flag for Westeros logic.
 		 *
-		 * @return Video PTS in nanoseconds, or -1 on error.
+		 * @return Video PTS in 90 kHz ticks, or std::nullopt if the 'video-pts'
+		 *         property is not supported on this platform.
 		 */
-		long long GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)override;
+		std::optional<long long> GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)override;
 
 		/**
 		 * @brief Notify first video frame.

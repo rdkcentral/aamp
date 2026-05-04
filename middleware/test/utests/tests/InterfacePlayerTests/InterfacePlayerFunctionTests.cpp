@@ -3225,7 +3225,7 @@ TEST_F(InterfacePlayerTests, GetVideoPTS_PropertySupported)
 
 /**
  * @test GetVideoPTS_PropertyNotSupportedFallsBackToPosition
- * @brief When 'video-pts' is not exposed, GetVideoPts() returns -1 and
+ * @brief When 'video-pts' is not exposed, GetVideoPts() returns std::nullopt and
  *        InterfacePlayerRDK::GetVideoPTS falls back to
  *        90 * GetVideoPosition() (90 kHz ticks per millisecond).
  */

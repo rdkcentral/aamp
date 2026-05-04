@@ -3959,18 +3959,22 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
  */
 long long InterfacePlayerRDK::GetVideoPTS(void)
 {
-	gint64 currentPTS = 0;
-	currentPTS = interfacePlayerPriv->socInterface->GetVideoPts(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->using_westerossink);
-	if(currentPTS == -1)
+	long long result;
+	auto pts = interfacePlayerPriv->socInterface->GetVideoPts(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->using_westerossink);
+	if(!pts.has_value())
 	{
 		/* The 'video-pts' property is not supported on this platform.
 		 * Fall back to gst_element_query_position and convert ms to 90 kHz
 		 * ticks (1 ms = 90 ticks) so that callers relying on PTS units
 		 * (90 kHz) keep working. */
 		MW_LOG_TRACE("InterfacePlayerRDK-'video-pts' property is not supported on this platform; Fall back to gst_element_query_position");
-		currentPTS = MPEG_PTS_TICKS_PER_MS * GetVideoPosition();
+		result = static_cast<long long>(MPEG_PTS_TICKS_PER_MS * GetVideoPosition());
 	}
-	return static_cast<long long>(currentPTS);
+	else
+	{
+		result = static_cast<long long>(*pts);
+	}
+	return result;
 }
 
 /**
