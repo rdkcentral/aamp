@@ -63,6 +63,11 @@ namespace SocUtils
 		return false;
 	}
 
+	SocPlatformType GetSocPlatformType(void)
+	{
+		return SOC_PLATFORM_DEFAULT;
+	}
+
 	bool ResetNewSegmentEvent()
 	{
 		return false;

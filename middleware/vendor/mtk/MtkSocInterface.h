@@ -34,6 +34,12 @@ public:
 	MtkSocInterface();
 	
 	/**
+	 * @brief Get the SoC platform type.
+	 * @return SOC_PLATFORM_MEDIATEK
+	 */
+	SocPlatformType GetSocPlatformType() const override { return SOC_PLATFORM_MEDIATEK; }
+	
+	/**
 	 * @brief Check if AppSrc should be used.
 	 *
 	 * Determines whether the AppSrc element should be used in the current context.

@@ -34,6 +34,11 @@ class RealtekSocInterface : public SocInterface
 	public:
 		RealtekSocInterface();
 
+		/**
+		 * @brief Get the SoC platform type.
+		 * @return SOC_PLATFORM_REALTEK
+		 */
+		SocPlatformType GetSocPlatformType() const override { return SOC_PLATFORM_REALTEK; }
 
 		/**
 		 * @brief Check if audio fragments should be synchronized.

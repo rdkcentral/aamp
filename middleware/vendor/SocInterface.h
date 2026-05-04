@@ -27,6 +27,7 @@
 #include <gst/base/gstbasesink.h>
 #include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
+#include "SocUtils.h"
 
 #define REQUIRED_QUEUED_FRAMES_DEFAULT 4 // reduced from 6 to 4 to satisfy least common denominator
 
@@ -51,19 +52,6 @@ typedef enum
 	PLAY_FLAG_DEINTERLACE = (1 << 9),           /**< value is 0x200 */
 	PLAY_FLAG_SOFT_COLORBALANCE = (1 << 10) /**< value is 0x400 */
 }playFlags;
-
-/**
- * @enum SocPlatformType
- * @brief Enumeration of supported SoC platforms.
- */
-enum SocPlatformType
-{
-	SOC_PLATFORM_DEFAULT,     /**< Ubuntu/OSX */
-	SOC_PLATFORM_AMLOGIC,     /**< Amlogic */
-	SOC_PLATFORM_REALTEK,     /**< Realtek */
-	SOC_PLATFORM_BROADCOM,    /**< Broadcom */
-	SOC_PLATFORM_MEDIATEK,	 /**< MediaTek */
-};
 
 /**
  * @class SocInterface
@@ -225,6 +213,15 @@ public:
 	 * @return True if PTS restamping is supported, false otherwise.
 	 */
 	virtual bool EnablePTSRestamp(){return false;}
+	
+	/**
+	 * @brief Get the SoC platform type.
+	 *
+	 * Returns the platform type for this SoC implementation.
+	 *
+	 * @return The SocPlatformType enum value for this platform.
+	 */
+	virtual SocPlatformType GetSocPlatformType() const = 0;
 	
 	/**
 	 * Checks if this is the first tune with Westeros disabled.

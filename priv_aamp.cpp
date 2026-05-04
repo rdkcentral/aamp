@@ -6830,6 +6830,16 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableWebVTT, true);
 		AAMPLOG_INFO("app name:%s disableWebVTT(%d)", mAppName.c_str(), GETCONFIGVALUE_PRIV(eAAMPConfig_DisableWebVTT));
+		
+		// MTK platform does not support Westeros sink, disable it if incorrectly enabled
+		if(SocUtils::GetSocPlatformType() == SOC_PLATFORM_MEDIATEK)
+		{
+			if(GETCONFIGVALUE_PRIV(eAAMPConfig_UseWesterosSink))
+			{
+				SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_UseWesterosSink, false);
+				AAMPLOG_WARN("app name:%s - MTK platform does not support Westeros sink. Disabling.", mAppName.c_str());
+			}
+		}
 	}
 
 	/* Reset counter in new tune */

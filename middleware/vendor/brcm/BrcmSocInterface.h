@@ -34,6 +34,12 @@ public:
 	BrcmSocInterface();
 	
 	/**
+	 * @brief Get the SoC platform type.
+	 * @return SOC_PLATFORM_BROADCOM
+	 */
+	SocPlatformType GetSocPlatformType() const override { return SOC_PLATFORM_BROADCOM; }
+	
+	/**
 	 * @brief Check if PTS restamping is supported by the platform.
 	 *
 	 * Determines whether the platform supports PTS restamping.

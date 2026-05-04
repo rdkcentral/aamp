@@ -32,6 +32,12 @@ class AmlogicSocInterface : public SocInterface
 		AmlogicSocInterface();
 
 		/**
+		 * @brief Get the SoC platform type.
+		 * @return SOC_PLATFORM_AMLOGIC
+		 */
+		SocPlatformType GetSocPlatformType() const override { return SOC_PLATFORM_AMLOGIC; }
+
+		/**
 		 * @brief Get video sink from sinkbin.
 		 * @param sinkbin The GStreamer sinkbin.
 		 */
