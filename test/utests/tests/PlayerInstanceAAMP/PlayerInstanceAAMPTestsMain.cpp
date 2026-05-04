@@ -2934,3 +2934,165 @@ TEST_F(PlayerInstanceAAMPTests, Tune_CallsSetTuned)
 	mPlayerInstance->Tune(testUrl, contentType, true, false, nullptr, true);
 }
 
+/**
+ * @brief Test SetRateInternal BG->FG trickplay transition with the same rate.
+ *
+ * Regression test for the race condition where rewinding from a DASH VOD ad back
+ * to the main asset gets stuck because injection was never started.
+ *
+ * Scenario:
+ *   1. Player is detached (mbPlayEnabled=false) while playing at -12x.
+ *   2. SeekInternal calls TuneHelper with mbPlayEnabled=false, so pipeline
+ *      configuration and injection are skipped (StartFromOtherThanAampLocalTsb
+ *      checks IsPlayEnabled() and returns early). mbDetached is cleared by Init().
+ *   3. SetRateInternal(-12) triggers the BG->FG transition and must configure
+ *      the pipeline and start injection before resuming.
+ *
+ * Expected: Configure() and StartInjection() are called, the pipeline is
+ * activated and unpaused (Pause(false)), and mbPlayEnabled is true afterwards.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_BGToFG_TrickplaySameRate_ConfiguresAndStartsInjection)
+{
+	const float trickplayRate = -12.0f;
+	const int overshootcorrection = 0;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		.WillRepeatedly(Return(eSTATE_PLAYING));
+
+	// State after detach() + SeekInternal() on a BG player:
+	// mbDetached was cleared by StreamAbstractionAAMP_MPD::Init()
+	mplayer->aamp->mbPlayEnabled = false;
+	mplayer->aamp->pipeline_paused = true;
+	mplayer->aamp->mbSeeked = true;
+	mplayer->aamp->mbDetached = false;
+	mplayer->aamp->rate = trickplayRate;
+	mplayer->aamp->mIsIframeTrackPresent = true;
+	mplayer->aamp->mSeekFromPausedState = false;
+	mplayer->aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
+
+	// The BG->FG path for trickplay must configure the pipeline that was
+	// left unconfigured while mbPlayEnabled was false during TuneHelper.
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_, _, _, _, _, _, _)).Times(1);
+
+	// Injection loops must be started (they were skipped in StartFromOtherThanAampLocalTsb).
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StartInjection()).Times(1);
+
+	// After configure + inject, the existing "Resuming Playback at Position" path
+	// unpauses the pipeline.
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false))
+		.WillOnce(Return(true));
+
+	// Notify that the stream is no longer paused.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(false)).Times(1);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeDownloads()).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(_, _)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+
+	mplayer->SetRate_Internal(trickplayRate, overshootcorrection);
+
+	// BG->FG transition must have set mbPlayEnabled.
+	EXPECT_TRUE(mplayer->aamp->mbPlayEnabled);
+	// Pipeline must no longer be paused after resumption.
+	EXPECT_FALSE(mplayer->aamp->pipeline_paused);
+}
+
+/**
+ * @brief Test SetRateInternal BG->FG with a trickplay rate change.
+ *
+ * When the player is in background and SetRate is called with a rate
+ * different from the current one, TuneHelper is called to properly
+ * reinitialise the pipeline. In this case the new fix (Configure +
+ * StartInjection in the "same rate" path) must NOT be triggered, because
+ * the injection and configuration will be handled by TuneHelper.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_BGToFG_TrickplayRateChange_TuneHelperCalledNotConfigure)
+{
+	const float currentRate = -12.0f;
+	const float newRate = -4.0f;
+	const int overshootcorrection = 0;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		.WillRepeatedly(Return(eSTATE_PLAYING));
+
+	mplayer->aamp->mbPlayEnabled = false;
+	mplayer->aamp->pipeline_paused = true;
+	mplayer->aamp->mbSeeked = true;
+	mplayer->aamp->mbDetached = false;
+	mplayer->aamp->rate = currentRate;
+	mplayer->aamp->mIsIframeTrackPresent = true;
+	mplayer->aamp->mSeekFromPausedState = false;
+	mplayer->aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
+
+	// For a rate change, TuneHelper handles re-initialisation.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(_, _)).Times(1);
+
+	// Configure must NOT be called by the new fix (it goes via TuneHelper path).
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_, _, _, _, _, _, _)).Times(0);
+
+	// StartInjection must NOT be called by the new fix either.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StartInjection()).Times(0);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(_, _)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, CalculateTrickModePositionEOS()).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeDownloads()).Times(1);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false)).Times(1);
+
+	mplayer->SetRate_Internal(newRate, overshootcorrection);
+
+	EXPECT_TRUE(mplayer->aamp->mbPlayEnabled);
+}
+
+/**
+ * @brief Test SetRateInternal for a foreground player resuming at the same trickplay rate.
+ *
+ * When the player is already in the foreground (mbPlayEnabled=true, no BG->FG
+ * transition), the "Resuming Playback at Position" path must unpause the pipeline
+ * normally WITHOUT calling Configure or StartInjection (those were already done
+ * during the original TuneHelper call).
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateInternal_FGPlayer_TrickplaySameRate_NoPipelineReconfigure)
+{
+	const float trickplayRate = -12.0f;
+	const int overshootcorrection = 0;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		.WillRepeatedly(Return(eSTATE_PLAYING));
+
+	// Player is already in FG state.
+	mplayer->aamp->mbPlayEnabled = true;
+	mplayer->aamp->pipeline_paused = true;
+	mplayer->aamp->mbSeeked = false;
+	mplayer->aamp->mbDetached = false;
+	mplayer->aamp->rate = trickplayRate;
+	mplayer->aamp->playerStartedWithTrickPlay = false;
+	mplayer->aamp->mIsIframeTrackPresent = true;
+	mplayer->aamp->mSeekFromPausedState = false;
+	mplayer->aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = false;
+
+	// Configure must NOT be called: the pipeline is already set up.
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_, _, _, _, _, _, _)).Times(0);
+
+	// StartInjection must NOT be called: injection is already running.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StartInjection()).Times(0);
+
+	// The existing path just unpauses.
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false))
+		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(false)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeDownloads()).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(_, _)).Times(1);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetIsAtLivePoint(false)).Times(1);
+
+	mplayer->SetRate_Internal(trickplayRate, overshootcorrection);
+
+	EXPECT_TRUE(mplayer->aamp->mbPlayEnabled);
+	EXPECT_FALSE(mplayer->aamp->pipeline_paused);
+}
+
