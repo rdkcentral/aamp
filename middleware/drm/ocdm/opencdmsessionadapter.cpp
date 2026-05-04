@@ -97,6 +97,10 @@ void OCDMSessionAdapter::initDRMSystem()
 		if (m_pOpenCDMSystem == nullptr) {
 			MW_LOG_ERR("opencdm_create_system() FAILED");
 		}
+		else
+		{
+			MW_LOG_WARN("VRN at %p, with SYS[%p]", this , m_pOpenCDMSystem);
+		}
 	}
 	MW_LOG_WARN("initDRMSystem :: exit ");
 }
@@ -109,6 +113,7 @@ OCDMSessionAdapter::~OCDMSessionAdapter()
 
 	if (m_pOpenCDMSystem) {
 #ifdef USE_THUNDER_OCDM_API_0_2
+		MW_LOG_WARN("VRN at %p, with SYS[%p]", this , m_pOpenCDMSystem);
 		opencdm_destruct_system(m_pOpenCDMSystem);
 #endif
 		m_pOpenCDMSystem = NULL;
@@ -120,7 +125,7 @@ OCDMSessionAdapter::~OCDMSessionAdapter()
 void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 		uint32_t f_cbInitData, std::string &customData)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 
 	std::lock_guard<std::mutex> guard(decryptMutex);
 	if (m_pOpenCDMSystem == nullptr)
@@ -170,13 +175,17 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 			MW_LOG_ERR("Error constructing OCDM session. OCDM err=0x%x", ocdmRet);
 			m_eKeyState = KEY_ERROR_SESSION_CREATE_FAILED;
 		}
+		else
+		{
+			MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+		}
 	}
 }
 
 
 void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize) {
 
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 
 	const std::string challengeData(reinterpret_cast<const char *>(challenge), challengeSize);
 	const std::set<std::string> individualisationTypes = {"individualization-request", "3"};
@@ -215,7 +224,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 }
 
 void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	// Validate input parameters
 	if (key != nullptr && keySize > 0)
 	{
@@ -230,6 +239,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 		}
 		else
 		{
+			MW_LOG_WARN("VRN Clear key stored");
 			m_keyStored.clear();
 			m_keyStored.assign(key, key + keySize);
 			m_keyStateIndeterminate = true;
@@ -248,14 +258,14 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 }
 
 void OCDMSessionAdapter::keysUpdatedOCDM() {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	m_keyStatusReady.signal();
 }
 
 
 DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout)
 {
-	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	DrmData * result = NULL;
 
 	m_eKeyState = KEY_ERROR;
@@ -413,6 +423,7 @@ void OCDMSessionAdapter:: clearDecryptContext()
 	MW_LOG_WARN("[HHH] clearDecryptContext.");
 
 	std::lock_guard<std::mutex> guard(decryptMutex);
+	MW_LOG_INFO("VRN at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 
 	if (m_pOpenCDMSession) {
 		opencdm_session_close(m_pOpenCDMSession);
