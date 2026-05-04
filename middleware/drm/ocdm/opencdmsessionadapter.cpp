@@ -258,7 +258,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 }
 
 void OCDMSessionAdapter::keysUpdatedOCDM() {
-	MW_LOG_WARN("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("at %p, with %p, %p Key[%d]", this , m_pOpenCDMSystem, m_pOpenCDMSession, m_keyStatus);
 	m_keyStatusReady.signal();
 }
 
