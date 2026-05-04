@@ -282,6 +282,10 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
  * @param rate Bitrate.
  * @param pipelineName Pipeline name.
  * @param PipelinePriority Pipeline priority.
+ * @param FirstFrameFlag Whether the first-frame callback is required.
+ * @param manifestUrl URL of the manifest used to configure stream setup.
+ * @param enableLiveLatency Whether to enable live-latency mode in the
+ *        RialtoSink streams-info context (passed as enable-live-latency).
  */
 void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subFormat,
 										   bool bESChangeStatus, bool setReadyAfterPipelineCreation,
@@ -483,7 +487,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 						  "video-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->video_sink)?0x1u:0x0u,
 						  "audio-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->audio_sink)?0x1u:0x0u,
 						  "text-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->subtitle_sink)?0x1u:0x0u,
-						  "enable-live-latency", G_TYPE_BOOLEAN, enableLiveLatency,
+					  "enable-live-latency", G_TYPE_BOOLEAN, (gboolean)enableLiveLatency,
 						  NULL );
 		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
 		gst_context_unref(context);
