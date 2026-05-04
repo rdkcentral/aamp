@@ -32,6 +32,8 @@
 
 #include "MockIsoBmffHelper.h"
 #include "MockIsoBmffBuffer.h"
+#include "AampMp4Demuxer.h"
+#include "MockAampMp4Demuxer.h"
 #include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
@@ -186,6 +188,32 @@ protected:
 		AampLLDashServiceData dashData{};
 		dashData.lowLatencyMode = isEnabled;
 		mPrivateInstanceAAMP->SetLLDashServiceData(dashData);
+	}
+
+	void PrepareCheckForDiscontinuityTest()
+	{
+		// Prevent null dereference in CheckForDiscontinuity when it reads
+		// aamp->mpStreamAbstractionAAMP->GetESChangeStatus().
+		mPrivateInstanceAAMP->mpStreamAbstractionAAMP =
+			mStreamAbstractionAAMP_MPD;
+		// Make GetESChangeStatus() return true so both early-exit branches
+		// are skipped and we reach the else-block with our new condition.
+		mStreamAbstractionAAMP_MPD->SetESChangeStatus();
+		mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	}
+
+	CachedFragment MakeDiscontinuousFragment()
+	{
+		CachedFragment fragment;
+		// Populate the fragment buffer with known test data so downstream
+		// processing has valid bytes to operate on
+		fragment.fragment.assign(FRAGMENT_TEST_DATA,
+							 FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
+		// Signal a stream discontinuity so the processor triggers
+		// the discontinuity-handling path under test
+		fragment.discontinuity = true;
+		fragment.position = FIRST_PTS.inSeconds();
+		return fragment;
 	}
 
 	/**
@@ -624,7 +652,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	testFragment.uri = expectedUri;
 	testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
-	videoTrack.numberOfFragmentsCached = 1;
+	videoTrack.numberOfFragmentChunksCached = 1;
 	ASSERT_NE(bufferedFragment, nullptr);
 	ASSERT_GT(bufferedFragment->fragment.size(), 0);
 	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
@@ -1181,4 +1209,128 @@ TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_SignaledAndCacheClear
 	signalThread.join();
 
 	EXPECT_TRUE(result);
+}
+
+/*
+ * @brief Test that prevents injection from being stopped
+ * when PTS restamp logic is enabled for mp4demux.
+ */
+TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayContext)
+{
+	PrepareCheckForDiscontinuityTest();
+	// Deliberately NOT FORMAT_ISO_BMFF - the play-context capability alone
+	// must trigger.
+	mPrivateInstanceAAMP->mVideoFormat = FORMAT_INVALID;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	MockAampMp4Demuxer mockDemuxer;
+	g_mockAampMp4Demuxer = &mockDemuxer;
+	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack subtitleTrack{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+								 "subtitle", mStreamAbstractionAAMP_MPD};
+	subtitleTrack.playContext =
+		std::make_shared<AampMp4Demuxer>(mPrivateInstanceAAMP,
+			eMEDIATYPE_SUBTITLE, true);
+
+	CachedFragment fragment = MakeDiscontinuousFragment();
+	bool fragmentDiscarded{false};
+	bool isDiscontinuity{true};
+	bool ret{true};
+
+	subtitleTrack.CheckForDiscontinuity(&fragment, fragmentDiscarded,
+										isDiscontinuity, ret);
+
+	EXPECT_FALSE(isDiscontinuity);
+	g_mockAampMp4Demuxer = nullptr;
+}
+
+/**
+* @brief Test that CheckForDiscontinuity falls back to the plain
+* ProcessDiscontinuity path when neither FORMAT_ISO_BMFF nor mp4demux applies.
+* This verifies the new mp4demux condition does not change behavior for
+* non-BMFF streams that are not using an AampMp4Demuxer playContext.
+ */
+TEST_F(MediaTrackTests, CheckForDiscontinuity_FallsThrough_WhenNotISOBMFFAndNotMp4Demuxer)
+{
+	PrepareCheckForDiscontinuityTest();
+	mPrivateInstanceAAMP->mVideoFormat = FORMAT_INVALID;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack subtitleTrack{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+									 "subtitle", mStreamAbstractionAAMP_MPD};
+	subtitleTrack.playContext = nullptr;
+
+	CachedFragment fragment = MakeDiscontinuousFragment();
+	bool fragmentDiscarded{false};
+	bool isDiscontinuity{true};
+	bool ret{true};
+
+	subtitleTrack.CheckForDiscontinuity(&fragment, fragmentDiscarded, isDiscontinuity, ret);
+
+	// Else branch: isDiscontinuity was not modified, remains true.
+	EXPECT_TRUE(isDiscontinuity);
+}
+
+/**
+ * @brief Test that IsPTSRestampEnabled() falls back to the active
+ * playContext capability when the DASH Restamp 2.0 condition
+ * does not apply.
+ */
+TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
+{
+	TestableMediaTrack subtitleTrack{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+								 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	subtitleTrack.playContext = nullptr;
+	EXPECT_FALSE(subtitleTrack.IsPTSRestampEnabled());
+
+	MockAampMp4Demuxer mockDemuxer;
+	g_mockAampMp4Demuxer = &mockDemuxer;
+	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+		.WillOnce(Return(false))
+		.WillOnce(Return(true));
+
+	subtitleTrack.playContext =
+		std::make_shared<AampMp4Demuxer>(mPrivateInstanceAAMP,
+			eMEDIATYPE_SUBTITLE, false);
+	EXPECT_FALSE(subtitleTrack.IsPTSRestampEnabled());
+
+	subtitleTrack.playContext =
+		std::make_shared<AampMp4Demuxer>(mPrivateInstanceAAMP,
+			eMEDIATYPE_SUBTITLE, true);
+	EXPECT_TRUE(subtitleTrack.IsPTSRestampEnabled());
+
+	g_mockAampMp4Demuxer = nullptr;
+}
+
+/**
+* @brief Test that CheckForDiscontinuity falls back to the plain
+* ProcessDiscontinuity path when the active playContext does not report
+* internal PTS-restamp capability.
+*/
+TEST_F(MediaTrackTests, CheckForDiscontinuity_FallsThrough_WhenPtsRestampDisabled)
+{
+	PrepareCheckForDiscontinuityTest();
+	// The track container details do not matter; only the active playContext
+	// capability controls whether the restamp-specific discontinuity path is used.
+	mPrivateInstanceAAMP->mVideoFormat = FORMAT_ISO_BMFF;
+
+	TestableMediaTrack subtitleTrack{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+									 "subtitle", mStreamAbstractionAAMP_MPD};
+	subtitleTrack.playContext =
+		std::make_shared<AampMp4Demuxer>(mPrivateInstanceAAMP, eMEDIATYPE_SUBTITLE);
+
+	CachedFragment fragment = MakeDiscontinuousFragment();
+	bool fragmentDiscarded{false};
+	bool isDiscontinuity{true};
+	bool ret{true};
+
+	subtitleTrack.CheckForDiscontinuity(&fragment, fragmentDiscarded, isDiscontinuity, ret);
+
+	// Else branch: isDiscontinuity was not modified, remains true.
+	EXPECT_TRUE(isDiscontinuity);
 }

@@ -130,6 +130,12 @@ public:
 	 */
 	void setTrackOffset(double offset) override { }
 
+	/**
+	 * @brief Check whether MP4 demux performs PTS restamping internally.
+	 * @return true if internal PTS restamping is configured and active
+	 */
+	bool getPTSRestampStatus() const override;
+
 private:
 	std::unique_ptr<Mp4Demux> mMp4Demux;
 	PrivateInstanceAAMP* mAamp;
