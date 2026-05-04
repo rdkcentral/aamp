@@ -484,7 +484,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 						  "audio-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->audio_sink)?0x1u:0x0u,
 						  "text-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->subtitle_sink)?0x1u:0x0u,
 						  "enable-live-latency", G_TYPE_BOOLEAN, enableLiveLatency,
-						  nullptr );
+						  NULL );
 		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
 		gst_context_unref(context);
 	}
