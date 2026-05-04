@@ -2565,7 +2565,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 	}
 	else
 	{
-		AAMPLOG_WARN("Rate Correction Ignored Due to Rate Correction disabled from config;  EnableLiveLatencyCorrection [%d]",
+		AAMPLOG_WARN("Rate Correction Ignored Due to Rate Correction disabled from config;  EnableLiveLatencyRateCorrection [%d]",
 		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection));
 	}
 }
