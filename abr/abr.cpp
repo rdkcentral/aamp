@@ -42,8 +42,7 @@
 
 ABRManager::AampAbrConfig eAAMPAbrConfig;
 
-BitsPerSecond ABRManager::mPersistBandwidth = 0;
-long long ABRManager::mPersistBandwidthUpdatedTime = 0;
+std::atomic<ABRManager::PersistBandwidthData> ABRManager::mPersistBandwidthData{};
 
 ABRManager::ABRManager()
 	: bLowLatencyStartABR(false),
