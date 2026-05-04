@@ -6822,7 +6822,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
-		// Enable PTS Restamping
+		// Enable live latency rate correction, PTS Restamping and other app-specific configurations
 		if(SocUtils::EnableLiveLatencyCorrection())
 		{
 			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyRateCorrection, true);
