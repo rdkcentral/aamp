@@ -1,4 +1,4 @@
-# Network Persona Fitter (VPAAMP-129)
+# Network Persona Fitter
 
 Automatic generation of a simnet **network persona JSON** directly from a live AAMP
 playback session — no external Python tool or post-processing step required.
