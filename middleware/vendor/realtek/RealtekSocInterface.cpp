@@ -229,10 +229,11 @@ void RealtekSocInterface::GetCCDecoderHandle(gpointer *dec_handle, GstElement *v
  * @param video_dec The video decoder element.
  * @param isWesteros A flag for Westeros logic.
  *
- * @return Video PTS in 90 kHz ticks, or std::nullopt if the 'video-pts'
+ * @return Video PTS in 90 kHz ticks, or -1 if the 'video-pts'
  *         property is not supported on this platform.
+
  */
-std::optional<long long> RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+long long RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
 	return ReadVideoPts(video_sink);
 }

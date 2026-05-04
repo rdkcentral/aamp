@@ -165,22 +165,9 @@ void SocInterface::SetDecodeError(GstObject* src)
         g_object_set(src, "report_decode_errors", TRUE, NULL);
 }
 
-bool SocInterface::IsVideoPtsPropertySupported(GstElement *element)
+long long SocInterface::ReadVideoPts(GstElement *element)
 {
-	if(element)
-	{
-		std::call_once(mVideoPtsProbeOnce, [&]{
-			GParamSpec *pspec = g_object_class_find_property(
-				G_OBJECT_GET_CLASS(element), "video-pts");
-			mVideoPtsPropertySupported = (pspec != NULL);
-		});
-	}
-	return mVideoPtsPropertySupported;
-}
-
-std::optional<long long> SocInterface::ReadVideoPts(GstElement *element)
-{
-	std::optional<long long> result;
+	long long result = 0;
 	if(element)
 	{
 		if(IsVideoPtsPropertySupported(element))
@@ -189,21 +176,21 @@ std::optional<long long> SocInterface::ReadVideoPts(GstElement *element)
 			g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */
 			result = static_cast<long long>(currentPTS);
 		}
-		/* else: property not supported, result remains std::nullopt */
-	}
-	else
-	{
-		result = 0LL;
+		else
+		{
+			/* The 'video-pts' property is not exposed on this platform.*/
+			result = -1;
+		}
 	}
 	return result;
 }
 
-std::optional<long long> SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
-	auto result = ReadVideoPts(video_dec);
-	if(result.has_value() && !isWesteros)
+	long long result = ReadVideoPts(video_dec);
+	if(result != -1 && !isWesteros)
 	{
-		*result *= 2;
+		result *= 2;
 	}
 	return result;
 }

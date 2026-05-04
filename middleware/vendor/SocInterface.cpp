@@ -222,29 +222,12 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
  * @param video_dec The video decoder element.
  * @param isWesteros A flag for Westeros logic.
  *
- * @return Video PTS in 90 kHz ticks, or std::nullopt if the 'video-pts'
+ * @return Video PTS in 90 kHz ticks, or -1 if the 'video-pts'
  *         property is not supported on this platform.
  */
-std::optional<long long> SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+long long SocInterface::ReadVideoPts(GstElement *element)
 {
-	auto result = ReadVideoPts(video_dec);
-	if(result.has_value() && !isWesteros)
-	{
-		*result *= 2;
-	}
-	return result;
-}
-
-/**
- * @brief Read the raw 'video-pts' value from a GStreamer element.
- *
- * @param element The GStreamer element to query.
- * @return The PTS value in 90 kHz ticks, std::nullopt if the 'video-pts'
- *         property is not supported, or 0 if element is NULL.
- */
-std::optional<long long> SocInterface::ReadVideoPts(GstElement *element)
-{
-	std::optional<long long> result;
+	long long result = 0;
 	if(element)
 	{
 		if(IsVideoPtsPropertySupported(element))
@@ -253,11 +236,21 @@ std::optional<long long> SocInterface::ReadVideoPts(GstElement *element)
 			g_object_get(element, "video-pts", &currentPTS, NULL);
 			result = static_cast<long long>(currentPTS);
 		}
-		/* else: property not supported, result remains std::nullopt */
+		else
+		{
+			/* The 'video-pts' property is not exposed on this platform.*/
+			result = -1;
+		}
 	}
-	else
+	return result;
+}
+
+long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+{
+	long long result = ReadVideoPts(video_dec);
+	if(result != -1 && !isWesteros)
 	{
-		result = 0LL;
+		result *= 2;
 	}
 	return result;
 }

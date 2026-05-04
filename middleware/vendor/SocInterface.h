@@ -25,7 +25,6 @@
 #include <vector>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <gst/base/gstbasesink.h>
 #include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
@@ -381,10 +380,10 @@ public:
 	 * @param video_dec The video decoder element.
 	 * @param isWesteros A flag for Westeros logic.
 	 *
-	 * @return Video PTS in 90 kHz ticks, or std::nullopt if the 'video-pts'
+	 * @return Video PTS in in 90 kHz ticks, or -1 if the 'video-pts'
 	 *         property is not supported on this platform.
 	 */
-	virtual std::optional<long long> GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros);
+	virtual long long GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros);
 
 	/**
 	 * @brief Check whether the 'video-pts' GObject property is supported by
@@ -519,9 +518,9 @@ protected:
 	 * shared by all SocInterface subclass overrides of GetVideoPts().
 	 *
 	 * @param element The GStreamer element to query
-	 * @return The PTS value in 90 kHz ticks, std::nullopt if the 'video-pts'
+	 * @return The PTS value in 90 kHz ticks, -1 if the 'video-pts'
 	 *         property is not supported, or 0 if element is NULL.
 	 */
-	[[nodiscard]] std::optional<long long> ReadVideoPts(GstElement *element);
+	long long ReadVideoPts(GstElement *element);
 };
 #endif
