@@ -341,7 +341,7 @@ class InterfacePlayerRDK
         	 * @param pipelineName Pipeline name.
         	 * @param PipelinePriority Pipeline priority.
         	 */
-        	void ConfigurePipeline(int, int, int, bool, bool, bool, int32_t, gint, const char *, int, bool, std::string url);
+        	void ConfigurePipeline(int, int, int, bool, bool, bool, int32_t, gint, const char *, int, bool, std::string url, bool);
         	/**
         	 * @brief Enables or disables pausing on playback start.
         	 * @param enable True to enable pausing, false to disable.
