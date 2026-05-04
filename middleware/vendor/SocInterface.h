@@ -24,6 +24,7 @@
 #include <functional>
 #include <vector>
 #include <memory>
+#include <mutex>
 #include <gst/base/gstbasesink.h>
 #include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
@@ -95,8 +96,8 @@ protected:
 	 * Once probed against a non-NULL video sink/decoder, the result is
 	 * reused for the lifetime of this SocInterface instance to avoid
 	 * repeated g_object_class_find_property() calls on hot paths. */
-	bool mVideoPtsPropertyChecked = false;
-	bool mVideoPtsPropertySupported = false;
+	std::once_flag mVideoPtsProbeOnce;
+	bool mVideoPtsPropertySupported{false};
 	
 public:
 	SocInterface() {}

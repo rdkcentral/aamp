@@ -256,24 +256,22 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
  */
 bool SocInterface::IsVideoPtsPropertySupported(GstElement *element)
 {
-	if(!mVideoPtsPropertyChecked)
+	if(element)
 	{
-		if(element)
-		{
+		std::call_once(mVideoPtsProbeOnce, [&]{
 			GParamSpec *pspec = g_object_class_find_property(
 				G_OBJECT_GET_CLASS(element), "video-pts");
 			mVideoPtsPropertySupported = (pspec != NULL);
-			mVideoPtsPropertyChecked = true;
 			MW_LOG_WARN("SocInterface: 'video-pts' property is %s on %s",
-					mVideoPtsPropertySupported ? "supported" : "NOT supported",
-					GST_ELEMENT_NAME(element));
-		}
-		else
-		{
-			/* Leave the flags untouched so the probe is retried on the
-			 * next call once the element is available. */
-			MW_LOG_WARN("SocInterface: cannot probe 'video-pts' property, element is NULL");
-		}
+				mVideoPtsPropertySupported ? "supported" : "NOT supported",
+				GST_ELEMENT_NAME(element));
+		});
+	}
+	else
+	{
+		/* Leave the flags untouched so the probe is retried on the
+		 * next call once the element is available. */
+		MW_LOG_WARN("SocInterface: cannot probe 'video-pts' property, element is NULL");
 	}
 	return mVideoPtsPropertySupported;
 }

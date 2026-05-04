@@ -190,36 +190,37 @@ void SocInterface::SetWesterosSinkState(bool status)
 }
 bool SocInterface::IsVideoPtsPropertySupported(GstElement *element)
 {
-	if(!mVideoPtsPropertyChecked)
+	if(element)
 	{
-		if(element)
-		{
+		std::call_once(mVideoPtsProbeOnce, [&]{
 			GParamSpec *pspec = g_object_class_find_property(
 				G_OBJECT_GET_CLASS(element), "video-pts");
 			mVideoPtsPropertySupported = (pspec != NULL);
-			mVideoPtsPropertyChecked = true;
-		}
+		});
 	}
 	return mVideoPtsPropertySupported;
 }
 long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
-        gint64 currentPTS = 0;
-        GstElement *element;
-        element = video_dec;
-        if(element)
-        {
-                if(!IsVideoPtsPropertySupported(element))
-                {
-                        return -1;
-                }
-                g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */
-                if(!isWesteros)
-                {
-                        currentPTS = currentPTS * 2;
-                }
+	gint64 currentPTS = 0;
+	GstElement *element;
+	element = video_dec;
+	if(element)
+	{
+		if(IsVideoPtsPropertySupported(element))
+		{
+			g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */
+			if(!isWesteros)
+			{
+				currentPTS = currentPTS * 2;
+			}
+		}
+		else
+		{
+			return -1;
+		}
         }
-        return (long long)currentPTS;
+	return (long long)currentPTS;
 }
 bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
 {
