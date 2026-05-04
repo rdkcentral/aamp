@@ -2423,7 +2423,7 @@ void PrivateInstanceAAMP::StartRateCorrectionWorkerThread(void)
 	try
 	{
 		bool newTune = IsNewTune();
-		bool enabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
+		bool enabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
 		/** Spawn the rate Correction thread if it is live, new tune, thread not started yet, and rate correction enabled **/
 		if(IsLive() && newTune && !mRateCorrectionThread.joinable() && enabled )
 		{
@@ -2444,7 +2444,7 @@ void PrivateInstanceAAMP::StartRateCorrectionWorkerThread(void)
  */
 void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 {
-	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection))
+	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
 	{
 		int latencyMonitorInterval = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorIntervalMs);
 		double normalPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
@@ -2565,8 +2565,8 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 	}
 	else
 	{
-		AAMPLOG_WARN("Rate Correction Ignored Due to Rate Correction disabled from config;  EnableLiveLatencyCorrection [%d]",
-		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection));
+		AAMPLOG_WARN("Rate Correction Ignored Due to Rate Correction disabled from config;  EnableLiveLatencyRateCorrection [%d]",
+		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection));
 	}
 }
 
@@ -2758,7 +2758,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		{
 			currentRate = mLatencyMonitor->GetCurrentRate();
 		}
-		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection) )
+		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection) )
 		{
 			currentRate = mCorrectionRate;
 		}
@@ -3811,7 +3811,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 			mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 
-			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
+			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
 			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
 			if( disableRateCorrectionTimeInSeconds > 0  && isRateCorrectionEnabled )
 			{
@@ -6406,7 +6406,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
 
-		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection))
+		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
 		{
 			StartRateCorrectionWorkerThread();
 		}
@@ -6822,10 +6822,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
-		// Enable PTS Restamping
+		// Enable live latency rate correction, PTS Restamping and other app-specific configurations
 		if(SocUtils::EnableLiveLatencyCorrection())
 		{
-			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
+			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyRateCorrection, true);
 		}
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableWebVTT, true);
