@@ -390,7 +390,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 /*AAMPGstPlayer constructor*/
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
-	aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL),
+	aamp(NULL), mEncryptedAamp(NULL), mEncryptedAampId(-1), privateContext(NULL),
 	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{std::move(id3HandlerCallback)},
 	cbExportYUVFrame(NULL), monitorAvTimerId(0), mMonitorAVInterval(0)
 
@@ -403,6 +403,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		this->aamp = aamp;
 		// Initially set to this instance, can be changed by SetEncryptedAamp
 		this->mEncryptedAamp = aamp;
+		this->mEncryptedAampId = (aamp ? aamp->mPlayerId : -1);
 
 		this->cbExportYUVFrame = exportFrames;
 		playerInstance->gstCbExportYUVFrame = std::move(exportFrames);
@@ -897,13 +898,29 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
 	mEncryptedAamp = aamp;
+	mEncryptedAampId = (aamp ? aamp->mPlayerId : -1); // store the id of the last encrypted player to be set
  	void*	mDRMSessionManager = aamp->mDRMLicenseManager->mDrmSessionManager;
 	playerInstance->setEncryption((void*)mEncryptedAamp,(void*)mDRMSessionManager);
 }
 
+/**
+ * @brief Check if the specified player is associated with the pipeline
+ * @param[in] aampInstance - pointer to new instance of PrivateInstanceAAMP
+ */
 bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 {
 	return aamp == aampInstance;
+}
+
+/**
+ * @brief Return encrypted player id
+ * @return ID of encrypted player else -1
+ */
+const int AAMPGstPlayer::GetEncryptedAampId(void) const
+{
+	// Only return the id if there is an encrypted aamp ptr but use the stored player id
+	// in case the ptr is stale
+	return (mEncryptedAamp ? mEncryptedAampId : -1);
 }
 
 /**

@@ -43,6 +43,8 @@ using ::testing::SetArgReferee;
 using ::testing::TypedEq;
 using ::testing::AnyNumber;
 
+static constexpr float SLOWEST_TRICKPLAY_RATE{2};
+
 AampConfig *gpGlobalConfig{nullptr};
 
 class IsoBmffProcessorBaseTests : public ::testing::Test
@@ -110,6 +112,16 @@ class IsoBmffProcessorPTMTests : public IsoBmffProcessorBaseTests
 		bool IsPTSReStampEnabled() const override { return false; }
 		bool IsPTMEnabled() const override { return true; }
 };
+
+//Verifies getPTSRestampStatus returns false after switching to trickplay-only restamp mode.
+TEST_F(IsoBmffProcessorTests, getPTSRestampStatus_UsesProcessorState)
+{
+	EXPECT_TRUE(mIsoBmffProcessor->getPTSRestampStatus());
+
+	mIsoBmffProcessor->setRate(SLOWEST_TRICKPLAY_RATE,
+		PlayMode_retimestamp_Ionly);
+	EXPECT_FALSE(mIsoBmffProcessor->getPTSRestampStatus());
+}
 
 //Race condition between setTuneTimePTS and reset calls
 TEST_F(IsoBmffProcessorTests, abortTests1)
@@ -728,6 +740,12 @@ TEST_F(IsoBmffProcessorTests, PTMOnRestampOnTest)
 	IsoBmffProcessor *processor = new IsoBmffProcessor(mPrivateInstanceAAMP, nullptr, eBMFFPROCESSOR_TYPE_AUDIO, true /* passThrough */,nullptr,nullptr);
 	EXPECT_EQ(processor->getPassThroughMode(), false);
 	delete processor;
+}
+
+//Verifies getPTSRestampStatus returns false when PTS restamping is disabled at construction
+TEST_F(IsoBmffProcessorPTMTests, getPTSRestampStatus_FalseWhenRestampDisabled)
+{
+	EXPECT_FALSE(mIsoBmffProcessor->getPTSRestampStatus());
 }
 // Validates the sendSegment calls with PTM enabled and restamp disabled
 TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)

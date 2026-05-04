@@ -23,11 +23,14 @@
 MockIsoBmffProcessor* g_mockIsoBmffProcessor = nullptr;
 
 IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, bool passThrough, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
+        : p_aamp(aamp), timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
+            mediaFormat(eMEDIAFORMAT_UNKNOWN), timeScale(0), currTimeScale(0),
+            playRate(AAMP_NORMAL_PLAY_RATE), basePTS(0), sumPTS(0),
+            isRestampConfigEnabled(false), passThroughMode(false)
 {
 }
 
-bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
-								            bool isInit, process_fcn_t processor, bool &ptsError)
+bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit, process_fcn_t processor, bool &ptsError)
 {
     return true;
 }
@@ -89,4 +92,12 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, 
 bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(std::vector<uint8_t>& buffer)
 {
     return true;
+}
+bool IsoBmffProcessor::getPTSRestampStatus() const
+{
+    if (g_mockIsoBmffProcessor)
+    {
+        return g_mockIsoBmffProcessor->getPTSRestampStatus();
+    }
+    return false;
 }

@@ -137,3 +137,12 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 	ptsError = false;
 	return ret;
 }
+
+/**
+ * @brief Check whether MP4 demux performs PTS restamping internally.
+ * @return true if internal PTS restamping is configured and active
+ */
+bool AampMp4Demuxer::getPTSRestampStatus() const
+{
+	return mEnablePtsRestamp;
+}
