@@ -1512,7 +1512,6 @@ SessionMgrState AampDRMLicenseManager::getSessionMgrState()
 	    return SessionMgrState::eSESSIONMGR_INACTIVE;
 	}
 }
-
 /**
  * @brief Re-use the current seesion ID, watermarking variables and de-activate watermarking session status
  */
