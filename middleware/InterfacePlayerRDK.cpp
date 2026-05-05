@@ -581,6 +581,7 @@ static void GstPlayer_OnFirstVideoFrameCallback(GstElement* object, guint arg0, 
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
+	MW_LOG_INFO("TRACE_TUNE: GstPlayer_OnFirstVideoFrameCallback invoked");
 	privatePlayer->gstPrivateContext->firstVideoFrameReceived = true;
 	pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 
@@ -607,6 +608,7 @@ static void GstPlayer_OnAudioFirstFrameAudDecoder(GstElement* object, guint arg0
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
+	MW_LOG_INFO("TRACE_TUNE: GstPlayer_OnAudioFirstFrameAudDecoder invoked");
 	privatePlayer->gstPrivateContext->firstAudioFrameReceived = true;
 	pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_AUDIO);
 }
@@ -1204,8 +1206,7 @@ static std::string GetStatus(gpointer pElementOrBin, int& recursionCount, gpoint
 
 				case  GST_STATE_CHANGE_NO_PREROLL:
 					returnStringBuilder +="*";
-					break;
-
+				MW_LOG_INFO("TRACE_TUNE: GST_STATE_CHANGE_NO_PREROLL for element %s", name.c_str());
 				default:
 					returnStringBuilder +="?";
 					break;
@@ -3126,7 +3127,10 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		{
 
 			GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
-			
+			if (ret == GST_FLOW_OK)
+			{
+				MW_LOG_INFO("TRACE_TUNE: Data pushed into pipeline for mediaType[%d] pts %" G_GUINT64_FORMAT " firstBuffer=%d initFragment=%d", mediaType, pts, isFirstBuffer, initFragment);
+			}
 			if (ret != GST_FLOW_OK)
 			{
 				MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
@@ -3712,11 +3716,19 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	bool notifyFirstBuffer = false;
 	bool audioOnly = false;
 	bool requireFirstVideoFrameDisplay = false;
+	MW_LOG_INFO("TRACE_TUNE: NotifyFirstFrame called mediaType[%d] firstFrameReceived=%d firstVideoFrameReceived=%d firstAudioFrameReceived=%d NumberOfTracks=%d firstFrameRequired=%d",
+		mediaType,
+		interfacePlayerPriv->gstPrivateContext->firstFrameReceived,
+		interfacePlayerPriv->gstPrivateContext->firstVideoFrameReceived,
+		interfacePlayerPriv->gstPrivateContext->firstAudioFrameReceived,
+		interfacePlayerPriv->gstPrivateContext->NumberOfTracks,
+		mFirstFrameRequired);
 	if (!interfacePlayerPriv->gstPrivateContext->firstFrameReceived && (interfacePlayerPriv->gstPrivateContext->firstVideoFrameReceived
 												   || (1 == interfacePlayerPriv->gstPrivateContext->NumberOfTracks && (interfacePlayerPriv->gstPrivateContext->firstAudioFrameReceived || interfacePlayerPriv->gstPrivateContext->firstVideoFrameReceived))))
 	{
 		interfacePlayerPriv->gstPrivateContext->firstFrameReceived = true;
 		notifyFirstBuffer = true;
+		MW_LOG_INFO("TRACE_TUNE: First frame signal state for mediaType[%d]: notifyFirstBuffer=%d", mediaType, notifyFirstBuffer);
 		PlayerLogManager::setLogLevel(mLOGLEVEL_WARN);				//Align with player LogTuneComplete once the first frame starts, required for prod builds
 	}
 	if(notifyFirstFrameCallback)
@@ -4247,6 +4259,9 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			}
 			if(isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
 			{
+				MW_LOG_INFO("TRACE_TUNE: GST bus event: playbin state changed to PLAYING, using_westerossink=%d pauseOnStartPlayback=%d",
+					privatePlayer->gstPrivateContext->using_westerossink,
+					privatePlayer->gstPrivateContext->pauseOnStartPlayback);
 				privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
 
 				busEvent.setPlaybackRate = privatePlayer->socInterface->SetPlatformPlaybackRate();
@@ -4903,7 +4918,9 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			break;
 		case GST_MESSAGE_ASYNC_DONE:
 
-			MW_LOG_INFO("Received GST_MESSAGE_ASYNC_DONE message");
+			MW_LOG_INFO("TRACE_TUNE: Received GST_MESSAGE_ASYNC_DONE message buffering_in_progress=%d pipelineState=%s",
+				privatePlayer->gstPrivateContext->buffering_in_progress,
+				gst_element_state_get_name(privatePlayer->gstPrivateContext->pipelineState));
 			if (privatePlayer->gstPrivateContext->buffering_in_progress)
 			{
 				privatePlayer->gstPrivateContext->bufferingTimeoutTimerId = g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS, buffering_timeout, pInterfacePlayerRDK, NULL);
