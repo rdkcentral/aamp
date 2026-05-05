@@ -423,7 +423,11 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -444,7 +448,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
   t.join();
 
   // Verify the result
@@ -564,7 +568,11 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event status should be false
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR)).Times(1);
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -579,7 +587,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
   t.join();
 
   // Verify the result
@@ -730,8 +738,17 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000, adErrorCode)).Times(1);
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000, adErrorCode)).Times(1);
+  // Both ads resolve independently; use a counting latch so we wait until both have fired.
+  auto adResolvedCount = std::make_shared<std::atomic<int>>(2);
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  auto adResolvedLatch = [adResolvedCount, adResolvedPromise]{
+      if (--(*adResolvedCount) == 0) adResolvedPromise->set_value();
+  };
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000, adErrorCode))
+      .Times(1).WillOnce(InvokeWithoutArgs(adResolvedLatch));
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000, adErrorCode))
+      .Times(1).WillOnce(InvokeWithoutArgs(adResolvedLatch));
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillRepeatedly(Return(true));
@@ -740,7 +757,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
               .WillRepeatedly(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj created
@@ -870,11 +887,14 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_10)
 
     InitializeAdMPD(invalidManifest);
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
     // Now set the ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // wait for FulFillAdObject to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Verify the result
     // mAdBreak updated and placementObj not created
@@ -905,11 +925,14 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_11)
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     InitializeAdMPD(nullptr, false, false, 1, 28); // No manifest
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
     // Now set the ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // wait for FulFillAdObject to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Verify the result
     // mAdBreak updated and placementObj not created
@@ -940,11 +963,14 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_12)
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     InitializeAdMPD(nullptr, false, false, 1, 404); // No manifest
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
     // Now set the ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // wait for FulFillAdObject to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Verify the result
     // mAdBreak updated and placementObj not created
@@ -1000,16 +1026,17 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
             return true;
         })));
 
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
-        .Times(1);
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
     // Create initial ad break
 
     // Try to add the ad that should fail with timeout
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-
-    // Wait for async operations
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Verify the result
     // mAdBreak updated and placementObj not created
@@ -1054,12 +1081,15 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
     InitializeAdMPD(manifest);
 
     // Expect error event due to multiple periods
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
     // Act - Set alternate contents with the ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // Wait for FulFillAdObject to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Assert
     // mAdBreak updated and placementObj not created
