@@ -29,8 +29,6 @@
 #include "StreamSink.h"
 #include "ID3Metadata.hpp"
 #include "IMediaPipeline.h"
-#include "IControl.h"
-#include "IControlClient.h"
 #include "IClientLogControl.h"
 #include "IClientLogHandler.h"
 #include "StreamOutputFormat.h"
@@ -38,6 +36,7 @@
 #include "IDrmBridge.h"
 #include "AampPlayerStateMachine.h"
 #include "AampDemuxDataTypes.h"
+#include "IRialtoControlBackend.h"
 #include "IStreamSinkNotifiable.h"
 
 #include <atomic>
@@ -70,6 +69,8 @@ class Mp4Demux;
 class AampRialtoPlayer : public StreamSink
 {
 public:
+	~AampRialtoPlayer() override;
+
 	/**
 	 * @brief Construct an AampRialtoPlayer for production use.
 	 *
@@ -101,6 +102,9 @@ public:
 	 *                               fake/stub in tests.
 	 * @param[in] notifiable         Non-null pointer to the notification
 	 *                               listener.  Must outlive this player.
+	 * @param[in] controlBackend     Control backend used to wait for
+	 *                               ApplicationState::RUNNING before pipeline
+	 *                               creation.  Ownership is transferred.
 	 * @param[in] id3HandlerCallback Callback invoked for each ID3 metadata
 	 *                               packet encountered in the stream.
 	 * @param[in] exportFrames       Optional YUV-frame export callback.
@@ -108,20 +112,9 @@ public:
 	AampRialtoPlayer(
 		PrivateInstanceAAMP *aamp,
 		IStreamSinkNotifiable *notifiable,
+		std::unique_ptr<IRialtoControlBackend> controlBackend,
 		id3_callback_t id3HandlerCallback,
 		std::function<void(const unsigned char *, int, int, int)> exportFrames = nullptr);
-
-	AampRialtoPlayer(const AampRialtoPlayer &) = delete;
-	AampRialtoPlayer &operator=(const AampRialtoPlayer &) = delete;
-
-	/**
-	 * @brief Destroy the AampRialtoPlayer and its underlying AAMPGstPlayer.
-	 */
-	~AampRialtoPlayer() override;
-
-	// -----------------------------------------------------------------------
-	// StreamSink overrides — each call is forwarded to mGstPlayer
-	// -----------------------------------------------------------------------
 
 	/// @copydoc StreamSink::Configure
 	void Configure(
@@ -309,70 +302,13 @@ private:
 			const std::string &message) override;
 	};
 
-	/**
-	 * @brief IControlClient implementation used to observe Rialto's
-	 *        application-state transitions.
-	 *
-	 * Workaround for a race in firebolt::rialto::client::MediaPipeline where
-	 * the proxy constructor's notifyApplicationState() can run after
-	 * ClientController has already broadcast RUNNING, leaving the
-	 * MediaPipeline's m_currentAppState observably stuck at UNKNOWN.  By
-	 * registering our own IControlClient before creating any MediaPipeline
-	 * we can deterministically wait until the controller reports RUNNING;
-	 * subsequent createMediaPipeline() calls then see a stable state from
-	 * registerClient() and the proxy ctor stamps the MediaPipeline with
-	 * RUNNING — no later UNKNOWN write can occur.
-	 */
-	class AppStateClient : public firebolt::rialto::IControlClient
-	{
-	public:
-		void notifyApplicationState(
-			firebolt::rialto::ApplicationState state) override;
 
-		/// Block up to @p timeoutMs for the application state to become
-		/// RUNNING.  Returns true if RUNNING was observed in time.
-		bool waitForRunning(int timeoutMs);
-
-		/// Seed the client with the state returned by IControl::registerClient.
-		void setInitialState(firebolt::rialto::ApplicationState state);
-
-	private:
-		std::mutex              m_mu;
-		std::condition_variable m_cv;
-		firebolt::rialto::ApplicationState m_state{
-			firebolt::rialto::ApplicationState::UNKNOWN};
-	};
-
-	/**
-	 * @brief Ensure Rialto has reported application state RUNNING before
-	 *        any MediaPipeline is created.
-	 *
-	 * Lazily creates the IControl + AppStateClient on first call.  Subsequent
-	 * calls are cheap when the state is already RUNNING.
-	 *
-	 * @param[in] timeoutMs Maximum time to wait for RUNNING.
-	 * @return true if RUNNING was observed within the timeout.
-	 */
-	bool EnsureRialtoRunning(int timeoutMs);
-
-	PrivateInstanceAAMP *m_aamp{nullptr}; ///< Owning AAMP instance (non-notification calls)
-
-	/// Notifiable interface used for all push-notification calls.  Points
-	/// either at m_notifiableAdapter (production) or at an injected mock
-	/// (tests).  Never null after construction.
-	IStreamSinkNotifiable *m_notifiable{nullptr};
-
-	/// Owns the PrivateInstanceAAMPNotifiable adapter on the production path.
-	/// Null when a test-injected notifiable was supplied.
-	std::unique_ptr<PrivateInstanceAAMPNotifiable> m_notifiableAdapter;
-
-	/// True once the first PLAYING notification has been forwarded to AAMP
-	/// for this tune session.  Reset to false at the start of Configure().
-	std::atomic<bool> m_firstFrameNotified{false};
-
-	/// Last known playback position in milliseconds, updated via
-	/// notifyPosition callbacks from the Rialto server.
 	std::atomic<int64_t> m_positionMs{0};
+
+	/// Set to true once the first PLAYING playback state is forwarded to
+	/// the notifiable.  Reset to false on each Configure() call so that
+	/// re-tunes correctly forward the first-frame notification again.
+	std::atomic<bool> m_firstFrameNotified{false};
 
 	/// Last known stream duration in milliseconds, updated via
 	/// notifyDuration callbacks from the Rialto server.
@@ -382,13 +318,18 @@ private:
 	/// SetVideoRectangle() and returned by GetVideoRectangle().
 	std::string m_videoRectangle;
 
+	PrivateInstanceAAMP *m_aamp;                           ///< Owning AAMP instance
+	IStreamSinkNotifiable *m_notifiable{nullptr};          ///< Playback-state notifier (not owned)
+	/// Owned adapter wrapping PrivateInstanceAAMP as an IStreamSinkNotifiable.
+	/// Non-null only when no test notifiable was injected.
+	std::unique_ptr<IStreamSinkNotifiable> m_notifiableAdapter;
+
 	std::shared_ptr<RialtoLogHandler> m_rialtoLogHandler; ///< Rialto log bridge
 	/// Rialto pipeline factory; null until Configure() calls createFactory().
 	std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> m_pipelineFactory;
-	/// Rialto control object owning our application-state subscription.
-	std::shared_ptr<firebolt::rialto::IControl> m_control;
-	/// IControlClient used to observe application-state transitions.
-	std::shared_ptr<AppStateClient> m_appStateClient;
+	/// Control backend used to wait for ApplicationState::RUNNING before
+	/// creating the media pipeline.
+	std::unique_ptr<IRialtoControlBackend> m_controlBackend;
 	std::shared_ptr<AampRialtoMediaPipelineClient> m_client;
 	std::shared_ptr<firebolt::rialto::IMediaPipeline> m_pipeline;
 	std::unique_ptr<Mp4Demux> m_videoDemuxer;

@@ -41,6 +41,7 @@
 #include "MockMp4Demux.h"
 #include "MockDrmBridge.h"
 #include "MockIStreamSinkNotifiable.h"
+#include "MockIRialtoControlBackend.h"
 
 using ::testing::_;
 using ::testing::AnyOf;
@@ -164,10 +165,19 @@ protected:
 		// IMediaPipelineFactory::createFactory() returns the mock.
 		g_mockPipelineFactory = m_mockFactory;
 
+		// Create a NiceMock control backend and keep a raw pointer for
+		// assertions in individual tests.
+		auto controlBackend =
+				std::make_unique<NiceMock<MockIRialtoControlBackend>>();
+		m_mockControlBackend = controlBackend.get();
+		ON_CALL(*m_mockControlBackend, waitForRunning(_))
+				.WillByDefault(Return(true));
+
 		m_player = std::make_unique<AampRialtoPlayer>(
-			reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
-			&m_mockNotifiable,
-			/*id3HandlerCallback=*/nullptr);
+				reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
+				&m_mockNotifiable,
+				std::unique_ptr<IRialtoControlBackend>(std::move(controlBackend)),
+				/*id3HandlerCallback=*/nullptr);
 	}
 
 	void TearDown() override
@@ -337,12 +347,9 @@ protected:
 	std::unique_ptr<AampRialtoPlayer>                    m_player;
 	std::weak_ptr<firebolt::rialto::IMediaPipelineClient> m_capturedClient;
 	NiceMock<MockIStreamSinkNotifiable>                  m_mockNotifiable;
-	int m_nextSourceId{0};
+	MockIRialtoControlBackend *                          m_mockControlBackend{nullptr};
+	int32_t                                              m_nextSourceId{0};
 };
-
-// ---------------------------------------------------------------------------
-// Fixture that also manages a MockMp4Demux
-// ---------------------------------------------------------------------------
 
 class AampRialtoPlayerWithDemuxTest : public AampRialtoPlayerTest
 {
@@ -384,6 +391,7 @@ TEST_F(AampRialtoPlayerTest, Configure_NullFactory_DoesNotCrash)
 	m_player = std::make_unique<AampRialtoPlayer>(
 		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
 		&m_mockNotifiable,
+		std::unique_ptr<IRialtoControlBackend>(nullptr),
 		/*id3HandlerCallback=*/nullptr);
 	EXPECT_NO_THROW(
 		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_UNKNOWN, false, false));
@@ -2489,4 +2497,55 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
 	EXPECT_TRUE(haveDataCalled.load());
+}
+// ---------------------------------------------------------------------------
+// IRialtoControlBackend integration
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Configure() must call waitForRunning() on the control backend before
+ *        creating the IMediaPipeline.
+ *
+ * This is the regression test for the Rialto race condition where
+ * createMediaPipeline() can be called before the server reports RUNNING,
+ * causing NeedMediaData events to be silently dropped.
+ */
+TEST_F(AampRialtoPlayerTest, Configure_CallsWaitForRunningBeforeCreatingPipeline)
+{
+	// Strict ordering: waitForRunning must precede createMediaPipeline.
+	testing::InSequence seq;
+	EXPECT_CALL(*m_mockControlBackend, waitForRunning(_)).WillOnce(Return(true));
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillOnce(Invoke(
+			[this](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+				const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				m_capturedClient = client;
+				return std::move(m_mockPipeline);
+			}));
+
+	Configure();
+}
+
+/**
+ * @brief When waitForRunning() returns false, Configure() should still
+ *        attempt to create the pipeline (best-effort, same as the previous
+ *        EnsureRialtoRunning behaviour).
+ */
+TEST_F(AampRialtoPlayerTest, Configure_ProceedsWhenWaitForRunningTimesOut)
+{
+	EXPECT_CALL(*m_mockControlBackend, waitForRunning(_)).WillOnce(Return(false));
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillOnce(Invoke(
+			[this](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+			       const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				m_capturedClient = client;
+				return std::move(m_mockPipeline);
+			}));
+
+	// Should not crash or skip pipeline creation.
+	Configure();
 }

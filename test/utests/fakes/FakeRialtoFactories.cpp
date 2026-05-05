@@ -29,6 +29,7 @@
 
 #include "IMediaPipeline.h"
 #include "IClientLogControl.h"
+#include "IControl.h"
 #include "MockIMediaPipelineFactory.h"
 #include <memory>
 
@@ -44,6 +45,11 @@ std::shared_ptr<IMediaPipelineFactory> IMediaPipelineFactory::createFactory()
 }
 
 std::shared_ptr<IClientLogControlFactory> IClientLogControlFactory::createFactory()
+{
+	return nullptr;
+}
+
+std::shared_ptr<IControlFactory> IControlFactory::createFactory()
 {
 	return nullptr;
 }

@@ -31,6 +31,7 @@
 #include "priv_aamp.h"
 #include "mp4demux/MP4Demux.h"
 #include "IControl.h"
+#include "AampRialtoControlBackend.h"
 #include <chrono>
 #include <cinttypes>
 #include <algorithm>
@@ -77,100 +78,12 @@ void AampRialtoPlayer::RialtoLogHandler::log(
 
 namespace {
 	constexpr int64_t kNsPerSecond = 1'000'000'000LL;
-	/// Upper bound for the defensive wait on Rialto's application state
-	/// transitioning to RUNNING.  In practice the transition completes in
-	/// a few milliseconds; the timeout exists only to avoid a permanent hang
-	/// if the Rialto server never reports RUNNING.
+	/// Upper bound for the wait on Rialto's application state transitioning
+	/// to RUNNING.  In practice the transition completes in a few milliseconds;
+	/// the timeout exists only to avoid a permanent hang if the Rialto server
+	/// never reports RUNNING.
 	constexpr int kRialtoRunningTimeoutMs = 2000;
 }
-
-// ---------------------------------------------------------------------------
-// AppStateClient — observes Rialto application-state transitions
-// ---------------------------------------------------------------------------
-
-void AampRialtoPlayer::AppStateClient::notifyApplicationState(
-	firebolt::rialto::ApplicationState state)
-{
-	{
-		std::lock_guard<std::mutex> lock(m_mu);
-		m_state = state;
-	}
-	m_cv.notify_all();
-}
-
-void AampRialtoPlayer::AppStateClient::setInitialState(
-	firebolt::rialto::ApplicationState state)
-{
-	std::lock_guard<std::mutex> lock(m_mu);
-	m_state = state;
-}
-
-bool AampRialtoPlayer::AppStateClient::waitForRunning(int timeoutMs)
-{
-	std::unique_lock<std::mutex> lock(m_mu);
-	return m_cv.wait_for(
-		lock,
-		std::chrono::milliseconds(timeoutMs),
-		[this] {
-			return m_state == firebolt::rialto::ApplicationState::RUNNING;
-		});
-}
-
-// ---------------------------------------------------------------------------
-// EnsureRialtoRunning — defensive wait before creating any MediaPipeline
-// ---------------------------------------------------------------------------
-
-bool AampRialtoPlayer::EnsureRialtoRunning(int timeoutMs)
-{
-	// Workaround: see AppStateClient documentation.  We register our own
-	// IControlClient *before* creating any MediaPipeline so we can wait for
-	// the Rialto controller to publish RUNNING.  Once that happens, every
-	// subsequent IControl::registerClient() call (including the one made
-	// internally by MediaPipelineProxy) returns RUNNING via its out-param,
-	// so the proxy ctor stamps the MediaPipeline with RUNNING and no later
-	// UNKNOWN broadcast can race with it.
-	if (!m_appStateClient)
-	{
-		m_appStateClient = std::make_shared<AppStateClient>();
-	}
-	if (!m_control)
-	{
-		auto factory = firebolt::rialto::IControlFactory::createFactory();
-		if (!factory)
-		{
-			AAMPLOG_ERR("Failed to create IControlFactory");
-			return false;
-		}
-		m_control = factory->createControl();
-		if (!m_control)
-		{
-			AAMPLOG_ERR("Failed to create IControl");
-			return false;
-		}
-
-		firebolt::rialto::ApplicationState state{
-			firebolt::rialto::ApplicationState::UNKNOWN};
-		if (!m_control->registerClient(m_appStateClient, state))
-		{
-			AAMPLOG_ERR("IControl::registerClient failed");
-			return false;
-		}
-		m_appStateClient->setInitialState(state);
-		AAMPLOG_INFO(
-			"IControl::registerClient returned state=%d",
-			static_cast<int>(state));
-	}
-
-	if (!m_appStateClient->waitForRunning(timeoutMs))
-	{
-		AAMPLOG_WARN(
-			"Timed out (%d ms) waiting for Rialto application state RUNNING",
-			timeoutMs);
-		return false;
-	}
-	return true;
-}
-
 
 // ---------------------------------------------------------------------------
 // Construction / destruction
@@ -183,6 +96,7 @@ AampRialtoPlayer::AampRialtoPlayer(
 	: AampRialtoPlayer(
 		aamp,
 		/*notifiable=*/nullptr,
+		std::make_unique<AampRialtoControlBackend>(),
 		id3HandlerCallback,
 		std::move(exportFrames))
 {
@@ -191,10 +105,12 @@ AampRialtoPlayer::AampRialtoPlayer(
 AampRialtoPlayer::AampRialtoPlayer(
 	PrivateInstanceAAMP *aamp,
 	IStreamSinkNotifiable *notifiable,
+	std::unique_ptr<IRialtoControlBackend> controlBackend,
 	id3_callback_t id3HandlerCallback,
 	std::function<void(const unsigned char *, int, int, int)> exportFrames)
 	: m_aamp(aamp)
 	, m_drmBridge(std::make_shared<AampDrmBridge>(aamp))
+	, m_controlBackend(std::move(controlBackend))
 	, m_client(nullptr)
 	, m_pipeline(nullptr)
 {
@@ -325,13 +241,11 @@ void AampRialtoPlayer::Configure(
 	}
 	else
 	{
-		// Defensive workaround for a Rialto client-side race: ensure the
-		// controller has published application state RUNNING *before*
-		// createMediaPipeline().  Otherwise the proxy ctor's internal
-		// registerClient() may capture UNKNOWN and stamp the MediaPipeline
-		// with UNKNOWN after a concurrent RUNNING broadcast, causing every
-		// subsequent NeedMediaData event to be silently dropped.
-		if (!EnsureRialtoRunning(kRialtoRunningTimeoutMs))
+		// Wait for the Rialto server to report ApplicationState::RUNNING before
+		// creating the media pipeline — ensures the proxy ctor sees RUNNING from
+		// its internal registerClient() call, preventing NeedMediaData events
+		// from being silently dropped.
+		if (m_controlBackend && !m_controlBackend->waitForRunning(kRialtoRunningTimeoutMs))
 		{
 			AAMPLOG_WARN(
 				"Proceeding to createMediaPipeline despite Rialto state not RUNNING");
