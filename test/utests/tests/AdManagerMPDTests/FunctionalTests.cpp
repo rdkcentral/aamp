@@ -448,8 +448,9 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
-  t.join();
+  const auto adResolvedStatus = adResolvedFuture.wait_for(std::chrono::seconds(5));
+  t.join(); // join unconditionally before asserting to avoid std::terminate on test failure
+  ASSERT_EQ(adResolvedStatus, std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj created
@@ -587,8 +588,9 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
-  t.join();
+  const auto adResolvedStatus = adResolvedFuture.wait_for(std::chrono::seconds(5));
+  t.join(); // join unconditionally before asserting to avoid std::terminate on test failure
+  ASSERT_EQ(adResolvedStatus, std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj not created
