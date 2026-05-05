@@ -32,6 +32,22 @@
 #include "DrmUtils.h"
 #include "ContentSecurityManagerSession.h"
 
+/**
+ * @enum PlayerKeyStatus
+ * @brief DRM key status values, independent of OCDM.
+ */
+typedef enum {
+	PLAYER_KEY_Usable = 0,
+	PLAYER_KEY_Expired,
+	PLAYER_KEY_Released,
+	PLAYER_KEY_OutputRestricted,
+	PLAYER_KEY_OutputRestrictedHDCP22,
+	PLAYER_KEY_OutputDownscaled,
+	PLAYER_KEY_StatusPending,
+	PLAYER_KEY_InternalError,
+	PLAYER_KEY_HWError
+} PlayerKeyStatus;
+
 using namespace std;
 
 #define PLAYREADY_KEY_SYSTEM_STRING "com.microsoft.playready"
@@ -120,6 +136,12 @@ public:
 	 * @retval KeyState
 	 */
 	virtual KeyState getState() = 0;
+
+	/**
+	 * @brief Get the raw OCDM key status of the DRM Session.
+	 * @retval PlayerKeyStatus value; defaults to InternalError if not applicable.
+	 */
+	virtual PlayerKeyStatus getKeyStatus() const { return PlayerKeyStatus::PLAYER_KEY_InternalError; }
 
 	/**
 	 * @brief Waits for the current state of DRM Session to match required.. Timeout is that from the helper.

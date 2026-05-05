@@ -1512,6 +1512,20 @@ SessionMgrState AampDRMLicenseManager::getSessionMgrState()
 	    return SessionMgrState::eSESSIONMGR_INACTIVE;
 	}
 }
+
+PlayerKeyStatus AampDRMLicenseManager::GetDrmKeyStatusBySlot(int sessionSlot)
+{
+	if (!mDrmSessionManager || sessionSlot < 0 || sessionSlot >= mMaxDRMSessions)
+	{
+		return PlayerKeyStatus::PLAYER_KEY_InternalError;
+	}
+	DrmSession *session = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession;
+	if (session && session->getState() == KEY_READY)
+	{
+		return session->getKeyStatus();
+	}
+	return PlayerKeyStatus::PLAYER_KEY_InternalError;
+}
 /**
  * @brief Re-use the current seesion ID, watermarking variables and de-activate watermarking session status
  */

@@ -582,6 +582,16 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			}
 			else
 			{
+				PrivateInstanceAAMP *encryptedAamp = _this->mEncryptedAamp ? _this->mEncryptedAamp : _this->aamp;
+				if (encryptedAamp && encryptedAamp->mDRMLicenseManager)
+				{
+					int maxSessions = encryptedAamp->mDRMLicenseManager->mMaxDRMSessions;
+					for (int slot = 0; slot < maxSessions; ++slot)
+					{
+						PlayerKeyStatus keyStatus = _this->GetDrmKeyStatus(slot);
+						AAMPLOG_WARN("VRN GstPipeline error - DRM session[%d] key status: %d", slot, static_cast<int>(keyStatus));
+					}
+				}
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str());
 			}
 		}
@@ -670,6 +680,23 @@ void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *i
 void AAMPGstPlayer::ClearProtectionEvent()
 {
 	playerInstance->ClearProtectionEvent();
+}
+
+/**
+ * @brief Retrieves the raw OCDM KeyStatus (as int) from the active DRM session
+ *        in the MW (opencdmsessionadapter) via AampDRMLicenseManager.
+ *        Uses mEncryptedAamp to reach the DRM license manager that owns the
+ *        encrypted session, following the same pattern as SetEncryptedAamp.
+ * @return int OCDM KeyStatus value cast to int, or -1 if not available.
+ */
+PlayerKeyStatus AAMPGstPlayer::GetDrmKeyStatus(int sessionSlot)
+{
+	PrivateInstanceAAMP *encryptedAamp = mEncryptedAamp ? mEncryptedAamp : aamp;
+	if (encryptedAamp && encryptedAamp->mDRMLicenseManager)
+	{
+		return encryptedAamp->mDRMLicenseManager->GetDrmKeyStatusBySlot(sessionSlot);
+	}
+	return PlayerKeyStatus::PLAYER_KEY_InternalError;
 }
 
 /**

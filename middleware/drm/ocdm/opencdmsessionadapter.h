@@ -140,6 +140,11 @@ public:
 	int processDRMKey(DrmData* key, uint32_t timeout) override;
 	KeyState getState() override;
 	void clearDecryptContext() override;
+	/**
+	 * @brief Get the raw OCDM KeyStatus for this session.
+	 * @retval KeyStatus value from the underlying OCDM session.
+	 */
+	PlayerKeyStatus getKeyStatus() const override;
 #if defined(USE_OPENCDM_ADAPTER)
 	void setKeyId(const std::vector<uint8_t>& keyId) override;
 #endif

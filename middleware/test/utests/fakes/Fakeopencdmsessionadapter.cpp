@@ -27,7 +27,8 @@ std::vector<uint8_t> g_mockKeyId{1,2,3,4,5,6,7,8,9,0,1,2,3,4};
 const std::vector<std::vector<uint8_t>> g_emptyUsableKeys{};
 
 OCDMSessionAdapter::OCDMSessionAdapter(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks *callbacks) :
-    DrmSession("ocdmkeysystem"), m_keyId{g_mockKeyId}, m_drmHelper{drmHelper}
+    DrmSession("ocdmkeysystem"), m_keyStatus{KeyStatus::InternalError},
+    m_keyId{g_mockKeyId}, m_drmHelper{drmHelper}, m_drmCallbacks{callbacks}
 {
 }
 
@@ -69,9 +70,30 @@ KeyState OCDMSessionAdapter::getState()
     }
     return KEY_INIT;
 }
+
+KeyStatus OCDMSessionAdapter::getKeyStatus() const
+{
+    if (g_mockOpenCdmSessionAdapter != nullptr)
+    {
+        return g_mockOpenCdmSessionAdapter->getKeyStatus();
+    }
+    return KeyStatus::InternalError;
+}
+
 void OCDMSessionAdapter::clearDecryptContext()
 {
 }
+
+void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize)
+{
+    (void)key;
+    (void)keySize;
+}
+
+void OCDMSessionAdapter::keysUpdatedOCDM()
+{
+}
+
 bool OCDMSessionAdapter::waitForState(KeyState state, const uint32_t timeout)
 {
     return true;

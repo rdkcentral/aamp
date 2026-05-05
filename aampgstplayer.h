@@ -282,6 +282,15 @@ public:
 		 */
 	void ClearProtectionEvent() override;
 	/**
+		 * @fn GetDrmKeyStatus
+		 * @brief Retrieves the raw OCDM KeyStatus from the DRM session at
+		 *        the given slot in the MW (opencdmsessionadapter).
+		 *        Returns -1 if the slot is invalid or session is not KEY_READY.
+		 * @param[in] sessionSlot  Session slot index (0-based).
+		 * @return KeyStatus OCDM KeyStatus value.
+		 */
+	PlayerKeyStatus GetDrmKeyStatus(int sessionSlot);
+	/**
 		 * @fn StopBuffering
 		 *
 		 * @param[in] forceStop - true to force end buffering
