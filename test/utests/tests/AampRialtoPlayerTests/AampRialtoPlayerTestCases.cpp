@@ -287,7 +287,7 @@ protected:
 			copy.mInfo.video.mHeight = 1080;
 			copy.mCodecData          = {0x01, 0x02};
 		}
-		ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 		auto copyPtr = std::make_shared<MediaCodecInfo>(std::move(copy));
 		ON_CALL(*g_mockMp4Demux, GetCodecInfo())
 			.WillByDefault([copyPtr]() -> MediaCodecInfo
@@ -307,7 +307,7 @@ protected:
 	/// Trigger initFragment SendTransfer with mock demuxer returning AAC info.
 	void SendAudioInitFragment(MediaCodecInfo ci = {})
 	{
-		ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 		ON_CALL(*g_mockMp4Demux, GetCodecInfo())
 			.WillByDefault([]() -> MediaCodecInfo
 			{
@@ -326,7 +326,7 @@ protected:
 	/// Send a media fragment (not init) for the given type.
 	void SendVideoMediaFragment(double pts = 0.1)
 	{
-		ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 		ON_CALL(*g_mockMp4Demux, GetSamples())
 			.WillByDefault([pts]() {
 				std::vector<AampMediaSample> samples;
@@ -406,7 +406,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
 
 	// Video init fragment should pass through the demuxer and call attachSource.
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
 		.WillByDefault([]() { return MakeVideoH264CodecInfo(); });
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
@@ -416,7 +416,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		0, 0, 0, 0, /*initFragment=*/true);
 
 	// Audio fragment should not call Parse (no audio demuxer created).
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).Times(0);
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).Times(0);
 	std::vector<uint8_t> audioBuf = {0x00};
 	m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(audioBuf),
 		0, 0, 0, 0, /*initFragment=*/true);
@@ -428,7 +428,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Configure with audio only
 	Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF);
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
 		.WillByDefault([]() { return MakeAudioAacCodecInfo(); });
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
@@ -557,7 +557,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Trigger injection via needData → addSegment.
 	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/1);
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -597,7 +597,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 			s.push_back(std::move(ms));
 			return s;
 		});
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 
 	std::atomic<bool> haveDataCalled{false};
 	EXPECT_CALL(*m_mockPipelinePtr, addSegment(42, _)).Times(1);
@@ -775,7 +775,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	// Enqueue a needData and a sample, but do NOT let injection run.
 	PostNeedData(0, 10, 99);
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -916,7 +916,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Two samples per fragment; the first addSegment call returns NO_SPACE,
 	// closing out the current needData.  SendTransfer then blocks waiting
 	// for the next needData and retries the same sample on the second pass.
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -971,7 +971,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
 	SendVideoInitFragment();
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -1040,7 +1040,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostNeedData(0, 1, 50); // video
 	PostNeedData(1, 1, 51); // audio
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -1091,7 +1091,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
 
 	// Init fragment supplies codec data {0x01, 0x02, 0x03}.
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
 		.WillByDefault([]() { return MakeVideoH264CodecInfo(); });
 	std::vector<uint8_t> initBuf = {0x00};
@@ -1141,7 +1141,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 {
 	Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF);
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
 		.WillByDefault([]() { return MakeAudioAacCodecInfo(); });
 	std::vector<uint8_t> initBuf = {0x00};
@@ -1193,7 +1193,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
 
 	// First init fragment — H264 with codec data {0x01, 0x02, 0x03}.
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
 		.WillByDefault([]() { return MakeVideoH264CodecInfo(); });
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
@@ -1515,7 +1515,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 	// Inject a needData request then an encrypted sample.
 	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/5);
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([this]() {
 			std::vector<AampMediaSample> s;
@@ -1572,7 +1572,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 
 	PostNeedData(0, 1, 6);
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([this, kKeyId, kIv]() {
 			std::vector<AampMediaSample> s;
@@ -1619,7 +1619,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 
 	PostNeedData(0, 1, 8);
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -1670,7 +1670,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 
 	PostNeedData(0, 1, 9);
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -1733,7 +1733,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 
 	// Build two subsamples: {clear=100, enc=200} and {clear=50, enc=300}.
 	// Packed as big-endian uint16+uint32 pairs.
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -1804,7 +1804,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 	PostNeedData(0, 1, 11);
 
 	const size_t kSampleSize = 64;
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([kSampleSize, this]() {
 			std::vector<AampMediaSample> s;
@@ -1823,8 +1823,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 			                        0x66,0x77,0x88,0x99};
 			// Fake sample data of exactly kSampleSize bytes so that the
 			// fallback subsample (0, sampleSize) can be checked.
-			std::vector<uint8_t> data(kSampleSize, 0xBE);
-			ms.mData.assign(data.data(), data.data() + data.size());
+			auto buf = std::make_shared<std::vector<uint8_t>>(kSampleSize, 0xBE);
+			ms.mData = std::shared_ptr<const uint8_t>(buf, buf->data());
+			ms.mDataSize = buf->size();
 			s.push_back(std::move(ms));
 			return s;
 		});
@@ -2398,7 +2399,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
 	SendVideoInitFragment();
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;
@@ -2453,7 +2454,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
 	SendVideoInitFragment();
 
-	ON_CALL(*g_mockMp4Demux, Parse(_, _)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			std::vector<AampMediaSample> s;

@@ -361,11 +361,12 @@ public:
 	void RunInjectLoop();
 
 	/**
-	 * @fn UpdateTSAfterFetch
-	 * @param[in] IsInitSegment - Set to true for initialization segments; otherwise, set to false
-	 * @return void
+	 * @fn UpdateTSAfterFetchStats
+	 * @brief Updates fetch statistics using a caller-supplied fragment.
+	 * @param[in] cachedFragment - Fragment supplying duration and metadata
+	 * @param[in] isInitSegment  - true for initialization segments
 	 */
-	void UpdateTSAfterFetch(bool IsInitSegment);
+	void UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment);
 
 	/**
 	 * @fn UpdateTSAfterChunkFetch
@@ -438,21 +439,6 @@ public:
 	virtual double GetBufferedDuration (void) = 0;
 
 	/**
-	 * @brief Get number of fragments downloaded
-	 *
-	 * @return Number of downloaded fragments
-	 */
-	int GetTotalFragmentsFetched(){ return totalFragmentsDownloaded; }
-
-	/**
-	 * @fn GetFetchBuffer
-	 *
-	 * @param[in] initialize - Buffer to to initialized or not
-	 * @return Fragment cache buffer
-	 */
-	CachedFragment* GetFetchBuffer(bool initialize);
-
-	/**
 	 * @fn GetFetchChunkBuffer
 	 * @param[in] initialize true to initialize the fragment chunk
 	 * @retval Pointer to fragment chunk buffer.
@@ -507,6 +493,13 @@ public:
 	 * @return true if discontinuity is being processed
 	 */
 	bool IsDiscontinuityProcessed() { return discontinuityProcessed; }
+
+	/**
+	 * @brief Check whether PTS re-stamping should be applied for this track.
+	 *
+	 * @return true if PTS re-stamping is required for this track
+	 */
+	bool IsPTSRestampEnabled() const;
 
 	bool isFragmentInjectorThreadStarted();
 	bool isPlaylistDownloaderThreadStarted();
@@ -674,15 +667,6 @@ public:
 	virtual void ResetTrickModePtsRestamping(void);
 
 	/**
-	 * @fn IsInjectionFromCachedFragmentChunks
-	 *
-	 * @brief Are fragments to inject coming from mCachedFragmentChunks
-	 *
-	 * @return True if fragments to inject are coming from mCachedFragmentChunks
-	 */
-	bool IsInjectionFromCachedFragmentChunks();
-
-	/**
 	 * @fn GetTimeBasedBufferManager 
 	 *
 	 * @brief Get the time based buffer manager for this track
@@ -693,25 +677,11 @@ public:
 
 protected:
 	/**
-	 * @fn UpdateTSAfterInject
-	 *
-	 * @return void
-	 */
-	void UpdateTSAfterInject();
-
-	/**
 	 * @brief Update segment cache and inject buffer to gstreamer
 	 *
 	 * @return void
 	 */
 	void UpdateTSAfterChunkInject();
-
-	/**
-	 * @fn WaitForCachedFragmentAvailable
-	 *
-	 * @return TRUE if fragment available, FALSE if aborted/fragment not available.
-	 */
-	bool WaitForCachedFragmentAvailable();
 
 	/**
 	 * @fn WaitForCachedFragmentChunkAvailable
@@ -823,7 +793,6 @@ private:
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
-	int numberOfFragmentsCached;        /**< Number of fragments cached in this track*/
 	int numberOfFragmentChunksCached;   /**< Number of fragments cached in this track*/
 	const char* name;                   /**< Track name used for debugging*/
 	double fragmentDurationSeconds;     /**< duration in seconds for current fragment-of-interest */
@@ -834,7 +803,6 @@ public:
 	std::unique_ptr<SubtitleParser> mSubtitleParser;    /**< Parser for subtitle data*/
 	bool refreshSubtitles;              /**< Switch subtitle track in the FetchLoop */
 	bool refreshAudio;                  /** Switch audio track in the FetcherLoop */
-	int maxCachedFragmentsPerTrack;
 	int maxCachedFragmentChunksPerTrack;
 	std::condition_variable fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
@@ -847,7 +815,6 @@ public:
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
-	CachedFragment *mCachedFragment;    /**< storage for currently-downloaded fragment */
 	CachedFragment mCachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
 	std::vector<uint8_t> unparsedBufferChunk{}; /**< Unparsed buffer chunk for ISOBMFF chunk processing */
 	std::vector<uint8_t> parsedBufferChunk{};   /**< Parsed buffer chunk for ISOBMFF chunk processing */
@@ -859,9 +826,7 @@ protected:
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
-	int fragmentIdxToInject;            	/**< Write position */
 	int fragmentChunkIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;             	/**< Read position */
 	int fragmentChunkIdxToFetch;        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
@@ -875,8 +840,6 @@ private:
 		DISCONTINUITY,
 		STEADY
 	};
-	std::condition_variable fragmentFetched;     	/**< Signaled after a fragment is fetched*/
-	std::condition_variable fragmentInjected;    	/**< Signaled after a fragment is injected*/
 
 	std::mutex injectorStartMutex;  		/**< Mutex to protect injector start */
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
@@ -884,7 +847,6 @@ private:
 	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
-	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
 	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
@@ -1742,6 +1704,52 @@ public:
 	 * @return true if running, false otherwise
 	 */
 	bool IsUnderflowMonitorRunning() const;
+
+	/**
+	 * @fn NotifyVideoFragmentToUnderflowMonitor
+	 * @brief Notify the underflow monitor that a video fragment (or chunk) has
+	 *        been queued for injection.  Re-arms the underflow deadline.
+	 * @param[in] endPosition  Absolute end position of the queued content (seconds).
+	 * @param[in] playRate     Current play rate.
+	 */
+	void NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate);
+
+	/**
+	 * @fn NotifyBufferLevelToLatencyMonitor
+	 * @brief Notify the latency monitor of the current buffer level.
+	 *
+	 * Call this whenever a video fragment (or LL-DASH chunk) is successfully
+	 * queued for injection so the latency monitor can track buffer health
+	 * and wake promptly to reduce latency in detecting buffer dips.
+	 *
+	 * @param[in] bufferMs  Current buffered duration in milliseconds.
+	 */
+	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+
+	/**
+	 * @fn NotifyPipelinePausedToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the pipeline has been paused for
+	 *        buffering.  Disarms the deadline until resumption.
+	 */
+	void NotifyPipelinePausedToUnderflowMonitor();
+
+	/**
+	 * @fn NotifyPipelineResumedToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the pipeline has resumed after
+	 *        buffering.  Re-arms the deadline using the current video buffer position.
+	 * @param[in] playRate     Current play rate.
+	 */
+	void NotifyPipelineResumedToUnderflowMonitor(float playRate);
+
+	/**
+	 * @fn NotifyRateChangeToUnderflowMonitor
+	 * @brief Notify the underflow monitor that the playback rate has changed.
+	 *        Updates the cached rate and disarms the deadline when entering trickplay,
+	 *        preventing a stale deadline from causing a false underflow before the
+	 *        first fragment at the new rate is downloaded.
+	 * @param[in] rate  New play rate.
+	 */
+	void NotifyRateChangeToUnderflowMonitor(float rate);
 
 	/**
 	 *   @fn GetBufferedAudioDurationSec

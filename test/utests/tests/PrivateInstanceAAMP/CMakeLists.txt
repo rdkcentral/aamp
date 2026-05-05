@@ -32,7 +32,7 @@ set(TEST_SOURCES PauseAtTests.cpp
                  PrivateInstanceAAMPTests.cpp
                  LocalTSBTests.cpp
                  ChunkedTransferTests.cpp
-                 )
+                 PlayerStateTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
                  ${AAMP_ROOT}/CachedFragment.cpp)
@@ -53,6 +53,6 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes net_persona_fitter -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})

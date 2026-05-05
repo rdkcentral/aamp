@@ -179,7 +179,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	bool sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -296,6 +296,12 @@ public:
 	 * @return true if pass through mode, false otherwise
 	 */
 	bool getPassThroughMode() { return passThroughMode; }
+
+	/**
+	 * @brief Check whether the processor performs PTS restamping internally.
+	 * @return true if internal PTS restamping is configured and active
+	 */
+	bool getPTSRestampStatus() const override;
 
 private:
 

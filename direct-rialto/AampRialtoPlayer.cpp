@@ -373,7 +373,7 @@ bool AampRialtoPlayer::SendTransfer(
 			AAMPLOG_WARN("No demuxer for mediaType=%d", static_cast<int>(mediaType));
 		}
 	}
-	else if (!demuxer->Parse(buffer.data(), buffer.size()))
+	else if (!demuxer->Parse(std::make_shared<std::vector<uint8_t>>(std::move(buffer))))
 	{
 		AAMPLOG_ERR("Mp4Demux::Parse failed mediaType=%d err=%d", static_cast<int>(mediaType),
 			static_cast<int>(demuxer->GetLastError()));
@@ -772,7 +772,7 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 	}
 }
 
-bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &sample)
+bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sample)
 {
 	AAMPLOG_INFO("ENTRY mediaType=%d", static_cast<int>(mediaType));
 	AAMPLOG_INFO("EXIT");
@@ -1388,13 +1388,13 @@ bool AampRialtoPlayer::InjectOneSample(
 					// No subsample map — treat the whole sample as encrypted.
 					segment->addSubSample(
 						/*numClearBytes=*/0,
-						static_cast<uint32_t>(sample.mData.size()));
+						static_cast<uint32_t>(sample.mDataSize));
 				}
 			}
 
 			segment->setData(
-				static_cast<uint32_t>(sample.mData.size()),
-				reinterpret_cast<const uint8_t *>(sample.mData.data()));
+				static_cast<uint32_t>(sample.mDataSize),
+				sample.mData.get());
 
 			auto addStatus = m_pipeline->addSegment(reqId, segment);
 			if (addStatus == firebolt::rialto::AddSegmentStatus::NO_SPACE)

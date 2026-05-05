@@ -1127,11 +1127,21 @@ void PlaybackCommand::parse( const char *path )
 			if( pos>=0 )
 			{
 				size_t len = (size_t)pos;
-				void *ptr = malloc(len);
-				if( ptr )
+				std::shared_ptr<std::vector<uint8_t>> segment;
+				try
+				{
+					segment = std::make_shared<std::vector<uint8_t>>(len);
+				}
+				catch (const std::bad_alloc &)
+				{
+					AAMPCLI_PRINTF( "allocation failed for %zu bytes while reading '%s'\n", len, path );
+					fclose( f );
+					return;
+				}
+				if (!segment->empty())
 				{
 					fseek(f,0,SEEK_SET);
-					size_t rc = fread(ptr,1,len,f);
+					size_t rc = fread(segment->data(),1,len,f);
 					if( rc == len )
 					{
 						// Lazy initialization of global MP4 demuxer
@@ -1140,7 +1150,7 @@ void PlaybackCommand::parse( const char *path )
 						{
 							gMp4Demux = std::make_shared<Mp4Demux>();
 						}
-						gMp4Demux->Parse(ptr,len);
+						gMp4Demux->Parse(std::move(segment));
 						auto samples = gMp4Demux->GetSamples();
 						if (samples.empty())
 						{
@@ -1165,8 +1175,8 @@ void PlaybackCommand::parse( const char *path )
 							for (auto &sample : samples)
 							{
 								AAMPCLI_PRINTF("Sample PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf, DRM:%d\n",
-										sample.mData.data(),
-										sample.mData.size(),
+										sample.mData.get(),
+										sample.mDataSize,
 										(double)sample.mPts,
 										(double)sample.mDts,
 										(double)sample.mDuration,
@@ -1202,7 +1212,6 @@ void PlaybackCommand::parse( const char *path )
 							}
 						}
 					}
-					free( ptr );
 				}
 			}
 			fclose( f );

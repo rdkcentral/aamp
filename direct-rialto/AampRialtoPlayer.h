@@ -155,7 +155,7 @@ public:
 		bool discontinuity = false) override;
 
 	/// @copydoc StreamSink::SendSample
-	bool SendSample(AampMediaType mediaType, AampMediaSample &sample) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample &&sample) override;
 
 	/// @copydoc StreamSink::PipelineConfiguredForMedia
 	bool PipelineConfiguredForMedia(AampMediaType type) override;
