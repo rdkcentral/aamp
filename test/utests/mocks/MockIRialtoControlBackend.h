@@ -15,17 +15,19 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
+*/
+
+#pragma once
+
+#include "IRialtoControlBackend.h"
+#include <gmock/gmock.h>
 
 /**
- * @file AampSourceWorkerTests.cpp
- * @brief Test runner for SourceWorker unit tests.
+ * @class MockIRialtoControlBackend
+ * @brief Google Mock for IRialtoControlBackend, used in AampRialtoPlayer tests.
  */
-
-#include <gtest/gtest.h>
-
-int main(int argc, char **argv)
+class MockIRialtoControlBackend : public IRialtoControlBackend
 {
-	testing::InitGoogleTest(&argc, argv);
-	return RUN_ALL_TESTS();
-}
+public:
+	MOCK_METHOD(bool, waitForRunning, (int timeoutMs), (override));
+};

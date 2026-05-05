@@ -30,16 +30,14 @@ include_directories(${AAMP_ROOT}/direct-rialto)
 set(TEST_SOURCES
 	AampRialtoPlayerTests.cpp
 	AampRialtoPlayerTestCases.cpp
-	FakeRialtoFactories.cpp
-	FakeAampDrmBridge.cpp
 )
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampRialtoPlayer.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoMediaPipelineClient.cpp
 	${AAMP_ROOT}/direct-rialto/AampPlayerStateMachine.cpp
-	${AAMP_ROOT}/direct-rialto/AampSourceWorker.cpp
 	${AAMP_ROOT}/direct-rialto/PrivateInstanceAAMPNotifiable.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoControlBackend.cpp
 )
 
 add_executable(${EXEC_NAME}

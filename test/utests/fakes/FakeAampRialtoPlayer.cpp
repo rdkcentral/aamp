@@ -33,6 +33,10 @@ AampRialtoPlayer::AampRialtoPlayer(
 	id3_callback_t /*id3HandlerCallback*/,
 	std::function<void(const unsigned char *, int, int, int)> /*exportFrames*/)
 	: m_aamp(aamp)
+	, m_drmBridge(nullptr)
+	, m_controlBackend(nullptr)
+	, m_client(nullptr)
+	, m_pipeline(nullptr)
 {
 }
 
