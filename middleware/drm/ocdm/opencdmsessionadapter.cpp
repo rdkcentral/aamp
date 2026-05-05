@@ -426,11 +426,6 @@ KeyState OCDMSessionAdapter::getState()
 	return m_eKeyState;
 }
 
-PlayerKeyStatus OCDMSessionAdapter::getKeyStatus() const
-{
-	return toPlayerKeyStatus(m_keyStatus);
-}
-
 
 void OCDMSessionAdapter:: clearDecryptContext()
 {

@@ -71,15 +71,6 @@ KeyState OCDMSessionAdapter::getState()
     return KEY_INIT;
 }
 
-KeyStatus OCDMSessionAdapter::getKeyStatus() const
-{
-    if (g_mockOpenCdmSessionAdapter != nullptr)
-    {
-        return g_mockOpenCdmSessionAdapter->getKeyStatus();
-    }
-    return KeyStatus::InternalError;
-}
-
 void OCDMSessionAdapter::clearDecryptContext()
 {
 }

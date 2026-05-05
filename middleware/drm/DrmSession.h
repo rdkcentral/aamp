@@ -138,12 +138,6 @@ public:
 	virtual KeyState getState() = 0;
 
 	/**
-	 * @brief Get the raw OCDM key status of the DRM Session.
-	 * @retval PlayerKeyStatus value; defaults to InternalError if not applicable.
-	 */
-	virtual PlayerKeyStatus getKeyStatus() const { return PlayerKeyStatus::PLAYER_KEY_InternalError; }
-
-	/**
 	 * @brief Waits for the current state of DRM Session to match required.. Timeout is that from the helper.
 	 * Only used by OCDM Adapter for now
 	 * @param state the KeyState to achieve
