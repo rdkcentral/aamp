@@ -160,7 +160,7 @@ public:
 	 * @param[in] rate
 	 * @param[in] tuneType
 	 *
-	 * @return AAMPSTatusType - OK if success
+	 * @return AAMPStatusType - OK if success
 	 */
 	virtual AAMPStatusType InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType);
 	/**

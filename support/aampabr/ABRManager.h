@@ -26,6 +26,7 @@
 #include <map>
 #include <string>
 #include <cstdio>
+#include <cstdint>
 #include <mutex>
 
 typedef long BitsPerSecond;
@@ -84,7 +85,6 @@ public:
   /**
    * @brief Persist Network Bandwidth Updated Time
    */
-
   static long long mPersistBandwidthUpdatedTime;
 public:
   /**
@@ -114,7 +114,10 @@ public:
   /**
    * @fn getBestMatchedProfileIndexByBandWidth
    * @param bandWidth  The given bandwidth
-   * @return the best matched profile index
+   * @return the best matched profile index, or INVALID_PROFILE (-1) if no
+   *         non-iframe profiles are registered (e.g. profiles not yet added,
+   *         or only iframe tracks present).  Callers must check for
+   *         INVALID_PROFILE before using the result as a container index.
    */
   int getBestMatchedProfileIndexByBandWidth(int bandwidth);
 

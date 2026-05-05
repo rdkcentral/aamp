@@ -934,7 +934,7 @@ TEST_F(sendSegmentTests, SendSegmentTest)
 	bool init = false;
     bool ptsError = true;
     bool result;
-    result = mTSProcessor->sendSegment(buf, position, duration, offset, discontinuous,init, nullptr, ptsError);
+    result = mTSProcessor->sendSegment(std::move(buf), position, duration, offset, discontinuous,init, nullptr, ptsError);
     ASSERT_FALSE(result);
 }
 
@@ -954,7 +954,7 @@ TEST_F(sendSegmentTests, esMP3test)
 	bool init = false;
     bool ptsError = false;
 
-    mTSProcessor->sendSegment(buffer, position, duration, offset, discontinuous, init,
+    mTSProcessor->sendSegment(std::move(buffer), position, duration, offset, discontinuous, init,
         [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
             mPrivateInstanceAAMP->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
         },

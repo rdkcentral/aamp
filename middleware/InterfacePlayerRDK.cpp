@@ -282,10 +282,14 @@ static void DecorateGstBufferWithDrmMetadata(GstBuffer *buffer, const MediaDrmMe
  * @param rate Bitrate.
  * @param pipelineName Pipeline name.
  * @param PipelinePriority Pipeline priority.
+ * @param FirstFrameFlag Whether the first-frame callback is required.
+ * @param manifestUrl URL of the manifest used to configure stream setup.
+ * @param enableLiveLatency Whether to enable live-latency mode in the
+ *        RialtoSink streams-info context (passed as enable-live-latency).
  */
 void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subFormat,
 										   bool bESChangeStatus, bool setReadyAfterPipelineCreation,
-										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
+										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl, bool enableLiveLatency)
 {
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
@@ -471,6 +475,24 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 			MW_LOG_WARN("Couldn't get video-sink");
 		}
 	}
+
+	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
+	{
+		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+		GstContext *context = gst_context_new("streams-info", false);
+		GstStructure *contextStructure = gst_context_writable_structure(context);
+		if( !interfacePlayerPriv->gstPrivateContext->subtitle_sink ) MW_LOG_WARN( "subtitle_sink==NULL" );
+		gst_structure_set(
+						  contextStructure,
+						  "video-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->video_sink)?0x1u:0x0u,
+						  "audio-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->audio_sink)?0x1u:0x0u,
+						  "text-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->subtitle_sink)?0x1u:0x0u,
+					  "enable-live-latency", G_TYPE_BOOLEAN, (gboolean)enableLiveLatency,
+						  NULL );
+		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
+		gst_context_unref(context);
+	}
+
 	if (interfacePlayerPriv->gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == interfacePlayerPriv->gstPrivateContext->rate)
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
@@ -510,21 +532,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorMsgTimeMS = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorCBCount = 0;
-	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
-	{
-		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",interfacePlayerPriv->gstPrivateContext->subtitle_sink);
-		GstContext *context = gst_context_new("streams-info", false);
-		GstStructure *contextStructure = gst_context_writable_structure(context);
-		if( !interfacePlayerPriv->gstPrivateContext->subtitle_sink ) MW_LOG_WARN( "subtitle_sink==NULL" );
-		gst_structure_set(
-						  contextStructure,
-						  "video-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->video_sink)?0x1u:0x0u,
-						  "audio-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->audio_sink)?0x1u:0x0u,
-						  "text-streams", G_TYPE_UINT, (interfacePlayerPriv->gstPrivateContext->subtitle_sink)?0x1u:0x0u,
-						  nullptr );
-		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
-		gst_context_unref(context);
-	}
 }
 
 /**
@@ -3057,15 +3064,36 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 			pts_offset = 0;
 		}
 
-		std::vector<uint8_t>* heapVector = new std::vector<uint8_t>(std::move(sample.mData));
-		
+		// Capture size and raw pointer before transferring shared ownership to
+		// GStreamer.  A heap-allocated copy of the shared_ptr is used as
+		// user_data so the notify callback can release the last reference,
+		// which frees the underlying storage (vector or buffer array) via
+		// the shared_ptr's deleter.  mData is shared_ptr<const uint8_t>; we
+		// cast to the mutable gpointer type required by GStreamer's C API only
+		// here at the boundary, and pass GST_MEMORY_FLAG_READONLY so GStreamer
+		// will not mutate the underlying bytes.
+		const gsize dataSize = static_cast<gsize>(sample.mDataSize);
+		gpointer rawPtr = const_cast<gpointer>(
+			static_cast<gconstpointer>(sample.mData.get()));
+
+		// Guard: GStreamer does not defend against null data with non-zero
+		// size (or zero size), either of which would lead to UB in downstream
+		// gst_buffer_map / appsrc push.  Reject early without leaking state.
+		if (!rawPtr || dataSize == 0)
+		{
+			pthread_mutex_unlock(&stream->sourceLock);
+			return false;
+		}
+
+		auto* lifetimeRef = new std::shared_ptr<const uint8_t>(std::move(sample.mData));
+
 		buffer = gst_buffer_new_wrapped_full(
 			GST_MEMORY_FLAG_READONLY,
-			(gpointer)heapVector->data(), heapVector->size(),
-			0, heapVector->size(),
-			heapVector,
-			[](gpointer user_data) {
-				delete static_cast<std::vector<uint8_t>*>(user_data);
+			rawPtr, dataSize,
+			0, dataSize,
+			lifetimeRef,
+			[](gpointer user_data) noexcept {
+				delete static_cast<std::shared_ptr<const uint8_t>*>(user_data);
 			}
 		);
 
@@ -3085,11 +3113,12 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 			}
 
 			MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT " len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT " ptsOffset:%" G_GINT64_FORMAT,
-						mediaType, pts, dts, heapVector->size(), initFragment, discontinuity, duration, pts_offset);
+						mediaType, pts, dts, static_cast<size_t>(dataSize), initFragment, discontinuity, duration, pts_offset);
 		}
 		else
 		{
-			delete heapVector;
+			// gst_buffer_new_wrapped_full failed; release our reference manually.
+			delete lifetimeRef;
 			bPushBuffer = false;
 		}
 
