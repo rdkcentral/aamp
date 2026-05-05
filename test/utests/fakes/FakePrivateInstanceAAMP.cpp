@@ -688,7 +688,7 @@ void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 {
 }
 
-void PrivateInstanceAAMP::NotifyKeyStatus(KeyStatus keyStatus)
+void PrivateInstanceAAMP::NotifyKeyStatus(PlayerKeyStatus keyStatus)
 {
 }
 

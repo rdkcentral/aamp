@@ -152,17 +152,6 @@ public:
         SessionMgrState getSessionMgrState();
 
 	/**
-	 * @fn     GetDrmKeyStatusBySlot
-	 * @brief  Returns the OCDM KeyStatus from the DRM session at the given
-	 *         slot index. Returns InternalError if the slot is out of range,
-	 *         the session is null, or the session has not yet reached KEY_READY.
-	 * @param[in] sessionSlot  Index into drmSessionContexts (0-based).
-	 * @retval KeyStatus OCDM KeyStatus value.
-	 */
-	PlayerKeyStatus GetDrmKeyStatusBySlot(int sessionSlot);
-	
-
-	/**
 	 * @fn notifyCleanup
 	 */
 	void notifyCleanup();
