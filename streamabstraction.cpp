@@ -2696,14 +2696,17 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 				retValue = true;
 			}
 		}
-		// For timeout, rampdown in single steps might not be enough
+		// For timeout, use FragmentfailureRampdown (via RampDownProfile) which selects
+		// a ramp-down target based on buffer fill percentage.  UpdateProfileBasedOnFragmentCache
+		// is intentionally NOT called here: it computes the desired profile from the EWMA
+		// bandwidth estimate, which can still be very high from pre-stall successful downloads.
+		// When the EWMA-desired profile is higher than the current one (e.g. after ramping down
+		// to 480p), UpdateProfileBasedOnFragmentCache would ramp UP instead of down, causing an
+		// infinite 480p-stall → ramp-up-to-1080p → 1080p-stall → ramp-down → 480p-stall loop.
+		// FragmentfailureRampdown already performs multi-step ramp-downs for timeout scenarios.
 		else if (IsCurlTimeoutFailure (http_error))
 		{
-			if (UpdateProfileBasedOnFragmentCache())
-			{
-				retValue = true;
-			}
-			else if (RampDownProfile(http_error))
+			if (RampDownProfile(http_error))
 			{
 				retValue = true;
 			}
