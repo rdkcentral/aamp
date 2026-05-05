@@ -436,7 +436,7 @@ TEST_F(AbrTests, UpdateProfile_DefaultIframeBitrate_SelectsBelowDefault)
 }
 
 /**
- * @brief Bug #11: FragmentfailureRampdown must skip iframe tracks when
+ * @brief FragmentfailureRampdown must skip iframe tracks when
  *        selecting a rampdown target, matching every other ABR function.
  */
 TEST_F(AbrTests, FragmentfailureRampdown_SkipsIframeTrack)
@@ -622,5 +622,26 @@ TEST_F(AbrTests, PersistBandwidthData_ConcurrentAccessConsistentPair)
 	reader.join();
 
 	EXPECT_FALSE(failure.load());
+}
+
+/**
+ * @brief FragmentfailureRampdown must return 0 when abrMaxBuffer
+ *        is zero to avoid floating-point divide-by-zero.
+ */
+TEST_F(AbrTests, FragmentfailureRampdown_ZeroMaxBuffer_ReturnsZero)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 0;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	abrManager.addProfile(p);
+
+	BitsPerSecond result = abrManager.FragmentfailureRampdown(5, 0);
+	EXPECT_EQ(result, 0);
 }
 

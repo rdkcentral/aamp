@@ -283,16 +283,17 @@ public:
     */
    static long getPersistBandwidth() { return mPersistBandwidth;}
    
-   /**
-    * @brief Get the available profiles
-    */
-   std::vector<ProfileInfo> getProfileInfo() { return mProfiles;}
-
 protected:
 	/**
 	 * @brief Logger
 	 */
 	static void logprintf( const char *fmt, ... ) __attribute__ ((format (printf, 1, 2)));
+
+	/**
+	 * @brief Get a thread-safe copy of the profile list
+	 * @return Copy of mProfiles taken under mProfileLock
+	 */
+	std::vector<ProfileInfo> getProfileInfoLocked();
 
 private:
   /**

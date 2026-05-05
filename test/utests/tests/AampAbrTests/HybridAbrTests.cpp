@@ -118,7 +118,7 @@ TEST_F(HybridAbrTests, UpdateABRBitrateDataBasedOnCacheOutlierOdd)
 }
 
 /**
- * @brief Bug #6: CheckAbrThresholdSize must multiply before dividing to
+ * @brief CheckAbrThresholdSize must multiply before dividing to
  *        avoid integer truncation when bufferlen < downloadTimeMs.
  */
 TEST_F(HybridAbrTests, CheckAbrThresholdSize_SmallFragment_NoTruncation)
@@ -143,7 +143,7 @@ TEST_F(HybridAbrTests, CheckAbrThresholdSize_LargeFragment_Correct)
 }
 
 /**
- * @brief Bug #17: CheckLLDashABRSpeedStoreSize must multiply before dividing
+ * @brief CheckLLDashABRSpeedStoreSize must multiply before dividing
  *        to avoid integer truncation when total_dl_diff < time_diff.
  */
 TEST_F(HybridAbrTests, CheckLLDashABRSpeedStoreSize_SmallChunk_NoTruncation)
@@ -166,7 +166,7 @@ TEST_F(HybridAbrTests, CheckLLDashABRSpeedStoreSize_LargeChunk_Correct)
 }
 
 /**
- * @brief Bug #11: FragmentfailureRampdown must skip iframe tracks when
+ * @brief FragmentfailureRampdown must skip iframe tracks when
  *        selecting a rampdown target, matching every other ABR function.
  */
 TEST_F(HybridAbrTests, FragmentfailureRampdown_SkipsIframeTrack)
@@ -271,4 +271,25 @@ TEST_F(HybridAbrTests, FragmentfailureRampdown_FallbackLowestIsNotIframe)
 	// Without the fix, fallback would return 200k (the iframe track).
 	long result = mgr.FragmentfailureRampdown(1, 2);
 	EXPECT_EQ(result, 500000);
+}
+
+/**
+ * @brief FragmentfailureRampdown must return 0 when abrMaxBuffer
+ *        is zero to avoid floating-point divide-by-zero (legacy ABR).
+ */
+TEST_F(HybridAbrTests, FragmentfailureRampdown_ZeroMaxBuffer_ReturnsZero)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 0;
+
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	mgr.addProfile(p);
+
+	long result = mgr.FragmentfailureRampdown(5, 0);
+	EXPECT_EQ(result, 0);
 }
