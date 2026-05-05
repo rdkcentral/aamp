@@ -30,7 +30,7 @@
 #include "AampScheduler.h"
 #include "StreamSink.h"
 #include "TimedMetadata.h"
-
+#include "AampSpeedCache.h"
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
@@ -409,30 +409,6 @@ struct ThumbnailData {
 	int x;    /**< x coordinate of thumbnail within tile */
 	int y;    /**< y coordinate of Thumbnail within tile */
 };
-
-/**
- * @struct SpeedCache
- * @brief Stores the information for cache speed
- */
-struct SpeedCache
-{
-    long last_sample_time_val;
-    long prev_dlnow;
-    long prevSampleTotalDownloaded;
-    long totalDownloaded;
-    long speed_now;
-    long start_val;
-    bool bStart;
-
-    double totalWeight;
-    double weightedBitsPerSecond;
-    std::vector< std::pair<double,long> > mChunkSpeedData;
-
-    SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false) , totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
-    {
-    }
-};
-
 
 /**
  * @brief To store video rectangle properties
@@ -1883,10 +1859,12 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  sample - Media sample
+	 *   @param[in]  sample - Media sample; ownership is transferred (consumed).
+	 *                        Callers must pass via std::move() and must not
+	 *                        access the sample after this call returns.
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample);
 
 	/**
 	 * @fn IsLive
@@ -3660,6 +3638,14 @@ public:
 	 * @return latency in milliseconds
 	 */
 	long GetCurrentLatencyMs();
+
+	/**
+	 * @fn NotifyBufferLevelToLatencyMonitor
+	 * @brief Forward the current buffer level to the latency monitor so it
+	 *        can track buffer health and apply threshold restoration steps.
+	 * @param[in] bufferMs  Current buffered duration in milliseconds.
+	 */
+	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
 
 	/**
 	 *     @fn SetCurrentLatency

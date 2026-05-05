@@ -52,7 +52,7 @@ struct RequestRecord {
 struct BurstRecord {
 	uint64_t reqId{0};		///< Parent request identifier
 	int burstIdx{0};		///< Burst index within the request
-	double durationS{0.0};	///< Burst duration (seconds, >= 0.1 ms floor)
+	double durationS{0.0};	///< Burst duration (seconds, >= 1 ms floor)
 	std::size_t bytes{0};	///< Bytes received in this burst
 	double gapBeforeS{0.0};	///< Idle gap preceding this burst (seconds)
 };
@@ -108,11 +108,17 @@ public:
 	 * a 19-field persona JSON. The output filename is suffixed with the
 	 * process ID (e.g., /tmp/aamp_net_persona.json.12345).
 	 *
+	 * Note: This method is deliberately non-const. It swaps out (consumes)
+	 * the accumulated request/burst vectors in O(1) under the mutex, then
+	 * performs O(N) statistical fitting lock-free. After the first call the
+	 * vectors are empty; subsequent calls (e.g., the atexit safety-net) will
+	 * log nothing and return false without noisy warnings.
+	 *
 	 * @param[in] basePath Base output path (PID is appended)
 	 * @return true if JSON was written successfully, false on error or
 	 *         insufficient data
 	 */
-	bool GeneratePersonaJson(const std::string& basePath) const;
+	bool GeneratePersonaJson(const std::string& basePath);
 
 	/**
 	 * @brief Return the number of accumulated request records
@@ -126,15 +132,6 @@ public:
 	 */
 	std::size_t GetBurstCount() const;
 
-	/**
-	 * @brief Reset all accumulated data to empty state.
-	 *
-	 * FOR TESTING ONLY. Allows each unit-test case to start from a clean
-	 * singleton state, preventing order-dependence under --gtest_shuffle
-	 * or when new tests are added.
-	 */
-	void ResetForTesting();
-
 private:
 	NetPersonaFitter() = default;
 
@@ -147,10 +144,11 @@ private:
 	 */
 	static void AtExitHandler();
 
-	mutable std::mutex mMutex;			///< Protects mRequests and mBursts
-	std::vector<RequestRecord> mRequests;
-	std::vector<BurstRecord> mBursts;
-	bool mAtExitRegistered{false};		///< True after AtExit() has been called
+	mutable std::mutex mMutex;				///< Protects all mutable state below
+	std::vector<RequestRecord> mRequests;	///< Consumed (swapped out) on first GeneratePersonaJson call
+	std::vector<BurstRecord> mBursts;		///< Consumed (swapped out) on first GeneratePersonaJson call
+	bool mAtExitRegistered{false};			///< True after atexit() has been registered
+	bool mGenerated{false};					///< True after GeneratePersonaJson has successfully run once
 };
 
 } // namespace aamptrace

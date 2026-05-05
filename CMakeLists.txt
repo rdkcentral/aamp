@@ -264,10 +264,6 @@ endif()
 message("Adding tsb folder")
 add_subdirectory(tsb)
 
-message("Adding simnet folder")
-add_subdirectory(simnet)
-set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} net_persona_fitter)
-
 install(TARGETS tsb
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
@@ -279,6 +275,13 @@ if(CMAKE_SYSTEMD_JOURNAL)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
 	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
+endif()
+# std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
+# GCC emits __atomic_load_16 / __atomic_store_16 which require the atomic
+# support library shipped with GCC.  ARM64 handles them natively.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-latomic")
+	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-latomic")
 endif()
 #Enabling ethan log macro and lib
 if(CMAKE_USE_ETHAN_LOG)
@@ -481,6 +484,7 @@ set(LIBAAMP_SOURCES
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	AampNetworkPersona.cpp AampNetworkPersona.h
 	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
@@ -536,6 +540,7 @@ set(LIBAAMP_SOURCES
 	AampDemuxDataTypes.h
 	net_trace.h
 	AampLatencyMonitor.cpp AampLatencyMonitor.h
+	simnet/net_persona_fitter.cpp simnet/net_persona_fitter.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -710,6 +715,7 @@ install(FILES
 	abr/RollingMedianOutlierEstimator.h
 	abr/HarmonicEwmaEstimator.h
 	abr/BandwidthEstimatorBase.h
+	AampSpeedCache.h
 	DESTINATION include
 )
 

@@ -33,7 +33,7 @@
 #include <numeric>
 #include <unistd.h>
 
-#include "AampLogManager.h"
+#include "../AampLogManager.h"
 
 namespace aamptrace {
 
@@ -335,7 +335,11 @@ static void FitBursts(const std::vector<BurstRecord>& bursts, Persona& persona)
 		for (const auto& kv : bytesPerReq)
 		{
 			const auto& arr = kv.second;
-			if (arr.size() < 2) continue;
+			if (arr.size() < 2)
+			{
+				cvSeries.push_back(0.0);
+				continue;
+			}
 			double mean = std::accumulate(arr.begin(), arr.end(), 0.0) / static_cast<double>(arr.size());
 			if (mean <= 0.0) continue;
 			double sumSq = 0.0;
@@ -427,31 +431,29 @@ std::size_t NetPersonaFitter::GetBurstCount() const
 	return mBursts.size();
 }
 
-void NetPersonaFitter::ResetForTesting()
-{
-	std::lock_guard<std::mutex> lock{mMutex};
-	mRequests.clear();
-	mBursts.clear();
-	// Do not reset mAtExitRegistered — the atexit handler is already registered
-	// with the C runtime and cannot be un-registered; re-registering on the next
-	// AddRequest() call would just add a duplicate entry.
-}
-
-bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath) const
+bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath)
 {
 	std::vector<RequestRecord> requests;
 	std::vector<BurstRecord> bursts;
 
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
+		if (mGenerated)
+		{
+			// Data was already consumed by a prior call (e.g., Stop() fired
+			// before the atexit safety-net). Silently skip rather than warn.
+			return false;
+		}
 		if (mRequests.empty() && mBursts.empty())
 		{
 			AAMPLOG_WARN("NetPersonaFitter: no data collected, skipping persona generation");
 			return false;
 		}
-		requests = mRequests;
-		bursts = mBursts;
-	}
+		// Swap in O(1): hold the mutex only for pointer exchanges, then do
+		// the O(N) statistical fitting outside the lock.
+		requests.swap(mRequests);
+		bursts.swap(mBursts);
+	} // lock released before the O(N) statistical fitting
 
 	Persona persona;
 	FitRequests(requests, persona);
@@ -466,27 +468,31 @@ bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath) const
 		return false;
 	}
 
+	// JSON does not allow NaN or Inf; clamp any non-finite value to 0.0
+	// so the output is always valid JSON regardless of edge-case inputs.
+	auto jv = [](double v) -> double { return std::isfinite(v) ? v : 0.0; };
+
 	ofs << std::setprecision(15);
 	ofs << "{\n"
-		<< "\t\"base_rtt_ms\": "         << persona.baseRttMs         << ",\n"
-		<< "\t\"rtt_jitter_ms\": "       << persona.rttJitterMs        << ",\n"
-		<< "\t\"ttfb_spike_p\": "        << persona.ttfbSpikeP         << ",\n"
-		<< "\t\"ttfb_spike_ms\": "       << persona.ttfbSpikeMs        << ",\n"
-		<< "\t\"mean_thr_mbps\": "       << persona.meanThrMbps        << ",\n"
-		<< "\t\"thr_sigma_ln\": "        << persona.thrSigmaLn         << ",\n"
-		<< "\t\"thr_rho\": "             << persona.thrRho             << ",\n"
-		<< "\t\"bursts_per_segment\": "  << persona.burstsPerSegment   << ",\n"
-		<< "\t\"burst_bytes_cv\": "      << persona.burstBytesCv       << ",\n"
-		<< "\t\"cadence_ms\": "          << persona.cadenceMs          << ",\n"
-		<< "\t\"cadence_jitter_ms\": "   << persona.cadenceJitterMs    << ",\n"
-		<< "\t\"flush_jitter_ms\": "     << persona.flushJitterMs      << ",\n"
-		<< "\t\"late_chunk_p\": "        << persona.lateChunkP         << ",\n"
-		<< "\t\"late_chunk_extra_ms\": " << persona.lateChunkExtraMs   << ",\n"
-		<< "\t\"p_conn_reuse\": "        << persona.pConnReuse         << ",\n"
-		<< "\t\"new_conn_penalty_ms\": " << persona.newConnPenaltyMs   << ",\n"
-		<< "\t\"capacity_drop_p\": "     << persona.capacityDropP      << ",\n"
-		<< "\t\"capacity_drop_factor\": "<< persona.capacityDropFactor << ",\n"
-		<< "\t\"rtt_inflation_ms\": "    << persona.rttInflationMs     << "\n"
+		<< "\t\"base_rtt_ms\": "         << jv(persona.baseRttMs)         << ",\n"
+		<< "\t\"rtt_jitter_ms\": "       << jv(persona.rttJitterMs)        << ",\n"
+		<< "\t\"ttfb_spike_p\": "        << jv(persona.ttfbSpikeP)         << ",\n"
+		<< "\t\"ttfb_spike_ms\": "       << jv(persona.ttfbSpikeMs)        << ",\n"
+		<< "\t\"mean_thr_mbps\": "       << jv(persona.meanThrMbps)        << ",\n"
+		<< "\t\"thr_sigma_ln\": "        << jv(persona.thrSigmaLn)         << ",\n"
+		<< "\t\"thr_rho\": "             << jv(persona.thrRho)             << ",\n"
+		<< "\t\"bursts_per_segment\": "  << persona.burstsPerSegment        << ",\n"
+		<< "\t\"burst_bytes_cv\": "      << jv(persona.burstBytesCv)       << ",\n"
+		<< "\t\"cadence_ms\": "          << jv(persona.cadenceMs)          << ",\n"
+		<< "\t\"cadence_jitter_ms\": "   << jv(persona.cadenceJitterMs)    << ",\n"
+		<< "\t\"flush_jitter_ms\": "     << jv(persona.flushJitterMs)      << ",\n"
+		<< "\t\"late_chunk_p\": "        << jv(persona.lateChunkP)         << ",\n"
+		<< "\t\"late_chunk_extra_ms\": " << jv(persona.lateChunkExtraMs)   << ",\n"
+		<< "\t\"p_conn_reuse\": "        << jv(persona.pConnReuse)         << ",\n"
+		<< "\t\"new_conn_penalty_ms\": " << jv(persona.newConnPenaltyMs)   << ",\n"
+		<< "\t\"capacity_drop_p\": "     << jv(persona.capacityDropP)      << ",\n"
+		<< "\t\"capacity_drop_factor\": "<< jv(persona.capacityDropFactor) << ",\n"
+		<< "\t\"rtt_inflation_ms\": "    << jv(persona.rttInflationMs)     << "\n"
 		<< "}\n";
 
 	if (!ofs)
@@ -495,6 +501,11 @@ bool NetPersonaFitter::GeneratePersonaJson(const std::string& basePath) const
 		return false;
 	}
 	ofs.close();
+
+	{
+		std::lock_guard<std::mutex> lock{mMutex};
+		mGenerated = true;
+	}
 
 	AAMPLOG_MIL("NetPersonaFitter: wrote persona JSON to %s (%zu requests, %zu bursts)",
 				outputPath.c_str(), requests.size(), bursts.size());
