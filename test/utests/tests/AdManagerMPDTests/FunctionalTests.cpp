@@ -648,7 +648,13 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, eCDAI_ERROR_NONE)).Times(1);
+  // Use shared_ptr so the promise outlives this stack frame if wait_for times out and ASSERT
+  // returns early before TearDown shuts down the background ad thread.
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, eCDAI_ERROR_NONE))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
@@ -656,7 +662,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj created
