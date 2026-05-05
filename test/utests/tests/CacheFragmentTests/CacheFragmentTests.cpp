@@ -174,7 +174,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 			{eAAMPConfig_ABRBufferCounter,DEFAULT_ABR_BUFFER_COUNTER},
 			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-			{eAAMPConfig_MaxFragmentChunkCached,DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+			{eAAMPConfig_MaxLLDFragmentCached,DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK}
 		};
 
 		IntConfigSettings mIntConfigSettings;
@@ -384,7 +384,7 @@ TEST_P(MediaStreamContextTest, CacheFragment)
 	}
 
 	// Check expected results for fragment chunks cached
-	EXPECT_EQ(mMediaStreamContext->numberOfFragmentChunksCached, testParam.expectedFragmentChunksCached);
+	EXPECT_EQ(mMediaStreamContext->numberOfFragmentsCached, testParam.expectedFragmentChunksCached);
 }
 
 INSTANTIATE_TEST_SUITE_P(
