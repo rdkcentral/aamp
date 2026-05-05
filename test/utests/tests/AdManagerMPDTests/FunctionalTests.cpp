@@ -19,9 +19,11 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <thread>
+#include <atomic>
 #include <chrono>
 #include <future>
+#include <memory>
+#include <thread>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampUtils.h"
