@@ -25,6 +25,8 @@
 #include "AampMp4Demuxer.h"
 #include "AampLogManager.h"
 #include "AampUtils.h"
+#include "AampStreamSinkManager.h"
+#include "StreamSink.h"
 
 
 /**
@@ -120,6 +122,35 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					// Invoke SetStreamCaps for proper codec info
 					AAMPLOG_INFO("Updating codecInfo with format:%d", codecInfo.mCodecFormat);
 					mAamp->SetStreamCaps(mMediaType, std::move(codecInfo));
+					// For encrypted content, forward the PSSH from the init fragment's moov box
+					// to the GStreamer pipeline as a protection event. This is required when
+					// useMp4Demux=true because AampMp4Demuxer parses the MP4 in userspace —
+					// GStreamer never sees the raw init data and therefore never discovers the
+					// PSSH by itself. Without this, the DRM decryptor cannot set up a session
+					// and encrypted content (e.g. after a preroll ad) will not play.
+					auto protectionEvents = mMp4Demux->GetProtectionEvents();
+					if (!protectionEvents.empty())
+					{
+						StreamSink *sink = AampStreamSinkManager::GetInstance().GetActiveStreamSink(mAamp);
+						if (sink)
+						{
+							for (const auto& protEvent : protectionEvents)
+							{
+								AAMPLOG_INFO("Queuing protection event from init fragment for type:%d systemID:%s pssh size:%zu",
+									mMediaType, protEvent.systemID.c_str(), protEvent.pssh.size());
+								sink->QueueProtectionEvent(protEvent.systemID.c_str(),
+									protEvent.pssh.data(), protEvent.pssh.size(), mMediaType);
+							}
+						}
+						else
+						{
+							AAMPLOG_WARN("No active StreamSink available, protection event not queued for type:%d", mMediaType);
+						}
+					}
+					else
+					{
+						AAMPLOG_INFO("No protection events in init fragment for type:%d (clear content or PSSH not in moov)", mMediaType);
+					}
 				}
 				else
 				{
