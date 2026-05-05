@@ -227,3 +227,81 @@ TEST_F(HarmonicEwmaEstimatorTests, ResetCurrentlyAvailableBandwidth_SuppressesFo
 	// Step 5: suppression must be lifted; estimate must be positive again.
 	EXPECT_GT(estimator.GetBandwidthBitsPerSecond(), static_cast<BitsPerSecond>(0));
 }
+
+/**
+ * @brief Regression test for stale in-flight progress estimate after an aborted download.
+ *
+ * Scenario (mirrors the intermittent test_6002 EWMA failure):
+ *  1. An in-flight progress update arrives with a very high instantaneous
+ *     throughput (simulating the initial burst before a server stall).
+ *  2. The download is aborted; UpdateDownloadMetrics() is called with
+ *     zero downloaded bytes (the session was torn down before any segment
+ *     data was committed — e.g. curl error 18 / lowBWTimeout).
+ *  3. After the aborted-download metrics are recorded, neither
+ *     GetThroughputBytesPerSecond() nor GetBandwidthBitsPerSecond() must
+ *     reflect the prior high progress burst.
+ *
+ * Critical: the aborted sample carries zero bytes so payload_bytes_per_second
+ * is 0.  All three EWMA accumulators (fast, slow, harmonic) therefore remain
+ * at zero, and GetThroughputBytesPerSecond() falls through to the final branch:
+ *
+ *   return (m_progressHasSample) ? m_progressBytesPerSecond : 0.0;
+ *
+ * Without the fix in UpdateDownloadMetrics() that clears m_progressBytesPerSecond,
+ * m_progressHasSample, and m_progressContextValid, this branch returns the
+ * inflated burst value (100s of Mbit/s) because m_progressHasSample is still
+ * true.  A non-zero aborted byte-count would mask the bug: std::min(ewma, burst)
+ * caps the result to the (low) EWMA regardless of whether the fix is present,
+ * causing the test to pass even on the unfixed code.
+ */
+TEST_F(HarmonicEwmaEstimatorTests, ProgressEstimateInvalidatedAfterAbortedDownload)
+{
+	HarmonicEwmaEstimator estimator;
+
+	// Step 1: simulate the initial burst that arrives before a server-induced stall.
+	// ~16 KB lands almost instantly (1 ms), giving a very high instantaneous rate.
+	const double burstNow = 1000.0; // arbitrary monotonic base time
+	const std::size_t burstBytes = 16384;
+	const std::size_t totalBytes = 2000000; // full segment never arrives
+
+	DownloadProgressInfo burst;
+	burst.m_now_seconds = burstNow;
+	burst.m_total_bytes = totalBytes;
+	burst.m_now_bytes   = 0; // initialise context
+
+	estimator.UpdateDownloadProgress(burst); // establishes context
+
+	burst.m_now_seconds = burstNow + 0.001; // 1 ms later
+	burst.m_now_bytes   = burstBytes;
+	estimator.UpdateDownloadProgress(burst);
+
+	// The progress estimate must now be very high (the burst inflated it).
+	const double progressThroughput = estimator.GetThroughputBytesPerSecond();
+	EXPECT_GT(progressThroughput, 1e6) // well above 1 MB/s
+		<< "Pre-condition failed: progress burst should produce a high estimate";
+	EXPECT_GT(estimator.GetBandwidthBitsPerSecond(), static_cast<BitsPerSecond>(0));
+
+	// Step 2: download is aborted — zero bytes were committed to the metrics
+	// (the session was torn down before curl reported any completed data).
+	// Zero bytes keeps all EWMA accumulators at 0, forcing GetThroughputBytesPerSecond()
+	// into the branch that is guarded solely by m_progressHasSample.
+	DownloadMetrics abortedSample;
+	abortedSample.m_size_download_bytes      = 0;     // no bytes delivered
+	abortedSample.m_total_time_seconds       = 9.013; // total wall time including stall
+	abortedSample.m_time_to_first_byte_seconds = 0.001;
+	estimator.UpdateDownloadMetrics(abortedSample);
+
+	// Step 3: all EWMA accumulators are still 0 (zero-byte sample contributes nothing).
+	// The fix clears m_progressHasSample so GetThroughputBytesPerSecond() returns 0.
+	// Without the fix m_progressHasSample remains true and the burst value is returned.
+	const double postAbortThroughput = estimator.GetThroughputBytesPerSecond();
+	EXPECT_LT(postAbortThroughput, progressThroughput)
+		<< "Throughput after aborted download must be lower than the prior progress burst";
+	EXPECT_EQ(postAbortThroughput, 0.0)
+		<< "Throughput must be 0 — stale progress estimate must not survive UpdateDownloadMetrics";
+
+	// Bandwidth must also be -1 (no usable estimate) rather than the burst value.
+	const BitsPerSecond postAbortBandwidth = estimator.GetBandwidthBitsPerSecond();
+	EXPECT_EQ(postAbortBandwidth, static_cast<BitsPerSecond>(-1))
+		<< "Bandwidth must be -1 after aborted download with no prior EWMA history";
+}
