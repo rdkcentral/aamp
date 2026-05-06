@@ -374,6 +374,7 @@ static int main_func(int argc, char **argv)
 
 	mAampcli.initPlayerLoop(0,NULL);
 	mAampcli.newPlayerInstance();
+	AAMPCLI_PRINTF("PID: %d\n", static_cast<int>(getpid())); //Used by L2 tests
 
 	// Read/create virtual channel map
 	const std::string cfgCSV("/opt/aampcli.csv");
