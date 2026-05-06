@@ -150,7 +150,7 @@ public:
 	*/
 	void setSessionMgrState(SessionMgrState state);
         SessionMgrState getSessionMgrState();
-
+	
 
 	/**
 	 * @fn notifyCleanup
