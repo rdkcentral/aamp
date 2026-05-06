@@ -688,6 +688,14 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
 }
 
 /**
+ *  @brief Get a thread-safe copy of the profile list
+ */
+std::vector<ABRManager::ProfileInfo> ABRManager::getProfileInfoLocked() {
+  std::lock_guard<std::mutex> lock(mProfileLock);
+  return mProfiles;
+}
+
+/**
  *  @brief Clear profiles
  */
 void ABRManager::clearProfiles() {
