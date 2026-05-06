@@ -303,46 +303,53 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
 
   std::lock_guard<std::mutex> lock(mProfileLock);
   int desiredProfileIndex = INVALID_PROFILE;
-  long bestDiff = LONG_MAX;
 
-  for (const auto& periodEntry : mSortedBWProfileList)
-  {
-      const auto& bwMap = periodEntry.second;
-      if (bwMap.empty())
-      {
-          continue;
-      }
-
-      // lower_bound finds first entry with bandwidth >= target
-      auto it = bwMap.lower_bound(bandwidth);
-
-      if (it != bwMap.end())
-      {
-          long diff = it->first - bandwidth;
-          if (diff < bestDiff)
-          {
-              bestDiff = diff;
-              desiredProfileIndex = it->second;
-          }
-      }
-
-      // Also check the entry just below target (if any) for a closer match
-      if (it != bwMap.begin())
-      {
-          --it;
-          long diff = bandwidth - it->first;
-          if (diff < bestDiff)
-          {
-              bestDiff = diff;
-              desiredProfileIndex = it->second;
-          }
-      }
-  }
-
-  if (desiredProfileIndex == INVALID_PROFILE)
+  if (mSortedBWProfileList.empty())
   {
     logprintf("%s:%d getBestMatchedProfileIndexByBandWidth: no candidate found for bandwidth %d (sorted list empty or contains only iframe profiles)\n",
       __FUNCTION__, __LINE__, bandwidth);
+    return INVALID_PROFILE;
+  }
+
+  if (mSortedBWProfileList.size() > 1)
+  {
+    logprintf("%s:%d getBestMatchedProfileIndexByBandWidth: unexpected multiple period maps (%zu), using first\n",
+      __FUNCTION__, __LINE__, mSortedBWProfileList.size());
+  }
+
+  // Use the first period's map, consistent with getClosestProfileIndexByBandwidth()
+  const auto& bwMap = mSortedBWProfileList.begin()->second;
+  if (bwMap.empty())
+  {
+    logprintf("%s:%d getBestMatchedProfileIndexByBandWidth: no candidate found for bandwidth %d (sorted list empty or contains only iframe profiles)\n",
+      __FUNCTION__, __LINE__, bandwidth);
+    return INVALID_PROFILE;
+  }
+
+  long bestDiff = LONG_MAX;
+
+  // lower_bound finds first entry with bandwidth >= target
+  auto it = bwMap.lower_bound(bandwidth);
+
+  if (it != bwMap.end())
+  {
+      long diff = it->first - bandwidth;
+      if (diff < bestDiff)
+      {
+          bestDiff = diff;
+          desiredProfileIndex = it->second;
+      }
+  }
+
+  // Also check the entry just below target (if any) for a closer match
+  if (it != bwMap.begin())
+  {
+      --it;
+      long diff = bandwidth - it->first;
+      if (diff < bestDiff)
+      {
+          desiredProfileIndex = it->second;
+      }
   }
 #if defined(DEBUG_ENABLED)
   int profileCount = getProfileCountUnlocked();
