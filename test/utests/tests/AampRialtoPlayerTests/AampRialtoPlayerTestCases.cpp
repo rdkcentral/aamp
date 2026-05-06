@@ -840,6 +840,130 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 
 // ===========================================================================
+// Phase 5b — NotifyInjectorToPause / wake blocked injection threads
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyInjectorToPause_WakesBlockedInjectionThread)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	SendVideoInitFragment();
+
+	// Start a media-fragment injection on a separate thread.
+	// It will block inside InjectOneSample waiting for needData.
+	std::atomic<bool> injectionReturned{false};
+	std::thread injector([this, &injectionReturned]() {
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetSamples())
+			.WillByDefault([]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s{};
+				s.mPts      = 1.0;
+				s.mDuration = 0.033;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		std::vector<uint8_t> buf = {0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			1.0, 1.0, 0.033, 0, /*initFragment=*/false);
+		injectionReturned.store(true);
+	});
+
+	// Give the injector thread time to enter the wait.
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	EXPECT_FALSE(injectionReturned.load())
+		<< "Injector should be blocked waiting for needData";
+
+	// NotifyInjectorToPause() must wake the blocked thread via generation bump.
+	m_player->NotifyInjectorToPause();
+
+	injector.join();
+	EXPECT_TRUE(injectionReturned.load())
+		<< "Injector should have been unblocked by NotifyInjectorToPause()";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyInjectorToPause_NoPipeline_DoesNotCrash)
+{
+	// No Configure() called — no pipeline exists.
+	EXPECT_NO_THROW(m_player->NotifyInjectorToPause());
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyInjectorToPause_DoesNotCallPipelineStop)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	SendVideoInitFragment();
+
+	// NotifyInjectorToPause must NOT call pipeline->stop() or transition
+	// the state machine — it only unblocks injection threads.
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
+
+	m_player->NotifyInjectorToPause();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyInjectorToPause_WakesBothVideoAndAudioInjectors)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Block both video and audio injection threads.
+	std::atomic<bool> videoReturned{false};
+	std::atomic<bool> audioReturned{false};
+
+	std::thread videoInjector([this, &videoReturned]() {
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetSamples())
+			.WillByDefault([]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s{};
+				s.mPts      = 1.0;
+				s.mDuration = 0.033;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		std::vector<uint8_t> buf = {0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			1.0, 1.0, 0.033, 0, /*initFragment=*/false);
+		videoReturned.store(true);
+	});
+
+	std::thread audioInjector([this, &audioReturned]() {
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetSamples())
+			.WillByDefault([]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s{};
+				s.mPts      = 1.0;
+				s.mDuration = 0.033;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		std::vector<uint8_t> buf = {0x01};
+		m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(buf),
+			1.0, 1.0, 0.033, 0, /*initFragment=*/false);
+		audioReturned.store(true);
+	});
+
+	// Give both injector threads time to enter the wait.
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	EXPECT_FALSE(videoReturned.load());
+	EXPECT_FALSE(audioReturned.load());
+
+	// NotifyInjectorToPause() must wake both threads.
+	m_player->NotifyInjectorToPause();
+
+	videoInjector.join();
+	audioInjector.join();
+	EXPECT_TRUE(videoReturned.load())
+		<< "Video injector should have been unblocked";
+	EXPECT_TRUE(audioReturned.load())
+		<< "Audio injector should have been unblocked";
+}
+
+// ===========================================================================
 // Phase 6 — setSourcePosition before first injection
 // ===========================================================================
 
