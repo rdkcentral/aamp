@@ -49,7 +49,7 @@ public:
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
-	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&));
+	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration));
@@ -60,6 +60,8 @@ public:
 	MOCK_METHOD(bool, RemoveAsyncTask, (int taskId));
 	MOCK_METHOD(const std::string &, GetSessionId, ());
 	MOCK_METHOD(std::shared_ptr<TSB::Store>, GetTSBStore, (const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level));
+	MOCK_METHOD(void, NotifyFirstFrameReceived, (unsigned long ccDecoderHandle));
+	MOCK_METHOD(void, NotifyFirstVideoFrameDisplayed, ());
 	MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
 	MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
 	MOCK_METHOD(bool, DownloadsAreEnabled, ());
@@ -90,6 +92,7 @@ public:
 	MOCK_METHOD(bool, GetLLDashChunkMode, ());
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
+	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopGstreamerPreBuffering));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(void, SetCCStatusSetByApp, ());
 	MOCK_METHOD(bool, IsAtLivePoint, ());

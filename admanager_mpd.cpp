@@ -377,6 +377,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 								// Mark the ad as placed to stop further placement
 								abObj.ads->at(mPlacementObj.curAdIdx).placed = true;
 								abObj.ads->at(mPlacementObj.curAdIdx).cancelled = true;
+								abObj.ads->at(mPlacementObj.curAdIdx).placedDuration = mPlacementObj.adNextOffset;
 								mPlacementObj.adNextOffset = 0;
 
 								// Invalidate all remaining ads in the break so playback state machine skips them
@@ -481,6 +482,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						if(periodDelta < (curAd.duration - mPlacementObj.adNextOffset))
 						{
 							mPlacementObj.adNextOffset += periodDelta;
+							curAd.placedDuration = mPlacementObj.adNextOffset;
 							if(sourceAdDurationMismatch)
 							{
 								IPeriod* nextPeriod = periods.at(nextPeriodIter);
@@ -536,6 +538,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							{
 								// Adjust the params for the current ad
 								mPlacementObj.adNextOffset += remainingAdDuration;
+								curAd.placedDuration = mPlacementObj.adNextOffset;
 								periodDelta -= remainingAdDuration;
 							}
 							else

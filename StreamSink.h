@@ -94,10 +94,12 @@ public:
      *   @brief  API to send audio/video sample into the sink.
      *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  sample - Media sample
-     *   @return void
+     *   @param[in]  sample - Media sample; ownership is transferred (consumed).
+     *                        Callers must pass via std::move() and must not
+     *                        access the sample after this call returns.
+     *   @return true if sample was accepted by the sink, false otherwise.
      */
-    virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) = 0;
+    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type
@@ -438,6 +440,13 @@ public:
      *   @param[in]  aamp - Pointer to the PrivateInstanceAAMP with encrypted content
      */
     virtual void SetEncryptedAamp(PrivateInstanceAAMP *aamp) {}
+
+    /**
+     *   @brief Return the player ID of the encrypted AAMP instance
+     *
+     *   @return Player ID or -1 if not set
+     */
+    virtual const int GetEncryptedAampId() const { return -1; }
 
     /**
      *   @brief Reset the first-frame tracking state

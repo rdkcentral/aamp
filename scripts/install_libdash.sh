@@ -84,6 +84,7 @@ function install_build_libdash_fn()
         cmake .. \
             -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" \
             -DCMAKE_MACOSX_RPATH=TRUE \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_C_FLAGS="${EXTRA_C_FLAGS}" \
             -DCMAKE_CXX_FLAGS="${EXTRA_CXX_FLAGS}" \
             -DCMAKE_SHARED_LINKER_FLAGS="${EXTRA_LINK_FLAGS}" || {
