@@ -722,6 +722,123 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stop_CallsPipelineStop)
 	m_player->Stop(false);
 }
 
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_NullPipeline_DoesNotCrash)
+{
+	// Don't call Configure() — pipeline remains null.
+	EXPECT_NO_THROW(m_player->Stop(false));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_Idempotent_DoesNotCrash)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(2);
+
+	m_player->Stop(false);
+	m_player->Stop(false);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_KeepLastFrame_StillCallsPipelineStop)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(1);
+
+	m_player->Stop(/*keepLastFrame=*/true);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_WakesBlockedInjectionThread)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	SendVideoInitFragment();
+
+	// Start a media-fragment injection on a separate thread.
+	// It will block inside InjectOneSample waiting for needData.
+	std::atomic<bool> injectionReturned{false};
+	std::thread injector([this, &injectionReturned]() {
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetSamples())
+			.WillByDefault([]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s{};
+				s.mPts      = 1.0;
+				s.mDuration = 0.033;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		std::vector<uint8_t> buf = {0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			1.0, 1.0, 0.033, 0, /*initFragment=*/false);
+		injectionReturned.store(true);
+	});
+
+	// Give the injector thread time to enter the wait.
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	EXPECT_FALSE(injectionReturned.load())
+		<< "Injector should be blocked waiting for needData";
+
+	// Stop() must wake the blocked thread via generation bump.
+	m_player->Stop(false);
+
+	injector.join();
+	EXPECT_TRUE(injectionReturned.load())
+		<< "Injector should have been unblocked by Stop()";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_NeedDataAfterStop_DoesNotReactivateInjection)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN);
+	SendVideoInitFragment();
+
+	m_player->Stop(false);
+
+	// After stop, a stray needData callback should not cause haveData to be
+	// called — the source state was invalidated.  We verify no addSegment
+	// or haveData call is generated.
+	EXPECT_CALL(*m_mockPipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, haveData(_, _)).Times(0);
+
+	// Simulate a stray needData from the server after stop.
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyNeedMediaData(/*sourceId=*/0, /*frameCount=*/3,
+		/*requestId=*/99, /*shmInfo=*/nullptr);
+
+	// Give any potential async handling time to complete.
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_ResetsEosFlags)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Mark EOS for both tracks.
+	m_player->EndOfStreamReached(eMEDIATYPE_VIDEO);
+	m_player->EndOfStreamReached(eMEDIATYPE_AUDIO);
+
+	// Stop resets the eos flags — verified indirectly: after Stop, a stray
+	// needData for the same source should NOT produce an EOS haveData.
+	m_player->Stop(false);
+
+	// After Stop, eos flags are cleared and source IDs are invalidated.
+	// A stray needData for the old source ID should not generate EOS haveData.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, _)).Times(0);
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyNeedMediaData(/*sourceId=*/0, /*frameCount=*/3,
+		/*requestId=*/100, /*shmInfo=*/nullptr);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+
 // ===========================================================================
 // Phase 6 — setSourcePosition before first injection
 // ===========================================================================
@@ -2549,4 +2666,87 @@ TEST_F(AampRialtoPlayerTest, Configure_ProceedsWhenWaitForRunningTimesOut)
 
 	// Should not crash or skip pipeline creation.
 	Configure();
+}
+
+// ---------------------------------------------------------------------------
+// Retune: new pipeline is created before old one is destroyed
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Verify that Configure() creates the new pipeline before destroying
+ *        the old one (create-before-destroy ordering via shared_ptr
+ *        assignment).  This is essential because the Rialto server's
+ *        destroySession handler triggers GStreamer element finalization that
+ *        can leave global state temporarily inconsistent; creating the new
+ *        session while the old one still exists (but is stopped) avoids this
+ *        race entirely.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_Retune_CreatesNewPipelineBeforeDestroyingOld)
+{
+	// First Configure creates the first pipeline.
+	Configure();
+
+	// Use a shared_ptr captured solely by the first mock pipeline's ON_CALL
+	// lambda.  Once the mock is destroyed, the lambda is destroyed, releasing
+	// the only strong reference — making the weak_ptr expire.
+	std::weak_ptr<int> trackerAlive;
+	{
+		auto destructionTracker = std::make_shared<int>(42);
+		trackerAlive = destructionTracker;
+
+		// Capture destructionTracker by value in the mock's ON_CALL action.
+		// The mock owns this lambda; when the mock is destroyed, the lambda
+		// (and its captured shared_ptr) is destroyed too.
+		ON_CALL(*m_mockPipelinePtr, stop())
+			.WillByDefault(
+				[dt = std::move(destructionTracker)]() { return true; });
+	}
+	// destructionTracker is now moved-from/out-of-scope; only the mock's
+	// lambda keeps the shared_ptr alive.
+	ASSERT_FALSE(trackerAlive.expired())
+		<< "Sanity: tracker must be alive while first pipeline exists";
+
+	// Prepare a second mock pipeline for the second Configure() call.
+	auto secondMockPipeline = std::make_unique<NiceMock<MockIMediaPipeline>>();
+	auto *secondPipelinePtr = secondMockPipeline.get();
+
+	ON_CALL(*secondPipelinePtr, load(_, _, _))
+		.WillByDefault(Return(true));
+	ON_CALL(*secondPipelinePtr, attachSource(_))
+		.WillByDefault(Return(true));
+	ON_CALL(*secondPipelinePtr, allSourcesAttached())
+		.WillByDefault(Return(true));
+	ON_CALL(*secondPipelinePtr, play(_))
+		.WillByDefault(Return(true));
+
+	bool oldPipelineAliveWhenCreatingNew = false;
+	ON_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillByDefault(Invoke(
+			[this, &secondMockPipeline, &trackerAlive,
+			 &oldPipelineAliveWhenCreatingNew](
+				std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+				const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				// The tracker must still be alive — the old pipeline must
+				// NOT have been destroyed yet when the factory creates the
+				// new one (create-before-destroy ordering).
+				oldPipelineAliveWhenCreatingNew = !trackerAlive.expired();
+				m_capturedClient = client;
+				return std::move(secondMockPipeline);
+			}));
+
+	// Second Configure() — old pipeline must still exist when the new one
+	// is created (shared_ptr assignment destroys old after storing new).
+	Configure();
+
+	EXPECT_TRUE(oldPipelineAliveWhenCreatingNew)
+		<< "Old pipeline must still exist when createMediaPipeline() is "
+		   "called (create-before-destroy avoids server-side GStreamer "
+		   "teardown race on 'Primary video playback')";
+
+	// After Configure() returns, the old pipeline should be destroyed.
+	EXPECT_TRUE(trackerAlive.expired())
+		<< "Old pipeline must be destroyed after the new one is assigned";
 }
