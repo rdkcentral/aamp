@@ -1221,15 +1221,18 @@ void PlayerInstanceAAMP::Seek(double secondsRelativeToTuneTime, bool keepPaused)
 void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool keepPaused)
 {
 	bool sentSpeedChangedEv = false;
+	bool rateResetFromTrickplay = false;
 	bool isSeekToLiveOrEnd = false;
 	TuneType tuneType = eTUNETYPE_SEEK;
-
-	AAMPLOG_ERR("Neil entering SeekInternal()";
-	
 	if( aamp )
 	{
 		AAMPPlayerState state = GetState();
 		aamp->StopPausePositionMonitoring("Seek() called");
+
+		if (aamp->mbDetached)
+		{
+			aamp->enableEventProcessing();
+		}
 
 		if ((aamp->mMediaFormat == eMEDIAFORMAT_HLS || aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4) && (eSTATE_INITIALIZING == state)  && aamp->mpStreamAbstractionAAMP)
 		{
@@ -1295,7 +1298,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				AAMPLOG_WARN("aamp_Seek position adjusted to absolute value: %lf", secondsRelativeToTuneTime);
 			}
 			else if ((!ISCONFIGSET(eAAMPConfig_UseAbsoluteTimeline) || !aamp->IsLiveStream()) && aamp->mProgressReportOffset > 0)
-			{
+			{ 
 				// Relative reporting
 				// Convert to epoch using offset for all VOD contents and live with relative positions
 				secondsRelativeToTuneTime += aamp->mProgressReportOffset;
@@ -1336,10 +1339,10 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 
 			bool seekWhilePause = false;
-			// For autoplay false, mSinkPaused will be true, which denotes a non-playing state
-			// as the GST pipeline is not yet created, avoid setting mSinkPaused to false here
+			// For autoplay false, pipeline_paused will be true, which denotes a non-playing state
+			// as the GST pipeline is not yet created, avoid setting pipeline_paused to false here
 			// which might mess up future SetRate call for BG->FG
-			if (aamp->mbPlayEnabled && aamp->mSinkPaused.load())
+			if (aamp->mbPlayEnabled && aamp->pipeline_paused)
 			{
 
 				if(keepPaused && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
@@ -1353,7 +1356,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				if (!seekWhilePause)
 				{
 					AAMPLOG_WARN("Clearing paused flag");
-					aamp->mSinkPaused = false;
+					aamp->pipeline_paused = false;
 					sentSpeedChangedEv = true;
 				}
 				// Resume downloads
@@ -1386,7 +1389,12 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				aamp->seek_pos_seconds = -1;
 			}
 
-			ApplyTrickplayRateOnSeek(aamp, tuneType, sentSpeedChangedEv);
+			if (aamp->rate != AAMP_NORMAL_PLAY_RATE)
+			{
+				aamp->rate = AAMP_NORMAL_PLAY_RATE;
+				sentSpeedChangedEv = true;
+				rateResetFromTrickplay = true;
+			}
 
 			/**Set the flag true to indicate seeked **/
 			aamp->mbSeeked = true;
@@ -1400,13 +1408,30 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				}
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
-				{
-					std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-					aamp->TuneHelper(tuneType, seekWhilePause);
-				}
+				aamp->AcquireStreamLock();
+				aamp->TuneHelper(tuneType, seekWhilePause);
+				aamp->ReleaseStreamLock();
 				if (sentSpeedChangedEv && (!seekWhilePause) )
 				{
-					aamp->NotifySpeedChanged(aamp->rate, false);
+					if (mAsyncTuneEnabled && rateResetFromTrickplay && tuneType == eTUNETYPE_SEEK)
+					{
+						// Defer the speed-change notification: if a SetRate task is
+						// already pending in the scheduler queue (trickplay rate
+						// transition), it will override the rate before this deferred
+						// task executes, and the notification will be skipped.
+						mScheduler.ScheduleTask(AsyncTaskObj([](void *data)
+						{
+							PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
+							if (instance->aamp && instance->aamp->rate == AAMP_NORMAL_PLAY_RATE && !instance->aamp->pipeline_paused)
+							{
+								instance->aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, false);
+							}
+						}, (void *)this, "SeekInternal_SpeedNotify"));
+					}
+					else
+					{
+						aamp->NotifySpeedChanged(aamp->rate, false);
+					}
 				}
 			}
 			else if(PositionMillisecondLocked)
@@ -1421,6 +1446,31 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 		}
 	}
 }
+
+/**
+ *  @brief Seek to live point.
+ */
+void PlayerInstanceAAMP::SeekToLive(bool keepPaused)
+{
+	if(aamp)
+	{
+		UsingPlayerId playerId(aamp->mPlayerId);
+		if(mAsyncTuneEnabled)
+		{
+
+			mScheduler.ScheduleTask(AsyncTaskObj([keepPaused](void *data)
+					{
+						PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
+						instance->SeekInternal(AAMP_SEEK_TO_LIVE_POSITION, keepPaused);
+					}, (void *) this,__FUNCTION__));
+		}
+		else
+		{
+			SeekInternal(AAMP_SEEK_TO_LIVE_POSITION, keepPaused);
+		}
+	}
+}
+
 
 /**
  *  @brief Seek to live point.
