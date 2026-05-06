@@ -1471,31 +1471,6 @@ void PlayerInstanceAAMP::SeekToLive(bool keepPaused)
 	}
 }
 
-
-/**
- *  @brief Seek to live point.
- */
-void PlayerInstanceAAMP::SeekToLive(bool keepPaused)
-{
-	if(aamp)
-	{
-		UsingPlayerId playerId(aamp->mPlayerId);
-		if(mAsyncTuneEnabled)
-		{
-
-			mScheduler.ScheduleTask(AsyncTaskObj([keepPaused](void *data)
-					{
-						PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
-						instance->SeekInternal(AAMP_SEEK_TO_LIVE_POSITION, keepPaused);
-					}, (void *) this,__FUNCTION__));
-		}
-		else
-		{
-			SeekInternal(AAMP_SEEK_TO_LIVE_POSITION, keepPaused);
-		}
-	}
-}
-
 /**
  *  @brief Set slow motion player speed.
  */
