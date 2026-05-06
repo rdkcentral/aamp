@@ -380,6 +380,9 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, EnableLatencyMonitor(true))
+			.Times(AnyNumber());
+
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
 			.WillOnce(WithoutArgs(Invoke(this, &FunctionalTestsBase::GetManifestForMPDDownloader)));
 

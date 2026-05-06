@@ -544,7 +544,11 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_AUDIO);
 		NotifyCachedAudioFragmentAvailable();
 		loadNewAudio = false;
-		aamp->mDisableRateCorrection = false;
+		// Re-enable latency rate correction after audio track switch completes.
+		if (aamp->IsLive() && !aamp->IsLatencyMonitorEnabled())
+		{
+			aamp->EnableLatencyMonitor(true);
+		}
 	}
 	if (loadNewSubtitle && (eTRACK_SUBTITLE == type) && !isInitSegment)
 	{
@@ -559,7 +563,11 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_SUBTITLE);
 		NotifyCachedSubtitleFragmentAvailable();
 		loadNewSubtitle = false;
-		aamp->mDisableRateCorrection = false;
+		// Re-enable latency rate correction after subtitle track switch completes.
+		if (aamp->IsLive() && !aamp->IsLatencyMonitorEnabled())
+		{
+			aamp->EnableLatencyMonitor(true);
+		}
 	}
 	if (!isInitSegment)
 	{

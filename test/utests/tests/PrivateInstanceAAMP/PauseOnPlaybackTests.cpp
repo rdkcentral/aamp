@@ -165,7 +165,6 @@ TEST_F(PauseOnPlaybackTests, SetPauseOnStartPlayback_NoSink)
 TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 {
     mPrivateInstanceAAMP->mbDownloadsBlocked = false;
-    mPrivateInstanceAAMP->mDisableRateCorrection = false;
 
     mPrivateInstanceAAMP->SetLowLatencyMode();
 
@@ -175,7 +174,7 @@ TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 
     EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
     EXPECT_FALSE(mPrivateInstanceAAMP->mbDownloadsBlocked);
-    EXPECT_FALSE(mPrivateInstanceAAMP->mDisableRateCorrection);
+    EXPECT_TRUE(mPrivateInstanceAAMP->IsLatencyMonitorEnabled());
 }
 
 // Testing calling NotifyPauseOnStartPlayback when Pause On Playback active
@@ -183,7 +182,7 @@ TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
 {
     mPrivateInstanceAAMP->mbDownloadsBlocked = false;
-    mPrivateInstanceAAMP->mDisableRateCorrection = false;
+    EXPECT_TRUE(mPrivateInstanceAAMP->IsLatencyMonitorEnabled());
 
     mPrivateInstanceAAMP->SetPauseOnStartPlayback(true);
 
@@ -197,6 +196,6 @@ TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
 
     EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
     EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
-    EXPECT_TRUE(mPrivateInstanceAAMP->mDisableRateCorrection);
+    EXPECT_FALSE(mPrivateInstanceAAMP->IsLatencyMonitorEnabled());
 }
 

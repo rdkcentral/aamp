@@ -60,6 +60,7 @@ void AampLatencyMonitor::Stop()
 
 void AampLatencyMonitor::EnableRateCorrection(bool enabled)
 {
+	mCorrectionEnabled.store(enabled);
 }
 
 double AampLatencyMonitor::GetCurrentRate() const

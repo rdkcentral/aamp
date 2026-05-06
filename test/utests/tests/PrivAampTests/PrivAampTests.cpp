@@ -1405,42 +1405,6 @@ TEST_F(PrivAampTests,GetVideoPTSTest)
 
 	EXPECT_EQ(videoPTS,0);
 }
-TEST_F(PrivAampTests,WakeupLatencyCheckTest)
-{
-	p_aamp->WakeupLatencyCheck();
-}
-TEST_F(PrivAampTests,TimedWaitForLatencyCheckTest)
-{
-	int timeInMs = 10;
-	p_aamp->TimedWaitForLatencyCheck(timeInMs);
-
-	// below are stress level test case
-	p_aamp->TimedWaitForLatencyCheck(0);
-	p_aamp->TimedWaitForLatencyCheck(100);
-	p_aamp->TimedWaitForLatencyCheck(500);
-	p_aamp->TimedWaitForLatencyCheck(-10);
-	p_aamp->TimedWaitForLatencyCheck(-12355);
-	p_aamp->TimedWaitForLatencyCheck(1235);
-
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-}
-
-TEST_F(PrivAampTests,StopRateCorrectionWorkerThreadTest)
-{
-	p_aamp->StartRateCorrectionWorkerThread();
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-
-	p_aamp->StopRateCorrectionWorkerThread();
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-}
-
-TEST_F(PrivAampTests,RateCorrectionWorkerThreadTest1)
-{
-	p_aamp->RateCorrectionWorkerThread();
-
-	EXPECT_NE(p_aamp->mCorrectionRate,0);
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
-}
 
 TEST_F(PrivAampTests,MonitorProgressTest1)
 {
@@ -2832,11 +2796,11 @@ TEST_F(PrivAampTests, TuneHelperTest)
 	TuneType tuneType=eTUNETYPE_SEEK;
 	p_aamp->mEncryptedPeriodFound = true;
 	p_aamp->mPipelineIsClear = true;
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
+	EXPECT_TRUE(p_aamp->IsLatencyMonitorEnabled());
 
 	tuneType=eTUNETYPE_SEEKTOEND;
 	p_aamp->TuneHelper(tuneType,true);
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
+	EXPECT_TRUE(p_aamp->IsLatencyMonitorEnabled());
 }
 
 TEST_F(PrivAampTests, TuneHelperTest_1)
@@ -2846,7 +2810,7 @@ TEST_F(PrivAampTests, TuneHelperTest_1)
 
 	tuneType=eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType,true);
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
+	EXPECT_TRUE(p_aamp->IsLatencyMonitorEnabled());
 }
 
 TEST_F(PrivAampTests, TuneHelperTest_2)
