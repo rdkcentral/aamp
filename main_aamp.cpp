@@ -1223,6 +1223,9 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 	bool sentSpeedChangedEv = false;
 	bool isSeekToLiveOrEnd = false;
 	TuneType tuneType = eTUNETYPE_SEEK;
+
+	AAMPLOG_ERR("Neil entering SeekInternal()";
+	
 	if( aamp )
 	{
 		AAMPPlayerState state = GetState();
