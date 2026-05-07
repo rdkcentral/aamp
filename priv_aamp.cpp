@@ -12585,6 +12585,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		if (mpStreamAbstractionAAMP)
 		{
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -12611,6 +12612,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				else
 				{
 					if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
+					
 					{
 						TextTrackInfo selectedTextTrack;
 						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
