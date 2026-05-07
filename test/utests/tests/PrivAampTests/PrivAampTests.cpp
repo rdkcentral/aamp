@@ -1195,8 +1195,8 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_ProgressBeforeSpeedChange)
 	p_aamp->culledSeconds = CULLED_SECONDS;
 	p_aamp->durationSeconds = DURATION_SECONDS;
 	p_aamp->mDownloadsEnabled = true;
-	p_aamp->mSinkPaused = false;
-	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->pipeline_paused = false;
+	p_aamp->SetState(eSTATE_PLAYING);
 	p_aamp->SetLocalAAMPTsb(true);
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
