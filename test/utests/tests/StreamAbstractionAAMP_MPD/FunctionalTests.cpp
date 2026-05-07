@@ -61,6 +61,20 @@ AampConfig *gpGlobalConfig{nullptr};
 class FunctionalTestsBase
 {
 protected:
+	class TestableFunctionalStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
+	{
+	public:
+		TestableFunctionalStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp, double seekpos, float rate)
+			: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
+		{
+		}
+
+		void CallSeekInPeriod(double seekPositionSeconds, bool skipToEnd = false)
+		{
+			SeekInPeriod(seekPositionSeconds, skipToEnd);
+		}
+	};
+
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
@@ -344,7 +358,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
 		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
+		mStreamAbstractionAAMP_MPD = new TestableFunctionalStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
@@ -4048,6 +4062,67 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(pMediaStreamContext->fragmentTime, 0.00);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number,1);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time,0.00);
+}
+
+// L1: Verify mFirstPTS is updated via SeekInPeriod when seek crosses from period-1 to period-2.
+TEST_F(FunctionalTests, L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H0M30.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264">
+	<Period id="p0" start="PT0S" duration="PT10S">
+		<AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+			<Representation id="v1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_$Time$.m4s" initialization="video_init.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="90000" d="2000" r="4" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p1" start="PT10S" duration="PT20S">
+		<AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+			<Representation id="v1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_p1_$Time$.m4s" initialization="video_init.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="100000" d="2000" r="9" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 0.0, AAMP_NORMAL_PLAY_RATE, false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(track, nullptr);
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	(void)pMediaStreamContext;
+	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+
+	// Reset mFirstPTS before seek
+	mStreamAbstractionAAMP_MPD->clearFirstPTS();
+	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTS(), 0.0);
+
+	// Seek position is greater than period-1 duration (10s), so SeekInPeriod should transition to period-2
+	// with remaining seek value and still update mFirstPTS from SkipFragments path.
+	const double seekPositionSeconds = 12.0;
+	TestableFunctionalStreamAbstractionAAMP_MPD *testableStreamAbstractionAAMP_MPD =
+		dynamic_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+	ASSERT_NE(testableStreamAbstractionAAMP_MPD, nullptr);
+	testableStreamAbstractionAAMP_MPD->CallSeekInPeriod(seekPositionSeconds);
+	// Verify: mFirstPTS updated after period transition and remaining-seek skip in period-2.
+	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTS(), 102.000000);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, clearFirstPTS)

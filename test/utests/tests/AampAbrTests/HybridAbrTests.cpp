@@ -20,6 +20,8 @@
 
 #include <gtest/gtest.h>
 #include "support/aampabr/HybridABRManager.h"
+// SpeedCache is provided by AampSpeedCache.h, included (or defined inline as
+// a fallback) by HybridABRManager.h above.
 
 extern HybridABRManager::AampAbrConfig eAAMPAbrConfig;
 
@@ -51,7 +53,7 @@ TEST_F(HybridAbrTests, UpdateABRBitrateDataBasedOnCacheOutlierEven)
 /**
  * @brief Two HybridABRManager instances must have independent rampup loop
  *        counters. Verifies the per-instance mRampupFromSteadyStateLoop fix
- *        in HybridABRManager (VPAAMP-173).
+ *        in HybridABRManager.
  */
 TEST_F(HybridAbrTests, CheckRampupFromSteadyState_LoopIsPerInstance)
 {
@@ -113,4 +115,258 @@ TEST_F(HybridAbrTests, UpdateABRBitrateDataBasedOnCacheOutlierOdd)
 	// Outlier diff is 1000000, so no outliers will be removed.
 	// Average is (100+200+300+400+500)/5 = 300.
 	ASSERT_EQ(result, 300);
+}
+
+/**
+ * @brief CheckAbrThresholdSize must multiply before dividing to
+ *        avoid integer truncation when bufferlen < downloadTimeMs.
+ */
+TEST_F(HybridAbrTests, CheckAbrThresholdSize_SmallFragment_NoTruncation)
+{
+	// 500 bytes in 1000 ms → (500 * 8000) / 1000 = 4000 bps
+	// Old code: (500 / 1000) * 8000 = 0 * 8000 = 0  (BUG)
+	long result = abrManager.CheckAbrThresholdSize(
+		500, 1000, 100000, 2000,
+		HybridABRManager::eCURL_ABORT_REASON_NONE);
+	EXPECT_EQ(result, 4000);
+}
+
+TEST_F(HybridAbrTests, CheckAbrThresholdSize_LargeFragment_Correct)
+{
+	// 125000 bytes in 1000 ms → (125000 * 8000) / 1000 = 1000000 bps
+	// Use fragmentDurationMs=1500 so downloadTimeMs(1000) >= fragmentDurationMs/2(750)
+	// to avoid the guard clause that resets downloadbps to currentProfilebps
+	long result = abrManager.CheckAbrThresholdSize(
+		125000, 1000, 2000000, 1500,
+		HybridABRManager::eCURL_ABORT_REASON_NONE);
+	EXPECT_EQ(result, 1000000);
+}
+
+/**
+ * @brief CheckLLDashABRSpeedStoreSize must multiply before dividing
+ *        to avoid integer truncation when total_dl_diff < time_diff.
+ */
+TEST_F(HybridAbrTests, CheckLLDashABRSpeedStoreSize_SmallChunk_NoTruncation)
+{
+	SpeedCache sc{};
+	long bps = 0;
+	// 500 bytes downloaded in 1000 ms diff → (500 * 8000) / 1000 = 4000 bps
+	// Old code: (500 / 1000) * 8000 = 0  (BUG)
+	abrManager.CheckLLDashABRSpeedStoreSize(&sc, bps, 2000, 500, 1000, 500);
+	EXPECT_EQ(sc.speed_now, 4000);
+}
+
+TEST_F(HybridAbrTests, CheckLLDashABRSpeedStoreSize_LargeChunk_Correct)
+{
+	SpeedCache sc{};
+	long bps = 0;
+	// 10000 bytes in 500 ms → (10000 * 8000) / 500 = 160000 bps
+	abrManager.CheckLLDashABRSpeedStoreSize(&sc, bps, 1000, 10000, 500, 10000);
+	EXPECT_EQ(sc.speed_now, 160000);
+}
+
+/**
+ * @brief FragmentfailureRampdown must skip iframe tracks when
+ *        selecting a rampdown target, matching every other ABR function.
+ */
+TEST_F(HybridAbrTests, FragmentfailureRampdown_SkipsIframeTrack)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	// Profile 0: 500 kbps video
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	mgr.addProfile(p);
+
+	// Profile 1: 800 kbps iframe — should be skipped
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 800000;
+	p.width = 640; p.height = 360;
+	mgr.addProfile(p);
+
+	// Profile 2: 1 Mbps video
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	mgr.addProfile(p);
+
+	// Profile 3: 2 Mbps video (current)
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	mgr.addProfile(p);
+
+	// Buffer at 15/30 = 50%.  Sorted video BWs: 500k, 1M, 2M.
+	// Profile percentages (relative to max 2M): 25%, 50%, 100%.
+	// Iterating descending: 100% !< 50% skip, 50% !< 50% skip, 25% < 50% → 500k.
+	// Without the fix the iframe 800k (40%) would also be in the list and could
+	// be selected as the rampdown target.
+	long result = mgr.FragmentfailureRampdown(15, 3);
+	EXPECT_EQ(result, 500000);
+}
+
+TEST_F(HybridAbrTests, FragmentfailureRampdown_NoIframes_NormalBehavior)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	mgr.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	mgr.addProfile(p);
+
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	mgr.addProfile(p);
+
+	// Buffer 21/30 = 70%.  Profile percentages: 25%, 50%, 100%.
+	// Descending: 100% !< 70%, 50% < 70% AND 1M < 2M → 1M.
+	long result = mgr.FragmentfailureRampdown(21, 2);
+	EXPECT_EQ(result, 1000000);
+}
+
+TEST_F(HybridAbrTests, FragmentfailureRampdown_FallbackLowestIsNotIframe)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 30;
+
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	// Profile 0: 200 kbps iframe — lowest BW overall but should be excluded
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 200000;
+	p.width = 160; p.height = 120;
+	mgr.addProfile(p);
+
+	// Profile 1: 500 kbps video — lowest video profile
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 500000;
+	p.width = 320; p.height = 240;
+	mgr.addProfile(p);
+
+	// Profile 2: 2 Mbps video (current)
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	mgr.addProfile(p);
+
+	// Buffer 1/30 ≈ 3.3%.  Sorted video BWs: 500k, 2M.
+	// Profile percentages: 25%, 100%.  Both ≥ 3.3%, but only 500k < currentbw.
+	// 25% < 3.3% is false, so no profile matches → fallback to lowest.
+	// Without the fix, fallback would return 200k (the iframe track).
+	long result = mgr.FragmentfailureRampdown(1, 2);
+	EXPECT_EQ(result, 500000);
+}
+
+/**
+ * @brief FragmentfailureRampdown must return 0 when abrMaxBuffer
+ *        is zero to avoid floating-point divide-by-zero (legacy ABR).
+ */
+TEST_F(HybridAbrTests, FragmentfailureRampdown_ZeroMaxBuffer_ReturnsZero)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 0;
+
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	mgr.addProfile(p);
+
+	long result = mgr.FragmentfailureRampdown(5, 0);
+	EXPECT_EQ(result, 0);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns exact match
+ *        regardless of profile insertion order (legacy ABR).
+ */
+TEST_F(HybridAbrTests, GetBestMatchedProfile_ExactMatch_UnsortedProfiles)
+{
+	HybridABRManager mgr;
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	// Insert in descending order
+	p.bandwidthBitsPerSecond = 4000000;
+	mgr.addProfile(p); // index 0
+	p.bandwidthBitsPerSecond = 2000000;
+	mgr.addProfile(p); // index 1
+	p.bandwidthBitsPerSecond = 1000000;
+	mgr.addProfile(p); // index 2
+
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(2000000), 1);
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(4000000), 0);
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(1000000), 2);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns closest profile
+ *        when no exact match, regardless of insertion order (legacy ABR).
+ */
+TEST_F(HybridAbrTests, GetBestMatchedProfile_ClosestMatch_UnsortedProfiles)
+{
+	HybridABRManager mgr;
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	p.bandwidthBitsPerSecond = 4000000;
+	mgr.addProfile(p); // index 0
+	p.bandwidthBitsPerSecond = 2000000;
+	mgr.addProfile(p); // index 1
+	p.bandwidthBitsPerSecond = 1000000;
+	mgr.addProfile(p); // index 2
+
+	// 2.9M → closer to 2M → index 1
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(2900000), 1);
+	// 3.5M → closer to 4M → index 0
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(3500000), 0);
+	// Below all → closest to 1M → index 2
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(500000), 2);
+	// Above all → closest to 4M → index 0
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(5000000), 0);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns INVALID_PROFILE
+ *        when no profiles have been added (legacy ABR).
+ */
+TEST_F(HybridAbrTests, GetBestMatchedProfile_EmptyList_ReturnsInvalid)
+{
+	HybridABRManager mgr;
+	const int expected = ABRManager::INVALID_PROFILE;
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(2000000), expected);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns INVALID_PROFILE
+ *        when only iframe tracks are present (legacy ABR).
+ */
+TEST_F(HybridAbrTests, GetBestMatchedProfile_IframeOnly_ReturnsInvalid)
+{
+	HybridABRManager mgr;
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 2000000;
+	mgr.addProfile(p);
+
+	const int expected = ABRManager::INVALID_PROFILE;
+	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(2000000), expected);
 }

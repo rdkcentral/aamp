@@ -1865,13 +1865,6 @@ TEST_F(TrackStateTests, EnabledTests)
 	ASSERT_FALSE(result);
 }
 
-TEST_F(TrackStateTests, GetFetchBufferTests)
-{
-	TrackStateobj->GetFetchBuffer(true);
-	CachedFragment *fetchBuffer = TrackStateobj->GetFetchBuffer(false);
-	// ASSERT_EQ(fetchBuffer, nullptr);
-}
-
 TEST_F(TrackStateTests, GetFetchChunkBufferTest)
 {
 	// Call the function under test with initialize set to true
@@ -1922,6 +1915,10 @@ TEST_F(TrackStateTests, GetBufferStatusTest)
 TEST_F(TrackStateTests, WaitForFreeFragmentAvailableTests)
 {
 	int timeoutMs = 100;
+	// Ensure the chunk cache has capacity so WaitForCachedFragmentChunkInjected
+	// can return true immediately (numberOfFragmentChunksCached=0 < size=4).
+	TrackStateobj->maxCachedFragmentChunksPerTrack = DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK;
+	TrackStateobj->SetCachedFragmentChunksSize(DEFAULT_CACHED_FRAGMENTS_PER_TRACK);
 	bool result = TrackStateobj->WaitForFreeFragmentAvailable(timeoutMs);
 	ASSERT_TRUE(result);
 }
@@ -2384,35 +2381,6 @@ TEST_F(TrackStateTests, StartPlaylistDownloaderThreadTest)
 	TrackStateobj->StopPlaylistDownloaderThread();
 }
 
-TEST_F(TrackStateTests, UpdateTSAfterFetchTest)
-{
-	TrackStateobj->numberOfFragmentsCached = 0;
-	TrackStateobj->maxCachedFragmentsPerTrack = 1;
-	TrackStateobj->UpdateTSAfterFetch(true);
-}
-
-TEST_F(TrackStateTests, UpdateTSAfterFetchTest_1)
-{
-	// //TrackStateobj->numberOfFragmentsCached = 0;
-	// TrackStateobj->minInitialCacheSeconds = 0;
-	// TrackStateobj->currentInitialCacheDurationSeconds = 0;
-	TrackStateobj->numberOfFragmentsCached = 0;
-	TrackStateobj->maxCachedFragmentsPerTrack = 1;
-	bool IsInitSegment = false;
-	TrackStateobj->UpdateTSAfterFetch(IsInitSegment);
-}
-
-TEST_F(TrackStateTests, UpdateTSAfterFetchTest_2)
-{
-	// //TrackStateobj->numberOfFragmentsCached = 0;
-	// TrackStateobj->minInitialCacheSeconds = 0;
-	// TrackStateobj->currentInitialCacheDurationSeconds = 0;
-	TrackStateobj->numberOfFragmentsCached = 0;
-	TrackStateobj->maxCachedFragmentsPerTrack = 1;
-	bool IsInitSegment = false;
-	TrackStateobj->UpdateTSAfterFetch(IsInitSegment);
-}
-
 TEST_F(TrackStateTests,SetCurrentBandWidth )
 {
 	TrackStateobj->SetCurrentBandWidth(1);
@@ -2439,7 +2407,6 @@ TEST_F(TrackStateTests,AbortWaitForCachedAndFreeFragment )
 TEST_F(TrackStateTests,CheckForFutureDiscontinuityTest)
 {
 	double cacheDuration = 1.1;
-	TrackStateobj->numberOfFragmentsCached = 1;
 	TrackStateobj->CheckForFutureDiscontinuity(cacheDuration);
 }
 

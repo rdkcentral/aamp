@@ -143,7 +143,7 @@ typedef enum
 	eAAMPConfig_MatchBaseUrl,						/**< Enable host of main url will be matched with host of base url*/
 	eAAMPConfig_WifiCurlHeader,
 	eAAMPConfig_EnableSeekRange,						/**< Enable seekable range reporting via progress events */
-	eAAMPConfig_EnableLiveLatencyCorrection,            /**< Enable the live latency (drift) correction by adjusting the playback speed */
+	eAAMPConfig_EnableLiveLatencyRateCorrection,            /**< Enable the live latency (drift) correction by adjusting the playback speed (renamed from eAAMPConfig_EnableLiveLatencyCorrection) */
 	eAAMPConfig_DashParallelFragDownload,					/**< Enable dash fragment parallel download*/
 	eAAMPConfig_PersistentBitRateOverSeek,					/**< ABR profile persistence during Seek/Trickplay/Audio switching*/
 	eAAMPConfig_SetLicenseCaching,						/**< License caching*/
@@ -362,6 +362,8 @@ typedef enum
 	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
+	eAAMPConfig_LatencyStableDurationSec,				/**< Duration (s) of consecutive healthy buffer required before one latency-threshold restoration step (default: DEFAULT_LATENCY_STABLE_DURATION_SEC) */
+	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased; buffer must stay above this for latencyStableDurationSec before thresholds are restored (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
@@ -402,6 +404,7 @@ typedef enum
 	eAAMPConfig_GstDebugLevel,							/**< gstreamer debug level as you'd define in GST_DEBUG */
 	eAAMPConfig_TsbType,
 	eAAMPConfig_TsbLocation,                                                        /**< tsbType location for local TSB storage*/
+	eAAMPConfig_NetworkPersonaFile,                                                 /**< Path to network persona JSON for simulated latency injection (test only) */
 	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)

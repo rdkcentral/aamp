@@ -59,7 +59,9 @@ public:
 	/**
 	 * @fn sendSegment
 	 *
-	 * @param[in,out] buffer - fragment data as std::vector
+	 * @param[in] buffer - fragment data; ownership is transferred (moved) into
+	 *                    an internal shared_ptr.  The buffer will be empty on
+	 *                    return — callers must not access it afterwards.
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
 	 * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -69,7 +71,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	bool sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -127,6 +129,12 @@ public:
 	 * @param[in] offset offset value in seconds
 	 */
 	void setTrackOffset(double offset) override { }
+
+	/**
+	 * @brief Check whether MP4 demux performs PTS restamping internally.
+	 * @return true if internal PTS restamping is configured and active
+	 */
+	bool getPTSRestampStatus() const override;
 
 private:
 	std::unique_ptr<Mp4Demux> mMp4Demux;

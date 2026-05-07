@@ -134,7 +134,7 @@ class TSProcessor : public MediaProcessor
        * @param[out] ptsError - flag indicates if any PTS error occurred
        * @return true if fragment was sent, false otherwise
        */
-      bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+      bool sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
                            bool isInit, process_fcn_t processor, bool &ptsError) override;
       /**
        * @fn setRate
