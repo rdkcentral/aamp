@@ -4300,6 +4300,234 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
+ * @brief Regression test for the "ad short by < 2s" race condition in adjustEndPeriodOffset.
+ *
+ * Scenario (mirrors AAMP-CDAI-8006):
+ *   - 30-second SCTE break with a 28.8-second ad (short by 1.2s).
+ *   - After ad placement completes, setAdMarkers sets:
+ *       endPeriodId = "testPeriodId1", endPeriodOffset = 28800, adsDuration = 30000
+ *       adjustEndPeriodOffset = true
+ *   - On the next MPD refresh the second period ("testPeriodId2") has NOT yet
+ *     appeared (currPeriodDuration == 0), but two new 2-second segments have been
+ *     appended to "testPeriodId1" after the ad ended (periodDelta = 4000 >= OFFSET_ALIGN_FACTOR).
+ *
+ * Without the fix the code falls into the ELSE "NOT close to period end" branch and
+ * incorrectly marks the adbreak as placed with endPeriodOffset=28800, causing the
+ * fetcher to resume from fragment 030 in the not_expected range.
+ *
+ * With the fix the additional check (remainingBreakTimeMs = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR)
+ * keeps the code in the WAIT branch until the next period is available.
+ */
+TEST_F(AdManagerMPDTests, PlaceAdsTests_23_ShortAdRaceCondition)
+{
+  // Manifest 1: single source period + one ad period.
+  // testPeriodId1 has 14 x 2s segments (0..27s), simulating the source period
+  // filling up while the 28.8s ad plays. curEndNumber will reach 14 after PlaceAds.
+  static const char *manifest1 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="13" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  // Manifest 2 (race condition): testPeriodId2 has NOT appeared yet, but two new
+  // 2s segments (numbers 15 and 16) have been appended to testPeriodId1.
+  // GetPeriodNewContentDurationMs will count these and return periodDelta = 4000ms
+  // (>= OFFSET_ALIGN_FACTOR). Without the fix this would cause the buggy ELSE path.
+  static const char *manifest2_race =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:06Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="15" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  // Manifest 3: testPeriodId2 now appears at PT60S, giving testPeriodId1 a
+  // duration of 30s. diff = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR, so the
+  // adbreak should align to testPeriodId2 with endPeriodOffset = 0.
+  static const char *manifest3_resolved =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:12Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId2" start="PT60S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p2_init.mp4" media="video_p2_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="150000" d="5000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  const std::string periodId1 = "testPeriodId1";
+  const std::string periodId2 = "testPeriodId2";
+
+  // ----- Phase 1: drive PlaceAds until the 28.8s ad is placed -----
+  // testPeriodId1 has 14 x 2s segments = 28s of content when we start.
+  // adNextOffset starts at 0; after PlaceAds the ad fills 28s, leaving 0.8s
+  // of the 28.8s ad still to place, so we need a bit more content.
+  // Simplify: pre-set mPlacementObj as if we already advanced through 14 segments
+  // and the ad needs just 0.8s more than what is available.
+  // Actually, use the full PlaceAds flow:
+
+  ProcessSourceMPD(manifest1);
+  // 28.8s ad in a 30s SCTE break
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 28800)}
+  };
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(
+    false, false, true, "adId1", "url1", 28800, periodId1, 0, nullptr);
+
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 0 /*duration*/,
+    {std::make_pair(0, AdOnPeriod(0, 0))});
+
+  // Start placement from the beginning of testPeriodId1
+  mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 0, 0, 0, 0, false);
+
+  // PlaceAds with manifest1: testPeriodId1 has 14 segments (28s).
+  // The ad is 28.8s so 28s of content is not enough; placement waits.
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset);
+
+  // Add segment 15 (t=145000, +2s) to testPeriodId1 so the ad can fully fit.
+  // Reuse manifest1 with one more segment appended: r=14 becomes r=14 and one
+  // extra. For simplicity just update the manifest string by adding an extra <S>.
+  static const char *manifest1b =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:02Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="13" />
+            <S t="145000" d="2000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  // Process updated manifest with segment 15 (0.8s more, total 28.8s).
+  ProcessSourceMPD(manifest1b);
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  // Ad should now be placed and adjustEndPeriodOffset should be set to true.
+  // mAdBreakPlaced is still false because offset adjustment is pending.
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, periodId1);
+  // endPeriodOffset = p2AdData.duration - periodDelta.
+  // p2AdData.duration = 28800 (filled by 14*2000 + 800), periodDelta = 0 (exact fit)
+  // so endPeriodOffset should be 28800.
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 28800u);
+
+  // ----- Phase 2: Race condition — next period not yet in manifest but new
+  // segments appeared in testPeriodId1 (periodDelta >= OFFSET_ALIGN_FACTOR).
+  // Without the fix this triggers the ELSE path and wrongly marks placed. -----
+  ProcessSourceMPD(manifest2_race);
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  // KEY ASSERTION: adbreak must NOT be marked as placed yet.
+  // remainingBreakTimeMs = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR(2000)
+  // so the fixed WAIT condition must hold even though periodDelta >= 2000.
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced)
+    << "Regression: adjustEndPeriodOffset ELSE path fired before next period appeared";
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset)
+    << "adjustEndPeriodOffset should still be true (still waiting)";
+
+  // ----- Phase 3: Next period now appears — should align to periodId2 -----
+  ProcessSourceMPD(manifest3_resolved);
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset);
+  // diff = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR -> aligned to next period
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, periodId2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0u);
+}
+
+/**
  * @brief Test case for WaitForNextAdResolved with no AdFulfillObj
  */
 TEST_F(AdManagerMPDTests, WaitForNextAdResolved_NoAdFulfillObj)

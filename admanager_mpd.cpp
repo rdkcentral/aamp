@@ -655,17 +655,21 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					uint64_t WaitForManifestUpdate_copy = mWaitForManifestUpdate;
 					int64_t periodDelta = static_cast<int64_t>(adMPDParseHelper->GetPeriodNewContentDurationMs(periods.at(iter), WaitForManifestUpdate_copy));
 
-					if ( currPeriodDuration == 0 && periodDelta < OFFSET_ALIGN_FACTOR )
+					// Remaining time in the SCTE break after the ad ends (may be negative if ad exceeds break).
+					int64_t remainingBreakTimeMs = static_cast<int64_t>(abObj.adsDuration) - static_cast<int64_t>(abObj.endPeriodOffset);
+					if ( currPeriodDuration == 0 && (periodDelta < OFFSET_ALIGN_FACTOR || remainingBreakTimeMs < OFFSET_ALIGN_FACTOR) )
 					{
 						// Cannot determine the duration of the period where the ads were inserted because the start time of
 						// the following period is not available.
-						// AND less than 2Sec of segments has been added to the period since the AD finished.
+						// AND either:
+						// a) less than 2Sec of segments has been added to the period since the AD finished, OR
+						// b) the remaining SCTE break time after the ad is less than 2Sec (ad short by < 2s).
 						// This may be for a couple of reasons
 						// 1) The current period duration is significantly longer that the inserted ADs
 						// 2) Just closing the current period and the next period start not added to manifest.
 
-						AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64,
-							 periods.at(iter)->GetId().c_str(), periodDelta);
+						AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64 " remainingBreakTimeMs %" PRIi64,
+							 periods.at(iter)->GetId().c_str(), periodDelta, remainingBreakTimeMs);
 
 					}
 					else if (currPeriodDuration != 0 && diff < OFFSET_ALIGN_FACTOR )
