@@ -37,15 +37,15 @@
  * @brief DRM key status values, independent of OCDM.
  */
 typedef enum {
-	PLAYER_KEY_Usable = 0,
-	PLAYER_KEY_Expired,
-	PLAYER_KEY_Released,
-	PLAYER_KEY_OutputRestricted,
-	PLAYER_KEY_OutputRestrictedHDCP22,
-	PLAYER_KEY_OutputDownscaled,
-	PLAYER_KEY_StatusPending,
-	PLAYER_KEY_InternalError,
-	PLAYER_KEY_HWError
+	PLAYER_KEY_USABLE = 0,
+	PLAYER_KEY_EXPIRED,
+	PLAYER_KEY_RELEASED,
+	PLAYER_KEY_OUTPUT_RESTRICTED,
+	PLAYER_KEY_OUTPUT_RESTRICTED_HDCP22,
+	PLAYER_KEY_OUTPUT_DOWNSCALED,
+	PLAYER_KEY_STATUS_PENDING,
+	PLAYER_KEY_INTERNAL_ERROR,
+	PLAYER_KEY_HW_ERROR
 } PlayerKeyStatus;
 
 using namespace std;
