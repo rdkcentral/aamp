@@ -91,7 +91,7 @@ namespace {
 // [EARLY_ATTACH] log output to call attachSource() during Configure()
 // instead of waiting for init fragments.
 // ---------------------------------------------------------------------------
-#define EARLY_ATTACH_HARDCODED 0
+#define EARLY_ATTACH_HARDCODED 1
 
 #if EARLY_ATTACH_HARDCODED
 namespace {
