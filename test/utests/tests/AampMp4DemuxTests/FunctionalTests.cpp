@@ -265,6 +265,133 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 }
 
 /**
+ * @brief Test that sending an encrypted init via normal sendSegment sets mEncryptedCapsPrimed
+ *        and subsequent clear init does not overwrite the encrypted pipeline caps.
+ *        This covers the pre-roll ad VOD scenario where the content init is fed first
+ *        so GStreamer creates an encrypted pipeline before the clear ad init arrives.
+ */
+TEST_F(AampMp4DemuxerTests, EncryptedInitFollowedByClearInitSuppressesClearCaps)
+{
+	const char* encInitData = "encrypted_init";
+	std::vector<uint8_t> encInitBuffer(encInitData, encInitData + strlen(encInitData));
+	const char* clearInitData = "clear_init";
+	std::vector<uint8_t> clearInitBuffer(clearInitData, clearInitData + strlen(clearInitData));
+
+	// First call: encrypted content init (sent before pre-roll ad starts)
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
+		.WillOnce(Return(true))   // encrypted init
+		.WillOnce(Return(true));  // clear ad init
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce(Invoke([]() { return std::vector<AampMediaSample>(); }))
+		.WillOnce(Invoke([]() { return std::vector<AampMediaSample>(); }));
+	EXPECT_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillOnce(Invoke([]() {
+			MediaCodecInfo codecInfo;
+			codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+			codecInfo.mIsEncrypted = true;
+			return codecInfo;
+		}))
+		.WillOnce(Invoke([]() {
+			MediaCodecInfo codecInfo;
+			codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+			codecInfo.mIsEncrypted = false;
+			return codecInfo;
+		}));
+	// SetStreamCaps must be called exactly once (for the encrypted init only)
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
+
+	bool ptsError = false;
+	// Content init arrives first via CacheFragment path
+	EXPECT_TRUE(mDemuxer->sendSegment(std::move(encInitBuffer), 0.0, 0.0, 0.0,
+		false, true, nullptr, ptsError));
+	EXPECT_FALSE(ptsError);
+
+	// Ad init arrives — clear caps must be suppressed
+	EXPECT_TRUE(mDemuxer->sendSegment(std::move(clearInitBuffer), 0.0, 0.0, 0.0,
+		false, true, nullptr, ptsError));
+	EXPECT_FALSE(ptsError);
+}
+
+/**
+ * @brief Test that reset() clears the encrypted caps primed flag so a subsequent
+ *        init can update the pipeline normally (content restart after ad).
+ */
+TEST_F(AampMp4DemuxerTests, ResetClearsEncryptedCapsPrimedFlag)
+{
+	const char* encInitData = "encrypted_init";
+	std::vector<uint8_t> encInitBuffer(encInitData, encInitData + strlen(encInitData));
+	const char* contentInitData = "content_init_restart";
+	std::vector<uint8_t> contentRestartBuffer(
+		contentInitData, contentInitData + strlen(contentInitData));
+
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
+		.WillOnce(Return(true))   // encrypted init
+		.WillOnce(Return(true));  // content init after reset
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce(Invoke([]() { return std::vector<AampMediaSample>(); }))
+		.WillOnce(Invoke([]() { return std::vector<AampMediaSample>(); }));
+	EXPECT_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillOnce(Invoke([]() {
+			MediaCodecInfo codecInfo;
+			codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+			codecInfo.mIsEncrypted = true;
+			return codecInfo;
+		}))
+		.WillOnce(Invoke([]() {
+			MediaCodecInfo codecInfo;
+			codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+			codecInfo.mIsEncrypted = true;
+			return codecInfo;
+		}));
+	// SetStreamCaps called for both: first priming, then content restart after reset
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(2);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
+
+	bool ptsError = false;
+	EXPECT_TRUE(mDemuxer->sendSegment(std::move(encInitBuffer), 0.0, 0.0, 0.0,
+		false, true, nullptr, ptsError));
+
+	// reset() is called when content playback is restarted (ad ends)
+	mDemuxer->reset();
+
+	// Content init re-sent by fragment collector — must not be suppressed
+	EXPECT_TRUE(mDemuxer->sendSegment(std::move(contentRestartBuffer), 0.0, 0.0, 0.0,
+		false, true, nullptr, ptsError));
+	EXPECT_FALSE(ptsError);
+}
+
+/**
+ * @brief Test that a clear init sent without prior encrypted init proceeds normally.
+ */
+TEST_F(AampMp4DemuxerTests, ClearInitWithoutPriorEncryptedInitSetsClearCaps)
+{
+	const char* clearInitData = "clear_init";
+	std::vector<uint8_t> clearInitBuffer(clearInitData, clearInitData + strlen(clearInitData));
+
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce(Invoke([]() { return std::vector<AampMediaSample>(); }));
+	EXPECT_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillOnce(Invoke([]() {
+			MediaCodecInfo codecInfo;
+			codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+			codecInfo.mIsEncrypted = false;
+			return codecInfo;
+		}));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
+
+	bool ptsError = false;
+	EXPECT_TRUE(mDemuxer->sendSegment(std::move(clearInitBuffer), 0.0, 0.0, 0.0,
+		false, true, nullptr, ptsError));
+	EXPECT_FALSE(ptsError);
+}
+
+/**
  * @brief Test sendSegment with parse failure
  */
 TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)

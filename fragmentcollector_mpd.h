@@ -818,6 +818,15 @@ protected:
 	void FetchAndInjectInitialization(int trackIdx, bool discontinuity = false);
 	/**
 	 * @fn RefreshTrack
+	/**
+	 * @fn InjectContentInitBeforeAd
+	 * @brief Retrieve the cached content-period init fragment for each enabled track and
+	 *        send it through the demuxer so that an encrypted GStreamer pipeline is
+	 *        established before the pre-roll ad's clear init fragment arrives.
+	 */
+	void InjectContentInitBeforeAd();
+	/**
+	 * @fn RefreshTrack
 	 * @param type media type
 	 * @return void
 	 */

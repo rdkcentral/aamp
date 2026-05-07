@@ -283,7 +283,6 @@ static bool IsAtmosAudio(const IMPDElement *nodePtr)
 			}
 		}
 	}
-
 	return isAtmos;
 }
 
@@ -4033,10 +4032,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			else
 			{
 				// Check if single pipeline has a main asset that has
-				// encrypted content whose init header urls have been saved
+				// encrypted content whose init header urls have been saved.
+				// In a CDAI pre-roll scenario the headers were consumed by the
+				// previous session so the "already injected" flag may be set;
+				// reset it so the stored headers can be used again.
+				AampStreamSinkManager::GetInstance().ReinjectEncryptedHeaders();
 				AampStreamSinkManager::GetInstance().GetEncryptedHeaders(headers);
 				if (!headers.empty())
 				{
+					AAMPLOG_MIL("[CDAI] Re-using stored encrypted headers to prime pipeline before pre-roll ad");
 					PushEncryptedHeaders(headers);
 					aamp->mPipelineIsClear = false;
 					aamp->mEncryptedPeriodFound = false;
@@ -9375,7 +9379,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 							MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
 							audio->UpdateInjectedDuration((double)mAudioSurplus);
 							mAudioSurplus = 0;
-						}else if ( mVideoSurplus != 0 )
+						}
 						{
 							MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 							video->UpdateInjectedDuration((double)mVideoSurplus);
@@ -9533,6 +9537,87 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		}
 	}
 	return true;
+}
+
+/**
+ * @fn InjectContentInitBeforeAd
+ * @brief For a pre-roll ad (clear) following encrypted content, send the cached
+ *        content init fragment through each track's demuxer before the ad init
+ *        arrives.  This causes SetStreamCaps(encrypted) to fire first so that
+ *        AampMp4Demuxer's mEncryptedCapsPrimed guard suppresses the subsequent
+ *        clear caps call, keeping the GStreamer pipeline in encrypted mode for
+ *        the content that resumes after the ad.
+ */
+void StreamAbstractionAAMP_MPD::InjectContentInitBeforeAd()
+{
+	AAMPLOG_MIL("[CDAI] Injecting content init fragments to prime encrypted pipeline "
+		"before pre-roll ad (basePeriodId:%s)", mBasePeriodId.c_str());
+
+	for (int i = 0; i < mNumberOfTracks; i++)
+	{
+		MediaStreamContext *ctx = mMediaStreamContext[i];
+		if (!ctx->enabled)
+		{
+			AAMPLOG_INFO("[CDAI] Track %d disabled, skipping content init prime", i);
+			continue;
+		}
+		if (ctx->mContentInitFragmentUrl.empty())
+		{
+			AAMPLOG_WARN("[CDAI] No cached content init URL for track %d (%s) - "
+				"encrypted pipeline may not be established correctly",
+				i, GetMediaTypeName(ctx->mediaType));
+			continue;
+		}
+		if (!ctx->playContext)
+		{
+			AAMPLOG_WARN("[CDAI] No playContext for track %d (%s), cannot inject content init",
+				i, GetMediaTypeName(ctx->mediaType));
+			continue;
+		}
+
+		std::vector<uint8_t> buffer;
+		std::string effectiveUrl;
+		bool found = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(
+			ctx->mContentInitFragmentUrl, buffer, effectiveUrl);
+		if (!found || buffer.empty())
+		{
+			AAMPLOG_WARN("[CDAI] Content init not in cache for track %d (%s) url:%s - "
+				"skipping pipeline prime",
+				i, GetMediaTypeName(ctx->mediaType),
+				ctx->mContentInitFragmentUrl.c_str());
+			continue;
+		}
+
+		AAMPLOG_INFO("[CDAI] Sending content init to demuxer for track %d (%s) "
+			"url:%s size:%zu - will set encrypted caps before ad init arrives",
+			i, GetMediaTypeName(ctx->mediaType),
+			ctx->mContentInitFragmentUrl.c_str(), buffer.size());
+
+		MediaProcessor::process_fcn_t processor =
+			[](AampMediaType, SegmentInfo_t, std::vector<uint8_t>) {};
+		bool ptsErr = false;
+		bool sent = ctx->playContext->sendSegment(
+			std::move(buffer),
+			0.0  /*position*/,
+			0.0  /*duration*/,
+			0.0  /*PTSoffset*/,
+			false /*discontinuity*/,
+			true  /*isInit*/,
+			std::move(processor),
+			ptsErr);
+
+		if (sent)
+		{
+			AAMPLOG_MIL("[CDAI] Encrypted pipeline primed for track %d (%s)",
+				i, GetMediaTypeName(ctx->mediaType));
+		}
+		else
+		{
+			AAMPLOG_ERR("[CDAI] sendSegment returned false for content init on track %d (%s) - "
+				"encrypted pipeline prime failed",
+				i, GetMediaTypeName(ctx->mediaType));
+		}
+	}
 }
 
 /**

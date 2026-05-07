@@ -111,7 +111,7 @@ public:
 	 *
 	 * @return void
 	 */
-	void reset() override { }
+	void reset() override { mEncryptedCapsPrimed = false; }
 
 	/**
 	 * @brief Function to abort wait for injecting the segment
@@ -143,6 +143,7 @@ private:
 	bool mEnablePtsRestamp; // Flag to enable PTS restamping
 	// A separate flag to enable logging for PTS restamping for better control.
 	bool mEnablePtsRestampLogging {false}; // Flag to enable logging for PTS restamping
+	bool mEncryptedCapsPrimed {false}; // True once an encrypted init has set caps
 };
 
 #endif /* __AAMPMP4DEMUXER_H__ */

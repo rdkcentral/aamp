@@ -1,3 +1,0 @@
-
-pkg_check_modules(LIBCJSON REQUIRED libcjson)
-link_directories(${LIBCJSON_LIBRARY_DIRS})

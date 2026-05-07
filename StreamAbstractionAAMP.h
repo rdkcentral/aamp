@@ -808,6 +808,8 @@ public:
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
 	double m_totalDurationForPtsRestamping;
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
+	std::string mContentInitFragmentUrl;			/**< URL of most-recent non-ad init fragment; used to
+								     prime encrypted pipeline before a pre-roll ad plays */
 	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
 	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */

@@ -117,13 +117,29 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				if (codecInfo.mCodecFormat != GST_FORMAT_INVALID &&
 					codecInfo.mCodecFormat != GST_FORMAT_UNKNOWN)
 				{
-					// Invoke SetStreamCaps for proper codec info
-					AAMPLOG_INFO("Updating codecInfo with format:%d", codecInfo.mCodecFormat);
-					mAamp->SetStreamCaps(mMediaType, std::move(codecInfo));
+					// Suppress clear caps if an encrypted init has already been
+					// processed first (pre-roll ad scenario: content init sent
+					// before the ad to establish an encrypted GStreamer pipeline).
+					if (mEncryptedCapsPrimed && !codecInfo.mIsEncrypted)
+					{
+						AAMPLOG_INFO("Suppressing clear caps for type:%d - encrypted pipeline already set",
+							mMediaType);
+					}
+					else
+					{
+						if (codecInfo.mIsEncrypted)
+						{
+							mEncryptedCapsPrimed = true;
+						}
+						AAMPLOG_INFO("Updating codecInfo with format:%d encrypted:%d for type:%d",
+							codecInfo.mCodecFormat, codecInfo.mIsEncrypted, mMediaType);
+						mAamp->SetStreamCaps(mMediaType, std::move(codecInfo));
+					}
 				}
 				else
 				{
-					AAMPLOG_ERR("No samples for type:%d and invalid codec format:%d", mMediaType, codecInfo.mCodecFormat);
+					AAMPLOG_ERR("No samples for type:%d and invalid codec format:%d",
+						mMediaType, codecInfo.mCodecFormat);
 					ret = false;
 				}
 			}
