@@ -166,7 +166,7 @@ class InterfacePlayerRDK
 		std::map<InterfaceCB, std::function<void(int)>> setupStreamCallbackMap;
         
 		PlayerScheduler mScheduler;
-        	InterfacePlayerRDK();
+		InterfacePlayerRDK(bool isRialto = false);
         	~InterfacePlayerRDK();
 		InterfacePlayerPriv* GetPrivatePlayer();
 		/**
