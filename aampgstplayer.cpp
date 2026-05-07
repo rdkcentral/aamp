@@ -558,12 +558,19 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 		case MESSAGE_ERROR:
 		{
 			std::string errorDesc = "GstPipeline Error:" + busEvent.msg;
+			if (_this->aamp->HasHDCPProtectionError() &&
+				busEvent.msg.find("Rialto dropped a frame that failed to decrypt") != std::string::npos)
+			{
+				// Drop this error message as its due to HDCP output protection ie, HDMI un-plug.
+				return;
+			}
 			if (busEvent.msg.find("video decode error") != std::string::npos)
 			{
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str(), false);
 			}
 			else if (busEvent.msg.find("HDCP Compliance Check Failure") != std::string::npos)
 			{
+				// TODO: Replace with a common way for Rialto and non-Rialto pipelines.
 				_this->aamp->SendErrorEvent(AAMP_TUNE_HDCP_COMPLIANCE_ERROR, errorDesc.c_str(), false);
 			}
 			else if ((busEvent.msg.find("Internal data stream error") != std::string::npos) && _this->aamp->mConfig->IsConfigSet(eAAMPConfig_RetuneForGSTError))
@@ -639,6 +646,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			break;
 
 		case MESSAGE_APPLICATION:
+			// Should be deprecated to align with common workflow for Rialto and non-Rialto use-cases.
 			if (busEvent.msg.find("HDCPProtectionFailure") != std::string::npos)
 			{
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
