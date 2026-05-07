@@ -228,9 +228,9 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 long long SocInterface::ReadVideoPts(GstElement *element)
 {
 	long long result = 0;
-	if(element)
+	if (element)
 	{
-		if(mVideoPtsPropertySupported)
+		if (mVideoPtsPropertySupported)
 		{
 			gint64 currentPTS = 0;
 			g_object_get(element, "video-pts", &currentPTS, NULL);
@@ -248,7 +248,7 @@ long long SocInterface::ReadVideoPts(GstElement *element)
 long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
 	long long result = ReadVideoPts(video_dec);
-	if(result != -1 && !isWesteros)
+	if (result != -1 && !isWesteros)
 	{
 		result *= 2;
 	}
@@ -263,7 +263,7 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
  */
 void SocInterface::CheckVideoPtsPropertySupport(GstElement *element)
 {
-	if(element)
+	if (element)
 	{
 		GParamSpec *pspec = g_object_class_find_property(
 			G_OBJECT_GET_CLASS(element), "video-pts");

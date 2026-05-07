@@ -386,8 +386,6 @@ public:
 	 * @brief Discover decoder-specific properties at video decoder creation time.
 	 *
 	 * Called once when the video decoder element transitions NULL -> READY.
-	 * Platform overrides that probe properties on the sink instead should
-	 * override this as a no-op and implement DiscoverVideoSinkProperties().
 	 *
 	 * @param element The video decoder GStreamer element.
 	 */
@@ -397,8 +395,6 @@ public:
 	 * @brief Discover sink-specific properties at video sink creation time.
 	 *
 	 * Called once when the video sink element transitions READY -> PAUSED.
-	 * The base implementation is a no-op. Platform overrides that probe
-	 * properties on the sink should implement this method.
 	 *
 	 * @param element The video sink GStreamer element.
 	 */

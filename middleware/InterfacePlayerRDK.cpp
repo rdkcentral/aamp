@@ -3968,7 +3968,7 @@ long long InterfacePlayerRDK::GetVideoPTS(void)
 {
 	long long currentPTS = 0;
 	currentPTS = interfacePlayerPriv->socInterface->GetVideoPts(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->using_westerossink);
-	if(currentPTS == -1)
+	if (currentPTS == -1)
 	{
 		/* The 'video-pts' property is not supported on this platform.
 		 * Fall back to gst_element_query_position and convert ms to 90 kHz
@@ -3993,7 +3993,7 @@ long long InterfacePlayerRDK::GetVideoPosition(void)
 	GstElement *pipeline = interfacePlayerPriv->gstPrivateContext->pipeline;
 	GstElement *videoSinkbin = interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin;
 
-	if(pipeline && videoSinkbin)
+	if (pipeline && videoSinkbin)
 	{
 		GstState state = GST_STATE_NULL;
 		GstState pending = GST_STATE_NULL;
@@ -4003,10 +4003,10 @@ long long InterfacePlayerRDK::GetVideoPosition(void)
 		/* Position can only be queried reliably when the pipeline is in
 		 * PLAYING or PAUSED state, so we first verify the pipeline state
 		 * via gst_element_get_state before issuing the position query. */
-		if(rc == GST_STATE_CHANGE_SUCCESS &&
+		if (rc == GST_STATE_CHANGE_SUCCESS &&
 		   (state == GST_STATE_PLAYING || state == GST_STATE_PAUSED))
 		{
-			if(!gst_element_query_position(videoSinkbin, GST_FORMAT_TIME, &position))
+			if (!gst_element_query_position(videoSinkbin, GST_FORMAT_TIME, &position))
 			{
 				MW_LOG_WARN("InterfacePlayerRDK: gst_element_query_position failed");
 				position = 0;
@@ -4112,8 +4112,7 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 		MW_LOG_WARN("## Got Underflow message from %s type %d ##", GST_ELEMENT_NAME(object), type);
 		privatePlayer->gstPrivateContext->stream[type].bufferUnderrun = true;
 
-		//if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
-		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate >= GST_NORMAL_PLAY_RATE))//anj:test
+		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
 		{
 			if (!privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 			{
@@ -4826,8 +4825,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					 note: alternate "window-set" works as well
 					 */
 					gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_sink, msg->src);
-					MW_LOG_MIL("bus_sync_handle: discovering video sink properties for %s",
-						GST_OBJECT_NAME(msg->src));
 					privatePlayer->socInterface->DiscoverVideoSinkProperties(
 						privatePlayer->gstPrivateContext->video_sink);
 
@@ -4887,8 +4884,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					{ // video
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
-						MW_LOG_MIL("bus_sync_handle: discovering video decoder properties for %s",
-							GST_OBJECT_NAME(msg->src));
 						privatePlayer->socInterface->DiscoverVideoDecoderProperties(
 							privatePlayer->gstPrivateContext->video_dec);
 						privatePlayer->SignalConnect(privatePlayer->gstPrivateContext->video_dec, "first-video-frame-callback",
