@@ -302,7 +302,7 @@ TEST_F(sendSegmentTests, CallsetBasePTSTest5)
 
 TEST_F(sendSegmentTests, CallsetBasePTSTest6)
 {
-    double position = static_cast<double>(LLONG_MAX);
+    double position = LLONG_MAX;
     long long pts = LLONG_MIN;
     mTSProcessor->CallsetBasePTS(position, pts);
 }
