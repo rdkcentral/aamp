@@ -22,25 +22,7 @@
  * @brief Handles operation with OCDM session to handle DRM License data
  */
 #include "opencdmsessionadapter.h"
-
 #include "DrmHelper.h"
-
-/**
- * @brief Convert OCDM KeyStatus to PlayerKeyStatus.
- */
-static PlayerKeyStatus toPlayerKeyStatus(KeyStatus ocdmStatus) {
-	switch (ocdmStatus) {
-		case Usable:                 return PlayerKeyStatus::PLAYER_KEY_Usable;
-		case Expired:                return PlayerKeyStatus::PLAYER_KEY_Expired;
-		case Released:               return PlayerKeyStatus::PLAYER_KEY_Released;
-		case OutputRestricted:       return PlayerKeyStatus::PLAYER_KEY_OutputRestricted;
-		case OutputRestrictedHDCP22: return PlayerKeyStatus::PLAYER_KEY_OutputRestrictedHDCP22;
-		case OutputDownscaled:       return PlayerKeyStatus::PLAYER_KEY_OutputDownscaled;
-		case StatusPending:          return PlayerKeyStatus::PLAYER_KEY_StatusPending;
-		case HWError:                return PlayerKeyStatus::PLAYER_KEY_HWError;
-		case InternalError: default: return PlayerKeyStatus::PLAYER_KEY_InternalError;
-	}
-}
 #include "PlayerUtils.h"
 
 #include "ProcessHandler.h"
@@ -60,6 +42,23 @@ static PlayerKeyStatus toPlayerKeyStatus(KeyStatus ocdmStatus) {
 #include <sys/time.h>
 #include <set>
 #define LICENSE_RENEWAL_MESSAGE_TYPE "1"
+
+/**
+ * @brief Convert OCDM KeyStatus to PlayerKeyStatus.
+ */
+static PlayerKeyStatus toPlayerKeyStatus(KeyStatus ocdmStatus) {
+	switch (ocdmStatus) {
+		case Usable:                 return PlayerKeyStatus::PLAYER_KEY_Usable;
+		case Expired:                return PlayerKeyStatus::PLAYER_KEY_Expired;
+		case Released:               return PlayerKeyStatus::PLAYER_KEY_Released;
+		case OutputRestricted:       return PlayerKeyStatus::PLAYER_KEY_OutputRestricted;
+		case OutputRestrictedHDCP22: return PlayerKeyStatus::PLAYER_KEY_OutputRestrictedHDCP22;
+		case OutputDownscaled:       return PlayerKeyStatus::PLAYER_KEY_OutputDownscaled;
+		case StatusPending:          return PlayerKeyStatus::PLAYER_KEY_StatusPending;
+		case HWError:                return PlayerKeyStatus::PLAYER_KEY_HWError;
+		case InternalError: default: return PlayerKeyStatus::PLAYER_KEY_InternalError;
+	}
+}
 
 /**
  * @fn OCDMSessionAdapter
