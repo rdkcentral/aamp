@@ -1064,20 +1064,8 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 	}
 	if (aamp->rate != AAMP_NORMAL_PLAY_RATE)
 	{
-		if (tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
-		{
-			// Seeking to live/end during trickplay: reset to normal rate and notify
-			aamp->rate = AAMP_NORMAL_PLAY_RATE;
-			sentSpeedChangedEv = true;
-		}
-		else
-		{
-			// Seeking to a specific position during trickplay: preserve the current
-			// trickplay rate and avoid sending a spurious speed=1 event here.
-			// Callers that want to resume normal playback after the seek must
-			// explicitly call SetRate(AAMP_NORMAL_PLAY_RATE).
-			AAMPLOG_INFO("Seek during trickplay at rate(%f) - maintaining rate, skipping speed-change notification", aamp->rate);
-		}
+		aamp->rate = AAMP_NORMAL_PLAY_RATE;
+		sentSpeedChangedEv = true;
 	}
 	if (aamp->mpStreamAbstractionAAMP)
 	{ // for seek while streaming
@@ -1304,20 +1292,8 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 
 			if (aamp->rate != AAMP_NORMAL_PLAY_RATE)
 			{
-				if (tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
-				{
-					// Seeking to live/end during trickplay: reset to normal rate and notify
-					aamp->rate = AAMP_NORMAL_PLAY_RATE;
-					sentSpeedChangedEv = true;
-				}
-				else
-				{
-					// Seeking to a specific position during trickplay: preserve the current
-					// trickplay rate and avoid sending a spurious speed=1 event here.
-					// Callers that want to resume normal playback after the seek must
-					// explicitly call SetRate(AAMP_NORMAL_PLAY_RATE).
-					AAMPLOG_INFO("Seek during trickplay at rate(%f) - maintaining rate, skipping speed-change notification", aamp->rate);
-				}
+				aamp->rate = AAMP_NORMAL_PLAY_RATE;
+				sentSpeedChangedEv = true;
 			}
 
 			/**Set the flag true to indicate seeked **/
