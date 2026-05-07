@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2026 RDK Management
+# Copyright 2025 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(EXEC_NAME AampRialtoPlayerTests)
+set(EXEC_NAME AampRialtoControlBackendTests)
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 
@@ -28,12 +28,12 @@ include_directories(${AAMP_ROOT}/.libs/include/rialto)
 include_directories(${AAMP_ROOT}/direct-rialto)
 
 set(TEST_SOURCES
-	AampRialtoPlayerTests.cpp
-	AampRialtoPlayerTestCases.cpp
+	AampRialtoControlBackendTests.cpp
+	AampRialtoControlBackendTestCases.cpp
 )
 
 set(AAMP_SOURCES
-	${AAMP_ROOT}/direct-rialto/AampRialtoPlayer.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoControlBackend.cpp
 )
 
 add_executable(${EXEC_NAME}
