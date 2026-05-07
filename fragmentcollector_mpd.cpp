@@ -10130,7 +10130,7 @@ bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 	}
 	bool isAllowNextFrag = true;
 	bool fragmentCached {false};
-	int  maxLLDCachedFragmentsPerTrack = (int)pMediaStreamContext->GetCachedFragmentSize();
+	const int activeCacheSize = static_cast<int>(pMediaStreamContext->GetCachedFragmentSize());
 
 	if (waitForFreeFrag && !trickPlay)
 	{
@@ -10147,7 +10147,7 @@ bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 		{
 			int timeoutMs = -1;
 			if(bCacheFullState &&
-				(pMediaStreamContext->numberOfFragmentsCached == maxLLDCachedFragmentsPerTrack))
+				(pMediaStreamContext->numberOfFragmentsCached == activeCacheSize))
 			{
 				timeoutMs = MAX_WAIT_TIMEOUT_MS;
 			}
@@ -10160,10 +10160,10 @@ bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 			// profile not changed and not at EOS
 			if(!pMediaStreamContext->profileChanged && tsbReader->TrackEnabled() && !tsbReader->IsEos())
 			{
-				fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, maxLLDCachedFragmentsPerTrack - pMediaStreamContext->numberOfFragmentsCached);
+				fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, activeCacheSize - pMediaStreamContext->numberOfFragmentsCached);
 				AAMPLOG_TRACE("[%s] Fragment %s", GetMediaTypeName((AampMediaType)trackIdx), fragmentCached ? "cached" : "not cached");
 			}
-			if(pMediaStreamContext->numberOfFragmentsCached != maxLLDCachedFragmentsPerTrack && bCacheFullState)
+			if(pMediaStreamContext->numberOfFragmentsCached != activeCacheSize && bCacheFullState)
 			{
 				bCacheFullState = false;
 			}
@@ -10697,7 +10697,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 				if (track->IsLocalTSBInjection())
 				{
 					// TSBReader could be waiting indefinitely WaitForCachedFragmentInjected, this will unblock the same
-					track->AbortWaitForCachedFragmentChunk();
+					track->AbortWaitForCachedFragmentInjected();
 				}
 			}
 		}

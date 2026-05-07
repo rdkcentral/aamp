@@ -118,7 +118,7 @@ void StreamAbstractionAAMP::RefreshSubtitles()
 {
 }
 
-void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentInjected()
 {
 }
 
@@ -496,7 +496,7 @@ void MediaTrack::LoadNewAudio(bool)
 {
 }
 
-void MediaTrack::AbortWaitForCachedFragmentChunk()
+void MediaTrack::AbortWaitForCachedFragmentInjected()
 {
 }
 
@@ -539,10 +539,6 @@ void StreamAbstractionAAMP::GetPlayerPositionsHandler(long long& getPositionMS, 
 }
 
 void StreamAbstractionAAMP::SendVTTCueDataHandler(VTTCue* cueData)
-{
-}
-
-void MediaTrack::FlushFragmentChunks()
 {
 }
 

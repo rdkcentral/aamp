@@ -182,11 +182,11 @@ public:
 	uint32_t GetManifestUpdateCounter();
 
 	/**
-	 * @fn AbortWaitForCachedFragmentChunk
+	 * @fn AbortWaitForCachedFragmentInjected
 	 *
 	 * @return void
 	 */
-	void AbortWaitForCachedFragmentChunk();
+	void AbortWaitForCachedFragmentInjected();
 
 	/**
 	 * @fn WaitForManifestUpdate
@@ -348,13 +348,6 @@ public:
 	void UpdateInjectedDuration(double surplusDuration);
 
 	/**
-	* @brief Get total fragment chunk injected duration
-	*
-	* @return Total duration in seconds
-	*/
-	double GetTotalInjectedChunkDuration() { return totalInjectedChunksDuration; };
-
-	/**
 	 * @fn RunInjectLoop
 	 *
 	 * @return void
@@ -385,7 +378,7 @@ public:
 
 	/**
 	 * @fn WaitForCachedFragmentInjected
-	 * @retval true if fragment chunk injected , false on abort.
+	 * @retval true if fragment injected, false on abort.
 	 */
 	bool WaitForCachedFragmentInjected(int timeoutMs = -1);
 
@@ -482,11 +475,11 @@ public:
 	double GetTotalFetchedDuration();
 
 	/**
-	 * @brief Get total duration of fetched fragments
+	 * @brief Get total duration of injected fragment chunks (LLD chunk mode)
 	 *
 	 * @return Total duration in seconds
 	 */
-	double GetTotalInjectedChunksDuration() { return totalInjectedChunksDuration; };
+	double GetTotalInjectedChunksDuration() { return totalInjectedChunksDuration; }
 
 	/**
 	 * @brief Check if discontinuity is being processed
@@ -578,12 +571,6 @@ public:
 	void FlushFragments();
 
 	/**
-	 * @fn FlushFragmentChunks
-	 *
-	 * @return void
-	 */
-	void FlushFragmentChunks();
-	/**
 	 * @brief API to wait thread until the fragment cached after audio reconfiguration
 	 */
 	void WaitForCachedAudioFragmentAvailable(void);
@@ -621,9 +608,9 @@ public:
 	std::size_t GetCachedFragmentSize() { return mCachedFragmentSize; }
 
 	/**
-	 * @brief SetCachedFragmentSize - Setter for fragment chunks cache size
+	 * @brief SetCachedFragmentSize - Setter for fragment cache active window size
 	 *
-	 * @param[in] size Size for fragment chunks cache
+	 * @param[in] size Active window size (must be > 0 and <= DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK)
 	 */
 	void SetCachedFragmentSize(size_t size);
 
@@ -678,11 +665,11 @@ protected:
 	void UpdateTSAfterInject();
 
 	/**
-	 * @fn WaitForCachedFragmentChunkAvailable
+	 * @fn WaitForCachedFragmentAvailable
 	 *
-	 * @return TRUE if fragment chunk available, FALSE if aborted/fragment chunk not available.
+	 * @return TRUE if fragment available, FALSE if aborted or not available.
 	 */
-	bool WaitForCachedFragmentChunkAvailable();
+	bool WaitForCachedFragmentAvailable();
 
 	/**
 	 * @brief Get the context of media track. To be implemented by subclasses
@@ -798,7 +785,7 @@ public:
 	bool refreshSubtitles;              /**< Switch subtitle track in the FetchLoop */
 	bool refreshAudio;                  /** Switch audio track in the FetcherLoop */
 	int maxLLDCachedFragmentsPerTrack;
-	std::condition_variable fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
+	std::condition_variable fragmentFetched;/**< Signaled after a fragment is fetched*/	
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
 	double m_totalDurationForPtsRestamping;
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
@@ -837,7 +824,7 @@ private:
 
 	std::mutex injectorStartMutex;  		/**< Mutex to protect injector start */
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
-	std::condition_variable fragmentChunkInjected;	/**< Signaled after a fragment is injected*/
+	std::condition_variable fragmentInjected;	/**< Signaled after a fragment is injected*/
 	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
@@ -866,7 +853,7 @@ private:
 	double lastInjectedDuration;             /**< Last injected fragment end position */
 	std::condition_variable subtitleFragmentCached;
 	std::atomic_bool mIsLocalTSBInjection;
-	size_t mCachedFragmentSize;		/**< Size of fragment chunks cache */
+	size_t mCachedFragmentSize;		/**< Active window size of the fragment ring buffer */	
 	AampTime mLastFragmentPts;				/**< pts of the previous fragment, used in trick modes */
 	AampTime mRestampedPts;					/**< Restamped Pts of the segment, used in trick modes */
 	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
@@ -1816,11 +1803,11 @@ public:
 	}
 
 	/**
-	 *   @fn UnblockWaitForCachedFragmentChunk
+	 *   @fn UnblockWaitForCachedFragmentInjected
 	 *
 	 *   @return void
 	 */
-	void UnblockWaitForCachedFragmentChunk();
+	void UnblockWaitForCachedFragmentInjected();
 
 	/**
 	 *   @brief Get available thumbnail bitrates.

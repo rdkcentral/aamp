@@ -1138,9 +1138,9 @@ TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_SignaledButStillFull_Retur
 	// caller is woken up spuriously or by an unrelated event.
 	std::thread signalThread([&videoTrack]() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
-		// AbortWaitForCachedFragmentChunk signals fragmentChunkInjected but does NOT
+		// AbortWaitForCachedFragmentInjected signals fragmentInjected but does NOT
 		// decrement numberOfFragmentsCached or set the abort flag.
-		videoTrack.AbortWaitForCachedFragmentChunk();
+		videoTrack.AbortWaitForCachedFragmentInjected();
 	});
 
 	// Must return false: was signaled, abort is clear, but cache is still full.
@@ -1173,7 +1173,7 @@ TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_SignaledAndCacheCleared_Re
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		// Decrement the cache count (simulating a completed injection), then notify.
 		videoTrack.numberOfFragmentsCached--;
-		videoTrack.AbortWaitForCachedFragmentChunk();
+		videoTrack.AbortWaitForCachedFragmentInjected();
 	});
 
 	// Must return true: was signaled and cache now has a free slot.
