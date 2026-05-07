@@ -44,7 +44,10 @@
 #define LICENSE_RENEWAL_MESSAGE_TYPE "1"
 
 /**
+ * @fn toPlayerKeyStatus
  * @brief Convert OCDM KeyStatus to PlayerKeyStatus.
+ * @param ocdmStatus The KeyStatus from OCDM.
+ * @return The corresponding PlayerKeyStatus.
  */
 static PlayerKeyStatus toPlayerKeyStatus(KeyStatus ocdmStatus) {
 	switch (ocdmStatus) {
@@ -58,6 +61,26 @@ static PlayerKeyStatus toPlayerKeyStatus(KeyStatus ocdmStatus) {
 		case HWError:                return PlayerKeyStatus::PLAYER_KEY_HWError;
 		case InternalError: default: return PlayerKeyStatus::PLAYER_KEY_InternalError;
 	}
+}
+
+/**
+ * @fn ShouldNotifyKeyStatus
+ * @brief Determine if a given KeyStatus should trigger a key status notification to the player.
+ * @param status The KeyStatus to evaluate.
+ * @return true if the status should trigger a notification, false otherwise.
+ */
+bool ShouldNotifyKeyStatus(KeyStatus status)
+{
+    switch (status)
+    {
+        case OutputRestricted:
+        case Usable:
+        case OutputRestrictedHDCP22:
+        case OutputDownscaled:
+            return true;
+        default:
+            return false;
+    }
 }
 
 /**
@@ -264,9 +287,13 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 void OCDMSessionAdapter::keysUpdatedOCDM() {
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	m_keyStatusReady.signal();
-	if (m_drmCallbacks && ((m_keyStatus == OutputRestricted) || (m_keyStatus == Usable) || (m_keyStatus == OutputRestrictedHDCP22) || (m_keyStatus == OutputDownscaled)))
+	if (m_drmCallbacks && (ShouldNotifyKeyStatus(m_keyStatus) == true))
 	{
 		m_drmCallbacks->NotifyKeyStatus(toPlayerKeyStatus(m_keyStatus));
+	}
+	else
+	{
+		MW_LOG_INFO("Key status %d does not trigger a notification to the player", m_keyStatus);
 	}
 }
 
