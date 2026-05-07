@@ -3198,7 +3198,8 @@ TEST_F(InterfacePlayerTests, GetVideoPosition_QuerySucceedsPaused)
 /**
  * @test GetVideoPTS_PropertySupported
  * @brief When 'video-pts' is exposed, GetVideoPTS returns the value provided
- *        by the SoC interface (no fallback to position query).
+ *        by the SoC interface (no fallback to position query). The property
+ *        is probed once at element creation via DiscoverVideoDecoderProperties.
  */
 TEST_F(InterfacePlayerTests, GetVideoPTS_PropertySupported)
 {
@@ -3209,6 +3210,9 @@ TEST_F(InterfacePlayerTests, GetVideoPTS_PropertySupported)
 	GParamSpec dummyPspec{};
 	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
 		.WillOnce(Return(&dummyPspec));
+
+	/* Simulate element creation: probe the video decoder. */
+	mInterfacePrivatePlayer->socInterface->DiscoverVideoDecoderProperties(&video_dec);
 
 	const gint64 ptsValue = 4500;
 	EXPECT_CALL(*g_mockGLib,
@@ -3227,7 +3231,8 @@ TEST_F(InterfacePlayerTests, GetVideoPTS_PropertySupported)
  * @test GetVideoPTS_PropertyNotSupportedFallsBackToPosition
  * @brief When 'video-pts' is not exposed, GetVideoPts() returns -1 and
  *        InterfacePlayerRDK::GetVideoPTS falls back to
- *        90 * GetVideoPosition() (90 kHz ticks per millisecond).
+ *        90 * GetVideoPosition() (90 kHz ticks per millisecond). The property
+ *        is probed once at element creation via DiscoverVideoDecoderProperties.
  */
 TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyNotSupportedFallsBackToPosition)
 {
@@ -3240,6 +3245,10 @@ TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyNotSupportedFallsBackToPosition
 	/* Property not supported -> probe returns nullptr. */
 	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
 		.WillOnce(Return(nullptr));
+
+	/* Simulate element creation: probe the video decoder. */
+	mInterfacePrivatePlayer->socInterface->DiscoverVideoDecoderProperties(&video_dec);
+
 	/* g_object_get for video-pts must NOT be invoked when unsupported. */
 	EXPECT_CALL(*g_mockGLib,
 				g_object_get(_, StrEq("video-pts"), Matcher<gint64 *>(_)))
@@ -3260,21 +3269,25 @@ TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyNotSupportedFallsBackToPosition
 }
 
 /**
- * @test GetVideoPTS_PropertyProbeCachedAcrossCalls
- * @brief The 'video-pts' property is probed only once; subsequent calls must
- *        not re-invoke g_object_class_find_property.
+ * @test GetVideoPTS_PropertyProbeOnceAtCreation
+ * @brief The 'video-pts' property is probed exactly once at element creation
+ *        via DiscoverVideoDecoderProperties(); subsequent GetVideoPTS() calls
+ *        must not re-invoke g_object_class_find_property.
  */
-TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyProbeCachedAcrossCalls)
+TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyProbeOnceAtCreation)
 {
 	GstElement video_dec = {.object = {.name = (gchar *)"video_dec"}};
 	mPlayerContext->video_dec = &video_dec;
 	mPlayerContext->using_westerossink = true;
 
 	GParamSpec dummyPspec{};
-	/* The probe must run exactly once for two GetVideoPTS calls. */
+	/* The probe must run exactly once, at element creation time. */
 	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
 		.Times(1)
 		.WillOnce(Return(&dummyPspec));
+
+	/* Simulate element creation: probe the video decoder. */
+	mInterfacePrivatePlayer->socInterface->DiscoverVideoDecoderProperties(&video_dec);
 
 	const gint64 ptsValue = 1234;
 	EXPECT_CALL(*g_mockGLib,
@@ -3283,6 +3296,7 @@ TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyProbeCachedAcrossCalls)
 		.Times(2)
 		.WillRepeatedly(DoAll(SetArgPointee<2>(ptsValue), Return()));
 
+	/* GetVideoPTS() must NOT trigger g_object_class_find_property. */
 	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPTS(), ptsValue);
 	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPTS(), ptsValue);
 }

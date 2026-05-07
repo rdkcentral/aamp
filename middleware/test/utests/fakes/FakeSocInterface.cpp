@@ -188,24 +188,28 @@ void SocInterface::SetWesterosSinkState(bool status)
 {
 	mUsingWesterosSink = true;
 }
-bool SocInterface::IsVideoPtsPropertySupported(GstElement *element)
+void SocInterface::CheckVideoPtsPropertySupport(GstElement *element)
 {
 	if(element)
 	{
-		std::call_once(mVideoPtsProbeOnce, [&]{
-			GParamSpec *pspec = g_object_class_find_property(
-				G_OBJECT_GET_CLASS(element), "video-pts");
-			mVideoPtsPropertySupported = (pspec != NULL);
-		});
+		GParamSpec *pspec = g_object_class_find_property(
+			G_OBJECT_GET_CLASS(element), "video-pts");
+		mVideoPtsPropertySupported = (pspec != NULL);
 	}
-	return mVideoPtsPropertySupported;
+}
+void SocInterface::DiscoverVideoDecoderProperties(GstElement *element)
+{
+	CheckVideoPtsPropertySupport(element);
+}
+void SocInterface::DiscoverVideoSinkProperties(GstElement */*element*/)
+{
 }
 long long SocInterface::ReadVideoPts(GstElement *element)
 {
 	long long result = 0;
 	if(element)
 	{
-		if(IsVideoPtsPropertySupported(element))
+		if(mVideoPtsPropertySupported)
 		{
 			gint64 currentPTS = 0;
 			g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */

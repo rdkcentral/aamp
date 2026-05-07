@@ -4112,7 +4112,8 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 		MW_LOG_WARN("## Got Underflow message from %s type %d ##", GST_ELEMENT_NAME(object), type);
 		privatePlayer->gstPrivateContext->stream[type].bufferUnderrun = true;
 
-		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
+		//if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
+		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate >= GST_NORMAL_PLAY_RATE))//anj:test
 		{
 			if (!privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 			{
@@ -4825,6 +4826,10 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					 note: alternate "window-set" works as well
 					 */
 					gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_sink, msg->src);
+					MW_LOG_MIL("bus_sync_handle: discovering video sink properties for %s",
+						GST_OBJECT_NAME(msg->src));
+					privatePlayer->socInterface->DiscoverVideoSinkProperties(
+						privatePlayer->gstPrivateContext->video_sink);
 
 					if (privatePlayer->gstPrivateContext->usingRialtoSink)
 					{
@@ -4882,6 +4887,10 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					{ // video
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
+						MW_LOG_MIL("bus_sync_handle: discovering video decoder properties for %s",
+							GST_OBJECT_NAME(msg->src));
+						privatePlayer->socInterface->DiscoverVideoDecoderProperties(
+							privatePlayer->gstPrivateContext->video_dec);
 						privatePlayer->SignalConnect(privatePlayer->gstPrivateContext->video_dec, "first-video-frame-callback",
 									G_CALLBACK(GstPlayer_OnFirstVideoFrameCallback), pInterfacePlayerRDK);
 						privatePlayer->socInterface->SetDecodeError(msg->src);

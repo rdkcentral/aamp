@@ -24,7 +24,6 @@
 #include <functional>
 #include <vector>
 #include <memory>
-#include <mutex>
 #include <gst/base/gstbasesink.h>
 #include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
@@ -92,11 +91,9 @@ protected:
 	/*config to indicate platforms using westeros sink*/
 	bool mUsingWesterosSink = false;
 
-	/* Cached result of the one-time 'video-pts' GObject property probe.
-	 * Once probed against a non-NULL video sink/decoder, the result is
-	 * reused for the lifetime of this SocInterface instance to avoid
-	 * repeated g_object_class_find_property() calls on hot paths. */
-	std::once_flag mVideoPtsProbeOnce;
+	/* Set to true once DiscoverVideoDecoderProperties() or
+	 * DiscoverVideoSinkProperties() finds the 'video-pts' GObject property
+	 * on a video element at creation time. */
 	bool mVideoPtsPropertySupported{false};
 	
 public:
@@ -386,18 +383,26 @@ public:
 	virtual long long GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros);
 
 	/**
-	 * @brief Check whether the 'video-pts' GObject property is supported by
-	 *        the supplied GStreamer element.
+	 * @brief Discover decoder-specific properties at video decoder creation time.
 	 *
-	 * The result is cached for the lifetime of this SocInterface instance,
-	 * so the underlying g_object_class_find_property() call runs at most
-	 * once.
+	 * Called once when the video decoder element transitions NULL -> READY.
+	 * Platform overrides that probe properties on the sink instead should
+	 * override this as a no-op and implement DiscoverVideoSinkProperties().
 	 *
-	 * @param element The GStreamer element to probe
-	 *
-	 * @return true if 'video-pts' is exposed on the element, false otherwise.
+	 * @param element The video decoder GStreamer element.
 	 */
-	[[nodiscard]] virtual bool IsVideoPtsPropertySupported(GstElement *element);
+	virtual void DiscoverVideoDecoderProperties(GstElement *element);
+
+	/**
+	 * @brief Discover sink-specific properties at video sink creation time.
+	 *
+	 * Called once when the video sink element transitions READY -> PAUSED.
+	 * The base implementation is a no-op. Platform overrides that probe
+	 * properties on the sink should implement this method.
+	 *
+	 * @param element The video sink GStreamer element.
+	 */
+	virtual void DiscoverVideoSinkProperties(GstElement *element);
 
 	/**
 	 * @brief Notify first video frame.
@@ -511,6 +516,15 @@ public:
 	virtual bool IsVideoMaster(GstElement *videoSink) = 0;
 
 protected:
+	/**
+	 * @brief Probe the 'video-pts' GObject property on @p element and update
+	 *        mVideoPtsPropertySupported. Used by DiscoverVideoDecoderProperties()
+	 *        and DiscoverVideoSinkProperties() implementations.
+	 *
+	 * @param element The GStreamer element to probe.
+	 */
+	void CheckVideoPtsPropertySupport(GstElement *element);
+
 	/**
 	 * @brief Read the raw 'video-pts' value from a GStreamer element.
 	 *

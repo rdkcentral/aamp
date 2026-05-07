@@ -230,7 +230,7 @@ long long SocInterface::ReadVideoPts(GstElement *element)
 	long long result = 0;
 	if(element)
 	{
-		if(IsVideoPtsPropertySupported(element))
+		if(mVideoPtsPropertySupported)
 		{
 			gint64 currentPTS = 0;
 			g_object_get(element, "video-pts", &currentPTS, NULL);
@@ -256,33 +256,42 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
 }
 
 /**
- * @brief Check whether the 'video-pts' GObject property is supported by
- *        the supplied GStreamer element.
+ * @brief Probe whether the 'video-pts' GObject property is supported and
+ *        update mVideoPtsPropertySupported accordingly.
  *
- * @param element The GStreamer element to probe (may be NULL).
- *
- * @return true if 'video-pts' is exposed on the element, false otherwise.
+ * @param element The GStreamer element to probe.
  */
-bool SocInterface::IsVideoPtsPropertySupported(GstElement *element)
+void SocInterface::CheckVideoPtsPropertySupport(GstElement *element)
 {
 	if(element)
 	{
-		std::call_once(mVideoPtsProbeOnce, [&]{
-			GParamSpec *pspec = g_object_class_find_property(
-				G_OBJECT_GET_CLASS(element), "video-pts");
-			mVideoPtsPropertySupported = (pspec != NULL);
-			MW_LOG_WARN("SocInterface: 'video-pts' property is %s on %s",
-				mVideoPtsPropertySupported ? "supported" : "NOT supported",
-				GST_ELEMENT_NAME(element));
-		});
+		GParamSpec *pspec = g_object_class_find_property(
+			G_OBJECT_GET_CLASS(element), "video-pts");
+		mVideoPtsPropertySupported = (pspec != NULL);
+		MW_LOG_WARN("SocInterface: 'video-pts' property is %s on %s",
+			mVideoPtsPropertySupported ? "supported" : "NOT supported",
+			GST_ELEMENT_NAME(element));
 	}
 	else
 	{
-		/* Leave the flags untouched so the probe is retried on the
-		 * next call once the element is available. */
 		MW_LOG_WARN("SocInterface: cannot probe 'video-pts' property, element is NULL");
 	}
-	return mVideoPtsPropertySupported;
+}
+
+/**
+ * @brief Discover decoder-specific properties at video decoder creation time.
+ */
+void SocInterface::DiscoverVideoDecoderProperties(GstElement *element)
+{
+	CheckVideoPtsPropertySupport(element);
+}
+
+/**
+ * @brief Discover sink-specific properties at video sink creation time.
+ *        Base implementation is a no-op.
+ */
+void SocInterface::DiscoverVideoSinkProperties(GstElement */*element*/)
+{
 }
 
 /**

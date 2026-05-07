@@ -170,7 +170,7 @@ long long SocInterface::ReadVideoPts(GstElement *element)
 	long long result = 0;
 	if(element)
 	{
-		if(IsVideoPtsPropertySupported(element))
+		if(mVideoPtsPropertySupported)
 		{
 			gint64 currentPTS = 0;
 			g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */

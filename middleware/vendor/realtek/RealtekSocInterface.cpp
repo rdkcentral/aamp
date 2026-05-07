@@ -239,6 +239,21 @@ long long RealtekSocInterface::GetVideoPts(GstElement *video_sink, GstElement *v
 }
 
 /**
+ * @brief No-op override: decoder properties are not probed on this platform.
+ */
+void RealtekSocInterface::DiscoverVideoDecoderProperties(GstElement */*element*/)
+{
+}
+
+/**
+ * @brief Discover sink-specific properties at video sink creation time.
+ */
+void RealtekSocInterface::DiscoverVideoSinkProperties(GstElement *element)
+{
+	CheckVideoPtsPropertySupport(element);
+}
+
+/**
  * @brief Set freerun threshold on source.
  *
  * Sets the freerun threshold on the given source object.

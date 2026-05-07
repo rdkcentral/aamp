@@ -202,6 +202,16 @@ class RealtekSocInterface : public SocInterface
 		 */
 		long long GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)override;
 
+	/**
+	 * @brief No-op override: decoder properties are not probed on this platform.
+	 */
+	void DiscoverVideoDecoderProperties(GstElement *element) override;
+
+	/**
+	 * @brief Discover sink-specific properties at video sink creation time.
+	 */
+	void DiscoverVideoSinkProperties(GstElement *element) override;
+
 		/**
 		 * @brief Notify first video frame.
 		 */
