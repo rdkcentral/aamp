@@ -1452,9 +1452,21 @@ void AampRialtoPlayer::NotifyInjectorToResume()
 void AampRialtoPlayer::NotifyInjectorToPause()
 {
 	AAMPLOG_INFO("ENTRY");
+	// Wake any in-flight SendTransfer so it abandons the current batch.
+	// This is called during TeardownStream before StopInjectLoop() joins
+	// the injection threads.  Without this generation bump the injection
+	// thread may remain blocked in InjectOneSample::cv.wait() and the
+	// join would deadlock.
+	for (SourceState *st : {&m_videoSrc, &m_audioSrc})
+	{
+		std::lock_guard<std::mutex> lock(st->mu);
+		++st->generation;
+		st->hasPending     = false;
+		st->addedInPending = 0;
+		st->cv.notify_all();
+	}
 	AAMPLOG_INFO("EXIT");
 }
-
 void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo)
 {
 	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
