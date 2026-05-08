@@ -434,8 +434,8 @@ public:
 
 	/**
 	 * @fn GetFetchBuffer
-	 * @param[in] initialize true to initialize the fragment chunk
-	 * @retval Pointer to fragment chunk buffer.
+	 * @param[in] initialize true to initialize the fragment slot
+	 * @retval Pointer to the next fragment fetch slot.
 	 */
 	CachedFragment *GetFetchBuffer(bool initialize);
 
