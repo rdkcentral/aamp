@@ -387,7 +387,7 @@ void MediaTrack::UpdateSubtitleClockTask()
 void MediaTrack::UpdateTSAfterInject()
 {
 	std::lock_guard<std::mutex> guard(mutex);
-	//Free Chunk Cache Buffer
+	//Free cached fragment slot
 	prevDownloadStartTime = mCachedFragment[fragmentIdxToInject].downloadStartTime;
 	aamp_utils::ClearAndRelease(mCachedFragment[fragmentIdxToInject].fragment);
 
@@ -516,7 +516,7 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		}
 		else if (sinkBufferIsFull && numberOfFragmentsCached == mCachedFragmentSize)
 		{
-			AAMPLOG_WARN("## [%s] Chunk Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
+			AAMPLOG_WARN("## [%s] Fragment Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
 						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
 			notifyCacheCompleted = true;
 			cachingCompleted = true;
@@ -649,7 +649,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 }
 
 /**
- *  @brief Wait until a cached fragment chunk is Injected.
+ *  @brief Wait until a cached fragment is injected.
  */
 bool MediaTrack::WaitForCachedFragmentInjected(int timeoutMs)
 {
@@ -694,7 +694,7 @@ bool MediaTrack::WaitForCachedFragmentInjected(int timeoutMs)
 }
 
 /**
- *  @brief Wait till cached fragment chunk available
+ *  @brief Wait until a cached fragment is available.
  */
 bool MediaTrack::WaitForCachedFragmentAvailable()
 {
@@ -731,7 +731,7 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	{
 		abort = true;
 		AAMPLOG_DEBUG("[%s] signal fragmentInjected condition", name);
-		// For TSB playback, WaitForCachedFragmentChunkInject is invoked from TSBReader and CacheFragmentChunk threads
+		// For TSB playback, WaitForCachedFragmentInjected is invoked from TSBReader and CacheFragment threads
 		fragmentInjected.notify_all();
 	}
 	AAMPLOG_DEBUG("[%s] signal fragmentFetched condition", name);
@@ -758,7 +758,7 @@ void MediaTrack::AbortWaitForCachedFragment()
 }
 
 /**
- * @brief Abort the waiting for injected fragment chunks immediately
+ * @brief Abort waiting for a cached fragment to be injected.
  */
 void MediaTrack::AbortWaitForCachedFragmentInjected()
 {
