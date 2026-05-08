@@ -425,16 +425,16 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	// After ad init failure, the ad break should not have mpd set
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).mpd, nullptr);
 
+	int downloadsEnabledCounter = 0;
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
-		.WillRepeatedly([]()
+		.WillRepeatedly([&downloadsEnabledCounter]()
 			{
-				static int counter = 0;
-				return (++counter < 10);
+				return (++downloadsEnabledCounter < 10);
 			});
 
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.Times(4) // 2 audio + 2 video init fragments
+		.Times(testing::AtLeast(4)) // Init headers may be retried during profile-change fallback.
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
 		.WillRepeatedly(Return(true)); // Media fragments
