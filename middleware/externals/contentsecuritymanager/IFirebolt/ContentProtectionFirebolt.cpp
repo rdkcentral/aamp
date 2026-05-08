@@ -258,6 +258,12 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 
 			std::string initData = param.print_UnFormatted();
 			MW_LOG_WARN("ContentProtection %s param: %s",apiName, initData.c_str());
+			MW_LOG_WARN("ContentProtection %s accessToken: %s", apiName,
+					accessTokenStr.c_str());
+			MW_LOG_WARN("ContentProtection %s contentMetadata: %s", apiName,
+					contentMetaDataStr.c_str());
+			MW_LOG_WARN("ContentProtection %s licenseRequest(len=%zu): %s", apiName,
+					licenseRequestStr.length(), licenseRequestStr.c_str());
 			bool result = false;
 			//invoke "openDrmSession" or "updateDrmSession" with retries for specific error cases
 			do

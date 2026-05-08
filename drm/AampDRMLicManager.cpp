@@ -1135,6 +1135,16 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 	AAMPLOG_WARN("[HHH] Before calling SecClient_AcquireLicense-----------");
 	AAMPLOG_WARN("destinationURL is %s (drm server now used)", licenseRequest.url.c_str());
 	AAMPLOG_WARN("MoneyTrace[%s]", requestMetadata[0][1]);
+	AAMPLOG_WARN("License Request Debug keySystem[%s] mediaUsage[%s]",
+			 keySystem, mediaUsage);
+	AAMPLOG_WARN("License Request Debug accessToken[%s]",
+			 (secclientSessionToken ? secclientSessionToken : "NULL"));
+	AAMPLOG_WARN("License Request Debug contentMetadata(base64) len[%zu] data[%s]",
+			 ((contentMetaData.length() + 2) / 3) * 4,
+			 (encodedData ? encodedData : "NULL"));
+	AAMPLOG_WARN("License Request Debug challenge(base64) len[%zu] data[%s]",
+			 ((challengeInfo.data->getDataLength() + 2) / 3) * 4,
+			 (encodedChallengeData ? encodedChallengeData : "NULL"));
 	if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
 	{
 		size_t encodedDataLen = ((contentMetaData.length() + 2) /3) * 4;
