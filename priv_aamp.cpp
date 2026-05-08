@@ -6997,7 +6997,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mCurrentVideoTrackId = -1;
 	mCurrentDrm = nullptr;
 
-
+	
 	// Enable the eAAMPConfig_EnableMediaProcessor if the PTS Restamp set for DASH.
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == mMediaFormat))
 	{

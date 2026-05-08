@@ -5387,7 +5387,7 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
 				gst_structure_set (s,
 					"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
 					NULL);
-				if (mDrmSystem != NULL)
+				if(mDrmSystem != NULL)
 				{
 					gst_structure_set (s,
 						GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, mDrmSystem,
