@@ -302,11 +302,11 @@ void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::
 		break;
 		case ePIPELINEMODE_SINGLE:
 		{
-			if (!mActiveGstPlayersMap.count(aamp))
-			{
-				AAMPLOG_WARN("AampStreamSinkManager(%p) Ignoring SetEncryptedHeaders from non-active PLAYER[%d]", this, aamp->mPlayerId);
-				break;
-			}
+		//	if (!mActiveGstPlayersMap.count(aamp))
+		//	{
+		//		AAMPLOG_WARN("AampStreamSinkManager(%p) Ignoring SetEncryptedHeaders from non-active PLAYER[%d]", this, aamp->mPlayerId);
+		//		break;
+		//	}
 			if ((mGstPlayer != nullptr) && !mEncryptedHeaders.empty())
 			{
 				// If encryption info is already set, check that it has not been set from a different player
