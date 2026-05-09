@@ -2756,33 +2756,33 @@ static constexpr const char *kCdaiRewindManifest = R"(<?xml version="1.0" encodi
  */
 TEST_F(FetcherLoopTests, ReverseTrickPlay_AllAdsFinished_NoImmediateAdBreakReentry)
 {
-    AAMPStatusType status;
+	AAMPStatusType status;
 
-    // Initialize with the 3-period manifest at normal rate, seeking to p1.
-    // We set the play rate to -12 after Init so that the Init path
-    // (which only supports forward rates) completes successfully.
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-        .WillOnce(Return(true));
-    status = InitializeMPD(kCdaiRewindManifest, eTUNETYPE_SEEK, 35.0, AAMP_NORMAL_PLAY_RATE);
-    EXPECT_EQ(status, eAAMPSTATUS_OK);
+	// Initialize with the 3-period manifest at normal rate, seeking to p1.
+	// We set the play rate to -12 after Init so that the Init path
+	// (which only supports forward rates) completes successfully.
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+	status = InitializeMPD(kCdaiRewindManifest, eTUNETYPE_SEEK, 35.0, AAMP_NORMAL_PLAY_RATE);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-    status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
-    (void)status;
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	(void)status;
 
-    // Simulate trick-play at -12x: set rate after Init so Init completes normally.
-    // Only update the internal mPlayRate member; leave aamp->rate at 1.0 so that
-    // ShouldCheckOnlyIframeAdaptation() does not mark content periods as empty.
-    mTestableStreamAbstractionAAMP_MPD->SetPlayRate(-12.0f);
+	// Simulate trick-play at -12x: set rate after Init so Init completes normally.
+	// Only update the internal mPlayRate member; leave aamp->rate at 1.0 so that
+	// ShouldCheckOnlyIframeAdaptation() does not mark content periods as empty.
+	mTestableStreamAbstractionAAMP_MPD->SetPlayRate(-12.0f);
 
-    // Point the iterator/current period at p1 (index 1) - simulating that the
-    // FetcherLoop has been traversing p1 in reverse and is about to finish the ad.
-    mTestableStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(1);
+	// Point the iterator/current period at p1 (index 1) - simulating that the
+	// FetcherLoop has been traversing p1 in reverse and is about to finish the ad.
+	mTestableStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(1);
 
-    // Configure CDAI state: one placed, valid ad in adbreak "p1"; we are waiting
-    // for the base content to catch up (last state before "All Ads Finished").
-    auto *cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	// Configure CDAI state: one placed, valid ad in adbreak "p1"; we are waiting
+	// for the base content to catch up (last state before "All Ads Finished").
+	auto *cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
 
-    auto adsP1 = std::make_shared<std::vector<AdNode>>();
+	auto adsP1 = std::make_shared<std::vector<AdNode>>();
     adsP1->emplace_back(
         /*invalid*/   false,
         /*placed*/    true,

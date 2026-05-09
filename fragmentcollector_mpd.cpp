@@ -2038,7 +2038,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		return false;
 	}
 
-AAMPLOG_INFO("SeekInPeriod: Switched to period %d; caller will re-run SkipFragments on the new period with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
+	AAMPLOG_INFO("SeekInPeriod: Switched to period %d; caller will re-run SkipFragments on the new period with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
 
 	// Caller (SeekInPeriod) will invoke SkipFragments on the new period in its loop.
 	return true;
