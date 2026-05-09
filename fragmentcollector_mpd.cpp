@@ -9324,12 +9324,28 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 						mBasePeriodOffset = mCdaiObject->mContentSeekOffset;
 					}
 				}
-				// Check if the new period is having ads
-				adStateChanged = onAdEvent(AdEvent::DEFAULT);
-				if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+				// Check if the new period is having ads.
+				// For reverse trick-play, skip this proactive check: mBasePeriodOffset is set to
+				// the end of the new period, and CheckForAdStart's (rate < 0) && (key == end)
+				// condition would immediately re-enter the just-completed adbreak before any source
+				// content is fetched, causing a period-oscillation loop that drives GStreamer into
+				// a corrupt-stream error.  The BASE_OFFSET_CHANGE event in the inner fragment-
+				// download loop detects the next adbreak naturally as mBasePeriodOffset decreases.
+				if (mPlayRate >= AAMP_RATE_PAUSE)
 				{
-					// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
 					adStateChanged = onAdEvent(AdEvent::DEFAULT);
+					if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+					{
+						// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
+						adStateChanged = onAdEvent(AdEvent::DEFAULT);
+					}
+				}
+				else
+				{
+					// Reverse playback: leave adStateChanged = false so the outer loop does not
+					// enter a continue-without-decrement path and instead falls through to the
+					// normal mIterPeriodIndex-- at the bottom of the FetcherLoop outer loop.
+					adStateChanged = false;
 				}
 			}
 
