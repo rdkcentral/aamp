@@ -4303,9 +4303,13 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  * @brief Regression test for the "ad short by < 2s" race condition in adjustEndPeriodOffset.
  *
  * Scenario (mirrors AAMP-CDAI-8006):
- *   - 30-second SCTE break with a 28.8-second ad (short by 1.2s).
- *   - After ad placement completes, setAdMarkers sets:
- *       endPeriodId = "testPeriodId1", endPeriodOffset = 28800, adsDuration = 30000
+ *   - 30-second SCTE break (brkDuration = 30000 ms) with a 28.8-second ad
+ *     (adsDuration = 28800 ms — this is the cumulative filled-ad duration, NOT
+ *     the break duration; adsDuration starts at 0 and is incremented per ad in
+ *     SetAlternateContents). The ad is short by 1.2 s.
+ *   - After ad placement completes the AdBreakObject state is:
+ *       brkDuration = 30000, adsDuration = 28800
+ *       endPeriodId = "testPeriodId1", endPeriodOffset = 28800
  *       adjustEndPeriodOffset = true
  *   - On the next MPD refresh the second period ("testPeriodId2") has NOT yet
  *     appeared (currPeriodDuration == 0), but two new 2-second segments have been
@@ -4315,7 +4319,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  * incorrectly marks the adbreak as placed with endPeriodOffset=28800, causing the
  * fetcher to resume from fragment 030 in the not_expected range.
  *
- * With the fix the additional check (remainingBreakTimeMs = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR)
+ * With the fix the additional check
+ *   (unfilledBreakTimeMs = brkDuration - adsDuration = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR)
  * keeps the code in the WAIT branch until the next period is available.
  */
 TEST_F(AdManagerMPDTests, PlaceAdsTests_23_ShortAdRaceCondition)
@@ -4510,7 +4515,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
 
   // KEY ASSERTION: adbreak must NOT be marked as placed yet.
-  // remainingBreakTimeMs = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR(2000)
+  // unfilledBreakTimeMs = brkDuration - adsDuration = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR(2000)
   // so the fixed WAIT condition must hold even though periodDelta >= 2000.
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced)
     << "Regression: adjustEndPeriodOffset ELSE path fired before next period appeared";
