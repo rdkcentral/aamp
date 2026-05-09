@@ -1976,6 +1976,33 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	const double   savedPeriodDuration = mPeriodDuration;
 	const double   savedPeriodEnd      = mPeriodEndTime;
 
+	// Also snapshot stream-selection state that StreamSelection(true) is about to mutate.
+	// Without this, a subsequent UpdateTrackInfo failure would restore the period pointers
+	// while leaving mNumberOfTracks and per-track enabled/adaptation state configured for
+	// the new (now abandoned) period, producing an inconsistent object.
+	struct SavedTrackSelState
+	{
+		bool     enabled;
+		int      adaptationSetIdx;
+		int      representationIndex;
+		bool     profileChanged;
+		uint32_t adaptationSetId;
+	};
+	const int savedNumberOfTracks = mNumberOfTracks;
+	const bool savedUpdateStreamInfo = mUpdateStreamInfo;
+	std::array<SavedTrackSelState, AAMP_TRACK_COUNT> savedTrackState{};
+	for (int i = 0; i < mMaxTracks; i++)
+	{
+		if (mMediaStreamContext[i])
+		{
+			savedTrackState[i] = { mMediaStreamContext[i]->enabled,
+			                       mMediaStreamContext[i]->adaptationSetIdx,
+			                       mMediaStreamContext[i]->representationIndex,
+			                       mMediaStreamContext[i]->profileChanged,
+			                       mMediaStreamContext[i]->adaptationSetId };
+		}
+	}
+
 	mCurrentPeriodIdx = nextPeriodIdx;
 	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 	mBasePeriodId = mCurrentPeriod->GetId();
@@ -1988,13 +2015,26 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
 	{
-		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d, restoring previous period state", mCurrentPeriodIdx);
+		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d, restoring previous period and stream-selection state", mCurrentPeriodIdx);
 		mCurrentPeriodIdx = savedPeriodIdx;
 		mCurrentPeriod    = savedPeriod;
 		mBasePeriodId     = savedBasePeriodId;
 		mPeriodStartTime  = savedPeriodStart;
 		mPeriodDuration   = savedPeriodDuration;
 		mPeriodEndTime    = savedPeriodEnd;
+		mNumberOfTracks   = savedNumberOfTracks;
+		mUpdateStreamInfo = savedUpdateStreamInfo;
+		for (int i = 0; i < mMaxTracks; i++)
+		{
+			if (mMediaStreamContext[i])
+			{
+				mMediaStreamContext[i]->enabled             = savedTrackState[i].enabled;
+				mMediaStreamContext[i]->adaptationSetIdx    = savedTrackState[i].adaptationSetIdx;
+				mMediaStreamContext[i]->representationIndex = savedTrackState[i].representationIndex;
+				mMediaStreamContext[i]->profileChanged      = savedTrackState[i].profileChanged;
+				mMediaStreamContext[i]->adaptationSetId     = savedTrackState[i].adaptationSetId;
+			}
+		}
 		return false;
 	}
 
