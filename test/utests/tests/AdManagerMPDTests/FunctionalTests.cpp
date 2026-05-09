@@ -4456,9 +4456,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced);
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset);
 
-  // Add segment 15 (t=145000, +2s) to testPeriodId1 so the ad can fully fit.
-  // Reuse manifest1 with one more segment appended: r=14 becomes r=14 and one
-  // extra. For simplicity just update the manifest string by adding an extra <S>.
+  // Add one extra segment at t=145000 to testPeriodId1 so the ad can
+  // fully fit. This appended <S> has d="2000" at timescale 2500, i.e. 0.8s.
+  // Reuse manifest1 and append one extra <S>; the original repeated entry
+  // remains r="13". For simplicity just update the manifest string directly.
   static const char *manifest1b =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:02Z" timeShiftBufferDepth="PT5M" type="dynamic">
