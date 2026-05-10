@@ -212,5 +212,15 @@ public:
 	 * @brief Function to abort wait for videoPTS arrival
 	 */
 	virtual void abortWaitForVideoPTS() {}
+
+	/**
+	 * @brief Check whether this processor performs PTS restamping internally
+	 *
+	 * @return true if internal PTS restamping is active, false otherwise
+	 */
+	virtual bool getPTSRestampStatus() const
+	{
+		return false;
+	}
 };
 #endif /* __MEDIA_PROCESSOR_H__ */

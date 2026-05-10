@@ -276,6 +276,13 @@ if(CMAKE_SYSTEMD_JOURNAL)
 	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
 endif()
+# std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
+# GCC emits __atomic_load_16 / __atomic_store_16 which require the atomic
+# support library shipped with GCC.  ARM64 handles them natively.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-latomic")
+	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-latomic")
+endif()
 #Enabling ethan log macro and lib
 if(CMAKE_USE_ETHAN_LOG)
 	message("DCMAKE_USE_ETHAN_LOG set")
@@ -533,6 +540,7 @@ set(LIBAAMP_SOURCES
 	AampDemuxDataTypes.h
 	net_trace.h
 	AampLatencyMonitor.cpp AampLatencyMonitor.h
+	simnet/net_persona_fitter.cpp simnet/net_persona_fitter.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)

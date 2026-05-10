@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2025 RDK Management
+ * Copyright 2026 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,19 +17,10 @@
  * limitations under the License.
  */
 
-#ifndef AAMP_MOCK_ISOBMFF_PROCESSOR_H
-#define AAMP_MOCK_ISOBMFF_PROCESSOR_H
+#include <gtest/gtest.h>
 
-#include <gmock/gmock.h>
-#include "isobmff/isobmffprocessor.h"
-
-class MockIsoBmffProcessor
+int main(int argc, char** argv)
 {
-public:
-	MOCK_METHOD(void, setRate, (double, PlayMode));
-	MOCK_METHOD(bool, getPTSRestampStatus, (), (const));
-};
-
-extern MockIsoBmffProcessor *g_mockIsoBmffProcessor;
-
-#endif /* AAMP_MOCK_ISOBMFF_PROCESSOR_H */
+	testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
+}
