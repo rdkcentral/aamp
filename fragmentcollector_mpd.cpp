@@ -9365,12 +9365,6 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					}
 				}
 				// Check if the new period is having ads.
-				// For reverse trick-play, skip this proactive check: mBasePeriodOffset is set to
-				// the end of the new period, and CheckForAdStart's (rate < 0) && (key == end)
-				// condition would immediately re-enter the just-completed adbreak before any source
-				// content is fetched, causing a period-oscillation loop that drives GStreamer into
-				// a corrupt-stream error.  The BASE_OFFSET_CHANGE event in the inner fragment-
-				// download loop detects the next adbreak naturally as mBasePeriodOffset decreases.
 				if (mPlayRate >= AAMP_RATE_PAUSE)
 				{
 					adStateChanged = onAdEvent(AdEvent::DEFAULT);
@@ -9382,10 +9376,25 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				}
 				else
 				{
-					// Reverse playback: leave adStateChanged = false so the outer loop does not
-					// enter a continue-without-decrement path and instead falls through to the
-					// normal mIterPeriodIndex-- at the bottom of the FetcherLoop outer loop.
-					adStateChanged = false;
+					// For reverse trick-play: probe for the immediately preceding adbreak using
+					// offset 0 rather than end-of-period.  Using end-of-period would trigger the
+					// (rate < 0) && (key == end) path in CheckForAdStart and re-enter the adbreak
+					// we just finished — causing a period-oscillation loop.  Probing at offset 0
+					// safely detects a back-to-back adbreak that starts at the beginning of this
+					// source period (e.g. adbreak[1] after completing adbreak[2] in reverse).
+					// If no adbreak is found at offset 0, mBasePeriodOffset is restored to
+					// end-of-period so the FetcherLoop downloads backwards from there; adbreaks
+					// that start mid-period (offset > 0) are then detected naturally via the
+					// BASE_OFFSET_CHANGE event as mBasePeriodOffset decreases during rewind.
+					const double savedEndOffset = mBasePeriodOffset;
+					mBasePeriodOffset = 0.0;
+					adStateChanged = onAdEvent(AdEvent::DEFAULT);
+					if (!adStateChanged)
+					{
+						// No back-to-back adbreak at offset 0; restore end-of-period offset
+						// so reverse playback downloads from the end of the source period.
+						mBasePeriodOffset = savedEndOffset;
+					}
 				}
 			}
 
