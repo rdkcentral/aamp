@@ -660,13 +660,15 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					// brkDuration is the SCTE break duration; adsDuration is the cumulative
 					// duration of ads placed so far (starts at 0, incremented per ad in SetAlternateContents).
 					int64_t unfilledBreakTimeMs = static_cast<int64_t>(abObj.brkDuration) - static_cast<int64_t>(abObj.adsDuration);
-					if ( currPeriodDuration == 0 && (periodDelta < OFFSET_ALIGN_FACTOR || unfilledBreakTimeMs < OFFSET_ALIGN_FACTOR) )
+					if ( currPeriodDuration == 0 && (periodDelta < OFFSET_ALIGN_FACTOR || (unfilledBreakTimeMs > 0 && unfilledBreakTimeMs < OFFSET_ALIGN_FACTOR)) )
 					{
 						// Cannot determine the duration of the period where the ads were inserted because the start time of
 						// the following period is not available.
 						// AND either:
 						// a) less than 2Sec of segments has been added to the period since the AD finished, OR
-						// b) less than 2Sec of the SCTE break was left unfilled after ad placement (ad short by < 2s).
+						// b) between 0 and 2Sec of the SCTE break was left unfilled after ad placement (ad short by < 2s).
+						//    When unfilledBreakTimeMs == 0 (exact fill) or negative (ad longer than break), fall through
+						//    to the else branch so placement completes rather than waiting indefinitely.
 						// This may be for a couple of reasons
 						// 1) The current period duration is significantly longer that the inserted ADs
 						// 2) Just closing the current period and the next period start not added to manifest.
