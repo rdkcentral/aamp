@@ -451,3 +451,41 @@ TEST_F(HybridAbrTests, UpdateProfile_4K_IframeAtIndex0_NotTreatedAsNotFound)
 	EXPECT_EQ(mgr.getDesiredIframeProfile(), 0);
 	EXPECT_EQ(mgr.getLowestIframeProfile(), 0);
 }
+
+/**
+ * @brief Bug #14: updateProfile 4K fallback with a single iframe track
+ *        (legacy ABR) must not access out-of-bounds. The guard
+ *        `iframeTrackIdx >= 1` is false when iframeTrackIdx == 0 (only one
+ *        iframe exists), so the fallback is skipped and mDesiredIframeProfile
+ *        stays at the only available iframe track.
+ */
+TEST_F(HybridAbrTests, UpdateProfile_4K_SingleIframeTrack_NoOutOfBounds)
+{
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	// Video profiles — bandwidth does not match the single iframe,
+	// exercising the fallback code path.
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 1920; p.height = 1080;
+	mgr.addProfile(p); // index 0
+
+	p.bandwidthBitsPerSecond = 3000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 1
+
+	// Single 4K iframe track with a bandwidth that matches no video profile.
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 5000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 2
+
+	// Must not crash and must retain the only available iframe track.
+	mgr.updateProfile();
+
+	EXPECT_EQ(mgr.getDesiredIframeProfile(), 2);
+	EXPECT_EQ(mgr.getLowestIframeProfile(), 2);
+}

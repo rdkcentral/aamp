@@ -843,3 +843,41 @@ TEST_F(AbrTests, UpdateProfile_4K_IframeAtIndex0_NotTreatedAsNotFound)
 	EXPECT_EQ(abrManager.getLowestIframeProfile(), 0);
 }
 
+/**
+ * @brief Bug #14: updateProfile 4K fallback with a single iframe track must
+ *        not access out-of-bounds. The old formula count/2 + count%2 yields
+ *        index 1 when count == 1, which is past the end of a 1-element vector.
+ *        The fix guards the fallback with `> 1` instead of `>= 1`, keeping
+ *        mDesiredIframeProfile at the only available iframe track.
+ */
+TEST_F(AbrTests, UpdateProfile_4K_SingleIframeTrack_NoOutOfBounds)
+{
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	// Video profiles — bandwidth does not match the single iframe,
+	// exercising the fallback code path.
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 1920; p.height = 1080;
+	abrManager.addProfile(p); // index 0
+
+	p.bandwidthBitsPerSecond = 3000000;
+	p.width = 3840; p.height = 2160;
+	abrManager.addProfile(p); // index 1
+
+	// Single 4K iframe track with a bandwidth that matches no video profile.
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 5000000;
+	p.width = 3840; p.height = 2160;
+	abrManager.addProfile(p); // index 2
+
+	// Must not crash and must retain the only available iframe track.
+	abrManager.updateProfile();
+
+	EXPECT_EQ(abrManager.getDesiredIframeProfile(), 2);
+	EXPECT_EQ(abrManager.getLowestIframeProfile(), 2);
+}
+
