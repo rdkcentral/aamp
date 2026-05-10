@@ -9319,6 +9319,13 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// If the playing period changes, it will be detected below [if(currentPeriodId != mCurrentPeriod->GetId())]
 				periodChanged = false;
 			}
+			// Snapshot the currently playing break ID before the state transition clears it;
+			// used later in the OUTSIDE_ADBREAK block to guard against re-entering the same adbreak.
+			std::string snapPlayingBreakId;
+			{
+				std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+				snapPlayingBreakId = mCdaiObject->mCurPlayingBreakId;
+			}
 			// Calling the function to play ads from first ad break(existing logic).
 			adStateChanged = onAdEvent(AdEvent::DEFAULT);
 			if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
@@ -9376,25 +9383,32 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				}
 				else
 				{
-					// For reverse trick-play: probe for the immediately preceding adbreak using
-					// offset 0 rather than end-of-period.  Using end-of-period would trigger the
-					// (rate < 0) && (key == end) path in CheckForAdStart and re-enter the adbreak
-					// we just finished — causing a period-oscillation loop.  Probing at offset 0
-					// safely detects a back-to-back adbreak that starts at the beginning of this
-					// source period (e.g. adbreak[1] after completing adbreak[2] in reverse).
-					// If no adbreak is found at offset 0, mBasePeriodOffset is restored to
-					// end-of-period so the FetcherLoop downloads backwards from there; adbreaks
-					// that start mid-period (offset > 0) are then detected naturally via the
-					// BASE_OFFSET_CHANGE event as mBasePeriodOffset decreases during rewind.
-					const double savedEndOffset = mBasePeriodOffset;
-					mBasePeriodOffset = 0.0;
-					adStateChanged = onAdEvent(AdEvent::DEFAULT);
-					if (!adStateChanged)
+					// For reverse trick-play: probe at end-of-period to find the preceding adbreak
+					// at the correct position (triggering the rate<0 && key==end path in
+					// CheckForAdStart for back-to-back adbreaks).  Guard against oscillation:
+					// if the adbreak mapped to the new source period (prevPId) is the SAME one
+					// we just completed, skip the probe and let the FetcherLoop handle it via
+					// BASE_OFFSET_CHANGE as mBasePeriodOffset decreases during rewind.
+					bool wouldOscillate = false;
 					{
-						// No back-to-back adbreak at offset 0; restore end-of-period offset
-						// so reverse playback downloads from the end of the source period.
-						mBasePeriodOffset = savedEndOffset;
+						std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+						auto pit = mCdaiObject->mPeriodMap.find(mBasePeriodId);
+						if (pit != mCdaiObject->mPeriodMap.end())
+						{
+							wouldOscillate = (!pit->second.adBreakId.empty() &&
+											  pit->second.adBreakId == snapPlayingBreakId);
+						}
 					}
+					if (!wouldOscillate)
+					{
+						adStateChanged = onAdEvent(AdEvent::DEFAULT);
+						if (adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+						{
+							// Adbreak found but not yet resolved; check again.
+							adStateChanged = onAdEvent(AdEvent::DEFAULT);
+						}
+					}
+					// else: same adbreak as just completed; skip probe; FetcherLoop handles naturally.
 				}
 			}
 
