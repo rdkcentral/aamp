@@ -100,6 +100,7 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 		m_challengeReady(),
 		m_challengeSize(0),
 		m_keyStatus(InternalError),
+		m_sessionKeyStatus(Usable),
 		m_keyStateIndeterminate(false),
 		m_keyStatusReady(),
 		m_OCDMSessionCallbacks(),
@@ -264,7 +265,12 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 		if (m_pOpenCDMSession)
 		{
 			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+			MW_LOG_WARN("Key status from OCDM: %d", m_keyStatus);
 			m_keyStateIndeterminate = false;
+			if (m_keyStatus != Usable)
+			{
+				m_sessionKeyStatus = m_keyStatus;
+			}
 		}
 		else
 		{
@@ -288,13 +294,16 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 void OCDMSessionAdapter::keysUpdatedOCDM() {
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	m_keyStatusReady.signal();
-	if (m_drmCallbacks && (ShouldNotifyKeyStatus(m_keyStatus) == true))
+	const KeyStatus notifyStatus = m_sessionKeyStatus;
+	m_sessionKeyStatus = Usable; // reset for next burst
+	if (m_drmCallbacks && (ShouldNotifyKeyStatus(notifyStatus) == true))
 	{
-		m_drmCallbacks->NotifyKeyStatus(toPlayerKeyStatus(m_keyStatus));
+		MW_LOG_INFO("keysUpdatedOCDM notifying key status %d", notifyStatus);
+		m_drmCallbacks->NotifyKeyStatus(toPlayerKeyStatus(notifyStatus));
 	}
 	else
 	{
-		MW_LOG_INFO("Key status %d does not trigger a notification to the player", m_keyStatus);
+		MW_LOG_INFO("Key status %d does not trigger a notification to the player", notifyStatus);
 	}
 }
 
@@ -471,6 +480,7 @@ void OCDMSessionAdapter:: clearDecryptContext()
 		std::lock_guard<std::mutex> keyLock(m_usableKeysMutex);
 		m_usableKeys.clear();
 	}
+	m_sessionKeyStatus = Usable;
 
 	m_eKeyState = KEY_INIT;
 }
