@@ -29,12 +29,16 @@ DrmHelperEngine& DrmHelperEngine::getInstance()
 
 DrmHelperPtr DrmHelperEngine::createHelper(const struct DrmInfo& drmInfo) const
 {
+	if (g_mockDrmHelper)
+	{
+		return DrmHelperPtr(g_mockDrmHelper, [](DrmHelper*) {});
+	}
 	return nullptr;
 }
 
 bool DrmHelperEngine::hasDRM(const struct DrmInfo& drmInfo) const
 {
-	return false;
+	return (g_mockDrmHelper != nullptr);
 }
 
 bool DrmHelper::compare(DrmHelperPtr other)
