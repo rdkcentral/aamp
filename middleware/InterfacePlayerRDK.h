@@ -340,8 +340,12 @@ class InterfacePlayerRDK
         	 * @param rate Bitrate.
         	 * @param pipelineName Pipeline name.
         	 * @param PipelinePriority Pipeline priority.
+        	 * @param FirstFrameFlag Whether the first-frame callback is required.
+        	 * @param url URL of the manifest used to configure stream setup.
+        	 * @param enableLiveLatency Whether to enable live-latency mode in the
+        	 *        RialtoSink streams-info context. Defaults to false.
         	 */
-        	void ConfigurePipeline(int, int, int, bool, bool, bool, int32_t, gint, const char *, int, bool, std::string url);
+        	void ConfigurePipeline(int, int, int, bool, bool, bool, int32_t, gint, const char *, int, bool, std::string url, bool enableLiveLatency = false);
         	/**
         	 * @brief Enables or disables pausing on playback start.
         	 * @param enable True to enable pausing, false to disable.
