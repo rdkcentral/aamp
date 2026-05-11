@@ -21,6 +21,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <cstddef>
+#include <thread>
+#include <atomic>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
@@ -39,8 +41,7 @@ class AbrTests : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		ABRManager::mPersistBandwidth = 0;
-		ABRManager::mPersistBandwidthUpdatedTime = 0;
+		ABRManager::setPersistBandwidth(0, 0);
 
 		eAAMPAbrConfig = ABRManager::AampAbrConfig();
 		// Cache life is interpreted as milliseconds by the estimator.
@@ -435,7 +436,7 @@ TEST_F(AbrTests, UpdateProfile_DefaultIframeBitrate_SelectsBelowDefault)
 }
 
 /**
- * @brief Bug #11: FragmentfailureRampdown must skip iframe tracks when
+ * @brief FragmentfailureRampdown must skip iframe tracks when
  *        selecting a rampdown target, matching every other ABR function.
  */
 TEST_F(AbrTests, FragmentfailureRampdown_SkipsIframeTrack)
@@ -538,5 +539,213 @@ TEST_F(AbrTests, FragmentfailureRampdown_FallbackLowestIsNotIframe)
 	// Without the fix, fallback would return 200k (the iframe track).
 	BitsPerSecond result = abrManager.FragmentfailureRampdown(1, 2);
 	EXPECT_EQ(result, 500000);
+}
+
+/**
+ * @brief setPersistBandwidth round-trips bandwidth and timestamp correctly.
+ */
+TEST_F(AbrTests, PersistBandwidth_SetGetRoundTrip)
+{
+	ABRManager::setPersistBandwidth(5000000, 12345);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 5000000);
+	EXPECT_EQ(data.updatedTimeMs, 12345);
+
+	ABRManager::setPersistBandwidth(0, 0);
+	data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 0);
+	EXPECT_EQ(data.updatedTimeMs, 0);
+}
+
+/**
+ * @brief Large 64-bit timestamp values round-trip correctly, covering
+ *        values that would produce torn reads on ARM without atomics.
+ */
+TEST_F(AbrTests, PersistBandwidthUpdatedTime_LargeValueRoundTrip)
+{
+	constexpr int64_t largeTime = INT64_C(0x1234567890ABCDEF);
+	ABRManager::setPersistBandwidth(42, largeTime);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 42);
+	EXPECT_EQ(data.updatedTimeMs, largeTime);
+}
+
+/**
+ * @brief Concurrent writers and readers must always observe a consistent
+ *        (bandwidth, timestamp) pair — never a mix of two different writes.
+ *
+ * Writers alternate between two distinct pairs. Readers verify every
+ * observation matches one of those pairs. A torn or unpaired read would
+ * produce a combination from two different writes, failing the test.
+ * This is the primary regression test for abr-bugs.md #4.
+ */
+TEST_F(AbrTests, PersistBandwidthData_ConcurrentAccessConsistentPair)
+{
+	constexpr BitsPerSecond kBwA = 1000000;
+	constexpr int64_t kTimeA = INT64_C(0x00000000FFFFFFFF);
+	constexpr BitsPerSecond kBwB = 9000000;
+	constexpr int64_t kTimeB = INT64_C(0xFFFFFFFF00000000);
+	constexpr int kIterations = 100000;
+
+	std::atomic<bool> stop{false};
+	std::atomic<bool> failure{false};
+
+	// Writer thread: alternates between two known pairs
+	std::thread writer([&]() {
+		for (int i = 0; i < kIterations; ++i)
+		{
+			if (i % 2 == 0)
+				ABRManager::setPersistBandwidth(kBwA, kTimeA);
+			else
+				ABRManager::setPersistBandwidth(kBwB, kTimeB);
+		}
+		stop.store(true, std::memory_order_release);
+	});
+
+	// Reader thread: verifies consistent pairing
+	std::thread reader([&]() {
+		while (!stop.load(std::memory_order_acquire))
+		{
+			auto data = ABRManager::getPersistBandwidth();
+			bool isZero = (data.bandwidth == 0 && data.updatedTimeMs == 0);
+			bool isPairA = (data.bandwidth == kBwA && data.updatedTimeMs == kTimeA);
+			bool isPairB = (data.bandwidth == kBwB && data.updatedTimeMs == kTimeB);
+			if (!isZero && !isPairA && !isPairB)
+			{
+				failure.store(true, std::memory_order_release);
+				break;
+			}
+		}
+	});
+
+	writer.join();
+	reader.join();
+
+	EXPECT_FALSE(failure.load());
+}
+
+/**
+ * @brief FragmentfailureRampdown must return 0 when abrMaxBuffer
+ *        is zero to avoid floating-point divide-by-zero.
+ */
+TEST_F(AbrTests, FragmentfailureRampdown_ZeroMaxBuffer_ReturnsZero)
+{
+	eAAMPAbrConfig.abrMaxBuffer = 0;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	abrManager.addProfile(p);
+
+	BitsPerSecond result = abrManager.FragmentfailureRampdown(5, 0);
+	EXPECT_EQ(result, 0);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns exact match
+ *        regardless of profile insertion order.
+ */
+TEST_F(AbrTests, GetBestMatchedProfile_ExactMatch)
+{
+	ABRManager abrManager;
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	// Insert in descending order (unsorted)
+	p.bandwidthBitsPerSecond = 4000000;
+	abrManager.addProfile(p); // index 0
+	p.bandwidthBitsPerSecond = 2000000;
+	abrManager.addProfile(p); // index 1
+	p.bandwidthBitsPerSecond = 1000000;
+	abrManager.addProfile(p); // index 2
+
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(2000000), 1);
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(4000000), 0);
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(1000000), 2);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns the closest profile
+ *        when no exact match exists, regardless of insertion order.
+ */
+TEST_F(AbrTests, GetBestMatchedProfile_ClosestMatch_UnsortedProfiles)
+{
+	ABRManager abrManager;
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+
+	// Descending order
+	p.bandwidthBitsPerSecond = 4000000;
+	abrManager.addProfile(p); // index 0
+	p.bandwidthBitsPerSecond = 2000000;
+	abrManager.addProfile(p); // index 1
+	p.bandwidthBitsPerSecond = 1000000;
+	abrManager.addProfile(p); // index 2
+
+	// 3M is between 2M and 4M — closer to 4M? No, equidistant.
+	// 2.9M → closer to 2M (diff 900k) vs 4M (diff 1.1M) → index 1
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(2900000), 1);
+	// 3.5M → closer to 4M (diff 500k) vs 2M (diff 1.5M) → index 0
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(3500000), 0);
+	// 500000 → below all, closest to 1M → index 2
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(500000), 2);
+	// 5000000 → above all, closest to 4M → index 0
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(5000000), 0);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth skips iframe tracks.
+ */
+TEST_F(AbrTests, GetBestMatchedProfile_SkipsIframeTracks)
+{
+	ABRManager abrManager;
+	ABRManager::ProfileInfo p{};
+
+	// iframe track at 2M
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 2000000;
+	abrManager.addProfile(p); // index 0
+
+	// video tracks
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	abrManager.addProfile(p); // index 1
+	p.bandwidthBitsPerSecond = 4000000;
+	abrManager.addProfile(p); // index 2
+
+	// 2M should match video tracks only — closest is 1M (index 1)
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(2000000), 1);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns INVALID_PROFILE
+ *        when no profiles have been added.
+ */
+TEST_F(AbrTests, GetBestMatchedProfile_EmptyList_ReturnsInvalid)
+{
+	ABRManager abrManager;
+	const int expected = ABRManager::INVALID_PROFILE;
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(2000000), expected);
+}
+
+/**
+ * @brief getBestMatchedProfileIndexByBandWidth returns INVALID_PROFILE
+ *        when only iframe tracks are present (they are excluded from the
+ *        sorted list).
+ */
+TEST_F(AbrTests, GetBestMatchedProfile_IframeOnly_ReturnsInvalid)
+{
+	ABRManager abrManager;
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 2000000;
+	abrManager.addProfile(p);
+
+	const int expected = ABRManager::INVALID_PROFILE;
+	EXPECT_EQ(abrManager.getBestMatchedProfileIndexByBandWidth(2000000), expected);
 }
 

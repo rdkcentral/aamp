@@ -298,7 +298,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"useMatchingBaseUrl",eAAMPConfig_MatchBaseUrl,false},
 	{false,"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false},
 	{false,"enableSeekableRange",eAAMPConfig_EnableSeekRange,false},
-	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyCorrection,true},
+	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyRateCorrection,true},
 	{true,"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false},
 	{false,"persistBitrateOverSeek",eAAMPConfig_PersistentBitRateOverSeek,true},
 	{true,"setLicenseCaching",eAAMPConfig_SetLicenseCaching,false},
