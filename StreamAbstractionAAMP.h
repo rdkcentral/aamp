@@ -774,7 +774,7 @@ private:
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
-	int numberOfFragmentsCached;   /**< Number of fragments cached in this track*/
+	int numberOfFragmentsCached;        /**< Number of fragments cached in this track*/
 	const char* name;                   /**< Track name used for debugging*/
 	double fragmentDurationSeconds;     /**< duration in seconds for current fragment-of-interest */
 	int segDLFailCount;                 /**< Segment download fail count*/
@@ -785,7 +785,7 @@ public:
 	bool refreshSubtitles;              /**< Switch subtitle track in the FetchLoop */
 	bool refreshAudio;                  /** Switch audio track in the FetcherLoop */
 	int maxLLDCachedFragmentsPerTrack;
-	std::condition_variable fragmentFetched;/**< Signaled after a fragment is fetched*/	
+	std::condition_variable fragmentFetched;/**< Signaled after a fragment is fetched*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
 	double m_totalDurationForPtsRestamping;
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
@@ -796,7 +796,9 @@ public:
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
-	std::array<CachedFragment, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK> mCachedFragment{}; /**< Per-track ring buffer; static capacity sized for live LLD chunks. The active window is `mCachedFragmentSize`, which never exceeds the array size. */
+	/** Per-track ring buffer; static capacity sized for live LLD chunks.
+	 *  The active window is `mCachedFragmentSize`, which never exceeds the array size. */
+	std::array<CachedFragment, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK> mCachedFragment{};
 	std::vector<uint8_t> unparsedBufferChunk{}; /**< Unparsed buffer chunk for ISOBMFF chunk processing */
 	std::vector<uint8_t> parsedBufferChunk{};   /**< Parsed buffer chunk for ISOBMFF chunk processing */
 	bool abort;                         /**< Abort all operations if flag is set*/
@@ -846,14 +848,14 @@ private:
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
 	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
-	uint32_t mManifestUpdateCounter;        /**< Monotonically increasing counter incremented by AbortWaitForManifestUpdate. */
+	uint32_t mManifestUpdateCounter;		/**< Monotonically increasing counter incremented by AbortWaitForManifestUpdate. */
 	std::condition_variable mManifestUpdateWait;	/**< Conditional variable for signaling manifest update */
 	std::condition_variable audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
-	double lastInjectedPosition;             /**< Last injected position */
-	double lastInjectedDuration;             /**< Last injected fragment end position */
+	double lastInjectedPosition;			/**< Last injected position */
+	double lastInjectedDuration;			/**< Last injected fragment end position */
 	std::condition_variable subtitleFragmentCached;
 	std::atomic_bool mIsLocalTSBInjection;
-	size_t mCachedFragmentSize;		/**< Active window size of the fragment ring buffer */	
+	size_t mCachedFragmentSize;				/**< Active window size of the fragment ring buffer */	
 	AampTime mLastFragmentPts;				/**< pts of the previous fragment, used in trick modes */
 	AampTime mRestampedPts;					/**< Restamped Pts of the segment, used in trick modes */
 	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */

@@ -1944,10 +1944,10 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
 		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
-	const int sldChunkCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
+	const int sldCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 
 	maxLLDCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxLLDFragmentCached);
-	SetCachedFragmentSize((aamp->GetLLDashChunkMode()) ? maxLLDCachedFragmentsPerTrack : sldChunkCacheSize);
+	SetCachedFragmentSize((aamp->GetLLDashChunkMode()) ? maxLLDCachedFragmentsPerTrack : sldCacheSize);
 }
 
 
@@ -4681,7 +4681,7 @@ void MediaTrack::UpdateInjectedDuration(double surplusDuration)
 }
 
 /**
- * @brief SetCachedFragmentSize - Setter for fragment chunks cache size
+ * @brief SetCachedFragmentSize - Setter for fragment cache size
  *
  * @param[in] size Size for fragment chunks cache
  */
