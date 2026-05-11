@@ -1,18 +1,23 @@
 /*
- *   Copyright 2018 RDK Management
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
  *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
+ * Copyright 2018 RDK Management
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
-*/
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /***************************************************
  * @file ABRManager.cpp
@@ -25,6 +30,7 @@
 #include <sys/time.h>
 #include <cstring>
 #include <algorithm>
+#include <climits>
 
 #if !defined(__APPLE__)
 #if defined(USE_SYSTEMD_JOURNAL_PRINT)
@@ -301,30 +307,57 @@ void ABRManager::updateProfile() {
 int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
 
   std::lock_guard<std::mutex> lock(mProfileLock);
-  // a) Check if network bandwidth changed from starting bandwidth
-  // b) Check if netwwork bandwidth is different from persisted bandwidth( needed for first time reporting)
-  // find the profile for the newbandwidth
-  int desiredProfileIndex = 0;
-  int profileCount = getProfileCountUnlocked();
-  for (int i = 0; i < profileCount; i++) {
-    const ProfileInfo& profile = mProfiles[i];
-    if (!profile.isIframeTrack) {
-        if (profile.bandwidthBitsPerSecond == bandwidth) {
-            // Good case ,most manifest url will have same bandwidth in fragment file with configured profile bandwidth
-            desiredProfileIndex = i;
-            break;
-        } else if (profile.bandwidthBitsPerSecond < bandwidth) {
-            // fragment file name bandwidth doesn't match the profile bandwidth, will be always less
-            if((i+1) == profileCount) {
-                desiredProfileIndex = i;
-                break;
-            }
-            else
-                desiredProfileIndex = (i + 1);
-        }
-    }
+  int desiredProfileIndex = INVALID_PROFILE;
+
+  if (mSortedBWProfileList.empty())
+  {
+    logprintf("%s:%d getBestMatchedProfileIndexByBandWidth: no candidate found for bandwidth %d (sorted list empty or contains only iframe profiles)\n",
+      __FUNCTION__, __LINE__, bandwidth);
+    return INVALID_PROFILE;
+  }
+
+  if (mSortedBWProfileList.size() > 1)
+  {
+    logprintf("%s:%d getBestMatchedProfileIndexByBandWidth: unexpected multiple period maps (%zu), using first\n",
+      __FUNCTION__, __LINE__, mSortedBWProfileList.size());
+  }
+
+  // Use the first period's map, consistent with getClosestProfileIndexByBandwidth()
+  const auto& bwMap = mSortedBWProfileList.begin()->second;
+  if (bwMap.empty())
+  {
+    logprintf("%s:%d getBestMatchedProfileIndexByBandWidth: no candidate found for bandwidth %d (sorted list empty or contains only iframe profiles)\n",
+      __FUNCTION__, __LINE__, bandwidth);
+    return INVALID_PROFILE;
+  }
+
+  long bestDiff = LONG_MAX;
+
+  // lower_bound finds first entry with bandwidth >= target
+  auto it = bwMap.lower_bound(bandwidth);
+
+  if (it != bwMap.end())
+  {
+      long diff = it->first - bandwidth;
+      if (diff < bestDiff)
+      {
+          bestDiff = diff;
+          desiredProfileIndex = it->second;
+      }
+  }
+
+  // Also check the entry just below target (if any) for a closer match
+  if (it != bwMap.begin())
+  {
+      --it;
+      long diff = bandwidth - it->first;
+      if (diff < bestDiff)
+      {
+          desiredProfileIndex = it->second;
+      }
   }
 #if defined(DEBUG_ENABLED)
+  int profileCount = getProfileCountUnlocked();
   logprintf("%s:%d Get best matched profile index = %d bitrate = %ld\n",
     __FUNCTION__, __LINE__, desiredProfileIndex,
     (profileCount > desiredProfileIndex && desiredProfileIndex != INVALID_PROFILE) ? mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
@@ -685,6 +718,14 @@ int ABRManager::removeProfiles(std::vector<long> profileBPS, int currentProfileI
       __FUNCTION__, __LINE__, currentProfileIndex, currentBandwidth, periodId.c_str());
   }
   return modifiedProfileIndex;
+}
+
+/**
+ *  @brief Get a thread-safe copy of the profile list
+ */
+std::vector<ABRManager::ProfileInfo> ABRManager::getProfileInfoLocked() {
+  std::lock_guard<std::mutex> lock(mProfileLock);
+  return mProfiles;
 }
 
 /**
