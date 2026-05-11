@@ -20,6 +20,10 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
 
 #include "priv_aamp.h"
 #include "AampConfig.h"
@@ -46,6 +50,7 @@ using ::testing::AnyNumber;
 using ::testing::AtLeast;
 using ::testing::AnyOf;
 using ::testing::StrEq;
+using ::testing::Invoke;
 
 class SetPreferredTextLanguagesTests : public ::testing::Test
 {
@@ -885,4 +890,88 @@ TEST_F(SetPreferredTextLanguagesTests, Accessibility2)
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"accessibility\":{\"scheme\":\"return_from_mock\",\"string_value\":\"return_from_mock\"}}");
 
+}
+
+/**
+ * @brief Reproduce segfault when StopInternal/TeardownStream races with
+ *        SetPreferredTextLanguages on separate threads.
+ *
+ *        Thread A: Calls SetPreferredTextLanguages("lang1")
+ *        Thread B: Calls TeardownStream(true) — deletes mpStreamAbstractionAAMP
+ *
+ *
+ *        Test strategy: Use GetAvailableTextTracks mock as synchronization point.
+ *        When Thread A calls GetAvailableTextTracks, signal Thread B to run
+ *        TeardownStream. With the fix, Thread B blocks on mStreamLock (held by
+ *        Thread A) and never deletes mpStreamAbstractionAAMP during Thread A's
+ *        execution. Without the fix, Thread B succeeds and crashes Thread A.
+ */
+TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredText)
+{
+	std::vector<TextTrackInfo> tracks;
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+	/* Set HLS format so the code path reaches SelectPreferredTextTrack */
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
+
+	std::mutex syncMtx;
+	std::condition_variable cvReady;
+	bool threadAInside = false;
+	std::atomic<bool> teardownDone{false};
+
+ */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(Invoke([&](bool) -> std::vector<TextTrackInfo>& {
+			/* Signal Thread B that Thread A is inside SetPreferredTextLanguages */
+			{
+				std::lock_guard<std::mutex> lk(syncMtx);
+				threadAInside = true;
+			}
+			cvReady.notify_one();
+
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+			return tracks;
+		}));
+
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
+		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]), Return(true)));
+
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+		.Times(::testing::AnyNumber());
+
+	/* Thread B: waits for Thread A to be inside SetPreferredTextLanguages,
+	 * then calls TeardownStream to simulate StopInternal on another thread. */
+	std::thread threadB([&]() {
+		{
+			std::unique_lock<std::mutex> lk(syncMtx);
+			cvReady.wait(lk, [&] { return threadAInside; });
+		}
+
+
+		mPrivateInstanceAAMP->TeardownStream(true);
+		teardownDone.store(true);
+	});
+
+	/* Thread A: calls SetPreferredTextLanguages. */
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
+
+	threadB.join();
+
+	/* Verify preferred language was updated */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
+
+
+	EXPECT_TRUE(teardownDone.load());
 }
