@@ -371,10 +371,12 @@ TEST_F(AbrTests, CheckRampupFromSteadyState_NegativeThreshold_RampsUp)
 
 	int currProfileIndex = 0;
 	int newProfileIndex = currProfileIndex;
-	BitsPerSecond nwBandwidth = 2000000;
+	BitsPerSecond nwBandwidth = 2200000;
 	double bufferValue = 20.0;
-	// newBandwidth 1800000 is ~-10% below nwBandwidth, within the <=30 threshold
-	BitsPerSecond newBandwidth = 1800000;
+	// newBandwidth matches target profile index 1 (2 Mbps); nwBandwidth is
+	// higher so threshold = (2M - 2.2M) / 2.2M ≈ -9%, which is negative
+	// but within the <=30% allowed range → rampup should proceed.
+	BitsPerSecond newBandwidth = 2000000;
 	ABRManager::BitrateChangeReason reason = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
 	int maxBufferCountCheck = 1;
 

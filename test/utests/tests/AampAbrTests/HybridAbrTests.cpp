@@ -107,6 +107,48 @@ TEST_F(HybridAbrTests, CheckRampupFromSteadyState_LoopIsPerInstance)
 	EXPECT_EQ(maxBuf1, 16);
 }
 
+/**
+ * @brief CheckRampupFromSteadyState allows ramp-up when newBandwidth (target
+ *        profile bitrate) is slightly below nwBandwidth, producing a negative
+ *        abrThreshold that is still within the 30% limit.
+ *        Regression for the VPAAMP-175 fix: the old code blocked rampup
+ *        whenever abrThreshold was negative.
+ */
+TEST_F(HybridAbrTests, CheckRampupFromSteadyState_NegativeThreshold_RampsUp)
+{
+	eAAMPAbrConfig.abrBufferCounter = 2;
+
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 640; p.height = 360;
+	mgr.addProfile(p); // index 0
+
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1280; p.height = 720;
+	mgr.addProfile(p); // index 1
+
+	int currProfileIndex = 0;
+	int newProfileIndex = currProfileIndex;
+	// nwBandwidth is 2.2 Mbps; newBandwidth matches target profile (2 Mbps).
+	// threshold = (2M - 2.2M) / 2.2M ≈ -9% — negative but within <=30 limit.
+	long nwBandwidth = 2200000;
+	long newBandwidth = 2000000;
+	double bufferValue = 20.0;
+	HybridABRManager::BitrateChangeReason reason = HybridABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
+	int maxBufferCountCheck = 1;
+
+	mgr.CheckRampupFromSteadyState(
+		currProfileIndex, newProfileIndex, nwBandwidth, bufferValue,
+		newBandwidth, reason, maxBufferCountCheck);
+
+	EXPECT_EQ(newProfileIndex, 1);
+	EXPECT_EQ(reason, HybridABRManager::eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL);
+}
+
 TEST_F(HybridAbrTests, UpdateABRBitrateDataBasedOnCacheOutlierOdd)
 {
 	std::vector<long> tmpData = {100, 200, 300, 400, 500};
