@@ -1125,7 +1125,7 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 
 	if (tuneType == eTUNETYPE_SEEK)
 	{
-		AAMPLOG_WARN("tune type is SEEK");
+		AAMPLOG_WARN("tune type   is SEEK");
 	}
 	if (aamp->rate != AAMP_NORMAL_PLAY_RATE)
 	{
