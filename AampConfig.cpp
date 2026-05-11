@@ -298,7 +298,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"useMatchingBaseUrl",eAAMPConfig_MatchBaseUrl,false},
 	{false,"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false},
 	{false,"enableSeekableRange",eAAMPConfig_EnableSeekRange,false},
-	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyCorrection,true},
+	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyRateCorrection,true},
 	{true,"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false},
 	{false,"persistBitrateOverSeek",eAAMPConfig_PersistentBitRateOverSeek,true},
 	{true,"setLicenseCaching",eAAMPConfig_SetLicenseCaching,false},
@@ -520,6 +520,8 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC, "bufferLevelToEnableLatencySec", eAAMPConfig_BufferLevelToEnableCorrectionSec, false},
 	{DEFAULT_REBUFFER_LATENCY_STEP_SEC, "rebufferLatencyStepSec", eAAMPConfig_RebufferLatencyStepSec, false},
 	{DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC, "rebufferLatencyMaxIncrementSec", eAAMPConfig_RebufferLatencyMaxIncrementSec, false},
+	{DEFAULT_LATENCY_STABLE_DURATION_SEC, "latencyStableDurationSec", eAAMPConfig_LatencyStableDurationSec, false},
+	{DEFAULT_LATENCY_DANGER_BUFFER_SEC, "latencyDangerBufferSec", eAAMPConfig_LatencyDangerBufferSec, false},
 	{DEFAULT_MIN_LOW_LATENCY, "lowLatencyMinValue", eAAMPConfig_LLMinLatency, true},
 	{DEFAULT_TARGET_LOW_LATENCY, "lowLatencyTargetValue", eAAMPConfig_LLTargetLatency, true},
 	{DEFAULT_MAX_LOW_LATENCY, "lowLatencyMaxValue", eAAMPConfig_LLMaxLatency, true}

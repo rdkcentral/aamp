@@ -165,6 +165,8 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | initRampdownLimit | Number | 0 | Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. |
 | latencyMonitorDelayMs | Number | 5000 | Delay in milliseconds before starting latency monitoring after tune completion. |
 | latencyMonitorIntervalMs | Number | 1000 | Time between latency checks in milliseconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
+| latencyDangerBufferSec | Float | 1.0 | Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate the low-buffer condition. Once the buffer recovers above this level and remains healthy for `latencyStableDurationSec`, the thresholds are gradually restored toward their configured defaults. Zero disables the adaptive threshold feature entirely. |
+| latencyStableDurationSec | Float | 300.0 | Duration (seconds) of consecutive healthy buffer (above `latencyDangerBufferSec`) required before one restoration step is applied to the latency thresholds. Zero disables dynamic restoration entirely. |
 | licenseAnonymousRequest | Boolean | false | Enable/disable acquiring of license without token. |
 | licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time (milliseconds). |
 | licenseRetryWaitTime | Number | 500 | License retry wait interval (milliseconds). |
@@ -180,6 +182,8 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |
 | minLatencyCorrectionPlaybackRate | Float | 0.97 | Minimum playback speed for latency correction. When the player detects that it’s too close to the live edge (or ahead of target latency), it can slow down playback slightly to increase latency without causing noticeable slow motion. |
 | normalLatencyCorrectionPlaybackRate | Float | 1.0 | Normal playback speed when latency is within acceptable range. Maintains standard playback when no correction is needed. |
+| rebufferLatencyMaxIncrementSec | Float | 8.0 | Maximum total accumulated increment (seconds) that can be added to latency thresholds across all rebuffering events. Caps the upward drift of `lowLatencyMinValue`, `lowLatencyTargetValue`, and `lowLatencyMaxValue`. Zero means no cap. |
+| rebufferLatencyStepSec | Float | 1.0 | Step size (seconds) added to all three latency thresholds (`lowLatencyMinValue`, `lowLatencyTargetValue`, `lowLatencyMaxValue`) each time the buffer drops below `latencyDangerBufferSec`. Allows the player to tolerate higher latency during poor network conditions. Zero disables the adaptive threshold feature entirely. |
 | playreadyOutputProtection | Boolean | false | Enable/disable HDCP output protection for DASH-PlayReady playback. |
 | preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 - No DRM, 1 - Widevine, 2 - PlayReady (Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
 | ceaFormat | Number | -1 | Preferred CEA option for closed captions. Default is stream-based. 0 - CEA 608, 1 - CEA 708 |
