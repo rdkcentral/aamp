@@ -133,6 +133,13 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...)
             }
             break;
 
+            case CURLOPT_DNS_CACHE_TIMEOUT:
+            {
+                long value = va_arg(arg, long);
+                curl_code = g_mockCurl->curl_easy_setopt_long(handle, option, value);
+            }
+            break;
+
             default:
                 // New cases might be required in this switch
                 break;
