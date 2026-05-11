@@ -2668,15 +2668,19 @@ INSTANTIATE_TEST_SUITE_P(
  * The resulting period oscillation (source -> ad -> source -> ad -> ...) drives
  * GStreamer into a "This file is corrupt" error.
  *
- * The fix (SelectSourceOrAdPeriod): skip the proactive onAdEvent(DEFAULT) call
- * that follows "All Ads FINISHED" when mPlayRate < AAMP_RATE_PAUSE.  The inner
- * fragment-download loop detects the next adbreak via BASE_OFFSET_CHANGE naturally
- * as mBasePeriodOffset decreases.
+ * The fix (SelectSourceOrAdPeriod): restore the end-of-period probe for reverse
+ * rates, but guard against oscillation by snapshotting mCurPlayingBreakId before
+ * the state-transitioning onAdEvent call (which clears it).  In the OUTSIDE_ADBREAK
+ * block, if mPeriodMap[newBasePeriodId].adBreakId == snapPlayingBreakId (same
+ * adbreak as just completed), the probe is skipped to prevent oscillation.  If the
+ * new period maps to a DIFFERENT adbreak, onAdEvent is called with
+ * mBasePeriodOffset = end-of-period, correctly triggering the
+ * (rate < 0) && (key == end) path in CheckForAdStart for back-to-back adbreaks.
  *
  * Test 1 - ReverseTrickPlay_AllAdsFinished_NoImmediateAdBreakReentry
- *   Verifies that after "All Ads FINISHED" in reverse trick-play, the ad state
- *   machine stays in OUTSIDE_ADBREAK and does NOT immediately re-enter an adbreak
- *   in the new base period.
+ *   Oscillation-guard scenario: mPeriodMap[newBasePeriod].adBreakId equals the
+ *   just-completed adBreakId.  Verifies that the probe is skipped and the ad
+ *   state machine stays in OUTSIDE_ADBREAK (no re-entry).
  *
  * Test 2 - ForwardPlayback_AllAdsFinished_AdDetectionStillWorks
  *   Verifies that the fix does not regress forward playback: onAdEvent(DEFAULT)
@@ -2742,14 +2746,14 @@ static constexpr const char *kCdaiRewindManifest = R"(<?xml version="1.0" encodi
  *   in adbreak "p1" in reverse; mCurAdIdx=0 so GetNextAdInBreak(-1) → -1 → done).
  * - mCurPlayingBreakId = "p1": "All Ads Finished" reverse path sets
  *   mBasePeriodId = prevPId("p1") = "p0".
- * - mPeriodMap["p0"] has adBreakId="p0" with duration=30000 ms (full period),
- *   so CheckForAdStart at (mBasePeriodOffset=30.0, key=30000==end) would
- *   re-trigger the adbreak if the fix were absent.
+ * - mPeriodMap["p0"] has adBreakId="p1" (same as the just-completed adbreak),
+ *   simulating the TSB oscillation scenario where prevPId maps back to the same
+ *   adbreak.  The oscillation guard detects the match and skips the probe.
  *
  * Expected outcome (with fix)
  * ---------------------------
- * - onAdEvent(DEFAULT) is NOT called for the new base period ("p0") immediately
- *   after the OUTSIDE_ADBREAK transition.
+ * - The oscillation guard fires: snapPlayingBreakId=="p1"==mPeriodMap["p0"].adBreakId.
+ * - onAdEvent(DEFAULT) is NOT called for the new base period ("p0").
  * - mAdState stays OUTSIDE_ADBREAK.
  * - adStateChanged is false (no re-entry).
  * - mCurrentPeriod is the source content period "p0" (not an ad period).
@@ -2803,20 +2807,16 @@ TEST_F(FetcherLoopTests, ReverseTrickPlay_AllAdsFinished_NoImmediateAdBreakReent
     cdaiObj->mCurPlayingBreakId = "p1";
     cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
 
-    // Set up period "p0" with an adbreak so that CheckForAdStart at
-    // mBasePeriodOffset==30.0 (key==end==30000) would fire for reverse
-    // playback if the proactive onAdEvent(DEFAULT) call were still present.
-    auto adsP0 = std::make_shared<std::vector<AdNode>>();
-    adsP0->emplace_back(false, true, true, "adId-p0", TEST_AD_MANIFEST_URL,
-                        30000, "p0", 0, nullptr);
-    cdaiObj->mAdBreaks["p0"] = AdBreakObject(30000, adsP0, "p1", 0, 30000);
-    cdaiObj->mAdBreaks["p0"].mAdBreakPlaced = true;
-
+    // Oscillation-guard scenario: set mPeriodMap["p0"].adBreakId = "p1", the same
+    // as mCurPlayingBreakId/snapPlayingBreakId.  This mirrors the TSB case where
+    // mPeriodMap[prevPId].adBreakId == the just-completed adbreak.  The guard in
+    // SelectSourceOrAdPeriod detects the match and skips the end-of-period probe,
+    // preventing oscillation back into the just-completed adbreak.
     Period2AdData p0AdData;
-    p0AdData.adBreakId = "p0";
-    p0AdData.duration  = 30000; // full 30-second period = 30000 ms
+    p0AdData.adBreakId = "p1"; // same as snapPlayingBreakId -- triggers oscillation guard
+    p0AdData.duration  = 30000;
     p0AdData.filled    = true;
-    p0AdData.offset2Ad[0] = {0 /*adStartOffset*/, 0 /*adIdx*/};
+    p0AdData.offset2Ad[0] = {0, 0};
     cdaiObj->mPeriodMap["p0"] = p0AdData;
 
     // Invoke SelectSourceOrAdPeriod.  adStateChanged=true signals that we just
@@ -2838,13 +2838,11 @@ TEST_F(FetcherLoopTests, ReverseTrickPlay_AllAdsFinished_NoImmediateAdBreakReent
     // GetIsPeriodChangeMarked is on the real PrivateInstanceAAMP (not mocked).
     mPrivateInstanceAAMP->SetIsPeriodChangeMarked(false);
 
-    // KEY regression assertion: the WAIT2CATCHUP→OUTSIDE_ADBREAK transition
-    // uses GetNextAdInBreak, never CheckForAdStart.  The proactive
-    // onAdEvent(DEFAULT) that follows "All Ads Finished" in the UNFIXED code
-    // is the first and only caller of CheckForAdStart in this code path.
-    // Times(0) therefore proves the proactive call was completely suppressed.
-    // Without the fix (in SelectSourceOrAdPeriod), this expectation FAILS
-    // because the proactive onAdEvent runs and invokes CheckForAdStart.
+    // KEY regression assertion: mPeriodMap["p0"].adBreakId == "p1" == snapPlayingBreakId,
+    // so the oscillation guard fires and the end-of-period probe is skipped entirely.
+    // CheckForAdStart must never be called.
+    // Without the fix, the proactive onAdEvent runs unchecked and invokes
+    // CheckForAdStart, triggering re-entry into the just-completed adbreak "p1".
     EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
         .Times(0);
 
