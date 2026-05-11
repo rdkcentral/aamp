@@ -145,6 +145,18 @@ void HarmonicEwmaEstimator::UpdateDownloadMetrics(const DownloadMetrics &downloa
 		m_ewma_slow_BytesPerSecond = payload_bytes_per_second;
 	}
 	RecomputeHarmonicMeanAndMedianTTFB();
+	// Invalidate the stale in-flight progress estimate.  The completed (or
+	// aborted) sample now provides the authoritative throughput figure.
+	// Without this, the initial burst of bytes at the start of a stalled
+	// download inflates m_progressBytesPerSecond to an unrealistically high
+	// value which — when no completed-sample history exists yet — is returned
+	// as the sole bandwidth estimate by GetThroughputBytesPerSecond(), causing
+	// ABR to ramp up to the highest profile mid-stall and enter a thrash loop.
+	// The progress context will be re-established by the first xferinfo()
+	// callback of the next download.
+	m_progressBytesPerSecond = 0.0;
+	m_progressHasSample = false;
+	m_progressContextValid = false;
 	// Clear the one-shot suppression flag now that we have a fresh completed
 	// sample.  Subsequent calls to GetBandwidthBitsPerSecond() will return the
 	// updated EWMA estimate rather than -1.
