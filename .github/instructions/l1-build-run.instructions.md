@@ -53,6 +53,30 @@ This is faster than a full `run.sh` and is the approved inner-loop workflow.
 | `Target not found` | Directory or file naming does not match convention | Verify the directory is `[ComponentName]Tests/` and files match exactly |
 | `Undefined reference` errors | Fakes not linked, or real dependency accidentally included | Ensure `target_link_libraries` lists `fakes` **first**; remove real `.cpp` sources from `AAMP_SOURCES` if a fake provides them |
 | `Multiple definition` errors | Both real and fake implementations compiled in | Remove the real source file from `CMakeLists.txt`; the `fakes` library already provides it |
+| Unexplained build errors after `git rebase` or `git pull` | Stale cmake cache or generated files reference old paths/targets | Re-run `cd test/utests && ./run.sh` to regenerate the build tree (see recovery section below) |
+
+---
+
+## Recovery After Rebase
+
+After a `git rebase`, `git merge`, or large `git pull`, the cmake cache
+and generated build files may reference stale paths, renamed sources, or
+removed targets. Symptoms include unexpected compile errors, missing
+targets, or link failures that did not exist before the rebase.
+
+**Recovery step:**
+
+```bash
+cd test/utests && ./run.sh
+```
+
+This regenerates the cmake build tree and rebuilds all tests from a clean
+state. After `run.sh` succeeds, resume the normal iterative workflow.
+
+**When to suspect stale artifacts:**
+- The build was working before the rebase and now fails.
+- The errors do not match any source-level change you made.
+- The iterative `make` command fails but the error is not in your test code.
 
 ---
 
