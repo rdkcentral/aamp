@@ -924,7 +924,7 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 	bool threadAInside = false;
 	std::atomic<bool> teardownDone{false};
 
- */
+
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(Invoke([&](bool) -> std::vector<TextTrackInfo>& {
 			/* Signal Thread B that Thread A is inside SetPreferredTextLanguages */
