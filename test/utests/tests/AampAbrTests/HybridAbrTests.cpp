@@ -370,3 +370,122 @@ TEST_F(HybridAbrTests, GetBestMatchedProfile_IframeOnly_ReturnsInvalid)
 	const int expected = ABRManager::INVALID_PROFILE;
 	EXPECT_EQ(mgr.getBestMatchedProfileIndexByBandWidth(2000000), expected);
 }
+TEST_F(HybridAbrTests, UpdateProfile_4K_MiddleIndex_ExcludesIframeTracks)
+{
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	// Video profiles
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1920; p.height = 1080;
+	mgr.addProfile(p); // index 0
+
+	// Iframe interleaved
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 3000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 1
+
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 5000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 2
+
+	// Iframe tracks for 4K + selection
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 1920; p.height = 1080;
+	mgr.addProfile(p); // index 3
+
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 5000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 4
+
+	mgr.updateProfile();
+
+	// Video BWs: {2M, 5M}. Middle = 5M. Iframe at 5M = index 4.
+	EXPECT_EQ(mgr.getDesiredIframeProfile(), 4);
+}
+
+/**
+ * @brief Bug #12: updateProfile 4K must not treat iframe index 0 as
+ *        "not found" (legacy ABR).
+ */
+TEST_F(HybridAbrTests, UpdateProfile_4K_IframeAtIndex0_NotTreatedAsNotFound)
+{
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 4000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 0
+
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 2000000;
+	p.width = 1920; p.height = 1080;
+	mgr.addProfile(p); // index 1
+
+	p.bandwidthBitsPerSecond = 4000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 2
+
+	p.bandwidthBitsPerSecond = 8000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 3
+
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 8000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 4
+
+	mgr.updateProfile();
+
+	// Middle video BW = 4M. Iframe at index 0 has 4M → match.
+	EXPECT_EQ(mgr.getDesiredIframeProfile(), 0);
+	EXPECT_EQ(mgr.getLowestIframeProfile(), 0);
+}
+
+/**
+ * @brief Bug #14: updateProfile 4K fallback with a single iframe track
+ *        (legacy ABR) must not access out-of-bounds. The guard
+ *        `iframeTrackIdx >= 1` is false when iframeTrackIdx == 0 (only one
+ *        iframe exists), so the fallback is skipped and mDesiredIframeProfile
+ *        stays at the only available iframe track.
+ */
+TEST_F(HybridAbrTests, UpdateProfile_4K_SingleIframeTrack_NoOutOfBounds)
+{
+	HybridABRManager mgr;
+	mgr.ReadPlayerConfig(&eAAMPAbrConfig);
+
+	ABRManager::ProfileInfo p{};
+
+	// Video profiles — bandwidth does not match the single iframe,
+	// exercising the fallback code path.
+	p.isIframeTrack = false;
+	p.bandwidthBitsPerSecond = 1000000;
+	p.width = 1920; p.height = 1080;
+	mgr.addProfile(p); // index 0
+
+	p.bandwidthBitsPerSecond = 3000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 1
+
+	// Single 4K iframe track with a bandwidth that matches no video profile.
+	p.isIframeTrack = true;
+	p.bandwidthBitsPerSecond = 5000000;
+	p.width = 3840; p.height = 2160;
+	mgr.addProfile(p); // index 2
+
+	// Must not crash and must retain the only available iframe track.
+	mgr.updateProfile();
+
+	EXPECT_EQ(mgr.getDesiredIframeProfile(), 2);
+	EXPECT_EQ(mgr.getLowestIframeProfile(), 2);
+}
