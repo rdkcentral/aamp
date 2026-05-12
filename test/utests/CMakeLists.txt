@@ -41,6 +41,15 @@ include_directories(${OPENSSL_INCLUDE_DIRS})
 
 pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(GMOCK REQUIRED gmock)
+# GMOCK_LINK_LIBRARIES already contains libgtest (gmock depends on gtest).
+# Strip any items from GTEST_LINK_LIBRARIES that are already covered by
+# GMOCK_LINK_LIBRARIES so that tests linking both variables don't put
+# libgtest on the link line twice, which triggers the macOS linker warning
+# "ignoring duplicate libraries".  Tests that only link GTEST_LINK_LIBRARIES
+# are unaffected because they don't use gmock and won't see duplication.
+foreach(_lib IN LISTS GMOCK_LINK_LIBRARIES)
+	list(REMOVE_ITEM GTEST_LINK_LIBRARIES ${_lib})
+endforeach()
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
@@ -66,6 +75,12 @@ STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) #disabli
 #endif()
 
 add_subdirectory(fakes)
+
+# Build net_persona_fitter as a library target so tests that pull in priv_aamp.cpp
+# can link against it (priv_aamp.cpp references aamptrace::NetPersonaFitter via net_trace.h)
+if(NOT TARGET net_persona_fitter)
+	add_subdirectory(${AAMP_ROOT}/simnet ${CMAKE_CURRENT_BINARY_DIR}/simnet)
+endif()
 if (CMAKE_XCODE_BUILD_SYSTEM)
 	# ARM64 will fail to build utest schemes in XCode unless this is set
 	set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)

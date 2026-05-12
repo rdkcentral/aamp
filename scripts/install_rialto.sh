@@ -92,13 +92,18 @@ function rialto_copy_headers_fn()
 
 function rialto_build_fn() 
 {
-    echo "Building protobuf"
-    pushd protobuf
-    ./autogen.sh
-    ./configure --prefix="${1}"
-    make
-    make install
-    popd 
+    # Skip protobuf rebuild if already installed
+    if [ -f "${1}/lib/libprotobuf.a" ] || [ -f "${1}/lib/libprotobuf.so" ]; then
+        echo "protobuf already built, skipping (use 'clean' to force rebuild)"
+    else
+        echo "Building protobuf"
+        pushd protobuf
+        ./autogen.sh
+        ./configure --prefix="${1}"
+        make
+        make install
+        popd
+    fi
     
     rialto_build_repo_fn rialto -DNATIVE_BUILD=ON -DRIALTO_BUILD_TYPE=Debug
     INSTALL_STATUS_ARR+=("rialto was successfully installed.")

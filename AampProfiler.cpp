@@ -106,7 +106,15 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 
 	cJSON_AddNumberToObject(item, "gps", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart);
 	cJSON_AddNumberToObject(item, "gff", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
-	cJSON_AddNumberToObject(item, "gdt", (buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - (buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish ? buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart)));
+
+	if (buckets[PROFILE_BUCKET_FIRST_FRAME].tStart > 0)
+	{
+		cJSON_AddNumberToObject(item, "gdt", (buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - (buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish ? buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart)));
+	}
+	else
+	{
+		cJSON_AddNumberToObject(item, "gdt", buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
+	}
 
 	cJSON_AddNumberToObject(item, "cnt", tuneMetricsData.contentType);
 	cJSON_AddNumberToObject(item, "stt", tuneMetricsData.streamType);
@@ -208,13 +216,23 @@ void ProfileEventAAMP::TuneBegin(void)
 	rateCorrection = 0;
 	bitrateChange = 0;
 	bufferChange = 0;
-	if(telemetryParam != NULL)
+	cJSON *newParam = cJSON_CreateObject();
+	if (!newParam)
 	{
-		cJSON_Delete(telemetryParam);
+		AAMPLOG_ERR("TuneBegin: cJSON_CreateObject() failed (OOM); retaining existing telemetry state");
 	}
-	// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
-	mLldLowBuffObject = NULL;
-	telemetryParam = cJSON_CreateObject();
+	else
+	{
+		cJSON *oldParam;
+		{
+			std::lock_guard<std::mutex> lock(discontinuityParamMutex);
+			mLldLowBuffObject = nullptr;
+			// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted below
+			oldParam = telemetryParam;
+			telemetryParam = newParam;
+		}
+		cJSON_Delete(oldParam); // delete outside the lock to keep the critical section small
+	}
 }
 
 /**
@@ -295,7 +313,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	unsigned int licenseAcqNWTime = bucketDuration(PROFILE_BUCKET_LA_NETWORK);
 	char tuneTimeStrPrefix[128];
 	memset(tuneTimeStrPrefix, '\0', sizeof(tuneTimeStrPrefix));
-	int mTotalTime;
+	int totalTuneTime = 0;
  	int mTimedMetadataStartTime = static_cast<int> (mTuneEndMetrics.mTimedMetadataStartTime - tuneStartMonotonicBase);
 
 	auto tFirstFrameStart = buckets[PROFILE_BUCKET_FIRST_FRAME].tStart;
@@ -304,16 +322,23 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	auto tPreBufferStart = buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart;
 	
 	// compute gstreamer decode time, excluding decryption. For clear streams, measure from first buffer start time
-	auto tDecode = tFirstFrameStart - (tDecryptVideoFinish?tDecryptVideoFinish:tFirstBufferStart);
+	auto tDecode = tFirstFrameStart;
+	if (tDecode > 0)
+	{
+		tDecode -= (tDecryptVideoFinish?tDecryptVideoFinish:tFirstBufferStart);
+	}
 
 	if (mTuneEndMetrics.success > 0)
 	{
-		mTotalTime = playerPreBuffered ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart;
+		totalTuneTime = playerPreBuffered ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart;
 	}
 	else
 	{
-		mTotalTime = static_cast<int> (mTuneEndMetrics.mTotalTime - tuneStartMonotonicBase);
+		totalTuneTime = static_cast<int> (mTuneEndMetrics.mTotalTime - tuneStartMonotonicBase);
 	}
+	// Store the computed total tune time back in mTuneEndMetrics so
+	// TuneTimeMetricsData sees the updated value from this metrics struct.
+	mTuneEndMetrics.mTotalTime = totalTuneTime;
 	if (!appName.empty())
 	{
 		if (gpGlobalConfig && gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
@@ -373,11 +398,14 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstBufferStart - tPreBufferStart : tFirstBufferStart, // gstPlaying: offset in ms from tunestart when pipeline first fed data
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart,  // gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
-		mTuneEndMetrics.contentType,mTuneEndMetrics.streamType,mTuneEndMetrics.mFirstTune,
-		playerPreBuffered,playerPreBuffered ? tPreBufferStart : 0,
+		mTuneEndMetrics.contentType, mTuneEndMetrics.streamType, mTuneEndMetrics.mFirstTune,
+		playerPreBuffered,
+		playerPreBuffered ? tPreBufferStart : 0,
 		durationSeconds,interfaceWifi,
-		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
-		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime,mStopDurationMs,
+		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success, failureReason.c_str(), appName.c_str(),
+		mTuneEndMetrics.mTimedMetadata,
+		mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime,
+		mTuneEndMetrics.mTimedMetadataDuration, mTuneEndMetrics.mFogTSBEnabled, totalTuneTime, mStopDurationMs,
 		tDecode // gstDecode: time taken to decode first frame, excluding decryption time. For clear streams, this will be the overall time spent in pipeline
 		);
 
@@ -615,16 +643,27 @@ void ProfileEventAAMP::IncrementChangeCount(CountType type)
  */
 void ProfileEventAAMP::GetTelemetryParam()
 {
-	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
-	if(telemetryParam != NULL)
+	cJSON *newParam = cJSON_CreateObject();
+	if (!newParam)
 	{
-		char *jsonStr = cJSON_PrintUnformatted(telemetryParam);
+		AAMPLOG_ERR("GetTelemetryParam: cJSON_CreateObject() failed (OOM); retaining existing telemetry state");
+		return;
+	}
+	cJSON *oldParam;
+	{
+		std::lock_guard<std::mutex> lock(discontinuityParamMutex);
+		mLldLowBuffObject = nullptr;
+		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted below
+		oldParam = telemetryParam;
+		telemetryParam = newParam;
+	}
+	// Log and delete the old tree outside the lock to keep the critical section small
+	if (oldParam != nullptr)
+	{
+		char *jsonStr = cJSON_PrintUnformatted(oldParam);
 		AAMPLOG_MIL("Telemetry values %s", jsonStr);
 		cJSON_free(jsonStr);
-		cJSON_Delete(telemetryParam);
-		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
-		mLldLowBuffObject = NULL;
-		telemetryParam = cJSON_CreateObject();
+		cJSON_Delete(oldParam);
 	}
 }
 

@@ -54,7 +54,9 @@ AampMp4Demuxer::~AampMp4Demuxer()
 /**
  * @fn sendSegment
  *
- * @param[in] buffer - buffer containing the fragment data
+ * @param[in] buffer - fragment data; ownership is transferred (consumed by this call).
+ *                     Callers must pass via std::move() and must not read the buffer after
+ *                     sendSegment() returns.
  * @param[in] position - position of fragment
  * @param[in] duration - duration of fragment
  * @param[in] fragmentPTSoffset - offset PTS of fragment
@@ -64,15 +66,19 @@ AampMp4Demuxer::~AampMp4Demuxer()
  * @param[out] ptsError - flag indicates if any PTS error occurred
  * @return true if fragment was sent, false otherwise
  */
-bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool ret = true;
 	(void) processor;
-	if (mMp4Demux.get() && !buffer.empty())
+	if (mMp4Demux && !buffer.empty())
 	{
+		// Move the caller's buffer into a shared_ptr and pass ownership into
+		// Parse(), which stamps each sample's mData (via aliasing shared_ptr)
+		// so each sample keeps the segment buffer alive for its lifetime.
+		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d, bufferSize: %zu", mMediaType, position, duration, isInit, buffer.size());
-		ret = mMp4Demux->Parse(buffer.data(), buffer.size());
+		ret = mMp4Demux->Parse(std::move(segment));
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
@@ -80,13 +86,13 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 		else
 		{
 			auto samples = mMp4Demux->GetSamples();
-			if (samples.size() > 0)
+			if (!samples.empty())
 			{
 				size_t totalSampleBytes = 0;
-				for (const auto& s : samples) { totalSampleBytes += s.mData.size(); }
+				for (const auto& s : samples) { totalSampleBytes += s.mDataSize; }
 				AAMPLOG_INFO("[MemTrace][%s] sampleCount: %zu, totalSampleBytes: %zu, segDuration: %f",
 					GetMediaTypeName(mMediaType), samples.size(), totalSampleBytes, duration);
-				for (auto& sample : samples)
+				for (auto&& sample : samples)
 				{
 					// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
 					if (mEnablePtsRestamp)
@@ -107,8 +113,8 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 						}
 					}
 					AAMPLOG_INFO("[MemTrace][%s] sampleSize: %zu, pts: %f, dts: %f, duration: %f",
-						GetMediaTypeName(mMediaType), sample.mData.size(), sample.mPts, sample.mDts, sample.mDuration);
-					mAamp->SendStreamTransfer(mMediaType, sample);
+						GetMediaTypeName(mMediaType), sample.mDataSize, sample.mPts, sample.mDts, sample.mDuration);
+					mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 				}
 			}
 			else
@@ -131,9 +137,18 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, 
 	}
 	else
 	{
-		AAMPLOG_ERR("Demuxer instance(%p) is invalid or buffer is empty (size=%zu)", mMp4Demux.get(), buffer.size());
+		AAMPLOG_ERR("Demuxer instance(%p) is invalid or buffer is empty (size=%zu)", static_cast<void*>(mMp4Demux.get()), buffer.size());
 		ret = false;
 	}
 	ptsError = false;
 	return ret;
+}
+
+/**
+ * @brief Check whether MP4 demux performs PTS restamping internally.
+ * @return true if internal PTS restamping is configured and active
+ */
+bool AampMp4Demuxer::getPTSRestampStatus() const
+{
+	return mEnablePtsRestamp;
 }

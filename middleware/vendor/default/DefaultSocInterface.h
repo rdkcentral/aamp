@@ -160,6 +160,8 @@ public:
 	void SetHevcCaps(GstCaps *caps)override;
 	
 	bool IsVideoMaster(GstElement *videoSink)override;
+
+	void SetAC4Tracks(GstElement *src, int trackId) override;
 };
 
 #endif

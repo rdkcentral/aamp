@@ -72,7 +72,7 @@ namespace aamp
 
 		std::lock_guard<std::mutex> lock(mutex);
 		currentBufferTime -= timeToConsume;
-		AAMPLOG_DEBUG("[%s] Buffer time: %f\n", GetMediaTypeName(mediaType), currentBufferTime);
+		AAMPLOG_DEBUG("[%s] Buffer time: %f", GetMediaTypeName(mediaType), currentBufferTime);
 		if (currentBufferTime < 0)
 		{
 			currentBufferTime = 0;
