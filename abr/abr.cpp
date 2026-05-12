@@ -1050,7 +1050,7 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d nwBandwidth %" BITSPERSECOND_FORMAT " bufferValue %lf newBandwidth %" BITSPERSECOND_FORMAT " threshold %d", currProfileIndex, newProfileIndex, nwBandwidth, bufferValue, newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage
-	if(abrThreshold >= 0 && abrThreshold <= 30)
+	if(abrThreshold <= 30)
 		newProfileIndex = nProfileIdx;
 	if(newProfileIndex  != currProfileIndex)
 	{
