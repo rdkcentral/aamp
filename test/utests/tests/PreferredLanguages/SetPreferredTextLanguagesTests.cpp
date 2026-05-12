@@ -920,8 +920,10 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
 
 	std::mutex syncMtx;
-	std::condition_variable cvReady;
+	std::condition_variable cvThreadAInside;  /* Thread A -> Thread B: inside mock */
+	std::condition_variable cvThreadBReady;   /* Thread B -> Thread A: about to call TeardownStream */
 	bool threadAInside = false;
+	bool threadBReady = false;
 	std::atomic<bool> teardownDone{false};
 
 
@@ -932,10 +934,15 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 				std::lock_guard<std::mutex> lk(syncMtx);
 				threadAInside = true;
 			}
-			cvReady.notify_one();
+			cvThreadAInside.notify_one();
 
-
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			/* Wait for Thread B to signal it is about to call TeardownStream,
+			 * creating the race window deterministically without any wall-clock
+			 * delay. */
+			{
+				std::unique_lock<std::mutex> lk(syncMtx);
+				cvThreadBReady.wait(lk, [&] { return threadBReady; });
+			}
 
 			return tracks;
 		}));
@@ -951,14 +958,22 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
 		.Times(::testing::AnyNumber());
 
-	/* Thread B: waits for Thread A to be inside SetPreferredTextLanguages,
-	 * then calls TeardownStream to simulate StopInternal on another thread. */
+	/* Thread B: waits for Thread A to be inside GetAvailableTextTracks, then
+	 * signals it is about to call TeardownStream before actually doing so.
+	 * This replaces the fixed sleep with a deterministic two-way handshake. */
 	std::thread threadB([&]() {
 		{
 			std::unique_lock<std::mutex> lk(syncMtx);
-			cvReady.wait(lk, [&] { return threadAInside; });
+			cvThreadAInside.wait(lk, [&] { return threadAInside; });
 		}
 
+		/* Signal Thread A (still inside the mock) that TeardownStream is
+		 * imminent, then immediately call it to create the race. */
+		{
+			std::lock_guard<std::mutex> lk(syncMtx);
+			threadBReady = true;
+		}
+		cvThreadBReady.notify_one();
 
 		mPrivateInstanceAAMP->TeardownStream(true);
 		teardownDone.store(true);
