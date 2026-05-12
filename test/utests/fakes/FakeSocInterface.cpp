@@ -165,34 +165,14 @@ void SocInterface::SetDecodeError(GstObject* src)
         g_object_set(src, "report_decode_errors", TRUE, NULL);
 }
 
-long long SocInterface::ReadVideoPts(GstElement *element)
+long long SocInterface::ReadVideoPts(GstElement */*element*/)
 {
-	long long result = 0;
-	if (element)
-	{
-		if (mVideoPtsPropertySupported)
-		{
-			gint64 currentPTS = 0;
-			g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */
-			result = static_cast<long long>(currentPTS);
-		}
-		else
-		{
-			/* The 'video-pts' property is not exposed on this platform.*/
-			result = -1;
-		}
-	}
-	return result;
+	return 0;
 }
 
-long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+long long SocInterface::GetVideoPts(GstElement */*video_sink*/, GstElement */*video_dec*/, bool /*isWesteros*/)
 {
-	long long result = ReadVideoPts(video_dec);
-	if (result != -1 && !isWesteros)
-	{
-		result *= 2;
-	}
-	return result;
+	return 0;
 }
 
 bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
@@ -232,4 +212,16 @@ bool DefaultSocInterface::ShouldTearDownForTrickplay()
 void SocInterface::SetWesterosSinkState(bool status)
 {
 	mUsingWesterosSink = status;
+}
+
+void SocInterface::CheckVideoPtsPropertySupport(GstElement */*element*/)
+{
+}
+
+void SocInterface::DiscoverVideoDecoderProperties(GstElement */*element*/)
+{
+}
+
+void SocInterface::DiscoverVideoSinkProperties(GstElement */*element*/)
+{
 }

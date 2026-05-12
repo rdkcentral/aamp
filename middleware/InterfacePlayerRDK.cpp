@@ -4011,6 +4011,11 @@ long long InterfacePlayerRDK::GetVideoPosition(void)
 				MW_LOG_WARN("InterfacePlayerRDK: gst_element_query_position failed");
 				position = 0;
 			}
+			else if (position == static_cast<gint64>(GST_CLOCK_TIME_NONE))
+			{
+				MW_LOG_WARN("InterfacePlayerRDK: gst_element_query_position returned GST_CLOCK_TIME_NONE");
+				position = 0;
+			}
 		}
 		else
 		{
@@ -4023,7 +4028,7 @@ long long InterfacePlayerRDK::GetVideoPosition(void)
 					pipeline, videoSinkbin);
 	}
 
-	MW_LOG_INFO("InterfacePlayerRDK: position(ms) = %" G_GINT64_FORMAT , GST_TIME_AS_MSECONDS(position));
+	MW_LOG_TRACE("InterfacePlayerRDK: position(ms) = %" G_GINT64_FORMAT , GST_TIME_AS_MSECONDS(position));
 	return static_cast<long long>( (GST_TIME_AS_MSECONDS(position)) );
 }
 

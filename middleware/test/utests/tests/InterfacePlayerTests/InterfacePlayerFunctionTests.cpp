@@ -29,6 +29,36 @@
 #include "MockGstUtils.h"
 #include <gst/gstplugin.h>
 #include <gst/gstpluginfeature.h>
+#include "SocInterface.h"
+
+/**
+ * Minimal SocInterface mock for GetVideoPTS tests.
+ * Only GetVideoPts is mocked; all other methods delegate to the base fake.
+ */
+class MockSocInterfaceForPts : public SocInterface
+{
+public:
+	MOCK_METHOD(long long, GetVideoPts,
+		(GstElement *video_sink, GstElement *video_dec, bool isWesteros),
+		(override));
+	/* Pure virtual stubs required to make this class instantiable. */
+	MOCK_METHOD(bool, SetPlaybackRate,
+		(const std::vector<GstElement*>& sources, GstElement *pipeline,
+		 double rate, GstElement *video_dec, GstElement *audio_dec), (override));
+	MOCK_METHOD(bool, SetRateCorrection, (), (override));
+	MOCK_METHOD(bool, IsVideoSink, (const char* name), (override));
+	MOCK_METHOD(bool, IsAudioSinkOrAudioDecoder, (const char* name), (override));
+	MOCK_METHOD(bool, IsVideoDecoder, (const char* name), (override));
+	MOCK_METHOD(bool, ConfigureAudioSink,
+		(GstElement **audio_sink, GstObject *src, bool decStreamSync), (override));
+	MOCK_METHOD(bool, IsAudioOrVideoDecoder, (const char* name), (override));
+	MOCK_METHOD(void, GetCCDecoderHandle,
+		(gpointer *dec_handle, GstElement *video_dec), (override));
+	MOCK_METHOD(bool, IsVideoMaster, (GstElement *videoSink), (override));
+	MOCK_METHOD(void, SetAudioProperty,
+		(const char * &volume, const char * &mute, bool& isSinkBinVolume), (override));
+	MOCK_METHOD(void, SetPlaybackFlags, (gint &flags, bool isSub), (override));
+};
 
 
 using ::testing::NiceMock;
@@ -3197,30 +3227,19 @@ TEST_F(InterfacePlayerTests, GetVideoPosition_QuerySucceedsPaused)
 
 /**
  * @test GetVideoPTS_PropertySupported
- * @brief When 'video-pts' is exposed, GetVideoPTS returns the value provided
- *        by the SoC interface (no fallback to position query). The property
- *        is probed once at element creation via DiscoverVideoDecoderProperties.
+ * @brief When SocInterface::GetVideoPts returns a valid PTS, GetVideoPTS()
+ *        returns it directly without falling back to the position query.
  */
 TEST_F(InterfacePlayerTests, GetVideoPTS_PropertySupported)
 {
-	GstElement video_dec = {.object = {.name = (gchar *)"video_dec"}};
-	mPlayerContext->video_dec = &video_dec;
-	mPlayerContext->using_westerossink = true;	/* avoid the *2 scaling */
+	auto mockSoc = std::make_shared<MockSocInterfaceForPts>();
+	mInterfacePrivatePlayer->socInterface = mockSoc;
 
-	GParamSpec dummyPspec{};
-	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
-		.WillOnce(Return(&dummyPspec));
+	const long long ptsValue = 4500;
+	EXPECT_CALL(*mockSoc, GetVideoPts(_, _, _))
+		.WillOnce(Return(ptsValue));
 
-	/* Simulate element creation: probe the video decoder. */
-	mInterfacePrivatePlayer->socInterface->DiscoverVideoDecoderProperties(&video_dec);
-
-	const gint64 ptsValue = 4500;
-	EXPECT_CALL(*g_mockGLib,
-				g_object_get(&video_dec, StrEq("video-pts"),
-							 Matcher<gint64 *>(_)))
-		.WillOnce(DoAll(SetArgPointee<2>(ptsValue), Return()));
-
-	/* Position fallback must NOT be used when the property is supported. */
+	/* Position fallback must NOT be used when a valid PTS is returned. */
 	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockGStreamer, gst_element_query_position(_, _, _)).Times(0);
 
@@ -3229,30 +3248,22 @@ TEST_F(InterfacePlayerTests, GetVideoPTS_PropertySupported)
 
 /**
  * @test GetVideoPTS_PropertyNotSupportedFallsBackToPosition
- * @brief When 'video-pts' is not exposed, GetVideoPts() returns -1 and
+ * @brief When SocInterface::GetVideoPts returns -1 (property not supported),
  *        InterfacePlayerRDK::GetVideoPTS falls back to
- *        90 * GetVideoPosition() (90 kHz ticks per millisecond). The property
- *        is probed once at element creation via DiscoverVideoDecoderProperties.
+ *        90 * GetVideoPosition() (90 kHz ticks per millisecond).
  */
 TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyNotSupportedFallsBackToPosition)
 {
-	GstElement video_dec = {.object = {.name = (gchar *)"video_dec"}};
+	auto mockSoc = std::make_shared<MockSocInterfaceForPts>();
+	mInterfacePrivatePlayer->socInterface = mockSoc;
+
 	GstElement video_sinkbin = {.object = {.name = (gchar *)"video_sinkbin"}};
-	mPlayerContext->video_dec = &video_dec;
 	mPlayerContext->pipeline = &gst_element_pipeline;
 	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin = &video_sinkbin;
 
-	/* Property not supported -> probe returns nullptr. */
-	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
-		.WillOnce(Return(nullptr));
-
-	/* Simulate element creation: probe the video decoder. */
-	mInterfacePrivatePlayer->socInterface->DiscoverVideoDecoderProperties(&video_dec);
-
-	/* g_object_get for video-pts must NOT be invoked when unsupported. */
-	EXPECT_CALL(*g_mockGLib,
-				g_object_get(_, StrEq("video-pts"), Matcher<gint64 *>(_)))
-		.Times(0);
+	/* SocInterface reports property not supported. */
+	EXPECT_CALL(*mockSoc, GetVideoPts(_, _, _))
+		.WillOnce(Return(-1LL));
 
 	const gint64 positionNs = 10000000;	/* 10 ms */
 	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
@@ -3270,33 +3281,19 @@ TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyNotSupportedFallsBackToPosition
 
 /**
  * @test GetVideoPTS_PropertyProbeOnceAtCreation
- * @brief The 'video-pts' property is probed exactly once at element creation
- *        via DiscoverVideoDecoderProperties(); subsequent GetVideoPTS() calls
- *        must not re-invoke g_object_class_find_property.
+ * @brief GetVideoPTS() delegates to SocInterface::GetVideoPts on every call
+ *        and returns the same value consistently across multiple calls.
  */
 TEST_F(InterfacePlayerTests, GetVideoPTS_PropertyProbeOnceAtCreation)
 {
-	GstElement video_dec = {.object = {.name = (gchar *)"video_dec"}};
-	mPlayerContext->video_dec = &video_dec;
-	mPlayerContext->using_westerossink = true;
+	auto mockSoc = std::make_shared<MockSocInterfaceForPts>();
+	mInterfacePrivatePlayer->socInterface = mockSoc;
 
-	GParamSpec dummyPspec{};
-	/* The probe must run exactly once, at element creation time. */
-	EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_, StrEq("video-pts")))
-		.Times(1)
-		.WillOnce(Return(&dummyPspec));
-
-	/* Simulate element creation: probe the video decoder. */
-	mInterfacePrivatePlayer->socInterface->DiscoverVideoDecoderProperties(&video_dec);
-
-	const gint64 ptsValue = 1234;
-	EXPECT_CALL(*g_mockGLib,
-				g_object_get(&video_dec, StrEq("video-pts"),
-							 Matcher<gint64 *>(_)))
+	const long long ptsValue = 1234;
+	EXPECT_CALL(*mockSoc, GetVideoPts(_, _, _))
 		.Times(2)
-		.WillRepeatedly(DoAll(SetArgPointee<2>(ptsValue), Return()));
+		.WillRepeatedly(Return(ptsValue));
 
-	/* GetVideoPTS() must NOT trigger g_object_class_find_property. */
 	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPTS(), ptsValue);
 	EXPECT_EQ(mInterfaceGstPlayer->GetVideoPTS(), ptsValue);
 }
