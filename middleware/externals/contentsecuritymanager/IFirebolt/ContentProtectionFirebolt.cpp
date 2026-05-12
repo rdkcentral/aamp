@@ -349,43 +349,20 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 
 				}
 
-				if(!drmSession.empty())
+				// Map Firebolt error codes to SecManager error codes using lookup table
+				if (!result && errorCode != CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE)
 				{
-
-					PlayerJsonObject response(drmSession);
-					PlayerJsonObject resultContext;
-					if (response.get("secManagerResultContext", resultContext))
-					{
-						int value = -1;
-
-						// Get statusCode
-						if (resultContext.get("class", value))
-						{
-							*statusCode = value;
-						}
-
-						// Get reasonCode
-						if (resultContext.get("reason", value))
-						{
-							*reasonCode = value;
-						}
-
-						// Get businessStatus
-						if (resultContext.get("businessStatus", value))
-						{
-							*businessStatus = value;
-						}
-
-						MW_LOG_WARN("ContentProtection Parsed Status Code: %d, Reason: %d, Business Status: %d",
-								statusCode ? *statusCode : -1,
-								reasonCode ? *reasonCode : -1,
-								businessStatus ? *businessStatus : -1);
-					}
+					getContentProtectionAsVerboseErrorCode(errorCode, *statusCode, *reasonCode);
 				}
-				else if( errorCode != CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE)
+				else if (ret)
 				{
-					getContentProtectionAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
+					// Overall success: Set to default success codes (zeros)
+					*statusCode = CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE;
+					*reasonCode = CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE;
+					*businessStatus = 0;
 				}
+				// else: API succeeded but license processing failed - keep default FAILURE codes
+
 				if(!ret)
 				{
 					//As per Secmanager retry is meaningful only for
