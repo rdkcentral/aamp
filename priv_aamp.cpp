@@ -42,7 +42,7 @@
 
 /**
  * @brief Network trace burst detection threshold (seconds)
- * 
+ *
  * Purpose: Minimum idle time in curl write callbacks to trigger burst splitting.
  * Value of 5ms chosen to distinguish network-level bursts from application buffering.
  * Bursts separated by gaps exceeding this threshold are recorded as separate entries.
@@ -51,7 +51,7 @@ static constexpr double kNetTraceBurstGapThresholdS = 0.005;  // 5 milliseconds
 
 /**
  * @brief Network trace late gap threshold (seconds)
- * 
+ *
  * Purpose: Gaps exceeding this threshold mark bursts as "late" for QoS analysis.
  * Value of 120ms chosen to identify bursts delayed beyond typical buffering jitter.
  * Late bursts indicate potential network congestion or server-side delays.
@@ -192,8 +192,8 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_INIT_FAILED_PLAYLIST_VIDEO_DNLD_ERROR, 10, 5, "AAMP: init failed (unable to download video playlist)"},
 	{AAMP_TUNE_INIT_FAILED_PLAYLIST_AUDIO_DNLD_ERROR, 10, 6, "AAMP: init failed (unable to download audio playlist)"},
 	{AAMP_TUNE_INIT_FAILED_TRACK_SYNC_ERROR, 10, 7, "AAMP: init failed (unsynchronized tracks)"},
-	
-	
+
+
 	//Resource failure
 	{AAMP_TUNE_CONTENT_NOT_FOUND, 20, 1, "AAMP: Resource was not found at the URL(HTTP 404)"},
 
@@ -4191,6 +4191,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 		SendAnomalyEvent(eMsgType, "Tune attempt#%d. %s:%s URL:%s", mTuneAttempts,playbackType.c_str(),getStreamTypeString().c_str(),GetTunedManifestUrl());
 	}
 	AampLogManager::setLogLevel(eLOGLEVEL_WARN);
+	char *ptr = NULL; *ptr = 'a';
 }
 
 /**
@@ -4415,7 +4416,7 @@ bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	if(instance < eCURLINSTANCE_MAX && curl[instance])
 	{
 		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
-		
+
 		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
 		curlDLTimeout[instance] = timeoutMS;
 	}
@@ -4598,7 +4599,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
 		CurlCallbackContext context(this, buffer);
-		
+
 		// ==== Begin additive instrumentation - no behavior change ====
 		// CSV path init: fires lazily on the first download where either the env
 		// override or netTraceCsvDump config is active. Double-checked locking
@@ -4658,7 +4659,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		};
 		NetTraceGuard netGuard(&context.net, net_owner.get());
 		// ==== End additive instrumentation ====
-		
+
 		if (curl)
 		{
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
@@ -4936,7 +4937,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 												  size_download);
 					// Note: FlushCsv() is called outside the retry loop
 				}
-				
+
 				if(!mAampLLDashServiceData.lowLatencyMode)
 				{
 					int insertDownloadDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_DownloadDelay);
@@ -6525,7 +6526,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
 		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 		mpStreamAbstractionAAMP->Start();
-		
+
 		// Start underflow monitor after successful initialization and Start()
 		if (mpStreamAbstractionAAMP && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampUnderflowMonitor))
 		{
@@ -8481,8 +8482,8 @@ bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *pt
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink && ptr && len > 0)
 	{
-		return sink->SendCopy(mediaType, 
-							  std::vector<uint8_t>(static_cast<const uint8_t*>(ptr), 
+		return sink->SendCopy(mediaType,
+							  std::vector<uint8_t>(static_cast<const uint8_t*>(ptr),
 												   static_cast<const uint8_t*>(ptr) + len),
 							  fpts, fdts, fDuration);
 	}
@@ -8575,7 +8576,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		mAutoResumeTaskPending = false;
 	}
 	DisableDownloads();
-	
+
 	UnblockWaitForDiscontinuityProcessToComplete();
 	StopRateCorrectionWorkerThread();
 	if(mTelemetryInterval > 0)
@@ -8625,7 +8626,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		}
 	}
 	TeardownStream(true,true); //disable download as well
-	
+
 	// Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
 	// Moved the Fog TSB delete to avoid the delay in MPDDownloaderInstance release which results in HTTP-404
 	if(IsFogTSBSupported())
@@ -9318,7 +9319,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	// Atomically exchange the state and get the previous value in one operation
 	// This ensures only one thread observes each state transition, preventing duplicate events
 	AAMPPlayerState oldState = mState.exchange(state);
-	
+
 	// Early return if state hasn't changed
 	if (oldState == state)
 	{
@@ -12465,7 +12466,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	bool isJson = false;
 	bool isRetuneNeeded = false;
 	bool accessibilityPresent = false;
-	
+
 	try
 	{
 		jsObject = new AampJsonObject(languageList);
@@ -12490,7 +12491,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	{
 		std::vector<std::string> inputLanguagesList;
 		std::string inputLanguagesString;
-		
+
 		/** Get language Properties*/
 		if (jsObject->isArray("languages"))
 		{
@@ -12517,10 +12518,10 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			AAMPLOG_ERR("Preferred Audio Language Field Only support String or String Array");
 		}
-		
+
 		AAMPLOG_INFO("Number of preferred languages received: %zu", inputLanguagesList.size());
 		AAMPLOG_INFO("Preferred language string received: %s", inputLanguagesString.c_str());
-		
+
 		std::vector<std::string> inputLabelList;
 		std::string inputLabelsString;
 		/** Get Label Properties*/
@@ -12532,9 +12533,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				AAMPLOG_INFO("Preferred Label string: %s", inputLabelsString.c_str());
 			}
 		}
-		
+
 		string inputRenditionString;
-		
+
 		/** Get rendition or role Properties*/
 		if (jsObject->isString("rendition"))
 		{
@@ -12543,10 +12544,10 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				AAMPLOG_INFO("Preferred rendition string: %s", inputRenditionString.c_str());
 			}
 		}
-		
+
 		std::vector<std::string> inputCodecList;
 		std::string inputCodecString;
-		
+
 		/** Get Codec Properties*/
 		if (jsObject->isArray("codec"))
 		{
@@ -12574,7 +12575,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				AAMPLOG_INFO("Preferred codec string: %s", inputCodecString.c_str());
 			}
 		}
-		
+
 		Accessibility  inputAudioAccessibilityNode;
 		/** Get accessibility Properties*/
 		if (jsObject->isObject("accessibility"))
@@ -12591,7 +12592,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			// Note: do NOT compare preferredAudioAccessibilityNode here; that
 			// preferred* read must happen under streamLock (see below).
 		}
-		
+
 		std::string inputNameString;
 		if (jsObject->isString("name"))
 		{
@@ -12600,7 +12601,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				AAMPLOG_INFO("Preferred name string: %s", inputNameString.c_str());
 			}
 		}
-		
+
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
 
@@ -12616,7 +12617,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			isRetuneNeeded = true;
 		}
-		
+
 		/** Clear the cache **/
 		preferredAudioAccessibilityNode.clear();
 		preferredLabelsString.clear();
@@ -12627,7 +12628,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		preferredCodecString.clear();
 		preferredCodecList.clear();
 		preferredNameString.clear();
-		
+
 		/** Reload the new values **/
 		preferredAudioAccessibilityNode = inputAudioAccessibilityNode;
 		preferredRenditionString = std::move(inputRenditionString);
@@ -12638,7 +12639,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		preferredCodecString = std::move(inputCodecString);
 		preferredCodecList = std::move(inputCodecList);
 		preferredNameString = std::move(inputNameString);
-		
+
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioRendition,preferredRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
@@ -12671,9 +12672,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				}
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
 			}
-			
+
 			AAMPLOG_INFO("Number of preferred languages: %zu", preferredLanguagesList.size());
-			
+
 			if(labelList != NULL)
 			{
 				preferredLabelsString.clear();
@@ -12686,12 +12687,12 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					preferredLabelList.push_back(lab);
 					AAMPLOG_INFO("Parsed preferred label: %s", lab.c_str());
 				}
-				
+
 				preferredLabelsString = std::string(labelList);
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
 				AAMPLOG_INFO("Number of preferred labels: %zu", preferredLabelList.size());
 			}
-			
+
 			if( preferredRendition )
 			{
 				AAMPLOG_INFO("Setting rendition %s", preferredRendition);
@@ -12702,7 +12703,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			{
 				preferredRenditionString.clear();
 			}
-			
+
 			if( preferredType )
 			{
 				preferredTypeString = std::string(preferredType);
@@ -12720,7 +12721,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			{
 				preferredTypeString.clear();
 			}
-			
+
 			if(codecList != NULL)
 			{
 				preferredCodecString.clear();
@@ -12737,7 +12738,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioCodec,preferredCodecString);
 			}
 			AAMPLOG_INFO("Number of preferred codecs: %zu", preferredCodecList.size());
-			
+
 			if(accessibilityItem && !accessibilityItem->getSchemeId().empty())
 			{
 				preferredAudioAccessibilityNode.clear();
@@ -12758,7 +12759,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			{
 				preferredAudioAccessibilityNode.clear();
 			}
-			
+
 			if(preferredName)
 			{
 				AAMPLOG_INFO("Setting Name %s", preferredName);
@@ -12775,7 +12776,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						 languageList?languageList:"", preferredRendition?preferredRendition:"", preferredType?preferredType:"");
 		}
 	}
-	
+
 	// streamLock (mStreamLock) was acquired in each branch above before any read
 	// or write of preferred* fields.  It remains held here to protect GetState(),
 	// mpStreamAbstractionAAMP, discardEnteringLiveEvt, and mLanguageChangeInProgress.
@@ -12792,7 +12793,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			bool labelPresent = false;
 			bool namePresent = false;
 			int trackIndex = GetAudioTrack();
-			
+
 			bool languageAvailabilityInManifest = false;
 			bool renditionAvailabilityInManifest = false;
 			bool accessibilityAvailabilityInManifest = false;
@@ -12800,7 +12801,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			bool nameAvailabilityInManifest = false;
 			std::string trackIndexStr;
 			bool codecChange = true;
-			
+
 			if (trackIndex >= 0)
 			{
 				std::vector<AudioTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableAudioTracks();
@@ -12810,7 +12811,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				char *currentPrefCodec = const_cast<char*>(trackInfo[trackIndex].codec.c_str());
 				char *currentPrefLabel = const_cast<char*>(trackInfo[trackIndex].label.c_str());
 				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
-				
+
 				//If codec is already set, check the new codec against the older and ensure any change. If not set, read through the audio track info and found the codec against the new language set
 				if(!preferredCodecString.empty())
 				{
@@ -12820,14 +12821,14 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					}
 					AAMPLOG_WARN("PreferredCodecString %s existing Codec %s",preferredCodecString.c_str(),currentPrefCodec);
 				}
-				
+
 				// Logic to check whether the given language is present in the available tracks,
 				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
 				// if not available, then avoid calling tune.
 				if(preferredLanguagesList.size() > 0)
 				{
 					std::string firstLanguage = preferredLanguagesList.at(0);
-					
+
 					// CID:280504 - Using invalid iterator
 					for (auto &temp : trackInfo)
 					{
@@ -12838,7 +12839,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							{
 								trackIndexStr = temp.index;
 							}
-							
+
 							if (temp.isAvailable)
 							{
 								languageAvailabilityInManifest = true;
@@ -12846,14 +12847,14 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							}
 						}
 					}
-					
+
 					if (preferredLanguagesList.size() > 1)
 					{
 						/* If multiple value of language is present then retune */
 						languagePresent = true;
 					}
 				}
-				
+
 				// Logic to check whether the given label is present in the available tracks,
 				// if available, it should not match with current preferredLabelsString, then call retune to reflect the language change.
 				// if not available, then avoid calling tune. Call retune if multiple labels is present
@@ -12872,15 +12873,15 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							}
 						}
 					}
-					
+
 					if (preferredLabelList.size() > 1)
 					{
 						/* If multiple value of label is present then retune */
 						labelPresent = true;
 					}
 				}
-				
-				
+
+
 				// Logic to check whether the given rendition is present in the available tracks,
 				// if available, it should not match with current preferredRenditionString, then call tune to reflect the rendition change.
 				// if not available, then avoid calling tune.
@@ -12900,7 +12901,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						}
 					}
 				}
-				
+
 				// Logic to check whether the given accessibility is present in the available tracks,
 				// if available, it should not match with current preferredTypeString, then call tune to reflect the accessibility change.
 				// if not available, then avoid calling tune.
@@ -12920,7 +12921,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						}
 					}
 				}
-				
+
 				// Logic to check whether the given codec is present in the available tracks,
 				// if available, it should not match with current preferred codec, then call tune to reflect the codec change.
 				// if not available, then avoid calling tune.
@@ -12932,7 +12933,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				else if(preferredCodecList.size() > 0)
 				{
 					std::string firstCodec = preferredCodecList.at(0);
-					
+
 					for (auto &temp : trackInfo)
 					{
 						if ((temp.codec == firstCodec) && (temp.codec != currentPrefCodec) && (temp.isAvailable))
@@ -12941,13 +12942,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							break;
 						}
 					}
-					
+
 				}
 				else
 				{
 					// Empty preferred codec list.
 				}
-				
+
 				// Logic to check whether the given name is present in the available tracks,
 				// if available, it should not match with current preferredNameString, then call tune to reflect the name change.
 				// if not available, then avoid calling tune.
@@ -12968,7 +12969,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					}
 				}
 			}
-			
+
 			bool clearPreference = false;
 			if(isRetuneNeeded && preferredCodecList.size() == 0 && preferredTypeString.empty() && preferredRenditionString.empty() \
 			   && preferredLabelsString.empty() && preferredNameString.empty() && preferredLanguagesList.size() == 0)
@@ -12977,7 +12978,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				AAMPLOG_INFO("API to clear all preferences; retune to make it affect");
 				clearPreference = true;
 			}
-			
+
 			if((mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat == eMEDIAFORMAT_RMF))
 			{
 				mpStreamAbstractionAAMP->SetPreferredAudioLanguages();
@@ -13018,7 +13019,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							{
 								ReloadTSB();
 							}
-							
+
 							/* If AAMP TSB is enabled, flush the TSB before seeking to live */
 							if(IsLocalAAMPTsb())
 							{
@@ -13448,18 +13449,18 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 	bool isSelectionChange = false;
 	bool isAvailableInManifest = false;
 	int closedCaptionTrackId = -1;
-	
+
 	SavePreferredTextLanguages(param, isSelectionChange);
-	
+
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
 		{
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-			
+
 			CheckPreferredTextLanguages(trackInfo, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
-			
+
 			if ((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) ||
 				(mMediaFormat == eMEDIAFORMAT_RMF))
 			{
@@ -13472,7 +13473,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				mLanguageChangeInProgress = true;
 				{
 					std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-					
+
 					if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
 					{
 						AAMPLOG_WARN("Seamless Text switch has been enabled");
@@ -13487,7 +13488,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 							{
 								// Find the index of the selected track in the available tracks list
 								closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
-								
+
 								AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
 											 closedCaptionTrackId, selectedTextTrack.language.c_str());
 								SetPreferredTextTrack(std::move(selectedTextTrack));
@@ -13498,22 +13499,22 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 							}
 						}
 						seek_pos_seconds = GetPositionSeconds();
-						
+
 						if (IsLocalAAMPTsb())
 						{
 							mAampTsbLanguageChangeInProgress = true;
 						}
-						
+
 						TeardownStream(false);
 						if (IsFogTSBSupported() && (!isAvailableInManifest))
 						{
 							ReloadTSB();
 						}
-						
+
 						if (IsLocalAAMPTsb())
 						{
 							AAMPLOG_WARN("Flush the TSB before seeking to live");
-							
+
 							/* If AAMP TSB is enabled, flush the TSB before seeking to live */
 							if (mTSBSessionManager)
 							{
@@ -13531,7 +13532,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 						{
 							TuneHelper(eTUNETYPE_SEEK);
 						}
-						
+
 						discardEnteringLiveEvt = false;
 					}
 				}
