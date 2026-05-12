@@ -2101,6 +2101,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		double latency = 0;
+		bool reachedStart = false;
 
 
 		//Report Progress report position based on Availability Start Time
@@ -2124,15 +2125,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// If beginningOfStream is true or position < start, it means rewind has reached BoS
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
-		{ // clamp start or handle BOS during rewind
-			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
+		{
+			// Reached the start of the stream (start of AAMP TSB, beginning of VoD asset...)
+			AAMPLOG_INFO("Reached start, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
 			position = start;
-			// Check the rate so that PlayFromTsbStart() is not called repeatedly
-			if (rate < AAMP_RATE_PAUSE)
-			{
-				PlayFromTsbStart();
-			}
+			reachedStart = true;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -2321,6 +2319,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 			mReportProgressPosn = position;
+		}
+
+		if (reachedStart)
+		{
+			// Check the rate so that PlayFromTsbStart() is not called more than once
+			if (rate < AAMP_RATE_PAUSE)
+			{
+				PlayFromTsbStart();
+			}
 		}
 	}
 }
