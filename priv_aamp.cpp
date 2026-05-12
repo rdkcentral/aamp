@@ -12585,7 +12585,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
-		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		AcquireStreamLock();
 		if (mpStreamAbstractionAAMP)
 		{
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -12602,7 +12602,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
-				AcquireStreamLock();
 
 				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
 				{
@@ -12612,7 +12611,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				else
 				{
 					if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
-					
 					{
 						TextTrackInfo selectedTextTrack;
 						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
