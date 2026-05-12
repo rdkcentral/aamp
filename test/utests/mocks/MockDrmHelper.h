@@ -36,4 +36,6 @@ public:
 	MOCK_METHOD(void, generateLicenseRequest, (const ChallengeInfo& challengeInfo, LicenseRequest& licenseRequest), (const, override));
 };
 
+extern MockDrmHelper *g_mockDrmHelper;
+
 #endif // MOCK_DRM_HELPER_H
