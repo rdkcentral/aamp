@@ -260,19 +260,37 @@ void ABRManager::updateProfile() {
       }
     } else {
       if(is4K) {
-        // Get the default profile of 4k video , apply same bandwidth of video to iframe also
-        int desiredProfileIndexNonIframe = profileCount / 2;
-        int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
-        mDesiredIframeProfile = mLowestIframeProfile = 0;
-        for (int cnt = 0; cnt <= iframeTrackIdx; cnt++) {
-          // if bandwidth matches , apply to both desired and lower ( for all speed of trick)
-          if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
-            mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
-            break;
-          }
+        // Get the middle video bandwidth (excluding iframe tracks) for 4K iframe selection.
+        // Use mSortedBWProfileList which only contains non-iframe profiles.
+        long desiredProfileNonIframeBW = 0;
+        bool foundMiddleVideoBW = false;
+        for (const auto& periodEntry : mSortedBWProfileList)
+        {
+            const auto& bwMap = periodEntry.second;
+            if (!bwMap.empty())
+            {
+                auto it = bwMap.begin();
+                std::advance(it, static_cast<int>(bwMap.size() / 2));
+                desiredProfileNonIframeBW = it->first;
+                foundMiddleVideoBW = true;
+                break;
+            }
         }
-        // if matching bandwidth not found with video , then pick the middle profile for iframe
-        if((!mDesiredIframeProfile) && (iframeTrackIdx >= 1)) {
+        mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[0].idx;
+        bool foundMatchingIframe = false;
+        if (foundMiddleVideoBW)
+        {
+            for (int cnt = 0; cnt <= iframeTrackIdx; cnt++) {
+              // if bandwidth matches, apply to both desired and lower ( for all speed of trick)
+              if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
+                mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
+                foundMatchingIframe = true;
+                break;
+              }
+            }
+        }
+        // if matching bandwidth not found with video, then pick the middle profile for iframe
+        if(!foundMatchingIframe && (iframeTrackIdx >= 1)) {
           int desiredTrackIdx = (int) (iframeTrackIdx / 2) + (iframeTrackIdx % 2);
           mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[desiredTrackIdx].idx;
         }
