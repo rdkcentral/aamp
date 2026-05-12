@@ -3970,9 +3970,70 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
  */
 long long InterfacePlayerRDK::GetVideoPTS(void)
 {
-	gint64 currentPTS = 0;
+	long long currentPTS = 0;
 	currentPTS = interfacePlayerPriv->socInterface->GetVideoPts(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->using_westerossink);
-	return (long long)currentPTS;
+	if (currentPTS == -1)
+	{
+		/* The 'video-pts' property is not supported on this platform.
+		 * Fall back to gst_element_query_position and convert ms to 90 kHz
+		 * ticks (1 ms = 90 ticks) so that callers relying on PTS units
+		 * (90 kHz) keep working. */
+		MW_LOG_TRACE("InterfacePlayerRDK-'video-pts' property is not supported on this platform; Fall back to gst_element_query_position");
+		currentPTS = static_cast<long long>(MPEG_PTS_TICKS_PER_MS * GetVideoPosition());
+	}
+	return currentPTS;
+}
+
+/**
+ *  @brief Gets the current video playback position using
+ *         gst_element_query_position on the video sinkbin.
+ *
+ *  @retval Current playback position in milliseconds, or 0 if the
+ *          pipeline is not in PLAYING/PAUSED state or the query fails.
+ */
+long long InterfacePlayerRDK::GetVideoPosition(void)
+{
+	gint64 position = 0;
+	GstElement *pipeline = interfacePlayerPriv->gstPrivateContext->pipeline;
+	GstElement *videoSinkbin = interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin;
+
+	if (pipeline && videoSinkbin)
+	{
+		GstState state = GST_STATE_NULL;
+		GstState pending = GST_STATE_NULL;
+		GstClockTime timeout = 0;/* non-blocking state query */
+		GstStateChangeReturn rc = gst_element_get_state(pipeline, &state, &pending, timeout);
+
+		/* Position can only be queried reliably when the pipeline is in
+		 * PLAYING or PAUSED state, so we first verify the pipeline state
+		 * via gst_element_get_state before issuing the position query. */
+		if (rc == GST_STATE_CHANGE_SUCCESS &&
+		   (state == GST_STATE_PLAYING || state == GST_STATE_PAUSED))
+		{
+			if (!gst_element_query_position(videoSinkbin, GST_FORMAT_TIME, &position))
+			{
+				MW_LOG_WARN("InterfacePlayerRDK: gst_element_query_position failed");
+				position = 0;
+			}
+			else if (position == static_cast<gint64>(GST_CLOCK_TIME_NONE))
+			{
+				MW_LOG_WARN("InterfacePlayerRDK: gst_element_query_position returned GST_CLOCK_TIME_NONE");
+				position = 0;
+			}
+		}
+		else
+		{
+			MW_LOG_INFO("InterfacePlayerRDK: pipeline not in PLAYING/PAUSED (state=%d, rc=%d), cannot query video position", state, rc);
+		}
+	}
+	else
+	{
+		MW_LOG_WARN("InterfacePlayerRDK: cannot query video position; pipeline=%p videoSinkbin=%p",
+					pipeline, videoSinkbin);
+	}
+
+	MW_LOG_TRACE("InterfacePlayerRDK: position(ms) = %" G_GINT64_FORMAT , GST_TIME_AS_MSECONDS(position));
+	return static_cast<long long>( (GST_TIME_AS_MSECONDS(position)) );
 }
 
 /**
@@ -4060,7 +4121,7 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 		MW_LOG_WARN("## Got Underflow message from %s type %d ##", GST_ELEMENT_NAME(object), type);
 		privatePlayer->gstPrivateContext->stream[type].bufferUnderrun = true;
 
-		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate > 0))
+		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
 		{
 			if (!privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 			{
@@ -4773,6 +4834,8 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					 note: alternate "window-set" works as well
 					 */
 					gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_sink, msg->src);
+					privatePlayer->socInterface->DiscoverVideoSinkProperties(
+						privatePlayer->gstPrivateContext->video_sink);
 
 					if (privatePlayer->gstPrivateContext->usingRialtoSink)
 					{
@@ -4830,6 +4893,8 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					{ // video
 						gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_dec, msg->src);
 						type_check_instance("bus_sync_handle: video_dec ", privatePlayer->gstPrivateContext->video_dec);
+						privatePlayer->socInterface->DiscoverVideoDecoderProperties(
+							privatePlayer->gstPrivateContext->video_dec);
 						privatePlayer->SignalConnect(privatePlayer->gstPrivateContext->video_dec, "first-video-frame-callback",
 									G_CALLBACK(GstPlayer_OnFirstVideoFrameCallback), pInterfacePlayerRDK);
 						privatePlayer->socInterface->SetDecodeError(msg->src);
