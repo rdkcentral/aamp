@@ -75,6 +75,20 @@ protected:
 
 	void TearDown() override
 	{
+		// Delete mPlayer first so its destructor runs while all mocks are
+		// still live.  This also handles the case where a test exits early
+		// via ASSERT_* without calling DestroyPlayer().
+		if (mPlayer != nullptr)
+		{
+			// Restore aamp so the destructor does not access a dangling pointer.
+			if (mPlayer->aamp == nullptr)
+			{
+				mPlayer->aamp = mAamp;
+			}
+			delete mPlayer;
+			mPlayer = nullptr;
+		}
+
 		delete g_mockPrivateInstanceAAMP;
 		g_mockPrivateInstanceAAMP = nullptr;
 
@@ -328,6 +342,29 @@ TEST_F(AAMPGstPlayerNullGuardTests, NeedData_NullAamp_NoSegfault)
 }
 
 // ---------------------------------------------------------------------------
+// Callback: NeedDataCb – null privateContext
+// ---------------------------------------------------------------------------
+
+/**
+ * @test The need-data callback must not dereference _this->privateContext when
+ *       it is null.  Both aamp and privateContext are checked by the guard, so
+ *       we verify the privateContext branch independently.
+ */
+TEST_F(AAMPGstPlayerNullGuardTests, NeedData_NullPrivateContext_NoSegfault)
+{
+	ConstructPlayer();
+
+	AAMPGstPlayerPriv *savedCtx = mPlayer->privateContext;
+	mPlayer->privateContext     = nullptr;
+
+	ASSERT_TRUE(mPlayer->playerInstance->NeedDataCb);
+	mPlayer->playerInstance->NeedDataCb(static_cast<int>(eMEDIATYPE_VIDEO));
+
+	mPlayer->privateContext = savedCtx;
+	DestroyPlayer();
+}
+
+// ---------------------------------------------------------------------------
 // Callback: EnoughDataCb – null aamp
 // ---------------------------------------------------------------------------
 
@@ -344,6 +381,28 @@ TEST_F(AAMPGstPlayerNullGuardTests, EnoughData_NullAamp_NoSegfault)
 	mPlayer->playerInstance->EnoughDataCb(static_cast<int>(eMEDIATYPE_VIDEO));
 
 	mPlayer->aamp = mAamp;
+	DestroyPlayer();
+}
+
+// ---------------------------------------------------------------------------
+// Callback: EnoughDataCb – null privateContext
+// ---------------------------------------------------------------------------
+
+/**
+ * @test The enough-data callback must not dereference _this->privateContext
+ *       when it is null.
+ */
+TEST_F(AAMPGstPlayerNullGuardTests, EnoughData_NullPrivateContext_NoSegfault)
+{
+	ConstructPlayer();
+
+	AAMPGstPlayerPriv *savedCtx = mPlayer->privateContext;
+	mPlayer->privateContext     = nullptr;
+
+	ASSERT_TRUE(mPlayer->playerInstance->EnoughDataCb);
+	mPlayer->playerInstance->EnoughDataCb(static_cast<int>(eMEDIATYPE_VIDEO));
+
+	mPlayer->privateContext = savedCtx;
 	DestroyPlayer();
 }
 

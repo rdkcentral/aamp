@@ -71,6 +71,11 @@ struct AAMPGstPlayerPriv
  */
 static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 {
+	if (_this->aamp == nullptr || _this->aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("aamp or mConfig is null in InitializePlayerConfigs; skipping config push to pipeline");
+		return;
+	}
 	auto interfacePlayer = static_cast<InterfacePlayerRDK*>(playerInstance);
 	auto& config = _this->aamp->mConfig;
 //	assert( config );
