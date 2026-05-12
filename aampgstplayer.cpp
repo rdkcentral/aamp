@@ -236,6 +236,11 @@ static void RegisterBusCb(AAMPGstPlayer *_this, void *playerInstance)
  */
 static void NeedData(int mediaType, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr || _this->privateContext == nullptr)
+	{
+		AAMPLOG_WARN("aamp or privateContext is null in NeedData");
+		return;
+	}
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	AampMediaType media = static_cast<AampMediaType>(mediaType);
 	_this->privateContext->mBufferControl[media].needData(_this, media);
@@ -249,6 +254,11 @@ static void NeedData(int mediaType, AAMPGstPlayer * _this)
  */
 static void EnoughData(int mediaType, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr || _this->privateContext == nullptr)
+	{
+		AAMPLOG_WARN("aamp or privateContext is null in EnoughData");
+		return;
+	}
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	AampMediaType media = static_cast<AampMediaType>(mediaType);
 	_this->privateContext->mBufferControl[media].enoughData(_this, media);
@@ -414,7 +424,14 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		}
 		InitializePlayerConfigs(this,playerInstance);
 		playerInstance->SetPlayerName(PLAYER_NAME);
-		playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDrmSessionManager);
+		if (aamp != nullptr && aamp->mDRMLicenseManager != nullptr)
+		{
+			playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDrmSessionManager);
+		}
+		else
+		{
+			AAMPLOG_WARN("aamp or mDRMLicenseManager is null; skipping initial setEncryption");
+		}
 
 		RegisterFirstFrameCallbacks();
 		mMonitorAVInterval = GETCONFIGVALUE(eAAMPConfig_MonitorAVReportingInterval);
@@ -485,6 +502,11 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
  */
 static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr)
+	{
+		AAMPLOG_WARN("aamp is null in HandleOnGstDecodeErrorCb");
+		return;
+	}
 	_this->aamp->SendAnomalyEvent(ANOMALY_WARNING, "Decode Error Message Callback=%d time=%d",decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
 	AAMPLOG_ERR("## APP[%s] Got Decode Error message",_this->aamp->GetAppName().c_str());
 }
@@ -498,6 +520,11 @@ static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _th
  */
 static void HandleOnGstPtsErrorCb(bool isVideo, bool isAudioSink, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr)
+	{
+		AAMPLOG_WARN("aamp is null in HandleOnGstPtsErrorCb");
+		return;
+	}
 	AAMPLOG_ERR("## APP[%s] Got PTS error message", _this->aamp->GetAppName().c_str());
 	if(isVideo)
 	{
@@ -517,6 +544,16 @@ static void HandleOnGstPtsErrorCb(bool isVideo, bool isAudioSink, AAMPGstPlayer 
  */
 static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this)
 {
+	if (_this->privateContext == nullptr)
+	{
+		AAMPLOG_WARN("privateContext is null in HandleOnGstBufferUnderflowCb");
+		return;
+	}
+	if (_this->aamp == nullptr || _this->aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("aamp or mConfig is null in HandleOnGstBufferUnderflowCb");
+		return;
+	}
 	AampMediaType type = static_cast<AampMediaType>(mediaType);
 
 	bool isBufferFull = _this->privateContext->mBufferControl[type].isBufferFull(type);
@@ -552,6 +589,11 @@ static void HandleRedButtonCallback(const char *data, AAMPGstPlayer * _this)
  */
 static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr)
+	{
+		AAMPLOG_WARN("aamp is null in HandleBusMessage");
+		return;
+	}
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	switch(busEvent.msgType)
 	{
@@ -899,8 +941,23 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
 	mEncryptedAamp = aamp;
 	mEncryptedAampId = (aamp ? aamp->mPlayerId : -1); // store the id of the last encrypted player to be set
- 	void*	mDRMSessionManager = aamp->mDRMLicenseManager->mDrmSessionManager;
-	playerInstance->setEncryption((void*)mEncryptedAamp,(void*)mDRMSessionManager);
+	if (aamp == nullptr)
+	{
+		AAMPLOG_WARN("aamp is null; skipping DRM session manager lookup and encryption setup");
+		return;
+	}
+	if (aamp->mDRMLicenseManager == nullptr)
+	{
+		AAMPLOG_WARN("mDRMLicenseManager is null; skipping encryption setup");
+		return;
+	}
+	if (playerInstance == nullptr)
+	{
+		AAMPLOG_WARN("playerInstance is null; skipping setEncryption call");
+		return;
+	}
+	void* mDRMSessionManager = aamp->mDRMLicenseManager->mDrmSessionManager;
+	playerInstance->setEncryption((void*)mEncryptedAamp, (void*)mDRMSessionManager);
 }
 
 /**
@@ -933,6 +990,12 @@ const int AAMPGstPlayer::GetEncryptedAampId(void) const
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	aamp = newAamp;
+	if (aamp == nullptr)
+	{
+		AAMPLOG_WARN("newAamp is null in ChangeAamp");
+		m_ID3MetadataHandler = std::move(id3HandlerCallback);
+		return;
+	}
 	if(aamp->DownloadsAreEnabled())
 	{
 		playerInstance->ResumeInjector();
@@ -1349,6 +1412,11 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
  */
 void AAMPGstPlayer::StartMonitorAvTimer()
 {
+	if (aamp == nullptr || aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("aamp or mConfig is null in StartMonitorAvTimer");
+		return;
+	}
 	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) && monitorAvTimerId == 0)
 	{
 		// mMonitorAVInterval is in milliseconds
