@@ -358,6 +358,38 @@ TEST_F(AbrTests, CheckRampupFromSteadyState_ValidBandwidth_RampsUp)
 }
 
 /**
+ * @brief CheckRampupFromSteadyState allows rampup when newBandwidth is below
+ *        nwBandwidth (negative threshold) but within 30%.
+ */
+TEST_F(AbrTests, CheckRampupFromSteadyState_NegativeThreshold_RampsUp)
+{
+	eAAMPAbrConfig.abrBufferCounter = 2;
+
+	ABRManager abrManager;
+	abrManager.ReadPlayerConfig(&eAAMPAbrConfig);
+	AddTestProfiles(abrManager);
+
+	int currProfileIndex = 0;
+	int newProfileIndex = currProfileIndex;
+	BitsPerSecond nwBandwidth = 2200000;
+	double bufferValue = 20.0;
+	// newBandwidth matches target profile index 1 (2 Mbps); nwBandwidth is
+	// higher so threshold = (2M - 2.2M) / 2.2M ≈ -9%, which is negative
+	// but within the <=30% allowed range → rampup should proceed.
+	BitsPerSecond newBandwidth = 2000000;
+	ABRManager::BitrateChangeReason reason = ABRManager::eAAMP_BITRATE_CHANGE_BY_ABR;
+	int maxBufferCountCheck = 1;
+
+	abrManager.CheckRampupFromSteadyState(
+		currProfileIndex, newProfileIndex, nwBandwidth, bufferValue,
+		newBandwidth, reason, maxBufferCountCheck);
+
+	// Should ramp up to the next profile (index 1)
+	EXPECT_EQ(newProfileIndex, 1);
+	EXPECT_EQ(reason, ABRManager::eAAMP_BITRATE_CHANGE_BY_BUFFER_FULL);
+}
+
+/**
  * @brief updateProfile correctly selects the desired iframe profile
  *        from a set of mixed video + iframe profiles.
  */
