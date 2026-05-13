@@ -1397,8 +1397,10 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  */
 bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
 {
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 	AAMPLOG_INFO("[MemTrace][%s] GstSendSample sampleSize: %zu, pts: %f, dts: %f, duration: %f",
 		GetMediaTypeName(mediaType), sample.mDataSize, sample.mPts, sample.mDts, sample.mDuration);
+#endif
 
 	// Bridge AampMediaSample to MediaSample. The single cast to the mutable gpointer type
 	// required by GStreamer's C API is pushed to the C-API boundary inside

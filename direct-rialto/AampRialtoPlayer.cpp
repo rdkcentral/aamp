@@ -399,6 +399,7 @@ bool AampRialtoPlayer::SendTransfer(
 		auto samples = demuxer->GetSamples();
 		if (!samples.empty())
 		{
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 			// Compute total sample bytes before samples are std::move'd
 			// (used by the [MemTrace] RialtoQueued log line below).
 			size_t totalSampleBytes = 0;
@@ -406,6 +407,7 @@ bool AampRialtoPlayer::SendTransfer(
 			{
 				totalSampleBytes += s.mDataSize;
 			}
+#endif
 
 			SourceState *st     = nullptr;
 			bool         isVideo = false;
@@ -437,6 +439,7 @@ bool AampRialtoPlayer::SendTransfer(
 					break;
 			}
 
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 			const char *typeName = (mediaType == eMEDIATYPE_VIDEO) ? "video" :
 				(mediaType == eMEDIATYPE_AUDIO) ? "audio" : "other";
 			AAMPLOG_INFO("[MemTrace][%s] RialtoQueued sampleCount=%zu totalBytes=%zu segDuration=%f",
@@ -444,6 +447,7 @@ bool AampRialtoPlayer::SendTransfer(
 
 			size_t injectedCount = 0;
 			size_t injectedBytes = 0;
+#endif
 			if (st != nullptr && sourceId >= 0)
 			{
 				// Capture generation at the start of this batch so Flush()
@@ -464,7 +468,9 @@ bool AampRialtoPlayer::SendTransfer(
 					}
 					firstSample = false;
 
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 					const size_t sampleBytes = s.mDataSize;
+#endif
 					if (!InjectOneSample(
 							sourceId, *st, capturedGen,
 							std::move(s), isVideo,
@@ -476,12 +482,16 @@ bool AampRialtoPlayer::SendTransfer(
 							static_cast<int>(mediaType));
 						break;
 					}
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 					++injectedCount;
 					injectedBytes += sampleBytes;
+#endif
 				}
 			}
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 			AAMPLOG_INFO("[MemTrace][%s] RialtoInjected count=%zu totalBytes=%zu",
 				typeName, injectedCount, injectedBytes);
+#endif
 			AAMPLOG_INFO("Processed %zu samples for mediaType=%d", samples.size(),
 				static_cast<int>(mediaType));
 		}

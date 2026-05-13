@@ -3087,10 +3087,12 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 
 		auto* lifetimeRef = new std::shared_ptr<const uint8_t>(std::move(sample.mData));
 
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 		// Capture mediaType and size for the destroy-notify so we can log
 		// when GStreamer (or the downstream Rialto MSE sink) frees the buffer.
 		struct GstBufCtx { int type; size_t size; };
 		auto *ctx = new GstBufCtx{type, static_cast<size_t>(dataSize)};
+#endif
 
 		buffer = gst_buffer_new_wrapped_full(
 			GST_MEMORY_FLAG_READONLY,
@@ -3102,6 +3104,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 			}
 		);
 
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 		if (buffer)
 		{
 			// Attach a mini-object weak-ref so we get a log line when GStreamer
@@ -3119,6 +3122,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		{
 			delete ctx;
 		}
+#endif
 
 		if (buffer)
 		{
@@ -3135,8 +3139,10 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 				GST_BUFFER_OFFSET(buffer) = pts_offset;
 			}
 
+#if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 			MW_LOG_INFO("[MemTrace] GstBufferPushed mediaType=%d size=%zu pts=%" G_GUINT64_FORMAT " dts=%" G_GUINT64_FORMAT " dur=%" G_GUINT64_FORMAT,
 						mediaType, static_cast<size_t>(dataSize), pts, dts, duration);
+#endif
 			MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT " len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT " ptsOffset:%" G_GINT64_FORMAT,
 						mediaType, pts, dts, static_cast<size_t>(dataSize), initFragment, discontinuity, duration, pts_offset);
 		}
