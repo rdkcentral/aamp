@@ -6514,11 +6514,32 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	/** Disable iframe extraction by default*/
 	SetIsIframeExtractionEnabled(false);
 	TuneType tuneType =  eTUNETYPE_NEW_NORMAL;
+	std::string manifestUrlBuf; // used if recordedUrl splice is needed
 	const char *remapUrl = mConfig->GetChannelOverride(mainManifestUrl);
 	if (remapUrl )
 	{
 		const char *remapLicenseUrl = NULL;
-		mainManifestUrl = remapUrl;
+		const char *recordedUrlPos = strstr(mainManifestUrl, "recordedUrl=");
+		if (recordedUrlPos != nullptr)
+		{
+			// Original URL is a FOG URL; replace only the recordedUrl value,
+			// preserving the rest of the FOG query parameters.
+			const char *valueStart = recordedUrlPos + strlen("recordedUrl=");
+			const char *valueEnd = strchr(valueStart, '&');
+			manifestUrlBuf.assign(mainManifestUrl,
+				static_cast<std::size_t>(valueStart - mainManifestUrl));
+			manifestUrlBuf += remapUrl;
+			if (valueEnd != nullptr)
+			{
+				manifestUrlBuf += valueEnd;
+			}
+			mainManifestUrl = manifestUrlBuf.c_str();
+			AAMPLOG_INFO("Channel Override (recordedUrl): [%s]", mainManifestUrl);
+		}
+		else
+		{
+			mainManifestUrl = remapUrl;
+		}
 		remapLicenseUrl = mConfig->GetChannelLicenseOverride(mainManifestUrl);
 		if (remapLicenseUrl )
 		{
