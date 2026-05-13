@@ -25,13 +25,13 @@
 
 #include "AampRialtoPlayer.h"
 #include "AampRialtoMediaPipelineClient.h"
-#include "AampRialtoControlBackend.h"
 #include "AampDrmBridge.h"
 #include "AampLogManager.h"
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
 #include "mp4demux/MP4Demux.h"
 #include "IControl.h"
+#include "AampRialtoControlBackend.h"
 #include <chrono>
 #include <cinttypes>
 #include <algorithm>
@@ -78,12 +78,16 @@ void AampRialtoPlayer::RialtoLogHandler::log(
 
 namespace {
 	constexpr int64_t kNsPerSecond = 1'000'000'000LL;
-	/// Upper bound for the defensive wait on Rialto's application state
-	/// transitioning to RUNNING.  In practice the transition completes in
-	/// a few milliseconds; the timeout exists only to avoid a permanent hang
-	/// if the Rialto server never reports RUNNING.
+	/// Upper bound for the wait on Rialto's application state transitioning
+	/// to RUNNING.  In practice the transition completes in a few milliseconds;
+	/// the timeout exists only to avoid a permanent hang if the Rialto server
+	/// never reports RUNNING.
 	constexpr int kRialtoRunningTimeoutMs = 2000;
 }
+
+// ---------------------------------------------------------------------------
+// Construction / destruction
+// ---------------------------------------------------------------------------
 
 AampRialtoPlayer::AampRialtoPlayer(
 	PrivateInstanceAAMP *aamp,
@@ -1233,6 +1237,11 @@ void AampRialtoPlayer::NotifyInjectorToResume()
 void AampRialtoPlayer::NotifyInjectorToPause()
 {
 	AAMPLOG_INFO("ENTRY");
+	// Wake any in-flight SendTransfer so it abandons the current batch.
+	// This is called during TeardownStream before StopInjectLoop() joins
+	// the injection threads.  Without this generation bump the injection
+	// thread may remain blocked in InjectOneSample::cv.wait() and the
+	// join would deadlock.
 	for (SourceState *st : {&m_videoSrc, &m_audioSrc})
 	{
 		std::lock_guard<std::mutex> lock(st->mu);
@@ -1420,7 +1429,7 @@ bool AampRialtoPlayer::InjectOneSample(
 
 			segment->setData(
 				static_cast<uint32_t>(sample.mDataSize),
-				reinterpret_cast<const uint8_t *>(sample.mData.get()));
+				sample.mData.get());
 
 			auto addStatus = m_pipeline->addSegment(reqId, segment);
 			if (addStatus == firebolt::rialto::AddSegmentStatus::NO_SPACE)

@@ -68,10 +68,6 @@ void SocInterface::SetAC4Tracks(GstElement *src, int trackId)
 			MW_LOG_ERR("No valid src to set ac4-presentation-group-index");
 		}
 }
-void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
-{
-	SocInterface::SetAC4Tracks(src, trackId);
-}
 bool DefaultSocInterface::IsVideoSink(const char* name)
 {
 	return name && (
