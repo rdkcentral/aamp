@@ -442,7 +442,7 @@ bool AampRialtoPlayer::SendTransfer(
 #if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
 			const char *typeName = (mediaType == eMEDIATYPE_VIDEO) ? "video" :
 				(mediaType == eMEDIATYPE_AUDIO) ? "audio" : "other";
-			AAMPLOG_INFO("[MemTrace][%s] RialtoQueued sampleCount=%zu totalBytes=%zu segDuration=%f",
+			AAMPLOG_MIL("[MemTrace][%s] RialtoQueued sampleCount=%zu totalBytes=%zu segDuration=%f",
 				typeName, samples.size(), totalSampleBytes, fDuration);
 
 			size_t injectedCount = 0;
@@ -489,7 +489,7 @@ bool AampRialtoPlayer::SendTransfer(
 				}
 			}
 #if defined(AAMP_DIRECTRIALTO_MEM_USAGE)
-			AAMPLOG_INFO("[MemTrace][%s] RialtoInjected count=%zu totalBytes=%zu",
+			AAMPLOG_MIL("[MemTrace][%s] RialtoInjected count=%zu totalBytes=%zu",
 				typeName, injectedCount, injectedBytes);
 #endif
 			AAMPLOG_INFO("Processed %zu samples for mediaType=%d", samples.size(),
