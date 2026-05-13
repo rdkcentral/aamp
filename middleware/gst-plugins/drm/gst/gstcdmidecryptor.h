@@ -83,6 +83,31 @@ struct _GstCDMIDecryptorClass
  */
 GType gst_cdmidecryptor_get_type (void);
 
+/**
+ * @brief Build a dynamic GstCaps string for the src pad template of a decryptor,
+ *        appending the platform-specific secure memory feature (if any) to video types.
+ *
+ * The returned string is allocated with g_strdup_printf and must be freed with g_free().
+ * Typically called from a subclass class_init to construct a dynamic pad template.
+ *
+ * @param platformMemFeature  Platform memory feature string (e.g. "memory:MediaTekSecure"),
+ *                            or NULL / empty string if no secure memory feature exists.
+ * @retval Newly allocated caps string suitable for gst_caps_from_string().
+ */
+gchar *gst_cdmidecryptor_build_src_caps_string(const gchar *platformMemFeature);
+
+/**
+ * @brief Return the platform-specific secure memory feature string discovered at runtime.
+ *
+ * The string is owned by the cdmidecryptor module — callers must NOT free it.
+ * Returns NULL if discovery has not yet run, or an empty string "" if there is
+ * no platform-specific memory feature on this device.
+ *
+ * @retval Platform memory feature (e.g. "memory:MediaTekSecure") or "" or NULL.
+ */
+const gchar *gst_cdmidecryptor_get_platform_memory_feature(void);
+
+
 G_END_DECLS
 
 #endif

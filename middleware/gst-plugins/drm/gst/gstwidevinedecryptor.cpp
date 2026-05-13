@@ -75,9 +75,19 @@ static void gst_widevinedecryptor_class_init(GstwidevinedecryptorClass * klass)
 
 	gobject_class->finalize = gst_widevinedecryptor_finalize;
 
-	/* Setting up pads and setting metadata should be moved to
-	 base_class_init if you intend to subclass this class. */
-	gst_element_class_add_static_pad_template(elementClass, &gst_widevinedecryptor_src_template);
+       /* Build the src pad template dynamically so the correct platform memory
+        * feature (e.g. "memory:MediaTekSecure" on MTK, "memory:SecMem" on
+        * Amlogic) is included without any compile-time hardcoding. */
+       const gchar *platformMemFeature = gst_cdmidecryptor_get_platform_memory_feature();
+       gchar *srcCapsStr = gst_cdmidecryptor_build_src_caps_string(platformMemFeature);
+       GstCaps *srcCaps = gst_caps_from_string(srcCapsStr);
+       g_free(srcCapsStr);
+
+       GstPadTemplate *srcTemplate = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, srcCaps);
+       gst_caps_unref(srcCaps);
+       gst_element_class_add_pad_template(elementClass, srcTemplate);
+
+
 	gst_element_class_add_static_pad_template(elementClass, &gst_widevinedecryptor_sink_template);
 
 	gst_element_class_set_static_metadata(elementClass,

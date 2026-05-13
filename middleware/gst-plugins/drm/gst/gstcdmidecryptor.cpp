@@ -125,7 +125,184 @@ static unsigned char* ReplaceKIDPsshData(const unsigned char *InputData, const s
 	return NULL;
 }
 
-static const gchar *srcMimeTypes[] = { "video/x-h264", "video/x-h264(memory:SecMem)", "audio/mpeg", "video/x-h265", "video/x-h265(memory:SecMem)", "audio/x-eac3", "audio/x-gst-fourcc-ec_3", "audio/x-ac3","audio/x-opus", nullptr };
+
+/* Base video/audio media types supported by all platforms */
+static const gchar *baseMimeTypes[] = {
+    "video/x-h264", "video/x-h265",
+    "audio/mpeg", "audio/x-eac3", "audio/x-gst-fourcc-ec_3", "audio/x-ac3", "audio/x-opus",
+    nullptr
+};
+
+/*
+ * Platform-aware OCDM caps transform function, resolved via dlsym at class_init.
+ * Each platform's OCDM implementation adds its secure-memory feature to the caps
+ * (e.g. "(memory:MediaTekSecure)" for MTK, "(memory:SecMem)" for Amlogic).
+ */
+static OpenCDMError(*OCDMGstTransformCaps)(GstCaps **) = nullptr;
+
+/*
+ * srcMimeTypes is built dynamically at init time to include platform-specific
+ * secure memory feature variants (e.g. "(memory:MediaTekSecure)", "(memory:SecMem)").
+ * This avoids hardcoding platform-specific memory feature strings here.
+ * Access only after gst_cdmidecryptor_init_src_mime_types() has been called.
+ */
+static GPtrArray *srcMimeTypesArray = nullptr;
+static const gchar **srcMimeTypes = nullptr;
+
+/*
+ * Platform secure memory feature string discovered at runtime by probing
+ * OCDMGstTransformCaps with a dummy caps. Empty string if not applicable.
+ * e.g. "memory:MediaTekSecure", "memory:SecMem"
+ */
+static gchar *platformSecureMemFeature = nullptr;
+
+/**
+ * Discover the platform-specific GStreamer memory feature string by probing
+ * OCDMGstTransformCaps with a dummy video/x-h264 caps.
+ * Sets platformSecureMemFeature if a non-ANY caps feature is found.
+ * Must be called after OCDMGstTransformCaps is resolved via dlsym.
+ */
+static void gst_cdmidecryptor_discover_platform_memory_feature(void)
+{
+    if (platformSecureMemFeature != nullptr)
+        return; /* already discovered */
+
+    if (!OCDMGstTransformCaps)
+    {
+        GST_INFO("OCDMGstTransformCaps not available; no platform memory feature to discover");
+        platformSecureMemFeature = g_strdup(""); /* mark as done, no feature */
+        return;
+    }
+
+    GstCaps *probeCaps = gst_caps_from_string("video/x-h264");
+    if (!probeCaps)
+    {
+        GST_WARNING("Failed to create probe caps for memory feature discovery");
+        platformSecureMemFeature = g_strdup("");
+        return;
+    }
+
+    OpenCDMError ret = OCDMGstTransformCaps(&probeCaps);
+    if (ret == ERROR_NONE && probeCaps && gst_caps_get_size(probeCaps) > 0)
+    {
+        /*
+         * Extract the memory feature by converting caps to string and parsing it.
+         * e.g. "video/x-h264(memory:MediaTekSecure)" → extract "memory:MediaTekSecure"
+         * This avoids gst_caps_features_nth / gst_caps_features_nth_name which are
+         * unavailable in older GStreamer versions.
+         */
+        gchar *capsStr = gst_caps_to_string(probeCaps);
+        if (capsStr)
+        {
+            /* Look for opening parenthesis of a caps feature */
+            const gchar *open = g_strstr_len(capsStr, -1, "(");
+            const gchar *close = open ? g_strstr_len(open, -1, ")") : NULL;
+            if (open && close && close > open + 1)
+            {
+                gchar *feature = g_strndup(open + 1, close - open - 1);
+                /* Ignore the standard system memory feature */
+                if (g_strcmp0(feature, GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY) != 0)
+                {
+                    platformSecureMemFeature = feature;
+                    g_print("gst_cdmidecryptor: discovered platform secure memory feature: '%s'\n",
+                            platformSecureMemFeature);
+                }
+                else
+                {
+                    g_free(feature);
+                }
+            }
+            g_free(capsStr);
+        }
+    }
+
+    gst_caps_unref(probeCaps);
+
+    if (!platformSecureMemFeature)
+    {
+        platformSecureMemFeature = g_strdup(""); /* no special memory feature on this platform */
+        GST_INFO("gst_cdmidecryptor: no platform-specific memory feature detected");
+    }
+
+}
+
+/**
+ * Build the srcMimeTypes array dynamically based on baseMimeTypes and
+ * the discovered platform memory feature. Only video types get the secure
+ * memory feature variant (audio does not use secure memory).
+ */
+static void gst_cdmidecryptor_init_src_mime_types(void)
+{
+    if (srcMimeTypesArray != nullptr)
+        return; /* already initialised */
+
+    srcMimeTypesArray = g_ptr_array_new_with_free_func(g_free);
+
+    for (int i = 0; baseMimeTypes[i]; i++)
+    {
+        /* Always add the plain (non-secure) variant */
+        g_ptr_array_add(srcMimeTypesArray, g_strdup(baseMimeTypes[i]));
+
+        /* For video types, also add the platform-specific secure memory variant */
+        if (platformSecureMemFeature && platformSecureMemFeature[0] != '\0' &&
+            g_str_has_prefix(baseMimeTypes[i], "video/"))
+        {
+            gchar *secureType = g_strdup_printf("%s(%s)", baseMimeTypes[i], platformSecureMemFeature);
+            g_ptr_array_add(srcMimeTypesArray, secureType);
+        }
+    }
+
+    /* null-terminate so it can be used as a C-style const gchar* array */
+    g_ptr_array_add(srcMimeTypesArray, nullptr);
+    srcMimeTypes = (const gchar **)srcMimeTypesArray->pdata;
+    GST_INFO("gst_cdmidecryptor: srcMimeTypes built with %u entries (platform feature: '%s')",
+             srcMimeTypesArray->len - 1,
+             platformSecureMemFeature ? platformSecureMemFeature : "(none)");
+}
+
+/**
+ * Public API: return the discovered platform memory feature string.
+ * Callers must NOT free the returned pointer.
+ */
+const gchar *gst_cdmidecryptor_get_platform_memory_feature(void)
+{
+    return platformSecureMemFeature;
+}
+
+/**
+ * Public API: build a dynamic caps string for the src pad of a decryptor element.
+ *
+ * Produces plain variants for all base media types plus one
+ * "(memory:<feature>)" variant for each video type when platformMemFeature is set.
+ *
+ * Example output (MTK):
+ *   "video/x-h264; video/x-h264(memory:MediaTekSecure); audio/mpeg; ..."
+ *
+ * The caller is responsible for freeing the returned string with g_free().
+ */
+gchar *gst_cdmidecryptor_build_src_caps_string(const gchar *platformMemFeature)
+{
+    GString *capsStr = g_string_new(nullptr);
+    gboolean first = TRUE;
+
+    for (int i = 0; baseMimeTypes[i]; i++)
+    {
+        if (!first)
+            g_string_append(capsStr, "; ");
+        g_string_append(capsStr, baseMimeTypes[i]);
+        first = FALSE;
+
+        /* Add secure-memory variant for video types */
+        if (platformMemFeature && platformMemFeature[0] != '\0' &&
+            g_str_has_prefix(baseMimeTypes[i], "video/"))
+        {
+            g_string_append_printf(capsStr, "; %s(%s)", baseMimeTypes[i], platformMemFeature);
+        }
+    }
+
+    return g_string_free(capsStr, FALSE); /* transfer: full */
+}
+
 
 /* class initialization */
 G_DEFINE_TYPE_WITH_CODE (GstCDMIDecryptor, gst_cdmidecryptor, GST_TYPE_BASE_TRANSFORM,
@@ -158,7 +335,6 @@ static void gst_cdmidecryptor_set_property(GObject * object,
 		guint prop_id, const GValue * value, GParamSpec * pspec);
 static gboolean gst_cdmidecryptor_accept_caps(GstBaseTransform * trans,
 		GstPadDirection direction, GstCaps * caps);
-static OpenCDMError(*OCDMGstTransformCaps)(GstCaps **);
 
 static void gst_cdmidecryptor_class_init(
 		GstCDMIDecryptorClass *klass)
@@ -168,6 +344,26 @@ static void gst_cdmidecryptor_class_init(
 	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 	GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
+
+       /*
+        * Resolve OCDMGstTransformCaps and discover the platform memory feature
+        * here in class_init (runs once, before any subclass class_init or
+        * instance init) so that gst_cdmidecryptor_get_platform_memory_feature()
+        * and gst_cdmidecryptor_build_src_caps_string() are ready for use by
+        * subclass class_init implementations (widevine, playready, etc.).
+        */
+       if (!OCDMGstTransformCaps)
+       {
+               const char* ocdmgsttransformcaps = "opencdm_gstreamer_transform_caps";
+               OCDMGstTransformCaps = (OpenCDMError(*)(GstCaps**))dlsym(RTLD_DEFAULT, ocdmgsttransformcaps);
+               if (OCDMGstTransformCaps)
+                       GST_INFO("gst_cdmidecryptor_class_init: opencdm_gstreamer_transform_caps resolved");
+               else
+                       GST_INFO("gst_cdmidecryptor_class_init: opencdm_gstreamer_transform_caps not found");
+       }
+       gst_cdmidecryptor_discover_platform_memory_feature();
+       gst_cdmidecryptor_init_src_mime_types();
+
 
 	gobject_class->set_property = gst_cdmidecryptor_set_property;
 	gobject_class->dispose = gst_cdmidecryptor_dispose;
@@ -209,7 +405,6 @@ static void gst_cdmidecryptor_init(
 		GstCDMIDecryptor *cdmidecryptor)
 {
 	DEBUG_FUNC();
-	const char* ocdmgsttransformcaps = "opencdm_gstreamer_transform_caps";
 	GstBaseTransform* base = GST_BASE_TRANSFORM(cdmidecryptor);
 
 	gst_base_transform_set_in_place(base, TRUE);
@@ -239,12 +434,13 @@ static void gst_cdmidecryptor_init(
 	cdmidecryptor->sinkCaps = NULL;
 	cdmidecryptor->svpCtx = NULL;
 
-	OCDMGstTransformCaps = (OpenCDMError(*)(GstCaps**))dlsym(RTLD_DEFAULT, ocdmgsttransformcaps);
-	if (OCDMGstTransformCaps)
-	GST_INFO_OBJECT(cdmidecryptor, "Has opencdm_gstreamer_transform_caps support \n");
-	else
-	GST_INFO_OBJECT(cdmidecryptor, "No opencdm_gstreamer_transform_caps support \n");
-	//GST_DEBUG_OBJECT(cdmidecryptor, "******************Init called**********************\n");
+       /* OCDMGstTransformCaps, platform memory feature, and srcMimeTypes are
+        * all resolved once in gst_cdmidecryptor_class_init(). Nothing to do here. */
+       GST_INFO_OBJECT(cdmidecryptor, "cdmidecryptor init: platform memory feature = '%s'",
+                       platformSecureMemFeature ? platformSecureMemFeature : "(not yet discovered)");
+       //GST_DEBUG_OBJECT(cdmidecryptor, "******************Init called**********************\n");;
+
+
 }
 
 void gst_cdmidecryptor_dispose(GObject * object)
@@ -437,8 +633,25 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 
 		if (socInterface && socInterface->IsTransformCapsRequired())
 		{
-			if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
-				OCDMGstTransformCaps(&transformedCaps);
+       if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps))
+       {
+               gchar *caps_before = gst_caps_to_string(transformedCaps);
+               g_print("muthumani: OCDMGstTransformCaps - caps BEFORE transform: %s\n", caps_before);
+               g_free(caps_before);
+
+               if (OCDMGstTransformCaps)
+               {
+                       OpenCDMError ret = OCDMGstTransformCaps(&transformedCaps);
+                       gchar *caps_after = gst_caps_to_string(transformedCaps);
+                       g_print("muthumani: OCDMGstTransformCaps - called, ret=%d, caps AFTER transform: %s\n", ret, caps_after);
+                       g_free(caps_after);
+               }
+               else
+               {
+                       g_print("muthumani: OCDMGstTransformCaps is NULL - skipping caps transform\n");
+               }
+       }
+
 		}
 
 	}

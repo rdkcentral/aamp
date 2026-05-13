@@ -46,10 +46,15 @@ GST_DEBUG_CATEGORY(gst_playreadydecryptor_debug_category);
 
 /* pad templates */
 
-static GstStaticPadTemplate gst_playreadydecryptor_src_template =
-        GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-h264;video/x-h264(memory:SecMem);audio/mpeg;video/x-h265;video/x-h265(memory:SecMem);audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3;audio/x-ac4"));
- 
+
+/*
+ * The src pad template caps are built dynamically at class_init time using
+ * gst_cdmidecryptor_build_src_caps_string() so that platform-specific secure
+ * memory features (e.g. "memory:MediaTekSecure") are included without
+ * hardcoding them here.  No GST_STATIC_PAD_TEMPLATE / GST_STATIC_CAPS needed
+ * for the src pad.
+ */
+
 static GstStaticPadTemplate gst_playreadydecryptor_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
                 GST_STATIC_CAPS(
@@ -79,9 +84,19 @@ static void gst_playreadydecryptor_class_init(
 
 	gobject_class->finalize = gst_playreadydecryptor_finalize;
 
-	/* Setting up pads and setting metadata should be moved to
-	   base_class_init if you intend to subclass this class. */
-	gst_element_class_add_static_pad_template(elementClass, &gst_playreadydecryptor_src_template);
+
+       /* Build the src pad template dynamically so the correct platform memory
+        * feature (e.g. "memory:MediaTekSecure" on MTK, "memory:SecMem" on
+        * Amlogic) is included without any compile-time hardcoding. */
+       const gchar *platformMemFeature = gst_cdmidecryptor_get_platform_memory_feature();
+       gchar *srcCapsStr = gst_cdmidecryptor_build_src_caps_string(platformMemFeature);
+       GstCaps *srcCaps = gst_caps_from_string(srcCapsStr);
+       g_free(srcCapsStr);
+
+       GstPadTemplate *srcTemplate = gst_pad_template_new("src", GST_PAD_SRC, GST_PAD_ALWAYS, srcCaps);
+       gst_caps_unref(srcCaps);
+       gst_element_class_add_pad_template(elementClass, srcTemplate);
+
 	gst_element_class_add_static_pad_template(elementClass, &gst_playreadydecryptor_sink_template);
 
 	gst_element_class_set_static_metadata(elementClass,
