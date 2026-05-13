@@ -64,8 +64,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 
 	fragmentDurationSeconds = fragmentDurationS;
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
-	mStagingFragment.Clear();
-	CachedFragment *cachedFragment = &mStagingFragment;
+	CachedFragment *cachedFragment = GetFetchBuffer(true);
 	BitsPerSecond bitrate = 0;
 	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
@@ -661,30 +660,6 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 }
 
 /**
- * @fn CacheStagingFragmentForInjection
- * @brief Copy the staging fragment into a chunk-cache slot and signal the
- *        inject thread (non-LLD DASH path only).
- *
- *  Pre-populates profileIndex and cacheFragStreamInfo on the slot before
- *  handing it to the inject thread.  UpdateTSAfterFetchStats runs after this
- *  call on the separate mStagingFragment object, so without this population
- *  the chunk slot would carry zeroed cacheFragStreamInfo, causing
- *  NotifyBitRateUpdate to skip AAMP_EVENT_BITRATE_CHANGED.
- */
-void MediaStreamContext::CacheStagingFragmentForInjection()
-{
-	std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
-	fragmentToCache->Copy(mStagingFragment);
-	if (auto* pContext = GetContext())
-	{
-		fragmentToCache->profileIndex = pContext->profileIdxForBandwidthNotification;
-		pContext->UpdateStreamInfoBitrateData(fragmentToCache->profileIndex,
-											 fragmentToCache->cacheFragStreamInfo);
-	}
-	CacheTsbFragment(std::move(fragmentToCache));
-}
-
-/**
  * @fn OnFragmentDownloadSuccess
  * @brief Function called on fragment download success
  * @param[in] downloadInfo - download information
@@ -697,8 +672,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		return;
 	}
 
-	// Get staging fragment populated by CacheFragment
-	CachedFragment *cachedFragment = &mStagingFragment;
+	// Get active buffer
+	CachedFragment *cachedFragment = GetFetchBuffer(false);
 	mActiveDownloadInfo = nullptr;
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
@@ -833,38 +808,28 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	}
 	else
 	{
-		// Both SLD and LLD consume the time-based buffer counter.
-		// SLD also caches the fragment for the inject thread first (see below).
-		auto consumeBuffer = [this]()
-		{
-			auto timeBasedBufferManager = GetTimeBasedBufferManager();
-			if (timeBasedBufferManager)
-			{
-				timeBasedBufferManager->ConsumeBuffer(mStagingFragment.duration);
-			}
-		};
+		// Update buffer index after fetch for injection
+		UpdateTSAfterFetch(dlInfo->isInitSegment);
 
-		if (!aamp->GetLLDashChunkMode())
+		// With AAMP TSB enabled, the chunk cache is used for any content type (SLD or LLD)
+		// When playing live SLD content, the fragment is written to the regular cache and to the chunk cache
+		if(tsbSessionManager && !IsLocalTSBInjection() && !aamp->GetLLDashChunkMode())
 		{
-			// Non-LLD DASH (SLD, AAMP TSB write-phase): signal the inject thread
-			// before UpdateTSAfterFetchStats fires NotifyFragmentCachingComplete.
-			CacheStagingFragmentForInjection();
-			if (aamp->IsLocalAAMPTsb())
+			std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
+			fragmentToCache->Copy(*cachedFragment);
+			CacheTsbFragment(std::move(fragmentToCache));
+		}
+
+		// If injection is from chunk buffer, remove the fragment for injection
+		if(IsInjectionFromCachedFragmentChunks())
+		{
+			UpdateTSAfterInject();
+			auto timeBasedBufferManager = GetTimeBasedBufferManager();
+			if(timeBasedBufferManager)
 			{
-				consumeBuffer();
+				timeBasedBufferManager->ConsumeBuffer(cachedFragment->duration);
 			}
 		}
-		else
-		{
-			// LLD DASH: media data already injected via CacheFragmentChunk callbacks.
-			// Only the buffer counter needs consuming; staging data is discarded.
-			consumeBuffer();
-		}
-		// Update fetch statistics after the inject thread has been signalled,
-		// so that any NotifyFragmentCachingComplete fired here arrives after
-		// the inject thread already has data to forward to GStreamer.
-		UpdateTSAfterFetchStats(&mStagingFragment, dlInfo->isInitSegment);
-		mStagingFragment.Clear();
 	}
 
 	if (aamp->IsLive())
@@ -896,8 +861,8 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 		return;
 	}
 
-	// Get staging fragment populated by CacheFragment
-	CachedFragment *cachedFragment = &mStagingFragment;
+	// Get active buffer
+	CachedFragment *cachedFragment = GetFetchBuffer(false);
 	mActiveDownloadInfo = nullptr;
 	AAMPLOG_INFO("fragment fetch failed - Free cachedFragment for %d", cachedFragment->type);
 	aamp_utils::ClearAndRelease(cachedFragment->fragment);
@@ -1169,6 +1134,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			// Assign the new download info to mActiveDownloadInfo
 			mActiveDownloadInfo = dlInfo;
 		}
+		int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); // Max cached fragments per track
 		auto DownloadsEnabled = [this]()
 		{
 			return aamp->DownloadsAreEnabled() && !abort;
@@ -1183,10 +1149,8 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 				   aamp->GetLLDashServiceData()->lowLatencyMode &&
 				   !aamp->TrackDownloadsAreEnabled(mediaType);
 		};
-		// Wait for a free cache slot before starting the download.
-		// IsFragmentCacheFull() checks the unified fragment chunk cache usage, so
-		// this wait throttles downloads until shared cache capacity is available.
-		if (IsFragmentCacheFull())
+		// Wait for free fragment only if the number of fragments cached is equal to the max cached fragments per track
+		if (numberOfFragmentsCached == maxCachedFragmentsPerTrack)
 		{
 			while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
 			{
