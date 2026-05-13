@@ -5984,3 +5984,265 @@ INSTANTIATE_TEST_SUITE_P(
 		}
 	)
 );
+
+// ============================================================
+// Spec compliance tests: bail-during-download
+//
+// Relevant spec rules:
+//   Section 4  - predictions assume 1x playback; use most-likely throughput
+//   Section 5  - Safety Invariant: do not bail when no safer profile exists
+//   Section 8.1 - bail eligibility evaluated continuously during download
+//   Section 8.2 - bail only when (1) continuing predicts underflow AND
+//                 (2) a lower profile avoids it
+//   Section 8.3 - no minimum progress threshold before bail may fire
+//   Section 9  - latency control must not influence ABR/bail decisions
+//
+// Several tests FAIL with the current implementation and are intended
+// to drive the corrective changes to HandleSSLProgressCallback.
+// ============================================================
+
+// Spec section 8.2 + 8.3:
+// When the current download predicts underflow and a lower profile avoids
+// it, bail SHALL fire on the very first burst.  There is no minimum
+// elapsed-time threshold before bail is evaluated.
+//
+// Current code gates evaluation on (elapsedMs >= lowBWTimeout*1000).
+// This test FAILS with the current implementation because the gate
+// prevents evaluation before 30 seconds have elapsed.
+TEST_F(PrivAampTests, BailSpec_FiresOnFirstBurst_WhenLowerProfileIsSafe)
+{
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+	p_aamp->mNetworkTimeoutMs = 60000;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	//
+	// Buffer = 2 s; fragment = 4 s.
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
+		.WillByDefault(Return(2.0));
+	//
+	// Two profiles: 48 kbps (safe lower) and 4 Mbps (current).
+	// Throughput = 100 kbps = 12 500 B/s.
+	// Current profile segment (2 MB): download_time = 159 s -> buffer depletes.
+	// Lower profile segment (48 kbps * 4 s / 8 = 24 000 B): download_time = 1.92 s
+	//   -> buffer_at_finish = 2.0 - 1.92 = 0.08 s > 0 -> SAFE.
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetVideoBitrates())
+		.WillByDefault(Return(std::vector<BitsPerSecond>{48000, 4000000}));
+	ON_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest())
+		.WillByDefault(Return(false));
+	//
+	CurlProgressCbContext ctx;
+	ctx.aamp           = p_aamp;
+	ctx.mediaType      = eMEDIATYPE_VIDEO;
+	ctx.startTimeout   = -1;
+	ctx.stallTimeout   = -1;
+	ctx.downloadSize   = -1;
+	ctx.dlStarted      = true;
+	ctx.abortReason    = eCURL_ABORT_REASON_NONE;
+	ctx.downloadStartTime  = NOW_STEADY_TS_MS - 1000; // 1 s elapsed
+	ctx.lowBWTimeout       = 30;   // 30 s gate - will not elapse in this call
+	ctx.fragmentDurationMs = 4000;
+	//
+	// dlnow = 12 500 bytes received (100 kbps in 1 s); dltotal = 2 000 000 bytes.
+	int rc = p_aamp->HandleSSLProgressCallback(&ctx, 2000000.0, 12500.0, 0.0, 0.0);
+	//
+	// Spec section 8.2 + 8.3: bail SHALL fire - no minimum time gate.
+	EXPECT_EQ(rc, 1) << "Expected bail (rc=1): continuing predicts underflow, safe lower profile exists";
+}
+
+// Spec section 5 (Safety Invariant):
+// Bail SHALL NOT fire when no lower profile avoids the predicted underflow.
+// The player must not discard the current download if switching would not help.
+//
+// Current code fires abort whenever predicted download time exceeds
+// mNetworkTimeoutMs, regardless of whether any safer profile exists.
+// This test FAILS with the current implementation.
+TEST_F(PrivAampTests, BailSpec_Suppressed_WhenNoSafeAlternativeExists)
+{
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+	p_aamp->mNetworkTimeoutMs = 10000; // 10 s - tight, triggers current threshold
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	//
+	// Buffer = 0.3 s (nearly empty).
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
+		.WillByDefault(Return(0.3));
+	//
+	// Two profiles; even the lowest (32 kbps) cannot be downloaded safely.
+	// Throughput = 100 B/s.
+	// 32-kbps segment (4 s) = 16 000 B; at 100 B/s that is 160 s -> still underflow.
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetVideoBitrates())
+		.WillByDefault(Return(std::vector<BitsPerSecond>{32000, 4000000}));
+	ON_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest())
+		.WillByDefault(Return(false));
+	//
+	CurlProgressCbContext ctx;
+	ctx.aamp           = p_aamp;
+	ctx.mediaType      = eMEDIATYPE_VIDEO;
+	ctx.startTimeout   = -1;
+	ctx.stallTimeout   = -1;
+	ctx.downloadSize   = -1;
+	ctx.dlStarted      = true;
+	ctx.abortReason    = eCURL_ABORT_REASON_NONE;
+	ctx.downloadStartTime  = NOW_STEADY_TS_MS - 3000; // 3 s elapsed; gate has passed
+	ctx.lowBWTimeout       = 1;
+	ctx.fragmentDurationMs = 4000;
+	//
+	// 100 B/s; 300 bytes received in 3 s; total segment 2 MB.
+	// predictedTotalDownloadTimeMs = 3000 * 2000000 / 300 = 20 000 000 ms >> mNetworkTimeoutMs.
+	// Current code: aborts.  Spec section 5: no safe alternative -> SHALL NOT abort.
+	int rc = p_aamp->HandleSSLProgressCallback(&ctx, 2000000.0, 300.0, 0.0, 0.0);
+	//
+	EXPECT_EQ(rc, 0) << "Expected no bail (rc=0): no lower profile avoids underflow (Safety Invariant)";
+}
+
+// Spec section 8.2 part 1 (negative case):
+// Bail SHALL NOT fire when the buffer is large enough to absorb the slow download.
+// No underflow is predicted, so the bail precondition is false.
+//
+// Current code compares predicted download time against mNetworkTimeoutMs.
+// A slow download with a large buffer incorrectly triggers abort when the
+// predicted time exceeds the timeout.
+// This test FAILS with the current implementation.
+TEST_F(PrivAampTests, BailSpec_Suppressed_WhenBufferSufficient)
+{
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+	p_aamp->mNetworkTimeoutMs = 5000; // tight 5 s - causes false positive in current code
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	//
+	// Buffer = 60 s (healthy).
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
+		.WillByDefault(Return(60.0));
+	//
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetVideoBitrates())
+		.WillByDefault(Return(std::vector<BitsPerSecond>{48000, 1000000}));
+	ON_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest())
+		.WillByDefault(Return(false));
+	//
+	CurlProgressCbContext ctx;
+	ctx.aamp           = p_aamp;
+	ctx.mediaType      = eMEDIATYPE_VIDEO;
+	ctx.startTimeout   = -1;
+	ctx.stallTimeout   = -1;
+	ctx.downloadSize   = -1;
+	ctx.dlStarted      = true;
+	ctx.abortReason    = eCURL_ABORT_REASON_NONE;
+	ctx.downloadStartTime  = NOW_STEADY_TS_MS - 3000; // 3 s elapsed
+	ctx.lowBWTimeout       = 1;   // gate has elapsed - current code enters the check
+	ctx.fragmentDurationMs = 4000;
+	//
+	// 100 kbps = 12 500 B/s; 37 500 bytes received in 3 s; segment total 500 KB (1 Mbps * 4 s / 8).
+	// Predicted remaining: 462 500 / 12 500 = 37 s.
+	// buffer_at_finish = 60 - 37 = 23 s > 0 -> no underflow predicted.
+	// predictedTotalDownloadTimeMs = 3000 * 500000 / 37500 = 40 000 ms > mNetworkTimeoutMs (5000).
+	// Current code: aborts.  Spec: buffer is fine -> SHALL NOT abort.
+	int rc = p_aamp->HandleSSLProgressCallback(&ctx, 500000.0, 37500.0, 0.0, 0.0);
+	//
+	EXPECT_EQ(rc, 0) << "Expected no bail (rc=0): buffer is sufficient, no underflow predicted";
+}
+
+// Spec section 8.3:
+// No minimum progress threshold.  Bail eligibility is evaluated on every
+// network burst from the first byte onward.
+//
+// This test isolates the time-gate failure: even with a 60-second gate,
+// bail SHALL fire on the first burst when underflow is predicted and a
+// safer profile exists.
+// FAILS with current implementation due to lowBWTimeout gate.
+TEST_F(PrivAampTests, BailSpec_NoMinimumTimeGate_EvaluatedOnFirstBurst)
+{
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+	p_aamp->mNetworkTimeoutMs = 60000;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	//
+	// Buffer = 2 s; safe lower profile at 48 kbps (same parameters as above).
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
+		.WillByDefault(Return(2.0));
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetVideoBitrates())
+		.WillByDefault(Return(std::vector<BitsPerSecond>{48000, 4000000}));
+	ON_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest())
+		.WillByDefault(Return(false));
+	//
+	CurlProgressCbContext ctx;
+	ctx.aamp           = p_aamp;
+	ctx.mediaType      = eMEDIATYPE_VIDEO;
+	ctx.startTimeout   = -1;
+	ctx.stallTimeout   = -1;
+	ctx.downloadSize   = -1;
+	ctx.dlStarted      = true;
+	ctx.abortReason    = eCURL_ABORT_REASON_NONE;
+	// Download started right now; elapsed is effectively 0.
+	ctx.downloadStartTime  = NOW_STEADY_TS_MS;
+	ctx.lowBWTimeout       = 60;   // 60 s gate - current code will not enter the check
+	ctx.fragmentDurationMs = 4000;
+	//
+	// First burst: only 100 bytes of a 2 MB segment received.
+	int rc = p_aamp->HandleSSLProgressCallback(&ctx, 2000000.0, 100.0, 0.0, 0.0);
+	//
+	// Spec section 8.3: bail SHALL be evaluated regardless of elapsed time.
+	EXPECT_EQ(rc, 1) << "Expected bail (rc=1): underflow predicted from first burst, no time gate permitted";
+}
+
+// Spec section 9:
+// Latency control SHALL NOT influence ABR decisions, including bail.
+// The bail outcome must be identical regardless of live-latency state.
+//
+// This test passes with both current and compliant implementations and
+// guards against future regressions where latency state is accidentally
+// coupled into the bail path.
+TEST_F(PrivAampTests, BailSpec_DecisionInvariantToLatencyState)
+{
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+	p_aamp->mNetworkTimeoutMs = 60000;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	//
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
+		.WillByDefault(Return(2.0));
+	ON_CALL(*g_mockStreamAbstractionAAMP, GetVideoBitrates())
+		.WillByDefault(Return(std::vector<BitsPerSecond>{48000, 4000000}));
+	ON_CALL(*g_mockStreamAbstractionAAMP, IsCurrentProfileLowest())
+		.WillByDefault(Return(false));
+	//
+	// Shared download parameters: 100 kbps throughput, gate elapsed,
+	// underflow predicted for current profile, safe lower profile available.
+	// 35 s elapsed ensures the lowBWTimeout gate passes in current code too,
+	// so both calls exercise the same bail-decision path.
+	const long long kElapsedMs   = 35000;
+	const double    kDlnow       = 12500.0 * (kElapsedMs / 1000.0); // 437 500 B
+	const double    kDltotal     = 2000000.0;
+	//
+	// Call 1: player is ahead of target latency (low live offset).
+	p_aamp->mLiveOffset = 0.5;
+	CurlProgressCbContext ctx1;
+	ctx1.aamp           = p_aamp;
+	ctx1.mediaType      = eMEDIATYPE_VIDEO;
+	ctx1.startTimeout   = -1;
+	ctx1.stallTimeout   = -1;
+	ctx1.downloadSize   = -1;
+	ctx1.dlStarted      = true;
+	ctx1.abortReason    = eCURL_ABORT_REASON_NONE;
+	ctx1.downloadStartTime  = NOW_STEADY_TS_MS - kElapsedMs;
+	ctx1.lowBWTimeout       = 1;
+	ctx1.fragmentDurationMs = 4000;
+	int rc1 = p_aamp->HandleSSLProgressCallback(&ctx1, kDltotal, kDlnow, 0.0, 0.0);
+	//
+	// Call 2: player is behind target latency (high live offset).
+	p_aamp->mLiveOffset = 10.0;
+	CurlProgressCbContext ctx2;
+	ctx2.aamp           = p_aamp;
+	ctx2.mediaType      = eMEDIATYPE_VIDEO;
+	ctx2.startTimeout   = -1;
+	ctx2.stallTimeout   = -1;
+	ctx2.downloadSize   = -1;
+	ctx2.dlStarted      = true;
+	ctx2.abortReason    = eCURL_ABORT_REASON_NONE;
+	ctx2.downloadStartTime  = NOW_STEADY_TS_MS - kElapsedMs;
+	ctx2.lowBWTimeout       = 1;
+	ctx2.fragmentDurationMs = 4000;
+	int rc2 = p_aamp->HandleSSLProgressCallback(&ctx2, kDltotal, kDlnow, 0.0, 0.0);
+	//
+	// Spec section 9: latency state must not change the bail decision.
+	EXPECT_EQ(rc1, rc2) << "Bail decision must be invariant to live-latency offset (spec section 9)";
+}
