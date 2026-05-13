@@ -1976,6 +1976,33 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	const double   savedPeriodDuration = mPeriodDuration;
 	const double   savedPeriodEnd      = mPeriodEndTime;
 
+	// Also snapshot stream-selection state that StreamSelection(true) is about to mutate.
+	// Without this, a subsequent UpdateTrackInfo failure would restore the period pointers
+	// while leaving mNumberOfTracks and per-track enabled/adaptation state configured for
+	// the new (now abandoned) period, producing an inconsistent object.
+	struct SavedTrackSelState
+	{
+		bool     enabled;
+		int      adaptationSetIdx;
+		int      representationIndex;
+		bool     profileChanged;
+		uint32_t adaptationSetId;
+	};
+	const int savedNumberOfTracks = mNumberOfTracks;
+	const bool savedUpdateStreamInfo = mUpdateStreamInfo;
+	std::array<SavedTrackSelState, AAMP_TRACK_COUNT> savedTrackState{};
+	for (int i = 0; i < mMaxTracks; i++)
+	{
+		if (mMediaStreamContext[i])
+		{
+			savedTrackState[i] = { mMediaStreamContext[i]->enabled,
+			                       mMediaStreamContext[i]->adaptationSetIdx,
+			                       mMediaStreamContext[i]->representationIndex,
+			                       mMediaStreamContext[i]->profileChanged,
+			                       mMediaStreamContext[i]->adaptationSetId };
+		}
+	}
+
 	mCurrentPeriodIdx = nextPeriodIdx;
 	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 	mBasePeriodId = mCurrentPeriod->GetId();
@@ -1988,17 +2015,30 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
 	{
-		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d, restoring previous period state", mCurrentPeriodIdx);
+		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d, restoring previous period and stream-selection state", mCurrentPeriodIdx);
 		mCurrentPeriodIdx = savedPeriodIdx;
 		mCurrentPeriod    = savedPeriod;
 		mBasePeriodId     = savedBasePeriodId;
 		mPeriodStartTime  = savedPeriodStart;
 		mPeriodDuration   = savedPeriodDuration;
 		mPeriodEndTime    = savedPeriodEnd;
+		mNumberOfTracks   = savedNumberOfTracks;
+		mUpdateStreamInfo = savedUpdateStreamInfo;
+		for (int i = 0; i < mMaxTracks; i++)
+		{
+			if (mMediaStreamContext[i])
+			{
+				mMediaStreamContext[i]->enabled             = savedTrackState[i].enabled;
+				mMediaStreamContext[i]->adaptationSetIdx    = savedTrackState[i].adaptationSetIdx;
+				mMediaStreamContext[i]->representationIndex = savedTrackState[i].representationIndex;
+				mMediaStreamContext[i]->profileChanged      = savedTrackState[i].profileChanged;
+				mMediaStreamContext[i]->adaptationSetId     = savedTrackState[i].adaptationSetId;
+			}
+		}
 		return false;
 	}
 
-AAMPLOG_INFO("SeekInPeriod: Switched to period %d; caller will re-run SkipFragments on the new period with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
+	AAMPLOG_INFO("SeekInPeriod: Switched to period %d; caller will re-run SkipFragments on the new period with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
 
 	// Caller (SeekInPeriod) will invoke SkipFragments on the new period in its loop.
 	return true;
@@ -2832,6 +2872,12 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		{
 			FindPeriodGapsAndReport();
 		}
+
+		if (ISCONFIGSET(eAAMPConfig_ProcessLicenseFromEAP) && mIsLiveManifest)
+		{
+			ProcessLicenseFromEAP(mpdDnldResp);
+		}
+
 		// Process VSS stream
 		if(aamp->mIsVSS)
 		{
@@ -2843,6 +2889,70 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		}
 		// Process and send manifest http headers
 		ProcessManifestHeaderResponse(std::move(mpdDnldResp), init);
+	}
+}
+
+/**
+ * @brief Function to process non-VSS early available periods and queue content protection for all adaptation sets
+ */
+void StreamAbstractionAAMP_MPD::ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp)
+{
+	if (!mpdDnldResp)
+	{
+		return;
+	}
+
+	AampMPDParseHelperPtr mpdParseHelper = mpdDnldResp->GetMPDParseHelper();
+	if (!mpdParseHelper)
+	{
+		AAMPLOG_WARN("Skipping early available period processing due to null MPD parse helper");
+		return;
+	}
+
+	std::vector<IPeriod*> earlyPeriods;
+	GetEarlyAvailablePeriods(earlyPeriods, mpdParseHelper);
+	AAMPLOG_INFO("Early available period scan complete. detected=%zu", earlyPeriods.size());
+
+	if (earlyPeriods.empty())
+	{
+		return;
+	}
+
+	IPeriod *period = earlyPeriods.front();
+	if (!period)
+	{
+		AAMPLOG_WARN("Null period pointer in early available periods list");
+		return;
+	}
+	mEarlyAvailablePeriodIds.push_back(period->GetId());
+	AAMPLOG_INFO("Early available period detected: id=%s adaptationSets=%zu", period->GetId().c_str(), period->GetAdaptationSets().size());
+	const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
+	for (size_t adaptationSetIdx = 0; adaptationSetIdx < adaptationSets.size(); adaptationSetIdx++)
+	{
+		IAdaptationSet *adaptationSet = adaptationSets.at(adaptationSetIdx);
+		if (!adaptationSet)
+		{
+			continue;
+		}
+		AampMediaType mediaType = eMEDIATYPE_DEFAULT;
+		if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+		{
+			mediaType = eMEDIATYPE_VIDEO;
+		}
+		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO))
+		{
+			mediaType = eMEDIATYPE_AUDIO;
+		}
+		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE))
+		{
+			mediaType = eMEDIATYPE_SUBTITLE;
+		}
+		else
+		{
+			continue;
+		}
+		AAMPLOG_INFO("QueueContentProtection for early period id=%s adaptationSetIdx=%zu mediaType=%d", period->GetId().c_str(), adaptationSetIdx, mediaType);
+		QueueContentProtection(period, static_cast<uint32_t>(adaptationSetIdx), mediaType, false, false);
 	}
 }
 
@@ -3154,7 +3264,6 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 		drmHelper->setDrmMetaData(contentMetadata);
 		drmHelper->setDefaultKeyID(cencDefaultData);
 	}
-
 	return drmHelper;
 }
 
@@ -7749,24 +7858,25 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						// Set Default init bitrate according to last PersistBandwidth
 						if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsFogTSBSupported())
 						{
-							BitsPerSecond persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
-							long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
+							const auto persistData = ABRManager::getPersistBandwidth();
+							BitsPerSecond persistbandwidth = persistData.bandwidth;
+							int64_t TimeGap = aamp_GetCurrentTimeMS() - persistData.updatedTimeMs;
 							//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when persistLowNetworkConfig exist
 							if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->GetDefaultBitrate() && persistbandwidth > 0)
 							{
-								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", persistbandwidth, TimeGap);
+								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %" PRId64, persistbandwidth, TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
 							}
 							//If current Network bandwidth is higher than current default bitrate and if config for PersistHighBandwidth is true , then network bandwidth will be applied as default bitrate for tune
 							else if(ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth) && TimeGap < 10000 && persistbandwidth > 0)
 							{
-								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", persistbandwidth,TimeGap);
+								AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %" PRId64, persistbandwidth,TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
 							}
 							// Set default init bitrate
 							else
 							{
-								AAMPLOG_MIL("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %ld", aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
+								AAMPLOG_MIL("Using defaultBitrate %" BITSPERSECOND_FORMAT " . PersistBandwidth : %" BITSPERSECOND_FORMAT " TimeGap : %" PRId64, aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
 								aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
 
 							}
@@ -9278,6 +9388,13 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// If the playing period changes, it will be detected below [if(currentPeriodId != mCurrentPeriod->GetId())]
 				periodChanged = false;
 			}
+			// Snapshot the currently playing break ID before the state transition clears it;
+			// used later in the OUTSIDE_ADBREAK block to guard against re-entering the same adbreak.
+			std::string snapPlayingBreakId;
+			{
+				std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+				snapPlayingBreakId = mCdaiObject->mCurPlayingBreakId;
+			}
 			// Calling the function to play ads from first ad break(existing logic).
 			adStateChanged = onAdEvent(AdEvent::DEFAULT);
 			if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
@@ -9323,12 +9440,44 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 						mBasePeriodOffset = mCdaiObject->mContentSeekOffset;
 					}
 				}
-				// Check if the new period is having ads
-				adStateChanged = onAdEvent(AdEvent::DEFAULT);
-				if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+				// Check if the new period is having ads.
+				if (mPlayRate >= AAMP_RATE_PAUSE)
 				{
-					// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
 					adStateChanged = onAdEvent(AdEvent::DEFAULT);
+					if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+					{
+						// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
+						adStateChanged = onAdEvent(AdEvent::DEFAULT);
+					}
+				}
+				else
+				{
+					// For reverse trick-play: probe at end-of-period to find the preceding adbreak
+					// at the correct position (triggering the rate<0 && key==end path in
+					// CheckForAdStart for back-to-back adbreaks).  Guard against oscillation:
+					// if the adbreak mapped to the new source period (prevPId) is the SAME one
+					// we just completed, skip the probe and let the FetcherLoop handle it via
+					// BASE_OFFSET_CHANGE as mBasePeriodOffset decreases during rewind.
+					bool wouldOscillate = false;
+					{
+						std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+						auto pit = mCdaiObject->mPeriodMap.find(mBasePeriodId);
+						if (pit != mCdaiObject->mPeriodMap.end())
+						{
+							wouldOscillate = (!pit->second.adBreakId.empty() &&
+											  pit->second.adBreakId == snapPlayingBreakId);
+						}
+					}
+					if (!wouldOscillate)
+					{
+						adStateChanged = onAdEvent(AdEvent::DEFAULT);
+						if (adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+						{
+							// Adbreak found but not yet resolved; check again.
+							adStateChanged = onAdEvent(AdEvent::DEFAULT);
+						}
+					}
+					// else: same adbreak as just completed; skip probe; FetcherLoop handles naturally.
 				}
 			}
 
@@ -10294,6 +10443,46 @@ void StreamAbstractionAAMP_MPD::GetAvailableVSSPeriods(std::vector<IPeriod*>& Pe
 					PeriodIds.push_back(tempPeriod);
 				}
 			}
+		}
+	}
+}
+
+/**
+ * @brief Check new non-VSS early available periods from manifest
+ */
+void StreamAbstractionAAMP_MPD::GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper)
+{
+   if (!mpdParseHelper)
+   {
+	   AAMPLOG_WARN("Skipping early available period detection due to null MPD parse helper");
+	   return;
+   }
+
+	const IMPD *manifestMpd = mpdParseHelper->getMPD();
+	if (!manifestMpd)
+	{
+		AAMPLOG_WARN("Skipping early available period detection due to null MPD");
+		return;
+	}
+
+	const std::vector<IPeriod*> &allPeriods = manifestMpd->GetPeriods();
+	if (allPeriods.empty())
+	{
+		return;
+	}
+
+	int periodIter = static_cast<int>(allPeriods.size()) - 1;
+	IPeriod *tempPeriod = allPeriods.at(periodIter);
+	if (!tempPeriod)
+		return;
+	if (STARTS_WITH_IGNORE_CASE(tempPeriod->GetId().c_str(), VSS_DASH_EARLY_AVAILABLE_PERIOD_PREFIX))
+		return;
+	if (!tempPeriod->GetAdaptationSets().empty() && mpdParseHelper->IsEmptyPeriod(periodIter, false))
+	{
+		if (std::find(mEarlyAvailablePeriodIds.begin(), mEarlyAvailablePeriodIds.end(), tempPeriod->GetId()) == mEarlyAvailablePeriodIds.end())
+		{
+			AAMPLOG_INFO("Found new non-VSS early available period candidate: id=%s index=%d", tempPeriod->GetId().c_str(), periodIter);
+			PeriodIds.push_back(tempPeriod);
 		}
 	}
 }

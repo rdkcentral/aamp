@@ -1,17 +1,22 @@
 /*
- *   Copyright 2022 RDK Management
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
  *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
+ * Copyright 2022 RDK Management
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 /***************************************************
@@ -28,6 +33,7 @@
 #include <string>
 #include <cstdio>
 #include <cmath>
+#include <climits>
 #include <chrono>
 #include <stdarg.h>
 #include <sys/time.h>
@@ -42,8 +48,7 @@
 
 ABRManager::AampAbrConfig eAAMPAbrConfig;
 
-BitsPerSecond ABRManager::mPersistBandwidth = 0;
-long long ABRManager::mPersistBandwidthUpdatedTime = 0;
+std::atomic<ABRManager::PersistBandwidthData> ABRManager::mPersistBandwidthData{};
 
 ABRManager::ABRManager()
 	: bLowLatencyStartABR(false),
@@ -305,19 +310,37 @@ void ABRManager::updateProfile()
 			}
 		} else {
 			if(is4K) {
-				// Get the default profile of 4k video, apply same bandwidth of video to iframe also
-				int desiredProfileIndexNonIframe = (int)profileCount / 2;
-				int desiredProfileNonIframeBW = (int)mProfiles[desiredProfileIndexNonIframe].bandwidthBitsPerSecond ;
-				mDesiredIframeProfile = mLowestIframeProfile = 0;
-				for (size_t cnt = 0; cnt < iframeTrackCount; cnt++) {
-					// if bandwidth matches, apply to both desired and lower ( for all speed of trick)
-					if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
-						mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
+				// Get the middle video bandwidth (excluding iframe tracks) for 4K iframe selection.
+				// Use mSortedBWProfileList which only contains non-iframe profiles.
+				BitsPerSecond desiredProfileNonIframeBW = 0;
+				bool foundMiddleVideoBW = false;
+				for (const auto& periodEntry : mSortedBWProfileList)
+				{
+					const auto& bwMap = periodEntry.second;
+					if (!bwMap.empty())
+					{
+						auto it = bwMap.begin();
+						std::advance(it, static_cast<int>(bwMap.size() / 2));
+						desiredProfileNonIframeBW = it->first;
+						foundMiddleVideoBW = true;
 						break;
 					}
 				}
+				mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[0].idx;
+				bool foundMatchingIframe = false;
+				if (foundMiddleVideoBW)
+				{
+					for (size_t cnt = 0; cnt < iframeTrackCount; cnt++) {
+						// if bandwidth matches, apply to both desired and lower ( for all speed of trick)
+						if(iframeTrackInfo[cnt].bandwidth == desiredProfileNonIframeBW) {
+							mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[cnt].idx;
+							foundMatchingIframe = true;
+							break;
+						}
+					}
+				}
 				// if matching bandwidth not found with video, then pick the middle profile for iframe
-				if((!mDesiredIframeProfile) && (iframeTrackCount >= 1)) {
+				if(!foundMatchingIframe && (iframeTrackCount > 1)) {
 					int desiredTrackIdx = (int) (iframeTrackCount / 2) + (iframeTrackCount % 2);
 					mDesiredIframeProfile = mLowestIframeProfile = iframeTrackInfo[desiredTrackIdx].idx;
 				}
@@ -349,31 +372,55 @@ void ABRManager::updateProfile()
  */
 int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth)
 {
-	// a) Check if network bandwidth changed from starting bandwidth
-	// b) Check if netwwork bandwidth is different from persisted bandwidth( needed for first time reporting)
-	// find the profile for the newbandwidth
-	int desiredProfileIndex = 0;
+	int desiredProfileIndex = INVALID_PROFILE;
 	std::lock_guard<std::mutex> lock(mProfileLock);
-	size_t profileCount = mProfiles.size();
-	for (int i = 0; i < (int)profileCount; i++) {
-		const ProfileInfo& profile = mProfiles[i];
-		if (!profile.isIframeTrack) {
-			if (profile.bandwidthBitsPerSecond == bandwidth) {
-				// Good case, most manifest url will have same bandwidth in fragment file with configured profile bandwidth
-				desiredProfileIndex = i;
-				break;
-			} else if (profile.bandwidthBitsPerSecond < bandwidth) {
-				// fragment file name bandwidth doesn't match the profile bandwidth, will be always less
-				if (static_cast<size_t>(i + 1) == profileCount) {
-					desiredProfileIndex = i;
-					break;
-				}
-				else
-					desiredProfileIndex = (i + 1);
-			}
+
+	if (mSortedBWProfileList.empty())
+	{
+		AAMPLOG_WARN("getBestMatchedProfileIndexByBandWidth: no candidate found for bandwidth %d (sorted list empty or contains only iframe profiles)", bandwidth);
+		return INVALID_PROFILE;
+	}
+
+	if (mSortedBWProfileList.size() > 1)
+	{
+		AAMPLOG_WARN("getBestMatchedProfileIndexByBandWidth: unexpected multiple period maps (%zu), using first", mSortedBWProfileList.size());
+	}
+
+	// Use the first period's map, consistent with getClosestProfileIndexByBandwidth()
+	const auto& bwMap = mSortedBWProfileList.begin()->second;
+	if (bwMap.empty())
+	{
+		AAMPLOG_WARN("getBestMatchedProfileIndexByBandWidth: no candidate found for bandwidth %d (sorted list empty or contains only iframe profiles)", bandwidth);
+		return INVALID_PROFILE;
+	}
+
+	long bestDiff = LONG_MAX;
+
+	// lower_bound finds first entry with bandwidth >= target
+	auto it = bwMap.lower_bound(bandwidth);
+
+	if (it != bwMap.end())
+	{
+		long diff = it->first - bandwidth;
+		if (diff < bestDiff)
+		{
+			bestDiff = diff;
+			desiredProfileIndex = it->second;
+		}
+	}
+
+	// Also check the entry just below target (if any) for a closer match
+	if (it != bwMap.begin())
+	{
+		--it;
+		long diff = bandwidth - it->first;
+		if (diff < bestDiff)
+		{
+			desiredProfileIndex = it->second;
 		}
 	}
 #if defined(DEBUG_ENABLED)
+	size_t profileCount = mProfiles.size();
 	AAMPLOG_MIL("Get best matched profile index = %d bitrate = %" BITSPERSECOND_FORMAT,
 				desiredProfileIndex, (desiredProfileIndex != INVALID_PROFILE &&	static_cast<size_t>(desiredProfileIndex) < profileCount) ?
 				mProfiles[desiredProfileIndex].bandwidthBitsPerSecond : 0);
@@ -1003,7 +1050,7 @@ void ABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newProfile
 	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d nwBandwidth %" BITSPERSECOND_FORMAT " bufferValue %lf newBandwidth %" BITSPERSECOND_FORMAT " threshold %d", currProfileIndex, newProfileIndex, nwBandwidth, bufferValue, newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage
-	if(abrThreshold >= 0 && abrThreshold <= 30)
+	if(abrThreshold <= 30)
 		newProfileIndex = nProfileIdx;
 	if(newProfileIndex  != currProfileIndex)
 	{
@@ -1114,14 +1161,25 @@ void ABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcache,Bits
 /**
  * @brief - Fn to rampdown during fragment download failure based on buffer
  * @param - current available buffer
- * @return - desired profile based on buffer
+ * @return - desired profile based on buffer, or 0 if abrMaxBuffer <= 0
+ *           (misconfiguration sentinel — caller must treat 0 as a rampdown failure)
  */
 BitsPerSecond ABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
 {
+	if (eAAMPAbrConfig.abrMaxBuffer <= 0)
+	{
+		AAMPLOG_WARN("abrMaxBuffer is %d, cannot compute buffer percentage",
+			eAAMPAbrConfig.abrMaxBuffer);
+		return 0;
+	}
 	double bufferPercentage = ((double)currentBuffer / eAAMPAbrConfig.abrMaxBuffer) * 100;
 	BitsPerSecond desiredProfilebw = 0;
 	BitsPerSecond currentbw = getBandwidthOfProfile(currentProfileIndex);
-	std::vector<ProfileInfo> availableProfiles = mProfiles;
+	std::vector<ProfileInfo> availableProfiles;
+	{
+		std::lock_guard<std::mutex> lock(mProfileLock);
+		availableProfiles = mProfiles;
+	}
 	availableProfiles.erase(
 		std::remove_if(availableProfiles.begin(), availableProfiles.end(),
 			[](const ProfileInfo &p) { return p.isIframeTrack; }),

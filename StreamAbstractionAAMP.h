@@ -488,6 +488,13 @@ public:
 	 */
 	bool IsDiscontinuityProcessed() { return discontinuityProcessed; }
 
+	/**
+	 * @brief Check whether PTS re-stamping should be applied for this track.
+	 *
+	 * @return true if PTS re-stamping is required for this track
+	 */
+	bool IsPTSRestampEnabled() const;
+
 	bool isFragmentInjectorThreadStarted();
 	bool isPlaylistDownloaderThreadStarted();
 	void MonitorBufferHealth();

@@ -620,8 +620,7 @@ void PrivateInstanceAAMP::UpdatePersistBandwidth(BitsPerSecond bandwidth)
 		return;
 	}
 
-	ABRManager::setPersistBandwidth(bandwidth);
-	ABRManager::mPersistBandwidthUpdatedTime = aamp_GetCurrentTimeMS();
+	ABRManager::setPersistBandwidth(bandwidth, aamp_GetCurrentTimeMS());
 }
 
 /**
@@ -2424,7 +2423,7 @@ void PrivateInstanceAAMP::StartRateCorrectionWorkerThread(void)
 	try
 	{
 		bool newTune = IsNewTune();
-		bool enabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
+		bool enabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
 		/** Spawn the rate Correction thread if it is live, new tune, thread not started yet, and rate correction enabled **/
 		if(IsLive() && newTune && !mRateCorrectionThread.joinable() && enabled )
 		{
@@ -2445,7 +2444,7 @@ void PrivateInstanceAAMP::StartRateCorrectionWorkerThread(void)
  */
 void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 {
-	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection))
+	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
 	{
 		int latencyMonitorInterval = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorIntervalMs);
 		double normalPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
@@ -2566,8 +2565,8 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 	}
 	else
 	{
-		AAMPLOG_WARN("Rate Correction Ignored Due to Rate Correction disabled from config;  EnableLiveLatencyCorrection [%d]",
-		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection));
+		AAMPLOG_WARN("Rate Correction Ignored Due to Rate Correction disabled from config;  EnableLiveLatencyRateCorrection [%d]",
+		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection));
 	}
 }
 
@@ -2617,6 +2616,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		long latency = 0;
+		bool reachedStart = false;
 
 
 		//Report Progress report position based on Availability Start Time
@@ -2640,15 +2640,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// If beginningOfStream is true or position < start, it means rewind has reached BoS
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
-		{ // clamp start or handle BOS during rewind
-			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
+		{
+			// Reached the start of the stream (start of AAMP TSB, beginning of VoD asset...)
+			AAMPLOG_INFO("Reached start, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
 			position = start;
-			// Check the rate so that PlayFromTsbStart() is not called repeatedly
-			if (rate < AAMP_RATE_PAUSE)
-			{
-				PlayFromTsbStart();
-			}
+			reachedStart = true;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -2759,7 +2756,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		{
 			currentRate = mLatencyMonitor->GetCurrentRate();
 		}
-		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection) )
+		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection) )
 		{
 			currentRate = mCorrectionRate;
 		}
@@ -2846,6 +2843,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 			mReportProgressPosn = position;
+		}
+
+		if (reachedStart)
+		{
+			// Check the rate so that PlayFromTsbStart() is not called more than once
+			if (rate < AAMP_RATE_PAUSE)
+			{
+				PlayFromTsbStart();
+			}
 		}
 	}
 }
@@ -3812,7 +3818,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 			mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 
-			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
+			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
 			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
 			if( disableRateCorrectionTimeInSeconds > 0  && isRateCorrectionEnabled )
 			{
@@ -6407,7 +6413,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
 
-		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection))
+		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
 		{
 			StartRateCorrectionWorkerThread();
 		}
@@ -6823,10 +6829,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
-		// Enable PTS Restamping
+		// Enable live latency rate correction, PTS Restamping and other app-specific configurations
 		if(SocUtils::EnableLiveLatencyCorrection())
 		{
-			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
+			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyRateCorrection, true);
 		}
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableWebVTT, true);
@@ -13448,6 +13454,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		if (mpStreamAbstractionAAMP)
 		{
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -13464,70 +13471,66 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
+				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
 				{
-					std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-					
-					if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
+					AAMPLOG_WARN("Seamless Text switch has been enabled");
+					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
+				}
+				else
+				{
+					if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
 					{
-						AAMPLOG_WARN("Seamless Text switch has been enabled");
-						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
-					}
-					else
-					{
-						if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
+						TextTrackInfo selectedTextTrack;
+						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
 						{
-							TextTrackInfo selectedTextTrack;
-							if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
-							{
-								// Find the index of the selected track in the available tracks list
-								closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
-								
-								AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
-											 closedCaptionTrackId, selectedTextTrack.language.c_str());
-								SetPreferredTextTrack(std::move(selectedTextTrack));
-							}
-							else
-							{
-								AAMPLOG_WARN("SelectPreferredTextTrack failed to find a matching track");
-							}
-						}
-						seek_pos_seconds = GetPositionSeconds();
-						
-						if (IsLocalAAMPTsb())
-						{
-							mAampTsbLanguageChangeInProgress = true;
-						}
-						
-						TeardownStream(false);
-						if (IsFogTSBSupported() && (!isAvailableInManifest))
-						{
-							ReloadTSB();
-						}
-						
-						if (IsLocalAAMPTsb())
-						{
-							AAMPLOG_WARN("Flush the TSB before seeking to live");
+							// Find the index of the selected track in the available tracks list
+							closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
 							
-							/* If AAMP TSB is enabled, flush the TSB before seeking to live */
-							if (mTSBSessionManager)
-							{
-								AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
-								CreateTsbSessionManager();
-								SetLocalAAMPTsbInjection(false);
-								TuneHelper(eTUNETYPE_SEEKTOLIVE);
-							}
-							else
-							{
-								AAMPLOG_ERR("TSB Session Manager is NULL");
-							}
+							AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
+										 closedCaptionTrackId, selectedTextTrack.language.c_str());
+							SetPreferredTextTrack(std::move(selectedTextTrack));
 						}
 						else
 						{
-							TuneHelper(eTUNETYPE_SEEK);
+							AAMPLOG_WARN("SelectPreferredTextTrack failed to find a matching track");
 						}
-						
-						discardEnteringLiveEvt = false;
 					}
+					seek_pos_seconds = GetPositionSeconds();
+					
+					if (IsLocalAAMPTsb())
+					{
+						mAampTsbLanguageChangeInProgress = true;
+					}
+					
+					TeardownStream(false);
+					if (IsFogTSBSupported() && (!isAvailableInManifest))
+					{
+						ReloadTSB();
+					}
+					
+					if (IsLocalAAMPTsb())
+					{
+						AAMPLOG_WARN("Flush the TSB before seeking to live");
+						
+						/* If AAMP TSB is enabled, flush the TSB before seeking to live */
+						if (mTSBSessionManager)
+						{
+							AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
+							CreateTsbSessionManager();
+							SetLocalAAMPTsbInjection(false);
+							TuneHelper(eTUNETYPE_SEEKTOLIVE);
+						}
+						else
+						{
+							AAMPLOG_ERR("TSB Session Manager is NULL");
+						}
+					}
+					else
+					{
+						TuneHelper(eTUNETYPE_SEEK);
+					}
+					
+					discardEnteringLiveEvt = false;
 				}
 			}
 			if (closedCaptionTrackId >= 0)
