@@ -252,6 +252,18 @@ BitsPerSecond MediaTrack::GetCurrentBandWidth()
 	return 0;
 }
 
+CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
+{
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->GetFetchBuffer(initialize);
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
 AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
 {
 	return eMEDIATYPE_DEFAULT;
@@ -297,6 +309,14 @@ void MediaTrack::StopInjectLoop()
 
 void MediaTrack::StopPlaylistDownloaderThread()
 {
+}
+
+void MediaTrack::UpdateTSAfterFetch(bool isInitSegment)
+{
+	if(g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->UpdateTSAfterFetch(isInitSegment);
+	}
 }
 
 void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment)
@@ -506,6 +526,13 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 }
 void MediaTrack::SetCachedFragmentChunksSize(size_t size)
 {
+}
+void MediaTrack::UpdateTSAfterInject()
+{
+	if(g_mockMediaTrack != nullptr)
+	{
+		g_mockMediaTrack->UpdateTSAfterInject();
+	}
 }
 void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
 {

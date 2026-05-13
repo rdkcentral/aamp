@@ -178,7 +178,7 @@ class FragmentDownloadSuccessParamTest
  * @brief Test case for OnFragmentDownloadSuccess with various configurations
  *
  * After unifying DASH onto the chunk cache, OnFragmentDownloadSuccess no longer
- * uses the per-fragment ring buffer. Instead:
+ * uses the per-fragment ring buffer (GetFetchBuffer / UpdateTSAfterFetch). Instead:
  *  - Non-LLD (chunkMode=false): CacheStagingFragmentForInjection() copies the
  *    staging fragment into a chunk-buffer slot via GetFetchChunkBuffer /
  *    UpdateTSAfterChunkFetch so the inject thread picks it up.
@@ -438,7 +438,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNo
 {
 	// This test validates that in Low Latency DASH mode, when track downloads
 	// are disabled, DownloadFragment should not attempt to cache/download the
-	// fragment (i.e., it should not call GetFile). The function
+	// fragment (i.e., it should not call GetFetchBuffer/GetFile). The function
 	// should still return true because the "download loop" can exit cleanly.
 	constexpr int maxCache = 5;
 
@@ -447,7 +447,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNo
 
 	// Ensure there is cache capacity so only the "track downloads disabled"
 	// condition prevents caching.
-	mMediaStreamContext->numberOfFragmentChunksCached = 0;
+	mMediaStreamContext->numberOfFragmentsCached = 0;
 
 	// Configure the max fragment cache size (not full).
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -464,6 +464,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNo
 		.WillRepeatedly(Return(false));
 
 	// Verify no caching/download is attempted.
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(0);
 
@@ -504,13 +505,14 @@ TEST_F(FragmentDownloadTests, DownloadFragment_CacheFull_DoesNotCache)
 	constexpr int maxCache = 1;
 
 	// Simulate cache already at capacity.
-	mMediaStreamContext->numberOfFragmentChunksCached = maxCache;
+	mMediaStreamContext->numberOfFragmentsCached = maxCache;
 
 	// Configure the cache size so "full" condition is true.
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(maxCache));
 
 	// Verify no caching/download is attempted because cache is full.
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
 		.Times(0);
 
@@ -547,7 +549,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
 
 	// Enable low-latency mode and leave cache capacity available.
 	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
-	mMediaStreamContext->numberOfFragmentChunksCached = 0;
+	mMediaStreamContext->numberOfFragmentsCached = 0;
 
 	// Simulate local TSB injection; this should bypass the LLD wait loop.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
@@ -594,7 +596,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 
 	// Enable low-latency mode and ensure cache has room.
 	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
-	mMediaStreamContext->numberOfFragmentChunksCached = 0;
+	mMediaStreamContext->numberOfFragmentsCached = 0;
 
 	// Configure cache size to permit caching.
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
