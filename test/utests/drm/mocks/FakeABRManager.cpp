@@ -19,8 +19,7 @@
 
 #include "abr.h"
 
-long ABRManager::mPersistBandwidth = 0;
-long long ABRManager::mPersistBandwidthUpdatedTime = 0;
+std::atomic<ABRManager::PersistBandwidthData> ABRManager::mPersistBandwidthData{};
 
 int ABRManager::getProfileCount()
 {

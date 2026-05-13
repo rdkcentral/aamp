@@ -775,7 +775,7 @@ std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType
  * @param[in] rate
  * @param[in] tuneType
  *
- * @return AAMPSTatusType - OK if success
+ * @return AAMPStatusType - OK if success
  */
 AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType)
 {

@@ -89,10 +89,12 @@ public:
      *   @brief  API to send audio/video sample into the sink.
      *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  sample - Media sample
-     *   @return void
+     *   @param[in]  sample - Media sample; ownership is transferred (consumed).
+     *                        Callers must pass via std::move() and must not
+     *                        access the sample after this call returns.
+     *   @return true if sample was accepted by the sink, false otherwise.
      */
-    virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) = 0;
+    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type

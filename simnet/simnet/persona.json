@@ -1,0 +1,21 @@
+{
+  "base_rtt_ms": 41.834500000000006,
+  "burst_bytes_cv": 0.053355394585347396,
+  "bursts_per_segment": 2,
+  "cadence_jitter_ms": 0.0,
+  "cadence_ms": 101.123,
+  "capacity_drop_factor": 0.6,
+  "capacity_drop_p": 0.0,
+  "flush_jitter_ms": 6.0,
+  "late_chunk_extra_ms": 0.0,
+  "late_chunk_p": 0.0,
+  "mean_thr_mbps": 95.31982772439514,
+  "new_conn_penalty_ms": 361.14950000000005,
+  "p_conn_reuse": 0.8333333333333334,
+  "rtt_inflation_ms": 0.0,
+  "rtt_jitter_ms": 56.267049666419574,
+  "thr_rho": 0.05794754572500557,
+  "thr_sigma_ln": 1.3759175217146744,
+  "ttfb_spike_ms": 308.0205,
+  "ttfb_spike_p": 0.1
+}
