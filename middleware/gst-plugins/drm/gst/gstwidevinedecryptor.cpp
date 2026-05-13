@@ -45,9 +45,14 @@ GST_DEBUG_CATEGORY(gst_widevinedecryptor_debug_category);
 
 /* pad templates */
 
-static GstStaticPadTemplate gst_widevinedecryptor_src_template =
-        GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-h264;video/x-h264(memory:SecMem);audio/mpeg;video/x-h265;video/x-h265(memory:SecMem);audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3;audio/x-opus;audio/x-ac4"));
+/*
+ * The src pad template caps are built dynamically at class_init time using
+ * gst_cdmidecryptor_build_src_caps_string() so that platform-specific secure
+ * memory features (e.g. "memory:MediaTekSecure") are included without
+ * hardcoding them here.  No GST_STATIC_PAD_TEMPLATE / GST_STATIC_CAPS needed
+ * for the src pad.
+ */
+
  
 static GstStaticPadTemplate gst_widevinedecryptor_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
