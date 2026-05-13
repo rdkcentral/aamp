@@ -1,0 +1,5 @@
+Before answering:
+- List the spec rules you will evaluate.
+- For each claim you make about code behavior, quote the exact supporting code/log text.
+- If you cannot find evidence, say "Not found" or "Not determinable."
+- Do not propose redesigns; propose minimal changes needed for compliance.
