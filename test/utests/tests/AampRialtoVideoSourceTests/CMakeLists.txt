@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(EXEC_NAME AampRialtoPlayerTests)
+set(EXEC_NAME AampRialtoVideoSourceTests)
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 
@@ -28,13 +28,13 @@ include_directories(${AAMP_ROOT}/.libs/include/rialto)
 include_directories(${AAMP_ROOT}/direct-rialto)
 
 set(TEST_SOURCES
-	AampRialtoPlayerTests.cpp
-	AampRialtoPlayerTestCases.cpp
+	AampRialtoVideoSourceTests.cpp
+	AampRialtoVideoSourceTestCases.cpp
 )
 
 set(AAMP_SOURCES
-	${AAMP_ROOT}/direct-rialto/AampRialtoPlayer.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
+	${AAMP_ROOT}/direct-rialto/AampRialtoVideoSource.cpp
 )
 
 add_executable(${EXEC_NAME}
@@ -59,7 +59,3 @@ target_link_libraries(${EXEC_NAME}
 	${GMOCK_LINK_LIBRARIES}
 	${GTEST_LINK_LIBRARIES}
 )
-
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
-
-aamp_utest_run_add(${EXEC_NAME})

@@ -487,12 +487,17 @@ set(LIBAAMP_SOURCES
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
 	direct-rialto/AampDrmBridge.cpp
+	direct-rialto/AampPlayerStateMachine.cpp
+	direct-rialto/AampRialtoAudioSource.cpp
 	direct-rialto/AampRialtoMediaPipelineClient.cpp
 	direct-rialto/AampRialtoPlayer.cpp
+	direct-rialto/AampRialtoMediaSource.cpp
 	direct-rialto/AampRialtoPlayer.h
-	direct-rialto/AampPlayerStateMachine.cpp
 	direct-rialto/AampRialtoControlBackend.cpp
 	direct-rialto/PrivateInstanceAAMPNotifiable.cpp
+	direct-rialto/AampRialtoSourceCreators.cpp
+	direct-rialto/AampRialtoSubtitleSource.cpp
+	direct-rialto/AampRialtoVideoSource.cpp
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h

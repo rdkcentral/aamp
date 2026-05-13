@@ -19,8 +19,7 @@
 
 /**
  * @file AampRialtoPlayer.h
- * @brief Rialto-based player for AAMP — delegates all StreamSink calls to
- *        an internally owned AAMPGstPlayer instance.
+ * @brief Rialto client based player for AAMP.
  */
 
 #ifndef AAMP_RIALTO_PLAYER_H
@@ -39,6 +38,7 @@
 #include "IRialtoControlBackend.h"
 #include "IStreamSinkNotifiable.h"
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -51,20 +51,19 @@
 #include <vector>
 #include <cstdint>
 
-class AAMPGstPlayer;
 class PrivateInstanceAAMP;
 class PrivateInstanceAAMPNotifiable;
 class AampRialtoMediaPipelineClient;
+class AampRialtoMediaSource;
 class Mp4Demux;
+
+/// Callable that creates a per-track AampRialtoMediaSource.
+using SourceCreator =
+	std::function<std::unique_ptr<AampRialtoMediaSource>(AampMediaType)>;
 
 /**
  * @class AampRialtoPlayer
- * @brief StreamSink implementation that delegates media-pipeline operations
- *        to an internally owned AAMPGstPlayer.
- *
- * AampRialtoPlayer provides the same public interface as StreamSink while
- * encapsulating an AAMPGstPlayer instance, allowing callers to swap in a
- * Rialto-aware sink without changing the rest of the AAMP pipeline.
+ * @brief StreamSink implementation that interfaces with Rialto client.
  */
 class AampRialtoPlayer : public StreamSink
 {
@@ -114,7 +113,8 @@ public:
 		IStreamSinkNotifiable *notifiable,
 		std::unique_ptr<IRialtoControlBackend> controlBackend,
 		id3_callback_t id3HandlerCallback,
-		std::function<void(const unsigned char *, int, int, int)> exportFrames = nullptr);
+		std::function<void(const unsigned char *, int, int, int)> exportFrames = nullptr,
+		SourceCreator sourceCreator = nullptr);
 
 	/// @copydoc StreamSink::Configure
 	void Configure(
@@ -330,90 +330,36 @@ private:
 	/// Control backend used to wait for ApplicationState::RUNNING before
 	/// creating the media pipeline.
 	std::unique_ptr<IRialtoControlBackend> m_controlBackend;
+	/// Callable for creating per-track media source objects.
+	SourceCreator m_sourceCreator;
 	std::shared_ptr<AampRialtoMediaPipelineClient> m_client;
 	std::shared_ptr<firebolt::rialto::IMediaPipeline> m_pipeline;
-	std::unique_ptr<Mp4Demux> m_videoDemuxer;
-	std::unique_ptr<Mp4Demux> m_audioDemuxer;
-	std::unique_ptr<Mp4Demux> m_subtitleDemuxer;
-	int32_t m_videoSourceId{-1};  ///< Rialto source ID for the video track
-	int32_t m_audioSourceId{-1};  ///< Rialto source ID for the audio track
-	int32_t m_videoWidth{0};      ///< Video frame width (pixels)
-	int32_t m_videoHeight{0};     ///< Video frame height (pixels)
-	int32_t m_audioSampleRate{0}; ///< Audio sample rate (Hz)
-	int32_t m_audioChannels{0};   ///< Audio channel count
-
-	/// Codec data staged by AttachVideoSource/AttachAudioSource and consumed
-	/// by SendTransfer's enqueue path, which stamps it onto the first sample
-	/// of the next non-init fragment.  Only accessed on the calling thread
-	/// (same thread as SendTransfer), so no mutex is required.
-	std::shared_ptr<firebolt::rialto::CodecData> m_pendingVideoCodecData;
-	std::shared_ptr<firebolt::rialto::CodecData> m_pendingAudioCodecData;
 
 	/// DRM bridge used to create key sessions and obtain mks_ids.
 	std::shared_ptr<IDrmBridge> m_drmBridge;
-	/// Rialto MediaKeySession IDs for each track (-1 = no active DRM session).
-	int32_t m_videoMksId{-1};
-	int32_t m_audioMksId{-1};
-
-	/**
-	 * @brief Protection parameters saved by QueueProtectionEvent.
-	 *
-	 * createSession() is deferred until the init fragment arrives so that the
-	 * license pre-fetcher has had time to acquire the license first, making
-	 * the DrmSessionManager::createDrmSession() call non-blocking in the
-	 * common case.
-	 */
-	struct ProtectionParams
-	{
-		std::string          systemId;
-		std::vector<uint8_t> initData;
-		AampMediaType        type;
-	};
-	std::optional<ProtectionParams> m_videoProt;
-	std::optional<ProtectionParams> m_audioProt;
 
 	// -----------------------------------------------------------------------
-	// Segment injection pacing
+	// Per-source state (polymorphic source hierarchy)
 	// -----------------------------------------------------------------------
 
-	/// Serialises AttachVideoSource / AttachAudioSource / CheckAllSourcesAttached
-	/// so that concurrent init-fragment delivery from the video and audio
-	/// download threads cannot race on m_videoSourceId / m_audioSourceId.
+	/// Maximum number of source types (VIDEO=0, AUDIO=1, SUBTITLE=2).
+	static constexpr size_t kMaxSourceTypes = 3;
+
+	/// Per-track source objects.  Each entry owns pacing state, demuxer,
+	/// DRM session, codec data, and type-specific metadata.
+	std::array<std::unique_ptr<AampRialtoMediaSource>, kMaxSourceTypes>
+		m_sources;
+
+	/// Look up a source by media type; returns nullptr if not created.
+	AampRialtoMediaSource *getSource(AampMediaType type);
+
+	/// Find a source by its Rialto-assigned source ID; returns nullptr if
+	/// no source matches.
+	AampRialtoMediaSource *findSourceByRialtoId(int32_t rialtoSourceId);
+
+	/// Serialises AttachSource / CheckAllSourcesAttached so that concurrent
+	/// init-fragment delivery from multiple download threads cannot race.
 	std::mutex m_attachMutex;
-
-	/**
-	 * @brief Per-track pacing state used to coordinate Rialto's
-	 *        needData/haveData IPC handshake with AAMP's push-style
-	 *        SendTransfer calls without an internal sample queue.
-	 *
-	 * SendTransfer (running on AAMP's per-track injector thread) blocks on
-	 * @c cv until a needData request arrives from the Rialto server.  Each
-	 * sample is then injected directly via @c IMediaPipeline::addSegment;
-	 * once the requested @c frameCount has been reached, @c haveData(OK) is
-	 * called and the request is cleared.  AAMP's existing fragment cache
-	 * therefore acts as the only buffer between the network and the
-	 * pipeline, eliminating the in-class sample queue.
-	 */
-	struct SourceState
-	{
-		std::mutex              mu;
-		std::condition_variable cv;
-
-		bool     hasPending{false};      ///< True while a needData request is open
-		uint32_t pendingRequestId{0};    ///< Token returned via haveData()
-		size_t   pendingFrameCount{0};   ///< Max segments to deliver for this request
-		size_t   addedInPending{0};      ///< Segments accepted so far for this request
-
-		bool eos{false};                 ///< Set by EndOfStreamReached()
-
-		/// Bumped by Flush()/Stop() to invalidate any in-flight SendTransfer
-		/// batch.  SendTransfer captures the current value at entry and aborts
-		/// when it observes a different value.
-		uint64_t generation{0};
-	};
-
-	SourceState m_videoSrc;
-	SourceState m_audioSrc;
 
 	/// Position (ns) stored by Flush(); used to set the initial GStreamer
 	/// segment via setSourcePosition() once each source is attached.
@@ -432,42 +378,7 @@ private:
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;
 
-	/**
-	 * @brief Block until a needData request arrives for @p sourceId, then
-	 *        deliver one sample via @c addSegment.
-	 *
-	 * Called by SendTransfer() once per demuxed sample.  The call returns
-	 * after @c addSegment has been issued (and @c haveData when the current
-	 * request is satisfied), or earlier if the batch was invalidated by
-	 * @c Flush()/@c Stop().
-	 *
-	 * @param[in]      sourceId   Rialto source identifier.
-	 * @param[in,out]  st         Per-source pacing state.
-	 * @param[in]      capturedGen Generation value captured by SendTransfer
-	 *                             at the start of the current batch.
-	 * @param[in]      sample     Demuxed sample (moved in).
-	 * @param[in]      isVideo    True for video, false for audio.
-	 * @param[in]      width      Frame width (video only).
-	 * @param[in]      height     Frame height (video only).
-	 * @param[in]      sampleRate Sample rate (audio only).
-	 * @param[in]      channels   Channel count (audio only).
-	 * @param[in]      codecData  Optional codec data to stamp on the segment.
-	 * @returns                   True if @p sample was injected; false if the
-	 *                            batch was aborted (caller should stop the loop).
-	 */
-	bool InjectOneSample(
-		int32_t sourceId,
-		SourceState &st,
-		uint64_t capturedGen,
-		AampMediaSample &&sample,
-		bool isVideo,
-		int32_t width,
-		int32_t height,
-		int32_t sampleRate,
-		int32_t channels,
-		std::shared_ptr<firebolt::rialto::CodecData> codecData);
-
-	/// @brief Dispatches need-data events from the pipeline client to workers.
+	/// @brief Dispatches need-data events from the pipeline client.
 	void OnNeedMediaData(int32_t sourceId, size_t frameCount, uint32_t requestId);
 
 	/// @brief Dispatches cancel-need-data events from the pipeline client.
@@ -482,11 +393,12 @@ private:
 	/// @brief Called when the Rialto server reports the stream duration.
 	void OnDuration(int64_t durationNs);
 
-	/// @brief Attach video source after parsing the init segment.
-	void AttachVideoSource(Mp4Demux &demuxer);
-
-	/// @brief Attach audio source after parsing the init segment.
-	void AttachAudioSource(Mp4Demux &demuxer);
+	/**
+	 * @brief Attach a source via its polymorphic attachOrUpdate method.
+	 *
+	 * Caller must hold m_attachMutex and verify m_pipeline is non-null.
+	 */
+	void AttachSource(AampRialtoMediaSource &source, MediaCodecInfo &codecInfo);
 
 	/**
 	 * @brief Call allSourcesAttached() once every expected source has
