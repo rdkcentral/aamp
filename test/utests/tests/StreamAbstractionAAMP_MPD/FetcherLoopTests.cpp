@@ -2975,3 +2975,134 @@ TEST_F(FetcherLoopTests, ForwardPlayback_AllAdsFinished_AdDetectionStillWorks)
         << "Forward playback: WAIT2CATCHUP must have been cleared";
     EXPECT_TRUE(ret);
 }
+
+/**
+ * @brief VPAAMP-205 regression: "All Ads Finished" fired in the download loop
+ *        (Scenario A) — mLastCompletedBreakId guard.
+ *
+ * This test reproduces the actual device failure path observed in QA during
+ * reverse trickplay through CDAI ad breaks.
+ *
+ * In the device failure, "All Ads Finished" fired from inside the segment
+ * download loop (via an onAdEvent call that is NOT inside SelectSourceOrAdPeriod).
+ * This cleared mCurPlayingBreakId BEFORE SelectSourceOrAdPeriod was called.
+ * The existing ec74c60b guard uses snapPlayingBreakId, which is captured at
+ * SelectSourceOrAdPeriod entry — after the clear — so it is always "".
+ * The guard comparison ("" vs mPeriodMap[prevPId].adBreakId) never fires, and
+ * the first onAdEvent(DEFAULT) call immediately re-enters the same adbreak via
+ * CheckForAdStart's (rate<0)&&(key==end) condition.  Four such oscillation
+ * cycles were observed before GStreamer received mismatched init segments and
+ * emitted error 80:1 ("This file is corrupt").
+ *
+ * The fix (mLastCompletedBreakId):
+ *   onAdEvent's "All Ads Finished" block now sets mLastCompletedBreakId =
+ *   mCurPlayingBreakId immediately before clearing mCurPlayingBreakId.
+ *   SelectSourceOrAdPeriod checks mLastCompletedBreakId against
+ *   mPeriodMap[mBasePeriodId].adBreakId BEFORE the first onAdEvent call and
+ *   skips the probe when they match, preventing oscillation.
+ *
+ * Setup (mirrors the device scenario)
+ * ------------------------------------
+ * - 3-period manifest: p0 (0-30 s), p1 (30-60 s), p2 (60-90 s).
+ * - mPlayRate = -12 (reverse trick-play).
+ * - mAdState = OUTSIDE_ADBREAK  ← "All Ads Finished" has already fired.
+ * - mCurPlayingBreakId = ""     ← already cleared by the download loop.
+ * - mLastCompletedBreakId = "p1"← set by the fix just before the clear.
+ * - mBasePeriodId = "p0"        ← prevPId computed by "All Ads Finished".
+ * - mPeriodMap["p0"].adBreakId = "p1" ← p0 maps to the just-completed adbreak.
+ *
+ * Expected outcome (with fix)
+ * ---------------------------
+ * - skipProbeForDownloadLoopExit = true: mPeriodMap["p0"].adBreakId == "p1"
+ *   == mLastCompletedBreakId.
+ * - mLastCompletedBreakId is cleared (one-shot).
+ * - CheckForAdStart is NOT called (adStateChanged = false; no onAdEvent probe).
+ * - mAdState stays OUTSIDE_ADBREAK; no re-entry into the ad period.
+ *
+ * Expected outcome (without fix / on pre-fix code)
+ * -------------------------------------------------
+ * - snapPlayingBreakId = "" (mCurPlayingBreakId already "").
+ * - ec74c60b guard: "" != "p1" → wouldOscillate = false → probe fires.
+ * - CheckForAdStart("p0", end-of-period, rate=-12) finds adbreak "p1" via
+ *   (rate<0)&&(key==end) → re-enters the adbreak → oscillation cycle.
+ * - EXPECT_CALL(CheckForAdStart).Times(0) fails → test goes RED. ✓
+ */
+TEST_F(FetcherLoopTests, ReverseTrickPlay_AllAdsFinished_InDownloadLoop_NoOscillation)
+{
+    AAMPStatusType status;
+
+    // Initialise at normal rate so Init path completes; switch to -12 after.
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+        .WillOnce(Return(true));
+    status = InitializeMPD(kCdaiRewindManifest, eTUNETYPE_SEEK, 5.0, AAMP_NORMAL_PLAY_RATE);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+    (void)status;
+
+    mTestableStreamAbstractionAAMP_MPD->SetPlayRate(-12.0f);
+    mTestableStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(0);
+
+    auto *cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+
+    // Configure CDAI state as it would be after "All Ads Finished" fires in
+    // the download loop (Scenario A): OUTSIDE_ADBREAK, mCurPlayingBreakId="".
+    auto adsP1 = std::make_shared<std::vector<AdNode>>();
+    adsP1->emplace_back(false, true, true, "adId-p1",
+                        TEST_AD_MANIFEST_URL, 30000, "p1", 0, nullptr);
+    cdaiObj->mAdBreaks["p1"] = AdBreakObject(30000, adsP1, "p2", 0, 30000);
+    cdaiObj->mAdBreaks["p1"].mAdBreakPlaced = true;
+    cdaiObj->mAdBreaks["p1"].mAdFailed = false;
+
+    // Simulate post-clear state: mCurPlayingBreakId already "" but
+    // mLastCompletedBreakId records the just-finished adbreak.
+    cdaiObj->mCurAds       = nullptr;
+    cdaiObj->mCurAdIdx     = -1;
+    cdaiObj->mCurPlayingBreakId   = "";           // cleared by download loop
+    cdaiObj->mLastCompletedBreakId = "p1";        // set by fix before clearing
+    cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK; // already transitioned
+
+    // mPeriodMap["p0"].adBreakId = "p1": the new base period maps to the
+    // just-completed adbreak — this is the condition that causes oscillation
+    // on unfixed code (mPeriodMap lookup via CheckForAdStart finds adbreak "p1").
+    Period2AdData p0AdData;
+    p0AdData.adBreakId = "p1";
+    p0AdData.duration  = 30000;
+    p0AdData.filled    = true;
+    p0AdData.offset2Ad[0] = {0, 0};
+    cdaiObj->mPeriodMap["p0"] = p0AdData;
+
+    bool periodChanged          = false;
+    bool mpdChanged             = false;
+    bool adStateChanged         = true; // download loop's onAdEvent returned true (adbreak ended)
+    bool waitForAdBreakCatchup  = false;
+    bool requireStreamSelection = false;
+    std::string currentPeriodId = "p1";
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+        .WillRepeatedly(Return(nullptr));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+        .WillRepeatedly(Return(false));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _))
+        .Times(AnyNumber());
+    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(false);
+
+    // KEY regression assertion: the new mLastCompletedBreakId guard must fire
+    // (skipProbeForDownloadLoopExit=true) and prevent any call to CheckForAdStart.
+    // On unfixed code, snapPlayingBreakId="" so the ec74c60b guard does not fire,
+    // and CheckForAdStart IS called — causing the adbreak oscillation.
+    EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
+        .Times(0);
+
+    bool ret = mTestableStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(
+        periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup,
+        requireStreamSelection, currentPeriodId);
+
+    EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK)
+        << "Download-loop-exit path: adState must remain OUTSIDE_ADBREAK";
+    EXPECT_FALSE(adStateChanged)
+        << "Download-loop-exit path: adStateChanged must be false; no re-entry";
+    EXPECT_TRUE(cdaiObj->mLastCompletedBreakId.empty())
+        << "mLastCompletedBreakId must be consumed (cleared) by the guard";
+    EXPECT_TRUE(ret);
+}

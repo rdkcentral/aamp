@@ -375,6 +375,7 @@ public:
 	std::unordered_map<std::string, AdBreakObject> mAdBreaks;           /**< Periodid to adbreakobject map*/
 	std::unordered_map<std::string, Period2AdData> mPeriodMap;          /**< periodId to Ad map */
 	std::string                                    mCurPlayingBreakId;  /**< Currently playing Ad */
+	std::string                                    mLastCompletedBreakId; /**< ID of the adbreak most recently cleared from mCurPlayingBreakId (set just before the clear); used by SelectSourceOrAdPeriod to guard against end-of-period re-entry in reverse trickplay when "All Ads Finished" fires in the download loop before SelectSourceOrAdPeriod is entered. */
 	std::thread                                    mAdObjThreadID;      /**< ThreadId of Ad fulfillment */
 	AdNodeVectorPtr                                mCurAds;             /**< Vector of ads from the current Adbreak */
 	int                                            mCurAdIdx;           /**< Currently playing Ad index */

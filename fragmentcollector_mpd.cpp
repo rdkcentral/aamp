@@ -9388,19 +9388,61 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// If the playing period changes, it will be detected below [if(currentPeriodId != mCurrentPeriod->GetId())]
 				periodChanged = false;
 			}
-			// Snapshot the currently playing break ID before the state transition clears it;
-			// used later in the OUTSIDE_ADBREAK block to guard against re-entering the same adbreak.
-			std::string snapPlayingBreakId;
+			// Guard (download-loop exit path): "All Ads Finished" may have fired in the
+			// segment download loop before this SelectSourceOrAdPeriod call.  In that case
+			// mAdState is already OUTSIDE_ADBREAK and mCurPlayingBreakId has been cleared to
+			// "".  The end-of-period mBasePeriodOffset set above would cause the first
+			// onAdEvent(DEFAULT) call below to immediately re-enter the just-completed adbreak
+			// via CheckForAdStart's (rate<0)&&(key==end) condition, producing the oscillation
+			// that feeds GStreamer mismatched init segments (GstPipeline error 80:1).
+			// mLastCompletedBreakId was set just before mCurPlayingBreakId was cleared; it
+			// persists across the download-loop/SelectSourceOrAdPeriod boundary.  Consume it
+			// here (one-shot): if mPeriodMap[mBasePeriodId] maps to the same adbreak, skip the
+			// probe and let the FetcherLoop's BASE_OFFSET_CHANGE path detect any genuinely
+			// preceding adbreak naturally as mBasePeriodOffset decreases during rewind.
+			bool skipProbeForDownloadLoopExit = false;
 			{
 				std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
-				snapPlayingBreakId = mCdaiObject->mCurPlayingBreakId;
+				if (mPlayRate < AAMP_RATE_PAUSE &&
+					mCdaiObject->mAdState == AdState::OUTSIDE_ADBREAK &&
+					!mCdaiObject->mLastCompletedBreakId.empty())
+				{
+					auto pit = mCdaiObject->mPeriodMap.find(mBasePeriodId);
+					if (pit != mCdaiObject->mPeriodMap.end() &&
+						!pit->second.adBreakId.empty() &&
+						pit->second.adBreakId == mCdaiObject->mLastCompletedBreakId)
+					{
+						AAMPLOG_INFO("[CDAI] Reverse trickplay: skipping end-of-period probe for "
+							"period[%s] - mPeriodMap adBreakId[%s] matches lastCompletedBreakId; "
+							"would oscillate back into same adbreak. FetcherLoop will detect "
+							"preceding adbreak via BASE_OFFSET_CHANGE.",
+							mBasePeriodId.c_str(), pit->second.adBreakId.c_str());
+						skipProbeForDownloadLoopExit = true;
+					}
+					mCdaiObject->mLastCompletedBreakId.clear(); // one-shot: consume regardless
+				}
 			}
-			// Calling the function to play ads from first ad break(existing logic).
-			adStateChanged = onAdEvent(AdEvent::DEFAULT);
-			if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+			// Snapshot the currently playing break ID before the state transition clears it;
+			// used later in the OUTSIDE_ADBREAK block to guard against re-entering the same
+			// adbreak when "All Ads Finished" fires inside the onAdEvent call below (Scenario B).
+			std::string snapPlayingBreakId;
+			if (!skipProbeForDownloadLoopExit)
 			{
-				// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
+				{
+					std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+					snapPlayingBreakId = mCdaiObject->mCurPlayingBreakId;
+				}
+				// Calling the function to play ads from first ad break(existing logic).
 				adStateChanged = onAdEvent(AdEvent::DEFAULT);
+				if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+				{
+					// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
+					adStateChanged = onAdEvent(AdEvent::DEFAULT);
+				}
+			}
+			else
+			{
+				adStateChanged = false;
 			}
 			// endPeriod for the ad break is not available, so wait for the ad break to complete
 			if (AdState::IN_ADBREAK_WAIT2CATCHUP == mCdaiObject->mAdState)
@@ -12248,6 +12290,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				{
 					AAMPLOG_WARN("[CDAI]: ADBREAK[%s] ENDED. Playing the basePeriod[%s].", mCdaiObject->mCurPlayingBreakId.c_str(), mBasePeriodId.c_str());
 					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
+					mCdaiObject->mLastCompletedBreakId = mCdaiObject->mCurPlayingBreakId;
 					mCdaiObject->mCurPlayingBreakId = "";
 					mCdaiObject->mCurAds = nullptr;
 					mCdaiObject->mCurAdIdx = -1;
@@ -12302,6 +12345,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			{
 				AAMPLOG_WARN("[CDAI]: BUG! BUG!! BUG!!! We should not come here.AdIdx[-1].");
 				mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
+				mCdaiObject->mLastCompletedBreakId = mCdaiObject->mCurPlayingBreakId;
 				mCdaiObject->mCurPlayingBreakId = "";
 				mCdaiObject->mCurAds = nullptr;
 				mCdaiObject->mCurAdIdx = -1;
@@ -12401,6 +12445,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_END;
 					reservationEndReason = GetAdReservationEndReason(curAdFailed, curAdCancelled);
 					sendImmediate = curAdFailed;	//Current Ad failed. Hence may not get discontinuity from gstreamer.
+					mCdaiObject->mLastCompletedBreakId = mCdaiObject->mCurPlayingBreakId; // persist across FetcherLoop boundary before clearing
 					mCdaiObject->mCurPlayingBreakId = "";
 					mCdaiObject->mCurAds = nullptr;
 					mCdaiObject->mCurAdIdx = -1;
