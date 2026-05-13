@@ -147,8 +147,7 @@ firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPen
 using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
-lastKnownPTS(0), lastKnownPosition(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
-/*lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),*/
+lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
 numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL),
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
@@ -1488,7 +1487,6 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	DestroyPipeline();
 	interfacePlayerPriv->gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
 	interfacePlayerPriv->gstPrivateContext->lastKnownPTS = 0;
-	interfacePlayerPriv->gstPrivateContext->lastKnownPosition = 0;
 	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
 	interfacePlayerPriv->gstPrivateContext->paused = false;
 	interfacePlayerPriv->gstPrivateContext->pipelineState = GST_STATE_NULL;
@@ -2246,6 +2244,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		{
 			if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 			{
+#if 0//anj
 				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
 				MW_LOG_INFO("subs using rialto subtitle sink");
 				GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
@@ -2267,6 +2266,75 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				interfacePlayerPriv->gstPrivateContext->subtitle_sink = textsink;
 				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 				g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+#else//anj
+				if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
+            {
+                MW_LOG_INFO("subs using rialto subtitle sink (direct link)");
+                GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
+                if (!textsink)
+                {
+                    MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
+                    return -1;
+                }
+                MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
+
+                GstElement* vipertransform = gst_element_factory_make("vipertransform", NULL);
+                if (!vipertransform)
+                {
+                    MW_LOG_WARN("Failed to create vipertransform");
+                    gst_object_unref(textsink);
+                    return -1;
+                }
+
+                GstElement* subtitlebin = gst_bin_new("subtitlebin");
+                GstElement* mp4transform = NULL;
+
+                if (stream->format == GST_FORMAT_SUBTITLE_MP4)
+                {
+                    mp4transform = gst_element_factory_make("subtecmp4transform", NULL);
+                    if (!mp4transform)
+                    {
+                        MW_LOG_WARN("Failed to create subtecmp4transform");
+                        gst_object_unref(textsink);
+                        gst_object_unref(vipertransform);
+                        gst_object_unref(subtitlebin);
+                        return -1;
+                    }
+                    gst_bin_add_many(GST_BIN(subtitlebin), mp4transform, vipertransform, textsink, NULL);
+                    gst_element_link_many(mp4transform, vipertransform, textsink, NULL);
+                }
+                else
+                {
+                    gst_bin_add_many(GST_BIN(subtitlebin), vipertransform, textsink, NULL);
+                    gst_element_link(vipertransform, textsink);
+                }
+
+                /* Ghost pad exposes the first element's sink as the bin's sink */
+                GstElement* firstElement = mp4transform ? mp4transform : vipertransform;
+                GstPad* targetPad = gst_element_get_static_pad(firstElement, "sink");
+                gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", targetPad));
+                gst_object_unref(targetPad);
+
+                stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(subtitlebin));
+                stream->source = GST_ELEMENT(gst_object_ref_sink(InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)));
+
+                gst_bin_add_many(GST_BIN(interfacePlayerPriv->gstPrivateContext->pipeline), stream->source, stream->sinkbin, NULL);
+
+                if (!gst_element_link(stream->source, stream->sinkbin))
+                {
+                    MW_LOG_ERR("Failed to link rialto subtitle elements");
+                    return -1;
+                }
+
+                gst_element_sync_state_with_parent(stream->source);
+                gst_element_sync_state_with_parent(stream->sinkbin);
+
+                interfacePlayerPriv->gstPrivateContext->subtitle_sink = textsink;
+                MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+                g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+                return 0;
+            }
+#endif//anj
 			}
 			else
 			{
@@ -2682,11 +2750,6 @@ GstPlaybackQualityStruct* InterfacePlayerRDK::GetVideoPlaybackQuality(void)
 long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 {
 	long long rc = 0;
-#if 1//anj
-	GstState current{};
-	GstState pending{};
-	constexpr GstClockTime timeout = 0;
-#endif
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
 	{
 		MW_LOG_ERR("Pipeline is NULL");
@@ -2697,23 +2760,15 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		MW_LOG_ERR("Position query is NULL");
 		return rc;
 	}
-
-	GstStateChangeReturn ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, timeout );
 	// Perform gstreamer query and related operation only when pipeline is playing or if deliberately put in paused
-	if ( (ret != GST_STATE_CHANGE_SUCCESS) || (interfacePlayerPriv->gstPrivateContext->pipelineState != GST_STATE_PLAYING &&
+	if (interfacePlayerPriv->gstPrivateContext->pipelineState != GST_STATE_PLAYING &&
 		!(interfacePlayerPriv->gstPrivateContext->pipelineState == GST_STATE_PAUSED && interfacePlayerPriv->gstPrivateContext->paused) &&
 		// The player should be (and probably soon will be) in the playing state so don't exit early.
-		GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline) != GST_STATE_PLAYING) )
+		GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline) != GST_STATE_PLAYING)
 	{
-		MW_LOG_INFO("ANJ: Pipeline is in %s state %s target state, paused=%d, state change ret=%d, (current state=%d, pending=%d), Can't query position; returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, ret, current, pending, rc);
-		//MW_LOG_INFO("Pipeline is in %s state %s target state, paused=%d returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, rc);
+		MW_LOG_INFO("Pipeline is in %s state %s target state, paused=%d returning position as %lld", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused, rc);
 		return rc;
 	}
-
-#if 1//anj
-	MW_LOG_INFO("ANJ: Pipeline is in %s state %s target state, paused=%d", gst_element_state_get_name(interfacePlayerPriv->gstPrivateContext->pipelineState), gst_element_state_get_name(GST_STATE_TARGET(interfacePlayerPriv->gstPrivateContext->pipeline)), interfacePlayerPriv->gstPrivateContext->paused);
-#endif//anj
-
 	gst_media_stream* video = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	// segment.start needs to be queried
 	if (interfacePlayerPriv->gstPrivateContext->segmentStart == -1)
@@ -4057,22 +4112,15 @@ static gboolean VideoDecoderPtsCheckerForEOS(gpointer user_data)
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *) user_data;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gint64 currentPTS = pInterfacePlayerRDK->GetVideoPTS();                       /* Gets the currentPTS from the 'video-pts' property of the element */
-	gint64 currentPos = 0;
 
-        /* Gets the currentPTS from the 'video-pts' property of the element */
-	gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &currentPos);
-
-	//if (currentPTS == privatePlayer->gstPrivateContext->lastKnownPTS)
-	if (currentPos == privatePlayer->gstPrivateContext->lastKnownPosition)
+	if (currentPTS == privatePlayer->gstPrivateContext->lastKnownPTS)
 	{
-		MW_LOG_MIL("Play position not changed");
-		//MW_LOG_MIL("PTS not changed");
+		MW_LOG_MIL("PTS not changed");
 		pInterfacePlayerRDK->NotifyEOS();                                                             /* Notify EOS if the PTS has not changed */
 	}
 	else
 	{
-//		MW_LOG_MIL("Video PTS still moving lastKnownPTS %" G_GUINT64_FORMAT " currentPTS %" G_GUINT64_FORMAT " ##", privatePlayer->gstPrivateContext->lastKnownPTS, currentPTS);
-		MW_LOG_MIL("Video Position still moving lastKnownPosition %" G_GUINT64_FORMAT " currentPosition %" G_GUINT64_FORMAT " ##", privatePlayer->gstPrivateContext->lastKnownPosition, currentPos);
+		MW_LOG_MIL("Video PTS still moving lastKnownPTS %" G_GUINT64_FORMAT " currentPTS %" G_GUINT64_FORMAT " ##", privatePlayer->gstPrivateContext->lastKnownPTS, currentPTS);
 	}
 	privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = GST_TASK_ID_INVALID;
 	return G_SOURCE_REMOVE;
@@ -4144,17 +4192,6 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 			if (!privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 			{
 				privatePlayer->gstPrivateContext->lastKnownPTS = pInterfacePlayerRDK->GetVideoPTS();			/* Gets the currentPTS from the 'video-pts' property of the element */
-#if 1//anj
-				{
-				//gint64 pos = GST_CLOCK_TIME_NONE;
-				//gst_query_parse_position(interfacePlayerPriv->gstPrivateContext->positionQuery, NULL, &pos);
-				//if( gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &pos) )
-				if( gst_element_query_position(privatePlayer->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, GST_FORMAT_TIME, &privatePlayer->gstPrivateContext->lastKnownPosition) )
-				{
-					MW_LOG_WARN("##ANJ:play_pos_ms = %" G_GINT64_FORMAT ", position(nano sec) = %" G_GINT64_FORMAT " ##", GST_TIME_AS_MSECONDS(privatePlayer->gstPrivateContext->lastKnownPosition), privatePlayer->gstPrivateContext->lastKnownPosition);
-				}
-				}
-#endif//anj
 				privatePlayer->gstPrivateContext->ptsUpdatedTimeMS = NOW_STEADY_TS_MS;
 				privatePlayer->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = g_timeout_add(GST_DELAY_BETWEEN_PTS_CHECK_FOR_EOS_ON_UNDERFLOW, VideoDecoderPtsCheckerForEOS, pInterfacePlayerRDK);
 				/*g_timeout_add - Sets the function VideoDecoderPtsCheckerForEOS to be called at regular intervals*/
