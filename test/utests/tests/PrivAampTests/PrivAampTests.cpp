@@ -1630,7 +1630,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_ProgressBeforeSpeedChange)
 }
 
 /**
- * @brief Regression test for VPAAMP-245.
+ * @brief Regression test for Positive Live latency value.
  *
  * Verifies that live latency is never negative during TSB-less linear HLS
  * playback. Before the fix, start/end were overwritten to -1 (XRE sentinel)
@@ -1651,7 +1651,7 @@ TEST_F(PrivAampTests, MonitorProgress_TsbLessLinearHLS_LatencyNonNegative)
 	p_aamp->mSinkPaused = false;
 	p_aamp->mMediaFormat = eMEDIAFORMAT_HLS;
 	p_aamp->SetIsLiveStream(true);
-	p_aamp->mContentType = ContentType_LINEAR;
+	p_aamp->SetContentType("LINEAR_TV");
 	p_aamp->mFogTSBEnabled = false;
 	p_aamp->SetLocalAAMPTsb(false);
 	p_aamp->durationSeconds = DURATION_SECONDS;
