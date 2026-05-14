@@ -75,8 +75,6 @@ bool ShouldNotifyKeyStatus(KeyStatus status)
     {
         case OutputRestricted:
         case Usable:
-        case OutputRestrictedHDCP22:
-        case OutputDownscaled:
             return true;
         default:
             return false;
@@ -255,7 +253,6 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 
 void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySize) {
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
-	printf("keyUpdateOCDM-> Key: "); for (uint8_t i = 0; i < keySize; i++) printf("%02X", key[i]); printf("\n");
 	// Validate input parameters
 	if (key != nullptr && keySize > 0)
 	{
@@ -265,7 +262,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 		if (m_pOpenCDMSession)
 		{
 			m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
-			MW_LOG_WARN("Key status from OCDM: %d", m_keyStatus);
+			MW_LOG_INFO("Key status from OCDM: %d", m_keyStatus);
 			m_keyStateIndeterminate = false;
 			if (m_keyStatus != Usable)
 			{
