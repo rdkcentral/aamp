@@ -158,6 +158,47 @@ for (auto &s : samples)
 
 ---
 
+## Logging — No Silent Failures
+
+Every code path that silently skips expected work **must** emit a log message at
+the appropriate level.  The rule of thumb: if a future developer would be
+surprised that nothing happened, it must be logged.
+
+### Log level selection
+
+| Level | When to use |
+|-------|-------------|
+| `AAMPLOG_ERR` | A required precondition is absent and the feature **will not work** as a result. Playback failure, data loss, or a hung stream is the expected outcome. Examples: `drmBridge` is null when protection params are present; `pipeline` is null when EOS must be signalled. |
+| `AAMPLOG_WARN` | The path is skipped and functionality is **degraded** but the player may continue. Examples: an encrypted sample is injected without a DRM session; a Rialto error notification arrives but is not forwarded to the player. |
+| `AAMPLOG_INFO` | The path is legitimately skipped and both branches are expected, but the skip is worth recording for log analysis. Examples: a `SendTransfer` call arrives for a track that has no source yet (e.g. subtitle before Configure). |
+| `AAMPLOG_TRACE` | High-frequency paths where logging both outcomes would create log noise in normal operation. |
+
+### Mandatory logging points
+
+The following patterns **must always** have a log:
+
+1. **Null pointer guard that abandons work** — any `if (!ptr) return;` or
+   equivalent where `ptr` being null is not the routine case.
+2. **Feature buffer / deferred storage** — when data (e.g. protection params,
+   codec data) is accepted but cannot be applied immediately because a dependent
+   object does not exist yet, log at `AAMPLOG_INFO` or `AAMPLOG_WARN` so it is
+   clear the data was received and where it went.
+3. **Rialto API call failures** — every `pipeline->foo()` that returns `bool` or
+   a status enum must check the result and log at `AAMPLOG_ERR` or
+   `AAMPLOG_WARN` on failure.
+4. **Unimplemented / stub callbacks** — pipeline-client callbacks that are not
+   yet forwarded to the player (e.g. `notifyPlaybackError`) must log at
+   `AAMPLOG_WARN` so failures are not silently swallowed.
+
+### What not to log
+
+- Do **not** add `AAMPLOG_INFO` at every entry/exit of trivial accessors or
+  pure-virtual stubs — this creates noise without analytical value.
+- Do **not** duplicate information already present in an immediately preceding
+  log line at a higher level.
+
+---
+
 ## Architecture Guidance
 
 The target architecture is described in
