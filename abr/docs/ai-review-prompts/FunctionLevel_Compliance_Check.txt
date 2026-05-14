@@ -1,0 +1,20 @@
+You are reviewing one function/module for compliance with the ABR normative spec.
+
+Spec (authoritative):
+[PASTE NORMATIVE SPEC v1 HERE]
+
+Function/module under review:
+File: [name]
+Symbol(s): [function/class]
+Code:
+[PASTE CODE HERE]
+
+Task:
+1) Identify which spec rules this code is responsible for (list section numbers).
+2) For each relevant rule:
+   - PASS/FAIL/PARTIAL/NOT FOUND
+   - Evidence from code (quotes)
+   - Explanation
+3) If FAIL/PARTIAL:
+   - Provide the smallest compliant patch in pseudocode (no refactor unless necessary)
+4) Provide 3–5 unit tests for this function that directly assert the spec rules.
