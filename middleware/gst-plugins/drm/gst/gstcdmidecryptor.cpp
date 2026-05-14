@@ -772,7 +772,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 	//We need to get the sinkpad for sending upstream queries and
 		//getting the current pad capability ie, VIDEO or AUDIO
 		//in order to support tune time profiling
-		g_autoptr(GstPad) sinkpad = gst_element_get_static_pad(
+		GstPad * sinkpad = gst_element_get_static_pad(
 				reinterpret_cast<GstElement*>(cdmidecryptor), "sink");
 
 		if(cdmidecryptor->sessionManager == NULL)
@@ -793,18 +793,12 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 		if(cdmidecryptor->sessionManager == NULL)
 		{
-			GST_ERROR_OBJECT(cdmidecryptor,
-					"cdmidecryptor unable to retrieve player instance\n");
-			result = FALSE;
-			break;
+		GST_ERROR_OBJECT(cdmidecryptor,
+                "cdmidecryptor unable to retrieve player instance\n");
+		result = FALSE;
+		break;
 		}
-		else if(cdmidecryptor->sessionManager->m_drmConfigParam == NULL)
-		{
-			GST_ERROR_OBJECT(cdmidecryptor,
-					"cdmidecryptor has an invalid player instance\n");
-			result = FALSE;
-			break;
-		}
+
 
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Received encrypted event: Proceeding to parse initData\n");
@@ -949,6 +943,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		g_mutex_unlock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n releasing ...................... mutex\n");
 
+		gst_object_unref(sinkpad);
 		gst_buffer_unmap(initdatabuffer, &mapInfo);
 		gst_event_unref(event);
 		if(outData){
