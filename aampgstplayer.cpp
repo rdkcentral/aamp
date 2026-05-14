@@ -928,6 +928,7 @@ void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
  */
 void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
+	auto syncLock = aamp->SyncLock();
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 	StopMonitorAvTimer();
 	playerInstance->Stop(keepLastFrame);
@@ -1052,18 +1053,25 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 {
 	auto syncLock = aamp->SyncLock();
+	bool res = false;
 
-	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
-
-	bool res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
-	if(res)
+	if (!playerInstance)
 	{
-		if(!aamp->IsGstreamerSubsEnabled())
-			aamp->PauseSubtitleParser(pause);
+		AAMPLOG_WARN("AAMPGstPlayer_Pause called but playerInstance is null");
+	}
+	else
+	{
+		AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
+
+		res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
+		if(res)
+		{
+			if(!aamp->IsGstreamerSubsEnabled())
+				aamp->PauseSubtitleParser(pause);
+		}
 	}
 
 	return res;
-	//return retValue;
 }
 
 /**
