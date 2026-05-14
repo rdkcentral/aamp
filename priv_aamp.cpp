@@ -2810,13 +2810,13 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					auto format_pos = [](double val) -> long {
-						return (val == -1.0) ? -1 : (long)(val / 1000);
+					auto formatPos = [](double valMs) -> long {
+						return (valMs == -1.0) ? -1 : (long)(valMs / 1000);
 					};
 					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
-							format_pos(start),
+							formatPos(start),
 							(long)(reportFormattedCurrPos / 1000),
-							format_pos(end),
+							formatPos(end),
 							(long long) videoPTS,
 							(double)(videoBufferedDuration / 1000.0),
 							(double)(audioBufferedDuration /1000.0),
