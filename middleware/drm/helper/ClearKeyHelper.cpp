@@ -245,7 +245,7 @@ bool ClearKeyHelperFactory::isDRM(const struct DrmInfo& drmInfo) const
 
 DrmHelperPtr ClearKeyHelperFactory::createHelper(const struct DrmInfo& drmInfo) const
 {
-	MW_LOG_ERR("creating helper");
+	MW_LOG_MIL("creating helper");
 	if (isDRM(drmInfo))
 	{
 		return std::make_shared<ClearKeyHelper>(drmInfo);

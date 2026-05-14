@@ -731,7 +731,7 @@ void SecManagerThunder::ShowWatermark(bool show)
 	JsonObject result;
 	bool rpcResult = false;
 
-	MW_LOG_ERR("ContentSecurityManager %s:%d ", __FUNCTION__, __LINE__);
+	MW_LOG_MIL("ContentSecurityManager %s:%d ", __FUNCTION__, __LINE__);
 	param["show"] = show;
 	{
 		std::lock_guard<std::mutex> lock(mWatMutex);
@@ -762,7 +762,7 @@ void SecManagerThunder::CreateWatermark(int graphicId, int zIndex )
 	JsonObject result;
 	bool rpcResult = false;
 
-	MW_LOG_ERR("ContentSecurityManager %s:%d ", __FUNCTION__, __LINE__);
+	MW_LOG_MIL("ContentSecurityManager %s:%d ", __FUNCTION__, __LINE__);
 	param["id"] = graphicId;
 	param["zorder"] = zIndex;
 	{
@@ -794,7 +794,7 @@ void SecManagerThunder::DeleteWatermark(int graphicId)
 	JsonObject result;
 	bool rpcResult = false;
 
-	MW_LOG_ERR("ContentSecurityManager %s:%d ", __FUNCTION__, __LINE__);
+	MW_LOG_MIL("ContentSecurityManager %s:%d ", __FUNCTION__, __LINE__);
 	param["id"] = graphicId;
 	{
 		std::lock_guard<std::mutex> lock(mWatMutex);

@@ -262,7 +262,7 @@ DrmHelperPtr WidevineDrmHelperFactory::createHelper(const struct DrmInfo& drmInf
 
 	if (isDRM(drmInfo))
 	{
-		MW_LOG_ERR("creating helper");
+		MW_LOG_MIL("creating helper");
 		return std::make_shared<WidevineDrmHelper>(drmInfo);
 	}
 	else
