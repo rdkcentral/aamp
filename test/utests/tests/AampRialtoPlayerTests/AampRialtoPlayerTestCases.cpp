@@ -481,14 +481,15 @@ TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
 }
 
-TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesThreeSources)
+TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesVideoAndAudioOnly)
 {
+	// Subtitle source creation is disabled until the skeleton is complete.
 	m_createSourceCallCount = 0;
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
-	EXPECT_EQ(m_createSourceCallCount, 3);
+	EXPECT_EQ(m_createSourceCallCount, 2);
 	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
-	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
 }
 
 // ===========================================================================

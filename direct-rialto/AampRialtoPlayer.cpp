@@ -323,7 +323,11 @@ void AampRialtoPlayer::Configure(
 			AAMPLOG_INFO("Created audio source (format=%d)", static_cast<int>(audioFormat));
 		}
 	}
-	if (subFormat != FORMAT_INVALID)
+	// Subtitle source creation is disabled until AampRialtoSubtitleSource
+	// fully implements mapCodecToMime/createRialtoSource.  Until then,
+	// creating a source here blocks allSourcesAttached() because the
+	// subtitle can never be attached to the Rialto pipeline.
+	if (false && subFormat != FORMAT_INVALID)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
 		if (src)
@@ -369,7 +373,12 @@ bool AampRialtoPlayer::SendTransfer(
 				initFragment, discontinuity);
 
 	auto *source = getSource(mediaType);
-	Mp4Demux *demuxer = source ? source->demuxer() : nullptr;
+	if (!source)
+	{
+		// No source for this track (e.g. subtitle not yet supported).
+		return true;
+	}
+	Mp4Demux *demuxer = source->demuxer();
 
 	bool result = true;
 	if (!demuxer || buffer.empty())
