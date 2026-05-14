@@ -473,6 +473,21 @@ void AampRialtoPlayer::AttachSource(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
 		m_pendingFlushPositionNs.load(std::memory_order_relaxed));
 
+	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
+	    result == AampRialtoMediaSource::AttachResult::UPDATED)
+	{
+		// Clear the paused flag that Flush() sets.  Flush's purpose is to
+		// abort in-flight injection threads from the previous generation;
+		// once the source is (re-)attached the injection path must be
+		// allowed to block normally waiting for needData rather than
+		// immediately returning false.
+		{
+			auto &st = source.state();
+			std::lock_guard<std::mutex> lock(st.mu);
+			st.paused = false;
+		}
+	}
+
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED)
 	{
 		CheckAllSourcesAttached();
