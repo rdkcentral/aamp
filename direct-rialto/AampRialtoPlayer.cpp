@@ -960,7 +960,26 @@ std::string AampRialtoPlayer::GetVideoRectangle()
 
 void AampRialtoPlayer::StopBuffering(bool forceStop)
 {
+	// forceStop semantics (GStreamer reference: InterfacePlayerRDK::StopBuffering):
+	//   true  — resume playback unconditionally, regardless of buffer level.
+	//   false — resume only if enough decoded frames are queued in the decoder.
+	//
+	// The Rialto client API does not expose the server-side decoder's queued
+	// frame count, so there is no condition to gate the non-forced path on.
+	// Both cases therefore resume unconditionally via play().
 	AAMPLOG_INFO("ENTRY forceStop=%d", forceStop);
+	if (!m_pipeline)
+	{
+		AAMPLOG_WARN("pipeline is null");
+	}
+	else
+	{
+		bool async = false;
+		if (!m_pipeline->play(async))
+		{
+			AAMPLOG_ERR("play() failed while stopping buffering");
+		}
+	}
 	AAMPLOG_INFO("EXIT");
 }
 

@@ -1704,3 +1704,31 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_TRUE(sendDone.load());
 	sender.join();
 }
+
+// ===========================================================================
+// StopBuffering
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StopBuffering_ForceStop_CallsPipelinePlay)
+{
+	Configure();
+	EXPECT_CALL(*m_mockPipelinePtr, play(_))
+		.Times(1).WillOnce(Return(true));
+	m_player->StopBuffering(/*forceStop=*/true);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StopBuffering_NotForced_CallsPipelinePlay)
+{
+	Configure();
+	EXPECT_CALL(*m_mockPipelinePtr, play(_))
+		.Times(1).WillOnce(Return(true));
+	m_player->StopBuffering(/*forceStop=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	StopBuffering_NullPipeline_DoesNotCrash)
+{
+	EXPECT_NO_THROW(m_player->StopBuffering(true));
+}
