@@ -13462,6 +13462,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
 		if (mpStreamAbstractionAAMP)
 		{
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -13478,70 +13479,66 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
+				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
 				{
-					std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-					
-					if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
+					AAMPLOG_WARN("Seamless Text switch has been enabled");
+					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
+				}
+				else
+				{
+					if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
 					{
-						AAMPLOG_WARN("Seamless Text switch has been enabled");
-						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
-					}
-					else
-					{
-						if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
+						TextTrackInfo selectedTextTrack;
+						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
 						{
-							TextTrackInfo selectedTextTrack;
-							if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
-							{
-								// Find the index of the selected track in the available tracks list
-								closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
-								
-								AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
-											 closedCaptionTrackId, selectedTextTrack.language.c_str());
-								SetPreferredTextTrack(std::move(selectedTextTrack));
-							}
-							else
-							{
-								AAMPLOG_WARN("SelectPreferredTextTrack failed to find a matching track");
-							}
-						}
-						seek_pos_seconds = GetPositionSeconds();
-						
-						if (IsLocalAAMPTsb())
-						{
-							mAampTsbLanguageChangeInProgress = true;
-						}
-						
-						TeardownStream(false);
-						if (IsFogTSBSupported() && (!isAvailableInManifest))
-						{
-							ReloadTSB();
-						}
-						
-						if (IsLocalAAMPTsb())
-						{
-							AAMPLOG_WARN("Flush the TSB before seeking to live");
+							// Find the index of the selected track in the available tracks list
+							closedCaptionTrackId = FindTextTrackIndex(trackInfo, selectedTextTrack);
 							
-							/* If AAMP TSB is enabled, flush the TSB before seeking to live */
-							if (mTSBSessionManager)
-							{
-								AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
-								CreateTsbSessionManager();
-								SetLocalAAMPTsbInjection(false);
-								TuneHelper(eTUNETYPE_SEEKTOLIVE);
-							}
-							else
-							{
-								AAMPLOG_ERR("TSB Session Manager is NULL");
-							}
+							AAMPLOG_INFO("Selected text track at index %d (lang=%s)",
+										 closedCaptionTrackId, selectedTextTrack.language.c_str());
+							SetPreferredTextTrack(std::move(selectedTextTrack));
 						}
 						else
 						{
-							TuneHelper(eTUNETYPE_SEEK);
+							AAMPLOG_WARN("SelectPreferredTextTrack failed to find a matching track");
 						}
-						
-						discardEnteringLiveEvt = false;
 					}
+					seek_pos_seconds = GetPositionSeconds();
+					
+					if (IsLocalAAMPTsb())
+					{
+						mAampTsbLanguageChangeInProgress = true;
+					}
+					
+					TeardownStream(false);
+					if (IsFogTSBSupported() && (!isAvailableInManifest))
+					{
+						ReloadTSB();
+					}
+					
+					if (IsLocalAAMPTsb())
+					{
+						AAMPLOG_WARN("Flush the TSB before seeking to live");
+						
+						/* If AAMP TSB is enabled, flush the TSB before seeking to live */
+						if (mTSBSessionManager)
+						{
+							AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
+							CreateTsbSessionManager();
+							SetLocalAAMPTsbInjection(false);
+							TuneHelper(eTUNETYPE_SEEKTOLIVE);
+						}
+						else
+						{
+							AAMPLOG_ERR("TSB Session Manager is NULL");
+						}
+					}
+					else
+					{
+						TuneHelper(eTUNETYPE_SEEK);
+					}
+					
+					discardEnteringLiveEvt = false;
 				}
 			}
 			if (closedCaptionTrackId >= 0)
