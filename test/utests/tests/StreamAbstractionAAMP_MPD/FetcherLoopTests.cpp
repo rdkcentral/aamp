@@ -2734,6 +2734,59 @@ static constexpr const char *kCdaiRewindManifest = R"(<?xml version="1.0" encodi
   </Period>
 </MPD>)";
 
+// Two-period manifest modelling the FOG/TSB live-edge topology.
+//
+// In a FOG TSB live stream, periods are presented in DESCENDING wall-clock order
+// (newest first).  The adbreak signal (SCTE35) fires at the current live edge,
+// which is always index 0 in the manifest.  When that adbreak completes during
+// reverse trick-play, the prevPId loop in the "All Ads Finished" path iterates:
+//
+//   for mIterPeriodIndex = 0, 1, ...:
+//       if mCurPlayingBreakId == period[mIterPeriodIndex].GetId():
+//           break   <-- fires immediately at index 0
+//       prevPId = period[mIterPeriodIndex].GetId()
+//
+// The loop breaks at index 0 so prevPId stays "".  The if(!prevPId.empty())
+// branch is skipped and mBasePeriodId is NOT updated from the adbreak period
+// ("s1").  SelectSourceOrAdPeriod then calls onAdEvent(DEFAULT) with
+// mBasePeriodId="s1", rate<0, offset=end-of-period, which matches
+// mPeriodMap["s1"].adBreakId="s1" via CheckForAdStart's (rate<0)&&(key==end)
+// condition -- re-entering the same adbreak and causing oscillation.
+//
+// s1 (index 0, 60 s): the live-edge source period that carries the adbreak.
+// s2 (index 1, 30 s): older source content (immediately before in wall-clock
+//                     time, immediately after in manifest index order).
+static constexpr const char *kCdaiAdBreakAtIndex0Manifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     availabilityStartTime="2023-01-01T00:00:00Z"
+     maxSegmentDuration="PT2S" minBufferTime="PT4S"
+     minimumUpdatePeriod="P100Y"
+     profiles="urn:dvb:dash:profile:dvb-dash:2014"
+     type="static">
+  <Period id="s1" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+                      bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_s1_init.mp4"
+                         media="video_s1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline><S t="0" d="5000" r="29"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="s2" start="PT60S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+                      bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_s2_init.mp4"
+                         media="video_s2_$Number$.m4s" startNumber="31">
+          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>)";
+
 /**
  * @brief VPAAMP-205 regression: reverse trick-play through CDAI ads must not
  *        oscillate between the base period and the ad period after "All Ads Finished".
@@ -3104,5 +3157,160 @@ TEST_F(FetcherLoopTests, ReverseTrickPlay_AllAdsFinished_InDownloadLoop_NoOscill
         << "Download-loop-exit path: adStateChanged must be false; no re-entry";
     EXPECT_TRUE(cdaiObj->mLastCompletedBreakId.empty())
         << "mLastCompletedBreakId must be consumed (cleared) by the guard";
+    EXPECT_TRUE(ret);
+}
+
+/**
+ * @brief VPAAMP-249 FOG/TSB live-edge regression: adbreak at manifest index 0.
+ *
+ * This test covers the specific topology of a FOG or AAMP local TSB live stream
+ * where the SCTE35 adbreak fires at the live edge — manifest index 0.
+ *
+ * Why this topology is different from the kCdaiRewindManifest tests
+ * -----------------------------------------------------------------
+ * In a FOG TSB stream, periods are ordered DESCENDING by wall-clock time
+ * (newest first).  The live edge (the period where the SCTE35 just fired) is
+ * always at index 0.  When "All Ads Finished" runs the prevPId loop during
+ * reverse trick-play:
+ *
+ *   for idx = 0, 1, ...:
+ *       if mCurPlayingBreakId == period[idx].GetId():
+ *           break                <-- fires at idx=0 immediately
+ *       prevPId = period[idx].GetId()
+ *
+ * The loop breaks at index 0, prevPId stays "", and the
+ * if(!prevPId.empty()) branch is skipped.  mBasePeriodId is NOT updated
+ * from the adbreak period ID ("s1") -- it stays "s1".  Then
+ * mPeriodMap["s1"].adBreakId == "s1" == mLastCompletedBreakId, which is
+ * exactly the oscillation condition.
+ *
+ * On pre-fix code the ec74c60b guard uses snapPlayingBreakId="", which
+ * never matches "s1", so onAdEvent(DEFAULT) runs and CheckForAdStart
+ * immediately re-enters the same adbreak.  This is the tester's 100%
+ * reproducible "Technical Fault" after playing through an ad break on a
+ * live channel with FOG/TSB enabled, then starting reverse trick-play.
+ *
+ * Setup (kCdaiAdBreakAtIndex0Manifest)
+ * -------------------------------------
+ * - 2-period manifest: s1 (0-60 s, index 0), s2 (60-90 s, index 1).
+ * - s1 is the live-edge source period that carries the adbreak ("s1").
+ * - After the adbreak completes, the download-loop "All Ads Finished" path
+ *   sets mBasePeriodId = "s1" (prevPId=""), mLastCompletedBreakId = "s1",
+ *   mCurPlayingBreakId = "", mAdState = OUTSIDE_ADBREAK.
+ * - mPeriodMap["s1"].adBreakId = "s1": the adbreak maps to the period
+ *   itself (adBreakId == periodId, as set by SetAlternateContents for an
+ *   adbreak whose SCTE35 signal is in period "s1").
+ * - mPlayRate = -12 (reverse trick-play just started by the user).
+ * - adStateChanged = true (the download-loop onAdEvent returned true).
+ *
+ * Expected outcome (with fix)
+ * ---------------------------
+ * - skipProbeForDownloadLoopExit = true: mPeriodMap["s1"].adBreakId("s1")
+ *   == mLastCompletedBreakId("s1") -- the most specific match possible.
+ * - mLastCompletedBreakId is cleared (one-shot consumed).
+ * - CheckForAdStart is NOT called; no oscillation.
+ * - mAdState stays OUTSIDE_ADBREAK; adStateChanged = false.
+ *
+ * Expected outcome (without fix / on pre-fix code)
+ * -------------------------------------------------
+ * - snapPlayingBreakId = "" (mCurPlayingBreakId already cleared).
+ * - ec74c60b guard: "" != "s1" -- wouldOscillate = false -- probe fires.
+ * - CheckForAdStart("s1", rate=-12, offset=end-of-period) finds adbreak
+ *   "s1" via (rate<0)&&(key==end) -- re-enters same adbreak.
+ * - EXPECT_CALL(CheckForAdStart).Times(0) FAILS -- test goes RED. ✓
+ *
+ * L2 note
+ * -------
+ * Reproducing this exactly in an L2/simlinear test requires a content
+ * archive whose manifest has the adbreak SCTE35 in the first period
+ * (index 0), which is the natural topology of a FOG TSB live stream but
+ * requires a dedicated archive.  This unit test is the primary RED/GREEN
+ * gate for this specific topology.
+ */
+TEST_F(FetcherLoopTests, ReverseTrickPlay_AdBreakAtPeriodIndex0_FogTopology_NoOscillation)
+{
+    AAMPStatusType status;
+
+    // Initialise with the 2-period manifest where the adbreak period "s1" is
+    // at index 0.  Seek to 5 s (within s1) so Init completes on index 0.
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+        .WillOnce(Return(true));
+    status = InitializeMPD(kCdaiAdBreakAtIndex0Manifest, eTUNETYPE_SEEK, 5.0, AAMP_NORMAL_PLAY_RATE);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+    (void)status;
+
+    // Switch to reverse trick-play after Init (Init only supports forward rates).
+    mTestableStreamAbstractionAAMP_MPD->SetPlayRate(-12.0f);
+
+    // Iterator points at index 0 ("s1") -- the adbreak period, which is now
+    // also the new base period because prevPId was empty.
+    mTestableStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(0);
+
+    auto *cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+
+    // Configure the adbreak object for "s1".
+    auto adsS1 = std::make_shared<std::vector<AdNode>>();
+    adsS1->emplace_back(false, true, true, "adId-s1",
+                        TEST_AD_MANIFEST_URL, 60000, "s1", 0, nullptr);
+    cdaiObj->mAdBreaks["s1"] = AdBreakObject(60000, adsS1, "s2", 0, 60000);
+    cdaiObj->mAdBreaks["s1"].mAdBreakPlaced = true;
+    cdaiObj->mAdBreaks["s1"].mAdFailed = false;
+
+    // Simulate the post-download-loop state produced by "All Ads Finished"
+    // when the adbreak is at manifest index 0:
+    //   prevPId = ""  =>  mBasePeriodId stays "s1"  =>  mPeriodMap["s1"].adBreakId == mLastCompletedBreakId
+    cdaiObj->mCurAds              = nullptr;
+    cdaiObj->mCurAdIdx            = -1;
+    cdaiObj->mCurPlayingBreakId   = "";    // cleared by download loop
+    cdaiObj->mLastCompletedBreakId = "s1"; // set by fix before clearing
+    cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+
+    // mPeriodMap["s1"].adBreakId = "s1": the live-edge source period maps to
+    // the adbreak whose ID equals the period ID itself (as set by
+    // SetAlternateContents when the SCTE35 signal is received on period "s1").
+    Period2AdData s1AdData;
+    s1AdData.adBreakId = "s1"; // adBreakId == periodId -- the FOG live-edge case
+    s1AdData.duration  = 60000;
+    s1AdData.filled    = true;
+    s1AdData.offset2Ad[0] = {0, 0};
+    cdaiObj->mPeriodMap["s1"] = s1AdData;
+
+    bool periodChanged          = false;
+    bool mpdChanged             = false;
+    bool adStateChanged         = true; // download-loop onAdEvent returned true
+    bool waitForAdBreakCatchup  = false;
+    bool requireStreamSelection = false;
+    std::string currentPeriodId = "s1"; // were playing from the adbreak period
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+        .WillRepeatedly(Return(nullptr));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+        .WillRepeatedly(Return(false));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _))
+        .Times(AnyNumber());
+    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(false);
+
+    // KEY regression assertion: the new mLastCompletedBreakId guard must fire
+    // (mPeriodMap["s1"].adBreakId == "s1" == mLastCompletedBreakId) and prevent
+    // any call to CheckForAdStart.
+    //
+    // On pre-fix code: snapPlayingBreakId="" != "s1", ec74c60b guard bypassed,
+    // onAdEvent runs, CheckForAdStart("s1", rate=-12, end-of-period) finds
+    // adbreak "s1" via (rate<0)&&(key==end) => re-enters same adbreak => RED.
+    EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
+        .Times(0);
+
+    bool ret = mTestableStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(
+        periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup,
+        requireStreamSelection, currentPeriodId);
+
+    EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK)
+        << "FOG live-edge: adState must remain OUTSIDE_ADBREAK";
+    EXPECT_FALSE(adStateChanged)
+        << "FOG live-edge: adStateChanged must be false; no re-entry into adbreak";
+    EXPECT_TRUE(cdaiObj->mLastCompletedBreakId.empty())
+        << "mLastCompletedBreakId must be consumed (one-shot) by the guard";
     EXPECT_TRUE(ret);
 }
