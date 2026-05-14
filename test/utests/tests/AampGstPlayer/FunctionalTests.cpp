@@ -640,4 +640,50 @@ TEST_F(AAMPGstPlayerTests, MonitorAV )
 	DestroyAMPGstPlayer();
 }
 
+TEST_F(AAMPGstPlayerTests, Pause_NullPlayerInstance)
+{
+	// Setup
+	ConstructAMPGstPlayer();
 
+	// Simulate playerInstance being null (as could happen during a race with Stop)
+	InterfacePlayerRDK *savedPlayerInstance = mAAMPGstPlayer->playerInstance;
+	mAAMPGstPlayer->playerInstance = nullptr;
+
+	// Expect SyncBegin/SyncEnd to be called even when playerInstance is null
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SyncBegin()).Times(2);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SyncEnd()).Times(2);
+
+	// Code under test - should return false without crashing
+	bool result = mAAMPGstPlayer->Pause(true, false);
+	EXPECT_FALSE(result);
+
+	result = mAAMPGstPlayer->Pause(false, false);
+	EXPECT_FALSE(result);
+
+	// Restore playerInstance for proper cleanup
+	mAAMPGstPlayer->playerInstance = savedPlayerInstance;
+
+	// Tidy Up
+	DestroyAMPGstPlayer();
+}
+
+TEST_F(AAMPGstPlayerTests, Stop_WithPipeline)
+{
+	// Setup
+	ConstructAMPGstPlayer();
+	SetupPipeline(&tbl[0]);
+
+	// Expect SyncBegin/SyncEnd to be called during Stop
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SyncBegin()).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SyncEnd()).Times(1);
+
+	// Code under test - Stop should execute with SyncBegin/SyncEnd without issues
+	mAAMPGstPlayer->Stop(false);
+
+	// After Stop, playerInstance->Stop() should have been called (pipeline torn down)
+	// The DestroyAMPGstPlayer expectations for pipeline teardown are no longer needed
+	isPipelineSetup = false;
+
+	// Tidy Up
+	DestroyAMPGstPlayer();
+}

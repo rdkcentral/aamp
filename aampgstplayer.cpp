@@ -842,12 +842,14 @@ void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
  */
 void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
+	aamp->SyncBegin();
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 	StopMonitorAvTimer();
 	playerInstance->Stop(keepLastFrame);
 
 	aamp->seiTimecode.assign("");
 	AAMPLOG_MIL("exiting AAMPGstPlayer_Stop");
+	aamp->SyncEnd();
 }
 
 
@@ -928,21 +930,29 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
  */
 bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 {
+	bool res = false;
+
 	aamp->SyncBegin();					/* Obtains a mutex lock */
 
-	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
-
-	bool res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
-	if(res)
+	if (!playerInstance)
 	{
-		if(!aamp->IsGstreamerSubsEnabled())
-			aamp->PauseSubtitleParser(pause);
+		AAMPLOG_WARN("AAMPGstPlayer_Pause called but playerInstance is null");
+	}
+	else
+	{
+		AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
+
+		res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
+		if(res)
+		{
+			if(!aamp->IsGstreamerSubsEnabled())
+				aamp->PauseSubtitleParser(pause);
+		}
 	}
 
 	aamp->SyncEnd();					/* Releases the mutex */
 
 	return res;
-	//return retValue;
 }
 
 /**

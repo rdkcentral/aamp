@@ -951,10 +951,18 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 
 void PrivateInstanceAAMP::SyncBegin(void)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SyncBegin();
+	}
 }
 
 void PrivateInstanceAAMP::SyncEnd(void)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SyncEnd();
+	}
 }
 
 void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
