@@ -153,8 +153,8 @@ void AampRialtoMediaPipelineClient::notifyCancelNeedMediaData(
 void AampRialtoMediaPipelineClient::notifyPlaybackError(
 	int32_t sourceId, PlaybackError error)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d error=%d", sourceId, static_cast<int>(error));
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_WARN("sourceId=%d error=%d — not forwarded to player",
+		sourceId, static_cast<int>(error));
 }
 
 void AampRialtoMediaPipelineClient::notifySourceFlushed(int32_t sourceId)

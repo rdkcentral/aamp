@@ -172,6 +172,12 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	}
 
 	// 6. First attach — create DRM session if protection params are present
+	if (m_protection.has_value() && !drmBridge)
+	{
+		AAMPLOG_ERR("Protection params present but drmBridge is null for mediaType=%d"
+			" — DRM session will not be created",
+			static_cast<int>(mediaType()));
+	}
 	if (m_protection.has_value() && drmBridge)
 	{
 		const auto &prot = *m_protection;
@@ -278,6 +284,12 @@ bool AampRialtoMediaSource::injectOneSample(
 		}
 
 		// Annotate DRM metadata when encrypted.
+		if (sample.mDrmMetadata.mIsEncrypted && m_mksId < 0)
+		{
+			AAMPLOG_WARN("Encrypted sample for sourceId=%d but no DRM session (mksId=%d)"
+				" — segment will be injected without encryption metadata",
+				m_sourceId, m_mksId);
+		}
 		if (sample.mDrmMetadata.mIsEncrypted && m_mksId >= 0)
 		{
 			segment->setEncrypted(true);
@@ -423,9 +435,14 @@ void AampRialtoMediaSource::signalEos(
 			fireEos = true;
 		}
 	}
-	if (fireEos && pipeline)
+	if (fireEos)
 	{
-		if (!pipeline->haveData(
+		if (!pipeline)
+		{
+			AAMPLOG_ERR("pipeline is null — cannot send EOS for sourceId=%d",
+				m_sourceId);
+		}
+		else if (!pipeline->haveData(
 				firebolt::rialto::MediaSourceStatus::EOS, reqId))
 		{
 			AAMPLOG_WARN("haveData(EOS) failed requestId=%u", reqId);

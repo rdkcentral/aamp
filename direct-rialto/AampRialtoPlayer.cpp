@@ -386,6 +386,8 @@ bool AampRialtoPlayer::SendTransfer(
 	if (!source)
 	{
 		// No source for this track (e.g. subtitle not yet supported).
+		AAMPLOG_INFO("No source for mediaType=%d — ignoring transfer",
+			static_cast<int>(mediaType));
 		return true;
 	}
 	Mp4Demux *demuxer = source->demuxer();
@@ -846,6 +848,11 @@ void AampRialtoPlayer::QueueProtectionEvent(
 		if (source)
 		{
 			source->setProtection(std::move(prot));
+		}
+		else
+		{
+			AAMPLOG_INFO("No source yet for type=%d — protection buffered at player level",
+				static_cast<int>(type));
 		}
 
 		AAMPLOG_INFO("EXIT — params stored for type=%d", static_cast<int>(type));
