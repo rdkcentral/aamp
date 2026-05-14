@@ -148,6 +148,12 @@ public:
 	void setProtection(ProtectionParams params);
 	void clearProtection();
 	bool hasProtection() const { return m_protection.has_value(); }
+	ProtectionParams takeProtection()
+	{
+		ProtectionParams p = std::move(*m_protection);
+		m_protection.reset();
+		return p;
+	}
 
 	// -----------------------------------------------------------------
 	// Codec data

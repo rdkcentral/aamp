@@ -37,6 +37,7 @@
 #include "AampDemuxDataTypes.h"
 #include "IRialtoControlBackend.h"
 #include "IStreamSinkNotifiable.h"
+#include "AampRialtoMediaSource.h"
 
 #include <array>
 #include <atomic>
@@ -54,7 +55,6 @@
 class PrivateInstanceAAMP;
 class PrivateInstanceAAMPNotifiable;
 class AampRialtoMediaPipelineClient;
-class AampRialtoMediaSource;
 class Mp4Demux;
 
 /// Callable that creates a per-track AampRialtoMediaSource.
@@ -349,6 +349,13 @@ private:
 	/// DRM session, codec data, and type-specific metadata.
 	std::array<std::unique_ptr<AampRialtoMediaSource>, kMaxSourceTypes>
 		m_sources;
+
+	/// Player-level protection buffer.  QueueProtectionEvent stores here
+	/// unconditionally so that protection data survives even if no source
+	/// exists yet (i.e. before the first Configure call).  Configure
+	/// applies any pending protection to newly created sources.
+	std::array<std::optional<AampRialtoMediaSource::ProtectionParams>, kMaxSourceTypes>
+		m_pendingProtection;
 
 	/// Look up a source by media type; returns nullptr if not created.
 	AampRialtoMediaSource *getSource(AampMediaType type);

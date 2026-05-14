@@ -304,6 +304,11 @@ void AampRialtoPlayer::Configure(
 			{
 				src->setDemuxer(std::make_unique<Mp4Demux>());
 			}
+			// Apply any protection queued before this source existed.
+			if (m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
+			{
+				src->setProtection(*m_pendingProtection[eMEDIATYPE_VIDEO]);
+			}
 			m_sources[eMEDIATYPE_VIDEO] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
 			AAMPLOG_INFO("Created video source (format=%d)", static_cast<int>(videoFormat));
@@ -317,6 +322,11 @@ void AampRialtoPlayer::Configure(
 			if (audioFormat == FORMAT_ISO_BMFF)
 			{
 				src->setDemuxer(std::make_unique<Mp4Demux>());
+			}
+			// Apply any protection queued before this source existed.
+			if (m_pendingProtection[eMEDIATYPE_AUDIO].has_value())
+			{
+				src->setProtection(*m_pendingProtection[eMEDIATYPE_AUDIO]);
 			}
 			m_sources[eMEDIATYPE_AUDIO] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO);
@@ -822,6 +832,16 @@ void AampRialtoPlayer::QueueProtectionEvent(
 			static_cast<const uint8_t *>(ptr) + len);
 		prot.type = type;
 
+		// Always store at the player level so protection survives
+		// regardless of whether sources exist yet.
+		auto idx = static_cast<size_t>(type);
+		if (idx < kMaxSourceTypes)
+		{
+			m_pendingProtection[idx] = prot;
+		}
+
+		// Also apply to the source immediately if one exists, so that
+		// late-arriving protection (after Configure) takes effect.
 		auto *source = getSource(type);
 		if (source)
 		{
@@ -838,6 +858,10 @@ void AampRialtoPlayer::ClearProtectionEvent()
 	if (m_drmBridge)
 	{
 		m_drmBridge->clearSessions();
+	}
+	for (auto &prot : m_pendingProtection)
+	{
+		prot.reset();
 	}
 	for (auto &source : m_sources)
 	{
