@@ -65,10 +65,11 @@ void AampRialtoMediaSource::reset()
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		++m_state.generation;
-		m_state.hasPending     = false;
-		m_state.addedInPending = 0;
-		m_state.eos            = false;
-		m_state.paused         = false;
+		m_state.hasPending      = false;
+		m_state.addedInPending  = 0;
+		m_state.eos             = false;
+		m_state.paused          = false;
+		m_state.injectorActive  = false;
 		m_state.cv.notify_all();
 	}
 	m_sourceId       = -1;
@@ -247,6 +248,16 @@ bool AampRialtoMediaSource::injectOneSample(
 {
 	bool injected = false;
 
+	// If EOS was already fully handled, nothing to do.
+	{
+		std::lock_guard<std::mutex> lock(m_state.mu);
+		if (m_state.eos && !m_state.hasPending)
+		{
+			return false;
+		}
+		m_state.injectorActive = true;
+	}
+
 	bool done = false;
 	while (!done)
 	{
@@ -260,6 +271,7 @@ bool AampRialtoMediaSource::injectOneSample(
 			});
 			if (m_state.generation != capturedGen || m_state.paused)
 			{
+				m_state.injectorActive = false;
 				done = true;
 				continue;
 			}
@@ -274,6 +286,30 @@ bool AampRialtoMediaSource::injectOneSample(
 		{
 			AAMPLOG_WARN("createSegment returned null for sourceId=%d",
 				m_sourceId);
+			// If EOS is pending, send haveData(EOS) so the request
+			// doesn't hang.
+			{
+				bool fireEos = false;
+				uint32_t eosReqId = 0;
+				{
+					std::lock_guard<std::mutex> lock(m_state.mu);
+					if (m_state.eos && m_state.hasPending &&
+					    m_state.pendingRequestId == reqId)
+					{
+						eosReqId = reqId;
+						m_state.hasPending     = false;
+						m_state.addedInPending = 0;
+						fireEos = true;
+					}
+					m_state.injectorActive = false;
+				}
+				if (fireEos)
+				{
+					pipeline.haveData(
+						firebolt::rialto::MediaSourceStatus::EOS,
+						eosReqId);
+				}
+			}
 			done = true;
 			continue;
 		}
@@ -381,6 +417,7 @@ bool AampRialtoMediaSource::injectOneSample(
 			}
 
 			bool sendHaveData = false;
+			bool sendEos      = false;
 			{
 				std::lock_guard<std::mutex> lock(m_state.mu);
 				if (m_state.generation == capturedGen &&
@@ -388,20 +425,30 @@ bool AampRialtoMediaSource::injectOneSample(
 				    m_state.pendingRequestId == reqId)
 				{
 					++m_state.addedInPending;
-					if (m_state.addedInPending >=
-					    m_state.pendingFrameCount)
+					if (m_state.eos)
+					{
+						// Last sample — signal EOS to Rialto.
+						m_state.hasPending     = false;
+						m_state.addedInPending = 0;
+						sendHaveData           = true;
+						sendEos                = true;
+					}
+					else if (m_state.addedInPending >=
+					         m_state.pendingFrameCount)
 					{
 						m_state.hasPending     = false;
 						m_state.addedInPending = 0;
 						sendHaveData           = true;
 					}
 				}
+				m_state.injectorActive = false;
 			}
 			if (sendHaveData)
 			{
-				if (!pipeline.haveData(
-						firebolt::rialto::MediaSourceStatus::OK,
-						reqId))
+				auto status = sendEos
+					? firebolt::rialto::MediaSourceStatus::EOS
+					: firebolt::rialto::MediaSourceStatus::OK;
+				if (!pipeline.haveData(status, reqId))
 				{
 					AAMPLOG_WARN("haveData failed requestId=%u",
 						reqId);
@@ -427,13 +474,17 @@ void AampRialtoMediaSource::signalEos(
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		m_state.eos = true;
-		if (m_state.hasPending)
+		if (m_state.hasPending && !m_state.injectorActive)
 		{
+			// No injector is active — respond immediately with EOS.
+			// Any segments already buffered in Rialto for this request
+			// will be delivered before EOS is propagated downstream.
 			reqId = m_state.pendingRequestId;
-			m_state.hasPending     = false;
-			m_state.addedInPending = 0;
+			m_state.hasPending = false;
 			fireEos = true;
 		}
+		// If injectorActive, the injector will send haveData(EOS) after
+		// delivering its sample.
 	}
 	if (fireEos)
 	{
@@ -466,12 +517,16 @@ void AampRialtoMediaSource::handleNeedData(
 	bool fireEos = false;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
-		if (m_state.eos)
+		if (m_state.eos && !m_state.injectorActive)
 		{
+			// No injector waiting — respond with EOS directly.
 			fireEos = true;
 		}
 		else
 		{
+			// Either not EOS, or an injector is active and needs the
+			// slot to deliver its sample (it will send haveData(EOS)
+			// after injection).
 			m_state.hasPending        = true;
 			m_state.pendingRequestId  = requestId;
 			m_state.pendingFrameCount = std::max<size_t>(frameCount, 1);

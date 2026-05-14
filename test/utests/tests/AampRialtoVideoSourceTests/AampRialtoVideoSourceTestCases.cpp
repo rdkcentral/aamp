@@ -29,6 +29,10 @@
 #include "MockIMediaPipeline.h"
 #include "MockDrmBridge.h"
 
+#include <atomic>
+#include <chrono>
+#include <thread>
+
 using ::testing::_;
 using ::testing::Invoke;
 using ::testing::NiceMock;
@@ -516,4 +520,213 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_NotAttached_
 	EXPECT_CALL(*m_pipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
 
 	m_source.flushSource(*m_pipelinePtr, 1'000'000'000LL);
+}
+
+// ---------------------------------------------------------------------------
+// signalEos — with addedInPending > 0
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_SignalEos_WithInjectorActive_DoesNotSendHaveData
+ * @brief Verify signalEos does NOT send haveData when an injector is active.
+ *        The injector owns the request and will send haveData(EOS) itself.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SignalEos_WithInjectorActive_DoesNotSendHaveData)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(10, /*requestId=*/77, m_pipelinePtr);
+
+	// Simulate that injectOneSample is active and has pushed some segments.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.addedInPending  = 3;
+		st.injectorActive  = true;
+	}
+
+	// haveData should NOT be called — injectOneSample owns this request.
+	EXPECT_CALL(*m_pipelinePtr, haveData(_, _)).Times(0);
+
+	m_source.signalEos(m_pipelinePtr);
+
+	// EOS flag is set, hasPending remains true for injectOneSample.
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.eos);
+	EXPECT_TRUE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_SignalEos_WithAddedSamplesNoInjector_SendsEos
+ * @brief Verify signalEos sends haveData(EOS) immediately when no injector is
+ *        active, even if some samples were already added for the request.
+ *        Rialto will deliver the buffered segments before propagating EOS.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SignalEos_WithAddedSamplesNoInjector_SendsEos)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(10, /*requestId=*/88, m_pipelinePtr);
+
+	// Simulate that a previous injector added samples and exited
+	// (injectorActive is false).
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.addedInPending = 3;
+		// injectorActive remains false (default)
+	}
+
+	// signalEos should fire immediately — no injector holds the slot.
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 88))
+		.WillOnce(Return(true));
+
+	m_source.signalEos(m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.eos);
+	EXPECT_FALSE(st.hasPending);
+}
+
+// ---------------------------------------------------------------------------
+// injectOneSample — EOS already set, returns immediately
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_EosAlreadySet_ReturnsFalse
+ * @brief Verify injectOneSample returns false immediately when EOS is already
+ *        set and no pending request is available.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosAlreadySet_ReturnsFalse)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Signal EOS without a pending request.
+	m_source.signalEos(m_pipelinePtr);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xDE, 0xAD};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 1.0;
+	sample.mDuration = 0.033;
+
+	bool result = m_source.injectOneSample(
+		*m_pipelinePtr, gen, std::move(sample), nullptr);
+
+	EXPECT_FALSE(result);
+}
+
+// ---------------------------------------------------------------------------
+// injectOneSample — EOS set during injection sends haveData(EOS)
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_EosDuringInjection_SendsEos
+ * @brief Verify that when EOS is set while a batch is in progress,
+ *        injectOneSample injects the sample and sends haveData(EOS).
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosDuringInjection_SendsEos)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	// Simulate mid-batch state: needData arrived, some samples already
+	// pushed, then signalEos was called (which saw injectorActive=true
+	// and did NOT steal the request).
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 42;
+		st.pendingFrameCount = 10;
+		st.addedInPending    = 3;
+		st.eos               = true;
+		st.injectorActive    = true;
+	}
+
+	// Expect addSegment to succeed, then haveData(EOS).
+	EXPECT_CALL(*m_pipelinePtr, addSegment(42, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 42))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xCA, 0xFE};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 2.0;
+	sample.mDuration = 0.033;
+
+	bool result = m_source.injectOneSample(
+		*m_pipelinePtr, gen, std::move(sample), nullptr);
+
+	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// injectOneSample — EOS set while waiting, needData arrives
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_EosSetThenNeedData_InjectsAndSendsEos
+ * @brief Verify that when EOS is set while waiting and then a needData slot
+ *        becomes available, the sample is still injected with EOS status.
+ */
+TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosSetThenNeedData_InjectsAndSendsEos)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(77, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 77))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xBE, 0xEF};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 3.0;
+	sample.mDuration = 0.033;
+
+	std::atomic<bool> injected{false};
+	std::thread injector([&]{
+		injected = m_source.injectOneSample(
+			*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	// Give the injector thread time to enter the wait.
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+	// Simultaneously set eos and provide a needData slot (simulating
+	// both events arriving while the thread is waiting).
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.eos               = true;
+		st.hasPending        = true;
+		st.pendingRequestId  = 77;
+		st.pendingFrameCount = 10;
+		st.addedInPending    = 0;
+		st.paused            = false;
+	}
+	m_source.state().cv.notify_all();
+
+	injector.join();
+	EXPECT_TRUE(injected.load());
 }

@@ -80,6 +80,7 @@ public:
 		bool     eos{false};
 		uint64_t generation{0};
 		bool     paused{false};
+		bool     injectorActive{false};
 	};
 
 	/**
