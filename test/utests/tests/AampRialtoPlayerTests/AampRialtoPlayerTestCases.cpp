@@ -1206,6 +1206,38 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
 }
 
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Paused_SetsPausedOnAllSources)
+{
+	Configure();
+
+	// Verify sources exist and paused is initially false.
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().paused);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().paused);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Playing_ClearsPausedOnAllSources)
+{
+	Configure();
+
+	// Force sources into paused state first.
+	m_mockSources[eMEDIATYPE_VIDEO]->state().paused = true;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().paused = true;
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().paused);
+}
+
 // ===========================================================================
 // IStreamSinkNotifiable — position and duration callbacks
 // ===========================================================================

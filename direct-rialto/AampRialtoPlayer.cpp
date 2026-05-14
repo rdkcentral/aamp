@@ -1119,6 +1119,17 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		{
 			m_stateMachine.onPlaybackStarted();
 
+			// Clear the paused flag so inject threads resume blocking
+			// normally on needMediaData rather than aborting immediately.
+			for (auto &source : m_sources)
+			{
+				if (source)
+				{
+					std::lock_guard<std::mutex> lock(source->state().mu);
+					source->state().paused = false;
+				}
+			}
+
 			const bool firstFrame =
 				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
 
@@ -1144,6 +1155,22 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		}
 		case firebolt::rialto::PlaybackState::PAUSED:
 			m_stateMachine.onPlaybackPaused();
+			// Unblock inject threads waiting for needMediaData.  While
+			// paused, Rialto won't request more data; without this the
+			// inject thread stays blocked, the fragment cache fills, and
+			// the download worker can't fetch new segments — preventing
+			// underflow recovery.
+			for (auto &source : m_sources)
+			{
+				if (source)
+				{
+					{
+						std::lock_guard<std::mutex> lock(source->state().mu);
+						source->state().paused = true;
+					}
+					source->state().cv.notify_all();
+				}
+			}
 			break;
 		case firebolt::rialto::PlaybackState::END_OF_STREAM:
 			m_notifiable->NotifyEOSReached();
