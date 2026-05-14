@@ -2721,9 +2721,9 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 		}
 
-		// If tsb is not available for linear send -1  for start and end
-		// so that xre detect this as tsbless playback
-		// Override above logic if mEnableSeekableRange is set, used by third-party apps
+		// If TSB is not available for linear playback, send -1 for start and end
+		// so that XRE detects this as TSB-less playback.
+		// Override the above logic when mEnableSeekableRange is set for third-party apps.
 		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
 		{
 			start = -1;
