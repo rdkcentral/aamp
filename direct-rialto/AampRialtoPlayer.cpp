@@ -205,6 +205,10 @@ void AampRialtoPlayer::Configure(
 	// NOTE: m_pendingFlushPositionNs is intentionally NOT reset here.
 	m_playRequested.store(false, std::memory_order_relaxed);
 	m_allSourcesAttachedFlag.store(false, std::memory_order_relaxed);
+	for (auto &pa : m_pendingAttach)
+	{
+		pa.reset();
+	}
 
 	// Register Rialto → AAMP log bridge once.
 	if (!m_rialtoLogHandler)
@@ -464,6 +468,30 @@ bool AampRialtoPlayer::SendTransfer(
 void AampRialtoPlayer::AttachSource(
 	AampRialtoMediaSource &source, MediaCodecInfo &codecInfo)
 {
+	const auto type = source.mediaType();
+
+	// THEORY (unproven — revert this block if disproved):
+	// In the failing first-tune log, audio attached first (id=1) and video
+	// second (id=2); the Rialto server then reported:
+	//   "audsrc: not-linked (-1)"
+	// and transitioned SOURCES_ATTACHED → ERROR.  In the passing second-tune
+	// log, video happened to attach first and no error occurred.  The
+	// hypothesis is that GStreamer's playbin/uridecodebin autoplugging requires
+	// video to be present before audio is added.  This has NOT been confirmed
+	// via Rialto documentation or a controlled experiment (e.g. forcing
+	// audio-first on the second tune to reproduce the failure).
+	// Alternative explanations: cold-start pipeline state, different DRM
+	// latency (mksId=0 vs mksId=1), or a first-pipeline-after-boot race.
+	if (type != eMEDIATYPE_VIDEO &&
+	    m_sources[eMEDIATYPE_VIDEO] &&
+	    !m_sources[eMEDIATYPE_VIDEO]->isAttached())
+	{
+		AAMPLOG_INFO("Deferring attachment of mediaType=%d until video is attached",
+			static_cast<int>(type));
+		m_pendingAttach[type] = std::move(codecInfo);
+		return;
+	}
+
 	if (!source.isAttached())
 	{
 		m_stateMachine.onSourceAttaching();
@@ -490,6 +518,22 @@ void AampRialtoPlayer::AttachSource(
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED)
 	{
+		// After video attaches, drain any non-video sources that were deferred
+		// by the video-before-audio ordering theory above.
+		if (type == eMEDIATYPE_VIDEO)
+		{
+			for (size_t i = 0; i < kMaxSourceTypes; ++i)
+			{
+				if (i != eMEDIATYPE_VIDEO &&
+				    m_pendingAttach[i].has_value() &&
+				    m_sources[i])
+				{
+					AAMPLOG_INFO("Processing deferred attachment for mediaType=%zu", i);
+					AttachSource(*m_sources[i], *m_pendingAttach[i]);
+					m_pendingAttach[i].reset();
+				}
+			}
+		}
 		CheckAllSourcesAttached();
 	}
 }

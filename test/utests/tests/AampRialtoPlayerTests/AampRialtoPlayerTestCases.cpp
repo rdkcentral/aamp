@@ -552,6 +552,70 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // ===========================================================================
+// Phase 4b — Source attachment ordering (video before audio)
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_AudioInitFirst_DefersUntilVideoAttaches)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Audio init arrives first — should NOT trigger attachSource yet.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+	SendAudioInitFragment();
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// Video init arrives — should trigger both attachSource calls
+	// (video first, then the deferred audio).
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*m_mockPipelinePtr, attachSource(
+			testing::Truly([](const auto &src) {
+				return dynamic_cast<
+					const firebolt::rialto::IMediaPipeline::MediaSourceVideo *>(
+						src.get()) != nullptr;
+			})))
+			.WillOnce(Invoke(
+				[this](const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+				{
+					const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+						*src).setId(m_nextSourceId++);
+					return true;
+				}));
+		EXPECT_CALL(*m_mockPipelinePtr, attachSource(
+			testing::Truly([](const auto &src) {
+				return dynamic_cast<
+					const firebolt::rialto::IMediaPipeline::MediaSourceAudio *>(
+						src.get()) != nullptr;
+			})))
+			.WillOnce(Invoke(
+				[this](const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+				{
+					const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+						*src).setId(m_nextSourceId++);
+					return true;
+				}));
+	}
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_AudioOnlyConfig_AttachesImmediately)
+{
+	// No video source configured — audio should not be deferred.
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+
+	SendAudioInitFragment();
+}
+
+// ===========================================================================
 // Phase 5 — Segment injection baseline
 // ===========================================================================
 

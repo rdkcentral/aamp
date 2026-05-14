@@ -357,6 +357,14 @@ private:
 	std::array<std::optional<AampRialtoMediaSource::ProtectionParams>, kMaxSourceTypes>
 		m_pendingProtection;
 
+	/// Deferred attachment buffer.  Rialto's GStreamer pipeline requires
+	/// video to be attached before audio.  When a non-video init fragment
+	/// arrives before video is attached, its codec info is buffered here
+	/// (protected by m_attachMutex).  Once video attaches, any deferred
+	/// sources are processed.
+	std::array<std::optional<MediaCodecInfo>, kMaxSourceTypes>
+		m_pendingAttach;
+
 	/// Look up a source by media type; returns nullptr if not created.
 	AampRialtoMediaSource *getSource(AampMediaType type);
 
