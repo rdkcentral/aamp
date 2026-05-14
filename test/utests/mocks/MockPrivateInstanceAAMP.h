@@ -101,12 +101,9 @@ public:
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
 	MOCK_METHOD(bool, IsAdPlaying, ());
-<<<<<<< HEAD
 	MOCK_METHOD(bool, IsLatencyExceedingTrickplayThreshold, (), (const));
-=======
 	MOCK_METHOD(void, EnableLatencyMonitor, (bool enabled));
 	MOCK_METHOD(bool, IsLatencyMonitorEnabled, (), (const));
->>>>>>> 26f96580 (VPAAMP-28: Merge MonitorLatency and RateCorrectionWorkerThread)
 	MOCK_METHOD(void, UpdateVideoEndMetrics, (double adjustedRate));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));

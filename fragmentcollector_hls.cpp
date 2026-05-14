@@ -7017,6 +7017,8 @@ void StreamAbstractionAAMP_HLS::RefreshTrack(AampMediaType type)
 		}
 		track->AbortWaitForCachedAndFreeFragment(true);
 		aamp->StopTrackInjection(type);
+		// Save the latency monitor state before disabling - it will be restored after the switch only if it was active prior
+		mSavedLatencyMonitorState  = aamp->IsLatencyMonitorEnabled();
 		aamp->EnableLatencyMonitor(false);
 		if(aamp->IsLive() && !track->seamlessAudioSwitchInProgress)
 		{

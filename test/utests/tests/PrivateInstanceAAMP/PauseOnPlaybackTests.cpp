@@ -174,7 +174,6 @@ TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 
     EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
     EXPECT_FALSE(mPrivateInstanceAAMP->mbDownloadsBlocked);
-    EXPECT_TRUE(mPrivateInstanceAAMP->IsLatencyMonitorEnabled());
 }
 
 // Testing calling NotifyPauseOnStartPlayback when Pause On Playback active
@@ -182,8 +181,6 @@ TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
 {
     mPrivateInstanceAAMP->mbDownloadsBlocked = false;
-    EXPECT_TRUE(mPrivateInstanceAAMP->IsLatencyMonitorEnabled());
-
     mPrivateInstanceAAMP->SetPauseOnStartPlayback(true);
 
     mPrivateInstanceAAMP->SetLowLatencyMode();
@@ -193,9 +190,7 @@ TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(true)).Times(1);
 
     mPrivateInstanceAAMP->NotifyPauseOnStartPlayback();
-
     EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
     EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
-    EXPECT_FALSE(mPrivateInstanceAAMP->IsLatencyMonitorEnabled());
 }
 

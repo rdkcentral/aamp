@@ -1927,3 +1927,4 @@ bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
 	}
 	return false;
 }
+

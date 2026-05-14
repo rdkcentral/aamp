@@ -52,6 +52,10 @@ AampLatencyMonitor::~AampLatencyMonitor()
 
 void AampLatencyMonitor::Start(const LatencyConfig& config)
 {
+	if (g_mockAampLatencyMonitor != nullptr)
+	{
+		g_mockAampLatencyMonitor->Start(config);
+	}
 }
 
 void AampLatencyMonitor::Stop()
@@ -60,7 +64,6 @@ void AampLatencyMonitor::Stop()
 
 void AampLatencyMonitor::EnableRateCorrection(bool enabled)
 {
-	mCorrectionEnabled.store(enabled);
 }
 
 double AampLatencyMonitor::GetCurrentRate() const

@@ -4045,6 +4045,7 @@ public:
 	 */
 	bool IsLatencyMonitorEnabled() const;
 
+
 	/**
 	 * @brief Check if an ad is currently playing
 	 * @return true if an ad is playing, false otherwise

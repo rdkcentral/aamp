@@ -2297,7 +2297,6 @@ void PrivateInstanceAAMP::NotifyPauseOnStartPlayback(void)
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 		}
 		AAMPLOG_INFO("Live latency correction is disabled after Pause");
-		EnableLatencyMonitor(false);
 
 		mSinkPaused = true;
 	}
@@ -2533,7 +2532,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			// This is trickplay or slow motion
 			currentRate = rate;
 		}
-		else if(mAampLLDashServiceData.lowLatencyMode || ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
+		else if(mLatencyMonitor->IsRateCorrectionEnabled())
 		{
 			currentRate = mLatencyMonitor->GetCurrentRate();
 		}
@@ -3600,8 +3599,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 			mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 
-			bool WasRateCorrectionEnabled = mLatencyMonitor->IsRateCorrectionEnabled();
-			if(WasRateCorrectionEnabled)
+			bool rateCorrectionStatus = mLatencyMonitor->IsRateCorrectionEnabled();
+			if(rateCorrectionStatus)
 			{
 				EnableLatencyMonitor(false);
 			}
@@ -3622,7 +3621,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 			// Discontinuity processing is complete; re-enable rate correction only if
 			// it was active before, filtering out unwanted latency correction wake-ups.
-			if (WasRateCorrectionEnabled)
+			if (rateCorrectionStatus)
 			{
 				EnableLatencyMonitor(true);
 			}
@@ -5880,7 +5879,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
 	{
 		/** Enabled rate Correction by default, seek case and live added later point  **/
-		AAMPLOG_INFO("Live latency correction is disabled for seek by default!!");
 		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
 		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 		{
@@ -5922,17 +5920,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-
-	// After teardown, apply the intended latency monitor state for this tune type.
-	// TeardownStream always disables it; re-enable here for non-seek operations.
-	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
-	{
-		EnableLatencyMonitor(false);
-	}
-	else
-	{
-		EnableLatencyMonitor(true);
-	}
 
 	if(SocUtils::ResetNewSegmentEvent())
 	{
@@ -6261,10 +6248,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
 
-		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection) || (mAampLLDashServiceData.lowLatencyMode && mMediaFormat == eMEDIAFORMAT_DASH))
-		{
-			StartLatencyMonitor();
-		}
+		StartLatencyMonitor();
 
 		// Enable fragment initial caching. Retune not supported
 		if(tuneType != eTUNETYPE_RETUNE
@@ -14956,6 +14940,8 @@ void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
 	config.targetLatencyMs = mLiveOffset * 1000;
 	config.minLatencyMs = config.targetLatencyMs - (mLiveOffsetDrift * 1000);
 	config.maxLatencyMs = config.targetLatencyMs + (mLiveOffsetDrift * 1000);
+	AAMPLOG_MIL("Live LatencyMonitor Config - targetLatencyMs: %f, minLatencyMs: %f, maxLatencyMs: %f",
+		config.targetLatencyMs, config.minLatencyMs, config.maxLatencyMs);
 }
 
 /**

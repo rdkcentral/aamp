@@ -196,11 +196,7 @@ void AampLatencyMonitor::EnableRateCorrection(bool enabled)
 	}
 
 	mCorrectionEnabled.store(enabled);
-	if (!enabled)
-	{
-		// Reset rate to normal immediately, before the worker thread wakes up.
-		ResetToNormalRate();
-	}
+	// Wake the worker so it can immediately reset the rate if needed.
 	{
 		std::lock_guard<std::mutex> lock(mSleepMutex);
 		mWakeupSignalled = true;
