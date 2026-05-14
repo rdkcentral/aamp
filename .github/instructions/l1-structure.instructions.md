@@ -88,13 +88,7 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME [ComponentName]Tests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/drm
-                    ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper
-                    ${AAMP_ROOT}/tsb/api)
-include_directories(${GTEST_INCLUDE_DIRS} ${GMOCK_INCLUDE_DIRS}
-                    ${GLIB_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS}
-                    ${LIBCJSON_INCLUDE_DIRS})
-include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
+include(${UTESTS_ROOT}/CommonTestIncludes.cmake)
 
 # Test sources: runner + cases only
 set(TEST_SOURCES [ComponentName]TestCases.cpp
