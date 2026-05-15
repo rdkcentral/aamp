@@ -171,6 +171,11 @@ protected:
 			return HandleSeekEOSAndPeriodTransition(remainingSeek, skipToEnd);
 		}
 
+		void InvokeSeekInPeriod(double seekPositionSeconds, bool skipToEnd = false)
+		{
+			SeekInPeriod(seekPositionSeconds, skipToEnd);
+		}
+
 		int GetNumberOfTracks() const
 		{
 			return mNumberOfTracks;
@@ -2699,5 +2704,40 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_DisabledTrack_NoPeriodTransition)
 
 	// Disabled tracks must not trigger a forward period transition.
 	EXPECT_FALSE(transitioned);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
+}
+
+/**
+ * @brief VPAAMP-345: SeekInPeriod must not let the subtitle track's SkipFragments
+ * return value overwrite the A/V remaining-seek that drives period transition.
+ *
+ * This test exercises SeekInPeriod with a video-only manifest (no subtitle track
+ * present) to verify the fix does not break the common A/V-only path.  Subtitle
+ * segment boundaries can differ from the A/V grid; if the subtitle SkipFragments
+ * result overwrites trackRemainingSeek, HandleSeekEOSAndPeriodTransition may
+ * receive an incorrect carry-over seek offset or sign, suppressing a valid
+ * period transition or seeking to the wrong position in the next period.
+ *
+ * Full isolation of the subtitle-overwrite scenario requires SkipFragments to be
+ * mockable (it is not in the current test infrastructure); the behavioural
+ * correctness of the A/V-only path is verified here.
+ */
+TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
+{
+	AAMPStatusType status;
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	status = InitializeMPD(mVodManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// SeekInPeriod with a position within period 0 (30 s period, seek to 5 s).
+	// Subtitle SkipFragments result is now discarded; A/V result drives the
+	// period-transition check.  The call must complete without crash and must
+	// not incorrectly advance the period index (5 s is well inside period 0).
+	int periodBefore = mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx();
+	mTestableStreamAbstractionAAMP_MPD->InvokeSeekInPeriod(5.0, false);
+
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
 }

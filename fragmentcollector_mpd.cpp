@@ -2008,8 +2008,14 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 
 		if (eMEDIATYPE_SUBTITLE == i)
 		{
+			// Subtitle segment boundaries can differ from the A/V grid, so the subtitle
+			// SkipFragments return value must not overwrite the A/V remaining-seek.
+			// If it did, HandleSeekEOSAndPeriodTransition could receive a carry-over seek
+			// offset (and the EOS sign check) from the subtitle rather than the primary
+			// A/V track, which could suppress a valid period transition or set the wrong
+			// seek position in the next period.  Discard the subtitle result here.
 			double skipTime = seekPositionSeconds;
-			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], skipTime, true);
+			SkipFragments(mMediaStreamContext[i], skipTime, true);
 		}
 		else
 		{
@@ -2017,11 +2023,10 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 		}
 
 	}
-	// trackRemainingSeek holds the SkipFragments return value of the last processed
-	// track (comment 1). All non-subtitle tracks seek to the same seekPositionSeconds so
-	// their remaining-seek values are expected to converge. HandleSeekEOSAndPeriodTransition
-	// only uses this value for a sign check (>= 0) and as the carry-over seek offset into
-	// the next period, so using the last track's value is acceptable in practice.
+	// trackRemainingSeek is the SkipFragments remaining-seek value from the last A/V
+	// (non-subtitle) track.  Subtitle seek result is intentionally excluded (see comment
+	// above).  HandleSeekEOSAndPeriodTransition uses this value for a sign check (>= 0)
+	// and as the carry-over seek offset into the next period.
 	HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd);
 }
 
