@@ -33,7 +33,7 @@ IFirebolt folder to be deleted, as IARM is no longer available as an alternative
 */
 
 #include "DeviceFireboltInterface.h"
-#include "fireboltaamp.h"
+#include "firebolt/entos/firebolt.h"
 #include "PlayerLogManager.h"
 #include "PlayerExternalsRdkInterface.h"
 #include "PlayerExternalUtils.h"
@@ -49,9 +49,9 @@ std::shared_ptr<DeviceFireboltInterface> s_pDeviceFireboltInterface = nullptr;
 std::mutex mFireboltConnectionMutex;
 std::condition_variable mFireboltConnectionCV;
 
-static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_HDCPVersionMap);
-static void ResolutionHandlerFirebolt(const std::string& t_res);
-static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::NetworkInfoResult& t_NetworkInfoResult);
+static void HDCPEventHandlerFirebolt(const Firebolt::EntOs::Device::HDCPVersionMap& t_HDCPVersionMap);
+static void ResolutionHandlerFirebolt(const Firebolt::EntOs::Device::Resolution& t_res);
+static void getActiveInterfaceEventHandlerFirebolt(const Firebolt::EntOs::Device::NetworkInfoResult& t_NetworkInfoResult);
 
 std::shared_ptr<DeviceFireboltInterface> DeviceFireboltInterface::GetInstance()
 {
@@ -64,8 +64,8 @@ std::shared_ptr<DeviceFireboltInterface> DeviceFireboltInterface::GetInstance()
 }
 
 DeviceFireboltInterface::DeviceFireboltInterface()
+    : m_pFireboltInterface(FireboltInterface::GetInstance())
 {
-	m_pFireboltInterface = FireboltInterface::GetInstance();
 }
 
 DeviceFireboltInterface::~DeviceFireboltInterface()
@@ -99,7 +99,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
        
 	MW_PRE_LOGGER_LOG("Subscribing to Firebolt hdcp change event \n");
 
-	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnHdcpChanged(
+	auto result = Firebolt::EntOs::IFireboltAccessor::Instance().DeviceInterface().subscribeOnHdcpChanged(
 					[](const auto& hdcpProtocol) {
 						MW_LOG_ERR("[Event] HDCP changed");
 						HDCPEventHandlerFirebolt(hdcpProtocol);
@@ -118,10 +118,10 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 	MW_PRE_LOGGER_LOG("Subscribing to Firebolt resolution change event  \n");
 
-	result = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnVideoResolutionChanged(
-					[](const std::string& videoResolution) 
+	result = Firebolt::EntOs::IFireboltAccessor::Instance().DeviceInterface().subscribeOnVideoResolutionChanged(
+					[](const Firebolt::EntOs::Device::Resolution& videoResolution)
 					{
-						MW_LOG_WARN("[Event] Video resolution changed: %s" , videoResolution.c_str());
+						MW_LOG_WARN("[Event] Video resolution changed");
 						ResolutionHandlerFirebolt(videoResolution);
 					});
 	if(result)
@@ -139,14 +139,14 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 void DeviceFireboltInterface::RemoveEventHandlers()
 {
 	//removes everything ...
-    Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().unsubscribeAll();        
+    Firebolt::EntOs::IFireboltAccessor::Instance().DeviceInterface().unsubscribeAll();
 }
 
 void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 {
 	MW_PRE_LOGGER_LOG("Subscribing to Firebolt Network change event\n");
 
-	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
+	auto result = Firebolt::EntOs::IFireboltAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
 					[](const auto& network) {
 						MW_LOG_ERR("[Event] network changed");
 					    getActiveInterfaceEventHandlerFirebolt(network);
@@ -165,11 +165,11 @@ void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 
 	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
-	auto network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().network();
+	auto network = Firebolt::EntOs::IFireboltAccessor::Instance().DeviceInterface().network();
 
 	if(network)
 	{
-		if(network.value().type == Firebolt::Device::NetworkType::WIFI)
+		if(network.value().type == Firebolt::EntOs::Device::NetworkType::WIFI)
 		{
 			MW_PRE_LOGGER_LOG("Active interface wifi\n");
 			pInstance->SetActiveInterface(true);
@@ -189,20 +189,20 @@ char * DeviceFireboltInterface::GetTR181Config(const char * paramName, size_t & 
     return nullptr;
 }
 
-static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::NetworkInfoResult& t_NetworkInfoResult)
+static void getActiveInterfaceEventHandlerFirebolt(const Firebolt::EntOs::Device::NetworkInfoResult& t_NetworkInfoResult)
 {
     std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
-	if(t_NetworkInfoResult.state == Firebolt::Device::NetworkState::CONNECTED)
+	if(t_NetworkInfoResult.state == Firebolt::EntOs::Device::NetworkState::CONNECTED)
 	{
 		std::string interface = "unknown";
-		if(t_NetworkInfoResult.type == Firebolt::Device::NetworkType::WIFI)
+		if(t_NetworkInfoResult.type == Firebolt::EntOs::Device::NetworkType::WIFI)
 		{
 			interface = "wlan";
 			pInstance->SetActiveInterface(true);
 			MW_LOG_INFO("Network interface changed to wifi");
 		}
-		else if(t_NetworkInfoResult.type == Firebolt::Device::NetworkType::ETHERNET)
+		else if(t_NetworkInfoResult.type == Firebolt::EntOs::Device::NetworkType::ETHERNET)
 		{
 			interface = "eth";
 			pInstance->SetActiveInterface(false);
@@ -225,7 +225,7 @@ static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::Netw
 /**
  * @brief IARM event handler for HDCP and HDMI hot plug events
  */
-static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_HDCPVersionMap)
+static void HDCPEventHandlerFirebolt(const Firebolt::EntOs::Device::HDCPVersionMap& t_HDCPVersionMap)
 {
     std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
@@ -251,14 +251,14 @@ static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_H
 /**
  * @brief IARM event handler for resolution changes
  */
-static void ResolutionHandlerFirebolt(const std::string& t_res)
+static void ResolutionHandlerFirebolt(const Firebolt::EntOs::Device::Resolution& t_res)
 {
     int width = 1280;
 	int height = 720;
 
-	MW_LOG_INFO("Resolution: %s", t_res.c_str());
+	MW_LOG_INFO("Resolution changed");
 
-	auto curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution();
+	auto curr_network = Firebolt::EntOs::IFireboltAccessor::Instance().DeviceInterface().videoResolution();
 
 	if(curr_network)
 	{

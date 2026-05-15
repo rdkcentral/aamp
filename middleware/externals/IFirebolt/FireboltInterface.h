@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "fireboltaamp.h"
+#include "firebolt/entos/firebolt.h"
 
 #include <memory>
 
@@ -43,8 +43,6 @@ class FireboltInterface{
     private:
 
         bool mIsConnected = false;
-
-        unsigned int mListenerId;
 
         FireboltInterface();
 
