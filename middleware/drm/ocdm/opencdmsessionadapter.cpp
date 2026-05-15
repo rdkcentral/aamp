@@ -51,15 +51,15 @@
  */
 static PlayerKeyStatus toPlayerKeyStatus(KeyStatus ocdmStatus) {
 	switch (ocdmStatus) {
-		case Usable:                 return PlayerKeyStatus::PLAYER_KEY_USABLE;
-		case Expired:                return PlayerKeyStatus::PLAYER_KEY_EXPIRED;
-		case Released:               return PlayerKeyStatus::PLAYER_KEY_RELEASED;
-		case OutputRestricted:       return PlayerKeyStatus::PLAYER_KEY_OUTPUT_RESTRICTED;
-		case OutputRestrictedHDCP22: return PlayerKeyStatus::PLAYER_KEY_OUTPUT_RESTRICTED_HDCP22;
-		case OutputDownscaled:       return PlayerKeyStatus::PLAYER_KEY_OUTPUT_DOWNSCALED;
-		case StatusPending:          return PlayerKeyStatus::PLAYER_KEY_STATUS_PENDING;
-		case HWError:                return PlayerKeyStatus::PLAYER_KEY_HW_ERROR;
-		case InternalError: default: return PlayerKeyStatus::PLAYER_KEY_INTERNAL_ERROR;
+		case Usable:                 return PLAYER_KEY_USABLE;
+		case Expired:                return PLAYER_KEY_EXPIRED;
+		case Released:               return PLAYER_KEY_RELEASED;
+		case OutputRestricted:       return PLAYER_KEY_OUTPUT_RESTRICTED;
+		case OutputRestrictedHDCP22: return PLAYER_KEY_OUTPUT_RESTRICTED_HDCP22;
+		case OutputDownscaled:       return PLAYER_KEY_OUTPUT_DOWNSCALED;
+		case StatusPending:          return PLAYER_KEY_STATUS_PENDING;
+		case HWError:                return PLAYER_KEY_HW_ERROR;
+		case InternalError: default: return PLAYER_KEY_INTERNAL_ERROR;
 	}
 }
 
