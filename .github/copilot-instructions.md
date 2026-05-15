@@ -41,8 +41,13 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 ## Prompt Feedback (Compact)
 - Assess prompt quality for every prompt.
 - When feedback is not suppressed, use the following format:
-- Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10 | Critique: <brief> | Improve: <specific edit>`.
-- Scoring: Completeness and Clarity are higher-is-better; Assumptions is lower-is-better.
+- Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10, CostRisk X/10 | Critique: <brief> | Improve: <specific edit>`.
+- Scoring: Completeness and Clarity are higher-is-better; Assumptions and CostRisk are lower-is-better.
+- **CostRisk** estimates likely token usage and repository traversal behaviour.
+  - Score higher when the prompt involves: large logs, many files, broad repository
+    requests, unrestricted agent instructions, repeated context, or exploratory prompting.
+  - Score lower when the prompt is narrowly scoped, attaches minimal context,
+    and targets a specific outcome.
 - Strict rubric for underspecified prompts:
   - If the prompt is extremely vague (for example: "build something"), score it harshly.
   - For these prompts, use: Completeness 0-3/10, Clarity 0-3/10, Assumptions 7-10/10.
@@ -50,7 +55,7 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
     cap Completeness and Clarity at 7/10 and set Assumptions to at least 3/10.
 - Keep it short and specific; avoid generic advice.
 - Suppress displayed feedback when Completeness >= 8, Assumptions <= 2,
-  and Clarity >= 8,
+  Clarity >= 8, and CostRisk <= 3,
   unless the user explicitly asks to apply feedback to the current prompt.
 - Determine suppression from the current user prompt only; retrospective analysis of earlier prompts should be provided only when explicitly requested.
 - Prefer high-compliance guidance: suggest exact wording that reduces
