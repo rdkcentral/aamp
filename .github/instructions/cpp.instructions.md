@@ -12,7 +12,7 @@ applyTo:
 
 ## C++ Guidelines
 
-- Target C++17 for new code. Use C++20+ features only when they are supported by the toolchain, clearly documented, and they provide a meaningful improvement in code quality.
+- The existing AAMP codebase is predominantly C++11. New code must target C++17. Use C++20+ features only when they are supported by the toolchain, clearly documented, and they provide a meaningful improvement in code quality.
 - Always follow the guidelines at [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
 - Highlight when existing code being studied does not follow the core guidelines and suggest improvements
 - Discourage the use of C-style code within C++ (e.g. avoid memcpy(), memcmp() and char* for strings). Emphasise memory safety
@@ -45,14 +45,46 @@ This project uses a strict set of C++ coding standards designed for embedded sys
 - Pass by reference or pointer to avoid unnecessary copies.
 
 ## 3. Commenting & Documentation
-- Use Doxygen `///` style comments for public API.
+- Use C-style Doxygen comment blocks (`/** ... */`) for all public API documentation.
+- Do not use `///` style for AAMP public API documentation.
+- Place function documentation with the declaration in the header file; do not duplicate it in the `.cpp` definition.
 - Document non-obvious logic with concise `//` inline comments.
 - All major classes must include a brief “Purpose” description.
 
-## 4. Memory Management
-- Prefer modern C++ smart pointers (`std::unique_ptr`, `std::shared_ptr`).
-- Avoid raw new/delete except when dealing with legacy code paths.
+## 4. Memory Management & Ownership
+- Prefer modern C++ smart pointers for ownership (`std::unique_ptr`, `std::shared_ptr`).
+- Use `std::unique_ptr` as the default for single ownership; use `std::shared_ptr` only when shared ownership is genuinely required.
+- Use raw pointers or references only for non-owning access; never use raw owning pointers in new code.
+- Avoid raw `new`/`delete` except when dealing with legacy code paths.
 - Use RAII for all resource management.
+- Follow the Rule of Zero: prefer classes that use smart pointers and containers so that no custom destructor, copy, or move operations are needed.
+
+## 5. Coding Rules
+- Braces are required for all conditional and loop blocks, including single-line bodies.
+- Use constructor initializer lists to initialize data members where appropriate.
+- Keep data members `private` where possible; provide accessor methods when needed.
+- Avoid `friend` functions and classes unless there is a strong justification.
+- Use `bool` for variables representing logical true/false state.
+- Use appropriate standard container size and index types (e.g., `size_t`, `std::vector::size_type`) when indexing or sizing containers.
+- Use `#pragma once` or traditional include guards in all header files.
+
+## 6. Printf Format Specifier Reference
+When formatting log output or diagnostic strings, use the correct specifiers:
+
+| Type | Specifier |
+|------|----------|
+| `int` | `%d` |
+| `unsigned int` | `%u` |
+| `long` | `%ld` |
+| `unsigned long` | `%lu` |
+| `long long` | `%lld` |
+| `unsigned long long` | `%llu` |
+| `float` | `%f` |
+| `double` | `%lf` |
+| `size_t` | `%zu` |
+| `uint64_t` | `PRIu64` (from `<cinttypes>`) |
+
+Use `PRIu64` and related macros from `<cinttypes>` for fixed-width types to ensure portability.
 
 ## Cross-Language Interoperability (ctypes)
 
@@ -132,6 +164,8 @@ extern "C" {
 - Suggest incremental improvements rather than complete rewrites
 
 ## Memory Safety Patterns
+
+Smart pointers express ownership intent. Use `std::unique_ptr` by default for single ownership. Reserve `std::shared_ptr` for genuinely shared ownership. Use raw pointers or references only for non-owning access.
 
 ### Ownership Models
 ```cpp
@@ -411,4 +445,57 @@ class MyClass {
 public:
     // ...
 };
+```
+
+### File Documentation Example
+```cpp
+/**
+ * @file AampConfig.h
+ * @brief Configuration management for AAMP player.
+ *
+ * Provides centralized handling of player configuration
+ * settings loaded from file or set programmatically.
+ */
+```
+
+### Data Member Documentation Example
+```cpp
+class StreamManager {
+private:
+    std::unique_ptr<StreamBuffer> mBuffer;  /**< Internal stream buffer */
+    std::string mStreamUrl;                 /**< URL of the current stream */
+    size_t mBufferSize;                     /**< Buffer size in bytes */
+};
+```
+
+### Enum Documentation Example
+```cpp
+/**
+ * @enum PlaybackState
+ * @brief Represents the current state of the player.
+ */
+enum class PlaybackState
+{
+    eIDLE,       /**< Player is idle */
+    ePLAYING,    /**< Playback is active */
+    ePAUSED,     /**< Playback is paused */
+    eSTOPPED     /**< Playback has stopped */
+};
+```
+
+### Macro Documentation Example
+```cpp
+/**
+ * @def AAMP_MAX_BUFFER_SIZE
+ * @brief Maximum buffer size in bytes for stream buffering.
+ */
+#define AAMP_MAX_BUFFER_SIZE (4 * 1024 * 1024)
+```
+
+### Static / Global Variable Documentation Example
+```cpp
+/**
+ * @brief Default timeout for network requests in milliseconds.
+ */
+static constexpr int kDefaultNetworkTimeoutMs = 10000;
 ```
