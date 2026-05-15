@@ -22,8 +22,7 @@
 #include "_base64.h"
 #include "PlayerJsonObject.h"
 #include "PlayerLogManager.h"
-#include "contentprotection.h"
-#include "fireboltaamp.h"
+#include "firebolt/entos/firebolt.h"
 #include "FireboltInterface.h"
 
 #include <unistd.h>
@@ -36,7 +35,7 @@
 
 std::condition_variable mConnectionCV;
 std::mutex mConnectionMutex;
-using namespace Firebolt;
+using namespace Firebolt::EntOs;
 uint64_t ContentProtectionFirebolt::mSubscriptionId = 0;
 
 //Lookup table to convert CPS error to secmanager error
@@ -96,7 +95,7 @@ ContentProtectionFirebolt::~ContentProtectionFirebolt()
 // TODO- Yet to test Watermark Events as ContentProtection Thunder Plugin have issues.
 void ContentProtectionFirebolt::SubscribeEvents()
 {
-	auto result =  Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().subscribeOnWatermarkStatusChanged(
+	auto result =  Firebolt::EntOs::IFireboltAccessor::Instance().ContentProtectionInterface().subscribeOnWatermarkStatusChanged(
 			[this](const auto& status)
 			{
 				HandleWatermarkEvent(status.sessionId, status.status, status.appId);
@@ -105,7 +104,7 @@ void ContentProtectionFirebolt::SubscribeEvents()
 	if(result)
 	{
 		mSubscriptionId = result.value();
-		MW_LOG_INFO("Subscribed to Firebolt Content Protection events. mSubscriptionId = %lld", mSubscriptionId);
+		MW_LOG_INFO("Subscribed to Firebolt Content Protection events. mSubscriptionId = %" PRIu64, mSubscriptionId);
 	}
 	else
 	{
@@ -115,9 +114,9 @@ void ContentProtectionFirebolt::SubscribeEvents()
 
 void ContentProtectionFirebolt::UnSubscribeEvents()
 {
-	MW_LOG_INFO("Unsubscribing from Firebolt Content Protection events %lld", mSubscriptionId);
+	MW_LOG_INFO("Unsubscribing from Firebolt Content Protection events %" PRIu64, mSubscriptionId);
 	auto result =
-		Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribe(mSubscriptionId);
+		Firebolt::EntOs::IFireboltAccessor::Instance().ContentProtectionInterface().unsubscribe(mSubscriptionId);
 	if (result.error() != Firebolt::Error::None)
 	{
 		MW_LOG_ERR("Failed to Unsubscribe to watermark events: %d", static_cast<int>(result.error()));
@@ -436,7 +435,7 @@ void ContentProtectionFirebolt::CloseDrmSession(int64_t sessionId)
 	}
 	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the closeDrmSession method from the interface
-	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().closeDrmSession(std::to_string(sessionId));
+	auto result = Firebolt::EntOs::IFireboltAccessor::Instance().ContentProtectionInterface().closeDrmSession(std::to_string(sessionId));
 	// Check for errors
 	if (result.error() == Firebolt::Error::None)
 	{
@@ -459,18 +458,18 @@ bool ContentProtectionFirebolt::SetDrmSessionState(int64_t sessionId, bool activ
 		MW_LOG_ERR("Firebolt is not active (or) channel couldn't be opened");
 		return ret;
 	}
-	Firebolt::ContentProtection::SessionState sessionState;
+	Firebolt::EntOs::ContentProtection::SessionState sessionState;
 	if (active)
 	{
-		sessionState = Firebolt::ContentProtection::SessionState::ACTIVE;
+		sessionState = Firebolt::EntOs::ContentProtection::SessionState::ACTIVE;
 	}
 	else
 	{
-		sessionState = Firebolt::ContentProtection::SessionState::INACTIVE;
+		sessionState = Firebolt::EntOs::ContentProtection::SessionState::INACTIVE;
 	}
 	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the setDrmSessionState method from the interface
-	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().setDrmSessionState(std::to_string(sessionId), sessionState);
+	auto result = Firebolt::EntOs::IFireboltAccessor::Instance().ContentProtectionInterface().setDrmSessionState(std::to_string(sessionId), sessionState);
 	// Check for errors
 	if (result.error() == Firebolt::Error::None)
 	{
@@ -499,7 +498,7 @@ bool ContentProtectionFirebolt::SetPlaybackPosition(int64_t sessionId, float spe
 	}
 	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the setPlaybackPosition method from the interface
-	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().setPlaybackPosition(std::to_string(sessionId), speed, position);
+	auto result = Firebolt::EntOs::IFireboltAccessor::Instance().ContentProtectionInterface().setPlaybackPosition(std::to_string(sessionId), speed, position);
 	// Check for errors
 	if (result.error() == Firebolt::Error::None)
 	{
@@ -527,7 +526,7 @@ void ContentProtectionFirebolt::ShowWatermark(bool show, int64_t sessionId)
 
 	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the showWatermark method from the interface
-	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().showWatermark(std::to_string(sessionId), show, 0);
+	auto result = Firebolt::EntOs::IFireboltAccessor::Instance().ContentProtectionInterface().showWatermark(std::to_string(sessionId), show, 0);
 	// Check for errors
 	if (result.error() == Firebolt::Error::None) {
 		// No error, watermark visibility was successfully set
@@ -537,24 +536,24 @@ void ContentProtectionFirebolt::ShowWatermark(bool show, int64_t sessionId)
 		MW_LOG_ERR("showWatermark failed. Firebolt Error: \"%d\"", static_cast<int>(result.error()));
 	}
 }
-static Firebolt::ContentProtection::KeySystem convertStringToKeySystem(const std::string& keySystemStr)
+static Firebolt::EntOs::ContentProtection::KeySystem convertStringToKeySystem(const std::string& keySystemStr)
 {
 	if (keySystemStr.find("widevine") != std::string::npos)
 	{
-		return Firebolt::ContentProtection::KeySystem::WIDEVINE;
+		return Firebolt::EntOs::ContentProtection::KeySystem::WIDEVINE;
 	}
 	else if (keySystemStr.find("playready") != std::string::npos)
 	{
-		return Firebolt::ContentProtection::KeySystem::PLAYREADY;
+		return Firebolt::EntOs::ContentProtection::KeySystem::PLAYREADY;
 	}
 	else if (keySystemStr.find("clearkey") != std::string::npos)
 	{
-		return Firebolt::ContentProtection::KeySystem::CLEARKEY;
+		return Firebolt::EntOs::ContentProtection::KeySystem::CLEARKEY;
 	}
 	else
 	{
 		MW_LOG_ERR("Unknown KeySystem string: %s returning to default", keySystemStr.c_str());
-		return Firebolt::ContentProtection::KeySystem::WIDEVINE; // safest fallback default
+		return Firebolt::EntOs::ContentProtection::KeySystem::WIDEVINE; // safest fallback default
 	}
 }
 bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t &sessionId, int32_t &errorCode, std::string &response)
@@ -565,8 +564,8 @@ bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::strin
 		MW_LOG_ERR("Firebolt is not active (or) channel couldn't be opened");
 		return false; // Return false if system is not active
 	}
-//	Firebolt::ContentProtection::DRMSession drmSession;
-	auto drmSession = Firebolt::IFireboltAampAccessor::Instance()
+//	Firebolt::EntOs::ContentProtection::DRMSession drmSession;
+	auto drmSession = Firebolt::EntOs::IFireboltAccessor::Instance()
 		.ContentProtectionInterface()
 		.openDrmSession(clientId, appId, convertStringToKeySystem(keySystem),
 				licenseRequest, initData);
@@ -593,7 +592,7 @@ bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, int32_t &err
 		return false; // Return false if system is not active
 	}
 
-	auto drmSession =  Firebolt::IFireboltAampAccessor::Instance()
+	auto drmSession =  Firebolt::EntOs::IFireboltAccessor::Instance()
 		.ContentProtectionInterface()
 		.updateDrmSession(std::to_string(sessionId),
 				licenseRequest, initData);
