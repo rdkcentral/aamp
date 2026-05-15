@@ -1965,6 +1965,19 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		return false;
 	}
 
+	// Snapshot period state before applying the switch.  UpdateTrackInfo may fail (e.g.
+	// malformed or codec-incompatible period discovered during a live manifest refresh).
+	// Without a rollback, the object is left in a partially-switched state: period index
+	// and id advanced to nextPeriodIdx while the track contexts still reflect the old
+	// period.  Subsequent fetcher-loop iterations would attempt to download fragments from
+	// a period that was never successfully initialised.
+	int         savedPeriodIdx       = mCurrentPeriodIdx;
+	IPeriod    *savedCurrentPeriod   = mCurrentPeriod;
+	std::string savedBasePeriodId    = mBasePeriodId;
+	double      savedPeriodStartTime = mPeriodStartTime;
+	double      savedPeriodDuration  = mPeriodDuration;
+	double      savedPeriodEndTime   = mPeriodEndTime;
+
 	mCurrentPeriodIdx = nextPeriodIdx;
 	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 	mBasePeriodId = mCurrentPeriod->GetId();
@@ -1977,7 +1990,13 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
 	{
-		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d", mCurrentPeriodIdx);
+		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed switching to period %d; restoring previous period state", mCurrentPeriodIdx);
+		mCurrentPeriodIdx = savedPeriodIdx;
+		mCurrentPeriod    = savedCurrentPeriod;
+		mBasePeriodId     = savedBasePeriodId;
+		mPeriodStartTime  = savedPeriodStartTime;
+		mPeriodDuration   = savedPeriodDuration;
+		mPeriodEndTime    = savedPeriodEndTime;
 		return false;
 	}
 

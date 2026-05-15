@@ -189,6 +189,11 @@ protected:
 			}
 			return mMediaStreamContext[idx];
 		}
+
+		void SetMediaStreamContextAt(int idx, MediaStreamContext *ctx)
+		{
+			mMediaStreamContext[idx] = ctx;
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -2832,4 +2837,94 @@ TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
 	ASSERT_NE(videoTrack, nullptr);
 	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
 	EXPECT_EQ(pVideoContext->fragmentDescriptor.Number, 3);
+}
+
+/**
+ * @brief VPAAMP-346: HandleSeekEOSAndPeriodTransition must restore period state when
+ * UpdateTrackInfo fails after a period switch attempt.
+ *
+ * Scenario:
+ *   - Init a 2-period video+audio manifest at period 0.
+ *   - Mark the video track enabled and eos=true to trigger a forward period switch.
+ *   - Null out the audio track context.  UpdateTrackInfo checks all track contexts and
+ *     returns eAAMPSTATUS_MANIFEST_CONTENT_ERROR when it encounters a null context.
+ *   - Without the rollback, mCurrentPeriodIdx (and the other period members) remain
+ *     set to period 1 even though the switch was not completed, leaving the object in
+ *     a partially-switched state that will cause fragment-download failures on the
+ *     next fetcher-loop iteration.
+ *   - With the fix, all period members are restored to their pre-switch values.
+ */
+TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
+{
+	AAMPStatusType status;
+
+	static const char *kTwoPeriodVideoAudioManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" maxSegmentDuration="PT2S" minBufferTime="PT4S"
+     profiles="urn:dvb:dash:profile:dvb-dash:2014" type="static">
+  <Period id="p0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4"
+                         media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="1" contentType="audio" lang="eng">
+      <Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000">
+        <SegmentTemplate timescale="2500" initialization="audio_p0_init.mp4"
+                         media="audio_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4"
+                         media="video_p1_$Number$.m4s" startNumber="16">
+          <SegmentTimeline><S t="75000" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="1" contentType="audio" lang="eng">
+      <Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000">
+        <SegmentTemplate timescale="2500" initialization="audio_p1_init.mp4"
+                         media="audio_p1_$Number$.m4s" startNumber="16">
+          <SegmentTimeline><S t="75000" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	status = InitializeMPD(kTwoPeriodVideoAudioManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	int periodBefore = mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx();
+
+	// Set the video track eos=true (enabled should already be true after init) so the
+	// EOS check in HandleSeekEOSAndPeriodTransition fires for period 1.
+	MediaStreamContext *videoCtx = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eMEDIATYPE_VIDEO);
+	ASSERT_NE(videoCtx, nullptr);
+	videoCtx->eos     = true;
+	videoCtx->enabled = true;
+
+	// Null out the audio context.  UpdateTrackInfo will encounter a null context and
+	// return eAAMPSTATUS_MANIFEST_CONTENT_ERROR, triggering the rollback path.
+	MediaStreamContext *audioCtx = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eMEDIATYPE_AUDIO);
+	mTestableStreamAbstractionAAMP_MPD->SetMediaStreamContextAt(eMEDIATYPE_AUDIO, nullptr);
+
+	bool transitioned = mTestableStreamAbstractionAAMP_MPD->InvokeHandleSeekEOSAndPeriodTransition(0.0, false);
+
+	// Restore audio context before any teardown path reads it.
+	mTestableStreamAbstractionAAMP_MPD->SetMediaStreamContextAt(eMEDIATYPE_AUDIO, audioCtx);
+
+	// UpdateTrackInfo failed: the period switch must have been rolled back.
+	EXPECT_FALSE(transitioned);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
 }
