@@ -178,6 +178,10 @@ protected:
 
 		MediaStreamContext* GetMediaStreamContextAt(int idx)
 		{
+			if ((idx < 0) || (idx >= mNumberOfTracks))
+			{
+				return nullptr;
+			}
 			return mMediaStreamContext[idx];
 		}
 	};
@@ -2660,10 +2664,10 @@ INSTANTIATE_TEST_SUITE_P(
 
 /**
  * @brief VPAAMP-342: HandleSeekEOSAndPeriodTransition must not trigger a forward period
- * transition when the only EOS-flagged track is disabled.
+ * transition when EOS is reported only on disabled tracks.
  *
- * Scenario: after init at period 0, mark the video track disabled and set its eos flag.
- * Call HandleSeekEOSAndPeriodTransition with a non-negative remainingSeek.
+ * Scenario: after init at period 0, mark all initialized non-NULL tracks disabled and set
+ * their eos flags. Call HandleSeekEOSAndPeriodTransition with a non-negative remainingSeek.
  * Expected (post-fix): no period transition occurs (returns false, period index unchanged).
  * Pre-fix behaviour: the enabled check was absent, so eos on any non-NULL track drove
  * a transition even if that track was not active.
