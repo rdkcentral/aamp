@@ -716,3 +716,43 @@ TEST_F(AampStreamSinkManagerTests, CheckEncryptedHeaders_PlayerNotDeactivated)
     AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP2, true);
 }
 
+/*  @brief: - Regression test for VPAAMP-294.
+    Tests that SetEncryptedHeaders succeeds on retune in single pipeline mode.
+    After DeactivatePlayer(stop=true) the player is removed from mActiveGstPlayersMap
+    but mGstPlayer is retained. A subsequent CreateStreamSink takes the reuse branch
+    and does NOT re-insert the player into mActiveGstPlayersMap. The old code had a
+    guard that silently dropped SetEncryptedHeaders in this state. The fix removes
+    that guard so DRM headers are correctly forwarded to the GstPlayer on retune.
+*/
+TEST_F(AampStreamSinkManagerTests, CheckEncryptedHeaders_RetuneInSinglePipelineMode)
+{
+    std::map<int, std::string> set_headers;
+    set_headers.insert({1, "Test String"});
+
+    // --- First tune ---
+    // CreateStreamSink in UNDEFINED mode creates GstPlayer and inserts player into both maps.
+    // SetSinglePipelineMode retains that GstPlayer as mGstPlayer.
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+
+    EXPECT_CALL(*g_mockAampGstPlayer, SetEncryptedAamp(mPrivateInstanceAAMP1)).Times(1);
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP1, set_headers);
+
+    // --- Stop ---
+    // DeactivatePlayer(stop=true) removes player from mActiveGstPlayersMap and clears
+    // mEncryptedHeaders. mGstPlayer is retained (player stays in mInactiveGstPlayersMap).
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
+
+    // --- Retune (VPAAMP-294 scenario) ---
+    // CreateStreamSink in SINGLE mode with mGstPlayer != null takes the reuse branch
+    // and does NOT re-insert player into mActiveGstPlayersMap. SetEncryptedHeaders
+    // must still succeed (calling SetEncryptedAamp) because mGstPlayer is non-null
+    // and mEncryptedHeaders was cleared by DeactivatePlayer. The original VPAAMP-214
+    // guard (mActiveGstPlayersMap.count(aamp) == 0 => early return) would have
+    // silently dropped the headers here; the VPAAMP-294 fix removes that guard.
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+
+    EXPECT_CALL(*g_mockAampGstPlayer, SetEncryptedAamp(mPrivateInstanceAAMP1)).Times(1);
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP1, set_headers);
+}
+
