@@ -227,6 +227,63 @@ protected:
 			</MPD>
 			)";
 
+	/**
+	 * @brief Two-period VOD manifest with video and audio (no subtitle).
+	 *
+	 * Each period is 30 s long and contains 15 x 2 s segments (timescale 2500,
+	 * d=5000).  Both periods use startNumber=1 so that, after a period
+	 * transition, the video fragmentDescriptor.Number is reset to 1 before
+	 * any carry-over seek is applied.
+	 *
+	 * Used by SeekInPeriod_SubtitleResultNotUsedForPeriodTransition to verify
+	 * that the subtitle track's SkipFragments return value does not overwrite
+	 * the A/V carry-over seek offset.
+	 */
+	static constexpr const char *mAVVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
+					<Period id="p0" start="PT0S">
+							<AdaptationSet id="0" contentType="video">
+									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+											<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+													<SegmentTimeline>
+															<S t="0" d="5000" r="14" />
+													</SegmentTimeline>
+											</SegmentTemplate>
+									</Representation>
+							</AdaptationSet>
+							<AdaptationSet id="1" contentType="audio" lang="eng">
+									<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="96000">
+											<SegmentTemplate timescale="2500" initialization="audio_p0_init.mp4" media="audio_p0_$Number$.m4s" startNumber="1">
+													<SegmentTimeline>
+															<S t="0" d="5000" r="14" />
+													</SegmentTimeline>
+											</SegmentTemplate>
+									</Representation>
+							</AdaptationSet>
+					</Period>
+					<Period id="p1" start="PT30S">
+							<AdaptationSet id="0" contentType="video">
+									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+											<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+													<SegmentTimeline>
+															<S t="0" d="5000" r="14" />
+													</SegmentTimeline>
+											</SegmentTemplate>
+									</Representation>
+							</AdaptationSet>
+							<AdaptationSet id="1" contentType="audio" lang="eng">
+									<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="96000">
+											<SegmentTemplate timescale="2500" initialization="audio_p1_init.mp4" media="audio_p1_$Number$.m4s" startNumber="1">
+													<SegmentTimeline>
+															<S t="0" d="5000" r="14" />
+													</SegmentTimeline>
+											</SegmentTemplate>
+									</Representation>
+							</AdaptationSet>
+					</Period>
+			</MPD>
+			)";
+
 	static constexpr const char *mLiveManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 				<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
 						<Period id="p0" start="PT0S">
@@ -2711,16 +2768,33 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_DisabledTrack_NoPeriodTransition)
  * @brief VPAAMP-345: SeekInPeriod must not let the subtitle track's SkipFragments
  * return value overwrite the A/V remaining-seek that drives period transition.
  *
- * This test exercises SeekInPeriod with a video-only manifest (no subtitle track
- * present) to verify the fix does not break the common A/V-only path.  Subtitle
- * segment boundaries can differ from the A/V grid; if the subtitle SkipFragments
- * result overwrites trackRemainingSeek, HandleSeekEOSAndPeriodTransition may
- * receive an incorrect carry-over seek offset or sign, suppressing a valid
- * period transition or seeking to the wrong position in the next period.
+ * Setup: two-period A/V VOD (mAVVodManifest — video + audio, 2 s segments,
+ * 15 per period = 30 s each, startNumber=1 in both periods).  No subtitle
+ * adaptation set is present, so mMediaStreamContext[eTRACK_SUBTITLE] is
+ * allocated by the initialisation loop but its representation pointer remains
+ * null.  SkipFragments returns 0.0 immediately when representation is null,
+ * which is precisely the value that would corrupt the A/V carry-over on a
+ * pre-fix build.
  *
- * Full isolation of the subtitle-overwrite scenario requires SkipFragments to be
- * mockable (it is not in the current test infrastructure); the behavioural
- * correctness of the A/V-only path is verified here.
+ * SetNumberOfTracks(3) injects the subtitle slot into the SeekInPeriod loop
+ * without requiring a real subtitle pipeline, giving direct regression coverage
+ * of the subtitle-result-discard path.
+ *
+ * Seek to 35 s (5 s past the end of the 30 s period 0):
+ *   - Video  SkipFragments(35 s): consumes all 15 x 2 s segments, eos=true,
+ *     remaining = 5 s.
+ *   - Audio  SkipFragments(35 s): same.
+ *   - Subtitle SkipFragments(35 s): null representation guard fires immediately,
+ *     returns 0.0, eos stays false.
+ *
+ * Pre-fix: subtitle's 0.0 overwrites the A/V carry-over, so period 1 is entered
+ * with a 0 s offset — video stays at segment 1 (fragmentDescriptor.Number == 1).
+ * Post-fix: subtitle result is discarded; carry-over = 5 s — SeekInPeriod(5 s)
+ * in period 1 skips two 2 s segments, landing at segment 3
+ * (fragmentDescriptor.Number == 3).
+ *
+ * The assertion on fragmentDescriptor.Number therefore FAILS on a pre-fix build
+ * and PASSES on the fixed build, providing direct regression coverage.
  */
 TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
 {
@@ -2729,15 +2803,33 @@ TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.WillRepeatedly(Return(true));
 
-	status = InitializeMPD(mVodManifest);
+	// Initialise with a two-period A/V manifest.  No subtitle adaptation set is
+	// present, so mMediaStreamContext[eTRACK_SUBTITLE] is allocated but its
+	// representation pointer is null.
+	status = InitializeMPD(mAVVodManifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	// SeekInPeriod with a position within period 0 (30 s period, seek to 5 s).
-	// Subtitle SkipFragments result is now discarded; A/V result drives the
-	// period-transition check.  The call must complete without crash and must
-	// not incorrectly advance the period index (5 s is well inside period 0).
-	int periodBefore = mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx();
-	mTestableStreamAbstractionAAMP_MPD->InvokeSeekInPeriod(5.0, false);
+	// Force mNumberOfTracks to 3 so the SeekInPeriod loop reaches the subtitle
+	// slot (index eTRACK_SUBTITLE == 2).  SkipFragments returns 0.0 immediately
+	// because representation is null — this is the value a pre-fix build would
+	// use as the period-1 carry-over seek offset, suppressing the correct 5 s
+	// carry-over from the A/V tracks.
+	mTestableStreamAbstractionAAMP_MPD->SetNumberOfTracks(3);
 
-	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
+	// Seek to 35 s: 5 s past the end of the 30 s period 0.  Both A/V tracks
+	// exhaust all segments and signal eos with a 5 s remainder; the subtitle
+	// slot returns 0.0 (null representation guard).
+	mTestableStreamAbstractionAAMP_MPD->InvokeSeekInPeriod(35.0, false);
+
+	// A period transition must have occurred into period 1.
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
+
+	// Post-fix: carry-over = 5 s -> SeekInPeriod(5 s) in period 1 skips two
+	// 2 s segments (4 s) before the remaining 1 s falls within segment 3.
+	// fragmentDescriptor.Number == startNumber(1) + 2 consumed == 3.
+	// Pre-fix: carry-over = 0 s -> no skipping -> fragmentDescriptor.Number == 1.
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(videoTrack, nullptr);
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+	EXPECT_EQ(pVideoContext->fragmentDescriptor.Number, 3);
 }
