@@ -1971,6 +1971,61 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	// and id advanced to nextPeriodIdx while the track contexts still reflect the old
 	// period.  Subsequent fetcher-loop iterations would attempt to download fragments from
 	// a period that was never successfully initialised.
+	//
+	// StreamSelection() and UpdateTrackInfo() are not atomic: they iterate over tracks in
+	// order and mutate each context's adaptation/representation pointers, fragment number,
+	// eos flag, and timeline index one track at a time.  If UpdateTrackInfo() returns an
+	// error mid-way (e.g. a null context for a later track), earlier tracks already point
+	// at the new period's data while the period identity fields are about to be restored to
+	// the old period.  Snapshot and restore the full set of mutable per-track and ABR state
+	// so that a failed transition leaves the object in its pre-attempt state.
+	struct TrackSnapshot
+	{
+		bool                  enabled;
+		int                   adaptationSetIdx;
+		uint32_t              adaptationSetId;
+		int                   representationIndex;
+		bool                  profileChanged;
+		const IAdaptationSet  *adaptationSet;
+		const IRepresentation *representation;
+		BitsPerSecond         bandwidth;
+		uint64_t              number;
+		double                time;
+		bool                  eos;
+		int                   timeLineIndex;
+		int                   fragmentRepeatCount;
+		double                scaledPTO;
+	};
+	std::vector<TrackSnapshot> trackSnapshots(mMaxTracks);
+	for (int i = 0; i < mMaxTracks; i++)
+	{
+		if (mMediaStreamContext[i])
+		{
+			const auto *ctx = mMediaStreamContext[i];
+			trackSnapshots[i] = {
+				ctx->enabled,
+				ctx->adaptationSetIdx,
+				ctx->adaptationSetId,
+				ctx->representationIndex,
+				ctx->profileChanged,
+				ctx->adaptationSet,
+				ctx->representation,
+				ctx->fragmentDescriptor.Bandwidth,
+				ctx->fragmentDescriptor.Number,
+				ctx->fragmentDescriptor.Time,
+				ctx->eos,
+				ctx->timeLineIndex,
+				ctx->fragmentRepeatCount,
+				ctx->scaledPTO
+			};
+		}
+	}
+	int                        savedNumberOfTracks     = mNumberOfTracks;
+	bool                       savedUpdateStreamInfo   = mUpdateStreamInfo;
+	ABRMode                    savedABRMode             = mABRMode;
+	std::vector<StreamInfo>    savedStreamInfo          = mStreamInfo;
+	std::vector<BitsPerSecond> savedBitrateIndexVector  = mBitrateIndexVector;
+
 	int         savedPeriodIdx       = mCurrentPeriodIdx;
 	IPeriod    *savedCurrentPeriod   = mCurrentPeriod;
 	std::string savedBasePeriodId    = mBasePeriodId;
@@ -1991,12 +2046,39 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	if (ret != eAAMPSTATUS_OK)
 	{
 		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed switching to period %d; restoring previous period state", mCurrentPeriodIdx);
-		mCurrentPeriodIdx = savedPeriodIdx;
-		mCurrentPeriod    = savedCurrentPeriod;
-		mBasePeriodId     = savedBasePeriodId;
-		mPeriodStartTime  = savedPeriodStartTime;
-		mPeriodDuration   = savedPeriodDuration;
-		mPeriodEndTime    = savedPeriodEndTime;
+		mCurrentPeriodIdx   = savedPeriodIdx;
+		mCurrentPeriod      = savedCurrentPeriod;
+		mBasePeriodId       = savedBasePeriodId;
+		mPeriodStartTime    = savedPeriodStartTime;
+		mPeriodDuration     = savedPeriodDuration;
+		mPeriodEndTime      = savedPeriodEndTime;
+		mNumberOfTracks     = savedNumberOfTracks;
+		mUpdateStreamInfo   = savedUpdateStreamInfo;
+		mABRMode            = savedABRMode;
+		mStreamInfo         = std::move(savedStreamInfo);
+		mBitrateIndexVector = std::move(savedBitrateIndexVector);
+		for (int i = 0; i < mMaxTracks; i++)
+		{
+			if (mMediaStreamContext[i])
+			{
+				auto       *ctx  = mMediaStreamContext[i];
+				const auto &snap = trackSnapshots[i];
+				ctx->enabled             = snap.enabled;
+				ctx->adaptationSetIdx    = snap.adaptationSetIdx;
+				ctx->adaptationSetId     = snap.adaptationSetId;
+				ctx->representationIndex = snap.representationIndex;
+				ctx->profileChanged      = snap.profileChanged;
+				ctx->adaptationSet       = snap.adaptationSet;
+				ctx->representation      = snap.representation;
+				ctx->fragmentDescriptor.Bandwidth = snap.bandwidth;
+				ctx->fragmentDescriptor.Number    = snap.number;
+				ctx->fragmentDescriptor.Time      = snap.time;
+				ctx->eos                 = snap.eos;
+				ctx->timeLineIndex       = snap.timeLineIndex;
+				ctx->fragmentRepeatCount = snap.fragmentRepeatCount;
+				ctx->scaledPTO           = snap.scaledPTO;
+			}
+		}
 		return false;
 	}
 
