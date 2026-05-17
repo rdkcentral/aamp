@@ -1929,17 +1929,18 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 {
 	bool switchToNextPeriod = false;
 
-	// Check whether any track hit EOS during the seek. Any enabled track reaching EOS
-	// is sufficient to trigger a period transition: DASH spec requires all tracks in a
-	// period to end at the same presentation time, so this is safe for well-formed content.
-	// The mPlayRate and remainingSeek guards (comment 2 & 3) prevent false positives:
+	// Check whether any *enabled* track hit EOS during the seek.  Only enabled tracks
+	// participate in period transition: a disabled track (e.g. an audio track deselected
+	// mid-playback, or a subtitle track the app has not activated) cannot reliably signal
+	// a period boundary and must not drive a forward switch on its own.
+	// The mPlayRate and remainingSeek guards prevent false positives:
 	//   - mPlayRate >= AAMP_RATE_PAUSE: for reverse playback (mPlayRate < 0), EOS means
 	//     beginning-of-period, not end-of-period, so we must not advance to the next period.
-	//   - remainingSeek >= 0: a negative remainder also indicates the seek overshot backward
+	//   - remainingSeek >= 0: a negative remainder indicates the seek overshot backward
 	//     rather than forward, so no forward period transition is appropriate.
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
+		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) && remainingSeek >= 0)
 		{
 			switchToNextPeriod = true;
 			break;
