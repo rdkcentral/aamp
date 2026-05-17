@@ -6823,7 +6823,10 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 	{
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
 		aamp->previousAudioType = selectedCodecType;
+		if(!(selectedCodecType == 3 && aamp->previousAudioType == 4) || (selectedCodecType == 4 && aamp->previousAudioType == 3))
+		{
 		SetESChangeStatus();
+		}
 	}
 }
 
