@@ -1293,6 +1293,16 @@ protected:
 	 */
 	void UpdateStartTimeOfFirstPTS();
 
+	/**
+	 * @fn GetCurrentAdStartTimeSeconds
+	 * @brief When playing inside a multi-ad pod (mCurAdIdx > 0), returns
+	 *        absoluteAdBreakStartTime + sum-of-prior-ad-durations (in seconds).
+	 *        Returns -1.0 if the preconditions are not met (not in a pod, or
+	 *        absoluteAdBreakStartTime is not yet known).
+	 * @return Seeded fragment start time in seconds, or -1.0 if not applicable.
+	 */
+	double GetCurrentAdStartTimeSeconds() const;
+
 	std::vector<StreamInfo*> thumbnailtrack;
 	std::vector<TileInfo> indexedTileInfo;
 	double mFirstPeriodStartTime; /*< First period start time for progress report*/
