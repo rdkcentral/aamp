@@ -2188,6 +2188,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				pMediaStreamContext->fragmentTime -= offset;
 			}
 		}
+		// Compute once: skip mFirstPTS update when using mp4demux during trickplay,
+		// as mp4demux restamps PTS starting from 0.0. Used in both timeline and segment-template paths below.
+		bool skipFirstPtsUpdate = ISCONFIGSET(eAAMPConfig_UseMp4Demux) && (aamp->rate != AAMP_NORMAL_PLAY_RATE);
 		do
 		{
 			if (segmentTimeline)
@@ -2359,15 +2362,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							//If we land at the mid of a segment, the position reminder is added to fragment time. This corrects the epoch value to its original segment start time
 							pMediaStreamContext->fragmentTime += mVideoPosRemainder;
 							/*Keep the lower PTS */
-							// Skip mFirstPTS update when using mp4demux during trickplay, as mp4demux restamps PTS starting from 0.0
-							bool useMp4Demux = ISCONFIGSET(eAAMPConfig_UseMp4Demux);
-							bool isTrickplay = (aamp->rate != AAMP_NORMAL_PLAY_RATE);
-							bool skipFirstPtsUpdate = (useMp4Demux && isTrickplay);
-							
 							if (skipFirstPtsUpdate && pMediaStreamContext->type == eTRACK_VIDEO)
 							{
-								AAMPLOG_INFO("[%s] Skipping mFirstPTS update (useMp4Demux=%d, rate=%.2f) - mp4demux will restamp PTS from 0.0", 
-											 pMediaStreamContext->name, useMp4Demux, aamp->rate);
+								AAMPLOG_INFO("[%s] Skipping mFirstPTS update (rate=%.2f) - mp4demux will restamp PTS from 0.0", 
+											 pMediaStreamContext->name, aamp->rate);
 							}
 							else if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == eTRACK_VIDEO))
 							{
@@ -2463,11 +2461,6 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 					if(!aamp->IsLive())
 					{
-						// Skip mFirstPTS update when using mp4demux during trickplay, as mp4demux restamps PTS starting from 0.0
-						bool useMp4Demux = ISCONFIGSET(eAAMPConfig_UseMp4Demux);
-						bool isTrickplay = (aamp->rate != AAMP_NORMAL_PLAY_RATE);
-						bool skipFirstPtsUpdate = (useMp4Demux && isTrickplay);
-						
 						if (!skipFirstPtsUpdate)
 						{
 							if( timeScale )
@@ -2484,8 +2477,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						}
 						else
 						{
-							AAMPLOG_INFO("Type[%d] Skipping mFirstPTS update (useMp4Demux=%d, rate=%.2f) - mp4demux will restamp PTS from 0.0",
-										 pMediaStreamContext->type, useMp4Demux, aamp->rate);
+							AAMPLOG_INFO("Type[%d] Skipping mFirstPTS update (rate=%.2f) - mp4demux will restamp PTS from 0.0",
+										 pMediaStreamContext->type, aamp->rate);
 						}
 					}
 					if (skipTime >= segmentDuration)
@@ -14372,7 +14365,7 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 	/* Determine if early stream sink flush is needed based on configuration and playback state
 	 * Do flush to PTS position from manifest when:
 	 * 1. EnableMediaProcessor is disabled or EnableMediaProcessor enabled but segment timeline enabled (media processor will not flush in this case), AND
-	 * 2. EnablePTSReStamp is disabled, or play rate is normal (AAMP_NORMAL_PLAY_RATE). Here, we are using the flush(0) that occurs else where, AND
+	 * 2. EnablePTSReStamp is disabled, or play rate is normal (AAMP_NORMAL_PLAY_RATE). Here, we are using the flush(0) that occurs elsewhere, AND
 	 * 3. Skip early flush when using mp4demux with PTS restamping disabled during trickplay (flush(0) will be used)
 	 */
 	bool enableMediaProcessor = ISCONFIGSET(eAAMPConfig_EnableMediaProcessor);
