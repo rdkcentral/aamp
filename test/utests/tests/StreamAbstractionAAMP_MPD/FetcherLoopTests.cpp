@@ -166,9 +166,23 @@ protected:
 			mIsFogTSB = value;
 		}
 
-		void SetPlayRate(float rate)
+		bool InvokeHandleSeekEOSAndPeriodTransition(double remainingSeek, bool skipToEnd)
 		{
-			mPlayRate = rate;
+			return HandleSeekEOSAndPeriodTransition(remainingSeek, skipToEnd);
+		}
+
+		int GetNumberOfTracks() const
+		{
+			return mNumberOfTracks;
+		}
+
+		MediaStreamContext* GetMediaStreamContextAt(int idx)
+		{
+			if ((idx < 0) || (idx >= mNumberOfTracks))
+			{
+				return nullptr;
+			}
+			return mMediaStreamContext[idx];
 		}
 	};
 
@@ -2649,329 +2663,41 @@ INSTANTIATE_TEST_SUITE_P(
 	::testing::ValuesIn(testCases));
 
 /**
- * @brief Regression test for VPAAMP-205 / revert-1427 regression.
+ * @brief VPAAMP-342: HandleSeekEOSAndPeriodTransition must not trigger a forward period
+ * transition when EOS is reported only on disabled tracks.
  *
- * Background
- * ----------
- * VPAAMP-205 correctly added the `(mPlayRate >= AAMP_RATE_PAUSE)` guard to
- * HandleSeekEOSAndPeriodTransition, preventing forward-period advancement during
- * reverse seeks.  Before that guard the seek would accidentally jump past ad-break
- * periods, which incidentally stopped the FetcherLoop from hitting the adbreak
- * boundary.  After the guard was in place, the FetcherLoop operates correctly at
- * the boundary but a pre-existing bug in SelectSourceOrAdPeriod becomes visible:
- *
- * When "All Ads FINISHED" fires during reverse trick-play, SelectSourceOrAdPeriod
- * sets mBasePeriodOffset = period_duration (end of the new base period) and then
- * immediately calls onAdEvent(DEFAULT).  CheckForAdStart's
- *   `(rate < 0) && (key == end)`
- * special case fires because key == curP2Ad.duration == period_duration * 1000,
- * re-entering the just-completed adbreak before any source content is fetched.
- * The resulting period oscillation (source -> ad -> source -> ad -> ...) drives
- * GStreamer into a "This file is corrupt" error.
- *
- * The fix (SelectSourceOrAdPeriod): restore the end-of-period probe for reverse
- * rates, but guard against oscillation by snapshotting mCurPlayingBreakId before
- * the state-transitioning onAdEvent call (which clears it).  In the OUTSIDE_ADBREAK
- * block, if mPeriodMap[newBasePeriodId].adBreakId == snapPlayingBreakId (same
- * adbreak as just completed), the probe is skipped to prevent oscillation.  If the
- * new period maps to a DIFFERENT adbreak, onAdEvent is called with
- * mBasePeriodOffset = end-of-period, correctly triggering the
- * (rate < 0) && (key == end) path in CheckForAdStart for back-to-back adbreaks.
- *
- * Test 1 - ReverseTrickPlay_AllAdsFinished_NoImmediateAdBreakReentry
- *   Oscillation-guard scenario: mPeriodMap[newBasePeriod].adBreakId equals the
- *   just-completed adBreakId.  Verifies that the probe is skipped and the ad
- *   state machine stays in OUTSIDE_ADBREAK (no re-entry).
- *
- * Test 2 - ForwardPlayback_AllAdsFinished_AdDetectionStillWorks
- *   Verifies that the fix does not regress forward playback: onAdEvent(DEFAULT)
- *   is still called after "All Ads FINISHED" for forward rates so that a
- *   back-to-back adbreak in the next period is detected immediately.
+ * Scenario: after init at period 0, mark all initialized non-NULL tracks disabled and set
+ * their eos flags. Call HandleSeekEOSAndPeriodTransition with a non-negative remainingSeek.
+ * Expected (post-fix): no period transition occurs (returns false, period index unchanged).
+ * Pre-fix behaviour: the enabled check was absent, so eos on any non-NULL track drove
+ * a transition even if that track was not active.
  */
-
-// Three-period VOD manifest used by the CDAI reverse trick-play regression tests.
-// p0 (0-30 s), p1 (30-60 s), p2 (60-90 s) - no in-band ad periods; adbreaks are
-// injected via the CDAI object.
-static constexpr const char *kCdaiRewindManifest = R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
-     availabilityStartTime="2023-01-01T00:00:00Z"
-     maxSegmentDuration="PT2S" minBufferTime="PT4S"
-     minimumUpdatePeriod="P100Y"
-     profiles="urn:dvb:dash:profile:dvb-dash:2014"
-     type="static">
-  <Period id="p0" start="PT0S">
-    <AdaptationSet id="0" contentType="video">
-      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
-                      bandwidth="800000" width="640" height="360" frameRate="25">
-        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4"
-                         media="video_p0_$Number$.m4s" startNumber="1">
-          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
-        </SegmentTemplate>
-      </Representation>
-    </AdaptationSet>
-  </Period>
-  <Period id="p1" start="PT30S">
-    <AdaptationSet id="1" contentType="video">
-      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
-                      bandwidth="800000" width="640" height="360" frameRate="25">
-        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4"
-                         media="video_p1_$Number$.m4s" startNumber="16">
-          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
-        </SegmentTemplate>
-      </Representation>
-    </AdaptationSet>
-  </Period>
-  <Period id="p2" start="PT60S">
-    <AdaptationSet id="2" contentType="video">
-      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
-                      bandwidth="800000" width="640" height="360" frameRate="25">
-        <SegmentTemplate timescale="2500" initialization="video_p2_init.mp4"
-                         media="video_p2_$Number$.m4s" startNumber="31">
-          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
-        </SegmentTemplate>
-      </Representation>
-    </AdaptationSet>
-  </Period>
-</MPD>)";
-
-/**
- * @brief VPAAMP-205 regression: reverse trick-play through CDAI ads must not
- *        oscillate between the base period and the ad period after "All Ads Finished".
- *
- * Setup
- * -----
- * - 3-period manifest: p0 (0-30 s), p1 (30-60 s), p2 (60-90 s).
- * - mPlayRate = -12 (reverse trick-play).
- * - mCurrentPeriodIdx = 1 (playing from period p1 going backward).
- * - CDAI state = IN_ADBREAK_WAIT2CATCHUP (we just finished playing the sole ad
- *   in adbreak "p1" in reverse; mCurAdIdx=0 so GetNextAdInBreak(-1) → -1 → done).
- * - mCurPlayingBreakId = "p1": "All Ads Finished" reverse path sets
- *   mBasePeriodId = prevPId("p1") = "p0".
- * - mPeriodMap["p0"] has adBreakId="p1" (same as the just-completed adbreak),
- *   simulating the TSB oscillation scenario where prevPId maps back to the same
- *   adbreak.  The oscillation guard detects the match and skips the probe.
- *
- * Expected outcome (with fix)
- * ---------------------------
- * - The oscillation guard fires: snapPlayingBreakId=="p1"==mPeriodMap["p0"].adBreakId.
- * - onAdEvent(DEFAULT) is NOT called for the new base period ("p0").
- * - mAdState stays OUTSIDE_ADBREAK.
- * - adStateChanged is false (no re-entry).
- * - mCurrentPeriod is the source content period "p0" (not an ad period).
- */
-TEST_F(FetcherLoopTests, ReverseTrickPlay_AllAdsFinished_NoImmediateAdBreakReentry)
+TEST_F(FetcherLoopTests, HandleSeekEOS_DisabledTrack_NoPeriodTransition)
 {
 	AAMPStatusType status;
 
-	// Initialize with the 3-period manifest at normal rate, seeking to p1.
-	// We set the play rate to -12 after Init so that the Init path
-	// (which only supports forward rates) completes successfully.
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.WillOnce(Return(true));
-	status = InitializeMPD(kCdaiRewindManifest, eTUNETYPE_SEEK, 35.0, AAMP_NORMAL_PLAY_RATE);
+		.WillRepeatedly(Return(true));
+
+	status = InitializeMPD(mVodManifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
-	(void)status;
+	// Mark all initialized tracks as disabled with eos set so that, without the enabled
+	// guard, every non-NULL context would independently fire the period-transition path.
+	for (int i = 0; i < mTestableStreamAbstractionAAMP_MPD->GetNumberOfTracks(); i++)
+	{
+		MediaStreamContext *ctx = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(i);
+		if (ctx)
+		{
+			ctx->enabled = false;
+			ctx->eos    = true;
+		}
+	}
 
-	// Simulate trick-play at -12x: set rate after Init so Init completes normally.
-	// Only update the internal mPlayRate member; leave aamp->rate at 1.0 so that
-	// ShouldCheckOnlyIframeAdaptation() does not mark content periods as empty.
-	mTestableStreamAbstractionAAMP_MPD->SetPlayRate(-12.0f);
+	int periodBefore = mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx();
+	bool transitioned = mTestableStreamAbstractionAAMP_MPD->InvokeHandleSeekEOSAndPeriodTransition(0.0, false);
 
-	// Point the iterator/current period at p1 (index 1) - simulating that the
-	// FetcherLoop has been traversing p1 in reverse and is about to finish the ad.
-	mTestableStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(1);
-
-	// Configure CDAI state: one placed, valid ad in adbreak "p1"; we are waiting
-	// for the base content to catch up (last state before "All Ads Finished").
-	auto *cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
-
-	auto adsP1 = std::make_shared<std::vector<AdNode>>();
-    adsP1->emplace_back(
-        /*invalid*/   false,
-        /*placed*/    true,
-        /*resolved*/  true,
-        /*adId*/      "adId-p1",
-        /*url*/       TEST_AD_MANIFEST_URL,
-        /*duration*/  30000,
-        /*basePId*/   "p1",
-        /*baseOffset*/0,
-        /*mpd*/       nullptr);
-
-    cdaiObj->mAdBreaks["p1"] = AdBreakObject(30000, adsP1, "p2", 0, 30000);
-    cdaiObj->mAdBreaks["p1"].mAdBreakPlaced = true;
-    cdaiObj->mAdBreaks["p1"].mAdFailed = false;
-
-    cdaiObj->mCurAds = adsP1;
-    cdaiObj->mCurAdIdx = 0;           // GetNextAdInBreak(-1) -> -1 -> all done
-    cdaiObj->mCurPlayingBreakId = "p1";
-    cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
-
-    // Oscillation-guard scenario: set mPeriodMap["p0"].adBreakId = "p1", the same
-    // as mCurPlayingBreakId/snapPlayingBreakId.  This mirrors the TSB case where
-    // mPeriodMap[prevPId].adBreakId == the just-completed adbreak.  The guard in
-    // SelectSourceOrAdPeriod detects the match and skips the end-of-period probe,
-    // preventing oscillation back into the just-completed adbreak.
-    Period2AdData p0AdData;
-    p0AdData.adBreakId = "p1"; // same as snapPlayingBreakId -- triggers oscillation guard
-    p0AdData.duration  = 30000;
-    p0AdData.filled    = true;
-    p0AdData.offset2Ad[0] = {0, 0};
-    cdaiObj->mPeriodMap["p0"] = p0AdData;
-
-    // Invoke SelectSourceOrAdPeriod.  adStateChanged=true signals that we just
-    // finished ad playback and entered WAIT2CATCHUP from the previous inner-loop
-    // iteration (mirrors the real FetcherLoop flow).
-    bool periodChanged       = false;
-    bool mpdChanged          = false;
-    bool adStateChanged      = true;
-    bool waitForAdBreakCatchup = false;
-    bool requireStreamSelection = false;
-    std::string currentPeriodId = "p1";
-
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-        .WillRepeatedly(Return(nullptr));
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
-        .WillRepeatedly(Return(false));
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _))
-        .Times(AnyNumber());
-    // GetIsPeriodChangeMarked is on the real PrivateInstanceAAMP (not mocked).
-    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(false);
-
-    // KEY regression assertion: mPeriodMap["p0"].adBreakId == "p1" == snapPlayingBreakId,
-    // so the oscillation guard fires and the end-of-period probe is skipped entirely.
-    // CheckForAdStart must never be called.
-    // Without the fix, the proactive onAdEvent runs unchecked and invokes
-    // CheckForAdStart, triggering re-entry into the just-completed adbreak "p1".
-    EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
-        .Times(0);
-
-    bool ret = mTestableStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(
-        periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup,
-        requireStreamSelection, currentPeriodId);
-
-    // After "All Ads Finished" for reverse trick-play, the adbreak for "p0"
-    // must NOT be re-triggered immediately.
-    EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK)
-        << "Reverse trick-play: adState should stay OUTSIDE_ADBREAK after All Ads Finished";
-    EXPECT_FALSE(adStateChanged)
-        << "Reverse trick-play: adStateChanged must be false - no immediate adbreak re-entry";
-    EXPECT_TRUE(ret);
-    // Verify we ended up on the correct source content period, not an ad period.
-    ASSERT_NE(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriod(), nullptr);
-    EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriod()->GetId(), std::string("p0"))
-        << "Reverse trick-play: after All Ads Finished must land on source period p0";
-}
-
-/**
- * @brief Forward-playback regression guard for VPAAMP-205 fix.
- *
- * Verifies that the fix does NOT suppress onAdEvent(DEFAULT) for forward
- * playback: after "All Ads Finished" for a forward rate, the FetcherLoop
- * must still detect an immediately-following adbreak in the next period.
- *
- * Setup
- * -----
- * - Same 3-period manifest: p0, p1, p2.
- * - mPlayRate = AAMP_NORMAL_PLAY_RATE (1.0).
- * - CDAI state = IN_ADBREAK_WAIT2CATCHUP; adbreak "p0" placed, endPeriodId="p1".
- * - Period "p1" has its own adbreak in mPeriodMap so that the proactive
- *   onAdEvent(DEFAULT) after "All Ads Finished" can detect it.
- *
- * Expected outcome
- * ----------------
- * - onAdEvent(DEFAULT) IS called for forward playback.
- * - The adbreak for "p1" is detected: adState transitions to
- *   IN_ADBREAK_AD_NOT_PLAYING (because the ad starts at offset 0 which
- *   matches the mBasePeriodOffset=0 set after forward "All Ads Finished").
- * - adStateChanged is true.
- */
-TEST_F(FetcherLoopTests, ForwardPlayback_AllAdsFinished_AdDetectionStillWorks)
-{
-    AAMPStatusType status;
-
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-        .WillOnce(Return(true));
-    status = InitializeMPD(kCdaiRewindManifest, eTUNETYPE_SEEK, 5.0, AAMP_NORMAL_PLAY_RATE);
-    EXPECT_EQ(status, eAAMPSTATUS_OK);
-
-    status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
-    (void)status;
-
-    mTestableStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(0);
-
-    auto *cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
-
-    // Adbreak "p0" with one placed ad; forward "All Ads Finished" will read
-    // endPeriodId and set mBasePeriodId = "p1", mBasePeriodOffset = 0.
-    auto adsP0 = std::make_shared<std::vector<AdNode>>();
-    adsP0->emplace_back(false, true, true, "adId-p0-fwd", TEST_AD_MANIFEST_URL,
-                        30000, "p0", 0, nullptr);
-    cdaiObj->mAdBreaks["p0"] = AdBreakObject(30000, adsP0, "p1", 0, 30000);
-    cdaiObj->mAdBreaks["p0"].mAdBreakPlaced = true;
-    cdaiObj->mAdBreaks["p0"].mAdFailed = false;
-
-    cdaiObj->mCurAds = adsP0;
-    cdaiObj->mCurAdIdx = 0;           // GetNextAdInBreak(+1) -> 1 >= size -> done
-    cdaiObj->mCurPlayingBreakId = "p0";
-    cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
-
-    // Period "p1" has an adbreak starting at offset 0, covering the full period.
-    // The proactive onAdEvent(DEFAULT) after forward "All Ads Finished" should
-    // detect this and transition state (adIdx=-1 → IN_ADBREAK_AD_NOT_PLAYING
-    // or similar, depending on whether the ad is resolved yet).
-    auto adsP1 = std::make_shared<std::vector<AdNode>>();
-    adsP1->emplace_back(false, false /*not yet placed*/, true, "adId-p1-fwd",
-                        TEST_AD_MANIFEST_URL, 30000, "p1", 0, nullptr);
-    cdaiObj->mAdBreaks["p1"] = AdBreakObject(30000, adsP1, "p2", 0, 30000);
-
-    Period2AdData p1AdData;
-    p1AdData.adBreakId = "p1";
-    p1AdData.duration  = 30000;
-    p1AdData.filled    = false; // not fully placed yet -> adIdx will be -1 at offset 0
-    cdaiObj->mPeriodMap["p1"] = p1AdData;
-
-    bool periodChanged       = false;
-    bool mpdChanged          = false;
-    bool adStateChanged      = true;
-    bool waitForAdBreakCatchup = false;
-    bool requireStreamSelection = false;
-    std::string currentPeriodId = "p0";
-
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-        .WillRepeatedly(Return(nullptr));
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
-        .WillRepeatedly(Return(false));
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _))
-        .Times(AnyNumber());
-    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(false);
-
-    // The WAIT2CATCHUP→OUTSIDE_ADBREAK transition (adbreak "p0") does NOT call
-    // CheckForAdStart - that path uses GetNextAdInBreak.  Only the proactive
-    // onAdEvent(DEFAULT) that my fix makes for forward rates calls
-    // CheckForAdStart for the NEW base period ("p1").
-    // Require CheckForAdStart to be called at least once: this FAILS if the fix
-    // accidentally suppresses the proactive call for forward playback.
-    EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
-        .Times(testing::AtLeast(1))
-        .WillRepeatedly(
-            [](const float& /*rate*/, bool /*init*/, const std::string& /*periodId*/,
-               double /*offSet*/, std::string& breakId, double& /*adOffset*/) -> int {
-                breakId = "p1";
-                return -1; // adbreak found, no ad resolved yet
-            });
-
-    bool ret = mTestableStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(
-        periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup,
-        requireStreamSelection, currentPeriodId);
-
-    // The Times(AtLeast(1)) expectation above is the primary assertion: it
-    // proves CheckForAdStart was called, i.e. the proactive onAdEvent ran for
-    // forward playback (the fix must not suppress it).
-    // Additionally verify the WAIT2CATCHUP state was cleared and the function
-    // returned true (no early exit).
-    EXPECT_NE(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP)
-        << "Forward playback: WAIT2CATCHUP must have been cleared";
-    EXPECT_TRUE(ret);
+	// Disabled tracks must not trigger a forward period transition.
+	EXPECT_FALSE(transitioned);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
 }

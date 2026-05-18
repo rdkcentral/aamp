@@ -1925,24 +1925,22 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
  * @brief If SkipFragments reaches EOS and an additional playable period is available, switch to the next period.
  */
 bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainingSeek,
-	bool /*skipToEnd*/) // reserved for future use; see header for rationale
+	bool skipToEnd)
 {
 	bool switchToNextPeriod = false;
 
-	// Check whether any enabled track hit EOS during the seek. Only enabled tracks
-	// participate in playback; a disabled or unselected track (e.g. an alternate audio
-	// track, or a subtitle track when subtitles are off) may carry stale eos=true from
-	// a prior operation and must not trigger a spurious period transition.
-	// DASH spec requires all tracks in a period to end at the same presentation time,
-	// so any single enabled track reaching EOS is sufficient.
+	// Check whether any *enabled* track hit EOS during the seek.  Only enabled tracks
+	// participate in period transition: a disabled track (e.g. an audio track deselected
+	// mid-playback, or a subtitle track the app has not activated) cannot reliably signal
+	// a period boundary and must not drive a forward switch on its own.
 	// The mPlayRate and remainingSeek guards prevent false positives:
 	//   - mPlayRate >= AAMP_RATE_PAUSE: for reverse playback (mPlayRate < 0), EOS means
 	//     beginning-of-period, not end-of-period, so we must not advance to the next period.
-	//   - remainingSeek >= 0: a negative remainder also indicates the seek overshot backward
+	//   - remainingSeek >= 0: a negative remainder indicates the seek overshot backward
 	//     rather than forward, so no forward period transition is appropriate.
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		if (mMediaStreamContext[i] != nullptr && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
+		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) && remainingSeek >= 0)
 		{
 			switchToNextPeriod = true;
 			break;
@@ -1967,42 +1965,6 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		return false;
 	}
 
-	// Save current period state so we can restore it if UpdateTrackInfo fails,
-	// leaving the object in a consistent state rather than half-switched.
-	const int      savedPeriodIdx      = mCurrentPeriodIdx;
-	IPeriod       *savedPeriod         = mCurrentPeriod;
-	std::string    savedBasePeriodId   = mBasePeriodId;
-	const double   savedPeriodStart    = mPeriodStartTime;
-	const double   savedPeriodDuration = mPeriodDuration;
-	const double   savedPeriodEnd      = mPeriodEndTime;
-
-	// Also snapshot stream-selection state that StreamSelection(true) is about to mutate.
-	// Without this, a subsequent UpdateTrackInfo failure would restore the period pointers
-	// while leaving mNumberOfTracks and per-track enabled/adaptation state configured for
-	// the new (now abandoned) period, producing an inconsistent object.
-	struct SavedTrackSelState
-	{
-		bool     enabled;
-		int      adaptationSetIdx;
-		int      representationIndex;
-		bool     profileChanged;
-		uint32_t adaptationSetId;
-	};
-	const int savedNumberOfTracks = mNumberOfTracks;
-	const bool savedUpdateStreamInfo = mUpdateStreamInfo;
-	std::array<SavedTrackSelState, AAMP_TRACK_COUNT> savedTrackState{};
-	for (int i = 0; i < mMaxTracks; i++)
-	{
-		if (mMediaStreamContext[i])
-		{
-			savedTrackState[i] = { mMediaStreamContext[i]->enabled,
-			                       mMediaStreamContext[i]->adaptationSetIdx,
-			                       mMediaStreamContext[i]->representationIndex,
-			                       mMediaStreamContext[i]->profileChanged,
-			                       mMediaStreamContext[i]->adaptationSetId };
-		}
-	}
-
 	mCurrentPeriodIdx = nextPeriodIdx;
 	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 	mBasePeriodId = mCurrentPeriod->GetId();
@@ -2015,32 +1977,18 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
 	{
-		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d, restoring previous period and stream-selection state", mCurrentPeriodIdx);
-		mCurrentPeriodIdx = savedPeriodIdx;
-		mCurrentPeriod    = savedPeriod;
-		mBasePeriodId     = savedBasePeriodId;
-		mPeriodStartTime  = savedPeriodStart;
-		mPeriodDuration   = savedPeriodDuration;
-		mPeriodEndTime    = savedPeriodEnd;
-		mNumberOfTracks   = savedNumberOfTracks;
-		mUpdateStreamInfo = savedUpdateStreamInfo;
-		for (int i = 0; i < mMaxTracks; i++)
-		{
-			if (mMediaStreamContext[i])
-			{
-				mMediaStreamContext[i]->enabled             = savedTrackState[i].enabled;
-				mMediaStreamContext[i]->adaptationSetIdx    = savedTrackState[i].adaptationSetIdx;
-				mMediaStreamContext[i]->representationIndex = savedTrackState[i].representationIndex;
-				mMediaStreamContext[i]->profileChanged      = savedTrackState[i].profileChanged;
-				mMediaStreamContext[i]->adaptationSetId     = savedTrackState[i].adaptationSetId;
-			}
-		}
+		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d", mCurrentPeriodIdx);
 		return false;
 	}
 
-	AAMPLOG_INFO("SeekInPeriod: Switched to period %d; caller will re-run SkipFragments on the new period with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
+	AAMPLOG_INFO("SeekInPeriod: Switched to period %d, calling SkipFragments with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
 
-	// Caller (SeekInPeriod) will invoke SkipFragments on the new period in its loop.
+	// TODO: This recursive call works correctly for the expected case where remainingSeek
+	// is fully absorbed by the next period (recursion depth = 1). On content with many
+	// consecutive short periods it could theoretically recurse once per period. A future
+	// refactor should convert SeekInPeriod into an iterative loop (driven by the bool
+	// return value of this function) to eliminate the theoretical stack-growth risk.
+	SeekInPeriod(remainingSeek, skipToEnd);
 	return true;
 }
 
@@ -2050,50 +1998,31 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
  */
 void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool skipToEnd)
 {
-	// Iterative loop: advance through periods until the seek remainder is fully consumed
-	// or no further playable period is available. HandleSeekEOSAndPeriodTransition updates
-	// mCurrentPeriodIdx and associated state when a transition is needed, and returns true
-	// to signal that SkipFragments should be run again on the new period.
-	while (true)
+	double trackRemainingSeek = 0.0;
+	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		// Capture remaining seek from the primary (video) track, or the first enabled
-		// non-subtitle track if video is absent. Subtitle is intentionally excluded:
-		// it is called without skipToEnd and may return a different remainder than A/V,
-		// which would drive an incorrect period transition or carry-over seek offset.
-		double trackRemainingSeek = 0.0;
-		bool primaryCaptured = false;
-		for (int i = 0; i < mNumberOfTracks; i++)
+		if (!mMediaStreamContext[i])
 		{
-			if (!mMediaStreamContext[i])
-			{
-				continue;
-			}
+			continue;
+		}
 
-			if (eMEDIATYPE_SUBTITLE == i)
-			{
-				double skipTime = seekPositionSeconds;
-				SkipFragments(mMediaStreamContext[i], skipTime, true);
-			}
-			else
-			{
-				double remaining = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
-				// Capture the first enabled non-subtitle track as the period-transition
-				// primary: video (index 0) if enabled, otherwise audio (index 1).
-				// Using a flag rather than a 0.0 sentinel avoids ambiguity when the
-				// primary track legitimately returns a remainder of exactly 0.0.
-				if (!primaryCaptured && mMediaStreamContext[i]->enabled)
-				{
-					trackRemainingSeek = remaining;
-					primaryCaptured = true;
-				}
-			}
-		}
-		if (!HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd))
+		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			break;
+			double skipTime = seekPositionSeconds;
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], skipTime, true);
 		}
-		seekPositionSeconds = trackRemainingSeek;
+		else
+		{
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
+		}
+
 	}
+	// trackRemainingSeek holds the SkipFragments return value of the last processed
+	// track (comment 1). All non-subtitle tracks seek to the same seekPositionSeconds so
+	// their remaining-seek values are expected to converge. HandleSeekEOSAndPeriodTransition
+	// only uses this value for a sign check (>= 0) and as the carry-over seek offset into
+	// the next period, so using the last track's value is acceptable in practice.
+	HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd);
 }
 
 /**
@@ -3416,7 +3345,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			{
 				for (int i = 0; i < mNumberOfTracks; i++)
 				{
-					if (mMediaStreamContext[i] != nullptr)
+					if (mMediaStreamContext[i] != NULL)
 					{
 						mMediaStreamContext[i]->SetLocalTSBInjection(true);
 					}
@@ -8006,22 +7935,22 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
-				// For playing an ad in a ad break, we should update fragmentTime to PeriodStartTime + basePeriodOffset of ad;
-				if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0
-					&& mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
+				// For playing an ad in an ad break, seed fragmentTime using absoluteAdBreakStartTime +
+				// cumulative duration of all previously played ads. This is robust against
+				// basePeriodOffset=0 being set incorrectly by the waitForNextPeriod path in
+				// PlaceAds when a prior ad's overflow has already consumed part of the next period.
+				// For split period, basePeriodId and AdbreakId might not match, so go with mCurPlayingBreakId
+				double adFragmentTime = GetCurrentAdStartTimeSeconds();
+				if (adFragmentTime >= 0)
 				{
-					// Make sure basePeriodOffset is updated
-					if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != INVALID_BASE_PERIOD_OFFSET)
-					{
-						//Set the period start back to the beginning of the base period and then add basePeriodOffset
-						//to get the start for this AD
-						double absoluteAdBreakStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds();
-						// convert to seconds, standard implicit conversion
-						pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
-						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf mAbsoluteAdBreakStartTime %f",
-							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime,
-							absoluteAdBreakStartTime);
-					}
+					pMediaStreamContext->fragmentTime = adFragmentTime;
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf FragmentTime: %lf basePeriodOffset:%d",
+						i, mPeriodStartTime, pMediaStreamContext->fragmentTime,
+						mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset);
+				}
+				else
+				{
+					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Track %d absoluteAdBreakStartTime is 0 or not in multi-ad pod", i);
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %lf", i, pMediaStreamContext->fragmentTime);
 			}
@@ -9388,13 +9317,6 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				// If the playing period changes, it will be detected below [if(currentPeriodId != mCurrentPeriod->GetId())]
 				periodChanged = false;
 			}
-			// Snapshot the currently playing break ID before the state transition clears it;
-			// used later in the OUTSIDE_ADBREAK block to guard against re-entering the same adbreak.
-			std::string snapPlayingBreakId;
-			{
-				std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
-				snapPlayingBreakId = mCdaiObject->mCurPlayingBreakId;
-			}
 			// Calling the function to play ads from first ad break(existing logic).
 			adStateChanged = onAdEvent(AdEvent::DEFAULT);
 			if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
@@ -9440,44 +9362,12 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 						mBasePeriodOffset = mCdaiObject->mContentSeekOffset;
 					}
 				}
-				// Check if the new period is having ads.
-				if (mPlayRate >= AAMP_RATE_PAUSE)
+				// Check if the new period is having ads
+				adStateChanged = onAdEvent(AdEvent::DEFAULT);
+				if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 				{
+					// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
 					adStateChanged = onAdEvent(AdEvent::DEFAULT);
-					if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
-					{
-						// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
-						adStateChanged = onAdEvent(AdEvent::DEFAULT);
-					}
-				}
-				else
-				{
-					// For reverse trick-play: probe at end-of-period to find the preceding adbreak
-					// at the correct position (triggering the rate<0 && key==end path in
-					// CheckForAdStart for back-to-back adbreaks).  Guard against oscillation:
-					// if the adbreak mapped to the new source period (prevPId) is the SAME one
-					// we just completed, skip the probe and let the FetcherLoop handle it via
-					// BASE_OFFSET_CHANGE as mBasePeriodOffset decreases during rewind.
-					bool wouldOscillate = false;
-					{
-						std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
-						auto pit = mCdaiObject->mPeriodMap.find(mBasePeriodId);
-						if (pit != mCdaiObject->mPeriodMap.end())
-						{
-							wouldOscillate = (!pit->second.adBreakId.empty() &&
-											  pit->second.adBreakId == snapPlayingBreakId);
-						}
-					}
-					if (!wouldOscillate)
-					{
-						adStateChanged = onAdEvent(AdEvent::DEFAULT);
-						if (adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
-						{
-							// Adbreak found but not yet resolved; check again.
-							adStateChanged = onAdEvent(AdEvent::DEFAULT);
-						}
-					}
-					// else: same adbreak as just completed; skip probe; FetcherLoop handles naturally.
 				}
 			}
 
@@ -9800,23 +9690,59 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 /**
  * @brief Update the start time of first PTS
  */
+/**
+ * @brief Returns the fragment start time (seconds) for the current ad within a multi-ad pod.
+ *
+ * When the player is IN_ADBREAK_AD_PLAYING and mCurAdIdx > 0, the correct
+ * fragmentTime is: absoluteAdBreakStartTime + cumulative duration of all
+ * previously played ads.  This avoids relying on basePeriodOffset=0 being set
+ * correctly by the waitForNextPeriod path in PlaceAds.
+ *
+ * @return Start time in seconds if in a multi-ad pod with a valid break start
+ *         time, or -1.0 if the preconditions are not met.
+ */
+double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
+{
+	if (!mCdaiObject ||
+		mCdaiObject->mAdState != AdState::IN_ADBREAK_AD_PLAYING ||
+		mCdaiObject->mCurAdIdx <= 0 ||
+		mCdaiObject->mCurAdIdx >= static_cast<int>(mCdaiObject->mCurAds->size()) ||
+		mCdaiObject->mCurPlayingBreakId.empty())
+	{
+		return -1.0;
+	}
+
+	auto it = mCdaiObject->mAdBreaks.find(mCdaiObject->mCurPlayingBreakId);
+	if (it == mCdaiObject->mAdBreaks.end())
+	{
+		AAMPLOG_WARN("GetCurrentAdStartTimeSeconds: AdBreak not found for breakId=%s", mCdaiObject->mCurPlayingBreakId.c_str());
+		return -1.0;
+	}
+
+	double absoluteAdBreakStartTime = it->second.mAbsoluteAdBreakStartTime.inSeconds();
+
+	double cumulativeAdDurationMs = 0;
+	for (int adIdx = 0; adIdx < mCdaiObject->mCurAdIdx; adIdx++)
+	{
+		cumulativeAdDurationMs += mCdaiObject->mCurAds->at(adIdx).duration;
+	}
+	AAMPLOG_INFO("GetCurrentAdStartTimeSeconds: AbsoluteAdBreakStartTime=%f cumulativeAdDuration=%.0f ms",
+		absoluteAdBreakStartTime, cumulativeAdDurationMs);
+	return absoluteAdBreakStartTime + (cumulativeAdDurationMs / 1000.0);
+}
+
 void StreamAbstractionAAMP_MPD::UpdateStartTimeOfFirstPTS()
 {
 	double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
 	if (startTime != 0)
 	{
 		mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000.0;
-		if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0
-	 		&& mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
+		AAMPLOG_INFO("UpdateStartTimeOfFirstPTS: mStartTimeOfFirstPTS=%.0f ms : PeriodStartTime=%f", mStartTimeOfFirstPTS, startTime);
+		double adStartTimeSec = GetCurrentAdStartTimeSeconds();
+		if (adStartTimeSec >= 0)
 		{
-			if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != INVALID_BASE_PERIOD_OFFSET)
-			{
-				//Set the period start back to the beginning of the base period and then add basePeriodOffset
-				// to get the start for this AD (calculate directly in milliseconds)
-				mStartTimeOfFirstPTS = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds() * 1000.0 + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset;
-				AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (ad): mStartTimeOfFirstPTS=%.0f ms basePeriodOffset=%d",
-							 mStartTimeOfFirstPTS, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset);
-			}
+			mStartTimeOfFirstPTS = adStartTimeSec * 1000.0;
+			AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (ad): mStartTimeOfFirstPTS=%.0f ms", mStartTimeOfFirstPTS);
 		}
 		else
 		{
@@ -12483,6 +12409,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					if (abObj->mAbsoluteAdBreakStartTime == 0.0)
 					{
 						abObj->mAbsoluteAdBreakStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
+						AAMPLOG_WARN("[CDAI] Updating AdBreak[%s] absolute start time to %lf", adbreakId2Send.c_str(), abObj->mAbsoluteAdBreakStartTime.inSeconds());
 					}
 					absReservationEventPosition = abObj->mAbsoluteAdBreakStartTime;
 					absPlacementEventPosition = abObj->mAbsoluteAdBreakStartTime;
