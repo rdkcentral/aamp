@@ -1879,3 +1879,47 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	sender.join();
 }
+
+// SendSample uses the same waitForAttach() helper as SendTransfer.  Verify
+// that a pre-decoded audio sample is also held until the deferred Rialto
+// attachment completes, then injected successfully.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_DeferredAudio_BlocksUntilVideoAttaches)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendAudioInitFragment();  // deferred — attachPending=true
+
+	// Spawn a thread to call SendSample on the deferred audio source.
+	std::atomic<bool> sendDone{false};
+	std::thread sender([this, &sendDone]() {
+		m_player->SendSample(eMEDIATYPE_AUDIO, MakeSample(0.1, 0.033));
+		sendDone = true;
+	});
+
+	// Verify the inject thread is blocked — no injection yet.
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+
+	// Attaching video drains the pending audio attachment, unblocking the
+	// waiting SendSample thread.
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+	SendVideoInitFragment();
+
+	// Audio sourceId=1 is now registered.  Post NeedData so the unblocked
+	// SendSample thread can complete its injection.
+	std::atomic<bool> haveDataCalled{false};
+	ON_CALL(*m_mockPipelinePtr, addSegment(42, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 42))
+		.WillByDefault(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+	PostNeedData(/*sourceId=*/1, /*frameCount=*/1, /*requestId=*/42);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+
+	sender.join();
+}

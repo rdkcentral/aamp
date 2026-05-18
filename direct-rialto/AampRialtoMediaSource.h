@@ -130,6 +130,14 @@ public:
 
 	int32_t sourceId() const { return m_sourceId; }
 	bool isAttached() const { return m_sourceId >= 0; }
+
+	/// Block if this source's Rialto attachment is still deferred (waiting
+	/// for video to attach first).  Returns true when injection may safely
+	/// proceed; returns false when the caller should discard the frame
+	/// (source not attached and not pending, or the wait was aborted by a
+	/// generation change from Flush/Stop).
+	bool waitForAttach();
+
 	int32_t mksId() const { return m_mksId; }
 
 	// -----------------------------------------------------------------

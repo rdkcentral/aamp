@@ -429,34 +429,9 @@ bool AampRialtoPlayer::SendTransfer(
 		auto samples = demuxer->GetSamples();
 		if (!samples.empty() && m_pipeline)
 		{
-			// If the source's Rialto attachment is still deferred (waiting
-			// for video to attach first), block here rather than silently
-			// dropping frames.  Dropped frames leave a gap in the injected
-			// timeline: audio starts late, and GStreamer's A/V sync then
-			// skips video forward to match, making the reported position
-			// jump at startup.
-			if (!source->isAttached())
+			if (!source->waitForAttach())
 			{
-				auto &st = source->state();
-				std::unique_lock<std::mutex> lock(st.mu);
-				const uint64_t waitGen = st.generation;
-				AAMPLOG_INFO(
-					"Inject blocked — source awaiting deferred attach "
-					"mediaType=%d",
-					static_cast<int>(mediaType));
-				st.cv.wait(lock, [&]{
-					return source->isAttached()
-						|| st.generation != waitGen
-						|| st.paused;
-				});
-				if (!source->isAttached())
-				{
-					AAMPLOG_INFO(
-						"Attach did not complete (abort) — discarding "
-						"samples mediaType=%d",
-						static_cast<int>(mediaType));
-					return result;
-				}
+				return result;
 			}
 
 			uint64_t capturedGen = source->captureGeneration();
@@ -633,7 +608,22 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 	bool result = false;
 
 	auto *source = getSource(mediaType);
-	if (source && source->isAttached() && m_pipeline)
+	if (!source)
+	{
+		AAMPLOG_WARN("unsupported mediaType=%d", static_cast<int>(mediaType));
+		AAMPLOG_INFO("EXIT result=%d", result);
+		return result;
+	}
+
+	if (!source->waitForAttach())
+	{
+		AAMPLOG_WARN("source not attached for mediaType=%d",
+			static_cast<int>(mediaType));
+		AAMPLOG_INFO("EXIT result=%d", result);
+		return result;
+	}
+
+	if (m_pipeline)
 	{
 		uint64_t capturedGen = source->captureGeneration();
 		auto pendingCodecData = source->takePendingCodecData();
@@ -641,19 +631,6 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 		result = source->injectOneSample(
 			*m_pipeline, capturedGen,
 			std::move(sample), pendingCodecData);
-	}
-	else
-	{
-		if (!source)
-		{
-			AAMPLOG_WARN("unsupported mediaType=%d",
-				static_cast<int>(mediaType));
-		}
-		else
-		{
-			AAMPLOG_WARN("source not attached for mediaType=%d",
-				static_cast<int>(mediaType));
-		}
 	}
 
 	AAMPLOG_INFO("EXIT result=%d", result);

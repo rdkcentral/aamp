@@ -88,6 +88,41 @@ void AampRialtoMediaSource::invalidateGeneration()
 	m_state.cv.notify_all();
 }
 
+bool AampRialtoMediaSource::waitForAttach()
+{
+	if (isAttached())
+	{
+		return true;  // fast path — already attached
+	}
+	std::unique_lock<std::mutex> lock(m_state.mu);
+	if (!m_state.attachPending)
+	{
+		// Not attached and no deferred attachment in flight.
+		return false;
+	}
+	const uint64_t waitGen = m_state.generation;
+	AAMPLOG_INFO(
+		"Inject blocked — source awaiting deferred attach mediaType=%d",
+		static_cast<int>(mediaType()));
+	// Do NOT include m_state.paused in the predicate: the pipeline
+	// transitions through PAUSED during startup before the video IPC
+	// call returns.  Including paused would immediately wake this
+	// thread, find isAttached()==false, and discard the frame —
+	// recreating the problem being fixed.  The generation change (set
+	// by invalidateGeneration inside Flush/Stop) is the correct abort.
+	m_state.cv.wait(lock, [&]{
+		return isAttached() || m_state.generation != waitGen;
+	});
+	if (!isAttached())
+	{
+		AAMPLOG_INFO(
+			"Attach did not complete (abort) — discarding mediaType=%d",
+			static_cast<int>(mediaType()));
+		return false;
+	}
+	return true;
+}
+
 uint64_t AampRialtoMediaSource::captureGeneration()
 {
 	std::lock_guard<std::mutex> lock(m_state.mu);
