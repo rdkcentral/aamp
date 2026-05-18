@@ -70,6 +70,7 @@ void AampRialtoMediaSource::reset()
 		m_state.eos             = false;
 		m_state.paused          = false;
 		m_state.injectorActive  = false;
+		m_state.attachPending   = false;
 		m_state.cv.notify_all();
 	}
 	m_sourceId       = -1;

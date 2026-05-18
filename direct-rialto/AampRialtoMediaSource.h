@@ -81,6 +81,11 @@ public:
 		uint64_t generation{0};
 		bool     paused{false};
 		bool     injectorActive{false};
+		/// True while this source's Rialto attachment has been deferred
+		/// (e.g. waiting for the video source to attach first).  Inject
+		/// threads block on the cv when this is set so that no frames are
+		/// silently discarded before the source is ready.
+		bool     attachPending{false};
 	};
 
 	/**

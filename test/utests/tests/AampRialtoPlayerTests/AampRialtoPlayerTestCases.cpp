@@ -1764,3 +1764,118 @@ TEST_F(AampRialtoPlayerTest,
 {
 	EXPECT_NO_THROW(m_player->StopBuffering(true));
 }
+
+// ===========================================================================
+// Deferred audio attachment — inject-thread blocking
+// ===========================================================================
+
+// When audio attachment is deferred (waiting for video), the audio source's
+// attachPending flag must be set so the inject thread knows to block.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_DeferredAudio_SetsAttachPendingOnAudioSource)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+	SendAudioInitFragment();
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().attachPending);
+}
+
+// When a media fragment arrives for a deferred-audio source, the inject
+// thread must block until video attaches (which drains the pending audio
+// attachment), then inject normally.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_DeferredAudio_BlocksUntilVideoAttaches)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendAudioInitFragment();  // deferred — attachPending=true
+
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::atomic<int> addSegmentCalls{0};
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&addSegmentCalls](uint32_t, const auto &)
+				-> firebolt::rialto::AddSegmentStatus
+			{
+				++addSegmentCalls;
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	// Audio media fragment should block because source is not attached yet.
+	std::atomic<bool> sendDone{false};
+	std::vector<uint8_t> buf = {0x01};
+	std::thread sender([this, b = std::move(buf), &sendDone]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+		sendDone = true;
+	});
+
+	// Verify the inject thread is blocked — no injection yet.
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+	EXPECT_EQ(addSegmentCalls.load(), 0);
+
+	// Attaching video drains the pending audio attachment, which unblocks
+	// the waiting inject thread.
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+	SendVideoInitFragment();  // attaches video; deferred audio attachment fires
+	// Audio sourceId=1 is now registered. Send NeedData so the inject
+	// thread (unblocked from the attachPending wait) can proceed.
+	PostNeedData(1, 1, 42);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	EXPECT_EQ(addSegmentCalls.load(), 1);
+
+	sender.join();
+}
+
+// If Flush() is called while the inject thread is blocked on a deferred
+// attachment, the thread must unblock and discard the fragment.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_DeferredAudio_FlushWhileBlockedAbortsSendTransfer)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendAudioInitFragment();  // deferred — attachPending=true
+
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+
+	std::atomic<bool> sendDone{false};
+	std::vector<uint8_t> buf = {0x01};
+	std::thread sender([this, b = std::move(buf), &sendDone]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+		sendDone = true;
+	});
+
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+
+	// Flush increments the generation and sets paused=true, which must
+	// wake the blocked inject thread.
+	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+
+	sender.join();
+}

@@ -427,8 +427,38 @@ bool AampRialtoPlayer::SendTransfer(
 	{
 		// Non-init fragment: extract samples and inject one at a time.
 		auto samples = demuxer->GetSamples();
-		if (!samples.empty() && source->isAttached() && m_pipeline)
+		if (!samples.empty() && m_pipeline)
 		{
+			// If the source's Rialto attachment is still deferred (waiting
+			// for video to attach first), block here rather than silently
+			// dropping frames.  Dropped frames leave a gap in the injected
+			// timeline: audio starts late, and GStreamer's A/V sync then
+			// skips video forward to match, making the reported position
+			// jump at startup.
+			if (!source->isAttached())
+			{
+				auto &st = source->state();
+				std::unique_lock<std::mutex> lock(st.mu);
+				const uint64_t waitGen = st.generation;
+				AAMPLOG_INFO(
+					"Inject blocked — source awaiting deferred attach "
+					"mediaType=%d",
+					static_cast<int>(mediaType));
+				st.cv.wait(lock, [&]{
+					return source->isAttached()
+						|| st.generation != waitGen
+						|| st.paused;
+				});
+				if (!source->isAttached())
+				{
+					AAMPLOG_INFO(
+						"Attach did not complete (abort) — discarding "
+						"samples mediaType=%d",
+						static_cast<int>(mediaType));
+					return result;
+				}
+			}
+
 			uint64_t capturedGen = source->captureGeneration();
 			auto pendingCodecData = source->takePendingCodecData();
 
@@ -488,6 +518,15 @@ void AampRialtoPlayer::AttachSource(
 	{
 		AAMPLOG_INFO("Deferring attachment of mediaType=%d until video is attached",
 			static_cast<int>(type));
+		// Signal inject threads to block rather than discard frames.
+		// Without this, media fragments are silently dropped while the
+		// source is unattached, leaving an audio gap that causes
+		// GStreamer's A/V sync to skip video forward at startup.
+		{
+			auto &st = source.state();
+			std::lock_guard<std::mutex> lock(st.mu);
+			st.attachPending = true;
+		}
 		m_pendingAttach[type] = std::move(codecInfo);
 		return;
 	}
@@ -509,10 +548,15 @@ void AampRialtoPlayer::AttachSource(
 		// once the source is (re-)attached the injection path must be
 		// allowed to block normally waiting for needData rather than
 		// immediately returning false.
+		//
+		// Also clear attachPending and wake any inject thread that was
+		// blocking because the source's attachment was deferred.
 		{
 			auto &st = source.state();
 			std::lock_guard<std::mutex> lock(st.mu);
 			st.paused = false;
+			st.attachPending = false;
+			st.cv.notify_all();
 		}
 	}
 
