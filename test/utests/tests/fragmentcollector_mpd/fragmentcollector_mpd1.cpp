@@ -111,6 +111,31 @@ protected:
 				tsbReaderThreadID.join();
 			}
 		}
+
+        FRIEND_TEST(MpdTests, GetCurrentAdStartTimeSeconds_NotInAdBreak);
+        FRIEND_TEST(MpdTests, GetCurrentAdStartTimeSeconds_FirstAd);
+        FRIEND_TEST(MpdTests, GetCurrentAdStartTimeSeconds_SecondAd);
+        FRIEND_TEST(MpdTests, GetCurrentAdStartTimeSeconds_NoBreakId);
+        FRIEND_TEST(MpdTests, GetCurrentAdStartTimeSeconds_BreakAtStreamStart);
+
+        /**
+         * @brief Creates and injects a real CDAIObjectMPD so that
+         *        mCdaiObject is non-null for CDAI unit tests.
+         */
+        void CreateCDAIObject(PrivateInstanceAAMP *aamp)
+        {
+            mTestCdaiObj = new CDAIObjectMPD(aamp);
+            SetCDAIObject(mTestCdaiObj);
+        }
+
+        ~TestableStreamAbstractionAAMP_MPD()
+        {
+            delete mTestCdaiObj;
+            mTestCdaiObj = nullptr;
+        }
+
+    	private:
+        	CDAIObjectMPD *mTestCdaiObj = nullptr;
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -404,3 +429,129 @@ TEST_F(MpdTests, testRepeatedStartNotLocalTSB)
 	mStreamAbstractionAAMP_MPD->ShutdownThreads();
 }
 
+// ---------------------------------------------------------------------------
+// GetCurrentAdStartTimeSeconds tests
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Returns -1.0 when not in an adbreak (OUTSIDE_ADBREAK state).
+ */
+TEST_F(MpdTests, GetCurrentAdStartTimeSeconds_NotInAdBreak)
+{
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
+        TestableStreamAbstractionAAMP_MPD stub(mPrivateInstanceAAMP);
+        stub.CreateCDAIObject(mPrivateInstanceAAMP);
+        ASSERT_NE(stub.mCdaiObject, nullptr);
+        stub.mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
+
+        EXPECT_DOUBLE_EQ(stub.GetCurrentAdStartTimeSeconds(), -1.0);
+}
+
+/**
+ * @brief Returns -1.0 when in an adbreak but mCurAdIdx == 0 (first ad — no prior ads to sum).
+ */
+TEST_F(MpdTests, GetCurrentAdStartTimeSeconds_FirstAd)
+{
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
+        TestableStreamAbstractionAAMP_MPD stub(mPrivateInstanceAAMP);
+        stub.CreateCDAIObject(mPrivateInstanceAAMP);
+        ASSERT_NE(stub.mCdaiObject, nullptr);
+
+        stub.mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+        stub.mCdaiObject->mCurAdIdx = 0;  // first ad — no cumulative offset
+
+        EXPECT_DOUBLE_EQ(stub.GetCurrentAdStartTimeSeconds(), -1.0);
+}
+
+/**
+ * @brief Returns absoluteAdBreakStartTime + sum-of-prior-ad-durations when mCurAdIdx > 0.
+ *
+ * Pod: ad[0]=10000ms, ad[1]=8000ms, ad[2]=6000ms.
+ * Playing ad[2] (mCurAdIdx=2): expected = breakStart + (10000+8000)/1000 = 100 + 18 = 118.
+ */
+TEST_F(MpdTests, GetCurrentAdStartTimeSeconds_SecondAd)
+{
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
+        TestableStreamAbstractionAAMP_MPD stub(mPrivateInstanceAAMP);
+        stub.CreateCDAIObject(mPrivateInstanceAAMP);
+        ASSERT_NE(stub.mCdaiObject, nullptr);
+
+        const std::string breakId = "break1";
+
+        AdNode ad0, ad1, ad2;
+        ad0.duration = 10000; // ms
+        ad1.duration = 8000;
+        ad2.duration = 6000;
+        auto ads = std::make_shared<std::vector<AdNode>>();
+        ads->push_back(ad0);
+        ads->push_back(ad1);
+        ads->push_back(ad2);
+
+        AdBreakObject abObj;
+        abObj.mAbsoluteAdBreakStartTime = 100.0;
+        stub.mCdaiObject->mAdBreaks[breakId] = abObj;
+
+        stub.mCdaiObject->mCurPlayingBreakId = breakId;
+        stub.mCdaiObject->mCurAds = ads;
+        stub.mCdaiObject->mCurAdIdx = 2;  // playing 3rd ad
+        stub.mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+
+        // Expected: 100 + (10000 + 8000) / 1000 = 118.0
+        EXPECT_DOUBLE_EQ(stub.GetCurrentAdStartTimeSeconds(), 118.0);
+}
+
+/**
+ * @brief Returns -1.0 when mCurPlayingBreakId is empty (break not yet identified).
+ */
+TEST_F(MpdTests, GetCurrentAdStartTimeSeconds_NoBreakId)
+{
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
+        TestableStreamAbstractionAAMP_MPD stub(mPrivateInstanceAAMP);
+        stub.CreateCDAIObject(mPrivateInstanceAAMP);
+        ASSERT_NE(stub.mCdaiObject, nullptr);
+
+        stub.mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+        stub.mCdaiObject->mCurAdIdx = 1;
+        // mCurAds must be non-null with enough entries so the size guard doesn't
+        // crash before reaching the mCurPlayingBreakId.empty() check.
+        auto ads = std::make_shared<std::vector<AdNode>>();
+        ads->push_back(AdNode{});
+        ads->push_back(AdNode{});
+        stub.mCdaiObject->mCurAds = ads;
+        stub.mCdaiObject->mCurPlayingBreakId = "";  // no break id → early return
+
+        EXPECT_DOUBLE_EQ(stub.GetCurrentAdStartTimeSeconds(), -1.0);
+}
+
+/**
+ * @brief A break starting at t=0.0 (stream start) is valid and must not be rejected.
+ *
+ * Pod: ad[0]=10000ms. Playing ad[1] (mCurAdIdx=1): expected = 0 + 10000/1000 = 10.0.
+ */
+TEST_F(MpdTests, GetCurrentAdStartTimeSeconds_BreakAtStreamStart)
+{
+        EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
+        TestableStreamAbstractionAAMP_MPD stub(mPrivateInstanceAAMP);
+        stub.CreateCDAIObject(mPrivateInstanceAAMP);
+        ASSERT_NE(stub.mCdaiObject, nullptr);
+
+        const std::string breakId = "break0";
+        AdNode ad0, ad1;
+        ad0.duration = 10000; // ms
+        ad1.duration = 8000;
+        auto ads = std::make_shared<std::vector<AdNode>>();
+        ads->push_back(ad0);
+        ads->push_back(ad1);
+
+        AdBreakObject abObj;
+        abObj.mAbsoluteAdBreakStartTime = 0.0;  // break at stream start
+        stub.mCdaiObject->mAdBreaks[breakId] = abObj;
+
+        stub.mCdaiObject->mCurPlayingBreakId = breakId;
+        stub.mCdaiObject->mCurAds = ads;
+        stub.mCdaiObject->mCurAdIdx = 1;
+        stub.mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+
+        // Expected: 0.0 + 10000/1000 = 10.0 — must NOT return -1.0
+        EXPECT_DOUBLE_EQ(stub.GetCurrentAdStartTimeSeconds(), 10.0);
+}
