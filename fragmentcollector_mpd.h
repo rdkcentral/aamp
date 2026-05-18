@@ -884,6 +884,14 @@ protected:
 	void SkipToEnd( class MediaStreamContext *pMediaStreamContext); //Added to support rewind in multiperiod assets
 
 	/**
+	 * @fn HandleSeekEOSAndPeriodTransition
+	 * @param remainingSeek remaining seek time after skipping fragments
+	 * @param skipToEnd true when seek operation is a seek-to-end
+	 * @return true if period switched; false otherwise
+	 */
+	bool HandleSeekEOSAndPeriodTransition(double remainingSeek, bool skipToEnd);
+
+	/**
 	 * @fn SeekInPeriod
 	 * @param seekPositionSeconds seek position in seconds relative to the first
 	 *        segment currently present in the manifest for this period (after any
@@ -1242,10 +1250,22 @@ protected:
 	*/
 	void ProcessVssLicenseRequest();
 	/**
+	* @fn ProcessLicenseFromEAP
+	* @brief Process DRM license for early available periods found in the given manifest response
+	* @param[in] mpdDnldResp Manifest download response containing the MPD parse helper used
+	*                        to identify and process early available periods
+	*/
+	void ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp);
+	/**
 	* @fn GetAvailableVSSPeriods
 	* @param PeriodIds VSS Periods
 	*/
 	void GetAvailableVSSPeriods(std::vector<IPeriod*>& PeriodIds);
+	/**
+	* @fn GetEarlyAvailablePeriods
+	* @param PeriodIds Non-VSS early available periods
+	*/
+	void GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper);
 	/**
 	* @fn GetVssVirtualStreamID
 	*/

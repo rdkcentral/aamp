@@ -27,6 +27,7 @@ class MockIsoBmffProcessor
 {
 public:
 	MOCK_METHOD(void, setRate, (double, PlayMode));
+	MOCK_METHOD(bool, getPTSRestampStatus, (), (const));
 };
 
 extern MockIsoBmffProcessor *g_mockIsoBmffProcessor;

@@ -21,8 +21,10 @@
 #include "AampProfiler.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
+#include "AampUtils.h" // for NOW_STEADY_TS_MS
 #include <cjson/cJSON.h>
 #include <algorithm>
+#include <thread>
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
@@ -64,9 +66,8 @@ TEST_F(AampProfilertests, SetLatencyParamTest13)
 TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
 {
     TuneEndMetrics tuneMetricsData;
-    char tuneTimeStrPrefixdata[] = {1,2,3,4,5};
-    char *tuneTimeStrPrefix = tuneTimeStrPrefixdata;
-    unsigned int licenseAcqNWTime = 2;
+	const char *tuneTimeStrPrefix = "[tuneTimeStrPrefix]";
+	unsigned int licenseAcqNWTime = 2;
     bool playerPreBuffered = true;
     unsigned int durationSeconds = 3;
     bool interfaceWifi = true;
@@ -457,6 +458,105 @@ TEST_F(AampProfilertests, TuneEndTest5)
     EXPECT_EQ(durationSeconds,3600);
     ASSERT_TRUE(interfaceWifi);         
 }
+
+// Test to verify that mTotalTime in TuneEndMetrics is updated correctly in success case when player is not pre-buffered.
+// Total time is calculated based on the start time of PROFILE_BUCKET_FIRST_FRAME.
+TEST_F(AampProfilertests, TuneEndTest6)
+{
+    TuneEndMetrics mTuneEndMetrics;
+    mTuneEndMetrics.success = 1;
+    mTuneEndMetrics.contentType = ContentType_VOD;
+    mTuneEndMetrics.streamType = 1;
+    mTuneEndMetrics.mFirstTune = true;
+    mTuneEndMetrics.mTimedMetadataStartTime = 12345;
+    mTuneEndMetrics.mTimedMetadataDuration = 500;
+    mTuneEndMetrics.mTuneAttempts = 0;
+    mTuneEndMetrics.mTotalTime = 0; // Initialize mTotalTime to 0
+    std::string appName = "Test6";
+    std::string playerActiveMode = "Active";
+    int playerId = 123;
+    bool playerPreBuffered = false;
+    unsigned int durationSeconds = 3600;
+    bool interfaceWifi = true;
+    std::string failureReason;
+    std::string tuneMetricData;
+    profileEvent->TuneBegin();
+    // Wait for 200ms to cause a delay and ensure buckets[PROFILE_BUCKET_FIRST_FRAME].tStart has a valid value.
+    // Total time is the start time for PROFILE_BUCKET_FIRST_FRAME.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    profileEvent->ProfileBegin(PROFILE_BUCKET_FIRST_FRAME);
+    profileEvent->ProfileEnd(PROFILE_BUCKET_FIRST_FRAME);
+    profileEvent->TuneEnd(mTuneEndMetrics, appName, playerActiveMode, playerId,
+                         playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+    EXPECT_TRUE(mTuneEndMetrics.mTotalTime >= 200); // Check if mTotalTime is updated and is at least 200ms
+}
+
+// Test to verify that mTotalTime in TuneEndMetrics is updated correctly in success case when player is pre-buffered.
+// Total time is calculated based on the difference between the start time of PROFILE_BUCKET_FIRST_FRAME and
+// the start time of PROFILE_BUCKET_PLAYER_PRE_BUFFERED.
+TEST_F(AampProfilertests, TuneEndTest7)
+{
+    TuneEndMetrics mTuneEndMetrics;
+    mTuneEndMetrics.success = 1; // success case
+    mTuneEndMetrics.contentType = ContentType_VOD;
+    mTuneEndMetrics.streamType = 1;
+    mTuneEndMetrics.mFirstTune = true;
+    mTuneEndMetrics.mTimedMetadataStartTime = 12345;
+    mTuneEndMetrics.mTimedMetadataDuration = 500;
+    mTuneEndMetrics.mTuneAttempts = 0;
+    mTuneEndMetrics.mTotalTime = 0; // Initialize mTotalTime to 0
+    std::string appName = "Test7";
+    std::string playerActiveMode = "Active";
+    int playerId = 123;
+    bool playerPreBuffered = true;
+    unsigned int durationSeconds = 3600;
+    bool interfaceWifi = true;
+    std::string failureReason;
+    std::string tuneMetricData;
+    profileEvent->TuneBegin();
+    profileEvent->ProfileBegin(PROFILE_BUCKET_PLAYER_PRE_BUFFERED);
+    profileEvent->ProfileEnd(PROFILE_BUCKET_PLAYER_PRE_BUFFERED);
+    // Wait for 200ms to cause a delay and ensure buckets[PROFILE_BUCKET_FIRST_FRAME].tStart has a valid value.
+    // Total time is the buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    profileEvent->ProfileBegin(PROFILE_BUCKET_FIRST_FRAME);
+    profileEvent->ProfileEnd(PROFILE_BUCKET_FIRST_FRAME);
+    profileEvent->TuneEnd(mTuneEndMetrics, appName, playerActiveMode, playerId,
+                         playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+    EXPECT_TRUE(mTuneEndMetrics.mTotalTime >= 200); // Check if mTotalTime is updated and is at least 200ms
+}
+
+// Test to verify that mTotalTime in TuneEndMetrics is updated correctly in failure case when player is not pre-buffered.
+// Total time for failure is the difference between the current time and the tunestart time.
+TEST_F(AampProfilertests, TuneEndTest8)
+{
+    TuneEndMetrics mTuneEndMetrics;
+    mTuneEndMetrics.success = 0; // failure case
+    mTuneEndMetrics.contentType = ContentType_VOD;
+    mTuneEndMetrics.streamType = 1;
+    mTuneEndMetrics.mFirstTune = true;
+    mTuneEndMetrics.mTimedMetadataStartTime = 12345;
+    mTuneEndMetrics.mTimedMetadataDuration = 500;
+    mTuneEndMetrics.mTuneAttempts = 0;
+    mTuneEndMetrics.mTotalTime = 0; // Initialize mTotalTime to 0
+    std::string appName = "Test8";
+    std::string playerActiveMode = "Active";
+    int playerId = 123;
+    bool playerPreBuffered = false;
+    unsigned int durationSeconds = 3600;
+    bool interfaceWifi = true;
+    std::string failureReason;
+    std::string tuneMetricData;
+    profileEvent->TuneBegin();
+    // Wait for 200ms to cause a delay and ensure mTuneEndMetrics.mTotalTime has a valid value.
+    // Total time for failure is based on the steady-clock delta from tuneStartMonotonicBase.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    mTuneEndMetrics.mTotalTime = NOW_STEADY_TS_MS;
+    profileEvent->TuneEnd(mTuneEndMetrics, appName, playerActiveMode, playerId,
+                         playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+    EXPECT_TRUE(mTuneEndMetrics.mTotalTime >= 200); // Check if mTotalTime is updated and is at least 200ms
+}
+
 TEST_F(AampProfilertests, TestGetTuneEventsJSON22)
 {
     bool siblingEvent = false;
@@ -695,5 +795,90 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithNullConfig)
     
     // Cleanup: restore the original gpGlobalConfig
     gpGlobalConfig = savedConfig;
+}
+TEST_F(AampProfilertests, TestDecodeTime)
+{
+    TuneEndMetrics metrics;
+    metrics.success = 1;
+    metrics.contentType = ContentType_VOD;
+    metrics.streamType = 1;
+    metrics.mFirstTune = true;
+    metrics.mTimedMetadataStartTime = 0;
+    metrics.mTimedMetadataDuration = 0;
+    metrics.mTuneAttempts = 1;
+    metrics.mTotalTime = 0;
+
+    std::string appName = "TestApp";
+    std::string playerActiveMode = "Active";
+    int playerId = 1;
+    bool playerPreBuffered = true;
+    unsigned int durationSeconds = 60;
+    bool interfaceWifi = true;
+    std::string failureReason = "None";
+
+    // Test that with no profile values logged, decode time is zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint == 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
+    // Test that with first buffer but no first frame, decode time is zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint == 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
+    // Test that with first buffer and first frame, decode time is greater than zero
+    {
+        std::string tuneMetricData="";
+        profileEvent->TuneBegin();
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
+        usleep(5000);
+        profileEvent->ProfilePerformed(PROFILE_BUCKET_FIRST_FRAME);
+        profileEvent->TuneEnd(metrics, appName, playerActiveMode, playerId, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+
+        EXPECT_FALSE(tuneMetricData.empty());
+        if (!tuneMetricData.empty())
+        {
+            cJSON *jsonMetrics = cJSON_Parse(tuneMetricData.c_str());
+            EXPECT_TRUE(jsonMetrics != NULL);
+            if (jsonMetrics != NULL)
+            {
+                cJSON *decodeTime = cJSON_GetObjectItem(jsonMetrics, "gdt");
+                EXPECT_TRUE(decodeTime != NULL);
+                EXPECT_TRUE(decodeTime->valueint > 0);
+                cJSON_Delete(jsonMetrics);
+            }
+        }
+    }
 }
 

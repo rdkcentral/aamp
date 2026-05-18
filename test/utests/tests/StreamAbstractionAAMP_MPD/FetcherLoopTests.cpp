@@ -165,6 +165,25 @@ protected:
 		{
 			mIsFogTSB = value;
 		}
+
+		bool InvokeHandleSeekEOSAndPeriodTransition(double remainingSeek, bool skipToEnd)
+		{
+			return HandleSeekEOSAndPeriodTransition(remainingSeek, skipToEnd);
+		}
+
+		int GetNumberOfTracks() const
+		{
+			return mNumberOfTracks;
+		}
+
+		MediaStreamContext* GetMediaStreamContextAt(int idx)
+		{
+			if ((idx < 0) || (idx >= mNumberOfTracks))
+			{
+				return nullptr;
+			}
+			return mMediaStreamContext[idx];
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -271,6 +290,7 @@ protected:
 			{eAAMPConfig_useRialtoSink, false},
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_UseMp4Demux, false},
+			{eAAMPConfig_ProcessLicenseFromEAP, false},
 };
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -2641,3 +2661,43 @@ INSTANTIATE_TEST_SUITE_P(
 	BasicFetcherLoopMPDTests,
 	AdvancedFetcherLoopTests,
 	::testing::ValuesIn(testCases));
+
+/**
+ * @brief VPAAMP-342: HandleSeekEOSAndPeriodTransition must not trigger a forward period
+ * transition when EOS is reported only on disabled tracks.
+ *
+ * Scenario: after init at period 0, mark all initialized non-NULL tracks disabled and set
+ * their eos flags. Call HandleSeekEOSAndPeriodTransition with a non-negative remainingSeek.
+ * Expected (post-fix): no period transition occurs (returns false, period index unchanged).
+ * Pre-fix behaviour: the enabled check was absent, so eos on any non-NULL track drove
+ * a transition even if that track was not active.
+ */
+TEST_F(FetcherLoopTests, HandleSeekEOS_DisabledTrack_NoPeriodTransition)
+{
+	AAMPStatusType status;
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	status = InitializeMPD(mVodManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Mark all initialized tracks as disabled with eos set so that, without the enabled
+	// guard, every non-NULL context would independently fire the period-transition path.
+	for (int i = 0; i < mTestableStreamAbstractionAAMP_MPD->GetNumberOfTracks(); i++)
+	{
+		MediaStreamContext *ctx = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(i);
+		if (ctx)
+		{
+			ctx->enabled = false;
+			ctx->eos    = true;
+		}
+	}
+
+	int periodBefore = mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx();
+	bool transitioned = mTestableStreamAbstractionAAMP_MPD->InvokeHandleSeekEOSAndPeriodTransition(0.0, false);
+
+	// Disabled tracks must not trigger a forward period transition.
+	EXPECT_FALSE(transitioned);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
+}
