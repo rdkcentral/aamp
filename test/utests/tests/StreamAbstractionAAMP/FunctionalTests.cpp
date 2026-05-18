@@ -126,7 +126,7 @@ protected:
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(0));
-		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(0));
 

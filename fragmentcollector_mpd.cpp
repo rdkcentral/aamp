@@ -10205,7 +10205,7 @@ bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 	}
 	bool isAllowNextFrag = true;
 	bool fragmentCached {false};
-	int  maxCachedFragmentsPerTrack = (int)pMediaStreamContext->GetCachedFragmentChunksSize();
+	const int activeCacheSize = static_cast<int>(pMediaStreamContext->GetCachedFragmentSize());
 
 	if (waitForFreeFrag && !trickPlay)
 	{
@@ -10222,11 +10222,11 @@ bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 		{
 			int timeoutMs = -1;
 			if(bCacheFullState &&
-				(pMediaStreamContext->numberOfFragmentChunksCached == maxCachedFragmentsPerTrack))
+				(pMediaStreamContext->numberOfFragmentsCached == activeCacheSize))
 			{
 				timeoutMs = MAX_WAIT_TIMEOUT_MS;
 			}
-			isAllowNextFrag = pMediaStreamContext->WaitForCachedFragmentChunkInjected(timeoutMs);
+			isAllowNextFrag = pMediaStreamContext->WaitForCachedFragmentInjected(timeoutMs);
 		}
 	}
 
@@ -10235,10 +10235,10 @@ bool StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 			// profile not changed and not at EOS
 			if(!pMediaStreamContext->profileChanged && tsbReader->TrackEnabled() && !tsbReader->IsEos())
 			{
-				fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, maxCachedFragmentsPerTrack - pMediaStreamContext->numberOfFragmentChunksCached);
+				fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, activeCacheSize - pMediaStreamContext->numberOfFragmentsCached);
 				AAMPLOG_TRACE("[%s] Fragment %s", GetMediaTypeName((AampMediaType)trackIdx), fragmentCached ? "cached" : "not cached");
 			}
-			if(pMediaStreamContext->numberOfFragmentChunksCached != maxCachedFragmentsPerTrack && bCacheFullState)
+			if(pMediaStreamContext->numberOfFragmentsCached != activeCacheSize && bCacheFullState)
 			{
 				bCacheFullState = false;
 			}
@@ -10324,7 +10324,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				{
 					int trackIdx = (vEOS && !aEOS) ? eMEDIATYPE_AUDIO : eMEDIATYPE_VIDEO;
 					// play cache is full , wait until cache is available to inject next, max wait of MAX_WAIT_TIMEOUT_MS
-					(void)mMediaStreamContext[trackIdx]->WaitForCachedFragmentChunkInjected(MAX_WAIT_TIMEOUT_MS);
+					(void)mMediaStreamContext[trackIdx]->WaitForCachedFragmentInjected(MAX_WAIT_TIMEOUT_MS);
 				}
 				else
 				{
@@ -10716,7 +10716,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 		// Flush fragments cached during Live SLD
 		mMediaStreamContext[i]->FlushFetchedFragments();
 
-		// Flush fragments from mCachedFragmentChunks
+		// Flush fragments from mCachedFragment
 		mMediaStreamContext[i]->FlushFragments();
 
 		// For seek to live, we will employ chunk cache and hence size has to be increased to max
@@ -10724,11 +10724,11 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 
 		if ((mTuneType == eTUNETYPE_SEEKTOLIVE) && (aamp->GetLLDashChunkMode()))
 		{
-			mMediaStreamContext[i]->SetCachedFragmentChunksSize(static_cast<size_t>(mMediaStreamContext[i]->maxCachedFragmentChunksPerTrack));
+			mMediaStreamContext[i]->SetCachedFragmentSize(static_cast<size_t>(mMediaStreamContext[i]->maxLLDCachedFragmentsPerTrack));
 		}
 		else
 		{
-			mMediaStreamContext[i]->SetCachedFragmentChunksSize(static_cast<size_t>(GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached)));
+			mMediaStreamContext[i]->SetCachedFragmentSize(static_cast<size_t>(GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached)));
 		}
 
 		mMediaStreamContext[i]->eosReached = false;
@@ -10811,8 +10811,8 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 				track->AbortWaitForCachedFragment();
 				if (track->IsLocalTSBInjection())
 				{
-					// TSBReader could be waiting indefinitely WaitForCachedFragmentChunkInjected, this will unblock the same
-					track->AbortWaitForCachedFragmentChunk();
+					// TSBReader could be waiting indefinitely WaitForCachedFragmentInjected, this will unblock the same
+					track->AbortWaitForCachedFragmentInjected();
 				}
 			}
 		}
