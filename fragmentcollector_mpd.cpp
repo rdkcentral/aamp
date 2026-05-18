@@ -1925,24 +1925,22 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
  * @brief If SkipFragments reaches EOS and an additional playable period is available, switch to the next period.
  */
 bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainingSeek,
-	bool /*skipToEnd*/) // reserved for future use; see header for rationale
+	bool skipToEnd)
 {
 	bool switchToNextPeriod = false;
 
-	// Check whether any enabled track hit EOS during the seek. Only enabled tracks
-	// participate in playback; a disabled or unselected track (e.g. an alternate audio
-	// track, or a subtitle track when subtitles are off) may carry stale eos=true from
-	// a prior operation and must not trigger a spurious period transition.
-	// DASH spec requires all tracks in a period to end at the same presentation time,
-	// so any single enabled track reaching EOS is sufficient.
+	// Check whether any *enabled* track hit EOS during the seek.  Only enabled tracks
+	// participate in period transition: a disabled track (e.g. an audio track deselected
+	// mid-playback, or a subtitle track the app has not activated) cannot reliably signal
+	// a period boundary and must not drive a forward switch on its own.
 	// The mPlayRate and remainingSeek guards prevent false positives:
 	//   - mPlayRate >= AAMP_RATE_PAUSE: for reverse playback (mPlayRate < 0), EOS means
 	//     beginning-of-period, not end-of-period, so we must not advance to the next period.
-	//   - remainingSeek >= 0: a negative remainder also indicates the seek overshot backward
+	//   - remainingSeek >= 0: a negative remainder indicates the seek overshot backward
 	//     rather than forward, so no forward period transition is appropriate.
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		if (mMediaStreamContext[i] != nullptr && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) &&  remainingSeek >= 0)
+		if (mMediaStreamContext[i] != NULL && mMediaStreamContext[i]->enabled && mMediaStreamContext[i]->eos && (mPlayRate >= AAMP_RATE_PAUSE) && remainingSeek >= 0)
 		{
 			switchToNextPeriod = true;
 			break;
@@ -1967,15 +1965,6 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		return false;
 	}
 
-	// Save current period state so we can restore it if UpdateTrackInfo fails,
-	// leaving the object in a consistent state rather than half-switched.
-	const int      savedPeriodIdx      = mCurrentPeriodIdx;
-	IPeriod       *savedPeriod         = mCurrentPeriod;
-	std::string    savedBasePeriodId   = mBasePeriodId;
-	const double   savedPeriodStart    = mPeriodStartTime;
-	const double   savedPeriodDuration = mPeriodDuration;
-	const double   savedPeriodEnd      = mPeriodEndTime;
-
 	mCurrentPeriodIdx = nextPeriodIdx;
 	mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
 	mBasePeriodId = mCurrentPeriod->GetId();
@@ -1988,19 +1977,18 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
 	{
-		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d, restoring previous period state", mCurrentPeriodIdx);
-		mCurrentPeriodIdx = savedPeriodIdx;
-		mCurrentPeriod    = savedPeriod;
-		mBasePeriodId     = savedBasePeriodId;
-		mPeriodStartTime  = savedPeriodStart;
-		mPeriodDuration   = savedPeriodDuration;
-		mPeriodEndTime    = savedPeriodEnd;
+		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed while switching to period %d", mCurrentPeriodIdx);
 		return false;
 	}
 
-AAMPLOG_INFO("SeekInPeriod: Switched to period %d; caller will re-run SkipFragments on the new period with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
+	AAMPLOG_INFO("SeekInPeriod: Switched to period %d, calling SkipFragments with remaining seek %lf", mCurrentPeriodIdx, remainingSeek);
 
-	// Caller (SeekInPeriod) will invoke SkipFragments on the new period in its loop.
+	// TODO: This recursive call works correctly for the expected case where remainingSeek
+	// is fully absorbed by the next period (recursion depth = 1). On content with many
+	// consecutive short periods it could theoretically recurse once per period. A future
+	// refactor should convert SeekInPeriod into an iterative loop (driven by the bool
+	// return value of this function) to eliminate the theoretical stack-growth risk.
+	SeekInPeriod(remainingSeek, skipToEnd);
 	return true;
 }
 
@@ -2010,50 +1998,31 @@ AAMPLOG_INFO("SeekInPeriod: Switched to period %d; caller will re-run SkipFragme
  */
 void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool skipToEnd)
 {
-	// Iterative loop: advance through periods until the seek remainder is fully consumed
-	// or no further playable period is available. HandleSeekEOSAndPeriodTransition updates
-	// mCurrentPeriodIdx and associated state when a transition is needed, and returns true
-	// to signal that SkipFragments should be run again on the new period.
-	while (true)
+	double trackRemainingSeek = 0.0;
+	for (int i = 0; i < mNumberOfTracks; i++)
 	{
-		// Capture remaining seek from the primary (video) track, or the first enabled
-		// non-subtitle track if video is absent. Subtitle is intentionally excluded:
-		// it is called without skipToEnd and may return a different remainder than A/V,
-		// which would drive an incorrect period transition or carry-over seek offset.
-		double trackRemainingSeek = 0.0;
-		bool primaryCaptured = false;
-		for (int i = 0; i < mNumberOfTracks; i++)
+		if (!mMediaStreamContext[i])
 		{
-			if (!mMediaStreamContext[i])
-			{
-				continue;
-			}
+			continue;
+		}
 
-			if (eMEDIATYPE_SUBTITLE == i)
-			{
-				double skipTime = seekPositionSeconds;
-				SkipFragments(mMediaStreamContext[i], skipTime, true);
-			}
-			else
-			{
-				double remaining = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
-				// Capture the first enabled non-subtitle track as the period-transition
-				// primary: video (index 0) if enabled, otherwise audio (index 1).
-				// Using a flag rather than a 0.0 sentinel avoids ambiguity when the
-				// primary track legitimately returns a remainder of exactly 0.0.
-				if (!primaryCaptured && mMediaStreamContext[i]->enabled)
-				{
-					trackRemainingSeek = remaining;
-					primaryCaptured = true;
-				}
-			}
-		}
-		if (!HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd))
+		if (eMEDIATYPE_SUBTITLE == i)
 		{
-			break;
+			double skipTime = seekPositionSeconds;
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], skipTime, true);
 		}
-		seekPositionSeconds = trackRemainingSeek;
+		else
+		{
+			trackRemainingSeek = SkipFragments(mMediaStreamContext[i], seekPositionSeconds, true, skipToEnd);
+		}
+
 	}
+	// trackRemainingSeek holds the SkipFragments return value of the last processed
+	// track (comment 1). All non-subtitle tracks seek to the same seekPositionSeconds so
+	// their remaining-seek values are expected to converge. HandleSeekEOSAndPeriodTransition
+	// only uses this value for a sign check (>= 0) and as the carry-over seek offset into
+	// the next period, so using the last track's value is acceptable in practice.
+	HandleSeekEOSAndPeriodTransition(trackRemainingSeek, skipToEnd);
 }
 
 /**
@@ -2832,6 +2801,12 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		{
 			FindPeriodGapsAndReport();
 		}
+
+		if (ISCONFIGSET(eAAMPConfig_ProcessLicenseFromEAP) && mIsLiveManifest)
+		{
+			ProcessLicenseFromEAP(mpdDnldResp);
+		}
+
 		// Process VSS stream
 		if(aamp->mIsVSS)
 		{
@@ -2843,6 +2818,70 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		}
 		// Process and send manifest http headers
 		ProcessManifestHeaderResponse(std::move(mpdDnldResp), init);
+	}
+}
+
+/**
+ * @brief Function to process non-VSS early available periods and queue content protection for all adaptation sets
+ */
+void StreamAbstractionAAMP_MPD::ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp)
+{
+	if (!mpdDnldResp)
+	{
+		return;
+	}
+
+	AampMPDParseHelperPtr mpdParseHelper = mpdDnldResp->GetMPDParseHelper();
+	if (!mpdParseHelper)
+	{
+		AAMPLOG_WARN("Skipping early available period processing due to null MPD parse helper");
+		return;
+	}
+
+	std::vector<IPeriod*> earlyPeriods;
+	GetEarlyAvailablePeriods(earlyPeriods, mpdParseHelper);
+	AAMPLOG_INFO("Early available period scan complete. detected=%zu", earlyPeriods.size());
+
+	if (earlyPeriods.empty())
+	{
+		return;
+	}
+
+	IPeriod *period = earlyPeriods.front();
+	if (!period)
+	{
+		AAMPLOG_WARN("Null period pointer in early available periods list");
+		return;
+	}
+	mEarlyAvailablePeriodIds.push_back(period->GetId());
+	AAMPLOG_INFO("Early available period detected: id=%s adaptationSets=%zu", period->GetId().c_str(), period->GetAdaptationSets().size());
+	const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
+	for (size_t adaptationSetIdx = 0; adaptationSetIdx < adaptationSets.size(); adaptationSetIdx++)
+	{
+		IAdaptationSet *adaptationSet = adaptationSets.at(adaptationSetIdx);
+		if (!adaptationSet)
+		{
+			continue;
+		}
+		AampMediaType mediaType = eMEDIATYPE_DEFAULT;
+		if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+		{
+			mediaType = eMEDIATYPE_VIDEO;
+		}
+		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO))
+		{
+			mediaType = eMEDIATYPE_AUDIO;
+		}
+		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE))
+		{
+			mediaType = eMEDIATYPE_SUBTITLE;
+		}
+		else
+		{
+			continue;
+		}
+		AAMPLOG_INFO("QueueContentProtection for early period id=%s adaptationSetIdx=%zu mediaType=%d", period->GetId().c_str(), adaptationSetIdx, mediaType);
+		QueueContentProtection(period, static_cast<uint32_t>(adaptationSetIdx), mediaType, false, false);
 	}
 }
 
@@ -3154,7 +3193,6 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 		drmHelper->setDrmMetaData(contentMetadata);
 		drmHelper->setDefaultKeyID(cencDefaultData);
 	}
-
 	return drmHelper;
 }
 
@@ -3307,7 +3345,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			{
 				for (int i = 0; i < mNumberOfTracks; i++)
 				{
-					if (mMediaStreamContext[i] != nullptr)
+					if (mMediaStreamContext[i] != NULL)
 					{
 						mMediaStreamContext[i]->SetLocalTSBInjection(true);
 					}
@@ -10331,6 +10369,46 @@ void StreamAbstractionAAMP_MPD::GetAvailableVSSPeriods(std::vector<IPeriod*>& Pe
 					PeriodIds.push_back(tempPeriod);
 				}
 			}
+		}
+	}
+}
+
+/**
+ * @brief Check new non-VSS early available periods from manifest
+ */
+void StreamAbstractionAAMP_MPD::GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper)
+{
+   if (!mpdParseHelper)
+   {
+	   AAMPLOG_WARN("Skipping early available period detection due to null MPD parse helper");
+	   return;
+   }
+
+	const IMPD *manifestMpd = mpdParseHelper->getMPD();
+	if (!manifestMpd)
+	{
+		AAMPLOG_WARN("Skipping early available period detection due to null MPD");
+		return;
+	}
+
+	const std::vector<IPeriod*> &allPeriods = manifestMpd->GetPeriods();
+	if (allPeriods.empty())
+	{
+		return;
+	}
+
+	int periodIter = static_cast<int>(allPeriods.size()) - 1;
+	IPeriod *tempPeriod = allPeriods.at(periodIter);
+	if (!tempPeriod)
+		return;
+	if (STARTS_WITH_IGNORE_CASE(tempPeriod->GetId().c_str(), VSS_DASH_EARLY_AVAILABLE_PERIOD_PREFIX))
+		return;
+	if (!tempPeriod->GetAdaptationSets().empty() && mpdParseHelper->IsEmptyPeriod(periodIter, false))
+	{
+		if (std::find(mEarlyAvailablePeriodIds.begin(), mEarlyAvailablePeriodIds.end(), tempPeriod->GetId()) == mEarlyAvailablePeriodIds.end())
+		{
+			AAMPLOG_INFO("Found new non-VSS early available period candidate: id=%s index=%d", tempPeriod->GetId().c_str(), periodIter);
+			PeriodIds.push_back(tempPeriod);
 		}
 	}
 }

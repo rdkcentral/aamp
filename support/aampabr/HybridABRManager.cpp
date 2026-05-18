@@ -283,7 +283,7 @@ void HybridABRManager::CheckRampupFromSteadyState(int currProfileIndex,int &newP
 	AAMPABRLOG_INFO("[%s][%d]  currProfileIndex %d, newProfileIndex %d ,nwBandwidth %ld ,bufferValue %lf ,newBandwidth %ld threshold %d(30)",__FUNCTION__,__LINE__,currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth, abrThreshold);
 	int nProfileIdx = getRampedUpProfileIndex(currProfileIndex,periodId);
 	// switch to new profile only on bitrate difference is less than 30 percentage
-	if(abrThreshold >= 0 && abrThreshold <= 30)
+	if(abrThreshold <= 30)
 		newProfileIndex = nProfileIdx;
 	if(newProfileIndex  != currProfileIndex)
 	{
@@ -406,10 +406,16 @@ void HybridABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcach
  */
 long HybridABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
 {
+	if (eAAMPAbrConfig.abrMaxBuffer <= 0)
+	{
+		logprintf("%s:%d abrMaxBuffer is %d, cannot compute buffer percentage",
+			__FUNCTION__, __LINE__, eAAMPAbrConfig.abrMaxBuffer);
+		return 0;
+	}
 	double bufferPercentage = ((double)currentBuffer / eAAMPAbrConfig.abrMaxBuffer) * 100;
 	long desiredProfilebw = 0;
 	long currentbw = getBandwidthOfProfile(currentProfileIndex);
-	std::vector<ProfileInfo> availableProfiles = getProfileInfo();
+	std::vector<ProfileInfo> availableProfiles = getProfileInfoLocked();
 	availableProfiles.erase(
 		std::remove_if(availableProfiles.begin(), availableProfiles.end(),
 			[](const ProfileInfo &p) { return p.isIframeTrack; }),
