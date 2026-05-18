@@ -107,6 +107,10 @@ void AampRialtoMediaPipelineClient::notifyQos(
 void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
 {
 	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
+	if (m_bufferUnderflowCallback)
+	{
+		m_bufferUnderflowCallback(sourceId);
+	}
 	AAMPLOG_INFO("EXIT");
 }
 

@@ -53,6 +53,7 @@ using ::testing::DoAll;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::SetArgReferee;
 using ::testing::StrictMock;
 using ::testing::WithArg;
 
@@ -321,12 +322,68 @@ protected:
 		client->notifyCancelNeedMediaData(sourceId);
 	}
 
+	/// Post a Rialto buffer-underflow notification via the captured client.
+	void PostBufferUnderflow(int32_t sourceId)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostBufferUnderflow";
+		client->notifyBufferUnderflow(sourceId);
+	}
+
 	/// Call Configure() with specific formats.
+	/// Recreate m_mockPipeline with fresh default behaviours.
+	/// Must be called before every player Configure() so the factory lambda
+	/// has a valid pipeline to move into the player.
+	void ResetMockPipeline()
+	{
+		m_mockPipeline = std::make_unique<NiceMock<MockIMediaPipeline>>();
+		m_mockPipelinePtr = m_mockPipeline.get();
+
+		ON_CALL(*m_mockPipelinePtr, load(_, _, _))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, attachSource(_))
+			.WillByDefault(Invoke(
+				[this](const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+				{
+					const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+						*src).setId(m_nextSourceId++);
+					return true;
+				}));
+		ON_CALL(*m_mockPipelinePtr, allSourcesAttached())
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, play(_))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, pause())
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, setPlaybackRate(_))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, stop())
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+			.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+		ON_CALL(*m_mockPipelinePtr, haveData(_, _))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, flush(_, _, _))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _))
+			.WillByDefault(Return(true));
+	}
+
 	void Configure(
 		StreamOutputFormat video = FORMAT_ISO_BMFF,
 		StreamOutputFormat audio = FORMAT_ISO_BMFF,
 		StreamOutputFormat sub   = FORMAT_INVALID)
 	{
+		// The factory lambda moves m_mockPipeline into the player on each call.
+		// If it was already consumed (null), recreate it with default behaviours
+		// so the player gets a valid pipeline and EXPECT_CALLs on
+		// m_mockPipelinePtr target the new pipeline correctly.
+		if (!m_mockPipeline)
+		{
+			ResetMockPipeline();
+		}
 		m_player->Configure(video, audio, sub,
 			/*bESChangeStatus=*/false,
 			/*setReadyAfterPipelineCreation=*/false);
@@ -1207,11 +1264,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackState_Paused_SetsPausedOnAllSources)
+	OnPlaybackState_Paused_DoesNotSetPausedOnSources)
 {
+	// Rialto sends PAUSED for buffering-pause (e.g. AampUnderflowMonitor).
+	// Injection must be allowed to continue so the buffer refills —
+	// aborting it here would discard samples and delay recovery.
+	// Only invalidateGeneration() (flush/stop paths) should set paused.
 	Configure();
 
-	// Verify sources exist and paused is initially false.
 	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
@@ -1219,8 +1279,8 @@ TEST_F(AampRialtoPlayerTest,
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
 
-	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
-	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().paused);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().paused);
 }
 
 TEST_F(AampRialtoPlayerTest,
@@ -1254,25 +1314,90 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPosition(kTwoSecondsNs);
 }
 
+// Segment start = 0: elapsed time equals raw PTS (unchanged behaviour for
+// content whose first PTS is zero).
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	GetPositionMilliseconds_ReturnsLatestNotifiedPosition)
+	GetPositionMilliseconds_ReturnsElapsedTimeSinceSegmentStart)
 {
 	Configure();
 
-	ON_CALL(m_mockNotifiable, MonitorProgress(_, _))
-		.WillByDefault(Return());
+	constexpr int64_t  kStartNs    = 0LL;
+	constexpr int64_t  kCurrentNs  = 5'000'000'000LL;
+	constexpr long long kExpectedMs = 5'000LL;
 
-	constexpr int64_t kFiveSecondsNs  = 5'000'000'000LL;
-	constexpr long long kExpectedMs   = 5'000LL;
-
-	PostPosition(kFiveSecondsNs);
+	PostPosition(kStartNs);  // establishes segment start = 0
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kCurrentNs), Return(true)));
 
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpectedMs);
+}
+
+// When PTSReStamp causes the pipeline to start at a non-zero PTS offset
+// (e.g. 13440 ms of accumulated prior content), GetPositionMilliseconds()
+// must return elapsed time from that first PTS, not the raw PTS value.
+// Without the fix this returns 14921 ms instead of 1481 ms.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_WithNonZeroSegmentStart_ReturnsElapsedTime)
+{
+	Configure();
+
+	// Simulate 7 × 1920 ms of prior restamped content already buffered
+	constexpr int64_t  kSegmentStartNs = 13'440'000'000LL;  // 13440 ms
+	constexpr int64_t  kCurrentPosNs   = 14'921'000'000LL;  // 14921 ms
+	constexpr long long kExpectedMs    = 1'481LL;            // elapsed
+
+	PostPosition(kSegmentStartNs);  // first OnPosition → records segment start
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kCurrentPosNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpectedMs);
+}
+
+// After Configure() the segment-start offset must be cleared so that the
+// next OnPosition call establishes a fresh baseline.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterReconfigure_ResetsSegmentStart)
+{
+	// First session: inject content starting at 5000 ms.
+	Configure();
+	constexpr int64_t kFirstSessionStartNs = 5'000'000'000LL;
+	PostPosition(kFirstSessionStartNs);  // segment start = 5000 ms
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(7'000'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 2'000LL);
+
+	// Reconfigure — simulates a re-tune; segment start resets to -1.
+	Configure();
+
+	// Before the first new OnPosition the position must be zero.
+	// (Pipeline query may return anything; startMs=-1 forces result=0.)
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+
+	// Second session: different segment start.
+	constexpr int64_t kSecondSessionStartNs = 2'000'000'000LL;
+	PostPosition(kSecondSessionStartNs);  // segment start = 2000 ms
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(3'500'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1'500LL);
 }
 
 TEST_F(AampRialtoPlayerTest,
 	GetPositionMilliseconds_BeforeConfigure_ReturnsZero)
 {
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
+// When the pipeline query fails after a segment start has been recorded,
+// GetPositionMilliseconds() must return 0 — not a stale OnPosition value.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_WhenPipelineQueryFails_ReturnsZero)
+{
+	Configure();
+	constexpr int64_t kSegmentStartNs = 13'440'000'000LL;
+	PostPosition(kSegmentStartNs);  // segment start = 13440 ms
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_)).WillByDefault(Return(false));
+
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 }
 
@@ -1922,4 +2047,70 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_TRUE(sendDone.load());
 
 	sender.join();
+}
+
+// ===========================================================================
+// notifyBufferUnderflow — OnBufferUnderflow dispatch
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	OnBufferUnderflow_KnownVideoSourceId_CallsNotifyBufferUnderflowWithVideoType)
+{
+	/**
+	 * @brief Verifies that a Rialto buffer-underflow notification for the
+	 *        video source is forwarded to the notifiable as
+	 *        NotifyBufferUnderflow(eMEDIATYPE_VIDEO).
+	 *
+	 *        SetStreamCaps is used (not SendVideoInitFragment) because it
+	 *        attaches the source synchronously, ensuring sourceId=0 is
+	 *        registered before PostBufferUnderflow fires.
+	 */
+	Configure();
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	// Video source was assigned sourceId=0 (first m_nextSourceId++).
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyBufferUnderflow(eMEDIATYPE_VIDEO))
+		.Times(1);
+
+	PostBufferUnderflow(/*sourceId=*/0);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnBufferUnderflow_KnownAudioSourceId_CallsNotifyBufferUnderflowWithAudioType)
+{
+	/**
+	 * @brief Verifies that a Rialto buffer-underflow notification for the
+	 *        audio source is forwarded to the notifiable as
+	 *        NotifyBufferUnderflow(eMEDIATYPE_AUDIO).
+	 *
+	 *        SetStreamCaps is used (synchronous attach) so sourceIds are
+	 *        deterministic: video=0, audio=1.
+	 */
+	Configure();
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+	// Audio source was assigned sourceId=1 (second m_nextSourceId++).
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyBufferUnderflow(eMEDIATYPE_AUDIO))
+		.Times(1);
+
+	PostBufferUnderflow(/*sourceId=*/1);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnBufferUnderflow_UnknownSourceId_DoesNotCallNotifiable)
+{
+	/**
+	 * @brief Verifies that an underflow notification for an unrecognised
+	 *        sourceId is silently ignored — no crash, no spurious call.
+	 */
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyBufferUnderflow(_))
+		.Times(0);
+
+	PostBufferUnderflow(/*sourceId=*/99);
 }

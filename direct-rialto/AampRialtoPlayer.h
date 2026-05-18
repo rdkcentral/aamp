@@ -305,6 +305,13 @@ private:
 
 	std::atomic<int64_t> m_positionMs{0};
 
+	/// Pipeline PTS at the first OnPosition notification in a session.
+	/// priv_aamp adds seek_pos_seconds to whatever GetPositionMilliseconds()
+	/// returns, so we must return elapsed time (delta from segment start),
+	/// not the raw pipeline PTS — mirroring GStreamer's segmentStart
+	/// subtraction in InterfacePlayerRDK.  -1 = not yet set.
+	std::atomic<int64_t> m_segmentStartMs{-1};
+
 	/// Set to true once the first PLAYING playback state is forwarded to
 	/// the notifiable.  Reset to false on each Configure() call so that
 	/// re-tunes correctly forward the first-frame notification again.
@@ -407,6 +414,9 @@ private:
 
 	/// @brief Called when the Rialto server reports the stream duration.
 	void OnDuration(int64_t durationNs);
+
+	/// @brief Called when Rialto reports that a media source has run dry.
+	void OnBufferUnderflow(int32_t sourceId);
 
 	/**
 	 * @brief Attach a source via its polymorphic attachOrUpdate method.

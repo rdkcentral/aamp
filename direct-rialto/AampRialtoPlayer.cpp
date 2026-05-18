@@ -186,6 +186,8 @@ void AampRialtoPlayer::Configure(
 
 	m_stateMachine.onReconfigure();
 	m_firstFrameNotified.store(false, std::memory_order_relaxed);
+	m_segmentStartMs.store(-1, std::memory_order_relaxed);
+	m_positionMs.store(0, std::memory_order_relaxed);
 
 	if (!m_client)
 	{
@@ -289,6 +291,10 @@ void AampRialtoPlayer::Configure(
 				m_client->SetDurationCallback(
 					[this](int64_t durNs) {
 						OnDuration(durNs);
+					});
+				m_client->SetBufferUnderflowCallback(
+					[this](int32_t sid) {
+						OnBufferUnderflow(sid);
 					});
 
 				m_stateMachine.onPipelineLoaded();
@@ -793,7 +799,12 @@ long AampRialtoPlayer::GetDurationMilliseconds()
 long long AampRialtoPlayer::GetPositionMilliseconds()
 {
 	AAMPLOG_INFO("ENTRY");
-	long long result = m_positionMs.load(std::memory_order_relaxed);
+	const int64_t startMs = m_segmentStartMs.load(std::memory_order_relaxed);
+	// Initialise rawMs to startMs: if the pipeline is unavailable or its
+	// query fails, the subtraction (rawMs - startMs) correctly yields 0
+	// rather than surfacing a potentially stale cached value.
+	int64_t rawMs = startMs;
+	long long result = 0LL;
 
 	if (m_pipeline)
 	{
@@ -801,13 +812,19 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 		int64_t queriedNs = 0;
 		if (m_pipeline->getPosition(queriedNs))
 		{
-			AAMPLOG_INFO("queried=%" PRId64 " ms  cached=%lld ms",
-				queriedNs / kNsPerMs, result);
+			rawMs = queriedNs / kNsPerMs;
+			result = (startMs >= 0) ? std::max(int64_t{0}, rawMs - startMs) : 0LL;
+			AAMPLOG_INFO("queried=%" PRId64 " ms  segmentStart=%" PRId64 " ms"
+				"  position=%lld ms", rawMs, startMs, result);
 		}
 		else
 		{
-			AAMPLOG_WARN("getPosition() failed  cached=%lld ms", result);
+			AAMPLOG_WARN("getPosition() failed");
 		}
+	}
+	else
+	{
+		AAMPLOG_WARN("pipeline is null");
 	}
 
 	AAMPLOG_INFO("EXIT result=%lld", result);
@@ -1192,22 +1209,14 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		}
 		case firebolt::rialto::PlaybackState::PAUSED:
 			m_stateMachine.onPlaybackPaused();
-			// Unblock inject threads waiting for needMediaData.  While
-			// paused, Rialto won't request more data; without this the
-			// inject thread stays blocked, the fragment cache fills, and
-			// the download worker can't fetch new segments — preventing
-			// underflow recovery.
-			for (auto &source : m_sources)
-			{
-				if (source)
-				{
-					{
-						std::lock_guard<std::mutex> lock(source->state().mu);
-						source->state().paused = true;
-					}
-					source->state().cv.notify_all();
-				}
-			}
+			// Do NOT set paused=true on sources here.  PAUSED arrives for
+			// buffering-pause (e.g. AampUnderflowMonitor) as well as for
+			// user-initiated pause.  In both cases Rialto continues to
+			// accept data (needData events keep arriving), so injection
+			// threads should remain blocked on needData rather than
+			// aborting and discarding the current batch of samples.
+			// Injection is only aborted by invalidateGeneration() which is
+			// called on flush / stop / seek — not on every pipeline pause.
 			break;
 		case firebolt::rialto::PlaybackState::END_OF_STREAM:
 			m_notifiable->NotifyEOSReached();
@@ -1223,7 +1232,16 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 void AampRialtoPlayer::OnPosition(int64_t positionNs)
 {
 	constexpr int64_t kNsPerMs = 1'000'000LL;
-	m_positionMs.store(positionNs / kNsPerMs, std::memory_order_relaxed);
+	const int64_t posMs = positionNs / kNsPerMs;
+	// Record the first PTS seen after Configure() as the segment-start
+	// baseline.  priv_aamp adds seek_pos_seconds to the value we return
+	// from GetPositionMilliseconds(), so we must return elapsed time (delta
+	// from segment start), not the raw pipeline PTS.  This mirrors the
+	// GStreamer segmentStart subtraction in InterfacePlayerRDK.
+	int64_t expected = -1;
+	m_segmentStartMs.compare_exchange_strong(
+		expected, posMs, std::memory_order_relaxed);
+	m_positionMs.store(posMs, std::memory_order_relaxed);
 	m_notifiable->MonitorProgress();
 }
 
@@ -1232,4 +1250,17 @@ void AampRialtoPlayer::OnDuration(int64_t durationNs)
 	constexpr int64_t kNsPerMs = 1'000'000LL;
 	m_durationMs.store(durationNs / kNsPerMs, std::memory_order_relaxed);
 	AAMPLOG_INFO("duration updated: %" PRId64 " ms", m_durationMs.load());
+}
+
+void AampRialtoPlayer::OnBufferUnderflow(int32_t sourceId)
+{
+	AAMPLOG_INFO("sourceId=%d", sourceId);
+	auto *source = findSourceByRialtoId(sourceId);
+	if (!source)
+	{
+		AAMPLOG_WARN("unknown sourceId=%d — ignoring underflow notification",
+			sourceId);
+		return;
+	}
+	m_notifiable->NotifyBufferUnderflow(source->mediaType());
 }

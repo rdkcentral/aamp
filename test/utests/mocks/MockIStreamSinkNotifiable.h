@@ -45,6 +45,9 @@ public:
 		(float rate, bool changeState), (override));
 
 	MOCK_METHOD(AAMPPlayerState, GetState, (), (override));
+
+	MOCK_METHOD(void, NotifyBufferUnderflow,
+		(AampMediaType type), (override));
 };
 
 #endif // MOCK_ISTREAM_SINK_NOTIFIABLE_H

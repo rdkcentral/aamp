@@ -67,6 +67,11 @@ public:
 	/// Parameter: duration in nanoseconds
 	using DurationCallback = std::function<void(int64_t)>;
 
+	/// Callback invoked when Rialto reports that a media source has
+	/// exhausted its internal buffer.
+	/// Parameter: sourceId
+	using BufferUnderflowCallback = std::function<void(int32_t)>;
+
 	AampRialtoMediaPipelineClient();
 	~AampRialtoMediaPipelineClient() override;
 
@@ -102,6 +107,12 @@ public:
 		m_durationCallback = std::move(cb);
 	}
 
+	/// @brief Install callback for notifyBufferUnderflow events.
+	void SetBufferUnderflowCallback(BufferUnderflowCallback cb)
+	{
+		m_bufferUnderflowCallback = std::move(cb);
+	}
+
 	// IMediaPipelineClient Implementation (All required pure virtuals)
 	void notifyNetworkState(NetworkState state) override;
 	void notifyPlaybackState(PlaybackState state) override;
@@ -135,6 +146,7 @@ private:
 	PlaybackStateCallback m_playbackStateCallback;
 	PositionCallback m_positionCallback;
 	DurationCallback m_durationCallback;
+	BufferUnderflowCallback m_bufferUnderflowCallback;
 };
 
 #endif // AAMP_RIALTO_MEDIA_PIPELINE_CLIENT_H

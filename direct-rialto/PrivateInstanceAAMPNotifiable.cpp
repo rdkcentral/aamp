@@ -84,3 +84,19 @@ AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
 	AAMPLOG_TRACE("state=%d", static_cast<int>(state));
 	return state;
 }
+
+void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
+{
+	AAMPLOG_TRACE("type=%d", static_cast<int>(type));
+	if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		AAMPLOG_INFO(
+			"Underflow will be handled by AampUnderflowMonitor, "
+			"skipping retune for mediaType=%d",
+			static_cast<int>(type));
+	}
+	else
+	{
+		m_aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type);
+	}
+}

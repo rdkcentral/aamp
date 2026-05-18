@@ -155,3 +155,42 @@ TEST_F(AampRialtoMediaPipelineClientTest,
 		0, firebolt::rialto::PlaybackError::DECRYPTION));
 	EXPECT_NO_THROW(m_client->notifySourceFlushed(0));
 }
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	notifyBufferUnderflow_WithCallback_InvokesCallback)
+{
+	bool called = false;
+	int32_t gotSource = -1;
+
+	m_client->SetBufferUnderflowCallback(
+		[&](int32_t src) {
+			called    = true;
+			gotSource = src;
+		});
+
+	m_client->notifyBufferUnderflow(/*sourceId=*/2);
+
+	EXPECT_TRUE(called);
+	EXPECT_EQ(gotSource, 2);
+}
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	notifyBufferUnderflow_WithoutCallback_DoesNotCrash)
+{
+	// No callback installed — must not crash.
+	EXPECT_NO_THROW(m_client->notifyBufferUnderflow(2));
+}
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	SetBufferUnderflowCallback_ReplacesExisting)
+{
+	int callCount = 0;
+
+	m_client->SetBufferUnderflowCallback([&](int32_t) { callCount++;     });
+	m_client->SetBufferUnderflowCallback([&](int32_t) { callCount += 10; });
+
+	m_client->notifyBufferUnderflow(1);
+
+	// Only the second callback should fire.
+	EXPECT_EQ(callCount, 10);
+}

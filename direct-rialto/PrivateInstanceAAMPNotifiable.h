@@ -67,6 +67,7 @@ public:
 	void MonitorProgress(bool sync, bool beginningOfStream) override;
 	void NotifySpeedChanged(float rate, bool changeState) override;
 	AAMPPlayerState GetState() override;
+	void NotifyBufferUnderflow(AampMediaType type) override;
 
 private:
 	PrivateInstanceAAMP *m_aamp{nullptr};
