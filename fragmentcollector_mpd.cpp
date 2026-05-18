@@ -8201,22 +8201,22 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
-				// For playing an ad in a ad break, we should update fragmentTime to PeriodStartTime + basePeriodOffset of ad;
-				if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0 
-					&& mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
+				// For playing an ad in an ad break, seed fragmentTime using absoluteAdBreakStartTime +
+				// cumulative duration of all previously played ads. This is robust against
+				// basePeriodOffset=0 being set incorrectly by the waitForNextPeriod path in
+				// PlaceAds when a prior ad's overflow has already consumed part of the next period.
+				// For split period, basePeriodId and AdbreakId might not match, so go with mCurPlayingBreakId
+				double adFragmentTime = GetCurrentAdStartTimeSeconds();
+				if (adFragmentTime >= 0)
 				{
-					// Make sure basePeriodOffset is updated
-					if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != INVALID_BASE_PERIOD_OFFSET)
-					{
-						//Set the period start back to the beginning of the base period and then add basePeriodOffset
-						//to get the start for this AD
-						double absoluteAdBreakStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds();
-						// convert to seconds, standard implicit conversion
-						pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
-						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf mAbsoluteAdBreakStartTime %f",
-							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime,
-							absoluteAdBreakStartTime);
-					}
+					pMediaStreamContext->fragmentTime = adFragmentTime;
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf FragmentTime: %lf basePeriodOffset:%d",
+						i, mPeriodStartTime, pMediaStreamContext->fragmentTime,
+						mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset);
+				}
+				else
+				{
+					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Track %d absoluteAdBreakStartTime is 0 or not in multi-ad pod", i);
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %lf", i, pMediaStreamContext->fragmentTime);
 			}
@@ -10043,23 +10043,59 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 /**
  * @brief Update the start time of first PTS
  */
+/**
+ * @brief Returns the fragment start time (seconds) for the current ad within a multi-ad pod.
+ *
+ * When the player is IN_ADBREAK_AD_PLAYING and mCurAdIdx > 0, the correct
+ * fragmentTime is: absoluteAdBreakStartTime + cumulative duration of all
+ * previously played ads.  This avoids relying on basePeriodOffset=0 being set
+ * correctly by the waitForNextPeriod path in PlaceAds.
+ *
+ * @return Start time in seconds if in a multi-ad pod with a valid break start
+ *         time, or -1.0 if the preconditions are not met.
+ */
+double StreamAbstractionAAMP_MPD::GetCurrentAdStartTimeSeconds() const
+{
+	if (!mCdaiObject ||
+		mCdaiObject->mAdState != AdState::IN_ADBREAK_AD_PLAYING ||
+		mCdaiObject->mCurAdIdx <= 0 ||
+		mCdaiObject->mCurAdIdx >= static_cast<int>(mCdaiObject->mCurAds->size()) ||
+		mCdaiObject->mCurPlayingBreakId.empty())
+	{
+		return -1.0;
+	}
+
+	auto it = mCdaiObject->mAdBreaks.find(mCdaiObject->mCurPlayingBreakId);
+	if (it == mCdaiObject->mAdBreaks.end())
+	{
+		AAMPLOG_WARN("GetCurrentAdStartTimeSeconds: AdBreak not found for breakId=%s", mCdaiObject->mCurPlayingBreakId.c_str());
+		return -1.0;
+	}
+
+	double absoluteAdBreakStartTime = it->second.mAbsoluteAdBreakStartTime.inSeconds();
+
+	double cumulativeAdDurationMs = 0;
+	for (int adIdx = 0; adIdx < mCdaiObject->mCurAdIdx; adIdx++)
+	{
+		cumulativeAdDurationMs += mCdaiObject->mCurAds->at(adIdx).duration;
+	}
+	AAMPLOG_INFO("GetCurrentAdStartTimeSeconds: AbsoluteAdBreakStartTime=%f cumulativeAdDuration=%.0f ms",
+		absoluteAdBreakStartTime, cumulativeAdDurationMs);
+	return absoluteAdBreakStartTime + (cumulativeAdDurationMs / 1000.0);
+}
+
 void StreamAbstractionAAMP_MPD::UpdateStartTimeOfFirstPTS()
 {
 	double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
 	if (startTime != 0)
 	{
 		mStartTimeOfFirstPTS = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) * 1000.0;
-		if (mCdaiObject && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0
-	 		&& mCdaiObject->mCurAdIdx < mCdaiObject->mCurAds->size())
+		AAMPLOG_INFO("UpdateStartTimeOfFirstPTS: mStartTimeOfFirstPTS=%.0f ms : PeriodStartTime=%f", mStartTimeOfFirstPTS, startTime);
+		double adStartTimeSec = GetCurrentAdStartTimeSeconds();
+		if (adStartTimeSec >= 0)
 		{
-			if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != INVALID_BASE_PERIOD_OFFSET)
-			{
-				//Set the period start back to the beginning of the base period and then add basePeriodOffset
-				// to get the start for this AD (calculate directly in milliseconds)
-				mStartTimeOfFirstPTS = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds() * 1000.0 + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset;
-				AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (ad): mStartTimeOfFirstPTS=%.0f ms basePeriodOffset=%d",
-							 mStartTimeOfFirstPTS, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset);
-			}
+			mStartTimeOfFirstPTS = adStartTimeSec * 1000.0;
+			AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (ad): mStartTimeOfFirstPTS=%.0f ms", mStartTimeOfFirstPTS);
 		}
 		else
 		{
@@ -12667,6 +12703,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					if (abObj->mAbsoluteAdBreakStartTime == 0.0)
 					{
 						abObj->mAbsoluteAdBreakStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
+						AAMPLOG_WARN("[CDAI] Updating AdBreak[%s] absolute start time to %lf", adbreakId2Send.c_str(), abObj->mAbsoluteAdBreakStartTime.inSeconds());
 					}
 					absReservationEventPosition = abObj->mAbsoluteAdBreakStartTime;
 					absPlacementEventPosition = abObj->mAbsoluteAdBreakStartTime;
