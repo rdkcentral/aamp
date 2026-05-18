@@ -111,7 +111,8 @@ Prefer AAMP logging macros over `logprintf` for all new code. The supported macr
 |-------|-------|-------|
 | `AAMPLOG_TRACE` | Trace | Development and triage-level detail; verbose output for deep debugging. |
 | `AAMPLOG_INFO` | Info | Informative and debug messages; especially useful during tune operations. |
-| `AAMPLOG_WARN` | Warn | Recoverable warnings or important runtime conditions worth noting. |
+| `AAMPLOG_MIL` | Milestone | Important operational messages that should always appear in logs (e.g., tune milestones). Prefer over `AAMPLOG_WARN` for non-warning messages that must be visible by default. |
+| `AAMPLOG_WARN` | Warn | Recoverable warnings; do not use for general-importance messages — use `AAMPLOG_MIL` instead. |
 | `AAMPLOG_ERR` | Error | Severe or unexpected conditions that warrant investigation. |
 
 ### Logging Best Practices
