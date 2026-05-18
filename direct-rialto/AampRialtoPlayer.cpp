@@ -773,6 +773,22 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 {
 	AAMPLOG_INFO("ENTRY");
 	long long result = m_positionMs.load(std::memory_order_relaxed);
+
+	if (m_pipeline)
+	{
+		constexpr int64_t kNsPerMs = 1'000'000LL;
+		int64_t queriedNs = 0;
+		if (m_pipeline->getPosition(queriedNs))
+		{
+			AAMPLOG_INFO("queried=%" PRId64 " ms  cached=%lld ms",
+				queriedNs / kNsPerMs, result);
+		}
+		else
+		{
+			AAMPLOG_WARN("getPosition() failed  cached=%lld ms", result);
+		}
+	}
+
 	AAMPLOG_INFO("EXIT result=%lld", result);
 	return result;
 }
