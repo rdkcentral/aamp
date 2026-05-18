@@ -4185,6 +4185,16 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				}
 			}
 		}
+		else if (track && track->enabled && track->playContext != nullptr)
+		{
+			// playContext already exists (subsequent trickplay/rate-change requests) - update rate and FPS
+			track->playContext->setRate(aamp->rate, PlayMode_normal);
+			if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && i != eMEDIATYPE_SUBTITLE)
+			{
+				int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+				track->playContext->setFrameRateForTM(trickPlayFPS);
+			}
+		}
 	}
 }
 

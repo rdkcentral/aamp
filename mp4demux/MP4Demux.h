@@ -236,6 +236,7 @@ private:
 		double mDts;            /**< Decode timestamp in seconds */
 		double mPts;            /**< Presentation timestamp in seconds */
 		double mDuration;       /**< Sample duration in seconds */
+		bool mIsKeyFrame{false}; /**< True if this is a sync/key frame (I-frame) */
 	};
 	std::vector<PendingSamplePayload> mSampleInfo; /**< sample payloads awaiting mdat bounds */
 	MediaCodecInfo codecInfo; /**< Codec information */
