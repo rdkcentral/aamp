@@ -103,6 +103,7 @@ protected:
 
 	std::string m_destUrl;
 	KeyStatus m_keyStatus;
+	KeyStatus m_sessionKeyStatus; // tracks any non-Usable key status received in a callback burst
 	bool m_keyStateIndeterminate;
 	std::vector<uint8_t> m_keyStored;
 
