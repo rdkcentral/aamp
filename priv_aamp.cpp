@@ -7069,10 +7069,30 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		{
 			snprintf(tuneStrPrefix, sizeof(tuneStrPrefix), "%s PLAYER[%d]", (mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId);
 		}
-		AAMPLOG_MIL("%s aamp_tune: attempt: %d format: %s URL: %s", tuneStrPrefix, mTuneAttempts, mMediaFormatName[mMediaFormat], mManifestUrl.c_str());
+		AAMPLOG_MIL("%s aamp_tune: attempt: %d format: %s", tuneStrPrefix, mTuneAttempts, mMediaFormatName[mMediaFormat]);
+		{
+			static constexpr size_t kUrlChunk = 400;
+			const std::string& url = mManifestUrl;
+			for (size_t off = 0; off < url.size(); off += kUrlChunk)
+			{
+				AAMPLOG_MIL("aamp_tune_url[%zu]: %.*s", off,
+					static_cast<int>(std::min(kUrlChunk, url.size() - off)),
+					url.c_str() + off);
+			}
+		}
 		if(!mMPDStichRefreshUrl.empty())
 		{
-			AAMPLOG_WARN("%s aamp_stich: Option[%d] URL: %s", tuneStrPrefix, mMPDStichOption, mMPDStichRefreshUrl.c_str());
+			AAMPLOG_WARN("%s aamp_stich: Option[%d]", tuneStrPrefix, mMPDStichOption);
+			{
+				static constexpr size_t kUrlChunk = 400;
+				const std::string& url = mMPDStichRefreshUrl;
+				for (size_t off = 0; off < url.size(); off += kUrlChunk)
+				{
+					AAMPLOG_WARN("aamp_stich_url[%zu]: %.*s", off,
+						static_cast<int>(std::min(kUrlChunk, url.size() - off)),
+						url.c_str() + off);
+				}
+			}
 		}
 		if(IsFogTSBSupported())
 		{

@@ -1353,7 +1353,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				{
 					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 					{
-						AAMPLOG_WARN( "blocking subtitle track injection\n" );
+						AAMPLOG_WARN( "blocking subtitle track injection waiting for pts_offset[%" PRIu64 "]\n", cachedFragment->discontinuityIndex );
 						pContext->aamp->interruptibleMsSleep(1000);
 					}
 					else
