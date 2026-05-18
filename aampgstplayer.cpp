@@ -1055,22 +1055,25 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 	auto syncLock = aamp->SyncLock();
 	bool res = false;
 
+	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
+
 	if (!playerInstance)
 	{
 		AAMPLOG_WARN("AAMPGstPlayer_Pause called but playerInstance is null");
 	}
 	else
 	{
-		AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
-
 		res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
 		if(res)
 		{
 			if(!aamp->IsGstreamerSubsEnabled())
+			{
 				aamp->PauseSubtitleParser(pause);
+			}
 		}
 	}
 
+	AAMPLOG_TRACE("exit AAMPGstPlayer_Pause");
 	return res;
 }
 
