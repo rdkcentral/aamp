@@ -1057,23 +1057,13 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 
 	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
 
-	if (!playerInstance)
+	res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
+	if (res && !aamp->IsGstreamerSubsEnabled())
 	{
-		AAMPLOG_WARN("AAMPGstPlayer_Pause called but playerInstance is null");
-	}
-	else
-	{
-		res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
-		if(res)
-		{
-			if(!aamp->IsGstreamerSubsEnabled())
-			{
-				aamp->PauseSubtitleParser(pause);
-			}
-		}
+		aamp->PauseSubtitleParser(pause);
 	}
 
-	AAMPLOG_TRACE("exit AAMPGstPlayer_Pause");
+	AAMPLOG_TRACE("exit AAMPGstPlayer_Pause returns %d", res);
 	return res;
 }
 
