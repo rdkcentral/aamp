@@ -4533,7 +4533,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 			}
 #endif
-			if(this->mAampLLDashServiceData.lowLatencyMode)
+			if(this->mAampLLDashServiceData.lowLatencyMode
+#ifdef CURL_HTTP_VERSION_3ONLY
+				&& !ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3)
+#endif
+			)
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 			}
