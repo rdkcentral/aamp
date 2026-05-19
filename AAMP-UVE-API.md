@@ -2233,31 +2233,71 @@ Example:
 ### drmMetadata
 
 **Event Payload:**
-- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
-- code: number
-- description: string
-- headers: array
-- responseData: string
-- networkMetrics: string
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| sessionId | string | Refer to [load](#load-uri_autoplay_tuneparams) API for details |
+| code | number | Access status value from DRM system |
+| description | string | Human-readable access status string |
+| headers | array | HTTP response headers from the license request. Populated only when `sendLicenseResponseHeaders` config is enabled |
+| responseData | string | Raw license server error response body. **Populated on failure only** — set to the server error body when the HTTP status code is not 200/206 (direct HTTP path), or when SecClient/SecManager reports failure. Falls back to `undefined` if the server returned an empty body. Empty string on success |
+| networkMetrics | string | **JSON-encoded** telemetry string. Must be `JSON.parse()`d before accessing individual fields. See schema below |
 
 **Description:**
 - Supported UVE version 0.7 and above.
-- Fired when there is a change in DRM metadata (especially expiration of DRM auth data)
-- Refer sendLicenseResponseHeaders configuration for headers
-- Provides the DRM license response metrics information Json format with below key & value fields
-    - req -> requestType: DRM license request type(0 - getLicense/ 1 - getLicenseSec)
-    - res -> resCode: HTTP Response code
-    - tot -> totalTime: download time in Ms
-    - con -> download connection time
-    - str -> StartTransfer: time to start the data transfer
-    - res -> resolve: DNS resolution time
-    - acn -> Appconnect: time to establish the application-level connection
-    - ptr -> PreTransfer: request pretransfer time
-    - rdt -> Redirect: request redirect time
-    - dls -> DlSize: size of the downloaded resource
-    - rqs -> ReqSize: request size
-    - url -> request url
+- Fired when a DRM license request completes (success or failure), or when DRM auth data changes/expires.
 
+**`networkMetrics` JSON Schema:**
+
+Keys always present:
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `req` | number | DRM license request type. `0` = direct HTTP fetch via curl (`getLicense`); `1` = SecClient / SecManager / FireboltSDK path (`getLicenseSec`) |
+| `res` | number | HTTP or curl response/error code (e.g. `200`, `412`, `28` for `CURLE_OPERATION_TIMEDOUT`). Consistently represents the HTTP/curl status code across all DRM flows |
+| `tot` | number | Total time in **milliseconds** from the first attempt to the final outcome, including all retries. Retries happen on network errors (timeout, DNS failure), HTTP responses, or SecClient/SecManager failures|
+| `url` | string | License server URL that was contacted |
+
+Keys present only when `req` = `0` (DRM_GET_LICENSE — direct HTTP/curl path). **Not available** when `req` = `1` (DRM_GET_LICENSE_SEC — SecClient/SecManager/FireboltSDK), because in that path the HTTP transaction is handled entirely inside SecClient/SecManager/FireboltSDK; AAMP never invokes curl for the license request and therefore cannot collect curl-level timing metrics.
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `con` | number | TCP connection establishment time (ms) |
+| `str` | number | Time until first response byte received — "start transfer" (ms) |
+| `dns` | number | DNS resolution time (ms) |
+| `acn` | number | Application-level connect time — TCP + TLS handshake (ms) |
+| `ptr` | number | Pre-transfer time; from start until just before first byte is sent (ms) |
+| `rdt` | number | Total redirect time (ms); `0` if no redirects |
+| `dls` | number | Downloaded response body size (bytes) |
+| `rqs` | number | Uploaded request body size (bytes) |
+
+**Example via direct HTTP (`req=0`):**
+```json
+{
+  "req": 0,
+  "res": 200,
+  "tot": 312,
+  "url": "https://license.example.com/widevine",
+  "con": 45,
+  "str": 290,
+  "dns": 12,
+  "acn": 80,
+  "ptr": 85,
+  "rdt": 0,
+  "dls": 1024,
+  "rqs": 768
+}
+```
+
+**Example via SecManager (`req=1`):**
+```json
+{
+  "req": 1,
+  "res": 412,
+  "tot": 520,
+  "url": "license.example.com"
+}
+```
 ---
 
 ### anomalyReport
