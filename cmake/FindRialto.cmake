@@ -21,10 +21,21 @@
 #  RIALTO_INCLUDE_DIRS
 #  RIALTO_LIBRARY_DIRS
 #  RIALTO_LIBRARIES
-find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
+# The aamp install script (scripts/install_rialto.sh) always clones rialto
+# and copies its public headers into <aamp>/.libs/include/rialto/ regardless
+# of platform or whether the rialto libraries are actually built. Use that
+# location as a hint so the find_path/find_library calls work consistently
+# on macOS (where rialto is typically not built by default) as well as on
+# Linux.
+set( _rialto_local_prefix "${CMAKE_SOURCE_DIR}/.libs" )
+
+find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient
+        HINTS "${_rialto_local_prefix}/lib" )
 message( "FindRialto: RIALTO_LIBRARY = ${RIALTO_LIBRARY}" )
 
-find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto)
+find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h
+        HINTS "${_rialto_local_prefix}/include"
+        PATH_SUFFIXES rialto)
 message( "FindRialto: RIALTO_INCLUDE_DIR (initial find_path) = ${RIALTO_INCLUDE_DIR}" )
 
 # Fallback for cross-compilation environments (e.g. Yocto) where find_path
