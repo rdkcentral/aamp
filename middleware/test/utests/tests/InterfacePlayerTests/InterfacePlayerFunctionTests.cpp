@@ -1945,6 +1945,13 @@ TEST_F(InterfacePlayerTests, Queue_and_ClearProtectionEvent)
 	EXPECT_EQ(mPlayerContext->protectionEvent[mediaType], nullptr);
 }
 
+/**
+ * @brief Test Pause() succeeds when state change is async and validateStateWithMsTimeout confirms the state.
+ *        Verifies that buffering_in_progress, buffering_target_state, paused, and pendingPlayState
+ *        are set correctly. The gst_element_get_state mock sets the current state output parameter
+ *        to GST_STATE_PAUSED so validateStateWithMsTimeout succeeds on the first try and no retry
+ *        is triggered.
+ */
 TEST_F(InterfacePlayerTests, Pause_Success)
 {
 	bool pause = true;
@@ -1953,8 +1960,12 @@ TEST_F(InterfacePlayerTests, Pause_Success)
 	// Set pipeline to a non-null value
 	mPlayerContext->pipeline = &gst_element_pipeline;
 
+	// Return GST_STATE_PAUSED as current state so validateStateWithMsTimeout succeeds
 	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, NotNull(), NotNull(), _))
-		.WillRepeatedly(Return(GST_STATE_CHANGE_SUCCESS));
+		.WillRepeatedly(DoAll(
+			SetArgPointee<1>(GST_STATE_PAUSED),
+			SetArgPointee<2>(GST_STATE_VOID_PENDING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
 
 	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(_, GST_STATE_PAUSED))
 		.WillOnce(Return(GST_STATE_CHANGE_ASYNC));
@@ -1968,6 +1979,127 @@ TEST_F(InterfacePlayerTests, Pause_Success)
 	EXPECT_FALSE(mPlayerContext->pendingPlayState);
 }
 
+/**
+ * @brief Test Pause() serializes state change requests by waiting for any pending async
+ *        transition before issuing the new state change. When gst_element_get_state returns
+ *        GST_STATE_CHANGE_ASYNC on the initial pre-check (indicating a transition is in
+ *        progress), the code waits up to 500ms, then proceeds with the requested state change.
+ */
+TEST_F(InterfacePlayerTests, Pause_SerializesStateChange_WaitsForPendingAsync)
+{
+	bool pause = false; // Requesting PLAYING state
+	bool forceStopGstreamerPreBuffering = false;
+
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	// First call (serialization check, timeout=500ms): returns ASYNC indicating a pending transition.
+	// Subsequent calls: return SUCCESS with GST_STATE_PLAYING so validateStateWithMsTimeout succeeds.
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, NotNull(), NotNull(), _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_PAUSED),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_ASYNC)))
+		.WillRepeatedly(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_VOID_PENDING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(_, GST_STATE_PLAYING))
+		.WillOnce(Return(GST_STATE_CHANGE_ASYNC));
+
+	bool result = mInterfaceGstPlayer->Pause(pause, forceStopGstreamerPreBuffering);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(mPlayerContext->buffering_target_state, GST_STATE_PLAYING);
+	EXPECT_FALSE(mPlayerContext->paused);
+	EXPECT_FALSE(mPlayerContext->pendingPlayState);
+}
+
+/**
+ * @brief Test recovery logic: when validateStateWithMsTimeout fails after the first state change
+ *        attempt, Pause() retries the state change. If the retry succeeds, no error is reported
+ *        to the application via busMessageCallback.
+ */
+TEST_F(InterfacePlayerTests, Pause_AsyncStateChange_ValidationFails_RecoverySuccess)
+{
+	bool pause = true;
+	bool forceStopGstreamerPreBuffering = false;
+
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	bool errorCallbackInvoked = false;
+	mInterfaceGstPlayer->busMessageCallback = [&](const BusEventData& event) {
+		errorCallbackInvoked = true;
+	};
+
+	// First call (serialization): return SUCCESS (no pending transition).
+	// First set of validate calls: return SUCCESS but with wrong state (NULL) to force validation
+	// failure and trigger the retry path.
+	// After retry set_state returns SUCCESS directly, no further validateStateWithMsTimeout runs.
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, NotNull(), NotNull(), _))
+		.WillOnce(DoAll(  // serialization check: no pending async transition
+			SetArgPointee<1>(GST_STATE_PAUSED),
+			SetArgPointee<2>(GST_STATE_VOID_PENDING),
+			Return(GST_STATE_CHANGE_SUCCESS)))
+		.WillOnce(DoAll(  // SetStateWithWarnings (1st attempt) internal pre-transition state check
+			SetArgPointee<1>(GST_STATE_PAUSED),
+			SetArgPointee<2>(GST_STATE_VOID_PENDING),
+			Return(GST_STATE_CHANGE_SUCCESS)))
+		.WillRepeatedly(DoAll(  // validateStateWithMsTimeout and retry internal checks: wrong state forces failure
+			SetArgPointee<1>(GST_STATE_NULL),
+			SetArgPointee<2>(GST_STATE_VOID_PENDING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+
+	// First set_state returns ASYNC (triggers validateStateWithMsTimeout).
+	// Second set_state (retry) returns SUCCESS directly - no more validateStateWithMsTimeout needed.
+	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(_, GST_STATE_PAUSED))
+		.WillOnce(Return(GST_STATE_CHANGE_ASYNC))   // initial attempt
+		.WillOnce(Return(GST_STATE_CHANGE_SUCCESS)); // retry succeeds
+
+	bool result = mInterfaceGstPlayer->Pause(pause, forceStopGstreamerPreBuffering);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(mPlayerContext->paused);
+	EXPECT_FALSE(errorCallbackInvoked); // No error reported since retry succeeded
+}
+
+/**
+ * @brief Test recovery logic: when validateStateWithMsTimeout fails for both the initial attempt
+ *        and the retry, Pause() reports an error to the application via busMessageCallback.
+ */
+TEST_F(InterfacePlayerTests, Pause_AsyncStateChange_ValidationFails_ErrorReported)
+{
+	bool pause = false; // Requesting PLAYING state
+	bool forceStopGstreamerPreBuffering = false;
+
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	bool errorCallbackInvoked = false;
+	MsgType receivedMsgType = MESSAGE_WARNING;
+	mInterfaceGstPlayer->busMessageCallback = [&](const BusEventData& event) {
+		errorCallbackInvoked = true;
+		receivedMsgType = event.msgType;
+	};
+
+	// All gst_element_get_state calls return SUCCESS but with wrong state (PAUSED instead of PLAYING).
+	// This causes both the initial validateStateWithMsTimeout and the retry to fail.
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, NotNull(), NotNull(), _))
+		.WillRepeatedly(DoAll(
+			SetArgPointee<1>(GST_STATE_PAUSED),
+			SetArgPointee<2>(GST_STATE_VOID_PENDING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+
+	// Both state change attempts return ASYNC (both trigger validateStateWithMsTimeout which fails).
+	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(_, GST_STATE_PLAYING))
+		.WillRepeatedly(Return(GST_STATE_CHANGE_ASYNC));
+
+	bool result = mInterfaceGstPlayer->Pause(pause, forceStopGstreamerPreBuffering);
+
+	EXPECT_TRUE(result);
+	EXPECT_FALSE(mPlayerContext->paused);
+	EXPECT_TRUE(errorCallbackInvoked); // Error must be reported to application
+	EXPECT_EQ(receivedMsgType, MESSAGE_ERROR);
+}
 
 TEST_F(InterfacePlayerTests, Pause_PipelineNull)
 {
