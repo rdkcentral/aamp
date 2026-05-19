@@ -151,7 +151,6 @@ public:
 	// Demuxer
 	// -----------------------------------------------------------------
 
-	void setDemuxer(std::unique_ptr<Mp4Demux> demuxer);
 	Mp4Demux *demuxer() const { return m_demuxer.get(); }
 	bool hasDemuxer() const { return m_demuxer != nullptr; }
 
@@ -210,8 +209,9 @@ public:
 	/**
 	 * @brief Parse an init segment and return the decoded codec info.
 	 *
-	 * The caller is responsible for verifying hasDemuxer() and that
-	 * @p buffer is non-empty before calling this method.
+	 * A demuxer is created internally on the first call if one has not
+	 * been created already.  The caller does not need to call hasDemuxer()
+	 * before invoking this method.
 	 *
 	 * The default implementation delegates to the owned demuxer.
 	 * Subclasses may override to use an alternative parser.
@@ -226,8 +226,9 @@ public:
 	/**
 	 * @brief Parse a media segment and inject all contained samples.
 	 *
-	 * The caller is responsible for verifying hasDemuxer() and that
-	 * @p buffer is non-empty before calling this method.
+	 * The caller is responsible for ensuring processInitFragment() has
+	 * already been called on this source (which creates the demuxer).
+	 * If no demuxer exists this method returns false immediately.
 	 *
 	 * The default implementation delegates to the owned demuxer and
 	 * then injects each sample via injectOneSample().

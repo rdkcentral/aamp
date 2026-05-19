@@ -130,15 +130,6 @@ uint64_t AampRialtoMediaSource::captureGeneration()
 }
 
 // ---------------------------------------------------------------------------
-// Demuxer
-// ---------------------------------------------------------------------------
-
-void AampRialtoMediaSource::setDemuxer(std::unique_ptr<Mp4Demux> demuxer)
-{
-	m_demuxer = std::move(demuxer);
-}
-
-// ---------------------------------------------------------------------------
 // Protection
 // ---------------------------------------------------------------------------
 
@@ -627,9 +618,7 @@ std::optional<MediaCodecInfo> AampRialtoMediaSource::processInitFragment(
 {
 	if (!m_demuxer)
 	{
-		AAMPLOG_WARN("processInitFragment: no demuxer for mediaType=%d",
-			static_cast<int>(mediaType()));
-		return std::nullopt;
+		m_demuxer = std::make_unique<Mp4Demux>();
 	}
 	if (!m_demuxer->Parse(std::move(buffer)))
 	{

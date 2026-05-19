@@ -30,7 +30,6 @@
 #include "AampLogManager.h"
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
-#include "mp4demux/MP4Demux.h"
 #include "IControl.h"
 #include "AampRialtoControlBackend.h"
 #include <chrono>
@@ -302,18 +301,15 @@ void AampRialtoPlayer::Configure(
 		}
 	}
 
-	// Create per-source objects and demuxers based on configured formats.
-	// FORMAT_ISO_BMFF: AampRialtoPlayer owns demuxing (SendSample path).
+	// Create per-source objects based on configured formats.
+	// FORMAT_ISO_BMFF: AampRialtoPlayer demuxes via SendTransfer; the demuxer
+	//                  is created lazily on the first SendTransfer call.
 	// FORMAT_UNKNOWN:  streamabstraction demuxes externally (SetStreamCaps path).
 	if (videoFormat != FORMAT_INVALID)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_VIDEO);
 		if (src)
 		{
-			if (videoFormat == FORMAT_ISO_BMFF)
-			{
-				src->setDemuxer(std::make_unique<Mp4Demux>());
-			}
 			// Apply any protection queued before this source existed.
 			if (m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
 			{
@@ -329,10 +325,6 @@ void AampRialtoPlayer::Configure(
 		auto src = m_sourceCreator(eMEDIATYPE_AUDIO);
 		if (src)
 		{
-			if (audioFormat == FORMAT_ISO_BMFF)
-			{
-				src->setDemuxer(std::make_unique<Mp4Demux>());
-			}
 			// Apply any protection queued before this source existed.
 			if (m_pendingProtection[eMEDIATYPE_AUDIO].has_value())
 			{
@@ -352,10 +344,6 @@ void AampRialtoPlayer::Configure(
 		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
 		if (src)
 		{
-			if (subFormat == FORMAT_ISO_BMFF)
-			{
-				src->setDemuxer(std::make_unique<Mp4Demux>());
-			}
 			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
 			AAMPLOG_INFO("Created subtitle source (format=%d)", static_cast<int>(subFormat));
@@ -402,13 +390,8 @@ bool AampRialtoPlayer::SendTransfer(
 		return true;
 	}
 
-	if (!source->hasDemuxer() || buffer.empty())
+	if (buffer.empty())
 	{
-		if (!source->hasDemuxer())
-		{
-			AAMPLOG_WARN("No demuxer for mediaType=%d",
-				static_cast<int>(mediaType));
-		}
 		AAMPLOG_INFO("EXIT");
 		return true;
 	}

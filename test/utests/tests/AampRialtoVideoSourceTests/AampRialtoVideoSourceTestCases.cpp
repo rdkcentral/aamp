@@ -752,7 +752,12 @@ protected:
 		AampRialtoVideoSourceTest::SetUp();
 		m_mockDemux = std::make_unique<NiceMock<MockMp4Demux>>();
 		g_mockMp4Demux = m_mockDemux.get();
-		m_source.setDemuxer(std::make_unique<Mp4Demux>());
+		// Prime the demuxer lazily via processInitFragment so that
+		// subsequent processDataFragment tests have an initialised demuxer.
+		ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(true));
+		auto buf = std::make_shared<std::vector<uint8_t>>(
+			std::vector<uint8_t>{0x00});
+		m_source.processInitFragment(std::move(buf));
 	}
 
 	void TearDown() override
@@ -817,19 +822,23 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 // ---------------------------------------------------------------------------
 
 /**
- * @test AampRialtoVideoSource_ProcessInitFragment_NoDemuxer_ReturnsNullopt
- * @brief Verify processInitFragment returns nullopt when no demuxer is set.
+ * @test AampRialtoVideoSource_ProcessInitFragment_NoDemuxer_CreatesDemuxerLazily
+ * @brief Verify processInitFragment creates a demuxer lazily when none is
+ *        pre-installed, so the caller never needs to call setDemuxer.
  */
 TEST_F(AampRialtoVideoSourceTest,
-	AampRialtoVideoSource_ProcessInitFragment_NoDemuxer_ReturnsNullopt)
+	AampRialtoVideoSource_ProcessInitFragment_NoDemuxer_CreatesDemuxerLazily)
 {
-	// No demuxer installed on this fixture — use base AampRialtoVideoSourceTest.
+	// No demuxer pre-installed (base fixture has no mock demux).
+	// g_mockMp4Demux is null, so the fake Mp4Demux returns true from Parse
+	// and a default (INVALID-format) MediaCodecInfo from GetCodecInfo.
+	ASSERT_FALSE(m_source.hasDemuxer());
+
 	auto buf = std::make_shared<std::vector<uint8_t>>(
 		std::vector<uint8_t>{0x00, 0x01});
+	m_source.processInitFragment(std::move(buf));
 
-	auto result = m_source.processInitFragment(std::move(buf));
-
-	EXPECT_FALSE(result.has_value());
+	EXPECT_TRUE(m_source.hasDemuxer());
 }
 
 // ---------------------------------------------------------------------------

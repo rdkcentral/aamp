@@ -7,6 +7,18 @@ applyTo:
 
 # Direct-Rialto Component Instructions
 
+## Response Checklist — Complete Before Sending Any Reply
+
+Before sending a response that includes changes to `direct-rialto/` code, verify
+every item below:
+
+- [ ] TDD cycle followed: Red test written before production code was changed.
+- [ ] All affected test binaries built and run with zero failures.
+- [ ] A ready-to-use `git commit message` is included in the response
+      (see **Commit Messages** section below for the required format).
+
+---
+
 These rules apply to **every file under `direct-rialto/`** — including existing
 classes (`AampRialtoPlayer`, `AampRialtoMediaPipelineClient`, `PlayerStateMachine`,
 `SourceWorker`) and any new class added to that directory in the future — and to

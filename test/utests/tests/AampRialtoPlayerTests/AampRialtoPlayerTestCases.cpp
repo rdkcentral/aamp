@@ -531,6 +531,16 @@ TEST_F(AampRialtoPlayerTest, Configure_FormatUnknown_CreatesSourceWithoutDemuxer
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->hasDemuxer());
 }
 
+TEST_F(AampRialtoPlayerTest, Configure_FormatIsoBmff_DoesNotCreateDemuxer)
+{
+	// Demuxer creation is deferred until the first SendTransfer call so
+	// that sources using the SendSample path (already-demuxed data) never
+	// allocate a demuxer they do not need.
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->hasDemuxer());
+}
+
 TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
 {
 	m_createSourceCallCount = 0;
@@ -554,6 +564,18 @@ TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesVideoAndAudioOnly)
 // ===========================================================================
 // Phase 3 — CheckAllSourcesAttached
 // ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_InitFragment_CreatesDemuxerLazily)
+{
+	// No demuxer should exist after Configure — it is created on the
+	// first SendTransfer call, so sources that only ever receive
+	// already-demuxed samples via SendSample never allocate one.
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
+	SendVideoInitFragment();
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
+}
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendTransfer_BothSources_CallsAllSourcesAttachedOnce)
