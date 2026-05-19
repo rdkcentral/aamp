@@ -72,8 +72,13 @@ void AampRialtoMediaPipelineClient::notifyQos(
 	int32_t /*sourceId*/,
 	const firebolt::rialto::QosInfo & /*qosInfo*/) {}
 
-void AampRialtoMediaPipelineClient::notifyBufferUnderflow(
-	int32_t /*sourceId*/) {}
+void AampRialtoMediaPipelineClient::notifyBufferUnderflow(int32_t sourceId)
+{
+        if (m_bufferUnderflowCallback)
+        {
+                m_bufferUnderflowCallback(sourceId);
+        }
+}
 
 void AampRialtoMediaPipelineClient::notifyDuration(int64_t duration)
 {

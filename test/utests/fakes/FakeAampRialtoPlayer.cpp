@@ -24,8 +24,8 @@
  */
 
 #include "AampRialtoPlayer.h"
+#include "AampRialtoMediaSource.h"
 #include "PrivateInstanceAAMPNotifiable.h"
-#include "mp4demux/MP4Demux.h"
 #include "AampLogManager.h"
 
 AampRialtoPlayer::AampRialtoPlayer(

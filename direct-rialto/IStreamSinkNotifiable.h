@@ -35,7 +35,8 @@
 #ifndef ISTREAM_SINK_NOTIFIABLE_H
 #define ISTREAM_SINK_NOTIFIABLE_H
 
-#include "AampEvent.h"   ///< AAMPPlayerState enum
+#include "AampEvent.h"      ///< AAMPPlayerState enum
+#include "AampMediaType.h"  ///< AampMediaType
 
 #include <string>
 
@@ -140,6 +141,22 @@ public:
 	 * (e.g. seek-recovery vs. resume-from-pause).
 	 */
 	virtual AAMPPlayerState GetState() = 0;
+
+	// -----------------------------------------------------------------------
+	// Underflow
+	// -----------------------------------------------------------------------
+
+	/**
+	 * @brief Notify that Rialto's pipeline reported a buffer underflow on
+	 *        the given media track.
+	 *
+	 * If AampUnderflowMonitor is enabled the implementation should log and
+	 * return — the monitor will manage the pause/resume cycle.  Otherwise
+	 * it should schedule a retune.
+	 *
+	 * @param[in] type  The media track that underflowed.
+	 */
+	virtual void NotifyBufferUnderflow(AampMediaType type) = 0;
 };
 
 #endif // ISTREAM_SINK_NOTIFIABLE_H

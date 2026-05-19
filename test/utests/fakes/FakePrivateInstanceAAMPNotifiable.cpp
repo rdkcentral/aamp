@@ -56,3 +56,6 @@ AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
 {
 	return eSTATE_IDLE;
 }
+
+void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(
+	AampMediaType /*type*/) {}
