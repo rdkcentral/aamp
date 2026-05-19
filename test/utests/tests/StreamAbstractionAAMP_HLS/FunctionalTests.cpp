@@ -1865,10 +1865,10 @@ TEST_F(TrackStateTests, EnabledTests)
 	ASSERT_FALSE(result);
 }
 
-TEST_F(TrackStateTests, GetFetchChunkBufferTest)
+TEST_F(TrackStateTests, GetFetchBufferTest)
 {
 	// Call the function under test with initialize set to true
-	CachedFragment *cachedFragment = TrackStateobj->GetFetchChunkBuffer(true);
+	CachedFragment *cachedFragment = TrackStateobj->GetFetchBuffer(true);
 	ASSERT_EQ(cachedFragment, nullptr);
 }
 
@@ -1915,10 +1915,10 @@ TEST_F(TrackStateTests, GetBufferStatusTest)
 TEST_F(TrackStateTests, WaitForFreeFragmentAvailableTests)
 {
 	int timeoutMs = 100;
-	// Ensure the chunk cache has capacity so WaitForCachedFragmentChunkInjected
-	// can return true immediately (numberOfFragmentChunksCached=0 < size=4).
-	TrackStateobj->maxCachedFragmentChunksPerTrack = DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK;
-	TrackStateobj->SetCachedFragmentChunksSize(DEFAULT_CACHED_FRAGMENTS_PER_TRACK);
+	// Ensure the chunk cache has capacity so WaitForCachedFragmentInjected
+	// can return true immediately (numberOfFragmentsCached=0 < size=4).
+	TrackStateobj->maxLLDCachedFragmentsPerTrack = DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK;
+	TrackStateobj->SetCachedFragmentSize(DEFAULT_CACHED_FRAGMENTS_PER_TRACK);
 	bool result = TrackStateobj->WaitForFreeFragmentAvailable(timeoutMs);
 	ASSERT_TRUE(result);
 }
@@ -2391,12 +2391,12 @@ TEST_F(TrackStateTests,GetProfileIndexForBW )
 	TrackStateobj->GetProfileIndexForBW(1);
 }
 
-TEST_F(TrackStateTests,UpdateTSAfterChunkFetch )
+TEST_F(TrackStateTests,UpdateTSAfterFetch )
 {
-	TrackStateobj->numberOfFragmentChunksCached = 0;
-	TrackStateobj->maxCachedFragmentChunksPerTrack=1;
-	TrackStateobj->SetCachedFragmentChunksSize(1);
-	TrackStateobj->UpdateTSAfterChunkFetch();
+	TrackStateobj->numberOfFragmentsCached = 0;
+	TrackStateobj->maxLLDCachedFragmentsPerTrack=1;
+	TrackStateobj->SetCachedFragmentSize(1);
+	TrackStateobj->UpdateTSAfterFetch();
 }
 
 TEST_F(TrackStateTests,AbortWaitForCachedAndFreeFragment )
