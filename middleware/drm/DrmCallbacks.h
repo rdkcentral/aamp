@@ -26,6 +26,7 @@
  */
 
 #include <string>
+#include "DrmSession.h"
 
 /**
  * @class DrmCallbacks
@@ -36,6 +37,7 @@ class DrmCallbacks
 public:
 	virtual void Individualization(const std::string& payload) = 0;
 	virtual void LicenseRenewal(DrmHelperPtr drmHelper, void* userData) = 0;
+	virtual void NotifyKeyStatus(PlayerKeyStatus keyStatus) = 0;
 	virtual ~DrmCallbacks() {};
 };
 

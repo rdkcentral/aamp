@@ -688,6 +688,11 @@ void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
 {
 }
 
+void PrivateInstanceAAMP::NotifyKeyStatus(PlayerKeyStatus keyStatus)
+{
+	(void) keyStatus;
+}
+
 void PrivateInstanceAAMP::SetPreferredLanguages(char const*, char const*, char const*, char const*, char const*, const Accessibility*, char const*)
 {
 }

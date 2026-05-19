@@ -11463,6 +11463,14 @@ void PrivateInstanceAAMP::Individualization(const std::string& payload)
 }
 
 /**
+ * @brief DRM key status notification callback
+ */
+void PrivateInstanceAAMP::NotifyKeyStatus(PlayerKeyStatus keyStatus)
+{
+	AAMPLOG_WARN("NotifyKeyStatus: keyStatus=%d", static_cast<int>(keyStatus));
+}
+
+/**
  * @brief Get current initial buffer duration in seconds
  */
 int PrivateInstanceAAMP::GetInitialBufferDuration()
