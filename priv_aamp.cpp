@@ -12671,7 +12671,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 
 					discardEnteringLiveEvt = false;
 				}
-				ReleaseStreamLock();
 			}
 			if (closedCaptionTrackId >= 0)
 			{
@@ -12681,6 +12680,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				SetClosedCaptionsFromTextTrack(track);
 			}
 		}
+		 ReleaseStreamLock();
 	}
 }
 
