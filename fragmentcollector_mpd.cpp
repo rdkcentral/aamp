@@ -8667,6 +8667,15 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							}
 							pMediaStreamContext->profileChanged = false;
 						}
+						else
+						{
+							// Ring buffer is full; the init segment cannot be cached right now.
+							// Clear profileChanged so the FetcherLoop does not re-trigger this
+							// path on every subsequent OnFragmentDownloadComplete callback.
+							// The buffer will drain naturally and the init will be re-fetched on
+							// the next profileChanged cycle once space is available.
+							pMediaStreamContext->profileChanged = false;
+						}
 					}
 					else
 					{
