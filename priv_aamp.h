@@ -1329,6 +1329,13 @@ public:
 	 */
 	void LicenseRenewal(DrmHelperPtr drmHelper,void* userData) override;
 	/**
+	 * @fn NotifyKeyStatus
+	 *
+	 * @param[in] keyStatus - Key status received from OCDM
+	 * @return void
+	 */
+	void NotifyKeyStatus(PlayerKeyStatus keyStatus) override;
+	/**
 	 * @fn CurlTerm
 	 *
 	 * @param[in] startIdx - First index
