@@ -3334,15 +3334,62 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;
 		}
 
+		/* Serialize state change requests: wait for any pending async state transition
+		 * to complete before issuing a new one. This prevents confusing the GStreamer
+		 * state machine with rapid back-to-back contradictory state changes
+		 * (e.g., PLAY->PAUSE->PLAY within 400ms). */
+		{
+			GstState current, pending;
+			GstStateChangeReturn pendingRc = gst_element_get_state(
+				interfacePlayerPriv->gstPrivateContext->pipeline,
+				&current, &pending, 500 * GST_MSECOND);
+			if (GST_STATE_CHANGE_ASYNC == pendingRc)
+			{
+				MW_LOG_WARN("InterfacePlayerRDK_Pause - async state change still in progress"
+							" (current=%d, pending=%d), proceeding with %d", current, pending, nextState);
+			}
+		}
+
 		GstStateChangeReturn rc = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
 		if (GST_STATE_CHANGE_ASYNC == rc)
 		{
 			/* CID:330433 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronizing pipeline state.
 			 * Too risky to remove mutex lock. It may be replaced if approach is redesigned in future */
 			/* wait a bit longer for the state change to conclude */
-			if (nextState != validateStateWithMsTimeout(this,nextState, 100))
+			if (nextState != validateStateWithMsTimeout(this, nextState, 100))
 			{
 				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED GstState %d", nextState);
+
+				/* Recovery: retry the state change once before reporting failure */
+				MW_LOG_MIL("InterfacePlayerRDK_Pause - retrying state change to GstState %d", nextState);
+				GstStateChangeReturn rcRetry = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
+				if (GST_STATE_CHANGE_ASYNC == rcRetry)
+				{
+					if (nextState != validateStateWithMsTimeout(this, nextState, 100))
+					{
+						MW_LOG_ERR("InterfacePlayerRDK_Pause - recovery failed for GstState %d, reporting error", nextState);
+						if (busMessageCallback)
+						{
+							BusEventData busEvent;
+							busEvent.msgType = MESSAGE_ERROR;
+							busEvent.msg = "Pipeline failed to transition to target state after retry";
+							busEvent.dbg_info = "validateStateWithMsTimeout recovery failed";
+							busMessageCallback(std::move(busEvent));
+						}
+					}
+				}
+				else if (GST_STATE_CHANGE_SUCCESS != rcRetry)
+				{
+					MW_LOG_ERR("InterfacePlayerRDK_Pause - retry state change failed, rc=%d", rcRetry);
+					if (busMessageCallback)
+					{
+						BusEventData busEvent;
+						busEvent.msgType = MESSAGE_ERROR;
+						busEvent.msg = "Pipeline state change retry failed";
+						busEvent.dbg_info = "SetStateWithWarnings retry failed";
+						busMessageCallback(std::move(busEvent));
+					}
+				}
 			}
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
