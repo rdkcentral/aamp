@@ -78,7 +78,9 @@ void AampRialtoPlayer::RialtoLogHandler::log(
 
 namespace {
 	/// Upper bound for the wait on Rialto's application state transitioning
-	/// to RUNNING.
+	/// to RUNNING.  In practice the transition completes in a few milliseconds;
+	/// the timeout exists only to avoid a permanent hang if the Rialto server
+	/// never reports RUNNING.
 	constexpr int kRialtoRunningTimeoutMs = 2000;
 }
 
@@ -183,7 +185,13 @@ void AampRialtoPlayer::Configure(
 	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
 		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation);
 
+	// Signal the state machine that Configure() is starting a new session
+	// (re-tune or first tune).  This resets to IDLE from whatever previous
+	// state the player was in.
 	m_stateMachine.onReconfigure();
+
+	// Reset first-frame flag so the new tune session forwards the initial
+	// PLAYING notification correctly.
 	m_firstFrameNotified.store(false, std::memory_order_relaxed);
 	m_segmentStartMs.store(-1, std::memory_order_relaxed);
 	m_positionMs.store(0, std::memory_order_relaxed);
@@ -202,8 +210,14 @@ void AampRialtoPlayer::Configure(
 		}
 	}
 
-	// NOTE: Protection params are intentionally NOT reset here.
+	// NOTE: m_videoProt / m_audioProt are intentionally NOT reset here.
+	// QueueProtectionEvent() is called by AAMP before Configure() in the
+	// normal playback flow; clearing the stored protection params here would
+	// discard them before AttachVideoSource / AttachAudioSource can use them
+	// to call createSession().  ClearProtectionEvent() handles teardown.
 	// NOTE: m_pendingFlushPositionNs is intentionally NOT reset here.
+	// Flush() may be called before Configure() to pre-stage the seek position;
+	// clearing it here would discard that staged value before sources attach.
 	m_playRequested.store(false, std::memory_order_relaxed);
 	m_allSourcesAttachedFlag.store(false, std::memory_order_relaxed);
 	for (auto &pa : m_pendingAttach)
@@ -240,6 +254,10 @@ void AampRialtoPlayer::Configure(
 	}
 	else
 	{
+		// Wait for the Rialto server to report ApplicationState::RUNNING before
+		// creating the media pipeline — ensures the proxy ctor sees RUNNING from
+		// its internal registerClient() call, preventing NeedMediaData events
+		// from being silently dropped.
 		if (m_controlBackend && !m_controlBackend->waitForRunning(kRialtoRunningTimeoutMs))
 		{
 			AAMPLOG_WARN(
@@ -296,6 +314,7 @@ void AampRialtoPlayer::Configure(
 						OnBufferUnderflow(sid);
 					});
 
+				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();
 			}
 		}
@@ -497,7 +516,7 @@ void AampRialtoPlayer::AttachSource(
 		{
 			auto &st = source.state();
 			std::lock_guard<std::mutex> lock(st.mu);
-			st.paused = false;
+			st.injectionGated = false;
 			st.attachPending = false;
 			st.cv.notify_all();
 		}
@@ -617,10 +636,15 @@ void AampRialtoPlayer::Stream()
 	AAMPLOG_INFO("ENTRY");
 	if (m_pipeline)
 	{
+		// Signal that play() should be issued.  We use seq_cst ordering so
+		// that CheckAllSourcesAttached() on the injection thread sees this
+		// store before it reads m_playRequested (and vice-versa).
 		m_playRequested.store(true, std::memory_order_seq_cst);
 
 		if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
 		{
+			// allSourcesAttached() already completed before this call —
+			// promote to PLAYING immediately.
 			bool async = false;
 			if (!m_pipeline->play(async))
 			{
@@ -629,6 +653,8 @@ void AampRialtoPlayer::Stream()
 		}
 		else
 		{
+			// Sources are not yet attached; play() will be issued by
+			// CheckAllSourcesAttached() once all sources are registered.
 			AAMPLOG_INFO("deferring play() until allSourcesAttached()");
 		}
 	}
@@ -638,6 +664,8 @@ void AampRialtoPlayer::Stream()
 void AampRialtoPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_INFO("ENTRY keepLastFrame=%d", keepLastFrame);
+	
+	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
 	{
 		if (source)
@@ -661,6 +689,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 
+	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
 	{
 		if (source)
@@ -672,6 +701,12 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		}
 	}
 
+	// Store the segment start position so it can be forwarded to the Rialto
+	// server via setSourcePosition() for every attached source.  This is
+	// required to make the Rialto server emit a GStreamer segment event
+	// before the first buffer; without it pushSampleIfRequired() is a no-op
+	// and frames at large live-stream PTS values (e.g. 12542 s) are never
+	// rendered by the downstream decoder.
 	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
 	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
 
@@ -1122,14 +1157,14 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		{
 			m_stateMachine.onPlaybackStarted();
 
-			// Clear the paused flag so inject threads resume blocking
-			// normally on needMediaData rather than aborting immediately.
+			// Clear injectionGated so inject threads resume blocking
+			// normally on needData rather than aborting immediately.
 			for (auto &source : m_sources)
 			{
 				if (source)
 				{
 					std::lock_guard<std::mutex> lock(source->state().mu);
-					source->state().paused = false;
+					source->state().injectionGated = false;
 				}
 			}
 

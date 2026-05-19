@@ -70,16 +70,43 @@ public:
 	 */
 	struct SourceState
 	{
+		/// Protects all fields in this struct.
 		std::mutex              mu;
+		/// Notified whenever hasPending, generation, injectionGated,
+		/// attachPending, or eos changes.
 		std::condition_variable cv;
 
+		/// True when Rialto has issued a needData request that has not
+		/// yet been answered with a haveData response.
 		bool     hasPending{false};
+		/// Request ID from the current outstanding needData event; used
+		/// to correlate the haveData response.
 		uint32_t pendingRequestId{0};
+		/// Number of frames requested in the current needData event;
+		/// determines when the batch is considered complete.
 		size_t   pendingFrameCount{0};
-		size_t   addedInPending{0};
+		/// Count of segments successfully delivered via addSegment for
+		/// the current request batch; triggers haveData(OK) when it
+		/// reaches pendingFrameCount.
+		size_t   segmentsAddedInBatch{0};
+		/// Set once signalEos() has been called.  Causes the next batch
+		/// completion (or an idle needData) to fire haveData(EOS) instead
+		/// of haveData(OK).
 		bool     eos{false};
+		/// Monotonically-increasing abort token.  Bumped by reset() and
+		/// invalidateGeneration(); injectors capture it at entry and
+		/// abort if it changes while they are blocked.
 		uint64_t generation{0};
-		bool     paused{false};
+		/// Set by invalidateGeneration() (flush/seek) to gate injection
+		/// until the next needData event or PLAYING state callback.
+		/// Cleared by handleNeedData() and by the PLAYING playback-state
+		/// handler.  NOT related to the pipeline PAUSED state — see the
+		/// comment in waitForAttach() for the important distinction.
+		bool     injectionGated{false};
+		/// True while an injector thread is executing inside
+		/// injectOneSample().  Prevents signalEos() and handleNeedData()
+		/// from firing haveData(EOS) immediately when the active injector
+		/// will send it after delivering its sample.
 		bool     injectorActive{false};
 		/// True while this source's Rialto attachment has been deferred
 		/// (e.g. waiting for the video source to attach first).  Inject

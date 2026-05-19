@@ -1288,38 +1288,38 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackState_Paused_DoesNotSetPausedOnSources)
+	OnPlaybackState_Paused_DoesNotSetInjectionGatedOnSources)
 {
 	// Rialto sends PAUSED for buffering-pause (e.g. AampUnderflowMonitor).
 	// Injection must be allowed to continue so the buffer refills —
 	// aborting it here would discard samples and delay recovery.
-	// Only invalidateGeneration() (flush/stop paths) should set paused.
+	// Only invalidateGeneration() (flush/stop paths) should set injectionGated.
 	Configure();
 
 	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
-	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
-	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().paused);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
 
-	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
-	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().paused);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackState_Playing_ClearsPausedOnAllSources)
+	OnPlaybackState_Playing_ClearsInjectionGatedOnAllSources)
 {
 	Configure();
 
-	// Force sources into paused state first.
-	m_mockSources[eMEDIATYPE_VIDEO]->state().paused = true;
-	m_mockSources[eMEDIATYPE_AUDIO]->state().paused = true;
+	// Force sources into injectionGated state first.
+	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated = true;
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 
-	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().paused);
-	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().paused);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
 }
 
 // ===========================================================================

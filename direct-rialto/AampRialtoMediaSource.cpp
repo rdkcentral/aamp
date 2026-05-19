@@ -65,11 +65,11 @@ void AampRialtoMediaSource::reset()
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		++m_state.generation;
-		m_state.hasPending      = false;
-		m_state.addedInPending  = 0;
-		m_state.eos             = false;
-		m_state.paused          = false;
-		m_state.injectorActive  = false;
+		m_state.hasPending          = false;
+		m_state.segmentsAddedInBatch = 0;
+		m_state.eos                 = false;
+		m_state.injectionGated      = false;
+		m_state.injectorActive      = false;
 		m_state.attachPending   = false;
 		m_state.cv.notify_all();
 	}
@@ -82,9 +82,9 @@ void AampRialtoMediaSource::invalidateGeneration()
 {
 	std::lock_guard<std::mutex> lock(m_state.mu);
 	++m_state.generation;
-	m_state.hasPending     = false;
-	m_state.addedInPending = 0;
-	m_state.paused         = true;
+	m_state.hasPending          = false;
+	m_state.segmentsAddedInBatch = 0;
+	m_state.injectionGated      = true;
 	m_state.cv.notify_all();
 }
 
@@ -104,12 +104,12 @@ bool AampRialtoMediaSource::waitForAttach()
 	AAMPLOG_INFO(
 		"Inject blocked — source awaiting deferred attach mediaType=%d",
 		static_cast<int>(mediaType()));
-	// Do NOT include m_state.paused in the predicate: the pipeline
-	// transitions through PAUSED during startup before the video IPC
-	// call returns.  Including paused would immediately wake this
-	// thread, find isAttached()==false, and discard the frame —
-	// recreating the problem being fixed.  The generation change (set
-	// by invalidateGeneration inside Flush/Stop) is the correct abort.
+	// Do NOT include m_state.injectionGated in the predicate: the
+	// pipeline transitions through PAUSED during startup before the
+	// video IPC call returns.  Including injectionGated would
+	// immediately wake this thread, find isAttached()==false, and
+	// discard the frame.  The generation change (set by
+	// invalidateGeneration inside Flush/Stop) is the correct abort.
 	m_state.cv.wait(lock, [&]{
 		return isAttached() || m_state.generation != waitGen;
 	});
@@ -293,10 +293,10 @@ bool AampRialtoMediaSource::injectOneSample(
 			std::unique_lock<std::mutex> lock(m_state.mu);
 			m_state.cv.wait(lock, [&]{
 				return m_state.generation != capturedGen ||
-				       m_state.paused ||
+				       m_state.injectionGated ||
 				       m_state.hasPending;
 			});
-			if (m_state.generation != capturedGen || m_state.paused)
+			if (m_state.generation != capturedGen || m_state.injectionGated)
 			{
 				m_state.injectorActive = false;
 				done = true;
@@ -322,8 +322,8 @@ bool AampRialtoMediaSource::injectOneSample(
 					    m_state.pendingRequestId == reqId)
 					{
 						eosReqId = reqId;
-						m_state.hasPending     = false;
-						m_state.addedInPending = 0;
+						m_state.hasPending          = false;
+						m_state.segmentsAddedInBatch = 0;
 						fireEos = true;
 					}
 					m_state.injectorActive = false;
@@ -412,10 +412,10 @@ bool AampRialtoMediaSource::injectOneSample(
 				    m_state.hasPending &&
 				    m_state.pendingRequestId == reqId)
 				{
-					addedSoFar         = m_state.addedInPending;
-					m_state.hasPending     = false;
-					m_state.addedInPending = 0;
-					sendHaveData       = true;
+					addedSoFar                  = m_state.segmentsAddedInBatch;
+					m_state.hasPending          = false;
+					m_state.segmentsAddedInBatch = 0;
+					sendHaveData                = true;
 				}
 			}
 			if (sendHaveData)
@@ -449,21 +449,21 @@ bool AampRialtoMediaSource::injectOneSample(
 				    m_state.hasPending &&
 				    m_state.pendingRequestId == reqId)
 				{
-					++m_state.addedInPending;
+					++m_state.segmentsAddedInBatch;
 					if (m_state.eos)
 					{
 						// Last sample — signal EOS to Rialto.
-						m_state.hasPending     = false;
-						m_state.addedInPending = 0;
-						sendHaveData           = true;
-						sendEos                = true;
+						m_state.hasPending          = false;
+						m_state.segmentsAddedInBatch = 0;
+						sendHaveData                = true;
+						sendEos                     = true;
 					}
-					else if (m_state.addedInPending >=
+					else if (m_state.segmentsAddedInBatch >=
 					         m_state.pendingFrameCount)
 					{
-						m_state.hasPending     = false;
-						m_state.addedInPending = 0;
-						sendHaveData           = true;
+						m_state.hasPending          = false;
+						m_state.segmentsAddedInBatch = 0;
+						sendHaveData                = true;
 					}
 				}
 				m_state.injectorActive = false;
@@ -552,11 +552,11 @@ void AampRialtoMediaSource::handleNeedData(
 			// Either not EOS, or an injector is active and needs the
 			// slot to deliver its sample (it will send haveData(EOS)
 			// after injection).
-			m_state.hasPending        = true;
-			m_state.pendingRequestId  = requestId;
-			m_state.pendingFrameCount = std::max<size_t>(frameCount, 1);
-			m_state.addedInPending    = 0;
-			m_state.paused            = false;
+		m_state.hasPending          = true;
+		m_state.pendingRequestId    = requestId;
+		m_state.pendingFrameCount   = std::max<size_t>(frameCount, 1);
+		m_state.segmentsAddedInBatch = 0;
+		m_state.injectionGated      = false;
 		}
 	}
 	if (fireEos)
@@ -579,8 +579,8 @@ void AampRialtoMediaSource::handleCancelNeedData()
 	AAMPLOG_INFO("sourceId=%d", m_sourceId);
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
-		m_state.hasPending     = false;
-		m_state.addedInPending = 0;
+		m_state.hasPending          = false;
+		m_state.segmentsAddedInBatch = 0;
 	}
 	m_state.cv.notify_all();
 }

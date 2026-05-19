@@ -524,7 +524,7 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_NotAttached_
 }
 
 // ---------------------------------------------------------------------------
-// signalEos — with addedInPending > 0
+// signalEos — with segmentsAddedInBatch > 0
 // ---------------------------------------------------------------------------
 
 /**
@@ -543,7 +543,7 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SignalEos_WithInjectorAc
 	{
 		auto &st = m_source.state();
 		std::lock_guard<std::mutex> lock(st.mu);
-		st.addedInPending  = 3;
+		st.segmentsAddedInBatch  = 3;
 		st.injectorActive  = true;
 	}
 
@@ -577,7 +577,7 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SignalEos_WithAddedSampl
 	{
 		auto &st = m_source.state();
 		std::lock_guard<std::mutex> lock(st.mu);
-		st.addedInPending = 3;
+		st.segmentsAddedInBatch = 3;
 		// injectorActive remains false (default)
 	}
 
@@ -648,12 +648,12 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosDurin
 	{
 		auto &st = m_source.state();
 		std::lock_guard<std::mutex> lock(st.mu);
-		st.hasPending        = true;
-		st.pendingRequestId  = 42;
-		st.pendingFrameCount = 10;
-		st.addedInPending    = 3;
-		st.eos               = true;
-		st.injectorActive    = true;
+		st.hasPending            = true;
+		st.pendingRequestId      = 42;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 3;
+		st.eos                   = true;
+		st.injectorActive        = true;
 	}
 
 	// Expect addSegment to succeed, then haveData(EOS).
@@ -719,12 +719,12 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosSetTh
 	{
 		auto &st = m_source.state();
 		std::lock_guard<std::mutex> lock(st.mu);
-		st.eos               = true;
-		st.hasPending        = true;
-		st.pendingRequestId  = 77;
-		st.pendingFrameCount = 10;
-		st.addedInPending    = 0;
-		st.paused            = false;
+		st.eos                   = true;
+		st.hasPending            = true;
+		st.pendingRequestId      = 77;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 0;
+		st.injectionGated        = false;
 	}
 	m_source.state().cv.notify_all();
 
@@ -923,11 +923,11 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	{
 		auto &st = m_source.state();
 		std::lock_guard<std::mutex> lock(st.mu);
-		st.hasPending        = true;
-		st.pendingRequestId  = 55;
-		st.pendingFrameCount = 10;
-		st.addedInPending    = 0;
-		st.injectorActive    = true;
+		st.hasPending            = true;
+		st.pendingRequestId      = 55;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
 	}
 
 	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _))
@@ -986,11 +986,11 @@ TEST_F(AampRialtoVideoSourceTest,
 	{
 		auto &st = m_source.state();
 		std::lock_guard<std::mutex> lock(st.mu);
-		st.hasPending        = true;
-		st.pendingRequestId  = 99;
-		st.pendingFrameCount = 10;
-		st.addedInPending    = 0;
-		st.injectorActive    = true;
+		st.hasPending            = true;
+		st.pendingRequestId      = 99;
+		st.pendingFrameCount     = 10;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
 	}
 
 	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _))
