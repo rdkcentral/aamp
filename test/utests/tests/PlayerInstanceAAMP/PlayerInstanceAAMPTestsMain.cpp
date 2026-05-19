@@ -1552,24 +1552,27 @@ TEST_F(PlayerInstanceAAMPTests, SetPlaylistTimeoutTest3) {
 	mPlayerInstance->SetPlaylistTimeout(timeout);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest1) {
-	//checking random value
-	int buffersize = 1024;
-	mPlayerInstance->SetDownloadBufferSize(buffersize);
+	// Valid in-range value must be forwarded to the config layer
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxFragmentCached, 10)).Times(1);
+	mPlayerInstance->SetDownloadBufferSize(10);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest2) {
-	//checking Maximum value
-	int buffersize = INT_MAX;
-	mPlayerInstance->SetDownloadBufferSize(buffersize);
+	// Value above MAX_CACHED_FRAGMENTS_PER_TRACK must be rejected; stored value unchanged
+	int beforeVal = gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached);
+	mPlayerInstance->SetDownloadBufferSize(INT_MAX);
+	EXPECT_EQ(beforeVal, gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached));
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest3) {
-	//checking Minimum value
-	int buffersize = INT_MIN;
-	mPlayerInstance->SetDownloadBufferSize(buffersize);
+	// Value below minimum (1) must be rejected; stored value unchanged
+	int beforeVal = gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached);
+	mPlayerInstance->SetDownloadBufferSize(INT_MIN);
+	EXPECT_EQ(beforeVal, gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached));
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest4) {
-	//checking negative value
-	int buffersize = -500;
-	mPlayerInstance->SetDownloadBufferSize(buffersize);
+	// Negative value must be rejected; stored value unchanged
+	int beforeVal = gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached);
+	mPlayerInstance->SetDownloadBufferSize(-500);
+	EXPECT_EQ(beforeVal, gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached));
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreferredDRMTest)
 {
