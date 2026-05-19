@@ -3345,8 +3345,7 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 				&current, &pending, 500 * GST_MSECOND);
 			if (GST_STATE_CHANGE_ASYNC == pendingRc)
 			{
-				MW_LOG_WARN("InterfacePlayerRDK_Pause - async state change still in progress"
-							" (current=%d, pending=%d), proceeding with %d", current, pending, nextState);
+				MW_LOG_WARN("InterfacePlayerRDK_Pause - async state change still in progress (current=%d, pending=%d), proceeding with %d", current, pending, nextState);
 			}
 		}
 

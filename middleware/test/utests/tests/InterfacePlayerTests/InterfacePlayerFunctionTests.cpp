@@ -1948,8 +1948,9 @@ TEST_F(InterfacePlayerTests, Queue_and_ClearProtectionEvent)
 /**
  * @brief Test Pause() succeeds when state change is async and validateStateWithMsTimeout confirms the state.
  *        Verifies that buffering_in_progress, buffering_target_state, paused, and pendingPlayState
- *        are set correctly. The gst_element_get_state mock sets gst_current to GST_STATE_PAUSED so
- *        validateStateWithMsTimeout succeeds on the first try and no retry is triggered.
+ *        are set correctly. The gst_element_get_state mock sets the current state output parameter
+ *        to GST_STATE_PAUSED so validateStateWithMsTimeout succeeds on the first try and no retry
+ *        is triggered.
  */
 TEST_F(InterfacePlayerTests, Pause_Success)
 {
