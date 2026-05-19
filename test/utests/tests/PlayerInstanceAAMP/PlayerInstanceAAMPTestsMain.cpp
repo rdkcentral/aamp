@@ -1557,22 +1557,21 @@ TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest1) {
 	mPlayerInstance->SetDownloadBufferSize(10);
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest2) {
-	// Value above MAX_CACHED_FRAGMENTS_PER_TRACK must be rejected; stored value unchanged
-	int beforeVal = gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached);
+	// SetDownloadBufferSize unconditionally forwards to the config layer;
+	// range enforcement (rejection of values > MAX_CACHED_FRAGMENTS_PER_TRACK)
+	// is the config layer's responsibility and is exercised in ConfigTests::configSetGetInt.
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxFragmentCached, INT_MAX)).Times(1);
 	mPlayerInstance->SetDownloadBufferSize(INT_MAX);
-	EXPECT_EQ(beforeVal, gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached));
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest3) {
-	// Value below minimum (1) must be rejected; stored value unchanged
-	int beforeVal = gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached);
+	// Verify INT_MIN is forwarded to the config layer unchanged (no local clamping in SetDownloadBufferSize).
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxFragmentCached, INT_MIN)).Times(1);
 	mPlayerInstance->SetDownloadBufferSize(INT_MIN);
-	EXPECT_EQ(beforeVal, gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached));
 }
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest4) {
-	// Negative value must be rejected; stored value unchanged
-	int beforeVal = gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached);
+	// Verify a negative value is forwarded to the config layer unchanged.
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxFragmentCached, -500)).Times(1);
 	mPlayerInstance->SetDownloadBufferSize(-500);
-	EXPECT_EQ(beforeVal, gpGlobalConfig->GetConfigValue(eAAMPConfig_MaxFragmentCached));
 }
 TEST_F(PlayerInstanceAAMPTests, SetPreferredDRMTest)
 {
