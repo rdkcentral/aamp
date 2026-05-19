@@ -3084,6 +3084,15 @@ TEST_F(FetcherLoopTests, SegmentBase_WaitForFreeFragmentFails_ProfileChangedMust
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, /*initSegment=*/true, _, _, _))
 		.WillRepeatedly(Return(true));
 
+	// SegmentBase streams require LoadIDX to fetch and parse the Segment Index box
+	// (SIDX, pointed to by indexRange).  Populate idxBuffer with the shared sidxBox
+	// so that AAMP can compute segment offsets and InitializeMPD completes normally.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
 	AAMPStatusType status = InitializeMPD(mSegmentBaseManifest);
 	ASSERT_EQ(status, eAAMPSTATUS_OK) << "InitializeMPD must succeed for the regression test to be meaningful.";
 
