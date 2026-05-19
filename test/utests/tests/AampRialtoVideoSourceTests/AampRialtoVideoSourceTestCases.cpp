@@ -28,6 +28,7 @@
 #include "AampRialtoVideoSource.h"
 #include "MockIMediaPipeline.h"
 #include "MockDrmBridge.h"
+#include "MockMp4Demux.h"
 
 #include <atomic>
 #include <chrono>
@@ -729,4 +730,272 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosSetTh
 
 	injector.join();
 	EXPECT_TRUE(injected.load());
+}
+
+// ===========================================================================
+// Fixture: AampRialtoVideoSourceWithDemuxTest
+// Extends AampRialtoVideoSourceTest with a fake Mp4Demux backed by
+// g_mockMp4Demux so that processInitFragment / processDataFragment /
+// injectSingleSample can be exercised.
+// ===========================================================================
+
+/**
+ * @class AampRialtoVideoSourceWithDemuxTest
+ * @brief Fixture for processInitFragment / processDataFragment /
+ *        injectSingleSample unit tests.
+ */
+class AampRialtoVideoSourceWithDemuxTest : public AampRialtoVideoSourceTest
+{
+protected:
+	void SetUp() override
+	{
+		AampRialtoVideoSourceTest::SetUp();
+		m_mockDemux = std::make_unique<NiceMock<MockMp4Demux>>();
+		g_mockMp4Demux = m_mockDemux.get();
+		m_source.setDemuxer(std::make_unique<Mp4Demux>());
+	}
+
+	void TearDown() override
+	{
+		g_mockMp4Demux = nullptr;
+		AampRialtoVideoSourceTest::TearDown();
+	}
+
+	std::unique_ptr<NiceMock<MockMp4Demux>> m_mockDemux;
+};
+
+// ---------------------------------------------------------------------------
+// processInitFragment — success
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessInitFragment_Success
+ * @brief Verify processInitFragment returns codec info when Parse succeeds.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessInitFragment_Success)
+{
+	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*m_mockDemux, GetCodecInfo())
+		.WillByDefault([]() { return MakeH264CodecInfo(1280, 720); });
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x00, 0x00, 0x00, 0x01});
+
+	auto result = m_source.processInitFragment(std::move(buf));
+
+	ASSERT_TRUE(result.has_value());
+	EXPECT_EQ(result->mCodecFormat, GST_FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(result->mInfo.video.mWidth, uint16_t{1280});
+	EXPECT_EQ(result->mInfo.video.mHeight, uint16_t{720});
+}
+
+// ---------------------------------------------------------------------------
+// processInitFragment — parse fails
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessInitFragment_ParseFails_ReturnsNullopt
+ * @brief Verify processInitFragment returns nullopt when the demuxer rejects
+ *        the buffer.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessInitFragment_ParseFails_ReturnsNullopt)
+{
+	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(false));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xFF});
+
+	auto result = m_source.processInitFragment(std::move(buf));
+
+	EXPECT_FALSE(result.has_value());
+}
+
+// ---------------------------------------------------------------------------
+// processInitFragment — no demuxer
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessInitFragment_NoDemuxer_ReturnsNullopt
+ * @brief Verify processInitFragment returns nullopt when no demuxer is set.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessInitFragment_NoDemuxer_ReturnsNullopt)
+{
+	// No demuxer installed on this fixture — use base AampRialtoVideoSourceTest.
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x00, 0x01});
+
+	auto result = m_source.processInitFragment(std::move(buf));
+
+	EXPECT_FALSE(result.has_value());
+}
+
+// ---------------------------------------------------------------------------
+// processDataFragment — parse fails
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_ParseFails_ReturnsFalse
+ * @brief Verify processDataFragment returns false when Parse fails.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessDataFragment_ParseFails_ReturnsFalse)
+{
+	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(false));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xFF});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf));
+
+	EXPECT_FALSE(result);
+}
+
+// ---------------------------------------------------------------------------
+// processDataFragment — empty sample list
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_EmptySamples_ReturnsTrue
+ * @brief Verify processDataFragment returns true and injects nothing when
+ *        the demuxer produces an empty sample list.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessDataFragment_EmptySamples_ReturnsTrue)
+{
+	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*m_mockDemux, GetSamples())
+		.WillByDefault([]() { return std::vector<AampMediaSample>{}; });
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x01, 0x02});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf));
+
+	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// processDataFragment — success (one sample injected)
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_Success_InjectsSample
+ * @brief Verify processDataFragment parses a data buffer and injects the
+ *        contained sample into the pipeline.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_ProcessDataFragment_Success_InjectsSample)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Provide one sample from the demuxer.
+	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*m_mockDemux, GetSamples())
+		.WillByDefault([]() {
+			AampMediaSample s;
+			static uint8_t rawData[] = {0x00, 0x01, 0x02};
+			s.mData = std::shared_ptr<const uint8_t>(
+				rawData, [](const uint8_t *){});
+			s.mDataSize = 3;
+			s.mPts      = 1.0;
+			s.mDuration = 0.033;
+			std::vector<AampMediaSample> v;
+			v.push_back(std::move(s));
+			return v;
+		});
+
+	// Set up a pending needData slot so injectOneSample can proceed.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 55;
+		st.pendingFrameCount = 10;
+		st.addedInPending    = 0;
+		st.injectorActive    = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xAB, 0xCD});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf));
+
+	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// injectSingleSample — source not attached
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectSingleSample_NotAttached_ReturnsFalse
+ * @brief Verify injectSingleSample returns false when the source is not
+ *        attached (waitForAttach returns false immediately).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectSingleSample_NotAttached_ReturnsFalse)
+{
+	// Source is unattached by default; attachPending is false.
+	AampMediaSample sample;
+	uint8_t data[] = {0xDE, 0xAD};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts      = 0.0;
+	sample.mDuration = 0.033;
+
+	bool result = m_source.injectSingleSample(
+		*m_pipelinePtr, std::move(sample));
+
+	EXPECT_FALSE(result);
+}
+
+// ---------------------------------------------------------------------------
+// injectSingleSample — success
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_InjectSingleSample_Success
+ * @brief Verify injectSingleSample delivers a sample to the pipeline when
+ *        the source is attached and a needData slot is available.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectSingleSample_Success)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Provide a pending needData slot.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 99;
+		st.pendingFrameCount = 10;
+		st.addedInPending    = 0;
+		st.injectorActive    = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0xBE, 0xEF};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts      = 5.0;
+	sample.mDuration = 0.033;
+
+	bool result = m_source.injectSingleSample(
+		*m_pipelinePtr, std::move(sample));
+
+	EXPECT_TRUE(result);
 }

@@ -43,6 +43,35 @@ public:
 
 	AampMediaType mediaType() const override { return eMEDIATYPE_SUBTITLE; }
 
+	/**
+	 * @brief Subtitle-specific init-fragment handling (not yet implemented).
+	 *
+	 * Overrides the base-class demuxer path.  Returns std::nullopt until
+	 * subtitle injection via Rialto is supported.
+	 */
+	std::optional<MediaCodecInfo> processInitFragment(
+		std::shared_ptr<std::vector<uint8_t>> buffer) override;
+
+	/**
+	 * @brief Subtitle-specific data-fragment handling (not yet implemented).
+	 *
+	 * Overrides the base-class demuxer path.  Returns true (no error)
+	 * until subtitle injection via Rialto is supported.
+	 */
+	bool processDataFragment(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		std::shared_ptr<std::vector<uint8_t>> buffer) override;
+
+	/**
+	 * @brief Subtitle-specific sample injection (not yet implemented).
+	 *
+	 * Overrides the base-class injection path.  Returns false until
+	 * subtitle injection via Rialto is supported.
+	 */
+	bool injectSingleSample(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		AampMediaSample &&sample) override;
+
 protected:
 	bool mapCodecToMime(
 		GstStreamOutputFormat codecFormat,

@@ -72,3 +72,41 @@ AampRialtoSubtitleSource::createSegment(
 {
 	return nullptr;
 }
+
+// ---------------------------------------------------------------------------
+// processInitFragment — stub until subtitle Rialto injection is supported
+// ---------------------------------------------------------------------------
+
+std::optional<MediaCodecInfo> AampRialtoSubtitleSource::processInitFragment(
+	std::shared_ptr<std::vector<uint8_t>> /*buffer*/)
+{
+	// TODO: implement subtitle init-fragment parsing when subtitle
+	// injection via Rialto is supported.
+	return std::nullopt;
+}
+
+// ---------------------------------------------------------------------------
+// processDataFragment — stub until subtitle Rialto injection is supported
+// ---------------------------------------------------------------------------
+
+bool AampRialtoSubtitleSource::processDataFragment(
+	firebolt::rialto::IMediaPipeline & /*pipeline*/,
+	std::shared_ptr<std::vector<uint8_t>> /*buffer*/)
+{
+	// TODO: implement subtitle data-fragment injection when subtitle
+	// injection via Rialto is supported.
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// injectSingleSample — stub until subtitle Rialto injection is supported
+// ---------------------------------------------------------------------------
+
+bool AampRialtoSubtitleSource::injectSingleSample(
+	firebolt::rialto::IMediaPipeline & /*pipeline*/,
+	AampMediaSample && /*sample*/)
+{
+	// TODO: implement subtitle sample injection when subtitle
+	// injection via Rialto is supported.
+	return false;
+}

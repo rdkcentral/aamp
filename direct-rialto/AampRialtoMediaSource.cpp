@@ -619,3 +619,100 @@ void AampRialtoMediaSource::flushSource(
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// processInitFragment
+// ---------------------------------------------------------------------------
+
+std::optional<MediaCodecInfo> AampRialtoMediaSource::processInitFragment(
+	std::shared_ptr<std::vector<uint8_t>> buffer)
+{
+	if (!m_demuxer)
+	{
+		AAMPLOG_WARN("processInitFragment: no demuxer for mediaType=%d",
+			static_cast<int>(mediaType()));
+		return std::nullopt;
+	}
+	if (!m_demuxer->Parse(std::move(buffer)))
+	{
+		AAMPLOG_ERR(
+			"processInitFragment: Parse failed mediaType=%d err=%d",
+			static_cast<int>(mediaType()),
+			static_cast<int>(m_demuxer->GetLastError()));
+		return std::nullopt;
+	}
+	return m_demuxer->GetCodecInfo();
+}
+
+// ---------------------------------------------------------------------------
+// processDataFragment
+// ---------------------------------------------------------------------------
+
+bool AampRialtoMediaSource::processDataFragment(
+	firebolt::rialto::IMediaPipeline &pipeline,
+	std::shared_ptr<std::vector<uint8_t>> buffer)
+{
+	if (!m_demuxer)
+	{
+		AAMPLOG_WARN("processDataFragment: no demuxer for mediaType=%d",
+			static_cast<int>(mediaType()));
+		return false;
+	}
+	if (!m_demuxer->Parse(std::move(buffer)))
+	{
+		AAMPLOG_ERR(
+			"processDataFragment: Parse failed mediaType=%d err=%d",
+			static_cast<int>(mediaType()),
+			static_cast<int>(m_demuxer->GetLastError()));
+		return false;
+	}
+	auto samples = m_demuxer->GetSamples();
+	if (samples.empty())
+	{
+		return true;
+	}
+	if (!waitForAttach())
+	{
+		return true;
+	}
+	uint64_t capturedGen = captureGeneration();
+	auto pendingCodecData = takePendingCodecData();
+	bool firstSample = true;
+	for (auto &s : samples)
+	{
+		std::shared_ptr<firebolt::rialto::CodecData> codecData;
+		if (firstSample)
+		{
+			codecData = pendingCodecData;
+		}
+		firstSample = false;
+		if (!injectOneSample(pipeline, capturedGen, std::move(s), codecData))
+		{
+			AAMPLOG_INFO(
+				"processDataFragment: aborted mid-batch mediaType=%d",
+				static_cast<int>(mediaType()));
+			break;
+		}
+	}
+	AAMPLOG_INFO("Processed %zu samples for mediaType=%d",
+		samples.size(), static_cast<int>(mediaType()));
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// injectSingleSample
+// ---------------------------------------------------------------------------
+
+bool AampRialtoMediaSource::injectSingleSample(
+	firebolt::rialto::IMediaPipeline &pipeline,
+	AampMediaSample &&sample)
+{
+	if (!waitForAttach())
+	{
+		return false;
+	}
+	uint64_t capturedGen = captureGeneration();
+	auto pendingCodecData = takePendingCodecData();
+	return injectOneSample(
+		pipeline, capturedGen, std::move(sample), pendingCodecData);
+}

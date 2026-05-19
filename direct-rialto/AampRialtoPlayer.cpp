@@ -398,73 +398,52 @@ bool AampRialtoPlayer::SendTransfer(
 		// No source for this track (e.g. subtitle not yet supported).
 		AAMPLOG_INFO("No source for mediaType=%d — ignoring transfer",
 			static_cast<int>(mediaType));
+		AAMPLOG_INFO("EXIT");
 		return true;
 	}
-	Mp4Demux *demuxer = source->demuxer();
 
-	bool result = true;
-	if (!demuxer || buffer.empty())
+	if (!source->hasDemuxer() || buffer.empty())
 	{
-		if (!demuxer)
+		if (!source->hasDemuxer())
 		{
-			AAMPLOG_WARN("No demuxer for mediaType=%d", static_cast<int>(mediaType));
+			AAMPLOG_WARN("No demuxer for mediaType=%d",
+				static_cast<int>(mediaType));
 		}
+		AAMPLOG_INFO("EXIT");
+		return true;
 	}
-	else if (!demuxer->Parse(std::make_shared<std::vector<uint8_t>>(std::move(buffer))))
+
+	auto sharedBuffer =
+		std::make_shared<std::vector<uint8_t>>(std::move(buffer));
+	bool result = true;
+
+	if (initFragment)
 	{
-		AAMPLOG_ERR("Mp4Demux::Parse failed mediaType=%d err=%d", static_cast<int>(mediaType),
-			static_cast<int>(demuxer->GetLastError()));
-		result = false;
-	}
-	else if (initFragment)
-	{
-		std::lock_guard<std::mutex> lock(m_attachMutex);
-		if (m_pipeline)
+		auto codecInfo = source->processInitFragment(std::move(sharedBuffer));
+		if (!codecInfo)
 		{
-			MediaCodecInfo codecInfo = demuxer->GetCodecInfo();
-			AttachSource(*source, codecInfo);
+			AAMPLOG_ERR("processInitFragment failed mediaType=%d",
+				static_cast<int>(mediaType));
+			result = false;
 		}
 		else
 		{
-			AAMPLOG_ERR("pipeline not created");
+			std::lock_guard<std::mutex> lock(m_attachMutex);
+			if (m_pipeline)
+			{
+				AttachSource(*source, *codecInfo);
+			}
+			else
+			{
+				AAMPLOG_ERR("pipeline not created");
+			}
 		}
 	}
-	else
+	else if (m_pipeline)
 	{
-		// Non-init fragment: extract samples and inject one at a time.
-		auto samples = demuxer->GetSamples();
-		if (!samples.empty() && m_pipeline)
+		if (!source->processDataFragment(*m_pipeline, std::move(sharedBuffer)))
 		{
-			if (!source->waitForAttach())
-			{
-				return result;
-			}
-
-			uint64_t capturedGen = source->captureGeneration();
-			auto pendingCodecData = source->takePendingCodecData();
-
-			bool firstSample = true;
-			for (auto &s : samples)
-			{
-				std::shared_ptr<firebolt::rialto::CodecData> codecData;
-				if (firstSample)
-				{
-					codecData = pendingCodecData;
-				}
-				firstSample = false;
-
-				if (!source->injectOneSample(
-						*m_pipeline, capturedGen,
-						std::move(s), codecData))
-				{
-					AAMPLOG_INFO(
-						"SendTransfer aborted mid-batch mediaType=%d",
-						static_cast<int>(mediaType));
-					break;
-				}
-			}
-			AAMPLOG_INFO("Processed %zu samples for mediaType=%d",
-				samples.size(), static_cast<int>(mediaType));
+			result = false;
 		}
 	}
 
@@ -621,22 +600,9 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 		return result;
 	}
 
-	if (!source->waitForAttach())
-	{
-		AAMPLOG_WARN("source not attached for mediaType=%d",
-			static_cast<int>(mediaType));
-		AAMPLOG_INFO("EXIT result=%d", result);
-		return result;
-	}
-
 	if (m_pipeline)
 	{
-		uint64_t capturedGen = source->captureGeneration();
-		auto pendingCodecData = source->takePendingCodecData();
-
-		result = source->injectOneSample(
-			*m_pipeline, capturedGen,
-			std::move(sample), pendingCodecData);
+		result = source->injectSingleSample(*m_pipeline, std::move(sample));
 	}
 
 	AAMPLOG_INFO("EXIT result=%d", result);
