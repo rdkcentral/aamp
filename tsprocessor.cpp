@@ -1029,7 +1029,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 	while (packet < bufferEnd)
 	{
 		pid = (((packet[1] << 8) | packet[2]) & 0x1FFF);
-		AAMPLOG_TRACE("pid = %d, m_ttsSize %d", pid, m_ttsSize);
+		//AAMPLOG_TRACE("pid = %d, m_ttsSize %d", pid, m_ttsSize); // ~21K/segment when TRACE enabled
 
 		if (m_checkContinuity)
 		{
