@@ -12680,7 +12680,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				SetClosedCaptionsFromTextTrack(track);
 			}
 		}
-		 ReleaseStreamLock();
+		ReleaseStreamLock();
 	}
 }
 
