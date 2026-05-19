@@ -645,9 +645,9 @@ TEST_F(FunctionalTests, InitJob_HighPriority_ExecutesBeforeEnqueuedMediaJobs)
 
 	mTestableAampTrackWorker->Resume();
 
-	ASSERT_TRUE(futureInit.wait_for(std::chrono::seconds(2))   == std::future_status::ready);
-	ASSERT_TRUE(futureMedia1.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
-	ASSERT_TRUE(futureMedia2.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+	ASSERT_EQ(futureInit.wait_for(std::chrono::seconds(2)),   std::future_status::ready);
+	ASSERT_EQ(futureMedia1.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+	ASSERT_EQ(futureMedia2.wait_for(std::chrono::seconds(2)), std::future_status::ready);
 
 	ASSERT_EQ(executionOrder.size(), 3u);
 	// Init must run first despite being submitted last.
@@ -699,9 +699,9 @@ TEST_F(FunctionalTests, InitJob_LowPriority_ExecutesAfterEnqueuedMediaJobs)
 
 	mTestableAampTrackWorker->Resume();
 
-	ASSERT_TRUE(futureInit.wait_for(std::chrono::seconds(2))   == std::future_status::ready);
-	ASSERT_TRUE(futureMedia1.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
-	ASSERT_TRUE(futureMedia2.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+	ASSERT_EQ(futureInit.wait_for(std::chrono::seconds(2)),   std::future_status::ready);
+	ASSERT_EQ(futureMedia1.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+	ASSERT_EQ(futureMedia2.wait_for(std::chrono::seconds(2)), std::future_status::ready);
 
 	ASSERT_EQ(executionOrder.size(), 3u);
 	// Without priority boost, init executes AFTER the two queued media jobs.
