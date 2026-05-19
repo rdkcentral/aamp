@@ -118,7 +118,7 @@ void StreamAbstractionAAMP::RefreshSubtitles()
 {
 }
 
-void StreamAbstractionAAMP::UnblockWaitForCachedFragmentChunk()
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentInjected()
 {
 }
 
@@ -325,7 +325,7 @@ uint32_t MediaTrack::GetManifestUpdateCounter()
 	return 0;
 }
 
-bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
+bool MediaTrack::WaitForCachedFragmentInjected(int timeoutMs)
 {
 	return true;
 }
@@ -464,11 +464,11 @@ void StreamAbstractionAAMP::SetIsAtLivePoint(bool isAtLivePoint)
 	}
 }
 
-CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
+CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
 {
 	if (g_mockMediaTrack != nullptr)
 	{
-		return g_mockMediaTrack->GetFetchChunkBuffer(initialize);
+		return g_mockMediaTrack->GetFetchBuffer(initialize);
 	}
 	else
 	{
@@ -476,11 +476,11 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 	}
 }
 
-void MediaTrack::UpdateTSAfterChunkFetch()
+void MediaTrack::UpdateTSAfterFetch()
 {
 	if(g_mockMediaTrack != nullptr)
 	{
-		g_mockMediaTrack->UpdateTSAfterChunkFetch();
+		g_mockMediaTrack->UpdateTSAfterFetch();
 	}
 }
 
@@ -496,7 +496,7 @@ void MediaTrack::LoadNewAudio(bool)
 {
 }
 
-void MediaTrack::AbortWaitForCachedFragmentChunk()
+void MediaTrack::AbortWaitForCachedFragmentInjected()
 {
 }
 
@@ -504,7 +504,7 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
 	return 0;
 }
-void MediaTrack::SetCachedFragmentChunksSize(size_t size)
+void MediaTrack::SetCachedFragmentSize(size_t size)
 {
 }
 void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
@@ -539,10 +539,6 @@ void StreamAbstractionAAMP::GetPlayerPositionsHandler(long long& getPositionMS, 
 }
 
 void StreamAbstractionAAMP::SendVTTCueDataHandler(VTTCue* cueData)
-{
-}
-
-void MediaTrack::FlushFragmentChunks()
 {
 }
 
