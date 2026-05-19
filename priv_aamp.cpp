@@ -8587,7 +8587,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
-			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentChunk(); // avoid mutex lock if waiting for cached fragments
+			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentInjected(); // avoid mutex lock if waiting for cached fragments
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 		}
 		double latency = GetCurrentLatencyMs();

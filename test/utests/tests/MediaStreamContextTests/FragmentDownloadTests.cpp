@@ -180,8 +180,8 @@ class FragmentDownloadSuccessParamTest
  * After unifying DASH onto the chunk cache, OnFragmentDownloadSuccess no longer
  * uses the per-fragment ring buffer. Instead:
  *  - Non-LLD (chunkMode=false): CacheStagingFragmentForInjection() copies the
- *    staging fragment into a chunk-buffer slot via GetFetchChunkBuffer /
- *    UpdateTSAfterChunkFetch so the inject thread picks it up.
+ *    staging fragment into a chunk-buffer slot via GetFetchBuffer /
+ *    UpdateTSAfterFetch so the inject thread picks it up.
  *  - LLD (chunkMode=true): media data was already pushed during SSL callbacks;
  *    here only the time-based buffer counter is consumed.
  */
@@ -222,8 +222,8 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 	auto chunkSlot = std::make_shared<CachedFragment>();
 	if (!chunkMode)
 	{
-		EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true)).WillOnce(Return(chunkSlot.get()));
-		EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
+		EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true)).WillOnce(Return(chunkSlot.get()));
+		EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch());
 	}
 
 	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
@@ -447,7 +447,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_TrackDownloadsDisabled_DoesNo
 
 	// Ensure there is cache capacity so only the "track downloads disabled"
 	// condition prevents caching.
-	mMediaStreamContext->numberOfFragmentChunksCached = 0;
+	mMediaStreamContext->numberOfFragmentsCached = 0;
 
 	// Configure the max fragment cache size (not full).
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -504,7 +504,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_CacheFull_DoesNotCache)
 	constexpr int maxCache = 1;
 
 	// Simulate cache already at capacity.
-	mMediaStreamContext->numberOfFragmentChunksCached = maxCache;
+	mMediaStreamContext->numberOfFragmentsCached = maxCache;
 
 	// Configure the cache size so "full" condition is true.
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -547,7 +547,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_LLD_LocalTSBInjection_Caches)
 
 	// Enable low-latency mode and leave cache capacity available.
 	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
-	mMediaStreamContext->numberOfFragmentChunksCached = 0;
+	mMediaStreamContext->numberOfFragmentsCached = 0;
 
 	// Simulate local TSB injection; this should bypass the LLD wait loop.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
@@ -594,7 +594,7 @@ TEST_F(FragmentDownloadTests, DownloadFragment_NotBlocked_CachesExpected)
 
 	// Enable low-latency mode and ensure cache has room.
 	mPrivateInstanceAAMP->GetLLDashServiceData()->lowLatencyMode = true;
-	mMediaStreamContext->numberOfFragmentChunksCached = 0;
+	mMediaStreamContext->numberOfFragmentsCached = 0;
 
 	// Configure cache size to permit caching.
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -690,7 +690,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 		reinterpret_cast<const uint8_t*>(testData.data()),
 		reinterpret_cast<const uint8_t*>(testData.data()) + testData.size());
 
-	// A CachedFragment for CacheStagingFragmentForInjection's GetFetchChunkBuffer call.
+	// A CachedFragment for CacheStagingFragmentForInjection's GetFetchBuffer call.
 	auto chunkBuffer = std::make_shared<CachedFragment>();
 
 	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>();
@@ -741,9 +741,9 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_CheckEos_PausedDueToUnde
 		.Times(1);
 
 	// Else block: SLD re-cache via CacheStagingFragmentForInjection.
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
 		.WillOnce(Return(chunkBuffer.get()));
-	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch());
 
 	// --- Execute ---
 	EXPECT_NO_THROW(mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo));
@@ -778,13 +778,13 @@ TEST_F(FragmentDownloadTests, CacheTsbFragment_MoveSemantics_TransfersOwnership)
 	sourceFragment->initFragment = true;
 	sourceFragment->discontinuity = true;
 
-	// The ring buffer slot that GetFetchChunkBuffer will return.
+	// The ring buffer slot that GetFetchBuffer will return.
 	auto ringBufferSlot = std::make_shared<CachedFragment>();
 
-	// WaitForCachedFragmentChunkInjected is handled by the fake (always returns true).
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+	// WaitForCachedFragmentInjected is handled by the fake (always returns true).
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
 		.WillOnce(Return(ringBufferSlot.get()));
-	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch());
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch());
 
 	// --- Act ---
 	// std::move transfers the shared_ptr into the && parameter without
@@ -865,7 +865,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 	// Pre-populate the staging fragment so CacheStagingFragmentForInjection has
 	// data to write.
 	// An empty fragment would short-circuit through the "Empty cachedFragment ignored"
-	// warning path, preventing GetFetchChunkBuffer from ever being called.
+	// warning path, preventing GetFetchBuffer from ever being called.
 	// EnqueueWrite (fake no-op) evaluates context->GetPeriod()->GetId() as an
 	// argument, so GetPeriod() must be stubbed to return a valid period.
 	static constexpr uint8_t kTestData[] = {0xAA, 0xBB, 0xCC, 0xDD};
@@ -873,7 +873,7 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 		kTestData, kTestData + sizeof(kTestData));
 
 	DummyPeriod dummyPeriod;
-	// A CachedFragment for CacheStagingFragmentForInjection's GetFetchChunkBuffer call.
+	// A CachedFragment for CacheStagingFragmentForInjection's GetFetchBuffer call.
 	auto chunkBuffer = std::make_shared<CachedFragment>();
 
 	// --- Mock setup ---
@@ -887,12 +887,12 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetPeriod())
 		.WillOnce(Return(&dummyPeriod));
 
-	// KEY assertion: GetFetchChunkBuffer + UpdateTSAfterChunkFetch are called iff
+	// KEY assertion: GetFetchBuffer + UpdateTSAfterFetch are called iff
 	// the fragment is NOT discarded.  Without the !wasUnderFlowActive guard the
 	// discard path would be taken and neither call would occur (stall bug).
-	EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
 		.WillOnce(Return(chunkBuffer.get()));
-	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterChunkFetch()).Times(1);
+	EXPECT_CALL(*g_mockMediaTrack, UpdateTSAfterFetch()).Times(1);
 	// IsLocalTSBInjection() is checked in the discard-guard condition;
 	// must be non-blocking with StrictMock.
 	EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection()).WillRepeatedly(Return(false));
