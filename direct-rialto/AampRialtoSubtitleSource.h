@@ -89,7 +89,7 @@ protected:
 	void updateCachedMetadata(const MediaCodecInfo &codecInfo) override;
 
 	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
-		createSegment(int64_t ptsNs, int64_t durationNs) const override;
+		createSegment(const AampMediaSample &sample) const override;
 };
 
 #endif /* AAMP_RIALTO_SUBTITLE_SOURCE_H */

@@ -315,9 +315,7 @@ bool AampRialtoMediaSource::injectOneSample(
 		}
 
 		// Build the segment outside the lock (polymorphic).
-		auto segment = createSegment(
-			static_cast<int64_t>(sample.mPts * kNsPerSecond),
-			static_cast<int64_t>(sample.mDuration * kNsPerSecond));
+		auto segment = createSegment(sample);
 		if (!segment)
 		{
 			AAMPLOG_WARN("createSegment returned null for sourceId=%d",

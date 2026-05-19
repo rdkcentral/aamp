@@ -68,7 +68,7 @@ void AampRialtoSubtitleSource::updateCachedMetadata(
 
 std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 AampRialtoSubtitleSource::createSegment(
-	int64_t /*ptsNs*/, int64_t /*durationNs*/) const
+	const AampMediaSample & /*sample*/) const
 {
 	return nullptr;
 }

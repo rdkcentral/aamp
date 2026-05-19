@@ -57,6 +57,6 @@ public:
 
 	MOCK_METHOD(std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>,
 		createSegment,
-		(int64_t ptsNs, int64_t durationNs),
+		(const AampMediaSample &sample),
 		(const, override));
 };

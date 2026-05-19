@@ -321,9 +321,11 @@ protected:
 	 * @brief Create a Rialto MediaSegment for injection.
 	 *
 	 * Video returns MediaSegmentVideo; audio returns MediaSegmentAudio.
+	 * The full @p sample is provided so subtitle (and future) overrides
+	 * can access any field beyond pts/duration.
 	 */
 	virtual std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
-		createSegment(int64_t ptsNs, int64_t durationNs) const = 0;
+		createSegment(const AampMediaSample &sample) const = 0;
 
 	// -----------------------------------------------------------------
 	// Members

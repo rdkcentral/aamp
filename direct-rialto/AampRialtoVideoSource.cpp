@@ -90,8 +90,10 @@ void AampRialtoVideoSource::updateCachedMetadata(
 
 std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 AampRialtoVideoSource::createSegment(
-	int64_t ptsNs, int64_t durationNs) const
+	const AampMediaSample &sample) const
 {
+	const int64_t ptsNs      = static_cast<int64_t>(sample.mPts      * kNsPerSecond);
+	const int64_t durationNs = static_cast<int64_t>(sample.mDuration * kNsPerSecond);
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSegmentVideo>(
 		m_sourceId, ptsNs, durationNs, m_width, m_height);

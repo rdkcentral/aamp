@@ -242,10 +242,12 @@ protected:
 					ON_CALL(*rawPtr, updateCachedMetadata(_))
 						.WillByDefault(Return());
 
-					ON_CALL(*rawPtr, createSegment(_, _))
+					ON_CALL(*rawPtr, createSegment(_))
 						.WillByDefault(Invoke(
-							[](int64_t ptsNs, int64_t durationNs)
+							[](const AampMediaSample &sample)
 							{
+								const int64_t ptsNs      = static_cast<int64_t>(sample.mPts      * kNsPerSecond);
+								const int64_t durationNs = static_cast<int64_t>(sample.mDuration * kNsPerSecond);
 								return std::make_unique<
 									firebolt::rialto::IMediaPipeline::MediaSegmentVideo>(
 										0, ptsNs, durationNs, 0, 0);

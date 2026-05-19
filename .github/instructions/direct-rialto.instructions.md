@@ -199,6 +199,30 @@ The following patterns **must always** have a log:
 
 ---
 
+## Commit Messages — Always Provide After a Summary of Changes
+
+Whenever you provide a summary of changes made to `direct-rialto/` code, you
+**must** also supply a ready-to-use `git commit message` in the following format:
+
+```
+<Imperative subject line, ≤ 72 characters>
+
+<Body: one paragraph explaining *why* the change was made and what
+approach was taken.  Omit obvious restatements of the diff.>
+
+Files changed:
+- <path> — <one-line reason>
+- ...
+```
+
+Rules:
+- Subject line must be imperative mood ("Add", "Fix", "Refactor", not "Added").
+- Body must explain motivation, not just mechanics.
+- List every file touched, with a short reason for each.
+- The message must be usable verbatim with `git commit -m` or in a PR title/body.
+
+---
+
 ## Architecture Guidance
 
 The target architecture is described in
