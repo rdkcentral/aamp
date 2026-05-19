@@ -2031,21 +2031,20 @@ TEST_F(InterfacePlayerTests, Pause_AsyncStateChange_ValidationFails_RecoverySucc
 		errorCallbackInvoked = true;
 	};
 
-	// For the serialization check and the first validateStateWithMsTimeout calls: return PAUSED_PLAYING
-	// to simulate a failure, then succeed on retry's validateStateWithMsTimeout.
 	// First call (serialization): return SUCCESS (no pending transition).
-	// First set of validate calls: return SUCCESS but with wrong state (NULL) to force retry.
-	// After retry set_state, validate calls return PAUSED correctly.
+	// First set of validate calls: return SUCCESS but with wrong state (NULL) to force validation
+	// failure and trigger the retry path.
+	// After retry set_state returns SUCCESS directly, no further validateStateWithMsTimeout runs.
 	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, NotNull(), NotNull(), _))
-		.WillOnce(DoAll(  // serialization check
+		.WillOnce(DoAll(  // serialization check: no pending async transition
 			SetArgPointee<1>(GST_STATE_PAUSED),
 			SetArgPointee<2>(GST_STATE_VOID_PENDING),
 			Return(GST_STATE_CHANGE_SUCCESS)))
-		.WillOnce(DoAll(  // SetStateWithWarnings internal check
+		.WillOnce(DoAll(  // SetStateWithWarnings (1st attempt) internal pre-transition state check
 			SetArgPointee<1>(GST_STATE_PAUSED),
 			SetArgPointee<2>(GST_STATE_VOID_PENDING),
 			Return(GST_STATE_CHANGE_SUCCESS)))
-		.WillRepeatedly(DoAll(  // validateStateWithMsTimeout calls (1st attempt): wrong state
+		.WillRepeatedly(DoAll(  // validateStateWithMsTimeout and retry internal checks: wrong state forces failure
 			SetArgPointee<1>(GST_STATE_NULL),
 			SetArgPointee<2>(GST_STATE_VOID_PENDING),
 			Return(GST_STATE_CHANGE_SUCCESS)));

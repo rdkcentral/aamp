@@ -3362,33 +3362,32 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 
 				/* Recovery: retry the state change once before reporting failure */
 				MW_LOG_MIL("InterfacePlayerRDK_Pause - retrying state change to GstState %d", nextState);
+
+				auto reportStateChangeError = [this](const char *msg, const char *dbg_info) {
+					MW_LOG_ERR("InterfacePlayerRDK_Pause - %s", msg);
+					if (busMessageCallback)
+					{
+						BusEventData busEvent;
+						busEvent.msgType = MESSAGE_ERROR;
+						busEvent.msg = msg;
+						busEvent.dbg_info = dbg_info;
+						busMessageCallback(std::move(busEvent));
+					}
+				};
+
 				GstStateChangeReturn rcRetry = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
 				if (GST_STATE_CHANGE_ASYNC == rcRetry)
 				{
 					if (nextState != validateStateWithMsTimeout(this, nextState, 100))
 					{
-						MW_LOG_ERR("InterfacePlayerRDK_Pause - recovery failed for GstState %d, reporting error", nextState);
-						if (busMessageCallback)
-						{
-							BusEventData busEvent;
-							busEvent.msgType = MESSAGE_ERROR;
-							busEvent.msg = "Pipeline failed to transition to target state after retry";
-							busEvent.dbg_info = "validateStateWithMsTimeout recovery failed";
-							busMessageCallback(std::move(busEvent));
-						}
+						reportStateChangeError("Pipeline failed to transition to target state after retry",
+											   "validateStateWithMsTimeout recovery failed");
 					}
 				}
 				else if (GST_STATE_CHANGE_SUCCESS != rcRetry)
 				{
-					MW_LOG_ERR("InterfacePlayerRDK_Pause - retry state change failed, rc=%d", rcRetry);
-					if (busMessageCallback)
-					{
-						BusEventData busEvent;
-						busEvent.msgType = MESSAGE_ERROR;
-						busEvent.msg = "Pipeline state change retry failed";
-						busEvent.dbg_info = "SetStateWithWarnings retry failed";
-						busMessageCallback(std::move(busEvent));
-					}
+					reportStateChangeError("Pipeline state change retry failed",
+										   "SetStateWithWarnings retry failed");
 				}
 			}
 		}
