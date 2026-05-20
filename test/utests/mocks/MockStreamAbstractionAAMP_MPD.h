@@ -41,6 +41,7 @@ public:
 	MOCK_METHOD(Accessibility, getAccessibilityNode, (AampJsonObject &accessNode));
 	MOCK_METHOD(std::vector<AudioTrackInfo>&, GetAvailableAudioTracks, (bool allTrack), (override));
 	MOCK_METHOD(double, GetFirstPTS, (), (override));
+	MOCK_METHOD(AAMPStatusType, UpdateTrackInfo, (bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit), (override));
 
   };
 
