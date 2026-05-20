@@ -4,34 +4,11 @@
 function rialto_install_fn() {
 
     # Install
-    if [ -d "protobuf" ]; then
-        echo "rialto is already installed"
-        INSTALL_STATUS_ARR+=("protobuf was already installed.")
-    else
-        do_clone_github_repo_fn https://github.com/protocolbuffers/protobuf.git protobuf -b ${OPTION_PROTOBUF_REFERENCE} --recursive
-    fi
+    do_clone_github_repo_fn https://github.com/protocolbuffers/protobuf.git protobuf -b ${OPTION_PROTOBUF_REFERENCE} --recursive
 
-    if [ -d "rialto" ]; then
-        echo "rialto exists"
-        INSTALL_STATUS_ARR+=("rialto was already installed.")
-    else
-        do_clone_fn https://github.com/rdkcentral/rialto.git rialto
-        pushd rialto
-        echo "Checkout rialto '${OPTION_RIALTO_REFERENCE}'"
-        git checkout ${OPTION_RIALTO_REFERENCE}
-        popd
-    fi
+    do_clone_github_repo_fn https://github.com/rdkcentral/rialto.git rialto -b ${OPTION_RIALTO_REFERENCE} --recursive
 
-    if [ -d "rialto-gstreamer" ]; then
-        echo "rialto-gstreamer exists"
-        INSTALL_STATUS_ARR+=("rialto-streamer was already installed.")
-    else
-       do_clone_fn https://github.com/rdkcentral/rialto-gstreamer.git rialto-gstreamer
-       pushd rialto-gstreamer
-       echo "Checkout rialto-gstreamer '${OPTION_RIALTO_REFERENCE}'"
-       git checkout ${OPTION_RIALTO_REFERENCE}
-       popd
-    fi
+    do_clone_github_repo_fn https://github.com/rdkcentral/rialto-gstreamer.git rialto-gstreamer -b ${OPTION_RIALTO_GSTREAMER_REFERENCE} --recursive
 }
 
 function rialto_build_repo_fn()
