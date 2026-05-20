@@ -2460,6 +2460,7 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 	{
 		AAMPLOG_WARN("Video is NULL!! Returning buffer value as %.02lf !!",bufferValue);
 	}
+	AAMPLOG_INFO("bufferValue %.02lf track %s",bufferValue,track->name);
 	return bufferValue;
 }
 
