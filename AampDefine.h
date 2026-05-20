@@ -213,7 +213,11 @@
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
-#define MAX_CACHED_FRAGMENTS_PER_TRACK			20					/**< Hard upper limit for the per-track fragment ring buffer; mCachedFragment[] is sized by this value. No config or SetCachedFragmentSize call may exceed it. */
+/** Hard upper limit for the per-track fragment ring buffer.
+ *  mCachedFragment[] is sized by this value.
+ *  No config or SetCachedFragmentSize call may exceed it.
+ */
+#define MAX_CACHED_FRAGMENTS_PER_TRACK  20
 #define DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK	MAX_CACHED_FRAGMENTS_PER_TRACK	/**< Default LLD cached fragments per track; must be <= MAX_CACHED_FRAGMENTS_PER_TRACK */
 static_assert(DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRACK,
 	"DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK must not exceed MAX_CACHED_FRAGMENTS_PER_TRACK");

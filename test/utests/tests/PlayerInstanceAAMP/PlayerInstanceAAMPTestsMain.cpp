@@ -1559,7 +1559,7 @@ TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest1) {
 TEST_F(PlayerInstanceAAMPTests, SetDownloadBufferSizeTest2) {
 	// SetDownloadBufferSize unconditionally forwards to the config layer;
 	// range enforcement (rejection of values > MAX_CACHED_FRAGMENTS_PER_TRACK)
-	// is the config layer's responsibility and is exercised in ConfigTests::configSetGetInt.
+	// is the config layer's responsibility and is exercised in AampConfigTests::configSetGetInt.
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxFragmentCached, INT_MAX)).Times(1);
 	mPlayerInstance->SetDownloadBufferSize(INT_MAX);
 }
