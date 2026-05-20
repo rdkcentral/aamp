@@ -7310,9 +7310,11 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 	}
 
-	if(1 == mNumberOfTracks
-		&& mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_AUDIO]
-		&& !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+	if (!mMediaStreamContext[eMEDIATYPE_VIDEO] || !mMediaStreamContext[eMEDIATYPE_AUDIO])
+	{
+		AAMPLOG_ERR("StreamAbstractionAAMP_MPD: null track context in audio-only check");
+	}
+	else if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
 		{
