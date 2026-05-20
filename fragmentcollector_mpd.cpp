@@ -5457,7 +5457,7 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 				// time to set / adjust the event start and duration relative to the start time of the stream
 				if (eventInfo.presentationTime && (startOffsetMS > -1))
 				{
-					AAMPLOG_INFO("DEBUG-->CDAI event presentation time %" PRIu64 " ms, stream start offset %lld ms", eventInfo.presentationTime, startOffsetMS);
+					AAMPLOG_INFO("DEBUG-->CDAI event presentation time %" PRIu64 " ms, stream start offset %" PRId64 " ms", eventInfo.presentationTime, startOffsetMS);
 					// Adjust for stream start offset and check for pts wrap
 					eventStartTime = eventInfo.presentationTime;
 					if (eventStartTime < startOffsetMS)
