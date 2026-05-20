@@ -2804,16 +2804,16 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
 					auto formatPos = [](double valMs) -> long {
-						return (valMs == -1.0) ? -1 : (long)(valMs / 1000);
+						return (valMs < 0) ? -1 : (long)(valMs / 1000);
 					};
 					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
 							formatPos(start),
 							(long)(reportFormattedCurrPos / 1000),
 							formatPos(end),
-							(long long) videoPTS,
-							(double)(videoBufferedDuration / 1000.0),
-							(double)(audioBufferedDuration /1000.0),
-							(double)(latency / 1000.0),
+							videoPTS,
+							videoBufferedDuration / 1000.0,
+							audioBufferedDuration / 1000.0,
+							latency / 1000.0,
 							seiTimecode.c_str(),
 							bps,
 							networkBandwidth,
