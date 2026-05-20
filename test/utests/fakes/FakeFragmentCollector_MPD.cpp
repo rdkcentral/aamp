@@ -343,3 +343,8 @@ uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
 {
 	return 0;
 }
+
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
+{
+	return eAAMPSTATUS_OK;
+}
