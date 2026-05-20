@@ -1013,7 +1013,7 @@ void ABRManager::GetDesiredProfileOnBuffer(int currProfileIndex,int &newProfileI
 {
 	BitsPerSecond currentBandwidth = getBandwidthOfProfile(currProfileIndex);
 	BitsPerSecond newBandwidth     = getBandwidthOfProfile(newProfileIndex);
-	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d currentBandwidth %" BITSPERSECOND_FORMAT " newBandwidth %" BITSPERSECOND_FORMAT " bufferValue %lf, minBufferNeeded %lf maxBuffer %lf",
+	AAMPLOG_INFO("currProfileIndex %d newProfileIndex %d currentBandwidth %" BITSPERSECOND_FORMAT " newBandwidth %" BITSPERSECOND_FORMAT " bufferValue %lf, minBufferNeeded %lf maxBuffer %d",
 		currProfileIndex, newProfileIndex, currentBandwidth, newBandwidth,
 		bufferValue, minBufferNeeded, eAAMPAbrConfig.abrMaxBuffer);
 	if(bufferValue > 0 )
