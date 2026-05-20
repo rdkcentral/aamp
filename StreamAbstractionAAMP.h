@@ -33,6 +33,7 @@
 #include <iterator>
 #include <vector>
 #include <array>
+#include <atomic>
 #include <condition_variable>
 
 #include <glib.h>
@@ -548,7 +549,10 @@ public:
 	/**
 	 * @brief Returns if the end of track reached.
 	 */
-	virtual bool IsAtEndOfTrack() { return eosReached;}
+	virtual bool IsAtEndOfTrack()
+	{
+		return eosReached.load(std::memory_order_acquire);
+	}
 
 	/**
 	 * @fn CheckForFutureDiscontinuity
@@ -779,7 +783,7 @@ private:
 	void ClearMediaHeaderDuration(CachedFragment* cachedFragment);
 
 public:
-	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
+	std::atomic_bool eosReached;        /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
 	int numberOfFragmentsCached;        /**< Number of fragments cached in this track*/
 	const char* name;                   /**< Track name used for debugging*/

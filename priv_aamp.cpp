@@ -7756,6 +7756,10 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 			SetState(eSTATE_PLAYING);
 		}
 	}
+	else
+	{
+		AAMPLOG_WARN("End of stream reached for media type %d", mediaType);
+	}
 }
 
 /**

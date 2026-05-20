@@ -557,7 +557,7 @@ void MediaStreamContext::SignalTrickModeDiscontinuity()
  */
 bool MediaStreamContext::IsAtEndOfTrack()
 {
-	return eosReached;
+	return eosReached.load(std::memory_order_acquire);
 }
 
 /**

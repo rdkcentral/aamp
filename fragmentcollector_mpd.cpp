@@ -3832,7 +3832,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			{
 				for (int i = 0; i < mNumberOfTracks; i++)
 				{
-					mMediaStreamContext[i]->eosReached=true;
+					mMediaStreamContext[i]->eosReached.store(true, std::memory_order_release);
 				}
 				AAMPLOG_WARN("seek target out of range, mark EOS. playTarget:%f End:%f. ",
 					seekPosition, seekWindowEnd);
@@ -9233,11 +9233,11 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 		// During rewind, due to miscalculations in fragmentTime, we could end up exiting collector loop without pushing EOS
 		// For the time being, will check additionally here to push EOS
 		if ((mPlayRate < AAMP_NORMAL_PLAY_RATE && mIterPeriodIndex < 0) &&
-			(!mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached))
+			(!mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached.load(std::memory_order_acquire)))
 		{
 			AAMPLOG_INFO("EOS Reached. mPlayRate=%f mIterPeriodIndex=%d", mPlayRate, mIterPeriodIndex);
 			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-				mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached.store(true, std::memory_order_release);
 				mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 				AAMPLOG_INFO("Video EOS Marked after checking EOS on manifest");
 			});
@@ -10019,7 +10019,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						if (vEos)
 						{
 							auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-								mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
+								mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached.store(true, std::memory_order_release);
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
@@ -10038,7 +10038,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							if (mMediaStreamContext[eMEDIATYPE_AUDIO]->eos)
 							{
 								auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-									mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
+									mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached.store(true, std::memory_order_release);
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
@@ -10309,7 +10309,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					{
 						// Mark trickplay EOS and inform injector to perform seek or seek to live
 						AAMPLOG_INFO("Reader at EOS while trickplay");
-						mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
+						mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached.store(true, std::memory_order_release);
 						mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 						breakLoop = true;
 					}
@@ -10736,7 +10736,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 			mMediaStreamContext[i]->SetCachedFragmentSize(static_cast<size_t>(GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached)));
 		}
 
-		mMediaStreamContext[i]->eosReached = false;
+		mMediaStreamContext[i]->eosReached.store(false, std::memory_order_release);
 		if(aamp->IsPlayEnabled())
 		{
 			aamp->ResumeTrackInjection((AampMediaType) i);

@@ -708,9 +708,10 @@ bool MediaTrack::WaitForCachedFragmentAvailable()
 
 	if ((numberOfFragmentsCached == 0) && !(abort || abortInject))
 	{
-		AAMPLOG_DEBUG("## [%s] Waiting for CachedFragment to be available, eosReached=%d ##", name, eosReached);
+		bool eos = eosReached.load(std::memory_order_acquire);
+		AAMPLOG_DEBUG("## [%s] Waiting for CachedFragment to be available, eosReached=%d ##", name, eos);
 
-		if (!eosReached)
+		if (!eos)
 		{
 			fragmentFetched.wait(lock);
 			AAMPLOG_DEBUG("[%s] wait complete for fragmentFetched", name);
@@ -1552,7 +1553,7 @@ bool MediaTrack::SignalIfEOSReached()
 {
 	bool ret = false;
 	//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
-	if (eosReached && (eTRACK_SUBTITLE != type))
+	if (eosReached.load(std::memory_order_acquire) && (eTRACK_SUBTITLE != type))
 	{
 		//Save the playback rate prior to sending EOS
 		StreamAbstractionAAMP* pContext = GetContext();
@@ -1573,6 +1574,10 @@ bool MediaTrack::SignalIfEOSReached()
 		{
 			AAMPLOG_WARN("GetContext is null");  //CID:81799 - Null Return
 		}
+	}
+	else
+	{
+		AAMPLOG_WARN("media type %d, EOS not Reached %d", type, eosReached.load(std::memory_order_acquire));
 	}
 	return ret;
 }
