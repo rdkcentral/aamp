@@ -434,6 +434,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_FirstMediaFragment)
 			sample.mPts = 1000.0;
 			sample.mDts = 1000.0;
 			sample.mDuration = 100.0;
+			sample.mIsKeyFrame = true;
 			samples.push_back(std::move(sample));
 			return samples;
 		});
@@ -513,6 +514,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_RewindModeMultipleFragments)
 				sample.mPts = originalPts;
 				sample.mDts = originalPts;
 				sample.mDuration = kFragmentDuration;
+				sample.mIsKeyFrame = true;
 				samples.push_back(std::move(sample));
 				return samples;
 			});
@@ -618,6 +620,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NormalToTrickplayTransition)
 			sample.mPts = 3000.0;
 			sample.mDts = 3000.0;
 			sample.mDuration = 100.0;
+			sample.mIsKeyFrame = true;
 			samples.push_back(std::move(sample));
 			return samples;
 		});
@@ -705,6 +708,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NoDuplicateInitAtSameRate)
 			sample.mPts = 1000.0;
 			sample.mDts = 1000.0;
 			sample.mDuration = 100.0;
+			sample.mIsKeyFrame = true;
 			samples.push_back(std::move(sample));
 			return samples;
 		});
@@ -749,6 +753,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NoDuplicateInitAtSameRate)
 			sample.mPts = 3000.0; // 2 seconds later
 			sample.mDts = 3000.0;
 			sample.mDuration = 100.0;
+			sample.mIsKeyFrame = true;
 			samples.push_back(std::move(sample));
 			return samples;
 		});
