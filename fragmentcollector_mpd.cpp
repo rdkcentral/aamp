@@ -7310,7 +7310,9 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 	}
 
-	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+	if(1 == mNumberOfTracks
+		&& mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_AUDIO]
+		&& !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
 		{
