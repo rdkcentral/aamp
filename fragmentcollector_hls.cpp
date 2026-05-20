@@ -1293,10 +1293,10 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 		if (!mInjectInitFragment && !fragmentURI.empty() && !bSegmentRepeated)
 		{
 			std::string fragmentUrl;
-			CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
+			CachedFragment* cachedFragment = GetFetchBuffer(true);
 			if (!cachedFragment)
 			{
-				AAMPLOG_WARN("[%s] GetFetchChunkBuffer returned null", name);
+				AAMPLOG_WARN("[%s] GetFetchBuffer returned null", name);
 				ReleasePlaylistLock();
 				return false;
 			}
@@ -1665,10 +1665,10 @@ void TrackState::FetchFragment()
 			context->mRampDownCount = 0;
 		}
 
-		CachedFragment* cachedFragment = GetFetchChunkBuffer(false);
+		CachedFragment* cachedFragment = GetFetchBuffer(false);
 		if (!cachedFragment)
 		{
-			AAMPLOG_WARN("[%s] GetFetchChunkBuffer returned null in FetchFragment", name);
+			AAMPLOG_WARN("[%s] GetFetchBuffer returned null in FetchFragment", name);
 			return;
 		}
 		if (cachedFragment->fragment.capacity() != 0)
@@ -1734,11 +1734,11 @@ void TrackState::FetchFragment()
 			AAMPLOG_WARN("%s cachedFragment->fragment has no allocated data buffer", name);
 		}
 		mSkipAbr = false; //To enable ABR since we have cached fragment after init fragment
-		// Order matters: UpdateTSAfterChunkFetch() increments numberOfFragmentChunksCached,
+		// Order matters: UpdateTSAfterFetch() increments numberOfFragmentsCached,
 		// which UpdateTSAfterFetchStats() then reads for its cache-full / caching-complete
 		// decision. Calling the stats function first would observe a stale (pre-increment)
 		// count and miss the "chunk cache is full" abort trigger on the slot-filling fragment.
-		UpdateTSAfterChunkFetch();
+		UpdateTSAfterFetch();
 		UpdateTSAfterFetchStats(cachedFragment, false);
 	}
 }
@@ -6084,10 +6084,10 @@ void TrackState::FetchInitFragment()
 		{
 			aamp->profiler.ProfileEnd(bucketType);
 
-			CachedFragment *cachedFragment = GetFetchChunkBuffer(false);
+			CachedFragment *cachedFragment = GetFetchBuffer(false);
 			if (!cachedFragment)
 			{
-				AAMPLOG_WARN("[%s] GetFetchChunkBuffer returned null for init fragment in FetchFragment", name);
+				AAMPLOG_WARN("[%s] GetFetchBuffer returned null for init fragment in FetchFragment", name);
 				mInjectInitFragment = true; // mark for retry
 				return;
 			}
@@ -6108,10 +6108,10 @@ void TrackState::FetchInitFragment()
 			mSkipAbr = true;				  // Skip ABR, since last fragment cached is init fragment.
 			mCheckForInitialFragEnc = false;  // Push encrypted header is a one-time operation
 			mFirstEncInitFragmentInfo = NULL; // reset init fragment, since encrypted header already pushed
-			// Order matters: UpdateTSAfterChunkFetch() increments numberOfFragmentChunksCached,
+			// Order matters: UpdateTSAfterFetch() increments numberOfFragmentsCached,
 			// which UpdateTSAfterFetchStats() reads for cache-full / caching-complete handling.
 			// Kept consistent with FetchFragment() to avoid divergent stale-count behaviour.
-			UpdateTSAfterChunkFetch();
+			UpdateTSAfterFetch();
 			UpdateTSAfterFetchStats(cachedFragment, true);
 		}
 		else if (type == eTRACK_VIDEO && aamp->CheckABREnabled() && !context->CheckForRampDownLimitReached())
@@ -6246,10 +6246,10 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			std::string fragmentUrl;
 			aamp_ResolveURL(fragmentUrl, mEffectiveUrl, uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 			std::string tempEffectiveUrl;
-			CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
+			CachedFragment* cachedFragment = GetFetchBuffer(true);
 			if (!cachedFragment)
 			{
-				AAMPLOG_WARN("[%s] GetFetchChunkBuffer returned null in FetchInitFragmentHelper", name);
+				AAMPLOG_WARN("[%s] GetFetchBuffer returned null in FetchInitFragmentHelper", name);
 				return false;
 			}
 			AAMPLOG_WARN("TrackState::[%s] init-fragment = %s", name, fragmentUrl.c_str());

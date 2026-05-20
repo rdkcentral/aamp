@@ -284,7 +284,7 @@ typedef enum
 	eAAMPConfig_GstAudioBufBytes,                                           /**< Gstreamer Max Audio buffering bytes*/
 	eAAMPConfig_LatencyMonitorDelayMs,               				/**< Latency Monitor Delay */
 	eAAMPConfig_LatencyMonitorIntervalMs,           				/**< Latency Monitor Interval */
-	eAAMPConfig_MaxFragmentChunkCached,           				/**< fragment chunk cache length*/
+	eAAMPConfig_MaxLLDFragmentCached,           				/**< LLD fragment cache length */
 	eAAMPConfig_ABRChunkThresholdSize,                			/**< AAMP ABR Chunk threshold size*/
 	eAAMPConfig_FragmentDownloadFailThreshold, 				/**< Retry attempts for non-init fragment curl timeout failures*/
 	eAAMPConfig_MaxInitFragCachePerTrack,					/**< Max no of Init fragment cache per track */

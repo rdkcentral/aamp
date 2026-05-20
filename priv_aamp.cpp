@@ -3959,14 +3959,6 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
-			if (ContentType_EAS == mContentType)
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Stop(false);
-				}
-			}
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
 			trickStartUTCMS = -1;
 			return;
@@ -8583,7 +8575,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
-			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentChunk(); // avoid mutex lock if waiting for cached fragments
+			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentInjected(); // avoid mutex lock if waiting for cached fragments
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 		}
 		double latency = GetCurrentLatencyMs();
