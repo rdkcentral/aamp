@@ -163,6 +163,10 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_FastForwardRate_Skip
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
 		.WillOnce(Return(true));
 
+	// Accumulated latency is below the trickplay threshold — guard fires normally
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.WillOnce(Return(false));
+
 	// Expect NotifyOnEnteringLive to be called
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
 		.Times(1);
@@ -192,6 +196,10 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_AtLivePoint_NormalPlayRate_Skips
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
 		.WillOnce(Return(true));
+
+	// Accumulated latency is below the trickplay threshold — guard fires normally
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.WillOnce(Return(false));
 
 	// Expect NotifyOnEnteringLive to be called
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
@@ -382,6 +390,9 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_MultipleCallsAtLivePoint_Preserv
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
 		.WillOnce(Return(true));
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.WillOnce(Return(false));
+
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
 		.Times(1);
 
@@ -395,6 +406,9 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_MultipleCallsAtLivePoint_Preserv
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
 		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.WillOnce(Return(false));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
 		.Times(1);
@@ -410,6 +424,9 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_MultipleCallsAtLivePoint_Preserv
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
 		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.WillOnce(Return(false));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
 		.Times(1);
@@ -2776,6 +2793,184 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 	EXPECT_EQ(mPrivateInstanceAAMP->mSinkPaused.load(), false);
 	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
 
+}
+
+/**
+ * @brief Fast-forward at live point when accumulated latency exceeds threshold.
+ *
+ * Contract: When latency has accumulated beyond
+ * DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS, the live-point guard must
+ * be bypassed so the player can catch up to the live edge.
+ * Observable outcome: TuneHelper is called, confirming the rate-change
+ * operation was not aborted at the live-point guard.
+ */
+TEST_F(PlayerInstanceAAMPTests,
+	SetRateInternal_AtLivePoint_LatencyExceedsThreshold_FastForward_AllowsOperation)
+{
+	float rate = 2.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
+	mPlayerInstance->aamp->rate = 1.0f;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(true));
+
+	// Latency has accumulated beyond the threshold — guard must be bypassed
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.WillOnce(Return(true));
+
+	// Guard bypassed: TuneHelper is called to execute the actual rate change
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, _))
+		.Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(rate, _))
+		.Times(1);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Fast-forward at live point when accumulated latency is below threshold.
+ *
+ * Contract: When latency has NOT accumulated beyond the threshold, the
+ * live-point guard fires and the rate change is skipped.
+ * Observable outcome: NotifyOnEnteringLive() is called and
+ * TuneHelper is NOT called.
+ */
+TEST_F(PlayerInstanceAAMPTests,
+	SetRateInternal_AtLivePoint_LatencyBelowThreshold_FastForward_SkipsOperation)
+{
+	float rate = 4.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	mPlayerInstance->aamp->mbDetached = false;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(true));
+
+	// Latency is within normal range — guard must fire
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.WillOnce(Return(false));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive())
+		.Times(1);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(_, _))
+		.Times(0);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Rewind at live point is allowed regardless of accumulated latency.
+ *
+ * Contract: Negative rates (rewind) are less than AAMP_NORMAL_PLAY_RATE, so
+ * the live-point guard short-circuits before ever consulting the latency
+ * threshold.  The operation must proceed.
+ * Observable outcome: IsLatencyExceedingTrickplayThreshold() is NEVER called,
+ * TuneHelper IS called to execute the rewind.
+ */
+TEST_F(PlayerInstanceAAMPTests,
+	SetRateInternal_AtLivePoint_RewindRate_LatencyNotChecked_AllowsOperation)
+{
+	float rate = -2.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
+	mPlayerInstance->aamp->rate = 1.0f;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	// rate < AAMP_NORMAL_PLAY_RATE: guard short-circuits, threshold never read
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.Times(0);
+
+	// Rewind proceeds: TuneHelper executes the rate change
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, _))
+		.Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(rate, _))
+		.Times(1);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Pause (rate=0) at live point proceeds regardless of latency state.
+ *
+ * Contract: rate==0 is less than AAMP_NORMAL_PLAY_RATE; the live-point guard
+ * short-circuits before consulting the latency threshold.
+ * Observable outcome: IsLatencyExceedingTrickplayThreshold() is NEVER called,
+ * the pipeline Pause(true, false) is invoked confirming the operation ran.
+ */
+TEST_F(PlayerInstanceAAMPTests,
+	SetRateInternal_AtLivePoint_PauseRate_LatencyNotChecked_AllowsOperation)
+{
+	float rate = 0.0f;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->mSinkPaused = false;
+	mPlayerInstance->aamp->rate = 1.0f;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	// rate < AAMP_NORMAL_PLAY_RATE: guard short-circuits, threshold never read
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.Times(0);
+
+	// Pause proceeds: StopDownloads and pipeline Pause are the observable effects
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads())
+		.Times(1);
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, false))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
+}
+
+/**
+ * @brief Play (rate=1) from a paused state at live point bypasses latency check.
+ *
+ * Contract: When mSinkPaused==true, the live-point guard short-circuits on the
+ * !mSinkPaused term before consulting the latency threshold, allowing the
+ * resume to proceed unconditionally.
+ * Observable outcome: IsLatencyExceedingTrickplayThreshold() is NEVER called,
+ * TuneHelper IS called to execute the resume.
+ */
+TEST_F(PlayerInstanceAAMPTests,
+	SetRateInternal_AtLivePoint_PlayFromPaused_LatencyNotChecked_AllowsOperation)
+{
+	float rate = AAMP_NORMAL_PLAY_RATE;
+	int overshootcorrection = TEST_OVERSHOOT_CORRECTION;
+
+	// aamp->rate != target rate so the else-branch (TuneHelper) is reached
+	mPlayerInstance->aamp->mbDetached = false;
+	mPlayerInstance->aamp->mSinkPaused = true;
+	mPlayerInstance->aamp->rate = 0.0f;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	// Guard: rate >= AAMP_NORMAL_PLAY_RATE and IsAtLivePoint() are evaluated,
+	// but !mSinkPaused short-circuits before reaching the threshold check.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsAtLivePoint())
+		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyExceedingTrickplayThreshold())
+		.Times(0);
+
+	// Resume proceeds: TuneHelper executes the rate change
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, _))
+		.Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(rate, _))
+		.Times(1);
+
+	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
 
 /*

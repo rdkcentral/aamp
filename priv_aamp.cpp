@@ -15159,6 +15159,16 @@ void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
 }
 
 /**
+ * @brief Check whether the accumulated latency increment exceeds the
+ * trickplay-unblock threshold.
+ */
+bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
+{
+	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs()
+		>= DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS;
+}
+
+/**
  * @brief Check if an ad is currently playing
  * @return true if an ad is playing, false otherwise
  */

@@ -750,7 +750,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			if (rate >= AAMP_NORMAL_PLAY_RATE &&
 				aamp->IsAtLivePoint() &&
-				!aamp->mbDetached)
+				!aamp->mbDetached && !aamp->mSinkPaused
+				&& !aamp->IsLatencyExceedingTrickplayThreshold())
 			{
 				AAMPLOG_WARN("Already at logical live point, hence skipping operation (rate=%.2f)", rate);
 				aamp->NotifyOnEnteringLive();
