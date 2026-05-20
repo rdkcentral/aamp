@@ -2305,6 +2305,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 			minBufferNeeded = video->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
 		}
 		aamp->mhAbrManager.GetDesiredProfileOnBuffer(currProfileIndex,newProfileIndex,bufferValue,minBufferNeeded);
+		AAMPLOG_INFO("buffer:%f currProf:%d newProf:%d",bufferValue,currProfileIndex,newProfileIndex);
 	}
 	//When buffer goes zero, no need to ramp up - Switch directly to 0th profile ,inorder to build buffer
 	else
@@ -2887,7 +2888,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	{
 		desiredProfileIndex = GetDesiredProfileBasedOnCache();
 	}
-
+    AAMPLOG_INFO("currentProfileIndex %d desiredProfileIndex %d", currentProfileIndex, desiredProfileIndex);
 	if (desiredProfileIndex != currentProfileIndex)
 	{
 #if 0 /* Commented since the same is supported via AampLogManager::LogABRInfo */
