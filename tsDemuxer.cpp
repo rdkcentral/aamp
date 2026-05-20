@@ -271,7 +271,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					if ((pesStart[7] & 0x80) && ((pesStart[9] & 0x20) == 0x20))
 					{
 						const uint33_t timeStamp = Extract33BitTimestamp(&pesStart[9]);
-						auto prev_pts = exchange(current_pts, timeStamp);
+						auto prev_pts = ::exchange(current_pts, timeStamp);
 						if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
 						{//pts may come out of order so prev>current is not sufficient to detect the rollover
 							AAMPLOG_WARN("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
