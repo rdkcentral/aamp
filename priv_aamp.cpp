@@ -15164,6 +15164,11 @@ void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
  */
 bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
 {
+	if (mLatencyMonitor == nullptr)
+	{
+		return false;
+	}
+
 	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs()
 		>= DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS;
 }
