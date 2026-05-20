@@ -238,6 +238,22 @@ function install_pkgs_fn()
       install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl wavpack
       install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5 "openjdk@21"
 
+      # GStreamer: required for the cmake build.  Use the official macOS framework if present;
+      # otherwise install via homebrew so the build does not fail with an opaque pkg-config error.
+      _GST_FRAMEWORK_PKG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
+      if [ -d "${_GST_FRAMEWORK_PKG}" ]; then
+          echo "GStreamer framework is already installed."
+      else
+          _GST_VER=$(brew ls --versions gstreamer 2>/dev/null) || true
+          _GST_BASE_VER=$(brew ls --versions gst-plugins-base 2>/dev/null) || true
+          if [ -n "${_GST_VER}" ] && [ -n "${_GST_BASE_VER}" ]; then
+              echo "gstreamer is already installed (via homebrew)."
+          else
+              echo "GStreamer framework not found. Installing gstreamer and gst-plugins-base via homebrew..."
+              brew install gstreamer gst-plugins-base
+          fi
+      fi
+
       # Check if running on arm64 with macOS 15.5 or later
       if [[ "$ARCH" == "arm64" ]] && [[ "$(printf '%s\n' "$CUR_MACOS_VER" "15.5" | sort -V | head -n1)" == "15.5" ]]; then
           # Install downgraded version of asio for arm64.
