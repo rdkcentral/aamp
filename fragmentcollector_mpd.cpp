@@ -2049,7 +2049,7 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 		AAMPLOG_ERR("HandleSeekEOSAndPeriodTransition: UpdateTrackInfo failed switching from period %d (%s) to period %d (%s); rolling back",
 				savedPeriodIdx, savedBasePeriodId.c_str(), mCurrentPeriodIdx, mBasePeriodId.c_str());
 #ifdef AAMP_TELEMETRY_SUPPORT
-		AAMPTelemetry2 at2(aamp->mAppName);
+		AAMPTelemetry2 at2(aamp->GetAppName());
 		std::map<std::string, int> intData;
 		intData["from_period"] = savedPeriodIdx;
 		intData["to_period"]   = mCurrentPeriodIdx;
