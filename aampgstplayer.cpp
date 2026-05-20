@@ -1053,11 +1053,10 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 {
 	auto syncLock = aamp->SyncLock();
-	bool res = false;
 
 	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
 
-	res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
+	bool res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
 	if (res && !aamp->IsGstreamerSubsEnabled())
 	{
 		aamp->PauseSubtitleParser(pause);
