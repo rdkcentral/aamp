@@ -52,6 +52,7 @@
 #include "AampMPDUtils.h"
 #include <chrono>
 #include "AampTSBSessionManager.h"
+#include "AampTelemetry2.hpp"
 #include "MediaSegmentDownloadJob.hpp"
 //#define DEBUG_TIMELINE
 #include "PlayerCCManager.h"
@@ -2045,7 +2046,15 @@ bool StreamAbstractionAAMP_MPD::HandleSeekEOSAndPeriodTransition(double remainin
 	AAMPStatusType ret = UpdateTrackInfo(true, true);
 	if (ret != eAAMPSTATUS_OK)
 	{
-		AAMPLOG_WARN("SeekInPeriod: UpdateTrackInfo failed switching to period %d; restoring previous period state", mCurrentPeriodIdx);
+		AAMPLOG_ERR("HandleSeekEOSAndPeriodTransition: UpdateTrackInfo failed switching from period %d (%s) to period %d (%s); rolling back",
+				savedPeriodIdx, savedBasePeriodId.c_str(), mCurrentPeriodIdx, mBasePeriodId.c_str());
+#ifdef AAMP_TELEMETRY_SUPPORT
+		AAMPTelemetry2 at2(aamp->mAppName);
+		std::map<std::string, int> intData;
+		intData["from_period"] = savedPeriodIdx;
+		intData["to_period"]   = mCurrentPeriodIdx;
+		at2.send("PERIOD_SWITCH_FAILED", intData, {/*string data*/}, {/*float data*/});
+#endif // AAMP_TELEMETRY_SUPPORT
 		mCurrentPeriodIdx   = savedPeriodIdx;
 		mCurrentPeriod      = savedCurrentPeriod;
 		mBasePeriodId       = savedBasePeriodId;
