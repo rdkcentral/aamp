@@ -4727,4 +4727,22 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 	{
 		SetVideoPlaybackRate(rate);
 	}
+	// Propagate the new rate to any existing media processor instances.
+	// This is required for the local TSB trickplay path where InitializeMediaProcessor
+	// is not called during a rate change (the StreamAbstraction is reused), so the
+	// AampMp4Demuxer's mIsTrickMode would otherwise remain false and TrickmodePtsRestamp
+	// would never be invoked.
+	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_SUBTITLE; i++)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType) i);
+		if (track && track->enabled && track->playContext)
+		{
+			track->playContext->setRate(rate, PlayMode_normal);
+			if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && i != eMEDIATYPE_SUBTITLE)
+			{
+				int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+				track->playContext->setFrameRateForTM(trickPlayFPS);
+			}
+		}
+	}
 }

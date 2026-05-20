@@ -2188,9 +2188,6 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				pMediaStreamContext->fragmentTime -= offset;
 			}
 		}
-		// Compute once: skip mFirstPTS update when using mp4demux during trickplay,
-		// as mp4demux restamps PTS starting from 0.0. Used in both timeline and segment-template paths below.
-		bool skipFirstPtsUpdate = ISCONFIGSET(eAAMPConfig_UseMp4Demux) && (aamp->rate != AAMP_NORMAL_PLAY_RATE);
 		do
 		{
 			if (segmentTimeline)
@@ -2362,12 +2359,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							//If we land at the mid of a segment, the position reminder is added to fragment time. This corrects the epoch value to its original segment start time
 							pMediaStreamContext->fragmentTime += mVideoPosRemainder;
 							/*Keep the lower PTS */
-							if (skipFirstPtsUpdate && pMediaStreamContext->type == eTRACK_VIDEO)
-							{
-								AAMPLOG_INFO("[%s] Skipping mFirstPTS update (rate=%.2f) - mp4demux will restamp PTS from 0.0", 
-											 pMediaStreamContext->name, aamp->rate);
-							}
-							else if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == eTRACK_VIDEO))
+							if ( ((mFirstPTS == 0) || (firstPTS < mFirstPTS)) && (pMediaStreamContext->type == eTRACK_VIDEO))
 							{
 								AAMPLOG_INFO("[%s] mFirstPTS %f -> %f ", pMediaStreamContext->name, mFirstPTS, firstPTS);
 								mFirstPTS = firstPTS;
@@ -2461,24 +2453,16 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 					if(!aamp->IsLive())
 					{
-						if (!skipFirstPtsUpdate)
+						if( timeScale )
 						{
-							if( timeScale )
-							{
-								mFirstPTS = (double)segmentTemplates.GetPresentationTimeOffset() / (double)timeScale;
-							}
-							if( updateFirstPTS )
-							{
-								mFirstPTS += skipTime;
-								// Here, PTO is known from manifest, so set it as final PTS
-								mIsFinalFirstPTS = true;
-								AAMPLOG_DEBUG("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type, mFirstPTS, skipTime);
-							}
+							mFirstPTS = (double)segmentTemplates.GetPresentationTimeOffset() / (double)timeScale;
 						}
-						else
+						if( updateFirstPTS )
 						{
-							AAMPLOG_INFO("Type[%d] Skipping mFirstPTS update (rate=%.2f) - mp4demux will restamp PTS from 0.0",
-										 pMediaStreamContext->type, aamp->rate);
+							mFirstPTS += skipTime;
+							// Here, PTO is known from manifest, so set it as final PTS
+							mIsFinalFirstPTS = true;
+							AAMPLOG_DEBUG("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type, mFirstPTS, skipTime);
 						}
 					}
 					if (skipTime >= segmentDuration)
@@ -11167,6 +11151,14 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 			ptsOffset = mPTSOffset;
 		}
 	}
+    // AampMp4Demuxer restamps ALL trickplay PTS starting from 0.0 — applies to both TSB and
+    // non-TSB paths. Override firstPTS (and clear any PTS offset) after both paths above.
+    if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && (aamp->rate != AAMP_NORMAL_PLAY_RATE))
+    {
+        firstPTS = 0.0;
+        ptsOffset = {};
+		AAMPLOG_INFO("Mp4demux trickplay: overriding firstPTS to 0.0 (restamped by AampMp4Demuxer, rate=%.2f)", aamp->rate);
+    }
 
 	restampedPTS = firstPTS + ptsOffset.inSeconds();
 	AAMPLOG_INFO("Restamped first pts:%lf, firstPTS:%lf, ptsOffsetSec:%lf", restampedPTS, firstPTS, ptsOffset.inSeconds());
