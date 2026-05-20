@@ -3144,6 +3144,8 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		//If bulk metadata is enabled for live, all metadata should be reported as bulkmetadata event
 		//and player should not send the same  events again.
 		bool bMetadata		=	ISCONFIGSET(eAAMPConfig_BulkTimedMetaReport) || ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive);
+		
+		AAMPLOG_INFO("DEBUG-->Processing timed metadata from manifest");
 		FindTimedMetadata((dash::mpd::MPD *)tmpMPD, root, init, bMetadata);
 		if(!init)
 		{
@@ -5136,6 +5138,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 								if (processEventsInPeriod)
 								{
 									mCdaiObject->InsertToPeriodMap(period);	//Need to do it. Because the FulFill may finish quickly
+									AAMPLOG_WARN("Processing CDAI events for period %s", prdId.c_str());
 									ProcessEventStream(periodStartMS, firstSegmentStartTime, period, reportBulkMeta);
 									continue;
 								}
@@ -5454,11 +5457,13 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 				// time to set / adjust the event start and duration relative to the start time of the stream
 				if (eventInfo.presentationTime && (startOffsetMS > -1))
 				{
+					AAMPLOG_INFO("DEBUG-->CDAI event presentation time %" PRIu64 " ms, stream start offset %lld ms", eventInfo.presentationTime, startOffsetMS);
 					// Adjust for stream start offset and check for pts wrap
 					eventStartTime = eventInfo.presentationTime;
 					if (eventStartTime < startOffsetMS)
 					{
 						eventStartTime += (maxPTSTime - startOffsetMS);
+						AAMPLOG_INFO("DEBUG-->CDAI event start time after pts delta adjustment %" PRIu64 " ms", eventStartTime);
 
 						// If the difference is too large (>24hrs), assume this is not a pts wrap and the event is timed
 						// to occur before the start - set it to start immediately and adjust the duration accordingly
@@ -5487,21 +5492,23 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 				//for livestream send the timedMetadata only., because at init, control does not come here
 				if(mIsLiveManifest && ! ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive))
 				{
+					AAMPLOG_INFO("DEBUG-->Processing live manifest CDAI events");
 					// The current process relies on enabling eAAMPConfig_EnableClientDai and that may not be desirable
 					// for our requirements. We'll just skip this and use the VOD process to send events
 					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
-					if (modifySCTEProcessing)
+					if (modifySCTEProcessing && !aamp->mTuneCompleted && aamp->mFogTSBEnabled)
 					{
+						AAMPLOG_INFO("DEBUG-->Saving timedMetadata for live %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
+
 					}
-					else
-					{
 						aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
-					}
+				
 				}
 				else
 				{
 					//for vod, send TimedMetadata only when bulkmetadata is not enabled
+					AAMPLOG_INFO("DEBUG-->Processing VOD manifest CDAI events");
 					if(reportBulkMeta)
 					{
 						AAMPLOG_INFO("Saving timedMetadata for VOD %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
