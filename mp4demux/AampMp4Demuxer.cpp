@@ -64,8 +64,12 @@ void AampMp4Demuxer::setRate(double rate, PlayMode mode)
 {
 	if (mRate != rate)
 	{
-		// Rate changed - reset to UNDEF so the next init fragment drives the state machine
-		mTrickPhase = Mp4TrickPhase::UNDEF;
+		// Rate changed - reset to FIRST_SAMPLE and clear PTS state so the
+		// next keyframe starts a fresh restamp sequence from 0.
+		mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
+		mRestampedPts = 0.0;
+		mLastSamplePts = 0.0;
+		mLastTrickRate = rate;
 	}
 	mRate = rate;
 	mIsTrickMode = (rate > AAMP_NORMAL_PLAY_RATE) || (rate < 0);
@@ -78,7 +82,7 @@ void AampMp4Demuxer::setRate(double rate, PlayMode mode)
  */
 void AampMp4Demuxer::abort()
 {
-	mTrickPhase = Mp4TrickPhase::UNDEF;
+	mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
 	mLastSamplePts = 0.0;
 	mRestampedPts = 0.0;
 	mLastTrickRate = 0.0;
@@ -90,7 +94,17 @@ void AampMp4Demuxer::abort()
  */
 void AampMp4Demuxer::reset()
 {
-	mTrickPhase = Mp4TrickPhase::UNDEF;
+	resetTrickMode();
+}
+
+/**
+ * @brief Reset only trickmode-specific state variables.
+ * Separated from reset() so future additions to the public reset() API
+ * do not inadvertently affect the trickmode path in sendSegment().
+ */
+void AampMp4Demuxer::resetTrickMode()
+{
+	mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
 	mLastSamplePts = 0.0;
 	mRestampedPts = 0.0;
 	mLastTrickRate = 0.0;
@@ -121,8 +135,7 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
        double fragmentPtsDelta = 0.0;
        double restampedDuration = 0.0;
 
-       // Pure computation only — state transitions are handled exclusively by sendSegment().
-       // By the time this function is called, mTrickPhase is always FIRST_SAMPLE or STEADY.
+       // FIRST_SAMPLE→STEADY transition is owned here; all other transitions remain in sendSegment().
        switch (mTrickPhase)
        {
 	       case Mp4TrickPhase::FIRST_SAMPLE:
@@ -130,6 +143,9 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 				// Use MAX to avoid too small a number (minimum 0.25 seconds)
 		       restampedDuration = MAX(duration / std::fabs(mRate), 1.0 / mTrickPlayFPS);
 		       mRestampedPts = 0.0;
+		       // Advance to STEADY so subsequent keyframes use delta-based duration
+		       mTrickPhase = Mp4TrickPhase::STEADY;
+		       AAMPLOG_INFO("Trickmode FIRST_SAMPLE->STEADY: rate=%.2f", mRate);
 		       break;
 	       case Mp4TrickPhase::STEADY:
 				// Calculate the duration between the current sample and the previous sample
@@ -138,18 +154,9 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 		       restampedDuration = fragmentPtsDelta / std::fabs(mRate);
 		       mRestampedPts += restampedDuration;
 		       break;
-	       case Mp4TrickPhase::UNDEF:
-	       default:
-		       // Safety net: treat as first sample if state machine was not driven correctly
-		       AAMPLOG_WARN("[%s] Unexpected trickmode state %d, treating as FIRST_SAMPLE",
-			       GetMediaTypeName(mMediaType),
-			       static_cast<int>(mTrickPhase));
-		       restampedDuration = MAX(duration / std::fabs(mRate), 1.0 / mTrickPlayFPS);
-		       mRestampedPts = 0.0;
-		       break;
-       }
+       } // end switch
 
-       // Store the current sample PTS for next iteration
+       // Store the current sample PTS before overwriting it
        mLastSamplePts = sample.mPts;
 
        // Apply restamped PTS and duration to the sample
@@ -199,36 +206,6 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
 		
-		// State machine transitions — all owned here in sendSegment():
-		//   UNDEF       → INIT         on init fragment arrival (normal path)
-		//   UNDEF       → FIRST_SAMPLE on data fragment arrival without prior init (edge case)
-		//   INIT        → FIRST_SAMPLE on first data fragment arrival
-		//   FIRST_SAMPLE→ STEADY       after the first key frame sample is processed
-		if (mIsTrickMode)
-		{
-			if (mTrickPhase == Mp4TrickPhase::UNDEF && isInit)
-			{
-				mTrickPhase = Mp4TrickPhase::INIT;
-				mLastTrickRate = mRate;
-				mRestampedPts = 0.0;
-				mLastSamplePts = 0.0;
-				AAMPLOG_INFO("Trickmode UNDEF->INIT: rate=%.2f", mRate);
-			}
-			else if (mTrickPhase == Mp4TrickPhase::UNDEF && !isInit)
-			{
-				// Edge case: data segment arrived before init segment (e.g. init reused from
-				// normal playback on rate change). Skip INIT and go directly to FIRST_SAMPLE.
-				mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
-				mRestampedPts = 0.0;
-				mLastSamplePts = 0.0;
-				AAMPLOG_WARN("Trickmode UNDEF->FIRST_SAMPLE (no init segment received): rate=%.2f", mRate);
-			}
-			else if (mTrickPhase == Mp4TrickPhase::INIT && !isInit)
-			{
-				mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
-				AAMPLOG_INFO("Trickmode INIT->FIRST_SAMPLE: rate=%.2f", mRate);
-			}
-		}		
 	
 		ret = mMp4Demux->Parse(std::move(segment));
 		
@@ -255,19 +232,14 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							continue;
 						}
 						TrickmodePtsRestamp(sample, duration);
-						// FIRST_SAMPLE -> STEADY after the first key frame is processed
-						if (mTrickPhase == Mp4TrickPhase::FIRST_SAMPLE)
-						{
-							mTrickPhase = Mp4TrickPhase::STEADY;
-							AAMPLOG_INFO("Trickmode FIRST_SAMPLE->STEADY: rate=%.2f", mRate);
-						}
+
 						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 					}
 				}
 				else
 				{
-					// Normal playback mode - reset trickmode state via reset()
-					reset();
+					// Normal playback mode - reset only trickmode state
+					resetTrickMode();
 					for (auto& sample : samples)
 					{
 						// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.

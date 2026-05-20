@@ -139,10 +139,8 @@ public:
 private:
 	enum class Mp4TrickPhase
 	{
-		UNDEF,// Initial state before any samples are processed
-		INIT,// After processing an init fragment in trickmode, waiting for the first sample to establish timing
-		FIRST_SAMPLE,// After processing the first sample in trickmode, used to calculate restamp offset
-		STEADY// After processing subsequent samples in trickmode, normal restamping applies
+		FIRST_SAMPLE,// Initial/reset state: timestamps the first keyframe and seeds mRestampedPts = 0
+		STEADY       // Steady state: computes PTS delta from previous sample
 	};
 
 	/**
@@ -151,6 +149,14 @@ private:
 	 * @param[in] duration - Fragment duration
 	 */
 	void TrickmodePtsRestamp(AampMediaSample& sample, double duration);
+
+	/**
+	 * @brief Reset only trickmode state variables.
+	 * Called internally whenever trickmode state must be cleared (e.g. on
+	 * transition back to normal play). Intentionally separate from the public
+	 * reset() API so future additions to reset() do not affect this path.
+	 */
+	void resetTrickMode();
 
 	std::unique_ptr<Mp4Demux> mMp4Demux;
 	PrivateInstanceAAMP* mAamp;
@@ -166,7 +172,7 @@ private:
 	double mLastSamplePts {0.0};			/**< PTS of the previous sample, used in trick modes */
 	double mRestampedPts {0.0};				/**< Restamped PTS of the sample, used in trick modes */
 		
-	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::UNDEF}; /**< Current trick mode state */
+	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */
 	double mLastTrickRate {0.0}; /**< Last used trickplay rate for state reset */
 };
 
