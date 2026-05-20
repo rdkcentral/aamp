@@ -1101,6 +1101,10 @@ public:
 	//updated by MonitorProgress() and used by PlayerInstanceAAMP::SetRateInternal() to update seek_pos_seconds
 	PositionCache<double> mNewSeekInfo;
 
+	//updated by TuneHelper() when seekWhilePaused==true; used by SetRateInternal() to detect
+	//a seek-while-paused that has settled and requires latency-monitor re-arming on resume.
+	PositionCache<double> mSeekWhilePausedInfo;
+
 	long long mAdPrevProgressTime;
 	uint32_t mAdCurOffset;					/**< Start position in percentage */
 	uint32_t mAdDuration;

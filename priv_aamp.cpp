@@ -6025,6 +6025,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		// in this routine. See NotifyFirstFrameReceived(), NotifyFirstBufferProcessed(), NotifyFirstVideoFrameDisplayed()
 		mPauseOnFirstVideoFrameDisp = true;
 		mFirstVideoFrameDisplayedEnabled = true;
+		// Record the seeked position and wall-clock time so SetRateInternal() can later decide
+		// whether to re-arm the latency monitor (see mSeekWhilePausedInfo).
+		mSeekWhilePausedInfo.Update(seek_pos_seconds, seek_pos_seconds);
 	}
 
 	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))

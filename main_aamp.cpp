@@ -767,8 +767,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				return;
 			}
 
-			// Not at live edge, so clear the flag
-			aamp->mpStreamAbstractionAAMP->SetIsAtLivePoint(false);
+			// Not at live edge, so clear the flag — but skip the clear when
+			// resuming from a seek-while-paused: the seek already resolved the
+			// live-edge position and the flag should stay as-is until playback
+			// has actually restarted.
+			if (!(aamp->mSinkPaused.load() && aamp->mSeekWhilePausedInfo.GetInfo().isPopulated()))
+			{
+				aamp->mpStreamAbstractionAAMP->SetIsAtLivePoint(false);
+			}
 
 			//-- Get the trick play to a closer position
 			//Logic adapted
@@ -921,6 +927,21 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							// required since buffers are already cached in paused state
 							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 						}
+						// Re-arm the LLD latency monitor when resuming from a seek-while-paused
+						// state, but only after the seek has had at least 2 s to settle.
+						// This avoids triggering rate-correction immediately after an in-flight
+						// seek lands and before the pipeline has stabilised.
+						const auto seekWhilePausedInfo = aamp->mSeekWhilePausedInfo.GetInfo();
+						if (seekWhilePausedInfo.isPopulated() &&
+							seekWhilePausedInfo.getTimeSinceUpdateMs() >= DEFAULT_SEEK_WHILE_PAUSED_SETTLE_TIME_MS)
+						{
+							AAMPLOG_INFO("Re-enabling latency monitor after seek-while-paused "
+								"settled at pos %.3f s (%d ms ago)",
+								seekWhilePausedInfo.getPosition(),
+								seekWhilePausedInfo.getTimeSinceUpdateMs());
+							aamp->EnableLatencyMonitor(true);
+						}
+						aamp->mSeekWhilePausedInfo.Invalidate();
 					}
 					aamp->mSinkPaused = false;
 					aamp->ResumeDownloads();
