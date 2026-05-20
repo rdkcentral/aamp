@@ -5498,7 +5498,7 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 					//SaveNewTimedMetadata is also invoked from FoundEventBreak, but only for events identified after tune completion. 
 					//To avoid duplicate execution of SaveNewTimedMetadata, an additional flag check has been introduced in below if loop.
-					if (modifySCTEProcessing && !aamp->mTuneCompleted && aamp->mFogTSBEnabled)
+					if (modifySCTEProcessing && !aamp->IsTuneCompleted() && aamp->mFogTSBEnabled)
 					{
 						AAMPLOG_INFO("DEBUG-->Saving timedMetadata for live %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
