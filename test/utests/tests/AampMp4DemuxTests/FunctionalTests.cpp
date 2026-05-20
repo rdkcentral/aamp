@@ -346,28 +346,30 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 
 /**
  * @brief Test trickplay PTS restamping - Initial state reset on first init fragment at trickplay rate
- * 
- * Validates that when entering trickplay mode with an init fragment:
- * - Trickmode state transitions to FIRST_SAMPLE
- * - mRestampedPts is reset to 0.0
- * - mLastTrickRate is updated with current rate
+ *
+ * Validates that when entering trickplay mode with an init fragment the internal
+ * FIRST_SAMPLE state is active, observable by confirming that the very next
+ * keyframe is restamped to PTS/DTS 0.0 with duration = MAX(fragDur/rate, 1/fps).
  */
 TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_InitFragmentStateReset)
 {
-	// Set trickplay rate (4x fast forward)
-	mPrivateInstanceAAMP->rate = 4.0;
-	mDemuxer->setRate(4.0, PlayMode_normal);
-	mDemuxer->setFrameRateForTM(4);
-	
-	// Create init fragment buffer
+	constexpr double kRate = 4.0;
+	constexpr int    kFps  = 4;
+	constexpr double kFragmentDuration = 2.0;
+	// MAX(2.0/4.0, 1.0/4) = MAX(0.5, 0.25) = 0.5
+	constexpr double kExpectedDuration = 0.5;
+
+	mPrivateInstanceAAMP->rate = kRate;
+	mDemuxer->setRate(kRate, PlayMode_normal);
+	mDemuxer->setFrameRateForTM(kFps);
+
+	// --- init fragment (no samples) ---
 	const char* initData = "init_fragment";
 	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
-	
+
 	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
-		.WillOnce([]() {
-			return std::vector<AampMediaSample>(); // Init has no samples
-		});
+		.WillOnce([]() { return std::vector<AampMediaSample>(); });
 	EXPECT_CALL(*g_mockMp4Demux, GetCodecInfo())
 		.WillOnce([]() {
 			MediaCodecInfo codecInfo;
@@ -375,10 +377,42 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_InitFragmentStateReset)
 			return codecInfo;
 		});
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1);
-	
+
 	bool ptsError = false;
 	bool result = mDemuxer->sendSegment(std::move(initBuffer), 0.0, 0.0, 0.0, false, true, nullptr, ptsError);
-	
+	EXPECT_TRUE(result);
+	EXPECT_FALSE(ptsError);
+
+	// --- first media fragment after init ---
+	// The FIRST_SAMPLE state must restamp the keyframe to PTS/DTS 0.0 and compute
+	// the expected duration, proving the state was actually reset by the init path.
+	const char* mediaData = "media_fragment";
+	std::vector<uint8_t> mediaBuffer(mediaData, mediaData + strlen(mediaData));
+
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() {
+			std::vector<AampMediaSample> samples;
+			AampMediaSample sample;
+			sample.mPts = 5000.0; // arbitrary large original PTS
+			sample.mDts = 5000.0;
+			sample.mDuration = 200.0;
+			sample.mIsKeyFrame = true;
+			samples.push_back(std::move(sample));
+			return samples;
+		});
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
+		.WillOnce([kExpectedDuration](AampMediaType, AampMediaSample&& sample) {
+			// FIRST_SAMPLE must restamp to 0 regardless of the original PTS
+			EXPECT_DOUBLE_EQ(sample.mPts, 0.0) << "First keyframe after init must be restamped to 0";
+			EXPECT_DOUBLE_EQ(sample.mDts, 0.0) << "First keyframe DTS after init must be restamped to 0";
+			EXPECT_NEAR(sample.mDuration, kExpectedDuration, 1e-9)
+				<< "Duration must equal MAX(fragDur/rate, 1/fps)";
+		});
+
+	result = mDemuxer->sendSegment(std::move(mediaBuffer), 0.0, kFragmentDuration, 0.0,
+								  false, false, nullptr, ptsError);
 	EXPECT_TRUE(result);
 	EXPECT_FALSE(ptsError);
 }
@@ -432,6 +466,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_FirstMediaFragment)
 			sample.mPts = 1000.0;
 			sample.mDts = 1000.0;
 			sample.mDuration = 100.0;
+			sample.mIsKeyFrame = true;
 			samples.push_back(std::move(sample));
 			return samples;
 		});
@@ -511,6 +546,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_RewindModeMultipleFragments)
 				sample.mPts = originalPts;
 				sample.mDts = originalPts;
 				sample.mDuration = kFragmentDuration;
+				sample.mIsKeyFrame = true;
 				samples.push_back(std::move(sample));
 				return samples;
 			});
@@ -616,6 +652,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NormalToTrickplayTransition)
 			sample.mPts = 3000.0;
 			sample.mDts = 3000.0;
 			sample.mDuration = 100.0;
+			sample.mIsKeyFrame = true;
 			samples.push_back(std::move(sample));
 			return samples;
 		});
@@ -703,6 +740,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NoDuplicateInitAtSameRate)
 			sample.mPts = 1000.0;
 			sample.mDts = 1000.0;
 			sample.mDuration = 100.0;
+			sample.mIsKeyFrame = true;
 			samples.push_back(std::move(sample));
 			return samples;
 		});
@@ -747,6 +785,7 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NoDuplicateInitAtSameRate)
 			sample.mPts = 3000.0; // 2 seconds later
 			sample.mDts = 3000.0;
 			sample.mDuration = 100.0;
+			sample.mIsKeyFrame = true;
 			samples.push_back(std::move(sample));
 			return samples;
 		});

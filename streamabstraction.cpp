@@ -4235,13 +4235,8 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 		}
 		else if (track && track->enabled && track->playContext != nullptr)
 		{
-			// playContext already exists (subsequent trickplay/rate-change requests) - update rate and FPS
+			// playContext already exists (e.g. period change) - update rate only.
 			track->playContext->setRate(aamp->rate, PlayMode_normal);
-			if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && i != eMEDIATYPE_SUBTITLE)
-			{
-				int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
-				track->playContext->setFrameRateForTM(trickPlayFPS);
-			}
 		}
 	}
 }
@@ -4821,8 +4816,31 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
 	SetTrickplayMode(rate);
 	ResetTrickModePtsRestamping();
-	if (!aamp->GetLLDashChunkMode())
+
+	// Why this is needed:
+	//   On a rate change (trickplay/seek), StreamAbstractionAAMP_MPD is reused —
+	//   InitializeMediaProcessor is NOT re-called. This loop is therefore the only
+	//   mechanism to update the rate on already-live processor instances.
+	//
+	// Why the old GetLLDashChunkMode() guard was removed:
+	//   Previously setRate was skipped in LL-DASH chunk mode to protect the live-edge
+	//   recording processor (IsoBmffProcessor) from receiving a trickplay rate while it
+	//   was assembling live chunks. That concern is now moot for two reasons:
+	//   1. IsoBmffProcessor PTS restamping (guarded by isRestampConfigEnabled) is only
+	//      active for HLS/HLS-MP4 — calling setRate on a DASH processor is a no-op for
+	//      restamping purposes.
+	//   2. With AampMp4Demuxer enabled (eAAMPConfig_UseMp4Demux), rate MUST be propagated
+	//      so that AampMp4Demuxer::setRate sets mIsTrickMode and mRate correctly for
+	//      keyframe filtering and PTS restamping in TrickmodePtsRestamp(). Without this,
+	//      the demuxer retains rate=1.0 and sends all frames with incorrect PTS during
+	//      trickplay.
+	//
+	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_AUDIO; i++)
 	{
-		SetVideoPlaybackRate(rate);
+		MediaTrack *track = GetMediaTrack((TrackType) i);
+		if (track && track->enabled && track->playContext)
+		{
+			track->playContext->setRate(rate, PlayMode_normal);
+		}
 	}
 }
