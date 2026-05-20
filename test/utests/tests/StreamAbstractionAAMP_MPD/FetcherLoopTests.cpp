@@ -195,6 +195,31 @@ protected:
 			mMediaStreamContext[idx] = ctx;
 		}
 
+		/**
+		 * When set, the UpdateTrackInfo override returns
+		 * eAAMPSTATUS_MANIFEST_CONTENT_ERROR immediately, simulating a
+		 * period whose tracks cannot be initialised (e.g. incompatible codec
+		 * or empty representation list).
+		 */
+		bool mForceUpdateTrackInfoFailure{false};
+
+		void SetForceUpdateTrackInfoFailure(bool v)
+		{
+			mForceUpdateTrackInfoFailure = v;
+		}
+
+		AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW,
+									   bool resetTimeLineIndex = false,
+									   bool isInit = false) override
+		{
+			if (mForceUpdateTrackInfoFailure)
+			{
+				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+			}
+			return StreamAbstractionAAMP_MPD::UpdateTrackInfo(
+					modifyDefaultBW, resetTimeLineIndex, isInit);
+		}
+
 		std::string GetBasePeriodId() const
 		{
 			return mBasePeriodId;
@@ -2866,8 +2891,9 @@ TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
  * Scenario:
  *   - Init a 2-period video+audio manifest at period 0.
  *   - Mark the video track enabled and eos=true to trigger a forward period switch.
- *   - Null out the audio track context.  UpdateTrackInfo checks all track contexts and
- *     returns eAAMPSTATUS_MANIFEST_CONTENT_ERROR when it encounters a null context.
+ *   - Force UpdateTrackInfo to return eAAMPSTATUS_MANIFEST_CONTENT_ERROR via the
+ *     SetForceUpdateTrackInfoFailure flag, simulating a period whose tracks cannot
+ *     be initialised (e.g. incompatible codec, empty representation list).
  *   - Without the rollback, mCurrentPeriodIdx (and the other period members) remain
  *     set to period 1 even though the switch was not completed, leaving the object in
  *     a partially-switched state that will cause fragment-download failures on the
@@ -2943,21 +2969,18 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
 	videoCtx->eos     = true;
 	videoCtx->enabled = true;
 
-	// Snapshot video-track fields that UpdateTrackInfo would mutate for period 1
-	// before they can be rolled back.
+	// Snapshot video-track fields that StreamSelection() will mutate when it sets
+	// up period 1 — the rollback must restore them to these period-0 values.
 	const IAdaptationSet  *videoAdaptSetBefore = videoCtx->adaptationSet;
 	const IRepresentation *videoRepBefore      = videoCtx->representation;
 	uint64_t               videoNumberBefore   = videoCtx->fragmentDescriptor.Number;
 
-	// Null out the audio context.  UpdateTrackInfo will encounter a null context and
-	// return eAAMPSTATUS_MANIFEST_CONTENT_ERROR, triggering the rollback path.
-	MediaStreamContext *audioCtx = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eMEDIATYPE_AUDIO);
-	mTestableStreamAbstractionAAMP_MPD->SetMediaStreamContextAt(eMEDIATYPE_AUDIO, nullptr);
-
+	// Force UpdateTrackInfo to return MANIFEST_CONTENT_ERROR for the period-1
+	// switch attempt.  StreamSelection() runs first and is allowed to complete
+	// normally; only UpdateTrackInfo() signals failure, triggering the rollback.
+	mTestableStreamAbstractionAAMP_MPD->SetForceUpdateTrackInfoFailure(true);
 	bool transitioned = mTestableStreamAbstractionAAMP_MPD->InvokeHandleSeekEOSAndPeriodTransition(0.0, false);
-
-	// Restore audio context before any teardown path reads it.
-	mTestableStreamAbstractionAAMP_MPD->SetMediaStreamContextAt(eMEDIATYPE_AUDIO, audioCtx);
+	mTestableStreamAbstractionAAMP_MPD->SetForceUpdateTrackInfoFailure(false);
 
 	// UpdateTrackInfo failed: the period switch must have been rolled back.
 	EXPECT_FALSE(transitioned);
@@ -2971,9 +2994,8 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
 	EXPECT_DOUBLE_EQ(mTestableStreamAbstractionAAMP_MPD->GetPeriodDuration(),  periodDurBefore);
 	EXPECT_DOUBLE_EQ(mTestableStreamAbstractionAAMP_MPD->GetPeriodEndTime(),   periodEndBefore);
 
-	// Video track context — StreamSelection()/UpdateTrackInfo() switch adaptationSet and
-	// representation to period 1's objects before the null audio context causes a
-	// failure.  After rollback these must be restored to period 0's objects.
+	// Video track context — StreamSelection() switches adaptationSet and
+	// representation to period 1's objects; rollback must restore period-0 values.
 	EXPECT_EQ(videoCtx->adaptationSet,            videoAdaptSetBefore);
 	EXPECT_EQ(videoCtx->representation,           videoRepBefore);
 	EXPECT_EQ(videoCtx->fragmentDescriptor.Number, videoNumberBefore);

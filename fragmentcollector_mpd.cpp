@@ -7124,6 +7124,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	for (int i = 0; i < mMaxTracks; i++)
 	{
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[i];
+		if (!pMediaStreamContext)
+		{
+			continue;
+		}
 		size_t numAdaptationSets = period->GetAdaptationSets().size();
 		int  selAdaptationSetIndex = -1;
 		int selRepresentationIndex = -1;
