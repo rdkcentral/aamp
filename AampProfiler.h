@@ -325,7 +325,6 @@ public:
 	 * @fn GetTuneMetricInfoasJson
 	 *
 	 * @param[in] tuneMetricsData - tuneend metric data
-	 * @param[in] licenseAcqNWTime - license Acq Network Time
 	 * @param[in] playerPreBuffered - prebuffered mode
 	 * @param[in] durationSeconds - Asset duration in seconds
 	 * @param[in] interfaceWifi - Connection is wifi or not - wifi(1) ethernet(0)
@@ -334,8 +333,8 @@ public:
 	 * @return string
 	 */
 	std::string GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetricsData, const char *tuneTimeStrPrefix,
-				unsigned int licenseAcqNWTime, bool playerPreBuffered,
-				unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string appName);
+				bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi,
+				std::string failureReason, std::string appName);
 
 	/**
 	 * @fn TuneBegin

@@ -535,15 +535,16 @@ uint32_t ManifestRefreshEvent::getManifestPublishedTime() const
 
 
 
-TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData, std::string sid):
+TuneTimeMetricsEvent::TuneTimeMetricsEvent(std::string timeMetricData, std::string sid):
 	AAMPEventObject(AAMP_EVENT_TUNE_TIME_METRICS, std::move(sid))
+	, mTuneMetricsData(std::move(timeMetricData))
 {
 
 }
 
 const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 {
-		return mTuneMetricsData;
+	return mTuneMetricsData;
 }
 
 void MediaMetadataEvent::SetAudioMetaData(const std::string &audioCodec,const std::string &mixType,bool  isAtmos  )
