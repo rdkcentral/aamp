@@ -32,6 +32,22 @@
 #include "DrmUtils.h"
 #include "ContentSecurityManagerSession.h"
 
+/**
+ * @enum PlayerKeyStatus
+ * @brief DRM key status values, independent of OCDM.
+ */
+typedef enum {
+	PLAYER_KEY_USABLE = 0,
+	PLAYER_KEY_EXPIRED,
+	PLAYER_KEY_RELEASED,
+	PLAYER_KEY_OUTPUT_RESTRICTED,
+	PLAYER_KEY_OUTPUT_RESTRICTED_HDCP22,
+	PLAYER_KEY_OUTPUT_DOWNSCALED,
+	PLAYER_KEY_STATUS_PENDING,
+	PLAYER_KEY_INTERNAL_ERROR,
+	PLAYER_KEY_HW_ERROR
+} PlayerKeyStatus;
+
 using namespace std;
 
 #define PLAYREADY_KEY_SYSTEM_STRING "com.microsoft.playready"

@@ -22,7 +22,6 @@
  * @brief Handles operation with OCDM session to handle DRM License data
  */
 #include "opencdmsessionadapter.h"
-
 #include "DrmHelper.h"
 #include "PlayerUtils.h"
 
@@ -45,6 +44,44 @@
 #define LICENSE_RENEWAL_MESSAGE_TYPE "1"
 
 /**
+ * @fn toPlayerKeyStatus
+ * @brief Convert OCDM KeyStatus to PlayerKeyStatus.
+ * @param ocdmStatus The KeyStatus from OCDM.
+ * @return The corresponding PlayerKeyStatus.
+ */
+static PlayerKeyStatus toPlayerKeyStatus(KeyStatus ocdmStatus) {
+	switch (ocdmStatus) {
+		case Usable:                 return PLAYER_KEY_USABLE;
+		case Expired:                return PLAYER_KEY_EXPIRED;
+		case Released:               return PLAYER_KEY_RELEASED;
+		case OutputRestricted:       return PLAYER_KEY_OUTPUT_RESTRICTED;
+		case OutputRestrictedHDCP22: return PLAYER_KEY_OUTPUT_RESTRICTED_HDCP22;
+		case OutputDownscaled:       return PLAYER_KEY_OUTPUT_DOWNSCALED;
+		case StatusPending:          return PLAYER_KEY_STATUS_PENDING;
+		case HWError:                return PLAYER_KEY_HW_ERROR;
+		case InternalError: default: return PLAYER_KEY_INTERNAL_ERROR;
+	}
+}
+
+/**
+ * @fn ShouldNotifyKeyStatus
+ * @brief Determine if a given KeyStatus should trigger a key status notification to the player.
+ * @param status The KeyStatus to evaluate.
+ * @return true if the status should trigger a notification, false otherwise.
+ */
+bool ShouldNotifyKeyStatus(KeyStatus status)
+{
+    switch (status)
+    {
+        case OutputRestricted:
+        case Usable:
+            return true;
+        default:
+            return false;
+    }
+}
+
+/**
  * @fn OCDMSessionAdapter
  * @brief OCDMSessionAdapter constructor
  */
@@ -61,6 +98,7 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 		m_challengeReady(),
 		m_challengeSize(0),
 		m_keyStatus(InternalError),
+		m_sessionKeyStatus(Usable),
 		m_keyStateIndeterminate(false),
 		m_keyStatusReady(),
 		m_OCDMSessionCallbacks(),
@@ -215,7 +253,12 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	if (m_pOpenCDMSession) {
 		m_keyStatus = opencdm_session_status(m_pOpenCDMSession, key, keySize);
+		MW_LOG_INFO("Key status from OCDM: %d", m_keyStatus);
 		m_keyStateIndeterminate = false;
+		if (m_keyStatus != Usable)
+		{
+			m_sessionKeyStatus = m_keyStatus;
+		}
 	} 
 	else {
 		m_keyStored.clear();
@@ -228,6 +271,17 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 void OCDMSessionAdapter::keysUpdatedOCDM() {
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 	m_keyStatusReady.signal();
+	const KeyStatus notifyStatus = m_sessionKeyStatus;
+	m_sessionKeyStatus = Usable; // reset for next burst
+	if (m_drmCallbacks && (ShouldNotifyKeyStatus(notifyStatus) == true))
+	{
+		MW_LOG_INFO("keysUpdatedOCDM notifying key status %d", notifyStatus);
+		m_drmCallbacks->NotifyKeyStatus(toPlayerKeyStatus(notifyStatus));
+	}
+	else
+	{
+		MW_LOG_INFO("Key status %d does not trigger a notification to the player", notifyStatus);
+	}
 }
 
 
@@ -397,6 +451,8 @@ void OCDMSessionAdapter:: clearDecryptContext()
 		opencdm_destruct_session(m_pOpenCDMSession);
 		m_pOpenCDMSession = NULL;
 	}
+	m_sessionKeyStatus = Usable;
+
 	m_eKeyState = KEY_INIT;
 }
 

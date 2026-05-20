@@ -71,6 +71,7 @@
 #include "AudioTrackInfo.h"
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
+#include "DrmSession.h" // For PlayerKeyStatus
 
 class AampMPDDownloader;
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
@@ -1338,6 +1339,13 @@ public:
 	 * @return void
 	 */
 	void LicenseRenewal(DrmHelperPtr drmHelper,void* userData) override;
+	/**
+	 * @fn NotifyKeyStatus
+	 *
+	 * @param[in] keyStatus - Key status received from OCDM
+	 * @return void
+	 */
+	void NotifyKeyStatus(PlayerKeyStatus keyStatus) override;
 	/**
 	 * @fn CurlTerm
 	 *
@@ -4027,6 +4035,22 @@ public:
 	 */
 	double GetFormatPositionOffsetInMSecs();
 
+	/**
+	 * @brief Has encountered HDCP Output Protection Error
+	 */
+	bool HasHDCPProtectionError() { return mDRMKeyStatus.load() == PlayerKeyStatus::PLAYER_KEY_OUTPUT_RESTRICTED; }
+
+	/**
+	 * @brief Has encountered HDCP Compliance Error
+	 */
+	bool HasHDCPComplianceError() { return mDRMKeyStatus.load() == PlayerKeyStatus::PLAYER_KEY_OUTPUT_RESTRICTED_HDCP22; }
+
+	/**
+	 * @brief Set the DRM key status
+	 * @param status - New DRM key status
+	 */
+	void SetDRMKeyStatus(PlayerKeyStatus status) { mDRMKeyStatus.store(status); }
+
 protected:
 
 	/**
@@ -4300,5 +4324,7 @@ private:
 	 *          video_muted and subtitle_muted.
 	 */
 	void SetCCStatusInternal(void);
+
+	std::atomic<PlayerKeyStatus> mDRMKeyStatus {PlayerKeyStatus::PLAYER_KEY_STATUS_PENDING}; /**< Key status for the current session */
 };
 #endif // PRIVAAMP_H

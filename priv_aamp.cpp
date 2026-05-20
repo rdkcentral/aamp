@@ -1300,6 +1300,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsFlushOperationInProgress(false)
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
+	, mDRMKeyStatus(PlayerKeyStatus::PLAYER_KEY_STATUS_PENDING)
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -10550,6 +10551,30 @@ void PrivateInstanceAAMP::Individualization(const std::string& payload)
 {
 	DrmMessageEventPtr event = std::make_shared<DrmMessageEvent>(payload, GetSessionId());
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
+}
+
+/**
+ * @brief DRM key status notification callback
+ */
+void PrivateInstanceAAMP::NotifyKeyStatus(PlayerKeyStatus keyStatus)
+{
+	AAMPLOG_MIL("NotifyKeyStatus: keyStatus=%d", static_cast<int>(keyStatus));
+	// Check if we are coming out of a HDCP protection error state, ie, HDMI is plugged back in.
+	// Do a retune to recover the playback internally.
+	// Check before saving the new keyStatus so retune can be scheduled.
+	bool hdcpError = HasHDCPProtectionError();
+
+	// Update DRM key status. This will be checked when we receive a GStreamer playback error for HDCP errors.
+	SetDRMKeyStatus(keyStatus);
+	// Note - mDRMKeyStatus is persisted across sessions for now as the same URL could be retried again
+	// but the callback only fires once for the DRM session. Since AAMP re-uses the cached DRM session, there will 
+	// be no further updates from OCDM. For a new playback, a new session is created, which will trigger
+	// the callback with PLAYER_KEY_USABLE status so the mDRMKeyStatus is updated properly.
+	if (hdcpError && (keyStatus == PlayerKeyStatus::PLAYER_KEY_USABLE))
+	{
+		// Retune is asynchronously scheduled so should not cause any deadlocks.
+		ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR, eMEDIATYPE_VIDEO);
+	}
 }
 
 /**
