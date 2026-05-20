@@ -5496,12 +5496,15 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					// The current process relies on enabling eAAMPConfig_EnableClientDai and that may not be desirable
 					// for our requirements. We'll just skip this and use the VOD process to send events
 					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
+					//SaveNewTimedMetadata is also invoked from FoundEventBreak, but only for events identified after tune completion. 
+					//To avoid duplicate execution of SaveNewTimedMetadata, an additional flag check has been introduced in below if loop.
 					if (modifySCTEProcessing && !aamp->mTuneCompleted && aamp->mFogTSBEnabled)
 					{
 						AAMPLOG_INFO("DEBUG-->Saving timedMetadata for live %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 
 					}
+					        /*For CDVR CDAI, it is necessary to invoke FoundEventBreak to insert a placeholder when a CDAI event is present. Otherwise, only metadata will be saved, and when a CDAI ad request is made to AAMP, it will result in an eCDAI_ERROR_UNKNOWN being sent application, leading to ad playback failure.*/ 
 						aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
 				
 				}
