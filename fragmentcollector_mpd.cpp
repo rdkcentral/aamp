@@ -5634,7 +5634,8 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 	for( int iAdaptationSet = 0; iAdaptationSet < numAdaptationSets; iAdaptationSet++)
 	{
 		IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
-		if( mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO) )
+		bool isAvailable = !mMPDParseHelper->IsEmptyAdaptation(adaptationSet);
+		if( mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO) && isAvailable )
 		{
 			unsigned long long score = 0;
 			std::string trackLabel = adaptationSet->GetLabel();
