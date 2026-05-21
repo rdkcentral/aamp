@@ -1204,6 +1204,10 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 {
 	long long pts_offset_ms = pts_offset_s*1000;
 	std::string str;
+	AAMPLOG_WARN( "[RESTAMP_SUB] IN: pos=%.3f dur=%.3f pts_offset_s=%.6f in_len=%zu",
+		position, duration, pts_offset_s, bufferLen );
+	printf( "[RESTAMP_SUB_BEFORE pos=%.3f]\n%.*s\n",
+		position, (int)bufferLen, buffer );
 	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && isWebVttSegment(buffer,bufferLen) )
 	{
 		const char *fin = &buffer[bufferLen];
@@ -1221,6 +1225,8 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 					const char *mpegtsPtr = mystrstr(prev,line_start,"MPEGTS:");
 					long long mpegts = mpegtsPtr?atoll(mpegtsPtr+7):0;
 					pts_offset_ms -= localTimeMs;
+					AAMPLOG_WARN( "[RESTAMP_SUB] localTimeMs=%lld mpegts=%lld pts_offset_ms_adj=%lld",
+						(long long)localTimeMs, (long long)mpegts, (long long)pts_offset_ms );
 					if( localTimeMs != currentLocalTimeMs  )
 					{
 						if( gotLocalTime )
@@ -1271,7 +1277,8 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 	{
 		str = std::string(buffer,bufferLen);
 	}
-	printf( "***restamped caption: %s\n", str.c_str() );
+	AAMPLOG_WARN( "[RESTAMP_SUB] OUT: pos=%.3f out_len=%zu", position, str.size() );
+	printf( "[RESTAMP_SUB_AFTER pos=%.3f]\n%s\n", position, str.c_str() );
 	return str;
 }
 
