@@ -3373,11 +3373,13 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 					if (nextState != validateStateWithMsTimeout(this, nextState, 100))
 					{
 						MW_LOG_ERR("Retry also failed — reporting error");
+						retValue = false;
 					}
 				}
 				else if (GST_STATE_CHANGE_SUCCESS != rcRetry)
 				{
-					MW_LOG_ERR("Retry failed immediately with rc %d — reporting error", rcRetry);}
+					MW_LOG_ERR("Retry failed immediately with rc %d — reporting error", rcRetry);
+					retValue = false;
 				}
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
