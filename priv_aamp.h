@@ -66,6 +66,7 @@
 #include "AampDefine.h"
 #include "AampCurlDefine.h"
 #include "AampLLDASHData.h"
+#include "mp4demux/MP4Demux.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
 #include "AampTrackWorkerManager.hpp"
