@@ -163,6 +163,8 @@ function install_pkgs_linux_fn()
     install_package_fn libtinyxml2-dev
     install_package_fn openjdk-21-jre-headless
     install_package_fn libglib2.0-dev
+    install_package_fn automake
+    install_package_fn libtool
 
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
