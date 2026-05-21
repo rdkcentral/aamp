@@ -4074,8 +4074,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			{
 				// Check if single pipeline has a main asset that has
 				// encrypted content whose init header urls have been saved
-				if(ISCONFIGSET(eAAMPConfig_UseMp4Demux)){
-				AampStreamSinkManager::GetInstance().ReinjectEncryptedHeaders();}
+				if(ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+				{
+					AampStreamSinkManager::GetInstance().ReinjectEncryptedHeaders();
+				}
 				AampStreamSinkManager::GetInstance().GetEncryptedHeaders(headers);
 				if (!headers.empty())
 				{
