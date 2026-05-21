@@ -3376,11 +3376,12 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 						retValue = false;
 					}
 				}
-				else if (GST_STATE_CHANGE_SUCCESS != rcRetry)
-				{
-					MW_LOG_ERR("Retry failed immediately with rc %d — reporting error", rcRetry);
-					retValue = false;
-				}
+			}
+			else if (GST_STATE_CHANGE_SUCCESS != rcRetry)
+			{
+				MW_LOG_ERR("Retry failed immediately with rc %d — reporting error", rcRetry);
+				retValue = false;
+			}
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
 		{
