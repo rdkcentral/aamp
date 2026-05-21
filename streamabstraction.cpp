@@ -1217,10 +1217,6 @@ std::string MediaTrack::RestampSubtitle(
 		return {buffer, bufferLen};
 	}
 
-	// 90 kHz clock constants for MPEGTS tick conversion.
-	constexpr int64_t kTicksPerSecond{90000};
-	constexpr int64_t kTicksPerMs{90};
-
 	// Locate the blank line separating the VTT header block from the cue blocks.
 	const std::string_view bufView{buffer, bufferLen};
 	const auto headerEndPos{bufView.find("\n\n")};
@@ -1241,60 +1237,64 @@ std::string MediaTrack::RestampSubtitle(
 			: nullptr;
 	}};
 
-	// Extract LOCAL time offset and input MPEGTS from the VTT header.
-	int64_t localTimeMs{0};
-	if (const char* localPtr{extractFieldPtr("LOCAL:")})
-	{
-		localTimeMs = convertHHMMSSToTime(localPtr);
-	}
-
+	// Extract input MPEGTS from the VTT header.
 	int64_t mpegtsIn{0};
 	if (const char* mpegtsPtr{extractFieldPtr("MPEGTS:")})
 	{
 		mpegtsIn = std::atoll(mpegtsPtr);
 	}
 
-	// Track LOCAL time changes for PTS rollover detection.
-	if (localTimeMs != currentLocalTimeMs)
+	// 90 kHz clock constant for MPEGTS tick conversion.
+	constexpr int64_t kTicksPerSecond{90000};
+
+	// Restamp MPEGTS for the non-zero case.
+	//
+	// Video is restamped via playContext->setPtsOffset(ptsOffset):
+	//   video_GStreamer_PTS = position_demuxer + broadcast_pts/90000 + ptsOffset
+	//                      = P_rel + m_total_before_N
+	// where ptsOffset = m_total_before_N - firstPts_N.
+	//
+	// For the subtitle to align, media_PTS must encode P_rel + m_total_before_N:
+	//   mpegtsOut = mpegtsIn + ptsOffset × 90000
+	//             = (firstPts_N + P_rel) × 90000 + (m_total_before_N - firstPts_N) × 90000
+	//             = (P_rel + m_total_before_N) × 90000
+	// So: display_time = cue_t + (P_rel + m_total_before_N) ✓ matches video.
+	//
+	// For MPEGTS == 0 (SSAI proxy-stripped, RFC 8216: media_PTS = cue_t):
+	// cue times are already absolute presentation times — leave as 0.
+	//
+	// LOCAL is preserved: the renderer handles LOCAL/MPEGTS alignment internally.
+	// We must not adjust MPEGTS to compensate for a non-zero LOCAL field.
+	int64_t mpegtsOut{0};
+	if (mpegtsIn != 0)
 	{
-		if (gotLocalTime)
-		{
-			AAMPLOG_MIL("webvtt LOCAL time change detected");
-			ptsRollover = true;
-		}
-		currentLocalTimeMs = localTimeMs;
-		gotLocalTime = true;
+		mpegtsOut = mpegtsIn + static_cast<int64_t>(pts_offset_s * kTicksPerSecond);
 	}
 
-	// Compute output MPEGTS so that the renderer places cues on the same timeline
-	// as the restamped video.
-	//
-	// Video restamping: video_pts_out = firstPts_video + ptsOffset[N] = m_total_before_N
-	// Subtitle must match: mpegts_out / 90000 = firstPts_subtitle + ptsOffset[N]
-	//
-	// When mpegts_in != 0 (broadcast CDN): firstPts_subtitle = mpegts_in / 90000
-	//   => mpegts_out = mpegts_in + pts_offset_s * kTicksPerSecond
-	// When mpegts_in == 0 (proxy-stripped): position == m_total_before_N
-	//   => mpegts_out = position * kTicksPerSecond
-	//
-	// Both branches subtract localTimeMs to compensate for a non-zero LOCAL field
-	// in the input header (output always uses LOCAL:00:00:00.000).
-	const int64_t mpegtsOut = (mpegtsIn != 0)
-		? mpegtsIn + static_cast<int64_t>(pts_offset_s * kTicksPerSecond) - localTimeMs * kTicksPerMs
-		: static_cast<int64_t>(position * kTicksPerSecond) - localTimeMs * kTicksPerMs;
+	// Extract the original LOCAL value string so it can be written to the output
+	// header unchanged (e.g. "00:00:00.000" or any non-zero value the CDN uses).
+	std::string localStr{"00:00:00.000"};  // safe default
+	if (const char* localPtr{extractFieldPtr("LOCAL:")})
+	{
+		const char* comma{strchr(localPtr, ',')};
+		if (comma != nullptr)
+		{
+			localStr.assign(localPtr, static_cast<std::size_t>(comma - localPtr));
+		}
+	}
 
 	AAMPLOG_WARN("[RESTAMP_SUB] HDR: pos=%.3f pts_offset_s=%.6f "
-		"localTimeMs=%lld mpegts_in=%lld mpegts_out=%lld",
+		"mpegts_in=%lld mpegts_out=%lld",
 		position, pts_offset_s,
-		static_cast<long long>(localTimeMs),
 		static_cast<long long>(mpegtsIn),
 		static_cast<long long>(mpegtsOut));
 
-	// Build output: new header, then original cue blocks verbatim.
-	// headerEndPos points to the \n\n separator which is carried through as-is.
+	// Rebuild header with original LOCAL and restamped MPEGTS; carry cue blocks verbatim.
 	std::string out{};
 	out.reserve(bufferLen + 32U);
-	out += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:";
+	out += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:";
+	out += localStr;
+	out += ",MPEGTS:";
 	out += std::to_string(mpegtsOut);
 	out.append(buffer + headerEndPos, bufferLen - headerEndPos);
 
@@ -1951,7 +1951,6 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
-		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 		,m_totalDurationForPtsRestamping(0.0)
 {
 	const int sldChunkCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
