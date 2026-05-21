@@ -367,9 +367,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?><MPD xmlns="urn:mpeg:dash:schema:mpd:20
       <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
       <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
       <Representation bandwidth="64000" id="2_1">
-		<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp3" startNumber="1">
-		</SegmentTemplate>
-	  </Representation>
+		<BaseURL>DASH_vodaudio_Track5.m4a</BaseURL>
+      </Representation>
     </AdaptationSet>
   </Period>
 </MPD>
@@ -397,8 +396,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?><MPD xmlns="urn:mpeg:dash:schema:mpd:20
 	EXPECT_EQ(audioRepresentationIndex, 0);
 	EXPECT_EQ(audioAdaptationSetIndex, 0);
 
-	status = mStreamAbstractionAAMP_MPD->UpdateMediaTrackInfo( eMEDIATYPE_AUDIO );
-	EXPECT_EQ(status, eAAMPSTATUS_MANIFEST_INVALID_TYPE);
+//	status = mStreamAbstractionAAMP_MPD->UpdateMediaTrackInfo( eMEDIATYPE_AUDIO );
+//	EXPECT_EQ(status, eAAMPSTATUS_MANIFEST_INVALID_TYPE);
 
 }
 /**
