@@ -1843,6 +1843,15 @@ void AampConfig::ConfigureLogSettings()
 		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 		AampLogManager::lockLogLevel(true);
 	}
+	else if(logString.compare("warn") == 0 || logString.compare("mil") == 0 || logString.compare("error") == 0)
+	{
+		// Explicit quiet-level config: lock level so tune-start INFO elevation is suppressed
+		AAMP_LogLevel lvl = (logString.compare("error") == 0) ? eLOGLEVEL_ERROR
+		                  : (logString.compare("mil")   == 0) ? eLOGLEVEL_MIL
+		                  :                                     eLOGLEVEL_WARN;
+		AampLogManager::setLogLevel(lvl);
+		AampLogManager::lockLogLevel(true);
+	}
 
 	AampLogManager::logFilename = configValueBool[eAAMPConfig_LogFilename].value;
 }
