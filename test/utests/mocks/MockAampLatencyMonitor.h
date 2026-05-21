@@ -17,12 +17,6 @@
  * limitations under the License.
  */
 
-/**
- * @file MockAampLatencyMonitor.h
- * @brief Google Mock stand-in for AampLatencyMonitor used by
- *        FakeAampLatencyMonitor to make selected methods controllable
- *        from unit tests without depending on the real implementation.
- */
 
 #ifndef MOCK_AAMP_LATENCY_MONITOR_H
 #define MOCK_AAMP_LATENCY_MONITOR_H
