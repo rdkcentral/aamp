@@ -400,7 +400,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_CACHED_FRAGMENTS_PER_TRACK,"downloadBuffer",eAAMPConfig_MaxFragmentCached,false},
 	{DEFAULT_BUFFER_HEALTH_MONITOR_DELAY,"bufferHealthMonitorDelay",eAAMPConfig_BufferHealthMonitorDelay,false},
 	{DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL,"bufferHealthMonitorInterval",eAAMPConfig_BufferHealthMonitorInterval,false},
-	{eDRM_PlayReady,"preferredDrm",eAAMPConfig_PreferredDRM,true,eCONFIG_RANGE_DRM_SYSTEMS},
+	{eDRM_WideVine,"preferredDrm",eAAMPConfig_PreferredDRM,true,eCONFIG_RANGE_DRM_SYSTEMS},
 	{eTUNED_EVENT_ON_GST_PLAYING,"tuneEventConfig",eAAMPConfig_TuneEventConfig,false,eCONFIG_RANGE_TUNED_EVENT_CODE},
 	{TRICKPLAY_VOD_PLAYBACK_FPS,"vodTrickPlayFps",eAAMPConfig_VODTrickPlayFPS,false},
 	{TRICKPLAY_LINEAR_PLAYBACK_FPS,"linearTrickPlayFps",eAAMPConfig_LinearTrickPlayFPS,false},
