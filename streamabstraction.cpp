@@ -1266,13 +1266,22 @@ std::string MediaTrack::RestampSubtitle(
 		gotLocalTime = true;
 	}
 
-	// Compute output MPEGTS: restamped video position in 90 kHz ticks,
-	// adjusted for any LOCAL time offset present in the input header.
-	// Renderer formula: media_PTS = cue_t + mpegtsOut / kTicksPerSecond = cue_t + position
-	// Cue timestamps are emitted verbatim; all session-timing is encoded in mpegtsOut.
-	const int64_t mpegtsOut{
-		static_cast<int64_t>(position * kTicksPerSecond) - localTimeMs * kTicksPerMs
-	};
+	// Compute output MPEGTS so that the renderer places cues on the same timeline
+	// as the restamped video.
+	//
+	// Video restamping: video_pts_out = firstPts_video + ptsOffset[N] = m_total_before_N
+	// Subtitle must match: mpegts_out / 90000 = firstPts_subtitle + ptsOffset[N]
+	//
+	// When mpegts_in != 0 (broadcast CDN): firstPts_subtitle = mpegts_in / 90000
+	//   => mpegts_out = mpegts_in + pts_offset_s * kTicksPerSecond
+	// When mpegts_in == 0 (proxy-stripped): position == m_total_before_N
+	//   => mpegts_out = position * kTicksPerSecond
+	//
+	// Both branches subtract localTimeMs to compensate for a non-zero LOCAL field
+	// in the input header (output always uses LOCAL:00:00:00.000).
+	const int64_t mpegtsOut = (mpegtsIn != 0)
+		? mpegtsIn + static_cast<int64_t>(pts_offset_s * kTicksPerSecond) - localTimeMs * kTicksPerMs
+		: static_cast<int64_t>(position * kTicksPerSecond) - localTimeMs * kTicksPerMs;
 
 	AAMPLOG_WARN("[RESTAMP_SUB] HDR: pos=%.3f pts_offset_s=%.6f "
 		"localTimeMs=%lld mpegts_in=%lld mpegts_out=%lld",
@@ -1378,8 +1387,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 					}
 					else
 					{
-						auto firstElement = *pContext->mPtsOffsetMap.begin();
-						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex] - firstElement.second;
+						// Video and subtitle segments from the same discontinuity share the same
+						// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
+						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
 						std::string str = RestampSubtitle(
 														  ptr,len,
 														  cachedFragment->position,
