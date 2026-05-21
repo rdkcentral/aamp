@@ -22,7 +22,7 @@ on:
   pull_request:
     branches:
       # - 'dev_sprint_*'
-      - 'feature/VPAAMP-312-test'
+      - 'feature/VPAAMP-312'
     types: [opened, synchronize, reopened]
 
 # Cancel any in-flight dispatch for the same PR when a new commit is pushed.
