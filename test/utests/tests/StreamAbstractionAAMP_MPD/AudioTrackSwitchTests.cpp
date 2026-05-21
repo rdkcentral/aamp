@@ -394,8 +394,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?><MPD xmlns="urn:mpeg:dash:schema:mpd:20
 	EXPECT_EQ(audioTracks[0].bandwidth, 64000);
 
 	mStreamAbstractionAAMP_MPD->SelectAudioTrack(aTracks, aTrackIdx, audioRepresentationIndex, audioAdaptationSetIndex);
-	EXPECT_EQ(audioRepresentationIndex, -1);
-	EXPECT_EQ(audioAdaptationSetIndex, -1);
+	EXPECT_EQ(audioRepresentationIndex, 0);
+	EXPECT_EQ(audioAdaptationSetIndex, 0);
 
 	status = mStreamAbstractionAAMP_MPD->UpdateMediaTrackInfo( eMEDIATYPE_AUDIO );
 	EXPECT_EQ(status, eAAMPSTATUS_MANIFEST_INVALID_TYPE);
