@@ -108,7 +108,6 @@ function rialto_install_build_fn()
         rm -rf protobuf
         rm -rf rialto
         rm -rf rialto-gstreamer
-        rm -rf rialto-ocdm
     fi
 
     rialto_install_fn
