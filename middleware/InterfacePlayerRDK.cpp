@@ -3357,7 +3357,6 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			/* wait a bit longer for the state change to conclude */
 			if (nextState != validateStateWithMsTimeout(this, nextState, 100))
 			{
-				
 				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED expected %s", gst_element_state_get_name(nextState));
 				
 				/* Recovery: retry the state change once before reporting failure */
@@ -3376,11 +3375,11 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 						retValue = false;
 					}
 				}
-			}
-			else if (GST_STATE_CHANGE_SUCCESS != rcRetry)
-			{
-				MW_LOG_ERR("Retry failed immediately with rc %d — reporting error", rcRetry);
-				retValue = false;
+				else if (GST_STATE_CHANGE_SUCCESS != rcRetry)
+				{
+					MW_LOG_ERR("Retry failed immediately with rc %d — reporting error", rcRetry);
+					retValue = false;
+				}
 			}
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
