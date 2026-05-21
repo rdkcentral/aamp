@@ -225,7 +225,7 @@ TEST_F(MediaStreamContextTest, CacheFragmentChunkTestWithDurationInTicks)
     mMediaStreamContext->mActiveDownloadInfo = downloadInfo;
 
     CachedFragment cachedFragment;
-    EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+    EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
         .WillOnce(Return(&cachedFragment));
 
     bool result = mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_VIDEO, testData, testDataSize, remoteUrl, dnldStartTime, durationInTicks);

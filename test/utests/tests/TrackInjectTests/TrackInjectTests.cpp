@@ -117,13 +117,13 @@ public:
 		// DASH now routes all fragments through the chunk cache (see
 		// MediaStreamContext::CacheStagingFragmentForInjection); the old per-fragment
 		// ring-buffer path is no longer populated here.
-		CachedFragment *cachFragment = &this->mCachedFragmentChunks[0];
+		CachedFragment *cachFragment = &this->mCachedFragment[0];
 		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
 		cachFragment->fragment.assign(data, data + sizeof(data));
-		UpdateTSAfterChunkFetch();
+		UpdateTSAfterFetch();
 	}
 };
 
@@ -189,7 +189,7 @@ public:
 			{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 			{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
-			{eAAMPConfig_MaxFragmentChunkCached, 20},
+			{eAAMPConfig_MaxLLDFragmentCached, 20},
 			{eAAMPConfig_DiscontinuityTimeout, 1}};
 
 	IntConfigSettings mIntConfigSettings;

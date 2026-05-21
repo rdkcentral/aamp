@@ -2695,15 +2695,6 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			end -= offset;
 		}
 
-		// If tsb is not available for linear send -1  for start and end
-		// so that xre detect this as tsbless playback
-		// Override above logic if mEnableSeekableRange is set, used by third-party apps
-		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
-		{
-			start = -1;
-			end = -1;
-		}
-
 		if(IsLiveStream())
 		{
 			if(eMEDIAFORMAT_DASH == mMediaFormat)
@@ -2735,6 +2726,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				mMPDDownloaderInstance->SetBufferAvailability((int)videoBufferedDuration);
 				mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
 			}
+		}
+
+		// If TSB is not available for linear playback, send -1 for start and end
+		// so that XRE detects this as TSB-less playback.
+		// Override the above logic when mEnableSeekableRange is set for third-party apps.
+		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
+		{
+			start = -1;
+			end = -1;
 		}
 
 		const BitsPerSecond availableBandwidth = mhAbrManager.GetCurrentlyAvailableBandwidth();
@@ -2803,24 +2803,28 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 				}
 			}
+
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
+					auto formatPos = [](double valMs) -> long {
+						return (valMs < 0) ? -1 : (long)(valMs / 1000);
+					};
 					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
-						(long)(start / 1000),
-						(long)(reportFormattedCurrPos / 1000),
-						(long)(end / 1000),
-						(long long) videoPTS,
-						(double)(videoBufferedDuration / 1000.0),
-						(double)(audioBufferedDuration /1000.0),
-						(double)(latency / 1000.0),
-						seiTimecode.c_str(),
-						bps,
-						networkBandwidth,
-						currentRate);
+							formatPos(start),
+							(long)(reportFormattedCurrPos / 1000),
+							formatPos(end),
+							videoPTS,
+							videoBufferedDuration / 1000.0,
+							audioBufferedDuration / 1000.0,
+							latency / 1000.0,
+							seiTimecode.c_str(),
+							bps,
+							networkBandwidth,
+							currentRate);
 				}
 			}
 
@@ -3959,14 +3963,6 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
-			if (ContentType_EAS == mContentType)
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Stop(false);
-				}
-			}
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
 			trickStartUTCMS = -1;
 			return;
@@ -8583,7 +8579,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
-			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentChunk(); // avoid mutex lock if waiting for cached fragments
+			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentInjected(); // avoid mutex lock if waiting for cached fragments
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 		}
 		double latency = GetCurrentLatencyMs();

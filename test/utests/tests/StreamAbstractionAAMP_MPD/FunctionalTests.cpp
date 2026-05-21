@@ -141,7 +141,7 @@ protected:
 		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 		{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK},
+		{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK},
 		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC}
 	};
 
@@ -4402,7 +4402,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
 	ASSERT_NE(track, nullptr);
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
-	(void)pMediaStreamContext;
 	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
 		.WillRepeatedly(Return(nullptr));
@@ -4415,7 +4414,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// with remaining seek value and still update mFirstPTS from SkipFragments path.
 	const double seekPositionSeconds = 12.0;
 	TestableFunctionalStreamAbstractionAAMP_MPD *testableStreamAbstractionAAMP_MPD =
-		dynamic_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+    dynamic_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
 	ASSERT_NE(testableStreamAbstractionAAMP_MPD, nullptr);
 	testableStreamAbstractionAAMP_MPD->CallSeekInPeriod(seekPositionSeconds);
 	// Verify: mFirstPTS updated after period transition and remaining-seek skip in period-2.

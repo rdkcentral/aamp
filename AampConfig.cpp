@@ -432,7 +432,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{MAX_GST_AUDIO_BUFFER_BYTES,"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,true},
 	{DEFAULT_LATENCY_MONITOR_DELAY_MS,"latencyMonitorDelayMs",eAAMPConfig_LatencyMonitorDelayMs,false},
 	{DEFAULT_LATENCY_MONITOR_INTERVAL_MS,"latencyMonitorIntervalMs",eAAMPConfig_LatencyMonitorIntervalMs,false},
-	{DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxFragmentChunkCached,false},
+	{DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxLLDFragmentCached,false},
 	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
 	{MAX_SEG_DOWNLOAD_FAIL_COUNT,"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
 	{MAX_INIT_FRAGMENT_CACHE_PER_TRACK,"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
