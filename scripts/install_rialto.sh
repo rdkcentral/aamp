@@ -44,7 +44,7 @@ function rialto_install_build_deps_fn() {
 
     if [ -d "rialto-gstreamer" ]; then
         echo "rialto-gstreamer exists"
-        INSTALL_STATUS_ARR+=("rialto-streamer was already installed.")
+        INSTALL_STATUS_ARR+=("rialto-gstreamer was already installed.")
     else
         do_clone_fn https://github.com/rdkcentral/rialto-gstreamer.git rialto-gstreamer
         pushd rialto-gstreamer
