@@ -21,25 +21,43 @@
 #  RIALTO_FOUND
 #  RIALTO_INCLUDE_DIRS
 #  RIALTO_LIBRARIES
-find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
-message( "FindRialto: RIALTO_LIBRARY = ${RIALTO_LIBRARY}" )
+option( RIALTO_VERBOSE_BUILD
+        "Enable verbose FindRialto.cmake diagnostics"
+        OFF )
 
-find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto)
-message( "FindRialto: RIALTO_INCLUDE_DIR (initial find_path) = ${RIALTO_INCLUDE_DIR}" )
+find_library( RIALTO_LIBRARY NAMES libRialtoClient.so RialtoClient )
+if( RIALTO_VERBOSE_BUILD AND NOT RIALTO_FIND_QUIETLY )
+    message( STATUS "FindRialto: RIALTO_LIBRARY = ${RIALTO_LIBRARY}" )
+endif()
+
+find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h PATH_SUFFIXES rialto )
+if( RIALTO_VERBOSE_BUILD AND NOT RIALTO_FIND_QUIETLY )
+    message( STATUS
+            "FindRialto: RIALTO_INCLUDE_DIR (initial find_path) = "
+            "${RIALTO_INCLUDE_DIR}" )
+endif()
 
 # Fallback for cross-compilation environments (e.g. Yocto) where find_path
 # may not search the sysroot even when find_library succeeds.
 # Rialto always installs headers to <prefix>/include/rialto/, so derive the
 # include path from the library location.
-if(NOT RIALTO_INCLUDE_DIR AND RIALTO_LIBRARY)
-    get_filename_component(_rialto_lib_dir "${RIALTO_LIBRARY}" DIRECTORY)
-    get_filename_component(_rialto_prefix "${_rialto_lib_dir}" DIRECTORY)
-    message( "FindRialto: falling back to prefix-derived search in ${_rialto_prefix}/include" )
-    find_path(RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h
+if( NOT RIALTO_INCLUDE_DIR AND RIALTO_LIBRARY )
+    get_filename_component( _rialto_lib_dir "${RIALTO_LIBRARY}" DIRECTORY )
+    get_filename_component( _rialto_prefix "${_rialto_lib_dir}" DIRECTORY )
+    if( RIALTO_VERBOSE_BUILD AND NOT RIALTO_FIND_QUIETLY )
+        message( STATUS
+                "FindRialto: falling back to prefix-derived search in "
+                "${_rialto_prefix}/include" )
+    endif()
+    find_path( RIALTO_INCLUDE_DIR NAMES IMediaPipeline.h
         PATHS "${_rialto_prefix}/include"
         PATH_SUFFIXES rialto
-        NO_DEFAULT_PATH)
-    message( "FindRialto: RIALTO_INCLUDE_DIR (fallback) = ${RIALTO_INCLUDE_DIR}" )
+        NO_DEFAULT_PATH )
+    if( RIALTO_VERBOSE_BUILD AND NOT RIALTO_FIND_QUIETLY )
+        message( STATUS
+                "FindRialto: RIALTO_INCLUDE_DIR (fallback) = "
+                "${RIALTO_INCLUDE_DIR}" )
+    endif()
 endif()
 
 include( FindPackageHandleStandardArgs )
