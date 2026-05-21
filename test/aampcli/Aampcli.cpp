@@ -670,7 +670,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
 		{
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
+			//AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
 			AAMPPlayerState state = mAampcli.mSingleton->GetState();
 			switch( state )
 			{
@@ -685,7 +685,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				default:
 				{
 					std::string manifest = mAampcli.mSingleton->GetManifest();
-					AAMPCLI_PRINTF("[AAMPCLI] Dash Manifest length [%zu]\n", manifest.length());
+					//AAMPCLI_PRINTF("[AAMPCLI] Dash Manifest length [%zu]\n", manifest.length());
 					break;
 				}
 			}

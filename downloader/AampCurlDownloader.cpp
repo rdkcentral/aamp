@@ -196,7 +196,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				// In production (no persona loaded) this is the only overhead: one
 				// acquire-load (~1 ns) with no mutex, no clock call, nothing else.
 				const bool personaActive = AampNetworkPersona::Instance().IsLoaded();
-				AAMPLOG_WARN("AampCurlDownloader::Download personaActive=%d url=%s", personaActive ? 1 : 0, urlStr.c_str());
+//				AAMPLOG_WARN("AampCurlDownloader::Download personaActive=%d url=%s", personaActive ? 1 : 0, urlStr.c_str());
 
 				// Wall-clock start captured only when throttling is active, so
 				// production builds pay zero cost for the timeout-budget tracking.
