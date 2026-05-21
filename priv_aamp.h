@@ -66,6 +66,7 @@
 #include "AampDefine.h"
 #include "AampCurlDefine.h"
 #include "AampLLDASHData.h"
+#include "mp4demux/MP4Demux.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
 #include "AampTrackWorkerManager.hpp"
@@ -1391,6 +1392,21 @@ public:
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
 				int *fogError = NULL, double fragmentDurationS = 0,
 				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
+
+	/**
+	 * @fn CheckSegmentIntegrity
+	 * @brief Parse a downloaded segment with a persistent Mp4Demux validator to
+	 *        detect structural corruption (any condition reaching Mp4Demux::setParseError).
+	 *        Logs every segment at INFO level. On parse failure logs a warning and
+	 *        writes the raw bytes to harvestPath (or /tmp if unset).
+	 *
+	 * @param[in] buffer    Raw segment bytes; read-only, caller retains ownership.
+	 * @param[in] mediaType Media type of the segment.
+	 * @param[in] remoteUrl CDN URL of the segment, used as the dump filename.
+	 */
+	void CheckSegmentIntegrity(const std::vector<uint8_t>& buffer,
+	                           AampMediaType mediaType,
+	                           const std::string& remoteUrl);
 
 	/**
 	 * @fn getUUID
@@ -4288,6 +4304,8 @@ protected:
 	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
+	std::unique_ptr<Mp4Demux> mVideoIntegrityValidator; /**< Persistent Mp4Demux for video-track integrity monitoring */
+	std::unique_ptr<Mp4Demux> mAudioIntegrityValidator; /**< Persistent Mp4Demux for audio-track integrity monitoring */
 	int mCCId;
 	AampLLDashServiceData mAampLLDashServiceData; /**< Low Latency Service Configuration Data */
 	bool bLowLatencyServiceConfigured;
