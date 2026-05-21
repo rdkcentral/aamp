@@ -36,7 +36,7 @@ function rialto_install_fn() {
 function rialto_install_build_deps_fn() {
 
     if [ -d "protobuf" ]; then
-        echo "rialto is already installed"
+        echo "protobuf is already installed"
         INSTALL_STATUS_ARR+=("protobuf was already installed.")
     else
         do_clone_github_repo_fn https://github.com/protocolbuffers/protobuf.git protobuf -b ${OPTION_PROTOBUF_REFERENCE} --recursive
@@ -50,17 +50,6 @@ function rialto_install_build_deps_fn() {
         pushd rialto-gstreamer
         echo "Checkout rialto-gstreamer '${OPTION_RIALTO_GSTREAMER_REFERENCE}'"
         git checkout ${OPTION_RIALTO_GSTREAMER_REFERENCE}
-        popd
-    fi
-
-    if [ -d "rialto-ocdm" ]; then
-        echo "rialto-ocdm exists"
-        INSTALL_STATUS_ARR+=("rialto-ocdm was already installed.")
-    else
-        do_clone_fn https://github.com/rdkcentral/rialto-ocdm.git rialto-ocdm
-        pushd rialto-ocdm
-        echo "Checkout rialto-ocdm '${OPTION_RIALTO_OCDM_REFERENCE}'"
-        git checkout ${OPTION_RIALTO_OCDM_REFERENCE}
         popd
     fi
 
