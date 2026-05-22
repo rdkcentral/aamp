@@ -15,36 +15,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build a stub Rialto client library when the real one is not available.
-# This allows AAMP to link on platforms where Rialto/protobuf cannot be built
-# (e.g. macOS).
+# Build a Rialto simulator library when the real Rialto client is not available.
+# This provides a behavioural simulator that drives IMediaPipelineClient
+# callbacks so AAMP's DirectRialto code can be exercised in L2 integration tests.
 
 cmake_minimum_required(VERSION 3.10)
 
-project(RialtoClientStub)
+project(RialtoSimulator)
 
-# The stub needs the Rialto public headers (always cloned/copied by install_rialto.sh)
+# The simulator needs the Rialto public headers (always cloned/copied by install_rialto.sh)
 if(RIALTO_INCLUDE_DIRS)
-    set(STUB_INCLUDE_DIRS ${RIALTO_INCLUDE_DIRS})
+    set(SIM_INCLUDE_DIRS ${RIALTO_INCLUDE_DIRS})
 else()
     # Fallback: use the .libs/include/rialto path directly
-    set(STUB_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/.libs/include/rialto")
+    set(SIM_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/.libs/include/rialto")
 endif()
 
-add_library(RialtoClientStub SHARED
-    RialtoClientStub.cpp
+find_package(Threads REQUIRED)
+
+add_library(RialtoSimulator SHARED
+    RialtoSimulator.cpp
 )
 
-target_include_directories(RialtoClientStub PRIVATE
-    ${STUB_INCLUDE_DIRS}
+target_include_directories(RialtoSimulator PRIVATE
+    ${SIM_INCLUDE_DIRS}
 )
 
-set_target_properties(RialtoClientStub PROPERTIES
+target_link_libraries(RialtoSimulator PRIVATE
+    Threads::Threads
+)
+
+set_target_properties(RialtoSimulator PROPERTIES
     OUTPUT_NAME "RialtoClient"
     VERSION 0.1.0
     SOVERSION 0
 )
 
-install(TARGETS RialtoClientStub
+install(TARGETS RialtoSimulator
     LIBRARY DESTINATION lib
 )
