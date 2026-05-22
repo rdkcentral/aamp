@@ -8597,6 +8597,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 		{
 			pMediaStreamContext->discontinuity = discontinuity;
 		}
+		AAMPLOG_INFO("[CDAI-DBG] FetchAndInjectInitialization track=%d enabled=%d profileChanged=%d discontinuity=%d",
+			trackIdx, pMediaStreamContext->enabled, pMediaStreamContext->profileChanged, pMediaStreamContext->discontinuity);
 		if(pMediaStreamContext->enabled && (pMediaStreamContext->profileChanged || pMediaStreamContext->discontinuity))
 		{
 			if (pMediaStreamContext->adaptationSet)
@@ -8616,6 +8618,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							setNextobjectrequestUrl(std::move(media), &pMediaStreamContext->fragmentDescriptor, AampMediaType(pMediaStreamContext->type));
 						}
 						pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
+						AAMPLOG_INFO("[CDAI-DBG] FetchAndInjectInitialization track=%d fetching initUrl=%s discontinuity=%d",
+							trackIdx, initialization.c_str(), pMediaStreamContext->discontinuity);
 						FetchFragment(pMediaStreamContext, std::move(initialization), 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity);
 						pMediaStreamContext->discontinuity = false;
 						pMediaStreamContext->profileChanged = false;
@@ -9609,6 +9613,8 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 			}
 			adStateChanged = false;
 		}
+		AAMPLOG_INFO("[CDAI-DBG] SelectSourceOrAdPeriod exit: periodChanged=%d adStateChanged=%d requireStreamSelection=%d currentPeriodId=%s",
+			periodChanged, adStateChanged, requireStreamSelection, currentPeriodId.c_str());
 		ret = true;
 	}
 	return ret;
@@ -12428,6 +12434,11 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 							break;
 						}
 
+						AAMPLOG_INFO("[CDAI-DBG] onAdEvent OUTSIDE_ADBREAK: mCurrentPeriod=%s endPeriodId=%s endPeriodOffset=%u mCurrentPeriodIdx=%d",
+							mCurrentPeriod ? mCurrentPeriod->GetId().c_str() : "null",
+							mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodId.c_str(),
+							mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodOffset,
+							mCurrentPeriodIdx);
 						mBasePeriodId =	mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodId;
 						mCdaiObject->mContentSeekOffset = (double)(mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodOffset)/ 1000;
 					}

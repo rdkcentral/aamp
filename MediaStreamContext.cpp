@@ -110,6 +110,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		if (initSegment)
 		{
 			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,cachedFragment->fragment,effectiveUrl);
+			AAMPLOG_INFO("[CDAI-DBG] InitFragmentCache %s url=%s size=%zu",
+				bReadfromcache ? "HIT" : "MISS", fragmentUrl.c_str(), cachedFragment->fragment.size());
 		}
 		if (!bReadfromcache)
 		{
