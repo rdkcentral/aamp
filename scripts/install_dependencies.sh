@@ -243,11 +243,13 @@ function install_pkgs_fn()
 
       # GStreamer: required for the cmake build.  Use the official macOS framework if present;
       # otherwise install via homebrew so the build does not fail with an opaque pkg-config error.
-      _GST_FRAMEWORK_PKG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
+      local _GST_FRAMEWORK_PKG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
       if [ -d "${_GST_FRAMEWORK_PKG}" ]; then
           echo "GStreamer framework is already installed."
       else
+          local _GST_VER
           _GST_VER=$(brew ls --versions gstreamer 2>/dev/null) || true
+          local _GST_BASE_VER
           _GST_BASE_VER=$(brew ls --versions gst-plugins-base 2>/dev/null) || true
           if [ -n "${_GST_VER}" ] && [ -n "${_GST_BASE_VER}" ]; then
               echo "gstreamer is already installed (via homebrew)."

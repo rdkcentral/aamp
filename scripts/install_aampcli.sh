@@ -88,14 +88,16 @@ function aampcli_install_build_darwin_fn()
 
     # GStreamer: prefer the macOS framework installer; fall back to homebrew.
     # Fail early with a clear message rather than letting cmake produce an opaque error.
-    _GST_FRAMEWORK_PKG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
+    local _GST_FRAMEWORK_PKG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
     if [ -d "${_GST_FRAMEWORK_PKG}" ]; then
         PKG_CONFIG="${_GST_FRAMEWORK_PKG}:${PKG_CONFIG}"
     else
+        local _GST_BREW_PREFIX
         _GST_BREW_PREFIX=$(brew --prefix gstreamer 2>/dev/null) || true
         if [ -n "${_GST_BREW_PREFIX}" ] && [ -d "${_GST_BREW_PREFIX}/lib/pkgconfig" ]; then
             PKG_CONFIG="${_GST_BREW_PREFIX}/lib/pkgconfig:${PKG_CONFIG}"
             # gstreamer-app-1.0 lives in gst-plugins-base
+            local _GST_BASE_PREFIX
             _GST_BASE_PREFIX=$(brew --prefix gst-plugins-base 2>/dev/null) || true
             if [ -n "${_GST_BASE_PREFIX}" ] && [ -d "${_GST_BASE_PREFIX}/lib/pkgconfig" ]; then
                 PKG_CONFIG="${_GST_BASE_PREFIX}/lib/pkgconfig:${PKG_CONFIG}"
