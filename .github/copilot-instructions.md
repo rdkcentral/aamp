@@ -149,8 +149,7 @@ Language-specific patterns live in `.github/instructions/`.
 # ==============================
 #  DOCUMENTATION & DIAGRAMS
 # ==============================
-- Use C-style Doxygen comment blocks (`/** ... */`) for all APIs.
-- Do not use `///` style for AAMP public API documentation.
+- Follow the commenting and documentation rules defined in `instructions/cpp.instructions.md` (section 3).
 - Generate diagrams with PlantUML.
 - See `instructions/diagrams.instructions.md` for details.
 
