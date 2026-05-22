@@ -67,11 +67,11 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 #define GST_NORMAL_PLAY_RATE		1
 
 /*InterfacePlayerRDK constructor*/
-InterfacePlayerRDK::InterfacePlayerRDK() :
+InterfacePlayerRDK::InterfacePlayerRDK(bool isRialto) :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL), mDRMSessionManager(NULL)
 {
-	interfacePlayerPriv = new InterfacePlayerPriv();
+	interfacePlayerPriv = new InterfacePlayerPriv(isRialto);
 	m_gstConfigParam = new Configs();
 	m_gstConfigParam->framesToQueue = SocUtils::RequiredQueuedFrames();
 	pthread_mutex_init(&mProtectionLock, NULL);
@@ -98,10 +98,10 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 	delete interfacePlayerPriv;
 }
 
-InterfacePlayerPriv::InterfacePlayerPriv():mPlayerName()
+InterfacePlayerPriv::InterfacePlayerPriv(bool isRialto):mPlayerName()
 {
 	gstPrivateContext = new GstPlayerPriv();
-	socInterface = SocInterface::CreateSocInterface();
+	socInterface = SocInterface::CreateSocInterface(isRialto);
 }
 
 InterfacePlayerPriv::~InterfacePlayerPriv()
