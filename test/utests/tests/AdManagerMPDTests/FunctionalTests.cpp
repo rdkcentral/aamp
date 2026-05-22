@@ -19,9 +19,11 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <thread>
+#include <atomic>
 #include <chrono>
 #include <future>
+#include <memory>
+#include <thread>
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampUtils.h"
@@ -423,7 +425,11 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -444,8 +450,9 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  t.join();
+  const auto adResolvedStatus = adResolvedFuture.wait_for(std::chrono::seconds(5));
+  t.join(); // join unconditionally before asserting to avoid std::terminate on test failure
+  ASSERT_EQ(adResolvedStatus, std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj created
@@ -564,7 +571,11 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event status should be false
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR)).Times(1);
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -579,8 +590,9 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  t.join();
+  const auto adResolvedStatus = adResolvedFuture.wait_for(std::chrono::seconds(5));
+  t.join(); // join unconditionally before asserting to avoid std::terminate on test failure
+  ASSERT_EQ(adResolvedStatus, std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj not created
@@ -648,7 +660,13 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, eCDAI_ERROR_NONE)).Times(1);
+  // Use shared_ptr so the promise outlives this stack frame if wait_for times out and ASSERT
+  // returns early before TearDown shuts down the background ad thread.
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, eCDAI_ERROR_NONE))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
@@ -656,7 +674,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj created
@@ -724,8 +742,17 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000, adErrorCode)).Times(1);
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000, adErrorCode)).Times(1);
+  // Both ads resolve independently; use a counting latch so we wait until both have fired.
+  auto adResolvedCount = std::make_shared<std::atomic<int>>(2);
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
+  auto adResolvedLatch = [adResolvedCount, adResolvedPromise]{
+      if (--(*adResolvedCount) == 0) adResolvedPromise->set_value();
+  };
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000, adErrorCode))
+      .Times(1).WillOnce(InvokeWithoutArgs(adResolvedLatch));
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000, adErrorCode))
+      .Times(1).WillOnce(InvokeWithoutArgs(adResolvedLatch));
   std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
   EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillRepeatedly(Return(true));
@@ -734,7 +761,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
               .WillRepeatedly(Return(true));
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
   // Verify the result
   // mAdBreak updated and placementObj created
@@ -864,11 +891,14 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_10)
 
     InitializeAdMPD(invalidManifest);
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
     // Now set the ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // wait for FulFillAdObject to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Verify the result
     // mAdBreak updated and placementObj not created
@@ -899,11 +929,14 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_11)
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     InitializeAdMPD(nullptr, false, false, 1, 28); // No manifest
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
     // Now set the ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // wait for FulFillAdObject to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Verify the result
     // mAdBreak updated and placementObj not created
@@ -934,11 +967,14 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_12)
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     InitializeAdMPD(nullptr, false, false, 1, 404); // No manifest
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
     // Now set the ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // wait for FulFillAdObject to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Verify the result
     // mAdBreak updated and placementObj not created
@@ -994,16 +1030,17 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
             return true;
         })));
 
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
-        .Times(1);
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
     // Create initial ad break
 
     // Try to add the ad that should fail with timeout
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-
-    // Wait for async operations
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Verify the result
     // mAdBreak updated and placementObj not created
@@ -1048,12 +1085,15 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
     InitializeAdMPD(manifest);
 
     // Expect error event due to multiple periods
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    auto adResolvedPromise = std::make_shared<std::promise<void>>();
+    auto adResolvedFuture = adResolvedPromise->get_future();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError))
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
     // Act - Set alternate contents with the ad
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // Wait for FulFillAdObject to process
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
     // Assert
     // mAdBreak updated and placementObj not created
@@ -4257,6 +4297,240 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 1000);
+}
+
+/**
+ * @brief Regression test for the "ad short by < 2s" race condition in adjustEndPeriodOffset.
+ *
+ * Scenario (mirrors AAMP-CDAI-8006):
+ *   - 30-second SCTE break (brkDuration = 30000 ms) with a 28.8-second ad
+ *     (adsDuration = 28800 ms — this is the cumulative filled-ad duration, NOT
+ *     the break duration; adsDuration starts at 0 and is incremented per ad in
+ *     SetAlternateContents). The ad is short by 1.2 s.
+ *   - After ad placement completes the AdBreakObject state is:
+ *       brkDuration = 30000, adsDuration = 28800
+ *       endPeriodId = "testPeriodId1", endPeriodOffset = 28800
+ *       adjustEndPeriodOffset = true
+ *   - On the next MPD refresh the second period ("testPeriodId2") has NOT yet
+ *     appeared (currPeriodDuration == 0), but two new 2-second segments have been
+ *     appended to "testPeriodId1" after the ad ended (periodDelta = 4000 >= OFFSET_ALIGN_FACTOR).
+ *
+ * Without the fix the code falls into the ELSE "NOT close to period end" branch and
+ * incorrectly marks the adbreak as placed with endPeriodOffset=28800, causing the
+ * fetcher to resume from fragment 030 in the not_expected range.
+ *
+ * With the fix the additional check
+ *   (unfilledBreakTimeMs = brkDuration - adsDuration = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR)
+ * keeps the code in the WAIT branch until the next period is available.
+ */
+TEST_F(AdManagerMPDTests, PlaceAdsTests_23_ShortAdRaceCondition)
+{
+  // Manifest 1: single source period + one ad period.
+  // testPeriodId1 has 14 x 2s segments (0..27s), simulating the source period
+  // filling up while the 28.8s ad plays. curEndNumber will reach 14 after PlaceAds.
+  static const char *manifest1 =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="13" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  // Manifest 2 (race condition): testPeriodId2 has NOT appeared yet, but two new
+  // 2s segments (numbers 15 and 16) have been appended to testPeriodId1.
+  // GetPeriodNewContentDurationMs will count these and return periodDelta = 4000ms
+  // (>= OFFSET_ALIGN_FACTOR). Without the fix this would cause the buggy ELSE path.
+  static const char *manifest2_race =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:06Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="15" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  // Manifest 3: testPeriodId2 now appears at PT60S, giving testPeriodId1 a
+  // duration of 30s. diff = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR, so the
+  // adbreak should align to testPeriodId2 with endPeriodOffset = 0.
+  static const char *manifest3_resolved =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:12Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId2" start="PT60S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p2_init.mp4" media="video_p2_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="150000" d="5000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  const std::string periodId1 = "testPeriodId1";
+  const std::string periodId2 = "testPeriodId2";
+
+  // ----- Phase 1: drive PlaceAds until the 28.8s ad is placed -----
+  // testPeriodId1 has 14 x 2s segments = 28s of content when we start.
+  // adNextOffset starts at 0; after PlaceAds the ad fills 28s, leaving 0.8s
+  // of the 28.8s ad still to place, so we need a bit more content.
+  // Simplify: pre-set mPlacementObj as if we already advanced through 14 segments
+  // and the ad needs just 0.8s more than what is available.
+  // Actually, use the full PlaceAds flow:
+
+  ProcessSourceMPD(manifest1);
+  // 28.8s ad in a 30s SCTE break
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId1, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 28800)}
+  };
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->emplace_back(
+    false, false, true, "adId1", "url1", 28800, periodId1, 0, nullptr);
+
+  mPrivateCDAIObjectMPD->mPeriodMap[periodId1] = Period2AdData(false, periodId1, 0 /*duration*/,
+    {std::make_pair(0, AdOnPeriod(0, 0))});
+
+  // Start placement from the beginning of testPeriodId1
+  mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(periodId1, periodId1, 0, 0, 0, 0, false);
+
+  // PlaceAds with manifest1: testPeriodId1 has 14 segments (28s).
+  // The ad is 28.8s so 28s of content is not enough; placement waits.
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset);
+
+  // Add one extra segment at t=145000 to testPeriodId1 so the ad can
+  // fully fit. This appended <S> has d="2000" at timescale 2500, i.e. 0.8s.
+  // Reuse manifest1 and append one extra <S>; the original repeated entry
+  // remains r="13". For simplicity just update the manifest string directly.
+  static const char *manifest1b =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="PT6S" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:02Z" timeShiftBufferDepth="PT5M" type="dynamic">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="13" />
+            <S t="145000" d="2000" r="0" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  // Process updated manifest with segment 15 (0.8s more, total 28.8s).
+  ProcessSourceMPD(manifest1b);
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  // Ad should now be placed and adjustEndPeriodOffset should be set to true.
+  // mAdBreakPlaced is still false because offset adjustment is pending.
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, periodId1);
+  // endPeriodOffset = p2AdData.duration - periodDelta.
+  // p2AdData.duration = 28800 (filled by 14*2000 + 800), periodDelta = 0 (exact fit)
+  // so endPeriodOffset should be 28800.
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 28800u);
+
+  // ----- Phase 2: Race condition — next period not yet in manifest but new
+  // segments appeared in testPeriodId1 (periodDelta >= OFFSET_ALIGN_FACTOR).
+  // Without the fix this triggers the ELSE path and wrongly marks placed. -----
+  ProcessSourceMPD(manifest2_race);
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  // KEY ASSERTION: adbreak must NOT be marked as placed yet.
+  // unfilledBreakTimeMs = brkDuration - adsDuration = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR(2000)
+  // so the fixed WAIT condition must hold even though periodDelta >= 2000.
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced)
+    << "Regression: adjustEndPeriodOffset ELSE path fired before next period appeared";
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset)
+    << "adjustEndPeriodOffset should still be true (still waiting)";
+
+  // ----- Phase 3: Next period now appears — should align to periodId2 -----
+  ProcessSourceMPD(manifest3_resolved);
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mAdBreakPlaced);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].adjustEndPeriodOffset);
+  // diff = 30000 - 28800 = 1200 < OFFSET_ALIGN_FACTOR -> aligned to next period
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodId, periodId2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].endPeriodOffset, 0u);
 }
 
 /**
