@@ -1388,10 +1388,10 @@ TEST_F(PrivAampTests,SetIsPeriodChangeMarkedTest)
 	EXPECT_FALSE(p_aamp->GetIsPeriodChangeMarked());
 }
 
-TEST_F(PrivAampTests,SyncBeginTest)
+TEST_F(PrivAampTests,SyncLockTest)
 {
-	p_aamp->SyncBegin();
-	p_aamp->SyncEnd();
+	auto lock = p_aamp->SyncLock();
+	// lock released automatically at end of scope
 }
 TEST_F(PrivAampTests,GetVideoPTSTest)
 {

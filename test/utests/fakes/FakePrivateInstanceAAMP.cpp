@@ -1030,12 +1030,9 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SyncBegin(void)
+std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-}
-
-void PrivateInstanceAAMP::SyncEnd(void)
-{
+	return std::unique_lock<std::recursive_mutex>(mLock);
 }
 
 void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)

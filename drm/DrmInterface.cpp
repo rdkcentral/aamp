@@ -102,9 +102,10 @@ DrmInterface::~DrmInterface()
  */
 void DrmInterface::TerminateCurlInstance(int mCurlInstance)
 {
-	mpAamp->SyncBegin();
-	mpAamp->CurlTerm((AampCurlInstance)mCurlInstance);
-	mpAamp->SyncEnd();
+	{
+		auto syncLock = mpAamp->SyncLock();
+		mpAamp->CurlTerm((AampCurlInstance)mCurlInstance);
+	}
 }
 
 /**
