@@ -45,11 +45,62 @@ This project uses a strict set of C++ coding standards designed for embedded sys
 - Pass by reference or pointer to avoid unnecessary copies.
 
 ## 3. Commenting & Documentation
-- Use C-style Doxygen comment blocks (`/** ... */`) for all public API documentation.
-- Do not use `///` style for AAMP public API documentation.
-- Place function documentation with the declaration in the header file; do not duplicate it in the `.cpp` definition.
-- Document non-obvious logic with concise `//` inline comments.
-- All major classes must include a brief “Purpose” description.
+
+### Comment Style
+
+Use *block-style* (`/** ... */`) Doxygen comments for all public API documentation — classes, public functions, constructors, macros, and file headers. This is the canonical style for AAMP.
+
+Use *trailing-line* (`///<`) Doxygen comments for struct/class members, enum values, and short field annotations. Keeping the comment on the same line as the declaration prevents "vertical drift" between the field and its description.
+
+Use plain `//` for non-Doxygen inline notes on implementation logic that does not require extraction.
+
+**Discouraged patterns:**
+- Using `///` (without `<`) for member documentation — prefer `///<` so Doxygen attributes the comment to the preceding member.
+- Mixing `/** */` and `///<` arbitrarily within the same class or struct.
+- Huge `/** ... */` banners for trivial one-line members.
+- Plain `//` where Doxygen extraction is intended.
+- Comments that merely restate the variable name or type.
+
+### Placement
+- Place function and class documentation with the declaration in the header file; do not duplicate it in the `.cpp` definition.
+- Keep member comments trailing on the same line as the declaration. Use a preceding `/** ... */` block only when a multi-line explanation cannot fit on one line.
+
+### Core Principles
+
+1. **Document meaning, not type.** Do not restate what the name or type already expresses. Document: units, valid range, semantics, ownership, lifecycle, and invariants.
+
+2. **Keep documentation adjacent to the member.** Use `///<` trailing comments so documentation stays physically close to the declaration it describes.
+
+3. **Use `///<` for struct/class/enum members** — the de facto Doxygen standard for after-member documentation:
+   ```cpp
+   struct Session {
+       int id;         ///< Unique session identifier
+       bool isActive;  ///< True if session is currently active
+   };
+   ```
+
+4. **Be concise by default.** One trailing line is the target. Expand only when constraints require it:
+   ```cpp
+   int retries; ///< Number of retry attempts before failure (>= 0; -1 disables)
+   ```
+
+5. **Document non-obvious constraints**, especially in systems code: units (ms, bytes, frames), sentinel values, ownership/lifetime, and thread-safety expectations.
+
+6. **Prefer grouping for related members** with a brief leading comment rather than repeating context on every line.
+
+7. **Avoid redundant comments.** A comment that restates only the name adds noise:
+   ```cpp
+   int count; ///< Number of active connections  // Good: adds meaning
+   int count; ///< Count                         // Bad: restates the name
+   ```
+
+8. **Keep style consistent within a class or struct.** Do not alternate between `/** */` and `///<` for members in the same block. Consistency matters more than exact syntax choice.
+
+9. **Document only relevant members.** Always document public and protected members. Document private members only when they carry non-obvious invariants, ownership semantics, or lifecycle constraints.
+
+10. **Keep comments synchronised with code.** Update or remove documentation when behaviour changes. Stale comments are actively harmful.
+
+- All major classes must include a brief "Purpose" description in their class-level `/** ... */` block.
 
 ## 4. Memory Management & Ownership
 - Prefer modern C++ smart pointers for ownership (`std::unique_ptr`, `std::shared_ptr`).
@@ -410,7 +461,7 @@ private:
 
 ## Doxygen Style Guide
 
-Use C-style comment blocks (`/** ... */`) for Doxygen documentation in all C++ header and source files.
+Use `/** ... */` block comments for API documentation (classes, functions, macros, file headers) and `///<` trailing comments for member documentation (struct fields, enum values, class members). See [section 3](#3-commenting--documentation) for full guidance.
 
 ### Function Documentation Example
 
@@ -462,9 +513,9 @@ public:
 ```cpp
 class StreamManager {
 private:
-    std::unique_ptr<StreamBuffer> mBuffer;  /**< Internal stream buffer */
-    std::string mStreamUrl;                 /**< URL of the current stream */
-    size_t mBufferSize;                     /**< Buffer size in bytes */
+    std::unique_ptr<StreamBuffer> mBuffer;  ///< Internal stream buffer; owns the allocation
+    std::string mStreamUrl;                 ///< URL of the current stream
+    size_t mBufferSize;                     ///< Buffer size in bytes (must be > 0)
 };
 ```
 
@@ -476,10 +527,10 @@ private:
  */
 enum class PlaybackState
 {
-    eIDLE,       /**< Player is idle */
-    ePLAYING,    /**< Playback is active */
-    ePAUSED,     /**< Playback is paused */
-    eSTOPPED     /**< Playback has stopped */
+    eIDLE,       ///< Player is idle
+    ePLAYING,    ///< Playback is active
+    ePAUSED,     ///< Playback is paused
+    eSTOPPED     ///< Playback has stopped
 };
 ```
 
