@@ -2678,7 +2678,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 		}
-		if ((mReportProgressPosn == position) && !mSinkPaused.load() && beginningOfStream != true)
+		if ((mReportProgressPosn == position) && !mSinkPaused.load() && beginningOfStream != true && !reachedStart)
 		{
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
 			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
