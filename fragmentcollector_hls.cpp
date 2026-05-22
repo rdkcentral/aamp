@@ -4916,11 +4916,9 @@ StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 		SAFE_DELETE(track);
 	}
 
-	{
-		auto syncLock = aamp->SyncLock();
-		aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
-		aamp->CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
-	}
+	auto syncLock = aamp->SyncLock();
+	aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
+	aamp->CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
 }
 
 /**

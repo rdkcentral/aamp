@@ -2351,7 +2351,7 @@ void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMedi
  * @brief Acquire the GStreamer operation lock (RAII).
  *
  * Returns a std::unique_lock that holds mLock for its lifetime.
- * The lock is released automatically when the guard is destroyed.
+ * The lock is released automatically when the lock object is destroyed.
  */
 std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
@@ -3683,15 +3683,16 @@ double PrivateInstanceAAMP::getLastInjectedPosition()
 bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 {
 	bool ret = true;
+	bool operationInProgress;
 	{
 		auto syncLock = SyncLock();
-		if (mDiscontinuityTuneOperationInProgress)
-		{
-			// syncLock released automatically before early return
-			AAMPLOG_WARN("PrivateInstanceAAMP: Discontinuity Tune Operation already in progress");
-			UnblockWaitForDiscontinuityProcessToComplete();
-			return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
-		}
+		operationInProgress = mDiscontinuityTuneOperationInProgress;
+	}
+	if (operationInProgress)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Discontinuity Tune Operation already in progress");
+		UnblockWaitForDiscontinuityProcessToComplete();
+		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
 
 	if (!(DiscontinuitySeenInAllTracks()))

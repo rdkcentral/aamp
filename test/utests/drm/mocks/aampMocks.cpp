@@ -815,7 +815,7 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 
 std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-	return std::unique_lock<std::recursive_mutex>(mLock);
+	return std::unique_lock<std::recursive_mutex>(); // no-op mock: does not acquire mLock
 }
 
 void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
