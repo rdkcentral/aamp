@@ -10,6 +10,10 @@ applyTo:
 
 # Legacy C++ Modernization Instructions
 
+> **Context:** The existing AAMP codebase is predominantly C++11.
+> Modernization efforts should target C++17.
+> The patterns below identify legacy and C++11-era anti-patterns and their modern C++17 replacements.
+
 ## Analyzing Legacy Code
 
 When reviewing, refactoring or updating existing complex C++ code, focus on identifying these common legacy patterns and suggest modern alternatives:
