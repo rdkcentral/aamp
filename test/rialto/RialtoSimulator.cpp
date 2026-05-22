@@ -321,7 +321,9 @@ private:
 	{
 		int64_t base = m_basePositionNs.load(std::memory_order_relaxed);
 		if (!m_playing)
+		{
 			return base;
+		}
 		auto elapsed = std::chrono::steady_clock::now() - m_playStartTime;
 		auto elapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
 		return base + elapsedNs;
@@ -346,13 +348,17 @@ private:
 		std::thread([this]() {
 			std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			if (m_stopRequested.load(std::memory_order_relaxed))
+			{
 				return;
+			}
 			if (auto client = m_client.lock())
 			{
 				for (int32_t sourceId : m_attachedSources)
 				{
 					if (m_stopRequested.load(std::memory_order_relaxed))
+					{
 						break;
+					}
 					uint32_t reqId = m_needDataRequestId++;
 					client->notifyNeedMediaData(sourceId, 24, reqId, nullptr);
 				}
@@ -363,7 +369,9 @@ private:
 	void startPositionThread()
 	{
 		if (m_positionThread.joinable())
+		{
 			return;
+		}
 
 		m_stopRequested.store(false, std::memory_order_relaxed);
 		m_positionThread = std::thread([this]() {
@@ -371,9 +379,13 @@ private:
 			{
 				std::this_thread::sleep_for(std::chrono::milliseconds(250));
 				if (m_stopRequested.load(std::memory_order_relaxed))
+				{
 					break;
+				}
 				if (!m_playing)
+				{
 					continue;
+				}
 
 				int64_t pos = getCurrentPositionNs();
 				if (auto client = m_client.lock())
