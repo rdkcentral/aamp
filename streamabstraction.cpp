@@ -1276,10 +1276,23 @@ std::string MediaTrack::RestampSubtitle(
 	std::string localStr{"00:00:00.000"};  // safe default
 	if (const char* localPtr{extractFieldPtr("LOCAL:")})
 	{
+		// Limit the comma search to the current line.  Some CDN VTTs use a
+		// non-standard format where X-TIMESTAMP-MAP has only LOCAL (no
+		// inline MPEGTS), and MPEGTS appears as a setting on a subsequent
+		// pseudo-cue line.  Searching past the line-ending '\n' would cause
+		// localStr to absorb the pseudo-cue timing, embedding a stray '\n'
+		// inside the rebuilt X-TIMESTAMP-MAP header line.
 		const char* comma{strchr(localPtr, ',')};
-		if (comma != nullptr)
+		const char* newline{strchr(localPtr, '\n')};
+		if (comma != nullptr && (newline == nullptr || comma < newline))
 		{
 			localStr.assign(localPtr, static_cast<std::size_t>(comma - localPtr));
+		}
+		else if (newline != nullptr)
+		{
+			// LOCAL value ends at the newline — no inline MPEGTS on this line.
+			// MPEGTS will still be found by extractFieldPtr below (pseudo-cue).
+			localStr.assign(localPtr, static_cast<std::size_t>(newline - localPtr));
 		}
 	}
 
