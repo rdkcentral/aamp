@@ -52,7 +52,19 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
-find_package(Rialto REQUIRED)
+find_package(Rialto)
+
+# When the real Rialto client library is not available (e.g. macOS or builds
+# without the "rialto" option), build and link the stub library so that AAMP
+# can still compile.  The stub provides no-op factory singletons.
+if(NOT RIALTO_FOUND)
+	message(STATUS "Rialto client library not found — building stub from test/rialto/")
+	add_subdirectory(test/rialto)
+	set(RIALTO_LIBRARIES RialtoClientStub)
+	if(NOT RIALTO_INCLUDE_DIRS)
+		set(RIALTO_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/.libs/include/rialto")
+	endif()
+endif()
 
 # CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
 # option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
