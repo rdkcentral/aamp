@@ -9,9 +9,11 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 # ==============================
 
 ## 1. Code Formatting
-- Indentation uses hard tabs (4-space width).
+- Indentation uses hard tabs (tab width 4, indent width 4).
 - Maximum line length target is 80 characters.
 - Add spaces around operators and after commas.
+- Use Allman brace style (opening brace on its own line) where applicable.
+- Follow `clang-format` alignment where the repository already documents formatting.
 
 ## 2. Testing
 - All public functions require unit tests.
@@ -101,8 +103,9 @@ Language-specific patterns live in `.github/instructions/`.
    This is a streaming video player. Low latency, correct buffering, and real-time behavior are critical.
 
 3. **Modernization Goal**  
-   New code should be modern C++ (RAII, smart pointers, interfaces).  
-   Legacy code should be gently refactored toward modern patterns.
+   The existing AAMP codebase is predominantly C++11.  
+   New code must target C++17, using modern C++ idioms (RAII, smart pointers, interfaces).  
+   Legacy code should be gently refactored toward modern C++17 patterns.
 
 4. **Testing First**  
    Always reference `instructions/testing.instructions.md` before writing tests.
@@ -146,7 +149,7 @@ Language-specific patterns live in `.github/instructions/`.
 # ==============================
 #  DOCUMENTATION & DIAGRAMS
 # ==============================
-- Use Doxygen-style comments for all APIs.
+- Follow the commenting and documentation rules defined in `instructions/cpp.instructions.md` (section 3).
 - Generate diagrams with PlantUML.
 - See `instructions/diagrams.instructions.md` for details.
 
