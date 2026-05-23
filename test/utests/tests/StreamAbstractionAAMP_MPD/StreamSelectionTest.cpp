@@ -412,7 +412,7 @@ protected:
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		mStreamAbstractionAAMP_MPD = nullptr;
