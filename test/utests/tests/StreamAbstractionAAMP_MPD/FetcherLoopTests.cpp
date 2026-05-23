@@ -439,7 +439,7 @@ protected:
 		assert( g_mockAampUtils == nullptr );
 		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();

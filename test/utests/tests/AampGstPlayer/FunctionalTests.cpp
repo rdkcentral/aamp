@@ -629,4 +629,48 @@ TEST_F(AAMPGstPlayerTests, MonitorAV )
 	DestroyAMPGstPlayer();
 }
 
+TEST_F(AAMPGstPlayerTests, Pause_NullPlayerInstance)
+{
+	// Setup
+	ConstructAMPGstPlayer();
 
+	// Simulate playerInstance being null (as could happen during a race with Stop)
+	InterfacePlayerRDK *savedPlayerInstance = mAAMPGstPlayer->playerInstance;
+	mAAMPGstPlayer->playerInstance = nullptr;
+
+	// SyncLock() is RAII and routes through the no-op fake (not the mock),
+	// so no mock expectation is needed here.
+
+	// Code under test - should return false without crashing
+	bool result = mAAMPGstPlayer->Pause(true, false);
+	EXPECT_FALSE(result);
+
+	result = mAAMPGstPlayer->Pause(false, false);
+	EXPECT_FALSE(result);
+
+	// Restore playerInstance for proper cleanup
+	mAAMPGstPlayer->playerInstance = savedPlayerInstance;
+
+	// Tidy Up
+	DestroyAMPGstPlayer();
+}
+
+TEST_F(AAMPGstPlayerTests, Stop_WithPipeline)
+{
+	// Setup
+	ConstructAMPGstPlayer();
+	SetupPipeline(&tbl[0]);
+
+	// SyncLock() is RAII and routes through the no-op fake (not the mock),
+	// so no mock expectation is needed here.
+
+	// Code under test - Stop should execute with SyncLock without issues
+	mAAMPGstPlayer->Stop(false);
+
+	// After Stop, playerInstance->Stop() should have been called (pipeline torn down)
+	// The DestroyAMPGstPlayer expectations for pipeline teardown are no longer needed
+	isPipelineSetup = false;
+
+	// Tidy Up
+	DestroyAMPGstPlayer();
+}
