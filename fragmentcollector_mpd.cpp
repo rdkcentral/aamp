@@ -7310,9 +7310,20 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 	}
 
+	// Guard both context pointers before the audio-only copy block.
+	// At trick-play rate only the video context is allocated (mMaxTracks==1),
+	// so mMediaStreamContext[eMEDIATYPE_AUDIO] is legitimately null there;
+	// an early return would incorrectly skip SetAudioTrackInfo / SetTextTrackInfo
+	// for that path.  Keep the guard scoped to the copy block itself.
 	if (!mMediaStreamContext[eMEDIATYPE_VIDEO] || !mMediaStreamContext[eMEDIATYPE_AUDIO])
 	{
-		AAMPLOG_ERR("StreamAbstractionAAMP_MPD: null track context in audio-only check");
+		// At trick-play rate mMediaStreamContext[eMEDIATYPE_AUDIO] is legitimately
+		// null (mMaxTracks==1), so only flag an error at normal play rate where
+		// both contexts are always expected to be allocated.
+		if (mPlayRate == AAMP_NORMAL_PLAY_RATE)
+		{
+			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: null track context in audio-only check");
+		}
 	}
 	else if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
@@ -7343,7 +7354,14 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	{
 		if(audioTrack.index == aTrackIdx)
 		{
-			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
+			// Null-guard required: at trick-play rate (mMaxTracks==1) the audio
+			// context is not allocated, but aTracks is also always empty there
+			// (SelectAudioTrack is skipped).  Guard defensively in case that
+			// invariant ever changes.
+			if (mMediaStreamContext[eMEDIATYPE_AUDIO])
+			{
+				mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
+			}
 		}
 		bitratelist.push_back(audioTrack.bandwidth);
 	}
