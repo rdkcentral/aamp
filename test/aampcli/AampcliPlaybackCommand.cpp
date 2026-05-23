@@ -873,6 +873,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
+		mAampcli.mQuiet = false;
 		AAMPCLI_PRINTF( "[AAMPCLI] core logging noisy\n" );
 	}
 	else if( isCommandMatch(cmd,"quiet") )
@@ -880,6 +881,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_ERROR);
 		AampLogManager::lockLogLevel(true);
+		mAampcli.mQuiet = true;
 		AAMPCLI_PRINTF( "[AAMPCLI] core logging quiet\n" );
 	}
 	else if (isCommandMatch(cmd, "exit") )

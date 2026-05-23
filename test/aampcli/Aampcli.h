@@ -63,6 +63,7 @@ class Aampcli
 		bool mEnableProgressLog;
 		bool mbAutoPlay;
 		bool mIndexedAds = false;
+		bool mQuiet = false;
 		std::string mContentType;
 		std::string mTuneFailureDescription;
 		PlayerInstanceAAMP *mSingleton;
