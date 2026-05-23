@@ -10769,23 +10769,24 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	mManifestUpdateHandleFlag       =       false;
 	dnldInstance->UnRegisterCallback();
 
-	aamp->SyncBegin();
-
-	// mStreamInfo is now a vector and will be automatically destroyed
-	deIndexTileInfo(indexedTileInfo);
-	if(!thumbnailtrack.empty())
 	{
-		for(int i = 0; i < thumbnailtrack.size() ; i++)
-		{
-			StreamInfo *tmp = thumbnailtrack[i];
-			SAFE_DELETE(tmp);
-		}
-	}
+		auto syncLock = aamp->SyncLock();
 
-	aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
-	aamp->GetLLDashServiceData()->clear();
-	aamp->SetLowLatencyServiceConfigured(false);
-	aamp->SyncEnd();
+		// mStreamInfo is now a vector and will be automatically destroyed
+		deIndexTileInfo(indexedTileInfo);
+		if(!thumbnailtrack.empty())
+		{
+			for(int i = 0; i < thumbnailtrack.size() ; i++)
+			{
+				StreamInfo *tmp = thumbnailtrack[i];
+				SAFE_DELETE(tmp);
+			}
+		}
+
+		aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
+		aamp->GetLLDashServiceData()->clear();
+		aamp->SetLowLatencyServiceConfigured(false);
+	}
 	mManifestDnldRespPtr = nullptr;
 }
 
