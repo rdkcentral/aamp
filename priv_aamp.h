@@ -2166,18 +2166,16 @@ public:
 	void InitializeCC(unsigned long decoderHandle);
 
 	/**
-	 *   @brief GStreamer operation start
+	 * @brief Acquire the GStreamer operation lock (RAII).
 	 *
-	 *   @return void
-	 */
-	void SyncBegin(void);
-
-	/**
-	 * @fn SyncEnd
+	 * The lock is released automatically when the returned guard goes
+	 * out of scope, guaranteeing exception safety. The [[nodiscard]]
+	 * attribute causes a compile-time warning if the guard is discarded
+	 * immediately (which would release the lock at once, not at scope end).
 	 *
-	 * @return void
+	 * @return std::unique_lock<std::recursive_mutex> holding mLock.
 	 */
-	void SyncEnd(void);
+	[[nodiscard]] std::unique_lock<std::recursive_mutex> SyncLock();
 
 	/**
 	 * @fn GetSeekBase

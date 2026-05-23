@@ -378,9 +378,8 @@ static gboolean PrivateInstanceAAMP_ProcessDiscontinuity(gpointer ptr)
 		// This is to avoid calling cond signal, in case Stop() interrupts the ProcessPendingDiscontinuity
 		if (ret)
 		{
-			aamp->SyncBegin();
+			auto syncLock = aamp->SyncLock();
 			aamp->mDiscontinuityTuneOperationId = 0;
-			aamp->SyncEnd();
 		}
 		aamp->mCondDiscontinuity.notify_one();
 	}
@@ -1531,13 +1530,13 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		}
 	}
 
-	context->aamp->SyncBegin();
-	if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
-		rc = 1; // CURLE_ABORTED_BY_CALLBACK
+		auto syncLock = context->aamp->SyncLock();
+		if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
+		{
+			rc = 1; // CURLE_ABORTED_BY_CALLBACK
+		}
 	}
-
-	context->aamp->SyncEnd();
 	if( rc==0 )
 	{ // only proceed if not an aborted download
 		if (dlnow > 0 && context->stallTimeout > 0)
@@ -2350,20 +2349,14 @@ void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMedi
 }
 
 /**
- *   @brief GStreamer operation start
- */
-void PrivateInstanceAAMP::SyncBegin(void)
-{
-	mLock.lock();
-}
-
-/**
- * @brief GStreamer operation end
+ * @brief Acquire the GStreamer operation lock (RAII).
  *
+ * Returns a std::unique_lock that holds mLock for its lifetime.
+ * The lock is released automatically when the lock object is destroyed.
  */
-void PrivateInstanceAAMP::SyncEnd(void)
+std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-	mLock.unlock();
+	return std::unique_lock<std::recursive_mutex>(mLock);
 }
 
 /**
@@ -3699,15 +3692,17 @@ double PrivateInstanceAAMP::getLastInjectedPosition()
 bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 {
 	bool ret = true;
-	SyncBegin();
-	if (mDiscontinuityTuneOperationInProgress)
+	bool operationInProgress;
 	{
-		SyncEnd();
+		auto syncLock = SyncLock();
+		operationInProgress = mDiscontinuityTuneOperationInProgress;
+	}
+	if (operationInProgress)
+	{
 		AAMPLOG_WARN("PrivateInstanceAAMP: Discontinuity Tune Operation already in progress");
 		UnblockWaitForDiscontinuityProcessToComplete();
 		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
-	SyncEnd();
 
 	if (!(DiscontinuitySeenInAllTracks()))
 	{
@@ -3716,9 +3711,10 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
 
-	SyncBegin();
-	mDiscontinuityTuneOperationInProgress = true;
-	SyncEnd();
+	{
+		auto syncLock = SyncLock();
+		mDiscontinuityTuneOperationInProgress = true;
+	}
 
 	if (DiscontinuitySeenInAllTracks())
 	{
@@ -3763,20 +3759,22 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		}
 		trickStartUTCMS = -1;
 
-		SyncBegin();
-		mProgressReportFromProcessDiscontinuity = true;
-		SyncEnd();
+		{
+			auto syncLock = SyncLock();
+			mProgressReportFromProcessDiscontinuity = true;
+		}
 
 		// To notify app of discontinuity processing complete
 		MonitorProgress();
 
 		// There is a chance some other operation maybe invoked from JS/App because of the above MonitorProgress
 		// Make sure we have still mDiscontinuityTuneOperationInProgress set
-		SyncBegin();
-		AAMPLOG_WARN("Progress event sent as part of ProcessPendingDiscontinuity, mDiscontinuityTuneOperationInProgress:%d", mDiscontinuityTuneOperationInProgress);
-		mProgressReportFromProcessDiscontinuity = false;
-		continueDiscontProcessing = mDiscontinuityTuneOperationInProgress;
-		SyncEnd();
+		{
+			auto syncLock = SyncLock();
+			AAMPLOG_WARN("Progress event sent as part of ProcessPendingDiscontinuity, mDiscontinuityTuneOperationInProgress:%d", mDiscontinuityTuneOperationInProgress);
+			mProgressReportFromProcessDiscontinuity = false;
+			continueDiscontProcessing = mDiscontinuityTuneOperationInProgress;
+		}
 
 		if (continueDiscontProcessing)
 		{
@@ -3863,9 +3861,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 	if (ret)
 	{
-		SyncBegin();
+		auto syncLock = SyncLock();
 		mDiscontinuityTuneOperationInProgress = false;
-		SyncEnd();
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
@@ -7743,13 +7740,14 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 	if (mediaType != eMEDIATYPE_SUBTITLE)
 	{
-		SyncBegin();
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-		if (sink)
 		{
-			sink->EndOfStreamReached(mediaType);
-		}
-		SyncEnd();
+			auto syncLock = SyncLock();
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->EndOfStreamReached(mediaType);
+			}
+		} // syncLock released — matches original SyncEnd() position
 
 		// If EOS during Buffering, set Playing and let buffer to dry out
 		// Sink is already unpaused by EndOfStreamReached()
@@ -9093,13 +9091,12 @@ bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinui
 	}
 	else
 	{
-		SyncBegin();
+		auto syncLock = SyncLock();
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
 			ret = sink->Discontinuity(track);
 		}
-		SyncEnd();
 	}
 
 	if (ret)
