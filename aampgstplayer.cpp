@@ -1051,7 +1051,7 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
  */
 bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 {
-	aamp->SyncBegin();					/* Obtains a mutex lock */
+	auto syncLock = aamp->SyncLock();
 
 	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
 
@@ -1061,8 +1061,6 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 		if(!aamp->IsGstreamerSubsEnabled())
 			aamp->PauseSubtitleParser(pause);
 	}
-
-	aamp->SyncEnd();					/* Releases the mutex */
 
 	return res;
 	//return retValue;
