@@ -24,6 +24,9 @@
  */
 
 #include "AampLatencyMonitor.h"
+#include "MockAampLatencyMonitor.h"
+
+MockAampLatencyMonitor *g_mockAampLatencyMonitor = nullptr;
 
 AampLatencyMonitor::AampLatencyMonitor(PrivateInstanceAAMP* aamp)
 	: mAamp{aamp}
@@ -94,6 +97,27 @@ std::tuple<double, double, double> AampLatencyMonitor::GetCurrentThresholds() co
 	return std::make_tuple(mMinLatencyMs, mTargetLatencyMs, mMaxLatencyMs);
 }
 
+double AampLatencyMonitor::GetAccumulatedLatencyIncrementMs() const
+{
+	if (g_mockAampLatencyMonitor != nullptr)
+	{
+		return g_mockAampLatencyMonitor->GetAccumulatedLatencyIncrementMs();
+	}
+	return 0.0;
+}
+
 void AampLatencyMonitor::ResetLatencyThresholdsLocked()
+{
+}
+
+void AampLatencyMonitor::IncreaseThresholdsLocked()
+{
+}
+
+void AampLatencyMonitor::UpdateDangerBufferState(double /*bufferMs*/)
+{
+}
+
+void AampLatencyMonitor::TryRestoreThresholdsLocked()
 {
 }
