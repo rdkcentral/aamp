@@ -66,7 +66,6 @@
 #include "AampDefine.h"
 #include "AampCurlDefine.h"
 #include "AampLLDASHData.h"
-#include "mp4demux/MP4Demux.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
 #include "AampTrackWorkerManager.hpp"
@@ -78,6 +77,7 @@
 #define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
 
 // forward declaration to avoid circular dependency
+class Mp4Demux;
 class AampMPDDownloader;
 class AampLatencyMonitor;
 struct LatencyConfig;

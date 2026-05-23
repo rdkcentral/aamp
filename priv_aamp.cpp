@@ -4555,7 +4555,12 @@ void PrivateInstanceAAMP::CheckSegmentIntegrity(const std::vector<uint8_t>& buff
 
 	// Copy the buffer so the download pipeline's copy remains intact.
 	auto segment = std::make_shared<std::vector<uint8_t>>(buffer);
-	if (!(*validatorPtr)->Parse(std::move(segment)))
+	bool parseOk = (*validatorPtr)->Parse(std::move(segment));
+	// Drop the aliasing shared_ptrs the demuxer stored for its sample list so the
+	// copied segment buffer can be freed immediately rather than pinned until the
+	// next Parse() call clears them.
+	(*validatorPtr)->GetSamples();
+	if (!parseOk)
 	{
 		AAMPLOG_WARN("[Mp4Mon][%s] CORRUPT err=%d url=%s",
 			GetMediaTypeName(mediaType),
