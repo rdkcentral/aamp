@@ -4050,6 +4050,17 @@ public:
 	void EnableLatencyMonitor(bool enable);
 
 	/**
+	 * @brief Check whether the accumulated latency increment from rebuffering
+	 * events exceeds the trickplay-unblock threshold
+	 *
+	 * When true, fast-forward trickplay should be permitted even at live point
+	 * so the player can catch up to the live edge.
+	 *
+	 * @return true if accumulated latency exceeds the threshold, false otherwise.
+	 */
+	bool IsLatencyExceedingTrickplayThreshold() const;
+
+	/**
 	 * @brief Check if an ad is currently playing
 	 * @return true if an ad is playing, false otherwise
 	 */
