@@ -12,7 +12,7 @@ applyTo:
 
 ## C++ Guidelines
 
-- Target C++17 for new code. Use C++20+ features only when they are supported by the toolchain, clearly documented, and they provide a meaningful improvement in code quality.
+- The existing AAMP codebase is predominantly C++11. New code must target C++17. Use C++20+ features only when they are supported by the toolchain, clearly documented, and they provide a meaningful improvement in code quality.
 - Always follow the guidelines at [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
 - Highlight when existing code being studied does not follow the core guidelines and suggest improvements
 - Discourage the use of C-style code within C++ (e.g. avoid memcpy(), memcmp() and char* for strings). Emphasise memory safety
@@ -45,14 +45,97 @@ This project uses a strict set of C++ coding standards designed for embedded sys
 - Pass by reference or pointer to avoid unnecessary copies.
 
 ## 3. Commenting & Documentation
-- Use Doxygen `///` style comments for public API.
-- Document non-obvious logic with concise `//` inline comments.
-- All major classes must include a brief “Purpose” description.
 
-## 4. Memory Management
-- Prefer modern C++ smart pointers (`std::unique_ptr`, `std::shared_ptr`).
-- Avoid raw new/delete except when dealing with legacy code paths.
+### Comment Style
+
+Use *block-style* (`/** ... */`) Doxygen comments for all public API documentation — classes, public functions, constructors, macros, and file headers. This is the canonical style for AAMP.
+
+Use *trailing-line* (`///<`) Doxygen comments for struct/class members, enum values, and short field annotations. Keeping the comment on the same line as the declaration prevents "vertical drift" between the field and its description.
+
+Use plain `//` for non-Doxygen inline notes on implementation logic that does not require extraction.
+
+**Discouraged patterns:**
+- Using `///` (without `<`) for member documentation — prefer `///<` so Doxygen attributes the comment to the preceding member.
+- Mixing `/** */` and `///<` arbitrarily within the same class or struct.
+- Huge `/** ... */` banners for trivial one-line members.
+- Plain `//` where Doxygen extraction is intended.
+- Comments that merely restate the variable name or type.
+
+### Placement
+- Place function and class documentation with the declaration in the header file; do not duplicate it in the `.cpp` definition.
+- Keep member comments trailing on the same line as the declaration. Use a preceding `/** ... */` block only when a multi-line explanation cannot fit on one line.
+
+### Core Principles
+
+1. **Document meaning, not type.** Do not restate what the name or type already expresses. Document: units, valid range, semantics, ownership, lifecycle, and invariants.
+
+2. **Keep documentation adjacent to the member.** Use `///<` trailing comments so documentation stays physically close to the declaration it describes.
+
+3. **Use `///<` for struct/class/enum members** — the de facto Doxygen standard for after-member documentation:
+   ```cpp
+   struct Session {
+       int id;         ///< Unique session identifier
+       bool isActive;  ///< True if session is currently active
+   };
+   ```
+
+4. **Be concise by default.** One trailing line is the target. Expand only when constraints require it:
+   ```cpp
+   int retries; ///< Number of retry attempts before failure (>= 0; -1 disables)
+   ```
+
+5. **Document non-obvious constraints**, especially in systems code: units (ms, bytes, frames), sentinel values, ownership/lifetime, and thread-safety expectations.
+
+6. **Prefer grouping for related members** with a brief leading comment rather than repeating context on every line.
+
+7. **Avoid redundant comments.** A comment that restates only the name adds noise:
+   ```cpp
+   int count; ///< Number of active connections  // Good: adds meaning
+   int count; ///< Count                         // Bad: restates the name
+   ```
+
+8. **Keep style consistent within a class or struct.** Do not alternate between `/** */` and `///<` for members in the same block. Consistency matters more than exact syntax choice.
+
+9. **Document only relevant members.** Always document public and protected members. Document private members only when they carry non-obvious invariants, ownership semantics, or lifecycle constraints.
+
+10. **Keep comments synchronised with code.** Update or remove documentation when behaviour changes. Stale comments are actively harmful.
+
+- All major classes must include a brief "Purpose" description in their class-level `/** ... */` block.
+
+## 4. Memory Management & Ownership
+- Prefer modern C++ smart pointers for ownership (`std::unique_ptr`, `std::shared_ptr`).
+- Use `std::unique_ptr` as the default for single ownership; use `std::shared_ptr` only when shared ownership is genuinely required.
+- Use raw pointers or references only for non-owning access; never use raw owning pointers in new code.
+- Avoid raw `new`/`delete` except when dealing with legacy code paths.
 - Use RAII for all resource management.
+- Follow the Rule of Zero: prefer classes that use smart pointers and containers so that no custom destructor, copy, or move operations are needed.
+
+## 5. Coding Rules
+- Braces are required for all conditional and loop blocks, including single-line bodies.
+- Use constructor initializer lists to initialize data members where appropriate.
+- Keep data members `private` where possible; provide accessor methods when needed.
+- Avoid `friend` functions and classes unless there is a strong justification.
+- Use `bool` for variables representing logical true/false state.
+- Use appropriate standard container size and index types (e.g., `size_t`, `std::vector::size_type`) when indexing or sizing containers.
+- Use `#pragma once` or traditional include guards in all header files.
+
+## 6. Printf Format Specifier Reference
+When formatting log output or diagnostic strings, use the correct specifiers:
+
+| Type | Specifier |
+|------|----------|
+| `int` | `%d` |
+| `unsigned int` | `%u` |
+| `long` | `%ld` |
+| `unsigned long` | `%lu` |
+| `long long` | `%lld` |
+| `unsigned long long` | `%llu` |
+| `float` | `%f` |
+| `double` | `%lf` |
+| `size_t` | `%zu` |
+| `uint64_t` | `PRIu64` (from `<cinttypes>`) |
+
+Use `PRIu64` and related macros from `<cinttypes>` for fixed-width types to ensure portability.
 
 ## Cross-Language Interoperability (ctypes)
 
@@ -132,6 +215,8 @@ extern "C" {
 - Suggest incremental improvements rather than complete rewrites
 
 ## Memory Safety Patterns
+
+Smart pointers express ownership intent. Use `std::unique_ptr` by default for single ownership. Reserve `std::shared_ptr` for genuinely shared ownership. Use raw pointers or references only for non-owning access.
 
 ### Ownership Models
 ```cpp
@@ -376,7 +461,7 @@ private:
 
 ## Doxygen Style Guide
 
-Use C-style comment blocks (`/** ... */`) for Doxygen documentation in all C++ header and source files.
+Use `/** ... */` block comments for API documentation (classes, functions, macros, file headers) and `///<` trailing comments for member documentation (struct fields, enum values, class members). See [section 3](#3-commenting--documentation) for full guidance.
 
 ### Function Documentation Example
 
@@ -411,4 +496,57 @@ class MyClass {
 public:
     // ...
 };
+```
+
+### File Documentation Example
+```cpp
+/**
+ * @file AampConfig.h
+ * @brief Configuration management for AAMP player.
+ *
+ * Provides centralized handling of player configuration
+ * settings loaded from file or set programmatically.
+ */
+```
+
+### Data Member Documentation Example
+```cpp
+class StreamManager {
+private:
+    std::unique_ptr<StreamBuffer> mBuffer;  ///< Internal stream buffer; owns the allocation
+    std::string mStreamUrl;                 ///< URL of the current stream
+    size_t mBufferSize;                     ///< Buffer size in bytes (must be > 0)
+};
+```
+
+### Enum Documentation Example
+```cpp
+/**
+ * @enum PlaybackState
+ * @brief Represents the current state of the player.
+ */
+enum class PlaybackState
+{
+    eIDLE,       ///< Player is idle
+    ePLAYING,    ///< Playback is active
+    ePAUSED,     ///< Playback is paused
+    eSTOPPED     ///< Playback has stopped
+};
+```
+
+### Macro Documentation Example
+```cpp
+/**
+ * @def AAMP_MAX_BUFFER_SIZE
+ * @brief Maximum buffer size in bytes for stream buffering.
+ */
+#define AAMP_MAX_BUFFER_SIZE (4 * 1024 * 1024)
+```
+
+### Static / Global Variable Documentation Example
+```cpp
+/**
+ * @brief Default timeout for network requests in milliseconds.
+ */
+static constexpr int kDefaultNetworkTimeoutMs = 10000;
 ```
