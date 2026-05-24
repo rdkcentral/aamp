@@ -1706,6 +1706,45 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_DeDupeBypassedOnReachedStart)
 	p_aamp->MonitorProgress(true, false);
 }
 
+/**
+ * @brief Regression test for Positive Live latency value.
+ *
+ * Verifies that live latency is never negative during TSB-less linear HLS
+ * playback. Before the fix, start/end were overwritten to -1 (XRE sentinel)
+ * before HLS latency was calculated (latency = end - position), producing a
+ * large negative latency value. The fix moves the sentinel assignment to after
+ * the latency calculation.
+ */
+TEST_F(PrivAampTests, MonitorProgress_TsbLessLinearHLS_LatencyNonNegative)
+{
+	constexpr double CULLED_SECONDS = 0.0;
+	constexpr double DURATION_SECONDS = 1000.0;
+	constexpr double SEEK_POS_SECONDS = 100.0;
+
+	// Setup: TSB-less linear HLS live playback
+	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	p_aamp->mSinkPaused = false;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_HLS;
+	p_aamp->SetIsLiveStream(true);
+	p_aamp->SetContentType("LINEAR_TV");
+	p_aamp->mFogTSBEnabled = false;
+	p_aamp->SetLocalAAMPTsb(false);
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->seek_pos_seconds = SEEK_POS_SECONDS;
+	p_aamp->trickStartUTCMS = -1;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	p_aamp->MonitorProgress(true, false);
+
+	// Live latency must be non-negative after the fix.
+	EXPECT_GE(p_aamp->GetCurrentLatencyMs(), 0L);
+}
+
 TEST_F(PrivAampTests,UpdateDurationTest)
 {
 	p_aamp->UpdateDuration(232.436);
