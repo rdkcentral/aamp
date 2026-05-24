@@ -7310,22 +7310,13 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 	}
 
-	// Guard both context pointers before the audio-only copy block.
-	// At trick-play rate only the video context is allocated (mMaxTracks==1),
-	// so mMediaStreamContext[eMEDIATYPE_AUDIO] is legitimately null there;
-	// an early return would incorrectly skip SetAudioTrackInfo / SetTextTrackInfo
-	// for that path.  Keep the guard scoped to the copy block itself.
-	if (!mMediaStreamContext[eMEDIATYPE_VIDEO] || !mMediaStreamContext[eMEDIATYPE_AUDIO])
-	{
-		// At trick-play rate mMediaStreamContext[eMEDIATYPE_AUDIO] is legitimately
-		// null (mMaxTracks==1), so only flag an error at normal play rate where
-		// both contexts are always expected to be allocated.
-		if (mPlayRate == AAMP_NORMAL_PLAY_RATE)
-		{
-			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: null track context in audio-only check");
-		}
-	}
-	else if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+	// mMediaStreamContext[eMEDIATYPE_AUDIO] is dereferenced inside this block.
+	// At trick-play rate (mMaxTracks==1) the audio context is null, but the
+	// condition here is logically unreachable in that case: mNumberOfTracks is
+	// set to 1 at trick-play only when an iframe track is found, which also sets
+	// mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled=true, making !enabled false.
+	// At normal play rate all contexts are allocated, so the dereference is safe.
+	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
 		{
@@ -7354,14 +7345,10 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	{
 		if(audioTrack.index == aTrackIdx)
 		{
-			// Null-guard required: at trick-play rate (mMaxTracks==1) the audio
-			// context is not allocated, but aTracks is also always empty there
-			// (SelectAudioTrack is skipped).  Guard defensively in case that
-			// invariant ever changes.
-			if (mMediaStreamContext[eMEDIATYPE_AUDIO])
-			{
-				mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
-			}
+			// mMediaStreamContext[eMEDIATYPE_AUDIO] is null at trick-play rate, but
+			// aTracks is always empty there (SelectAudioTrack is only called at
+			// normal play rate), so this loop body is never entered at trick-play rate.
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
 		}
 		bitratelist.push_back(audioTrack.bandwidth);
 	}
