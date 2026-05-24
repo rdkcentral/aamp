@@ -7276,6 +7276,12 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 	}
 
+	// mMediaStreamContext[eMEDIATYPE_AUDIO] is dereferenced inside this block.
+	// At trick-play rate (mMaxTracks==1) the audio context is null, but the
+	// condition here is logically unreachable in that case: mNumberOfTracks is
+	// set to 1 at trick-play only when an iframe track is found, which also sets
+	// mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled=true, making !enabled false.
+	// At normal play rate all contexts are allocated, so the dereference is safe.
 	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
@@ -7305,6 +7311,9 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	{
 		if(audioTrack.index == aTrackIdx)
 		{
+			// mMediaStreamContext[eMEDIATYPE_AUDIO] is null at trick-play rate, but
+			// aTracks is always empty there (SelectAudioTrack is only called at
+			// normal play rate), so this loop body is never entered at trick-play rate.
 			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
 		}
 		bitratelist.push_back(audioTrack.bandwidth);
