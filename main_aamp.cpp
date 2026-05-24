@@ -131,6 +131,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	AAMPLOG_MIL("UseFireboltSDK=%d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
 
 	// start Scheduler Worker for task handling
+	AAMPLOG_MIL("Starting scheduler");
 	mScheduler.StartScheduler(aamp->mPlayerId);
 	if (NULL == streamSink)
 	{

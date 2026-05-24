@@ -64,7 +64,9 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 {
 	Term();
 	{
-		std::lock_guard<std::mutex>lock(mQMutex);
+		AAMPLOG_INFO("[ExecuteAsyncTask] BEFORE acquiring mQMutex");
+    	std::unique_lock<std::mutex> queueLock(mQMutex);
+    	AAMPLOG_INFO("[ExecuteAsyncTask] AFTER acquiring mQMutex");
 		mExitLoop = true;
 	}
 	if (mPreFetchThread.joinable())
@@ -79,6 +81,7 @@ AampLicensePreFetcher::~AampLicensePreFetcher()
 		AAMPLOG_WARN("Joining mVssFetchThread");
 		mVssPreFetchThread.join();
 	}
+	AAMPLOG_INFO("[ExecuteAsyncTask] mQMutex scope END");
 }
 
 /**
@@ -161,7 +164,10 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 
 			else
 			{
+				
+				 AAMPLOG_INFO("[ExecuteAsyncTask] BEFORE acquiring mQMutex");
 				std::lock_guard<std::mutex>lock(mQMutex);
+    			AAMPLOG_INFO("[ExecuteAsyncTask] AFTER acquiring mQMutex");
 
 				// Don't add the key if it is already on the queue
 				if (KeyIsQueued(fetchObject))
@@ -181,6 +187,7 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 					AAMPLOG_MIL("Notify mPreFetchThread");
 					mQCond.notify_one();
 				}
+				AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex scope END");
 			}
 
 		}
@@ -213,6 +220,7 @@ bool AampLicensePreFetcher::Term()
 		{
 			mVssFetchQueue.pop_front();
 		}
+		AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex scope END");
 	}
 
 	mTrackStatus.fill(false);
@@ -258,7 +266,7 @@ void AampLicensePreFetcher::PreFetchThread()
 		{
 			LicensePreFetchObjectPtr obj = mFetchQueue.front(); // Leave the request on the queue
 			queueLock.unlock();
-
+			
 			if (!mExitLoop)
 			{
 				bool skip = false;
@@ -308,7 +316,7 @@ void AampLicensePreFetcher::PreFetchThread()
 				}
 			}
 			queueLock.lock();
-
+			AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex locked");
 			// Remove the request now we have processed it
 			if (!mFetchQueue.empty())
 			{
@@ -426,7 +434,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 			// Check if the mFetchQueue has a request for this track type queued
 			// TODO: Check for race conditions between license acquisition and adding into fetch queue
 			std::lock_guard<std::mutex>lock(mQMutex);
-
+			AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex locked");
 			for (auto obj : mFetchQueue)
 			{
 				if (obj == fetchObj)
