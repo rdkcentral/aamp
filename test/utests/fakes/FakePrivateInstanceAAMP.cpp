@@ -1911,3 +1911,13 @@ bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
 {
 }
+
+bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
+{
+	bool result = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsLatencyExceedingTrickplayThreshold();
+	}
+	return result;
+}
