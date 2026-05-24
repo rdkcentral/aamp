@@ -74,7 +74,7 @@ int PlayerScheduler::ScheduleTask(PlayerAsyncTaskObj obj)
 	if (mSchedulerRunning)
 	{
 		std::lock_guard<std::mutex>lock(mQMutex);
-		AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex  aquired");
+		MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex  aquired");
 		if (!mLockOut)
 		{
 			id = mNextTaskId++;
@@ -92,7 +92,7 @@ int PlayerScheduler::ScheduleTask(PlayerAsyncTaskObj obj)
 			// Operation is skipped here, this might happen due to race conditions during normal operation, hence setting as info log
 			MW_LOG_INFO("Warning: Attempting to schedule a task when scheduler is locked out, skipping operation %s!!", obj.mTaskName.c_str());
 		}
-		AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex scope END");
+		MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex scope END");
 	}
 	else
 	{
@@ -106,9 +106,9 @@ int PlayerScheduler::ScheduleTask(PlayerAsyncTaskObj obj)
  */
 void PlayerScheduler::ExecuteAsyncTask()
 {
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex waiting");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex waiting");
 	std::unique_lock<std::mutex>queueLock(mQMutex);
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex aquired");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex aquired");
 	while (mSchedulerRunning)
 	{
 		if (mTaskQueue.empty())
@@ -124,9 +124,9 @@ void PlayerScheduler::ExecuteAsyncTask()
 			Allow the queue to be modified while waiting.*/
 			queueLock.unlock();
 			std::lock_guard<std::mutex>executionLock(mExMutex);
-			 AAMPLOG_INFO("[ExecuteAsyncTask] Re-locking mQMutex/mExMutex");
+			 MW_LOG_INFO("[ExecuteAsyncTask] Re-locking mQMutex/mExMutex");
             queueLock.lock();
-            AAMPLOG_INFO("[ExecuteAsyncTask] Re-acquired mQMutex");
+            MW_LOG_INFO("[ExecuteAsyncTask] Re-acquired mQMutex");
 
 
 			//note: mTaskQueue could have been modified while waiting for execute permission
@@ -145,9 +145,9 @@ void PlayerScheduler::ExecuteAsyncTask()
 					//Execute function
 					obj.mTask(obj.mData);
 					//May be used in a wait() in future loops, it needs to be locked
-					 AAMPLOG_INFO("[ExecuteAsyncTask] Re-locking mQMutex");
+					 MW_LOG_INFO("[ExecuteAsyncTask] Re-locking mQMutex");
             		queueLock.lock();
-            		AAMPLOG_INFO("[ExecuteAsyncTask] Re-acquired mQMutex");
+            	MW_LOG_INFO("[ExecuteAsyncTask] Re-acquired mQMutex");
 
 				}
 				else
@@ -166,7 +166,7 @@ void PlayerScheduler::ExecuteAsyncTask()
 void PlayerScheduler::RemoveAllTasks()
 {
 	std::lock_guard<std::mutex>lock(mQMutex);
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex aquired");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex aquired");
 	if(!mLockOut)
 	{
 		MW_LOG_WARN("The scheduler is active.  An active task may continue to execute after this function exits.  Call SuspendScheduler() prior to this function to prevent this.");
@@ -176,7 +176,7 @@ void PlayerScheduler::RemoveAllTasks()
 		MW_LOG_WARN("Clearing up %d entries from mFuncQueue", (int)mTaskQueue.size());
 		mTaskQueue.clear();
 	}
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex released");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex released");
 }
 
 /**
@@ -212,7 +212,7 @@ void PlayerScheduler::SuspendScheduler()
 	mExLock.lock();
 	std::lock_guard<std::mutex>lock(mQMutex);
 	mLockOut = true;
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex released");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex released");
 }
 
 /**
@@ -223,7 +223,7 @@ void PlayerScheduler::ResumeScheduler()
 	mExLock.unlock();
 	std::lock_guard<std::mutex>lock(mQMutex);
 	mLockOut = false;
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex released");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex released");
 }
 
 /**
@@ -233,7 +233,7 @@ bool PlayerScheduler::RemoveTask(int id)
 {
 	bool ret = false;
 	std::lock_guard<std::mutex>lock(mQMutex);
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex aquired");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex aquired");
 	// Make sure its not currently executing/executed task
 	if (id != PLAYER_TASK_ID_INVALID && mCurrentTaskId != id)
 	{
@@ -251,7 +251,7 @@ bool PlayerScheduler::RemoveTask(int id)
 			}
 		}
 	}
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex released");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex released");
 	return ret;
 }
 
@@ -262,5 +262,5 @@ void PlayerScheduler::EnableScheduleTask()
 {
 	std::lock_guard<std::mutex>lock(mQMutex);
 	mLockOut = false;
-	AAMPLOG_INFO("[ExecuteAsyncTask]   mQMutex released");
+	MW_LOG_INFO("[ExecuteAsyncTask]   mQMutex released");
 }

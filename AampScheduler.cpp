@@ -24,6 +24,7 @@
 
 #include "AampScheduler.h"
 #include "AampUtils.h"
+#include <sstream>
 
 /**
  * @brief AampScheduler Constructor
@@ -66,7 +67,8 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
 {
     int id = AAMP_TASK_ID_INVALID;
 
-    AAMPLOG_INFO("[ScheduleTask] ENTER task=%s thread=%ld", obj.mTaskName.c_str(), std::this_thread::get_id());
+    std::stringstream ss; ss << std::this_thread::get_id();
+    AAMPLOG_INFO("[ScheduleTask] ENTER task=%s thread=%s", obj.mTaskName.c_str(), ss.str().c_str());
 
     if (mSchedulerRunning)
     {
@@ -143,7 +145,8 @@ void AampScheduler::ExecuteAsyncTask()
 {
     UsingPlayerId playerId(mPlayerId);
 
-    AAMPLOG_INFO("[ExecuteAsyncTask] ENTER thread=%ld", std::this_thread::get_id());
+    std::stringstream ss_tid; ss_tid << std::this_thread::get_id();
+    AAMPLOG_INFO("[ExecuteAsyncTask] ENTER thread=%s", ss_tid.str().c_str());
 
     AAMPLOG_INFO("[ExecuteAsyncTask] BEFORE acquiring mQMutex");
     std::unique_lock<std::mutex> queueLock(mQMutex);
@@ -201,7 +204,17 @@ void AampScheduler::ExecuteAsyncTask()
                         // Unlock queue while executing task
                         AAMPLOG_INFO("[ExecuteAsyncTask] Unlocking mQMutex before task execution");
                         queueLock.unlock();
-
+                    }
+                    				}
+				else
+				{
+					AAMPLOG_ERR("Scheduler found a task with invalid ID, skip task!");
+				}
+			}
+		}
+	}
+	AAMPLOG_INFO("Exited Async Worker Thread");
+}
 
 
 /**
@@ -226,7 +239,8 @@ void AampScheduler::RemoveAllTasks()
  */
 void AampScheduler::StopScheduler()
 {
-    AAMPLOG_WARN("[StopScheduler] ENTER thread=%ld", std::this_thread::get_id());
+    std::stringstream ss_tid; ss_tid << std::this_thread::get_id();
+    AAMPLOG_WARN("[StopScheduler] ENTER thread=%s", ss_tid.str().c_str());
 
     AAMPLOG_WARN("[StopScheduler] Stopping Async Worker Thread");
 
@@ -281,7 +295,8 @@ void AampScheduler::StopScheduler()
  */
 void AampScheduler::SuspendScheduler()
 {
-    AAMPLOG_INFO("[SuspendScheduler] ENTER thread=%ld", std::this_thread::get_id());
+    std::stringstream ss_tid; ss_tid << std::this_thread::get_id();
+    AAMPLOG_INFO("[SuspendScheduler] ENTER thread=%s", ss_tid.str().c_str());
 
     // 🔴 Possible hang point: mExLock
     AAMPLOG_INFO("[SuspendScheduler] BEFORE acquiring mExLock");
@@ -304,7 +319,8 @@ void AampScheduler::SuspendScheduler()
  */
 void AampScheduler::ResumeScheduler()
 {
-    AAMPLOG_INFO("[ResumeScheduler] ENTER thread=%ld", std::this_thread::get_id());
+    std::stringstream ss_tid; ss_tid << std::this_thread::get_id();
+    AAMPLOG_INFO("[ResumeScheduler] ENTER thread=%s", ss_tid.str().c_str());
 
     // 🔴 Unlock mExLock (can crash if not locked properly)
     AAMPLOG_INFO("[ResumeScheduler] BEFORE releasing mExLock");
@@ -329,7 +345,8 @@ bool AampScheduler::RemoveTask(int id)
 {
     bool ret = false;
 
-    AAMPLOG_INFO("[RemoveTask] ENTER thread=%ld id=%d", std::this_thread::get_id(), id);
+    std::stringstream ss_tid; ss_tid << std::this_thread::get_id();
+    AAMPLOG_INFO("[RemoveTask] ENTER thread=%s id=%d", ss_tid.str().c_str(), id);
 
     // 🔴 Possible hang point: mQMutex
     AAMPLOG_INFO("[RemoveTask] BEFORE acquiring mQMutex");
@@ -386,7 +403,8 @@ bool AampScheduler::RemoveTask(int id)
  */
 void AampScheduler::EnableScheduleTask()
 {
-    AAMPLOG_INFO("[EnableScheduleTask] ENTER thread=%ld", std::this_thread::get_id());
+    std::stringstream ss_tid; ss_tid << std::this_thread::get_id();
+    AAMPLOG_INFO("[EnableScheduleTask] ENTER thread=%s", ss_tid.str().c_str());
 
     // 🔴 Possible hang point: mQMutex
     AAMPLOG_INFO("[EnableScheduleTask] BEFORE acquiring mQMutex");
