@@ -442,6 +442,8 @@ private:
 public:
 	AampLogManager *mLogObj;
 	InterfacePlayerRDK *playerInstance ;
+	bool mSeekPausedState = false;
+
 };
 
 #endif // AAMPGSTPLAYER_H

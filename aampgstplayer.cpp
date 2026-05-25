@@ -1247,6 +1247,12 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
 {
 	playerInstance->SetPauseOnStartPlayback(enable);
+	
+	if(enable)
+	{
+		mSeekPausedState = true;
+		AAMPLOG_WARN("SetPauseOnStartPlayback: mSeekPausedState=true");
+	}
 }
 
 /**

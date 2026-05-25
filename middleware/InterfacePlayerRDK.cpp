@@ -146,7 +146,7 @@ firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPen
 using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
-lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
+seekPausedState(0),lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
 numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL), durationQuery(NULL),
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
@@ -1590,6 +1590,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		g_source_remove(interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId);
 		interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId = PLAYER_TASK_ID_INVALID;
 
+	}
+	/* If pipeline is paused (seek with keepPaused), mark seekPausedState
+	 * so that when ConfigurePipeline restarts buffering, the buffering_timeout callback
+	 * won't race to set PLAYING before Pause(1) arrives */
+	if (interfacePlayerPriv->gstPrivateContext->paused)
+	{
+		interfacePlayerPriv->gstPrivateContext->seekPausedState = true;
+		MW_LOG_MIL("InterfacePlayerRDK: Flush with paused state — setting seekPausedState");
 	}
 
 	// If the pipeline is not setup, we will cache the value for later
@@ -3323,6 +3331,12 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 		GstState nextState = pause ? GST_STATE_PAUSED : GST_STATE_PLAYING;
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = nextState;
 
+		/*  Clear seekPausedState when explicitly resuming playback */
+		if (!pause)
+		{
+			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+		}
+
 		if (GST_STATE_PAUSED == nextState && forceStopGstreamerPreBuffering)
 		{
 			/* maybe in a timing case during the playback start,
@@ -4600,6 +4614,15 @@ static gboolean buffering_timeout (gpointer data)
 			}
 			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || privatePlayer->gstPrivateContext->buffering_timeout_cnt-- == 0)
 			{
+				/* Do not set PLAYING if a seek-with-keepPaused is in progress.
+			 	 * The buffering_timeout timer may fire after ConfigurePipeline restarts buffering 
+				 * but BEFORE the Pause(1) from keepPaused logic arrives — causing a race. */
+				if (privatePlayer->gstPrivateContext->seekPausedState)
+				{
+					MW_LOG_WARN("buffering_timeout: skipping PLAYING — seekPausedState active (cnt %u, frames %d)", privatePlayer->gstPrivateContext->buffering_timeout_cnt, frames);
+					return privatePlayer->gstPrivateContext->buffering_in_progress;
+				}
+
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
 				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
 				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
