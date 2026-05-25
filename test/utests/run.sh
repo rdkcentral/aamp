@@ -53,6 +53,16 @@ cat << EOF > test_details.json
 EOF
 }
 
+# List tests that took longer than 1 second, ordered by duration (longest first)
+list_slow_tests()
+{
+    local xml_file="$1"
+    if [[ ! -f "$xml_file" ]]; then
+        return
+    fi
+    python3 "${TESTDIR}/list_slow_tests.py" "$xml_file"
+}
+
 # "corrupt arc tag"
 find . -name "*.gcda" -print0 | xargs -0 --no-run-if-empty rm
 
@@ -165,7 +175,7 @@ if [ "$rdke_build" -eq "1" ]; then
 	echo "RDKE build"
 
 	export GTEST_OUTPUT="json"
-  ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR || true  # Don't exit script if a test fails
+  ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR --output-junit ctest-results.xml || true  # Don't exit script if a test fails
 
   cd tests
 
@@ -218,6 +228,8 @@ EOF
 else
     ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR --output-junit ctest-results.xml
 fi
+
+list_slow_tests ctest-results.xml
 
 if [ "$build_coverage" -eq "1" ]; then
 #We are in utests/build

@@ -40,6 +40,7 @@
 #include <chrono>
 #include <memory>
 #include "AampCurlDefine.h"
+#include "AampDefine.h"
 #include "AampMediaType.h"
 
 typedef std::map<int,std::string> RespHeader;
@@ -59,6 +60,7 @@ typedef struct _downloadConfig
 	uint32_t iDownloadRetryCount;
 	uint32_t iDownloadRetryWaitMs;
 	uint32_t iDownload502RetryCount; 		//Non zero value then use this for 502 retries
+	uint32_t iDownload502RetryWaitMs;		//Delay between 502 retries (ms)
 
 	CurlRequest eRequestType;
 	long    lSupportedTLSVersion;
@@ -80,7 +82,7 @@ typedef struct _downloadConfig
 	_downloadConfig() : pCurl(nullptr),iDownloadTimeout(DEFAULT_CURL_TIMEOUT),iLowBWTimeout(0),iCurlConnectionTimeout(DEFAULT_CURL_CONNECTTIMEOUT),
 			iStallTimeout(0),iStartTimeout(0),bSSLVerifyPeer(false),lSupportedTLSVersion(CURL_SSLVERSION_TLSv1_2),proxyName(""),userAgentString(""),sCustomHeaders(),
 			bVerbose(false),bIgnoreResponseHeader(false),bNeedDownloadMetrics(false),eRequestType(eCURL_GET),postData(""),iDownloadRetryCount(0),iDownload502RetryCount(0),
-			iDownloadRetryWaitMs(50),iDnsCacheTimeOut(DEFAULT_DNS_CACHE_TIMEOUT), bCurlThroughput(false), networkPersonaFile()
+			iDownloadRetryWaitMs(50),iDownload502RetryWaitMs(MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS),iDnsCacheTimeOut(DEFAULT_DNS_CACHE_TIMEOUT), bCurlThroughput(false), networkPersonaFile()
 	{
 	}
 	
