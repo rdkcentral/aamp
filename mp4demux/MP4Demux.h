@@ -320,8 +320,10 @@ private:
 	void ParseProtectionSchemeInfo();
 	/** @brief Parse sample auxiliary information offsets box */
 	void ParseSampleAuxiliaryInformationOffsets();
-	/** @brief Parse sample encryption box (SENC) */
-	void ParseSampleEncryption();
+	/** @brief Parse sample encryption box (SENC)
+	 * @param next Pointer to next box
+	 */
+	void ParseSampleEncryption(const uint8_t *next);
 	/** @brief Parse track run box (TRUN) */
 	void ParseTrackRun();
 	/**

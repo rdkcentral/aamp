@@ -645,12 +645,19 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
  * - Initialization vector (IV)
  * - Subsample encryption information (clear/encrypted byte pairs)
  * - Cipher mode and pattern encryption settings
+ *
+ * @param next Pointer to next box
  */
-void Mp4Demux::ParseSampleEncryption()
+void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t sampleCount = ReadU32();
 	uint64_t maxSampleCount = sampleOffset + sampleCount;
+	MP4_LOG_DEBUG("senc: sampleCount=%" PRIu32 " ivSize=%u flags=0x%x subSamplePresent=%d boxRemaining=%zu",
+		sampleCount, ivSize, flags,
+		(flags & SENC_SUBSAMPLE_ENCRYPTION_PRESENT) ? 1 : 0,
+		static_cast<size_t>(next - ptr));
+
 	if (samples.size() != maxSampleCount)
 	{
 		throw Mp4ParseException(MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH, "senc: sampleCount mismatch");
@@ -1219,7 +1226,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ParseSampleAuxiliaryInformationSizes();
 				break;
 			case MultiChar_Constant("senc"): // modern, optional
-				ParseSampleEncryption();
+				ParseSampleEncryption(next);
 				break;
 			case MultiChar_Constant("tfhd"):
 				ParseTrackFragmentHeader();
@@ -1320,6 +1327,9 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ptr = next; // skip payload
 				break;
 			default:
+				// Unknown/unhandled box — skip payload and continue
+				MP4_LOG_DEBUG("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
+				ptr = next;
 				break;
 		}
 		if (ptr != next)
@@ -1404,6 +1414,7 @@ bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 		}
 	} catch (const Mp4ParseException& ex) {
 		setParseError(ex.code());
+		MP4_LOG_ERR("%s", ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error
