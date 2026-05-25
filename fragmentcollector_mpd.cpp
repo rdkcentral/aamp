@@ -6080,6 +6080,21 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(void* adaptationSe
 }
 
 /**
+ * @fn AddIfUnique
+ * @brief Adds a text track to the list if it is not already in list
+ * @return true if the text track was added, false otherwise
+ */
+bool StreamAbstractionAAMP_MPD::AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo& value)
+{
+	if (std::find(tTracks.begin(), tTracks.end(), value) == tTracks.end())
+	{
+		tTracks.push_back(std::move(value));
+		return true;
+	}
+	return false;
+}
+
+/**
  * @fn ParseTrackInformation
  *
  * @brief get the Label value from adaptation in Dash
@@ -6237,34 +6252,41 @@ void StreamAbstractionAAMP_MPD::ParseTrackInformation(IAdaptationSet *adaptation
 						while (delim != std::string::npos)
 						{
 							ParseCCStreamIDAndLang(value.substr(0, delim), id, lang);
-							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-								lang.c_str(), schemeId.c_str(), id.c_str());
 							TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 							textTrack.setInstreamId(id);
 							textTrack.setLanguage(lang);
 							textTrack.setType("captions");
-							tTracks.push_back(std::move(textTrack));
+							if (AddIfUnique(tTracks, textTrack))
+							{
+								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
+											 lang.c_str(), schemeId.c_str(), id.c_str());
+							}
 							value = value.substr(delim + 1);
 							delim = value.find(';');
 						}
 						ParseCCStreamIDAndLang(std::move(value), id, lang);
 						lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
-							lang.c_str(), schemeId.c_str(), id.c_str());
-						TextTrackInfo textTrack = TextTrackInfo(true, std::move(schemeId));
+
+						TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 						textTrack.setInstreamId(id);
 						textTrack.setLanguage(lang);
 						textTrack.setType("captions");
-						tTracks.push_back(std::move(textTrack));
+						if (AddIfUnique(tTracks, textTrack))
+						{
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - lang:%s, isCC:1, group:%s, id:%s",
+							lang.c_str(), schemeId.c_str(), id.c_str());
+						}
 					}
 					else
 					{
 						// value = empty is highly discouraged as per spec, just added as fallback
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: CC Track - group:%s, isCC:1", schemeId.c_str());
-						TextTrackInfo textTrack = TextTrackInfo(true, std::move(schemeId));
+						TextTrackInfo textTrack = TextTrackInfo(true, schemeId);
 						textTrack.setAccessibilityItem(accessibilityNode);
 						textTrack.setAvailable(true);
-						tTracks.push_back(std::move(textTrack));
+						if (AddIfUnique(tTracks, textTrack))
+						{
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: CC Track - group:%s, isCC:1", schemeId.c_str());
+						}
 					}
 				}
 			}

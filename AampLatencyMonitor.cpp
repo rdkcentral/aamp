@@ -558,7 +558,7 @@ void AampLatencyMonitor::UpdateDangerBufferState(double bufferMs)
  * - Below danger: wakes Run() early (once per episode) so the shift happens
  *   immediately rather than waiting for the next scheduled poll interval.
  *   Subsequent low-buffer fragments in the same episode are no-ops (episode
-	 *   guard mBelowDangerShifted suppresses redundant wake-ups without a lock).
+ *   guard mBelowDangerShifted suppresses redundant wakeups without a lock).
  *
  * - Above danger: clears the episode guard so the next distinct dip will
  *   trigger a fresh wakeup and shift. Run() handles the restoration timer
