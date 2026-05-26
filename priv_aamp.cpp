@@ -14047,6 +14047,8 @@ const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType err
 			return "Encrypted period found";
 		case eGST_ERROR_GST_PIPELINE_INTERNAL:
 			return "GstPipeline Internal Error";
+		case eGST_ERROR_OUTPUT_PROTECTION_ERROR:
+			return "HDCP Output Protection Error";
 		default:
 			return "STARTTIME RESET";
 	}
