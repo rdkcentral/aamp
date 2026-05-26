@@ -300,7 +300,6 @@ static constexpr const char *mMediaFormatName[] =
 };
 
 static_assert(sizeof(mMediaFormatName)/sizeof(mMediaFormatName[0]) == (eMEDIAFORMAT_UNKNOWN + 1), "Ensure 1:1 mapping between mMediaFormatName[] and enum MediaFormat");
-
 /**
  * @brief Get the idle task's source ID
  * @retval source ID
