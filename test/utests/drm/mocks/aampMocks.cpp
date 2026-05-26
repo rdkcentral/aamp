@@ -26,6 +26,7 @@
 #include "DrmUtils.h"
 #include "AampConfig.h"
 #include "priv_aamp.h"
+#include "mp4demux/MP4Demux.h"
 #include "aampgstplayer.h"
 #include "AampLatencyMonitor.h"
 
