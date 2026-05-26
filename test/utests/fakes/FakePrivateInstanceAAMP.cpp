@@ -18,6 +18,7 @@
 */
 
 #include "priv_aamp.h"
+#include "mp4demux/MP4Demux.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "AampMPDDownloader.h"
 
