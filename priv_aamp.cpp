@@ -93,7 +93,6 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include <fcntl.h>
 #include <uuid/uuid.h>
 #include <cstring>
-#include <string_view>
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
 #include <sched.h>
@@ -301,22 +300,6 @@ static constexpr const char *mMediaFormatName[] =
 };
 
 static_assert(sizeof(mMediaFormatName)/sizeof(mMediaFormatName[0]) == (eMEDIAFORMAT_UNKNOWN + 1), "Ensure 1:1 mapping between mMediaFormatName[] and enum MediaFormat");
-
-/**
- * @brief Emit a long URL to the log in 400-character chunks to avoid truncation.
- * @param[in] tag    Label prefix for each chunk (e.g. "aamp_tune_url").
- * @param[in] url    URL to log.
- */
-static void LogUrlChunked(const char* tag, std::string_view url)
-{
-	constexpr size_t kChunk = 400;
-	for (size_t off = 0; off < url.size(); off += kChunk)
-	{
-		auto chunk = url.substr(off, kChunk);
-		AAMPLOG_MIL("%s[%zu]: %.*s", tag, off,
-			static_cast<int>(chunk.size()), chunk.data());
-	}
-}
 
 /**
  * @brief Get the idle task's source ID
@@ -7087,12 +7070,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		{
 			snprintf(tuneStrPrefix, sizeof(tuneStrPrefix), "%s PLAYER[%d]", (mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId);
 		}
-		AAMPLOG_MIL("%s aamp_tune: attempt: %d format: %s", tuneStrPrefix, mTuneAttempts, mMediaFormatName[mMediaFormat]);
-		LogUrlChunked("aamp_tune_url", mManifestUrl);
+		AAMPLOG_MIL("%s aamp_tune: attempt: %d format: %s URL: %s", tuneStrPrefix, mTuneAttempts, mMediaFormatName[mMediaFormat], mManifestUrl.c_str());
 		if(!mMPDStichRefreshUrl.empty())
 		{
-			AAMPLOG_MIL("%s aamp_stich: Option[%d]", tuneStrPrefix, mMPDStichOption);
-			LogUrlChunked("aamp_stich_url", mMPDStichRefreshUrl);
+			AAMPLOG_WARN("%s aamp_stich: Option[%d] URL: %s", tuneStrPrefix, mMPDStichOption, mMPDStichRefreshUrl.c_str());
 		}
 		if(IsFogTSBSupported())
 		{
