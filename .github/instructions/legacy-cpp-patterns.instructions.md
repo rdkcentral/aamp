@@ -18,6 +18,25 @@ applyTo:
 > modified for the current task. Do not perform opportunistic,
 > repository-wide modernization. See the *Modernization Scope Discipline*
 > section in `cpp.instructions.md`.
+>
+> **Generation vs review:** When generating or editing code, prefer the
+> modern alternative. When reviewing an existing change, raise legacy
+> patterns only where they appear in the diff or directly affect it;
+> do not request rewrites of untouched surrounding code.
+
+## Touched-Code Policy
+
+Distinguish four cases when working with legacy code:
+
+| Situation | Expected approach |
+|---|---|
+| **New code** | Use modern C++17 idioms by default (smart pointers, STL containers, RAII, `std::string`/`std::string_view`). |
+| **Local safe modernization** | When editing a function or small region, prefer modern equivalents for the lines you change. Keep the diff focused. |
+| **Legacy interoperability** | When a surrounding API requires C-style buffers, raw pointers, or `extern "C"` signatures, match that contract at the boundary. Do not propagate the legacy style inward; isolate it. |
+| **Unrelated existing code** | Leave it alone. Do not refactor files that are not part of the current change. |
+
+The legacy snippets in this document are shown so the modern alternative
+is recognisable. They are **not** templates for new code.
 
 ## Analyzing Legacy Code
 
@@ -126,7 +145,9 @@ std::optional<Config> load_config(std::string_view filename) {
 4. Use RAII for resource management
 
 ### Phase 2: Modern Features
-1. Use auto for type deduction
+1. Use `auto` where it removes redundant type repetition or where the
+   deduced type is obvious from the initializer (see the readability
+   guidance in `cpp.instructions.md`).
 2. Replace manual loops with STL algorithms
 3. Use range-based for loops
 4. Apply move semantics where beneficial

@@ -60,6 +60,13 @@ Copilot must still follow these steps:
 ## 4. Code Reviews
 - All changes must go through pull requests.
 - Feedback must be constructive and based on these guidelines.
+- Review comments should be **concrete, actionable, and tied to changed
+  code**. Do not raise drive-by Core-Guidelines or modernization comments
+  on untouched surrounding code unless the user explicitly asks for a
+  broader review.
+- Generation guidance (write modern C++17, prefer smart pointers, etc.)
+  applies when creating or editing code. When reviewing, apply it to the
+  diff, not to the rest of the file.
 
 ## 5. Performance Considerations
 - Optimize only when profiling indicates a need.

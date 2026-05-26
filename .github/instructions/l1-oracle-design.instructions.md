@@ -43,11 +43,14 @@ then reject or rewrite the test.
 
 ## Testability assessment
 
-Before writing tests for a method, assess whether it is testable at L1:
+Before writing tests for a method, assess whether it is testable at L1.
+The thresholds below are **advisory heuristics**, not hard gates — use
+judgement and consider the component context.
 
-**Warning signs that a method is too complex for L1:**
-- Requires more than ~5 mock setups to reach a single code path
-- Has cyclomatic complexity > 15 (use `/cyclomatic-complexity` to measure)
+**Warning signs that a method is likely too complex for L1:**
+- Requires roughly 5 or more mock setups to reach a single code path
+- Cyclomatic complexity in the high teens or above (use
+  `/cyclomatic-complexity` to measure)
 - Mixes I/O, state mutation, and control flow in a single method
 - Requires reaching into private state to verify outcomes
 - Has deeply nested conditionals that make path isolation impractical

@@ -15,13 +15,20 @@ applyTo:
 - The existing AAMP codebase is predominantly C++11. **All new production and L1 test code must target C++17.** Do not introduce C++20-only language or library features (e.g. `std::span`, concepts, ranges, `std::format`, coroutines) into the active codebase. C++20 may be referenced only as forward-looking context, clearly marked as non-current guidance.
 - Legacy C++11 patterns exist for compatibility and interoperability with surrounding APIs. They should not be copied into new code unless the surrounding API or architecture requires it.
 - Follow the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) where they do not conflict with repository-specific conventions in this directory.
-- Highlight when existing code being studied does not follow the core guidelines and suggest improvements
+- When generating new code, follow this guidance directly. When reviewing
+  or editing existing code, apply this guidance to the lines being
+  changed; do not raise drive-by Core-Guidelines comments on unrelated
+  surrounding code unless the user asks for a broader review.
 - Discourage the use of C-style code within C++ (e.g. avoid memcpy(), memcmp() and char* for strings). Emphasise memory safety
 - Apply DRY (Don't Repeat Yourself) principles throughout the codebase
 - Ensure cyclomatic complexity is minimised both for new code and when refactoring
 - Use design patterns where possible
 - Use const correctness throughout the codebase
-- Prefer auto for type deduction when it improves readability
+- Use `auto` where it removes redundant type repetition (e.g. iterator
+  declarations, `std::make_unique` results, range-based `for` over
+  containers) or where the deduced type is obvious from the initializer.
+  Prefer an explicit type where it makes ownership, conversions, numeric
+  width, or the public API contract clearer to a reader.
 - Use constexpr for compile-time constants and functions when possible
 - Leverage range-based for loops and STL algorithms
 - Use explicit constructors to prevent implicit conversions
@@ -178,7 +185,8 @@ extern "C" {
 ### C++11 Features
 - Smart pointers (unique_ptr, shared_ptr, weak_ptr)
 - Range-based for loops
-- Auto keyword for type deduction
+- `auto` for type deduction (apply readability rules from the C++
+  Guidelines section above)
 - Lambda expressions
 - Move semantics and rvalue references
 - Initializer lists
