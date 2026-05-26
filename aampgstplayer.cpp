@@ -1253,6 +1253,11 @@ void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
 		mSeekPausedState = true;
 		AAMPLOG_WARN("SetPauseOnStartPlayback: mSeekPausedState=true");
 	}
+	else
+	{
+		mSeekPausedState = false;
+		AAMPLOG_WARN("SetPauseOnStartPlayback: mSeekPausedState=false");
+	}
 }
 
 /**

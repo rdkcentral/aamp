@@ -1624,6 +1624,10 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		MW_LOG_MIL("InterfacePlayerRDK: Remove bufferingTimeoutTimerId %d", interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId);
 		g_source_remove(interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId);
 		interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId = PLAYER_TASK_ID_INVALID;
+		// Reset buffering state to prevent stale timeout_cnt from triggering error after seek
+		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;
+		interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
+
 
 	}
 	/* If pipeline is paused (seek with keepPaused), mark seekPausedState
@@ -4546,6 +4550,8 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 			MW_LOG_WARN("InterfacePlayerRDK: SetPlayBackRate detected resume while seekPausedState active — forcing resume");
 			/* Pause(false) clears seekPausedState in Pause implementation. */
 			Pause(false, false);
+			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+			interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
 			/* After explicit resume we consider operation successful */
 			ret = true;
 		}
