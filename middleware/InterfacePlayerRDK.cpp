@@ -499,12 +499,31 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 	else
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PLAYING");
-		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
+		/* If a seek-with-keepPaused is active we must not race into PLAYING.
+		 * Defer the PLAYING transition and leave pipeline in PAUSED until
+		 * an explicit resume (Pause(false)) clears `seekPausedState`.
+		 */
+		if (interfacePlayerPriv->gstPrivateContext->seekPausedState)
 		{
-			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
+			MW_LOG_WARN("seekPausedState active - deferring transition to PLAYING, marking pendingPlayState");
+			interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
+			interfacePlayerPriv->gstPrivateContext->pendingPlayState = true;
+			/* Ensure pipeline is left/returned to PAUSED to avoid accidental play */
+			if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
+			{
+				MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PAUSED failed while deferring PLAYING");
+			}
+			interfacePlayerPriv->gstPrivateContext->paused = true;
 		}
-		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
-		interfacePlayerPriv->gstPrivateContext->paused = false;
+		else
+		{
+			if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
+			{
+				MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
+			}
+			interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
+			interfacePlayerPriv->gstPrivateContext->paused = false;
+		}
 	}
 	interfacePlayerPriv->gstPrivateContext->eosSignalled = false;
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
@@ -1599,7 +1618,12 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = true;
 		MW_LOG_MIL("InterfacePlayerRDK: Flush with paused state — setting seekPausedState");
 	}
-
+	// If rate indicates playback (not paused seek), clear seekPausedState
+	if (rate > 0 && !interfacePlayerPriv->gstPrivateContext->paused)
+	{
+		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+		MW_LOG_MIL("InterfacePlayerRDK: rate indicates playback, clearing seekPausedState");
+	}
 	// If the pipeline is not setup, we will cache the value for later
 	SetSeekPosition(position);
 
@@ -3346,19 +3370,7 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			 * and the resume play will be handled from StopBuffering once after getting enough buffer/frames.
 			 */
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;
-		}
-		/* Serialize state change requests: wait for any pending async state transition
-		 * to complete before issuing a new one. This prevents confusing the GStreamer
-		 * state machine with rapid back-to-back contradictory state changes
-		 * (e.g., PLAY->PAUSE->PLAY within 400ms). */
-		
-		GstState current, pending;
-		GstStateChangeReturn pendingRc = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 500 * GST_MSECOND);
-		
-		if (GST_STATE_CHANGE_ASYNC == pendingRc)
-		{
-			MW_LOG_WARN("InterfacePlayerRDK_Pause - async state change still in progress (current=%d, pending=%d), proceeding with %d", current, pending, nextState);
-		}		
+		}	
 
 		MW_LOG_ERR("InterfacePlayerRDK::Pause requested nextState=%s forceStopGstreamerPreBuffering=%d", gst_element_state_get_name(nextState), forceStopGstreamerPreBuffering);
 		GstStateChangeReturn rc = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
@@ -3371,6 +3383,7 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			/* wait a bit longer for the state change to conclude */
 			if (nextState != validateStateWithMsTimeout(this, nextState, 100))
 			{
+				GstState current, pending;
 				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED expected %s", gst_element_state_get_name(nextState));
 				
 				/* Recovery: retry the state change once before reporting failure */
@@ -4428,7 +4441,17 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			if(eGST_MEDIAFORMAT_DASH != static_cast<GstMediaFormat>(pInterfacePlayerRDK->m_gstConfigParam->media))
 			{
 				SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PAUSED);
-				SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PLAYING);
+				/* Avoid forcing PLAYING if a seek-with-keepPaused is active */
+				if (!privatePlayer->gstPrivateContext->seekPausedState)
+				{
+					SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PLAYING);
+				}
+				else
+				{
+					MW_LOG_WARN("GST_MESSAGE_CLOCK_LOST: seekPausedState active - skipping PLAYING");
+					privatePlayer->gstPrivateContext->pendingPlayState = true;
+					privatePlayer->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
+				}
 			}
 			break;
 
@@ -5030,6 +5053,16 @@ void InterfacePlayerRDK::NotifyFragmentCachingComplete()
 {
 	if(interfacePlayerPriv->gstPrivateContext->pendingPlayState)
 	{
+		/* If a seek-with-keepPaused is active, do not transition to PLAYING here.
+		 * Leave pendingPlayState set so the explicit resume will perform the transition.
+		 */
+		if (interfacePlayerPriv->gstPrivateContext->seekPausedState)
+		{
+			MW_LOG_WARN("NotifyFragmentCachingComplete: seekPausedState active - deferring PLAYING");
+			interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
+			return;
+		}
+
 		MW_LOG_MIL("InterfacePlayer: Setting pipeline to PLAYING state ");
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
 		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
