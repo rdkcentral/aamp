@@ -884,7 +884,6 @@ public:
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
-	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
@@ -1140,8 +1139,6 @@ public:
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */
 	bool midFragmentSeekCache;    				/**< To find if cache is updated when seeked to mid fragment boundary */
-	bool mDisableRateCorrection;             /**< Disable live latency correction when user pause or seek the playback **/
-	bool mAbortRateCorrection;               /**< Flag to abort rate correction thread **/
 	bool mAutoResumeTaskPending;
 
 	std::string mTsbRecordingId; 				/**< Recording ID of current TSB */
@@ -1157,8 +1154,6 @@ public:
 	double mProgressReportAvailabilityOffset; 	/**< Offset time for progress reporting from availability start */
 	double mAbsoluteEndPosition; 				/**< Live Edge position for absolute reporting */
 	AampConfig *mConfig;
-	long mDiscStartTime;					/**< start time of discontinuity */
-	bool mRateCorrectionDelay;				/**<Disable live latency correction when discontinuity is playing */
 
 	bool mbUsingExternalPlayer; 				/**<Playback using external players eg:OTA, HDMIIN,Composite*/
 
@@ -1169,9 +1164,6 @@ public:
 	double mNextPeriodStartTime; 				/**< Keep Next Period Start Time  */
 	double mNextPeriodScaledPtoStartTime; 			/**< Keep Next Period Start Time as per PTO  */
 
-	std::condition_variable mRateCorrectionWait;	/**< Conditional variable for signaling timed wait for rate correction*/
-	std::mutex mRateCorrectionTimeoutLock;				/**< Rate correction thread mutex for conditional timed wait*/
-	double mCorrectionRate;                          /**< Variable to store correction rate **/
 	bool mIsEventStreamFound;				/**< Flag to indicate event stream entry in any of period */
 
 	bool mIsFakeTune;
@@ -1742,34 +1734,6 @@ public:
 	 *   @param[in]  beginningOfStream - Flag to indicate if the progress reporting is for the Beginning Of Stream
 	 */
 	void MonitorProgress(bool sync = true, bool beginningOfStream = false);
-	/**
-	 *   @fn WakeupLatencyCheck
-	 *   @return void
-	 */
-	void WakeupLatencyCheck();
-	/**
-	 *   @fn TimedWaitForLatencyCheck
-	 *   @param [in] timeInMs - Time in milliseconds
-	 *   @return void
-	 */
-	void TimedWaitForLatencyCheck(int timeInMs);
-	/**
-	 *   @fn StartRateCorrectionWorkerThread
-	 *   @return void
-	 */
-	void StartRateCorrectionWorkerThread(void);
-
-	/**
-	 *   @fn StopRateCorrectionWorkerThread
-	 *   @return void
-	 */
-	void StopRateCorrectionWorkerThread(void);
-
-	/**
-	 *   @fn RateCorrectionWorkerThread
-	 *   @return void
-	 */
-	void RateCorrectionWorkerThread(void);
 
 	/**
 	 *   @fn ReportAdProgress
@@ -4074,6 +4038,12 @@ public:
 	 * @return true if accumulated latency exceeds the threshold, false otherwise.
 	 */
 	bool IsLatencyExceedingTrickplayThreshold() const;
+	
+	/**
+	 * @brief Returns true if latency monitor rate correction is currently enabled
+	 */
+	bool IsLatencyMonitorEnabled() const;
+
 
 	/**
 	 * @brief Check if an ad is currently playing
@@ -4227,14 +4197,15 @@ protected:
 	void BuildLatencyConfig(LatencyConfig &config);
 
 	/**
-	 * @brief Start the latency monitor if conditions are met
+	 * @brief Start the latency monitor if conditions are met (live, at live point, normal rate, config enabled).
 	 * If the latency monitor is already running, it will just enable the rate correction.
 	 * If the conditions are not met, the latency monitor will not be started.
 	 */
 	void StartLatencyMonitor();
 
 	/**
-	 * @brief Stop the latency monitor
+	 * @brief Stop the latency monitor.
+	 * Safe to call when the monitor is already stopped.
 	 */
 	void StopLatencyMonitor();
 
