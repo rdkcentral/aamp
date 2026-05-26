@@ -48,7 +48,7 @@ GST_DEBUG_CATEGORY(gst_aampverimatrixdecryptor_debug_category);
 
 static GstStaticPadTemplate gst_aampverimatrixdecryptor_src_template =
         GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-h264;audio/mpeg;video/x-h265;audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3"));
+        GST_STATIC_CAPS("video/x-h264;audio/mpeg;video/x-h265;audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3;audio/x-ac4"));
 
 static GstStaticPadTemplate gst_aampverimatrixdecryptor_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
@@ -57,6 +57,7 @@ static GstStaticPadTemplate gst_aampverimatrixdecryptor_sink_template =
                         "application/x-cenc, original-media-type=(string)video/x-h265, protection-system=(string)" VERIMATRIX_PROTECTION_SYSTEM_ID "; "
                         "application/x-cenc, original-media-type=(string)audio/x-eac3, protection-system=(string)" VERIMATRIX_PROTECTION_SYSTEM_ID "; "
                         "application/x-cenc, original-media-type=(string)audio/x-ac3, protection-system=(string)" VERIMATRIX_PROTECTION_SYSTEM_ID "; "
+                        "application/x-cenc, original-media-type=(string)audio/x-ac4, protection-system=(string)" VERIMATRIX_PROTECTION_SYSTEM_ID "; "
 			"application/x-cenc, original-media-type=(string)audio/x-gst-fourcc-ec_3, protection-system=(string)" VERIMATRIX_PROTECTION_SYSTEM_ID "; "
                         "application/x-cenc, original-media-type=(string)audio/mpeg, protection-system=(string)" VERIMATRIX_PROTECTION_SYSTEM_ID));
 
