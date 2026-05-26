@@ -5466,7 +5466,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 
 			if (ISCONFIGSET_PRIV(eAAMPConfig_MonitorMp4Integrity) &&
-				ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) &&
 				!buffer.empty() &&
 				(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO ||
 				 mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO))
