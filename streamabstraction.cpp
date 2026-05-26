@@ -1304,6 +1304,9 @@ std::string MediaTrack::RestampSubtitle(
 	int64_t mpegtsOut{0};
 	if (mpegtsIn != 0)
 	{
+		// A 33-bit MPEG-TS PTS wraps every ~26.5 h. HLS §4.3.2.3 requires
+		// a DISCONTINUITY tag whenever timestamps are non-monotonic; that
+		// resets pts_offset_s so mpegtsOut cannot go negative.
 		mpegtsOut = mpegtsIn + std::llround(pts_offset_s * static_cast<double>(kTicksPerSecond));
 	}
 
