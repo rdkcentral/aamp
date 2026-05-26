@@ -98,7 +98,15 @@ public:
 
 	// Promote protected members so tests can set them directly.
 	using MediaTrack::fragmentChunkIdxToFetch;
-	using MediaTrack::RestampSubtitle;
+
+	// Wrapper to expose protected RestampSubtitle for unit tests.
+	std::string RestampSubtitle(
+		const char* buffer, size_t bufferLen,
+		double position, double duration, double pts_offset)
+	{
+		return MediaTrack::RestampSubtitle(
+			buffer, bufferLen, position, duration, pts_offset);
+	}
 
 protected:
 	// Must return something non-null to avoid a crash
