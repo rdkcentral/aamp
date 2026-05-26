@@ -5496,8 +5496,9 @@ void StreamAbstractionAAMP_HLS::NotifyFirstVideoPTS(unsigned long long pts, unsi
 			// 0.0 in the MediaTrack base constructor), so pass 0 unconditionally.
 			ptsOffsetSecs = 0U;
 		}
-		// The pts_offset is expected to be in seconds for RialtoSink, so we convert it to GstClockTime (nanoseconds).
-		// For non-Rialto sinks, we need to convert the pts_offset to milliseconds to maintain consistency.
+		// ptsOffsetSecs is in seconds; SetSubtitlePtsOffset handles the
+		// unit conversion (GstClockTime/nanoseconds for RialtoSink,
+		// milliseconds for other sinks).
 		sink->SetSubtitlePtsOffset(ptsOffsetSecs);
 	}
 }
