@@ -1225,6 +1225,9 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("dec3"):
 			case MultiChar_Constant("avcC"):
 			case MultiChar_Constant("esds"): // Elementary Stream Descriptor
+			//anj added:may 26
+			case MultiChar_Constant("stpp"): // TTML subtitle
+			case MultiChar_Constant("wvtt"): // WebVTT subtitle
 				ParseCodecConfigurationBox(type, next);
 				break;
 			case MultiChar_Constant("pssh"):
