@@ -333,10 +333,13 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 					gst_buffer_add_protection_meta (buffer, crypto_info);
 							}
 						retValue = OCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, caps);
+				MW_LOG_WARN("OCDMSessionAdapter: decrypt DYN returned : %d", retValue);
 			}
-			else
+			else{
 				/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 				retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
+				MW_LOG_WARN("OCDMSessionAdapter: decrypt returned : %d", retValue);
+			}
 			uint64_t end_decrypt_time = GetCurrentTimeStampInMSec();
 			if (retValue != 0)
 			{
