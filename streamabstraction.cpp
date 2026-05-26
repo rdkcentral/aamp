@@ -35,6 +35,8 @@
 #include <inttypes.h>
 #include <math.h>
 #include <iterator>
+#include <charconv>
+#include <optional>
 #include <string_view>
 #include <sys/time.h>
 #include <cmath>
@@ -1228,20 +1230,24 @@ std::string MediaTrack::RestampSubtitle(
 
 	const std::string_view headerView{bufView.substr(0, headerEndPos)};
 
-	// Returns a pointer past 'key' inside the header, or nullptr if absent.
-	const auto extractFieldPtr{[&](std::string_view key) -> const char*
+	// Returns the substring past 'key' inside the header, or nullopt if absent.
+	const auto extractField{[&](std::string_view key) -> std::optional<std::string_view>
 	{
 		const auto pos{headerView.find(key)};
-		return (pos != std::string_view::npos)
-			? headerView.data() + pos + key.size()
-			: nullptr;
+		if (pos == std::string_view::npos) return std::nullopt;
+		return headerView.substr(pos + key.size());
 	}};
 
 	// Extract input MPEGTS from the VTT header.
+	// Per RFC 8216 §E.4 the format is:
+	//   X-TIMESTAMP-MAP=LOCAL:<time>,MPEGTS:<integer>
+	// MPEGTS is the last field on that line so its value is terminated by '\n'
+	// or end-of-header — std::from_chars stops cleanly at the first non-digit.
 	int64_t mpegtsIn{0};
-	if (const char* mpegtsPtr{extractFieldPtr("MPEGTS:")})
+	if (auto mpegtsField{extractField("MPEGTS:")}; mpegtsField.has_value())
 	{
-		mpegtsIn = std::atoll(mpegtsPtr);
+		std::from_chars(mpegtsField->data(),
+			mpegtsField->data() + mpegtsField->size(), mpegtsIn);
 	}
 
 	// 90 kHz clock constant for MPEGTS tick conversion.
@@ -1265,32 +1271,20 @@ std::string MediaTrack::RestampSubtitle(
 	int64_t mpegtsOut{0};
 	if (mpegtsIn != 0)
 	{
-		mpegtsOut = mpegtsIn + static_cast<int64_t>(pts_offset_s * kTicksPerSecond);
+		mpegtsOut = mpegtsIn + std::llround(pts_offset_s * static_cast<double>(kTicksPerSecond));
 	}
 
 	// Extract the original LOCAL value string so it can be written to the output
 	// header unchanged (e.g. "00:00:00.000" or any non-zero value the CDN uses).
+	// LOCAL ends at the comma (standard form) or newline (non-standard: MPEGTS on
+	// a separate pseudo-cue line).
 	std::string localStr{"00:00:00.000"};  // safe default
-	if (const char* localPtr{extractFieldPtr("LOCAL:")})
+	if (auto localField{extractField("LOCAL:")}; localField.has_value())
 	{
-		// Limit the comma search to the current line.  Some CDN VTTs use a
-		// non-standard format where X-TIMESTAMP-MAP has only LOCAL (no
-		// inline MPEGTS), and MPEGTS appears as a setting on a subsequent
-		// pseudo-cue line.  Searching past the line-ending '\n' would cause
-		// localStr to absorb the pseudo-cue timing, embedding a stray '\n'
-		// inside the rebuilt X-TIMESTAMP-MAP header line.
-		const char* comma{strchr(localPtr, ',')};
-		const char* newline{strchr(localPtr, '\n')};
-		if (comma != nullptr && (newline == nullptr || comma < newline))
-		{
-			localStr.assign(localPtr, static_cast<std::size_t>(comma - localPtr));
-		}
-		else if (newline != nullptr)
-		{
-			// LOCAL value ends at the newline — no inline MPEGTS on this line.
-			// MPEGTS will still be found by extractFieldPtr below (pseudo-cue).
-			localStr.assign(localPtr, static_cast<std::size_t>(newline - localPtr));
-		}
+		auto sv{*localField};
+		const auto comma{sv.find(',')};
+		const auto newline{sv.find('\n')};
+		localStr = std::string{sv.substr(0, std::min(comma, newline))};
 	}
 
 	AAMPLOG_INFO("[RESTAMP_SUB] HDR: pos=%.3f pts_offset_s=%.6f "
@@ -1309,7 +1303,7 @@ std::string MediaTrack::RestampSubtitle(
 	out.append(buffer + headerEndPos, bufferLen - headerEndPos);
 
 	AAMPLOG_INFO("[RESTAMP_SUB] OUT: pos=%.3f out_len=%zu", position, out.size());
-	AAMPLOG_INFO("[RESTAMP_SUB] OUT content:\n%s", out.c_str());
+	AAMPLOG_TRACE("[RESTAMP_SUB] OUT content:\n%s", out.c_str());
 
 	return out;
 }
