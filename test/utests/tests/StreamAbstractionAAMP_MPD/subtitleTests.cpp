@@ -472,6 +472,8 @@ TEST_F(SubtitleTrackTests, RefreshTrack)
 	EXPECT_NE(track, nullptr);
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 	EXPECT_EQ(pMediaStreamContext->refreshSubtitles,false);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyMonitorEnabled()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, EnableLatencyMonitor(false)).Times(1);
 	CallRefreshTrack(eMEDIATYPE_SUBTITLE);
 	EXPECT_EQ(pMediaStreamContext->refreshSubtitles,true);
 }
