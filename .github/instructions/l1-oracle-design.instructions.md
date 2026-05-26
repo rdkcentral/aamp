@@ -1,6 +1,7 @@
 ---
-applyTo: "test/utests/**,**/*Tests.cpp,**/*TestCases.cpp"
 description: Derive correctness oracles for AAMP L1 tests when no dedicated spec exists
+applyTo:
+  - "test/utests/**"
 ---
 
 # AAMP L1 Oracle Design
