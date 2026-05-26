@@ -594,7 +594,6 @@ public:
 	 * @brief To Load New subtitle on seamless subtitle switch
 	 */
 	void LoadNewSubtitle(bool val);
-
 	/**
 	 * @brief To set Track's Fetch and Inject duration after playlist update
 	 */
@@ -1431,6 +1430,7 @@ public:
 	bool hasDrm;                            /**< denotes if the current asset is DRM protected*/
 
 	bool mIsAtLivePoint;                    /**< flag that denotes if playback is at live point*/
+	bool mSavedLatencyMonitorState ; /**< Saved latency monitor state before audio/subtitle track switch; used to restore only if it was active prior to the switch */
 
 	bool mIsPlaybackStalled;                /**< flag that denotes if playback was stalled or not*/
 	bool mNetworkDownDetected;              /**< Network down status indicator */
