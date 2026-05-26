@@ -227,6 +227,8 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	}
 
 	// 7. Create the Rialto source object (virtual — video/audio differ)
+//ANJ:TODO:1 here MediaSourceSubtitle gets cretaed without textTrackIdentifier. Check how to include this or call property setting later
+//anj:TODO:2: Is mimeType completely mapped for sub? check
 	auto source = createRialtoSource(
 		mimeType, m_mksId >= 0, codecInfo, streamFormat, codecData);
 	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource>
@@ -271,7 +273,8 @@ bool AampRialtoMediaSource::injectOneSample(
 	firebolt::rialto::IMediaPipeline &pipeline,
 	uint64_t capturedGen,
 	AampMediaSample &&sample,
-	std::shared_ptr<firebolt::rialto::CodecData> codecData)
+	std::shared_ptr<firebolt::rialto::CodecData> codecData,
+	int64_t displayOffsetMs)
 {
 	bool injected = false;
 
@@ -400,6 +403,12 @@ bool AampRialtoMediaSource::injectOneSample(
 		segment->setData(
 			static_cast<uint32_t>(sample.mDataSize),
 			sample.mData.get());
+
+		if (mediaType() == eMEDIATYPE_SUBTITLE && displayOffsetMs > 0)
+		{
+			segment->setDisplayOffset(
+				static_cast<uint64_t>(displayOffsetMs * 1'000'000LL));
+		}
 
 		auto addStatus = pipeline.addSegment(reqId, segment);
 		if (addStatus == firebolt::rialto::AddSegmentStatus::NO_SPACE)
@@ -637,7 +646,8 @@ std::optional<MediaCodecInfo> AampRialtoMediaSource::processInitFragment(
 
 bool AampRialtoMediaSource::processDataFragment(
 	firebolt::rialto::IMediaPipeline &pipeline,
-	std::shared_ptr<std::vector<uint8_t>> buffer)
+	std::shared_ptr<std::vector<uint8_t>> buffer,
+	int64_t displayOffsetMs)
 {
 	if (!m_demuxer)
 	{
@@ -671,9 +681,12 @@ bool AampRialtoMediaSource::processDataFragment(
 		if (firstSample)
 		{
 			codecData = pendingCodecData;
+			// Allow subtitle (and future) subclasses to refine the
+			// display offset from the TTML payload of the first sample.
+			displayOffsetMs = refineDisplayOffset(s, displayOffsetMs);
 		}
 		firstSample = false;
-		if (!injectOneSample(pipeline, capturedGen, std::move(s), codecData))
+		if (!injectOneSample(pipeline, capturedGen, std::move(s), codecData, displayOffsetMs))
 		{
 			AAMPLOG_INFO(
 				"processDataFragment: aborted mid-batch mediaType=%d",
@@ -692,7 +705,8 @@ bool AampRialtoMediaSource::processDataFragment(
 
 bool AampRialtoMediaSource::injectSingleSample(
 	firebolt::rialto::IMediaPipeline &pipeline,
-	AampMediaSample &&sample)
+	AampMediaSample &&sample,
+	int64_t displayOffsetMs)
 {
 	if (!waitForAttach())
 	{
@@ -700,6 +714,9 @@ bool AampRialtoMediaSource::injectSingleSample(
 	}
 	uint64_t capturedGen = captureGeneration();
 	auto pendingCodecData = takePendingCodecData();
+	// Allow subtitle (and future) subclasses to refine the display offset
+	// from the sample payload before the sample is moved into injection.
+	displayOffsetMs = refineDisplayOffset(sample, displayOffsetMs);
 	return injectOneSample(
-		pipeline, capturedGen, std::move(sample), pendingCodecData);
+		pipeline, capturedGen, std::move(sample), pendingCodecData, displayOffsetMs);
 }

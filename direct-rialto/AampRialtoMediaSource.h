@@ -231,7 +231,8 @@ public:
 		firebolt::rialto::IMediaPipeline &pipeline,
 		uint64_t capturedGen,
 		AampMediaSample &&sample,
-		std::shared_ptr<firebolt::rialto::CodecData> codecData);
+		std::shared_ptr<firebolt::rialto::CodecData> codecData,
+		int64_t displayOffsetMs = 0);
 
 	/**
 	 * @brief Parse an init segment and return the decoded codec info.
@@ -268,7 +269,8 @@ public:
 	 */
 	virtual bool processDataFragment(
 		firebolt::rialto::IMediaPipeline &pipeline,
-		std::shared_ptr<std::vector<uint8_t>> buffer);
+		std::shared_ptr<std::vector<uint8_t>> buffer,
+		int64_t displayOffsetMs = 0);
 
 	/**
 	 * @brief Inject a single decoded sample into the pipeline.
@@ -285,7 +287,8 @@ public:
 	 */
 	virtual bool injectSingleSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
-		AampMediaSample &&sample);
+		AampMediaSample &&sample,
+		int64_t displayOffsetMs = 0);
 
 	/**
 	 * @brief Signal end-of-stream for this source.
@@ -354,6 +357,28 @@ protected:
 	 */
 	virtual std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 		createSegment(const AampMediaSample &sample) const = 0;
+
+	/**
+	 * @brief Allow subclasses to refine the display offset from the
+	 *        sample payload before injection.
+	 *
+	 * Called once per data fragment (first sample in processDataFragment)
+	 * and once per injectSingleSample call.  The default returns
+	 * @p displayOffsetMs unchanged.
+	 *
+	 * AampRialtoSubtitleSource overrides this to apply AampTextTransform
+	 * for TTML content (both raw and stpp-in-MP4).
+	 *
+	 * @param sample         The sample whose payload is to be inspected.
+	 * @param displayOffsetMs The offset computed by AAMP from MPD metadata
+	 *                        (in milliseconds).
+	 * @return Refined display offset in milliseconds.
+	 */
+	virtual int64_t refineDisplayOffset(
+		const AampMediaSample &sample, int64_t displayOffsetMs)
+	{
+		return displayOffsetMs;
+	}
 
 	// -----------------------------------------------------------------
 	// Members

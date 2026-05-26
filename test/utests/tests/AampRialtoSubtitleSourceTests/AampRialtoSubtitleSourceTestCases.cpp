@@ -32,6 +32,17 @@ using ::testing::_;
 using ::testing::NiceMock;
 
 // ---------------------------------------------------------------------------
+// Testable subclass — exposes protected methods for white-box unit testing
+// ---------------------------------------------------------------------------
+
+class TestableAampRialtoSubtitleSource : public AampRialtoSubtitleSource
+{
+public:
+	using AampRialtoSubtitleSource::mapCodecToMime;
+	using AampRialtoSubtitleSource::createSegment;
+};
+
+// ---------------------------------------------------------------------------
 // Fixture
 // ---------------------------------------------------------------------------
 
@@ -48,7 +59,7 @@ protected:
 		m_pipelinePtr  = m_mockPipeline.get();
 	}
 
-	AampRialtoSubtitleSource m_source;
+	TestableAampRialtoSubtitleSource m_source;
 	std::unique_ptr<MockIMediaPipeline> m_mockPipeline;
 	MockIMediaPipeline *m_pipelinePtr{nullptr};
 };
@@ -150,4 +161,151 @@ TEST_F(AampRialtoSubtitleSourceTest, AampRialtoSubtitleSource_Demuxer_SetAndGet)
 {
 	EXPECT_FALSE(m_source.hasDemuxer());
 	EXPECT_EQ(m_source.demuxer(), nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// mapCodecToMime
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoSubtitleSource_MapCodecToMime_TTML_ReturnsTtmlMime
+ * @brief Verify GST_FORMAT_SUBTITLE_TTML maps to "text/ttml".
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_MapCodecToMime_TTML_ReturnsTtmlMime)
+{
+	std::string mimeType;
+	firebolt::rialto::StreamFormat fmt{};
+	const bool ok = m_source.mapCodecToMime(
+		GST_FORMAT_SUBTITLE_TTML, mimeType, fmt);
+	EXPECT_TRUE(ok);
+	EXPECT_EQ(mimeType, "text/ttml");
+}
+
+/**
+ * @test AampRialtoSubtitleSource_MapCodecToMime_WebVTT_ReturnsVttMime
+ * @brief Verify GST_FORMAT_SUBTITLE_WEBVTT maps to "text/vtt".
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_MapCodecToMime_WebVTT_ReturnsVttMime)
+{
+	std::string mimeType;
+	firebolt::rialto::StreamFormat fmt{};
+	const bool ok = m_source.mapCodecToMime(
+		GST_FORMAT_SUBTITLE_WEBVTT, mimeType, fmt);
+	EXPECT_TRUE(ok);
+	EXPECT_EQ(mimeType, "text/vtt");
+}
+
+/**
+ * @test AampRialtoSubtitleSource_MapCodecToMime_MP4_ReturnsTtmlMime
+ * @brief Verify GST_FORMAT_SUBTITLE_MP4 (stpp/wvtt) maps to "text/ttml".
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_MapCodecToMime_MP4_ReturnsTtmlMime)
+{
+	std::string mimeType;
+	firebolt::rialto::StreamFormat fmt{};
+	const bool ok = m_source.mapCodecToMime(
+		GST_FORMAT_SUBTITLE_MP4, mimeType, fmt);
+	EXPECT_TRUE(ok);
+	EXPECT_EQ(mimeType, "text/ttml");
+}
+
+/**
+ * @test AampRialtoSubtitleSource_MapCodecToMime_FallbackWebVTT_ReturnsVttMime
+ * @brief When codec format is INVALID but subtitleFormat is WEBVTT, maps to
+ *        "text/vtt" via the StreamOutputFormat fallback.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_MapCodecToMime_FallbackWebVTT_ReturnsVttMime)
+{
+	m_source.setSubtitleFormat(FORMAT_SUBTITLE_WEBVTT);
+	std::string mimeType;
+	firebolt::rialto::StreamFormat fmt{};
+	const bool ok = m_source.mapCodecToMime(
+		GST_FORMAT_INVALID, mimeType, fmt);
+	EXPECT_TRUE(ok);
+	EXPECT_EQ(mimeType, "text/vtt");
+}
+
+/**
+ * @test AampRialtoSubtitleSource_MapCodecToMime_UnknownFormat_ReturnsFalse
+ * @brief When both codec format and subtitleFormat are unrecognised,
+ *        mapCodecToMime returns false.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_MapCodecToMime_UnknownFormat_ReturnsFalse)
+{
+	std::string mimeType;
+	firebolt::rialto::StreamFormat fmt{};
+	const bool ok = m_source.mapCodecToMime(
+		GST_FORMAT_INVALID, mimeType, fmt);
+	EXPECT_FALSE(ok);
+}
+
+// ---------------------------------------------------------------------------
+// createSegment
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoSubtitleSource_CreateSegment_CorrectPtsAndDuration
+ * @brief Verify createSegment converts pts/duration to nanoseconds and
+ *        returns a MediaSegment with SUBTITLE type.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_CreateSegment_CorrectPtsAndDuration)
+{
+	AampMediaSample sample{};
+	sample.mPts      = 1.5;
+	sample.mDuration = 0.5;
+
+	auto seg = m_source.createSegment(sample);
+
+	ASSERT_NE(seg, nullptr);
+	EXPECT_EQ(seg->getType(), firebolt::rialto::MediaSourceType::SUBTITLE);
+	EXPECT_EQ(seg->getTimeStamp(),
+		static_cast<int64_t>(1.5 * 1'000'000'000LL));
+	EXPECT_EQ(seg->getDuration(),
+		static_cast<int64_t>(0.5 * 1'000'000'000LL));
+}
+
+// ---------------------------------------------------------------------------
+// processInitFragment
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoSubtitleSource_ProcessInitFragment_RawTTML_ReturnsSyntheticCodecInfo
+ * @brief Raw TTML format must return a synthetic MediaCodecInfo without
+ *        touching the MP4 demuxer path.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_ProcessInitFragment_RawTTML_ReturnsSyntheticCodecInfo)
+{
+	m_source.setSubtitleFormat(FORMAT_SUBTITLE_TTML);
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x3C, 0x74, 0x74, 0x3E}); // "<tt>"
+
+	auto ci = m_source.processInitFragment(buf);
+
+	ASSERT_TRUE(ci.has_value());
+	EXPECT_EQ(ci->mCodecFormat, GST_FORMAT_SUBTITLE_TTML);
+}
+
+/**
+ * @test AampRialtoSubtitleSource_ProcessInitFragment_RawWebVTT_ReturnsSyntheticCodecInfo
+ * @brief Raw WebVTT format returns a synthetic MediaCodecInfo with WebVTT
+ *        codec format.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_ProcessInitFragment_RawWebVTT_ReturnsSyntheticCodecInfo)
+{
+	m_source.setSubtitleFormat(FORMAT_SUBTITLE_WEBVTT);
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x57, 0x45, 0x42, 0x56}); // "WEBV"
+
+	auto ci = m_source.processInitFragment(buf);
+
+	ASSERT_TRUE(ci.has_value());
+	EXPECT_EQ(ci->mCodecFormat, GST_FORMAT_SUBTITLE_WEBVTT);
 }

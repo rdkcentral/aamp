@@ -4173,7 +4173,10 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			else
 			{
 				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
-				if (i != eMEDIATYPE_SUBTITLE)
+				//if (i != eMEDIATYPE_SUBTITLE)
+				// For the RialtoDirect path, subtitle MP4 fragments must also be
+				// demuxed externally so samples arrive via SendSample (not SendTransfer).
+				if (i != eMEDIATYPE_SUBTITLE || ISCONFIGSET(eAAMPConfig_useRialtoDirect))
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
 				}

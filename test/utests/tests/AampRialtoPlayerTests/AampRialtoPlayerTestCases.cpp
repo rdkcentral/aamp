@@ -208,6 +208,11 @@ protected:
 									mimeType = "audio/aac";
 									fmt = firebolt::rialto::StreamFormat::RAW;
 								}
+								else if (type == eMEDIATYPE_SUBTITLE)
+								{
+									mimeType = "text/vtt";
+									fmt = firebolt::rialto::StreamFormat::RAW;
+								}
 								return true;
 							}));
 
@@ -229,6 +234,14 @@ protected:
 												firebolt::rialto::SegmentAlignment::AU,
 												fmt, nullptr));
 								}
+								if (type == eMEDIATYPE_SUBTITLE)
+								{
+									return std::unique_ptr<
+										firebolt::rialto::IMediaPipeline::MediaSource>(
+										std::make_unique<
+											firebolt::rialto::IMediaPipeline::MediaSourceSubtitle>(
+												mime, ""));
+								}
 								return std::unique_ptr<
 									firebolt::rialto::IMediaPipeline::MediaSource>(
 									std::make_unique<
@@ -241,6 +254,11 @@ protected:
 
 					ON_CALL(*rawPtr, updateCachedMetadata(_))
 						.WillByDefault(Return());
+
+					// injectSingleSampleProxy default — subtitle injection tests
+					// verify routing without requiring a NeedData handshake.
+					ON_CALL(*rawPtr, injectSingleSampleProxy(_, _))
+						.WillByDefault(Return(true));
 
 					ON_CALL(*rawPtr, createSegment(_))
 						.WillByDefault(Invoke(
@@ -550,15 +568,14 @@ TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
 }
 
-TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesVideoAndAudioOnly)
+TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesAllThreeSources)
 {
-	// Subtitle source creation is disabled until the skeleton is complete.
 	m_createSourceCallCount = 0;
-	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
-	EXPECT_EQ(m_createSourceCallCount, 2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	EXPECT_EQ(m_createSourceCallCount, 3);
 	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
-	EXPECT_EQ(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
 }
 
 // ===========================================================================
@@ -2137,4 +2154,66 @@ TEST_F(AampRialtoPlayerTest,
 		.Times(0);
 
 	PostBufferUnderflow(/*sourceId=*/99);
+}
+
+// ===========================================================================
+// Phase N — Subtitle source injection
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SendTransfer_SubtitleRawFragment_InjectsViaSingleSamplePath)
+{
+	/**
+	 * @brief Verifies that a non-init subtitle fragment on a source without a
+	 *        demuxer (raw TTML/WebVTT) is routed via injectSingleSample
+	 *        rather than processDataFragment.
+	 *
+	 *        The mock's injectSingleSampleProxy intercepts the call so the
+	 *        test does not block waiting for a Rialto NeedData request.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->hasDemuxer());
+
+	// Expect the subtitle injection proxy to be called exactly once
+	// with displayOffsetMs == 0 (fragmentPTSoffset is 0.0).
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_SUBTITLE],
+		injectSingleSampleProxy(Ref(*m_mockPipelinePtr), /*displayOffsetMs=*/0LL))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buf = {0x3C, 0x74, 0x74, 0x3E}; // "<tt>"
+	const bool result = m_player->SendTransfer(
+		eMEDIATYPE_SUBTITLE, std::move(buf),
+		/*fpts=*/1.0, /*fdts=*/1.0, /*fDuration=*/0.5,
+		/*fragmentPTSoffset=*/0.0, /*initFragment=*/false);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendTransfer_SubtitleRawFragmentWithOffset_SetsDisplayOffset)
+{
+	/**
+	 * @brief Verifies that a non-zero fragmentPTSoffset is converted to
+	 *        milliseconds and forwarded to injectSingleSample as
+	 *        displayOffsetMs.
+	 *
+	 *        Expected: displayOffsetMs == fragmentPTSoffset * 1000.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	constexpr double kOffsetSec = 5.0;
+	const int64_t expectedOffsetMs =
+		static_cast<int64_t>(kOffsetSec * 1000.0);
+
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_SUBTITLE],
+		injectSingleSampleProxy(Ref(*m_mockPipelinePtr), expectedOffsetMs))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buf = {0x3C, 0x74, 0x74, 0x3E};
+	m_player->SendTransfer(
+		eMEDIATYPE_SUBTITLE, std::move(buf),
+		/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/1.0,
+		/*fragmentPTSoffset=*/kOffsetSec, /*initFragment=*/false);
 }

@@ -59,4 +59,31 @@ public:
 		createSegment,
 		(const AampMediaSample &sample),
 		(const, override));
+
+	/**
+	 * @brief Proxy for injectSingleSample — avoids move-only parameter issue.
+	 *
+	 * AampMediaSample is move-only, so MOCK_METHOD cannot be used directly.
+	 * Tests should set expectations on injectSingleSampleProxy instead.
+	 */
+	MOCK_METHOD(bool, injectSingleSampleProxy,
+		(firebolt::rialto::IMediaPipeline &pipeline, int64_t displayOffsetMs),
+		());
+
+	/**
+	 * For SUBTITLE sources, routes through injectSingleSampleProxy so
+	 * tests can verify routing without a Rialto NeedData handshake.
+	 * For other media types, the base class implementation is used so
+	 * existing video/audio SendSample tests continue to work correctly.
+	 */
+	bool injectSingleSample(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		AampMediaSample &&sample,
+		int64_t displayOffsetMs = 0) override
+	{
+		if (mediaType() == eMEDIATYPE_SUBTITLE)
+			return injectSingleSampleProxy(pipeline, displayOffsetMs);
+		return AampRialtoMediaSource::injectSingleSample(
+			pipeline, std::move(sample), displayOffsetMs);
+	}
 };

@@ -96,6 +96,10 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 						double beforeDTS = sample.mDts;
 						sample.mPts += fragmentPTSoffset;
 						sample.mDts += fragmentPTSoffset;
+						// Carry the applied restamp as a display-timing correction
+						// for downstream sinks (e.g. AampRialtoPlayer subtitle path).
+						sample.mDisplayOffsetMs =
+							static_cast<int64_t>(fragmentPTSoffset * 1000.0);
 						// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
 						if (mEnablePtsRestampLogging)
 						{
