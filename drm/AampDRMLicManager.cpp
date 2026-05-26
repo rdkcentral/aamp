@@ -504,8 +504,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 			return KEY_ERROR;
 		}
 	}
-      return processLicenseResponse(std::move(drmHelper), sessionSlot, cdmError, std::move(licenseResponse), std::move(eventHandle), isLicenseRenewal);
-      return processLicenseResponse(std::move(drmHelper), sessionSlot, cdmError, std::move(licenseResponse), std::move(eventHandle), isLicenseRenewal);
+	return processLicenseResponse(std::move(drmHelper), sessionSlot, cdmError, std::move(licenseResponse), std::move(eventHandle), isLicenseRenewal);
 }
 KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 		shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, bool isLicenseRenewal)
