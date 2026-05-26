@@ -1937,8 +1937,6 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 	AampTime prevSecondsBeforePlayPoint{};
 	lstring initFragmentPtr;
 	uint64_t discontinuitySequenceIndex = 0;
-	uint64_t discontinuitySeqBase = 0;
-	uint64_t discontinuityTagCount = 0;
 
 	if(IsRefresh && !UseProgramDateTimeIfAvailable())
 	{
@@ -2053,11 +2051,9 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 				else if(ptr.removePrefix("-X-DISCONTINUITY-SEQUENCE:"))
 				{
 					discontinuitySequenceIndex = ptr.atoll();
-					discontinuitySeqBase = discontinuitySequenceIndex;
 				}
 				else if( ptr.removePrefix("-X-DISCONTINUITY"))
 				{
-					discontinuityTagCount++;
 					if( demuxOp != eStreamOp_DEMUX_ALL || !ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 					{ // ignore discontinuities when presenting muxed hls/ts
 						discontinuitySequenceIndex++;
@@ -2252,13 +2248,6 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 	firstIndexDone = true;
 	mIndexingInProgress = false;
 	AAMPLOG_TRACE("Exit indexCount %zu mDrmMetaDataIndexCount %zu", index.size(), mDrmMetaDataIndex.size() );
-	{
-		bool countingDiscontinuities = (demuxOp != eStreamOp_DEMUX_ALL || !ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp));
-		AAMPLOG_MIL("%s IndexPlaylist: %zu segments discontinuitySeqBase=%" PRIu64 " EXT-X-DISCONTINUITY tags=%" PRIu64 " counted=%s finalDiscontinuityIndex=%" PRIu64,
-			name, index.size(), discontinuitySeqBase, discontinuityTagCount,
-			countingDiscontinuities ? "yes" : "no(muxed)",
-			discontinuitySequenceIndex);
-	}
 	mDuration = totalDuration.inSeconds();
 
 	if(IsRefresh)
