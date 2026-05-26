@@ -79,6 +79,7 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "AampSegmentInfo.hpp"
 
 #include "AampCurlStore.h"
+#include "mp4demux/MP4Demux.h"
 
 #include <iomanip>
 #include <unordered_set>
@@ -2688,15 +2689,6 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			end -= offset;
 		}
 
-		// If tsb is not available for linear send -1  for start and end
-		// so that xre detect this as tsbless playback
-		// Override above logic if mEnableSeekableRange is set, used by third-party apps
-		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
-		{
-			start = -1;
-			end = -1;
-		}
-
 		if(IsLiveStream())
 		{
 			if(eMEDIAFORMAT_DASH == mMediaFormat)
@@ -2728,6 +2720,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				mMPDDownloaderInstance->SetBufferAvailability((int)videoBufferedDuration);
 				mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
 			}
+		}
+
+		// If TSB is not available for linear playback, send -1 for start and end
+		// so that XRE detects this as TSB-less playback.
+		// Override the above logic when mEnableSeekableRange is set for third-party apps.
+		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
+		{
+			start = -1;
+			end = -1;
 		}
 
 		const BitsPerSecond availableBandwidth = mhAbrManager.GetCurrentlyAvailableBandwidth();
@@ -4518,6 +4519,66 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 }
 
 /**
+ * @brief Parse a downloaded segment with a persistent per-track Mp4Demux to detect
+ *        structural corruption (any condition that triggers Mp4Demux::setParseError).
+ *        Every video/audio segment is logged at INFO level regardless of validity.
+ *        Corrupt segments are logged at WARN level and written to harvestPath or /tmp.
+ */
+void PrivateInstanceAAMP::CheckSegmentIntegrity(const std::vector<uint8_t>& buffer,
+	AampMediaType mediaType,
+	const std::string& remoteUrl)
+{
+	AAMPLOG_INFO("[Mp4Mon][%s] url=%s size=%zu",
+		GetMediaTypeName(mediaType), remoteUrl.c_str(), buffer.size());
+
+	// Select the appropriate persistent validator; init lazily on first use.
+	// A single validator per track preserves init-segment state (timescale, IV size)
+	// so that subsequent media-segment parses do not produce false-positive failures.
+	std::unique_ptr<Mp4Demux>* validatorPtr{nullptr};
+	if (mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO)
+	{
+		validatorPtr = &mVideoIntegrityValidator;
+	}
+	else if (mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO)
+	{
+		validatorPtr = &mAudioIntegrityValidator;
+	}
+	else
+	{
+		return;
+	}
+
+	if (!(*validatorPtr))
+	{
+		*validatorPtr = std::make_unique<Mp4Demux>();
+	}
+
+	// Copy the buffer so the download pipeline's copy remains intact.
+	auto segment = std::make_shared<std::vector<uint8_t>>(buffer);
+	bool parseOk = (*validatorPtr)->Parse(std::move(segment));
+	// Drop the aliasing shared_ptrs the demuxer stored for its sample list so the
+	// copied segment buffer can be freed immediately rather than pinned until the
+	// next Parse() call clears them.
+	(*validatorPtr)->GetSamples();
+	if (!parseOk)
+	{
+		AAMPLOG_WARN("[Mp4Mon][%s] CORRUPT err=%d url=%s",
+			GetMediaTypeName(mediaType),
+			static_cast<int>((*validatorPtr)->GetLastError()),
+			remoteUrl.c_str());
+
+		std::string dumpPath = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
+		if (dumpPath.empty())
+		{
+			dumpPath = "/tmp";
+		}
+		aamp_WriteFile(remoteUrl,
+			reinterpret_cast<const char*>(buffer.data()),
+			buffer.size(), mediaType, 0, dumpPath.c_str());
+	}
+}
+
+/**
  * @brief Download a file from the CDN
  */
 bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl, int& http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
@@ -5402,6 +5463,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
+
+			if (ISCONFIGSET_PRIV(eAAMPConfig_MonitorMp4Integrity) &&
+				!buffer.empty() &&
+				(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO ||
+				 mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO))
+			{
+				CheckSegmentIntegrity(buffer, mediaType, remoteUrl);
+			}
+
 			ret = true; // default
 			if( !context.downloadIsEncoded )
 			{
