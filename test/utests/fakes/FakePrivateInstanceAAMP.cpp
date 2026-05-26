@@ -73,7 +73,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mDrmInitData(),
 	mPreferredTextTrack(),
 	midFragmentSeekCache(false),
-	mDisableRateCorrection (false),
 	mthumbIndexValue(-1),
 	mMPDPeriodsInfo(),
 	mProfileCappedStatus(false),
@@ -1716,14 +1715,6 @@ void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
 	}
 }
 
-void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
-{
-}
-
-void PrivateInstanceAAMP::WakeupLatencyCheck()
-{
-}
-
 void PrivateInstanceAAMP::IncreaseGSTBufferSize()
 {
 }
@@ -1911,6 +1902,10 @@ bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 
 void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->EnableLatencyMonitor(enabled);
+	}
 }
 
 bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
@@ -1922,3 +1917,14 @@ bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
 	}
 	return result;
 }
+	
+
+bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->IsLatencyMonitorEnabled();
+	}
+	return false;
+}
+

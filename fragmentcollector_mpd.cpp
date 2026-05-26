@@ -3811,8 +3811,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					{
 						notifyEnteringLive = true;
 					}
+					//Live Latency correction is handled by live adjust.
 					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is enabled due to the seek (rate=%f) to live window!!", currentRate);
-					aamp->mDisableRateCorrection = false;
 				}
 
 				if (mLowLatencyMode && !liveAdjust)
@@ -6648,7 +6648,9 @@ void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
 		}
 		track->AbortWaitForCachedAndFreeFragment(true);
 		aamp->StopTrackInjection(type);
-		aamp->mDisableRateCorrection = true;
+		// Save the latency monitor state before disabling - it will be restored after the switch only if it was active prior
+		mSavedLatencyMonitorState  = aamp->IsLatencyMonitorEnabled();
+		aamp->EnableLatencyMonitor(false);
 	}
 }
 
