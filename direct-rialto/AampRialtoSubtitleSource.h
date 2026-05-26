@@ -70,7 +70,8 @@ public:
 	 */
 	bool injectSingleSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
-		AampMediaSample &&sample) override;
+		AampMediaSample &&sample,
+		bool morePending = false) override;
 
 protected:
 	bool mapCodecToMime(

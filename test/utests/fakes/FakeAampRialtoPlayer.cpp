@@ -55,7 +55,7 @@ bool AampRialtoPlayer::SendTransfer(
 	bool, bool)
 { return false; }
 
-bool AampRialtoPlayer::SendSample(AampMediaType, AampMediaSample &&)
+bool AampRialtoPlayer::SendSample(AampMediaType, AampMediaSample &&, bool /*morePending*/)
 { return false; }
 
 bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType)

@@ -109,7 +109,12 @@ void AampRialtoMediaPipelineClient::notifyPlaybackError(
 	firebolt::rialto::PlaybackError /*error*/) {}
 
 void AampRialtoMediaPipelineClient::notifySourceFlushed(
-	int32_t /*sourceId*/) {}
-
+        int32_t sourceId)
+{
+        if (m_sourceFlushedCallback)
+        {
+                m_sourceFlushedCallback(sourceId);
+        }
+}
 void AampRialtoMediaPipelineClient::notifyPlaybackInfo(
 	const firebolt::rialto::PlaybackInfo & /*playbackInfo*/) {}

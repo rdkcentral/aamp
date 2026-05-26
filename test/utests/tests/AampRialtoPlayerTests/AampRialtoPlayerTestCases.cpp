@@ -242,18 +242,25 @@ protected:
 					ON_CALL(*rawPtr, updateCachedMetadata(_))
 						.WillByDefault(Return());
 
-					ON_CALL(*rawPtr, createSegment(_))
-						.WillByDefault(Invoke(
-							[](const AampMediaSample &sample)
-							{
-								const int64_t ptsNs      = static_cast<int64_t>(sample.mPts      * kNsPerSecond);
-								const int64_t durationNs = static_cast<int64_t>(sample.mDuration * kNsPerSecond);
-								return std::make_unique<
-									firebolt::rialto::IMediaPipeline::MediaSegmentVideo>(
-										0, ptsNs, durationNs, 0, 0);
-							}));
+				ON_CALL(*rawPtr, createSegment(_))
+					.WillByDefault(Invoke(
+						[](const AampMediaSample &sample)
+						{
+							const int64_t ptsNs      = static_cast<int64_t>(sample.mPts      * kNsPerSecond);
+							const int64_t durationNs = static_cast<int64_t>(sample.mDuration * kNsPerSecond);
+							return std::make_unique<
+								firebolt::rialto::IMediaPipeline::MediaSegmentVideo>(
+									0, ptsNs, durationNs, 0, 0);
+						}));
 
-					auto idx = static_cast<size_t>(type);
+				// Default: no sample injected yet — GetPositionMilliseconds()
+				// returns 0.  Individual tests override to simulate a known
+				// first PTS (segment start).
+				ON_CALL(*rawPtr, firstPtsMs())
+					.WillByDefault(Return(
+						AampRialtoMediaSource::kFirstPtsNotSet));
+
+				auto idx = static_cast<size_t>(type);
 					if (idx < m_mockSources.size())
 					{
 						m_mockSources[idx] = rawPtr;
@@ -331,6 +338,15 @@ protected:
 		ASSERT_NE(client, nullptr)
 			<< "Configure() must be called before PostBufferUnderflow";
 		client->notifyBufferUnderflow(sourceId);
+	}
+
+	/// Post a Rialto source-flushed notification via the captured client.
+	void PostSourceFlushed(int32_t sourceId)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostSourceFlushed";
+		client->notifySourceFlushed(sourceId);
 	}
 
 	/// Call Configure() with specific formats.
@@ -1345,11 +1361,12 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 {
 	Configure();
 
-	constexpr int64_t  kStartNs    = 0LL;
 	constexpr int64_t  kCurrentNs  = 5'000'000'000LL;
 	constexpr long long kExpectedMs = 5'000LL;
 
-	PostPosition(kStartNs);  // establishes segment start = 0
+	// Simulate video source reporting first PTS = 0 ms (PTS-restamped start).
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(kCurrentNs), Return(true)));
 
@@ -1365,12 +1382,15 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 {
 	Configure();
 
-	// Simulate 7 × 1920 ms of prior restamped content already buffered
-	constexpr int64_t  kSegmentStartNs = 13'440'000'000LL;  // 13440 ms
+	// Simulate 7 × 1920 ms of prior restamped content already buffered.
+	// The first video sample had PTS = 13440 ms; this is reported via
+	// firstPtsMs() (set lazily in injectOneSample()).
+	constexpr int64_t  kSegmentStartMs = 13'440LL;
 	constexpr int64_t  kCurrentPosNs   = 14'921'000'000LL;  // 14921 ms
 	constexpr long long kExpectedMs    = 1'481LL;            // elapsed
 
-	PostPosition(kSegmentStartNs);  // first OnPosition → records segment start
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(kSegmentStartMs));
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(kCurrentPosNs), Return(true)));
 
@@ -1378,28 +1398,31 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // After Configure() the segment-start offset must be cleared so that the
-// next OnPosition call establishes a fresh baseline.
+// next injection establishes a fresh baseline for the new session.
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_AfterReconfigure_ResetsSegmentStart)
 {
-	// First session: inject content starting at 5000 ms.
+	// First session: first video sample had PTS = 5000 ms.
 	Configure();
-	constexpr int64_t kFirstSessionStartNs = 5'000'000'000LL;
-	PostPosition(kFirstSessionStartNs);  // segment start = 5000 ms
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(5'000LL));
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(7'000'000'000LL), Return(true)));
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 2'000LL);
 
-	// Reconfigure — simulates a re-tune; segment start resets to -1.
+	// Reconfigure — simulates a re-tune (Stop then Configure).  Stop() marks
+	// the pipeline as stopped so Configure() performs a full recreation.
+	// New sources are created; their default firstPtsMs() = kFirstPtsNotSet.
+	m_player->Stop(false);
 	Configure();
 
-	// Before the first new OnPosition the position must be zero.
-	// (Pipeline query may return anything; startMs=-1 forces result=0.)
+	// Before the first sample from the new session, position must be zero.
+	// Default firstPtsMs() = kFirstPtsNotSet (-1) forces result = 0.
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
 
-	// Second session: different segment start.
-	constexpr int64_t kSecondSessionStartNs = 2'000'000'000LL;
-	PostPosition(kSecondSessionStartNs);  // segment start = 2000 ms
+	// Second session: first video sample had PTS = 2000 ms.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(2'000LL));
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(3'500'000'000LL), Return(true)));
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1'500LL);
@@ -1412,17 +1435,79 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // When the pipeline query fails after a segment start has been recorded,
-// GetPositionMilliseconds() must return 0 — not a stale OnPosition value.
+// GetPositionMilliseconds() must return 0.
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_WhenPipelineQueryFails_ReturnsZero)
 {
 	Configure();
-	constexpr int64_t kSegmentStartNs = 13'440'000'000LL;
-	PostPosition(kSegmentStartNs);  // segment start = 13440 ms
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(13'440LL));  // segment start = 13440 ms
 
 	ON_CALL(*m_mockPipelinePtr, getPosition(_)).WillByDefault(Return(false));
 
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
+// After a trickplay rewind flush (rate=-2), GetPositionMilliseconds() must
+// return elapsed * rate (negative) so priv_aamp's
+//   reported_pos = seek_pos + GetPositionMilliseconds()
+// decrements correctly — mirroring GStreamer's
+//   rc = (pos - segmentStart) * rate.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_TrickplayRewind_ReturnsNegativeElapsed)
+{
+	/**
+	 * @brief With PTS restamping enabled, Rialto plays restamped frames
+	 *        (0, 1, 2, … seconds) in forward order. GetPositionMilliseconds()
+	 *        must multiply the elapsed restamped time by rate so that the
+	 *        returned delta is negative for reverse trickplay.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure();
+
+	// Trickplay rewind: seek to 12 s at rate=-2.
+	m_player->Flush(12.0, -2, /*shouldTearDown=*/false);
+
+	// With PTS restamping the first video sample arrives with PTS = 0 ms.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
+
+	// After 616 ms of pipeline time (restamped domain) the content position
+	// elapsed at rate=-2 should be 616 × (-2) = -1232 ms.
+	constexpr int64_t  kElapsedNs = 616'000'000LL;  // 616 ms
+	constexpr long long kExpected = -1232LL;          // 616 × (-2)
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kElapsedNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpected);
+}
+
+// After returning from trickplay (rate resets to 1), GetPositionMilliseconds()
+// must revert to non-negative, forward-incrementing behaviour.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterTrickplayExit_RateReturnsToOne)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure();
+
+	// Enter trickplay rewind.
+	m_player->Flush(12.0, -2, /*shouldTearDown=*/false);
+
+	// Resume normal play: flush back to 1× forward.
+	m_player->Flush(8.0, 1, /*shouldTearDown=*/false);
+
+	// After the second flush, first video sample arrives with PTS = 0 ms.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
+
+	constexpr int64_t  kElapsedNs = 500'000'000LL;  // 500 ms
+	constexpr long long kExpected = 500LL;            // 500 × 1
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kElapsedNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpected);
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
@@ -2137,4 +2222,281 @@ TEST_F(AampRialtoPlayerTest,
 		.Times(0);
 
 	PostBufferUnderflow(/*sourceId=*/99);
+}
+
+// ===========================================================================
+// Phase N — Configure idempotency and smart pipeline recreation
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_SameFormats_SecondCallDoesNotRecreate)
+{
+	/**
+	 * @brief Calling Configure() a second time with identical formats must
+	 *        not recreate the Rialto pipeline.  createMediaPipeline must be
+	 *        invoked exactly once across both calls.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Second call with same formats — early return expected.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_DifferentVideoFormat_RecreatesPipeline)
+{
+	/**
+	 * @brief Changing the video format between Configure() calls must
+	 *        trigger a full pipeline teardown and recreation.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioGoesInvalid_NoPipelineRecreation_EOSSignaled)
+{
+	/**
+	 * @brief When audio transitions from a valid format to FORMAT_INVALID
+	 *        (trickplay entry) the pipeline must NOT be recreated.  Instead,
+	 *        EOS is signalled on the audio source so it drains cleanly and
+	 *        video continues without interruption.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	// Trickplay entry: audio goes FORMAT_INVALID.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_TRUE(audioSource->state().eos);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_VideoGoesInvalid_RecreatesPipeline)
+{
+	/**
+	 * @brief When video transitions to FORMAT_INVALID the pipeline must be
+	 *        fully recreated — video going away is not a trickplay-EOS
+	 *        scenario.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioReturnsAfterEOS_SameFormatNoRecreation)
+{
+	/**
+	 * @brief After trickplay (audio EOS'd via FORMAT_INVALID), restoring
+	 *        the original audio format must NOT recreate the pipeline.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Trickplay entry: audio → FORMAT_INVALID (EOS signalled, no recreation).
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	// Trickplay exit: audio returns to the same original format — still no
+	// recreation because the source set is unchanged.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	// Times(1) verification is implicit at end of test scope.
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_ESChangeStatus_ForcesRecreation)
+{
+	/**
+	 * @brief bESChangeStatus=true must force pipeline recreation even when
+	 *        the stream formats are otherwise identical.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/true,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_SetReadyAfterPipeline_ForcesRecreation)
+{
+	/**
+	 * @brief setReadyAfterPipelineCreation=true must force pipeline
+	 *        recreation even when stream formats are unchanged.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/true);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AfterStop_RecreatesPipeline)
+{
+	/**
+	 * @brief Stop() marks the pipeline as stopped, so the next Configure()
+	 *        with identical formats must still recreate the pipeline.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	m_player->Stop(false);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_Trickplay_EosPersistsThroughFlush)
+{
+	/**
+	 * @brief Regression: Bug B from L2 TESTDATA0 rewind failure.
+	 *
+	 * When trickplay entry (audio → FORMAT_INVALID) is followed by a
+	 * Flush() with rate != 1, the audio source's EOS must NOT be cleared.
+	 * Without this the Flush() clears EOS, Rialto issues needData for
+	 * audio, AAMP never responds, and the Rialto/GStreamer pipeline clock
+	 * stalls so no video is rendered.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	// Trickplay entry: audio goes FORMAT_INVALID.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	// EOS must be set immediately after trickplay Configure().
+	EXPECT_TRUE(audioSource->state().eos);
+
+	// A subsequent Flush (the position-seek flush that follows in trickplay)
+	// must NOT clear the audio EOS because rate != 1 (trickplay).
+	m_player->Flush(/*position=*/12.0, /*rate=*/-2, /*shouldTearDown=*/false);
+
+	EXPECT_TRUE(audioSource->state().eos)
+		<< "Audio EOS must survive Flush() when rate != AAMP_NORMAL_PLAY_RATE";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_NormalRate_ClearsAudioEos)
+{
+	/**
+	 * @brief Flush() with rate == AAMP_NORMAL_PLAY_RATE must clear audio EOS
+	 *        so the injection path can resume normally after trickplay exit.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	// Trickplay entry: audio goes FORMAT_INVALID.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+	EXPECT_TRUE(audioSource->state().eos);
+
+	// Flush at normal rate (trickplay exit seek) must clear audio EOS.
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+
+	EXPECT_FALSE(audioSource->state().eos)
+		<< "Audio EOS must be cleared when Flush() rate == AAMP_NORMAL_PLAY_RATE";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_Trickplay_ExitsFlushingState)
+{
+	/**
+	 * @brief Regression: Bug A from L2 TESTDATA0 rewind failure.
+	 *
+	 * The sequence Flush(shouldTearDown=1) → Configure(audio=INVALID)
+	 * must not leave the state machine stuck in FLUSHING.  The FLUSHING
+	 * state only exits via onSourceAttaching(), onReconfigure(), or
+	 * onStop(); without the fix Configure() returned early and the state
+	 * machine stayed in FLUSHING indefinitely, preventing the player from
+	 * responding to Rialto's PLAYING callback and blocking all display.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PIPELINE_CREATED)
+		<< "Precondition: state must be PIPELINE_CREATED after Configure()";
+
+	// Advance state machine to SOURCES_ATTACHED by sending init fragments
+	// for both sources so that Flush() can transition to FLUSHING.
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED)
+		<< "Precondition: state must be SOURCES_ATTACHED before the flush";
+
+	// Move state machine to FLUSHING via a teardown flush.
+	m_player->Flush(/*position=*/0.0, /*rate=*/-2, /*shouldTearDown=*/true);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Precondition: Flush(shouldTearDown=1) must move state to FLUSHING";
+
+	// Trickplay Configure: audio → FORMAT_INVALID, no pipeline recreation.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	// State machine must have advanced to SOURCES_ATTACHED, not FLUSHING.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED)
+		<< "State machine must exit FLUSHING after trickplay Configure()";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_TrickplayExit_ClearsEos)
+{
+	/**
+	 * @brief When audio returns from FORMAT_INVALID to a valid format
+	 *        without pipeline recreation, EOS must be cleared so the
+	 *        audio injection path can resume.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	// Trickplay entry.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+	EXPECT_TRUE(audioSource->state().eos);
+
+	// Trickplay exit: same original audio format — no recreation, but
+	// EOS must be cleared.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_FALSE(audioSource->state().eos)
+		<< "EOS must be cleared on trickplay exit so audio injection resumes";
 }

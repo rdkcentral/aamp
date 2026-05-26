@@ -494,7 +494,10 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_HandleCancelNeedData_Cle
 
 /**
  * @test AampRialtoVideoSource_FlushSource_CallsPipelineFlush
- * @brief Verify flushSource calls flush and setSourcePosition on the pipeline.
+ * @brief Verify flushSource calls flush on the pipeline.
+ *
+ * setSourcePosition() is NOT called from flushSource() — it is deferred
+ * to OnSourceFlushed() after the server confirms the flush.
  */
 TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_CallsPipelineFlush)
 {
@@ -504,9 +507,7 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_CallsPipelin
 	const int64_t posNs = 3'000'000'000LL;
 	EXPECT_CALL(*m_pipelinePtr, flush(m_source.sourceId(), true, _))
 		.WillOnce(Return(true));
-	EXPECT_CALL(*m_pipelinePtr,
-		setSourcePosition(m_source.sourceId(), posNs, _, _, _))
-		.WillOnce(Return(true));
+	EXPECT_CALL(*m_pipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
 
 	m_source.flushSource(*m_pipelinePtr, posNs);
 }
@@ -1007,4 +1008,46 @@ TEST_F(AampRialtoVideoSourceTest,
 		*m_pipelinePtr, std::move(sample));
 
 	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// format() / setFormat() — StreamOutputFormat base-class state
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_format_InitiallyInvalid)
+{
+	/**
+	 * @brief format() must return FORMAT_INVALID before any setFormat() call.
+	 */
+	EXPECT_EQ(m_source.format(), FORMAT_INVALID);
+}
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_setFormat_RoundTrip)
+{
+	/**
+	 * @brief setFormat() stores the value and format() returns it.
+	 */
+	m_source.setFormat(FORMAT_ISO_BMFF);
+	EXPECT_EQ(m_source.format(), FORMAT_ISO_BMFF);
+
+	m_source.setFormat(FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(m_source.format(), FORMAT_VIDEO_ES_H264);
+}
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_reset_PreservesFormat)
+{
+	/**
+	 * @brief reset() must not clear the stored stream format.
+	 *
+	 * AampRialtoPlayer::Configure() calls reset() at the start of each
+	 * full-recreation pass.  The format must survive this reset so that
+	 * the old format is still available for comparison before the source
+	 * is replaced.
+	 */
+	m_source.setFormat(FORMAT_ISO_BMFF);
+	m_source.reset();
+	EXPECT_EQ(m_source.format(), FORMAT_ISO_BMFF);
 }

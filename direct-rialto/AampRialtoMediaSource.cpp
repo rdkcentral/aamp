@@ -76,6 +76,9 @@ void AampRialtoMediaSource::reset()
 	m_sourceId       = -1;
 	m_mksId          = -1;
 	m_pendingCodecData = nullptr;
+
+	m_flushing.store(false, std::memory_order_relaxed);
+	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
 }
 
 void AampRialtoMediaSource::invalidateGeneration()
@@ -86,6 +89,14 @@ void AampRialtoMediaSource::invalidateGeneration()
 	m_state.segmentsAddedInBatch = 0;
 	m_state.injectionGated      = true;
 	m_state.cv.notify_all();
+	// Reset segment-start so the next injection establishes a fresh
+	// baseline after the seek.  Written outside the lock (atomic).
+	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
+}
+
+int64_t AampRialtoMediaSource::firstPtsMs() const
+{
+	return m_firstPtsMs.load(std::memory_order_relaxed);
 }
 
 bool AampRialtoMediaSource::waitForAttach()
@@ -271,7 +282,8 @@ bool AampRialtoMediaSource::injectOneSample(
 	firebolt::rialto::IMediaPipeline &pipeline,
 	uint64_t capturedGen,
 	AampMediaSample &&sample,
-	std::shared_ptr<firebolt::rialto::CodecData> codecData)
+	std::shared_ptr<firebolt::rialto::CodecData> codecData,
+	bool morePending)
 {
 	bool injected = false;
 
@@ -283,6 +295,16 @@ bool AampRialtoMediaSource::injectOneSample(
 			return false;
 		}
 		m_state.injectorActive = true;
+	}
+
+	// Record segment-start on the first sample of each session.
+	// Only one injection thread runs per source at a time, so a plain
+	// load+store is safe.  The relaxed atomic ensures GetPositionMilliseconds()
+	// on the progress thread always sees a consistent value.
+	if (m_firstPtsMs.load(std::memory_order_relaxed) == kFirstPtsNotSet)
+	{
+		const int64_t ptsMs = static_cast<int64_t>(sample.mPts * 1000.0);
+		m_firstPtsMs.store(ptsMs, std::memory_order_relaxed);
 	}
 
 	bool done = false;
@@ -449,7 +471,7 @@ bool AampRialtoMediaSource::injectOneSample(
 				    m_state.hasPending &&
 				    m_state.pendingRequestId == reqId)
 				{
-					++m_state.segmentsAddedInBatch;
+						++m_state.segmentsAddedInBatch;
 					if (m_state.eos)
 					{
 						// Last sample — signal EOS to Rialto.
@@ -459,8 +481,10 @@ bool AampRialtoMediaSource::injectOneSample(
 						sendEos                     = true;
 					}
 					else if (m_state.segmentsAddedInBatch >=
-					         m_state.pendingFrameCount)
+					         m_state.pendingFrameCount || !morePending)
 					{
+						// Send haveData when we've reached the requested frame count
+						// OR when morePending is false (last sample in the batch)
 						m_state.hasPending          = false;
 						m_state.segmentsAddedInBatch = 0;
 						sendHaveData                = true;
@@ -600,12 +624,12 @@ void AampRialtoMediaSource::flushSource(
 		{
 			AAMPLOG_WARN("flush failed for sourceId=%d", m_sourceId);
 		}
-		if (!pipeline.setSourcePosition(
-				m_sourceId, positionNs, /*resetTime=*/true))
-		{
-			AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
-				m_sourceId);
-		}
+		// NOTE: setSourcePosition() is intentionally NOT called here.
+		// It is called from AampRialtoPlayer::OnSourceFlushed() after
+		// the server confirms the flush via SourceFlushedEvent.  Calling
+		// it here (while the server is still flushing) risks the SEGMENT
+		// event being discarded, leaving Rialto's EOS state un-cleared
+		// and causing an immediate END_OF_STREAM on the next play().
 	}
 }
 
@@ -665,6 +689,8 @@ bool AampRialtoMediaSource::processDataFragment(
 	uint64_t capturedGen = captureGeneration();
 	auto pendingCodecData = takePendingCodecData();
 	bool firstSample = true;
+	size_t sampleIndex = 0;
+	const size_t totalSamples = samples.size();
 	for (auto &s : samples)
 	{
 		std::shared_ptr<firebolt::rialto::CodecData> codecData;
@@ -673,7 +699,9 @@ bool AampRialtoMediaSource::processDataFragment(
 			codecData = pendingCodecData;
 		}
 		firstSample = false;
-		if (!injectOneSample(pipeline, capturedGen, std::move(s), codecData))
+		++sampleIndex;
+		bool morePending = (sampleIndex < totalSamples);
+		if (!injectOneSample(pipeline, capturedGen, std::move(s), codecData, morePending))
 		{
 			AAMPLOG_INFO(
 				"processDataFragment: aborted mid-batch mediaType=%d",
@@ -692,7 +720,8 @@ bool AampRialtoMediaSource::processDataFragment(
 
 bool AampRialtoMediaSource::injectSingleSample(
 	firebolt::rialto::IMediaPipeline &pipeline,
-	AampMediaSample &&sample)
+	AampMediaSample &&sample,
+	bool morePending)
 {
 	if (!waitForAttach())
 	{
@@ -701,5 +730,5 @@ bool AampRialtoMediaSource::injectSingleSample(
 	uint64_t capturedGen = captureGeneration();
 	auto pendingCodecData = takePendingCodecData();
 	return injectOneSample(
-		pipeline, capturedGen, std::move(sample), pendingCodecData);
+		pipeline, capturedGen, std::move(sample), pendingCodecData, morePending);
 }

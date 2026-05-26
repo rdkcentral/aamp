@@ -155,7 +155,7 @@ public:
 		bool discontinuity = false) override;
 
 	/// @copydoc StreamSink::SendSample
-	bool SendSample(AampMediaType mediaType, AampMediaSample &&sample) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample &&sample, bool morePending = false) override;
 
 	/// @copydoc StreamSink::PipelineConfiguredForMedia
 	bool PipelineConfiguredForMedia(AampMediaType type) override;
@@ -302,15 +302,11 @@ private:
 			const std::string &message) override;
 	};
 
-
-	std::atomic<int64_t> m_positionMs{0};
-
-	/// Pipeline PTS at the first OnPosition notification in a session.
-	/// priv_aamp adds seek_pos_seconds to whatever GetPositionMilliseconds()
-	/// returns, so we must return elapsed time (delta from segment start),
-	/// not the raw pipeline PTS — mirroring GStreamer's segmentStart
-	/// subtraction in InterfacePlayerRDK.  -1 = not yet set.
-	std::atomic<int64_t> m_segmentStartMs{-1};
+	/// Current playback rate, updated by Flush().  Used by
+	/// GetPositionMilliseconds() to mirror GStreamer's rate multiplication:
+	///   elapsed * rate
+	/// giving a negative delta for reverse trickplay (rate < 0).
+	std::atomic<int> m_rate{1};
 
 	/// Set to true once the first PLAYING playback state is forwarded to
 	/// the notifiable.  Reset to false on each Configure() call so that
@@ -418,6 +414,14 @@ private:
 	/// @brief Called when Rialto reports that a media source has run dry.
 	void OnBufferUnderflow(int32_t sourceId);
 
+	/// @brief Called when Rialto confirms a source flush is complete.
+	///
+	/// Clears the flushing flag on the source and calls
+	/// setSourcePosition() now that the server has confirmed the flush.
+	/// This ensures the SEGMENT event is not discarded while the server
+	/// is still processing the flush.
+	void OnSourceFlushed(int32_t sourceId);
+
 	/**
 	 * @brief Attach a source via its polymorphic attachOrUpdate method.
 	 *
@@ -430,6 +434,35 @@ private:
 	 *        been attached.
 	 */
 	void CheckAllSourcesAttached();
+
+	/// Set by Stop() to guarantee the next Configure() always recreates
+	/// the pipeline even when stream formats are unchanged.
+	std::atomic<bool> m_pipelineStopped{false};
+
+	/**
+	 * @brief Return true when Configure() must recreate the pipeline.
+	 *
+	 * Rialto does not support dynamic source management; any change to
+	 * the source set requires a full pipeline teardown and recreation.
+	 * The exception is audio transitioning to FORMAT_INVALID (trickplay),
+	 * which is signalled as EOS on the audio source rather than a
+	 * pipeline rebuild.
+	 *
+	 * @param videoFormat                  Requested video format.
+	 * @param audioFormat                  Requested audio format.
+	 * @param subFormat                    Requested subtitle format.
+	 * @param bESChangeStatus              True when an ES change forces
+	 *                                     recreation.
+	 * @param setReadyAfterPipelineCreation True when track-ID mismatch
+	 *                                     forces recreation.
+	 * @return true if the pipeline must be recreated; false otherwise.
+	 */
+	bool ShouldRecreatePipeline(
+		StreamOutputFormat videoFormat,
+		StreamOutputFormat audioFormat,
+		StreamOutputFormat subFormat,
+		bool bESChangeStatus,
+		bool setReadyAfterPipelineCreation) const;
 };
 
 #endif // AAMP_RIALTO_PLAYER_H
