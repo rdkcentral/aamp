@@ -93,6 +93,7 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include <fcntl.h>
 #include <uuid/uuid.h>
 #include <cstring>
+#include <string_view>
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
 #include <sched.h>
@@ -300,6 +301,23 @@ static constexpr const char *mMediaFormatName[] =
 };
 
 static_assert(sizeof(mMediaFormatName)/sizeof(mMediaFormatName[0]) == (eMEDIAFORMAT_UNKNOWN + 1), "Ensure 1:1 mapping between mMediaFormatName[] and enum MediaFormat");
+
+/**
+ * @brief Emit a long URL to the log in 400-character chunks to avoid truncation.
+ * @param[in] tag    Label prefix for each chunk (e.g. "aamp_tune_url").
+ * @param[in] url    URL to log.
+ */
+static void LogUrlChunked(const char* tag, std::string_view url)
+{
+	constexpr size_t kChunk = 400;
+	for (size_t off = 0; off < url.size(); off += kChunk)
+	{
+		auto chunk = url.substr(off, kChunk);
+		AAMPLOG_MIL("%s[%zu]: %.*s", tag, off,
+			static_cast<int>(chunk.size()), chunk.data());
+	}
+}
+
 /**
  * @brief Get the idle task's source ID
  * @retval source ID
@@ -7070,29 +7088,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			snprintf(tuneStrPrefix, sizeof(tuneStrPrefix), "%s PLAYER[%d]", (mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId);
 		}
 		AAMPLOG_MIL("%s aamp_tune: attempt: %d format: %s", tuneStrPrefix, mTuneAttempts, mMediaFormatName[mMediaFormat]);
-		{
-			static constexpr size_t kUrlChunk = 400;
-			const std::string& url = mManifestUrl;
-			for (size_t off = 0; off < url.size(); off += kUrlChunk)
-			{
-				AAMPLOG_MIL("aamp_tune_url[%zu]: %.*s", off,
-					static_cast<int>(std::min(kUrlChunk, url.size() - off)),
-					url.c_str() + off);
-			}
-		}
+		LogUrlChunked("aamp_tune_url", mManifestUrl);
 		if(!mMPDStichRefreshUrl.empty())
 		{
-			AAMPLOG_WARN("%s aamp_stich: Option[%d]", tuneStrPrefix, mMPDStichOption);
-			{
-				static constexpr size_t kUrlChunk = 400;
-				const std::string& url = mMPDStichRefreshUrl;
-				for (size_t off = 0; off < url.size(); off += kUrlChunk)
-				{
-					AAMPLOG_WARN("aamp_stich_url[%zu]: %.*s", off,
-						static_cast<int>(std::min(kUrlChunk, url.size() - off)),
-						url.c_str() + off);
-				}
-			}
+			AAMPLOG_MIL("%s aamp_stich: Option[%d]", tuneStrPrefix, mMPDStichOption);
+			LogUrlChunked("aamp_stich_url", mMPDStichRefreshUrl);
 		}
 		if(IsFogTSBSupported())
 		{
