@@ -1147,6 +1147,10 @@ void AampRialtoPlayer::SignalTrickModeDiscontinuity()
 void AampRialtoPlayer::SeekStreamSink(double position, double rate)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%f", position, rate);
+	// shouldTearDown is set to false, because in case of a new tune pipeline
+	// might not be in a playing/paused state which causes Flush() to destroy
+	// pipeline. This has to be avoided.
+	Flush(position, static_cast<int>(rate), false);
 	AAMPLOG_INFO("EXIT");
 }
 

@@ -1060,6 +1060,64 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // ===========================================================================
+// SeekStreamSink — Wrapper for Flush with shouldTearDown=false
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_CallsFlushForEachAttachedSource)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// SeekStreamSink should call Flush with shouldTearDown=false,
+	// which in turn calls pipeline->flush() for each attached source.
+	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);
+
+	m_player->SeekStreamSink(10.5, 1.0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_TrickplayRate_CallsFlushWithCorrectRate)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);
+
+	m_player->SeekStreamSink(20.0, 4.0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_ReverseRate_CallsFlushWithNegativeRate)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);
+
+	m_player->SeekStreamSink(15.0, -2.0);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SeekStreamSink_NoPipeline_DoesNotCrash)
+{
+	EXPECT_NO_THROW(m_player->SeekStreamSink(0.0, 1.0));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SeekStreamSink_NoSourcesAttached_DoesNotCrash)
+{
+	Configure();
+	EXPECT_NO_THROW(m_player->SeekStreamSink(5.0, 1.0));
+}
+
+// ===========================================================================
 // Phase 8 — Pause / SetPlayBackRate
 // ===========================================================================
 
