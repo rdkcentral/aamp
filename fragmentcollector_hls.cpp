@@ -3438,10 +3438,10 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 				// Configure Subtitle track for the playback
 				ConfigureTextTrack();
-				
+
 				// Check for text track changes and notify
 				NotifyTextTrackChanges();
-				
+
 				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
 				{
 					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
@@ -4160,7 +4160,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		/*Adjust for discontinuity*/
 		if ((audio->enabled) && (aamp->IsLive()) && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
-		{ 
+		{
 			auto discontinuityIndexCount = video->mDiscontinuityIndex.size();
 			if (discontinuityIndexCount > 0)
 			{
@@ -4549,7 +4549,11 @@ double StreamAbstractionAAMP_HLS::GetBufferedDuration()
  */
 double TrackState::GetBufferedDuration()
 {
-	return (playTargetBufferCalc.inSeconds() - (aamp->GetPositionMs() / 1000));
+	double s = playTargetBufferCalc.inSeconds();
+	long long p = aamp->GetPositionMs()/1000;
+	AAMPLOG_INFO("playTarget %lf position %lld %s", s, p, name);
+	return (s - p);
+	//return (playTargetBufferCalc.inSeconds() - (aamp->GetPositionMs() / 1000));
 }
 
 
@@ -5388,7 +5392,7 @@ void StreamAbstractionAAMP_HLS::HandleSleThumbnailData(double tStart, double tEn
 
 		}
 	}
-	indexedTileEndTime = tEnd; // Copy the end time. If the end time has changed, update indexedTileEndTime to the new value. 
+	indexedTileEndTime = tEnd; // Copy the end time. If the end time has changed, update indexedTileEndTime to the new value.
 }
 /**
  * @brief Function to fetch the thumbnail data.
@@ -7169,8 +7173,8 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
 				if (!disableWebVTT || media.isCC)
 				{
-					mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));	
-				}	
+					mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
+				}
 			}
 			i++;
 		}
@@ -7184,7 +7188,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		{
 			aamp->NotifyAudioTracksChanged();
 		}
-		
+
 		// Update closed caption track info
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
@@ -7206,12 +7210,12 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 void StreamAbstractionAAMP_HLS::NotifyTextTrackChanges()
 {
 	// Check if text track has changed from a valid previous selection
-	bool tracksChanged = (aamp->mCurrentTextTrackIndex != -1 && 
+	bool tracksChanged = (aamp->mCurrentTextTrackIndex != -1 &&
 	                      aamp->mCurrentTextTrackIndex != currentTextTrackProfileIndex);
-	
+
 	// Update current track index
 	aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
-	
+
 	// Send notification if track changed
 	if (tracksChanged)
 	{
