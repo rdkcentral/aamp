@@ -1016,8 +1016,12 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 		case MultiChar_Constant("stpp"): // TTML subtitle in MP4
 		case MultiChar_Constant("wvtt"): // WebVTT subtitle in MP4
 			mMediaTypeName = "subtitle";
-			// Subtitle sample entries have no additional config boxes
-			// that require parsing; codec format is set in DemuxHelper.
+			// Subtitle sample entries carry no codec-config child box
+			// (unlike hev1→hvcC or avc1→avcC). Set the codec format
+			// directly from the sample entry FourCC so that
+			// GetCodecInfo() returns a valid format and
+			// AampMp4Demuxer::sendSegment() can call SetStreamCaps().
+			codecInfo.mCodecFormat = GetGstStreamOutputFormatFromFourCC(type);
 			break;
 		default:
 			mMediaTypeName = "unknown";
@@ -1225,9 +1229,6 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("dec3"):
 			case MultiChar_Constant("avcC"):
 			case MultiChar_Constant("esds"): // Elementary Stream Descriptor
-			//anj added:may 26
-			case MultiChar_Constant("stpp"): // TTML subtitle
-			case MultiChar_Constant("wvtt"): // WebVTT subtitle
 				ParseCodecConfigurationBox(type, next);
 				break;
 			case MultiChar_Constant("pssh"):
