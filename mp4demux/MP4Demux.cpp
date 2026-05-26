@@ -1147,6 +1147,169 @@ void Mp4Demux::ParseMovieExtendsHeader()
 	// Currently not used
 }
 
+/**
+ * @brief Parse meta box (ISO BMFF / QTFF dual-variant container)
+ *
+ * The meta box has two mutually incompatible encodings in the wild:
+ *   - QTFF variant (Apple): the box is a *short* atom with no FullBox
+ *     header; child boxes start immediately at the payload offset.
+ *     Detection: the first child box's type field (bytes 4-7 of payload)
+ *     equals 'hdlr'.
+ *   - ISO BMFF variant: the box is a *full* atom carrying a 4-byte
+ *     version+flags field (always 0x00000000) before the child boxes.
+ *     Detection: the first 4 bytes of the payload are 0x00000000.
+ *
+ * This dual-variant detection mirrors the approach in GStreamer qtdemux.c.
+ * In both cases the function recurses into the child boxes so that nested
+ * boxes (e.g. 'ilst', 'hdlr') are handled by the normal dispatch logic.
+ *
+ * @param next Pointer to end of box payload
+ */
+void Mp4Demux::ParseMetaBox(const uint8_t *next)
+{
+	if (static_cast<uint64_t>(next - ptr) < 8)
+	{
+		MP4_LOG_WARN("meta: payload too small, skipping");
+		ptr = next;
+		return;
+	}
+	// Peek at bytes [0..3] and [4..7] of the payload without advancing ptr.
+	const uint32_t firstWord  = (static_cast<uint32_t>(ptr[0]) << 24)
+	                          | (static_cast<uint32_t>(ptr[1]) << 16)
+	                          | (static_cast<uint32_t>(ptr[2]) <<  8)
+	                          |  static_cast<uint32_t>(ptr[3]);
+	const uint32_t secondWord = (static_cast<uint32_t>(ptr[4]) << 24)
+	                          | (static_cast<uint32_t>(ptr[5]) << 16)
+	                          | (static_cast<uint32_t>(ptr[6]) <<  8)
+	                          |  static_cast<uint32_t>(ptr[7]);
+	if (secondWord == MultiChar_Constant("hdlr"))
+	{
+		// QTFF variant: no FullBox header; children start at ptr.
+		MP4_LOG_DEBUG("meta: QTFF short variant");
+		DemuxHelper(next);
+	}
+	else if (firstWord == 0x00000000)
+	{
+		// ISO BMFF variant: skip 4-byte version+flags; children start at ptr+4.
+		MP4_LOG_DEBUG("meta: ISO BMFF full-atom variant");
+		SkipBytes(4);
+		DemuxHelper(next);
+	}
+	else
+	{
+		// Unknown encoding; consume silently rather than aborting the parse.
+		MP4_LOG_WARN("meta: unknown variant (firstWord=0x%08x secondWord=0x%08x), skipping",
+		             firstWord, secondWord);
+		ptr = next;
+	}
+}
+
+/**
+ * @brief Parse sample group description box (SGPD)
+ *
+ * ISO 14496-12 Section 8.9.2.  Maps group-description entries to a
+ * grouping_type FourCC.  The box layout is version-dependent:
+ *   version 0: entry_count fixed-length entries (default_length not present)
+ *   version 1: default_length field; if default_length==0, each entry is
+ *              preceded by an individual description_length field
+ *   version 2: adds default_group_description_index
+ *
+ * Common grouping types in streaming:
+ *   'seig' - Common Encryption sample entry (per-group key/IV info)
+ *   'roll' - Audio random-access roll recovery (pre-roll distance)
+ *   'prol' - Pre-roll (similar to 'roll')
+ *
+ * The function reads and logs the grouping_type, then consumes all entry
+ * bytes.  Full 'seig' entry interpretation (key rotation, per-group KIDs)
+ * is deferred to a future implementation.
+ *
+ * @param next Pointer to end of box payload
+ */
+void Mp4Demux::ParseSampleGroupDescription(const uint8_t *next)
+{
+	ReadHeader(); // version, flags
+	if (next - ptr < 8)
+	{
+		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_BOX, "sgpd: payload too small");
+	}
+	const uint32_t groupingType = ReadU32();
+	MP4_LOG_DEBUG("sgpd: grouping_type='%s'", FourCCToString(groupingType).c_str());
+
+	uint32_t defaultLength = 0;
+	if (version >= 1)
+	{
+		defaultLength = ReadU32();
+	}
+	if (version >= 2)
+	{
+		(void)ReadU32(); // default_group_description_index
+	}
+	const uint32_t entryCount = ReadU32();
+	for (uint32_t i = 0; i < entryCount; ++i)
+	{
+		uint32_t entryLen = defaultLength;
+		if (version == 1 && defaultLength == 0)
+		{
+			entryLen = ReadU32(); // per-entry description_length
+		}
+		if (entryLen > static_cast<uint32_t>(next - ptr))
+		{
+			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "sgpd: entry exceeds box boundary");
+		}
+		// Skip entry payload. Full 'seig' parsing (key rotation) can be
+		// added here when per-group encryption support is required.
+		SkipBytes(entryLen);
+	}
+}
+
+/**
+ * @brief Parse sample to group box (SBGP)
+ *
+ * ISO 14496-12 Section 8.9.3.  Associates contiguous runs of samples with
+ * entries in the corresponding sample group description box (SGPD) that
+ * shares the same grouping_type.
+ *
+ * Box layout:
+ *   FullBox header (version, flags)
+ *   grouping_type             uint32  - matches the SGPD grouping_type
+ *   [grouping_type_parameter  uint32] - present only when version == 1
+ *   entry_count               uint32
+ *   for each entry:
+ *     sample_count            uint32  - number of consecutive samples
+ *     group_description_index uint32  - 1-based index into SGPD; 0 = no group
+ *
+ * @param next Pointer to end of box payload
+ */
+void Mp4Demux::ParseSampleToGroup(const uint8_t *next)
+{
+	ReadHeader(); // version, flags
+	if (next - ptr < 8)
+	{
+		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_BOX, "sbgp: payload too small");
+	}
+	const uint32_t groupingType = ReadU32();
+	MP4_LOG_DEBUG("sbgp: grouping_type='%s'", FourCCToString(groupingType).c_str());
+
+	if (version == 1)
+	{
+		(void)ReadU32(); // grouping_type_parameter
+	}
+	const uint32_t entryCount = ReadU32();
+	// Each entry is exactly 8 bytes (sample_count + group_description_index).
+	const size_t expectedBytes = static_cast<size_t>(entryCount) * 8u;
+	if (expectedBytes > static_cast<size_t>(next - ptr))
+	{
+		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "sbgp: entries exceed box boundary");
+	}
+	// Consume all entries.  Per-sample group mapping (e.g. for key rotation
+	// driven by 'seig' SGPD) can be built here when that feature is needed.
+	for (uint32_t i = 0; i < entryCount; ++i)
+	{
+		(void)ReadU32(); // sample_count
+		(void)ReadU32(); // group_description_index
+	}
+}
+
 void Mp4Demux::DemuxHelper(const uint8_t *fin)
 {
 	while (ptr < fin)
@@ -1288,6 +1451,9 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				// Recursive parsing for container boxes
 				DemuxHelper(next);
 				break;
+			case MultiChar_Constant("meta"): // Metadata container (QTFF or ISO BMFF variant)
+				ParseMetaBox(next);
+				break;
 			case MultiChar_Constant("mehd"): // Movie Extends Header
 			case MultiChar_Constant("mfhd"): // Movie Fragment Header
 			case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
@@ -1310,6 +1476,12 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("sidx"): // Segment Index
 			case MultiChar_Constant("udta"): // User Data (can appear under moov, trak, moof, traf)
 				ptr = next;
+				break;
+			case MultiChar_Constant("sgpd"): // Sample Group Description
+				ParseSampleGroupDescription(next);
+				break;
+			case MultiChar_Constant("sbgp"): // Sample to Group
+				ParseSampleToGroup(next);
 				break;
 			case MultiChar_Constant("mdat"): // Movie Data (under file box)
 				// Track mdat payload range for TRUN validation
