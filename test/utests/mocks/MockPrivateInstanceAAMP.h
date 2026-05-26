@@ -102,6 +102,8 @@ public:
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
 	MOCK_METHOD(bool, IsAdPlaying, ());
 	MOCK_METHOD(bool, IsLatencyExceedingTrickplayThreshold, (), (const));
+	MOCK_METHOD(void, EnableLatencyMonitor, (bool enabled));
+	MOCK_METHOD(bool, IsLatencyMonitorEnabled, (), (const));
 	MOCK_METHOD(void, UpdateVideoEndMetrics, (double adjustedRate));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));
