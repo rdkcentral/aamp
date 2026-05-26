@@ -85,6 +85,7 @@ typedef enum
 	eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE, //1ms to 10000ms
 	eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE, //-1 to -10000ms
 	eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD,//1ms to 10000
+	eCONFIG_RANGE_FRAGMENT_CACHE, // 1..MAX_CACHED_FRAGMENTS_PER_TRACK
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -128,6 +129,7 @@ static const struct
 	{ MIN_MONITOR_AVSYNC_POSITIVE_DELTA_MS, MAX_MONITOR_AVSYNC_POSITIVE_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE},
 	{ MIN_MONITOR_AVSYNC_NEGATIVE_DELTA_MS, MAX_MONITOR_AVSYNC_NEGATIVE_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE},
 	{ MIN_MONITOR_AV_JUMP_THRESHOLD_MS, MAX_MONITOR_AV_JUMP_THRESHOLD_MS, eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD},
+	{ 1, MAX_CACHED_FRAGMENTS_PER_TRACK, eCONFIG_RANGE_FRAGMENT_CACHE },
 };
 
 static ConfigPriority customOwner;
@@ -379,6 +381,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
+	{false, "monitorMp4Integrity", eAAMPConfig_MonitorMp4Integrity, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -397,10 +400,10 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_ABR_SKIP_DURATION,"abrSkipDuration",eAAMPConfig_ABRSkipDuration,false},
 	{DEFAULT_ABR_NW_CONSISTENCY_CNT,"abrNwConsistency",eAAMPConfig_ABRNWConsistency,false},
 	{DEFAULT_AAMP_ABR_THRESHOLD_SIZE,"thresholdSizeABR",eAAMPConfig_ABRThresholdSize,false},
-	{DEFAULT_CACHED_FRAGMENTS_PER_TRACK,"downloadBuffer",eAAMPConfig_MaxFragmentCached,false},
+	{DEFAULT_CACHED_FRAGMENTS_PER_TRACK,"downloadBuffer",eAAMPConfig_MaxFragmentCached,false,eCONFIG_RANGE_FRAGMENT_CACHE},
 	{DEFAULT_BUFFER_HEALTH_MONITOR_DELAY,"bufferHealthMonitorDelay",eAAMPConfig_BufferHealthMonitorDelay,false},
 	{DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL,"bufferHealthMonitorInterval",eAAMPConfig_BufferHealthMonitorInterval,false},
-	{eDRM_PlayReady,"preferredDrm",eAAMPConfig_PreferredDRM,true,eCONFIG_RANGE_DRM_SYSTEMS},
+	{eDRM_WideVine,"preferredDrm",eAAMPConfig_PreferredDRM,true,eCONFIG_RANGE_DRM_SYSTEMS},
 	{eTUNED_EVENT_ON_GST_PLAYING,"tuneEventConfig",eAAMPConfig_TuneEventConfig,false,eCONFIG_RANGE_TUNED_EVENT_CODE},
 	{TRICKPLAY_VOD_PLAYBACK_FPS,"vodTrickPlayFps",eAAMPConfig_VODTrickPlayFPS,false},
 	{TRICKPLAY_LINEAR_PLAYBACK_FPS,"linearTrickPlayFps",eAAMPConfig_LinearTrickPlayFPS,false},
@@ -432,7 +435,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{MAX_GST_AUDIO_BUFFER_BYTES,"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,true},
 	{DEFAULT_LATENCY_MONITOR_DELAY_MS,"latencyMonitorDelayMs",eAAMPConfig_LatencyMonitorDelayMs,false},
 	{DEFAULT_LATENCY_MONITOR_INTERVAL_MS,"latencyMonitorIntervalMs",eAAMPConfig_LatencyMonitorIntervalMs,false},
-	{DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxFragmentChunkCached,false},
+	{DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxLLDFragmentCached,false,eCONFIG_RANGE_FRAGMENT_CACHE},
 	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
 	{MAX_SEG_DOWNLOAD_FAIL_COUNT,"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
 	{MAX_INIT_FRAGMENT_CACHE_PER_TRACK,"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },

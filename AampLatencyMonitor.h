@@ -211,6 +211,14 @@ public:
 	std::tuple<double, double, double> GetCurrentThresholds() const;
 
 	/**
+	 * @brief Return the total latency increment (ms) accumulated from
+	 * low-buffer rebuffering events since the last Start() or reset.
+	 *
+	 * Thread-safe (reads under mThresholdMutex).
+	 */
+	double GetAccumulatedLatencyIncrementMs() const;
+
+	/**
 	 * @brief Notify the monitor of the current buffer level.
 	 * When @p bufferMs is **below** dangerBufferMs and the episode guard
 	 * (mBelowDangerShifted) is clear, the worker thread is signalled to wake

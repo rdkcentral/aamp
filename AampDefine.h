@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "8.03"
+#define AAMP_VERSION "8.04"
 #define AAMP_TUNETIME_VERSION 8
 
 //Stringification of Macro : use two levels of macros
@@ -199,6 +199,7 @@
 #define DEFAULT_MIN_LOW_LATENCY					5.0			/**< min Default Latency */
 #define DEFAULT_MAX_LOW_LATENCY					7.0			/**< max Default Latency */
 #define DEFAULT_TARGET_LOW_LATENCY				6.0			/**< Target Default Latency */
+#define DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS	10000.0	/**< Accumulated latency threshold (ms) above which trickplay fast-forward is unblocked even at live point */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED	1.00f		/**< Live Catchup Normal play rate */
@@ -213,7 +214,16 @@
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
-#define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragment chunks per track */
+/** Hard upper limit for the per-track fragment ring buffer.
+ *  mCachedFragment[] is sized by this value.
+ *  No config or SetCachedFragmentSize call may exceed it.
+ */
+#define MAX_CACHED_FRAGMENTS_PER_TRACK  20
+#define DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK	MAX_CACHED_FRAGMENTS_PER_TRACK	/**< Default LLD cached fragments per track; must be <= MAX_CACHED_FRAGMENTS_PER_TRACK */
+static_assert(DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRACK,
+	"DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK must not exceed MAX_CACHED_FRAGMENTS_PER_TRACK");
+static_assert(DEFAULT_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRACK,
+	"DEFAULT_CACHED_FRAGMENTS_PER_TRACK must not exceed MAX_CACHED_FRAGMENTS_PER_TRACK");
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */

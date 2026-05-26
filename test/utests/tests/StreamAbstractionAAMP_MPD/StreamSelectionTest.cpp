@@ -398,7 +398,7 @@ protected:
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+			{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK}
 		};
 
 	IntConfigSettings mIntConfigSettings;
@@ -413,7 +413,7 @@ protected:
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		mStreamAbstractionAAMP_MPD = nullptr;

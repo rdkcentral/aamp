@@ -56,6 +56,8 @@
 #include "MockPlayerCCManager.h"
 #include "MockMediaStreamContext.h"
 #include "MockIsoBmffBuffer.h"
+#include "MockAampLatencyMonitor.h"
+#include "AampDefine.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -112,6 +114,7 @@ protected:
 		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
 		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
 		g_mockAampUtils = new NiceMock<MockAampUtils>();
+		g_mockAampLatencyMonitor = new NiceMock<MockAampLatencyMonitor>();
 	}
 
 	void TearDown() override
@@ -156,6 +159,9 @@ protected:
 
 		delete g_mockAampUtils;
 		g_mockAampUtils = nullptr;
+
+		delete g_mockAampLatencyMonitor;
+		g_mockAampLatencyMonitor = nullptr;
 
 		delete (int*)mCurlEasyHandle;
 		mCurlEasyHandle = nullptr;
@@ -1388,10 +1394,10 @@ TEST_F(PrivAampTests,SetIsPeriodChangeMarkedTest)
 	EXPECT_FALSE(p_aamp->GetIsPeriodChangeMarked());
 }
 
-TEST_F(PrivAampTests,SyncBeginTest)
+TEST_F(PrivAampTests,SyncLockTest)
 {
-	p_aamp->SyncBegin();
-	p_aamp->SyncEnd();
+	auto lock = p_aamp->SyncLock();
+	// lock released automatically at end of scope
 }
 TEST_F(PrivAampTests,GetVideoPTSTest)
 {
@@ -1627,6 +1633,116 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_ProgressBeforeSpeedChange)
 	// Trigger BoS handling. position < start (culledSeconds*1000) ensures
 	// the reachedStart branch is taken in MonitorProgress().
 	p_aamp->MonitorProgress(true, false);
+}
+
+/**
+ * @brief Regression test for the de-dupe edge case (Copilot review on PR #1345).
+ *
+ * When the previous tick already reported position == start, the de-dupe logic
+ * (mReportProgressPosn == position) would normally suppress AAMP_EVENT_PROGRESS.
+ * This test verifies that the progress event is still emitted before the speed
+ * change when reachedStart bypasses the de-dupe.
+ */
+TEST_F(PrivAampTests, MonitorProgressRewindToBoS_DeDupeBypassedOnReachedStart)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 10.0;
+	constexpr double DURATION_SECONDS = 100.0;
+
+	// Setup: configure player for rewind scenario.
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = CULLED_SECONDS; // position == start on first call
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mAbsoluteEndPosition = CULLED_SECONDS + DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mSinkPaused = false;
+	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	p_aamp->trickStartUTCMS = 1;
+	p_aamp->mAdProgressId = "ad-1";
+	p_aamp->mAdAbsoluteStartTime = 0;
+	p_aamp->mAdDuration = 1000;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+	// Enable GstPositionQuery so we control position via mock sink rather
+	// than the elapsed-time calculation which is non-deterministic.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer));
+	// Sink reports 0 relative position; final position = seek_pos_seconds * 1000.
+	EXPECT_CALL(*g_mockAampGstPlayer, GetPositionMilliseconds())
+		.WillRepeatedly(Return(0));
+
+	// First call: position = seek_pos_seconds*1000 = 10000 = start.
+	// No reachedStart triggered; progress event is sent, setting
+	// mReportProgressPosn = start internally (the de-dupe anchor).
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(testing::AnyNumber());
+	p_aamp->MonitorProgress(true, false);
+
+	// Now set seek_pos_seconds = 0 so that position < start on the next call.
+	p_aamp->seek_pos_seconds = 0.0;
+
+	// Clear generic expectations and set ordering requirements for the
+	// second call: progress must still be emitted despite de-dupe match.
+	testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager);
+
+	testing::InSequence seq;
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_AD_PLACEMENT_PROGRESS), _)).Times(1);
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	// Second call: position (0) < start (10000) → reachedStart = true.
+	// De-dupe (mReportProgressPosn == position after clamping) is bypassed.
+	p_aamp->MonitorProgress(true, false);
+}
+
+/**
+ * @brief Regression test for Positive Live latency value.
+ *
+ * Verifies that live latency is never negative during TSB-less linear HLS
+ * playback. Before the fix, start/end were overwritten to -1 (XRE sentinel)
+ * before HLS latency was calculated (latency = end - position), producing a
+ * large negative latency value. The fix moves the sentinel assignment to after
+ * the latency calculation.
+ */
+TEST_F(PrivAampTests, MonitorProgress_TsbLessLinearHLS_LatencyNonNegative)
+{
+	constexpr double CULLED_SECONDS = 0.0;
+	constexpr double DURATION_SECONDS = 1000.0;
+	constexpr double SEEK_POS_SECONDS = 100.0;
+
+	// Setup: TSB-less linear HLS live playback
+	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	p_aamp->mSinkPaused = false;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_HLS;
+	p_aamp->SetIsLiveStream(true);
+	p_aamp->SetContentType("LINEAR_TV");
+	p_aamp->mFogTSBEnabled = false;
+	p_aamp->SetLocalAAMPTsb(false);
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->seek_pos_seconds = SEEK_POS_SECONDS;
+	p_aamp->trickStartUTCMS = -1;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	p_aamp->MonitorProgress(true, false);
+
+	// Live latency must be non-negative after the fix.
+	EXPECT_GE(p_aamp->GetCurrentLatencyMs(), 0L);
 }
 
 TEST_F(PrivAampTests,UpdateDurationTest)
@@ -5984,3 +6100,60 @@ INSTANTIATE_TEST_SUITE_P(
 		}
 	)
 );
+
+/**
+ * @brief Threshold check returns false when no latency has accumulated.
+ *
+ * Contract: After construction (or reset), accumulated latency is 0 ms.
+ * IsLatencyExceedingTrickplayThreshold() must return false.
+ */
+TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsFalse_WhenAccumulatedIsZero)
+{
+	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
+		.WillOnce(testing::Return(0.0));
+
+	EXPECT_FALSE(p_aamp->IsLatencyExceedingTrickplayThreshold());
+}
+
+/**
+ * @brief Threshold check returns false when accumulated latency is strictly
+ * below DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS (10 000 ms).
+ *
+ * Contract: 9999.9 ms < 10 000 ms → result must be false.
+ */
+TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsFalse_WhenBelowThreshold)
+{
+	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
+		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS - 0.1));
+
+	EXPECT_FALSE(p_aamp->IsLatencyExceedingTrickplayThreshold());
+}
+
+/**
+ * @brief Threshold check returns true when accumulated latency equals the
+ * threshold exactly (DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS = 10 000 ms).
+ *
+ * Contract: 10 000 ms >= 10 000 ms → result must be true.
+ */
+TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsTrue_WhenAtThreshold)
+{
+	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
+		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS));
+
+	EXPECT_TRUE(p_aamp->IsLatencyExceedingTrickplayThreshold());
+}
+
+/**
+ * @brief Threshold check returns true when accumulated latency exceeds the
+ * threshold (> 10 000 ms).
+ *
+ * Contract: A heavily buffered/rebuffered stream can accumulate well beyond
+ * 10 s.  The check must return true for any value above the threshold.
+ */
+TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsTrue_WhenAboveThreshold)
+{
+	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
+		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS + 5000.0));
+
+	EXPECT_TRUE(p_aamp->IsLatencyExceedingTrickplayThreshold());
+}

@@ -171,6 +171,11 @@ protected:
 			return HandleSeekEOSAndPeriodTransition(remainingSeek, skipToEnd);
 		}
 
+		void InvokeSeekInPeriod(double seekPositionSeconds, bool skipToEnd = false)
+		{
+			SeekInPeriod(seekPositionSeconds, skipToEnd);
+		}
+
 		int GetNumberOfTracks() const
 		{
 			return mNumberOfTracks;
@@ -183,6 +188,56 @@ protected:
 				return nullptr;
 			}
 			return mMediaStreamContext[idx];
+		}
+
+		void SetMediaStreamContextAt(int idx, MediaStreamContext *ctx)
+		{
+			mMediaStreamContext[idx] = ctx;
+		}
+
+		/**
+		 * When set, the UpdateTrackInfo override returns
+		 * eAAMPSTATUS_MANIFEST_CONTENT_ERROR immediately, simulating a
+		 * period whose tracks cannot be initialised (e.g. incompatible codec
+		 * or empty representation list).
+		 */
+		bool mForceUpdateTrackInfoFailure{false};
+
+		void SetForceUpdateTrackInfoFailure(bool v)
+		{
+			mForceUpdateTrackInfoFailure = v;
+		}
+
+		AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW,
+									   bool resetTimeLineIndex = false,
+									   bool isInit = false) override
+		{
+			if (mForceUpdateTrackInfoFailure)
+			{
+				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+			}
+			return StreamAbstractionAAMP_MPD::UpdateTrackInfo(
+					modifyDefaultBW, resetTimeLineIndex, isInit);
+		}
+
+		std::string GetBasePeriodId() const
+		{
+			return mBasePeriodId;
+		}
+
+		double GetPeriodStartTime() const
+		{
+			return mPeriodStartTime;
+		}
+
+		double GetPeriodDuration() const
+		{
+			return mPeriodDuration;
+		}
+
+		double GetPeriodEndTime() const
+		{
+			return mPeriodEndTime;
 		}
 	};
 
@@ -212,6 +267,63 @@ protected:
 							<AdaptationSet id="1" contentType="video">
 									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
 											<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="16">
+													<SegmentTimeline>
+															<S t="0" d="5000" r="14" />
+													</SegmentTimeline>
+											</SegmentTemplate>
+									</Representation>
+							</AdaptationSet>
+					</Period>
+			</MPD>
+			)";
+
+	/**
+	 * @brief Two-period VOD manifest with video and audio (no subtitle).
+	 *
+	 * Each period is 30 s long and contains 15 x 2 s segments (timescale 2500,
+	 * d=5000).  Both periods use startNumber=1 so that, after a period
+	 * transition, the video fragmentDescriptor.Number is reset to 1 before
+	 * any carry-over seek is applied.
+	 *
+	 * Used by SeekInPeriod_SubtitleResultNotUsedForPeriodTransition to verify
+	 * that the subtitle track's SkipFragments return value does not overwrite
+	 * the A/V carry-over seek offset.
+	 */
+	static constexpr const char *mAVVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
+					<Period id="p0" start="PT0S">
+							<AdaptationSet id="0" contentType="video">
+									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+											<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+													<SegmentTimeline>
+															<S t="0" d="5000" r="14" />
+													</SegmentTimeline>
+											</SegmentTemplate>
+									</Representation>
+							</AdaptationSet>
+							<AdaptationSet id="1" contentType="audio" lang="eng">
+									<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="96000">
+											<SegmentTemplate timescale="2500" initialization="audio_p0_init.mp4" media="audio_p0_$Number$.m4s" startNumber="1">
+													<SegmentTimeline>
+															<S t="0" d="5000" r="14" />
+													</SegmentTimeline>
+											</SegmentTemplate>
+									</Representation>
+							</AdaptationSet>
+					</Period>
+					<Period id="p1" start="PT30S">
+							<AdaptationSet id="0" contentType="video">
+									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+											<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+													<SegmentTimeline>
+															<S t="0" d="5000" r="14" />
+													</SegmentTimeline>
+											</SegmentTemplate>
+									</Representation>
+							</AdaptationSet>
+							<AdaptationSet id="1" contentType="audio" lang="eng">
+									<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="96000">
+											<SegmentTemplate timescale="2500" initialization="audio_p1_init.mp4" media="audio_p1_$Number$.m4s" startNumber="1">
 													<SegmentTimeline>
 															<S t="0" d="5000" r="14" />
 													</SegmentTimeline>
@@ -311,7 +423,7 @@ protected:
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+			{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK}
 		};
 
 	IntConfigSettings mIntConfigSettings;
@@ -328,7 +440,7 @@ protected:
 		assert( g_mockAampUtils == nullptr );
 		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
@@ -2700,4 +2812,196 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_DisabledTrack_NoPeriodTransition)
 	// Disabled tracks must not trigger a forward period transition.
 	EXPECT_FALSE(transitioned);
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
+}
+
+/**
+ * @brief VPAAMP-345: SeekInPeriod must not let the subtitle track's SkipFragments
+ * return value overwrite the A/V remaining-seek that drives period transition.
+ *
+ * Setup: two-period A/V VOD (mAVVodManifest — video + audio, 2 s segments,
+ * 15 per period = 30 s each, startNumber=1 in both periods).  No subtitle
+ * adaptation set is present, so mMediaStreamContext[eTRACK_SUBTITLE] is
+ * allocated by the initialisation loop but its representation pointer remains
+ * null.  SkipFragments returns 0.0 immediately when representation is null,
+ * which is precisely the value that would corrupt the A/V carry-over on a
+ * pre-fix build.
+ *
+ * SetNumberOfTracks(3) injects the subtitle slot into the SeekInPeriod loop
+ * without requiring a real subtitle pipeline, giving direct regression coverage
+ * of the subtitle-result-discard path.
+ *
+ * Seek to 35 s (5 s past the end of the 30 s period 0):
+ *   - Video  SkipFragments(35 s): consumes all 15 x 2 s segments, eos=true,
+ *     remaining = 5 s.
+ *   - Audio  SkipFragments(35 s): same.
+ *   - Subtitle SkipFragments(35 s): null representation guard fires immediately,
+ *     returns 0.0, eos stays false.
+ *
+ * Pre-fix: subtitle's 0.0 overwrites the A/V carry-over, so period 1 is entered
+ * with a 0 s offset — video stays at segment 1 (fragmentDescriptor.Number == 1).
+ * Post-fix: subtitle result is discarded; carry-over = 5 s — SeekInPeriod(5 s)
+ * in period 1 skips two 2 s segments, landing at segment 3
+ * (fragmentDescriptor.Number == 3).
+ *
+ * The assertion on fragmentDescriptor.Number therefore FAILS on a pre-fix build
+ * and PASSES on the fixed build, providing direct regression coverage.
+ */
+TEST_F(FetcherLoopTests, SeekInPeriod_SubtitleResultNotUsedForPeriodTransition)
+{
+	AAMPStatusType status;
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	// Initialise with a two-period A/V manifest.  No subtitle adaptation set is
+	// present, so mMediaStreamContext[eTRACK_SUBTITLE] is allocated but its
+	// representation pointer is null.
+	status = InitializeMPD(mAVVodManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Force mNumberOfTracks to 3 so the SeekInPeriod loop reaches the subtitle
+	// slot (index eTRACK_SUBTITLE == 2).  SkipFragments returns 0.0 immediately
+	// because representation is null — this is the value a pre-fix build would
+	// use as the period-1 carry-over seek offset, suppressing the correct 5 s
+	// carry-over from the A/V tracks.
+	mTestableStreamAbstractionAAMP_MPD->SetNumberOfTracks(3);
+
+	// Seek to 35 s: 5 s past the end of the 30 s period 0.  Both A/V tracks
+	// exhaust all segments and signal eos with a 5 s remainder; the subtitle
+	// slot returns 0.0 (null representation guard).
+	mTestableStreamAbstractionAAMP_MPD->InvokeSeekInPeriod(35.0, false);
+
+	// A period transition must have occurred into period 1.
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
+
+	// Post-fix: carry-over = 5 s -> SeekInPeriod(5 s) in period 1 skips two
+	// 2 s segments (4 s) before the remaining 1 s falls within segment 3.
+	// fragmentDescriptor.Number == startNumber(1) + 2 consumed == 3.
+	// Pre-fix: carry-over = 0 s -> no skipping -> fragmentDescriptor.Number == 1.
+	MediaTrack *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(videoTrack, nullptr);
+	MediaStreamContext *pVideoContext = static_cast<MediaStreamContext *>(videoTrack);
+	EXPECT_EQ(pVideoContext->fragmentDescriptor.Number, 3);
+}
+
+/**
+ * @brief VPAAMP-346: HandleSeekEOSAndPeriodTransition must restore period state when
+ * UpdateTrackInfo fails after a period switch attempt.
+ *
+ * Scenario:
+ *   - Init a 2-period video+audio manifest at period 0.
+ *   - Mark the video track enabled and eos=true to trigger a forward period switch.
+ *   - Force UpdateTrackInfo to return eAAMPSTATUS_MANIFEST_CONTENT_ERROR via the
+ *     SetForceUpdateTrackInfoFailure flag, simulating a period whose tracks cannot
+ *     be initialised (e.g. incompatible codec, empty representation list).
+ *   - Without the rollback, mCurrentPeriodIdx (and the other period members) remain
+ *     set to period 1 even though the switch was not completed, leaving the object in
+ *     a partially-switched state that will cause fragment-download failures on the
+ *     next fetcher-loop iteration.
+ *   - With the fix, all period members are restored to their pre-switch values.
+ */
+TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
+{
+	AAMPStatusType status;
+
+	static const char *kTwoPeriodVideoAudioManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" maxSegmentDuration="PT2S" minBufferTime="PT4S"
+     profiles="urn:dvb:dash:profile:dvb-dash:2014" type="static">
+  <Period id="p0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4"
+                         media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="1" contentType="audio" lang="eng">
+      <Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000">
+        <SegmentTemplate timescale="2500" initialization="audio_p0_init.mp4"
+                         media="audio_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline><S t="0" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" start="PT30S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4"
+                         media="video_p1_$Number$.m4s" startNumber="16">
+          <SegmentTimeline><S t="75000" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="1" contentType="audio" lang="eng">
+      <Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000">
+        <SegmentTemplate timescale="2500" initialization="audio_p1_init.mp4"
+                         media="audio_p1_$Number$.m4s" startNumber="16">
+          <SegmentTimeline><S t="75000" d="5000" r="14"/></SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	status = InitializeMPD(kTwoPeriodVideoAudioManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	int periodBefore = mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx();
+
+	// Snapshot all period-identity and video-track state that the rollback is
+	// expected to restore.  These values characterise "in period 0 before the
+	// attempted switch" and must be identical after the failed transition.
+	dash::mpd::IPeriod *periodPtrBefore    = mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriod();
+	std::string         basePeriodIdBefore = mTestableStreamAbstractionAAMP_MPD->GetBasePeriodId();
+	double              periodStartBefore  = mTestableStreamAbstractionAAMP_MPD->GetPeriodStartTime();
+	double              periodDurBefore    = mTestableStreamAbstractionAAMP_MPD->GetPeriodDuration();
+	double              periodEndBefore    = mTestableStreamAbstractionAAMP_MPD->GetPeriodEndTime();
+
+	// Set the video track eos=true (enabled should already be true after init) so the
+	// EOS check in HandleSeekEOSAndPeriodTransition fires for period 1.
+	MediaStreamContext *videoCtx = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eMEDIATYPE_VIDEO);
+	ASSERT_NE(videoCtx, nullptr);
+	videoCtx->eos     = true;
+	videoCtx->enabled = true;
+
+	// Snapshot video-track fields that StreamSelection() will mutate when it sets
+	// up period 1 — the rollback must restore them to these period-0 values.
+	const IAdaptationSet  *videoAdaptSetBefore = videoCtx->adaptationSet;
+	const IRepresentation *videoRepBefore      = videoCtx->representation;
+	uint64_t               videoNumberBefore   = videoCtx->fragmentDescriptor.Number;
+
+	// Force UpdateTrackInfo to return MANIFEST_CONTENT_ERROR for the period-1
+	// switch attempt.  StreamSelection() runs first and is allowed to complete
+	// normally; only UpdateTrackInfo() signals failure, triggering the rollback.
+	mTestableStreamAbstractionAAMP_MPD->SetForceUpdateTrackInfoFailure(true);
+	bool transitioned = mTestableStreamAbstractionAAMP_MPD->InvokeHandleSeekEOSAndPeriodTransition(0.0, false);
+	mTestableStreamAbstractionAAMP_MPD->SetForceUpdateTrackInfoFailure(false);
+
+	// UpdateTrackInfo failed: the period switch must have been rolled back.
+	EXPECT_FALSE(transitioned);
+
+	// Period-identity fields — any one of these left pointing at period 1 would cause
+	// the fetcher loop to download from the wrong period on the next iteration.
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), periodBefore);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriod(),    periodPtrBefore);
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetBasePeriodId(),     basePeriodIdBefore);
+	EXPECT_DOUBLE_EQ(mTestableStreamAbstractionAAMP_MPD->GetPeriodStartTime(), periodStartBefore);
+	EXPECT_DOUBLE_EQ(mTestableStreamAbstractionAAMP_MPD->GetPeriodDuration(),  periodDurBefore);
+	EXPECT_DOUBLE_EQ(mTestableStreamAbstractionAAMP_MPD->GetPeriodEndTime(),   periodEndBefore);
+
+	// Video track context — StreamSelection() switches adaptationSet and
+	// representation to period 1's objects; rollback must restore period-0 values.
+	EXPECT_EQ(videoCtx->adaptationSet,            videoAdaptSetBefore);
+	EXPECT_EQ(videoCtx->representation,           videoRepBefore);
+	EXPECT_EQ(videoCtx->fragmentDescriptor.Number, videoNumberBefore);
+
+	// eos was set to true by the test (to trigger the period transition check) and
+	// must be preserved by the rollback rather than left at the false that
+	// UpdateTrackInfo writes for the new period.
+	EXPECT_TRUE(videoCtx->eos);
 }

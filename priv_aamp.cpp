@@ -79,6 +79,7 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "AampSegmentInfo.hpp"
 
 #include "AampCurlStore.h"
+#include "mp4demux/MP4Demux.h"
 
 #include <iomanip>
 #include <unordered_set>
@@ -378,9 +379,8 @@ static gboolean PrivateInstanceAAMP_ProcessDiscontinuity(gpointer ptr)
 		// This is to avoid calling cond signal, in case Stop() interrupts the ProcessPendingDiscontinuity
 		if (ret)
 		{
-			aamp->SyncBegin();
+			auto syncLock = aamp->SyncLock();
 			aamp->mDiscontinuityTuneOperationId = 0;
-			aamp->SyncEnd();
 		}
 		aamp->mCondDiscontinuity.notify_one();
 	}
@@ -1531,13 +1531,13 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		}
 	}
 
-	context->aamp->SyncBegin();
-	if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
-		rc = 1; // CURLE_ABORTED_BY_CALLBACK
+		auto syncLock = context->aamp->SyncLock();
+		if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
+		{
+			rc = 1; // CURLE_ABORTED_BY_CALLBACK
+		}
 	}
-
-	context->aamp->SyncEnd();
 	if( rc==0 )
 	{ // only proceed if not an aborted download
 		if (dlnow > 0 && context->stallTimeout > 0)
@@ -2349,20 +2349,14 @@ void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMedi
 }
 
 /**
- *   @brief GStreamer operation start
- */
-void PrivateInstanceAAMP::SyncBegin(void)
-{
-	mLock.lock();
-}
-
-/**
- * @brief GStreamer operation end
+ * @brief Acquire the GStreamer operation lock (RAII).
  *
+ * Returns a std::unique_lock that holds mLock for its lifetime.
+ * The lock is released automatically when the lock object is destroyed.
  */
-void PrivateInstanceAAMP::SyncEnd(void)
+std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-	mLock.unlock();
+	return std::unique_lock<std::recursive_mutex>(mLock);
 }
 
 /**
@@ -2672,7 +2666,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 		}
-		if ((mReportProgressPosn == position) && !mSinkPaused.load() && beginningOfStream != true)
+		if ((mReportProgressPosn == position) && !mSinkPaused.load() && beginningOfStream != true && !reachedStart)
 		{
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
 			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
@@ -2693,15 +2687,6 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		{
 			start -= offset;
 			end -= offset;
-		}
-
-		// If tsb is not available for linear send -1  for start and end
-		// so that xre detect this as tsbless playback
-		// Override above logic if mEnableSeekableRange is set, used by third-party apps
-		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
-		{
-			start = -1;
-			end = -1;
 		}
 
 		if(IsLiveStream())
@@ -2735,6 +2720,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				mMPDDownloaderInstance->SetBufferAvailability((int)videoBufferedDuration);
 				mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
 			}
+		}
+
+		// If TSB is not available for linear playback, send -1 for start and end
+		// so that XRE detects this as TSB-less playback.
+		// Override the above logic when mEnableSeekableRange is set for third-party apps.
+		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
+		{
+			start = -1;
+			end = -1;
 		}
 
 		const BitsPerSecond availableBandwidth = mhAbrManager.GetCurrentlyAvailableBandwidth();
@@ -3690,15 +3684,17 @@ double PrivateInstanceAAMP::getLastInjectedPosition()
 bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 {
 	bool ret = true;
-	SyncBegin();
-	if (mDiscontinuityTuneOperationInProgress)
+	bool operationInProgress;
 	{
-		SyncEnd();
+		auto syncLock = SyncLock();
+		operationInProgress = mDiscontinuityTuneOperationInProgress;
+	}
+	if (operationInProgress)
+	{
 		AAMPLOG_WARN("PrivateInstanceAAMP: Discontinuity Tune Operation already in progress");
 		UnblockWaitForDiscontinuityProcessToComplete();
 		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
-	SyncEnd();
 
 	if (!(DiscontinuitySeenInAllTracks()))
 	{
@@ -3707,9 +3703,10 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
 
-	SyncBegin();
-	mDiscontinuityTuneOperationInProgress = true;
-	SyncEnd();
+	{
+		auto syncLock = SyncLock();
+		mDiscontinuityTuneOperationInProgress = true;
+	}
 
 	if (DiscontinuitySeenInAllTracks())
 	{
@@ -3754,20 +3751,22 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		}
 		trickStartUTCMS = -1;
 
-		SyncBegin();
-		mProgressReportFromProcessDiscontinuity = true;
-		SyncEnd();
+		{
+			auto syncLock = SyncLock();
+			mProgressReportFromProcessDiscontinuity = true;
+		}
 
 		// To notify app of discontinuity processing complete
 		MonitorProgress();
 
 		// There is a chance some other operation maybe invoked from JS/App because of the above MonitorProgress
 		// Make sure we have still mDiscontinuityTuneOperationInProgress set
-		SyncBegin();
-		AAMPLOG_WARN("Progress event sent as part of ProcessPendingDiscontinuity, mDiscontinuityTuneOperationInProgress:%d", mDiscontinuityTuneOperationInProgress);
-		mProgressReportFromProcessDiscontinuity = false;
-		continueDiscontProcessing = mDiscontinuityTuneOperationInProgress;
-		SyncEnd();
+		{
+			auto syncLock = SyncLock();
+			AAMPLOG_WARN("Progress event sent as part of ProcessPendingDiscontinuity, mDiscontinuityTuneOperationInProgress:%d", mDiscontinuityTuneOperationInProgress);
+			mProgressReportFromProcessDiscontinuity = false;
+			continueDiscontProcessing = mDiscontinuityTuneOperationInProgress;
+		}
 
 		if (continueDiscontProcessing)
 		{
@@ -3854,9 +3853,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 	if (ret)
 	{
-		SyncBegin();
+		auto syncLock = SyncLock();
 		mDiscontinuityTuneOperationInProgress = false;
-		SyncEnd();
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
@@ -3959,14 +3957,6 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
-			if (ContentType_EAS == mContentType)
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Stop(false);
-				}
-			}
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
 			trickStartUTCMS = -1;
 			return;
@@ -4526,6 +4516,66 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 			curlCode == CURLE_PARTIAL_FILE ||
 			abortReason == eCURL_ABORT_REASON_STALL_TIMEDOUT ||
 			abortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+}
+
+/**
+ * @brief Parse a downloaded segment with a persistent per-track Mp4Demux to detect
+ *        structural corruption (any condition that triggers Mp4Demux::setParseError).
+ *        Every video/audio segment is logged at INFO level regardless of validity.
+ *        Corrupt segments are logged at WARN level and written to harvestPath or /tmp.
+ */
+void PrivateInstanceAAMP::CheckSegmentIntegrity(const std::vector<uint8_t>& buffer,
+	AampMediaType mediaType,
+	const std::string& remoteUrl)
+{
+	AAMPLOG_INFO("[Mp4Mon][%s] url=%s size=%zu",
+		GetMediaTypeName(mediaType), remoteUrl.c_str(), buffer.size());
+
+	// Select the appropriate persistent validator; init lazily on first use.
+	// A single validator per track preserves init-segment state (timescale, IV size)
+	// so that subsequent media-segment parses do not produce false-positive failures.
+	std::unique_ptr<Mp4Demux>* validatorPtr{nullptr};
+	if (mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO)
+	{
+		validatorPtr = &mVideoIntegrityValidator;
+	}
+	else if (mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO)
+	{
+		validatorPtr = &mAudioIntegrityValidator;
+	}
+	else
+	{
+		return;
+	}
+
+	if (!(*validatorPtr))
+	{
+		*validatorPtr = std::make_unique<Mp4Demux>();
+	}
+
+	// Copy the buffer so the download pipeline's copy remains intact.
+	auto segment = std::make_shared<std::vector<uint8_t>>(buffer);
+	bool parseOk = (*validatorPtr)->Parse(std::move(segment));
+	// Drop the aliasing shared_ptrs the demuxer stored for its sample list so the
+	// copied segment buffer can be freed immediately rather than pinned until the
+	// next Parse() call clears them.
+	(*validatorPtr)->GetSamples();
+	if (!parseOk)
+	{
+		AAMPLOG_WARN("[Mp4Mon][%s] CORRUPT err=%d url=%s",
+			GetMediaTypeName(mediaType),
+			static_cast<int>((*validatorPtr)->GetLastError()),
+			remoteUrl.c_str());
+
+		std::string dumpPath = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
+		if (dumpPath.empty())
+		{
+			dumpPath = "/tmp";
+		}
+		aamp_WriteFile(remoteUrl,
+			reinterpret_cast<const char*>(buffer.data()),
+			buffer.size(), mediaType, 0, dumpPath.c_str());
+	}
 }
 
 /**
@@ -5414,6 +5464,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
+
+			if (ISCONFIGSET_PRIV(eAAMPConfig_MonitorMp4Integrity) &&
+				!buffer.empty() &&
+				(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO ||
+				 mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO))
+			{
+				CheckSegmentIntegrity(buffer, mediaType, remoteUrl);
+			}
+
 			ret = true; // default
 			if( !context.downloadIsEncoded )
 			{
@@ -7742,13 +7801,14 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 	if (mediaType != eMEDIATYPE_SUBTITLE)
 	{
-		SyncBegin();
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-		if (sink)
 		{
-			sink->EndOfStreamReached(mediaType);
-		}
-		SyncEnd();
+			auto syncLock = SyncLock();
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->EndOfStreamReached(mediaType);
+			}
+		} // syncLock released — matches original SyncEnd() position
 
 		// If EOS during Buffering, set Playing and let buffer to dry out
 		// Sink is already unpaused by EndOfStreamReached()
@@ -8583,7 +8643,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		double bufferedDuration = 0.0;
 		if (mpStreamAbstractionAAMP)
 		{
-			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentChunk(); // avoid mutex lock if waiting for cached fragments
+			mpStreamAbstractionAAMP->UnblockWaitForCachedFragmentInjected(); // avoid mutex lock if waiting for cached fragments
 			bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
 		}
 		double latency = GetCurrentLatencyMs();
@@ -9091,13 +9151,12 @@ bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinui
 	}
 	else
 	{
-		SyncBegin();
+		auto syncLock = SyncLock();
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
 			ret = sink->Discontinuity(track);
 		}
-		SyncEnd();
 	}
 
 	if (ret)
@@ -15164,6 +15223,21 @@ void PrivateInstanceAAMP::StopLatencyMonitor()
 void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
 {
 	mLatencyMonitor->EnableRateCorrection(enabled);
+}
+
+/**
+ * @brief Check whether the accumulated latency increment exceeds the
+ * trickplay-unblock threshold.
+ */
+bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
+{
+	if (mLatencyMonitor == nullptr)
+	{
+		return false;
+	}
+
+	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs()
+		>= DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS;
 }
 
 /**

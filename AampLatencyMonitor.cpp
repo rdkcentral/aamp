@@ -618,6 +618,15 @@ void AampLatencyMonitor::OnBufferLevelUpdate(double bufferMs)
 }
 
 /**
+ * @brief Return the accumulated latency increment in milliseconds.
+ */
+double AampLatencyMonitor::GetAccumulatedLatencyIncrementMs() const
+{
+	std::lock_guard<std::mutex> lock(mThresholdMutex);
+	return mLatencyIncrementAccumulatedMs;
+}
+
+/**
  * @brief Return the current effective latency thresholds.
  */
 std::tuple<double, double, double> AampLatencyMonitor::GetCurrentThresholds() const

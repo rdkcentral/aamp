@@ -876,7 +876,7 @@ protected:
 	/**
 	 * @fn UpdateTrackInfo
 	 */
-	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
+	virtual AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
@@ -1285,6 +1285,16 @@ protected:
 	 * @return void
 	 */
 	void UpdateStartTimeOfFirstPTS();
+
+	/**
+	 * @fn GetCurrentAdStartTimeSeconds
+	 * @brief When playing inside a multi-ad pod (mCurAdIdx > 0), returns
+	 *        absoluteAdBreakStartTime + sum-of-prior-ad-durations (in seconds).
+	 *        Returns -1.0 if the preconditions are not met (not in a pod, or
+	 *        absoluteAdBreakStartTime is not yet known).
+	 * @return Seeded fragment start time in seconds, or -1.0 if not applicable.
+	 */
+	double GetCurrentAdStartTimeSeconds() const;
 
 	/**
 	 * @fn ShouldCheckOnlyIframeAdaptation
