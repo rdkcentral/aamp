@@ -519,7 +519,7 @@ void Mp4Demux::ProcessAuxiliaryInformation()
 			// Skip IV data if present (comes before subsample data in auxiliary info)
 			if (ivSize)
 			{
-				if (ivSize > static_cast<size_t>(endPtr - ptr))
+				if (static_cast<ptrdiff_t>(ivSize) > endPtr - ptr)
 				{
 					throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "aux: IV data exceeds buffer");
 				}
@@ -667,7 +667,7 @@ void Mp4Demux::ParseSampleEncryption()
 		}
 		if (ivSize)
 		{
-			if (ivSize > static_cast<size_t>(endPtr - ptr))
+			if (static_cast<ptrdiff_t>(ivSize) > endPtr - ptr)
 			{
 				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: IV data exceeds buffer");
 			}
@@ -682,7 +682,7 @@ void Mp4Demux::ParseSampleEncryption()
 		{ // sub sample encryption
 			uint16_t numSubSamples = ReadU16();
 			size_t subSamplesSize = numSubSamples * MP4_SUBSAMPLE_ENTRY_SIZE;
-			if (subSamplesSize > static_cast<size_t>(endPtr - ptr))
+			if (static_cast<ptrdiff_t>(subSamplesSize) > endPtr - ptr)
 			{
 				throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "senc: subsample data OOB");
 			}
@@ -1167,7 +1167,7 @@ void Mp4Demux::ParseMovieExtendsHeader()
  */
 void Mp4Demux::ParseMetaBox(const uint8_t *next)
 {
-	if (static_cast<uint64_t>(next - ptr) < 8)
+	if (next - ptr < 8)
 	{
 		MP4_LOG_WARN("meta: payload too small, skipping");
 		ptr = next;
@@ -1252,7 +1252,7 @@ void Mp4Demux::ParseSampleGroupDescription(const uint8_t *next)
 		{
 			entryLen = ReadU32(); // per-entry description_length
 		}
-		if (entryLen > static_cast<uint32_t>(next - ptr))
+		if (static_cast<ptrdiff_t>(entryLen) > next - ptr)
 		{
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "sgpd: entry exceeds box boundary");
 		}
@@ -1297,7 +1297,7 @@ void Mp4Demux::ParseSampleToGroup(const uint8_t *next)
 	const uint32_t entryCount = ReadU32();
 	// Each entry is exactly 8 bytes (sample_count + group_description_index).
 	const size_t expectedBytes = static_cast<size_t>(entryCount) * 8u;
-	if (expectedBytes > static_cast<size_t>(next - ptr))
+	if (static_cast<ptrdiff_t>(expectedBytes) > next - ptr)
 	{
 		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "sbgp: entries exceed box boundary");
 	}
