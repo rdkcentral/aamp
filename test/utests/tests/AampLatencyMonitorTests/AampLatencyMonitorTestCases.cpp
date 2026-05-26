@@ -109,8 +109,8 @@ protected:
 		mMockSinkMgr = new NiceMock<MockAampStreamSinkManager>();
 		mMockSink    = new NiceMock<MockStreamSink>();
 
-		g_mockPrivateInstanceAAMP  = mMockAamp;
-		g_mockAampStreamSinkManager = mMockSinkMgr;
+		g_mockPrivateInstanceAAMP = std::shared_ptr<MockPrivateInstanceAAMP>(mMockAamp, [](MockPrivateInstanceAAMP*){});
+		g_mockAampStreamSinkManager = std::shared_ptr<MockAampStreamSinkManager>(mMockSinkMgr, [](MockAampStreamSinkManager*){});
 
 		// Default safe stubs — overridden per test as required.
 		ON_CALL(*mMockAamp, GetState()).WillByDefault(Return(eSTATE_PLAYING));
@@ -135,7 +135,7 @@ protected:
 		}
 
 		g_mockPrivateInstanceAAMP   = nullptr;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
 		delete mMockSink;    mMockSink    = nullptr;
 		delete mMockSinkMgr; mMockSinkMgr = nullptr;

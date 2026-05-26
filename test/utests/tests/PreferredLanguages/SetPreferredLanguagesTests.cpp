@@ -49,41 +49,42 @@ protected:
 		}
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
+		auto *rawMock = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+		g_mockStreamAbstractionAAMP = std::shared_ptr<MockStreamAbstractionAAMP>(rawMock, [](MockStreamAbstractionAAMP*){});
+		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 
-		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = rawMock;
 		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
-		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	}
 
 	void TearDown() override
 	{
+		// If no retune occurred, the real code didn't SAFE_DELETE the mock.
+		// We must delete it ourselves before destroying PrivateInstanceAAMP.
+		if (g_mockStreamAbstractionAAMP != nullptr)
+		{
+			delete mPrivateInstanceAAMP->mpStreamAbstractionAAMP;
+			mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+			g_mockStreamAbstractionAAMP.reset();
+		}
+
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		if (g_mockStreamAbstractionAAMP != nullptr)
-		{
-			delete g_mockStreamAbstractionAAMP;
-			g_mockStreamAbstractionAAMP = nullptr;
-		}
-
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 	}
 
 public:
@@ -97,7 +98,7 @@ public:
 	 */
 	void Stop(bool clearChannelData)
 	{
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 	}
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP{};

@@ -89,29 +89,22 @@ protected:
 			mPlayer = nullptr;
 		}
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockGstHandlerControl;
-		g_mockGstHandlerControl = nullptr;
+		g_mockGstHandlerControl.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockGLib;
-		g_mockGLib = nullptr;
+		g_mockGLib.reset();
 
-		delete g_mockGStreamer;
-		g_mockGStreamer = nullptr;
+		g_mockGStreamer.reset();
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
 		delete mAamp;
 		mAamp = nullptr;
 
-		delete g_mockPlayerUtils;
-		g_mockPlayerUtils = nullptr;
+		g_mockPlayerUtils.reset();
 	}
 
 	/**

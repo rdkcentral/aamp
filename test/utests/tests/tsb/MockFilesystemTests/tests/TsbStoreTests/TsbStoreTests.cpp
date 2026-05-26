@@ -91,33 +91,28 @@ protected:
 
 	void SetUp() override
 	{
-		g_mockFilesystem = new NiceMock<TsbMockFilesystem>();
-		g_mockOfstream = new NiceMock<TsbMockOfstream>();
-		g_mockIfstream = new NiceMock<TsbMockIfstream>();
+		g_mockFilesystem = std::make_shared<NiceMock<TsbMockFilesystem>>();
+		g_mockOfstream = std::make_shared<NiceMock<TsbMockOfstream>>();
+		g_mockIfstream = std::make_shared<NiceMock<TsbMockIfstream>>();
 		mMockBasicFileBuf = new NiceMock<TsbMockBasicFileBuf>();
-		g_mockDirectoryIterator = new NiceMock<TsbMockDirectorIterator>();
-		g_mockLibc = new NiceMock<TsbMockLibc>();
+		g_mockDirectoryIterator = std::make_shared<NiceMock<TsbMockDirectorIterator>>();
+		g_mockLibc = std::make_shared<NiceMock<TsbMockLibc>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockLibc;
-		g_mockLibc = nullptr;
+		g_mockLibc.reset();
 
-		delete g_mockDirectoryIterator;
-		g_mockDirectoryIterator = nullptr;
+		g_mockDirectoryIterator.reset();
 
 		delete mMockBasicFileBuf;
 		mMockBasicFileBuf = nullptr;
 
-		delete g_mockIfstream;
-		g_mockIfstream = nullptr;
+		g_mockIfstream.reset();
 
-		delete g_mockOfstream;
-		g_mockOfstream = nullptr;
+		g_mockOfstream.reset();
 
-		delete g_mockFilesystem;
-		g_mockFilesystem = nullptr;
+		g_mockFilesystem.reset();
 	}
 
 	TSB::Status performWrite(TSB::Store& store, const std::string& pathToWrite,

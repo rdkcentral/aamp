@@ -31,7 +31,7 @@
 
 #include "MockPrivateInstanceAAMP.h"
 
-MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
+std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP{};
 
 std::shared_ptr<AampConfig> gGlobalConfig;
 AampConfig *gpGlobalConfig;

@@ -60,41 +60,35 @@ protected:
 
 	void SetUp() override
 	{
-		g_mockPlayerUtils = new MockPlayerUtils();
-		g_mockAampUtils = new NiceMock<MockAampUtils>();
-		g_mockGStreamer = new NiceMock<MockGStreamer>();
-		g_mockGLib = new MockGLib();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockPlayerUtils = std::make_shared<MockPlayerUtils>();
+		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
+		g_mockGStreamer = std::make_shared<NiceMock<MockGStreamer>>();
+		g_mockGLib = std::make_shared<MockGLib>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		g_mockGstHandlerControl= new MockGstHandlerControl();
-		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+		g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
 	}
 
 	void TearDown() override
 	{
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockGstHandlerControl;
+		g_mockGstHandlerControl.reset();
 		 g_mockGstHandlerControl= nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockGLib;
-		g_mockGLib = nullptr;
+		g_mockGLib.reset();
 
-		delete g_mockGStreamer;
-		g_mockGStreamer = nullptr;
+		g_mockGStreamer.reset();
 		
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockPlayerUtils;
-		g_mockPlayerUtils = nullptr;
+		g_mockPlayerUtils.reset();
 
 	}
 

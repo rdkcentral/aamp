@@ -21,7 +21,7 @@
 #include "MockDrmMetaDataEvent.h"
 
 // Global pointer to mock DrmMetaDataEvent for testing
-MockDrmMetaDataEvent* g_mockDrmMetaDataEvent = nullptr;
+std::shared_ptr<MockDrmMetaDataEvent> g_mockDrmMetaDataEvent{};
 
 AAMPEventObject::AAMPEventObject(AAMPEventType type, std::string sid) : mType(type), mSessionID{std::move(sid)}
 {

@@ -38,12 +38,12 @@
 // AampDRMLicManager.h (that header lacks include-guards in this
 // test environment and causes redefinition errors).
 class MockAampLicenseManager;
-extern MockAampLicenseManager *g_mockAampLicenseManager;
+extern std::shared_ptr<MockAampLicenseManager> g_mockAampLicenseManager;
 #include "MockDrmMetaDataEvent.h"
 #include "PlayerUtils.h"
 
 // External mock pointer from FakeAampEvent.cpp
-extern MockDrmMetaDataEvent* g_mockDrmMetaDataEvent;
+extern std::shared_ptr<MockDrmMetaDataEvent> g_mockDrmMetaDataEvent;
 
 using ::testing::_;
 using ::testing::DoAll;
@@ -193,8 +193,8 @@ protected:
 	void SetUp() override
 	{
 		// Initialize mocks
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockDRMSessionManager = new NiceMock<MockDRMSessionManager>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockDRMSessionManager = std::make_shared<NiceMock<MockDRMSessionManager>>();
 		
 		mPrivateInstanceAAMP.reset(new PrivateInstanceAAMP());
 		mTestableDRMLicenseManager.reset(new AampDRMLicenseManager(5, mPrivateInstanceAAMP.get()));
@@ -213,11 +213,9 @@ protected:
 	// leaks. This must be done after restoring mDrmSessionManager so
 	// the license manager destructor doesn't attempt to delete the
 	// mock as well.
-	delete g_mockDRMSessionManager;
-	g_mockDRMSessionManager = nullptr;
+	g_mockDRMSessionManager.reset();
 
-	delete g_mockPrivateInstanceAAMP;
-	g_mockPrivateInstanceAAMP = nullptr;
+	g_mockPrivateInstanceAAMP.reset();
 	}
 };
 /**
@@ -244,8 +242,8 @@ TEST_F(AampDRMLicManagerTests, ValidateOCDMSessionConstructFailure)
 	EXPECT_CALL(*drmHelper, ocdmSystemId())
 		.WillRepeatedly(testing::ReturnRef(systemId));
 
-	// Create MockDrmMetaDataEvent to verify setFailure() is called with correct error
-	std::shared_ptr<MockDrmMetaDataEvent> mockEventHandle = std::make_shared<MockDrmMetaDataEvent>(
+	// Create the global mock event directly
+	g_mockDrmMetaDataEvent = std::make_shared<MockDrmMetaDataEvent>(
 		AAMP_TUNE_FAILURE_UNKNOWN,  // Initial failure state
 		"",                          // Access status
 		0,                           // Status value
@@ -254,15 +252,12 @@ TEST_F(AampDRMLicManagerTests, ValidateOCDMSessionConstructFailure)
 		""                           // Session ID
 	);
 
-	// Set the global mock pointer so the fake will call it
-	g_mockDrmMetaDataEvent = mockEventHandle.get();
-
 	// CRITICAL: Expect that setFailure() IS called exactly once with AAMP_TUNE_DRM_SESSION_CREATE_FAILED
-	EXPECT_CALL(*mockEventHandle, setFailure(AAMP_TUNE_DRM_SESSION_CREATE_FAILED))
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, setFailure(AAMP_TUNE_DRM_SESSION_CREATE_FAILED))
 		.Times(1);
 
 	// Set up getFailure() to return the error after it's been set
-	EXPECT_CALL(*mockEventHandle, getFailure())
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, getFailure())
 		.WillRepeatedly(Return(AAMP_TUNE_DRM_SESSION_CREATE_FAILED));
 
 	// Mock DrmSessionManager::createDrmSession to set MW_DRM_SESSION_CREATE_FAILED
@@ -280,14 +275,14 @@ TEST_F(AampDRMLicManagerTests, ValidateOCDMSessionConstructFailure)
 	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
 		drmHelper,
 		mPrivateInstanceAAMP.get(),
-		mockEventHandle,
+		g_mockDrmMetaDataEvent,
 		(int)eMEDIATYPE_VIDEO
 	);
 	// Verify session creation failed
 	EXPECT_EQ(result, nullptr);
 
 	// Clear the global mock pointer
-	g_mockDrmMetaDataEvent = nullptr;
+	g_mockDrmMetaDataEvent.reset();
 }
 
 /**
@@ -308,8 +303,8 @@ TEST_F(AampDRMLicManagerTests, ValidateSuccessfulSessionCreation)
 	EXPECT_CALL(*drmHelper, ocdmSystemId())
 		.WillRepeatedly(testing::ReturnRef(systemId));
 
-	// Create MockDrmMetaDataEvent to verify setFailure() is NOT called
-	std::shared_ptr<MockDrmMetaDataEvent> mockEventHandle = std::make_shared<MockDrmMetaDataEvent>(
+	// Create the global mock event directly
+	g_mockDrmMetaDataEvent = std::make_shared<MockDrmMetaDataEvent>(
 		AAMP_TUNE_FAILURE_UNKNOWN,  // Initial failure state
 		"",                          // Access status
 		0,                           // Status value
@@ -318,15 +313,12 @@ TEST_F(AampDRMLicManagerTests, ValidateSuccessfulSessionCreation)
 		""                           // Session ID
 	);
 
-	// Set the global mock pointer so the fake will call it
-	g_mockDrmMetaDataEvent = mockEventHandle.get();
-
 	// CRITICAL: Expect that setFailure() is NOT called (0 times) on success
-	EXPECT_CALL(*mockEventHandle, setFailure(_))
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, setFailure(_))
 		.Times(0);
 
 	// Optional: Set up getFailure() to return the initial state
-	EXPECT_CALL(*mockEventHandle, getFailure())
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, getFailure())
 		.WillRepeatedly(Return(AAMP_TUNE_FAILURE_UNKNOWN));
 
 	// Create a mock DrmSession to return on success
@@ -346,7 +338,7 @@ TEST_F(AampDRMLicManagerTests, ValidateSuccessfulSessionCreation)
 	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
 		drmHelper,
 		mPrivateInstanceAAMP.get(),
-		mockEventHandle,
+		g_mockDrmMetaDataEvent,
 		(int)eMEDIATYPE_VIDEO
 	);
 
@@ -355,7 +347,7 @@ TEST_F(AampDRMLicManagerTests, ValidateSuccessfulSessionCreation)
 	EXPECT_EQ(result, mockSession);
 
 	// Clear the global mock pointer
-	g_mockDrmMetaDataEvent = nullptr;
+	g_mockDrmMetaDataEvent.reset();
 }
 
 /**
@@ -381,8 +373,8 @@ TEST_F(AampDRMLicManagerTests, ValidateDRMSessionIdEmpty)
 		.WillRepeatedly(testing::ReturnRef(systemId));
 
 
-	// Create MockDrmMetaDataEvent to verify setFailure() is called with correct error
-	std::shared_ptr<MockDrmMetaDataEvent> mockEventHandle = std::make_shared<MockDrmMetaDataEvent>(
+	// Create the global mock event directly
+	g_mockDrmMetaDataEvent = std::make_shared<MockDrmMetaDataEvent>(
 		AAMP_TUNE_FAILURE_UNKNOWN,  // Initial failure state
 		"",                          // Access status
 		0,                           // Status value
@@ -391,15 +383,12 @@ TEST_F(AampDRMLicManagerTests, ValidateDRMSessionIdEmpty)
 		""                           // Session ID
 	);
 
-	// Set the global mock pointer so the fake will call it
-	g_mockDrmMetaDataEvent = mockEventHandle.get();
-
 	// CRITICAL: Expect that setFailure() IS called exactly once with AAMP_TUNE_DRM_SESSIONID_EMPTY
-	EXPECT_CALL(*mockEventHandle, setFailure(AAMP_TUNE_DRM_SESSIONID_EMPTY))
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, setFailure(AAMP_TUNE_DRM_SESSIONID_EMPTY))
 		.Times(1);
 
 	// Set up getFailure() to return the error after it's been set
-	EXPECT_CALL(*mockEventHandle, getFailure())
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, getFailure())
 		.WillRepeatedly(Return(AAMP_TUNE_DRM_SESSIONID_EMPTY));
 
 	// Mock DrmSessionManager::createDrmSession to set MW_DRM_SESSIONID_EMPTY
@@ -417,7 +406,7 @@ TEST_F(AampDRMLicManagerTests, ValidateDRMSessionIdEmpty)
 	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
 		drmHelper,
 		mPrivateInstanceAAMP.get(),
-		mockEventHandle,
+		g_mockDrmMetaDataEvent,
 		(int)eMEDIATYPE_VIDEO
 	);
 
@@ -425,5 +414,5 @@ TEST_F(AampDRMLicManagerTests, ValidateDRMSessionIdEmpty)
 	EXPECT_EQ(result, nullptr);
 
 	// Clear the global mock pointer
-	g_mockDrmMetaDataEvent = nullptr;
+	g_mockDrmMetaDataEvent.reset();
 }

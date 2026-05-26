@@ -72,7 +72,7 @@ protected:
 		// Create and install g_mockAampConfig before constructing
 		// PrivateInstanceAAMP so that any config reads during construction
 		// see safe default values instead of uninitialized fakes.
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		ON_CALL(*g_mockAampConfig, IsConfigSet(_))
 			.WillByDefault(Return(false));
 		ON_CALL(*g_mockAampConfig,
@@ -88,45 +88,40 @@ protected:
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
 		g_mockAampGstPlayer =
-			new NiceMock<MockAAMPGstPlayer>(mPrivateInstanceAAMP);
+			std::make_shared<NiceMock<MockAAMPGstPlayer>>(mPrivateInstanceAAMP);
 		g_mockAampEventManager =
-			new NiceMock<MockAampEventManager>();
+			std::make_shared<NiceMock<MockAampEventManager>>();
 		g_mockStreamAbstractionAAMP =
-			new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+			std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
 		g_mockAampStreamSinkManager =
-			new NiceMock<MockAampStreamSinkManager>();
+			std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP =
-			g_mockStreamAbstractionAAMP;
+			g_mockStreamAbstractionAAMP.get();
 
 		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
-			.WillRepeatedly(Return(g_mockAampGstPlayer));
+			.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	}
 
 	void TearDown() override
 	{
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockStreamAbstractionAAMP;
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
-		delete g_mockAampEventManager;
-		g_mockAampEventManager = nullptr;
+		g_mockAampEventManager.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 	}
 };
 
@@ -164,9 +159,8 @@ TEST_F(PlayerStateTests, PlayerState_NormalTune_FullSequence_ReleasedToIdle)
 		GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
 		.WillRepeatedly(Return(""));
 
-	MockStreamAbstractionAAMP_MPD mockStreamAbstractionAAMP_MPD(
+	g_mockStreamAbstractionAAMP_MPD = std::make_shared<MockStreamAbstractionAAMP_MPD>(
 		mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
-	g_mockStreamAbstractionAAMP_MPD = &mockStreamAbstractionAAMP_MPD;
 
 	// Let Tune() create its own protocol abstraction by clearing the fixture's
 	// pointer; the MPD fake routes Init() calls to our mock.
@@ -174,7 +168,7 @@ TEST_F(PlayerStateTests, PlayerState_NormalTune_FullSequence_ReleasedToIdle)
 
 	// 2. INITIALIZING is set by TuneHelper before calling Init(); verify it
 	//    from inside the Init() mock callback.
-	EXPECT_CALL(mockStreamAbstractionAAMP_MPD, Init(_))
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this](TuneType) {
 			EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_INITIALIZING);
 			return eAAMPSTATUS_OK;
@@ -208,7 +202,7 @@ TEST_F(PlayerStateTests, PlayerState_NormalTune_FullSequence_ReleasedToIdle)
 	mPrivateInstanceAAMP->Stop(false);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_IDLE);
 
-	g_mockStreamAbstractionAAMP_MPD = nullptr;
+	g_mockStreamAbstractionAAMP_MPD.reset();
 }
 
 // ============================================================
@@ -248,15 +242,14 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsInitialCachingSupported())
 		.WillRepeatedly(Return(true));
 
-	MockStreamAbstractionAAMP_MPD mockStreamAbstractionAAMP_MPD(
+	g_mockStreamAbstractionAAMP_MPD = std::make_shared<MockStreamAbstractionAAMP_MPD>(
 		mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
-	g_mockStreamAbstractionAAMP_MPD = &mockStreamAbstractionAAMP_MPD;
 
 	// Let Tune() create its own protocol abstraction by clearing the fixture's
 	// pointer; the MPD fake routes Init() calls to our mock.
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 
-	EXPECT_CALL(mockStreamAbstractionAAMP_MPD, Init(_))
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this](TuneType) {
 			EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_INITIALIZING);
 			return eAAMPSTATUS_OK;
@@ -280,7 +273,7 @@ TEST_F(PlayerStateTests, PlayerState_VerifyBuffering_Playing)
 	mPrivateInstanceAAMP->Stop(false);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_IDLE);
 
-	g_mockStreamAbstractionAAMP_MPD = nullptr;
+	g_mockStreamAbstractionAAMP_MPD.reset();
 }
 
 
@@ -308,12 +301,11 @@ TEST_F(PlayerStateTests, PlayerState_VerifyErrorState)
 		GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
 		.WillRepeatedly(Return(""));
 
-	MockStreamAbstractionAAMP_MPD mockStreamAbstractionAAMP_MPD(
+	g_mockStreamAbstractionAAMP_MPD = std::make_shared<MockStreamAbstractionAAMP_MPD>(
 		mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
-	g_mockStreamAbstractionAAMP_MPD = &mockStreamAbstractionAAMP_MPD;
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 
-	EXPECT_CALL(mockStreamAbstractionAAMP_MPD, Init(_))
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce(Return(eAAMPSTATUS_OK));
 
 	const char *testUrl = "http://localhost:80/test/manifest.mpd";
@@ -340,5 +332,5 @@ TEST_F(PlayerStateTests, PlayerState_VerifyErrorState)
 	mPrivateInstanceAAMP->Stop(false);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetState(), eSTATE_IDLE);
 
-	g_mockStreamAbstractionAAMP_MPD = nullptr;
+	g_mockStreamAbstractionAAMP_MPD.reset();
 }

@@ -25,7 +25,7 @@
 #include "AampSegmentInfo.hpp"
 #include "AampLatencyMonitor.h"
 
-MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
+std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP{};
 
 static int PLAYERID_CNTR = 0;
 

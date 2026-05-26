@@ -21,6 +21,7 @@
 #define MOCK_DRM_HELPER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "DrmHelper.h"
 
 class MockDrmHelper : public DrmHelper
@@ -36,6 +37,6 @@ public:
 	MOCK_METHOD(void, generateLicenseRequest, (const ChallengeInfo& challengeInfo, LicenseRequest& licenseRequest), (const, override));
 };
 
-extern MockDrmHelper *g_mockDrmHelper;
+extern std::shared_ptr<MockDrmHelper> g_mockDrmHelper;
 
 #endif // MOCK_DRM_HELPER_H

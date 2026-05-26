@@ -99,69 +99,54 @@ protected:
 		config=new AampConfig();
 		p_aamp = new PrivateInstanceAAMP(config);
 		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
-		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
-		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
-		g_mockAampLicenseManager = new NiceMock<MockAampLicenseManager>();
-		g_mockDRMSessionManager = new NiceMock<MockDRMSessionManager>();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(p_aamp, 0, 0);
-		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
-		g_mockCurl = new NiceMock<MockCurl>();
-		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
-		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
+		g_mockAampGstPlayer = std::make_shared<NiceMock<MockAAMPGstPlayer>>(p_aamp);
+		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
+		g_mockAampEventManager = std::make_shared<NiceMock<MockAampEventManager>>();
+		g_mockAampLicenseManager = std::make_shared<NiceMock<MockAampLicenseManager>>();
+		g_mockDRMSessionManager = std::make_shared<NiceMock<MockDRMSessionManager>>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(p_aamp, 0, 0);
+		g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(p_aamp);
+		g_mockCurl = std::make_shared<NiceMock<MockCurl>>();
+		g_mockAampCurlStore = std::make_shared<NiceMock<MockAampCurlStore>>();
+		g_MockPrivateCDAIObjectMPD = std::make_shared<MockPrivateCDAIObjectMPD>();
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
-		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
-		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
-		g_mockAampUtils = new NiceMock<MockAampUtils>();
-		g_mockAampLatencyMonitor = new NiceMock<MockAampLatencyMonitor>();
+		g_mockMediaStreamContext = std::make_shared<NiceMock<MockMediaStreamContext>>();
+		g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
+		g_mockAampLatencyMonitor = std::make_shared<NiceMock<MockAampLatencyMonitor>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_MockPrivateCDAIObjectMPD;
-		g_MockPrivateCDAIObjectMPD = nullptr;
+		g_MockPrivateCDAIObjectMPD.reset();
 		
-		delete g_mockAampCurlStore;
-		g_mockAampCurlStore = nullptr;
+		g_mockAampCurlStore.reset();
 
-		delete g_mockCurl;
-		g_mockCurl = nullptr;
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockCurl.reset();
+		g_mockMediaStreamContext.reset();
 
-		delete g_mockStreamAbstractionAAMP;
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockDRMSessionManager;
-		g_mockDRMSessionManager = nullptr;
+		g_mockDRMSessionManager.reset();
 
-		delete g_mockAampEventManager;
-		g_mockAampEventManager = nullptr;
+		g_mockAampEventManager.reset();
 
-		delete g_mockAampLicenseManager;
-		g_mockAampLicenseManager = nullptr;
+		g_mockAampLicenseManager.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
-		delete g_mockIsoBmffBuffer;
-		g_mockIsoBmffBuffer = nullptr;
+		g_mockIsoBmffBuffer.reset();
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
-		delete g_mockAampLatencyMonitor;
-		g_mockAampLatencyMonitor = nullptr;
+		g_mockAampLatencyMonitor.reset();
 
 		delete (int*)mCurlEasyHandle;
 		mCurlEasyHandle = nullptr;
@@ -190,43 +175,35 @@ class PrivAampPrivTests : public ::testing::Test
 		aamp = new PrivateInstanceAAMP(config);
 		aamp->SetSessionId(session_id);
 		testp_aamp = new TestablePrivAamp(config);
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(testp_aamp, 0, 0);
-		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(testp_aamp);
-		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
-		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(testp_aamp);
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(testp_aamp, 0, 0);
+		g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(testp_aamp);
+		g_mockAampEventManager = std::make_shared<NiceMock<MockAampEventManager>>();
+		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
+		g_mockAampGstPlayer = std::make_shared<NiceMock<MockAAMPGstPlayer>>(testp_aamp);
 		g_mockAampJsonObject = std::make_shared<NiceMock<MockAampJsonObject>>();
-		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(testp_aamp);
-		g_mockTSBStore = new NiceMock<MockTSBStore>();
+		g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(testp_aamp);
+		g_mockTSBStore = std::make_shared<NiceMock<MockTSBStore>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockTSBStore;
-		g_mockTSBStore = nullptr;
+		g_mockTSBStore.reset();
 
-		delete g_mockTSBSessionManager;
-		g_mockTSBSessionManager = nullptr;
+		g_mockTSBSessionManager.reset();
 
 		g_mockAampJsonObject.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
-		delete g_mockAampEventManager;
-		g_mockAampEventManager = nullptr;
+		g_mockAampEventManager.reset();
 
-		delete g_mockStreamAbstractionAAMP;
-		g_mockStreamAbstractionAAMP = nullptr;
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
+		g_mockStreamAbstractionAAMP_MPD.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete config;
 		config = nullptr;
@@ -465,7 +442,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	testp_aamp->preferredLanguagesList.clear();
 	testp_aamp->preferredLanguagesList.push_back("lang0");
 
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	testp_aamp->SetContentType("LINEAR_TV");
 	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	testp_aamp->SetState(eSTATE_PLAYING, true);
@@ -479,7 +456,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 
 	/* Call SetPreferredLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -522,7 +499,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	testp_aamp->preferredLanguagesList.clear();
 	testp_aamp->preferredLanguagesList.push_back("lang0");
 
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	testp_aamp->SetContentType("LINEAR_TV");
 	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	testp_aamp->SetState(eSTATE_PLAYING, true);
@@ -536,7 +513,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 
 	/* Call SetPreferredLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -872,9 +849,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	p_aamp->SetLLDashChunkMode(true);
 
 	// Set up stream abstraction to return our mock MediaStreamContext
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
 
 	p_aamp->mSinkPaused = true;
 	p_aamp->mBufUnderFlowStatus = false;
@@ -933,9 +910,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	p_aamp->SetLLDashChunkMode(true);
 
 	// Set up stream abstraction to return our mock MediaStreamContext
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
 
 	p_aamp->mSinkPaused = true;
 	p_aamp->mBufUnderFlowStatus = true;
@@ -989,9 +966,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	p_aamp->SetLLDashChunkMode(true);
 
 	// Set up stream abstraction to return our mock MediaStreamContext
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, parseBuffer() fails, so no mdat box is detected and CacheFragmentChunk() should not be called
@@ -1044,9 +1021,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	p_aamp->SetLLDashChunkMode(true);
 
 	// Set up stream abstraction to return our mock MediaStreamContext
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, complete mdat is not detected, so CacheFragmentChunk() should not be called
@@ -1102,9 +1079,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	p_aamp->SetLLDashChunkMode(true);
 
 	// Set up stream abstraction to return our mock MediaStreamContext
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 
@@ -1195,9 +1172,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	p_aamp->SetLLDashChunkMode(true);
 
 	// Set up stream abstraction to return our mock MediaStreamContext
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 
@@ -1293,9 +1270,9 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	p_aamp->SetLLDashChunkMode(true);
 
 	// Set up stream abstraction to return our mock MediaStreamContext
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext)));
+		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, CheckForChunkEarlyAbort() returns true, so CacheFragmentChunk() should not be called
@@ -1512,12 +1489,12 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBeginningOfTSB)
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 
 	// Mock StreamAbstraction - Set it up before calling MonitorProgress
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 
 	// Setup mocks for the flow
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 
 	// Expect NotifySpeedChanged to be called with AAMP_NORMAL_PLAY_RATE
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
@@ -1555,12 +1532,12 @@ TEST_F(PrivAampTests, MonitorProgressBeginningOfTSBDetected)
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 
 	// Mock StreamAbstraction - Set it up before calling MonitorProgress
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 
 	// Setup mocks for the flow
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 
 	// Expect NotifySpeedChanged to be called with AAMP_NORMAL_PLAY_RATE
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
@@ -1597,7 +1574,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_ProgressBeforeSpeedChange)
 	p_aamp->SetState(eSTATE_PLAYING, true);
 	p_aamp->SetLocalAAMPTsb(true);
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 
 	// Pretend a CDAI ad placement is in progress on this player. This is
 	// what makes ReportAdProgress() actually emit an
@@ -1615,7 +1592,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_ProgressBeforeSpeedChange)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
-		.WillRepeatedly(Return(g_mockAampGstPlayer));
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 
 	// Ordering assertion: in the BoS branch MonitorProgress() emits, in
 	// order, AAMP_EVENT_AD_PLACEMENT_PROGRESS (from ReportAdProgress),
@@ -1660,7 +1637,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_DeDupeBypassedOnReachedStart)
 	p_aamp->SetState(eSTATE_PLAYING, true);
 	p_aamp->SetLocalAAMPTsb(true);
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 
 	p_aamp->trickStartUTCMS = 1;
 	p_aamp->mAdProgressId = "ad-1";
@@ -1675,7 +1652,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_DeDupeBypassedOnReachedStart)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
-		.WillRepeatedly(Return(g_mockAampGstPlayer));
+		.WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	// Sink reports 0 relative position; final position = seek_pos_seconds * 1000.
 	EXPECT_CALL(*g_mockAampGstPlayer, GetPositionMilliseconds())
 		.WillRepeatedly(Return(0));
@@ -1691,7 +1668,7 @@ TEST_F(PrivAampTests, MonitorProgressRewindToBoS_DeDupeBypassedOnReachedStart)
 
 	// Clear generic expectations and set ordering requirements for the
 	// second call: progress must still be emitted despite de-dupe match.
-	testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager);
+	testing::Mock::VerifyAndClearExpectations(g_mockAampEventManager.get());
 
 	testing::InSequence seq;
 	EXPECT_CALL(*g_mockAampEventManager,
@@ -1737,7 +1714,7 @@ TEST_F(PrivAampTests, MonitorProgress_TsbLessLinearHLS_LatencyNonNegative)
 	p_aamp->trickStartUTCMS = -1;
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 
 	p_aamp->MonitorProgress(true, false);
 
@@ -2605,7 +2582,7 @@ TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
 	int fogError;
 	const int initFragmentRetryCount = 2;
 
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	p_aamp->EnableDownloads();
 
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
@@ -2677,7 +2654,7 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 	constexpr int maxInitTimeoutDuration = 600;
 	constexpr int expected_curl_calls = 4;
 
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	p_aamp->EnableDownloads();
 
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
@@ -2723,7 +2700,7 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 	using namespace std::string_view_literals;
 	constexpr auto dummyData = "0x0a"sv;
 
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	p_aamp->EnableDownloads();
 
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
@@ -2775,7 +2752,7 @@ TEST_F(PrivAampTests,TeardownStreamTest)
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 
 	// The first call to TeardownStream on a PrivateInstanceAamp will not stop the AAMPGstPlayer, so call it again
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp)).WillOnce(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp)).WillOnce(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampGstPlayer, Stop(!newTune));
 	p_aamp->TeardownStream(newTune);
 }
@@ -3965,17 +3942,17 @@ TEST_F(PrivAampTests,FlushStreamSinkTest)
 	const double POSITION = 10.0;
 	const double MID_SEEK = 5.0;
 
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 
 	//Test with MidFragmentSeek enabled
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillOnce(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillOnce(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_MidFragmentSeek)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMidSeekPosOffset()).WillOnce(Return(MID_SEEK));
 	EXPECT_CALL(*g_mockAampGstPlayer, SeekStreamSink(POSITION+MID_SEEK,2.0)).Times(1);
 	p_aamp->FlushStreamSink(POSITION,2.0);
 
 	//Test with MidFragmentSeek disabled
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillOnce(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillOnce(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_MidFragmentSeek)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMidSeekPosOffset()).Times(0);
 	EXPECT_CALL(*g_mockAampGstPlayer, SeekStreamSink(POSITION,2.0)).Times(1); //Here is different from above
@@ -4141,7 +4118,7 @@ TEST_F(PrivAampTests,SetCCStatusPreTune)
 	// RestoreCC(false) reflects the CC manager state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
 	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
 	// Disable CC and check that status is stored,
@@ -4171,16 +4148,16 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneOOB)
 
 	// Clear pre-tune expectations before entering tune phase
 	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
-	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer.get());
 
 	// During TuneHelper: OOB path calls SetSubtitleMute(false) since
 	// subtitles_muted=false from the pre-tune SetCCStatus(true) call
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(false)).Times(1);
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
 	// Clear tune phase expectations before post-tune phase
-	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer.get());
 
 	// Post-tune: disabling CC calls SetSubtitleMute(true) since OOB path uses GstPlayer directly
 	EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(true)).Times(1);
@@ -4210,13 +4187,13 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute01)
 
 	// Clear pre-tune expectations before entering tune phase
 	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
-	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer.get());
 
 	// During TuneHelper: video is muted so CC is forced off via SetStatus(false)
 	// RestoreCC(false) is called because CC manager internal state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
 	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
 	// After tune with video muted: app's CC preference is preserved (subtitles_muted not overwritten)
@@ -4254,13 +4231,13 @@ TEST_F(PrivAampTests,SetCCStatusPreTuneWithVideoMute02)
 
 	// Clear pre-tune expectations before entering tune phase
 	::testing::Mock::VerifyAndClearExpectations(g_mockPlayerCCManager.get());
-	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer);
+	::testing::Mock::VerifyAndClearExpectations(g_mockAampGstPlayer.get());
 
 	// During TuneHelper: video is muted so CC is forced off via SetStatus(false)
 	// RestoreCC(false) is called because CC manager internal state was false before this tune
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
 	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
 	// After tune with video muted: app's CC preference is preserved (subtitles_muted not overwritten)
@@ -4293,7 +4270,7 @@ TEST_F(PrivAampTests,SetCCStatusPostTuneWithVideoMute)
 	// Now call TuneHelper to create the StreamAbstraction object
 	// SetStatus(false) should be called due to video being muted
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
@@ -4317,7 +4294,7 @@ TEST_F(PrivAampTests,RestoreCCWhenCCWasEnabledBeforeTune)
 
 	// Initial tune - SetStatus(false) is called in SetCCStatusInternal during TuneHelper
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 
 	// Enable CC after tune - SetStatus(true) should be called
@@ -4345,7 +4322,7 @@ TEST_F(PrivAampTests,RestoreCCWhenCCWasDisabledBeforeTune)
 	// Call TuneHelper - SetStatus(false) is called first, then RestoreCC(false) should be called since CC is disabled
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).Times(1);
 	EXPECT_CALL(*g_mockPlayerCCManager, RestoreCC(false)).Times(1);
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	
 	EXPECT_FALSE(p_aamp->GetCCStatus());
@@ -4358,7 +4335,7 @@ TEST_F(PrivAampTests,RestoreCCPreservesStateAcrossMultipleTunes)
 
 	// Initial tune - SetStatus(false) is called
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false)).WillOnce(Return(0));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	p_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL, false);
 	
 	// Enable CC - SetStatus(true) should be called
@@ -5445,7 +5422,7 @@ TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
 TEST_F(PrivAampTests, TuneHelperWithAampTsbInjection)
 {
 	constexpr double SEEK_POS = 123.0;
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 	StreamAbstractionAAMP *savedStreamAbstractionAAMP = p_aamp->mpStreamAbstractionAAMP;
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
@@ -5481,7 +5458,7 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbLive)
 {
 	constexpr double SEEK_POS = 123;
 	constexpr double ABS_END_POS = 150.0;
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	p_aamp->rate = AAMP_RATE_PAUSE;
 	p_aamp->seek_pos_seconds = SEEK_POS;
@@ -5509,7 +5486,7 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
 {
 	constexpr double SEEK_POS = 123;
 	constexpr double ABS_END_POS = 150.0;
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	p_aamp->rate = AAMP_RATE_PAUSE;
 	p_aamp->seek_pos_seconds = SEEK_POS;
@@ -5538,7 +5515,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
 {
 	constexpr double SEEK_POS = 123;
 	constexpr double ABS_END_POS = 150.0;
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	testp_aamp->rate = AAMP_RATE_PAUSE;
 	testp_aamp->seek_pos_seconds = SEEK_POS;
@@ -5566,7 +5543,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 {
 	constexpr double SEEK_POS = 123;
 	constexpr double ABS_END_POS = 150.0;
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	testp_aamp->rate = AAMP_NORMAL_PLAY_RATE;
 	testp_aamp->seek_pos_seconds = SEEK_POS;
@@ -5582,7 +5559,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 	testp_aamp->SetLLDashServiceData(stAampLLDashServiceData);
 
 	//Verify the sequence for SeekToLive
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(false, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_)).InSequence(s);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
@@ -5610,7 +5587,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
 */
 TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
 {
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	p_aamp->SetIsLive(true);
 	p_aamp->SetLLDashChunkMode(false);
 	p_aamp->SetLocalAAMPTsb(true);
@@ -5625,7 +5602,7 @@ TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
 	p_aamp->SetState(eSTATE_PLAYING, true);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
 	p_aamp->NotifyEOSReached();
@@ -5640,7 +5617,7 @@ TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
  */
 TEST_F(PrivAampTests, NotifyEOSReachedFFSeekPositionCalculation)
 {
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	p_aamp->SetIsLive(true);
 	p_aamp->SetLLDashChunkMode(false);
 	p_aamp->SetLocalAAMPTsb(true);
@@ -5682,7 +5659,7 @@ TEST_F(PrivAampTests, VerifyTrickModePositionEOS)
 	// Setup mock objects and expectations
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	EXPECT_CALL(*g_mockAampGstPlayer, GetPositionMilliseconds()).WillRepeatedly(Return(kPositionNow*1000.00));
 
 	p_aamp->CalculateTrickModePositionEOS();
@@ -5742,7 +5719,7 @@ TEST_F(PrivAampTests, GetFileTest_EnableLowBWTimeoutOnNotLowestProfile)
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 	const int lowBWTimeoutValue = 2; // 2 seconds
 
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	p_aamp->EnableDownloads();
 
 	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
@@ -5778,7 +5755,7 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 	std::vector<uint8_t> gBuff{};
 	AampMediaType mType = eMEDIATYPE_VIDEO;
 
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	p_aamp->EnableDownloads();
 
 	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
@@ -6028,7 +6005,7 @@ TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
 	auto params = GetParam();
 
 	StreamOutputFormat primaryOutputFormat, audioOutputFormat, subtitleOutputFormat;
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 	testp_aamp->rate = params.rate;
 
 	testp_aamp->SetLocalAAMPTsbInjection(params.hasTsbInjection);

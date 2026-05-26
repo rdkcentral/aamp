@@ -63,47 +63,47 @@ protected:
 		}
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
+		auto *rawMock = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+		g_mockStreamAbstractionAAMP = std::shared_ptr<MockStreamAbstractionAAMP>(rawMock, [](MockStreamAbstractionAAMP*){});
+		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
-		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
-		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
+		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = rawMock;
 		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
-   		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	}
 
 	void TearDown() override
 	{
+		// If no retune occurred, the real code didn't SAFE_DELETE the mock.
+		// We must delete it ourselves before destroying PrivateInstanceAAMP.
+		if (g_mockStreamAbstractionAAMP != nullptr)
+		{
+			delete mPrivateInstanceAAMP->mpStreamAbstractionAAMP;
+			mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+			g_mockStreamAbstractionAAMP.reset();
+		}
+
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		if (g_mockStreamAbstractionAAMP != nullptr)
-		{
-			delete g_mockStreamAbstractionAAMP;
-			g_mockStreamAbstractionAAMP = nullptr;
-		}
-
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
 		g_mockPlayerCCManager.reset();
 
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 	}
 
 public:
@@ -117,7 +117,7 @@ public:
 	 */
 	void Stop(bool clearChannelData)
 	{
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 	}
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
@@ -131,15 +131,14 @@ protected:
 	{
 		SetPreferredTextLanguagesTests::SetUp();
 
-		g_mockAampUtils = new NiceMock<MockAampUtils>();
+		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 	}
 
 	void TearDown() override
 	{
 		SetPreferredTextLanguagesTests::TearDown();
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 	}
 };
 
@@ -367,7 +366,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest5)
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang0");
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(1).c_str(), "lang1");
 
-	g_mockStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
 }
 
 /**
@@ -698,7 +697,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	testp_aamp->preferredTextLanguagesString = "lang0";
 	testp_aamp->preferredTextLanguagesList.clear();
 	testp_aamp->preferredTextLanguagesList.push_back("lang0");
@@ -735,10 +734,10 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	// The test must manually clean up the mock. Nullify all pointers to it BEFORE deleting
 	// to prevent re-entrant calls from the mock's destructor, then delete the mock.
 	auto mockToDelete = g_mockStreamAbstractionAAMP;
-	g_mockStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
-	delete mockToDelete;
+	delete mockToDelete.get();
 }
 
 
@@ -755,7 +754,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	testp_aamp->preferredTextLanguagesString = "lang0";
 	testp_aamp->preferredTextLanguagesList.clear();
 	testp_aamp->preferredTextLanguagesList.push_back("lang0");
@@ -763,7 +762,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	testp_aamp->SetLocalAAMPTsb(true);
 	testp_aamp->SetTsbSessionManager();
 	testp_aamp->SetState(eSTATE_PLAYING, true);
-	g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(testp_aamp.get());
+	g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(testp_aamp.get());
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -787,11 +786,11 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	// The test must manually clean up the mock. Nullify all pointers to it BEFORE deleting
 	// to prevent re-entrant calls from the mock's destructor, then delete the mock.
 	auto mockToDelete = g_mockStreamAbstractionAAMP;
-	g_mockStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
-	delete mockToDelete;
-	delete (g_mockTSBSessionManager);
+	delete mockToDelete.get();
+	g_mockTSBSessionManager.reset();
 }
 
 /**

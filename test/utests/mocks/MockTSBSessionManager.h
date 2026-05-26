@@ -20,6 +20,7 @@
 #define AAMP_MOCK_TSB_SESSION_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampTSBSessionManager.h"
 
 class MockTSBSessionManager : public AampTSBSessionManager
@@ -41,6 +42,6 @@ public:
 	MOCK_METHOD(void, NotifyVideoTsbWaiters, ());
 };
 
-extern MockTSBSessionManager *g_mockTSBSessionManager;
+extern std::shared_ptr<MockTSBSessionManager> g_mockTSBSessionManager;
 
 #endif /* AAMP_MOCK_TSB_SESSION_MANAGER_H */
