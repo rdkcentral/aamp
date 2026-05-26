@@ -98,6 +98,7 @@ public:
 
 	// Promote protected members so tests can set them directly.
 	using MediaTrack::fragmentChunkIdxToFetch;
+	using MediaTrack::RestampSubtitle;
 
 protected:
 	// Must return something non-null to avoid a crash
