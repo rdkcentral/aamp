@@ -99,7 +99,7 @@ static const ProfilerBucketType mediaTrackDecryptBucketTypes[AAMP_DRM_CURL_COUNT
 static void ParseKeyAttributeCallback(lstring attrName, lstring valuePtr, void* arg)
 {
 	TrackState *ts = (TrackState *)arg;
-	if (attrName.equal("METHOD"))
+	if (attrName.equalsCString("METHOD"))
 	{
 		if (valuePtr.SubStringMatch("NONE"))
 		{ // used by DAI
@@ -165,7 +165,7 @@ static void ParseKeyAttributeCallback(lstring attrName, lstring valuePtr, void* 
 			AAMPLOG_ERR("unsupported METHOD");
 		}
 	}
-	else if (attrName.equal("KEYFORMAT"))
+	else if (attrName.equalsCString("KEYFORMAT"))
 	{
 		std::string keyFormat = valuePtr.GetAttributeValueString();
 		ts->mDrmInfo.keyFormat = keyFormat;
@@ -175,10 +175,10 @@ static void ParseKeyAttributeCallback(lstring attrName, lstring valuePtr, void* 
 			ts->mDrmInfo.systemUUID = keyFormat.substr(9);
 		}
 	}
-	else if (attrName.equal("URI"))
+	else if (attrName.equalsCString("URI"))
 	{
 		std::string uri;
-		if( !valuePtr.startswith(CHAR_QUOTE) && !valuePtr.equal("NONE") )
+		if( !valuePtr.startswith(CHAR_QUOTE) && !valuePtr.equalsCString("NONE") )
 		{
 			// Handling keys with relative URIs
 			// This condition is used to extract key URI from unquoted / NONE strings
@@ -194,7 +194,7 @@ static void ParseKeyAttributeCallback(lstring attrName, lstring valuePtr, void* 
 			ts->mDrmInfo.keyURI = std::move(uri);
 		}
 	}
-	else if (attrName.equal("IV"))
+	else if (attrName.equalsCString("IV"))
 	{ // 16 bytes
 		if( valuePtr.removePrefix("0x") || valuePtr.removePrefix("0X") )
 		{
@@ -203,7 +203,7 @@ static void ParseKeyAttributeCallback(lstring attrName, lstring valuePtr, void* 
 			ts->mDrmInfo.bUseMediaSequenceIV = false;
 		}
 	}
-	else if (attrName.equal("CMSha1Hash"))
+	else if (attrName.equalsCString("CMSha1Hash"))
 	{ // 20 bytes; Metadata Hash.
 		if( valuePtr.removePrefix("0x") || valuePtr.removePrefix("0X") )
 		{
@@ -227,12 +227,12 @@ static void ParseTileInfCallback(lstring attrName, lstring valuePtr, void* arg)
 {
 	// #EXT-X-TILES:RESOLUTION=416x234,LAYOUT=9x17,DURATION=2.002
 	TileLayout *var = (TileLayout *)arg;
-	if (attrName.equal("LAYOUT"))
+	if (attrName.equalsCString("LAYOUT"))
 	{
 		std::string temp = valuePtr.tostring();
 		sscanf(temp.c_str(), "%dx%d", &var->numCols, &var->numRows);
 	}
-	else if (attrName.equal("DURATION"))
+	else if (attrName.equalsCString("DURATION"))
 	{
 		var->posterDuration = valuePtr.atof();
 	}
@@ -251,11 +251,11 @@ static void ParseTileInfCallback(lstring attrName, lstring valuePtr, void* arg)
 static void ParseXStartAttributeCallback(lstring attrName, lstring valuePtr, void* arg)
 {
 	HLSXStart *var = (HLSXStart *)arg;
-	if (attrName.equal("TIME-OFFSET"))
+	if (attrName.equalsCString("TIME-OFFSET"))
 	{
 		var->offset = valuePtr.atof();
 	}
-	else if (attrName.equal("PRECISE"))
+	else if (attrName.equalsCString("PRECISE"))
 	{
 		// Precise attribute is not considered . By default NO option is selected
 		var->precise = false;
@@ -276,45 +276,45 @@ static void ParseStreamInfCallback( lstring attrName, lstring valuePtr, void* ar
 {
 	StreamAbstractionAAMP_HLS *context = (StreamAbstractionAAMP_HLS *) arg;
 	HlsStreamInfo &streamInfo = context->streamInfoStore[context->GetTotalProfileCount()];
-	if (attrName.equal("URI"))
+	if (attrName.equalsCString("URI"))
 	{
 		streamInfo.uri = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("BANDWIDTH"))
+	else if (attrName.equalsCString("BANDWIDTH"))
 	{
 		streamInfo.bandwidthBitsPerSecond = valuePtr.atol();
 	}
-	else if (attrName.equal("PROGRAM-ID"))
+	else if (attrName.equalsCString("PROGRAM-ID"))
 	{
 		streamInfo.program_id = valuePtr.atol();
 	}
-	else if (attrName.equal("AUDIO"))
+	else if (attrName.equalsCString("AUDIO"))
 	{
 		streamInfo.audio = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("CODECS"))
+	else if (attrName.equalsCString("CODECS"))
 	{
 		streamInfo.codecs = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("RESOLUTION"))
+	else if (attrName.equalsCString("RESOLUTION"))
 	{
 		std::string temp = valuePtr.tostring();
 		sscanf(temp.c_str(), "%dx%d", &streamInfo.resolution.width, &streamInfo.resolution.height);
 	}
 	// following are rarely present
-	else if (attrName.equal("AVERAGE-BANDWIDTH"))
+	else if (attrName.equalsCString("AVERAGE-BANDWIDTH"))
 	{
 		streamInfo.averageBandwidth = valuePtr.atol();
 	}
-	else if (attrName.equal("FRAME-RATE"))
+	else if (attrName.equalsCString("FRAME-RATE"))
 	{
 		streamInfo.resolution.framerate = valuePtr.atof();
 	}
-	else if (attrName.equal("CLOSED-CAPTIONS"))
+	else if (attrName.equalsCString("CLOSED-CAPTIONS"))
 	{
 		streamInfo.closedCaptions = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("SUBTITLES"))
+	else if (attrName.equalsCString("SUBTITLES"))
 	{
 		streamInfo.subtitles = valuePtr.GetAttributeValueString();
 	}
@@ -342,7 +342,7 @@ static void ParseMediaAttributeCallback( lstring attrName, lstring valuePtr, voi
 	#EXT - X - MEDIA:TYPE = AUDIO, GROUP - ID = "g117600", NAME = "English", LANGUAGE = "en", DEFAULT = YES, AUTOSELECT = YES
 	#EXT - X - MEDIA:TYPE = AUDIO, GROUP - ID = "g117600", NAME = "Spanish", LANGUAGE = "es", URI = "HBOHD_HD_NAT_15152_0_5939026565177792163/format-hls-track-sap-bandwidth-117600-repid-root_audio103.m3u8"
 	*/
-	if (attrName.equal("TYPE"))
+	if (attrName.equalsCString("TYPE"))
 	{
 		if (valuePtr.SubStringMatch("AUDIO"))
 		{
@@ -362,26 +362,26 @@ static void ParseMediaAttributeCallback( lstring attrName, lstring valuePtr, voi
 			mediaInfo.isCC = true;
 		}
 	}
-	else if (attrName.equal("GROUP-ID"))
+	else if (attrName.equalsCString("GROUP-ID"))
 	{
 		mediaInfo.group_id = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("NAME"))
+	else if (attrName.equalsCString("NAME"))
 	{
 		mediaInfo.name = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("LANGUAGE"))
+	else if (attrName.equalsCString("LANGUAGE"))
 	{
 		mediaInfo.language = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("AUTOSELECT"))
+	else if (attrName.equalsCString("AUTOSELECT"))
 	{
 		if (valuePtr.SubStringMatch("YES"))
 		{
 			mediaInfo.autoselect = true;
 		}
 	}
-	else if (attrName.equal("DEFAULT"))
+	else if (attrName.equalsCString("DEFAULT"))
 	{
 		if (valuePtr.SubStringMatch("YES"))
 		{
@@ -392,26 +392,26 @@ static void ParseMediaAttributeCallback( lstring attrName, lstring valuePtr, voi
 			mediaInfo.isDefault = false;
 		}
 	}
-	else if (attrName.equal("URI"))
+	else if (attrName.equalsCString("URI"))
 	{
 		mediaInfo.uri = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("CHANNELS"))
+	else if (attrName.equalsCString("CHANNELS"))
 	{
 		mediaInfo.channels = valuePtr.atoi();
 	}
-	else if (attrName.equal("INSTREAM-ID"))
+	else if (attrName.equalsCString("INSTREAM-ID"))
 	{
 		mediaInfo.instreamID = valuePtr.GetAttributeValueString();
 	}
-	else if (attrName.equal("FORCED"))
+	else if (attrName.equalsCString("FORCED"))
 	{
 		if (valuePtr.SubStringMatch("YES"))
 		{
 			mediaInfo.forced = true;
 		}
 	}
-	else if (attrName.equal("CHARACTERISTICS"))
+	else if (attrName.equalsCString("CHARACTERISTICS"))
 	{
 		mediaInfo.characteristics = valuePtr.GetAttributeValueString();
 	}
@@ -768,7 +768,7 @@ lstring TrackState::GetIframeFragmentUriFromIndex(bool &bSegmentRepeated)
 		{
 			// For Fragmented MP4 check if initFragment injection is required
 			if ( !idxNode->initFragmentPtr.empty() &&
-				(mInitFragmentInfo.empty() || !mInitFragmentInfo.equal(idxNode->initFragmentPtr)) )
+				(mInitFragmentInfo.empty() || !mInitFragmentInfo.isSameView(idxNode->initFragmentPtr)) )
 			{
 				mInitFragmentInfo = idxNode->initFragmentPtr;
 				mInjectInitFragment = true;
@@ -949,7 +949,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 				}
 				else if(ptr.removePrefix("-X-MAP:"))
 				{
-					if( !mInitFragmentInfo.equal(ptr) )
+					if( !mInitFragmentInfo.isSameView(ptr) )
 					{
 						mInitFragmentInfo = ptr;
 						mInjectInitFragment = true;
@@ -1948,7 +1948,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 	lstring iter = lstring(reinterpret_cast<const char*>(playlist.data()),playlist.size());
 	if( !iter.empty() ){
 		lstring ptr = iter.mystrpbrk();
-		if( !ptr.equal("#EXTM3U") )
+		if( !ptr.equalsCString("#EXTM3U") )
 		{
 			int numChars = iter.getLen();
 			if( numChars>MANIFEST_TEMP_DATA_LENGTH ) numChars = MANIFEST_TEMP_DATA_LENGTH;
@@ -2651,23 +2651,23 @@ StreamOutputFormat GetFormatFromFragmentExtension( const std::vector<uint8_t> &p
                             break;
                         }
                     }
-                    if( ptr.equal("ts") )
+                    if( ptr.equalsCString("ts") )
                     {
                         format = FORMAT_MPEGTS;
                     }
-                    else if ( ptr.equal("aac") )
+                    else if ( ptr.equalsCString("aac") )
                     {
                         format = FORMAT_AUDIO_ES_AAC;
                     }
-                    else if ( ptr.equal("ac3") )
+                    else if ( ptr.equalsCString("ac3") )
                     {
                         format = FORMAT_AUDIO_ES_AC3;
                     }
-                    else if ( ptr.equal("ec3") )
+                    else if ( ptr.equalsCString("ec3") )
                     {
                         format = FORMAT_AUDIO_ES_EC3;
                     }
-                    else if( ptr.equal("vtt") || ptr.equal("webvtt") )
+                    else if( ptr.equalsCString("vtt") || ptr.equalsCString("webvtt") )
                     {
                         format = FORMAT_SUBTITLE_WEBVTT;
                     }
@@ -4916,10 +4916,9 @@ StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 		SAFE_DELETE(track);
 	}
 
-	aamp->SyncBegin();
+	auto syncLock = aamp->SyncLock();
 	aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
 	aamp->CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
-	aamp->SyncEnd();
 }
 
 /**

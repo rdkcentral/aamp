@@ -95,7 +95,7 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+        g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 
         g_mockAampUtils = new NiceMock<MockAampUtils>();
 

@@ -26,6 +26,7 @@
 #include "DrmUtils.h"
 #include "AampConfig.h"
 #include "priv_aamp.h"
+#include "mp4demux/MP4Demux.h"
 #include "aampgstplayer.h"
 #include "AampLatencyMonitor.h"
 
@@ -813,12 +814,9 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SyncBegin(void)
+std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-}
-
-void PrivateInstanceAAMP::SyncEnd(void)
-{
+	return std::unique_lock<std::recursive_mutex>(); // no-op mock: does not acquire mLock
 }
 
 void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)

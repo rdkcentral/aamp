@@ -18,6 +18,7 @@
 */
 
 #include "priv_aamp.h"
+#include "mp4demux/MP4Demux.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "AampMPDDownloader.h"
 
@@ -1030,12 +1031,9 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SyncBegin(void)
+std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-}
-
-void PrivateInstanceAAMP::SyncEnd(void)
-{
+	return std::unique_lock<std::recursive_mutex>(); // no-op fake: does not acquire mLock
 }
 
 void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
@@ -1913,4 +1911,14 @@ bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 
 void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
 {
+}
+
+bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
+{
+	bool result = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsLatencyExceedingTrickplayThreshold();
+	}
+	return result;
 }

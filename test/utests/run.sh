@@ -113,7 +113,31 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Please install it with:  brew install openssl@3"
         exit 1
     fi
-    PKG_CONFIG_PATH=/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig:${AAMPDIR}/.libs/lib/pkgconfig:/usr/local/lib/pkgconfig:${_ssl_prefix}/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_RDKE_TEST_RUN=$rdke_build ../
+    # GStreamer: prefer the macOS framework installer; fall back to Homebrew.
+    # Mirrors the detection logic added to scripts/install_aampcli.sh in
+    # PR #1489 (VPAAMP-392).  The old code unconditionally prepended the
+    # framework path, causing an opaque cmake failure on machines that have
+    # GStreamer installed via Homebrew instead of the standalone framework.
+    _GST_FRAMEWORK_PKG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
+    if [[ -d "${_GST_FRAMEWORK_PKG}" ]]; then
+        _GST_PKG_CONFIG="${_GST_FRAMEWORK_PKG}"
+    else
+        _GST_BREW_PREFIX=$(brew --prefix gstreamer 2>/dev/null) || true
+        if [[ -n "${_GST_BREW_PREFIX}" && -d "${_GST_BREW_PREFIX}/lib/pkgconfig" ]]; then
+            _GST_PKG_CONFIG="${_GST_BREW_PREFIX}/lib/pkgconfig"
+            # gstreamer-app-1.0 lives in gst-plugins-base
+            _GST_BASE_PREFIX=$(brew --prefix gst-plugins-base 2>/dev/null) || true
+            if [[ -n "${_GST_BASE_PREFIX}" && -d "${_GST_BASE_PREFIX}/lib/pkgconfig" ]]; then
+                _GST_PKG_CONFIG="${_GST_PKG_CONFIG}:${_GST_BASE_PREFIX}/lib/pkgconfig"
+            fi
+        else
+            echo "ERROR: GStreamer not found. Please install one of:"
+            echo "  GStreamer macOS framework: https://gstreamer.freedesktop.org/download/"
+            echo "  OR via homebrew: brew install gstreamer gst-plugins-base"
+            exit 1
+        fi
+    fi
+    PKG_CONFIG_PATH=${_GST_PKG_CONFIG}:${AAMPDIR}/.libs/lib/pkgconfig:/usr/local/lib/pkgconfig:${_ssl_prefix}/lib/pkgconfig:$PKG_CONFIG_PATH cmake -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_RDKE_TEST_RUN=$rdke_build ../
 elif [[ "$OSTYPE" == "linux"* ]]; then
     PKG_CONFIG_PATH=${AAMPDIR}/.libs/lib/pkgconfig cmake --no-warn-unused-cli -DCMAKE_INSTALL_PREFIX=${AAMPDIR}/.libs -DCMAKE_PLATFORM_UBUNTU=1 -DCOVERAGE_ENABLED=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LIBRARY_PATH=${AAMPDIR}/.libs/lib -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/gcc -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/g++ -DCMAKE_RDKE_TEST_RUN=$rdke_build -S../ -B$PWD -G "Unix Makefiles"
     export LD_LIBRARY_PATH=${AAMPDIR}/.libs/lib

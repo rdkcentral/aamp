@@ -4709,7 +4709,7 @@ void MediaTrack::UpdateInjectedDuration(double surplusDuration)
  */
 void MediaTrack::SetCachedFragmentSize(size_t size)
 {
-	if (size > 0 && size <= maxLLDCachedFragmentsPerTrack)
+	if (size > 0 && size <= MAX_CACHED_FRAGMENTS_PER_TRACK)
 	{
 		AAMPLOG_TRACE("Set mCachedFragment size:%zu successfully", size);
 		mCachedFragmentSize = size;
