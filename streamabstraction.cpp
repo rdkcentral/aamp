@@ -1208,7 +1208,7 @@ std::string MediaTrack::RestampSubtitle(
 	double duration,
 	double pts_offset_s)
 {
-	AAMPLOG_WARN("[RESTAMP_SUB] IN: pos=%.3f dur=%.3f pts_offset_s=%.6f in_len=%zu",
+	AAMPLOG_INFO("[RESTAMP_SUB] IN: pos=%.3f dur=%.3f pts_offset_s=%.6f in_len=%zu",
 		position, duration, pts_offset_s, bufferLen);
 
 	if (!ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp)
@@ -1262,9 +1262,6 @@ std::string MediaTrack::RestampSubtitle(
 	//
 	// For MPEGTS == 0 (SSAI proxy-stripped, RFC 8216: media_PTS = cue_t):
 	// cue times are already absolute presentation times — leave as 0.
-	//
-	// LOCAL is preserved: the renderer handles LOCAL/MPEGTS alignment internally.
-	// We must not adjust MPEGTS to compensate for a non-zero LOCAL field.
 	int64_t mpegtsOut{0};
 	if (mpegtsIn != 0)
 	{
@@ -1296,7 +1293,7 @@ std::string MediaTrack::RestampSubtitle(
 		}
 	}
 
-	AAMPLOG_WARN("[RESTAMP_SUB] HDR: pos=%.3f pts_offset_s=%.6f "
+	AAMPLOG_INFO("[RESTAMP_SUB] HDR: pos=%.3f pts_offset_s=%.6f "
 		"mpegts_in=%lld mpegts_out=%lld",
 		position, pts_offset_s,
 		static_cast<long long>(mpegtsIn),
@@ -1311,8 +1308,8 @@ std::string MediaTrack::RestampSubtitle(
 	out += std::to_string(mpegtsOut);
 	out.append(buffer + headerEndPos, bufferLen - headerEndPos);
 
-	AAMPLOG_WARN("[RESTAMP_SUB] OUT: pos=%.3f out_len=%zu", position, out.size());
-	AAMPLOG_TRACE("[RESTAMP_SUB] OUT content:\n%s", out.c_str());
+	AAMPLOG_INFO("[RESTAMP_SUB] OUT: pos=%.3f out_len=%zu", position, out.size());
+	AAMPLOG_INFO("[RESTAMP_SUB] OUT content:\n%s", out.c_str());
 
 	return out;
 }
