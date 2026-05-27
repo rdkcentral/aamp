@@ -62,10 +62,10 @@ protected:
 	void SetUp() override
 	{
 		// Setup mocks
-		g_mockGLib = std::make_shared<MockGLib>();
-		g_mockGStreamer = std::make_shared<NiceMock<MockGStreamer>>();
-		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
-		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
+		g_mockGLib = new MockGLib();
+		g_mockGStreamer = new NiceMock<MockGStreamer>();
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampUtils = new NiceMock<MockAampUtils>();
 		
 		// Create player instance
 		m_player = new InterfacePlayerRDK();
@@ -98,13 +98,17 @@ protected:
 		}
 		
 		// Clean up mocks
-		g_mockPlayerUtils.reset();
+		delete g_mockPlayerUtils;
+		g_mockPlayerUtils = nullptr;
 		
-		g_mockAampConfig.reset();
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
 		
-		g_mockGStreamer.reset();
+		delete g_mockGStreamer;
+		g_mockGStreamer = nullptr;
 		
-		g_mockGLib.reset();
+		delete g_mockGLib;
+		g_mockGLib = nullptr;
 	}
 	
 	/**
