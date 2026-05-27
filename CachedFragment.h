@@ -26,6 +26,7 @@
 #define CACHED_FRAGMENT_H
 
 #include "AampMediaType.h"
+#include "AampPayload.hpp"
 #include "priv_aamp.h"  // For BitsPerSecond and BitrateChangeReason definitions
 #include <cstdint>
 #include <string>
@@ -69,7 +70,7 @@ struct StreamInfo
 class CachedFragment
 {
 public:
-	std::vector<uint8_t> fragment;		/**< Buffer to keep fragment content */
+	Payload fragment;					/**< Ref-counted payload buffer (move-only; share via Payload::Share()) */
 	double position;					/**< Position in the playlist, in seconds */
 	double duration;					/**< Duration of the fragment, in seconds; as specified in the manifest */
 	bool initFragment;					/**< Flag indicating whether this fragment is an initialization fragment */
@@ -91,10 +92,14 @@ public:
 	CachedFragment();
 
 	/**
-	 * @brief Copy constructor
-	 * @param other Source CachedFragment to copy from
+	 * @brief Copy constructor is deleted — CachedFragment is move-only.
+	 *
+	 * To fan a fragment out to multiple consumers (e.g. injector queue +
+	 * TSB writer queue), construct a fresh CachedFragment and call
+	 * `Copy(other)` which shares the payload by refcount rather than
+	 * deep-copying the bytes.
 	 */
-	CachedFragment(const CachedFragment& other);
+	CachedFragment(const CachedFragment& other) = delete;
 
 	/**
 	 * @brief Move constructor
@@ -103,11 +108,9 @@ public:
 	CachedFragment(CachedFragment&& other) noexcept;
 
 	/**
-	 * @brief Copy assignment operator
-	 * @param other Source CachedFragment to copy from
-	 * @return Reference to this object
+	 * @brief Copy assignment is deleted — CachedFragment is move-only.
 	 */
-	CachedFragment& operator=(const CachedFragment& other);
+	CachedFragment& operator=(const CachedFragment& other) = delete;
 
 	/**
 	 * @brief Move assignment operator
@@ -123,8 +126,14 @@ public:
 	void swap(CachedFragment& other) noexcept;
 
 	/**
-	 * @brief Copy content from another CachedFragment
-	 * @param other Source CachedFragment to copy from
+	 * @brief Share payload + clone metadata from another CachedFragment.
+	 *
+	 * Copies all scalar/string metadata fields and shares the payload via
+	 * `Payload::Share()` (refcount bump, no byte-level memcpy). Replaces the
+	 * former deep-copy semantics; both peers must treat the payload as
+	 * immutable after this call.
+	 *
+	 * @param other Source CachedFragment to share from
 	 */
 	void Copy(const CachedFragment& other);
 

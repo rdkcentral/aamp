@@ -1795,7 +1795,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}
 
-		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment),
+		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment).ExtractVector(),
 			position.inSeconds(),
 			cachedFragment->duration,
 			cachedFragment->PTSOffsetSec,
@@ -6301,7 +6301,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 
 				if (fetched)
 				{
-					aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, cachedFragment->fragment, tempEffectiveUrl, actualType);
+					aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, cachedFragment->fragment.GetVector(), tempEffectiveUrl, actualType);
 				}
 			}
 			if (!fetched)

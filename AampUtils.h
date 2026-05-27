@@ -38,6 +38,7 @@
 #include <chrono>
 #include "TsbApi.h"
 #include "AampCurlDownloader.h"
+#include "AampPayload.hpp"
 
 
 #define NOW_SYSTEM_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in seconds */
@@ -351,6 +352,18 @@ namespace aamp_utils
 	inline void ClearAndRelease(std::vector<T>& v)
 	{
 		std::vector<T>().swap(v);
+	}
+
+	/**
+	 * @brief Overload for `Payload` (CachedFragment::fragment).
+	 *
+	 * Forwards to `Payload::ClearAndRelease()` so legacy call sites that
+	 * passed `cachedFragment->fragment` (formerly a `std::vector<uint8_t>`)
+	 * continue to compile after the zero-copy refactor.
+	 */
+	inline void ClearAndRelease(Payload& p)
+	{
+		p.ClearAndRelease();
 	}
 }
 

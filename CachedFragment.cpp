@@ -50,7 +50,13 @@ CachedFragment::CachedFragment()
 
 
 /**
- * @brief Copy content from another CachedFragment
+ * @brief Share payload + clone metadata from another CachedFragment.
+ *
+ * Replaces the previous deep-copy semantics: scalar/string fields are
+ * cloned but the byte buffer is shared by refcount via `Payload::Share()`.
+ * The previous code-path performed a full `std::vector<uint8_t>` copy at
+ * the fan-out sites in `MediaStreamContext::OnFragmentDownloadSuccess`
+ * and `CacheStagingFragmentForInjection`; this is no longer required.
  */
 void CachedFragment::Copy(const CachedFragment& other)
 {
@@ -69,9 +75,9 @@ void CachedFragment::Copy(const CachedFragment& other)
 	this->absPosition = other.absPosition;
 	this->isDummy = other.isDummy;
 	this->discontinuityIndex = other.discontinuityIndex;
-	
-	// Copy fragment data
-	this->fragment = other.fragment;
+
+	// Share the payload bytes by refcount — no byte-level memcpy.
+	this->fragment = other.fragment.Share();
 }
 
 
@@ -80,7 +86,7 @@ void CachedFragment::Copy(const CachedFragment& other)
  */
 void CachedFragment::Clear()
 {
-	aamp_utils::ClearAndRelease(fragment);
+	fragment.ClearAndRelease();
 	position = 0.0;
 	duration = 0.0;
 	initFragment = false;
@@ -97,27 +103,8 @@ void CachedFragment::Clear()
 	absPosition = 0.0;
 }
 
-/**
- * @brief Copy constructor
- */
-CachedFragment::CachedFragment(const CachedFragment& other)
-	: fragment(other.fragment)
-	, position(other.position)
-	, duration(other.duration)
-	, initFragment(other.initFragment)
-	, discontinuity(other.discontinuity)
-	, isDummy(other.isDummy)
-	, profileIndex(other.profileIndex)
-	, timeScale(other.timeScale)
-	, uri(other.uri)
-	, cacheFragStreamInfo(other.cacheFragStreamInfo)
-	, type(other.type)
-	, downloadStartTime(other.downloadStartTime)
-	, discontinuityIndex(other.discontinuityIndex)
-	, PTSOffsetSec(other.PTSOffsetSec)
-	, absPosition(other.absPosition)
-{
-}
+/* Copy constructor and copy assignment are deleted (see header).
+ * CachedFragment is move-only; use Copy() to share payload + clone metadata. */
 
 /**
  * @brief Move constructor
@@ -152,31 +139,6 @@ CachedFragment::CachedFragment(CachedFragment&& other) noexcept
 	other.discontinuityIndex = 0;
 	other.PTSOffsetSec = 0;
 	other.absPosition = 0.0;
-}
-
-/**
- * @brief Copy assignment operator
- */
-CachedFragment& CachedFragment::operator=(const CachedFragment& other)
-{
-	if (this != &other) {
-		fragment = other.fragment;
-		position = other.position;
-		duration = other.duration;
-		initFragment = other.initFragment;
-		discontinuity = other.discontinuity;
-		isDummy = other.isDummy;
-		profileIndex = other.profileIndex;
-		timeScale = other.timeScale;
-		uri = other.uri;
-		cacheFragStreamInfo = other.cacheFragStreamInfo;
-		type = other.type;
-		downloadStartTime = other.downloadStartTime;
-		discontinuityIndex = other.discontinuityIndex;
-		PTSOffsetSec = other.PTSOffsetSec;
-		absPosition = other.absPosition;
-	}
-	return *this;
 }
 
 /**

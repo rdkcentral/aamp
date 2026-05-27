@@ -47,7 +47,7 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
 		};
-		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment), cachedFragment->position,
+		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment).ExtractVector(), cachedFragment->position,
 														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
 	}
 	else
@@ -188,7 +188,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
-		mDownloadedFragment = std::move(cachedFragment->fragment);
+		mDownloadedFragment = std::move(cachedFragment->fragment).ExtractVector();
 		aamp_utils::ClearAndRelease(cachedFragment->fragment);
 		ret = false;
 	}
@@ -784,7 +784,11 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// If reader is at EOS, inject the last data in AAMP TSB
 			if (aamp->GetLLDashChunkMode())
 			{
-				auto fragmentForChunkCache = std::make_shared<CachedFragment>(*fragmentToTsbSessionMgr);
+				// Fan-out without deep-copying payload bytes: share the buffer
+				// by refcount via CachedFragment::Copy() (which now uses
+				// Payload::Share() internally).
+				auto fragmentForChunkCache = std::make_shared<CachedFragment>();
+				fragmentForChunkCache->Copy(*fragmentToTsbSessionMgr);
 				CacheTsbFragment(std::move(fragmentForChunkCache));
 			}
 			SetLocalTSBInjection(false);
@@ -796,7 +800,9 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 			// In chunk mode, media segments are added to the chunk cache in the SSL callback, but init segments are added here
 			if (aamp->GetLLDashChunkMode())
 			{
-				auto fragmentForChunkCache = std::make_shared<CachedFragment>(*fragmentToTsbSessionMgr);
+				// Fan-out without deep-copying payload bytes (see comment above).
+				auto fragmentForChunkCache = std::make_shared<CachedFragment>();
+				fragmentForChunkCache->Copy(*fragmentToTsbSessionMgr);
 				CacheTsbFragment(std::move(fragmentForChunkCache));
 			}
 		}
