@@ -195,7 +195,7 @@ Mp4Demux::~Mp4Demux()
 	LogMetrics();
 }
 
-void Mp4Demux::setParseError( Mp4ParseError err )
+void Mp4Demux::setParseError( Mp4ParseError err, const char* what )
 {
 	parseError = err;
 	const char *text = nullptr;
@@ -250,7 +250,14 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 			text = "UNEXPECTED_IS_ENCRYPTED_FIELD";
 			break;
 	}
-	MP4_LOG_ERR( "%s", text );
+	if (what && what[0] != '\0')
+	{
+		MP4_LOG_ERR( "%s: %s", text, what );
+	}
+	else
+	{
+		MP4_LOG_ERR( "%s", text );
+	}
 }
 
 /**
@@ -1413,7 +1420,7 @@ bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 			MP4_LOG_DEBUG("Demux metrics: %u frames in %.3f ms", frameCount, demuxDuration.count());
 		}
 	} catch (const Mp4ParseException& ex) {
-		setParseError(ex.code());
+		setParseError(ex.code(), ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error

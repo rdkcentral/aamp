@@ -253,10 +253,11 @@ private:
 	/**
 	 * @brief log human readable parse error and update state
 	 * @param parseError one of Mp4ParseError
+	 * @param what optional error detail string (e.g. from exception)
 	 *
 	 * Note: still used from the Parse(...) catch block to centralize logging.
 	 */
-	void setParseError( Mp4ParseError );
+	void setParseError( Mp4ParseError, const char* what = nullptr );
 
 	/**
 	 * @brief Read n bytes from current position in big-endian format
