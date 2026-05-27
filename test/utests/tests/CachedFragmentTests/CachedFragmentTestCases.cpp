@@ -28,7 +28,7 @@
 
 /**
  * @brief Test fixture for CachedFragment class
- * 
+ *
  * This fixture provides a clean environment for testing the CachedFragment class
  * functionality including constructor, Copy(), Clear(), and all member variables.
  */
@@ -38,11 +38,11 @@ protected:
         // Create fresh CachedFragment instances for each test
         cachedFragment.reset(new CachedFragment());
         sourceCachedFragment.reset(new CachedFragment());
-        
+
         // Set up test data (smaller to avoid memory allocation issues in test environment)
         testData = "TestData";
         testDataSize = strlen(testData);
-        
+
         // Set up test values
         testPosition = 12.345;
         testDuration = 6.789;
@@ -66,11 +66,11 @@ protected:
     // Test instances
     std::unique_ptr<CachedFragment> cachedFragment;
     std::unique_ptr<CachedFragment> sourceCachedFragment;
-    
+
     // Test data
     const char* testData;
     size_t testDataSize;
-    
+
     // Test values
     double testPosition;
     double testDuration;
@@ -89,7 +89,7 @@ protected:
 
 /**
  * @brief Test CachedFragment default constructor initialization
- * 
+ *
  * Verifies that all member variables are properly initialized to default values
  * when a CachedFragment is constructed using the default constructor.
  */
@@ -108,17 +108,17 @@ TEST_F(CachedFragmentTest, Constructor_DefaultInitialization_AllFieldsSetToDefau
     EXPECT_EQ(cachedFragment->downloadStartTime, 0LL);
     EXPECT_EQ(cachedFragment->discontinuityIndex, 0LL);
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, 0.0);
-    
+
     // Test that BitrateChangeReason is properly initialized
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_ABR);
-    
+
     // Note: fragment buffer operations are mocked and not tested directly
     // Only CachedFragment member variables are tested
 }
 
 /**
  * @brief Test CachedFragment with data population
- * 
+ *
  * Verifies that member variables can be properly set and retrieved.
  */
 TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly) {
@@ -137,9 +137,9 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     cachedFragment->discontinuityIndex = testDiscontinuityIndex;
     cachedFragment->PTSOffsetSec = testPTSOffsetSec;
     cachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_TUNE;
-    
+
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Verify all values are set correctly
     EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
@@ -155,14 +155,14 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_TUNE);
-    
+
     // Note: fragment buffer operations are implementation details that should be mocked
     // CachedFragment tests focus on member variables, not fragment buffer behavior
 }
 
 /**
  * @brief Test CachedFragment Copy method with populated source
- * 
+ *
  * Verifies that the Copy method correctly copies all member variables and data
  * from a source CachedFragment to the destination.
  */
@@ -183,10 +183,10 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Copy from source to destination (test member variable copying)
     cachedFragment->Copy(*sourceCachedFragment);
-    
+
     // Verify all fields were copied correctly
     EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
@@ -202,7 +202,7 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
-    
+
     // Note: fragment buffer operations are mocked, not tested directly
     // CachedFragment Copy behavior is verified through member variable copying
 }
@@ -210,7 +210,7 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
 
 /**
  * @brief Test CachedFragment Copy method with empty source
- * 
+ *
  * Verifies that the Copy method correctly handles copying from an empty
  * (default-initialized) source fragment.
  */
@@ -219,10 +219,10 @@ TEST_F(CachedFragmentTest, Copy_EmptySource_DefaultValuesCopied) {
     cachedFragment->position = testPosition;
     cachedFragment->duration = testDuration;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Copy from empty source (sourceCachedFragment is default-initialized)
     cachedFragment->Copy(*sourceCachedFragment);
-    
+
     // Verify all CachedFragment fields are reset to default values
     EXPECT_DOUBLE_EQ(cachedFragment->position, 0.0);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, 0.0);
@@ -242,7 +242,7 @@ TEST_F(CachedFragmentTest, Copy_EmptySource_DefaultValuesCopied) {
 
 /**
  * @brief Test CachedFragment Clear method with populated fragment
- * 
+ *
  * Verifies that the Clear method properly resets all member variables
  * to their default values and clears the fragment buffer.
  */
@@ -263,14 +263,14 @@ TEST_F(CachedFragmentTest, Clear_PopulatedFragment_AllFieldsResetToDefaults) {
     cachedFragment->PTSOffsetSec = testPTSOffsetSec;
     cachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_TUNE;
     // Note: fragment buffer operations are mocked and not tested directly
-    
-    // Verify data is set before clearing  
+
+    // Verify data is set before clearing
     EXPECT_NE(cachedFragment->position, 0.0);
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Clear the fragment
     cachedFragment->Clear();
-    
+
     // Verify all CachedFragment fields are reset to defaults
     EXPECT_DOUBLE_EQ(cachedFragment->position, 0.0);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, 0.0);
@@ -286,13 +286,13 @@ TEST_F(CachedFragmentTest, Clear_PopulatedFragment_AllFieldsResetToDefaults) {
     EXPECT_EQ(cachedFragment->discontinuityIndex, 0LL);
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, 0.0);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_ABR);
-    
+
     // Note: Fragment buffer clearing behavior is implementation-specific and tested elsewhere
 }
 
 /**
  * @brief Test CachedFragment Clear method on empty fragment
- * 
+ *
  * Verifies that calling Clear on an already empty fragment is safe
  * and maintains the default state.
  */
@@ -300,10 +300,10 @@ TEST_F(CachedFragmentTest, Clear_EmptyFragment_RemainsInDefaultState) {
     // Verify fragment starts in default state
     EXPECT_DOUBLE_EQ(cachedFragment->position, 0.0);
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Clear the already-empty fragment
     cachedFragment->Clear();
-    
+
     // Verify it remains in default state
     EXPECT_DOUBLE_EQ(cachedFragment->position, 0.0);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, 0.0);
@@ -324,7 +324,7 @@ TEST_F(CachedFragmentTest, Clear_EmptyFragment_RemainsInDefaultState) {
 
 /**
  * @brief Test BitrateChangeReason enum handling
- * 
+ *
  * Verifies that BitrateChangeReason enum values can be set and retrieved
  * correctly in the StreamInfo structure.
  */
@@ -342,7 +342,7 @@ TEST_F(CachedFragmentTest, BitrateChangeReason_CommonEnumValues_SetAndRetrievedC
         eAAMP_BITRATE_CHANGE_BY_OTA,
         eAAMP_BITRATE_CHANGE_BY_HDMIIN
     };
-    
+
     for (BitrateChangeReason reason : commonReasons) {
         cachedFragment->cacheFragStreamInfo.reason = reason;
         EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, reason);
@@ -351,7 +351,7 @@ TEST_F(CachedFragmentTest, BitrateChangeReason_CommonEnumValues_SetAndRetrievedC
 
 /**
  * @brief Test AampMediaType enum handling
- * 
+ *
  * Verifies that AampMediaType enum values can be set and retrieved
  * correctly in the type field.
  */
@@ -365,7 +365,7 @@ TEST_F(CachedFragmentTest, AampMediaType_CommonEnumValues_SetAndRetrievedCorrect
         eMEDIATYPE_LICENCE,
         eMEDIATYPE_IFRAME
     };
-    
+
     for (AampMediaType type : commonTypes) {
         cachedFragment->type = type;
         EXPECT_EQ(cachedFragment->type, type);
@@ -374,7 +374,7 @@ TEST_F(CachedFragmentTest, AampMediaType_CommonEnumValues_SetAndRetrievedCorrect
 
 /**
  * @brief Test CachedFragment member variables after data operations
- * 
+ *
  * Verifies that CachedFragment member variables are properly maintained
  * when fragment data is manipulated, focusing on CachedFragment behavior.
  */
@@ -385,22 +385,22 @@ TEST_F(CachedFragmentTest, FragmentDataOperations_MemberVariablesUnaffected_Cach
     cachedFragment->uri = testUri;
     cachedFragment->type = testType;
     cachedFragment->profileIndex = testProfileIndex;
-    
+
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Verify that CachedFragment member variables remain unchanged
     EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
     EXPECT_EQ(cachedFragment->uri, testUri);
     EXPECT_EQ(cachedFragment->type, testType);
     EXPECT_EQ(cachedFragment->profileIndex, testProfileIndex);
-    
+
     // Note: fragment buffer operations are mocked and not tested directly
 }
 
 /**
  * @brief Test Copy method with different data sizes
- * 
+ *
  * Verifies that the Copy method correctly handles copying member variables
  * regardless of fragment data size, focusing on CachedFragment behavior.
  */
@@ -414,12 +414,12 @@ TEST_F(CachedFragmentTest, Copy_DifferentDataSizes_MemberVariablesCopiedCorrectl
     sourceCachedFragment->timeScale = testTimeScale;
     sourceCachedFragment->uri = testUri;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
-    
+
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Copy to destination (test member variable copying)
     cachedFragment->Copy(*sourceCachedFragment);
-    
+
     // Verify that all CachedFragment member variables were copied correctly
     EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
@@ -429,7 +429,7 @@ TEST_F(CachedFragmentTest, Copy_DifferentDataSizes_MemberVariablesCopiedCorrectl
     EXPECT_EQ(cachedFragment->timeScale, testTimeScale);
     EXPECT_EQ(cachedFragment->uri, testUri);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
-    
+
     // Verify source member variables remain intact after copy
     EXPECT_DOUBLE_EQ(sourceCachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(sourceCachedFragment->duration, testDuration);
@@ -438,7 +438,7 @@ TEST_F(CachedFragmentTest, Copy_DifferentDataSizes_MemberVariablesCopiedCorrectl
 
 /**
  * @brief Test Copy method followed by Clear
- * 
+ *
  * Verifies that Copy and Clear methods work correctly in sequence
  * and provide proper resource management.
  */
@@ -447,21 +447,21 @@ TEST_F(CachedFragmentTest, CopyThenClear_SequentialOperations_WorkCorrectly) {
     sourceCachedFragment->position = testPosition;
     sourceCachedFragment->duration = testDuration;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Copy from source (test member variable copying)
     cachedFragment->Copy(*sourceCachedFragment);
-    
+
     // Verify copy worked (focus on CachedFragment member variables)
     EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
-    
+
     // Clear the destination
     cachedFragment->Clear();
-    
+
     // Verify clear worked (focus on CachedFragment member variables)
     EXPECT_DOUBLE_EQ(cachedFragment->position, 0.0);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, 0.0);
-    
+
     // Verify source is unaffected (CachedFragment member variables)
     EXPECT_DOUBLE_EQ(sourceCachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(sourceCachedFragment->duration, testDuration);
@@ -469,7 +469,7 @@ TEST_F(CachedFragmentTest, CopyThenClear_SequentialOperations_WorkCorrectly) {
 
 /**
  * @brief Test boundary values for numeric fields
- * 
+ *
  * Verifies that CachedFragment correctly handles boundary values
  * for position, duration, and other numeric fields.
  */
@@ -479,16 +479,16 @@ TEST_F(CachedFragmentTest, BoundaryValues_NumericFields_HandledCorrectly) {
     cachedFragment->duration = std::numeric_limits<double>::min();
     cachedFragment->absPosition = -std::numeric_limits<double>::max();
     cachedFragment->profileIndex = std::numeric_limits<int>::max();
-    
+
     // Verify values are set correctly
     EXPECT_DOUBLE_EQ(cachedFragment->position, std::numeric_limits<double>::max());
     EXPECT_DOUBLE_EQ(cachedFragment->duration, std::numeric_limits<double>::min());
     EXPECT_DOUBLE_EQ(cachedFragment->absPosition, -std::numeric_limits<double>::max());
     EXPECT_EQ(cachedFragment->profileIndex, std::numeric_limits<int>::max());
-    
+
     // Test copying extreme values
     sourceCachedFragment->Copy(*cachedFragment);
-    
+
     EXPECT_DOUBLE_EQ(sourceCachedFragment->position, std::numeric_limits<double>::max());
     EXPECT_DOUBLE_EQ(sourceCachedFragment->duration, std::numeric_limits<double>::min());
     EXPECT_DOUBLE_EQ(sourceCachedFragment->absPosition, -std::numeric_limits<double>::max());
@@ -499,15 +499,9 @@ TEST_F(CachedFragmentTest, BoundaryValues_NumericFields_HandledCorrectly) {
 // Tests for new idiomatic methods (copy constructor, move constructor, etc.)
 // ============================================================================
 
-// Note: CachedFragment is move-only as of the zero-copy refactor.
-// The copy constructor and copy assignment operator are deleted; deep-copy
-// semantics are intentionally not available. Tests for those APIs were
-// removed. Move-construction / move-assignment / Copy() (which now shares
-// the payload by refcount) / swap are still covered below.
-
 /**
  * @brief Test CachedFragment move constructor
- * 
+ *
  * Verifies that the move constructor properly transfers ownership of resources
  * from source to destination, leaving source in a valid but empty state.
  */
@@ -528,10 +522,10 @@ TEST_F(CachedFragmentTest, MoveConstructor_PopulatedSource_ResourcesMovedCorrect
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Create moved fragment using move constructor
     CachedFragment movedFragment(std::move(*sourceCachedFragment));
-    
+
     // Verify all fields were moved correctly
     EXPECT_DOUBLE_EQ(movedFragment.position, testPosition);
     EXPECT_DOUBLE_EQ(movedFragment.duration, testDuration);
@@ -547,9 +541,9 @@ TEST_F(CachedFragmentTest, MoveConstructor_PopulatedSource_ResourcesMovedCorrect
     EXPECT_EQ(movedFragment.discontinuityIndex, testDiscontinuityIndex);
     EXPECT_DOUBLE_EQ(movedFragment.PTSOffsetSec, testPTSOffsetSec);
     EXPECT_EQ(movedFragment.cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
-    
+
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Verify source has been reset to default values (moved-from state)
     EXPECT_DOUBLE_EQ(sourceCachedFragment->position, 0.0);
     EXPECT_DOUBLE_EQ(sourceCachedFragment->duration, 0.0);
@@ -568,7 +562,7 @@ TEST_F(CachedFragmentTest, MoveConstructor_PopulatedSource_ResourcesMovedCorrect
 
 /**
  * @brief Test CachedFragment move assignment operator
- * 
+ *
  * Verifies that the move assignment operator properly transfers ownership
  * from source to destination using move semantics.
  */
@@ -577,7 +571,7 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
     cachedFragment->position = 999.9;
     cachedFragment->duration = 888.8;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Set up source fragment with test data
     sourceCachedFragment->position = testPosition;
     sourceCachedFragment->duration = testDuration;
@@ -594,10 +588,10 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Move assign from source to destination
     *cachedFragment = std::move(*sourceCachedFragment);
-    
+
     // Verify all fields were moved correctly
     EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
@@ -613,9 +607,9 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
     EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
-    
+
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Verify source has been reset to default values (moved-from state)
     EXPECT_DOUBLE_EQ(sourceCachedFragment->position, 0.0);
     EXPECT_DOUBLE_EQ(sourceCachedFragment->duration, 0.0);
@@ -634,7 +628,7 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
 
 /**
  * @brief Test CachedFragment move assignment self-assignment
- * 
+ *
  * Verifies that self-assignment with move semantics is handled correctly.
  */
 TEST_F(CachedFragmentTest, MoveAssignment_SelfAssignment_NoSideEffects) {
@@ -643,15 +637,15 @@ TEST_F(CachedFragmentTest, MoveAssignment_SelfAssignment_NoSideEffects) {
     cachedFragment->duration = testDuration;
     cachedFragment->uri = testUri;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Store original values for comparison
     double originalPosition = cachedFragment->position;
     double originalDuration = cachedFragment->duration;
     std::string originalUri = cachedFragment->uri;
-    
+
     // Self-assign with move
     *cachedFragment = std::move(*cachedFragment);
-    
+
     // Verify values remain unchanged (self-move should be safe, only CachedFragment member variables)
     EXPECT_DOUBLE_EQ(cachedFragment->position, originalPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, originalDuration);
@@ -661,7 +655,7 @@ TEST_F(CachedFragmentTest, MoveAssignment_SelfAssignment_NoSideEffects) {
 
 /**
  * @brief Test CachedFragment swap method
- * 
+ *
  * Verifies that the swap method correctly exchanges all member variables
  * between two CachedFragment instances.
  */
@@ -682,13 +676,13 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     cachedFragment->PTSOffsetSec = testPTSOffsetSec;
     cachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Set up second fragment with different data
     const double secondPosition = 200.0;
     const double secondDuration = 150.0;
     const char* secondData = "Different test data";
     const size_t secondDataSize = strlen(secondData);
-    
+
     sourceCachedFragment->position = secondPosition;
     sourceCachedFragment->duration = secondDuration;
     sourceCachedFragment->absPosition = 300.0;
@@ -704,10 +698,10 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     sourceCachedFragment->PTSOffsetSec = 5.5;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_TUNE;
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Perform swap
     cachedFragment->swap(*sourceCachedFragment);
-    
+
     // Verify first fragment now has second fragment's data
     EXPECT_DOUBLE_EQ(cachedFragment->position, secondPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, secondDuration);
@@ -724,7 +718,7 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, 5.5);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_TUNE);
     // Note: fragment buffer operations are mocked and not tested directly
-    
+
     // Verify second fragment now has first fragment's data
     EXPECT_DOUBLE_EQ(sourceCachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(sourceCachedFragment->duration, testDuration);
@@ -745,7 +739,7 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
 
 /**
  * @brief Test free function swap
- * 
+ *
  * Verifies that the free function swap works correctly and calls the member swap.
  */
 TEST_F(CachedFragmentTest, FreeSwap_TwoFragments_CallsMemberSwap) {
@@ -753,23 +747,23 @@ TEST_F(CachedFragmentTest, FreeSwap_TwoFragments_CallsMemberSwap) {
     cachedFragment->position = testPosition;
     cachedFragment->duration = testDuration;
     cachedFragment->uri = testUri;
-    
+
     const double secondPosition = 999.0;
     const double secondDuration = 888.0;
     const std::string secondUri = "http://second.com/test";
-    
+
     sourceCachedFragment->position = secondPosition;
     sourceCachedFragment->duration = secondDuration;
     sourceCachedFragment->uri = secondUri;
-    
+
     // Use free function swap
     swap(*cachedFragment, *sourceCachedFragment);
-    
+
     // Verify swap occurred
     EXPECT_DOUBLE_EQ(cachedFragment->position, secondPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, secondDuration);
     EXPECT_EQ(cachedFragment->uri, secondUri);
-    
+
     EXPECT_DOUBLE_EQ(sourceCachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(sourceCachedFragment->duration, testDuration);
     EXPECT_EQ(sourceCachedFragment->uri, testUri);
