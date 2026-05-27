@@ -1764,6 +1764,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mVideoRect{}
 	, mData()
 	, mIsInbandCC(true)
+	, mAppSelectedInbandCC(false)
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
@@ -6423,10 +6424,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mCCId = PlayerCCManager::GetInstance()->GetId();
 		}
 		//restore CC if it was enabled for previous content.
-		//Re-derive isInbandCC from the freshly parsed manifest's selected
-		//text track rather than trusting the cached mIsInbandCC, which may
-		//be stale after a trickplay-induced retune.
-		if(IsSelectedTextTrackInbandCC())
+		if(mIsInbandCC)
 		{
 			PlayerCCManager::GetInstance()->RestoreCC(previousCCEnabled);
 		}
@@ -6589,6 +6587,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// Reset current audio/text track index
 	mCurrentAudioTrackIndex = -1;
 	mCurrentTextTrackIndex = -1;
+	// A new asset is being tuned: forget any previously app-selected in-band
+	// CC choice so the new manifest's text tracks are configured from scratch.
+	// Mid-session retunes (TuneHelper without going through Tune()) leave
+	// this flag intact so the user's CC choice persists across trickplay /
+	// seek-induced retunes.
+	mAppSelectedInbandCC = false;
 	SetPauseOnStartPlayback(false);
 
 	mSchemeIdUriDai = GETCONFIGVALUE_PRIV(eAAMPConfig_SchemeIdUriDaiStream);
@@ -11721,6 +11725,9 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 		// Passing in -1 as the track ID mutes subs
 		if (MUTE_SUBTITLES_TRACKID == trackId)
 		{
+			// User is muting all text rendering; clear the in-band CC
+			// preference so a subsequent retune does not auto-restore CC.
+			mAppSelectedInbandCC = false;
 			SetCCStatus(false);
 			if (data != NULL)
 			{
@@ -11740,11 +11747,17 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
+					// Remember that the application explicitly chose an in-band
+					// CC track so MPD SelectSubtitleTrack can skip its
+					// "auto-pick first subtitle adaptation" path on the next
+					// retune and avoid clobbering mIsInbandCC back to false.
+					mAppSelectedInbandCC = true;
 					SetClosedCaptionsFromTextTrack(track);
 				}
 				else
 				{
 					mIsInbandCC = false;
+					mAppSelectedInbandCC = false;
 					//Unmute subtitles
 					SetCCStatus(true);
 
@@ -11902,36 +11915,7 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 	}
 }
 
-bool PrivateInstanceAAMP::IsSelectedTextTrackInbandCC()
-{
-	// Caller may or may not hold mStreamLock; acquire defensively.
-	std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-	if (mpStreamAbstractionAAMP)
-	{
-		// Only consult the track list once a text track has actually been
-		// selected. This avoids paying the (potentially mocked) cost of
-		// GetAvailableTextTracks() when no track has been chosen yet, and
-		// preserves the pre-Init default (`mIsInbandCC == true`).
-		const int idx = mpStreamAbstractionAAMP->currentTextTrackProfileIndex;
-		if (idx >= 0)
-		{
-			std::vector<TextTrackInfo> &tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-			if (idx < static_cast<int>(tracks.size()))
-			{
-				const bool fresh = tracks[idx].isCC;
-				if (fresh != mIsInbandCC)
-				{
-					AAMPLOG_WARN("isInbandCC drift: cached=%d, fresh=%d (idx=%d) - refreshing",
-								 mIsInbandCC, fresh, idx);
-					mIsInbandCC = fresh;
-				}
-				return fresh;
-			}
-		}
-	}
-	// Manifest hasn't selected anything yet - honor whatever was last cached.
-	return mIsInbandCC;
-}void PrivateInstanceAAMP::SetCCStatusInternal(void)
+void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
 	// Note: Caller MUST hold mStreamLock
 	if (mpStreamAbstractionAAMP)
@@ -11939,14 +11923,10 @@ bool PrivateInstanceAAMP::IsSelectedTextTrackInbandCC()
 		// Mute subtitles if either video is muted or subtitles are muted
 		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
-		// Re-derive isInbandCC from the currently selected text track instead
-		// of trusting the cached mIsInbandCC, which can drift after a manifest
-		// reparse (e.g. trickplay-induced retune).
-		const bool inbandCcNow = IsSelectedTextTrackInbandCC();
-		AAMPLOG_INFO("mIsInbandCC(cached) %d inbandCcNow %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
-					  mIsInbandCC, inbandCcNow, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+		AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
 
-		if (inbandCcNow || !isGstSubtecEnabled)
+		if (mIsInbandCC || !isGstSubtecEnabled)
 		{
 			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
 		}

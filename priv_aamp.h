@@ -1194,6 +1194,7 @@ public:
 	double mLLActualOffset;				/**< Actual Offset After Seeking in LL Mode*/
 	bool mIsStream4K;                  /**< Identify whether live playing stream is 4K or not; reset on every retune*/
 	bool mIsInbandCC;                   /** Indicate inband cc or out of band cc is selected*/
+	bool mAppSelectedInbandCC;          /**< True when the application explicitly selected an in-band CC track via SetTextTrack; persists across retunes so MPD SelectSubtitleTrack will not overwrite the user's choice with an auto-picked subtitle adaptation set. */
 	std::string mFogDownloadFailReason; /** Identify Fog Manifest Download Failure Reason*/
 	int mBufferFor4kRampup; 		    /** Max Buffer for rampup used for 4k stream */
 	int mBufferFor4kRampdown; 	    /** Min Buffer for rampdown used for 4k Stream */
@@ -3291,18 +3292,6 @@ public:
 	 *   @param[in] enabled - true for CC on, false otherwise
 	 */
 	void SetCCStatus(bool enabled);
-
-	/**
-	 *   @brief Return true if the currently selected text track is in-band CC.
-	 *
-	 *   Derives the result from the live state of the StreamAbstraction
-	 *   (`currentTextTrackProfileIndex` + `GetAvailableTextTracks()`) rather
-	 *   than the cached `mIsInbandCC` member, which can become stale after
-	 *   a manifest reparse (e.g. a trickplay-induced retune). Falls back to
-	 *   the cached value if no stream / track is currently selected, so the
-	 *   constructor default and existing pre-Init behaviour are preserved.
-	 */
-	bool IsSelectedTextTrackInbandCC();
 
 	/**
 	 * @brief Updates the provided vector of CCTrackInfo with data from a vector of TextTrackInfo.

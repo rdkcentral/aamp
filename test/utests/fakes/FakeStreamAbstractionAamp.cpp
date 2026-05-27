@@ -35,9 +35,6 @@ std::function<void()> g_notifyVideoFragmentSideEffect;
 
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
 {
-	// Match production default so IsSelectedTextTrackInbandCC() doesn't
-	// dereference garbage when no track has been explicitly selected.
-	currentTextTrackProfileIndex = -1;
 }
 
 StreamAbstractionAAMP::~StreamAbstractionAAMP()
