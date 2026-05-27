@@ -3,23 +3,6 @@
  * following copyright and licenses apply:
  *
  * Copyright 2024 RDK Management
-	// If playback rate change is a no-op (ret may be true/false depending on soc implementation),
-	// ensure seekPausedState does not leave the pipeline stuck in PAUSED. If the pipeline is
-	// currently paused but a client requested a normal-play rate, clear seekPausedState and
-	// resume the pipeline explicitly. This handles the case where the application resumes via
-	// SetRate(1) but the internal rate already equals 1 and the earlier layers skipped calling
-	// Pause(false).
-	if (rate == GST_NORMAL_PLAY_RATE && interfacePlayerPriv->gstPrivateContext->paused && interfacePlayerPriv->gstPrivateContext->seekPausedState)
-	{
-		MW_LOG_WARN("InterfacePlayerRDK: SetPlayBackRate resume requested while seekPausedState active — resuming and clearing seekPausedState");
-		// Clear the flag and perform the pause->play transition
-		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
-		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
-		interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
-		SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING);
-		interfacePlayerPriv->gstPrivateContext->paused = false;
-	}
-	return ret;
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
