@@ -20,7 +20,7 @@
 #include "MockPlayerScheduler.h"
 #include "PlayerScheduler.h"
 
-std::shared_ptr<MockPlayerScheduler> g_mockPlayerScheduler{};
+MockPlayerScheduler *g_mockPlayerScheduler = nullptr;
 
 PlayerScheduler::PlayerScheduler()
 {

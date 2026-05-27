@@ -21,7 +21,6 @@
 #define MOCK_PLAYER_SCHEDULER_H
 
 #include <gmock/gmock.h>
-#include <memory>
 #include "PlayerScheduler.h"
 
 class MockPlayerScheduler
@@ -32,6 +31,6 @@ public:
 
 };
 
-extern std::shared_ptr<MockPlayerScheduler> g_mockPlayerScheduler;
+extern MockPlayerScheduler *g_mockPlayerScheduler;
 
 #endif /* PLAYER_MOCK_PLAYER_SCHEDULER_H */
