@@ -310,7 +310,6 @@ typedef enum
 	eAAMPConfig_TimeBasedBufferSeconds,
 	eAAMPConfig_MaxDownloadBuffer,					/**< Max download buffer in seconds, this can be used to limit player download job scheduling for DASH*/
 	eAAMPConfig_TelemetryInterval,						/**< time interval for the telemetry reporting*/
-	eAAMPConfig_RateCorrectionDelay,			/**< Delay Rate Correction upon discontinuity in seconds */
 	eAAMPConfig_HarvestDuration,						/**< Harvest  duration time */
 	eAAMPConfig_SubtitleClockSyncInterval,			/**< time interval for synchronizing subtitle clock */
 	eAAMPConfig_PreferredAbsoluteProgressReporting, /**< Preferred settings for absolute progress reporting**/

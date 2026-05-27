@@ -52,6 +52,10 @@ AampLatencyMonitor::~AampLatencyMonitor()
 
 void AampLatencyMonitor::Start(const LatencyConfig& config)
 {
+	if (g_mockAampLatencyMonitor != nullptr)
+	{
+		g_mockAampLatencyMonitor->Start(config);
+	}
 }
 
 void AampLatencyMonitor::Stop()

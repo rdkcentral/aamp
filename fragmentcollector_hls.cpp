@@ -4023,7 +4023,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			video->playTarget = 0;
 			subtitle->playTarget = 0;
 			aamp->NotifyOnEnteringLive();
-			aamp->mDisableRateCorrection = false;
 		}
 		else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType)) && (this->rate > 0))
 		{
@@ -4049,7 +4048,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						aamp->NotifyOnEnteringLive();
 					}
 					AAMPLOG_INFO("StreamAbstractionAAMP_HLS: Live latency correction is enabled due to the seek (rate=%f) to live window!!", this->rate);
-					aamp->mDisableRateCorrection = false;
 				}
 				else
 				{
@@ -7031,7 +7029,9 @@ void StreamAbstractionAAMP_HLS::RefreshTrack(AampMediaType type)
 		}
 		track->AbortWaitForCachedAndFreeFragment(true);
 		aamp->StopTrackInjection(type);
-		aamp->mDisableRateCorrection = true;
+		// Save the latency monitor state before disabling - it will be restored after the switch only if it was active prior
+		mSavedLatencyMonitorState  = aamp->IsLatencyMonitorEnabled();
+		aamp->EnableLatencyMonitor(false);
 		if(aamp->IsLive() && !track->seamlessAudioSwitchInProgress)
 		{
 			// Abort ongoing wait for playlist refresh, so the track change can be processed immediately.
