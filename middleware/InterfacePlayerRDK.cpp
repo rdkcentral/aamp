@@ -4676,9 +4676,6 @@ static gboolean buffering_timeout (gpointer data)
 					{
 						MW_LOG_ERR("buffering_timeout: seekPausedState still active after timeout exhausted — clearing to unblock");
 						privatePlayer->gstPrivateContext->seekPausedState = false;
-						
-						// Also ensure pipeline is explicitly set to PAUSED before allowing timeout to proceed
-    					SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PAUSED);
 					}
 					return privatePlayer->gstPrivateContext->buffering_in_progress;
 				}
