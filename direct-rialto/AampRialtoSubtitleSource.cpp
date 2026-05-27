@@ -25,6 +25,7 @@
 #include "AampRialtoSubtitleSource.h"
 #include "AampLogManager.h"
 #include "middleware/GstUtils.h"
+#include <cinttypes>
 
 // ---------------------------------------------------------------------------
 // mapCodecToMime
@@ -124,6 +125,8 @@ std::optional<MediaCodecInfo> AampRialtoSubtitleSource::processInitFragment(
 	// the new stream (channel changes and seeks).
 	m_textTransform.reset();
 	m_applyTextTransform = false;
+	// Reset so that the new stream's setSubtitleOffset is sent fresh.
+	m_subtitleOffsetSet  = false;
 
 	std::optional<MediaCodecInfo> result;
 
@@ -183,4 +186,22 @@ int64_t AampRialtoSubtitleSource::refineDisplayOffset(
 	return m_textTransform.compute(
 		sample.mData.get(), sample.mDataSize,
 		ptsMs, displayOffsetMs, durationMs);
+}
+
+// ---------------------------------------------------------------------------
+// applyDisplayOffset
+// ---------------------------------------------------------------------------
+
+void AampRialtoSubtitleSource::applyDisplayOffset(
+	firebolt::rialto::IMediaPipeline &pipeline, int64_t displayOffsetMs)
+{
+	if (m_subtitleOffsetSet || displayOffsetMs <= 0)
+	{
+		return;
+	}
+	m_subtitleOffsetSet = true;
+	const int64_t offsetNs = displayOffsetMs * 1'000'000LL;
+	AAMPLOG_INFO("setSubtitleOffset sourceId=%d offsetMs=%" PRId64
+		" offsetNs=%" PRId64, sourceId(), displayOffsetMs, offsetNs);
+	pipeline.setSubtitleOffset(sourceId(), offsetNs);
 }

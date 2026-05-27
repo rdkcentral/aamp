@@ -687,6 +687,9 @@ bool AampRialtoMediaSource::processDataFragment(
 			// Allow subtitle (and future) subclasses to refine the
 			// display offset from the TTML payload of the first sample.
 			displayOffsetMs = refineDisplayOffset(s, displayOffsetMs);
+			// Notify subclass once the final offset is known so that
+			// subtitle sources can call setSubtitleOffset.
+			applyDisplayOffset(pipeline, displayOffsetMs);
 		}
 		firstSample = false;
 		if (!injectOneSample(pipeline, capturedGen, std::move(s), codecData, displayOffsetMs))
@@ -720,6 +723,9 @@ bool AampRialtoMediaSource::injectSingleSample(
 	// Allow subtitle (and future) subclasses to refine the display offset
 	// from the sample payload before the sample is moved into injection.
 	displayOffsetMs = refineDisplayOffset(sample, displayOffsetMs);
+	// Notify subclass once the final offset is known so that subtitle
+	// sources can call setSubtitleOffset.
+	applyDisplayOffset(pipeline, displayOffsetMs);
 	return injectOneSample(
 		pipeline, capturedGen, std::move(sample), pendingCodecData, displayOffsetMs);
 }
