@@ -186,6 +186,12 @@ public:
 	void EnableRateCorrection(bool enabled);
 
 	/**
+	 * @brief Returns true if rate correction is currently enabled.
+	 * Thread-safe (atomic load).
+	 */
+	bool IsRateCorrectionEnabled() const { return mCorrectionEnabled.load(); }
+
+	/**
 	 * @brief Returns the playback rate most recently applied by this monitor.
 	 *
 	 * Thread-safe (atomic load).
