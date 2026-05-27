@@ -1609,6 +1609,15 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		interfacePlayerPriv->gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = PLAYER_TASK_ID_INVALID;
 
 	}
+	
+	/* If pipeline is paused (seek with keepPaused), mark seekPausedState
+	 * so that when ConfigurePipeline restarts buffering, the buffering_timeout callback
+	 * won't race to set PLAYING before Pause(1) arrives */
+	if (interfacePlayerPriv->gstPrivateContext->paused)
+	{
+		interfacePlayerPriv->gstPrivateContext->seekPausedState = true;
+		MW_LOG_MIL("InterfacePlayerRDK: Flush with paused state — setting seekPausedState");
+	}
 	if (interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId)
 	{
 		MW_LOG_MIL("InterfacePlayerRDK: Remove bufferingTimeoutTimerId %d", interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId);
@@ -1619,14 +1628,6 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 
 
-	}
-	/* If pipeline is paused (seek with keepPaused), mark seekPausedState
-	 * so that when ConfigurePipeline restarts buffering, the buffering_timeout callback
-	 * won't race to set PLAYING before Pause(1) arrives */
-	if (interfacePlayerPriv->gstPrivateContext->paused)
-	{
-		interfacePlayerPriv->gstPrivateContext->seekPausedState = true;
-		MW_LOG_MIL("InterfacePlayerRDK: Flush with paused state — setting seekPausedState");
 	}
 	// If rate indicates playback (not paused seek), clear seekPausedState
 	if (rate > 0 && !interfacePlayerPriv->gstPrivateContext->paused)
@@ -4675,6 +4676,9 @@ static gboolean buffering_timeout (gpointer data)
 					{
 						MW_LOG_ERR("buffering_timeout: seekPausedState still active after timeout exhausted — clearing to unblock");
 						privatePlayer->gstPrivateContext->seekPausedState = false;
+						
+						// Also ensure pipeline is explicitly set to PAUSED before allowing timeout to proceed
+    					SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PAUSED);
 					}
 					return privatePlayer->gstPrivateContext->buffering_in_progress;
 				}
