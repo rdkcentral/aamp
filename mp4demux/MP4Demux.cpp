@@ -1328,7 +1328,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				break;
 			default:
 				// Unknown/unhandled box — skip payload and continue
-				MP4_LOG_DEBUG("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
+				MP4_LOG_WARN("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
 				ptr = next;
 				break;
 		}
@@ -1414,7 +1414,6 @@ bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 		}
 	} catch (const Mp4ParseException& ex) {
 		setParseError(ex.code());
-		MP4_LOG_ERR("%s", ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error
