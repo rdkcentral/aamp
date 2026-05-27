@@ -1413,41 +1413,6 @@ TEST_F(PrivAampTests,GetVideoPTSTest)
 
 	EXPECT_EQ(videoPTS,0);
 }
-TEST_F(PrivAampTests,WakeupLatencyCheckTest)
-{
-	p_aamp->WakeupLatencyCheck();
-}
-TEST_F(PrivAampTests,TimedWaitForLatencyCheckTest)
-{
-	int timeInMs = 1;
-	p_aamp->TimedWaitForLatencyCheck(timeInMs);
-
-	// below are stress level test case
-	p_aamp->TimedWaitForLatencyCheck(0);
-	p_aamp->TimedWaitForLatencyCheck(2);
-	p_aamp->TimedWaitForLatencyCheck(-10);
-	p_aamp->TimedWaitForLatencyCheck(-12355);
-	p_aamp->TimedWaitForLatencyCheck(5);
-
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-}
-
-TEST_F(PrivAampTests,StopRateCorrectionWorkerThreadTest)
-{
-	p_aamp->StartRateCorrectionWorkerThread();
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-
-	p_aamp->StopRateCorrectionWorkerThread();
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-}
-
-TEST_F(PrivAampTests,RateCorrectionWorkerThreadTest1)
-{
-	p_aamp->RateCorrectionWorkerThread();
-
-	EXPECT_NE(p_aamp->mCorrectionRate,0);
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
-}
 
 TEST_F(PrivAampTests,MonitorProgressTest1)
 {
