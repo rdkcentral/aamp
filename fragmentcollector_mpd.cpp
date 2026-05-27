@@ -8771,8 +8771,13 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										{
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
-										pMediaStreamContext->profileChanged = false;
 									}
+									// Clear profileChanged regardless of whether the ring buffer had space.
+									// This prevents FetcherLoop from re-triggering this init-fetch path on
+									// every subsequent OnFragmentDownloadComplete callback.  If the buffer
+									// was full the init will be re-fetched on the next profileChanged cycle
+									// once space is available.
+									pMediaStreamContext->profileChanged = false;
 								}
 								else
 								{
