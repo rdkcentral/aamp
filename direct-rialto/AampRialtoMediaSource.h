@@ -296,6 +296,16 @@ public:
 	void signalEos(firebolt::rialto::IMediaPipeline *pipeline);
 
 	/**
+	 * @brief Maximum segments to inject per needData batch.
+	 *
+	 * Returns 0 to use the frame count requested by the pipeline
+	 * (default for audio/video).  Subtitle overrides to return 1 so
+	 * that haveData() is sent after every injected segment, avoiding
+	 * the Rialto EnoughData guard that fires before isDataPushed is set.
+	 */
+	virtual size_t needDataBatchSize() const { return 0; }
+
+	/**
 	 * @brief Handle a needData event from the pipeline client.
 	 */
 	void handleNeedData(

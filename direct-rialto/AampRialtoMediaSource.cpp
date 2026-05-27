@@ -563,7 +563,10 @@ void AampRialtoMediaSource::handleNeedData(
 			// after injection).
 		m_state.hasPending          = true;
 		m_state.pendingRequestId    = requestId;
-		m_state.pendingFrameCount   = std::max<size_t>(frameCount, 1);
+		const size_t batchOverride  = needDataBatchSize();
+		m_state.pendingFrameCount   = (batchOverride > 0)
+			? batchOverride
+			: std::max<size_t>(frameCount, 1);
 		m_state.segmentsAddedInBatch = 0;
 		m_state.injectionGated      = false;
 		}

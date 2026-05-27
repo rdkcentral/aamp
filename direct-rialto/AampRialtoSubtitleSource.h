@@ -90,6 +90,8 @@ protected:
 			firebolt::rialto::StreamFormat streamFormat,
 			std::shared_ptr<firebolt::rialto::CodecData> codecData) const override;
 
+	size_t needDataBatchSize() const override { return 1; }
+
 	void updateCachedMetadata(const MediaCodecInfo &codecInfo) override;
 
 	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
