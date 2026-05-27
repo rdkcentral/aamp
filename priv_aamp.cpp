@@ -79,6 +79,7 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "AampSegmentInfo.hpp"
 
 #include "AampCurlStore.h"
+#include "mp4demux/MP4Demux.h"
 
 #include <iomanip>
 #include <unordered_set>
@@ -1680,12 +1681,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, vDynamicDrmData()
 	, midFragmentSeekCache(false)
 	, mLiveOffsetDrift(AAMP_DEFAULT_LIVE_OFFSET_DRIFT)
-	, mDisableRateCorrection (false)
-	, mRateCorrectionThread ()
-	, mRateCorrectionWait()
-	, mRateCorrectionTimeoutLock()
-	, mAbortRateCorrection (false)
-	, mCorrectionRate(AAMP_NORMAL_PLAY_RATE)
 	, mPreviousAudioType (FORMAT_INVALID)
 	, mTsbRecordingId()
 	, mthumbIndexValue(-1)
@@ -1804,8 +1799,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),mMPDStichRefreshUrl("")
 	, mTsbType("none")
 	, mTsbDepthMs(0)
-	, mDiscStartTime(0)
-	, mRateCorrectionDelay(false)
 	, mDownloadDelay(0)
 	, curlhost{}
 	, mWaitForDiscoToComplete()
@@ -2304,7 +2297,6 @@ void PrivateInstanceAAMP::NotifyPauseOnStartPlayback(void)
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 		}
 		AAMPLOG_INFO("Live latency correction is disabled after Pause");
-		mDisableRateCorrection = true;
 
 		mSinkPaused = true;
 	}
@@ -2356,211 +2348,6 @@ void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMedi
 std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
 	return std::unique_lock<std::recursive_mutex>(mLock);
-}
-
-/**
- * @brief Abort wait for playlist download
- */
-void PrivateInstanceAAMP::WakeupLatencyCheck()
-{
-	mRateCorrectionWait.notify_one();
-}
-
-/**
- * @brief Wait until timeout is reached or interrupted
- */
-void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
-{
-	if(timeInMs > 0 && DownloadsAreEnabled())
-	{
-		std::unique_lock<std::mutex> lock(mRateCorrectionTimeoutLock);
-		if(mRateCorrectionWait.wait_for(lock, std::chrono::milliseconds(timeInMs)) == std::cv_status::timeout)
-		{
-			AAMPLOG_TRACE(" Timeout exceeded Rate Correction Thread : %d", timeInMs); // make it trace
-		}
-		else
-		{
-			mAbortRateCorrection = true;
-			AAMPLOG_INFO(" Aborted Rate Correction Thread"); // TRACE
-		}
-	}
-}
-
-/**
- * @brief The helper function which perform tuning
- * Common tune operations used on Tune, Seek, SetRate etc
- */
-void PrivateInstanceAAMP::StopRateCorrectionWorkerThread(void)
-{
-	if (mRateCorrectionThread.joinable())
-	{
-		try
-		{
-			mAbortRateCorrection = true;
-			WakeupLatencyCheck();
-			mRateCorrectionThread.join();
-			mCorrectionRate = AAMP_NORMAL_PLAY_RATE;
-		}
-		catch (exception& exp)
-		{
-			AAMPLOG_ERR("Rate Correction Thread Failed to Stop : %s ", exp.what());
-		}
-	}
-}
-/**
- * @brief The helper function which perform tuning
- * Common tune operations used on Tune, Seek, SetRate etc
- */
-void PrivateInstanceAAMP::StartRateCorrectionWorkerThread(void)
-{
-	try
-	{
-		bool newTune = IsNewTune();
-		bool enabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
-		/** Spawn the rate Correction thread if it is live, new tune, thread not started yet, and rate correction enabled **/
-		if(IsLive() && newTune && !mRateCorrectionThread.joinable() && enabled )
-		{
-			mAbortRateCorrection = false;
-			mRateCorrectionThread = std::thread(&PrivateInstanceAAMP::RateCorrectionWorkerThread, this);
-			AAMPLOG_INFO("Rate Correction Thread started [%zx]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
-		}
-	}
-	catch (exception& exp)
-	{
-		AAMPLOG_ERR("Rate Correction Thread Failed to start : %s ", exp.what());
-	}
-}
-
-/**
- * @brief Rate correction API call in thread to avoid the time delay for setting rate
- * This is single sleeping thread ; only wake up whenever it needed
- */
-void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
-{
-	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
-	{
-		int latencyMonitorInterval = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorIntervalMs);
-		double normalPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
-		double maxPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate);
-		double minPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
-		int disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
-		int latencyMonitorDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorDelayMs);
-		AAMPLOG_TRACE("latencyMonitorDelay %d latencyMonitorInterval=%d", latencyMonitorDelay,latencyMonitorInterval );
-		double latencyMonitorScheduleTimeMs = latencyMonitorDelay - latencyMonitorInterval;
-		//To handle latencyMonitorDelay < latencyMonitorInterval case
-		if( latencyMonitorScheduleTimeMs < 0)
-		{ // clamp!
-			AAMPLOG_INFO("unexpected latencyMonitorScheduleTime(%lf) ms", latencyMonitorScheduleTimeMs );
-			latencyMonitorScheduleTimeMs = 500; //TimedWaitForLatencyCheck here is 500 ms
-		}
-		while(!mAbortRateCorrection)
-		{
-			mCorrectionRate = rate; /**< To align with main playback rate start with rate*/
-			double rateRequired = normalPlaybackRate; /**< Can be vary for debug*/
-			TimedWaitForLatencyCheck(latencyMonitorScheduleTimeMs);
-			while(DownloadsAreEnabled())
-			{
-				interruptibleMsSleep(latencyMonitorInterval);
-				AAMPPlayerState state = GetState();
-				if (!mAbortRateCorrection &&!mDisableRateCorrection && DownloadsAreEnabled() && state == eSTATE_PLAYING)
-				{
-					double bufferedDuration = 0.0;
-					{
-						std::lock_guard<std::recursive_mutex> guard(mStreamLock);
-						if (mpStreamAbstractionAAMP)
-						{
-							bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
-						}
-					}
-					//If the player detect an empty period switch, it will set the  buffer duration as -1 even though  the player has content from previous period.
-					//In this case, player should not increase the playback speed to catchup the latency.
-					//So Setting isEnoughBuffer  true by default and the value will update accordingly if only buffer duration is greater than -1.
-					bool isEnoughBuffer = true;
-					if(bufferedDuration > -1.0)
-					{
-						isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
-					}
-					double latency = static_cast<double>(GetCurrentLatencyMs()) / 1000.0; // in seconds
-					AAMPLOG_INFO("Current latency is %.02lf current playback rate is %.02lf maxLiveOffset is %.02lf sec, target LiveOffset is %.02lf sec, minLiveOffset is %.02lf sec AvailableBuffer = %.02lf",
-					latency, mCorrectionRate, (mLiveOffset + mLiveOffsetDrift ), mLiveOffset, (mLiveOffset - mLiveOffsetDrift), bufferedDuration );
-					if ((latency > (mLiveOffset + mLiveOffsetDrift)) && isEnoughBuffer)
-					{
-						rateRequired = maxPlaybackRate;
-					}
-					else if (latency < (mLiveOffset - mLiveOffsetDrift))
-					{
-						rateRequired = minPlaybackRate;
-					}
-					else if (((latency <= mLiveOffset) && mCorrectionRate ==  maxPlaybackRate) ||
-							((latency >= mLiveOffset) && mCorrectionRate == minPlaybackRate) ||
-							((mCorrectionRate ==  maxPlaybackRate) && !isEnoughBuffer))
-					{
-						rateRequired = normalPlaybackRate;
-					}
-
-					if (disableRateCorrectionTimeInSeconds > 0 && mDiscStartTime > 0 && true == mRateCorrectionDelay)
-					{
-						int deltaTime = (int)(NOW_STEADY_TS_SECS- mDiscStartTime);
-
-						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%" PRId64 " delta=%d disableRateCorrectionTimeInSeconds=%d",
-							mDiscStartTime, NOW_STEADY_TS_SECS, deltaTime, disableRateCorrectionTimeInSeconds);
-
-						if ( deltaTime > disableRateCorrectionTimeInSeconds )
-						{
-							mRateCorrectionDelay = false;
-							mDiscStartTime = 0;
-							AAMPLOG_WARN("Rate correction is enabled after discontinuity processing");
-						}
-						else
-						{
-							AAMPLOG_INFO("Rate correction is still disabled because still in discontinuity processing %ld", mDiscStartTime);
-						}
-					}
-
-					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-					if (sink)
-					{
-						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
-						{
-							if (sink->SetPlayBackRate(rateRequired))
-							{
-								mCorrectionRate = rateRequired;
-								UpdateVideoEndMetrics(rateRequired);
-								SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
-								AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
-								profiler.IncrementChangeCount(Count_RateCorrection);
-							}
-						}
-					}
-				}
-				else
-				{
-					if (mDisableRateCorrection && DownloadsAreEnabled() && (rate == AAMP_NORMAL_PLAY_RATE && mCorrectionRate != normalPlaybackRate))
-					{
-						//Rate correction stopping from correction rate so reset to normal
-						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-						if (sink)
-						{
-							if (sink->SetPlayBackRate(normalPlaybackRate))
-							{
-								mCorrectionRate = normalPlaybackRate;
-								AAMPLOG_WARN("Rate Changed to : %f", mCorrectionRate);
-							}
-							else
-							{
-								AAMPLOG_WARN("Failed to reset the playback rate!!");
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	else
-	{
-		AAMPLOG_WARN("Rate Correction Ignored Due to Rate Correction disabled from config;  EnableLiveLatencyRateCorrection [%d]",
-		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection));
-	}
 }
 
 /**
@@ -2745,13 +2532,9 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			// This is trickplay or slow motion
 			currentRate = rate;
 		}
-		else if(mAampLLDashServiceData.lowLatencyMode)
+		else if(mLatencyMonitor->IsRateCorrectionEnabled())
 		{
 			currentRate = mLatencyMonitor->GetCurrentRate();
-		}
-		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection) )
-		{
-			currentRate = mCorrectionRate;
 		}
 		else
 		{
@@ -3816,17 +3599,10 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 			mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 
-			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
-			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
-			if( disableRateCorrectionTimeInSeconds > 0  && isRateCorrectionEnabled )
+			bool rateCorrectionStatus = mLatencyMonitor->IsRateCorrectionEnabled();
+			if(rateCorrectionStatus)
 			{
-				mRateCorrectionDelay = true;
-				mDiscStartTime = NOW_STEADY_TS_SECS;
-				AAMPLOG_WARN("Rate correction is disabled on discontinuity processing : %ld", mDiscStartTime);
-			}
-			else
-			{
-				AAMPLOG_WARN("DisableRateCorrectionTimeInSeconds : %d isRateCorrectionEnabled : %d", disableRateCorrectionTimeInSeconds, isRateCorrectionEnabled);
+				EnableLatencyMonitor(false);
 			}
 
 			if(mDiscontinuityFound)
@@ -3842,6 +3618,13 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				sink->Stream();
 			}
 			mIsTrackIdMismatch = false;
+
+			// Discontinuity processing is complete; re-enable rate correction only if
+			// it was active before, filtering out unwanted latency correction wake-ups.
+			if (rateCorrectionStatus)
+			{
+				EnableLatencyMonitor(true);
+			}
 		}
 		else
 		{
@@ -4515,6 +4298,66 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 			curlCode == CURLE_PARTIAL_FILE ||
 			abortReason == eCURL_ABORT_REASON_STALL_TIMEDOUT ||
 			abortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+}
+
+/**
+ * @brief Parse a downloaded segment with a persistent per-track Mp4Demux to detect
+ *        structural corruption (any condition that triggers Mp4Demux::setParseError).
+ *        Every video/audio segment is logged at INFO level regardless of validity.
+ *        Corrupt segments are logged at WARN level and written to harvestPath or /tmp.
+ */
+void PrivateInstanceAAMP::CheckSegmentIntegrity(const std::vector<uint8_t>& buffer,
+	AampMediaType mediaType,
+	const std::string& remoteUrl)
+{
+	AAMPLOG_INFO("[Mp4Mon][%s] url=%s size=%zu",
+		GetMediaTypeName(mediaType), remoteUrl.c_str(), buffer.size());
+
+	// Select the appropriate persistent validator; init lazily on first use.
+	// A single validator per track preserves init-segment state (timescale, IV size)
+	// so that subsequent media-segment parses do not produce false-positive failures.
+	std::unique_ptr<Mp4Demux>* validatorPtr{nullptr};
+	if (mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO)
+	{
+		validatorPtr = &mVideoIntegrityValidator;
+	}
+	else if (mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO)
+	{
+		validatorPtr = &mAudioIntegrityValidator;
+	}
+	else
+	{
+		return;
+	}
+
+	if (!(*validatorPtr))
+	{
+		*validatorPtr = std::make_unique<Mp4Demux>();
+	}
+
+	// Copy the buffer so the download pipeline's copy remains intact.
+	auto segment = std::make_shared<std::vector<uint8_t>>(buffer);
+	bool parseOk = (*validatorPtr)->Parse(std::move(segment));
+	// Drop the aliasing shared_ptrs the demuxer stored for its sample list so the
+	// copied segment buffer can be freed immediately rather than pinned until the
+	// next Parse() call clears them.
+	(*validatorPtr)->GetSamples();
+	if (!parseOk)
+	{
+		AAMPLOG_WARN("[Mp4Mon][%s] CORRUPT err=%d url=%s",
+			GetMediaTypeName(mediaType),
+			static_cast<int>((*validatorPtr)->GetLastError()),
+			remoteUrl.c_str());
+
+		std::string dumpPath = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
+		if (dumpPath.empty())
+		{
+			dumpPath = "/tmp";
+		}
+		aamp_WriteFile(remoteUrl,
+			reinterpret_cast<const char*>(buffer.data()),
+			buffer.size(), mediaType, 0, dumpPath.c_str());
+	}
 }
 
 /**
@@ -5403,6 +5246,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
+
+			if (ISCONFIGSET_PRIV(eAAMPConfig_MonitorMp4Integrity) &&
+				!buffer.empty() &&
+				(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO ||
+				 mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO))
+			{
+				CheckSegmentIntegrity(buffer, mediaType, remoteUrl);
+			}
+
 			ret = true; // default
 			if( !context.downloadIsEncoded )
 			{
@@ -6027,8 +5879,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
 	{
 		/** Enabled rate Correction by default, seek case and live added later point  **/
-		AAMPLOG_INFO("Live latency correction is disabled for seek by default!!");
-		mDisableRateCorrection = true;
 		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
 		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 		{
@@ -6036,10 +5886,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 			mIsLoggingNeeded = false;
 		}
-	}
-	else
-	{
-		mDisableRateCorrection = false;
 	}
 
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
@@ -6402,15 +6248,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
 
-		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
-		{
-			StartRateCorrectionWorkerThread();
-		}
-		if (mMediaFormat == eMEDIAFORMAT_DASH && mAampLLDashServiceData.lowLatencyMode)
-		{
-			// Start latency monitor for DASH Low Latency content.
-			StartLatencyMonitor();
-		}
+		StartLatencyMonitor();
 
 		// Enable fragment initial caching. Retune not supported
 		if(tuneType != eTUNETYPE_RETUNE
@@ -8567,7 +8405,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	DisableDownloads();
 	
 	UnblockWaitForDiscontinuityProcessToComplete();
-	StopRateCorrectionWorkerThread();
 	if(mTelemetryInterval > 0)
 	{
 		double bufferedDuration = 0.0;
@@ -8698,7 +8535,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
-	mDisableRateCorrection = false;
 	mMaxLanguageCount = 0; // reset language count
 	//mPreferredAudioTrack = AudioTrackInfo(); // reset
 	mPreferredTextTrack = TextTrackInfo(); // reset
@@ -12993,6 +12829,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						{
 							seek_pos_seconds = GetPositionSeconds();
 							AAMPLOG_MIL("Retune to change the audio track at pos %fs", seek_pos_seconds);
+							bool wasAtLivePoint = IsAtLivePoint();
 							if (IsLocalAAMPTsb())
 							{
 								mAampTsbLanguageChangeInProgress = true;
@@ -13023,7 +12860,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 									AAMPLOG_ERR("TSB Session Manager is NULL");
 								}
 							}
-							else if(mDisableRateCorrection)
+							else if(!wasAtLivePoint)
 							{
 								TuneHelper(eTUNETYPE_SEEK);
 							}
@@ -15103,6 +14940,8 @@ void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
 	config.targetLatencyMs = mLiveOffset * 1000;
 	config.minLatencyMs = config.targetLatencyMs - (mLiveOffsetDrift * 1000);
 	config.maxLatencyMs = config.targetLatencyMs + (mLiveOffsetDrift * 1000);
+	AAMPLOG_MIL("Live LatencyMonitor Config - targetLatencyMs: %f, minLatencyMs: %f, maxLatencyMs: %f",
+		config.targetLatencyMs, config.minLatencyMs, config.maxLatencyMs);
 }
 
 /**
@@ -15120,9 +14959,10 @@ void PrivateInstanceAAMP::StartLatencyMonitor()
 {
 	bool lowLatencyCorrection = mAampLLDashServiceData.lowLatencyMode &&
 								ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyCorrection);
+	bool liveLatencyCorrection = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
 	bool isAtLivePointWithNormalRate = IsAtLivePoint() && (rate == AAMP_NORMAL_PLAY_RATE);
 
-	if (IsLive() && lowLatencyCorrection &&
+	if (IsLive() && (lowLatencyCorrection || liveLatencyCorrection) &&
 		isAtLivePointWithNormalRate && !mbPauseOnStartPlayback && !mPauseOnFirstVideoFrameDisp)
 	{
 		if (!mLatencyMonitor->IsRunning())
@@ -15136,6 +14976,14 @@ void PrivateInstanceAAMP::StartLatencyMonitor()
 			EnableLatencyMonitor(true);
 		}
 	}
+}
+
+/**
+ * @brief Returns true if rate correction is currently enabled in the latency monitor.
+ */
+bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
+{
+	return mLatencyMonitor->IsRateCorrectionEnabled();
 }
 
 /**
