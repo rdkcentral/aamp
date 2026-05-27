@@ -3293,6 +3293,18 @@ public:
 	void SetCCStatus(bool enabled);
 
 	/**
+	 *   @brief Return true if the currently selected text track is in-band CC.
+	 *
+	 *   Derives the result from the live state of the StreamAbstraction
+	 *   (`currentTextTrackProfileIndex` + `GetAvailableTextTracks()`) rather
+	 *   than the cached `mIsInbandCC` member, which can become stale after
+	 *   a manifest reparse (e.g. a trickplay-induced retune). Falls back to
+	 *   the cached value if no stream / track is currently selected, so the
+	 *   constructor default and existing pre-Init behaviour are preserved.
+	 */
+	bool IsSelectedTextTrackInbandCC();
+
+	/**
 	 * @brief Updates the provided vector of CCTrackInfo with data from a vector of TextTrackInfo.
 	 *
 	 * @param textTracksCopy A vector of TextTrackInfo objects to be processed.
