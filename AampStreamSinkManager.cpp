@@ -136,6 +136,22 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 	}
 }
 
+StreamSink* AampStreamSinkManager::CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames)
+{
+	StreamSink *sink = nullptr;
+	if (ISCONFIGSET(eAAMPConfig_useRialtoDirect))
+	{
+		AAMPLOG_MIL("Creating AampRialtoPlayer");
+		sink = new AampRialtoPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
+	}
+	else
+	{
+		AAMPLOG_MIL("Creating AAMPGstPlayer");
+		sink = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
+	}
+	return sink;
+}
+
 void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
@@ -150,20 +166,7 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 			{
 				//Do not edit or remove this log - it is used in L2 test
 				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, creating GstPlayer for PLAYER[%d]", this, aamp->mPlayerId);
-				if (ISCONFIGSET(eAAMPConfig_useRialtoDirect))
-				{
-					// TODO: Log line added for direct-rialto diagnostics; should have
-					//       been a separate change per direct-rialto.instructions.md.
-					AAMPLOG_MIL("Creating AampRialtoPlayer");
-					mGstPlayer = new AampRialtoPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
-				}
-				else
-				{
-					// TODO: Log line added for direct-rialto diagnostics; should have
-					//       been a separate change per direct-rialto.instructions.md.
-					AAMPLOG_MIL("Creating AAMPGstPlayer");
-					mGstPlayer = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
-				}
+				mGstPlayer = CreateSinkInstance(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 				mActiveGstPlayersMap.insert({aamp, mGstPlayer});
 			}
 			else
@@ -180,21 +183,7 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 			//Do not edit or remove this log - it is used in L2 test
 			AAMPLOG_WARN("AampStreamSinkManager(%p) %s Pipeline mode, creating GstPlayer for PLAYER[%d]", this,
 						 mPipelineMode == ePIPELINEMODE_UNDEFINED ? "Undefined" : "Multi", aamp->mPlayerId);
-			StreamSink *gstPlayer = nullptr;
-			if (ISCONFIGSET(eAAMPConfig_useRialtoDirect))
-			{
-				// TODO: Log line added for direct-rialto diagnostics; should have
-				//       been a separate change per direct-rialto.instructions.md.
-				AAMPLOG_MIL("Creating AampRialtoPlayer");
-				gstPlayer = new AampRialtoPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
-			}
-			else
-			{
-				// TODO: Log line added for direct-rialto diagnostics; should have
-				//       been a separate change per direct-rialto.instructions.md.
-				AAMPLOG_MIL("Creating AAMPGstPlayer");
-				gstPlayer = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
-			}
+			StreamSink *gstPlayer = CreateSinkInstance(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 			mActiveGstPlayersMap.insert({aamp, gstPlayer});
 		}
 		break;

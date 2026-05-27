@@ -218,6 +218,16 @@ private:
 	 *         but without locking the StreamSink mutex. \ref GetStreamSink for details.
 	 */
 	StreamSink* GetStreamSinkNoLock(PrivateInstanceAAMP *aamp);
+	/**
+	 *  @fn CreateSinkInstance
+	 *  @brief Factory method that creates a StreamSink of the appropriate concrete type
+	 *         based on the eAAMPConfig_useRialtoDirect configuration.
+	 *  @param[in] aamp - the instance of PrivateInstanceAAMP
+	 *  @param[in] id3HandlerCallback - the id3 handler callback
+	 *  @param[in] exportFrames - frame export callback
+	 *  @return pointer to the newly created StreamSink
+	 */
+	StreamSink* CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames);
 
 	StreamSink *mGstPlayer;
 
