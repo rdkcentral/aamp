@@ -40,7 +40,6 @@
 #include <chrono>
 #include <memory>
 #include "AampCurlDefine.h"
-#include "AampDefine.h"
 #include "AampMediaType.h"
 
 typedef std::map<int,std::string> RespHeader;

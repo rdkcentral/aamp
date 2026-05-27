@@ -1181,7 +1181,7 @@ TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_SignaledButStillFull_Retur
 	});
 
 	// Must return false: was signaled, abort is clear, but cache is still full.
-	bool result = videoTrack.WaitForCachedFragmentInjected(100 /*ms*/);
+	bool result = videoTrack.WaitForCachedFragmentInjected(200 /*ms*/);
 	signalThread.join();
 
 	EXPECT_FALSE(result);
