@@ -61,6 +61,7 @@ public:
 
 	void NotifyFirstFrameReceived(unsigned long ccDecoderHandle) override;
 	void NotifyFirstBufferProcessed(const std::string &videoRectangle) override;
+	void NotifyFirstVideoFrameDisplayed() override;
 	void LogFirstFrame() override;
 	void LogTuneComplete() override;
 	void NotifyEOSReached() override;

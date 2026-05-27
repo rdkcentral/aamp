@@ -277,21 +277,6 @@ void AampRialtoPlayer::Configure(
 				}
 			}
 
-			// If a prior Flush(shouldTearDown=1) put the state machine in
-			// FLUSHING, advance it back to SOURCES_ATTACHED so it does not
-			// stay stuck there indefinitely.  The pipeline and sources are
-			// still live; we replay the state sequence synchronously without
-			// touching the Rialto pipeline or source objects.
-			if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
-			{
-				AAMPLOG_INFO("State machine in FLUSHING — advancing to "
-					"SOURCES_ATTACHED via synthetic state sequence");
-				m_stateMachine.onReconfigure();       // FLUSHING → IDLE
-				m_stateMachine.onPipelineLoaded();    // IDLE → PIPELINE_CREATED
-				m_stateMachine.onSourceAttaching();   // PIPELINE_CREATED → SOURCES_ATTACHING
-				m_stateMachine.onAllSourcesAttached();// SOURCES_ATTACHING → SOURCES_ATTACHED
-			}
-
 			AAMPLOG_INFO("EXIT — source set unchanged, skipping pipeline recreation");
 			return;
 		}
@@ -1147,10 +1132,21 @@ void AampRialtoPlayer::SignalTrickModeDiscontinuity()
 void AampRialtoPlayer::SeekStreamSink(double position, double rate)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%f", position, rate);
-	// shouldTearDown is set to false, because in case of a new tune pipeline
-	// might not be in a playing/paused state which causes Flush() to destroy
-	// pipeline. This has to be avoided.
-	Flush(position, static_cast<int>(rate), false);
+
+	if (m_pipeline)
+	{
+		// Convert position from seconds to nanoseconds for Rialto API
+		const int64_t positionNs = static_cast<int64_t>(position * 1'000'000'000LL);
+		if (!m_pipeline->setPosition(positionNs))
+		{
+			AAMPLOG_WARN("setPosition failed for position=%.3f s (%" PRId64 " ns)",
+			             position, positionNs);
+		}
+	}
+
+	// Store rate for GetPositionMilliseconds() calculations
+	m_rate.store(static_cast<int>(rate), std::memory_order_relaxed);
+
 	AAMPLOG_INFO("EXIT");
 }
 
@@ -1342,11 +1338,13 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				m_notifiable->LogTuneComplete();
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
 				m_notifiable->NotifyFirstFrameReceived(/*ccDecoderHandle=*/0);
+				m_notifiable->NotifyFirstVideoFrameDisplayed();
 			}
 			else if (m_notifiable->GetState() == eSTATE_SEEKING)
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
 				m_notifiable->NotifyFirstFrameReceived(/*ccDecoderHandle=*/0);
+				m_notifiable->NotifyFirstVideoFrameDisplayed();
 			}
 			else
 			{

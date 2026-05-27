@@ -1060,46 +1060,51 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // ===========================================================================
-// SeekStreamSink — Wrapper for Flush with shouldTearDown=false
+// SeekStreamSink — Uses pipeline->setPosition() to seek
 // ===========================================================================
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	SeekStreamSink_CallsFlushForEachAttachedSource)
+	SeekStreamSink_CallsSetPositionWithCorrectValue)
 {
 	Configure();
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	// SeekStreamSink should call Flush with shouldTearDown=false,
-	// which in turn calls pipeline->flush() for each attached source.
-	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);
-	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);
+	// SeekStreamSink should call pipeline->setPosition() with position in nanoseconds.
+	// position = 10.5 seconds = 10,500,000,000 nanoseconds
+	const int64_t expectedPosNs = 10'500'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
 
 	m_player->SeekStreamSink(10.5, 1.0);
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	SeekStreamSink_TrickplayRate_CallsFlushWithCorrectRate)
+	SeekStreamSink_TrickplayRate_CallsSetPositionAndStoresRate)
 {
 	Configure();
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);
-	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);
+	// position = 20.0 seconds = 20,000,000,000 nanoseconds
+	const int64_t expectedPosNs = 20'000'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
 
 	m_player->SeekStreamSink(20.0, 4.0);
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	SeekStreamSink_ReverseRate_CallsFlushWithNegativeRate)
+	SeekStreamSink_ReverseRate_CallsSetPosition)
 {
 	Configure();
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);
-	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);
+	// position = 15.0 seconds = 15,000,000,000 nanoseconds
+	const int64_t expectedPosNs = 15'000'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
 
 	m_player->SeekStreamSink(15.0, -2.0);
 }
@@ -1268,6 +1273,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(/*ccHandle=*/0UL))
 		.Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstVideoFrameDisplayed()).Times(1);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
@@ -1299,6 +1305,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(0UL)).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstVideoFrameDisplayed()).Times(1);
 	EXPECT_CALL(m_mockNotifiable, LogFirstFrame()).Times(0);
 	EXPECT_CALL(m_mockNotifiable, LogTuneComplete()).Times(0);
 
@@ -2488,17 +2495,18 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Configure_Trickplay_ExitsFlushingState)
+	Configure_Trickplay_FlushingStateRespondsToRialtoCallbacks)
 {
 	/**
 	 * @brief Regression: Bug A from L2 TESTDATA0 rewind failure.
 	 *
 	 * The sequence Flush(shouldTearDown=1) → Configure(audio=INVALID)
-	 * must not leave the state machine stuck in FLUSHING.  The FLUSHING
-	 * state only exits via onSourceAttaching(), onReconfigure(), or
-	 * onStop(); without the fix Configure() returned early and the state
-	 * machine stayed in FLUSHING indefinitely, preventing the player from
-	 * responding to Rialto's PLAYING callback and blocking all display.
+	 * previously left the state machine stuck in FLUSHING, unable to
+	 * respond to Rialto's playback state callbacks.
+	 *
+	 * Fix: FlushingState now handles onPlaybackStarted() and
+	 * onPlaybackPaused(), so it can transition to PLAYING or PAUSED
+	 * when Rialto sends those notifications.
 	 */
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
@@ -2524,9 +2532,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
-	// State machine must have advanced to SOURCES_ATTACHED, not FLUSHING.
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED)
-		<< "State machine must exit FLUSHING after trickplay Configure()";
+	// State machine stays in FLUSHING (no pipeline recreation, no state change).
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "State machine stays in FLUSHING when Configure() doesn't recreate pipeline";
+
+	// Verify the FIX: FlushingState responds to Rialto PLAYING callback.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING)
+		<< "FlushingState must transition to PLAYING when Rialto sends PLAYING";
 }
 
 TEST_F(AampRialtoPlayerTest,

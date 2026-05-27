@@ -46,6 +46,12 @@ void PrivateInstanceAAMPNotifiable::NotifyFirstBufferProcessed(
 	m_aamp->NotifyFirstBufferProcessed(videoRectangle);
 }
 
+void PrivateInstanceAAMPNotifiable::NotifyFirstVideoFrameDisplayed()
+{
+	AAMPLOG_TRACE("NotifyFirstVideoFrameDisplayed");
+	m_aamp->NotifyFirstVideoFrameDisplayed();
+}
+
 void PrivateInstanceAAMPNotifiable::LogFirstFrame()
 {
 	AAMPLOG_TRACE("LogFirstFrame");
