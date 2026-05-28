@@ -6096,7 +6096,7 @@ TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrection_StartsMonito
 	testp_aamp->SetIsLiveStream(true);
 
 	// Wire up stream abstraction so IsAtLivePoint() returns true.
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
 
 	// Ensure normal play rate (should be the default, but set explicitly).
@@ -6121,7 +6121,7 @@ TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrectionDisabled_Does
 {
 	testp_aamp->SetIsLive(true);
 	testp_aamp->SetIsLiveStream(true);
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
 	testp_aamp->rate = AAMP_NORMAL_PLAY_RATE;
 
