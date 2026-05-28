@@ -213,7 +213,7 @@ public:
 	/**
 		 * @fn ResetFirstFrame
 		 */
-	void ResetFirstFrame(void);
+	void ResetFirstFrame(void) override;
 	/**
 		 * @fn SetVideoMute
 		 * @param[in] muted true to mute video otherwise false
@@ -368,14 +368,14 @@ public:
    	 * @param[in] newAamp - pointer to new instance of PrivateInstanceAAMP
 	 * @param[in] id3HandlerCallback - the id3 callback handle associated with this instance of PrivateInstanceAAMP
 	 */
-	void ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback);
+	void ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback) override;
 
 	/**
 	 * @fn IsAssociatedAamp
 	 * @brief Check if the specified player is associated with the pipeline
    	 * @param[in] aampInstance - pointer to new instance of PrivateInstanceAAMP
 	 */
-	bool IsAssociatedAamp(PrivateInstanceAAMP *aampInstance);
+	bool IsAssociatedAamp(PrivateInstanceAAMP *aampInstance) override;
 
 	/**
 	 * @fn GetEncryptedAampId
@@ -388,7 +388,7 @@ public:
 	 * @fn SetEncryptedAamp
    	 * @param[in] aamp - Pointer to the instance of PrivateInstanceAAMP that has the encrypted content
 	 */
-	void SetEncryptedAamp(PrivateInstanceAAMP *aamp);
+	void SetEncryptedAamp(PrivateInstanceAAMP *aamp) override;
 
 	/**
 	 * @fn SignalSubtitleClock
