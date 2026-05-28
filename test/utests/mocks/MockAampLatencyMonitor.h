@@ -36,6 +36,8 @@ class MockAampLatencyMonitor
 {
 public:
 	MOCK_METHOD(double, GetAccumulatedLatencyIncrementMs, (), (const));
+	MOCK_METHOD(void, Start, (const LatencyConfig &config));
+	MOCK_METHOD(void, EnableRateCorrection, (bool enabled));
 };
 
 extern std::shared_ptr<MockAampLatencyMonitor> g_mockAampLatencyMonitor;

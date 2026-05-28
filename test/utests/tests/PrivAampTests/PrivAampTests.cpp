@@ -58,6 +58,7 @@
 #include "MockIsoBmffBuffer.h"
 #include "MockAampLatencyMonitor.h"
 #include "AampDefine.h"
+#include "MockAampLatencyMonitor.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -184,6 +185,7 @@ class PrivAampPrivTests : public ::testing::Test
 		g_mockAampJsonObject = std::make_shared<NiceMock<MockAampJsonObject>>();
 		g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(testp_aamp);
 		g_mockTSBStore = std::make_shared<NiceMock<MockTSBStore>>();
+		g_mockAampLatencyMonitor = std::make_shared<NiceMock<MockAampLatencyMonitor>>();
 	}
 
 	void TearDown() override
@@ -214,6 +216,7 @@ class PrivAampPrivTests : public ::testing::Test
 		delete testp_aamp;
 		testp_aamp = nullptr;
 
+		g_mockAampLatencyMonitor.reset();
 	}
 
 	class TestablePrivAamp : public PrivateInstanceAAMP
@@ -388,6 +391,10 @@ public:
 	bool CallCheckForChunkEarlyAbort(CurlCallbackContext *context)
 	{
 		return CheckForChunkEarlyAbort(context);
+	}
+	void CallStartLatencyMonitor()
+	{
+		StartLatencyMonitor();
 	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
@@ -1381,42 +1388,6 @@ TEST_F(PrivAampTests,GetVideoPTSTest)
 	uint64_t videoPTS = p_aamp->GetVideoPTS();
 
 	EXPECT_EQ(videoPTS,0);
-}
-TEST_F(PrivAampTests,WakeupLatencyCheckTest)
-{
-	p_aamp->WakeupLatencyCheck();
-}
-TEST_F(PrivAampTests,TimedWaitForLatencyCheckTest)
-{
-	int timeInMs = 10;
-	p_aamp->TimedWaitForLatencyCheck(timeInMs);
-
-	// below are stress level test case
-	p_aamp->TimedWaitForLatencyCheck(0);
-	p_aamp->TimedWaitForLatencyCheck(100);
-	p_aamp->TimedWaitForLatencyCheck(500);
-	p_aamp->TimedWaitForLatencyCheck(-10);
-	p_aamp->TimedWaitForLatencyCheck(-12355);
-	p_aamp->TimedWaitForLatencyCheck(1235);
-
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-}
-
-TEST_F(PrivAampTests,StopRateCorrectionWorkerThreadTest)
-{
-	p_aamp->StartRateCorrectionWorkerThread();
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-
-	p_aamp->StopRateCorrectionWorkerThread();
-	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
-}
-
-TEST_F(PrivAampTests,RateCorrectionWorkerThreadTest1)
-{
-	p_aamp->RateCorrectionWorkerThread();
-
-	EXPECT_NE(p_aamp->mCorrectionRate,0);
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
 }
 
 TEST_F(PrivAampTests,MonitorProgressTest1)
@@ -2804,27 +2775,6 @@ TEST_F(PrivAampTests,SendMessageOverPipeTest)
 	p_aamp->SendMessageOverPipe(str,25);
 }
 
-TEST_F(PrivAampTests, TuneHelperTest)
-{
-	TuneType tuneType=eTUNETYPE_SEEK;
-	p_aamp->mEncryptedPeriodFound = true;
-	p_aamp->mPipelineIsClear = true;
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
-
-	tuneType=eTUNETYPE_SEEKTOEND;
-	p_aamp->TuneHelper(tuneType,true);
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
-}
-
-TEST_F(PrivAampTests, TuneHelperTest_1)
-{
-	TuneType tuneType=eTUNETYPE_LAST;
-	p_aamp->TuneHelper(tuneType,true);
-
-	tuneType=eTUNETYPE_NEW_NORMAL;
-	p_aamp->TuneHelper(tuneType,true);
-	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
-}
 
 TEST_F(PrivAampTests, TuneHelperTest_2)
 {
@@ -6134,3 +6084,55 @@ TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsTrue_WhenAbove
 
 	EXPECT_TRUE(p_aamp->IsLatencyExceedingTrickplayThreshold());
 }
+
+/**
+ * @brief Verify StartLatencyMonitor() starts the monitor when
+ *        enableLiveLatencyCorrection is true.
+ */
+TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrection_StartsMonitor)
+{
+	// Make the stream appear live.
+	testp_aamp->SetIsLive(true);
+	testp_aamp->SetIsLiveStream(true);
+
+	// Wire up stream abstraction so IsAtLivePoint() returns true.
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+
+	// Ensure normal play rate (should be the default, but set explicitly).
+	testp_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// eAAMPConfig_EnableLiveLatencyRateCorrection returns true → liveLatencyCorrection = true.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLiveLatencyRateCorrection))
+		.WillRepeatedly(Return(true));
+
+	// Expect the latency monitor Start() to be called exactly once.
+	EXPECT_CALL(*g_mockAampLatencyMonitor, Start(_)).Times(1);
+
+	testp_aamp->CallStartLatencyMonitor();
+	testp_aamp->mpStreamAbstractionAAMP = nullptr;
+}
+
+/**
+ * @brief Verify StartLatencyMonitor() does not start the monitor when
+ *        enableLiveLatencyCorrection is false.
+ */
+TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrectionDisabled_DoesNotStartMonitor)
+{
+	testp_aamp->SetIsLive(true);
+	testp_aamp->SetIsLiveStream(true);
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP->mIsAtLivePoint = true;
+	testp_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// live-latency correction disabled.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLiveLatencyRateCorrection))
+		.WillRepeatedly(Return(false));
+
+	// Start() must NOT be called since the config flag is off.
+	EXPECT_CALL(*g_mockAampLatencyMonitor, Start(_)).Times(0);
+
+	testp_aamp->CallStartLatencyMonitor();
+	testp_aamp->mpStreamAbstractionAAMP = nullptr;
+}
+

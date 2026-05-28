@@ -594,7 +594,6 @@ public:
 	 * @brief To Load New subtitle on seamless subtitle switch
 	 */
 	void LoadNewSubtitle(bool val);
-
 	/**
 	 * @brief To set Track's Fetch and Inject duration after playlist update
 	 */
@@ -721,10 +720,9 @@ protected:
 
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
+	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
+
 private:
-	bool gotLocalTime;
-	bool ptsRollover;
-	long long currentLocalTimeMs;
 	
 	/**
 	 * @fn GetBufferHealthStatusString
@@ -741,8 +739,6 @@ private:
 	 * @param[in] cachedFragment - fragment to be restamped for trickmodes
 	 */
 	void TrickModePtsRestamp(CachedFragment* cachedFragment);
-
-	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
 
 	/**
 	 * @fn TrickModePtsRestamp
@@ -1431,6 +1427,7 @@ public:
 	bool hasDrm;                            /**< denotes if the current asset is DRM protected*/
 
 	bool mIsAtLivePoint;                    /**< flag that denotes if playback is at live point*/
+	bool mSavedLatencyMonitorState ; /**< Saved latency monitor state before audio/subtitle track switch; used to restore only if it was active prior to the switch */
 
 	bool mIsPlaybackStalled;                /**< flag that denotes if playback was stalled or not*/
 	bool mNetworkDownDetected;              /**< Network down status indicator */
