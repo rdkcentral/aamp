@@ -3124,13 +3124,13 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 /**
  * @brief To change the the gstreamer pipeline to pause/play
  */
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
 	bool ret_val = true;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		if (true != sink->Pause(pause, forceStopGstreamerPreBuffering))
+		if (true != sink->Pause(pause, forceStopPreBuffering))
 		{
 			ret_val = false;
 		}

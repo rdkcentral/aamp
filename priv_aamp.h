@@ -735,10 +735,10 @@ public:
 	 * @fn PausePipeline
 	 *
 	 * @param[in] pause - true for pause and false for play
-	 * @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
+	 * @param[in] forceStopPreBuffering - true for disabling buffer-in-progress
 	 * @return true on success
 	 */
-	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
+	bool PausePipeline(bool pause, bool forceStopPreBuffering);
 
 	/**
 	 * @fn SetBufferingState
