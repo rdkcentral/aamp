@@ -139,7 +139,7 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 StreamSink* AampStreamSinkManager::CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames)
 {
 	StreamSink *sink = nullptr;
-	if (ISCONFIGSET(eAAMPConfig_useRialtoDirect))
+	if (ISCONFIGSET(eAAMPConfig_useDirectRialto))
 	{
 		AAMPLOG_ERR("Creating AampRialtoPlayer not yet supported");
 	}
