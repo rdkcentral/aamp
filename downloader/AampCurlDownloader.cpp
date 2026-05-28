@@ -356,7 +356,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 								mDownloadResponse->iHttpRetValue >= 500 ))
 						{
 							AAMPLOG_WARN("Download failed due to Server error http-%d numDownloadAttempts %d numRetriesAllowed %d",mDownloadResponse->iHttpRetValue,numDownloadAttempts,numRetriesAllowed);
-							int retryDelayMs = (mDownloadResponse->iHttpRetValue == 502) ? MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS : mDnldCfg->iDownloadRetryWaitMs;
+							int retryDelayMs = (mDownloadResponse->iHttpRetValue == 502) ? mDnldCfg->iDownload502RetryWaitMs : mDnldCfg->iDownloadRetryWaitMs;
 							std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
 							loopAgain = true; //retry on manifest download failure
 							// In the unlikely event that we get http failure status and also a http body then the
