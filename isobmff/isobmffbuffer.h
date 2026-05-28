@@ -250,7 +250,10 @@ public:
 	 size_t & parsedBufferSize, size_t &unParsedBufferSize, double& fpts, double &fduration);
 
 	/**
-	 * @fn restampPTS - obsolete, to be removed
+	 * @fn restampPTS
+	 *
+	 * @brief Legacy restamp API kept for compatibility with existing processor
+	 *        call paths. Prefer restampPts() for new parser callers.
 	 *
 	 * @param[in] offset - pts offset
 	 * @param[in] basePts - base pts
@@ -409,14 +412,14 @@ public:
 	/**
 	 * @fn getChunkedfBox
 	 *
-	 * @return Box handle if Chunk box found in a parsed buffer. NULL otherwise
+	 * @return Box handle if Chunk box found in a parsed buffer. nullptr otherwise
 	 */
 	Box* getChunkedfBox() const;
 
 	/**
 	 * @fn getParsedBoxes
 	 *
-	 * @return Box handle list if Box found at index given. NULL otherwise
+	 * @return Box handle list if Box found at index given. nullptr otherwise
 	 */
 	std::vector<std::unique_ptr<Box>> *getParsedBoxes();
 
@@ -425,14 +428,14 @@ public:
 	 * @param[in] name - box name to get
 	 * @param[in,out] index - index of box in a parsed buffer;
 	 *                   in: start index to search, out: index of the box found
-	 * @return Box handle if Box found at index given. NULL otherwise
+	 * @return Box handle if Box found at index given. nullptr otherwise
 	 */
 	Box* getBox(const char *name, size_t &index);
 
 	/**
 	 * @fn getBoxAtIndex
 	 * @param[out] index - index of box in a parsed buffer
-	 * @return Box handle if Box found at index given. NULL otherwise
+	 * @return Box handle if Box found at index given. nullptr otherwise
 	 */
 	Box* getBoxAtIndex(size_t index);
 
@@ -443,7 +446,7 @@ public:
 	 * @param[in out] index - index of box in a parsed buffer
 	 * in: start index to search, out: index of the box found
 	 * index should be 0 for the first call; if subsequent boxes are to be found, index should set to be 1 + the last index returned
-	 * @return Box handle if Box found at index given. NULL otherwise
+	 * @return Box handle if Box found at index given. nullptr otherwise
 	 */
 	Box* getChildBox(Box *parent, const char *name, size_t &index);
 
