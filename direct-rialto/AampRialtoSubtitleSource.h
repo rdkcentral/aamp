@@ -110,22 +110,6 @@ protected:
 	int64_t refineDisplayOffset(
 		const AampMediaSample &sample, int64_t displayOffsetMs) override;
 
-	/**
-	 * @brief Forward the TTML display offset to the Rialto pipeline once.
-	 *
-	 * Calls IMediaPipeline::setSubtitleOffset(sourceId, offsetNs) the
-	 * first time a positive @p displayOffsetMs is available.  This causes
-	 * GstTextTrackSink to add the offset when it calls
-	 * TextTrackSession::setPosition(), so that the TextTrack session clock
-	 * matches the absolute TTML cue timestamps on BBC-style linear
-	 * streams where PTS has been restamped to programme-relative time.
-	 *
-	 * Resets to "not yet sent" on processInitFragment() so that channel
-	 * changes and seeks pick up the new offset.
-	 */
-	void applyDisplayOffset(
-		firebolt::rialto::IMediaPipeline &pipeline,
-		int64_t displayOffsetMs) override;
 
 private:
 	StreamOutputFormat m_subtitleFormat{FORMAT_INVALID};
@@ -134,8 +118,6 @@ private:
 	/// true when the resolved codec is TTML (raw or stpp-in-MP4);
 	/// false for WebVTT (raw or wvtt-in-MP4) which needs no correction.
 	bool               m_applyTextTransform{false};
-	/// true once setSubtitleOffset has been sent for this session.
-	bool               m_subtitleOffsetSet{false};
 };
 
 #endif /* AAMP_RIALTO_SUBTITLE_SOURCE_H */

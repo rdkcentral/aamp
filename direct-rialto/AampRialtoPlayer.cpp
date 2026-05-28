@@ -362,6 +362,24 @@ void AampRialtoPlayer::Configure(
 			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
 			AAMPLOG_INFO("Created subtitle source (format=%d)", static_cast<int>(subFormat));
+
+			// For raw subtitle formats (TTML/WebVTT) there is no MP4 init
+			// segment, so no AampMp4Demuxer is created and SetStreamCaps
+			// is never called for subtitle.  Queue the source attachment
+			// here so it fires once video attaches (same deferred path as
+			// audio).  FORMAT_SUBTITLE_MP4 is handled via the demuxer
+			// updateCachedMetadata → SetStreamCaps path as before.
+			if (subFormat == FORMAT_SUBTITLE_TTML ||
+			    subFormat == FORMAT_SUBTITLE_WEBVTT)
+			{
+				MediaCodecInfo ci{};
+				ci.mCodecFormat = (subFormat == FORMAT_SUBTITLE_TTML)
+				                  ? GST_FORMAT_SUBTITLE_TTML
+				                  : GST_FORMAT_SUBTITLE_WEBVTT;
+				AAMPLOG_INFO("Queueing subtitle attachment for raw format=%d",
+					static_cast<int>(subFormat));
+				AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
+			}
 		}
 	}
 

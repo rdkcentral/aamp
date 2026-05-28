@@ -404,10 +404,16 @@ bool AampRialtoMediaSource::injectOneSample(
 			static_cast<uint32_t>(sample.mDataSize),
 			sample.mData.get());
 
+		// For subtitle, carry the display offset on every buffer so
+		// GstTextTrackSink::render() shifts TTML absolute timestamps
+		// to programme-relative time: sendData(text, 0 - offsetMs).
+		// Matches InterfacePlayerRDK: GST_BUFFER_OFFSET = -(mPtsOffset_s*1000).
+		// Value is milliseconds -- server reads GST_BUFFER_OFFSET directly as ms.
 		if (mediaType() == eMEDIATYPE_SUBTITLE && displayOffsetMs > 0)
 		{
-			segment->setDisplayOffset(
-				static_cast<uint64_t>(displayOffsetMs * 1'000'000LL));
+			AAMPLOG_INFO("subtitle setDisplayOffset sourceId=%d displayOffsetMs=%" PRId64,
+				sourceId(), displayOffsetMs);
+			segment->setDisplayOffset(displayOffsetMs);
 		}
 
 		auto addStatus = pipeline.addSegment(reqId, segment);
@@ -687,9 +693,6 @@ bool AampRialtoMediaSource::processDataFragment(
 			// Allow subtitle (and future) subclasses to refine the
 			// display offset from the TTML payload of the first sample.
 			displayOffsetMs = refineDisplayOffset(s, displayOffsetMs);
-			// Notify subclass once the final offset is known so that
-			// subtitle sources can call setSubtitleOffset.
-			applyDisplayOffset(pipeline, displayOffsetMs);
 		}
 		firstSample = false;
 		if (!injectOneSample(pipeline, capturedGen, std::move(s), codecData, displayOffsetMs))
@@ -723,9 +726,6 @@ bool AampRialtoMediaSource::injectSingleSample(
 	// Allow subtitle (and future) subclasses to refine the display offset
 	// from the sample payload before the sample is moved into injection.
 	displayOffsetMs = refineDisplayOffset(sample, displayOffsetMs);
-	// Notify subclass once the final offset is known so that subtitle
-	// sources can call setSubtitleOffset.
-	applyDisplayOffset(pipeline, displayOffsetMs);
 	return injectOneSample(
 		pipeline, capturedGen, std::move(sample), pendingCodecData, displayOffsetMs);
 }

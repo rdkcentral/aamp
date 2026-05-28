@@ -4173,10 +4173,17 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			else
 			{
 				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
-				//if (i != eMEDIATYPE_SUBTITLE)
-				// For the RialtoDirect path, subtitle MP4 fragments must also be
-				// demuxed externally so samples arrive via SendSample (not SendTransfer).
-				if (i != eMEDIATYPE_SUBTITLE || ISCONFIGSET(eAAMPConfig_useRialtoDirect))
+				// For the RialtoDirect path, subtitle MP4 fragments are demuxed
+				// externally so samples arrive via SendSample (not SendTransfer).
+				// Raw TTML/WebVTT have no MP4 container and no init segment, so
+				// AampMp4Demuxer must NOT be used for them — data arrives via
+				// InjectFragmentChunkInternal → SendTransfer directly, and
+				// AampRialtoPlayer::Configure() queues the source attachment.
+				const bool needsDemuxer =
+					(i != eMEDIATYPE_SUBTITLE) ||
+					(ISCONFIGSET(eAAMPConfig_useRialtoDirect) &&
+					 subtitleFormat == FORMAT_SUBTITLE_MP4);
+				if (needsDemuxer)
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
 				}

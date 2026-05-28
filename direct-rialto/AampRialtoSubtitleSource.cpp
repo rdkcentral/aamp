@@ -97,8 +97,8 @@ void AampRialtoSubtitleSource::updateCachedMetadata(
 	// the external AampMp4Demuxer (not processInitFragment, which is only
 	// exercised via the SendTransfer path that subtitle never uses).
 	// This is the only reliable point at which we know the inner codec;
-	// set m_applyTextTransform so that refineDisplayOffset / applyDisplayOffset
-	// can correct the absolute TTML timestamps on the first data sample.
+	// set m_applyTextTransform so that refineDisplayOffset can compute
+	// the per-buffer displayOffset used by setDisplayOffset() in injectOneSample.
 	const auto fmt = codecInfo.mCodecFormat;
 	const bool apply = (fmt == GST_FORMAT_SUBTITLE_TTML ||
 	                    fmt == GST_FORMAT_SUBTITLE_MP4);
@@ -141,8 +141,6 @@ std::optional<MediaCodecInfo> AampRialtoSubtitleSource::processInitFragment(
 	// the new stream (channel changes and seeks).
 	m_textTransform.reset();
 	m_applyTextTransform = false;
-	// Reset so that the new stream's setSubtitleOffset is sent fresh.
-	m_subtitleOffsetSet  = false;
 
 	std::optional<MediaCodecInfo> result;
 
@@ -204,20 +202,3 @@ int64_t AampRialtoSubtitleSource::refineDisplayOffset(
 		ptsMs, displayOffsetMs, durationMs);
 }
 
-// ---------------------------------------------------------------------------
-// applyDisplayOffset
-// ---------------------------------------------------------------------------
-
-void AampRialtoSubtitleSource::applyDisplayOffset(
-	firebolt::rialto::IMediaPipeline &pipeline, int64_t displayOffsetMs)
-{
-	if (m_subtitleOffsetSet || displayOffsetMs <= 0)
-	{
-		return;
-	}
-	m_subtitleOffsetSet = true;
-	const int64_t offsetNs = displayOffsetMs * 1'000'000LL;
-	AAMPLOG_INFO("setSubtitleOffset sourceId=%d offsetMs=%" PRId64
-		" offsetNs=%" PRId64, sourceId(), displayOffsetMs, offsetNs);
-	pipeline.setSubtitleOffset(sourceId(), offsetNs);
-}

@@ -390,23 +390,6 @@ protected:
 		return displayOffsetMs;
 	}
 
-	/**
-	 * @brief Called once after the first valid display offset is derived.
-	 *
-	 * Invoked from processDataFragment and injectSingleSample after
-	 * refineDisplayOffset returns a positive value.  The default is a
-	 * no-op; AampRialtoSubtitleSource overrides this to call
-	 * IMediaPipeline::setSubtitleOffset so that GstTextTrackSink uses
-	 * the correct absolute TTML position when advancing the TextTrack
-	 * session clock.
-	 *
-	 * @param pipeline        The active Rialto media pipeline.
-	 * @param displayOffsetMs The finalised display offset (milliseconds,
-	 *                        always positive when called).
-	 */
-	virtual void applyDisplayOffset(
-		firebolt::rialto::IMediaPipeline & /*pipeline*/,
-		int64_t /*displayOffsetMs*/) {}
 
 	// -----------------------------------------------------------------
 	// Members
