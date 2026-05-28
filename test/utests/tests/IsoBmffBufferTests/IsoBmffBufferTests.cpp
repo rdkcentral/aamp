@@ -207,6 +207,42 @@ TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsMutation)
 	EXPECT_FALSE(mIsoBmffBuffer->setMediaHeaderDuration(0));
 }
 
+TEST_F(IsoBmffBufferTests, malformedSmallTopLevelBoxSizeReturnsFalse)
+{
+	std::vector<uint8_t> malformedSegment {
+		0x00, 0x00, 0x00, 0x04,
+		'm', 'o', 'o', 'f'
+	};
+
+	mIsoBmffBuffer->setBuffer(malformedSegment.data(), malformedSegment.size());
+	EXPECT_FALSE(mIsoBmffBuffer->parseBuffer());
+	EXPECT_EQ(mIsoBmffBuffer->getParsedBoxesSize(), 0u);
+}
+
+TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsRestampPtsMutation)
+{
+	uint64_t firstPtsBefore = 0;
+	uint64_t firstPtsAfter = 0;
+	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> segment;
+	if (!result.first.empty())
+	{
+		segment = result.first;
+	}
+
+	mIsoBmffBuffer->setBuffer(static_cast<const std::vector<uint8_t>&>(segment));
+	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
+	ASSERT_TRUE(mIsoBmffBuffer->getFirstPTS(firstPtsBefore));
+
+	mIsoBmffBuffer->restampPts(1000);
+	mIsoBmffBuffer->destroyBoxes();
+	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
+	ASSERT_TRUE(mIsoBmffBuffer->getFirstPTS(firstPtsAfter));
+
+	EXPECT_EQ(firstPtsAfter, firstPtsBefore);
+}
+
 /**
  * @brief Test PTS restamp with offset 0
  *        Test the PTS restamp method with an offset value of 0.
