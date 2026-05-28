@@ -140,7 +140,16 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 		auto box = Box::constructBox(const_cast<uint8_t *>(buffer + curOffset),
 			(uint32_t)remaining, correctBoxSize, newTrackId);
 		const uint32_t boxSize = box->getSize();
-		if (boxSize < minHeaderSize || boxSize > remaining)
+		if (boxSize > remaining)
+		{
+			AAMPLOG_WARN("Declared box size[%u] exceeds remaining[%zu] at offset %zu; marking as chunked",
+				boxSize, remaining, curOffset);
+			box->setOffset((uint32_t)curOffset);
+			chunkedBox = box.get();
+			boxes.push_back(std::move(box));
+			break;
+		}
+		if (boxSize < minHeaderSize)
 		{
 			AAMPLOG_WARN("Invalid box size[%u] at offset %zu (remaining %zu); stopping parse",
 				boxSize, curOffset, remaining);
@@ -755,7 +764,7 @@ Box* IsoBmffBuffer::getChunkedfBox() const
 /**
  *  @brief Get list of box handles in a parsed buffer
  */
-std::vector<std::unique_ptr<Box>> *IsoBmffBuffer::getParsedBoxes()
+const std::vector<std::unique_ptr<Box>> *IsoBmffBuffer::getParsedBoxes() const
 {
 	return &this->boxes;
 }
@@ -789,7 +798,7 @@ bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, 
  */
 int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
 {
-	std::vector<std::unique_ptr<Box>> *pBoxes = getParsedBoxes();
+	const std::vector<std::unique_ptr<Box>> *pBoxes = getParsedBoxes();
 	size_t mdatCount;
 	int lastMDatIndex = -1;
 	getMdatBoxCount(mdatCount);
@@ -826,7 +835,7 @@ uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
 {
 	uint64_t totalChunkDuration = 0;
 	uint64_t fDuration = 0;
-	std::vector<std::unique_ptr<Box>> *pBoxes = getParsedBoxes();
+	const std::vector<std::unique_ptr<Box>> *pBoxes = getParsedBoxes();
 	for(int i=0;i<lastMDatIndex;i++)
 	{
 		Box *box = pBoxes->at(i).get();

@@ -191,7 +191,7 @@ uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
 	}
 }
 
-std::vector<std::unique_ptr<Box>> *IsoBmffBuffer::getParsedBoxes()
+const std::vector<std::unique_ptr<Box>> *IsoBmffBuffer::getParsedBoxes() const
 {
     return nullptr;
 }

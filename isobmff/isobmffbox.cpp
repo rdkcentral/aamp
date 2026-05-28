@@ -196,7 +196,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		{
 			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",
 				type, size, maxSz);
-			return std::make_unique<Box>(maxSz, (const char *)type);
+			return std::make_unique<Box>(size, (const char *)type);
 		}
 	}
 	else if (IS_TYPE(type, MOOV))
@@ -869,6 +869,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 	}
 	else if(0 == version)
 	{
+		bool malformedValueField{false};
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
 		if(schemeIdLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdLen))
 		{
@@ -882,10 +883,29 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 				READ_U8(schemeIdValue, ptr, schemeIdValueLen);
 				remainingSize -= (sizeof(uint8_t) * schemeIdValueLen);
 			}
+			else
+			{
+				AAMPLOG_WARN("Malformed emsg v0: invalid value field terminator");
+				malformedValueField = true;
+			}
 		}
 		else
 		{
 			AAMPLOG_WARN("Malformed emsg v0: invalid schemeIdUri field");
+			malformedValueField = true;
+		}
+
+		if (malformedValueField)
+		{
+			if (schemeId)
+			{
+				free(schemeId);
+			}
+			if (schemeIdValue)
+			{
+				free(schemeIdValue);
+			}
+			return new EmsgBox(fbox, 0, 0, 0, 0, 0);
 		}
 
 		if (!hasRemaining(sizeof(uint32_t) * 4, "version0 fixed fields"))

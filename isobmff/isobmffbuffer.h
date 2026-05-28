@@ -421,7 +421,7 @@ public:
 	 *
 	 * @return Box handle list if Box found at index given. nullptr otherwise
 	 */
-	std::vector<std::unique_ptr<Box>> *getParsedBoxes();
+	const std::vector<std::unique_ptr<Box>> *getParsedBoxes() const;
 
 	/**
 	 * @fn getBox
