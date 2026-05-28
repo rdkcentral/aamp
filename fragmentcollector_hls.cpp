@@ -5486,9 +5486,21 @@ void StreamAbstractionAAMP_HLS::NotifyFirstVideoPTS(unsigned long long pts, unsi
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 	if (sink)
 	{
-		// The pts_offset is expected to be in seconds for RialtoSink, so we convert it to GstClockTime (nanoseconds).
-				// For non-Rialto sinks, we need to convert the pts_offset to milliseconds to maintain consistency.
-		sink->SetSubtitlePtsOffset(mFirstPTS.inSeconds());
+		uint64_t ptsOffsetSecs = mFirstPTS.inSeconds();
+		if (ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
+		{
+			// When PTS restamping is active the subtitle MPEGTS values are set to
+			// m_total × 90000 (session-relative, starting at 0). The Rialto subtitle
+			// renderer subtracts the pts-offset from media_PTS to produce its display
+			// time, so the offset must also be in session-relative space. At session
+			// start m_total = 0 always (m_totalDurationForPtsRestamping is initialized
+			// 0.0 in the MediaTrack base constructor), so pass 0 unconditionally.
+			ptsOffsetSecs = 0U;
+		}
+		// ptsOffsetSecs is in seconds; SetSubtitlePtsOffset handles the
+		// unit conversion (GstClockTime/nanoseconds for RialtoSink,
+		// milliseconds for other sinks).
+		sink->SetSubtitlePtsOffset(ptsOffsetSecs);
 	}
 }
 
