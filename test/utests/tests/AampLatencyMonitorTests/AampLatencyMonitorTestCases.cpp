@@ -1017,7 +1017,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_MultipleSteps_ThresholdsReturnToBase)
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
 		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
-		/*bufToEnable=*/0.0, kStep, kMaxIncr, /*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+		/*bufToEnable=*/0.0, kStep, kMaxIncr, /*dangerBufferMs=*/1000.0, /*latencyStableSec=*/0.05));
 	ASSERT_TRUE(WaitForRunning());
 
 	// Accumulate maximum shift via 3 distinct episodes.
@@ -1038,10 +1038,10 @@ TEST_F(AampLatencyMonitorTest, Restoration_MultipleSteps_ThresholdsReturnToBase)
 	}
 
 	// Now keep buffer healthy so Run() drives 3 restoration cycles.
-	// Each cycle: Run() observes healthy buffer for >= latencyStableSec (5.0s) → one restore step.
-	// Wait long enough for all 3 windows to complete (3 * 5.0s + margin).
+	// Each cycle: Run() observes healthy buffer for >= latencyStableSec (0.05s) → one restore step.
+	// With monitorIntervalMs=5ms, each 50ms window needs ~10 polls.
 	bufSecs.store(5.0);
-	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS, 20000));
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS, 2000));
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
 	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
