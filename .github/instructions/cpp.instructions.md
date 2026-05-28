@@ -12,15 +12,23 @@ applyTo:
 
 ## C++ Guidelines
 
-- Target C++17 for new code. Use C++20+ features only when they are supported by the toolchain, clearly documented, and they provide a meaningful improvement in code quality.
-- Always follow the guidelines at [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
-- Highlight when existing code being studied does not follow the core guidelines and suggest improvements
+- The existing AAMP codebase is predominantly C++11. **All new production and L1 test code must target C++17.** Do not introduce C++20-only language or library features (e.g. `std::span`, concepts, ranges, `std::format`, coroutines) into the active codebase. C++20 may be referenced only as forward-looking context, clearly marked as non-current guidance.
+- Legacy C++11 patterns exist for compatibility and interoperability with surrounding APIs. They should not be copied into new code unless the surrounding API or architecture requires it.
+- Follow the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) where they do not conflict with repository-specific conventions in this directory.
+- When generating new code, follow this guidance directly. When reviewing
+  or editing existing code, apply this guidance to the lines being
+  changed; do not raise drive-by Core-Guidelines comments on unrelated
+  surrounding code unless the user asks for a broader review.
 - Discourage the use of C-style code within C++ (e.g. avoid memcpy(), memcmp() and char* for strings). Emphasise memory safety
 - Apply DRY (Don't Repeat Yourself) principles throughout the codebase
 - Ensure cyclomatic complexity is minimised both for new code and when refactoring
 - Use design patterns where possible
 - Use const correctness throughout the codebase
-- Prefer auto for type deduction when it improves readability
+- Use `auto` where it removes redundant type repetition (e.g. iterator
+  declarations, `std::make_unique` results, range-based `for` over
+  containers) or where the deduced type is obvious from the initializer.
+  Prefer an explicit type where it makes ownership, conversions, numeric
+  width, or the public API contract clearer to a reader.
 - Use constexpr for compile-time constants and functions when possible
 - Leverage range-based for loops and STL algorithms
 - Use explicit constructors to prevent implicit conversions
@@ -94,7 +102,8 @@ extern "C" {
 ### C++11 Features
 - Smart pointers (unique_ptr, shared_ptr, weak_ptr)
 - Range-based for loops
-- Auto keyword for type deduction
+- `auto` for type deduction (apply readability rules from the C++
+  Guidelines section above)
 - Lambda expressions
 - Move semantics and rvalue references
 - Initializer lists
@@ -114,6 +123,12 @@ extern "C" {
 - if constexpr for conditional compilation
 - std::string_view for efficient string handling
 
+### C++20 and Later (Not Currently Permitted in New Code)
+Features such as concepts, ranges, `std::span`, `std::format`, and
+coroutines are out of scope for active development. Do not propose them
+in new production or L1 test code. They are listed here only so reviewers
+recognise them as deliberately deferred, not omitted by oversight.
+
 ## Legacy Code Modernization Patterns
 
 ### Common Anti-patterns to Address
@@ -126,10 +141,32 @@ extern "C" {
 - void* for generic programming → Templates
 
 ### Refactoring Guidelines
-- When modifying existing functions, suggest modern C++ equivalents
-- Provide migration paths that maintain binary compatibility when needed
-- Highlight opportunities to reduce complexity through modern features
-- Suggest incremental improvements rather than complete rewrites
+- When modifying existing functions, suggest modern C++17 equivalents
+  that are **local to the change being made**.
+- Provide migration paths that maintain binary compatibility when needed.
+- Highlight opportunities to reduce complexity through modern features.
+- Suggest incremental improvements rather than complete rewrites.
+
+### Modernization Scope Discipline
+Modernization must be proportionate to the task at hand.
+
+**Encouraged (local, safe improvements):**
+- Applying RAII to a resource introduced or touched by the current change.
+- Replacing raw owning pointers with `std::unique_ptr` / `std::shared_ptr`
+  in code already being edited.
+- Swapping C-style buffers for STL containers (`std::string`,
+  `std::vector`) in functions under modification.
+- Tightening ownership and lifetime semantics on classes already in scope.
+
+**Discouraged:**
+- Opportunistic repository-wide rewrites unrelated to the current change.
+- Large stylistic refactors across files that are not otherwise modified.
+- Drive-by API changes that broaden the diff beyond the task description.
+- Modernization that alters observable behaviour without a clear test
+  strategy.
+
+When in doubt, prefer the smaller change. Larger refactors should be
+proposed as their own task with their own review.
 
 ## Memory Safety Patterns
 
@@ -165,9 +202,29 @@ private:
 
 ## Error Handling Patterns
 
-### Prefer Exceptions for Exceptional Cases
+### Exception Usage in AAMP
+
+AAMP runs on embedded targets and inside real-time media playback paths.
+Exception usage must be **conservative and consistent with surrounding
+code**. Do not introduce exceptions into hot playback, buffering, ABR, or
+GStreamer-callback paths where the existing convention is error codes,
+status enums, or `bool` return values.
+
+Guidelines:
+- Match the error-handling style of the surrounding module. Do not mix
+  paradigms within a single component.
+- Prefer explicit, predictable failure handling (return codes,
+  `std::optional`, status enums) on runtime/playback paths.
+- Reserve exceptions for genuinely exceptional construction-time or
+  configuration-time failures where the caller has no recovery path and
+  the surrounding code already uses exceptions.
+- Never throw across a C ABI boundary (GStreamer callbacks, `extern "C"`
+  entry points, ctypes-facing functions).
+- Ensure ownership of failure handling is explicit at the API boundary.
+
 ```cpp
-// Good: Use exceptions for truly exceptional situations
+// Acceptable: construction-time failure in a module that already uses
+// exceptions, with no viable recovery path for the caller.
 void parse_config(const std::string& filename) {
     std::ifstream file(filename);
     if (!file) {
@@ -328,9 +385,10 @@ result.reserve(estimated_size);  // Avoid reallocations
 ```
 
 ### Template Usage
-- Use templates for zero-cost abstractions
-- Prefer constexpr functions for compile-time computation
-- Use SFINAE or concepts to constrain templates appropriately
+- Use templates for zero-cost abstractions.
+- Prefer constexpr functions for compile-time computation.
+- Use SFINAE / `std::enable_if` / type traits to constrain templates.
+  C++20 concepts are not currently permitted in new code.
 
 ## Documentation Examples
 
