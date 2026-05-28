@@ -182,6 +182,14 @@ inline bool IS_TYPE(const uint8_t *value, const char *type)
 		(value[3] == static_cast<uint8_t>(type[3]));
 }
 
+inline bool IS_TYPE(const uint8_t *value, const uint8_t *type)
+{
+	return (value[0] == type[0]) &&
+		(value[1] == type[1]) &&
+		(value[2] == type[2]) &&
+		(value[3] == type[3]);
+}
+
 inline bool IS_TYPE(const char *value, const char *type)
 {
 	return (value[0] == type[0]) &&
