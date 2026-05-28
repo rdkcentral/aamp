@@ -125,16 +125,25 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, u
  */
 bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 {
+	const size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	size_t curOffset = 0;
 	while (curOffset < bufSize)
 	{
-		auto box = Box::constructBox(const_cast<uint8_t *>(buffer + curOffset),
-			(uint32_t)(bufSize - curOffset), correctBoxSize, newTrackId);
-		const uint32_t boxSize = box->getSize();
-		if (boxSize == 0)
+		const size_t remaining = bufSize - curOffset;
+		if (remaining < minHeaderSize)
 		{
-			AAMPLOG_WARN("Invalid box size 0 at offset %zu; stopping parse",
-				curOffset);
+			AAMPLOG_WARN("Trailing bytes[%zu] smaller than box header at offset %zu",
+				remaining, curOffset);
+			break;
+		}
+
+		auto box = Box::constructBox(const_cast<uint8_t *>(buffer + curOffset),
+			(uint32_t)remaining, correctBoxSize, newTrackId);
+		const uint32_t boxSize = box->getSize();
+		if (boxSize < minHeaderSize || boxSize > remaining)
+		{
+			AAMPLOG_WARN("Invalid box size[%u] at offset %zu (remaining %zu); stopping parse",
+				boxSize, curOffset, remaining);
 			break;
 		}
 		if( ((bufSize - curOffset) < 4) || ( (bufSize - curOffset) < box->getSize()) )
@@ -164,14 +173,31 @@ bool IsoBmffBuffer::parseMdatBox(uint8_t *buf, size_t &size)
 bool IsoBmffBuffer::parseBoxInternal(const std::vector<std::unique_ptr<Box>> *boxes,
 	const char *name, uint8_t *buf, size_t &size)
 {
+	if (buf == nullptr)
+	{
+		return false;
+	}
+
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
 		Box *box = boxes->at(i).get();
 		AAMPLOG_TRACE("Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
 		if (IS_TYPE(box->getType(), name))
 		{
+			if (box->getSize() < BOX_HEADER_SIZE)
+			{
+				AAMPLOG_WARN("Invalid %s box size[%u] smaller than header",
+					name, box->getSize());
+				return false;
+			}
 			size_t offset = box->getOffset() + BOX_HEADER_SIZE;
 			size = box->getSize() - BOX_HEADER_SIZE;
+			if (offset > bufSize || size > (bufSize - offset))
+			{
+				AAMPLOG_WARN("Invalid %s box bounds (offset %zu size %zu bufSize %zu)",
+					name, offset, size, bufSize);
+				return false;
+			}
 			memcpy(buf, buffer + offset, size);
 			return true;
 		}
@@ -216,14 +242,24 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 		return;
 	}
 
+	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	uint32_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
+		const uint32_t remaining = bufSz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Trailing bytes[%u] smaller than box header while restamping",
+				remaining);
+			break;
+		}
+
 		uint8_t *buf = segment + curOffset;
 		uint32_t size = READ_U32(buf);
-		if (size == 0)
+		if (size < minHeaderSize || size > remaining)
 		{
-			AAMPLOG_WARN("Invalid box size 0 while restamping PTS");
+			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %u)",
+				size, remaining);
 			break;
 		}
 		uint8_t type[5];
@@ -262,14 +298,24 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 
 void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
 {
+	const size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	size_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
+		const size_t remaining = bufSz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Trailing bytes[%zu] smaller than box header while restamping",
+				remaining);
+			break;
+		}
+
 		uint8_t *buf = segment + curOffset;
 		uint32_t size = READ_U32(buf);
-		if (size == 0)
+		if (size < minHeaderSize || size > remaining)
 		{
-			AAMPLOG_WARN("Invalid box size 0 while restamping PTS");
+			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %zu)",
+				size, remaining);
 			break;
 		}
 		uint8_t type[5];

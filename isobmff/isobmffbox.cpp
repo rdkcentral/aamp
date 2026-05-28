@@ -154,6 +154,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 {
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
+	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 
 	uint32_t size = 0;
 	uint8_t type[5];
@@ -175,6 +176,12 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		type[4] = '\0';
 	}
 
+	if (size < minHeaderSize)
+	{
+		AAMPLOG_WARN("Box[%s] has invalid small size[%u]", type, size);
+		return std::make_unique<Box>(size, (const char *)type);
+	}
+
 	if (size > maxSz)
 	{
 		if(correctBoxSize)
@@ -187,9 +194,9 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		}
 		else
 		{
-#ifdef AAMP_DEBUG_BOX_CONSTRUCT
-			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",type, size, maxSz);
-#endif
+			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",
+				type, size, maxSz);
+			return std::make_unique<Box>(maxSz, (const char *)type);
 		}
 	}
 	else if (IS_TYPE(type, MOOV))
@@ -333,15 +340,24 @@ GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const 
 {
 	GenericContainerBox *cbox = new GenericContainerBox(sz, btype);
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
+	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	while (curOffset < sz)
 	{
-		auto box = Box::constructBox(ptr, sz-curOffset, false, newTrackId);
+		const uint32_t remaining = sz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Container[%.4s] trailing bytes[%u] smaller than box header",
+				btype, remaining);
+			break;
+		}
+
+		auto box = Box::constructBox(ptr, remaining, false, newTrackId);
 		box->setOffset(curOffset);
 		const uint32_t boxSize = box->getSize();
-		if (boxSize == 0)
+		if (boxSize < minHeaderSize || boxSize > remaining)
 		{
-			AAMPLOG_WARN("Box size 0 for type[%s], stopping nested parse",
-				box->getType());
+			AAMPLOG_WARN("Invalid nested box size[%u] for type[%s], remaining[%u]",
+				boxSize, box->getType(), remaining);
 			break;
 		}
 		cbox->addChildren(std::move(box));
@@ -781,29 +797,51 @@ uint32_t EmsgBox::getMessageLen()
  */
 EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 {
+	const uint32_t fullBoxAndHeaderSize = sizeof(uint32_t) + sizeof(uint64_t);
+	if (sz < fullBoxAndHeaderSize)
+	{
+		AAMPLOG_WARN("Invalid emsg size[%u]", sz);
+		FullBox invalidFbox(sz, Box::EMSG, 0, 0);
+		return new EmsgBox(invalidFbox, 0, 0, 0, 0, 0);
+	}
+
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
 	// Calculating remaining size,
 	// flags(3bytes)+ version(1byte)+ box_header(type and size)(8bytes)
-	uint32_t remainingSize = sz - ((sizeof(uint32_t))+(sizeof(uint64_t)));
+	uint32_t remainingSize = sz - fullBoxAndHeaderSize;
 
 	uint64_t presTime = 0;
 	uint32_t presTimeDelta = 0;
-	uint32_t tScale;
-	uint32_t evtDur;
-	uint32_t boxId;
+	uint32_t tScale = 0;
+	uint32_t evtDur = 0;
+	uint32_t boxId = 0;
 
 	char * schemeId = nullptr;
 	uint8_t* schemeIdValue = nullptr;
 
 	uint8_t* message = nullptr;
 	FullBox fbox(sz, Box::EMSG, version, flags);
+	auto hasRemaining = [&](uint32_t needed, const char *field) -> bool
+	{
+		if (remainingSize < needed)
+		{
+			AAMPLOG_WARN("Malformed emsg: insufficient bytes for %s", field);
+			return false;
+		}
+		return true;
+	};
 
 	/*
 	 * Extraction is done as per https://aomediacodec.github.io/id3-emsg/
 	 */
 	if (1 == version)
 	{
+		if (!hasRemaining((sizeof(uint32_t) * 3) + sizeof(uint64_t),
+			"version1 fixed fields"))
+		{
+			return new EmsgBox(fbox, 0, 0, 0, 0, 0);
+		}
 		tScale = READ_U32(ptr);
 		// Read 64 bit value
 		presTime = READ_U64(ptr);
@@ -811,35 +849,56 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		boxId = READ_U32(ptr);
 		remainingSize -=  ((sizeof(uint32_t)*3) + sizeof(uint64_t));
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
-		if(schemeIdLen > 0)
+		if(schemeIdLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdLen))
 		{
 			schemeId = (char*) malloc(sizeof(char)*schemeIdLen);
 			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);
-			if (schemeIdValueLen > 0)
+			if (schemeIdValueLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdValueLen))
 			{
 				schemeIdValue = (uint8_t*) malloc(sizeof(uint8_t)*schemeIdValueLen);
 				READ_U8(schemeIdValue, ptr, schemeIdValueLen);
 				remainingSize -= (sizeof(uint8_t) * schemeIdValueLen);
 			}
 		}
+		else
+		{
+			AAMPLOG_WARN("Malformed emsg v1: invalid schemeIdUri field");
+		}
 	}
 	else if(0 == version)
 	{
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
-		if(schemeIdLen > 0)
+		if(schemeIdLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdLen))
 		{
 			schemeId = (char*) malloc(sizeof(char)*schemeIdLen);
 			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);
-			if (schemeIdValueLen > 0)
+			if (schemeIdValueLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdValueLen))
 			{
 				schemeIdValue = (uint8_t*) malloc(sizeof(uint8_t)*schemeIdValueLen);
 				READ_U8(schemeIdValue, ptr, schemeIdValueLen);
 				remainingSize -= (sizeof(uint8_t) * schemeIdValueLen);
 			}
+		}
+		else
+		{
+			AAMPLOG_WARN("Malformed emsg v0: invalid schemeIdUri field");
+		}
+
+		if (!hasRemaining(sizeof(uint32_t) * 4, "version0 fixed fields"))
+		{
+			if (schemeId)
+			{
+				free(schemeId);
+			}
+			if (schemeIdValue)
+			{
+				free(schemeIdValue);
+			}
+			return new EmsgBox(fbox, 0, 0, 0, 0, 0);
 		}
 		tScale = READ_U32(ptr);
 		presTimeDelta = READ_U32(ptr);
@@ -1279,9 +1338,18 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 {
 	TrakBox *cbox = new TrakBox(sz);
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
+	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	while (curOffset < sz)
 	{
-		auto box = Box::constructBox(ptr, sz-curOffset);
+		const uint32_t remaining = sz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Trak trailing bytes[%u] smaller than box header",
+				remaining);
+			break;
+		}
+
+		auto box = Box::constructBox(ptr, remaining);
 		box->setOffset(curOffset);
 
 		if (IS_TYPE(box->getType(),TKHD))
@@ -1307,10 +1375,10 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 			ptr = tkhd_start;
 		}
 		const uint32_t boxSize = box->getSize();
-		if (boxSize == 0)
+		if (boxSize < minHeaderSize || boxSize > remaining)
 		{
-			AAMPLOG_WARN("Box size 0 for type[%s], stopping trak parse",
-				box->getType());
+			AAMPLOG_WARN("Invalid trak child size[%u] for type[%s], remaining[%u]",
+				boxSize, box->getType(), remaining);
 			break;
 		}
 		cbox->addChildren(std::move(box));
