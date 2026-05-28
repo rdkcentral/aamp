@@ -43,6 +43,7 @@ void IsoBmffBuffer::setBuffer(std::vector<uint8_t>& buffer)
 {
 	this->buffer = buffer.data();
 	this->bufSize = buffer.size();
+	this->readOnlyBuffer = false;
 }
 
 /**
@@ -52,6 +53,7 @@ void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
 {
 	this->buffer = buffer;
 	this->bufSize = bufferLen;
+	this->readOnlyBuffer = false;
 }
 
 /**
@@ -65,6 +67,7 @@ void IsoBmffBuffer::setBuffer(const std::vector<uint8_t> &buffer)
 {
 	this->buffer = const_cast<uint8_t *>(buffer.data());
 	this->bufSize = buffer.size();
+	this->readOnlyBuffer = true;
 }
 
 /**
@@ -211,6 +214,12 @@ bool IsoBmffBuffer::getBoxSizeInternal(const std::vector<std::unique_ptr<Box>> *
  */
 void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("restampPTS called with read-only buffer");
+		return;
+	}
+
 	uint32_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
@@ -323,11 +332,23 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 
 void IsoBmffBuffer::restampPts(int64_t offset)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("restampPts called with read-only buffer");
+		return;
+	}
+
 	restampPtsInternal(offset, buffer, bufSize);
 }
 
 void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("setPtsAndDuration called with read-only buffer");
+		return;
+	}
+
 	size_t index{0};
 
 	// This is an I-frame media segment, so there will only be one moof with one traf
@@ -1004,6 +1025,12 @@ bool IsoBmffBuffer::updateSampleDurationInternal(uint64_t duration, TrunBox& tru
 */
 void IsoBmffBuffer::truncate(void)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("truncate called with read-only buffer");
+		return;
+	}
+
 	size_t index{0};
 	// Find the moof.  NB there is no specific MoofBox implemented, it's just a generic container box
 	uint64_t duration{};
@@ -1160,6 +1187,12 @@ uint64_t IsoBmffBuffer::getSegmentDuration()
 */
 bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("setTrickmodeTimescale called with read-only buffer");
+		return false;
+	}
+
 	bool retval{false};
 	size_t index{0};
 
@@ -1228,6 +1261,12 @@ bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
  */
 bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("setMediaHeaderDuration called with read-only buffer");
+		return false;
+	}
+
 	bool retval{false};
 	size_t index{0};
 	auto moov{getBox(Box::MOOV, index)};

@@ -45,6 +45,7 @@ private:
 	size_t bufSize;
 	Box* chunkedBox; //will hold one element only
 	size_t mdatCount;
+	bool readOnlyBuffer;
 
 	/**
 	 * @fn getFirstPTSInternal
@@ -153,7 +154,7 @@ public:
 	/**
 	 * @brief IsoBmffBuffer constructor
 	 */
-	IsoBmffBuffer(): boxes(), buffer(nullptr), bufSize(0), chunkedBox(nullptr), mdatCount(0), beforePTS(0), afterPTS(0), firstPtsSaved(false)
+	IsoBmffBuffer(): boxes(), buffer(nullptr), bufSize(0), chunkedBox(nullptr), mdatCount(0), readOnlyBuffer(false), beforePTS(0), afterPTS(0), firstPtsSaved(false)
 	{
 	}
 

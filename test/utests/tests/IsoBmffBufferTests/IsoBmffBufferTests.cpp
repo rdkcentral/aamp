@@ -190,6 +190,23 @@ TEST_F(IsoBmffBufferTests, parseBufferTwiceTest)
 	EXPECT_EQ(numBoxesAfter1parse, numBoxesAfter2parse);
 }
 
+TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsMutation)
+{
+	std::string file_path = std::string(TESTS_DIR) + "/" + "initSegmentTests/vInit.mp4";
+	auto result = readFile(file_path.c_str());
+	std::vector<uint8_t> vInitSeg;
+	if (!result.first.empty())
+	{
+		vInitSeg = result.first;
+	}
+
+	mIsoBmffBuffer->setBuffer(static_cast<const std::vector<uint8_t>&>(vInitSeg));
+	ASSERT_TRUE(mIsoBmffBuffer->parseBuffer());
+
+	EXPECT_FALSE(mIsoBmffBuffer->setTrickmodeTimescale(1000));
+	EXPECT_FALSE(mIsoBmffBuffer->setMediaHeaderDuration(0));
+}
+
 /**
  * @brief Test PTS restamp with offset 0
  *        Test the PTS restamp method with an offset value of 0.
