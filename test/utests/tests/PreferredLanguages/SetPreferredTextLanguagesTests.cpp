@@ -66,6 +66,10 @@ protected:
 		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
 		auto *rawMock = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+		/* No-op deleter: mpStreamAbstractionAAMP (a raw pointer in PrivateInstanceAAMP)
+		 * takes ownership of rawMock and deletes it via SAFE_DELETE on retune.
+		 * The shared_ptr is a non-owning observation handle; reset() only clears
+		 * the handle, not the object. */
 		g_mockStreamAbstractionAAMP = std::shared_ptr<MockStreamAbstractionAAMP>(rawMock, [](MockStreamAbstractionAAMP*){});
 		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
@@ -80,14 +84,14 @@ protected:
 
 	void TearDown() override
 	{
-		// If no retune occurred, the real code didn't SAFE_DELETE the mock.
-		// We must delete it ourselves before destroying PrivateInstanceAAMP.
-		if (g_mockStreamAbstractionAAMP != nullptr)
+		/* Production deletes mpStreamAbstractionAAMP on retune (SAFE_DELETE in
+		 * TeardownStream). If no retune occurred, delete it here to avoid a leak. */
+		if (mPrivateInstanceAAMP->mpStreamAbstractionAAMP != nullptr)
 		{
 			delete mPrivateInstanceAAMP->mpStreamAbstractionAAMP;
 			mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
-			g_mockStreamAbstractionAAMP.reset();
 		}
+		g_mockStreamAbstractionAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
