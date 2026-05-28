@@ -720,10 +720,9 @@ protected:
 
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
+	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
+
 private:
-	bool gotLocalTime;
-	bool ptsRollover;
-	long long currentLocalTimeMs;
 	
 	/**
 	 * @fn GetBufferHealthStatusString
@@ -740,8 +739,6 @@ private:
 	 * @param[in] cachedFragment - fragment to be restamped for trickmodes
 	 */
 	void TrickModePtsRestamp(CachedFragment* cachedFragment);
-
-	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
 
 	/**
 	 * @fn TrickModePtsRestamp
