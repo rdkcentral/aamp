@@ -58,14 +58,10 @@ void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
 
 /**
  *  @brief Set buffer from a const vector (read-only use only)
- * 		const_cast is safe here because the read-only query methods
- * 		(getFirstPTS, isInitSegment, getTimeScale, getSampleDuration, etc.)
- * 		do not modify the buffer contents.  Callers using this overload
- * 		must not call mutating methods (restampPts, truncate, etc.).
  */
 void IsoBmffBuffer::setBuffer(const std::vector<uint8_t> &buffer)
 {
-	this->buffer = const_cast<uint8_t *>(buffer.data());
+	this->buffer = buffer.data();
 	this->bufSize = buffer.size();
 	this->readOnlyBuffer = true;
 }
@@ -132,7 +128,7 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 	size_t curOffset = 0;
 	while (curOffset < bufSize)
 	{
-		auto box = Box::constructBox(buffer+curOffset,
+		auto box = Box::constructBox(const_cast<uint8_t *>(buffer + curOffset),
 			(uint32_t)(bufSize - curOffset), correctBoxSize, newTrackId);
 		const uint32_t boxSize = box->getSize();
 		if (boxSize == 0)
@@ -338,7 +334,7 @@ void IsoBmffBuffer::restampPts(int64_t offset)
 		return;
 	}
 
-	restampPtsInternal(offset, buffer, bufSize);
+	restampPtsInternal(offset, const_cast<uint8_t *>(buffer), bufSize);
 }
 
 void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)

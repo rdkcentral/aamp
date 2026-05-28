@@ -41,7 +41,7 @@ class IsoBmffBuffer
 {
 private:
 	std::vector<std::unique_ptr<Box>> boxes;	//ISOBMFF boxes of associated buffer
-	uint8_t *buffer;
+	const uint8_t *buffer;
 	size_t bufSize;
 	Box* chunkedBox; //will hold one element only
 	size_t mdatCount;
