@@ -91,8 +91,24 @@ AampRialtoSubtitleSource::createRialtoSource(
 // ---------------------------------------------------------------------------
 
 void AampRialtoSubtitleSource::updateCachedMetadata(
-	const MediaCodecInfo & /*codecInfo*/)
+	const MediaCodecInfo &codecInfo)
 {
+	// For FORMAT_SUBTITLE_MP4 streams the codec format is discovered by
+	// the external AampMp4Demuxer (not processInitFragment, which is only
+	// exercised via the SendTransfer path that subtitle never uses).
+	// This is the only reliable point at which we know the inner codec;
+	// set m_applyTextTransform so that refineDisplayOffset / applyDisplayOffset
+	// can correct the absolute TTML timestamps on the first data sample.
+	const auto fmt = codecInfo.mCodecFormat;
+	const bool apply = (fmt == GST_FORMAT_SUBTITLE_TTML ||
+	                    fmt == GST_FORMAT_SUBTITLE_MP4);
+	if (apply != m_applyTextTransform)
+	{
+		m_applyTextTransform = apply;
+		AAMPLOG_INFO("Subtitle text transform %s for codecFormat=%d",
+			apply ? "enabled" : "disabled",
+			static_cast<int>(fmt));
+	}
 }
 
 // ---------------------------------------------------------------------------
