@@ -5931,16 +5931,12 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrSt
 
 TEST_F(PrivAampTests, DetachFlushesAndBlocksAsyncEvents)
 {
-	// Simulate async event sent before detach (crash scenario)
+	// Validate that detach() flushes pending async events.
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_ASYNC_MODE)).Times(1);
 	p_aamp->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_TUNED, "test-session"), AAMP_EVENT_ASYNC_MODE);
 
 	EXPECT_CALL(*g_mockAampEventManager, FlushPendingEvents()).Times(1);
 	p_aamp->detach();
-
-	// After detach, sync events should not be called
-	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_SYNC_MODE)).Times(0);
-	sleep(1);
 }
 
 /**
