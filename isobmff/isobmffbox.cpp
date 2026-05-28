@@ -68,7 +68,7 @@ int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen)
 /**
  *  @brief Utility function to read 8 bytes from a buffer
  */
-uint64_t ReadUint64(uint8_t *buf)
+uint64_t ReadUint64(const uint8_t *buf)
 {
 	uint64_t val = READ_U32(buf);
 	val = (val<<32) | (uint32_t)READ_U32(buf);

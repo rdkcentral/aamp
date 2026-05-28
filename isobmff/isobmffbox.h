@@ -36,26 +36,105 @@
 // Size of the size and tag fields in IsoBmff
 #define SIZEOF_SIZE_AND_TAG    (8)
 
-#define READ_U16(buf) \
-	(buf[0] << 8) | buf[1]; buf+=2;
+inline uint16_t READ_U16(uint8_t *&buf)
+{
+	uint16_t val = (static_cast<uint16_t>(buf[0]) << 8) |
+		static_cast<uint16_t>(buf[1]);
+	buf += 2;
+	return val;
+}
 
-#define READ_U32(buf) \
-	((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8) | buf[3]; buf+=4;
+inline uint16_t READ_U16(const uint8_t *&buf)
+{
+	uint16_t val = (static_cast<uint16_t>(buf[0]) << 8) |
+		static_cast<uint16_t>(buf[1]);
+	buf += 2;
+	return val;
+}
 
-#define WRITE_U64(buf, val) \
-	buf[0]= val>>56; buf[1]= val>>48; buf[2]= val>>40; buf[3]= val>>32; buf[4]= val>>24; buf[5]= val>>16; buf[6]= val>>8; buf[7]= val;
+inline uint32_t READ_U32(uint8_t *&buf)
+{
+	uint32_t val = (static_cast<uint32_t>(buf[0]) << 24) |
+		(static_cast<uint32_t>(buf[1]) << 16) |
+		(static_cast<uint32_t>(buf[2]) << 8) |
+		static_cast<uint32_t>(buf[3]);
+	buf += 4;
+	return val;
+}
 
-#define WRITE_U32(buf, val) \
-	buf[0]= val>>24; buf[1]= val>>16; buf[2]= val>>8; buf[3]= val;
+inline uint32_t READ_U32(const uint8_t *&buf)
+{
+	uint32_t val = (static_cast<uint32_t>(buf[0]) << 24) |
+		(static_cast<uint32_t>(buf[1]) << 16) |
+		(static_cast<uint32_t>(buf[2]) << 8) |
+		static_cast<uint32_t>(buf[3]);
+	buf += 4;
+	return val;
+}
 
-#define READ_U8(dst, src, sz) \
-	memcpy(dst, src, sz); src+=sz;
+inline void WRITE_U64(uint8_t *buf, uint64_t val)
+{
+	buf[0] = static_cast<uint8_t>(val >> 56);
+	buf[1] = static_cast<uint8_t>(val >> 48);
+	buf[2] = static_cast<uint8_t>(val >> 40);
+	buf[3] = static_cast<uint8_t>(val >> 32);
+	buf[4] = static_cast<uint8_t>(val >> 24);
+	buf[5] = static_cast<uint8_t>(val >> 16);
+	buf[6] = static_cast<uint8_t>(val >> 8);
+	buf[7] = static_cast<uint8_t>(val);
+}
 
-#define READ_VERSION(buf) \
-		buf[0]; buf++;
+inline void WRITE_U32(uint8_t *buf, uint32_t val)
+{
+	buf[0] = static_cast<uint8_t>(val >> 24);
+	buf[1] = static_cast<uint8_t>(val >> 16);
+	buf[2] = static_cast<uint8_t>(val >> 8);
+	buf[3] = static_cast<uint8_t>(val);
+}
 
-#define READ_FLAGS(buf) \
-		(buf[0] << 16) | (buf[1] << 8) | buf[2]; buf+=3;
+inline void READ_U8(void *dst, uint8_t *&src, size_t sz)
+{
+	memcpy(dst, src, sz);
+	src += sz;
+}
+
+inline void READ_U8(void *dst, const uint8_t *&src, size_t sz)
+{
+	memcpy(dst, src, sz);
+	src += sz;
+}
+
+inline uint8_t READ_VERSION(uint8_t *&buf)
+{
+	uint8_t version = buf[0];
+	buf++;
+	return version;
+}
+
+inline uint8_t READ_VERSION(const uint8_t *&buf)
+{
+	uint8_t version = buf[0];
+	buf++;
+	return version;
+}
+
+inline uint32_t READ_FLAGS(uint8_t *&buf)
+{
+	uint32_t flags = (static_cast<uint32_t>(buf[0]) << 16) |
+		(static_cast<uint32_t>(buf[1]) << 8) |
+		static_cast<uint32_t>(buf[2]);
+	buf += 3;
+	return flags;
+}
+
+inline uint32_t READ_FLAGS(const uint8_t *&buf)
+{
+	uint32_t flags = (static_cast<uint32_t>(buf[0]) << 16) |
+		(static_cast<uint32_t>(buf[1]) << 8) |
+		static_cast<uint32_t>(buf[2]);
+	buf += 3;
+	return flags;
+}
 
 /**
  * @fn ReadUint64
@@ -63,7 +142,7 @@
  * @param[in] buf - buffer pointer
  * @return bytes read from buffer
  */
-uint64_t ReadUint64(uint8_t *buf);
+uint64_t ReadUint64(const uint8_t *buf);
 
 /**
  * @fn WriteUint64
@@ -81,11 +160,35 @@ void WriteUint64(uint8_t *dst, uint64_t val);
  */
 int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
 
-#define READ_U64(buf) \
-		ReadUint64(buf); buf+=8;
+inline uint64_t READ_U64(uint8_t *&buf)
+{
+	uint64_t val = ReadUint64(buf);
+	buf += 8;
+	return val;
+}
 
-#define IS_TYPE(value, type) \
-		(value[0]==type[0] && value[1]==type[1] && value[2]==type[2] && value[3]==type[3])
+inline uint64_t READ_U64(const uint8_t *&buf)
+{
+	uint64_t val = ReadUint64(buf);
+	buf += 8;
+	return val;
+}
+
+inline bool IS_TYPE(const uint8_t *value, const char *type)
+{
+	return (value[0] == static_cast<uint8_t>(type[0])) &&
+		(value[1] == static_cast<uint8_t>(type[1])) &&
+		(value[2] == static_cast<uint8_t>(type[2])) &&
+		(value[3] == static_cast<uint8_t>(type[3]));
+}
+
+inline bool IS_TYPE(const char *value, const char *type)
+{
+	return (value[0] == type[0]) &&
+		(value[1] == type[1]) &&
+		(value[2] == type[2]) &&
+		(value[3] == type[3]);
+}
 
 
 /**
