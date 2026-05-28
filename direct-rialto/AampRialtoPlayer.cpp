@@ -457,25 +457,9 @@ bool AampRialtoPlayer::SendTransfer(
 	}
 	else if (m_pipeline)
 	{
-		// Raw subtitle (no demuxer): wrap the buffer directly into an
-		// AampMediaSample and inject via injectSingleSample so that
-		// refineDisplayOffset can apply TTML offset correction.
-		if (mediaType == eMEDIATYPE_SUBTITLE && !source->hasDemuxer())
-		{
-			AampMediaSample sample;
-			sample.mData     = std::shared_ptr<const uint8_t>(
-				sharedBuffer, sharedBuffer->data());
-			sample.mDataSize = sharedBuffer->size();
-			sample.mPts      = fpts;
-			sample.mDts      = fdts;
-			sample.mDuration = fDuration;
-			const int64_t displayOffsetMs =
-				static_cast<int64_t>(fragmentPTSoffset * 1000.0);
-			result = source->injectSingleSample(
-				*m_pipeline, std::move(sample), displayOffsetMs);
-		}
-		else if (!source->processDataFragment(
-			*m_pipeline, std::move(sharedBuffer)))
+		if (!source->processDataFragment(
+				*m_pipeline, std::move(sharedBuffer),
+				fpts, fdts, fDuration, fragmentPTSoffset))
 		{
 			result = false;
 		}
@@ -636,15 +620,7 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 
 	if (m_pipeline)
 	{
-		// For subtitle tracks, pass the fragment PTS offset (ms) so Rialto
-		// can correct presentation timing.  mDisplayOffsetMs is populated by
-		// AampMp4Demuxer when PTS restamping is enabled.  injectSingleSample
-		// converts to nanoseconds only at the segment->setDisplayOffset boundary.
-		const int64_t displayOffsetMs =
-			(mediaType == eMEDIATYPE_SUBTITLE)
-				? sample.mDisplayOffsetMs
-				: 0LL;
-		result = source->injectSingleSample(*m_pipeline, std::move(sample), displayOffsetMs);
+		result = source->injectSingleSample(*m_pipeline, std::move(sample));
 	}
 
 	AAMPLOG_INFO("EXIT result=%d", result);

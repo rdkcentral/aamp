@@ -26,6 +26,57 @@
 #include "AampLogManager.h"
 #include "middleware/GstUtils.h"
 #include <cinttypes>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+
+// ---------------------------------------------------------------------------
+// parseTimeToMs  (TTML clock-value H:MM:SS[.fff] → milliseconds)
+// ---------------------------------------------------------------------------
+
+int64_t AampRialtoSubtitleSource::parseTimeToMs(const std::string &timeStr)
+{
+	int   hours = 0;
+	int   mins  = 0;
+	float secs  = 0.f;
+
+	if (std::sscanf(timeStr.c_str(), "%d:%d:%f", &hours, &mins, &secs) != 3)
+	{
+		return 0;
+	}
+
+	return (static_cast<int64_t>(hours) * 3600LL +
+	        static_cast<int64_t>(mins)  * 60LL)
+	       * 1000LL
+	       + static_cast<int64_t>(secs * 1000.f);
+}
+
+// ---------------------------------------------------------------------------
+// findFirstBeginMs  (locate first begin="…" attribute value in TTML)
+// ---------------------------------------------------------------------------
+
+bool AampRialtoSubtitleSource::findFirstBeginMs(
+	const std::string &ttml, int64_t &outMs)
+{
+	const std::string tag{"begin=\""};
+	const auto pos = ttml.find(tag);
+	if (pos == std::string::npos)
+	{
+		return false;
+	}
+
+	const auto valStart = pos + tag.size();
+	const auto valEnd   = ttml.find('"', valStart);
+	if (valEnd == std::string::npos)
+	{
+		return false;
+	}
+
+	outMs = parseTimeToMs(ttml.substr(valStart, valEnd - valStart));
+	AAMPLOG_DEBUG("findFirstBeginMs: found begin=\"%s\" → %" PRId64 " ms",
+		ttml.substr(valStart, valEnd - valStart).c_str(), outMs);
+	return true;
+}
 
 // ---------------------------------------------------------------------------
 // mapCodecToMime
@@ -97,8 +148,9 @@ void AampRialtoSubtitleSource::updateCachedMetadata(
 	// the external AampMp4Demuxer (not processInitFragment, which is only
 	// exercised via the SendTransfer path that subtitle never uses).
 	// This is the only reliable point at which we know the inner codec;
-	// set m_applyTextTransform so that refineDisplayOffset can compute
-	// the per-buffer displayOffset used by setDisplayOffset() in injectOneSample.
+	// set m_applyTextTransform so that refineDisplayOffset (called from
+	// createSegment) can compute the per-buffer displayOffset used by
+	// segment->setDisplayOffset().
 	const auto fmt = codecInfo.mCodecFormat;
 	const bool apply = (fmt == GST_FORMAT_SUBTITLE_TTML ||
 	                    fmt == GST_FORMAT_SUBTITLE_MP4);
@@ -123,11 +175,22 @@ AampRialtoSubtitleSource::createSegment(
 		static_cast<int64_t>(sample.mPts * kNsPerSecond);
 	const int64_t durationNs =
 		static_cast<int64_t>(sample.mDuration * kNsPerSecond);
-	return std::make_unique<firebolt::rialto::IMediaPipeline::MediaSegment>(
+	auto segment = std::make_unique<firebolt::rialto::IMediaPipeline::MediaSegment>(
 		m_sourceId,
 		firebolt::rialto::MediaSourceType::SUBTITLE,
 		ptsNs,
 		durationNs);
+
+	const int64_t displayOffsetMs =
+		refineDisplayOffset(sample);
+	if (displayOffsetMs > 0)
+	{
+		AAMPLOG_INFO("subtitle setDisplayOffset sourceId=%d displayOffsetMs=%" PRId64,
+			m_sourceId, displayOffsetMs);
+		segment->setDisplayOffset(displayOffsetMs);
+	}
+
+	return segment;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,10 +200,11 @@ AampRialtoSubtitleSource::createSegment(
 std::optional<MediaCodecInfo> AampRialtoSubtitleSource::processInitFragment(
 	std::shared_ptr<std::vector<uint8_t>> buffer)
 {
-	// Reset AampTextTransform so that content type is re-detected from
-	// the new stream (channel changes and seeks).
-	m_textTransform.reset();
-	m_applyTextTransform = false;
+	// Reset TTML offset detection state so that content type is
+	// re-detected from the new stream (channel changes and seeks).
+	m_transformContentType  = ContentType::UNKNOWN;
+	m_linearBeginOffsetMs   = 0;
+	m_applyTextTransform    = false;
 
 	std::optional<MediaCodecInfo> result;
 
@@ -183,22 +247,152 @@ std::optional<MediaCodecInfo> AampRialtoSubtitleSource::processInitFragment(
 }
 
 // ---------------------------------------------------------------------------
+// processDataFragment
+// ---------------------------------------------------------------------------
+
+bool AampRialtoSubtitleSource::processDataFragment(
+	firebolt::rialto::IMediaPipeline &pipeline,
+	std::shared_ptr<std::vector<uint8_t>> buffer,
+	double fpts,
+	double fdts,
+	double fDuration,
+	double fragmentPTSoffset)
+{
+	if (!hasDemuxer())
+	{
+		// Raw TTML/WebVTT: wrap the buffer directly into an AampMediaSample
+		// and inject via injectSingleSample.  createSegment() will call
+		// refineDisplayOffset() to apply TTML offset correction.
+		AampMediaSample sample;
+		sample.mData     = std::shared_ptr<const uint8_t>(
+			buffer, buffer->data());
+		sample.mDataSize = buffer->size();
+		sample.mPts      = fpts;
+		sample.mDts      = fdts;
+		sample.mDuration = fDuration;
+		sample.mDisplayOffsetMs =
+			static_cast<int64_t>(fragmentPTSoffset * 1000.0);
+		return injectSingleSample(pipeline, std::move(sample));
+	}
+	// TTML-in-MP4: use the base-class demuxer path.
+	return AampRialtoMediaSource::processDataFragment(
+		pipeline, std::move(buffer),
+		fpts, fdts, fDuration, fragmentPTSoffset);
+}
+
+// ---------------------------------------------------------------------------
 // refineDisplayOffset
 // ---------------------------------------------------------------------------
 
 int64_t AampRialtoSubtitleSource::refineDisplayOffset(
-	const AampMediaSample &sample, int64_t displayOffsetMs)
+	const AampMediaSample &sample) const
 {
+	const int64_t displayOffsetMs = sample.mDisplayOffsetMs;
+
+	AAMPLOG_TRACE("refineDisplayOffset: pre displayOffsetMs=%" PRId64
+		" applyTextTransform=%d contentType=%d",
+		displayOffsetMs,
+		static_cast<int>(m_applyTextTransform),
+		static_cast<int>(m_transformContentType));
+
 	if (!m_applyTextTransform || !sample.mData || sample.mDataSize == 0)
 	{
+		AAMPLOG_TRACE("refineDisplayOffset: passthrough displayOffsetMs=%" PRId64,
+			displayOffsetMs);
 		return displayOffsetMs;
 	}
 
 	const int64_t ptsMs      = static_cast<int64_t>(sample.mPts      * 1000.0);
 	const int64_t durationMs = static_cast<int64_t>(sample.mDuration * 1000.0);
 
-	return m_textTransform.compute(
-		sample.mData.get(), sample.mDataSize,
-		ptsMs, displayOffsetMs, durationMs);
+	// --- inlined AampTextTransform::compute() ---
+
+	if (m_transformContentType == ContentType::PASSTHROUGH)
+	{
+		AAMPLOG_TRACE("refineDisplayOffset: PASSTHROUGH → 0");
+		return 0LL;
+	}
+
+	// Build a string from the raw payload.
+	// For Harmonic UHD buffers that concatenate multiple XML documents,
+	// truncate to the first document, matching gstvipertransform behaviour.
+	std::string ttml(
+		reinterpret_cast<const char *>(sample.mData.get()), sample.mDataSize);
+	const auto secondXml = ttml.find("<?xml", 5);
+	if (secondXml != std::string::npos)
+	{
+		AAMPLOG_DEBUG("refineDisplayOffset: truncating Harmonic UHD "
+			"multi-doc buffer at offset %zu", secondXml);
+		ttml.resize(secondXml);
+	}
+
+	int64_t firstBeginMs = 0;
+	if (!findFirstBeginMs(ttml, firstBeginMs))
+	{
+		// Empty / header-only segment — reuse last known offset.
+		const int64_t result =
+			(m_transformContentType == ContentType::LINEAR_OFFSET)
+			? m_linearBeginOffsetMs
+			: 0LL;
+		AAMPLOG_DEBUG("refineDisplayOffset: no begin= found, "
+			"reusing stored offset %" PRId64 " ms", result);
+		return result;
+	}
+
+	const int64_t offsetFromPtsMs = firstBeginMs - ptsMs;
+	AAMPLOG_DEBUG("refineDisplayOffset: firstBeginMs=%" PRId64
+		" ptsMs=%" PRId64 " offsetFromPtsMs=%" PRId64
+		" aampOffsetMs=%" PRId64 " durationMs=%" PRId64,
+		firstBeginMs, ptsMs, offsetFromPtsMs,
+		displayOffsetMs, durationMs);
+
+	if (m_transformContentType == ContentType::UNKNOWN)
+	{
+		if (std::abs(offsetFromPtsMs - displayOffsetMs) > durationMs)
+		{
+			// Large mismatch: TTML timestamps are absolute wall-clock.
+			m_transformContentType = ContentType::LINEAR_OFFSET;
+			m_linearBeginOffsetMs  = offsetFromPtsMs;
+			AAMPLOG_INFO("refineDisplayOffset: detected LINEAR_OFFSET "
+				"from TTML, offset=%" PRId64 " ms",
+				m_linearBeginOffsetMs);
+		}
+		else if (displayOffsetMs != 0)
+		{
+			// AAMP already knows the period-start correction.
+			m_transformContentType = ContentType::LINEAR_OFFSET;
+			m_linearBeginOffsetMs  = displayOffsetMs;
+			AAMPLOG_INFO("refineDisplayOffset: detected LINEAR_OFFSET "
+				"from AAMP offset, offset=%" PRId64 " ms",
+				m_linearBeginOffsetMs);
+		}
+		else
+		{
+			// TTML cue times align with container PTS.
+			m_transformContentType = ContentType::PASSTHROUGH;
+			AAMPLOG_INFO("refineDisplayOffset: detected PASSTHROUGH");
+			return 0LL;
+		}
+	}
+	else if (m_transformContentType == ContentType::LINEAR_OFFSET)
+	{
+		// Refine the stored offset each fragment, matching vipertransform.
+		const int64_t prev = m_linearBeginOffsetMs;
+		m_linearBeginOffsetMs =
+			(std::abs(offsetFromPtsMs - displayOffsetMs) > durationMs)
+			? offsetFromPtsMs
+			: displayOffsetMs;
+		if (m_linearBeginOffsetMs != prev)
+		{
+			AAMPLOG_DEBUG("refineDisplayOffset: refined offset "
+				"%" PRId64 " → %" PRId64 " ms",
+				prev, m_linearBeginOffsetMs);
+		}
+	}
+
+	const int64_t result = m_linearBeginOffsetMs;
+	AAMPLOG_TRACE("refineDisplayOffset: post displayOffsetMs=%" PRId64,
+		result);
+	return result;
 }
 

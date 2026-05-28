@@ -35,7 +35,6 @@ set(TEST_SOURCES
 set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
 	${AAMP_ROOT}/direct-rialto/AampRialtoSubtitleSource.cpp
-	${AAMP_ROOT}/direct-rialto/AampTextTransform.cpp
 )
 
 add_executable(${EXEC_NAME}

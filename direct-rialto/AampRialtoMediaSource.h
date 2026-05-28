@@ -226,13 +226,15 @@ public:
 	 * Blocks until a needData request arrives for this source, then
 	 * delivers the sample via addSegment.  Returns false if the batch
 	 * was aborted by Flush/Stop.
+	 *
+	 * The display offset (for subtitle timing correction) is derived
+	 * inside createSegment() by the concrete subclass.
 	 */
 	bool injectOneSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
 		uint64_t capturedGen,
 		AampMediaSample &&sample,
-		std::shared_ptr<firebolt::rialto::CodecData> codecData,
-		int64_t displayOffsetMs = 0);
+		std::shared_ptr<firebolt::rialto::CodecData> codecData);
 
 	/**
 	 * @brief Parse an init segment and return the decoded codec info.
@@ -260,17 +262,25 @@ public:
 	 *
 	 * The default implementation delegates to the owned demuxer and
 	 * then injects each sample via injectOneSample().
-	 * Subclasses may override to use an alternative parse/inject path.
+	 * Subclasses may override to use an alternative parse/inject path
+	 * (e.g. AampRialtoSubtitleSource handles raw TTML/WebVTT directly).
 	 *
-	 * @param pipeline  The active Rialto media pipeline.
-	 * @param buffer    Shared ownership of the raw segment bytes.
+	 * @param pipeline          The active Rialto media pipeline.
+	 * @param buffer            Shared ownership of the raw segment bytes.
+	 * @param fpts              Fragment presentation timestamp (seconds).
+	 * @param fdts              Fragment decode timestamp (seconds).
+	 * @param fDuration         Fragment duration (seconds).
+	 * @param fragmentPTSoffset Period-start PTS offset (seconds) from AAMP.
 	 * @return true on success (including empty sample list); false on
 	 *         parse failure.
 	 */
 	virtual bool processDataFragment(
 		firebolt::rialto::IMediaPipeline &pipeline,
 		std::shared_ptr<std::vector<uint8_t>> buffer,
-		int64_t displayOffsetMs = 0);
+		double fpts,
+		double fdts,
+		double fDuration,
+		double fragmentPTSoffset);
 
 	/**
 	 * @brief Inject a single decoded sample into the pipeline.
@@ -279,16 +289,13 @@ public:
 	 * injectOneSample().  Returns false if the source is not attached
 	 * or if injection was aborted by Flush/Stop.
 	 *
-	 * Subclasses may override to add pre/post-injection behaviour.
-	 *
 	 * @param pipeline  The active Rialto media pipeline.
 	 * @param sample    The decoded sample to inject (moved in).
 	 * @return true on successful injection; false otherwise.
 	 */
 	virtual bool injectSingleSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
-		AampMediaSample &&sample,
-		int64_t displayOffsetMs = 0);
+		AampMediaSample &&sample);
 
 	/**
 	 * @brief Signal end-of-stream for this source.
@@ -368,27 +375,6 @@ protected:
 	virtual std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 		createSegment(const AampMediaSample &sample) const = 0;
 
-	/**
-	 * @brief Allow subclasses to refine the display offset from the
-	 *        sample payload before injection.
-	 *
-	 * Called once per data fragment (first sample in processDataFragment)
-	 * and once per injectSingleSample call.  The default returns
-	 * @p displayOffsetMs unchanged.
-	 *
-	 * AampRialtoSubtitleSource overrides this to apply AampTextTransform
-	 * for TTML content (both raw and stpp-in-MP4).
-	 *
-	 * @param sample         The sample whose payload is to be inspected.
-	 * @param displayOffsetMs The offset computed by AAMP from MPD metadata
-	 *                        (in milliseconds).
-	 * @return Refined display offset in milliseconds.
-	 */
-	virtual int64_t refineDisplayOffset(
-		const AampMediaSample &sample, int64_t displayOffsetMs)
-	{
-		return displayOffsetMs;
-	}
 
 
 	// -----------------------------------------------------------------

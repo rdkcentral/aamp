@@ -67,7 +67,18 @@ public:
 	 * Tests should set expectations on injectSingleSampleProxy instead.
 	 */
 	MOCK_METHOD(bool, injectSingleSampleProxy,
-		(firebolt::rialto::IMediaPipeline &pipeline, int64_t displayOffsetMs),
+		(firebolt::rialto::IMediaPipeline &pipeline),
+		());
+
+	/**
+	 * @brief Proxy for processDataFragment — avoids shared_ptr/move issue.
+	 *
+	 * Tests should set expectations on processDataFragmentProxy instead.
+	 */
+	MOCK_METHOD(bool, processDataFragmentProxy,
+		(firebolt::rialto::IMediaPipeline &pipeline,
+		 double fpts, double fdts, double fDuration,
+		 double fragmentPTSoffset),
 		());
 
 	/**
@@ -78,12 +89,30 @@ public:
 	 */
 	bool injectSingleSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
-		AampMediaSample &&sample,
-		int64_t displayOffsetMs = 0) override
+		AampMediaSample &&sample) override
 	{
 		if (mediaType() == eMEDIATYPE_SUBTITLE)
-			return injectSingleSampleProxy(pipeline, displayOffsetMs);
+			return injectSingleSampleProxy(pipeline);
 		return AampRialtoMediaSource::injectSingleSample(
-			pipeline, std::move(sample), displayOffsetMs);
+			pipeline, std::move(sample));
+	}
+
+	/**
+	 * For SUBTITLE sources, routes through processDataFragmentProxy so
+	 * tests can verify routing and parameters without demuxer setup.
+	 * For other media types, the base class implementation is used.
+	 */
+	bool processDataFragment(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		std::shared_ptr<std::vector<uint8_t>> buffer,
+		double fpts, double fdts, double fDuration,
+		double fragmentPTSoffset) override
+	{
+		if (mediaType() == eMEDIATYPE_SUBTITLE)
+			return processDataFragmentProxy(
+				pipeline, fpts, fdts, fDuration, fragmentPTSoffset);
+		return AampRialtoMediaSource::processDataFragment(
+			pipeline, std::move(buffer),
+			fpts, fdts, fDuration, fragmentPTSoffset);
 	}
 };

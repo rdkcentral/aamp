@@ -255,9 +255,14 @@ protected:
 					ON_CALL(*rawPtr, updateCachedMetadata(_))
 						.WillByDefault(Return());
 
-					// injectSingleSampleProxy default — subtitle injection tests
+					// injectSingleSampleProxy default — subtitle SendSample tests
 					// verify routing without requiring a NeedData handshake.
-					ON_CALL(*rawPtr, injectSingleSampleProxy(_, _))
+					ON_CALL(*rawPtr, injectSingleSampleProxy(_))
+						.WillByDefault(Return(true));
+
+					// processDataFragmentProxy default — subtitle SendTransfer tests
+					// verify routing without demuxer setup.
+					ON_CALL(*rawPtr, processDataFragmentProxy(_, _, _, _, _))
 						.WillByDefault(Return(true));
 
 					ON_CALL(*rawPtr, createSegment(_))
@@ -2161,24 +2166,26 @@ TEST_F(AampRialtoPlayerTest,
 // ===========================================================================
 
 TEST_F(AampRialtoPlayerTest,
-	SendTransfer_SubtitleRawFragment_InjectsViaSingleSamplePath)
+	SendTransfer_SubtitleRawFragment_RoutesViaProcessDataFragment)
 {
 	/**
-	 * @brief Verifies that a non-init subtitle fragment on a source without a
-	 *        demuxer (raw TTML/WebVTT) is routed via injectSingleSample
-	 *        rather than processDataFragment.
+	 * @brief Verifies that a non-init subtitle fragment is routed through
+	 *        processDataFragment() (the subtitle source override), with the
+	 *        correct fpts, fdts, fDuration and fragmentPTSoffset parameters.
 	 *
-	 *        The mock's injectSingleSampleProxy intercepts the call so the
-	 *        test does not block waiting for a Rialto NeedData request.
+	 *        The mock's processDataFragmentProxy intercepts the call so the
+	 *        test does not need a demuxer or a Rialto NeedData handshake.
 	 */
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
 	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
-	ASSERT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->hasDemuxer());
 
-	// Expect the subtitle injection proxy to be called exactly once
-	// with displayOffsetMs == 0 (fragmentPTSoffset is 0.0).
+	// Expect processDataFragment proxy called with the exact parameters
+	// passed to SendTransfer (fragmentPTSoffset == 0.0).
 	EXPECT_CALL(*m_mockSources[eMEDIATYPE_SUBTITLE],
-		injectSingleSampleProxy(Ref(*m_mockPipelinePtr), /*displayOffsetMs=*/0LL))
+		processDataFragmentProxy(
+			Ref(*m_mockPipelinePtr),
+			/*fpts=*/1.0, /*fdts=*/1.0, /*fDuration=*/0.5,
+			/*fragmentPTSoffset=*/0.0))
 		.WillOnce(Return(true));
 
 	std::vector<uint8_t> buf = {0x3C, 0x74, 0x74, 0x3E}; // "<tt>"
@@ -2191,24 +2198,25 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	SendTransfer_SubtitleRawFragmentWithOffset_SetsDisplayOffset)
+	SendTransfer_SubtitleRawFragmentWithOffset_ForwardsFragmentPTSoffset)
 {
 	/**
-	 * @brief Verifies that a non-zero fragmentPTSoffset is converted to
-	 *        milliseconds and forwarded to injectSingleSample as
-	 *        displayOffsetMs.
-	 *
-	 *        Expected: displayOffsetMs == fragmentPTSoffset * 1000.
+	 * @brief Verifies that a non-zero fragmentPTSoffset is forwarded
+	 *        unchanged to processDataFragment().  The subtitle source's
+	 *        processDataFragment override stores it as
+	 *        sample.mDisplayOffsetMs = fragmentPTSoffset * 1000 before
+	 *        calling injectSingleSample.
 	 */
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
 	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
 
 	constexpr double kOffsetSec = 5.0;
-	const int64_t expectedOffsetMs =
-		static_cast<int64_t>(kOffsetSec * 1000.0);
 
 	EXPECT_CALL(*m_mockSources[eMEDIATYPE_SUBTITLE],
-		injectSingleSampleProxy(Ref(*m_mockPipelinePtr), expectedOffsetMs))
+		processDataFragmentProxy(
+			Ref(*m_mockPipelinePtr),
+			/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/1.0,
+			/*fragmentPTSoffset=*/kOffsetSec))
 		.WillOnce(Return(true));
 
 	std::vector<uint8_t> buf = {0x3C, 0x74, 0x74, 0x3E};
