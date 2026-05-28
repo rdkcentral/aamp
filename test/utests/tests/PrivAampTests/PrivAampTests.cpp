@@ -6104,7 +6104,7 @@ TEST_F(PrivAampTests, DetachFlushesAndBlocksAsyncEvents)
 
 	// After detach, sync events should not be called
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, AAMP_EVENT_SYNC_MODE)).Times(0);
-	sleep(1);
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 }
 
 /**

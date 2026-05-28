@@ -307,8 +307,9 @@ TEST_F(FunctionalTests,
 {
     static const char *kLiveMpdManifest =
     R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0H0M3.0S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0.5S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
     <Period id="901591170" start="PT416006H37M27.854S">
+        <EventStream schemeIdUri="urn:example:test:2024" timescale="1000"/>
         <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
             <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
             <SegmentTemplate initialization="init-$RepresentationID$.mp4" media="seg-$Number$.m4s" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
@@ -345,14 +346,14 @@ TEST_F(FunctionalTests,
 	ASSERT_TRUE(IS_HTTP_SUCCESS(firstManifest->mMPDDownloadResponse->iHttpRetValue));
 	ASSERT_TRUE(firstManifest->mIsLiveManifest);
 
-	// Wait up to 8 seconds for the second manifest to become available.
+	// Wait up to 2 seconds for the second manifest to become available.
 	// Since GetManifest(false, ...) does not block for new data, poll
 	// until the returned pointer differs from the first manifest or the
 	// deadline is reached.
 	ManifestDownloadResponsePtr secondManifest;
 	{
 		auto deadline = std::chrono::steady_clock::now() +
-			std::chrono::milliseconds(8000);
+			std::chrono::milliseconds(2000);
 		do
 		{
 			secondManifest = mAampMPDDownloader->GetManifest(false, 0);
@@ -370,13 +371,13 @@ TEST_F(FunctionalTests,
 	ASSERT_TRUE(IsCurlTimeoutFailure(
 		secondManifest->mMPDDownloadResponse->iHttpRetValue));
 
-	// Wait up to 1.8 seconds for the next manifest refresh. As above,
+	// Wait up to 1.5 seconds for the next manifest refresh. As above,
 	// poll until a different manifest pointer is observed or the
 	// deadline expires.
 	ManifestDownloadResponsePtr thirdManifest;
 	{
 		auto deadline = std::chrono::steady_clock::now() +
-			std::chrono::milliseconds(1800);
+			std::chrono::milliseconds(1500);
 		do
 		{
 			thirdManifest = mAampMPDDownloader->GetManifest(false, 0);

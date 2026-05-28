@@ -53,6 +53,16 @@ cat << EOF > test_details.json
 EOF
 }
 
+# List tests that took longer than 1 second, ordered by duration (longest first)
+list_slow_tests()
+{
+    local xml_file="$1"
+    if [[ ! -f "$xml_file" ]]; then
+        return
+    fi
+    python3 "${TESTDIR}/list_slow_tests.py" "$xml_file"
+}
+
 # "corrupt arc tag"
 find . -name "*.gcda" -print0 | xargs -0 --no-run-if-empty rm
 
@@ -131,17 +141,18 @@ cmake_version=$(cmake --version | head -n 1 | awk '{print $3}')
 major_version=$(echo "$cmake_version" | cut -d. -f1)
 minor_version=$(echo "$cmake_version" | cut -d. -f2)
 if [[ "$major_version" -gt 3 ]] || [[ "$major_version" -eq 3 && "$minor_version" -ge 21 ]]; then
-  CT_TESTDIR="" 
+  CT_TESTDIR=""
+  CT_OUTPUT_JUNIT="--output-junit ctest-results.xml"
 else
-  CT_TESTDIR="--testdir build" 
-    
+  CT_TESTDIR="--testdir build"
+  CT_OUTPUT_JUNIT=""
 fi
 
 if [ "$rdke_build" -eq "1" ]; then
 	echo "RDKE build"
 
 	export GTEST_OUTPUT="json"
-  ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR || true  # Don't exit script if a test fails
+  ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR $CT_OUTPUT_JUNIT || true  # Don't exit script if a test fails
 
   cd tests
 
@@ -192,7 +203,11 @@ EOF
 	find . -name test_detail\*.json | xargs cat |  jq -s '{test_cases_results: {tests: map(.tests) | add,failures: map(.failures) | add,disabled: map(.disabled) | add,errors: map(.errors) | add,time: ((map(.time | rtrimstr("s") | tonumber) | add) | tostring + "s"),name: .[0].name,testsuites: map(.testsuites[])}}' > L1Report.json
 
 else
-    ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR --output-junit ctest-results.xml
+    ctest -j 4 --timeout "${CTEST_TIMEOUT}" --output-on-failure --no-compress-output -T Test $CT_TESTDIR $CT_OUTPUT_JUNIT
+fi
+
+if [[ -n "$CT_OUTPUT_JUNIT" ]]; then
+    list_slow_tests ctest-results.xml
 fi
 
 if [ "$build_coverage" -eq "1" ]; then
