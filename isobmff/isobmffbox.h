@@ -30,6 +30,7 @@
 #include <string.h>
 #include <string>
 #include <cstring>
+#include <memory>
 #include "AampLogManager.h"
 
 // Size of the size and tag fields in IsoBmff
@@ -166,7 +167,7 @@ public:
 	 *
 	 * @return array of child boxes
 	 */
-	virtual const std::vector<Box*> *getChildren() const;
+	virtual const std::vector<std::unique_ptr<Box>> *getChildren() const;
 
 	/**
 	 * @fn truncate
@@ -201,7 +202,7 @@ public:
 	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return newly constructed Box object
 	 */
-	static Box* constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize = false, int newTrackId = -1);
+	static std::unique_ptr<Box> constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize = false, int newTrackId = -1);
 
 	uint8_t *getBase(void) const { return base; }
 
@@ -231,7 +232,7 @@ public:
 class GenericContainerBox : public Box
 {
 private:
-	std::vector<Box*> children;	// array of child boxes
+	std::vector<std::unique_ptr<Box>> children;	// array of child boxes
 
 public:
 	/**
@@ -253,7 +254,7 @@ public:
 	 * @param[in] box - child box object
 	 * @return void
 	 */
-	void addChildren(Box *box);
+	void addChildren(std::unique_ptr<Box> box);
 
 	/**
 	 * @fn hasChildren
@@ -267,7 +268,7 @@ public:
 	 *
 	 * @return array of child boxes
 	 */
-	const std::vector<Box*> *getChildren() const override;
+	const std::vector<std::unique_ptr<Box>> *getChildren() const override;
 
 	/**
 	 * @fn constructContainer

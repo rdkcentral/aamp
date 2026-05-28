@@ -30,6 +30,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <memory>
 #include "AampLogManager.h"
 
 /**
@@ -39,7 +40,7 @@
 class IsoBmffBuffer
 {
 private:
-	std::vector<Box*> boxes;	//ISOBMFF boxes of associated buffer
+	std::vector<std::unique_ptr<Box>> boxes;	//ISOBMFF boxes of associated buffer
 	uint8_t *buffer;
 	size_t bufSize;
 	Box* chunkedBox; //will hold one element only
@@ -52,7 +53,7 @@ private:
 	 * @param[out] pts - pts value
 	 * @return true if parse was successful. false otherwise
 	 */
-	bool getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t &pts);
+	bool getFirstPTSInternal(const std::vector<std::unique_ptr<Box>> *boxes, uint64_t &pts);
 
 	/**
 	 * @fn getTrackIdInternal
@@ -61,7 +62,7 @@ private:
 	 * @param[out] track_id - track_id
 	 * @return true if parse was successful. false otherwise
 	 */
-	bool getTrackIdInternal (const std::vector<Box*> *boxes, uint32_t &track_id);
+	bool getTrackIdInternal (const std::vector<std::unique_ptr<Box>> *boxes, uint32_t &track_id);
 
 	/**
 	 * @fn getTimeScaleInternal
@@ -71,7 +72,7 @@ private:
 	 * @param[out] foundMdhd - flag indicates if MDHD box was seen
 	 * @return true if parse was successful. false otherwise
 	 */
-	bool getTimeScaleInternal(const std::vector<Box*> *boxes, uint32_t &timeScale, bool &foundMdhd);
+	bool getTimeScaleInternal(const std::vector<std::unique_ptr<Box>> *boxes, uint32_t &timeScale, bool &foundMdhd);
 
 	/**
 	 * @fn printBoxesInternal
@@ -79,7 +80,7 @@ private:
 	 * @param[in] boxes - ISOBMFF boxes
 	 * @return void
 	 */
-	void printBoxesInternal(const std::vector<Box*> *boxes);
+	void printBoxesInternal(const std::vector<std::unique_ptr<Box>> *boxes);
 
 	/**
 	 * @fn parseBoxInternal
@@ -90,7 +91,7 @@ private:
 	 * @param[out] size - size of mdat buffer
 	 * @return bool
 	 */
-	bool parseBoxInternal(const std::vector<Box*> *boxes, const char *name, uint8_t *buf, size_t &size);
+	bool parseBoxInternal(const std::vector<std::unique_ptr<Box>> *boxes, const char *name, uint8_t *buf, size_t &size);
 
 	/**
 	 * @fn getBoxSizeInternal
@@ -100,7 +101,7 @@ private:
 	 * @param[out] size - size of mdat buffer
 	 * @return bool
 	 */
-	bool getBoxSizeInternal(const std::vector<Box*> *boxes, const char *name, size_t &size);
+	bool getBoxSizeInternal(const std::vector<std::unique_ptr<Box>> *boxes, const char *name, size_t &size);
 
 	/**
 	 * @fn getBoxesInternal
@@ -110,7 +111,7 @@ private:
 	 * @param[out] pBoxes - size of mdat buffer
 	 * @return bool
 	 */
-	bool getBoxesInternal(const std::vector<Box*> *boxes, const char *name, std::vector<Box*> *pBoxes);
+	bool getBoxesInternal(const std::vector<std::unique_ptr<Box>> *boxes, const char *name, std::vector<Box*> *pBoxes);
 
 	/**
 	 * @fn restampPtsInternal
@@ -152,7 +153,7 @@ public:
 	/**
 	 * @brief IsoBmffBuffer constructor
 	 */
-	IsoBmffBuffer(): boxes(), buffer(NULL), bufSize(0), chunkedBox(NULL), mdatCount(0), beforePTS(0), afterPTS(0), firstPtsSaved(false)
+	IsoBmffBuffer(): boxes(), buffer(nullptr), bufSize(0), chunkedBox(nullptr), mdatCount(0), beforePTS(0), afterPTS(0), firstPtsSaved(false)
 	{
 	}
 
@@ -380,7 +381,7 @@ public:
 	 * @param[out] foundEmsg - flag indicates if EMSG box was seen
 	 * @return true if parse was successful. false otherwise
 	 */
-	bool getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg);
+	bool getEMSGInfoInternal(const std::vector<std::unique_ptr<Box>> *boxes, uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg);
 
 	/**
 	 * @fn getMdatBoxCount
@@ -416,7 +417,7 @@ public:
 	 *
 	 * @return Box handle list if Box found at index given. NULL otherwise
 	 */
-	std::vector<Box*> *getParsedBoxes();
+	std::vector<std::unique_ptr<Box>> *getParsedBoxes();
 
 	/**
 	 * @fn getBox
@@ -451,7 +452,7 @@ public:
 	 * @param[in] boxes - ISOBMFF boxes
 	 * @return void
 	 */
-	void printPTSInternal(const std::vector<Box*> *boxes);
+	void printPTSInternal(const std::vector<std::unique_ptr<Box>> *boxes);
 
 	/**
 	 * @fn getSampleDuration
@@ -468,7 +469,7 @@ public:
 	 * @param[in] boxes - ISOBMFF boxes
 	 * @return uint64_t - duration  value
 	 */
-	uint64_t getSampleDurationInternal(const std::vector<Box*> *boxes);
+	uint64_t getSampleDurationInternal(const std::vector<std::unique_ptr<Box>> *boxes);
 
 	/**
 	 * @fn getPts
@@ -485,7 +486,7 @@ public:
 	 * @param[in] boxes - ISOBMFF boxes
 	 * @return uint64_t - PTS value
 	 */
-	uint64_t getPtsInternal(const std::vector<Box*> *boxes);
+	uint64_t getPtsInternal(const std::vector<std::unique_ptr<Box>> *boxes);
 
 	/**
 	 * @fn truncate

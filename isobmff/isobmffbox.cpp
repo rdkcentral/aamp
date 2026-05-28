@@ -120,9 +120,9 @@ bool Box::hasChildren() const
 /**
  *  @brief Get children of this box
  */
-const std::vector<Box*> *Box::getChildren() const
+const std::vector<std::unique_ptr<Box>> *Box::getChildren() const
 {
-	return NULL;
+	return nullptr;
 }
 
 /**
@@ -150,7 +150,7 @@ const char *Box::getType() const
  * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
  * @return newly constructed Box object
  */
-Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int newTrackId)
+std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int newTrackId)
 {
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
@@ -160,13 +160,13 @@ Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int ne
 	if(maxSz < 4)
 	{
 		AAMPLOG_TRACE("Box data < 4 bytes. Can't determine Size & Type");
-		return new Box(maxSz, (const char *)"UKWN");
+		return std::make_unique<Box>(maxSz, (const char *)"UKWN");
 	}
 	else if(maxSz >= 4 && maxSz < 8)
 	{
 		AAMPLOG_TRACE("Box Size between >4 but <8 bytes. Can't determine Type");
 		//size = READ_U32(hdr);
-		return new Box(maxSz, (const char *)"UKWN");
+		return std::make_unique<Box>(maxSz, (const char *)"UKWN");
 	}
 	else
 	{
@@ -194,70 +194,79 @@ Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int ne
 	}
 	else if (IS_TYPE(type, MOOV))
 	{
-		return GenericContainerBox::constructContainer(size, MOOV, hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			GenericContainerBox::constructContainer(size, MOOV, hdr,
+			newTrackId));
 	}
 	else if (IS_TYPE(type, TRAK))
 	{
-		return TrakBox::constructTrakBox(size,hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			TrakBox::constructTrakBox(size,hdr, newTrackId));
 	}
 	else if (IS_TYPE(type, MDIA))
 	{
-		return GenericContainerBox::constructContainer(size, MDIA, hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			GenericContainerBox::constructContainer(size, MDIA, hdr,
+			newTrackId));
 	}
 	else if (IS_TYPE(type, MOOF))
 	{
-		return GenericContainerBox::constructContainer(size, MOOF, hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			GenericContainerBox::constructContainer(size, MOOF, hdr,
+			newTrackId));
 	}
 	else if (IS_TYPE(type, TRAF))
 	{
-		return GenericContainerBox::constructContainer(size, TRAF, hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			GenericContainerBox::constructContainer(size, TRAF, hdr,
+			newTrackId));
 	}
 	else if (IS_TYPE(type, TFHD))
 	{
-		return TfhdBox::constructTfhdBox(size,  hdr);
+		return std::unique_ptr<Box>(TfhdBox::constructTfhdBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, TFDT))
 	{
-		return TfdtBox::constructTfdtBox(size,  hdr);
+		return std::unique_ptr<Box>(TfdtBox::constructTfdtBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, TRUN))
 	{
-		return TrunBox::constructTrunBox(size,  hdr);
+		return std::unique_ptr<Box>(TrunBox::constructTrunBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, MVHD))
 	{
-		return MvhdBox::constructMvhdBox(size,  hdr);
+		return std::unique_ptr<Box>(MvhdBox::constructMvhdBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, MDHD))
 	{
-		return MdhdBox::constructMdhdBox(size,  hdr);
+		return std::unique_ptr<Box>(MdhdBox::constructMdhdBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, EMSG))
 	{
-		return EmsgBox::constructEmsgBox(size, hdr);
+		return std::unique_ptr<Box>(EmsgBox::constructEmsgBox(size, hdr));
 	}
 	else if (IS_TYPE(type, PRFT))
 	{
-		return PrftBox::constructPrftBox(size,  hdr);
+		return std::unique_ptr<Box>(PrftBox::constructPrftBox(size,  hdr));
 	}
 	else if( IS_TYPE(type, SIDX) )
 	{
-		return SidxBox::constructSidxBox(size, hdr);
+		return std::unique_ptr<Box>(SidxBox::constructSidxBox(size, hdr));
 	}
 	else if (IS_TYPE(type, MDAT))
 	{
-		return MdatBox::constructMdatBox(size, hdr);
+		return std::unique_ptr<Box>(MdatBox::constructMdatBox(size, hdr));
 	}
 	else if (IS_TYPE(type, SENC))
 	{
-		return SencBox::constructSencBox(size, hdr);
+		return std::unique_ptr<Box>(SencBox::constructSencBox(size, hdr));
 	}
 	else if (IS_TYPE(type, SAIZ))
 	{
-		return SaizBox::constructSaizBox(size, hdr);
+		return std::unique_ptr<Box>(SaizBox::constructSaizBox(size, hdr));
 	}
 
-	return new Box(size, (const char *)type);
+	return std::make_unique<Box>(size, (const char *)type);
 }
 
 /**
@@ -284,23 +293,14 @@ GenericContainerBox::GenericContainerBox(uint32_t sz, const char btype[4]) : Box
 /**
  *  @brief GenericContainerBox destructor
  */
-GenericContainerBox::~GenericContainerBox()
-{
-	for (unsigned int i = (unsigned int)children.size(); i>0;)
-	{
-		--i;
-		SAFE_DELETE(children.at(i));
-		children.pop_back();
-	}
-	children.clear();
-}
+GenericContainerBox::~GenericContainerBox() = default;
 
 /**
  *  @brief Add a box as a child box
  */
-void GenericContainerBox::addChildren(Box *box)
+void GenericContainerBox::addChildren(std::unique_ptr<Box> box)
 {
-	children.push_back(box);
+	children.push_back(std::move(box));
 }
 
 /**
@@ -314,7 +314,7 @@ bool GenericContainerBox::hasChildren() const
 /**
  *  @brief Get children of this box
  */
-const std::vector<Box*> *GenericContainerBox::getChildren() const
+const std::vector<std::unique_ptr<Box>> *GenericContainerBox::getChildren() const
 {
 	return &children;
 }
@@ -335,11 +335,18 @@ GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const 
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
 	while (curOffset < sz)
 	{
-		Box *box = Box::constructBox(ptr, sz-curOffset, false, newTrackId );
+		auto box = Box::constructBox(ptr, sz-curOffset, false, newTrackId);
 		box->setOffset(curOffset);
-		cbox->addChildren(box);
-		curOffset += box->getSize();
-		ptr += box->getSize();
+		const uint32_t boxSize = box->getSize();
+		if (boxSize == 0)
+		{
+			AAMPLOG_WARN("Box size 0 for type[%s], stopping nested parse",
+				box->getType());
+			break;
+		}
+		cbox->addChildren(std::move(box));
+		curOffset += boxSize;
+		ptr += boxSize;
 	}
 	return cbox;
 }
@@ -1274,7 +1281,7 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
 	while (curOffset < sz)
 	{
-		Box *box = Box::constructBox(ptr, sz-curOffset);
+		auto box = Box::constructBox(ptr, sz-curOffset);
 		box->setOffset(curOffset);
 
 		if (IS_TYPE(box->getType(),TKHD))
@@ -1299,9 +1306,16 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 			cbox->track_id = READ_U32(ptr);
 			ptr = tkhd_start;
 		}
-		cbox->addChildren(box);
-		curOffset += box->getSize();
-		ptr += box->getSize();
+		const uint32_t boxSize = box->getSize();
+		if (boxSize == 0)
+		{
+			AAMPLOG_WARN("Box size 0 for type[%s], stopping trak parse",
+				box->getType());
+			break;
+		}
+		cbox->addChildren(std::move(box));
+		curOffset += boxSize;
+		ptr += boxSize;
 	}
 	return cbox;
 }

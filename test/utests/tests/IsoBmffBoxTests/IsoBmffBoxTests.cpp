@@ -216,8 +216,6 @@ TEST_F(IsoBmffBoxTests, rewriteAsSkipTest)
 	EXPECT_EQ(buffer[5], 'k');
 	EXPECT_EQ(buffer[6], 'i');
 	EXPECT_EQ(buffer[7], 'p');
-
-	delete testBox;
 }
 
 class IsoBmffTfdtBoxVersionTests : public IsoBmffBoxTests,

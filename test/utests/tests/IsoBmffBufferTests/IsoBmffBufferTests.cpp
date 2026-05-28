@@ -181,7 +181,7 @@ TEST_F(IsoBmffBufferTests, parseBufferTwiceTest)
 	}
 	mIsoBmffBuffer->setBuffer(vInitSeg.data(), size);
 	mIsoBmffBuffer->parseBuffer();
-	std::vector<Box*> *boxes = mIsoBmffBuffer->getParsedBoxes();
+	std::vector<std::unique_ptr<Box>> *boxes = mIsoBmffBuffer->getParsedBoxes();
 	std::size_t numBoxesAfter1parse = boxes->size();
 	// The boxes in the buffer must be destroyed before parseBuffer can be called a second time
 	mIsoBmffBuffer->destroyBoxes();
