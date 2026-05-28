@@ -1807,12 +1807,23 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 	else
 	{
 		fragmentDiscarded = false;
-		aamp->SendStreamCopy(
+		// Route every non-demuxed fragment via SendStreamTransfer so
+		// cachedFragment->PTSOffsetSec, initFragment and discontinuity
+		// are forwarded to the gstreamer sink. Mirrors the DASH
+		// MediaStreamContext::InjectFragmentInternal else branch. For
+		// HLS bare elementary audio (AAC/AC3/EC3) PTSOffsetSec is 0
+		// and initFragment is false in practice, so this is bit-
+		// equivalent to the previous SendStreamCopy path while also
+		// carrying the correct flags for the subtitle gst-sub case.
+		aamp->SendStreamTransfer(
 			(AampMediaType)type,
 			cachedFragment->fragment,
 			cachedFragment->position,
 			cachedFragment->position,
-			cachedFragment->duration);
+			cachedFragment->duration,
+			cachedFragment->PTSOffsetSec,
+			cachedFragment->initFragment,
+			cachedFragment->discontinuity);
 	}
 } // InjectFragmentInternal
 
