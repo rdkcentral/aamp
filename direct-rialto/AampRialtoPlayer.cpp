@@ -796,6 +796,29 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 
+	// shouldTearDown controls recovery behavior when NOT in PLAYING/PAUSED states.
+	// - PLAYING/PAUSED: Always proceed with flush (shouldTearDown ignored)
+	// - Other states + shouldTearDown=true: Call Stop() for recovery/cleanup
+	// - Other states + shouldTearDown=false: Proceed with flush normally
+	//
+	// This differs from GStreamer which skips flush in non-PLAYING/PAUSED states.
+	// Rialto needs to flush in states like SOURCES_ATTACHED to set up positions.
+	const PlayerStateId state = m_stateMachine.currentState();
+	const bool isPlayingOrPaused = (state == PlayerStateId::PLAYING ||
+	                                state == PlayerStateId::PAUSED);
+
+	if (!isPlayingOrPaused && shouldTearDown)
+	{
+		// Not in PLAYING/PAUSED and shouldTearDown=true → tear down for recovery.
+		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED and shouldTearDown=true — calling Stop(true)",
+			m_stateMachine.currentStateName());
+		Stop(true);
+		AAMPLOG_INFO("EXIT — teardown requested");
+		return;
+	}
+
+	// Proceed with flush: either in PLAYING/PAUSED, or in other state with shouldTearDown=false.
+
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
 	{

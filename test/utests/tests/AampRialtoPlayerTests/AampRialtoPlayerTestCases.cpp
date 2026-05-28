@@ -1803,7 +1803,7 @@ TEST_F(AampRialtoPlayerTest,
 {
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 
-	m_player->Flush(10.0);
+	m_player->Flush(10.0, 1, false);
 
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
 		.WillOnce(Invoke(
@@ -2500,7 +2500,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	/**
 	 * @brief Regression: Bug A from L2 TESTDATA0 rewind failure.
 	 *
-	 * The sequence Flush(shouldTearDown=1) → Configure(audio=INVALID)
+	 * The sequence Flush(shouldTearDown=false) → Configure(audio=INVALID)
 	 * previously left the state machine stuck in FLUSHING, unable to
 	 * respond to Rialto's playback state callbacks.
 	 *
@@ -2522,10 +2522,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED)
 		<< "Precondition: state must be SOURCES_ATTACHED before the flush";
 
-	// Move state machine to FLUSHING via a teardown flush.
-	m_player->Flush(/*position=*/0.0, /*rate=*/-2, /*shouldTearDown=*/true);
+	// Move state machine to FLUSHING via a flush without teardown.
+	// shouldTearDown=false allows flush to proceed even when not in PLAYING/PAUSED.
+	m_player->Flush(/*position=*/0.0, /*rate=*/-2, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
-		<< "Precondition: Flush(shouldTearDown=1) must move state to FLUSHING";
+		<< "Precondition: Flush(shouldTearDown=false) must move state to FLUSHING";
 
 	// Trickplay Configure: audio → FORMAT_INVALID, no pipeline recreation.
 	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
@@ -2570,4 +2571,151 @@ TEST_F(AampRialtoPlayerTest,
 
 	EXPECT_FALSE(audioSource->state().eos)
 		<< "EOS must be cleared on trickplay exit so audio injection resumes";
+}
+
+// ===========================================================================
+// Flush — shouldTearDown parameter tests
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_NullPipeline_ShouldTearDownTrue_CallsStop)
+{
+	/**
+	 * @brief When the player is in IDLE state (no pipeline) and shouldTearDown=true,
+	 *        Flush() must call Stop(true) to tear down gracefully.
+	 *
+	 * This mirrors GStreamer's behavior: if the pipeline is in an invalid
+	 * state (GST_STATE_NULL), it calls stopCallback(true) to tear down.
+	 */
+	// Setup: DON'T call Configure() so player remains in IDLE state.
+	// Player is constructed in SetUp() but no pipeline is created yet.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Precondition: player must be in IDLE state";
+	
+	// Flush() with shouldTearDown=true should call Stop() even in IDLE state.
+	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
+
+	// Verify player transitions to STOPPED state.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::STOPPED)
+		<< "Player must transition to STOPPED after Flush(shouldTearDown=true)";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_NullPipeline_ShouldTearDownFalse_DoesNotCallStop)
+{
+	/**
+	 * @brief When the player is in IDLE state (no pipeline) and shouldTearDown=false,
+	 *        Flush() must NOT call Stop(), only log and return.
+	 *
+	 * This mirrors GStreamer: if shouldTearDown=false, the pipeline
+	 * error is logged but no recovery action is taken.
+	 */
+	// Setup: DON'T call Configure() so player remains in IDLE state.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+	
+	// Flush() with shouldTearDown=false should NOT change state.
+	EXPECT_NO_FATAL_FAILURE(
+		m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false));
+
+	// Verify player remains in IDLE state (no Stop() called).
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Player must remain in IDLE when shouldTearDown=false";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_PipelineStopped_ShouldTearDownTrue_CallsStop)
+{
+	/**
+	 * @brief When the player is in STOPPED state and shouldTearDown=true,
+	 *        Flush() must call Stop(true).
+	 */
+	Configure();
+	m_player->Stop(false);
+
+	// Verify player is in STOPPED state.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::STOPPED)
+		<< "Precondition: player must be in STOPPED state after Stop()";
+
+	// Expect Stop() to be called again when shouldTearDown=true.
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(1);
+
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_PipelineStopped_ShouldTearDownFalse_DoesNotCallStop)
+{
+	/**
+	 * @brief When the player is in STOPPED state and shouldTearDown=false,
+	 *        Flush() must NOT call Stop(), only return early.
+	 */
+	Configure();
+	m_player->Stop(false);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::STOPPED);
+
+	// Expect NO additional stop() call.
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
+
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/false);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_ValidPipeline_ShouldTearDownTrue_DoesNotCallStop)
+{
+	/**
+	 * @brief When the player is in PLAYING state (valid for flushing),
+	 *        shouldTearDown has no effect — Flush() proceeds with normal flush.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Transition to PLAYING state.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING)
+		<< "Precondition: player must be in PLAYING state";
+
+	// Player is in PLAYING state; expect normal flush() calls, NOT stop().
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _))
+		.Times(::testing::AtLeast(1));
+
+	m_player->Flush(/*position=*/20.0, /*rate=*/1, /*shouldTearDown=*/true);
+
+	// Verify player transitions to FLUSHING state.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Player must transition to FLUSHING after successful Flush()";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_ValidPipeline_ShouldTearDownFalse_DoesNotCallStop)
+{
+	/**
+	 * @brief When the player is in PLAYING state (valid for flushing),
+	 *        shouldTearDown has no effect — Flush() proceeds with normal flush.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Transition to PLAYING state.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Player is in PLAYING state; expect normal flush() calls, NOT stop().
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _))
+		.Times(::testing::AtLeast(1));
+
+	m_player->Flush(/*position=*/15.0, /*rate=*/1, /*shouldTearDown=*/false);
+
+	// Verify player transitions to FLUSHING state.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 }
