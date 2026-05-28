@@ -16,8 +16,14 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 - Follow `clang-format` alignment where the repository already documents formatting.
 
 ## 2. Testing
-- All public functions require unit tests.
-- Use Google Test/Google Mock.
+- New or modified public behaviour should be tested **proportionate to
+  risk and complexity**, not by a rigid rule that every public function
+  must have a dedicated unit test.
+- Prioritise tests for non-obvious contracts, error paths, historically
+  regression-prone code, and the playback / buffering / ABR / DRM hot paths.
+- Do not chase a numeric coverage target. Tests written only to raise
+  coverage tend to be brittle and implementation-coupled.
+- Use Google Test / Google Mock.
 - Review **`instructions/testing.instructions.md`** before creating any tests.
 - All tests must run via the CI pipeline.
 
@@ -54,6 +60,13 @@ Copilot must still follow these steps:
 ## 4. Code Reviews
 - All changes must go through pull requests.
 - Feedback must be constructive and based on these guidelines.
+- Review comments should be **concrete, actionable, and tied to changed
+  code**. Do not raise drive-by Core-Guidelines or modernization comments
+  on untouched surrounding code unless the user explicitly asks for a
+  broader review.
+- Generation guidance (write modern C++17, prefer smart pointers, etc.)
+  applies when creating or editing code. When reviewing, apply it to the
+  diff, not to the rest of the file.
 
 ## 5. Performance Considerations
 - Optimize only when profiling indicates a need.
@@ -104,8 +117,12 @@ Language-specific patterns live in `.github/instructions/`.
 
 3. **Modernization Goal**  
    The existing AAMP codebase is predominantly C++11.  
-   New code must target C++17, using modern C++ idioms (RAII, smart pointers, interfaces).  
-   Legacy code should be gently refactored toward modern C++17 patterns.
+   **All new production code and L1 test code must target C++17**, using
+   modern C++ idioms (RAII, smart pointers, STL containers, interfaces).
+   Legacy code should be modernized only as part of a directly related
+   change — do not perform opportunistic repository-wide rewrites.
+   C++20-only features (`std::span`, concepts, ranges, `std::format`,
+   coroutines) are **not currently permitted** in active code.
 
 4. **Testing First**  
    Always reference `instructions/testing.instructions.md` before writing tests.
