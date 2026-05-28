@@ -185,6 +185,7 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	first_pts = 0;
 	update_first_pts = false;
 	finalized_base_pts = false;
+	rollover_pts = false;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
 	
