@@ -154,10 +154,11 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 {
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
-	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 
 	uint32_t size = 0;
 	uint8_t type[5];
+	char safeType[5] = {};
 	if(maxSz < 4)
 	{
 		AAMPLOG_TRACE("Box data < 4 bytes. Can't determine Size & Type");
@@ -174,11 +175,14 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		size = READ_U32(hdr);
 		READ_U8(type, hdr, 4);
 		type[4] = '\0';
+		for (int i = 0; i < 4; i++)
+			safeType[i] = (type[i] >= 0x20 && type[i] <= 0x7e) ? static_cast<char>(type[i]) : '.';
+		safeType[4] = '\0';
 	}
 
 	if (size < minHeaderSize)
 	{
-		AAMPLOG_WARN("Box[%s] has invalid small size[%u]", type, size);
+		AAMPLOG_WARN("Box[%s] has invalid small size[%u]", safeType, size);
 		return std::make_unique<Box>(size, (const char *)type);
 	}
 
@@ -187,7 +191,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		if(correctBoxSize)
 		{
 			//Fix box size to handle cases like receiving whole file for HTTP range requests
-			AAMPLOG_WARN("Box[%s] fixing size error:size[%u] > maxSz[%u]", type, size, maxSz);
+			AAMPLOG_WARN("Box[%s] fixing size error:size[%u] > maxSz[%u]", safeType, size, maxSz);
 			hdr = hdr_start;
 			WRITE_U32(hdr,maxSz);
 			goto L_RESTART;
@@ -195,7 +199,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		else
 		{
 			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",
-				type, size, maxSz);
+				safeType, size, maxSz);
 			return std::make_unique<Box>(size, (const char *)type);
 		}
 	}
@@ -340,7 +344,7 @@ GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const 
 {
 	GenericContainerBox *cbox = new GenericContainerBox(sz, btype);
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
-	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	while (curOffset < sz)
 	{
 		const uint32_t remaining = sz - curOffset;
@@ -1358,7 +1362,7 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 {
 	TrakBox *cbox = new TrakBox(sz);
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
-	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	while (curOffset < sz)
 	{
 		const uint32_t remaining = sz - curOffset;

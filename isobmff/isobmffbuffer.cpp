@@ -125,7 +125,7 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, u
  */
 bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 {
-	const size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	constexpr size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	size_t curOffset = 0;
 	while (curOffset < bufSize)
 	{
@@ -307,7 +307,7 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 
 void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
 {
-	const size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	constexpr size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	size_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
