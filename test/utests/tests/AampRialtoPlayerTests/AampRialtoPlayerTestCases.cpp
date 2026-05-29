@@ -2225,3 +2225,81 @@ TEST_F(AampRialtoPlayerTest,
 		/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/1.0,
 		/*fragmentPTSoffset=*/kOffsetSec, /*initFragment=*/false);
 }
+// ===========================================================================
+// SignalSubtitleClock
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+        SignalSubtitleClock_WithAttachedSubtitle_SyncsPosition)
+{
+        /**
+         * @brief When a subtitle source is attached, SignalSubtitleClock()
+         *        queries the pipeline position and forwards it to
+         *        setSourcePosition() for the subtitle source with
+         *        resetTime=false.  Returns true on success.
+         *
+         * This is the primary fix for the 10-15 s subtitle delay: the
+         * AAMP UpdateSubtitleClockTask calls SignalSubtitleClock() every
+         * 500 ms at startup.  Implementing it to call getPosition +
+         * setSourcePosition sends sendSessionTimestamp() to the Thunder
+         * text-track renderer within 500 ms instead of waiting for the
+         * Rialto server's 10-second periodic SynchroniseSubtitleClock.
+         */
+        Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+        SendVideoInitFragment();
+        ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+        ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+        constexpr int64_t kPositionNs     = 23'780'000'000LL;
+        const int32_t     subtitleSrcId   = m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId();
+
+        EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+                .WillOnce(DoAll(SetArgReferee<0>(kPositionNs), Return(true)));
+        EXPECT_CALL(*m_mockPipelinePtr,
+                setSourcePosition(subtitleSrcId, kPositionNs, false, _, _))
+                .WillOnce(Return(true));
+
+        EXPECT_TRUE(m_player->SignalSubtitleClock());
+}
+
+TEST_F(AampRialtoPlayerTest,
+        SignalSubtitleClock_NoSubtitleSource_ReturnsFalse)
+{
+        /**
+         * @brief When no subtitle source is configured, SignalSubtitleClock()
+         *        returns false without querying the pipeline.
+         */
+        Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, /*sub=*/FORMAT_INVALID);
+
+        EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+        EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+
+        EXPECT_FALSE(m_player->SignalSubtitleClock());
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+        SignalSubtitleClock_GetPositionFails_ReturnsFalse)
+{
+        /**
+         * @brief When getPosition() fails, SignalSubtitleClock() returns
+         *        false without calling setSourcePosition().
+         */
+        Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+        SendVideoInitFragment();
+
+        EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+                .WillOnce(Return(false));
+        EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+
+        EXPECT_FALSE(m_player->SignalSubtitleClock());
+}
+
+TEST_F(AampRialtoPlayerTest,
+        SignalSubtitleClock_NoPipeline_ReturnsFalse)
+{
+        /**
+         * @brief Before Configure() there is no pipeline; SignalSubtitleClock()
+         *        returns false without crashing.
+         */
+        EXPECT_FALSE(m_player->SignalSubtitleClock());
+}

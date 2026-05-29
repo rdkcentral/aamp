@@ -1054,8 +1054,21 @@ PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality()
 bool AampRialtoPlayer::SignalSubtitleClock()
 {
 	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return false;
+	bool result = false;
+	auto *subtitleSource = m_sources[eMEDIATYPE_SUBTITLE].get();
+	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
+	{
+		int64_t position = 0;
+		if (m_pipeline->getPosition(position))
+		{
+			result = m_pipeline->setSourcePosition(
+				subtitleSource->sourceId(),
+				position,
+				/*resetTime=*/false);
+		}
+	}
+	AAMPLOG_INFO("EXIT result=%d", result);
+	return result;
 }
 
 void AampRialtoPlayer::SetPauseOnStartPlayback(bool enable)
