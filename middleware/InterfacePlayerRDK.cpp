@@ -1710,8 +1710,22 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	{
 		if ((interfacePlayerPriv->socInterface->IsSimulatorSink() || interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && rate != GST_NORMAL_PLAY_RATE)
 		{
-			MW_LOG_INFO("Resetting seek position to zero");
-			position = 0;
+			const bool isTrickplay = (rate != GST_NORMAL_PLAY_RATE);
+			const bool isRialtoOrSimulator = (interfacePlayerPriv->socInterface->IsSimulatorSink() || interfacePlayerPriv->gstPrivateContext->usingRialtoSink);
+			const bool isLiveMedia = (static_cast<GstMediaFormat>(m_gstConfigParam->media) == eGST_MEDIAFORMAT_OTA);
+			
+			if (isRialtoOrSimulator && isTrickplay)
+			{
+				if (isLiveMedia)
+				{
+					MW_LOG_WARN("Live trickplay active - preserving flush seek position %f", position);
+				}
+				else
+				{
+					MW_LOG_INFO("Resetting seek position to zero");
+					position = 0;
+				}
+			}
 		}
 	}
 	if (!gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
