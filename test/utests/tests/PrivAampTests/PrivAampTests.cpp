@@ -406,7 +406,17 @@ public:
 	{
 		return CheckForChunkEarlyAbort(context);
 	}
-	};
+	// Helpers for accessing protected tune-metrics members from tests.
+	void SetTuneTimeMetricData(const std::string& data)
+	{
+		mTuneTimeMetricData = data;
+		mTuneMetricDataPending.store(true);
+	}
+	bool GetTuneMetricDataPending() const
+	{
+		return mTuneMetricDataPending.load();
+	}
+};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
 
@@ -771,6 +781,104 @@ TEST_F(PrivAampPrivTests,RemoveCustomHTTPHeaderTest)
 
 	result = testp_aamp->GetCustomLicenseHeaders();
 	EXPECT_TRUE (result.find("string:") == result.end());
+}
+
+/**
+ * Verify that SendTuneMetricsEvent is no-op when there is no mTuneTimeMetricData.
+ */
+TEST_F(PrivAampPrivTests,SendTuneMetricsEventTest1)
+{
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE))
+		.Times(0);
+	testp_aamp->SendTuneMetricsEvent();
+
+	// Data is consumed exactly once; a second call must be a no-op.
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
+}
+
+/**
+ * Verify that SendTuneMetricsEvent dispatches AAMP_EVENT_TUNE_TIME_METRICS and consumes the pending data exactly once.
+ */
+TEST_F(PrivAampPrivTests,SendTuneMetricsEventTest2)
+{
+	// Populate the pending data and flag that LogTuneComplete/Failure would normally set.
+	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
+
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE))
+		.Times(1);
+	testp_aamp->SendTuneMetricsEvent();
+
+	// Data is consumed exactly once; a second call must be a no-op.
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
+}
+
+/**
+ * Verify that AAMP_EVENT_TUNE_TIME_METRICS is dispatched by MonitorProgress
+ * strictly after the state-changed-to-PLAYING event.
+ */
+TEST_F(PrivAampPrivTests, MonitorProgressTuneMetricsAfterPlayingStateChange)
+{
+	// Simulate the pending metrics JSON that LogTuneComplete/LogTuneFailure populates.
+	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
+	testp_aamp->mDownloadsEnabled = true;
+	testp_aamp->mSinkPaused = false;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+
+	// Allow SetState to fire the state-changed event.
+	EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
+		.WillOnce(Return(true));
+
+	// Ordering assertion: STATE_CHANGED(PLAYING) must be observed before TUNE_TIME_METRICS.
+	// Any other SendEvent calls (e.g. AAMP_EVENT_PROGRESS) are absorbed by NiceMock.
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_STATE_CHANGED), AAMP_EVENT_SYNC_MODE)).Times(1);
+		EXPECT_CALL(*g_mockAampEventManager,
+			SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE)).Times(1);
+	}
+
+	// Step 1: transition to PLAYING — fires AAMP_EVENT_STATE_CHANGED synchronously.
+	testp_aamp->SetState(eSTATE_PLAYING, true);
+	// Step 2: first progress tick — fires AAMP_EVENT_TUNE_TIME_METRICS via SendTuneMetricsEvent.
+	testp_aamp->MonitorProgress(true, false);
+
+	// Data is consumed exactly once; subsequent MonitorProgress ticks are no-ops.
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
+}
+
+/**
+ * Verify that TuneFail explicitly calls SendTuneMetricsEvent — dispatching
+ * AAMP_EVENT_TUNE_TIME_METRICS — when a listener is registered and the
+ * manifest URL is not the fake-tune sentinel.
+ *
+ * Contract: TuneFail must synchronously send the tune-metrics event because
+ * no future MonitorProgress tick will fire after a tune failure.
+ */
+TEST_F(PrivAampPrivTests, TuneFailSendsTuneMetricsEvent)
+{
+	// Arrange: use a real manifest URL so TuneFail does not skip the
+	// metrics path (which it guards with mManifestUrl != FAKE_TUNE_URL).
+	testp_aamp->mManifestUrl = SAMPLE_URL;
+	// Simulate the pending metrics JSON that LogTuneComplete/LogTuneFailure populates.
+	testp_aamp->SetTuneTimeMetricData("{\"metric\":\"test\"}");
+
+	// IsEventListenerAvailable gates both TuneEnd metric population and
+	// the subsequent SendTuneMetricsEvent call.
+	EXPECT_CALL(*g_mockAampEventManager,
+		IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS))
+		.WillOnce(Return(true));
+
+	// SendTuneMetricsEvent must fire exactly once from within TuneFail.
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_TUNE_TIME_METRICS), AAMP_EVENT_ASYNC_MODE))
+		.Times(1);
+
+	testp_aamp->TuneFail(true);
+
+	// Pending flag must be cleared after the event is dispatched.
+	EXPECT_FALSE(testp_aamp->GetTuneMetricDataPending());
 }
 
 struct TsbConfigurationData
@@ -4685,11 +4793,6 @@ TEST_F(PrivAampTests,GetLicenseServerUrlForDrmTest2)
 {
 	std::string str = p_aamp->GetLicenseServerUrlForDrm(eDRM_ClearKey);
 	EXPECT_STRNE("sample",str.c_str());
-}
-TEST_F(PrivAampTests,SendTuneMetricsEventTest)
-{
-	std::string timeMetricData = "Sample time metric data";
-   p_aamp->SendTuneMetricsEvent(timeMetricData);
 }
 
 TEST_F(PrivAampTests,mediaType2BucketTest_122)
