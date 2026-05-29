@@ -1070,7 +1070,7 @@ protected:
     void SetUp() override {
         
         timeMetricData = "SampleTimeMetricsData";
-        event = new TuneTimeMetricsEvent(std::move(timeMetricData), session_id);
+        event = new TuneTimeMetricsEvent(std::string{timeMetricData}, session_id);
     }
 
     void TearDown() override {
