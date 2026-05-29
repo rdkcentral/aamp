@@ -163,6 +163,20 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool isAbort)
 {
 	MW_LOG_INFO("isAbort : %s", isAbort ? "true" : "false");
 	licenseRequestAbort.store(isAbort, std::memory_order_release);
+
+	if (isAbort && mDrmSessionManager)
+	{
+		// Cancel any pending generateKeyRequest waits on active DRM sessions
+		// so that the license acquisition thread unblocks immediately
+		for (int i = 0; i < mMaxDRMSessions; i++)
+		{
+			if (mDrmSessionManager->drmSessionContexts &&
+				mDrmSessionManager->drmSessionContexts[i].drmSession)
+			{
+				mDrmSessionManager->drmSessionContexts[i].drmSession->cancelKeyRequest();
+			}
+		}
+	}
 }
 
 void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)

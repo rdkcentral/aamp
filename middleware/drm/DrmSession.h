@@ -137,6 +137,13 @@ public:
 	virtual void clearDecryptContext() = 0;
 
 	/**
+	 * @brief Cancel any pending key request wait.
+	 *        This allows the stop flow to unblock generateKeyRequest
+	 *        without waiting for the full CDM timeout.
+	 */
+	virtual void cancelKeyRequest() {};
+
+	/**
 	 * @brief Get the list of usable key IDs from the DRM session
 	 * @retval Reference to vector of usable key IDs
 	 * @note Default implementation returns the reference to an empty vector
