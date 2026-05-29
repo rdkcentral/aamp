@@ -93,6 +93,13 @@ static MediaCodecInfo MakeAudioAacCodecInfo(
 	return ci;
 }
 
+static MediaCodecInfo MakeSubtitleTtmlCodecInfo()
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat = GST_FORMAT_SUBTITLE_TTML;
+	return ci;
+}
+
 // ---------------------------------------------------------------------------
 // Base test fixture
 // ---------------------------------------------------------------------------
@@ -1693,6 +1700,24 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
 
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_Subtitle_ResumesTrackDownloads)
+{
+	// Regression test: after a period transition SelectSubtitleTrack calls
+	// StopTrackDownloads(SUBTITLE), setting mbTrackDownloadsBlocked[SUBTITLE]=true.
+	// For Rialto, the NeedData callback never clears that flag (Rialto uses
+	// injectionGated, not mbTrackDownloadsBlocked for subtitle backpressure).
+	// SetStreamCaps must therefore call ResumeTrackDownloads(SUBTITLE) after
+	// attaching the subtitle source so the inject loop is unblocked.
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ResumeTrackDownloads(eMEDIATYPE_SUBTITLE))
+		.Times(1);
+
+	m_player->SetStreamCaps(eMEDIATYPE_SUBTITLE, MakeSubtitleTtmlCodecInfo());
+}
+
 // ===========================================================================
 // SendSample — per-sample injection via external demuxer path
 // ===========================================================================
@@ -2302,4 +2327,68 @@ TEST_F(AampRialtoPlayerTest,
          *        returns false without crashing.
          */
         EXPECT_FALSE(m_player->SignalSubtitleClock());
+}
+
+// ===========================================================================
+// SetSubtitleMute
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetSubtitleMute_AttachedSubtitle_CallsPipelineSetMute)
+{
+	/**
+	 * @brief When the subtitle source is attached, SetSubtitleMute(true)
+	 *        must call m_pipeline->setMute(sourceId, true) and
+	 *        SetSubtitleMute(false) must call setMute(sourceId, false).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	SendVideoInitFragment();
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+	const int32_t subtitleSrcId =
+		m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(subtitleSrcId, true)).Times(1);
+	m_player->SetSubtitleMute(true);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(subtitleSrcId, false)).Times(1);
+	m_player->SetSubtitleMute(false);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetSubtitleMute_SubtitleNotYetAttached_MuteAppliedWhenAttached)
+{
+	/**
+	 * @brief SetSubtitleMute(true) called before the subtitle source is
+	 *        attached must cache the state and call setMute once the
+	 *        source attaches (triggered here by SendVideoInitFragment).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+
+	// After Configure(), subtitle attachment is deferred — video hasn't
+	// attached yet so isAttached() must be false here.
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+	// Mute before attach — must NOT trigger setMute yet.
+	m_player->SetSubtitleMute(true);
+
+	// setMute must be called exactly once when the subtitle source attaches.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, true)).Times(1);
+
+	// SendVideoInitFragment triggers synchronous video attach which then
+	// drains the deferred subtitle attach, applying the cached mute.
+	SendVideoInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetSubtitleMute_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief SetSubtitleMute called before Configure() (no pipeline)
+	 *        must not crash.
+	 */
+	EXPECT_NO_FATAL_FAILURE(m_player->SetSubtitleMute(true));
 }

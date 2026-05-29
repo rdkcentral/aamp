@@ -397,6 +397,10 @@ private:
 	/// Stream() reads this to decide whether it can call play() immediately.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
+	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
+	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
+	bool m_subtitleMuted{false};
+
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;
 

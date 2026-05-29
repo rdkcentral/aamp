@@ -556,6 +556,18 @@ void AampRialtoPlayer::AttachSource(
 				}
 			}
 		}
+
+		// Re-apply cached subtitle mute state when the subtitle source first
+		// attaches.  SetSubtitleMute() may have been called before the source
+		// was ready (e.g. user muted before playback started, or between period
+		// transitions when the source is detached and re-attached).
+		if (type == eMEDIATYPE_SUBTITLE && m_subtitleMuted)
+		{
+			AAMPLOG_INFO("Applying cached subtitle mute on attach sourceId=%d",
+				source.sourceId());
+			m_pipeline->setMute(source.sourceId(), true);
+		}
+
 		CheckAllSourcesAttached();
 	}
 }
@@ -867,6 +879,13 @@ void AampRialtoPlayer::SetVideoMute(bool muted)
 void AampRialtoPlayer::SetSubtitleMute(bool muted)
 {
 	AAMPLOG_INFO("ENTRY muted=%d", muted);
+	std::lock_guard<std::mutex> lock(m_attachMutex);
+	m_subtitleMuted = muted;
+	auto *subtitleSource = m_sources[eMEDIATYPE_SUBTITLE].get();
+	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
+	{
+		m_pipeline->setMute(subtitleSource->sourceId(), muted);
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
@@ -1112,6 +1131,19 @@ void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecI
 		if (source)
 		{
 			AttachSource(*source, codecInfo);
+
+			// SelectSubtitleTrack() calls StopTrackDownloads(SUBTITLE) during
+			// period transitions, setting mbTrackDownloadsBlocked[SUBTITLE]=true.
+			// InjectFragment() calls BlockUntilGstreamerWantsData() which spins
+			// while that flag is true.  For Rialto, subtitle backpressure is
+			// managed via injectionGated (not via NeedData/EnoughData), so
+			// ResumeTrackDownloads is never triggered by a Rialto NeedData
+			// callback after a caps update.  Clear the flag here so that the
+			// inject loop is unblocked once the new period init has been accepted.
+			if (type == eMEDIATYPE_SUBTITLE && m_aamp)
+			{
+				m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+			}
 		}
 		else
 		{
