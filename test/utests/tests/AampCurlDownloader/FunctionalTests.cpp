@@ -52,7 +52,7 @@ protected:
 	void SetUp() override
 	{
 		mAampCurlDownloader = new AampCurlDownloader();
-		g_mockCurl = new MockCurl();
+		g_mockCurl = std::make_shared<MockCurl>();
 
 		mCurlEasyHandle = malloc(1);		// use a valid address for the handle
 
@@ -72,8 +72,7 @@ protected:
 
 		free(mCurlEasyHandle);
 
-		delete g_mockCurl;
-		g_mockCurl = nullptr;
+		g_mockCurl.reset();
 	}
 
 public:

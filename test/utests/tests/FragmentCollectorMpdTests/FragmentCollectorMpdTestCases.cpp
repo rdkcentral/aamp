@@ -81,10 +81,10 @@ protected:
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP();
 		
 		// Create global mocks
-		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
+		g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
+		g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
 		g_mockTSBReader = std::make_shared<MockTSBReader>();
-		g_mockAampMPDParseHelper = new MockAampMPDParseHelper();
+		g_mockAampMPDParseHelper = std::make_shared<MockAampMPDParseHelper>();
 
 		// Test configuration
 		mSeekTime = 0.0;
@@ -101,15 +101,15 @@ protected:
 	{
 		delete mMpdStream;
 		delete mPrivateInstanceAAMP;
-		delete g_mockPrivateInstanceAAMP;
-		delete g_mockTSBSessionManager;
-		delete g_mockAampMPDParseHelper;
+		g_mockPrivateInstanceAAMP.reset();
+		g_mockTSBSessionManager.reset();
+		g_mockAampMPDParseHelper.reset();
 		g_mockTSBReader.reset();
 		mMpdStream = nullptr;
 		mPrivateInstanceAAMP = nullptr;
-		g_mockPrivateInstanceAAMP = nullptr;
-		g_mockTSBSessionManager = nullptr;
-		g_mockAampMPDParseHelper = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
+		g_mockTSBSessionManager.reset();
+		g_mockAampMPDParseHelper.reset();
 	}
 
 	PrivateInstanceAAMP* mPrivateInstanceAAMP;
@@ -137,7 +137,7 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest)
 	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
    	ASSERT_NE(tsbReader, nullptr);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
 	EXPECT_CALL(*g_mockTSBReader, TrackEnabled()).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockTSBReader, IsEos()).WillOnce(Return(false));
@@ -169,7 +169,7 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest_DisabledTrack_NoPushF
 	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
 	ASSERT_NE(tsbReader, nullptr);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
 	
 	// Mock track as disabled - this should prevent PushNextTsbFragment from being called

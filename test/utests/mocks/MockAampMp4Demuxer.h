@@ -21,6 +21,7 @@
 #define MOCK_AAMP_MP4_DEMUXER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 
 class MockAampMp4Demuxer
 {
@@ -28,6 +29,6 @@ public:
 	MOCK_METHOD(bool, getPTSRestampStatus, (), (const));
 };
 
-extern MockAampMp4Demuxer *g_mockAampMp4Demuxer;
+extern std::shared_ptr<MockAampMp4Demuxer> g_mockAampMp4Demuxer;
 
 #endif /* MOCK_AAMP_MP4_DEMUXER_H */

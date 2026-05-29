@@ -22,6 +22,7 @@
 
 #include <gmock/gmock.h>
 #include <ios>
+#include <memory>
 
 #include "TsbFakeBasicFilebuf.h"
 
@@ -37,6 +38,6 @@ public:
 	MOCK_METHOD(void, close, ());
 };
 
-extern TsbMockOfstream* g_mockOfstream;
+extern std::shared_ptr<TsbMockOfstream> g_mockOfstream;
 
 #endif // __TSB_MOCK_OFSTREAM__

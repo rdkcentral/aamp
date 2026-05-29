@@ -21,6 +21,7 @@
 #define AAMP_MOCK_ABR_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "abr.h"
 
 class MockABRManager
@@ -44,6 +45,6 @@ public:
 	MOCK_METHOD(bool, isProfileIndexBitrateLowest, (int currentProfileIndex, const std::string& periodId));
 };
 
-extern MockABRManager *g_mockABRManager;
+extern std::shared_ptr<MockABRManager> g_mockABRManager;
 
 #endif // AAMP_MOCK_ABR_MANAGER_H
