@@ -1184,8 +1184,9 @@ void Mp4Demux::ParseMovieExtendsHeader()
  *     Detection: the first 4 bytes of the payload are 0x00000000.
  *
  * This dual-variant detection mirrors the approach in GStreamer qtdemux.c.
- * In both cases the function recurses into the child boxes so that nested
- * boxes (e.g. 'ilst', 'hdlr') are handled by the normal dispatch logic.
+ * In both cases the function recurses into the child boxes. Known children
+ * such as 'hdlr' are explicitly skipped by DemuxHelper; unknown children
+ * (e.g. 'ilst', 'keys') fall through to the default skip handler.
  *
  * @param next Pointer to end of box payload
  */
@@ -1283,6 +1284,13 @@ void Mp4Demux::ParseSampleGroupDescription(const uint8_t *next)
 		// Skip entry payload. Full 'seig' parsing (key rotation) can be
 		// added here when per-group encryption support is required.
 		SkipBytes(entryLen);
+	}
+	// For version 0 the spec does not carry a defaultLength field, so
+	// per-entry byte lengths are unknown and the loop above consumes nothing.
+	// Advance to the box end to avoid a boundary-mismatch from DemuxHelper.
+	if (version == 0)
+	{
+		ptr = next;
 	}
 }
 
@@ -1482,6 +1490,8 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("mfhd"): // Movie Fragment Header
 			case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
 			case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
+			case MultiChar_Constant("ilst"): // Apple metadata item list (child of meta)
+			case MultiChar_Constant("keys"): // Apple metadata key declarations (child of meta)
 			case MultiChar_Constant("vmhd"): // Video Media Header (graphics_mode, op_color)
 			case MultiChar_Constant("smhd"): // Sound Media Header (balance)
 			case MultiChar_Constant("dref"): // Data Reference (url) (under dinf box)
