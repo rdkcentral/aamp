@@ -23,8 +23,6 @@
 */
 
 #include "isobmffbox.h"
-#include "AampConfig.h"
-#include "AampUtils.h"
 #include <stddef.h>
 #include <inttypes.h>
 

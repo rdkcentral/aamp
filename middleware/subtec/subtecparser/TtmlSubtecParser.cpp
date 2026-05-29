@@ -124,7 +124,7 @@ bool TtmlSubtecParser::processData(const char* buffer, size_t bufferLen, double 
 	printf( "TtmlSubtecParser::processData(bufferLen=%zu,position=%f,duration=%f)\n", bufferLen, position, duration );
 #endif
 
-	PlayerIsoBmffBuffer isobuf;
+	IsoBmffBuffer isobuf;
 
 	isobuf.setBuffer( (uint8_t *)buffer, bufferLen);
 	isobuf.parseBuffer();

@@ -23,8 +23,6 @@
 */
 
 #include "isobmffbuffer.h"
-#include "AampUtils.h"
-#include "AampLogManager.h"
 #include <inttypes.h>
 #include <string.h>
 

@@ -31,7 +31,7 @@ pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 
 include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle ${CMAKE_CURRENT_SOURCE_DIR}/../isobmff
 	closedcaptions
 	closedcaptions/subtec
 	drm drm/helper
@@ -54,14 +54,19 @@ add_subdirectory(externals)
 
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/PlayerCCManager.cpp PlayerUtils.cpp)
 
-set(SUBTEC_CLASS_SOURCES playerisobmff/playerisobmffbox.cpp
-	playerisobmff/playerisobmffbuffer.cpp
+set(SUBTEC_CLASS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbox.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbuffer.cpp
 	subtec/subtecparser/WebVttSubtecParser.cpp
 	subtec/subtecparser/TtmlSubtecParser.cpp
 	subtec/subtecparser/TextStyleAttributes.cpp
 	subtec/subtecparser/WebvttSubtecDevInterface.cpp
 	playerJsonObject/PlayerJsonObject.cpp
 	)
+
+set_source_files_properties(
+	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbox.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbuffer.cpp
+	PROPERTIES COMPILE_DEFINITIONS ISOBMFF_LOG_BACKEND_MW)
 
 if(CMAKE_RDK_SVP)
 	message("CMAKE_RDK_SVP Set")
@@ -175,8 +180,9 @@ install(FILES closedcaptions/CCTrackInfo.h
 	subtec/subtecparser/WebvttSubtecDevInterface.hpp
 	subtec/subtecparser/TextStyleAttributes.h
 	subtec/libsubtec/SubtecPacket.hpp
-	playerisobmff/playerisobmffbuffer.h
-	playerisobmff/playerisobmffbox.h
+	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbuffer.h
+	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbox.h
+	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/IsoBmffLog.h
 	DemuxDataTypes.h
 	MediaSample.h
 	DESTINATION include)
@@ -374,7 +380,7 @@ target_include_directories(playergstinterface PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser
 	${CMAKE_CURRENT_SOURCE_DIR}/subtec/libsubtec
 	${CMAKE_CURRENT_SOURCE_DIR}/subtitle
-	${CMAKE_CURRENT_SOURCE_DIR}/playerisobmff
+	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff
 	${CMAKE_CURRENT_SOURCE_DIR}/playerjsonobject
 	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions
 	${CMAKE_CURRENT_SOURCE_DIR}/closedcaptions/subtec

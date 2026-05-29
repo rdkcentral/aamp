@@ -43,7 +43,6 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 # Middleware specific includes
 # Pretty print below for better readability
 include_directories(${AAMP_ROOT}/middleware
-                    ${AAMP_ROOT}/middleware/playerisobmff
                     ${AAMP_ROOT}/middleware/subtitle
                     ${AAMP_ROOT}/middleware/subtec/subtecparser
                     ${AAMP_ROOT}/middleware/subtec/libsubtec
