@@ -2386,8 +2386,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_COMPLETE) &&
 		(state != eSTATE_SEEKING))
 	{
-		// mTuneMetricDataPending is set by the LogTuneComplete and cleared inside SendTuneMetricsEvent,
-		if (state == eSTATE_PLAYING && mTuneMetricDataPending.load())
+		// mTuneMetricDataPending is checked inside SendTuneMetricsEvent()
+		if (state == eSTATE_PLAYING)
 		{
 			SendTuneMetricsEvent();
 		}
@@ -3154,7 +3154,7 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
  */
 void PrivateInstanceAAMP::SendTuneMetricsEvent()
 {
-	if (!mTuneTimeMetricData.empty())
+	if (!mTuneTimeMetricData.empty() && mTuneMetricDataPending.load())
 	{
 		TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(std::move(mTuneTimeMetricData), GetSessionId());
 
@@ -3902,12 +3902,9 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	{
 		bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 		profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &mTuneTimeMetricData : NULL);
-		if (eventAvailStatus)
-		{
-			mTuneMetricDataPending.store(true);
-			// Send the tune time metrics event as the progress event will not fire here.
-			SendTuneMetricsEvent();
-		}
+		mTuneMetricDataPending.store(eventAvailStatus);
+		// Send the tune time metrics event as the progress event will not fire here.
+		SendTuneMetricsEvent();
 	}
 	AdditionalTuneFailLogEntries();
 }
@@ -3934,10 +3931,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	if(mManifestUrl != FAKE_TUNE_URL)
 	{
 		profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &mTuneTimeMetricData : NULL);
-		if (eventAvailStatus)
-		{
-			mTuneMetricDataPending.store(true);
-		}
+		mTuneMetricDataPending.store(eventAvailStatus);
 		// Tune Metrics event will be sent as part of progress event, as this guarantees the event
 		// is sent after state=PLAYING whose timing is critical for upstream components.
 	}
@@ -9163,6 +9157,17 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 		return;
 	}
 
+	static const char* const kStateNames[] = {
+		"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
+		"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
+		"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
+	};
+	auto stateName = [](AAMPPlayerState s) -> const char* {
+		return (s >= 0 && s < (int)(sizeof(kStateNames)/sizeof(kStateNames[0])))
+			? kStateNames[s] : "UNKNOWN";
+	};
+	AAMPLOG_MIL("Player state changed: %s -> %s", stateName(oldState), stateName(state));
+
 	// Handle SEEKED event based on the actual previous state
 	// Only the thread that performed this specific transition will send the event
 	if ((state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
@@ -11367,7 +11372,6 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	else if(!SetStateBufferingIfRequired())
 	{
 		// If Buffering state was not needed, set PLAYING state
-		AAMPLOG_MIL("Player changing state to PLAYING on first video frame displayed");
 		SetState(eSTATE_PLAYING);
 	}
 }

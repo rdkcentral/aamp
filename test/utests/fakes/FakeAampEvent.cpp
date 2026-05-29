@@ -535,7 +535,7 @@ uint32_t ManifestRefreshEvent::getManifestPublishedTime() const
 
 
 
-TuneTimeMetricsEvent::TuneTimeMetricsEvent(std::string timeMetricData, std::string sid):
+TuneTimeMetricsEvent::TuneTimeMetricsEvent(std::string &&timeMetricData, std::string sid):
 	AAMPEventObject(AAMP_EVENT_TUNE_TIME_METRICS, std::move(sid))
 	, mTuneMetricsData(std::move(timeMetricData))
 {

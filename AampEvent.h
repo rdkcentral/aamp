@@ -2470,7 +2470,7 @@ public:
 	 *
 	 * @param[in] tuneMetricData - tune profiling data
 	 */
-	TuneTimeMetricsEvent(std::string tuneMetricData, std::string sid);
+	TuneTimeMetricsEvent(std::string &&tuneMetricData, std::string sid);
 
 	/**
 	 * @brief TuneTimeMetricsEvent Destructor
