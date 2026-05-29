@@ -838,3 +838,293 @@ TEST(Mp4Demux_Gaps, SencHugeSubsampleCount)
 	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
 }
 
+// ============================================================
+// Tests for ParseMetaBox, ParseSampleGroupDescription (sgpd),
+// and ParseSampleToGroup (sbgp) — added for VPAAMP-428 review.
+// Each test wraps its target box inside a minimal 'moov' container
+// so DemuxHelper recurses into it normally.
+// ============================================================
+
+// --- meta box tests ---
+
+// meta QTFF short variant: bytes[4..7] of payload == 'hdlr'
+// Detection: secondWord == 'hdlr'; children start at ptr (no FullBox header).
+TEST(Mp4Demux_NewBoxParsers, MetaQtffVariant_ParsesWithoutError)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box meta(buf, "meta");
+			// Build an hdlr child as the only content.
+			// bytes[0..3] of meta payload = hdlr box size (set by Box::close)
+			// bytes[4..7] of meta payload = 'hdlr'  <-- triggers QTFF detection
+			{ Box hdlr(buf, "hdlr");
+				buf.insert(buf.end(), 20, 0x00); // hdlr fixed fields
+				hdlr.close();
+			}
+			meta.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)))
+		<< "meta QTFF variant should parse without error";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// meta ISO BMFF full-atom variant: bytes[0..3] == 0x00000000 (version=0, flags=0)
+TEST(Mp4Demux_NewBoxParsers, MetaIsoBmffVariant_ParsesWithoutError)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box meta(buf, "meta");
+			writeFullBoxHeader(buf, 0, 0); // version+flags = 0x00000000
+			{ Box hdlr(buf, "hdlr");
+				buf.insert(buf.end(), 20, 0x00);
+				hdlr.close();
+			}
+			meta.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)))
+		<< "meta ISO BMFF variant should parse without error";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// meta ISO BMFF variant with 'ilst' child — regression for boundary-mismatch bug.
+// 'ilst' is now in the explicit skip list; must not trigger an error.
+TEST(Mp4Demux_NewBoxParsers, MetaIsoBmffWithIlstChild_NoBoundaryMismatch)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box meta(buf, "meta");
+			writeFullBoxHeader(buf, 0, 0);
+			{ Box ilst(buf, "ilst");
+				buf.insert(buf.end(), 8, 0xCC); // arbitrary payload
+				ilst.close();
+			}
+			meta.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)))
+		<< "meta with ilst child must not raise boundary-mismatch";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// meta ISO BMFF variant with 'keys' child — same regression guard as ilst.
+TEST(Mp4Demux_NewBoxParsers, MetaIsoBmffWithKeysChild_NoBoundaryMismatch)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box meta(buf, "meta");
+			writeFullBoxHeader(buf, 0, 0);
+			{ Box keys(buf, "keys");
+				buf.insert(buf.end(), 8, 0xDD);
+				keys.close();
+			}
+			meta.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)))
+		<< "meta with keys child must not raise boundary-mismatch";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// meta unknown variant: neither firstWord==0 nor secondWord=='hdlr'.
+// Must be consumed silently without error.
+TEST(Mp4Demux_NewBoxParsers, MetaUnknownVariant_SilentlyConsumed)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box meta(buf, "meta");
+			// bytes[0..3] != 0, bytes[4..7] != 'hdlr' → unknown branch: ptr = next
+			buf.insert(buf.end(), {0x01,0x02,0x03,0x04, 0x05,0x06,0x07,0x08});
+			buf.insert(buf.end(), 16, 0xAB); // trailing bytes
+			meta.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)))
+		<< "meta unknown variant must be silently consumed";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// --- sgpd tests ---
+
+// sgpd v0: entries carry non-zero payload bytes that were previously left
+// unread, triggering a boundary-mismatch in DemuxHelper.  After the fix,
+// ParseSampleGroupDescription advances ptr to next for version 0.
+TEST(Mp4Demux_NewBoxParsers, SgpdVersion0_TrailingBytesConsumedGracefully)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sgpd(buf, "sgpd");
+			writeFullBoxHeader(buf, 0, 0); // version=0, no defaultLength field
+			write4cc(buf, "roll");         // grouping_type
+			write32be(buf, 2);             // entry_count = 2
+			// 'roll' entries are 2 bytes each; write 4 bytes per entry so that
+			// any non-zero trailing bytes are present to prove the fix works.
+			write32be(buf, 0xFFFF0001);    // entry 0 payload
+			write32be(buf, 0xFFFF0002);    // entry 1 payload
+			sgpd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)))
+		<< "sgpd v0 with non-empty entry payload must not trigger boundary-mismatch";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// sgpd v1 with fixed defaultLength: each entry occupies exactly defaultLength bytes.
+TEST(Mp4Demux_NewBoxParsers, SgpdVersion1_FixedDefaultLength)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sgpd(buf, "sgpd");
+			writeFullBoxHeader(buf, 1, 0); // version=1
+			write4cc(buf, "seig");         // grouping_type
+			write32be(buf, 20);            // default_length = 20
+			write32be(buf, 2);             // entry_count = 2
+			buf.insert(buf.end(), 20, 0xAA); // entry 0
+			buf.insert(buf.end(), 20, 0xBB); // entry 1
+			sgpd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// sgpd v1 with per-entry length (defaultLength == 0):
+// each entry is preceded by a 4-byte description_length field.
+TEST(Mp4Demux_NewBoxParsers, SgpdVersion1_PerEntryLength)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sgpd(buf, "sgpd");
+			writeFullBoxHeader(buf, 1, 0); // version=1
+			write4cc(buf, "seig");         // grouping_type
+			write32be(buf, 0);             // default_length = 0 → per-entry lengths follow
+			write32be(buf, 2);             // entry_count = 2
+			write32be(buf, 8);  buf.insert(buf.end(), 8,  0xAA); // entry 0: len=8
+			write32be(buf, 12); buf.insert(buf.end(), 12, 0xBB); // entry 1: len=12
+			sgpd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// sgpd v2: adds default_group_description_index before entry_count.
+TEST(Mp4Demux_NewBoxParsers, SgpdVersion2_ParsesWithoutError)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sgpd(buf, "sgpd");
+			writeFullBoxHeader(buf, 2, 0); // version=2
+			write4cc(buf, "seig");
+			write32be(buf, 20); // default_length = 20
+			write32be(buf, 0);  // default_group_description_index
+			write32be(buf, 1);  // entry_count = 1
+			buf.insert(buf.end(), 20, 0xCC); // entry 0
+			sgpd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// sgpd v1 per-entry: description_length exceeds box boundary → DATA_BOUNDARY_MISMATCH.
+TEST(Mp4Demux_NewBoxParsers, SgpdEntryExceedsBoundary_RaisesError)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sgpd(buf, "sgpd");
+			writeFullBoxHeader(buf, 1, 0);
+			write4cc(buf, "seig");
+			write32be(buf, 0);   // default_length = 0 → per-entry
+			write32be(buf, 1);   // entry_count = 1
+			write32be(buf, 999); // description_length = 999, far beyond box end
+			// No actual entry bytes follow
+			sgpd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	EXPECT_FALSE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+}
+
+// --- sbgp tests ---
+
+// sbgp v0: grouping_type_parameter absent; straightforward entry list.
+TEST(Mp4Demux_NewBoxParsers, SbgpVersion0_ParsesWithoutError)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sbgp(buf, "sbgp");
+			writeFullBoxHeader(buf, 0, 0); // version=0
+			write4cc(buf, "roll");         // grouping_type
+			write32be(buf, 2);             // entry_count = 2
+			write32be(buf, 10); write32be(buf, 1); // entry 0: sample_count=10, group_idx=1
+			write32be(buf, 20); write32be(buf, 2); // entry 1: sample_count=20, group_idx=2
+			sbgp.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// sbgp v1: grouping_type_parameter present (extra uint32 after grouping_type).
+TEST(Mp4Demux_NewBoxParsers, SbgpVersion1_WithGroupingTypeParameter)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sbgp(buf, "sbgp");
+			writeFullBoxHeader(buf, 1, 0); // version=1
+			write4cc(buf, "seig");
+			write32be(buf, 0x00000001); // grouping_type_parameter (v1 only)
+			write32be(buf, 1);          // entry_count = 1
+			write32be(buf, 5); write32be(buf, 1); // sample_count=5, group_idx=1
+			sbgp.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+}
+
+// sbgp: entry_count implies more bytes than the box contains → DATA_BOUNDARY_MISMATCH.
+TEST(Mp4Demux_NewBoxParsers, SbgpEntriesExceedBoundary_RaisesError)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sbgp(buf, "sbgp");
+			writeFullBoxHeader(buf, 0, 0);
+			write4cc(buf, "roll");
+			write32be(buf, 0xFFFF); // entry_count = 65535 → needs 65535*8 bytes
+			// No actual entry data
+			sbgp.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	EXPECT_FALSE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+}
+
