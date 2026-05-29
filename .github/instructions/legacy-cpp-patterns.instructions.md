@@ -13,6 +13,30 @@ applyTo:
 > **Context:** The existing AAMP codebase is predominantly C++11.
 > Modernization efforts should target C++17.
 > The patterns below identify legacy and C++11-era anti-patterns and their modern C++17 replacements.
+>
+> **Scope discipline:** Apply these patterns only to code already being
+> modified for the current task. Do not perform opportunistic,
+> repository-wide modernization. See the *Modernization Scope Discipline*
+> section in `cpp.instructions.md`.
+>
+> **Generation vs review:** When generating or editing code, prefer the
+> modern alternative. When reviewing an existing change, raise legacy
+> patterns only where they appear in the diff or directly affect it;
+> do not request rewrites of untouched surrounding code.
+
+## Touched-Code Policy
+
+Distinguish four cases when working with legacy code:
+
+| Situation | Expected approach |
+|---|---|
+| **New code** | Use modern C++17 idioms by default (smart pointers, STL containers, RAII, `std::string`/`std::string_view`). |
+| **Local safe modernization** | When editing a function or small region, prefer modern equivalents for the lines you change. Keep the diff focused. |
+| **Legacy interoperability** | When a surrounding API requires C-style buffers, raw pointers, or `extern "C"` signatures, match that contract at the boundary. Do not propagate the legacy style inward; isolate it. |
+| **Unrelated existing code** | Leave it alone. Do not refactor files that are not part of the current change. |
+
+The legacy snippets in this document are shown so the modern alternative
+is recognisable. They are **not** templates for new code.
 
 ## Analyzing Legacy Code
 
@@ -121,7 +145,9 @@ std::optional<Config> load_config(std::string_view filename) {
 4. Use RAII for resource management
 
 ### Phase 2: Modern Features
-1. Use auto for type deduction
+1. Use `auto` where it removes redundant type repetition or where the
+   deduced type is obvious from the initializer (see the readability
+   guidance in `cpp.instructions.md`).
 2. Replace manual loops with STL algorithms
 3. Use range-based for loops
 4. Apply move semantics where beneficial
@@ -130,7 +156,10 @@ std::optional<Config> load_config(std::string_view filename) {
 1. Use std::optional and std::variant
 2. Apply constexpr where possible
 3. Use structured bindings (C++17)
-4. Consider concepts (C++20) for template constraints
+
+> C++20 features (concepts, ranges, `std::span`, `std::format`, coroutines)
+> are **not currently permitted** in new AAMP code. Treat them as future
+> guidance only; do not introduce them as part of modernization.
 
 ## Maintaining Compatibility
 
@@ -157,14 +186,14 @@ public:
 class DataProcessor {
 public:
     // Legacy interface - mark as deprecated
-    [[deprecated("Use process_data(std::span<const byte>) instead")]]
+    [[deprecated("Use process_data(const std::vector<std::byte>&) instead")]]
     void process_data(const char* data, size_t len);
-    
-    // New modern interface
-    void process_data(std::span<const std::byte> data);
-    
+
+    // New modern interface (C++17-compatible)
+    void process_data(const std::vector<std::byte>& data);
+
 private:
-    void process_data_impl(std::span<const std::byte> data);
+    void process_data_impl(const std::vector<std::byte>& data);
 };
 ```
 
@@ -261,11 +290,8 @@ for (int i = 0; i < size; ++i) {
     sum += array[i];
 }
 
-// Modern: STL algorithm (often optimized by compiler)
+// Modern (C++17): STL algorithm
 int sum = std::accumulate(array, array + size, 0);
-
-// Or with ranges (C++20)
-int sum = std::ranges::fold_left(std::span(array, size), 0, std::plus{});
 ```
 
 ## Red Flags in Legacy Code

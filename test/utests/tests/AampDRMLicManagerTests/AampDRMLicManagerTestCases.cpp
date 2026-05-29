@@ -416,3 +416,122 @@ TEST_F(AampDRMLicManagerTests, ValidateDRMSessionIdEmpty)
 	// Clear the global mock pointer
 	g_mockDrmMetaDataEvent.reset();
 }
+
+/**
+ * @brief Validates all networkMetrics JSON keys produced by UpdateLicenseMetrics
+ *
+ * Verifies that all expected keys (req, res, tot, url, con, str, dns, acn, ptr, rdt, dls, rqs)
+ * are present in the JSON output with correct values.
+ */
+TEST_F(AampDRMLicManagerTests, UpdateLicenseMetrics_ValidateAllNetworkMetricKeys)
+{
+	// Assign a unique value to every metric field so mismatches are detectable
+	auto respData = std::make_shared<DownloadResponse>();
+	respData->downloadCompleteMetrics.connect       = 10.0;   // "con"
+	respData->downloadCompleteMetrics.startTransfer = 20.0;   // "str"
+	respData->downloadCompleteMetrics.resolve       = 42.5;   // "dns"
+	respData->downloadCompleteMetrics.appConnect    = 30.0;   // "acn"
+	respData->downloadCompleteMetrics.preTransfer   = 50.0;   // "ptr"
+	respData->downloadCompleteMetrics.redirect      = 60.0;   // "rdt"
+	respData->downloadCompleteMetrics.dlSize        = 70.0;   // "dls"
+	respData->downloadCompleteMetrics.reqSize       = 80;     // "rqs"
+
+	// Create the global mock event to capture the setNetworkMetricData call
+	g_mockDrmMetaDataEvent = std::make_shared<MockDrmMetaDataEvent>(
+		AAMP_TUNE_FAILURE_UNKNOWN,
+		"",
+		0,
+		0,
+		false,
+		""
+	);
+
+	// setFailure must not be called in this path
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, setFailure(_)).Times(0);
+
+	// Capture the JSON string produced by UpdateLicenseMetrics
+	std::string capturedJson;
+	EXPECT_CALL(*g_mockDrmMetaDataEvent, setNetworkMetricData(_))
+		.Times(1)
+		.WillOnce(::testing::SaveArg<0>(&capturedJson));
+
+	// Invoke UpdateLicenseMetrics directly — this is the function under test
+	mTestableDRMLicenseManager->UpdateLicenseMetrics(
+		DRM_GET_LICENSE,           // requestType    — stored under key "req" (== 0)
+		200,                       // statusCode     — stored under key "res"
+		"http://test-license.com", // licenseRequestUrl — stored under key "url"
+		1000,                      // downloadTimeMS — stored under key "tot"
+		g_mockDrmMetaDataEvent,    // eventHandle    — receives setNetworkMetricData call
+		respData                   // respData       — source of per-metric timing values (con/str/dns/acn/ptr/rdt/dls/rqs)
+	);
+
+	// Parse the captured JSON string
+	cJSON *root = cJSON_Parse(capturedJson.c_str());
+	ASSERT_NE(root, nullptr) << "JSON parsing failed for: " << capturedJson;
+
+	// "req" – DRM license request type (DRM_GET_LICENSE == 0)
+	cJSON *reqItem = cJSON_GetObjectItem(root, "req");
+	ASSERT_NE(reqItem, nullptr) << "Key \"req\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(reqItem->valuedouble, static_cast<double>(DRM_GET_LICENSE));
+
+	// "res" – HTTP response code returned by the license server
+	cJSON *resItem = cJSON_GetObjectItem(root, "res");
+	ASSERT_NE(resItem, nullptr) << "Key \"res\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(resItem->valuedouble, 200.0);
+
+	// "tot" – total wall-clock time for DRM license acquisition
+	cJSON *totItem = cJSON_GetObjectItem(root, "tot");
+	ASSERT_NE(totItem, nullptr) << "Key \"tot\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(totItem->valuedouble, 1000.0);
+
+	// "url" – license server URL used for the DRM request
+	cJSON *urlItem = cJSON_GetObjectItem(root, "url");
+	ASSERT_NE(urlItem, nullptr) << "Key \"url\" missing from networkMetrics JSON: " << capturedJson;
+	ASSERT_NE(urlItem->valuestring, nullptr);
+	EXPECT_STREQ(urlItem->valuestring, "http://test-license.com");
+
+	// "con" – TCP connection establishment time
+	cJSON *conItem = cJSON_GetObjectItem(root, "con");
+	ASSERT_NE(conItem, nullptr) << "Key \"con\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(conItem->valuedouble, 10.0);
+
+	// "str" – time from request start to first byte received
+	cJSON *strItem = cJSON_GetObjectItem(root, "str");
+	ASSERT_NE(strItem, nullptr) << "Key \"str\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(strItem->valuedouble, 20.0);
+
+	// "dns" – DNS resolution time
+	cJSON *dnsItem = cJSON_GetObjectItem(root, "dns");
+	ASSERT_NE(dnsItem, nullptr) << "Key \"dns\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(dnsItem->valuedouble, 42.5);
+
+	// "acn" – TLS/SSL handshake completion time
+	cJSON *acnItem = cJSON_GetObjectItem(root, "acn");
+	ASSERT_NE(acnItem, nullptr) << "Key \"acn\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(acnItem->valuedouble, 30.0);
+
+	// "ptr" – time from start to just before the transfer begins
+	cJSON *ptrItem = cJSON_GetObjectItem(root, "ptr");
+	ASSERT_NE(ptrItem, nullptr) << "Key \"ptr\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(ptrItem->valuedouble, 50.0);
+
+	// "rdt" – time spent following HTTP redirects
+	cJSON *rdtItem = cJSON_GetObjectItem(root, "rdt");
+	ASSERT_NE(rdtItem, nullptr) << "Key \"rdt\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(rdtItem->valuedouble, 60.0);
+
+	// "dls" – number of bytes downloaded in the response body
+	cJSON *dlsItem = cJSON_GetObjectItem(root, "dls");
+	ASSERT_NE(dlsItem, nullptr) << "Key \"dls\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(dlsItem->valuedouble, 70.0);
+
+	// "rqs" – number of bytes sent in the license request
+	cJSON *rqsItem = cJSON_GetObjectItem(root, "rqs");
+	ASSERT_NE(rqsItem, nullptr) << "Key \"rqs\" missing from networkMetrics JSON: " << capturedJson;
+	EXPECT_DOUBLE_EQ(rqsItem->valuedouble, 80.0);
+
+	cJSON_Delete(root);
+
+	// Clear the global mock pointer
+	g_mockDrmMetaDataEvent.reset();
+}

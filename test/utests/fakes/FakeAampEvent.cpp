@@ -214,6 +214,10 @@ const std::string &DrmMetaDataEvent::getNetworkMetricData() const
 
 void DrmMetaDataEvent::setNetworkMetricData(const std::string &data)
 {
+	if (g_mockDrmMetaDataEvent)
+	{
+		g_mockDrmMetaDataEvent->setNetworkMetricData(data);
+	}
 }
 
 int DrmMetaDataEvent::getAccessStatusValue() const

@@ -412,6 +412,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 	inpData->bNeedDownloadMetrics = true;
 	inpData->bIgnoreResponseHeader = true;
 	inpData->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
+	inpData->iDownload502RetryWaitMs = 0;
 
 	// The first attempt is not a retry hence +1
 	int triesExpected = MANIFEST_DOWNLOAD_502_RETRY_COUNT + 1;
