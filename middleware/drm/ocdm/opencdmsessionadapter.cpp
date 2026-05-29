@@ -251,6 +251,12 @@ void OCDMSessionAdapter::keysUpdatedOCDM() {
 }
 
 
+void OCDMSessionAdapter::cancelKeyRequest()
+{
+	MW_LOG_WARN("Cancelling pending key request wait");
+	m_challengeReady.signal();
+}
+
 DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout)
 {
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);

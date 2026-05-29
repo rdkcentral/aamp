@@ -140,6 +140,7 @@ public:
 	int processDRMKey(DrmData* key, uint32_t timeout) override;
 	KeyState getState() override;
 	void clearDecryptContext() override;
+	void cancelKeyRequest() override;
 #if defined(USE_OPENCDM_ADAPTER)
 	void setKeyId(const std::vector<uint8_t>& keyId) override;
 #endif
