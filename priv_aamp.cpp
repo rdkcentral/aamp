@@ -9448,22 +9448,24 @@ DRMSystems PrivateInstanceAAMP::GetPreferredDRM()
 /**
  * @brief Notification from the stream abstraction that a new SCTE35 event is found.
  */
-void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo)
+void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo ,bool saveEvent)
 {
 	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai) && !adBreakId.empty())
 	{
-		AAMPLOG_WARN("[CDAI] Found Adbreak on period[%s] Duration[%d] isDAIEvent[%d]", adBreakId.c_str(), brInfo.duration, brInfo.isDAIEvent);
+		AAMPLOG_WARN("[CDAI] Found Adbreak on period[%s] Duration[%d] isDAIEvent[%d], saveEvent[%d] ", adBreakId.c_str(), brInfo.duration, brInfo.isDAIEvent, saveEvent);
 		if (brInfo.isDAIEvent)
 		{
 			std::string adId("");
 			std::string url("");
+			AAMPLOG_WARN("DEBUG--> Reserving place for DAI ad");
 			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
 		}
 		//Ignoring past SCTE events.
 		//mFogTSBEnabled check is added to ensure the change won't effect IPVOD
 		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mFogTSBEnabled:%d", mTuneCompleted, mFogTSBEnabled);
-		if (mTuneCompleted || !mFogTSBEnabled)
+		if (mTuneCompleted || !mFogTSBEnabled || saveEvent)
 		{
+			AAMPLOG_WARN("DEBUG--> Saving metadata");
 			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
 		}
 		else

@@ -2443,8 +2443,9 @@ public:
 	 *   @param[in] adBreakId Adbreak's unique identifier.
 	 *   @param[in] startMS Break start time in milliseconds.
 	 *   @param[in] brInfo EventBreakInfo object.
+	 *   @param[in] saveEvent Flag to indicate if the event should be saved
 	 */
-	void FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo);
+	void FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo, bool saveEvent = false);
 
 	/**
 	 *   @fn SetAlternateContents
