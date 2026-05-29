@@ -117,7 +117,7 @@ protected:
     AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
     AampLogManager::lockLogLevel(true);
 
-    g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+    g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
 
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
     mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
@@ -135,8 +135,7 @@ protected:
     mCdaiObj = nullptr;
     mPrivateCDAIObjectMPD = nullptr;
 
-    delete g_mockPrivateInstanceAAMP;
-    g_mockPrivateInstanceAAMP = nullptr;
+    g_mockPrivateInstanceAAMP.reset();
 
     delete mPrivateInstanceAAMP;
     mPrivateInstanceAAMP = nullptr;

@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_LICENSE_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampDRMLicManager.h"
 
 class MockAampLicenseManager
@@ -31,6 +32,6 @@ public:
     MOCK_METHOD(void, setSessionMgrState, (SessionMgrState state));
 };
 
-extern MockAampLicenseManager *g_mockAampLicenseManager;
+extern std::shared_ptr<MockAampLicenseManager> g_mockAampLicenseManager;
 
 #endif /* AAMP_MOCK_AAMP_LICENSE_MANAGER_H */

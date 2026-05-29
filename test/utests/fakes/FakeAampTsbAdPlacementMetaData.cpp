@@ -19,7 +19,7 @@
 
 #include "MockAampTsbAdPlacementMetaData.h"
 
-MockAampTsbAdPlacementMetaData* g_mockAampTsbAdPlacementMetaData = nullptr;
+std::shared_ptr<MockAampTsbAdPlacementMetaData> g_mockAampTsbAdPlacementMetaData{};
 
 // Constructor for AampTsbAdPlacementMetaData
 AampTsbAdPlacementMetaData::AampTsbAdPlacementMetaData(

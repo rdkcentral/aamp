@@ -52,23 +52,21 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
 		mStreamAbstractionAAMP_MPD = new ToBeTestedStub( mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
 		
-		g_mockAampMPDParseHelper = new MockAampMPDParseHelper();
+		g_mockAampMPDParseHelper = std::make_shared<MockAampMPDParseHelper>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockAampMPDParseHelper;
-		g_mockAampMPDParseHelper = nullptr;
+		g_mockAampMPDParseHelper.reset();
 
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;

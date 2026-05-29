@@ -102,9 +102,9 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+        g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
-        g_mockAampUtils = new NiceMock<MockAampUtils>();
+        g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 
         g_mockAampConfig = new NiceMock<MockAampConfig>();
 
@@ -141,11 +141,9 @@ protected:
         delete g_mockAampConfig;
         g_mockAampConfig = nullptr;
 
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        g_mockPrivateInstanceAAMP.reset();
 
-        delete g_mockAampUtils;
-        g_mockAampUtils = nullptr;
+        g_mockAampUtils.reset();
 
         mManifest = nullptr;
         if (mMPD)

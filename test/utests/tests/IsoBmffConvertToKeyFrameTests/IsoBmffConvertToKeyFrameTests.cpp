@@ -45,7 +45,7 @@ class IsoBmffConvertToKeyFrameTests : public ::testing::Test
 
 		void SetUp() override
 		{
-			g_mockGLib = new NiceMock<MockGLib>();
+			g_mockGLib = std::make_shared<NiceMock<MockGLib>>();
 			gpGlobalConfig = new AampConfig();
 			helper = std::make_shared<IsoBmffHelper>();
 		}
@@ -54,8 +54,7 @@ class IsoBmffConvertToKeyFrameTests : public ::testing::Test
 		{
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
-			delete g_mockGLib;
-			g_mockGLib = nullptr;
+			g_mockGLib.reset();
 		}
 	public:
 
