@@ -1067,6 +1067,46 @@ TEST(Mp4Demux_NewBoxParsers, SgpdEntryExceedsBoundary_RaisesError)
 	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
 }
 
+// sgpd v1 with only 8 bytes of payload (missing default_length field) → INVALID_BOX.
+// This validates the version-dependent minimum-payload check: v1 requires 12 bytes
+// after the FullBox header, not just 8.
+TEST(Mp4Demux_NewBoxParsers, SgpdVersion1_PayloadTooShortForVersion_RaisesError)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sgpd(buf, "sgpd");
+			writeFullBoxHeader(buf, 1, 0); // version=1 → needs 12 bytes
+			write4cc(buf, "seig");         // grouping_type (4 bytes)
+			write32be(buf, 0);             // only 8 bytes total — default_length missing
+			sgpd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	EXPECT_FALSE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_INVALID_BOX);
+}
+
+// sgpd v2 with only 12 bytes of payload (missing default_group_description_index) → INVALID_BOX.
+// v2 requires 16 bytes after the FullBox header.
+TEST(Mp4Demux_NewBoxParsers, SgpdVersion2_PayloadTooShortForVersion_RaisesError)
+{
+	std::vector<uint8_t> buf;
+	{ Box moov(buf, "moov");
+		{ Box sgpd(buf, "sgpd");
+			writeFullBoxHeader(buf, 2, 0); // version=2 → needs 16 bytes
+			write4cc(buf, "seig");         // grouping_type (4 bytes)
+			write32be(buf, 20);            // default_length (4 bytes)
+			write32be(buf, 0);             // only 12 bytes total — default_group_description_index missing
+			sgpd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	EXPECT_FALSE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_INVALID_BOX);
+}
+
 // --- sbgp tests ---
 
 // sbgp v0: grouping_type_parameter absent; straightforward entry list.

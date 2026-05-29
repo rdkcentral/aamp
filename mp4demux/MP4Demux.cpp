@@ -1237,9 +1237,16 @@ void Mp4Demux::ParseMetaBox(const uint8_t *next)
 void Mp4Demux::ParseSampleGroupDescription(const uint8_t *next)
 {
 	ReadHeader(); // version, flags
-	if (next - ptr < 8)
+	// Minimum payload depends on version:
+	//   v0: grouping_type(4) + entry_count(4)                          = 8 bytes
+	//   v1: + default_length(4)                                        = 12 bytes
+	//   v2: + default_group_description_index(4)                       = 16 bytes
+	// Validate against next (the box boundary), not endPtr, so a short box
+	// whose buffer is followed by sibling boxes cannot be silently over-read.
+	const ptrdiff_t minPayload = 8 + (version >= 1 ? 4 : 0) + (version >= 2 ? 4 : 0);
+	if (next - ptr < minPayload)
 	{
-		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_BOX, "sgpd: payload too small");
+		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_BOX, "sgpd: payload too small for declared version");
 	}
 	const uint32_t groupingType = ReadU32();
 	MP4_LOG_DEBUG("sgpd: grouping_type='%s'", FourCCToString(groupingType).c_str());
