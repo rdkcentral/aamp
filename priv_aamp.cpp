@@ -4684,7 +4684,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				if (!personaPath.empty())
 					AampNetworkPersona::Instance().LoadFromFile(personaPath);
 			}
-			AAMPLOG_WARN("priv_aamp: download url=%s personaLoaded=%d", remoteUrl.c_str(), AampNetworkPersona::Instance().IsLoaded() ? 1 : 0);
 			if (AampNetworkPersona::Instance().IsLoaded())
 			{
 				// Chunk the TTFB sleep into 50 ms slices so that StopDownloads()
