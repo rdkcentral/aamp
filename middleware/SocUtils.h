@@ -27,6 +27,13 @@
 namespace SocUtils
 {
 	/**
+	 * @brief Initializes access to SOC-specific runtime capabilities.
+	 *
+	 * This function can be used to perform eager initialization during startup.
+	 * SocUtils accessors also perform lazy initialization when needed.
+	 */
+	void Init();
+	/**
 	 * @brief Checks if AppSrc should be used for progressive playback.
 	 * 
 	 * This function queries the SOC interface to determine whether AppSrc
