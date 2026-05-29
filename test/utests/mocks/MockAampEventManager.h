@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_EVENT_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampEventManager.h"
 
 MATCHER_P(AnEventOfType, type, "") { return type == arg->getType(); }
@@ -75,6 +76,6 @@ public:
     MOCK_METHOD(bool, IsEventListenerAvailable, (AAMPEventType eventType));
 };
 
-extern MockAampEventManager *g_mockAampEventManager;
+extern std::shared_ptr<MockAampEventManager> g_mockAampEventManager;
 
 #endif /* AAMP_MOCK_AAMP_EVENT_MANAGER_H */

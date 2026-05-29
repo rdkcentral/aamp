@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_LOG_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampLogManager.h"
 
 class MockAampLogManager

@@ -81,24 +81,24 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		g_mockAampStreamSinkManager =
-			new NiceMock<MockAampStreamSinkManager>();
+			std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 
 		mPlayerInstanceAAMP = new TestablePlayerInstanceAAMP();
 		mPrivateInstanceAAMP = mPlayerInstanceAAMP->GetPrivAamp();
 
 		g_mockAampGstPlayer =
-			new NiceMock<MockAAMPGstPlayer>(mPrivateInstanceAAMP);
+			std::make_shared<NiceMock<MockAAMPGstPlayer>>(mPrivateInstanceAAMP);
 		g_mockStreamAbstractionAAMP =
-			new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+			std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
 
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP =
-			g_mockStreamAbstractionAAMP;
+			g_mockStreamAbstractionAAMP.get();
 
 		ON_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
-			.WillByDefault(Return(g_mockAampGstPlayer));
+			.WillByDefault(Return(g_mockAampGstPlayer.get()));
 
 		ON_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.WillByDefault([this]() { return mCurrentState; });
@@ -114,20 +114,15 @@ protected:
 		mPlayerInstanceAAMP = nullptr;
 		mPrivateInstanceAAMP = nullptr;  ///< Non-owning; already deleted above.
 
-		delete g_mockStreamAbstractionAAMP;
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;

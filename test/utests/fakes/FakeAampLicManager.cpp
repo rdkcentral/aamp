@@ -21,7 +21,7 @@
 #include "MockAampLicManager.h"
 #include "MockAampDRMSessionManager.h"
 #include "priv_aamp.h"
-MockAampLicenseManager *g_mockAampLicenseManager = nullptr;
+std::shared_ptr<MockAampLicenseManager> g_mockAampLicenseManager{};
 
 AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
 {

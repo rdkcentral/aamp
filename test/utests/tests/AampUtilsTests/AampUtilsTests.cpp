@@ -49,7 +49,7 @@ protected:
 	{
 		gpGlobalConfig =  new AampConfig();
 
-		g_mockCurl = new MockCurl();
+		g_mockCurl = std::make_shared<MockCurl>();
 
 		mCurlEasyHandle = malloc(1);		// use a valid address for the handle
 	}
@@ -61,8 +61,7 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockCurl;
-		g_mockCurl = nullptr;
+		g_mockCurl.reset();
 	}
 
 };
