@@ -166,14 +166,14 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 			if (mStreamPlayer == nullptr)
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_MIL("AampStreamSinkManager(%p) Single Pipeline mode, creating GstPlayer for PLAYER[%d]", this, aamp->mPlayerId);
+				AAMPLOG_MIL("AampStreamSinkManager(%p) Single Pipeline mode, creating stream player for PLAYER[%d]", this, aamp->mPlayerId);
 				mStreamPlayer = CreateSinkInstance(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 				mActivePlayersMap.insert({aamp, mStreamPlayer});
 			}
 			else
 			{
 				//Do not edit or remove this log - it is used in L2 test
-				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, not creating GstPlayer for PLAYER[%d]", this, aamp->mPlayerId);
+				AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, not creating stream player for PLAYER[%d]", this, aamp->mPlayerId);
 			}
 		}
 		break;
@@ -182,7 +182,7 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 		case ePIPELINEMODE_MULTI:
 		{
 			//Do not edit or remove this log - it is used in L2 test
-			AAMPLOG_MIL("AampStreamSinkManager(%p) %s Pipeline mode, creating GstPlayer for PLAYER[%d]", this,
+			AAMPLOG_MIL("AampStreamSinkManager(%p) %s Pipeline mode, creating stream player for PLAYER[%d]", this,
 						 mPipelineMode == ePIPELINEMODE_UNDEFINED ? "Undefined" : "Multi", aamp->mPlayerId);
 			StreamSink *streamPlayer = CreateSinkInstance(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 			mActivePlayersMap.insert({aamp, streamPlayer});
