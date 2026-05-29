@@ -26,6 +26,7 @@
 #define MOCK_TSB_METADATA_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampTsbMetaDataManager.h"
 
 /**
@@ -55,6 +56,6 @@ public:
 /**
  * @brief Static instance of the MockAampTsbMetaDataManager for global access
  */
-extern MockAampTsbMetaDataManager* g_mockAampTsbMetaDataManager;
+extern std::shared_ptr<MockAampTsbMetaDataManager> g_mockAampTsbMetaDataManager;
 
 #endif // MOCK_TSB_METADATA_MANAGER_H

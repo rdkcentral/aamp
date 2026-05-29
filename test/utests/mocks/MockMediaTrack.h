@@ -21,6 +21,7 @@
 #define AAMP_MOCK_MEDIA_TRACK_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "StreamAbstractionAAMP.h"
 
 class MockMediaTrack : public MediaTrack
@@ -54,6 +55,6 @@ public:
 	MOCK_METHOD(void, ResetTrickModePtsRestamping, (), (override));
 };
 
-extern MockMediaTrack *g_mockMediaTrack;
+extern std::shared_ptr<MockMediaTrack> g_mockMediaTrack;
 
 #endif /* AAMP_MOCK_MEDIA_TRACK_H */

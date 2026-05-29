@@ -74,23 +74,23 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockAampConfig = new MockAampConfig();
+        g_mockAampConfig = std::make_shared<MockAampConfig>();
 
-        g_mockAampScheduler = new MockAampScheduler();
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-        g_mockAampEventManager = new MockAampEventManager();
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP( mPrivateInstanceAAMP);
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+        g_mockAampScheduler = std::make_shared<MockAampScheduler>();
+        g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
+        g_mockAampEventManager = std::make_shared<MockAampEventManager>();
+        g_mockStreamAbstractionAAMP = std::make_shared<MockStreamAbstractionAAMP>( mPrivateInstanceAAMP);
+        g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 
         mPrivateInstanceAAMP->SetScheduler(&mScheduler);
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 
         // Called in destructor of PrivateInstanceAAMP
         // Done here because setting up the EXPECT_CALL in TearDown, conflicted with the mock
         // being called in the PausePosition thread.
         EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableCurlStore)).WillRepeatedly(Return(false));
 
-   		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+        EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
     }
 
     void TearDown() override
@@ -98,26 +98,20 @@ protected:
         delete mPrivateInstanceAAMP;
         mPrivateInstanceAAMP = nullptr;
 
-        delete g_mockStreamAbstractionAAMP;
-        g_mockStreamAbstractionAAMP = nullptr;
+        g_mockStreamAbstractionAAMP.reset();
 
-        delete g_mockAampEventManager;
-        g_mockAampEventManager = nullptr;
+        g_mockAampEventManager.reset();
 
-        delete g_mockAampGstPlayer;
-        g_mockAampGstPlayer = nullptr;
+        g_mockAampGstPlayer.reset();
 
-        delete g_mockAampScheduler;
-        g_mockAampScheduler = nullptr;
+        g_mockAampScheduler.reset();
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
 
-        delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
+        g_mockAampConfig.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+        g_mockAampStreamSinkManager.reset();
     }
 
 public:

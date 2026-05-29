@@ -21,6 +21,7 @@
 #define AAMP_MOCK_ISOBMFF_HELPER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -35,6 +36,6 @@ public:
 	MOCK_METHOD(bool, ClearMediaHeaderDuration, (std::vector<uint8_t> &));
 };
 
-extern MockIsoBmffHelper *g_mockIsoBmffHelper;
+extern std::shared_ptr<MockIsoBmffHelper> g_mockIsoBmffHelper;
 
 #endif /* AAMP_MOCK_ISOBMFF_HELPER_H */

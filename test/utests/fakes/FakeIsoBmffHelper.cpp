@@ -18,7 +18,7 @@
 */
 #include "MockIsoBmffHelper.h"
 
-MockIsoBmffHelper* g_mockIsoBmffHelper = nullptr;
+std::shared_ptr<MockIsoBmffHelper> g_mockIsoBmffHelper{};
 
 bool IsoBmffHelper::ConvertToKeyFrame(std::vector<uint8_t> &buffer)
 {

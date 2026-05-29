@@ -21,6 +21,7 @@
 #define AAMP_MOCK_CJSON_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include <cjson/cJSON.h>
 #include <string>
 
@@ -65,6 +66,6 @@ public:
 };
 
 // Global mock instance that fake cJSON functions will delegate to
-extern MockCJsonManager* g_mockCJsonManager;
+extern std::shared_ptr<MockCJsonManager> g_mockCJsonManager;
 
 #endif // AAMP_MOCK_CJSON_MANAGER_H
