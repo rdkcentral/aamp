@@ -139,11 +139,13 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 StreamSink* AampStreamSinkManager::CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames)
 {
 	StreamSink *sink = nullptr;
+	// DirectRialto is not yet supported, so we will always create the GstPlayer for now.
+	// The config is in place for when DirectRialto support is added.
 	if (ISCONFIGSET(eAAMPConfig_useDirectRialto))
 	{
 		AAMPLOG_ERR("Creating AampRialtoPlayer not yet supported");
 	}
-	else
+	//else
 	{
 		AAMPLOG_MIL("Creating stream player");
 		sink = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
