@@ -60,13 +60,13 @@ protected:
         mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(&mConfig2);
         mPrivateInstanceAAMP2->mPlayerId = 2;
 
-        g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+        g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
-        g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP2);
+        g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP2);
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP1);
+        g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP1);
 
-        mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 
         const auto id3_callback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP1, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
         mId3HandlerCallback1 = id3_callback;
@@ -75,8 +75,7 @@ protected:
 
     void TearDown() override
     {
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        g_mockPrivateInstanceAAMP.reset();
 
         delete mPrivateInstanceAAMP1;
         mPrivateInstanceAAMP1 = nullptr;
@@ -85,14 +84,12 @@ protected:
         gpGlobalConfig = nullptr;
 
         mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = nullptr;
-        delete g_mockStreamAbstractionAAMP;
-        g_mockStreamAbstractionAAMP = nullptr;
+        g_mockStreamAbstractionAAMP.reset();
 
         delete mPrivateInstanceAAMP2;
         mPrivateInstanceAAMP2 = nullptr;
 
-        delete g_mockAampGstPlayer;
-        g_mockAampGstPlayer = nullptr;
+        g_mockAampGstPlayer.reset();
         AampStreamSinkManager::GetInstance().Clear();
     }
 

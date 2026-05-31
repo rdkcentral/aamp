@@ -38,6 +38,7 @@
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
 #define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
 #define DEFAULT_DNS_CACHE_TIMEOUT 3*60L	/**< Name resolve results cached for this many seconds (180 s = 3x the libcurl default of 60 s) */
+#define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
 
 /**
  * @brief Http Header Type

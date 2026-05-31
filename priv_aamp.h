@@ -1560,11 +1560,10 @@ public:
 
 	/**
 	 * @fn SendTuneMetricsEvent
-	 *
-	 * @param[in] timeMetricData- Providing the Tune Timemetric info as an event
+	 * @brief Send tune metrics event to registered listeners
 	 * @return void
 	 */
-	void SendTuneMetricsEvent(std::string &timeMetricData);
+	void SendTuneMetricsEvent();
 
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
 	std::atomic<bool> mBufUnderFlowStatus{false};
@@ -4316,6 +4315,8 @@ protected:
 	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 	std::unique_ptr<AampLatencyMonitor> mLatencyMonitor; /**< Unified live latency monitor */
+	std::atomic<bool> mTuneMetricDataPending{false}; /**< True when mTuneTimeMetricData has been populated and not yet consumed */
+	std::string mTuneTimeMetricData{}; /**< JSON string containing data for tune time metrics */
 
 private:
 	/**

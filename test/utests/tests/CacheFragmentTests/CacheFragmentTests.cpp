@@ -185,7 +185,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{
 				gpGlobalConfig = new AampConfig();
 			}
-			g_mockAampConfig = new MockAampConfig();
+			g_mockAampConfig = std::make_shared<MockAampConfig>();
 			mBoolConfigSettings = mDefaultBoolConfigSettings;
 			mIntConfigSettings = mDefaultIntConfigSettings;
 			for (const auto & b : mBoolConfigSettings)
@@ -204,26 +204,23 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 			mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 123.45, 1);
 			mTsbSessionManager = new AampTSBSessionManager(mPrivateInstanceAAMP);
-			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-			g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
-			g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
+			g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+			g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
+			g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
 			mTsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, nullptr, eMEDIATYPE_VIDEO, "sessionId");
 			g_mockTSBReader = std::make_shared<MockTSBReader>();
-			g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
+			g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
 		}
 
 		void TearDown() override
 		{
-			delete g_mockIsoBmffBuffer;
-			g_mockIsoBmffBuffer = nullptr;
+			g_mockIsoBmffBuffer.reset();
 
 			g_mockTSBReader.reset();
 
-			delete g_mockTSBSessionManager;
-			g_mockTSBSessionManager = nullptr;
+			g_mockTSBSessionManager.reset();
 
-			delete g_mockStreamAbstractionAAMP_MPD;
-			g_mockStreamAbstractionAAMP_MPD = nullptr;
+			g_mockStreamAbstractionAAMP_MPD.reset();
 
 			if (mPeriod)
 			{
@@ -231,8 +228,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 				mPeriod = nullptr;
 			}
 
-			delete g_mockPrivateInstanceAAMP;
-			g_mockPrivateInstanceAAMP = nullptr;
+			g_mockPrivateInstanceAAMP.reset();
 
 			delete mTsbSessionManager;
 			mTsbSessionManager  =  nullptr;
@@ -246,8 +242,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			delete mPrivateInstanceAAMP;
 			mPrivateInstanceAAMP = nullptr;
 
-			delete g_mockAampConfig;
-			g_mockAampConfig = nullptr;
+			g_mockAampConfig.reset();
 		}
 
 		// Create a set a dummy period due to the following parameter passed to EnqueueWrite(): context->GetPeriod()->GetId()

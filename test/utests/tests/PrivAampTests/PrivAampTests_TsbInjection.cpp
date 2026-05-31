@@ -43,13 +43,12 @@ protected:
 	{
 		config=new AampConfig();
 		p_aamp = new PrivateInstanceAAMP(config);
-		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+		g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(p_aamp);
 	}
 
 	void TearDown() override
 	{
-		delete g_mockStreamAbstractionAAMP;
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 
 		delete p_aamp;
 		p_aamp = nullptr;
@@ -87,7 +86,7 @@ protected:
 	{
 		PrivAampTests::SetUp();
 		p_aamp->SetLocalAAMPTsbInjection(true);
-		p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	}
 
 	// Helper to create mock track

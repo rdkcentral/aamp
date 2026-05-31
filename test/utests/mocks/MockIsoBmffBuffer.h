@@ -21,6 +21,7 @@
 #define AAMP_MOCK_ISOBMFF_BUFFER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "isobmff/isobmffbuffer.h"
 
 class MockIsoBmffBuffer : public IsoBmffBuffer
@@ -52,6 +53,6 @@ public:
     MOCK_METHOD(int, getLastMdatBoxIndex, (), (const));
 };
 
-extern MockIsoBmffBuffer *g_mockIsoBmffBuffer;
+extern std::shared_ptr<MockIsoBmffBuffer> g_mockIsoBmffBuffer;
 
 #endif /* AAMP_MOCK_ISOBMFF_BUFFER_H */

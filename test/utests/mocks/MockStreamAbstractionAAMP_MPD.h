@@ -21,6 +21,7 @@
 #define AAMP_MOCK_STREAM_ABSTRACTION_AAMP_MPD_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "fragmentcollector_mpd.h"
 
 class MockStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
@@ -46,6 +47,6 @@ public:
 
   };
 
-extern MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD;
+extern std::shared_ptr<MockStreamAbstractionAAMP_MPD> g_mockStreamAbstractionAAMP_MPD;
 
 #endif /* AAMP_MOCK_STREAM_ABSTRACTION_AAMP_MPD_H */

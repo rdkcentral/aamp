@@ -21,6 +21,7 @@
 #define AAMP_MOCK_CURL_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include <curl/curl.h>
 
 
@@ -43,6 +44,6 @@ public:
 	MOCK_METHOD(char *, curl_easy_unescape, (CURL *curl, const char *url, int inlength, int *outlength));
 	MOCK_METHOD(void, curl_free, (void *ptr));
 };
-extern MockCurl *g_mockCurl;
+extern std::shared_ptr<MockCurl> g_mockCurl;
 
 #endif /* AAMP_MOCK_CURL_H */
