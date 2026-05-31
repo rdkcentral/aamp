@@ -2639,7 +2639,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		if (segmentBase)
 		{ // single-segment
 			// Disable parallel fragment download for segment base streams as there is a sidx box dependency for live contents
-			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
+			//SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
 			std::string range = segmentBase->GetIndexRange();
 			if (pMediaStreamContext->IDX.empty())
 			{ // lazily load index
