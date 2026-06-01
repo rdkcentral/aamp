@@ -64,7 +64,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 {
 	AAMPStatusType status = eAAMPSTATUS_OK;
-	AAMPLOG_WARN("g_mockStreamAbstractionAAMP_MPD = %p", g_mockStreamAbstractionAAMP_MPD);
+	AAMPLOG_WARN("g_mockStreamAbstractionAAMP_MPD = %p", g_mockStreamAbstractionAAMP_MPD.get());
 	if (g_mockStreamAbstractionAAMP_MPD)
 	{
 		status = g_mockStreamAbstractionAAMP_MPD->InitTsbReader(tuneType);

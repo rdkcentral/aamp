@@ -239,6 +239,18 @@ protected:
 		{
 			return mPeriodEndTime;
 		}
+
+		/**
+		 * @brief Expose FetchAndInjectInitialization for regression testing.
+		 *
+		 * Allows tests to call the per-track init segment fetch entry point
+		 * directly, bypassing the FetcherLoop, so they can observe and assert
+		 * on side-effects such as the profileChanged flag.
+		 */
+		void InvokeFetchAndInjectInitialization(int trackIdx, bool discontinuity = false)
+		{
+			FetchAndInjectInitialization(trackIdx, discontinuity);
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -250,6 +262,28 @@ protected:
 	static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
+	/**
+	 * Minimal VOD SegmentBase manifest.  Used by regression tests that must
+	 * exercise the SegmentBase branch of FetchAndInjectInitialization, which
+	 * is the only branch where profileChanged is conditionally cleared (i.e.
+	 * only when WaitForFreeFragmentAvailable succeeds).  The SegmentTemplate
+	 * and SegmentList-with-sourceURL branches always clear profileChanged, so
+	 * they cannot catch the regression.
+	 */
+	static constexpr const char *mSegmentBaseManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" type="static" mediaPresentationDuration="PT30S" minBufferTime="PT4S">
+					<Period id="p0" start="PT0S">
+							<AdaptationSet id="0" contentType="video">
+									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360">
+											<BaseURL>http://host/asset/video.mp4</BaseURL>
+											<SegmentBase indexRange="500-999" timescale="90000">
+													<Initialization range="0-499"/>
+											</SegmentBase>
+									</Representation>
+							</AdaptationSet>
+					</Period>
+			</MPD>
+			)";
 	static constexpr const char *mVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
 					<Period id="p0" start="PT0S">
@@ -2995,4 +3029,100 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
 	// must be preserved by the rollback rather than left at the false that
 	// UpdateTrackInfo writes for the new period.
 	EXPECT_TRUE(videoCtx->eos);
+}
+
+// ---------------------------------------------------------------------------
+// Regression test: RDKAAMP-4072 / PR 114108 — SegmentBase profileChanged bug
+//
+// In FetchAndInjectInitialization, the SegmentBase branch clears profileChanged
+// ONLY inside the "if (WaitForFreeFragmentAvailable(0))" block.  When the ring
+// buffer is full and WaitForFreeFragmentAvailable returns false, profileChanged
+// is left true.  OnFragmentDownloadComplete then sees profileChanged=true on
+// every subsequent media segment completion and re-calls
+// FetchAndInjectInitialization, which fails again — an infinite silent-skip
+// loop.  The decoder never receives the init segment, AAMP_EVENT_TUNED never
+// fires, and the App observes a ~20-second hang.
+//
+// The SegmentTemplate and SegmentList-with-sourceURL branches always clear
+// profileChanged unconditionally, so they are not affected.  The bug is
+// exclusive to the SegmentBase path.
+//
+// Fix: add an else-branch to clear profileChanged when WaitForFreeFragmentAvailable(0)
+// returns false so that the FetcherLoop can drain the ring buffer and retry
+// on its own schedule rather than hammering FetchAndInjectInitialization from
+// every OnFragmentDownloadComplete callback.
+// ---------------------------------------------------------------------------
+
+/**
+ * @test FetcherLoopTests::SegmentBase_WaitForFreeFragmentFails_ProfileChangedMustBeCleared
+ * @brief Deterministic regression test for the SegmentBase init-segment hang.
+ *
+ * Tunes a SegmentBase DASH stream so that tracks are properly initialised,
+ * then simulates the post-ABR-change condition: profileChanged=true and a full
+ * ring buffer.  Calls FetchAndInjectInitialization directly and asserts that
+ * profileChanged is cleared regardless of whether WaitForFreeFragmentAvailable
+ * succeeds.
+ *
+ * Without the fix this test FAILS (profileChanged stays true).
+ * With the fix this test PASSES (profileChanged is cleared).
+ */
+TEST_F(FetcherLoopTests, SegmentBase_WaitForFreeFragmentFails_ProfileChangedMustBeCleared)
+{
+	// Use serial download mode so that the Init() call completes synchronously
+	// and there is no worker-thread race when we inspect profileChanged after.
+	mBoolConfigSettings[eAAMPConfig_DashParallelFragDownload] = false;
+
+	// During InitializeMPD the ring buffer is empty so WaitForFreeFragmentAvailable(0)
+	// returns true and CacheFragment is invoked once for the video init segment.
+	// Allow any init-segment CacheFragment call (we don't assert on the exact URL
+	// because SegmentBase uses a byte-range of the representation base URL).
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, /*initSegment=*/true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	// SegmentBase streams require LoadIDX to fetch and parse the Segment Index box
+	// (SIDX, pointed to by indexRange).  Populate idxBuffer with the shared sidxBox
+	// so that AAMP can compute segment offsets and InitializeMPD completes normally.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	AAMPStatusType status = InitializeMPD(mSegmentBaseManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK) << "InitializeMPD must succeed for the regression test to be meaningful.";
+
+	MediaStreamContext *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eTRACK_VIDEO);
+	ASSERT_NE(videoTrack, nullptr);
+	ASSERT_TRUE(videoTrack->enabled) << "Video track must be enabled after a successful tune.";
+
+	// Simulate the post-ABR-change state: profileChanged=true signals that the
+	// decoder needs a fresh init segment for the new quality level.
+	videoTrack->profileChanged = true;
+
+	// Fill the ring buffer so WaitForFreeFragmentAvailable(0) returns false.
+	// GetCachedFragmentSize() returns the active window size the track was
+	// configured with (DEFAULT_CACHED_FRAGMENTS_PER_TRACK in the default test
+	// config).  Setting numberOfFragmentsCached to that value means every slot
+	// is occupied and the inject thread has not yet consumed any of them.
+	videoTrack->numberOfFragmentsCached = static_cast<int>(videoTrack->GetCachedFragmentSize());
+
+	// Call FetchAndInjectInitialization directly.  With a full ring buffer,
+	// WaitForFreeFragmentAvailable(0) returns false immediately (timeout=0).
+	// FetchFragment is therefore NOT called and CacheFragment is NOT called.
+	mTestableStreamAbstractionAAMP_MPD->InvokeFetchAndInjectInitialization(eTRACK_VIDEO);
+
+	// --- REGRESSION ASSERTION ---
+	// profileChanged MUST be cleared even when WaitForFreeFragmentAvailable
+	// fails.  If it is not, every subsequent media OnFragmentDownloadComplete
+	// callback will see profileChanged=true and re-invoke
+	// FetchAndInjectInitialization → ring buffer still full → silent skip →
+	// infinite loop → decoder never receives init segment → no TUNED event.
+	//
+	// Without the fix: FAILS  (profileChanged stays true)
+	// With the fix:    PASSES (profileChanged is false)
+	EXPECT_FALSE(videoTrack->profileChanged)
+		<< "profileChanged must be cleared when WaitForFreeFragmentAvailable(0) "
+		   "returns false on the SegmentBase path, otherwise FetchAndInjectInitialization "
+		   "is re-triggered by every subsequent media OnFragmentDownloadComplete callback, "
+		   "creating an infinite silent-skip loop and preventing AAMP_EVENT_TUNED from firing.";
 }
