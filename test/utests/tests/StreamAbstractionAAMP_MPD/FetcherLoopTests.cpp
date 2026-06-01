@@ -3030,6 +3030,8 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
 	// must be preserved by the rollback rather than left at the false that
 	// UpdateTrackInfo writes for the new period.
 	EXPECT_TRUE(videoCtx->eos);
+}
+
 // ---------------------------------------------------------------------------
 // Regression test: RDKAAMP-4072 / PR 114108 — SegmentBase profileChanged bug
 //
