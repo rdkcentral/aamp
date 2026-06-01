@@ -238,6 +238,8 @@ protected:
 		double GetPeriodEndTime() const
 		{
 			return mPeriodEndTime;
+		}
+
 		/**
 		 * @brief Expose FetchAndInjectInitialization for regression testing.
 		 *
