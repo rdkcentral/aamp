@@ -36,6 +36,6 @@ public:
     MOCK_METHOD(Mp4ParseError, GetLastError, (), (const));
 };
 
-extern MockMp4Demux *g_mockMp4Demux;
+extern std::shared_ptr<MockMp4Demux> g_mockMp4Demux;
 
 #endif /* MOCK_MP4_DEMUX_H */
