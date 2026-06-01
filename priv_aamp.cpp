@@ -3122,7 +3122,7 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 }
 
 /**
- * @brief To change the the gstreamer pipeline to pause/play
+ * @brief To change the the stream sink pipeline to pause/play
  */
 bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {

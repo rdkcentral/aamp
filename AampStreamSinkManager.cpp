@@ -486,7 +486,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 				}
 				else
 				{
-					AAMPLOG_ERR("AampStreamSinkManager(%p) Single Pipeline mode, stream player is null, can't set active PLAYER[%d]", this, aamp->mPlayerId);
+					AAMPLOG_ERR("AampStreamSinkManager(%p) Single Pipeline mode, mStreamPlayer is null, can't set active PLAYER[%d]", this, aamp->mPlayerId);
 				}
 			}
 		}
