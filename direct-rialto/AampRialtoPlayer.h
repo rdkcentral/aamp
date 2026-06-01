@@ -38,6 +38,7 @@
 #include "IRialtoControlBackend.h"
 #include "IStreamSinkNotifiable.h"
 #include "AampRialtoMediaSource.h"
+#include "IDirectRialtoCC.h"
 
 #include <array>
 #include <atomic>
@@ -56,6 +57,7 @@ class PrivateInstanceAAMP;
 class PrivateInstanceAAMPNotifiable;
 class AampRialtoMediaPipelineClient;
 class Mp4Demux;
+class PlayerDirectRialtoCCManager;
 
 /// Callable that creates a per-track AampRialtoMediaSource.
 using SourceCreator =
@@ -65,7 +67,7 @@ using SourceCreator =
  * @class AampRialtoPlayer
  * @brief StreamSink implementation that interfaces with Rialto client.
  */
-class AampRialtoPlayer : public StreamSink
+class AampRialtoPlayer : public StreamSink, public IDirectRialtoCC
 {
 public:
 	~AampRialtoPlayer() override;
@@ -287,6 +289,16 @@ public:
 	/// @copydoc StreamSink::ResetFirstFrame
 	void ResetFirstFrame() override;
 
+	// -------------------------------------------------------------------
+	// IDirectRialtoCC interface
+	// -------------------------------------------------------------------
+
+	/// @copydoc IDirectRialtoCC::setTextTrackIdentifier
+	bool setTextTrackIdentifier(const std::string &id) override;
+
+	/// @copydoc IDirectRialtoCC::setCCMute
+	bool setCCMute(bool muted) override;
+
 private:
 	/**
 	 * @brief Bridges Rialto client log messages into AAMP's logging system.
@@ -400,6 +412,16 @@ private:
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
 	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
 	bool m_subtitleMuted{false};
+
+	/// true when the player is operating in inband closed-caption mode.
+	/// Set in OnPlaybackState(PLAYING) when a CC subtitle source is created.
+	bool m_usingInbandCC{false};
+
+	/// Non-owning raw pointer to the PlayerDirectRialtoCCManager injected
+	/// into the PlayerCCManager singleton by Configure().  Ownership is
+	/// transferred to PlayerCCManager via SetInstance(); this pointer is
+	/// kept only to detect re-entrance and for unit-test introspection.
+	PlayerDirectRialtoCCManager *m_ccManagerRaw{nullptr};
 
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;

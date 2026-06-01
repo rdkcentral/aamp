@@ -15,27 +15,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(EXEC_NAME AampRialtoPlayerTests)
+set(EXEC_NAME PlayerDirectRialtoCCManagerTests)
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-# Rialto public headers
-include_directories(${AAMP_ROOT}/.libs/include/rialto)
-
 # direct-rialto component headers
 include_directories(${AAMP_ROOT}/direct-rialto)
 
+# Middleware closed-caption headers
+include_directories(${AAMP_ROOT}/middleware/closedcaptions)
+
 set(TEST_SOURCES
-	AampRialtoPlayerTests.cpp
-	AampRialtoPlayerTestCases.cpp
+	PlayerDirectRialtoCCManagerTests.cpp
+	PlayerDirectRialtoCCManagerTestCases.cpp
 )
 
 set(AAMP_SOURCES
-	${AAMP_ROOT}/direct-rialto/AampRialtoPlayer.cpp
-	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
-	${AAMP_ROOT}/direct-rialto/AampRialtoSubtitleSource.cpp
 	${AAMP_ROOT}/direct-rialto/PlayerDirectRialtoCCManager.cpp
 )
 
@@ -43,6 +40,7 @@ add_executable(${EXEC_NAME}
 	${TEST_SOURCES}
 	${AAMP_SOURCES}
 )
+
 if(CMAKE_XCODE_BUILD_SYSTEM)
 	xcode_define_schema(${EXEC_NAME})
 endif()

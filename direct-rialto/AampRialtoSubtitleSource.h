@@ -64,6 +64,17 @@ public:
 	void setSubtitleFormat(StreamOutputFormat fmt) { m_subtitleFormat = fmt; }
 
 	/**
+	 * @brief Enable inband closed-caption mode.
+	 *
+	 * When active, mapCodecToMime() returns "application/x-subtitle-cc"
+	 * regardless of the codec format, and createRialtoSource() passes the
+	 * initial text-track identifier to the Rialto server.  No data injection
+	 * is performed for inband CC — the server extracts CC from the video
+	 * bitstream internally.
+	 */
+	void enableInbandCC() override { m_inbandCC = true; }
+
+	/**
 	 * @brief Parse or synthesise the init segment for this subtitle track.
 	 *
 	 * For raw TTML/WebVTT (FORMAT_SUBTITLE_TTML / FORMAT_SUBTITLE_WEBVTT)
@@ -153,6 +164,10 @@ private:
 	static bool findFirstBeginMs(const std::string &ttml, int64_t &outMs);
 
 	StreamOutputFormat m_subtitleFormat{FORMAT_INVALID};
+
+	/// When true, this source uses the "application/x-subtitle-cc" MIME type
+	/// and the Rialto server extracts CC from the video bitstream internally.
+	bool m_inbandCC{false};
 
 	/// Detection state for TTML cue-timestamp mode.
 	enum class ContentType

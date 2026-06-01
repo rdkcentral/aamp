@@ -899,3 +899,9 @@ void PlayerCCManager::DestroyInstance()
 	}
 }
 
+void PlayerCCManager::SetInstance(PlayerCCManagerBase *instance)
+{
+	delete mInstance;
+	mInstance = instance;
+}
+

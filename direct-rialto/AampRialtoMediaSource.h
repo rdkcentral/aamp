@@ -332,6 +332,15 @@ public:
 		firebolt::rialto::IMediaPipeline &pipeline,
 		int64_t positionNs);
 
+	/**
+	 * @brief Enable inband closed-caption mode for this source.
+	 *
+	 * When set, the source uses the "application/x-subtitle-cc" MIME type
+	 * and skips normal injection.  No-op for non-subtitle sources.
+	 * Overridden by AampRialtoSubtitleSource.
+	 */
+	virtual void enableInbandCC() {}
+
 protected:
 	// -----------------------------------------------------------------
 	// Subclass hooks (pure virtual)

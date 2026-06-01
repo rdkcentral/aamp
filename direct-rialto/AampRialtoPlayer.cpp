@@ -32,6 +32,8 @@
 #include "priv_aamp.h"
 #include "IControl.h"
 #include "AampRialtoControlBackend.h"
+#include "PlayerDirectRialtoCCManager.h"
+#include "PlayerCCManager.h"
 #include <chrono>
 #include <cinttypes>
 #include <algorithm>
@@ -195,6 +197,7 @@ void AampRialtoPlayer::Configure(
 	m_firstFrameNotified.store(false, std::memory_order_relaxed);
 	m_segmentStartMs.store(-1, std::memory_order_relaxed);
 	m_positionMs.store(0, std::memory_order_relaxed);
+	m_usingInbandCC = false;
 
 	if (!m_client)
 	{
@@ -324,6 +327,17 @@ void AampRialtoPlayer::Configure(
 	// FORMAT_ISO_BMFF: AampRialtoPlayer demuxes via SendTransfer; the demuxer
 	//                  is created lazily on the first SendTransfer call.
 	// FORMAT_UNKNOWN:  streamabstraction demuxes externally (SetStreamCaps path).
+
+	// Inject the direct-rialto CC manager as the PlayerCCManager singleton so
+	// that priv_aamp::InitializeCC() reaches our IDirectRialtoCC implementation
+	// rather than the GStreamer-based PlayerRialtoCCManager.
+	if (!m_ccManagerRaw)
+	{
+		auto *ccMgr = new PlayerDirectRialtoCCManager();
+		PlayerCCManager::SetInstance(ccMgr); // PlayerCCManager takes ownership
+		m_ccManagerRaw = ccMgr;
+		AAMPLOG_INFO("Injected PlayerDirectRialtoCCManager as CC singleton");
+	}
 	if (videoFormat != FORMAT_INVALID)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_VIDEO);
@@ -380,6 +394,22 @@ void AampRialtoPlayer::Configure(
 					static_cast<int>(subFormat));
 				AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
 			}
+		}
+	}
+	else if (videoFormat != FORMAT_INVALID)
+	{
+		// No sidecar subtitle track — create an inband CC source that uses
+		// the "application/x-subtitle-cc" MIME type so the Rialto pipeline
+		// can deliver closed-caption data from the video stream.
+		auto ccSrc = m_sourceCreator(eMEDIATYPE_SUBTITLE);
+		if (ccSrc)
+		{
+			ccSrc->enableInbandCC();
+			m_sources[eMEDIATYPE_SUBTITLE] = std::move(ccSrc);
+			m_usingInbandCC = true;
+			MediaCodecInfo ci{};
+			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
+			AAMPLOG_INFO("Created inband CC subtitle source");
 		}
 	}
 
@@ -889,6 +919,36 @@ void AampRialtoPlayer::SetSubtitleMute(bool muted)
 	AAMPLOG_INFO("EXIT");
 }
 
+// ---------------------------------------------------------------------------
+// IDirectRialtoCC
+// ---------------------------------------------------------------------------
+
+bool AampRialtoPlayer::setTextTrackIdentifier(const std::string &id)
+{
+	AAMPLOG_INFO("ENTRY id=%s", id.c_str());
+	bool result = false;
+	if (m_pipeline)
+	{
+		result = m_pipeline->setTextTrackIdentifier(id);
+	}
+	AAMPLOG_INFO("EXIT result=%d", result);
+	return result;
+}
+
+bool AampRialtoPlayer::setCCMute(bool muted)
+{
+	AAMPLOG_INFO("ENTRY muted=%d", muted);
+	bool result = false;
+	std::lock_guard<std::mutex> lock(m_attachMutex);
+	auto *sub = m_sources[eMEDIATYPE_SUBTITLE].get();
+	if (m_pipeline && sub && sub->isAttached())
+	{
+		result = m_pipeline->setMute(sub->sourceId(), muted);
+	}
+	AAMPLOG_INFO("EXIT result=%d", result);
+	return result;
+}
+
 void AampRialtoPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
 	AAMPLOG_INFO("ENTRY pts_offset=%" PRIu64, pts_offset);
@@ -1232,17 +1292,26 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			const bool firstFrame =
 				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
 
+			// Build the CC decoder handle.  In inband-CC mode pass the
+			// IDirectRialtoCC pointer (as unsigned long) so that
+			// priv_aamp::InitializeCC() initialises the CC manager with the
+			// correct control interface.
+			const unsigned long ccHandle = m_usingInbandCC
+				? reinterpret_cast<unsigned long>(
+					static_cast<IDirectRialtoCC *>(this))
+				: 0UL;
+
 			if (firstFrame)
 			{
 				m_notifiable->LogFirstFrame();
 				m_notifiable->LogTuneComplete();
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(/*ccDecoderHandle=*/0);
+				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 			}
 			else if (m_notifiable->GetState() == eSTATE_SEEKING)
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(/*ccDecoderHandle=*/0);
+				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 			}
 			else
 			{

@@ -38,6 +38,7 @@
 #include "AampRialtoPlayer.h"
 #include "AampRialtoMediaPipelineClient.h"
 #include "AampRialtoMediaSource.h"
+#include "IDirectRialtoCC.h"
 #include "MockIMediaPipeline.h"
 #include "MockIMediaPipelineFactory.h"
 #include "MockPrivateInstanceAAMP.h"
@@ -51,6 +52,7 @@ using ::testing::_;
 using ::testing::AnyOf;
 using ::testing::DoAll;
 using ::testing::Invoke;
+using ::testing::Ne;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::SetArgReferee;
@@ -536,25 +538,27 @@ TEST_F(AampRialtoPlayerTest, Configure_CallsSourceCreatorForEachFormat)
 {
 	m_createSourceCallCount = 0;
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
-	EXPECT_EQ(m_createSourceCallCount, 2);
+	EXPECT_EQ(m_createSourceCallCount, 3);  // video + audio + inband CC subtitle
 	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);  // inband CC
 }
 
 TEST_F(AampRialtoPlayerTest, Configure_VideoOnly_CreatesVideoSourceOnly)
 {
 	m_createSourceCallCount = 0;
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
-	EXPECT_EQ(m_createSourceCallCount, 1);
+	EXPECT_EQ(m_createSourceCallCount, 2);  // video + inband CC subtitle
 	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);  // inband CC
 }
 
 TEST_F(AampRialtoPlayerTest, Configure_FormatUnknown_CreatesSourceWithoutDemuxer)
 {
 	m_createSourceCallCount = 0;
 	Configure(FORMAT_UNKNOWN, FORMAT_UNKNOWN);
-	EXPECT_EQ(m_createSourceCallCount, 2);
+	EXPECT_EQ(m_createSourceCallCount, 3);  // video + audio + inband CC subtitle
 	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
 	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
@@ -646,7 +650,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 {
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 
-	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+	// video attaches first, then the deferred inband CC subtitle source.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(2);
 
 	SendVideoInitFragment();
 }
@@ -675,8 +680,22 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendAudioInitFragment();
 	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 
-	// Video init arrives — should trigger both attachSource calls
-	// (video first, then the deferred audio).
+	// Video init arrives — should trigger video, deferred audio, and the
+	// deferred inband CC subtitle source created in Configure().
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(
+		testing::Truly([](const auto &src) {
+			return dynamic_cast<
+				const firebolt::rialto::IMediaPipeline::MediaSourceSubtitle *>(
+					src.get()) != nullptr;
+		})))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
 	{
 		testing::InSequence seq;
 		EXPECT_CALL(*m_mockPipelinePtr, attachSource(
@@ -1033,8 +1052,10 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->Flush(10.0, 1, false);
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 
+	// setSourcePosition fires for both video (id=0) and the inband CC
+	// subtitle source (id=1) created alongside video in Configure().
 	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, 10000000000LL, true, _, _)).Times(1);
+		setSourcePosition(_, 10000000000LL, true, _, _)).Times(2);
 
 	SendVideoInitFragment();
 }
@@ -1060,8 +1081,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);
-	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);
+	// Source IDs: video=0, inband CC subtitle=1 (deferred, drained with
+	// video in SendVideoInitFragment), audio=2.
+	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);  // video
+	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);  // CC subtitle
+	EXPECT_CALL(*m_mockPipelinePtr, flush(2, true, _)).Times(1);  // audio
 
 	m_player->Flush(5.0, 1, false);
 }
@@ -1185,6 +1209,15 @@ TEST_F(AampRialtoPlayerDrmTest,
 				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
 					*src).setId(m_nextSourceId++);
 				return true;
+			}))
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				// Inband CC subtitle source — no DRM expected.
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
 			}));
 	SendVideoInitFragment();
 }
@@ -1199,6 +1232,15 @@ TEST_F(AampRialtoPlayerDrmTest,
 				firebolt::rialto::IMediaPipeline::MediaSource> &src)
 			{
 				EXPECT_FALSE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				// Inband CC subtitle source — no DRM expected.
 				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
 					*src).setId(m_nextSourceId++);
 				return true;
@@ -1221,7 +1263,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_CALL(m_mockNotifiable, LogFirstFrame()).Times(1);
 	EXPECT_CALL(m_mockNotifiable, LogTuneComplete()).Times(1);
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
-	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(/*ccHandle=*/0UL))
+	// The direct-rialto CC path passes a non-zero IDirectRialtoCC* handle.
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(Ne(0UL)))
 		.Times(1);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
@@ -1253,7 +1296,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.WillByDefault(Return(eSTATE_SEEKING));
 
 	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
-	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(0UL)).Times(1);
+	// CC source already created on first PLAYING; handle is still non-zero.
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(Ne(0UL))).Times(1);
 	EXPECT_CALL(m_mockNotifiable, LogFirstFrame()).Times(0);
 	EXPECT_CALL(m_mockNotifiable, LogTuneComplete()).Times(0);
 
@@ -1563,7 +1607,8 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
-		.WillOnce(Invoke(
+		.Times(2)
+		.WillRepeatedly(Invoke(
 			[this](const std::unique_ptr<
 				firebolt::rialto::IMediaPipeline::MediaSource> &src)
 			{
@@ -1603,7 +1648,7 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
-		.Times(2)
+		.Times(3)
 		.WillRepeatedly(Invoke(
 			[this](const std::unique_ptr<
 				firebolt::rialto::IMediaPipeline::MediaSource> &src)
@@ -1626,7 +1671,8 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
-		.WillOnce(Invoke(
+		.Times(2)
+		.WillRepeatedly(Invoke(
 			[this](const std::unique_ptr<
 				firebolt::rialto::IMediaPipeline::MediaSource> &src)
 			{
@@ -1685,7 +1731,8 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->Flush(10.0);
 
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
-		.WillOnce(Invoke(
+		.Times(2)
+		.WillRepeatedly(Invoke(
 			[this](const std::unique_ptr<
 				firebolt::rialto::IMediaPipeline::MediaSource> &src)
 			{
@@ -1693,9 +1740,12 @@ TEST_F(AampRialtoPlayerTest,
 					*src).setId(m_nextSourceId++);
 				return true;
 			}));
+	// Both video (id=0) and the deferred inband CC subtitle (id=1) call
+	// setSourcePosition because they both attach during this SetStreamCaps.
 	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(0, testing::Ge(10'000'000'000LL), _, _, _))
-		.WillOnce(Return(true));
+		setSourcePosition(_, testing::Ge(10'000'000'000LL), _, _, _))
+		.Times(2)
+		.WillRepeatedly(Return(true));
 
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
@@ -2161,13 +2211,14 @@ TEST_F(AampRialtoPlayerTest,
 	Configure();
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
-	// Audio source was assigned sourceId=1 (second m_nextSourceId++).
+	// Source IDs: video=0, inband CC subtitle=1 (deferred, drained with
+	// video), audio=2 (third m_nextSourceId++).
 
 	EXPECT_CALL(m_mockNotifiable,
 		NotifyBufferUnderflow(eMEDIATYPE_AUDIO))
 		.Times(1);
 
-	PostBufferUnderflow(/*sourceId=*/1);
+	PostBufferUnderflow(/*sourceId=*/2);
 }
 
 TEST_F(AampRialtoPlayerTest,
@@ -2391,4 +2442,87 @@ TEST_F(AampRialtoPlayerTest,
 	 *        must not crash.
 	 */
 	EXPECT_NO_FATAL_FAILURE(m_player->SetSubtitleMute(true));
+}
+
+// ===========================================================================
+// Inband Closed Caption (CC) — PlayerDirectRialtoCCManager integration
+// ===========================================================================
+
+/**
+ * @test After Configure(video, audio) [no subtitle], AampRialtoPlayer
+ *       eagerly creates an inband-CC subtitle source at Configure() time
+ *       so that the Rialto server can route closed-caption data internally.
+ */
+TEST_F(AampRialtoPlayerTest,
+	OnPlayingState_VideoAndAudio_CreatesInbandCCSubtitleSource)
+{
+	// CC source is now created eagerly at Configure() time.
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr)
+		<< "CC source must be created at Configure() time when no subtitle "
+		   "format is supplied";
+}
+
+/**
+ * @test When inband CC mode is active, NotifyFirstFrameReceived() must carry a
+ *       non-zero ccDecoderHandle so that PlayerDirectRialtoCCManager::Initialize()
+ *       receives a valid IDirectRialtoCC pointer.
+ */
+TEST_F(AampRialtoPlayerTest,
+	OnPlayingState_InbandCC_PassesNonZeroDecoderHandle)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyFirstFrameReceived(Ne(static_cast<unsigned long>(0))));
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+/**
+ * @test AampRialtoPlayer implements IDirectRialtoCC; its setTextTrackIdentifier()
+ *       must forward the identifier string to IMediaPipeline::setTextTrackIdentifier().
+ */
+TEST_F(AampRialtoPlayerTest,
+	SetTextTrackIdentifier_InbandCC_ForwardsToPipeline)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	auto *cc = dynamic_cast<IDirectRialtoCC *>(m_player.get());
+	ASSERT_NE(cc, nullptr) << "AampRialtoPlayer must implement IDirectRialtoCC";
+
+	EXPECT_CALL(*m_mockPipelinePtr, setTextTrackIdentifier(std::string("CC1")))
+		.WillOnce(Return(true));
+
+	EXPECT_TRUE(cc->setTextTrackIdentifier("CC1"));
+}
+
+/**
+ * @test AampRialtoPlayer::setCCMute(true) must call IMediaPipeline::setMute()
+ *       with the CC subtitle source's Rialto sourceId and mute=true.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetCCMute_InbandCC_ForwardsPipelineSetMute)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Attach video source so the CC subtitle source is not deferred.
+	SendVideoInitFragment();
+
+	// PLAYING triggers CC subtitle source creation and attachment.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+	auto *cc = dynamic_cast<IDirectRialtoCC *>(m_player.get());
+	ASSERT_NE(cc, nullptr);
+
+	const int32_t expectedSourceId =
+		m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId();
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(expectedSourceId, true))
+		.WillOnce(Return(true));
+
+	EXPECT_TRUE(cc->setCCMute(true));
 }

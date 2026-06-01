@@ -288,6 +288,18 @@ public:
 	 */
 	static void DestroyInstance();
 
+	/**
+	 * @fn SetInstance
+	 * @brief Inject a pre-constructed PlayerCCManagerBase subclass as the
+	 *        singleton, taking ownership.  Any previously held instance is
+	 *        deleted.  Intended for the direct-rialto backend so that
+	 *        AampRialtoPlayer can supply PlayerDirectRialtoCCManager before
+	 *        the first GetInstance() call.
+	 *
+	 * @param[in] instance - new singleton instance (ownership transferred)
+	 */
+	static void SetInstance(PlayerCCManagerBase *instance);
+
 private:
 	static PlayerCCManagerBase *mInstance; /**< Singleton instance */
 	static bool mIsRialto;	/**< Determines which class to instantiate */

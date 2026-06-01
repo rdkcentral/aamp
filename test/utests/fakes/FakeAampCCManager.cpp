@@ -139,6 +139,12 @@ void PlayerCCManager::SetRialto(bool state)
 {
 }
 
+void PlayerCCManager::SetInstance(PlayerCCManagerBase *instance)
+{
+	delete mInstance;
+	mInstance = instance;
+}
+
 PlayerCCManagerBase *PlayerCCManager::GetInstance()
 {
 	if (!mInstance)
