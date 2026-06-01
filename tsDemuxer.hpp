@@ -126,6 +126,11 @@ public:
 	void setPtsOffset( double offs )
 	{ // used to optimize hls/ts discontinuity handling
 		ptsOffset = offs;
+		// A new encoder epoch begins at each SSAI boundary. Clear any
+		// stale rollover flag from the previous period so that the first
+		// frames of the incoming segment (which may start near PTS 0)
+		// are not incorrectly bumped by one full 33-bit cycle.
+		rollover_pts = false;
 	}
 	
 	/**

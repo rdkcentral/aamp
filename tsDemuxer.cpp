@@ -106,6 +106,27 @@ bool Demuxer::CheckForSteadyState()
 SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 {
 	SegmentInfo_t ret {position, 0, duration};
+
+	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
+	{
+		// In restamp mode position and base_pts may be stale: the SSAI
+		// discontinuity is suppressed in the playlist so Demuxer::init()
+		// is never called at the ad boundary. Use raw encoder ticks only;
+		// ptsOffset already encodes (totalDuration - firstPts) so that
+		// the output timeline is continuous across ad insertions.
+		const double max_pts_s = 95443.71768889; // 2^33/90000
+		double raw_pts_s = static_cast<double>(current_pts.value) / 90000.;
+		double raw_dts_s = static_cast<double>(current_dts.value) / 90000.;
+		if( rollover_pts )
+		{ // rollover within this encoder epoch — add one full 33-bit cycle
+			if( raw_pts_s < max_pts_s/2 ) raw_pts_s += max_pts_s;
+			if( raw_dts_s < max_pts_s/2 ) raw_dts_s += max_pts_s;
+		}
+		ret.pts_s = ptsOffset + raw_pts_s;
+		ret.dts_s = ptsOffset + raw_dts_s;
+		return ret;
+	}
+
 	if (!trickmode)
 	{
 		ret.pts_s += static_cast<double>(current_pts.value - base_pts.value) / 90000.;
@@ -125,11 +146,6 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 		{ // and same for dts
 			ret.dts_s += max_pts_s;
 		}
-	}
-	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
-	{
-		ret.pts_s += ptsOffset; // non-zero when pts restamping in use
-		ret.dts_s += ptsOffset; // non-zero when pts restamping in use
 	}
 	return ret;
 }
