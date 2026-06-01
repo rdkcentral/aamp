@@ -68,7 +68,7 @@ protected:
 		mDataMgr = std::make_shared<AampTsbDataManager>();
 		mTestableTsbReader = new TestableAampTsbReader(mPrivateInstanceAAMP, mDataMgr, eMEDIATYPE_VIDEO, "testSessionId");
 
-		g_mockTSBDataManager = new testing::StrictMock<MockTSBDataManager>();
+		g_mockTSBDataManager = std::make_shared<testing::StrictMock<MockTSBDataManager>>();
 		mTestableSecondaryTsbReader = nullptr;
 	}
 
@@ -95,8 +95,7 @@ protected:
 			mTestableSecondaryTsbReader = nullptr;
 		}
 
-		delete g_mockTSBDataManager;
-		g_mockTSBDataManager = nullptr;
+		g_mockTSBDataManager.reset();
 
 		mDataMgr.reset();
 	}

@@ -21,6 +21,7 @@
 #define AAMP_MOCK_STREAM_ABSTRACTION_AAMP_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "StreamAbstractionAAMP.h"
 
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
@@ -108,6 +109,6 @@ public:
 	MOCK_METHOD(bool, IsCurrentProfileLowest, ());
 };
 
-extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;
+extern std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP;
 
 #endif /* AAMP_MOCK_STREAM_ABSTRACTION_AAMP_H */

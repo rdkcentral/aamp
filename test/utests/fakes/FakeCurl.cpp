@@ -27,7 +27,7 @@
 #include <cstdarg>
 
 
-MockCurl *g_mockCurl = nullptr;
+std::shared_ptr<MockCurl> g_mockCurl{};
 
 
 void curl_easy_cleanup(CURL *curl)

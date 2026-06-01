@@ -19,154 +19,141 @@
 
 /**
  * @file lstring.cpp
- * @brief Implementation file for lightweight trivially‑copiable string utilities.
+ * @brief Implementation file for lightweight string-view utilities.
  *
- * This file contains the out‑of‑line definition of lstring::atof().  
- * All other lstring methods remain header‑only for performance and inlining.
+ * This file contains the out-of-line definition of lstring::atof().
+ * All other lstring methods remain header-only for performance and inlining.
  *
  * @note atof() is implemented here (instead of in lstring.hpp) to avoid pulling
  *       in heavy dependencies through AampLogManager.h. Including that header
- *       inside lstring.hpp would force every consumer of lstring.hpp
- *       (notably fragmentcollector_hls.h) to indirectly include large modules
- *       such as curl, increasing compile‑time coupling and reducing the
- *       lightweight, reusable nature of the lstring abstraction.
+ *       inside lstring.hpp would force every consumer of lstring.hpp to
+ *       indirectly include large modules, increasing compile-time coupling and
+ *       reducing the lightweight, reusable nature of the lstring abstraction.
  *
  * @note lstring represents a simple (ptr, length) view similar to
  *       std::basic_string_view from <string_view>.
  */
 
 #include <cctype>
-#include <stdexcept>
+#include <climits>
+
 #include "lstring.hpp"
 #include "AampLogManager.h"
 
 /**
- * @brief Converts a character buffer to a floating‑point value with robust,
- *        fault‑tolerant parsing tailored for HLS playlist fields.
+ * @brief Converts the view to a floating-point value with robust, fault-tolerant
+ *        parsing tailored for HLS playlist fields.
  *
- * This function is designed for scenarios where malformed or unexpected input
- * is common (e.g., EXTINF durations in HLS playlists) and strict failure is
- * undesirable. It extracts a best‑effort numeric value while still providing
- * strong diagnostics for debugging malformed playlist data.
+ * This parser is designed for scenarios where malformed or unexpected input is
+ * common (e.g., EXTINF durations in HLS playlists) and strict failure is
+ * undesirable. It extracts a best-effort numeric value and stops cleanly at the
+ * first non-numeric character.
  *
- * Compared to std::atof() or std::strtod(), this parser:
- *   - Accepts partial numbers and stops cleanly at the first non‑numeric
- *     character (e.g., "3.25e-5" → 3.25, "12.5abc" → 12.5).
- *   - Rejects malformed formats that may indicate real authoring errors,
- *     such as multiple decimal points ("12.34.56") or a sign with no digits
- *     ("+", "-", "+  ").
- *   - Handles leading whitespace and an optional sign.
- *   - Avoids undefined behavior by safely casting characters before calling
- *     std::isspace() or std::isdigit().
- *   - Logs detailed error messages—including the failure reason, offending
- *     character, and input buffer—without throwing exceptions to the caller.
+ * Parsing behavior:
+ *   - Skips leading whitespace.
+ *   - Accepts an optional leading '+' or '-' sign.
+ *   - Parses digits and at most one '.' decimal point.
+ *   - Requires at least one digit somewhere (either before or after '.').
+ *   - Stops at the first character that is not a digit or '.'.
+ *   - If a second '.' is encountered, parsing stops (best-effort) rather than
+ *     failing the entire conversion.
+ *   - Does not parse exponent notation (e.g. "3.25e-5" parses as 3.25 and stops
+ *     at 'e').
  *
- * @return The parsed floating‑point value, or a best‑effort approximation if
- *         the input is partially valid.
+ * Safety / robustness:
+ *   - Never reads past @c len.
+ *   - Avoids undefined behavior from signed integer overflow by accumulating
+ *     directly into @c double.
+ *   - Uses safe casting when calling std::isspace() / std::isdigit().
+ *   - Logs a diagnostic message on failure (no digits found, null/empty input).
+ *
+ * @return Parsed floating-point value on success; 0.0 on failure.
  */
 double lstring::atof() const
 {
-    try
-    {
-        if (ptr == nullptr)
-            throw std::runtime_error("null pointer input");
+	if (ptr == nullptr || len == 0)
+	{
+		AAMPLOG_ERR("lstring::atof invalid input | ptr=%p len=%zu", ptr, (size_t)len);
+		return 0.0;
+	}
 
-        if (len == 0)
-            throw std::runtime_error("empty string at index 0");
+	size_t i = 0;
 
-        size_t i = 0;
+	// Skip leading whitespace
+	while (i < len && std::isspace(static_cast<unsigned char>(ptr[i])))
+	{
+		i++;
+	}
 
-        // Skip leading whitespace
-        while (i < len && std::isspace(static_cast<unsigned char>(ptr[i])))
-            i++;
+	// Whitespace-only input
+	if (i >= len)
+	{
+		AAMPLOG_ERR("lstring::atof whitespace-only input | len=%zu", (size_t)len);
+		return 0.0;
+	}
 
-        // If we reached the end, the string was only whitespace
-        if (i >= len)
-            throw std::runtime_error("empty string at index 0");
+	// Optional sign
+	double sign = 1.0;
+	if (ptr[i] == '+' || ptr[i] == '-')
+	{
+		if (ptr[i] == '-')
+		{
+			sign = -1.0;
+		}
+		i++;
+	}
 
-        // Optional sign
-        int sign = 1;
-        if (ptr[i] == '-' || ptr[i] == '+')
-        {
-            if (ptr[i] == '-')
-                sign = -1;
-            i++;
-        }
+	// Parse digits and optional decimal point. Require at least one digit.
+	bool sawDigit = false;
+	bool sawDot   = false;
 
-        // First meaningful character must be digit or '.'
-        if (i >= len)
-        {
-            throw std::runtime_error(
-                std::string("unexpected end of string while expecting digit or '.' at index ") + std::to_string(i)
-            );
-        }
+	double value     = 0.0;
+	double fracScale = 0.1;
 
-        // After optional sign, the first character MUST be digit or '.'
-        if (!(std::isdigit(static_cast<unsigned char>(ptr[i])) || ptr[i] == '.'))
-        {
-            throw std::runtime_error( std::string("unexpected character '") + ptr[i] + "' at index " + std::to_string(i) );
-        }
+	for (; i < len; i++)
+	{
+		char c = ptr[i];
 
-        long long ival = 0;     // integer part
-        long long frac = 0;     // fractional part
-        long long fracDiv = 1;  // divisor for fractional digits
-        bool afterDecimal = false;
+		if (c >= '0' && c <= '9')
+		{
+			sawDigit = true;
+			int d = c - '0';
 
-        // Main parsing loop
-        for (; i < len; i++)
-        {
-            char c = ptr[i];
+			if (!sawDot)
+			{
+				// Accumulate integer part (in double; no signed-integer overflow UB)
+				value = value * 10.0 + (double)d;
+			}
+			else
+			{
+				// Accumulate fractional part
+				value += (double)d * fracScale;
+				fracScale *= 0.1;
+			}
+		}
+		else if (c == '.')
+		{
+			if (sawDot)
+			{
+				// Best-effort: stop on second decimal point rather than failing
+				break;
+			}
+			sawDot = true;
+		}
+		else
+		{
+			// Stop parsing on any other character
+			break;
+		}
+	}
 
-            if (c >= '0' && c <= '9')
-            {
-                if (!afterDecimal)
-                    ival = ival * 10 + (c - '0');
-                else
-                {
-                    frac = frac * 10 + (c - '0');
-                    fracDiv *= 10;
-                }
-            }
-            else if (c == '.')
-            {
-                if (afterDecimal)
-                {
-                    throw std::runtime_error( "multiple decimal points at index " + std::to_string(i) );
-                }
-                afterDecimal = true;
-            }
-            else
-            {
-                // Stop parsing on any non-numeric character
-                break;
-            }
-        }
+	if (!sawDigit)
+	{
+		// Log a bounded preview of the input (does not require null termination)
+		int n = (len > (size_t)INT_MAX) ? INT_MAX : (int)len;
+		AAMPLOG_ERR("lstring::atof no digits | input:\"%.*s\" len:%zu", n, ptr, (size_t)len);
+		return 0.0;
+	}
 
-        double result = (double)ival + (double)frac / (double)fracDiv;
-        return sign * result;
-    }
-    catch (const std::exception& e)
-    {
-        if (ptr != nullptr && len > 0)
-        {
-            AAMPLOG_ERR( "exception %s | input: \"%.*s\" len: %zu", e.what(), (int)len, ptr, (size_t)len );
-        }
-        else
-        {
-            AAMPLOG_ERR( "unknown exception | len: %zu", (size_t)len );
-        }
-        return 0.0;
-    }
-    catch (...)
-    {
-        if (ptr != nullptr && len > 0)
-        {
-            AAMPLOG_ERR( "unknown exception | input: \"%.*s\" len: %zu", (int)len, ptr, (size_t)len );
-        }
-        else
-        {
-            AAMPLOG_ERR( "unknown exception | len: %zu", (size_t)len );
-        }
-        return 0.0;
-    }
+	return sign * value;
 }

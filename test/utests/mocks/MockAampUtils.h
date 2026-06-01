@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_UTILS_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "main_aamp.h"
 #include "InterfacePlayerRDK.h"
 class MockAampUtils
@@ -40,6 +41,6 @@ public:
 	MOCK_METHOD(std::string, Getiso639map_NormalizeLanguageCode, (std::string, LangCodePreference));
 };
 
-extern MockAampUtils *g_mockAampUtils;
+extern std::shared_ptr<MockAampUtils> g_mockAampUtils;
 
 #endif /* AAMP_MOCK_AAMP_UTILS_H */

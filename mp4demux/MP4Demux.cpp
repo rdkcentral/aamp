@@ -195,7 +195,7 @@ Mp4Demux::~Mp4Demux()
 	LogMetrics();
 }
 
-void Mp4Demux::setParseError( Mp4ParseError err )
+void Mp4Demux::setParseError( Mp4ParseError err, const char* what )
 {
 	parseError = err;
 	const char *text = nullptr;
@@ -250,7 +250,14 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 			text = "UNEXPECTED_IS_ENCRYPTED_FIELD";
 			break;
 	}
-	MP4_LOG_ERR( "%s", text );
+	if (what && what[0] != '\0')
+	{
+		MP4_LOG_ERR( "%s: %s", text, what );
+	}
+	else
+	{
+		MP4_LOG_ERR( "%s", text );
+	}
 }
 
 /**
@@ -645,12 +652,19 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
  * - Initialization vector (IV)
  * - Subsample encryption information (clear/encrypted byte pairs)
  * - Cipher mode and pattern encryption settings
+ *
+ * @param next Pointer to next box
  */
-void Mp4Demux::ParseSampleEncryption()
+void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t sampleCount = ReadU32();
 	uint64_t maxSampleCount = sampleOffset + sampleCount;
+	MP4_LOG_DEBUG("senc: sampleCount=%" PRIu32 " ivSize=%u flags=0x%x subSamplePresent=%d boxRemaining=%zu",
+		sampleCount, ivSize, flags,
+		(flags & SENC_SUBSAMPLE_ENCRYPTION_PRESENT) ? 1 : 0,
+		static_cast<size_t>(next - ptr));
+
 	if (samples.size() != maxSampleCount)
 	{
 		throw Mp4ParseException(MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH, "senc: sampleCount mismatch");
@@ -1219,7 +1233,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ParseSampleAuxiliaryInformationSizes();
 				break;
 			case MultiChar_Constant("senc"): // modern, optional
-				ParseSampleEncryption();
+				ParseSampleEncryption(next);
 				break;
 			case MultiChar_Constant("tfhd"):
 				ParseTrackFragmentHeader();
@@ -1320,6 +1334,9 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ptr = next; // skip payload
 				break;
 			default:
+				// Unknown/unhandled box — skip payload and continue
+				MP4_LOG_WARN("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
+				ptr = next;
 				break;
 		}
 		if (ptr != next)
@@ -1403,7 +1420,7 @@ bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 			MP4_LOG_DEBUG("Demux metrics: %u frames in %.3f ms", frameCount, demuxDuration.count());
 		}
 	} catch (const Mp4ParseException& ex) {
-		setParseError(ex.code());
+		setParseError(ex.code(), ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error

@@ -99,6 +99,15 @@ public:
 	// Promote protected members so tests can set them directly.
 	using MediaTrack::fragmentIdxToFetch;
 
+	// Wrapper to expose protected RestampSubtitle for unit tests.
+	std::string RestampSubtitle(
+		const char* buffer, size_t bufferLen,
+		double position, double duration, double pts_offset)
+	{
+		return MediaTrack::RestampSubtitle(
+			buffer, bufferLen, position, duration, pts_offset);
+	}
+
 protected:
 	// Must return something non-null to avoid a crash
 	StreamAbstractionAAMP* GetContext() override { return mContext; };
@@ -118,15 +127,15 @@ protected:
 	void SetUp() override
 	{
 		gpGlobalConfig = new AampConfig();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
 		// A fake PrivateInstanceAAMP
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockIsoBmffHelper = new NiceMock<MockIsoBmffHelper>();
-		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
-		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockIsoBmffHelper = std::make_shared<NiceMock<MockIsoBmffHelper>>();
+		g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+		g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
 
 		// A fake StreamAbstractionAAMP_MPD that derives from a *real* StreamAbstractionAAMP.
 		// The tests can't use a fake/mock StreamAbstractionAAMP base class because
@@ -137,26 +146,21 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
-		delete g_mockIsoBmffHelper;
-		g_mockIsoBmffHelper = nullptr;
+		g_mockIsoBmffHelper.reset();
 
-		delete g_mockIsoBmffBuffer;
-		g_mockIsoBmffBuffer = nullptr;
+		g_mockIsoBmffBuffer.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -1172,7 +1176,7 @@ TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_SignaledButStillFull_Retur
 	});
 
 	// Must return false: was signaled, abort is clear, but cache is still full.
-	bool result = videoTrack.WaitForCachedFragmentInjected(5000 /*ms*/);
+	bool result = videoTrack.WaitForCachedFragmentInjected(200 /*ms*/);
 	signalThread.join();
 
 	EXPECT_FALSE(result);
@@ -1224,9 +1228,8 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 
-	MockAampMp4Demuxer mockDemuxer;
-	g_mockAampMp4Demuxer = &mockDemuxer;
-	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+	g_mockAampMp4Demuxer = std::make_shared<MockAampMp4Demuxer>();
+	EXPECT_CALL(*g_mockAampMp4Demuxer, getPTSRestampStatus())
 		.WillRepeatedly(Return(true));
 
 	TestableMediaTrack subtitleTrack{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
@@ -1244,7 +1247,7 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 										isDiscontinuity, ret);
 
 	EXPECT_FALSE(isDiscontinuity);
-	g_mockAampMp4Demuxer = nullptr;
+	g_mockAampMp4Demuxer.reset();
 }
 
 /**
@@ -1288,9 +1291,8 @@ TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
 	subtitleTrack.playContext = nullptr;
 	EXPECT_FALSE(subtitleTrack.IsPTSRestampEnabled());
 
-	MockAampMp4Demuxer mockDemuxer;
-	g_mockAampMp4Demuxer = &mockDemuxer;
-	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+	g_mockAampMp4Demuxer = std::make_shared<MockAampMp4Demuxer>();
+	EXPECT_CALL(*g_mockAampMp4Demuxer, getPTSRestampStatus())
 		.WillOnce(Return(false))
 		.WillOnce(Return(true));
 
@@ -1304,7 +1306,7 @@ TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
 			eMEDIATYPE_SUBTITLE, true);
 	EXPECT_TRUE(subtitleTrack.IsPTSRestampEnabled());
 
-	g_mockAampMp4Demuxer = nullptr;
+	g_mockAampMp4Demuxer.reset();
 }
 
 /**
@@ -1333,4 +1335,159 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_FallsThrough_WhenPtsRestampDisable
 
 	// Else branch: isDiscontinuity was not modified, remains true.
 	EXPECT_TRUE(isDiscontinuity);
+}
+
+// ---------------------------------------------------------------------------
+// RestampSubtitle tests
+// ---------------------------------------------------------------------------
+
+namespace
+{
+	// Minimal valid WebVTT segment with a single cue block.
+	constexpr const char kVttWithMpegts[] =
+		"WEBVTT\n"
+		"X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000\n"
+		"\n"
+		"00:00:01.000 --> 00:00:03.000\n"
+		"Hello world\n";
+
+	constexpr const char kVttMpegtsZero[] =
+		"WEBVTT\n"
+		"X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0\n"
+		"\n"
+		"00:00:01.000 --> 00:00:03.000\n"
+		"Subtitle text\n";
+
+	// VTT header with no blank-line separator (malformed).
+	constexpr const char kVttMalformedNoSeparator[] =
+		"WEBVTT\n"
+		"X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000";
+
+	// Non-WebVTT binary-like buffer.
+	constexpr const char kNonVttBuffer[] = "\x47\x00\x00\x12\x01\x02\x03";
+} // namespace
+
+/**
+ * @brief When eAAMPConfig_HlsTsEnablePTSReStamp is disabled, RestampSubtitle
+ * must return the input buffer unchanged.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_ConfigDisabled_ReturnsInputUnchanged)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillOnce(Return(false));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttWithMpegts};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 0.0, 6.0, 10.0);
+
+	EXPECT_EQ(result, input);
+}
+
+/**
+ * @brief A non-WebVTT buffer must be returned unchanged regardless of config.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_NonWebVttBuffer_ReturnsInputUnchanged)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillOnce(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kNonVttBuffer, sizeof(kNonVttBuffer) - 1};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 0.0, 6.0, 10.0);
+
+	EXPECT_EQ(result, input);
+}
+
+/**
+ * @brief A VTT segment that has no blank-line header separator is malformed.
+ * RestampSubtitle must return it unchanged.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_MalformedVtt_NoHeaderSeparator_ReturnsInputUnchanged)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttMalformedNoSeparator};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 0.0, 6.0, 10.0);
+
+	EXPECT_EQ(result, input);
+}
+
+/**
+ * @brief When MPEGTS is non-zero, it must be adjusted by pts_offset_s * 90000.
+ * Expected: MPEGTS:900000 + llround(10.0 * 90000) = 1800000.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_NonZeroMpegts_AdjustedByPtsOffset)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttWithMpegts};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 5.0, 6.0, 10.0);
+
+	EXPECT_NE(result.find("MPEGTS:1800000"), std::string::npos)
+		<< "Expected adjusted MPEGTS:1800000 in output:\n" << result;
+}
+
+/**
+ * @brief When MPEGTS is 0 (SSAI proxy-stripped segments), it must remain 0
+ * regardless of pts_offset_s (RFC 8216: cue times are already absolute).
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_ZeroMpegts_RemainsZero)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttMpegtsZero};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 5.0, 6.0, 10.0);
+
+	EXPECT_NE(result.find("MPEGTS:0"), std::string::npos)
+		<< "Expected MPEGTS:0 to be unchanged in output:\n" << result;
+}
+
+/**
+ * @brief Cue blocks after the header must be carried verbatim. This guards
+ * against a regression of the original bug where cue timestamps were shifted.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_CueBlocksPassedVerbatim)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttWithMpegts};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 0.0, 6.0, 1.0);
+
+	// The cue line and payload must appear unchanged in the output.
+	EXPECT_NE(result.find("00:00:01.000 --> 00:00:03.000"), std::string::npos)
+		<< "Cue timing line must not be modified:\n" << result;
+	EXPECT_NE(result.find("Hello world"), std::string::npos)
+		<< "Cue text must not be modified:\n" << result;
 }
