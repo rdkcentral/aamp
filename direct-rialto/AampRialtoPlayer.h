@@ -322,6 +322,9 @@ private:
 	std::string m_videoRectangle;
 
 	PrivateInstanceAAMP *m_aamp;                           ///< Owning AAMP instance
+
+	id3_callback_t m_ID3MetadataHandler;                   ///< Function to call to generate the JS event for in ID3 packet
+
 	IStreamSinkNotifiable *m_notifiable{nullptr};          ///< Playback-state notifier (not owned)
 	/// Owned adapter wrapping PrivateInstanceAAMP as an IStreamSinkNotifiable.
 	/// Non-null only when no test notifiable was injected.

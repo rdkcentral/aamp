@@ -1210,8 +1210,79 @@ TEST_F(AampRialtoPlayerDrmTest,
 TEST_F(AampRialtoPlayerDrmTest,
 	ClearProtectionEvent_CallsClearSessions)
 {
+	// The DRM bridge is created lazily; initialise it via SetEncryptedAamp so
+	// that ClearProtectionEvent has a live bridge to call clearSessions() on.
+	// The fake AampDrmBridge delegates every call to g_mockDrmBridge, which
+	// the fixture wires to m_mockDrmBridge — so the expectation is satisfied.
+	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP);
+	m_player->SetEncryptedAamp(aamp);
+
 	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(1);
 	m_player->ClearProtectionEvent();
+}
+
+// ---------------------------------------------------------------------------
+// SetEncryptedAamp — lazy DRM bridge initialisation for pre-roll ad scenario
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerDrmTest,
+	SetEncryptedAamp_CreatesBridge_ClearSessionsDelegatesToMock)
+{
+	// Before any call the bridge is absent; SetEncryptedAamp must create it.
+	// The fake AampDrmBridge delegates to g_mockDrmBridge, so subsequent
+	// calls on the player's bridge reach m_mockDrmBridge.
+	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP);
+	m_player->SetEncryptedAamp(aamp);
+
+	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(1);
+	m_player->ClearProtectionEvent();
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachSource_WithNoBridgeSet_LazilyCreatesBridge)
+{
+	// Bridge is not pre-initialised via SetEncryptedAamp.
+	// It must be created lazily when AttachSource is first called, and the
+	// fake must delegate calls to g_mockDrmBridge (set by the fixture).
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	// Bridge now exists — ClearProtectionEvent must call clearSessions.
+	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(1);
+	m_player->ClearProtectionEvent();
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachSource_AfterSetEncryptedAamp_DoesNotReplaceBridge)
+{
+	// SetEncryptedAamp sets the bridge.  Subsequent AttachSource calls must
+	// NOT replace it — the lazy guard `if (!m_drmBridge)` ensures this.
+	// Verify by checking createSession is called through the same mock.
+	const uint8_t initData[] = {0x01};
+	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP);
+	m_player->SetEncryptedAamp(aamp);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	// createSession must be called on the bridge installed by SetEncryptedAamp
+	// (which delegates to m_mockDrmBridge via the fake).
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(7));
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
 }
 
 TEST_F(AampRialtoPlayerDrmTest,

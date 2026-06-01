@@ -141,8 +141,8 @@ AampRialtoPlayer::AampRialtoPlayer(
 	std::function<void(const unsigned char *, int, int, int)> exportFrames,
 	SourceCreator sourceCreator)
 	: m_aamp(aamp)
-	, m_drmBridge(std::make_shared<AampDrmBridge>(aamp))
 	, m_controlBackend(std::move(controlBackend))
+	, m_ID3MetadataHandler{std::move(id3HandlerCallback)}
 	, m_sourceCreator(std::move(sourceCreator))
 	, m_client(nullptr)
 	, m_pipeline(nullptr)
@@ -600,6 +600,15 @@ void AampRialtoPlayer::AttachSource(
 	if (!source.isAttached())
 	{
 		m_stateMachine.onSourceAttaching();
+	}
+
+	// Ensure m_drmBridge is initialized before attaching source.
+	// Lazy initialization supports pre-roll ads: if SetEncryptedAamp was
+	// called, use that player's DRM session manager; otherwise, use m_aamp.
+	if (!m_drmBridge)
+	{
+		m_drmBridge = std::make_shared<AampDrmBridge>(m_aamp);
+		AAMPLOG_INFO("Creating m_drmBridge with m_aamp=%p", m_aamp);
 	}
 
 	auto result = source.attachOrUpdate(
@@ -1279,20 +1288,29 @@ void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecI
 
 bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 {
+	bool ret = false;
 	AAMPLOG_INFO("ENTRY aampInstance=%p", aampInstance);
-	AAMPLOG_INFO("EXIT");
-	return false;
+	ret = (m_aamp == aampInstance);
+	AAMPLOG_INFO("EXIT ret=%d", ret);
+	return ret;
 }
 
 void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	AAMPLOG_INFO("ENTRY newAamp=%p", newAamp);
+	m_aamp = newAamp;
+	m_ID3MetadataHandler = std::move(id3HandlerCallback);
 	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
 	AAMPLOG_INFO("ENTRY aamp=%p", aamp);
+	// Create DRM bridge with the encrypted player's aamp to share its DRM
+	// session manager.  Supports pre-roll ads: clear ad player calls this
+	// with the encrypted VOD player so the pipeline is configured for DRM
+	// even though the first asset is unencrypted.
+	m_drmBridge = std::make_shared<AampDrmBridge>(aamp);
 	AAMPLOG_INFO("EXIT");
 }
 
