@@ -32,6 +32,7 @@ set(TEST_SOURCES FunctionalTests.cpp
 		 PauseOnPlaybackTests.cpp
 		 AampGstPlayerTests.cpp
 		 DefaultSubtitleMuteTests.cpp
+		 NullGuardTests.cpp
 	)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp

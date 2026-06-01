@@ -29,7 +29,7 @@
 #include "AampLogManager.h"
 #include "MockAampMp4Demuxer.h"
 
-MockAampMp4Demuxer *g_mockAampMp4Demuxer = nullptr;
+std::shared_ptr<MockAampMp4Demuxer> g_mockAampMp4Demuxer{};
 
 /**
  * @brief Fake MP4 Demuxer constructor

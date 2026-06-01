@@ -345,7 +345,7 @@ protected:
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-			{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
+			{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK}
 		};
 
 	IntConfigSettings mIntConfigSettings;
@@ -360,21 +360,21 @@ protected:
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>(mPrivateInstanceAAMP);
 
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
 
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
 
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -404,27 +404,20 @@ protected:
 
 		if (g_mockAampUtils)
 		{
-			delete g_mockAampUtils;
-			g_mockAampUtils = nullptr;
+			g_mockAampUtils.reset();
 		}
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockMediaStreamContext.reset();
 
-		delete g_mockAampMPDDownloader;
-		g_mockAampMPDDownloader = nullptr;
+		g_mockAampMPDDownloader.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
 		mManifest = nullptr;
 		mResponse = nullptr;

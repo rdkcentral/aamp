@@ -22,7 +22,7 @@
 
 TimeSyncClient::TimeSyncClient() = default;
 
-MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
+std::shared_ptr<MockStreamAbstractionAAMP_MPD> g_mockStreamAbstractionAAMP_MPD{};
 
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
 	: StreamAbstractionAAMP(aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
@@ -342,4 +342,9 @@ void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
 uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
 {
 	return 0;
+}
+
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
+{
+	return eAAMPSTATUS_OK;
 }

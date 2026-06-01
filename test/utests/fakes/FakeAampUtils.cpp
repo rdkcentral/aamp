@@ -21,7 +21,7 @@
 #include "MockAampUtils.h"
 #include <cctype>
 
-MockAampUtils *g_mockAampUtils = nullptr;
+std::shared_ptr<MockAampUtils> g_mockAampUtils{};
 
 /**
  * @enum HarvestConfigType

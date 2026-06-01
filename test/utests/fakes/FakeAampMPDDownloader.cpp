@@ -31,7 +31,7 @@
 
 #define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
 
-MockAampMPDDownloader *g_mockAampMPDDownloader = nullptr;
+std::shared_ptr<MockAampMPDDownloader> g_mockAampMPDDownloader{};
 
 void _manifestDownloadResponse::show()
 {
