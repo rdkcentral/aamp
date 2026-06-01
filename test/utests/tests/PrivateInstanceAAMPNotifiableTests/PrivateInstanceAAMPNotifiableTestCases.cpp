@@ -31,9 +31,11 @@
 #include <gmock/gmock.h>
 
 #include "PrivateInstanceAAMPNotifiable.h"
+#include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
 
 using ::testing::Return;
+using ::testing::NiceMock;
 using ::testing::_;
 
 // ---------------------------------------------------------------------------
@@ -45,6 +47,7 @@ class PrivateInstanceAAMPNotifiableTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockPrivateInstanceAAMP = &m_mock;
 		m_notifiable = std::make_unique<PrivateInstanceAAMPNotifiable>(
 			&m_aamp);
@@ -54,6 +57,8 @@ protected:
 	{
 		m_notifiable.reset();
 		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
 	}
 
 	PrivateInstanceAAMP m_aamp{};
@@ -126,4 +131,28 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	MonitorProgress_ForwardsWithoutCrash)
 {
 	m_notifiable->MonitorProgress(true, false);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	GetProgressReportIntervalSeconds_WithNullConfig_ReturnsZero)
+{
+	AampConfig *config = nullptr;
+	PrivateInstanceAAMP aampWithNullConfig(config);
+	PrivateInstanceAAMPNotifiable notifiable(&aampWithNullConfig);
+
+	EXPECT_DOUBLE_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.0);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	GetProgressReportIntervalSeconds_WithConfig_ForwardsToAampConfig)
+{
+	AampConfig config;
+	PrivateInstanceAAMP aampWithConfig(&config);
+	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
+
+	EXPECT_CALL(mockConfig,
+		GetConfigValue(eAAMPConfig_ReportProgressInterval))
+		.WillOnce(Return(0.75));
+
+	EXPECT_DOUBLE_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.75);
 }
