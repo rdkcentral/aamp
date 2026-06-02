@@ -204,6 +204,7 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	update_first_pts = false;
 	finalized_base_pts = false;
 	rollover_pts = false;
+	suppress_rollover_detection = false;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
 	
@@ -291,10 +292,20 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					{
 						const uint33_t timeStamp = Extract33BitTimestamp(&pesStart[9]);
 						auto prev_pts = exchange(current_pts, timeStamp);
-						if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
-						{//pts may come out of order so prev>current is not sufficient to detect the rollover
-							AAMPLOG_WARN("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
-							rollover_pts = true;
+						if (suppress_rollover_detection)
+						{
+							// First PTS after a discontinuity / ptsOffset change: do not treat
+							// the large backward jump as a 33-bit rollover. Clear the
+							// suppression flag and skip the rollover decision once.
+							suppress_rollover_detection = false;
+						}
+						else
+						{
+							if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
+							{//pts may come out of order so prev>current is not sufficient to detect the rollover
+								AAMPLOG_WARN("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
+								rollover_pts = true;
+							}
 						}
 						current_pts = timeStamp;
 						AAMPLOG_DEBUG("PTS updated %" PRIu64 , current_pts.value);
