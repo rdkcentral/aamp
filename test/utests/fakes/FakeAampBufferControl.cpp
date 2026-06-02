@@ -20,7 +20,7 @@
 #include "MockAampBufferControl.h"
 #include "AampBufferControl.h"
 
-MockAampBufferControl *g_mockAampBufferControl = nullptr;
+std::shared_ptr<MockAampBufferControl> g_mockAampBufferControl{};
 
 AampBufferControl::BufferControlMaster::BufferControlMaster()
 {
