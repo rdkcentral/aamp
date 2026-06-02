@@ -21,12 +21,14 @@
 #include "AampProfiler.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
+#include "AampUtils.h" // for NOW_STEADY_TS_MS
 #include <cjson/cJSON.h>
 #include <algorithm>
+#include <thread>
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
-extern MockAampConfig *g_mockAampConfig;
+extern std::shared_ptr<MockAampConfig> g_mockAampConfig;
 
 class AampProfilertests : public testing::Test {
 protected:
@@ -65,7 +67,6 @@ TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
 {
     TuneEndMetrics tuneMetricsData;
 	const char *tuneTimeStrPrefix = "[tuneTimeStrPrefix]";
-	unsigned int licenseAcqNWTime = 2;
     bool playerPreBuffered = true;
     unsigned int durationSeconds = 3;
     bool interfaceWifi = true;
@@ -73,7 +74,7 @@ TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
     std::string appName = "test3";
     cJSON *item = cJSON_CreateObject();
     cJSON_AddNumberToObject(item,"ver",AAMP_TUNETIME_VERSION);
-    std::string s1 = profileEvent->GetTuneTimeMetricAsJson(tuneMetricsData, tuneTimeStrPrefix,licenseAcqNWTime, playerPreBuffered,durationSeconds,interfaceWifi, failureReason, appName);
+    std::string s1 = profileEvent->GetTuneTimeMetricAsJson(tuneMetricsData, tuneTimeStrPrefix, playerPreBuffered,durationSeconds,interfaceWifi, failureReason, appName);
     profileEvent->TuneBegin();
     profileEvent->SetDiscontinuityParam();
 }
@@ -456,6 +457,105 @@ TEST_F(AampProfilertests, TuneEndTest5)
     EXPECT_EQ(durationSeconds,3600);
     ASSERT_TRUE(interfaceWifi);         
 }
+
+// Test to verify that mTotalTime in TuneEndMetrics is updated correctly in success case when player is not pre-buffered.
+// Total time is calculated based on the start time of PROFILE_BUCKET_FIRST_FRAME.
+TEST_F(AampProfilertests, TuneEndTest6)
+{
+    TuneEndMetrics mTuneEndMetrics;
+    mTuneEndMetrics.success = 1;
+    mTuneEndMetrics.contentType = ContentType_VOD;
+    mTuneEndMetrics.streamType = 1;
+    mTuneEndMetrics.mFirstTune = true;
+    mTuneEndMetrics.mTimedMetadataStartTime = 12345;
+    mTuneEndMetrics.mTimedMetadataDuration = 500;
+    mTuneEndMetrics.mTuneAttempts = 0;
+    mTuneEndMetrics.mTotalTime = 0; // Initialize mTotalTime to 0
+    std::string appName = "Test6";
+    std::string playerActiveMode = "Active";
+    int playerId = 123;
+    bool playerPreBuffered = false;
+    unsigned int durationSeconds = 3600;
+    bool interfaceWifi = true;
+    std::string failureReason;
+    std::string tuneMetricData;
+    profileEvent->TuneBegin();
+    // Wait for 200ms to cause a delay and ensure buckets[PROFILE_BUCKET_FIRST_FRAME].tStart has a valid value.
+    // Total time is the start time for PROFILE_BUCKET_FIRST_FRAME.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    profileEvent->ProfileBegin(PROFILE_BUCKET_FIRST_FRAME);
+    profileEvent->ProfileEnd(PROFILE_BUCKET_FIRST_FRAME);
+    profileEvent->TuneEnd(mTuneEndMetrics, appName, playerActiveMode, playerId,
+                         playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+    EXPECT_TRUE(mTuneEndMetrics.mTotalTime >= 200); // Check if mTotalTime is updated and is at least 200ms
+}
+
+// Test to verify that mTotalTime in TuneEndMetrics is updated correctly in success case when player is pre-buffered.
+// Total time is calculated based on the difference between the start time of PROFILE_BUCKET_FIRST_FRAME and
+// the start time of PROFILE_BUCKET_PLAYER_PRE_BUFFERED.
+TEST_F(AampProfilertests, TuneEndTest7)
+{
+    TuneEndMetrics mTuneEndMetrics;
+    mTuneEndMetrics.success = 1; // success case
+    mTuneEndMetrics.contentType = ContentType_VOD;
+    mTuneEndMetrics.streamType = 1;
+    mTuneEndMetrics.mFirstTune = true;
+    mTuneEndMetrics.mTimedMetadataStartTime = 12345;
+    mTuneEndMetrics.mTimedMetadataDuration = 500;
+    mTuneEndMetrics.mTuneAttempts = 0;
+    mTuneEndMetrics.mTotalTime = 0; // Initialize mTotalTime to 0
+    std::string appName = "Test7";
+    std::string playerActiveMode = "Active";
+    int playerId = 123;
+    bool playerPreBuffered = true;
+    unsigned int durationSeconds = 3600;
+    bool interfaceWifi = true;
+    std::string failureReason;
+    std::string tuneMetricData;
+    profileEvent->TuneBegin();
+    profileEvent->ProfileBegin(PROFILE_BUCKET_PLAYER_PRE_BUFFERED);
+    profileEvent->ProfileEnd(PROFILE_BUCKET_PLAYER_PRE_BUFFERED);
+    // Wait for 200ms to cause a delay and ensure buckets[PROFILE_BUCKET_FIRST_FRAME].tStart has a valid value.
+    // Total time is the buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    profileEvent->ProfileBegin(PROFILE_BUCKET_FIRST_FRAME);
+    profileEvent->ProfileEnd(PROFILE_BUCKET_FIRST_FRAME);
+    profileEvent->TuneEnd(mTuneEndMetrics, appName, playerActiveMode, playerId,
+                         playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+    EXPECT_TRUE(mTuneEndMetrics.mTotalTime >= 200); // Check if mTotalTime is updated and is at least 200ms
+}
+
+// Test to verify that mTotalTime in TuneEndMetrics is updated correctly in failure case when player is not pre-buffered.
+// Total time for failure is the difference between the current time and the tunestart time.
+TEST_F(AampProfilertests, TuneEndTest8)
+{
+    TuneEndMetrics mTuneEndMetrics;
+    mTuneEndMetrics.success = 0; // failure case
+    mTuneEndMetrics.contentType = ContentType_VOD;
+    mTuneEndMetrics.streamType = 1;
+    mTuneEndMetrics.mFirstTune = true;
+    mTuneEndMetrics.mTimedMetadataStartTime = 12345;
+    mTuneEndMetrics.mTimedMetadataDuration = 500;
+    mTuneEndMetrics.mTuneAttempts = 0;
+    mTuneEndMetrics.mTotalTime = 0; // Initialize mTotalTime to 0
+    std::string appName = "Test8";
+    std::string playerActiveMode = "Active";
+    int playerId = 123;
+    bool playerPreBuffered = false;
+    unsigned int durationSeconds = 3600;
+    bool interfaceWifi = true;
+    std::string failureReason;
+    std::string tuneMetricData;
+    profileEvent->TuneBegin();
+    // Wait for 200ms to cause a delay and ensure mTuneEndMetrics.mTotalTime has a valid value.
+    // Total time for failure is based on the steady-clock delta from tuneStartMonotonicBase.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    mTuneEndMetrics.mTotalTime = NOW_STEADY_TS_MS;
+    profileEvent->TuneEnd(mTuneEndMetrics, appName, playerActiveMode, playerId,
+                         playerPreBuffered, durationSeconds, interfaceWifi, failureReason, &tuneMetricData);
+    EXPECT_TRUE(mTuneEndMetrics.mTotalTime >= 200); // Check if mTotalTime is updated and is at least 200ms
+}
+
 TEST_F(AampProfilertests, TestGetTuneEventsJSON22)
 {
     bool siblingEvent = false;
@@ -549,12 +649,11 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKEnabled)
     AampConfig* savedConfig = gpGlobalConfig;
     
     // Setup: Create mock and configure gpGlobalConfig with eAAMPConfig_UseFireboltSDK enabled
-    MockAampConfig mockConfig;
-    g_mockAampConfig = &mockConfig;
+    g_mockAampConfig = std::make_shared<MockAampConfig>();
     gpGlobalConfig = new AampConfig();
     
     // Set expectation that IsConfigSet will be called and return true
-    EXPECT_CALL(mockConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
         .WillOnce(Return(true));
     
     // Prepare TuneEndMetrics
@@ -592,7 +691,7 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKEnabled)
     // Cleanup
     delete gpGlobalConfig;
     gpGlobalConfig = savedConfig;
-    g_mockAampConfig = nullptr;
+    g_mockAampConfig.reset();
 }
 
 TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKDisabled)
@@ -601,12 +700,11 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKDisabled)
     AampConfig* savedConfig = gpGlobalConfig;
     
     // Setup: Create mock and configure gpGlobalConfig with eAAMPConfig_UseFireboltSDK disabled
-    MockAampConfig mockConfig;
-    g_mockAampConfig = &mockConfig;
+    g_mockAampConfig = std::make_shared<MockAampConfig>();
     gpGlobalConfig = new AampConfig();
     
     // Set expectation that IsConfigSet will be called and return false
-    EXPECT_CALL(mockConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
         .WillOnce(Return(false));
     
     // Prepare TuneEndMetrics
@@ -649,7 +747,7 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKDisabled)
     // Cleanup
     delete gpGlobalConfig;
     gpGlobalConfig = savedConfig;
-    g_mockAampConfig = nullptr;
+    g_mockAampConfig.reset();
 }
 TEST_F(AampProfilertests, TuneEndVIPATaggingWithNullConfig)
 {

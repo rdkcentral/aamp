@@ -19,7 +19,7 @@
 
 #include "MockAampTsbAdMetaData.h"
 
-MockAampTsbAdMetaData* g_mockAampTsbAdMetaData = nullptr;
+std::shared_ptr<MockAampTsbAdMetaData> g_mockAampTsbAdMetaData{};
 
 // Constructor for AdTsbMetaData
 AampTsbAdMetaData::AampTsbAdMetaData(AdType adType, EventType eventType, const AampTime& adPosition)

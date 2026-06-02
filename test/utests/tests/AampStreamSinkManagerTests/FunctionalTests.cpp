@@ -60,13 +60,13 @@ protected:
         mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(&mConfig2);
         mPrivateInstanceAAMP2->mPlayerId = 2;
 
-        g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+        g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
-        g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP2);
+        g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP2);
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP1);
+        g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP1);
 
-        mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 
         const auto id3_callback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP1, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
         mId3HandlerCallback1 = id3_callback;
@@ -75,8 +75,7 @@ protected:
 
     void TearDown() override
     {
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        g_mockPrivateInstanceAAMP.reset();
 
         delete mPrivateInstanceAAMP1;
         mPrivateInstanceAAMP1 = nullptr;
@@ -85,14 +84,12 @@ protected:
         gpGlobalConfig = nullptr;
 
         mPrivateInstanceAAMP2->mpStreamAbstractionAAMP = nullptr;
-        delete g_mockStreamAbstractionAAMP;
-        g_mockStreamAbstractionAAMP = nullptr;
+        g_mockStreamAbstractionAAMP.reset();
 
         delete mPrivateInstanceAAMP2;
         mPrivateInstanceAAMP2 = nullptr;
 
-        delete g_mockAampGstPlayer;
-        g_mockAampGstPlayer = nullptr;
+        g_mockAampGstPlayer.reset();
         AampStreamSinkManager::GetInstance().Clear();
     }
 
@@ -680,3 +677,39 @@ TEST_F(AampStreamSinkManagerTests, MediaHeader_AddGetRemove)
     auto removed = manager.GetMediaHeader(trackId);
     EXPECT_EQ(removed, nullptr);
 }
+
+/*  @brief : - Specific error case leading to invalid encrypted headers
+*/
+TEST_F(AampStreamSinkManagerTests, CheckEncryptedHeaders_PlayerNotDeactivated)
+{
+    std::map<int, std::string> set_headers1;
+    std::map<int, std::string> set_headers2;
+    set_headers1.insert({1, "Test String1"});
+    set_headers2.insert({1, "Test String2"});
+	
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP1, mId3HandlerCallback1);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP1);
+    AampStreamSinkManager::GetInstance().CreateStreamSink(mPrivateInstanceAAMP2, mId3HandlerCallback2);
+    AampStreamSinkManager::GetInstance().SetSinglePipelineMode(mPrivateInstanceAAMP2);
+    
+    AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP1);
+
+    // Only expect one call to SetEncryptedAamp for the same player
+    EXPECT_CALL(*g_mockAampGstPlayer, SetEncryptedAamp(mPrivateInstanceAAMP1)).Times(1);
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP1, set_headers1);
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP1, set_headers1);
+
+    //-- not called here as expected: AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
+
+    AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
+
+    // called after next player activated
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP1, true);
+
+    // Check that the encrypted info is still updated for the new player
+    EXPECT_CALL(*g_mockAampGstPlayer, SetEncryptedAamp(mPrivateInstanceAAMP2));
+    AampStreamSinkManager::GetInstance().SetEncryptedHeaders(mPrivateInstanceAAMP2, set_headers2);
+
+    AampStreamSinkManager::GetInstance().DeactivatePlayer(mPrivateInstanceAAMP2, true);
+}
+

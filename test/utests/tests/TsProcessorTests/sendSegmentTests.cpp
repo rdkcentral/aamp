@@ -206,11 +206,11 @@ protected:
         {
             gpGlobalConfig =  new AampConfig();
         }
-        g_mockAampConfig = new MockAampConfig();
+        g_mockAampConfig = std::make_shared<MockAampConfig>();
 
         mTSProcessor = new TestTSProcessor(mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO);
 
-        g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+        g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
     }
 
     void TearDown() override
@@ -218,14 +218,12 @@ protected:
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
 
-        delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
+        g_mockAampConfig.reset();
 
         delete mTSProcessor;
         mTSProcessor = nullptr;
 
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        g_mockPrivateInstanceAAMP.reset();
     }
     TestTSProcessor *mTSProcessor;
 };
@@ -934,7 +932,7 @@ TEST_F(sendSegmentTests, SendSegmentTest)
 	bool init = false;
     bool ptsError = true;
     bool result;
-    result = mTSProcessor->sendSegment(buf, position, duration, offset, discontinuous,init, nullptr, ptsError);
+    result = mTSProcessor->sendSegment(std::move(buf), position, duration, offset, discontinuous,init, nullptr, ptsError);
     ASSERT_FALSE(result);
 }
 
@@ -954,7 +952,7 @@ TEST_F(sendSegmentTests, esMP3test)
 	bool init = false;
     bool ptsError = false;
 
-    mTSProcessor->sendSegment(buffer, position, duration, offset, discontinuous, init,
+    mTSProcessor->sendSegment(std::move(buffer), position, duration, offset, discontinuous, init,
         [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
             mPrivateInstanceAAMP->SendStreamCopy(type, buf, info.pts_s, info.dts_s, info.duration);
         },

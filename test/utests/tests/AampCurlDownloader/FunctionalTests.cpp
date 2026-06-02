@@ -52,9 +52,17 @@ protected:
 	void SetUp() override
 	{
 		mAampCurlDownloader = new AampCurlDownloader();
-		g_mockCurl = new MockCurl();
+		g_mockCurl = std::make_shared<MockCurl>();
 
 		mCurlEasyHandle = malloc(1);		// use a valid address for the handle
+
+		// Allow any curl_easy_setopt_long call by default so that tests which call
+		// Initialize() don't fail on long-option calls (e.g. CURLOPT_DNS_CACHE_TIMEOUT
+		// with the default value) that they don't explicitly expect.  Individual tests
+		// can add a stricter EXPECT_CALL which GMock will match first (LIFO order).
+		EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(::testing::_, ::testing::_, ::testing::_))
+			.Times(::testing::AnyNumber())
+			.WillRepeatedly(Return(CURLE_OK));
 	}
 
 	void TearDown() override
@@ -64,8 +72,7 @@ protected:
 
 		free(mCurlEasyHandle);
 
-		delete g_mockCurl;
-		g_mockCurl = nullptr;
+		g_mockCurl.reset();
 	}
 
 public:
@@ -405,6 +412,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 	inpData->bNeedDownloadMetrics = true;
 	inpData->bIgnoreResponseHeader = true;
 	inpData->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
+	inpData->iDownload502RetryWaitMs = 0;
 
 	// The first attempt is not a retry hence +1
 	int triesExpected = MANIFEST_DOWNLOAD_502_RETRY_COUNT + 1;
@@ -647,4 +655,42 @@ TEST_F(FunctionalTests, DownloadTest_Metrics_TotalCumulatesAcrossRetries)
 	// Before fix: total = CURLINFO_TOTAL_TIME of the instant retry = 0.0 (mock default).
 	// After fix:  total = cumulative wall-clock elapsed >= 0.050 s.
 	EXPECT_GE(respData->downloadCompleteMetrics.total, kSlowAttemptMs / 1000.0);
+}
+
+/**
+ * @brief Verify CURLOPT_DNS_CACHE_TIMEOUT is set from DownloadConfig, not hard-coded.
+ *
+ * Regression test for the bug in AampCurlStore.cpp where dns_cache_timeout was
+ * hard-coded as 3*60 instead of reading eAAMPConfig_Dns_CacheTimeout from config.
+ * The equivalent risk in CurlDownloader is using a literal instead of
+ * mDnldCfg->iDnsCacheTimeOut.  This test would catch either regression:
+ * if the implementation hard-codes any value other than the one placed in
+ * DownloadConfig, the EXPECT_CALL for CURLOPT_DNS_CACHE_TIMEOUT will fail.
+ */
+TEST_F(FunctionalTests, DnsCacheTimeout_PassedFromDownloadConfig_NotHardCoded)
+{
+	const long kCustomDnsTimeout = 42L; // deliberately != DEFAULT_DNS_CACHE_TIMEOUT (180)
+
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->iDnsCacheTimeOut = kCustomDnsTimeout;
+	inpData->bIgnoreResponseHeader = true;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+
+	// Key assertion: CURLOPT_DNS_CACHE_TIMEOUT must be set to kCustomDnsTimeout (42),
+	// not the hard-coded literal 3*60 (180).  If the implementation ever regresses to
+	// a hard-coded value, this expectation will be unsatisfied and the test will fail.
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_DNS_CACHE_TIMEOUT, kCustomDnsTimeout))
+		.WillOnce(Return(CURLE_OK));
+
+	mAampCurlDownloader->Initialize(inpData);
 }

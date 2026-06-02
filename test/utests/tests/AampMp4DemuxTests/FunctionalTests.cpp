@@ -57,8 +57,8 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockMp4Demux = new NiceMock<MockMp4Demux>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
 
 		// Create the demuxer instance with mocked AAMP
 		mDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_VIDEO, false);
@@ -70,10 +70,8 @@ protected:
 		mDemuxer = nullptr;
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
-		delete g_mockMp4Demux;
-		g_mockMp4Demux = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
+		g_mockMp4Demux.reset();
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 	}
@@ -104,7 +102,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
 	std::vector<uint8_t> buffer(videoData, videoData + strlen(videoData));
 
 	// Set expectations for Mp4Demux mock
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.WillOnce(Return(true));
 
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
@@ -139,7 +137,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
 	bool ptsError = false;
 
 	// Call sendSegment
-	bool result = mDemuxer->sendSegment(buffer, position, duration, fragmentPTSoffset,
+	bool result = mDemuxer->sendSegment(std::move(buffer), position, duration, fragmentPTSoffset,
 									   discontinuous, isInit, processor, ptsError);
 
 	// Verify results
@@ -156,7 +154,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithEmptyBuffer)
 	bool ptsError = false;
 
 	// Verify no calls were made to the mocked dependencies
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _))
 		.Times(0);
@@ -164,7 +162,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithEmptyBuffer)
 		.Times(0);
 
 	// Call sendSegment with empty buffer
-	bool result = mDemuxer->sendSegment(emptyBuffer, 0.0, 0.0, 0.0, false, false, nullptr, ptsError);
+	bool result = mDemuxer->sendSegment(std::move(emptyBuffer), 0.0, 0.0, 0.0, false, false, nullptr, ptsError);
 
 	// Should return false but not process anything
 	EXPECT_FALSE(result);
@@ -182,19 +180,21 @@ TEST_F(AampMp4DemuxerTests, SendSegmentDifferentMediaTypes)
 	const char* audioData = "audio_data";
 	std::vector<uint8_t> buffer(audioData, audioData + strlen(audioData));
 
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			std::vector<AampMediaSample> samples;
 			AampMediaSample sample;
 			const char* audioSample = "audio_sample";
-			sample.mData.assign(audioSample, audioSample + strlen(audioSample));
+			auto seg = std::make_shared<std::vector<uint8_t>>(audioSample, audioSample + strlen(audioSample));
+			sample.mData     = std::shared_ptr<const uint8_t>(seg, seg->data());
+			sample.mDataSize = seg->size();
 			samples.push_back(std::move(sample));
 			return samples;
 		}));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_AUDIO, _));
 	bool ptsError = false;
-	bool result = audDemuxer->sendSegment(buffer, 2.0, 1.5, 0.0, false, false, nullptr, ptsError);
+	bool result = audDemuxer->sendSegment(std::move(buffer), 2.0, 1.5, 0.0, false, false, nullptr, ptsError);
 
 	EXPECT_TRUE(result);
 	EXPECT_FALSE(ptsError);
@@ -210,7 +210,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 	const char* initData = "init_data";
 	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
 
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			return std::vector<AampMediaSample>(); // No samples
@@ -225,7 +225,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithValidCodecInfo)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1); // Should set stream caps
 	bool ptsError = false;
-	bool result = mDemuxer->sendSegment(initBuffer, 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
+	bool result = mDemuxer->sendSegment(std::move(initBuffer), 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
 
 	EXPECT_TRUE(result);
 	EXPECT_FALSE(ptsError);
@@ -240,7 +240,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 	const char* initData = "init_data";
 	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
 
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
 		.WillOnce(Invoke([]() {
 			return std::vector<AampMediaSample>(); // No samples
@@ -256,7 +256,7 @@ TEST_F(AampMp4DemuxerTests, SendInitSegmentWithInvalidCodecInfo)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(0); // Should set stream caps
 	bool ptsError = false;
-	bool result = mDemuxer->sendSegment(initBuffer, 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
+	bool result = mDemuxer->sendSegment(std::move(initBuffer), 2.0, 0.0, 0.0, false, true, nullptr, ptsError);
 
 	EXPECT_FALSE(result);
 	EXPECT_FALSE(ptsError);
@@ -272,7 +272,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 	std::vector<uint8_t> buffer(videoData, videoData + strlen(videoData));
 
 	// Set expectations for Mp4Demux mock to simulate parse failure
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.WillOnce(Return(false)); // Simulate parse failure
 
 	// No calls to GetSamples or SendStreamTransfer should occur
@@ -293,7 +293,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithParseFailure)
 	bool ptsError = false;
 
 	// Call sendSegment
-	bool result = mDemuxer->sendSegment(buffer, position, duration, fragmentPTSoffset,
+	bool result = mDemuxer->sendSegment(std::move(buffer), position, duration, fragmentPTSoffset,
 									   discontinuous, isInit, processor, ptsError);
 
 	// Verify results
@@ -315,7 +315,7 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 	constexpr double kBaseDts{9.5};
 	constexpr double kFragmentPtsOffset{2.5};
 	
-	EXPECT_CALL(*g_mockMp4Demux, Parse(_, _))
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_))
 		.WillOnce(Return(true));
 	// GetTimeScale only called (while logging) when eAAMPConfig_EnablePTSReStampLogging set
 	//	EXPECT_CALL(*g_mockMp4Demux, GetTimeScale())
@@ -331,13 +331,13 @@ TEST_F(AampMp4DemuxerTests, SendSegmentWithPtsRestampEnabled)
 		}));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
-		.WillOnce(Invoke([=](AampMediaType /*mediaType*/, AampMediaSample& sample) {
+		.WillOnce(Invoke([=](AampMediaType /*mediaType*/, AampMediaSample&& sample) {
 			EXPECT_DOUBLE_EQ(sample.mPts, kBasePts + kFragmentPtsOffset);
 			EXPECT_DOUBLE_EQ(sample.mDts, kBaseDts + kFragmentPtsOffset);
 		}));
 
 	bool ptsError = false;
-	bool result = restampDemuxer.sendSegment(buffer, 10.0, 5.0, kFragmentPtsOffset,
+	bool result = restampDemuxer.sendSegment(std::move(buffer), 10.0, 5.0, kFragmentPtsOffset,
 			false, false, nullptr, ptsError);
 
 	EXPECT_TRUE(result);

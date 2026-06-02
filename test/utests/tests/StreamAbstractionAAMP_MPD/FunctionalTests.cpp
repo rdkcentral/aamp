@@ -39,6 +39,8 @@
 #include "MockTSBSessionManager.h"
 #include "MockTSBReader.h"
 #include "MockABRManager.h"
+#include "MockAampLicManager.h"
+#include "MockDrmHelper.h"
 
 
 using ::testing::_;
@@ -61,6 +63,20 @@ AampConfig *gpGlobalConfig{nullptr};
 class FunctionalTestsBase
 {
 protected:
+	class TestableFunctionalStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
+	{
+	public:
+		TestableFunctionalStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp, double seekpos, float rate)
+			: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
+		{
+		}
+
+		void CallSeekInPeriod(double seekPositionSeconds, bool skipToEnd = false)
+		{
+			SeekInPeriod(seekPositionSeconds, skipToEnd);
+		}
+	};
+
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
@@ -107,6 +123,7 @@ protected:
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_UseMp4Demux, false},
 		{eAAMPConfig_UTCSyncOnStartup, true},
+		{eAAMPConfig_ProcessLicenseFromEAP, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -124,7 +141,7 @@ protected:
 		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 		{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK},
+		{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK},
 		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC}
 	};
 
@@ -139,25 +156,25 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
-		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
 
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
 
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
 
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 
-		g_mockIsoBmffProcessor = new NiceMock<MockIsoBmffProcessor>();
+		g_mockIsoBmffProcessor = std::make_shared<NiceMock<MockIsoBmffProcessor>>();
 
-		g_mockABRManager = new NiceMock<MockABRManager>();
+		g_mockABRManager = std::make_shared<NiceMock<MockABRManager>>();
 
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -171,8 +188,7 @@ protected:
 
 	void TearDown()
 	{
-		delete g_mockIsoBmffProcessor;
-		g_mockIsoBmffProcessor = nullptr;
+		g_mockIsoBmffProcessor.reset();
 
 		if (mStreamAbstractionAAMP_MPD)
 		{
@@ -192,30 +208,22 @@ protected:
 
 		if (g_mockAampUtils)
 		{
-			delete g_mockAampUtils;
-			g_mockAampUtils = nullptr;
+			g_mockAampUtils.reset();
 		}
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockMediaStreamContext.reset();
 
-		delete g_mockAampMPDDownloader;
-		g_mockAampMPDDownloader = nullptr;
+		g_mockAampMPDDownloader.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
-		delete g_mockABRManager;
-		g_mockABRManager = nullptr;
+		g_mockABRManager.reset();
 
 		mManifest = nullptr;
 	}
@@ -344,7 +352,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
 		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
+		mStreamAbstractionAAMP_MPD = new TestableFunctionalStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
@@ -424,13 +432,12 @@ protected:
 		}
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		_instanceStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete _instanceStreamAbstractionAAMP_MPD;
 		_instanceStreamAbstractionAAMP_MPD = nullptr;
@@ -646,6 +653,26 @@ protected:
 			GetAvailableVSSPeriods(PeriodIds);
 		}
 
+		void CallProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp)
+		{
+				ProcessLicenseFromEAP(mpdDnldResp);
+		}
+
+		void CallGetEarlyAvailablePeriods(std::vector<IPeriod *> &PeriodIds, AampMPDParseHelperPtr mpdParseHelper)
+		{
+			GetEarlyAvailablePeriods(PeriodIds, mpdParseHelper);
+		}
+
+		AAMPStatusType CallGetMPDFromManifest(ManifestDownloadResponsePtr mpdDnldResp, bool init)
+		{
+			return GetMPDFromManifest(mpdDnldResp, init);
+		}
+
+		const std::vector<std::string>& GetEarlyAvailablePeriodIds() const
+		{
+			return mEarlyAvailablePeriodIds;
+		}
+
 		std::string CallGetVssVirtualStreamID()
 		{
 			return GetVssVirtualStreamID();
@@ -698,49 +725,48 @@ protected:
 	{
 		// Set up your objects before each test case
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
-		g_mockAampUtils = new StrictMock<MockAampUtils>();
+		g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
+		g_mockAampUtils = std::make_shared<StrictMock<MockAampUtils>>();
 
 		// Ensure mMPDParseHelper is initialized to avoid NULL dereference
 		mStreamAbstractionAAMP_MPD->SetMPDParseHelper( std::make_shared<AampMPDParseHelper>() );
-		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
-		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
-		g_mockABRManager = new NiceMock<MockABRManager>();
+		g_MockPrivateCDAIObjectMPD = std::make_shared<NiceMock<MockPrivateCDAIObjectMPD>>();
+		g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
+		g_mockABRManager = std::make_shared<NiceMock<MockABRManager>>();
+		g_mockAampLicenseManager = std::make_shared<NiceMock<MockAampLicenseManager>>();
+		g_mockDrmHelper = std::make_shared<NiceMock<MockDrmHelper>>();
 	}
 
 	void TearDown() override
 	{
 		// Clean up your objects after each test
-		delete g_mockTSBSessionManager;
-		g_mockTSBSessionManager = nullptr;
+		g_mockTSBSessionManager.reset();
 
 		mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_MockPrivateCDAIObjectMPD;
-		g_MockPrivateCDAIObjectMPD = nullptr;
+		g_MockPrivateCDAIObjectMPD.reset();
 
-		delete g_mockAampMPDDownloader;
-		g_mockAampMPDDownloader = nullptr;
+		g_mockAampMPDDownloader.reset();
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
-		delete g_mockABRManager;
-		g_mockABRManager = nullptr;
+		g_mockABRManager.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampLicenseManager.reset();
+
+		g_mockDrmHelper.reset();
+
+		g_mockAampConfig.reset();
 	}
 };
 
@@ -957,7 +983,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	constexpr uint32_t segmentDurationSec = segmentTemplateDuration / timescale;
 
 	/* Setup AAMP utils mock. */
-	g_mockAampUtils = new StrictMock<MockAampUtils>();
+	g_mockAampUtils = std::make_shared<StrictMock<MockAampUtils>>();
 	currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
 	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
 	deltaTime = currentTime - availabilityStartTime;
@@ -1065,7 +1091,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	constexpr uint32_t segmentDurationSec = segmentTemplateDuration / timescale;
 
 	/* Setup the AAMP utils mock. */
-	g_mockAampUtils = new StrictMock<MockAampUtils>();
+	g_mockAampUtils = std::make_shared<StrictMock<MockAampUtils>>();
 	currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
 	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
 	deltaTime = currentTime - (availabilityStartTime + periodDuration); /* In period p1. */
@@ -2543,6 +2569,272 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetVssVirtualStreamIDTest)
 	std::string result = mStreamAbstractionAAMP_MPD->CallGetVssVirtualStreamID();
 }
 
+TEST_F(StreamAbstractionAAMP_MPDTest, GetEarlyAvailablePeriodsDetectsOnlyEarlyNonVssPeriods)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
+	<Period id="1" start="PT6S">
+		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="ab96e298-610d-f101-519f-7b9c1c3f4f3e"/>
+			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
+				<cenc:pssh>ABCD</cenc:pssh>
+			</ContentProtection>
+			<SegmentTemplate duration="2" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.m4s" startNumber="1"/>
+			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
+		</AdaptationSet>
+	</Period>
+	<Period id="vss-2">
+		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="22222222-2222-2222-2222-222222222222"/>
+			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
+				<cenc:pssh>IJKL</cenc:pssh>
+			</ContentProtection>
+			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
+		</AdaptationSet>
+	</Period>
+	<Period id="3">
+		<AdaptationSet id="10003" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="22222222-2222-2222-2222-222222222222"/>
+			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
+				<cenc:pssh>IJKL</cenc:pssh>
+			</ContentProtection>
+			<Representation id="root_video3" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	std::vector<IPeriod *> earlyPeriods;
+	// Setup time mocks
+	const long long startTimeMS = 1000000000LL; // Arbitrary start time
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		.WillRepeatedly(Return(startTimeMS));
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	
+	mStreamAbstractionAAMP_MPD->CallGetEarlyAvailablePeriods(earlyPeriods, response->GetMPDParseHelper());
+
+	ASSERT_EQ(earlyPeriods.size(), 1);
+	EXPECT_EQ(earlyPeriods.at(0)->GetId(), "3");
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, ProcessLicenseFromEAPDetectsOnlyEarlyNonVssPeriods)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
+	<Period id="1" start="PT6S">
+		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="ab96e298-610d-f101-519f-7b9c1c3f4f3e"/>
+			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
+				<cenc:pssh>ABCD</cenc:pssh>
+			</ContentProtection>
+			<SegmentTemplate duration="2" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.m4s" startNumber="1"/>
+			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
+		</AdaptationSet>
+	</Period>
+	<Period id="2">
+		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="11111111-1111-1111-1111-111111111111"/>
+			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+	// Setup time mocks
+	const long long startTimeMS = 1000000000LL; // Arbitrary start time
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+		.WillRepeatedly(Return(startTimeMS));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ProcessLicenseFromEAP))
+		.WillRepeatedly(Return(true));
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	mStreamAbstractionAAMP_MPD->CallProcessLicenseFromEAP(response);
+
+	const std::vector<std::string> &earlyIds = mStreamAbstractionAAMP_MPD->GetEarlyAvailablePeriodIds();
+	ASSERT_EQ(earlyIds.size(), 1);
+	EXPECT_EQ(earlyIds.at(0), "2");
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, GetEarlyAvailablePeriodsSkipsWhenLastPeriodIsVss)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
+	<Period id="1">
+		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="33333333-3333-3333-3333-333333333333"/>
+			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
+				<cenc:pssh>MNOP</cenc:pssh>
+			</ContentProtection>
+			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
+		</AdaptationSet>
+	</Period>
+	<Period id="vss-2">
+		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="44444444-4444-4444-4444-444444444444"/>
+			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
+				<cenc:pssh>QRST</cenc:pssh>
+			</ContentProtection>
+			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	std::vector<IPeriod *> earlyPeriods;
+	const long long startTimeMS = 1772440139000LL;
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(startTimeMS));
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	mStreamAbstractionAAMP_MPD->CallGetEarlyAvailablePeriods(earlyPeriods, response->GetMPDParseHelper());
+	EXPECT_TRUE(earlyPeriods.empty());
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, GetEarlyAvailablePeriodsSkipsWhenLastPeriodHasNoAdaptationSets)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
+	<Period id="1">
+		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
+		</AdaptationSet>
+	</Period>
+	<Period id="2">
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	std::vector<IPeriod *> earlyPeriods;
+	const long long startTimeMS = 1000000000LL;
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(startTimeMS));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ProcessLicenseFromEAP)).WillRepeatedly(Return(true));
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	mStreamAbstractionAAMP_MPD->CallGetEarlyAvailablePeriods(earlyPeriods, response->GetMPDParseHelper());
+	EXPECT_TRUE(earlyPeriods.empty());
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, GetEarlyAvailablePeriodsSkipsWhenLastPeriodHasFragmentsPresent)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
+	<Period id="1">
+		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="55555555-5555-5555-5555-555555555555"/>
+			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
+				<cenc:pssh>UVWX</cenc:pssh>
+			</ContentProtection>
+			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
+		</AdaptationSet>
+	</Period>
+	<Period id="2">
+		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="66666666-6666-6666-6666-666666666666"/>
+			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
+				<cenc:pssh>YZ12</cenc:pssh>
+			</ContentProtection>
+			<SegmentTemplate duration="2" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.m4s" startNumber="1"/>
+			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	std::vector<IPeriod *> earlyPeriods;
+	const long long startTimeMS = 1772440139000LL;
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(startTimeMS));
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	mStreamAbstractionAAMP_MPD->CallGetEarlyAvailablePeriods(earlyPeriods, response->GetMPDParseHelper());
+	EXPECT_TRUE(earlyPeriods.empty());
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, ProcessLicenseFromEAPQueuesContentProtectionWithExpectedParameters)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
+	<Period id="1" start="PT6S">
+		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="ab96e298-610d-f101-519f-7b9c1c3f4f3e"/>
+			<ContentProtection schemeIdUri="urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95">
+				<cenc:pssh>ABCD</cenc:pssh>
+			</ContentProtection>
+			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
+		</AdaptationSet>
+	</Period>
+	<Period id="2">
+		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="11111111-1111-1111-1111-111111111111"/>
+			<ContentProtection schemeIdUri="urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95">
+				<cenc:pssh>EFGH</cenc:pssh>
+			</ContentProtection>
+			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	if (!mPrivateInstanceAAMP->mDRMLicenseManager)
+	{
+		mPrivateInstanceAAMP->mDRMLicenseManager = new AampDRMLicenseManager(0, mPrivateInstanceAAMP);
+	}
+	ASSERT_NE(mPrivateInstanceAAMP->mDRMLicenseManager, nullptr);
+
+	EXPECT_CALL(*g_mockDrmHelper, parsePssh(_, _)).WillRepeatedly(Return(true));
+
+	const long long startTimeMS = 1772440139000LL;
+	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(startTimeMS));
+	EXPECT_CALL(*g_mockAampLicenseManager, queueProtectionEvent(_, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockAampLicenseManager, queueContentProtection(_, "2", 0, eMEDIATYPE_VIDEO, false))
+		.Times(1)
+		.WillOnce(Return(true));
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	mStreamAbstractionAAMP_MPD->CallProcessLicenseFromEAP(response);
+}
+
 
 /**
  * @brief test for XML Parser to read and process CDATA section under EventStream
@@ -2989,7 +3281,7 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
 	// The manifest URL contains parameters
 	mManifestUrl = "http://host/asset/manifest.mpd?chunked";
 
-	g_mockAampUtils = new NiceMock<MockAampUtils>();
+	g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 	const char *currentTimeISO = "2023-01-01T00:00:00Z";
 	double currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
 	long long timeMS = 1000LL*((long long)currentTime);
@@ -3338,7 +3630,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// The manifest URL contains parameters
 	mManifestUrl = "http://host/asset/manifest.mpd?chunked";
 
-	g_mockAampUtils = new NiceMock<MockAampUtils>();
+	g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 	.WillRepeatedly(Return(true));
@@ -3350,7 +3642,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	std::shared_ptr<AampTsbDataManager> dataMgr = std::make_shared<AampTsbDataManager>();
 	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "");
 
-	g_mockTSBSessionManager = new MockTSBSessionManager(mPrivateInstanceAAMP);
+	g_mockTSBSessionManager = std::make_shared<MockTSBSessionManager>(mPrivateInstanceAAMP);
 	g_mockTSBReader = std::make_shared<MockTSBReader>();
 
 	ASSERT_NE(g_mockTSBSessionManager, nullptr);
@@ -3360,7 +3652,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	ASSERT_NE(videoTrack, nullptr);
 	videoTrack->SetLocalTSBInjection(true);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
 
 	EXPECT_CALL(*g_mockTSBReader, GetFirstPTS()).WillOnce(Return(5.0));
@@ -3368,7 +3660,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	EXPECT_EQ(15.0, mStreamAbstractionAAMP_MPD->GetFirstPTS());
 
-	delete g_mockTSBSessionManager;
+	g_mockTSBSessionManager.reset();
 	g_mockTSBReader.reset();
 }
 
@@ -3632,7 +3924,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjec
 
 	// Set up expectations for TSB manager without local injection
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-		.WillRepeatedly(Return(g_mockTSBSessionManager));
+		.WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(false));
@@ -3682,7 +3974,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInje
 
 	// Set up expectations for TSB manager with local injection
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-		.WillRepeatedly(Return(g_mockTSBSessionManager));
+		.WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(true));
@@ -3781,7 +4073,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdPlacementEvent_WithTSBNoLocalInjecti
 
 	// Set up expectations for TSB manager without local injection
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-		.WillRepeatedly(Return(g_mockTSBSessionManager));
+		.WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(false));
@@ -3878,7 +4170,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdPlacementEvent_WithTSBAndLocalInject
 
 	// Set up expectations for TSB manager with local injection
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-		.WillRepeatedly(Return(g_mockTSBSessionManager));
+		.WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(true));
@@ -4048,6 +4340,66 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(pMediaStreamContext->fragmentTime, 0.00);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number,1);
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time,0.00);
+}
+
+// L1: Verify mFirstPTS is updated via SeekInPeriod when seek crosses from period-1 to period-2.
+TEST_F(FunctionalTests, L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H0M30.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264">
+	<Period id="p0" start="PT0S" duration="PT10S">
+		<AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+			<Representation id="v1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_$Time$.m4s" initialization="video_init.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="90000" d="2000" r="4" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p1" start="PT10S" duration="PT20S">
+		<AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+			<Representation id="v1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_p1_$Time$.m4s" initialization="video_init.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="100000" d="2000" r="9" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 0.0, AAMP_NORMAL_PLAY_RATE, false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(track, nullptr);
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+
+	// Reset mFirstPTS before seek
+	mStreamAbstractionAAMP_MPD->clearFirstPTS();
+	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTS(), 0.0);
+
+	// Seek position is greater than period-1 duration (10s), so SeekInPeriod should transition to period-2
+	// with remaining seek value and still update mFirstPTS from SkipFragments path.
+	const double seekPositionSeconds = 12.0;
+	TestableFunctionalStreamAbstractionAAMP_MPD *testableStreamAbstractionAAMP_MPD =
+    dynamic_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+	ASSERT_NE(testableStreamAbstractionAAMP_MPD, nullptr);
+	testableStreamAbstractionAAMP_MPD->CallSeekInPeriod(seekPositionSeconds);
+	// Verify: mFirstPTS updated after period transition and remaining-seek skip in period-2.
+	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTS(), 102.000000);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, clearFirstPTS)

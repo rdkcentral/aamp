@@ -20,6 +20,10 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
 
 #include "priv_aamp.h"
 #include "AampConfig.h"
@@ -46,6 +50,7 @@ using ::testing::AnyNumber;
 using ::testing::AtLeast;
 using ::testing::AnyOf;
 using ::testing::StrEq;
+using ::testing::Invoke;
 
 class SetPreferredTextLanguagesTests : public ::testing::Test
 {
@@ -58,47 +63,51 @@ protected:
 		}
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
+		auto *rawMock = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+		/* No-op deleter: mpStreamAbstractionAAMP (a raw pointer in PrivateInstanceAAMP)
+		 * takes ownership of rawMock and deletes it via SAFE_DELETE on retune.
+		 * The shared_ptr is a non-owning observation handle; reset() only clears
+		 * the handle, not the object. */
+		g_mockStreamAbstractionAAMP = std::shared_ptr<MockStreamAbstractionAAMP>(rawMock, [](MockStreamAbstractionAAMP*){});
+		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
-		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
-		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
+		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = rawMock;
 		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING, true);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
-   		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer.get()));
 	}
 
 	void TearDown() override
 	{
+		/* Production deletes mpStreamAbstractionAAMP on retune (SAFE_DELETE in
+		 * TeardownStream). If no retune occurred, delete it here to avoid a leak. */
+		if (mPrivateInstanceAAMP->mpStreamAbstractionAAMP != nullptr)
+		{
+			delete mPrivateInstanceAAMP->mpStreamAbstractionAAMP;
+			mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+		}
+		g_mockStreamAbstractionAAMP.reset();
+
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		if (g_mockStreamAbstractionAAMP != nullptr)
-		{
-			delete g_mockStreamAbstractionAAMP;
-			g_mockStreamAbstractionAAMP = nullptr;
-		}
-
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
 		g_mockPlayerCCManager.reset();
 
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 	}
 
 public:
@@ -112,7 +121,7 @@ public:
 	 */
 	void Stop(bool clearChannelData)
 	{
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 	}
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
@@ -126,15 +135,14 @@ protected:
 	{
 		SetPreferredTextLanguagesTests::SetUp();
 
-		g_mockAampUtils = new NiceMock<MockAampUtils>();
+		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 	}
 
 	void TearDown() override
 	{
 		SetPreferredTextLanguagesTests::TearDown();
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 	}
 };
 
@@ -362,7 +370,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest5)
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang0");
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(1).c_str(), "lang1");
 
-	g_mockStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
 }
 
 /**
@@ -693,7 +701,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	testp_aamp->preferredTextLanguagesString = "lang0";
 	testp_aamp->preferredTextLanguagesList.clear();
 	testp_aamp->preferredTextLanguagesList.push_back("lang0");
@@ -730,10 +738,10 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	// The test must manually clean up the mock. Nullify all pointers to it BEFORE deleting
 	// to prevent re-entrant calls from the mock's destructor, then delete the mock.
 	auto mockToDelete = g_mockStreamAbstractionAAMP;
-	g_mockStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
-	delete mockToDelete;
+	delete mockToDelete.get();
 }
 
 
@@ -750,7 +758,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	testp_aamp->preferredTextLanguagesString = "lang0";
 	testp_aamp->preferredTextLanguagesList.clear();
 	testp_aamp->preferredTextLanguagesList.push_back("lang0");
@@ -758,7 +766,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	testp_aamp->SetLocalAAMPTsb(true);
 	testp_aamp->SetTsbSessionManager();
 	testp_aamp->SetState(eSTATE_PLAYING, true);
-	g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(testp_aamp.get());
+	g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(testp_aamp.get());
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -782,11 +790,11 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	// The test must manually clean up the mock. Nullify all pointers to it BEFORE deleting
 	// to prevent re-entrant calls from the mock's destructor, then delete the mock.
 	auto mockToDelete = g_mockStreamAbstractionAAMP;
-	g_mockStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
-	delete mockToDelete;
-	delete (g_mockTSBSessionManager);
+	delete mockToDelete.get();
+	g_mockTSBSessionManager.reset();
 }
 
 /**
@@ -885,4 +893,103 @@ TEST_F(SetPreferredTextLanguagesTests, Accessibility2)
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"accessibility\":{\"scheme\":\"return_from_mock\",\"string_value\":\"return_from_mock\"}}");
 
+}
+
+/**
+ * @brief Reproduce segfault when StopInternal/TeardownStream races with
+ *        SetPreferredTextLanguages on separate threads.
+ *
+ *        Thread A: Calls SetPreferredTextLanguages("lang1")
+ *        Thread B: Calls TeardownStream(true) — deletes mpStreamAbstractionAAMP
+ *
+ *
+ *        Test strategy: Use GetAvailableTextTracks mock as synchronization point.
+ *        When Thread A calls GetAvailableTextTracks, signal Thread B to run
+ *        TeardownStream. With the fix, Thread B blocks on mStreamLock (held by
+ *        Thread A) and never deletes mpStreamAbstractionAAMP during Thread A's
+ *        execution. Without the fix, Thread B succeeds and crashes Thread A.
+ */
+TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredText)
+{
+	std::vector<TextTrackInfo> tracks;
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+	/* Set HLS format so the code path reaches SelectPreferredTextTrack */
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
+
+	std::mutex syncMtx;
+	std::condition_variable cvThreadAInside;  /* Thread A -> Thread B: inside mock */
+	std::condition_variable cvThreadBReady;   /* Thread B -> Thread A: about to call TeardownStream */
+	bool threadAInside = false;
+	bool threadBReady = false;
+	std::atomic<bool> teardownDone{false};
+
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(Invoke([&](bool) -> std::vector<TextTrackInfo>& {
+			/* Signal Thread B that Thread A is inside SetPreferredTextLanguages */
+			{
+				std::lock_guard<std::mutex> lk(syncMtx);
+				threadAInside = true;
+			}
+			cvThreadAInside.notify_one();
+
+			/* Wait for Thread B to signal it is about to call TeardownStream,
+			 * creating the race window deterministically without any wall-clock
+			 * delay. */
+			{
+				std::unique_lock<std::mutex> lk(syncMtx);
+				cvThreadBReady.wait(lk, [&] { return threadBReady; });
+			}
+
+			return tracks;
+		}));
+
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
+		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]), Return(true)));
+
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+		.Times(::testing::AnyNumber());
+
+	/* Thread B: waits for Thread A to be inside GetAvailableTextTracks, then
+	 * signals it is about to call TeardownStream before actually doing so.
+	 * This replaces the fixed sleep with a deterministic two-way handshake. */
+	std::thread threadB([&]() {
+		{
+			std::unique_lock<std::mutex> lk(syncMtx);
+			cvThreadAInside.wait(lk, [&] { return threadAInside; });
+		}
+
+		/* Signal Thread A (still inside the mock) that TeardownStream is
+		 * imminent, then immediately call it to create the race. */
+		{
+			std::lock_guard<std::mutex> lk(syncMtx);
+			threadBReady = true;
+		}
+		cvThreadBReady.notify_one();
+
+		mPrivateInstanceAAMP->TeardownStream(true);
+		teardownDone.store(true);
+	});
+
+	/* Thread A: calls SetPreferredTextLanguages. */
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
+
+	threadB.join();
+
+	/* Verify preferred language was updated */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
+
+
+	EXPECT_TRUE(teardownDone.load());
 }

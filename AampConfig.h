@@ -143,7 +143,7 @@ typedef enum
 	eAAMPConfig_MatchBaseUrl,						/**< Enable host of main url will be matched with host of base url*/
 	eAAMPConfig_WifiCurlHeader,
 	eAAMPConfig_EnableSeekRange,						/**< Enable seekable range reporting via progress events */
-	eAAMPConfig_EnableLiveLatencyCorrection,            /**< Enable the live latency (drift) correction by adjusting the playback speed */
+	eAAMPConfig_EnableLiveLatencyRateCorrection,            /**< Enable the live latency (drift) correction by adjusting the playback speed (renamed from eAAMPConfig_EnableLiveLatencyCorrection) */
 	eAAMPConfig_DashParallelFragDownload,					/**< Enable dash fragment parallel download*/
 	eAAMPConfig_PersistentBitRateOverSeek,					/**< ABR profile persistence during Seek/Trickplay/Audio switching*/
 	eAAMPConfig_SetLicenseCaching,						/**< License caching*/
@@ -232,6 +232,8 @@ typedef enum
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
 	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
+	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
+	eAAMPConfig_MonitorMp4Integrity,			/**< Parse every downloaded video/audio segment with Mp4Demux; log each segment, write corrupt ones to harvestPath */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -283,7 +285,7 @@ typedef enum
 	eAAMPConfig_GstAudioBufBytes,                                           /**< Gstreamer Max Audio buffering bytes*/
 	eAAMPConfig_LatencyMonitorDelayMs,               				/**< Latency Monitor Delay */
 	eAAMPConfig_LatencyMonitorIntervalMs,           				/**< Latency Monitor Interval */
-	eAAMPConfig_MaxFragmentChunkCached,           				/**< fragment chunk cache length*/
+	eAAMPConfig_MaxLLDFragmentCached,           				/**< LLD fragment cache length */
 	eAAMPConfig_ABRChunkThresholdSize,                			/**< AAMP ABR Chunk threshold size*/
 	eAAMPConfig_FragmentDownloadFailThreshold, 				/**< Retry attempts for non-init fragment curl timeout failures*/
 	eAAMPConfig_MaxInitFragCachePerTrack,					/**< Max no of Init fragment cache per track */
@@ -308,7 +310,6 @@ typedef enum
 	eAAMPConfig_TimeBasedBufferSeconds,
 	eAAMPConfig_MaxDownloadBuffer,					/**< Max download buffer in seconds, this can be used to limit player download job scheduling for DASH*/
 	eAAMPConfig_TelemetryInterval,						/**< time interval for the telemetry reporting*/
-	eAAMPConfig_RateCorrectionDelay,			/**< Delay Rate Correction upon discontinuity in seconds */
 	eAAMPConfig_HarvestDuration,						/**< Harvest  duration time */
 	eAAMPConfig_SubtitleClockSyncInterval,			/**< time interval for synchronizing subtitle clock */
 	eAAMPConfig_PreferredAbsoluteProgressReporting, /**< Preferred settings for absolute progress reporting**/
@@ -362,6 +363,8 @@ typedef enum
 	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
+	eAAMPConfig_LatencyStableDurationSec,				/**< Duration (s) of consecutive healthy buffer required before one latency-threshold restoration step (default: DEFAULT_LATENCY_STABLE_DURATION_SEC) */
+	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased; buffer must stay above this for latencyStableDurationSec before thresholds are restored (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
@@ -402,6 +405,7 @@ typedef enum
 	eAAMPConfig_GstDebugLevel,							/**< gstreamer debug level as you'd define in GST_DEBUG */
 	eAAMPConfig_TsbType,
 	eAAMPConfig_TsbLocation,                                                        /**< tsbType location for local TSB storage*/
+	eAAMPConfig_NetworkPersonaFile,                                                 /**< Path to network persona JSON for simulated latency injection (test only) */
 	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)

@@ -750,7 +750,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			if (rate >= AAMP_NORMAL_PLAY_RATE &&
 				aamp->IsAtLivePoint() &&
-				!aamp->mbDetached)
+				!aamp->mbDetached && !aamp->mSinkPaused.load()
+				&& !aamp->IsLatencyExceedingTrickplayThreshold())
 			{
 				AAMPLOG_WARN("Already at logical live point, hence skipping operation (rate=%.2f)", rate);
 				aamp->NotifyOnEnteringLive();
@@ -949,14 +950,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					aamp->mSinkPaused = true;
 
-					if(aamp->GetLLDashServiceData()->lowLatencyMode)
-					{
-						// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
-						AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
-						aamp->EnableLatencyMonitor(false);
-					}
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is disabled due to the Pause operation!!");
-					aamp->mDisableRateCorrection = true;
+					AAMPLOG_INFO("Latency correction is disabled due to the Pause operation!!");
+					aamp->EnableLatencyMonitor(false);
 				}
 			}
 			else

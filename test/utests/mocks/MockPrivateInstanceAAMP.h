@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_PRIV_AAMP_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "priv_aamp.h"
 
 class MockPrivateInstanceAAMP
@@ -49,7 +50,7 @@ public:
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
-	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&));
+	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration));
@@ -101,12 +102,15 @@ public:
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
 	MOCK_METHOD(bool, IsAdPlaying, ());
+	MOCK_METHOD(bool, IsLatencyExceedingTrickplayThreshold, (), (const));
+	MOCK_METHOD(void, EnableLatencyMonitor, (bool enabled));
+	MOCK_METHOD(bool, IsLatencyMonitorEnabled, (), (const));
 	MOCK_METHOD(void, UpdateVideoEndMetrics, (double adjustedRate));
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
 };
 
-extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
+extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;
 
 #endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */

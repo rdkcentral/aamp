@@ -27,6 +27,9 @@
 
 #include "AampMp4Demuxer.h"
 #include "AampLogManager.h"
+#include "MockAampMp4Demuxer.h"
+
+std::shared_ptr<MockAampMp4Demuxer> g_mockAampMp4Demuxer{};
 
 /**
  * @brief Fake MP4 Demuxer constructor
@@ -44,10 +47,19 @@ AampMp4Demuxer::~AampMp4Demuxer()
 {
 }
 
-bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, 
+bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, 
                                  double fragmentPTSoffset, bool discontinuous, bool isInit, 
                                  process_fcn_t processor, bool &ptsError)
 {
     ptsError = false;
     return true;
+}
+
+bool AampMp4Demuxer::getPTSRestampStatus() const
+{
+	if (g_mockAampMp4Demuxer)
+	{
+		return g_mockAampMp4Demuxer->getPTSRestampStatus();
+	}
+	return false;
 }

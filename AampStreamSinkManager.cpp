@@ -302,6 +302,18 @@ void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::
 		break;
 		case ePIPELINEMODE_SINGLE:
 		{
+			if ((mGstPlayer != nullptr) && !mEncryptedHeaders.empty())
+			{
+				// If encryption info is already set, check that it has not been set from a different player
+				int encryptedPlayerId = mGstPlayer->GetEncryptedAampId();
+				if (encryptedPlayerId != aamp->mPlayerId)
+				{
+					AAMPLOG_ERR("AampStreamSinkManager(%p) encrypted player (%d) does not match current player (%d)", this, encryptedPlayerId, aamp->mPlayerId);
+					mEncryptedHeaders.clear();
+					mEncryptedHeadersInjected = false;
+				}
+			}
+
 			if (!mEncryptedHeaders.empty())
 			{
 				AAMPLOG_INFO("AampStreamSinkManager(%p) Encrypted headers have already been set PLAYER[%d]", this, aamp->mPlayerId);

@@ -24,6 +24,9 @@
  */
 
 #include "AampLatencyMonitor.h"
+#include "MockAampLatencyMonitor.h"
+
+std::shared_ptr<MockAampLatencyMonitor> g_mockAampLatencyMonitor{};
 
 AampLatencyMonitor::AampLatencyMonitor(PrivateInstanceAAMP* aamp)
 	: mAamp{aamp}
@@ -49,6 +52,10 @@ AampLatencyMonitor::~AampLatencyMonitor()
 
 void AampLatencyMonitor::Start(const LatencyConfig& config)
 {
+	if (g_mockAampLatencyMonitor != nullptr)
+	{
+		g_mockAampLatencyMonitor->Start(config);
+	}
 }
 
 void AampLatencyMonitor::Stop()
@@ -85,7 +92,7 @@ void AampLatencyMonitor::ResetToNormalRate()
 {
 }
 
-void AampLatencyMonitor::OnRebufferingStart()
+void AampLatencyMonitor::OnBufferLevelUpdate(double bufferMs)
 {
 }
 
@@ -94,6 +101,27 @@ std::tuple<double, double, double> AampLatencyMonitor::GetCurrentThresholds() co
 	return std::make_tuple(mMinLatencyMs, mTargetLatencyMs, mMaxLatencyMs);
 }
 
+double AampLatencyMonitor::GetAccumulatedLatencyIncrementMs() const
+{
+	if (g_mockAampLatencyMonitor != nullptr)
+	{
+		return g_mockAampLatencyMonitor->GetAccumulatedLatencyIncrementMs();
+	}
+	return 0.0;
+}
+
 void AampLatencyMonitor::ResetLatencyThresholdsLocked()
+{
+}
+
+void AampLatencyMonitor::IncreaseThresholdsLocked()
+{
+}
+
+void AampLatencyMonitor::UpdateDangerBufferState(double /*bufferMs*/)
+{
+}
+
+void AampLatencyMonitor::TryRestoreThresholdsLocked()
 {
 }

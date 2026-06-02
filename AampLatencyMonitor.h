@@ -73,13 +73,24 @@ struct LatencyConfig
 	/// thresholds.  Zero means no cap.
 	double rebufferingLatencyMaxIncrementMs {0.0};
 
+	/// Buffer level (ms) that counts as healthy runway for restoration.
+	/// If bufferMs >= this value for latencyStableSec consecutive seconds,
+	/// one restoration step is applied.  Zero disables dynamic restoration entirely.
+	double dangerBufferMs {0.0};
+
+	/// Duration (s) of consecutive polls with buffer >= dangerBufferMs
+	/// required before one restoration step is taken.
+	/// Zero disables dynamic restoration entirely.
+	double latencyStableSec {0.0};
+
 	LatencyConfig() = default;
 
 	// Constructor with params
 	LatencyConfig(double normalRate, double minRate, double maxRate,
 				  double minLatency, double targetLatency, double maxLatency,
 				  int monitorDelay, int monitorInterval, double bufferLevel,
-				  double rebufferingStepMs = 0.0, double rebufferingMaxIncrMs = 0.0)
+				  double rebufferingStepMs = 0.0, double rebufferingMaxIncrMs = 0.0,
+				  double dangerBufferMs = 0.0, double latencyStableSec = 0.0)
 		: normalPlaybackRate(normalRate)
 		, minPlaybackRate(minRate)
 		, maxPlaybackRate(maxRate)
@@ -91,6 +102,8 @@ struct LatencyConfig
 		, correctionActivationThresholdMs(bufferLevel)
 		, rebufferingLatencyStepMs(rebufferingStepMs)
 		, rebufferingLatencyMaxIncrementMs(rebufferingMaxIncrMs)
+		, dangerBufferMs(dangerBufferMs)
+		, latencyStableSec(latencyStableSec)
 	{}
 };
 
@@ -173,6 +186,12 @@ public:
 	void EnableRateCorrection(bool enabled);
 
 	/**
+	 * @brief Returns true if rate correction is currently enabled.
+	 * Thread-safe (atomic load).
+	 */
+	bool IsRateCorrectionEnabled() const { return mCorrectionEnabled.load(); }
+
+	/**
 	 * @brief Returns the playback rate most recently applied by this monitor.
 	 *
 	 * Thread-safe (atomic load).
@@ -190,25 +209,51 @@ public:
 	}
 
 	/**
-	 * @brief Notify the monitor that rebuffering has started.
-	 *
-	 * Shifts the effective min, target, and max latency thresholds upward by
-	 * mConfig.rebufferingLatencyStepMs per call.  The total accumulated shift
-	 * is capped at mConfig.rebufferingLatencyMaxIncrementMs above the original
-	 * config values (zero cap means uncapped).  Has no effect when
-	 * rebufferingLatencyStepMs is zero.
-	 *
-	 * Thread-safe.
-	 */
-	void OnRebufferingStart();
-
-	/**
 	 * @brief Return the current effective latency thresholds.
 	 *
 	 * @return Tuple of {minLatencyMs, targetLatencyMs, maxLatencyMs}.
 	 * Thread-safe (reads under mThresholdMutex).
 	 */
 	std::tuple<double, double, double> GetCurrentThresholds() const;
+
+	/**
+	 * @brief Return the total latency increment (ms) accumulated from
+	 * low-buffer rebuffering events since the last Start() or reset.
+	 *
+	 * Thread-safe (reads under mThresholdMutex).
+	 */
+	double GetAccumulatedLatencyIncrementMs() const;
+
+	/**
+	 * @brief Notify the monitor of the current buffer level.
+	 * When @p bufferMs is **below** dangerBufferMs and the episode guard
+	 * (mBelowDangerShifted) is clear, the worker thread is signalled to wake
+	 * early so it can apply the threshold shift on its next iteration rather
+	 * than waiting for the next scheduled poll interval.  Subsequent
+	 * notifications within the same episode are no-ops (the episode guard
+	 * suppresses redundant wake-ups).
+	 *
+	 * When @p bufferMs is **at or above** dangerBufferMs and a danger episode
+	 * is active (mBelowDangerShifted is set), Run() is woken once so it can
+	 * clear the episode guard and start the restoration timer from the accurate
+	 * moment of recovery. Run() owns all state transitions; mBelowDangerShifted
+	 * is never written here.
+	 *
+	 * A negative @p bufferMs (the sentinel returned by
+	 * GetBufferedDurationSecs() on lock-contention) is silently ignored so
+	 * that a transient read failure cannot trigger a spurious wakeup.
+	 *
+	 * Has no effect when dangerBufferMs or rebufferingLatencyStepMs is zero,
+	 * or when rate correction is disabled (mCorrectionEnabled == false) —
+	 * in that case the worker is sleeping indefinitely and has nothing to act
+	 * on, so the wakeup is suppressed to avoid redundant thread scheduling.
+	 *
+	 * Thread-safe (mBelowDangerShifted is atomic; wakeup uses mSleepMutex).
+	 *
+	 * @param[in] bufferMs  Current buffered duration in milliseconds,
+	 *                      or a negative sentinel if the measurement is unavailable.
+	 */
+	void OnBufferLevelUpdate(double bufferMs);
 
 private:
 
@@ -270,20 +315,75 @@ private:
 	 */
 	void ResetLatencyThresholdsLocked();
 
+	/**
+	 * @brief Update danger-buffer state and the threshold restoration timer.
+	 *
+	 * Called from Run() on every poll where dangerBufferMs and
+	 * rebufferingLatencyStepMs are both configured. Acquires mThresholdMutex
+	 * internally.
+	 *
+	 * @param[in] bufferMs - Current buffer level in milliseconds.
+	 */
+	void UpdateDangerBufferState(double bufferMs);
+
+	/**
+	 * @brief Apply one upward threshold shift (rebufferingLatencyStepMs).
+	 *
+	 * Increments mLatencyIncrementAccumulatedMs by rebufferingLatencyStepMs,
+	 * capped at rebufferingLatencyMaxIncrementMs when non-zero, then
+	 * recomputes the three dynamic thresholds.
+	 *
+	 * @pre mThresholdMutex must be held by the caller.
+	 */
+	void IncreaseThresholdsLocked();
+
+	/**
+	 * @brief Attempt one restoration step toward the config-default thresholds.
+	 *
+	 * Called from Run() once the buffer has remained at or above dangerBufferMs
+	 * for latencyStableSec consecutive seconds (measured across polling intervals).
+	 * Decrements mLatencyIncrementAccumulatedMs by rebufferingLatencyStepMs (floored
+	 * at zero) and recomputes the three dynamic thresholds.  Has no effect
+	 * when rebufferingLatencyStepMs is not configured or accumulated increment is already
+	 * zero.
+	 *
+	 * @pre mThresholdMutex must be held by the caller.
+	 */
+	void TryRestoreThresholdsLocked();
+
 	PrivateInstanceAAMP* mAamp   {nullptr}; /**< AAMP instance (telemetry/sink) */
 
 	LatencyConfig mConfig; /**< Immutable copy of the config supplied at Start() */
 
-	// Mutex protecting the three dynamic latency thresholds and the
-	// accumulated rebuffering increment.
+	// Mutex protecting the three dynamic latency thresholds, the
+	// accumulated rebuffering increment, and the restoration window timer.
 	mutable std::mutex mThresholdMutex;
 	double mMinLatencyMs    {0.0}; /**< Current effective minimum latency (ms) */
 	double mTargetLatencyMs {0.0}; /**< Current effective target latency  (ms) */
 	double mMaxLatencyMs    {0.0}; /**< Current effective maximum latency (ms) */
 
-	/// Total latency shift (ms) accumulated from OnRebufferingStart() calls.
+	/// Total latency shift (ms) accumulated from low-buffer events via OnBufferLevelUpdate().
 	/// Reset to zero on Start() and Stop().
 	double mLatencyIncrementAccumulatedMs {0.0};
+
+	/// Time point when the buffer first reached dangerBufferMs, marking the
+	/// start of the current restoration window.  Reset to epoch (default-constructed) on
+	/// Start(), Stop(), and whenever a rebuffering event interrupts the healthy streak.
+	std::chrono::steady_clock::time_point mRestorationWindowStartTime {};
+
+	/// Episode guard for the low-buffer shift.
+	///
+	/// Set by Run() when it shifts thresholds for a below-dangerBufferMs episode.
+	/// Cleared by OnBufferLevelUpdate() as soon as buffer recovers to >= dangerBufferMs,
+	/// so the next distinct dip triggers a fresh shift.
+	///
+	/// OnBufferLevelUpdate() also reads this atomically (without holding mThresholdMutex)
+	/// to suppress redundant wake-ups: once Run() has already shifted for the current
+	/// episode, further low-buffer fragment notifications do not re-signal the thread.
+	///
+	/// Atomic so that OnBufferLevelUpdate() can load it cheaply from the downloader
+	/// thread without acquiring mThresholdMutex on every fragment download.
+	std::atomic<bool> mBelowDangerShifted {false};
 
 	/// Serializes concurrent calls to Start() and Stop().
 	std::mutex mStartStopMutex;
