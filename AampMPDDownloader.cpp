@@ -419,6 +419,10 @@ void AampMPDDownloader::downloadMPDThread1()
 					doPush = readMPDData(mMPDData);
 				}
 				AAMPLOG_INFO("Successfully parsed Manifest ...IsLive[%d]",mMPDData->mIsLiveManifest);
+
+				// Update the effective url , so that next refresh uses the effective url
+				tuneUrl = mMPDData->mMPDDownloadResponse->sEffectiveUrl;
+
 				if(downloadFailed)
 				{
 					AAMPLOG_WARN("Manifest refresh recovered after previous download failure.");
