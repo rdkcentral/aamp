@@ -71,6 +71,11 @@
 // In those cases the deadline is rearmed for the remaining drain time.
 static constexpr double kFalseAlarmGuardSec = 1.0;
 
+// Treat deadline expiry near the known VOD end as EOS rather than underflow.
+// This absorbs races where sink EOS arrives just before state transitions to
+// eSTATE_COMPLETE.
+static constexpr double kEosEndToleranceSec = 0.25;
+
 // ---------------------------------------------------------------------------
 // Construction / destruction
 // ---------------------------------------------------------------------------
@@ -297,8 +302,9 @@ void AampUnderflowMonitor::Run()
         if (!mAamp) break;
 
         const AAMPPlayerState state = mAamp->GetState();
-        if (state == eSTATE_STOPPED || state == eSTATE_RELEASED ||
-            state == eSTATE_ERROR   || state == eSTATE_IDLE)
+        if (state == eSTATE_STOPPED  || state == eSTATE_RELEASED ||
+            state == eSTATE_ERROR    || state == eSTATE_IDLE     ||
+            state == eSTATE_COMPLETE)
         {
             AAMPLOG_INFO("[video] AampUnderflowMonitor: player stopped; exiting");
             break;
@@ -338,6 +344,30 @@ void AampUnderflowMonitor::Run()
                              bufLeft);
                 RearmDeadline(bufLeft, rate);
                 continue;
+            }
+
+            // For VOD, suppress underflow when buffered end is already at
+            // content end and the sink/state-complete transition is in flight.
+            if (!mAamp->IsLive())
+            {
+                const long long durationMs = mAamp->GetDurationMs();
+                if (durationMs > 0)
+                {
+                    double eosEndToleranceSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowEosEndToleranceSec);
+                    if (eosEndToleranceSec < 0.0)
+                    {
+                        eosEndToleranceSec = kEosEndToleranceSec;
+                    }
+                    const double durationSec = durationMs / 1000.0;
+                    if (mCurrentEndPosition + eosEndToleranceSec >= durationSec)
+                    {
+                        AAMPLOG_INFO("[video] deadline expired at EOS boundary "
+                                     "(end=%.3f, duration=%.3f); suppressing underflow",
+                                     mCurrentEndPosition, durationSec);
+                        mDeadlineArmed = false;
+                        continue;
+                    }
+                }
             }
         }
 
