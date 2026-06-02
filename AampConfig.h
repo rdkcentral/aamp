@@ -215,7 +215,7 @@ typedef enum
 	eAAMPConfig_EarlyID3Processing,					/**< To enable/disable early ID3 processing */
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
-	eAAMPConfig_useRialtoDirect,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer */
+	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer */
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD */
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
