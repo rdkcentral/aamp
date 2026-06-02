@@ -446,6 +446,15 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			gboolean videoOnly = (audioFormat == GST_FORMAT_INVALID);
 			MW_LOG_INFO("Setting single-path-stream to %d", videoOnly);
 			g_object_set(vidsink, "single-path-stream", videoOnly, NULL);
+			// RDKEMW-18286: Reinforce show-video-window before pipeline state change
+			if (interfacePlayerPriv->gstPrivateContext->videoMuted)
+			{
+                            MW_LOG_MIL("InterfacePlayerRDK - ConfigurePipeline: reinforcing "
+                                             "show-video-window=FALSE on %s (videoMuted=%d)",
+                                              GST_ELEMENT_NAME(vidsink),
+                                              interfacePlayerPriv->gstPrivateContext->videoMuted);
+                            g_object_set(vidsink, "show-video-window", FALSE, NULL);
+                        }
 		}
 		else
 		{
@@ -2321,6 +2330,21 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 					g_object_set(vidsink, "has-drm", FALSE, NULL);
 				}
 				interfacePlayerPriv->gstPrivateContext->video_sink = vidsink;
+
+                                // RDKEMW-18286: Set show-video-window=FALSE at sink creation time.
+                                // This is the EARLIEST possible point. The Rialto delegate will queue
+                                // this (m_videoMuteQueued=true) and apply it server-side when the
+                                // source attaches — which happens BEFORE the pipeline goes to PLAYING
+                                // and BEFORE any frame can be decoded.
+                                if (interfacePlayerPriv->gstPrivateContext->videoMuted)
+                                {
+                                    MW_LOG_MIL("InterfacePlayerRDK - %s: setting show-video-window=FALSE "
+                                                 "at creation time (videoMuted=%d)",
+                                                 GST_ELEMENT_NAME(vidsink),
+                                                 interfacePlayerPriv->gstPrivateContext->videoMuted);
+                                    g_object_set(vidsink, "show-video-window", FALSE, NULL);
+                                }
+
 			}
 			else
 			{
@@ -4408,6 +4432,8 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 							gst_object_unref(sourceEleSrcPad);
 						}
 					}
+
+
 				}
 
 			}
