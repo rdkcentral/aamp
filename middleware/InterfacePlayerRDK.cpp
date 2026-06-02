@@ -3397,10 +3397,8 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;
 		}	
 
-		MW_LOG_ERR("InterfacePlayerRDK::Pause requested nextState=%s forceStopGstreamerPreBuffering=%d", gst_element_state_get_name(nextState), forceStopGstreamerPreBuffering);
 		GstStateChangeReturn rc = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
-		MW_LOG_ERR("InterfacePlayerRDK::Pause SetStateWithWarnings returned rc=%d nextState=%s", rc, gst_element_state_get_name(nextState));
-
+		
 		if (GST_STATE_CHANGE_ASYNC == rc)
 		{
 			/* CID:330433 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronizing pipeline state.
@@ -3409,13 +3407,13 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			if (nextState != validateStateWithMsTimeout(this, nextState, 100))
 			{
 				GstState current, pending;
-				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED expected %s", gst_element_state_get_name(nextState));
+				MW_LOG_INFO("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED expected %s", gst_element_state_get_name(nextState));
 				
 				/* Recovery: retry the state change once before reporting failure */
-				MW_LOG_ERR("InterfacePlayerRDK_Pause - retrying state change to GstState %d", nextState);
+				MW_LOG_INFO("InterfacePlayerRDK_Pause - retrying state change to GstState %d", nextState);
 
 				// Wait for any in-flight transition to settle
-    			gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 500 * GST_MSECOND);
+    			gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 0);
 
 				// Single retry — no destructive NULL reset
 				GstStateChangeReturn rcRetry = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
