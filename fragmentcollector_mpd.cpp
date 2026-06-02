@@ -1719,7 +1719,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						pMediaStreamContext->fragmentTime += fragmentDuration;
 						pMediaStreamContext->fragmentOffset += referenced_size;
 						pMediaStreamContext->fragmentDescriptor.Time +=
-							static_cast<uint64_t>(fragmentDuration * pMediaStreamContext->fragmentDescriptor.TimeScale);
+							static_cast<uint64_t>(std::llround(
+ 								static_cast<double>(fragmentDuration) *
+ 								static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale)));
 						retval = true;
 					}
 				}
@@ -2817,7 +2819,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								fragmentTime += fragmentDuration;
 								pMediaStreamContext->fragmentOffset += referenced_size;
 							}
-							else if (skipTime >= fragmentDuration)
+							else if (skipTime >= fragmentDuration - FLOATING_POINT_EPSILON)
 							{
 								fragmentIndex++;
 								skipTime -= fragmentDuration;
