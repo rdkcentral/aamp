@@ -1784,27 +1784,13 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 
 		if (demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 		{
-			AAMPLOG_INFO("video restamp: discIdx=%" PRIu64 " pos=%.3f total=%.3f",
-				cachedFragment->discontinuityIndex,
-				cachedFragment->position,
-				m_totalDurationForPtsRestamping);
 			if( context->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 			{ // compute muxed AV track pts offset and save for use by subtitle track
 				double firstPts = playContext->getFirstPts(cachedFragment->fragment);
 				double ptsOffset = m_totalDurationForPtsRestamping - firstPts;
-				AAMPLOG_MIL( "video pts_offset[%" PRIu64 "]=%lldms firstPts=%.3fs total=%.3fs",
-					cachedFragment->discontinuityIndex, llround(ptsOffset*1000),
-					firstPts, m_totalDurationForPtsRestamping);
+				AAMPLOG_MIL( "video pts_offset[%" PRIu64 "]=%lldms", cachedFragment->discontinuityIndex, llround(ptsOffset*1000) );
 				playContext->setPtsOffset( ptsOffset );
 				context->mPtsOffsetMap[cachedFragment->discontinuityIndex] = ptsOffset;
-			}
-			else
-			{
-				AAMPLOG_WARN("video restamp SKIP: discIdx=%" PRIu64
-					" already in map offset=%.3fs total=%.3fs",
-					cachedFragment->discontinuityIndex,
-					context->mPtsOffsetMap[cachedFragment->discontinuityIndex],
-					m_totalDurationForPtsRestamping);
 			}
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}

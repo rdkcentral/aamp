@@ -109,7 +109,7 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 
 	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 	{
-		// In restamp mode position and base_pts may be stale: the SSAI
+		// In restamp mode base_pts may be stale, from the first tune: the SSAI
 		// discontinuity is suppressed in the playlist so Demuxer::init()
 		// is never called at the ad boundary. Use raw encoder ticks only;
 		// ptsOffset already encodes (totalDuration - firstPts) so that
@@ -124,7 +124,7 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 		}
 		ret.pts_s = ptsOffset + raw_pts_s;
 		ret.dts_s = ptsOffset + raw_dts_s;
-		AAMPLOG_WARN("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
+		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
 			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s);
 		return ret;
 	}
