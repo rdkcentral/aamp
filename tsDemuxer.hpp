@@ -65,8 +65,6 @@ class PrivateInstanceAAMP;
 class Demuxer
 {
 private:
-	// default member initializers reduce constructor boilerplate and
-	// ensure consistent defaults across all ctors.
 	double ptsOffset = 0.0;
 	PrivateInstanceAAMP *aamp = nullptr;
 	int pes_state = 0;
