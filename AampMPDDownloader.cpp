@@ -516,11 +516,20 @@ void AampMPDDownloader::downloadMPDThread1()
 			refreshNeeded = waitForRefreshInterval(waitMs);
 		}
 
-		//Timeout case during live refresh
+		//Timeout/connect failure during live refresh
 		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
 		{
 			AAMPLOG_WARN("Refresh after 500ms to handle a manifest timeout error.");
 			//Forcefully go with 500 ms refresh after a download failure
+			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
+		}
+		else if(!firstDownload && !IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) && !mReleaseCalled)
+		{
+			// Other download failures (e.g. curl 56 CURLE_RECV_ERROR, transient HTTP errors)
+			// during an established live session: keep the refresh loop alive so the next
+			// manifest fetch is attempted rather than killing the downloader thread.
+			AAMPLOG_WARN("Refresh after 500ms to handle manifest download error [%d].", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
 			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
 		}
