@@ -1718,6 +1718,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						pMediaStreamContext->fragmentTime += fragmentDuration;
 						pMediaStreamContext->fragmentOffset += referenced_size;
+						pMediaStreamContext->fragmentDescriptor.Time +=
+							static_cast<uint64_t>(fragmentDuration * pMediaStreamContext->fragmentDescriptor.TimeScale);
 						retval = true;
 					}
 				}
@@ -2701,6 +2703,14 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					{
 						pMediaStreamContext->fragmentOffset += firstOffset;
 					}
+					// UpdateTrackInfo resets fragmentIndex to 0 for rate changes within the
+					// same period, but does NOT reset fragmentTime (it only does so on a period
+					// change).  If fragmentTime still carries the stale playback position (e.g.
+					// 6s) and skipTime is the absolute seek target (also 6s from SeekInPeriod),
+					// the forward skip below would treat skipTime as a delta and overshoot to
+					// 12s.  Reset local fragmentTime to PTO so that skipTime is always
+					// interpreted as an absolute position from the period start.
+					fragmentTime = (float)presentationTimeOffsetSec;
 				}
 				else if (skipTime < 0)
 				{
@@ -2757,6 +2767,16 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						}
 						if (!pMediaStreamContext->eos)
 						{
+							// The walk exits when fragmentTime >= targetTime, meaning we
+							// overshot: fragmentIndex and fragmentOffset already point to
+							// the fragment AFTER the one containing targetTime.  Back off
+							// one step so PushNextFragment fetches the correct fragment.
+							if (fragmentTime > targetTime && fragmentIndex > 0)
+							{
+								fragmentIndex--;
+								fragmentTime -= lastFragmentDuration;
+								pMediaStreamContext->fragmentOffset -= lastReferencedSize;
+							}
 							mFirstPTS = fragmentTime;
 							pMediaStreamContext->fragmentIndex = fragmentIndex;
 							pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime - presentationTimeOffsetSec);
