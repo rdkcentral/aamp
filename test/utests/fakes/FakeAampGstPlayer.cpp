@@ -22,7 +22,7 @@
 #include "priv_aamp.h"
 #include "AampLogManager.h"
 
-MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
+std::shared_ptr<MockAAMPGstPlayer> g_mockAampGstPlayer{};
 // // Required by AampGstPlayer mocks
 // AAMPGstPlayer::id3_callback_t mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t & ){ };
 

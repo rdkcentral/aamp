@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_GST_PLAYER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "aampgstplayer.h"
 
 static auto mock_id3_callback = [](AampMediaType , const uint8_t * , size_t , const SegmentInfo_t &, const char * scheme_uri){ };
@@ -56,6 +57,6 @@ public:
     MOCK_METHOD(void, Configure, (StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool setReadyAfterPipelineCreation), (override));
 };
 
-extern MockAAMPGstPlayer *g_mockAampGstPlayer;
+extern std::shared_ptr<MockAAMPGstPlayer> g_mockAampGstPlayer;
 
 #endif /* AAMP_MOCK_AAMP_GST_PLAYER_H */

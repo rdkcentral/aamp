@@ -127,15 +127,15 @@ protected:
 	void SetUp() override
 	{
 		gpGlobalConfig = new AampConfig();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
 		// A fake PrivateInstanceAAMP
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockIsoBmffHelper = new NiceMock<MockIsoBmffHelper>();
-		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
-		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockIsoBmffHelper = std::make_shared<NiceMock<MockIsoBmffHelper>>();
+		g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+		g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
 
 		// A fake StreamAbstractionAAMP_MPD that derives from a *real* StreamAbstractionAAMP.
 		// The tests can't use a fake/mock StreamAbstractionAAMP base class because
@@ -146,26 +146,21 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
-		delete g_mockIsoBmffHelper;
-		g_mockIsoBmffHelper = nullptr;
+		g_mockIsoBmffHelper.reset();
 
-		delete g_mockIsoBmffBuffer;
-		g_mockIsoBmffBuffer = nullptr;
+		g_mockIsoBmffBuffer.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -1181,7 +1176,7 @@ TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_SignaledButStillFull_Retur
 	});
 
 	// Must return false: was signaled, abort is clear, but cache is still full.
-	bool result = videoTrack.WaitForCachedFragmentInjected(5000 /*ms*/);
+	bool result = videoTrack.WaitForCachedFragmentInjected(200 /*ms*/);
 	signalThread.join();
 
 	EXPECT_FALSE(result);
@@ -1233,9 +1228,8 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 
-	MockAampMp4Demuxer mockDemuxer;
-	g_mockAampMp4Demuxer = &mockDemuxer;
-	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+	g_mockAampMp4Demuxer = std::make_shared<MockAampMp4Demuxer>();
+	EXPECT_CALL(*g_mockAampMp4Demuxer, getPTSRestampStatus())
 		.WillRepeatedly(Return(true));
 
 	TestableMediaTrack subtitleTrack{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
@@ -1253,7 +1247,7 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 										isDiscontinuity, ret);
 
 	EXPECT_FALSE(isDiscontinuity);
-	g_mockAampMp4Demuxer = nullptr;
+	g_mockAampMp4Demuxer.reset();
 }
 
 /**
@@ -1297,9 +1291,8 @@ TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
 	subtitleTrack.playContext = nullptr;
 	EXPECT_FALSE(subtitleTrack.IsPTSRestampEnabled());
 
-	MockAampMp4Demuxer mockDemuxer;
-	g_mockAampMp4Demuxer = &mockDemuxer;
-	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+	g_mockAampMp4Demuxer = std::make_shared<MockAampMp4Demuxer>();
+	EXPECT_CALL(*g_mockAampMp4Demuxer, getPTSRestampStatus())
 		.WillOnce(Return(false))
 		.WillOnce(Return(true));
 
@@ -1313,7 +1306,7 @@ TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
 			eMEDIATYPE_SUBTITLE, true);
 	EXPECT_TRUE(subtitleTrack.IsPTSRestampEnabled());
 
-	g_mockAampMp4Demuxer = nullptr;
+	g_mockAampMp4Demuxer.reset();
 }
 
 /**

@@ -26,11 +26,13 @@
 #include "TsbMockDirectoryIterator.h"
 #include "TsbMockLibc.h"
 
-TsbMockFilesystem* g_mockFilesystem = nullptr;
-TsbMockOfstream* g_mockOfstream = nullptr;
-TsbMockIfstream* g_mockIfstream = nullptr;
-TsbMockDirectorIterator* g_mockDirectoryIterator = nullptr;
-TsbMockLibc* g_mockLibc = nullptr;
+#include <memory>
+
+std::shared_ptr<TsbMockFilesystem> g_mockFilesystem{};
+std::shared_ptr<TsbMockOfstream> g_mockOfstream{};
+std::shared_ptr<TsbMockIfstream> g_mockIfstream{};
+std::shared_ptr<TsbMockDirectorIterator> g_mockDirectoryIterator{};
+std::shared_ptr<TsbMockLibc> g_mockLibc{};
 
 #ifdef ENABLE_TSB_FAKES_LOG
 #define LOG(msg)                                                                                   \

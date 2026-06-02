@@ -1063,6 +1063,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
 	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && !IDX.empty() && uriInfo.range.empty())
 	{
+		std::lock_guard<std::mutex> idxLock(mIdxMutex);
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{

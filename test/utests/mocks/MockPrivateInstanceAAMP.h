@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_PRIV_AAMP_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "priv_aamp.h"
 
 class MockPrivateInstanceAAMP
@@ -110,6 +111,6 @@ public:
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
 };
 
-extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
+extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;
 
 #endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */
