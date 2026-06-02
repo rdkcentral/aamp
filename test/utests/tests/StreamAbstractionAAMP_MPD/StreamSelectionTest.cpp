@@ -411,11 +411,11 @@ protected:
 		}
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
+		g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
 		mStreamAbstractionAAMP_MPD = nullptr;
 		mManifest = nullptr;
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
@@ -441,17 +441,13 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockMediaStreamContext.reset();
 
-		delete g_mockAampMPDDownloader;
-		g_mockAampMPDDownloader = nullptr;
+		g_mockAampMPDDownloader.reset();
 
 		mManifest = nullptr;
 	}

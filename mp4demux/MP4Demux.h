@@ -253,10 +253,11 @@ private:
 	/**
 	 * @brief log human readable parse error and update state
 	 * @param parseError one of Mp4ParseError
+	 * @param what optional error detail string (e.g. from exception)
 	 *
 	 * Note: still used from the Parse(...) catch block to centralize logging.
 	 */
-	void setParseError( Mp4ParseError );
+	void setParseError( Mp4ParseError, const char* what = nullptr );
 
 	/**
 	 * @brief Read n bytes from current position in big-endian format
@@ -320,10 +321,6 @@ private:
 	void ParseProtectionSchemeInfo();
 	/** @brief Parse sample auxiliary information offsets box */
 	void ParseSampleAuxiliaryInformationOffsets();
-	// TODO: Signature changed from ParseSampleEncryption() to
-	//       ParseSampleEncryption(const uint8_t *next) to support bounds
-	//       checking added for direct-rialto DRM; should have been a separate,
-	//       independently reviewed change per direct-rialto.instructions.md.
 	/** @brief Parse sample encryption box (SENC)
 	 * @param next Pointer to next box
 	 */

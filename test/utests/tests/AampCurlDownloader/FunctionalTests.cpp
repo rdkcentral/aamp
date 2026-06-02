@@ -52,7 +52,7 @@ protected:
 	void SetUp() override
 	{
 		mAampCurlDownloader = new AampCurlDownloader();
-		g_mockCurl = new MockCurl();
+		g_mockCurl = std::make_shared<MockCurl>();
 
 		mCurlEasyHandle = malloc(1);		// use a valid address for the handle
 
@@ -72,8 +72,7 @@ protected:
 
 		free(mCurlEasyHandle);
 
-		delete g_mockCurl;
-		g_mockCurl = nullptr;
+		g_mockCurl.reset();
 	}
 
 public:
@@ -413,6 +412,7 @@ TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
 	inpData->bNeedDownloadMetrics = true;
 	inpData->bIgnoreResponseHeader = true;
 	inpData->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
+	inpData->iDownload502RetryWaitMs = 0;
 
 	// The first attempt is not a retry hence +1
 	int triesExpected = MANIFEST_DOWNLOAD_502_RETRY_COUNT + 1;

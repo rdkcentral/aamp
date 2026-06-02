@@ -201,11 +201,11 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
+		g_mockIsoBmffBuffer = std::make_shared<MockIsoBmffBuffer>();
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
@@ -214,8 +214,7 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockMediaStreamContext.reset();
 
 		delete mMediaTrack;
 		mMediaTrack = nullptr;
@@ -223,17 +222,14 @@ protected:
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockIsoBmffBuffer;
-		g_mockIsoBmffBuffer = nullptr;
+		g_mockIsoBmffBuffer.reset();
 	}
 
 public:

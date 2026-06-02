@@ -21,6 +21,7 @@
 #define AAMP_MOOCK_TRACK_WORKER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampTrackWorker.hpp"
 
 class MockAampTrackWorker
@@ -30,6 +31,6 @@ public:
 	MOCK_METHOD(void, RescheduleActiveJob, ());
 };
 
-extern MockAampTrackWorker *g_mockAampTrackWorker;
+extern std::shared_ptr<MockAampTrackWorker> g_mockAampTrackWorker;
 
 #endif /* AAMP_MOOCK_TRACK_WORKER_H */

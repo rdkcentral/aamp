@@ -20,7 +20,7 @@
 #include "main_aamp.h"
 #include "MockPlayerInstanceAAMP.h"
 
-MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
+std::shared_ptr<MockPlayerInstanceAAMP> g_mockPlayerInstanceAAMP{};
 
 const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
 {
