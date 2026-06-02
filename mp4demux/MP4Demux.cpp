@@ -1198,15 +1198,11 @@ void Mp4Demux::ParseMetaBox(const uint8_t *next)
 		ptr = next;
 		return;
 	}
-	// Peek at bytes [0..3] and [4..7] of the payload without advancing ptr.
-	const uint32_t firstWord  = (static_cast<uint32_t>(ptr[0]) << 24)
-	                          | (static_cast<uint32_t>(ptr[1]) << 16)
-	                          | (static_cast<uint32_t>(ptr[2]) <<  8)
-	                          |  static_cast<uint32_t>(ptr[3]);
-	const uint32_t secondWord = (static_cast<uint32_t>(ptr[4]) << 24)
-	                          | (static_cast<uint32_t>(ptr[5]) << 16)
-	                          | (static_cast<uint32_t>(ptr[6]) <<  8)
-	                          |  static_cast<uint32_t>(ptr[7]);
+	// Peek at the first two words without advancing ptr.
+	const uint8_t *savedPtr = ptr;
+	const uint32_t firstWord  = ReadU32();
+	const uint32_t secondWord = ReadU32();
+	ptr = savedPtr;
 	if (secondWord == MultiChar_Constant("hdlr"))
 	{
 		// QTFF variant: no FullBox header; children start at ptr.
@@ -1322,9 +1318,10 @@ void Mp4Demux::ParseSampleGroupDescription(const uint8_t *next)
 void Mp4Demux::ParseSampleToGroup(const uint8_t *next)
 {
 	ReadHeader(); // version, flags
-	if (next - ptr < 8)
+	const ptrdiff_t minPayload = (version >= 1) ? 12 : 8;
+	if (next - ptr < minPayload)
 	{
-		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_BOX, "sbgp: payload too small");
+		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_BOX, "sbgp: payload too small for declared version");
 	}
 	const uint32_t groupingType = ReadU32();
 	MP4_LOG_DEBUG("sbgp: grouping_type='%s'", FourCCToString(groupingType).c_str());
