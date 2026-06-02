@@ -1626,7 +1626,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
 				AampCurlInstance curlInst = aamp->GetPlaylistCurlInstance(actualType, false);
 				aamp->CurlInit(curlInst, 1, aamp->GetNetworkProxy());
-				aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl, pMediaStreamContext->IDX, curlInst, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				{
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+					aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl, pMediaStreamContext->IDX, curlInst, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				}
 				aamp->CurlTerm(curlInst);
 
 
@@ -1661,6 +1664,9 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						pMediaStreamContext->fragmentOffset += firstOffset;
 					}
+					// Snapshot the base offset (segment 0 start in the file) so that
+					// DownloadFragment can use it on ABR switches without recomputing.
+					pMediaStreamContext->mIdxBaseOffset = pMediaStreamContext->fragmentOffset;
 					if (pMediaStreamContext->fragmentIndex != 0)
 					{
 						unsigned int referenced_size;
@@ -8797,6 +8803,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						{
 							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
 							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+							pMediaStreamContext->mIdxBaseOffset = 0;
 						}
 						std::string range;
 						std::string nextrange; //CMCD get the next range
