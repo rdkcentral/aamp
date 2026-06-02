@@ -2638,8 +2638,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		ISegmentBase *segmentBase = pMediaStreamContext->representation->GetSegmentBase();
 		if (segmentBase)
 		{ // single-segment
-			// Disable parallel fragment download for segment base streams as there is a sidx box dependency for live contents
-			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
+			//SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
 			std::string range = segmentBase->GetIndexRange();
 			if (pMediaStreamContext->IDX.empty())
 			{ // lazily load index
@@ -2656,7 +2655,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				int iFogError = -1;
 				AampCurlInstance curlInstance = aamp->GetPlaylistCurlInstance(actualType, false);
 				aamp->CurlInit(curlInstance, 1, aamp->GetNetworkProxy());
-				aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, pMediaStreamContext->IDX, curlInstance, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				{
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+					aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, pMediaStreamContext->IDX, curlInstance, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				}
 				aamp->CurlTerm(curlInstance);
 			}
 			if (!pMediaStreamContext->IDX.empty())
@@ -2704,7 +2706,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					else
 					{
 						// done with index
-						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						{
+							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						}
 						pMediaStreamContext->eos = true;
 						break;
 					}
@@ -3811,8 +3816,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					{
 						notifyEnteringLive = true;
 					}
+					//Live Latency correction is handled by live adjust.
 					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is enabled due to the seek (rate=%f) to live window!!", currentRate);
-					aamp->mDisableRateCorrection = false;
 				}
 
 				if (mLowLatencyMode && !liveAdjust)
@@ -6648,7 +6653,9 @@ void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
 		}
 		track->AbortWaitForCachedAndFreeFragment(true);
 		aamp->StopTrackInjection(type);
-		aamp->mDisableRateCorrection = true;
+		// Save the latency monitor state before disabling - it will be restored after the switch only if it was active prior
+		mSavedLatencyMonitorState  = aamp->IsLatencyMonitorEnabled();
+		aamp->EnableLatencyMonitor(false);
 	}
 }
 
@@ -7310,6 +7317,12 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 	}
 
+	// mMediaStreamContext[eMEDIATYPE_AUDIO] is dereferenced inside this block.
+	// At trick-play rate (mMaxTracks==1) the audio context is null, but the
+	// condition here is logically unreachable in that case: mNumberOfTracks is
+	// set to 1 at trick-play only when an iframe track is found, which also sets
+	// mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled=true, making !enabled false.
+	// At normal play rate all contexts are allocated, so the dereference is safe.
 	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
@@ -7339,6 +7352,9 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	{
 		if(audioTrack.index == aTrackIdx)
 		{
+			// mMediaStreamContext[eMEDIATYPE_AUDIO] is null at trick-play rate, but
+			// aTracks is always empty there (SelectAudioTrack is only called at
+			// normal play rate), so this loop body is never entered at trick-play rate.
 			mMediaStreamContext[eMEDIATYPE_AUDIO]->SetCurrentBandWidth(audioTrack.bandwidth);
 		}
 		bitratelist.push_back(audioTrack.bandwidth);
@@ -8623,7 +8639,10 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					if (segmentBase)
 					{
 						pMediaStreamContext->fragmentOffset = 0;
-						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						{
+							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						}
 						std::string range;
 						std::string nextrange; //CMCD get the next range
 						const IURLType *urlType = segmentBase->GetInitialization();
@@ -8654,8 +8673,13 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							{
 								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 							}
-							pMediaStreamContext->profileChanged = false;
 						}
+						// Clear profileChanged regardless of whether the ring buffer had space.
+						// This prevents FetcherLoop from re-triggering this init-fetch path on
+						// every subsequent OnFragmentDownloadComplete callback.  If the buffer
+						// was full the init will be re-fetched on the next profileChanged cycle
+						// once space is available.
+						pMediaStreamContext->profileChanged = false;
 					}
 					else
 					{
@@ -8755,8 +8779,13 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										{
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
-										pMediaStreamContext->profileChanged = false;
 									}
+									// Clear profileChanged regardless of whether the ring buffer had space.
+									// This prevents FetcherLoop from re-triggering this init-fetch path on
+									// every subsequent OnFragmentDownloadComplete callback.  If the buffer
+									// was full the init will be re-fetched on the next profileChanged cycle
+									// once space is available.
+									pMediaStreamContext->profileChanged = false;
 								}
 								else
 								{
@@ -10769,23 +10798,24 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	mManifestUpdateHandleFlag       =       false;
 	dnldInstance->UnRegisterCallback();
 
-	aamp->SyncBegin();
-
-	// mStreamInfo is now a vector and will be automatically destroyed
-	deIndexTileInfo(indexedTileInfo);
-	if(!thumbnailtrack.empty())
 	{
-		for(int i = 0; i < thumbnailtrack.size() ; i++)
-		{
-			StreamInfo *tmp = thumbnailtrack[i];
-			SAFE_DELETE(tmp);
-		}
-	}
+		auto syncLock = aamp->SyncLock();
 
-	aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
-	aamp->GetLLDashServiceData()->clear();
-	aamp->SetLowLatencyServiceConfigured(false);
-	aamp->SyncEnd();
+		// mStreamInfo is now a vector and will be automatically destroyed
+		deIndexTileInfo(indexedTileInfo);
+		if(!thumbnailtrack.empty())
+		{
+			for(int i = 0; i < thumbnailtrack.size() ; i++)
+			{
+				StreamInfo *tmp = thumbnailtrack[i];
+				SAFE_DELETE(tmp);
+			}
+		}
+
+		aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
+		aamp->GetLLDashServiceData()->clear();
+		aamp->SetLowLatencyServiceConfigured(false);
+	}
 	mManifestDnldRespPtr = nullptr;
 }
 

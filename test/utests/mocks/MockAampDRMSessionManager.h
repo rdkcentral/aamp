@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "DrmSessionManager.h"
 
 class MockDRMSessionManager
@@ -32,6 +33,6 @@ public:
     MOCK_METHOD(DrmSession*, createDrmSession, (int &responseCode, int &err, DrmHelperPtr drmHelper, DrmCallbacks* Instance, int streamType, void* metaDataPtr));
 };
 
-extern MockDRMSessionManager *g_mockDRMSessionManager;
+extern std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager;
 
 #endif /* AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H */

@@ -21,6 +21,7 @@
 #define AAMP_MOCK_GLIB_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include <glib-object.h>
 #include <glib.h>
 #include <cstring>
@@ -43,6 +44,6 @@ public:
 	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *property_name, gboolean *value));
 };
 
-extern MockGLib *g_mockGLib;
+extern std::shared_ptr<MockGLib> g_mockGLib;
 
 #endif /* AAMP_MOCK_GLIB_H */

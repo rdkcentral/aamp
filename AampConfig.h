@@ -234,6 +234,7 @@ typedef enum
 	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
+	eAAMPConfig_MonitorMp4Integrity,			/**< Parse every downloaded video/audio segment with Mp4Demux; log each segment, write corrupt ones to harvestPath */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
@@ -310,7 +311,6 @@ typedef enum
 	eAAMPConfig_TimeBasedBufferSeconds,
 	eAAMPConfig_MaxDownloadBuffer,					/**< Max download buffer in seconds, this can be used to limit player download job scheduling for DASH*/
 	eAAMPConfig_TelemetryInterval,						/**< time interval for the telemetry reporting*/
-	eAAMPConfig_RateCorrectionDelay,			/**< Delay Rate Correction upon discontinuity in seconds */
 	eAAMPConfig_HarvestDuration,						/**< Harvest  duration time */
 	eAAMPConfig_SubtitleClockSyncInterval,			/**< time interval for synchronizing subtitle clock */
 	eAAMPConfig_PreferredAbsoluteProgressReporting, /**< Preferred settings for absolute progress reporting**/

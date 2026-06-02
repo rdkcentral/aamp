@@ -56,15 +56,15 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		mAamp = std::make_shared<PrivateInstanceAAMP>(gpGlobalConfig);
 
 		// Create mocks for the AAMP objects
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		g_mockTSBReader = std::make_shared<StrictMock<MockTSBReader>>();
-		g_mockTSBDataManager = new NiceMock<MockTSBDataManager>();
-		g_mockTSBStore = new NiceMock<MockTSBStore>();
-		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
+		g_mockTSBDataManager = std::make_shared<NiceMock<MockTSBDataManager>>();
+		g_mockTSBStore = std::make_shared<NiceMock<MockTSBStore>>();
+		g_mockMediaStreamContext = std::make_shared<NiceMock<MockMediaStreamContext>>();
 
 		// Create a TSBDataManager object with the mock data
 		mTsbDataManager = std::make_shared<AampTsbDataManager>();
@@ -88,22 +88,18 @@ protected:
 	{
 		// reset all the shared pointers in Setup() in the reverse order they were created
 		g_mockTSBReader.reset();
-		delete (g_mockTSBDataManager);
-		g_mockTSBDataManager = nullptr;
+		g_mockTSBDataManager.reset();
+		g_mockTSBDataManager.reset();
 		mMediaStreamContext.reset();
 		mAampTSBSessionManager.reset();
 		mAamp.reset();
-		delete (g_mockTSBStore);
-		g_mockTSBStore = nullptr;
-		delete (g_mockMediaStreamContext);
-		g_mockMediaStreamContext = nullptr;
+		g_mockTSBStore.reset();
+		g_mockMediaStreamContext.reset();
 		mTsbDataManager.reset();
 		delete (gpGlobalConfig);
 		gpGlobalConfig = nullptr;
-		delete(g_mockAampConfig);
-		g_mockAampConfig = nullptr;
-		delete(g_mockPrivateInstanceAAMP);
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockAampConfig.reset();
+		g_mockPrivateInstanceAAMP.reset();
 		mTsbStore.reset();
 	}
 

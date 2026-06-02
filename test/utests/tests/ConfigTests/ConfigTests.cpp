@@ -51,21 +51,19 @@ protected:
 	void SetUp() override
 	{
 		mAampConfig = std::unique_ptr<AampConfig>(new AampConfig());
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(nullptr);
-		g_mockAampUtils = new StrictMock<MockAampUtils>();
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>(nullptr);
+		g_mockAampUtils = std::make_shared<StrictMock<MockAampUtils>>();
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_WARN);
 	}
 
 	void TearDown() override
 	{
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
 		mAampConfig = nullptr;
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 	}
 };
 

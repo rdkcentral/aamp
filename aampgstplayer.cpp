@@ -928,6 +928,7 @@ void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
  */
 void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
+	auto syncLock = aamp->SyncLock();
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 	StopMonitorAvTimer();
 	playerInstance->Stop(keepLastFrame);
@@ -1018,12 +1019,6 @@ void AAMPGstPlayer::FlushTrack(AampMediaType type,double pos)
 	double audioDelta = aamp->mAudioDelta;
 	double subDelta = aamp->mSubtitleDelta;
 	double rate = playerInstance->FlushTrack(mediaType, pos, audioDelta, subDelta);
-
-	if(aamp->mCorrectionRate != rate)
-	{
-		AAMPLOG_MIL("Reset Rate Correction to 1");
-		aamp->mCorrectionRate = rate;
-	}
 }
 
 /**
@@ -1051,21 +1046,18 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
  */
 bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 {
-	aamp->SyncBegin();					/* Obtains a mutex lock */
+	auto syncLock = aamp->SyncLock();
 
 	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
 
 	bool res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
-	if(res)
+	if (res && !aamp->IsGstreamerSubsEnabled())
 	{
-		if(!aamp->IsGstreamerSubsEnabled())
-			aamp->PauseSubtitleParser(pause);
+		aamp->PauseSubtitleParser(pause);
 	}
 
-	aamp->SyncEnd();					/* Releases the mutex */
-
+	AAMPLOG_TRACE("exit AAMPGstPlayer_Pause returns %d", res);
 	return res;
-	//return retValue;
 }
 
 /**
@@ -1144,8 +1136,6 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
 			privateContext->mBufferControl[i].flush();
 		}
-
-		aamp->mCorrectionRate = (double)AAMP_NORMAL_PLAY_RATE;
 	}
 }
 

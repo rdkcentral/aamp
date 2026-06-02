@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2024 RDK Management
+ * Copyright 2026 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,29 @@
  * limitations under the License.
  */
 
-#ifndef AAMP_MOCK_AAMP_PRIV_AAMP_H
-#define AAMP_MOCK_AAMP_PRIV_AAMP_H
+
+#ifndef MOCK_AAMP_LATENCY_MONITOR_H
+#define MOCK_AAMP_LATENCY_MONITOR_H
 
 #include <gmock/gmock.h>
 #include <memory>
-#include "priv_aamp.h"
 
-class MockPrivateInstanceAAMP
+/**
+ * @class MockAampLatencyMonitor
+ * @brief Standalone mock — does NOT inherit from AampLatencyMonitor.
+ *
+ * FakeAampLatencyMonitor holds a global pointer to this class and
+ * delegates to it from stub method bodies, following the same pattern
+ * used by MockPrivateInstanceAAMP.
+ */
+class MockAampLatencyMonitor
 {
 public:
-	MOCK_METHOD(void, Individualization, (const std::string &payload));
-	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
-	MOCK_METHOD(void, SendDrmErrorEvent, (DrmMetaDataEventPtr event, bool isRetryEnabled));
-	MOCK_METHOD(void, SendDRMMetaData, (DrmMetaDataEventPtr e));
+	MOCK_METHOD(double, GetAccumulatedLatencyIncrementMs, (), (const));
+	MOCK_METHOD(void, Start, (const LatencyConfig &config));
+	MOCK_METHOD(void, EnableRateCorrection, (bool enabled));
 };
 
-extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;
+extern std::shared_ptr<MockAampLatencyMonitor> g_mockAampLatencyMonitor;
 
-#endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */
+#endif /* MOCK_AAMP_LATENCY_MONITOR_H */

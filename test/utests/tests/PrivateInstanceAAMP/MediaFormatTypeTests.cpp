@@ -49,9 +49,9 @@ protected:
 
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
+        g_mockStreamAbstractionAAMP = std::make_shared<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
     }
 
     void TearDown() override
@@ -59,8 +59,7 @@ protected:
         delete mPrivateInstanceAAMP;
         mPrivateInstanceAAMP = nullptr;
 
-        delete g_mockStreamAbstractionAAMP;
-        g_mockStreamAbstractionAAMP = nullptr;
+        g_mockStreamAbstractionAAMP.reset();
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
