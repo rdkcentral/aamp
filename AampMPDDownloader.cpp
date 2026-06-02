@@ -347,6 +347,7 @@ void AampMPDDownloader::downloadMPDThread1()
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
+	bool downloadFailed = false; // set when a refresh attempt fails; cleared on recovery to log the transition
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
@@ -418,9 +419,11 @@ void AampMPDDownloader::downloadMPDThread1()
 					doPush = readMPDData(mMPDData);
 				}
 				AAMPLOG_INFO("Successfully parsed Manifest ...IsLive[%d]",mMPDData->mIsLiveManifest);
-
-				// Update the effective url , so that next refresh uses the effective url
-				tuneUrl = mMPDData->mMPDDownloadResponse->sEffectiveUrl;
+				if(downloadFailed)
+				{
+					AAMPLOG_WARN("Manifest refresh recovered after previous download failure.");
+					downloadFailed = false;
+				}
 
 				// first time download complete . Do what need to be done . ....
 				if(firstDownload && mMPDData->mIsLiveManifest)
@@ -522,6 +525,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_WARN("Refresh after 500ms to handle a manifest timeout error.");
 			//Forcefully go with 500 ms refresh after a download failure
 			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			downloadFailed = true;
 			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
 		}
 		else if(!firstDownload && !IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) && !mReleaseCalled)
@@ -529,8 +533,10 @@ void AampMPDDownloader::downloadMPDThread1()
 			// Other download failures (e.g. curl 56 CURLE_RECV_ERROR, transient HTTP errors)
 			// during an established live session: keep the refresh loop alive so the next
 			// manifest fetch is attempted rather than killing the downloader thread.
-			AAMPLOG_WARN("Refresh after 500ms to handle manifest download error [%d].", mMPDData->mMPDDownloadResponse->iHttpRetValue);
-			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			// mRefreshInterval retains the MPD-derived value from the last successful parse
+			// so no override is needed; the stream's own minimumUpdatePeriod is respected.
+			AAMPLOG_WARN("Manifest download error [%d], will retry after %ums.", mMPDData->mMPDDownloadResponse->iHttpRetValue, mRefreshInterval);
+			downloadFailed = true;
 			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
 		}
 
