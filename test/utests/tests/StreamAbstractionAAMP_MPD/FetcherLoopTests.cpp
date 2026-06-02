@@ -3005,3 +3005,241 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
 	// UpdateTrackInfo writes for the new period.
 	EXPECT_TRUE(videoCtx->eos);
 }
+
+// ===========================================================================
+// VPAAMP-444 — SegmentBase regression tests
+// ===========================================================================
+
+// A minimal static 4-second VOD stream delivered via SegmentBase.
+// The SIDX (sidxBox, defined earlier in this file) declares:
+//   timescale=1000, reference_count=2
+//   ref[0]: reference_size=16384, subsegment_duration=2000  → duration 2.0 s
+//   ref[1]: reference_size=12288, subsegment_duration=2000  → duration 2.0 s
+//
+// indexRange="500-999":
+//   init segment range          = "0-499"
+//   first data-fragment offset  = 1000 (idxRangeEnd + 1 + first_offset(0))
+//   ref[0] range = "1000-17383"   (1000 + 16384 - 1)
+//   ref[1] range = "17384-29671"  (17384 + 12288 - 1)
+//
+// timescale="1000" on <SegmentBase> → fragmentDescriptor.TimeScale = 1000.
+static constexpr const char *kSegmentBaseVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+     mediaPresentationDuration="PT4S"
+     profiles="urn:mpeg:dash:profile:isoff-on-demand:2011">
+    <Period id="p0" start="PT0S" duration="PT4S">
+        <AdaptationSet id="0" contentType="video">
+            <Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+                            bandwidth="800000" width="640" height="360">
+                <BaseURL>http://host/asset/video.m4s</BaseURL>
+                <SegmentBase indexRange="500-999" timescale="1000"/>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>)";
+
+// Base URL for the single SegmentBase video resource.
+static const std::string kSegBaseVideoUrl{"http://host/asset/video.m4s"};
+
+/**
+ * @brief VPAAMP-444 Fix 1: PushNextFragment advances fragmentDescriptor.Time.
+ *
+ * Before the fix, the SegmentBase code path in PushNextFragment never updated
+ * fragmentDescriptor.Time after downloading a data segment.  The fix adds:
+ *   fragmentDescriptor.Time +=
+ *       static_cast<uint64_t>(std::llround(fragmentDuration * TimeScale));
+ *
+ * Oracle:
+ *   After each successful fetch fragmentDescriptor.Time must increase by
+ *   round(2.0 s * 1000) = 2000 ticks.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_PushNextFragment_AdvancesDescriptorTime)
+{
+	// LoadIDX is called once during Init (SeekInPeriod lazily loads the IDX).
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	// Init segment (isInit=true, range "0-499" computed from indexRange "500-999").
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaStreamContext *ctx = static_cast<MediaStreamContext *>(
+		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	ASSERT_NE(ctx, nullptr);
+
+	ASSERT_EQ(ctx->fragmentDescriptor.TimeScale, 1000u);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 0u);
+
+	// First push: reference 0 (bytes 1000-17383, duration 2.0 s).
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 2000u);
+
+	// Second push: reference 1 (bytes 17384-29671, duration 2.0 s).
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 4000u);
+}
+
+/**
+ * @brief VPAAMP-444 Fix 2: SkipFragments resets stale fragmentTime before forward seek.
+ *
+ * After a rate change, UpdateTrackInfo resets fragmentIndex to 0 but leaves
+ * fragmentTime at the current playback position.  SeekInPeriod then calls
+ * SkipFragments with skipTime equal to the absolute seek target.  Without the
+ * fix, fragmentTime starts at the stale position (2.0 s) and the 2.0 s skip
+ * advances it to 4.0 s (overshoot).  The fix resets local fragmentTime to the
+ * presentation-time offset (0 s) so skipTime is always treated as an absolute
+ * distance from the period start.
+ *
+ * Oracle:
+ *   fragmentIndex == 1, fragmentTime ~= 2.0 s.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_ForwardSeek_ResetsStaleFragmentTime)
+{
+	// LoadIDX is called during Init (SeekInPeriod lazily loads the IDX).
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaStreamContext *ctx = static_cast<MediaStreamContext *>(
+		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	ASSERT_NE(ctx, nullptr);
+
+	// Simulate UpdateTrackInfo resetting fragmentIndex to 0 while leaving
+	// fragmentTime at the stale playback position of 2.0 s (e.g. after a
+	// rate change within the same period).
+	ctx->fragmentIndex = 0;
+	ctx->fragmentTime  = 2.0;
+
+	// SkipFragments with the seek target (2.0 s from period start).
+	// With the fix: local fragmentTime is reset to PTO (0), so the skip lands
+	// correctly at 2.0 s.  Without the fix: it would advance to 4.0 s.
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 2.0);
+
+	EXPECT_EQ(ctx->fragmentIndex, 1);
+	EXPECT_NEAR(ctx->fragmentTime, 2.0, 0.001);
+}
+
+/**
+ * @brief VPAAMP-444 Fix 3: SkipFragments backs off to the correct fragment after rewind.
+ *
+ * The SIDX walk exits as soon as fragmentTime >= targetTime, meaning
+ * fragmentIndex already points one entry past the fragment that contains the
+ * target time.  The fix adds a back-off step:
+ *   if (fragmentTime > targetTime && fragmentIndex > 0) {
+ *       fragmentIndex--;
+ *       fragmentTime -= lastFragmentDuration;
+ *       fragmentOffset -= lastReferencedSize;
+ *   }
+ *
+ * Scenario: stream at end (fragmentIndex=2, fragmentTime=4.0 s), rewind by
+ * 3 s → targetTime = 1.0 s, inside ref[0] (spans 0–2 s).  Without the fix
+ * the walk stops at fragmentIndex=1 (overshoot).  With the fix the back-off
+ * step corrects to fragmentIndex=0 (fragmentTime=0.0 s).
+ *
+ * Oracle:
+ *   fragmentIndex == 0, fragmentTime ~= 0.0 s.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_Rewind_BacksOffToCorrectFragment)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaStreamContext *ctx = static_cast<MediaStreamContext *>(
+		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	ASSERT_NE(ctx, nullptr);
+
+	// Push both data fragments to advance the stream to its end (fragmentIndex=2,
+	// fragmentTime=4.0 s).  IDX was already loaded during Init.
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, false, _, _, _))
+		.WillRepeatedly(Return(true));
+	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));  // ref 0
+	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));  // ref 1
+	ASSERT_EQ(ctx->fragmentIndex, 2);
+	ASSERT_NEAR(ctx->fragmentTime, 4.0, 0.001);
+
+	// Rewind 3 s → targetTime = 1.0 s, inside ref[0] (spans 0–2 s).
+	// Walk overshoots to fragmentTime=2.0; back-off must correct to 0.0.
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, -3.0);
+
+	EXPECT_EQ(ctx->fragmentIndex, 0);
+	EXPECT_NEAR(ctx->fragmentTime, 0.0, 0.001);
+}
+
+/**
+ * @brief VPAAMP-444 Fix 4: SkipFragments uses FLOATING_POINT_EPSILON for boundary check.
+ *
+ * The forward-skip loop condition was `skipTime >= fragmentDuration`, which
+ * rejects values that are just below fragmentDuration due to floating-point
+ * rounding.  The fix changes it to:
+ *   skipTime >= fragmentDuration - FLOATING_POINT_EPSILON   (EPSILON = 0.1)
+ *
+ * Scenario: skipTime = 1.95 s, fragmentDuration = 2.0 s.
+ *   1.95 <  2.0       → old condition false → would stay at fragmentIndex=0.
+ *   1.95 >= 2.0 - 0.1 → new condition true  → advances to fragmentIndex=1.
+ *
+ * Oracle:
+ *   fragmentIndex == 1, fragmentTime ~= 2.0 s.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_FloatingPointEpsilon_CrossesFragmentBoundary)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaStreamContext *ctx = static_cast<MediaStreamContext *>(
+		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	ASSERT_NE(ctx, nullptr);
+
+	// Ensure we start at the beginning of the stream.
+	ctx->fragmentIndex = 0;
+	ctx->fragmentTime  = 0.0;
+
+	// skipTime = 1.95 s: below 2.0 s but within FLOATING_POINT_EPSILON (0.1).
+	// Without the fix SkipFragments would leave fragmentIndex at 0.
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 1.95);
+
+	EXPECT_EQ(ctx->fragmentIndex, 1);
+	EXPECT_NEAR(ctx->fragmentTime, 2.0, 0.001);
+}
