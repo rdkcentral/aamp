@@ -1330,14 +1330,14 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	return 0;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	if(!mProvidedManifestFile.empty())
 	{
 		bRetManifestData = std::move(mProvidedManifestFile);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)
