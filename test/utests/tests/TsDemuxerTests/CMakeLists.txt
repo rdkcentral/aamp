@@ -47,7 +47,6 @@ endif()
 
 target_link_libraries(${EXEC_NAME}
 	fakes
-	-pthread
 	${GLIB_LINK_LIBRARIES}
 	${OS_LD_FLAGS}
 	${GMOCK_LINK_LIBRARIES}

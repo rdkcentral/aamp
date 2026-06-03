@@ -133,7 +133,7 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 		}
 		ret.pts_s = ptsOffset + raw_pts_s;
 		ret.dts_s = ptsOffset + raw_dts_s;
-		AAMPLOG_INFO("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
+		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
 			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s);
 		return ret;
 	}

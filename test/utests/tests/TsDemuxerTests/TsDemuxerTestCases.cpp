@@ -57,7 +57,10 @@ using ::testing::AnyNumber;
 using ::testing::NiceMock;
 using ::testing::Return;
 
-// Required by the fake AAMP infrastructure.
+// Named tolerances for floating-point comparisons used in tests.
+static constexpr double EPS_SMALL = 1e-6; // for ~1s-scale values
+
+// Global test config pointer used by many test fixtures.
 AampConfig *gpGlobalConfig{nullptr};
 
 // ---------------------------------------------------------------------------
@@ -134,17 +137,18 @@ static std::array<uint8_t, 188> MakeTsPacket(uint64_t pts, uint64_t dts)
 class DemuxerTests : public ::testing::Test
 {
 protected:
-	AampConfig           *mConfig{nullptr};
 	PrivateInstanceAAMP  *mAamp{nullptr};
 
 	void SetUp() override
 	{
-		mConfig        = new AampConfig();
-		gpGlobalConfig = mConfig;
+		if (gpGlobalConfig == nullptr)
+		{
+			gpGlobalConfig = new AampConfig();
+		}
 		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		g_mockPrivateInstanceAAMP =
 			std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
-		mAamp = new PrivateInstanceAAMP(mConfig);
+		mAamp = new PrivateInstanceAAMP(gpGlobalConfig);
 	}
 
 	void TearDown() override
@@ -153,8 +157,7 @@ protected:
 		mAamp = nullptr;
 		g_mockPrivateInstanceAAMP.reset();
 		g_mockAampConfig.reset();
-		delete mConfig;
-		mConfig        = nullptr;
+		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 	}
 
@@ -228,8 +231,8 @@ TEST_F(DemuxerTests, RestampMode_OutputPtsIsPtsOffsetPlusRawPts)
 
 	const double kExpectedPts = 100.0 + static_cast<double>(kPts) / 90000.0;
 	const double kExpectedDts = 100.0 + static_cast<double>(kDts) / 90000.0;
-	EXPECT_NEAR(result->pts_s, kExpectedPts, 1e-6);
-	EXPECT_NEAR(result->dts_s, kExpectedDts, 1e-6);
+	EXPECT_NEAR(result->pts_s, kExpectedPts, EPS_SMALL);
+	EXPECT_NEAR(result->dts_s, kExpectedDts, EPS_SMALL);
 }
 
 /**
@@ -256,16 +259,17 @@ TEST_F(DemuxerTests, NonRestampMode_PtsOffsetNotAdded)
 	// Non-zero offset that should NOT influence output in non-restamp mode.
 	demux.setPtsOffset(50.0);
 
-	// PTS = DTS = 90000 ticks = 1 second
+	// PTS = 90000 ticks = 1 second, DTS = 90000 ticks = 1 second
 	constexpr uint64_t kPts = 90000ULL;
-	ProcessPacket(demux, MakeTsPacket(kPts, kPts));
+	constexpr uint64_t kDts = 90000ULL;
+	ProcessPacket(demux, MakeTsPacket(kPts, kDts));
 
 	const auto result = Capture(demux);
 	ASSERT_TRUE(result.has_value());
 
 	// base_pts = 0, position = 0 → pts_s = (90000 - 0) / 90000 = 1.0
 	// ptsOffset (50.0) must NOT be added → expected is 1.0, not 51.0.
-	EXPECT_NEAR(result->pts_s, 1.0, 1e-6);
+	EXPECT_NEAR(result->pts_s, 1.0, EPS_SMALL);
 }
 
 /**
@@ -273,13 +277,12 @@ TEST_F(DemuxerTests, NonRestampMode_PtsOffsetNotAdded)
  *
  * Key regression test for the SSAI video-freeze bug:
  *
- * At an SSAI boundary the main-content encoder may have been running near
- * the top of the 33-bit PTS range (e.g. 8 billion ticks) while the ad
- * encoder starts fresh near 0 (e.g. 90000 ticks). Without the fix,
- * processPacket() sees prev_pts (≈ 8B) >> current_pts (≈ 90K) and
- * the difference (≈ 8B) exceeds half_max (≈ 4.3B), wrongly setting
- * rollover_pts = true. UpdateSegmentInfo() then adds max_pts_s (≈ 95443 s)
- * to every subsequent output PTS, freezing video.
+ * At an SSAI boundary (discontinuity) the main-content encoder (the content before the discontinuity)
+ * may have been running near the top of the 33-bit PTS range (e.g. 8 billion ticks) while the ad
+ * encoder (after the discontinuity) starts fresh near 0 (e.g. 90000 ticks). Without the fix,
+ * processPacket() sees prev_pts (≈ 8B) >> current_pts (≈ 90K) and the difference (≈ 8B)
+ * exceeds half_max (≈ 4.3B), wrongly setting rollover_pts = true. UpdateSegmentInfo() then
+ * adds max_pts_s (≈ 95443 s) to every subsequent output PTS, freezing video.
  *
  * setPtsOffset() must set suppress_rollover_detection = true so that the
  * first PTS comparison after the boundary is skipped, preventing the false
@@ -294,25 +297,25 @@ TEST_F(DemuxerTests, SetPtsOffset_SuppressesRolloverDetectionOnNextPts)
 	Demuxer demux(mAamp, eMEDIATYPE_VIDEO, /*optimizeMuxed=*/true);
 	demux.init(0.0, 2.0, false, false, true);
 
-	// Step 1: simulate main-content encoder near top of 33-bit range.
-	// First packet — sets current_pts = 8B, fills es.
+	// Step 1: simulate main-content encoder (content before the discontinuity) near top of 33-bit range.
+	// First packet — sets current_pts = 8B (8 Billion), fills es.
 	constexpr uint64_t kHighPts = 8000000000ULL;
 	ProcessPacket(demux, MakeTsPacket(kHighPts, kHighPts));
 
-	// Step 2: SSAI boundary — a new encoder epoch begins.
+	// Step 2: SSAI boundary (discontinuity) — a new encoder epoch begins.
 	// setPtsOffset clears rollover_pts and sets suppress_rollover_detection.
 	constexpr double kAdOffset = 100.0;
 	demux.setPtsOffset(kAdOffset);
 
-	// Step 3: process first ad packet (PTS = 90000 = 1 s).
-	// Internally, the demuxer sends the main-content ES (via SendStreamCopy)
-	// then performs the rollover check: prev_pts = 8B > 90000, diff ≈ 8B >
+	// Step 3: process first ad packet (after discontinuity) (PTS = 90000 = 1 s).
+	// Internally, the demuxer sends the main-content ES (preceding the discontinuity) (via SendStreamCopy)
+	// then performs the rollover check: prev_pts = kHighPts (8B) > 90000, diff ≈ 8B >
 	// half_max ≈ 4.3B. WITH suppress, rollover_pts stays false; without it
 	// the flag would be set, corrupting the output.
 	constexpr uint64_t kAdPts = 90000ULL;
 	ProcessPacket(demux, MakeTsPacket(kAdPts, kAdPts));
 
-	// Step 4: capture the SegmentInfo for the ad packet (current_pts = 90000,
+	// Step 4: capture the SegmentInfo for the ad packet (after discontinuity) (current_pts = 90000,
 	// rollover_pts = false due to suppression).
 	const auto result = Capture(demux);
 	ASSERT_TRUE(result.has_value());
@@ -320,9 +323,13 @@ TEST_F(DemuxerTests, SetPtsOffset_SuppressesRolloverDetectionOnNextPts)
 	// Expected: ptsOffset + raw_pts / 90000 = 100.0 + 1.0 = 101.0.
 	// Incorrect (if rollover were set): 100.0 + 1.0 + 95443.71768889 ≈ 95544.7.
 	const double kExpected = kAdOffset + static_cast<double>(kAdPts) / 90000.0;
-	EXPECT_NEAR(result->pts_s, kExpected, 1e-3)
+	EXPECT_NEAR(result->pts_s, kExpected, EPS_SMALL)
 		<< "pts_s should be ~" << kExpected << " (no false rollover). "
 		<< "A value near 95544 indicates rollover was NOT suppressed.";
+	EXPECT_NEAR(result->dts_s, kExpected, EPS_SMALL)
+		<< "dts_s should be ~" << kExpected << " (no false rollover). "
+		<< "A value near 95544 indicates rollover was NOT suppressed.";
+
 }
 
 /**
@@ -351,7 +358,7 @@ TEST_F(DemuxerTests, RolloverCorrection_AppliesToRawPtsBelowHalfMax)
 
 	// Packet B: PTS wraps to near zero (90000 ticks = 1 s).
 	// Processing B sends A internally (no-op via SendStreamCopy) and performs
-	// rollover detection: prev_pts = 8B > 90000 AND diff ≈ 8B > half_max
+	// rollover detection: prev_pts = kHighPts (8B) > 90000 AND diff ≈ 8B > half_max
 	// → rollover_pts = true. suppress is NOT set (no setPtsOffset call).
 	constexpr uint64_t kLowPts = 90000ULL;
 	ProcessPacket(demux, MakeTsPacket(kLowPts, kLowPts));
@@ -364,7 +371,8 @@ TEST_F(DemuxerTests, RolloverCorrection_AppliesToRawPtsBelowHalfMax)
 	constexpr double kMaxPtsS = 95443.71768889; // 2^33 / 90000
 	const double kExpected =
 		0.0 + static_cast<double>(kLowPts) / 90000.0 + kMaxPtsS;
-	EXPECT_NEAR(result->pts_s, kExpected, 1e-3);
+	EXPECT_NEAR(result->pts_s, kExpected, EPS_SMALL);
+	EXPECT_NEAR(result->dts_s, kExpected, EPS_SMALL);
 }
 
 /**
@@ -413,7 +421,10 @@ TEST_F(DemuxerTests, Init_ResetsSuppressRolloverDetectionFlag)
 	constexpr double kMaxPtsS   = 95443.71768889;
 	const double kExpected =
 		kPtsOffset + static_cast<double>(kLowPts) / 90000.0 + kMaxPtsS;
-	EXPECT_NEAR(result->pts_s, kExpected, 1e-3)
+	EXPECT_NEAR(result->pts_s, kExpected, EPS_SMALL)
+		<< "init() should have reset suppress_rollover_detection. "
+		<< "pts_s near 11.0 means the flag survived init() — bug not fixed.";
+	EXPECT_NEAR(result->dts_s, kExpected, EPS_SMALL)
 		<< "init() should have reset suppress_rollover_detection. "
 		<< "pts_s near 11.0 means the flag survived init() — bug not fixed.";
 }
