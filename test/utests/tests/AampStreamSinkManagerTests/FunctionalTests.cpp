@@ -120,7 +120,7 @@ TEST_F(AampStreamSinkManagerTests, CheckSetSinglePipelineMode)
 }
 
 /* Test Procedure: -
-    @brief If there are no active players then mGstPlayer should be returned.
+    @brief If there are no active players then mStreamPlayer should be returned.
 */
 TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_SinglePipelineMode_NoActivePlayers)
 {
@@ -395,7 +395,7 @@ TEST_F(AampStreamSinkManagerTests, IsTuned_DefaultsToFalse)
     @brief: - Tests GetStoppingStreamSink returns single pipeline sink when no tuned inactive players exist
     Test Procedure: -
     In single pipeline mode with no active players and no tuned inactive players,
-    GetStoppingStreamSink should return the single pipeline sink (mGstPlayer).
+    GetStoppingStreamSink should return the single pipeline sink (mStreamPlayer).
 */
 TEST_F(AampStreamSinkManagerTests, GetStoppingStreamSink_NoTunedInactivePlayers_ReturnsSinglePipeline)
 {
