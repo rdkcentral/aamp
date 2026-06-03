@@ -277,6 +277,17 @@ void AampRialtoPlayer::Configure(
 				}
 			}
 
+			// Resume downloads for all existing sources so AAMP's track
+			// worker threads are unblocked even when the pipeline is reused.
+			for (size_t i = 0; i < kMaxSourceTypes; ++i)
+			{
+				if (m_sources[i])
+				{
+					m_aamp->ResumeTrackDownloads(
+						static_cast<AampMediaType>(i));
+				}
+			}
+
 			AAMPLOG_INFO("EXIT — source set unchanged, skipping pipeline recreation");
 			return;
 		}

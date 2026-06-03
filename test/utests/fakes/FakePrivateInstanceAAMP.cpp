@@ -1495,8 +1495,12 @@ void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
  * @brief Resume downloads for a track.
  * Called from StreamSink to control flow
  */
-void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
+void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ResumeTrackDownloads(type);
+	}
 }
 
 void PrivateInstanceAAMP::SetDiscontinuityParam()

@@ -2762,6 +2762,29 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		<< "Player must transition to FLUSHING after successful Flush()";
 }
 
+TEST_F(AampRialtoPlayerTest,
+	Configure_PipelineReused_CallsResumeTrackDownloadsForAllExistingSources)
+{
+	/**
+	 * @brief When Configure() reuses the existing pipeline (same formats,
+	 *        no forced recreation), ResumeTrackDownloads must still be
+	 *        called for every existing source so AAMP's track worker
+	 *        threads are unblocked.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Second Configure with identical formats — pipeline is reused.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(1);
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_ValidPipeline_ShouldTearDownFalse_DoesNotCallStop)
 {
