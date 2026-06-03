@@ -106,25 +106,34 @@ bool Demuxer::CheckForSteadyState()
 SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 {
 	SegmentInfo_t ret {position, 0, duration};
+	const double max_pts_s = 95443.71768889; // 2^33/90000
 
 	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 	{
-		// In restamp mode base_pts may be stale, from the first tune: the SSAI
+		// In restamp mode base_pts may be stale, from the first tune: the
 		// discontinuity is suppressed in the playlist so Demuxer::init()
 		// is never called at the ad boundary. Use raw encoder ticks only;
 		// ptsOffset already encodes (totalDuration - firstPts) so that
 		// the output timeline is continuous across ad insertions.
-		const double max_pts_s = 95443.71768889; // 2^33/90000
 		double raw_pts_s = static_cast<double>(current_pts.value) / 90000.;
 		double raw_dts_s = static_cast<double>(current_dts.value) / 90000.;
 		if( rollover_pts )
-		{ // rollover within this encoder epoch — add one full 33-bit cycle
-			if( raw_pts_s < max_pts_s/2 ) raw_pts_s += max_pts_s;
-			if( raw_dts_s < max_pts_s/2 ) raw_dts_s += max_pts_s;
+		{
+			// Encoder 33-bit PTS/DTS wrap-around correction: when a rollover occurs within this encoder epoch
+			// the raw timestamps will appear near zero. If raw_* is in the lower half of the 33-bit range,
+			// add one full 33-bit cycle (max_pts_s) to restore a monotonic timeline.
+			if( raw_pts_s < max_pts_s/2 )
+			{
+				raw_pts_s += max_pts_s;
+			}
+			if( raw_dts_s < max_pts_s/2 )
+			{
+				raw_dts_s += max_pts_s;
+			}
 		}
 		ret.pts_s = ptsOffset + raw_pts_s;
 		ret.dts_s = ptsOffset + raw_dts_s;
-		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
+		AAMPLOG_INFO("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
 			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s);
 		return ret;
 	}
@@ -139,7 +148,6 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	}
 	if( rollover_pts )
 	{
-		const double max_pts_s =95443.71768889; // 2^33/90000 = 95443.71768889s
 		if( ret.pts_s < max_pts_s/2 )
 		{ // avoid applying to already huge pts while rollover in progress
 			ret.pts_s += max_pts_s;
