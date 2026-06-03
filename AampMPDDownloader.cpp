@@ -189,7 +189,7 @@ AampMPDDownloader::~AampMPDDownloader()
 *   @fn Initialize
 *   @brief Initialize with MPD Download Input
 */
-void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName,std::function<std::string()> mpdPreProcessFuncptr)
+void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName,std::function<std::pair<std::string,int>()> mpdPreProcessFuncptr)
 {
 	if(mpdDnldCfg == nullptr)
 	{
@@ -384,7 +384,7 @@ void AampMPDDownloader::downloadMPDThread1()
 		{
 			if( NULL != mMpdPreProcessFuncptr)
 			{
-				std::string updatedManifest = mMpdPreProcessFuncptr();
+				auto [updatedManifest, httpCode] = mMpdPreProcessFuncptr();
 				if(!updatedManifest.empty())
 				{
 					mMPDData->mMPDDownloadResponse->replaceDownloadData(updatedManifest);
@@ -392,7 +392,7 @@ void AampMPDDownloader::downloadMPDThread1()
 				}
 				else
 				{
-					mMPDData->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+					mMPDData->mMPDDownloadResponse->iHttpRetValue = httpCode;
 				}
 			}
 			else
@@ -537,11 +537,12 @@ void AampMPDDownloader::downloadMPDThread1()
 			// Other download failures (e.g. curl 56 CURLE_RECV_ERROR, transient HTTP errors)
 			// during an established live session: keep the refresh loop alive so the next
 			// manifest fetch is attempted rather than killing the downloader thread.
-			// mRefreshInterval retains the MPD-derived value from the last successful parse
-			// so no override is needed; the stream's own minimumUpdatePeriod is respected.
-			AAMPLOG_WARN("Manifest download error [%d], will retry after %ums.", mMPDData->mMPDDownloadResponse->iHttpRetValue, mRefreshInterval);
+			// Use 500ms fast-retry (same as timeout/COULDNT_CONNECT) to minimise buffer impact
+			// on LLD streams; mRefreshInterval is not permanently overwritten.
+			uint32_t fastRetry = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			AAMPLOG_WARN("Manifest download error [%d], will retry after %ums.", mMPDData->mMPDDownloadResponse->iHttpRetValue, fastRetry);
 			downloadFailed = true;
-			refreshNeeded = waitForRefreshInterval(mRefreshInterval);
+			refreshNeeded = waitForRefreshInterval(fastRetry);
 		}
 
 	}while(refreshNeeded && !mReleaseCalled);
