@@ -1651,38 +1651,41 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										pMediaStreamContext->fragmentDescriptor.Bandwidth,
 										(iFogError > 0 ? iFogError : http_code),effectiveUrl,pMediaStreamContext->fragmentDescriptor.Time, downloadTime);
 
-				pMediaStreamContext->fragmentOffset++; // first byte following packed index
-				if (!pMediaStreamContext->IDX.empty())
 				{
-					unsigned int firstOffset = 0;
-					if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-											 pMediaStreamContext->IDX.size(),
-											 0,
-											 NULL,
-											 NULL,
-											 &firstOffset))
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+					pMediaStreamContext->fragmentOffset++; // first byte following packed index
+					if (!pMediaStreamContext->IDX.empty())
 					{
-						pMediaStreamContext->fragmentOffset += firstOffset;
-					}
-					// Snapshot the base offset (segment 0 start in the file) so that
-					// DownloadFragment can use it on ABR switches without recomputing.
-					pMediaStreamContext->mIdxBaseOffset = pMediaStreamContext->fragmentOffset;
-					if (pMediaStreamContext->fragmentIndex != 0)
-					{
-						unsigned int referenced_size;
-						float fragmentDuration;
-						AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
-						// Find the offset of previous fragment in new representation
-						for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
+						unsigned int firstOffset = 0;
+						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+												 pMediaStreamContext->IDX.size(),
+												 0,
+												 NULL,
+												 NULL,
+												 &firstOffset))
 						{
-							if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-													 pMediaStreamContext->IDX.size(),
-													 i,
-													 &referenced_size,
-													 &fragmentDuration,
-													 NULL))
+							pMediaStreamContext->fragmentOffset += firstOffset;
+						}
+						// Snapshot the base offset (segment 0 start in the file) so that
+						// DownloadFragment can use it on ABR switches without recomputing.
+						pMediaStreamContext->mIdxBaseOffset = pMediaStreamContext->fragmentOffset;
+						if (pMediaStreamContext->fragmentIndex != 0)
+						{
+							unsigned int referenced_size;
+							float fragmentDuration;
+							AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
+							// Find the offset of previous fragment in new representation
+							for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
 							{
-								pMediaStreamContext->fragmentOffset += referenced_size;
+								if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+														 pMediaStreamContext->IDX.size(),
+														 i,
+														 &referenced_size,
+														 &fragmentDuration,
+														 NULL))
+								{
+									pMediaStreamContext->fragmentOffset += referenced_size;
+								}
 							}
 						}
 					}

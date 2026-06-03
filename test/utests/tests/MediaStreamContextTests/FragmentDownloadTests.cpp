@@ -939,21 +939,21 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 // Reference 1: referenced_size = 0x3000 = 12288 bytes, duration 2000 ticks
 // timescale = 1000, first_offset = 0
 static const uint8_t kSidxBoxForABRTest[] = {
-    0x00, 0x00, 0x00, 0x38,  // Box size = 56
-    0x73, 0x69, 0x64, 0x78,  // Type = 'sidx'
-    0x00, 0x00, 0x00, 0x00,  // version=0, flags=0
-    0x00, 0x00, 0x00, 0x01,  // reference_ID = 1
-    0x00, 0x00, 0x03, 0xE8,  // timescale = 1000
-    0x00, 0x00, 0x00, 0x00,  // earliest_presentation_time = 0
-    0x00, 0x00, 0x00, 0x00,  // first_offset = 0
-    0x00, 0x00,              // reserved
-    0x00, 0x02,              // reference_count = 2
-    0x00, 0x00, 0x40, 0x00,  // Ref 0: referenced_size = 16384
-    0x00, 0x00, 0x07, 0xD0,  // Ref 0: referenced_duration = 2000
-    0x90, 0x00, 0x00, 0x00,  // Ref 0: SAP info
-    0x00, 0x00, 0x30, 0x00,  // Ref 1: referenced_size = 12288
-    0x00, 0x00, 0x07, 0xD0,  // Ref 1: referenced_duration = 2000
-    0x90, 0x00, 0x00, 0x00,  // Ref 1: SAP info
+	0x00, 0x00, 0x00, 0x38,  // Box size = 56
+	0x73, 0x69, 0x64, 0x78,  // Type = 'sidx'
+	0x00, 0x00, 0x00, 0x00,  // version=0, flags=0
+	0x00, 0x00, 0x00, 0x01,  // reference_ID = 1
+	0x00, 0x00, 0x03, 0xE8,  // timescale = 1000
+	0x00, 0x00, 0x00, 0x00,  // earliest_presentation_time = 0
+	0x00, 0x00, 0x00, 0x00,  // first_offset = 0
+	0x00, 0x00,              // reserved
+	0x00, 0x02,              // reference_count = 2
+	0x00, 0x00, 0x40, 0x00,  // Ref 0: referenced_size = 16384
+	0x00, 0x00, 0x07, 0xD0,  // Ref 0: referenced_duration = 2000
+	0x90, 0x00, 0x00, 0x00,  // Ref 0: SAP info
+	0x00, 0x00, 0x30, 0x00,  // Ref 1: referenced_size = 12288
+	0x00, 0x00, 0x07, 0xD0,  // Ref 1: referenced_duration = 2000
+	0x90, 0x00, 0x00, 0x00,  // Ref 1: SAP info
 };
 
 /**
@@ -979,46 +979,45 @@ static const uint8_t kSidxBoxForABRTest[] = {
  */
 TEST_F(FragmentDownloadTests, DownloadFragment_SegmentBase_ABRSwitch_UsesIdxBaseOffset)
 {
-    // Establish the current (post-ABR-switch) 1080p profile on the context.
-    mMediaStreamContext->fragmentDescriptor.Bandwidth = 5000000;
+	// Establish the current (post-ABR-switch) 1080p profile on the context.
+	mMediaStreamContext->fragmentDescriptor.Bandwidth = 5000000;
 
-    // Load the 1080p SIDX into IDX and record the byte base for segment 0.
-    // kIdxBaseOffset = 1000 represents end_of_SIDX + 1 + first_offset(=0).
-    constexpr uint64_t kIdxBaseOffset = 1000;
-    mMediaStreamContext->IDX.assign(std::cbegin(kSidxBoxForABRTest),
-                                    std::cend(kSidxBoxForABRTest));
-    mMediaStreamContext->mIdxBaseOffset = kIdxBaseOffset;
+	// Load the 1080p SIDX into IDX and record the byte base for segment 0.
+	// kIdxBaseOffset = 1000 represents end_of_SIDX + 1 + first_offset(=0).
+	constexpr uint64_t kIdxBaseOffset = 1000;
+	mMediaStreamContext->IDX.assign(kSidxBoxForABRTest, kSidxBoxForABRTest + sizeof(kSidxBoxForABRTest));
+	mMediaStreamContext->mIdxBaseOffset = kIdxBaseOffset;
 
-    // fragmentIndex=1: the context is advancing past the second data segment.
-    mMediaStreamContext->fragmentIndex = 1;
+	// fragmentIndex=1: the context is advancing past the second data segment.
+	mMediaStreamContext->fragmentIndex = 1;
 
-    // Build a stale 480p DownloadInfo (queued before the ABR switch fired).
-    // uriList is intentionally left empty: DownloadFragment computes the range
-    // but returns false before issuing any network request, so no CacheFragment
-    // mock is needed.
-    auto dlInfo = std::make_shared<DownloadInfo>();
-    dlInfo->bandwidth     = 1400000;   // differs from fragmentDescriptor.Bandwidth
-    dlInfo->fragmentIndex = 1;
-    dlInfo->isInitSegment = false;
+	// Build a stale 480p DownloadInfo (queued before the ABR switch fired).
+	// uriList is intentionally left empty: DownloadFragment computes the range
+	// but returns false before issuing any network request, so no CacheFragment
+	// mock is needed.
+	auto dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->bandwidth     = 1400000;   // differs from fragmentDescriptor.Bandwidth
+	dlInfo->fragmentIndex = 1;
+	dlInfo->isInitSegment = false;
 
-    bool result = mMediaStreamContext->DownloadFragment(dlInfo);
+	bool result = mMediaStreamContext->DownloadFragment(dlInfo);
 
-    // The function returns false because uriList is empty (url not resolved),
-    // but the ABR switch range computation runs before that check.
-    EXPECT_FALSE(result);
+	// The function returns false because uriList is empty (url not resolved),
+	// but the ABR switch range computation runs before that check.
+	EXPECT_FALSE(result);
 
-    // REGRESSION ASSERTION: range must start at kIdxBaseOffset + ref[0].size.
-    //   ref[0].size = 16384  =>  seg1 start = 1000 + 16384 = 17384
-    //   ref[1].size = 12288  =>  seg1 end   = 17384 + 12288 - 1 = 29671
-    // Old code produced "1-16384" (base=1), fetching inside the moov/SIDX
-    // prefix and returning a zero-duration fragment that broke PTS continuity.
-    EXPECT_EQ(dlInfo->range, "17384-29671")
-        << "ABR switch must compute the byte range from mIdxBaseOffset; "
-           "the old code started from offset 1 (0+1+first_offset), "
-           "which landed inside the moov/SIDX prefix and produced "
-           "duration=0, PTS=0, breaking L2 test_8003_0 PTS restamp checks.";
+	// REGRESSION ASSERTION: range must start at kIdxBaseOffset + ref[0].size.
+	//   ref[0].size = 16384  =>  seg1 start = 1000 + 16384 = 17384
+	//   ref[1].size = 12288  =>  seg1 end   = 17384 + 12288 - 1 = 29671
+	// Old code produced "1-16384" (base=1), fetching inside the moov/SIDX
+	// prefix and returning a zero-duration fragment that broke PTS continuity.
+	EXPECT_EQ(dlInfo->range, "17384-29671")
+		<< "ABR switch must compute the byte range from mIdxBaseOffset; "
+		   "the old code started from offset 1 (0+1+first_offset), "
+		   "which landed inside the moov/SIDX prefix and produced "
+		   "duration=0, PTS=0, breaking L2 test_8003_0 PTS restamp checks.";
 
-    // Also verify the duration was populated correctly (2000 ticks / 1000 Hz = 2.0s).
-    EXPECT_FLOAT_EQ(dlInfo->fragmentDurationSec, 2.0f)
-        << "fragmentDurationSec must be set from the SIDX reference duration.";
+	// Also verify the duration was populated correctly (2000 ticks / 1000 Hz = 2.0s).
+	EXPECT_FLOAT_EQ(dlInfo->fragmentDurationSec, 2.0f)
+		<< "fragmentDurationSec must be set from the SIDX reference duration.";
 }

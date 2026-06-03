@@ -1070,7 +1070,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			// mIdxBaseOffset is the byte position of segment 0 in the file for the
 			// current IDX profile, captured when IDX was loaded in the FetcherLoop.
 			// Using it here avoids the previous bug of starting from offset 1,
-			// which missed the moov+SIDX prefix and fetched wrong byte ranges.
+			// which landed inside the moov+SIDX prefix and fetched wrong byte ranges.
 			dlInfo->fragmentOffset = mIdxBaseOffset;
 			unsigned int referenced_size = 0;
 			float fragmentDuration = 0.0f;
