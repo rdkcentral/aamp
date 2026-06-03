@@ -861,7 +861,7 @@ public:
 	*
 	* @return modified manifest data
 	*/
-	std::string SendManifestPreProcessEvent();
+	std::pair<std::string,int> SendManifestPreProcessEvent();
 
 	/**
 	 * @brief This function is invoked by application with the available preprocessed manifest information
