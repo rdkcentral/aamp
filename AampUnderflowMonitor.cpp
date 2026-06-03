@@ -71,11 +71,6 @@
 // In those cases the deadline is rearmed for the remaining drain time.
 static constexpr double kFalseAlarmGuardSec = 1.0;
 
-// Treat deadline expiry near the known VOD end as EOS rather than underflow.
-// This absorbs races where sink EOS arrives just before state transitions to
-// eSTATE_COMPLETE.
-static constexpr double kEosEndToleranceSec = 0.25;
-
 // ---------------------------------------------------------------------------
 // Construction / destruction
 // ---------------------------------------------------------------------------
@@ -356,7 +351,7 @@ void AampUnderflowMonitor::Run()
                     double eosEndToleranceSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowEosEndToleranceSec);
                     if (eosEndToleranceSec < 0.0)
                     {
-                        eosEndToleranceSec = kEosEndToleranceSec;
+                        eosEndToleranceSec = DEFAULT_UNDERFLOW_EOS_END_TOLERANCE_SEC;
                     }
                     const double durationSec = durationMs / 1000.0;
                     if (mCurrentEndPosition + eosEndToleranceSec >= durationSec)
