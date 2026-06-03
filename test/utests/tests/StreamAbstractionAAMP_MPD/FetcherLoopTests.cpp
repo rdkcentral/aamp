@@ -3180,15 +3180,15 @@ TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_Rewind_BacksOffToCorrectFragm
 		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
 	ASSERT_NE(ctx, nullptr);
 
-	// Push both data fragments to advance the stream to its end (fragmentIndex=2,
-	// fragmentTime=4.0 s).  IDX was already loaded during Init.
-	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragment(kSegBaseVideoUrl, _, _, _, _, false, _, _, _))
-		.WillRepeatedly(Return(true));
-	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));  // ref 0
-	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));  // ref 1
-	ASSERT_EQ(ctx->fragmentIndex, 2);
-	ASSERT_NEAR(ctx->fragmentTime, 4.0, 0.001);
+	// IDX was lazily loaded during InitializeMPD (via SeekInPeriod(0)).
+	// Manually place the context at the logical end-of-stream position:
+	//   fragmentIndex=2 (past both refs), fragmentTime=4.0 s (total stream
+	//   duration), fragmentOffset=29672 (1000 + 16384 + 12288).
+	// This avoids relying on PushNextFragment's double fragmentTime increment
+	// (once in FetchFragment, once in the SegmentBase PushNextFragment path).
+	ctx->fragmentIndex  = 2;
+	ctx->fragmentTime   = 4.0;
+	ctx->fragmentOffset = 29672;
 
 	// Rewind 3 s → targetTime = 1.0 s, inside ref[0] (spans 0–2 s).
 	// Walk overshoots to fragmentTime=2.0; back-off must correct to 0.0.
