@@ -113,16 +113,15 @@ class AampRialtoPlayerTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		m_mockGLib = std::make_unique<NiceMock<MockGLib>>();
-		g_mockGLib = m_mockGLib.get();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockGLib = std::make_shared<NiceMock<MockGLib>>();
 
 		ON_CALL(*g_mockAampConfig,
 			GetConfigValue(eAAMPConfig_ReportProgressInterval))
 			.WillByDefault(Return(1.0));
 
-		ON_CALL(*m_mockGLib, g_timeout_add(_, _, _))
+		ON_CALL(*g_mockGLib, g_timeout_add(_, _, _))
 			.WillByDefault(Invoke(
 				[this](guint /*interval*/, GSourceFunc function, gpointer data)
 				{
@@ -131,7 +130,7 @@ protected:
 					return m_nextTimerId++;
 				}));
 
-		ON_CALL(*m_mockGLib, g_source_remove(_))
+		ON_CALL(*g_mockGLib, g_source_remove(_))
 			.WillByDefault(Return(TRUE));
 
 		m_mockFactory = std::make_shared<NiceMock<MockIMediaPipelineFactory>>();
@@ -287,7 +286,7 @@ protected:
 			};
 
 		m_player = std::make_unique<AampRialtoPlayer>(
-				reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
+				reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
 				&m_mockNotifiable,
 				std::move(controlBackend),
 				/*id3HandlerCallback=*/nullptr,
@@ -298,13 +297,10 @@ protected:
 	void TearDown() override
 	{
 		m_player.reset();
-		g_mockGLib = nullptr;
-		m_mockGLib.reset();
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockGLib.reset();
+		g_mockAampConfig.reset();
 		g_mockPipelineFactory = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 		m_nextSourceId = 0;
 		m_createSourceCallCount = 0;
 		m_mockSources = {};
@@ -480,7 +476,6 @@ protected:
 	std::shared_ptr<NiceMock<MockIMediaPipelineFactory>> m_mockFactory;
 	std::unique_ptr<NiceMock<MockIMediaPipeline>>        m_mockPipeline;
 	NiceMock<MockIMediaPipeline> *                       m_mockPipelinePtr{nullptr};
-	std::unique_ptr<NiceMock<MockGLib>>                  m_mockGLib;
 	std::unique_ptr<AampRialtoPlayer>                    m_player;
 	std::weak_ptr<firebolt::rialto::IMediaPipelineClient> m_capturedClient;
 	NiceMock<MockIStreamSinkNotifiable>                  m_mockNotifiable;
@@ -504,12 +499,12 @@ protected:
 	void SetUp() override
 	{
 		AampRialtoPlayerTest::SetUp();
-		g_mockMp4Demux = new NiceMock<MockMp4Demux>();
+		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockMp4Demux;
+		g_mockMp4Demux.reset();
 		g_mockMp4Demux = nullptr;
 		AampRialtoPlayerTest::TearDown();
 	}
@@ -536,7 +531,7 @@ TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
 	SourceCreator nullCreator = [](AampMediaType) { return nullptr; };
 
 	m_player = std::make_unique<AampRialtoPlayer>(
-		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
 		&m_mockNotifiable,
 		std::unique_ptr<IRialtoControlBackend>(nullptr),
 		/*id3HandlerCallback=*/nullptr,
@@ -1389,7 +1384,7 @@ TEST_F(AampRialtoPlayerTest,
 	constexpr guint kExpectedIntervalMs = 250;
 	EXPECT_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
 		.WillOnce(Return(0.25));
-	EXPECT_CALL(*m_mockGLib,
+	EXPECT_CALL(*g_mockGLib,
 		g_timeout_add(kExpectedIntervalMs, _, m_player.get()))
 		.WillOnce(DoAll(
 			SaveArg<1>(&m_progressTimerCallback),
@@ -1418,14 +1413,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Stop_RemovesProgressTimer)
 {
-	EXPECT_CALL(*m_mockGLib, g_timeout_add(_, _, _))
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _))
 		.WillOnce(DoAll(
 			SaveArg<1>(&m_progressTimerCallback),
 			SaveArg<2>(&m_progressTimerUserData),
 			Return(77)));
 	Configure();
 
-	EXPECT_CALL(*m_mockGLib, g_source_remove(77))
+	EXPECT_CALL(*g_mockGLib, g_source_remove(77))
 		.WillOnce(Return(TRUE));
 	m_player->Stop(/*keepLastFrame=*/false);
 }

@@ -750,11 +750,10 @@ protected:
 	void SetUp() override
 	{
 		AampRialtoVideoSourceTest::SetUp();
-		m_mockDemux = std::make_unique<NiceMock<MockMp4Demux>>();
-		g_mockMp4Demux = m_mockDemux.get();
+		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
 		// Prime the demuxer lazily via processInitFragment so that
 		// subsequent processDataFragment tests have an initialised demuxer.
-		ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 		auto buf = std::make_shared<std::vector<uint8_t>>(
 			std::vector<uint8_t>{0x00});
 		m_source.processInitFragment(std::move(buf));
@@ -762,11 +761,9 @@ protected:
 
 	void TearDown() override
 	{
-		g_mockMp4Demux = nullptr;
+		g_mockMp4Demux.reset();
 		AampRialtoVideoSourceTest::TearDown();
 	}
-
-	std::unique_ptr<NiceMock<MockMp4Demux>> m_mockDemux;
 };
 
 // ---------------------------------------------------------------------------
@@ -780,8 +777,8 @@ protected:
 TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	AampRialtoVideoSource_ProcessInitFragment_Success)
 {
-	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(true));
-	ON_CALL(*m_mockDemux, GetCodecInfo())
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetCodecInfo())
 		.WillByDefault([]() { return MakeH264CodecInfo(1280, 720); });
 
 	auto buf = std::make_shared<std::vector<uint8_t>>(
@@ -807,7 +804,7 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	AampRialtoVideoSource_ProcessInitFragment_ParseFails_ReturnsNullopt)
 {
-	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(false));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(false));
 
 	auto buf = std::make_shared<std::vector<uint8_t>>(
 		std::vector<uint8_t>{0xFF});
@@ -852,7 +849,7 @@ TEST_F(AampRialtoVideoSourceTest,
 TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	AampRialtoVideoSource_ProcessDataFragment_ParseFails_ReturnsFalse)
 {
-	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(false));
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(false));
 
 	auto buf = std::make_shared<std::vector<uint8_t>>(
 		std::vector<uint8_t>{0xFF});
@@ -874,8 +871,8 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	AampRialtoVideoSource_ProcessDataFragment_EmptySamples_ReturnsTrue)
 {
-	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(true));
-	ON_CALL(*m_mockDemux, GetSamples())
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() { return std::vector<AampMediaSample>{}; });
 
 	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
@@ -904,8 +901,8 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
 
 	// Provide one sample from the demuxer.
-	ON_CALL(*m_mockDemux, Parse(_)).WillByDefault(Return(true));
-	ON_CALL(*m_mockDemux, GetSamples())
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
 		.WillByDefault([]() {
 			AampMediaSample s;
 			static uint8_t rawData[] = {0x00, 0x01, 0x02};

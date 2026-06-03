@@ -26,14 +26,14 @@
  *        based on runtime configuration.
  *
  * Production behaviour:
- *  - eAAMPConfig_useRialtoDirect == false → OpenCDMProvider (real OCDM C library)
- *  - eAAMPConfig_useRialtoDirect == true  → RialtoMediaKeysProvider
+ *  - eAAMPConfig_useDirectRialto == false → OpenCDMProvider (real OCDM C library)
+ *  - eAAMPConfig_useDirectRialto == true  → RialtoMediaKeysProvider
  *
  * The factory can be pre-configured with a custom creator function to allow
  * unit tests to inject mock IOpenCDM implementations without touching the
  * config system.
  *
- * TODO: [SHARED-INFRA] This file reads eAAMPConfig_useRialtoDirect which
+ * TODO: [SHARED-INFRA] This file reads eAAMPConfig_useDirectRialto which
  *       requires AampConfig.h.  Per direct-rialto.instructions.md, any
  *       dependency from middleware/ on direct-rialto-specific config must be
  *       reviewed as a separate, explicit shared-infrastructure change.
@@ -60,7 +60,7 @@ public:
 	/**
 	 * @brief Create the appropriate IOpenCDM for the given key system.
 	 *
-	 * Checks eAAMPConfig_useRialtoDirect and returns either an
+	 * Checks eAAMPConfig_useDirectRialto and returns either an
 	 * OpenCDMProvider or a RialtoMediaKeysProvider.
 	 *
 	 * @param keySystem  DRM key system UUID string.

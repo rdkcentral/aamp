@@ -37,6 +37,7 @@
 using ::testing::Return;
 using ::testing::NiceMock;
 using ::testing::_;
+using ::testing::NiceMock;
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -47,8 +48,8 @@ class PrivateInstanceAAMPNotifiableTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockPrivateInstanceAAMP = &m_mock;
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		m_notifiable = std::make_unique<PrivateInstanceAAMPNotifiable>(
 			&m_aamp);
 	}
@@ -56,13 +57,11 @@ protected:
 	void TearDown() override
 	{
 		m_notifiable.reset();
-		g_mockPrivateInstanceAAMP = nullptr;
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
+		g_mockAampConfig.reset();
 	}
 
 	PrivateInstanceAAMP m_aamp{};
-	MockPrivateInstanceAAMP m_mock;
 	std::unique_ptr<PrivateInstanceAAMPNotifiable> m_notifiable;
 };
 
@@ -73,7 +72,7 @@ protected:
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	GetState_ForwardsToAamp_ReturnsMockedValue)
 {
-	EXPECT_CALL(m_mock, GetState())
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.WillOnce(Return(eSTATE_PLAYING));
 
 	EXPECT_EQ(m_notifiable->GetState(), eSTATE_PLAYING);
@@ -82,7 +81,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifySpeedChanged_ForwardsRateAndChangeState)
 {
-	EXPECT_CALL(m_mock, NotifySpeedChanged(2.0f, true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0f, true));
 
 	m_notifiable->NotifySpeedChanged(2.0f, true);
 }
@@ -96,9 +95,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 {
 	// NotifyFirstFrameReceived in the fake calls SetState internally;
 	// set up the mock to handle GetState/SetState calls.
-	EXPECT_CALL(m_mock, GetState())
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.WillRepeatedly(Return(eSTATE_IDLE));
-	EXPECT_CALL(m_mock, SetState(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_, _)).Times(testing::AnyNumber());
 
 	m_notifiable->NotifyFirstFrameReceived(42);
 }
@@ -150,7 +149,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	PrivateInstanceAAMP aampWithConfig(&config);
 	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
 
-	EXPECT_CALL(mockConfig,
+	EXPECT_CALL(*g_mockAampConfig,
 		GetConfigValue(eAAMPConfig_ReportProgressInterval))
 		.WillOnce(Return(0.75));
 

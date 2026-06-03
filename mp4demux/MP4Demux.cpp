@@ -195,7 +195,7 @@ Mp4Demux::~Mp4Demux()
 	LogMetrics();
 }
 
-void Mp4Demux::setParseError( Mp4ParseError err )
+void Mp4Demux::setParseError( Mp4ParseError err, const char* what )
 {
 	parseError = err;
 	const char *text = nullptr;
@@ -250,7 +250,14 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 			text = "UNEXPECTED_IS_ENCRYPTED_FIELD";
 			break;
 	}
-	MP4_LOG_ERR( "%s", text );
+	if (what && what[0] != '\0')
+	{
+		MP4_LOG_ERR( "%s: %s", text, what );
+	}
+	else
+	{
+		MP4_LOG_ERR( "%s", text );
+	}
 }
 
 /**
@@ -645,11 +652,9 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
  * - Initialization vector (IV)
  * - Subsample encryption information (clear/encrypted byte pairs)
  * - Cipher mode and pattern encryption settings
+ *
+ * @param next Pointer to next box
  */
-// TODO: Signature and body changes below (next parameter, bounds checks, and
-//       debug logging) were added to support direct-rialto DRM parsing and
-//       should have been a separate, independently reviewed change per
-//       direct-rialto.instructions.md scope boundary rules.
 void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 {
 	ReadHeader();
@@ -659,6 +664,7 @@ void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 		sampleCount, ivSize, flags,
 		(flags & SENC_SUBSAMPLE_ENCRYPTION_PRESENT) ? 1 : 0,
 		static_cast<size_t>(next - ptr));
+
 	if (samples.size() != maxSampleCount)
 	{
 		throw Mp4ParseException(MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH, "senc: sampleCount mismatch");
@@ -1329,9 +1335,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				break;
 			default:
 				// Unknown/unhandled box — skip payload and continue
-				// TODO: Skip-and-log behaviour added for direct-rialto DRM; should
-				//       have been a separate change per direct-rialto.instructions.md.
-				MP4_LOG_DEBUG("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
+				MP4_LOG_WARN("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
 				ptr = next;
 				break;
 		}
@@ -1416,10 +1420,7 @@ bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 			MP4_LOG_DEBUG("Demux metrics: %u frames in %.3f ms", frameCount, demuxDuration.count());
 		}
 	} catch (const Mp4ParseException& ex) {
-		setParseError(ex.code());
-		// TODO: MP4_LOG_ERR call added for direct-rialto DRM diagnostics; should
-		//       have been a separate change per direct-rialto.instructions.md.
-		MP4_LOG_ERR("%s", ex.what());
+		setParseError(ex.code(), ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error

@@ -25,7 +25,7 @@
  * @brief Concrete IOpenCDM / IOpenCDMSession implementation that delegates
  *        to firebolt::rialto::IMediaKeys.
  *
- * Used when eAAMPConfig_useRialtoDirect is enabled.  decrypt() and
+ * Used when eAAMPConfig_useDirectRialto is enabled.  decrypt() and
  * decryptGst() are no-op stubs — decryption is performed server-side by
  * the Rialto pipeline.
  *

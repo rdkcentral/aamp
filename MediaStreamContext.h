@@ -80,7 +80,8 @@ public:
 			mReachedFirstFragOnRewind(false),
 			fetchChunkBufferMutex(),
 			mActiveDownloadInfo(nullptr),
-			mMediaStreamContextMutex()
+		mMediaStreamContextMutex(),
+		mIdxMutex()
 	{
 		AAMPLOG_INFO("[%s] Create new MediaStreamContext",
 				GetMediaTypeName(mediaType));
@@ -374,6 +375,7 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	std::mutex fetchChunkBufferMutex;
 	DownloadInfoPtr mActiveDownloadInfo;
 	std::recursive_mutex mMediaStreamContextMutex; /**< Recursive mutex to protect MediaStreamContext state during ABR profile changes and playlist updates */
+	std::mutex mIdxMutex; /**< Protects IDX buffer: FetcherLoop (writer) vs. download worker threads (reader) */
 
 protected:
 	CachedFragment mStagingFragment{};		/**< Staging buffer for fragment download in progress */
