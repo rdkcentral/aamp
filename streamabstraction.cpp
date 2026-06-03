@@ -2169,7 +2169,15 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 bool StreamAbstractionAAMP::IsInitialCachingSupported()
 {
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	return (video && video->enabled);
+	bool isSupported = (video && video->enabled);
+
+	if (ISCONFIGSET(eAAMPConfig_useRialtoDirect))
+	{
+		// This is a quick hack until the whole caching logic is understood
+		AAMPLOG_WARN("Disabling InitialCaching for DirectRialto");
+		isSupported = false;
+	}
+	return isSupported;
 }
 
 /**
