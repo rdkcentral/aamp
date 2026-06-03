@@ -1831,6 +1831,17 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector();
 
+	// HACK used for testing only - if Rialto sink is enabled, then also enable direct rialto,
+	// mp4 demux and any other desired configuration
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink))
+	{
+		AAMPLOG_MIL("Rialto sink enabled, enabling direct rialto");
+		SETCONFIGVALUE_PRIV(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true);
+		SETCONFIGVALUE_PRIV(AAMP_DEV_CFG_SETTING, eAAMPConfig_UseMp4Demux, true);
+		SETCONFIGVALUE_PRIV(AAMP_DEV_CFG_SETTING, eAAMPConfig_ProgressLogging, true);
+		SETCONFIGVALUE_PRIV(AAMP_DEV_CFG_SETTING, eAAMPConfig_LogFilename, true);
+	}
+
 	// Ensure the correct CC variant class will be used
 	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
 
