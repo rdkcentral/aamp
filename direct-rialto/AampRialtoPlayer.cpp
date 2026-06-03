@@ -1300,6 +1300,11 @@ void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t i
 	AAMPLOG_INFO("ENTRY newAamp=%p", newAamp);
 	m_aamp = newAamp;
 	m_ID3MetadataHandler = std::move(id3HandlerCallback);
+	if (m_notifiableAdapter)
+	{
+		static_cast<PrivateInstanceAAMPNotifiable *>(m_notifiableAdapter.get())
+			->ChangeAamp(newAamp);
+	}
 	AAMPLOG_INFO("EXIT");
 }
 

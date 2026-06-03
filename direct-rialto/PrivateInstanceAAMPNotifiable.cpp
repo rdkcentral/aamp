@@ -32,6 +32,13 @@ PrivateInstanceAAMPNotifiable::PrivateInstanceAAMPNotifiable(
 {
 }
 
+void PrivateInstanceAAMPNotifiable::ChangeAamp(
+	PrivateInstanceAAMP *newAamp) noexcept
+{
+	AAMPLOG_TRACE("newAamp=%p", newAamp);
+	m_aamp = newAamp;
+}
+
 void PrivateInstanceAAMPNotifiable::NotifyFirstFrameReceived(
 	unsigned long ccDecoderHandle)
 {

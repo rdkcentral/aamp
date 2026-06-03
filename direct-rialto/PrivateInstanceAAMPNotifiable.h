@@ -59,6 +59,18 @@ public:
 	PrivateInstanceAAMPNotifiable(const PrivateInstanceAAMPNotifiable &) = delete;
 	PrivateInstanceAAMPNotifiable &operator=(const PrivateInstanceAAMPNotifiable &) = delete;
 
+	/**
+	 * @brief Update the wrapped AAMP instance.
+	 *
+	 * Must be called whenever AampRialtoPlayer::ChangeAamp() updates its own
+	 * m_aamp pointer so that subsequent notifications are forwarded to the
+	 * correct PrivateInstanceAAMP instance.
+	 *
+	 * @param[in] newAamp  Non-null pointer to the new owning PrivateInstanceAAMP.
+	 *                     Must outlive this adapter.
+	 */
+	void ChangeAamp(PrivateInstanceAAMP *newAamp) noexcept;
+
 	void NotifyFirstFrameReceived(unsigned long ccDecoderHandle) override;
 	void NotifyFirstBufferProcessed(const std::string &videoRectangle) override;
 	void NotifyFirstVideoFrameDisplayed() override;

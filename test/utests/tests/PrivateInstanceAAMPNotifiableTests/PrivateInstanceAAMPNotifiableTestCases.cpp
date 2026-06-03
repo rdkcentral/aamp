@@ -127,3 +127,43 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 {
 	m_notifiable->MonitorProgress(true, false);
 }
+
+// ===========================================================================
+// ChangeAamp
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_UpdatesTargetInstance)
+{
+	// Arrange: create a second AAMP instance and wire its mock.
+	PrivateInstanceAAMP newAamp{};
+	MockPrivateInstanceAAMP newMock;
+
+	// Act: switch the adapter to the new instance.
+	m_notifiable->ChangeAamp(&newAamp);
+
+	// Assert: subsequent calls go to newMock, not m_mock.
+	// The global pointer must point at newMock for the fake to delegate.
+	g_mockPrivateInstanceAAMP = &newMock;
+
+	EXPECT_CALL(newMock, GetState()).WillOnce(Return(eSTATE_PLAYING));
+	EXPECT_CALL(m_mock, GetState()).Times(0);
+
+	EXPECT_EQ(m_notifiable->GetState(), eSTATE_PLAYING);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_AfterChange_OldInstanceNotNotified)
+{
+	// After ChangeAamp the original instance must receive no notifications.
+	PrivateInstanceAAMP newAamp{};
+	MockPrivateInstanceAAMP newMock;
+
+	m_notifiable->ChangeAamp(&newAamp);
+	g_mockPrivateInstanceAAMP = &newMock;
+
+	EXPECT_CALL(newMock, NotifySpeedChanged(1.5f, false));
+	EXPECT_CALL(m_mock, NotifySpeedChanged(_, _)).Times(0);
+
+	m_notifiable->NotifySpeedChanged(1.5f, false);
+}
