@@ -6448,6 +6448,17 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		return;
 	}
 
+	// Fix A: if the application explicitly selected an in-band CC track via
+	// SetTextTrack, do not auto-pick a subtitle adaptation set here. Doing so
+	// would clobber aamp->mIsInbandCC to false on every retune (e.g. trickplay
+	// exit) and break the RestoreCC gate in TuneHelper. Leave the subtitle
+	// MediaStreamContext disabled and keep mIsInbandCC as the user set it.
+	if (aamp->mAppSelectedInbandCC)
+	{
+		AAMPLOG_WARN("App-selected in-band CC active; skipping subtitle auto-pick to preserve mIsInbandCC=%d", aamp->mIsInbandCC);
+		return;
+	}
+
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
 	if (AAMP_NORMAL_PLAY_RATE == rate)
 	{

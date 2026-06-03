@@ -1261,6 +1261,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mVideoRect{}
 	, mData()
 	, mIsInbandCC(true)
+	, mAppSelectedInbandCC(false)
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
@@ -5868,6 +5869,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// Reset current audio/text track index
 	mCurrentAudioTrackIndex = -1;
 	mCurrentTextTrackIndex = -1;
+	// A new asset is being tuned: forget any previously app-selected in-band
+	// CC choice so the new manifest's text tracks are configured from scratch.
+	// Mid-session retunes (TuneHelper without going through Tune()) leave
+	// this flag intact so the user's CC choice persists across trickplay /
+	// seek-induced retunes.
+	mAppSelectedInbandCC = false;
 	SetPauseOnStartPlayback(false);
 
 	mSchemeIdUriDai = GETCONFIGVALUE_PRIV(eAAMPConfig_SchemeIdUriDaiStream);
@@ -10841,6 +10848,9 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 		// Passing in -1 as the track ID mutes subs
 		if (MUTE_SUBTITLES_TRACKID == trackId)
 		{
+			// User is muting all text rendering; clear the in-band CC
+			// preference so a subsequent retune does not auto-restore CC.
+			mAppSelectedInbandCC = false;
 			SetCCStatus(false);
 			if (data != NULL)
 			{
@@ -10860,6 +10870,11 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
+					// Remember that the application explicitly chose an in-band
+					// CC track so MPD SelectSubtitleTrack can skip its
+					// "auto-pick first subtitle adaptation" path on the next
+					// retune and avoid clobbering mIsInbandCC back to false.
+					mAppSelectedInbandCC = true;
 					if (!track.instreamId.empty())
 					{
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
@@ -10894,6 +10909,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				else
 				{
 					mIsInbandCC = false;
+					mAppSelectedInbandCC = false;
 					//Unmute subtitles
 					SetCCStatus(true);
 
