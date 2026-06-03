@@ -1652,12 +1652,12 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
 }
 
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		return g_mockPrivateInstanceAAMP->PausePipeline(
-			pause, forceStopGstreamerPreBuffering);
+			pause, forceStopPreBuffering);
 	}
 
 	return false;
