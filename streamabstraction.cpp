@@ -540,6 +540,9 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		totalFragmentsDownloaded++;
 	}
 	lock.unlock();
+
+	AAMPLOG_INFO("#### - UpdateTSAfterFetchStats() - notifyCacheCompleted %d", notifyCacheCompleted);
+
 	if (notifyCacheCompleted)
 	{
 		aamp->NotifyFragmentCachingComplete();
@@ -3452,6 +3455,8 @@ void MediaTrack::OnSinkBufferFull()
 			cachingCompleted = true;
 		}
 	}
+
+	AAMPLOG_INFO("#### - OnSinkBufferFull() - notifyCacheCompleted %d", notifyCacheCompleted);
 
 	if(notifyCacheCompleted)
 	{

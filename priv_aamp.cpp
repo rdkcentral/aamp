@@ -6019,6 +6019,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mPauseOnFirstVideoFrameDisp = false;
 		mFirstVideoFrameDisplayedEnabled = false;
 		prevFirstPeriodStartTime = 0;
+		AAMPLOG_INFO("#### - TuneHelper() - mFirstVideoFrameDisplayedEnabled %d mFragmentCachingRequired %d", mFirstVideoFrameDisplayedEnabled, mFragmentCachingRequired);
 	}
 	if( seekWhilePaused )
 	{ // Player state not updated correctly after seek
@@ -6026,6 +6027,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		// in this routine. See NotifyFirstFrameReceived(), NotifyFirstBufferProcessed(), NotifyFirstVideoFrameDisplayed()
 		mPauseOnFirstVideoFrameDisp = true;
 		mFirstVideoFrameDisplayedEnabled = true;
+		AAMPLOG_INFO("#### - TuneHelper() - mFirstVideoFrameDisplayedEnabled %d mPauseOnFirstVideoFrameDisp %d", mFirstVideoFrameDisplayedEnabled, mPauseOnFirstVideoFrameDisp);
 	}
 
 	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
@@ -6425,6 +6427,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
 			mFirstVideoFrameDisplayedEnabled = true;
 			mFragmentCachingRequired = true;
+			AAMPLOG_INFO("#### - TuneHelper() - mFirstVideoFrameDisplayedEnabled %d mFragmentCachingRequired %d", mFirstVideoFrameDisplayedEnabled, mFragmentCachingRequired);
+		}
+		else
+		{
+			AAMPLOG_INFO("#### - TuneHelper() - ");
 		}
 
 		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
@@ -6435,6 +6442,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		{
 			mFirstVideoFrameDisplayedEnabled = true;
 			mPauseOnFirstVideoFrameDisp = true;
+			AAMPLOG_INFO("#### - TuneHelper() - mFirstVideoFrameDisplayedEnabled %d mPauseOnFirstVideoFrameDisp %d", mFirstVideoFrameDisplayedEnabled, mPauseOnFirstVideoFrameDisp);
 		}
 
 		if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
@@ -9040,8 +9048,12 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 {
 	AAMPLOG_TRACE("NotifyFirstFrameReceived()");
 
+
 	// In the middle of stop processing we can receive state changing callback
 	AAMPPlayerState state = GetState();
+
+	AAMPLOG_INFO("#### - NotifyFirstFrameReceived() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
+
 	if (state == eSTATE_IDLE)
 	{
 		AAMPLOG_WARN( "skipped as in IDLE state" );
@@ -9068,6 +9080,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	InitializeCC(ccDecoderHandle);
 
 	NotifyPauseOnStartPlayback();
+	AAMPLOG_INFO("#### - NotifyFirstFrameReceived() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
 }
 
 /**
@@ -9395,6 +9408,9 @@ void PrivateInstanceAAMP::ResetEOSSignalledFlag()
 void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 {
 	std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
+
+	AAMPLOG_INFO("#### - NotifyFragmentCachingComplete() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
+
 	mFragmentCachingRequired = false;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
@@ -9410,6 +9426,8 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		}
 		SetState(eSTATE_PLAYING);
 	}
+
+	AAMPLOG_INFO("#### - NotifyFragmentCachingComplete() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
 }
 
 /**
@@ -9970,8 +9988,11 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
  */
 void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRectangle)
 {
+	AAMPLOG_INFO("#### - NotifyFirstBufferProcessed() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
+
 	// If mFirstVideoFrameDisplayedEnabled, state will be changed in NotifyFirstVideoDisplayed()
 	AAMPPlayerState state = GetState();
+
 
 	// In the middle of stop processing we can receive state changing callback
 	if (state == eSTATE_IDLE)
@@ -10003,6 +10024,8 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 		AAMPLOG_WARN("calling setVideoWindowSize  w:%d x h:%d ",w,h);
 		mDRMLicenseManager->setVideoWindowSize(w,h);
 	}
+
+	AAMPLOG_INFO("#### - NotifyFirstBufferProcessed() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
 
 }
 
@@ -11470,6 +11493,8 @@ int PrivateInstanceAAMP::GetInitialBufferDuration()
  */
 bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
+	AAMPLOG_INFO("#### - IsFirstVideoFrameDisplayedRequired() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
+
 	return mFirstVideoFrameDisplayedEnabled;
 }
 
@@ -11478,6 +11503,8 @@ bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
  */
 void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 {
+	AAMPLOG_INFO("#### - NotifyFirstVideoFrameDisplayed() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
+
 	if(!mFirstVideoFrameDisplayedEnabled)
 	{
 		return;
@@ -11524,6 +11551,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 		// If Buffering state was not needed, set PLAYING state
 		SetState(eSTATE_PLAYING);
 	}
+	AAMPLOG_INFO("#### - NotifyFirstVideoFrameDisplayed() - mFirstVideoFrameDisplayedEnabled %d state %d", mFirstVideoFrameDisplayedEnabled, GetState());
 }
 
 /**
