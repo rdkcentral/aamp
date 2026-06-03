@@ -110,7 +110,7 @@ class AampRialtoPlayerTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
 		m_mockFactory = std::make_shared<NiceMock<MockIMediaPipelineFactory>>();
 		m_mockPipeline = std::make_unique<NiceMock<MockIMediaPipeline>>();
@@ -262,7 +262,7 @@ protected:
 			};
 
 		m_player = std::make_unique<AampRialtoPlayer>(
-				reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
+				reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
 				&m_mockNotifiable,
 				std::move(controlBackend),
 				/*id3HandlerCallback=*/nullptr,
@@ -274,8 +274,7 @@ protected:
 	{
 		m_player.reset();
 		g_mockPipelineFactory = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 		m_nextSourceId = 0;
 		m_createSourceCallCount = 0;
 		m_mockSources = {};
@@ -459,12 +458,12 @@ protected:
 	void SetUp() override
 	{
 		AampRialtoPlayerTest::SetUp();
-		g_mockMp4Demux = new NiceMock<MockMp4Demux>();
+		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockMp4Demux;
+		g_mockMp4Demux.reset();
 		g_mockMp4Demux = nullptr;
 		AampRialtoPlayerTest::TearDown();
 	}
@@ -491,7 +490,7 @@ TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
 	SourceCreator nullCreator = [](AampMediaType) { return nullptr; };
 
 	m_player = std::make_unique<AampRialtoPlayer>(
-		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
 		&m_mockNotifiable,
 		std::unique_ptr<IRialtoControlBackend>(nullptr),
 		/*id3HandlerCallback=*/nullptr,
