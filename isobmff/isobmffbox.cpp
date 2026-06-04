@@ -90,7 +90,7 @@ void WriteUint64(uint8_t *dst, uint64_t val)
  */
 Box::Box(uint32_t sz, const char btype[4]) : offset(0), size(sz), type{}, base(nullptr)
 {
-	memcpy(type,btype,4);
+	std::memcpy(type, btype, BOX_TYPE_LENGTH);
 }
 
 /**
@@ -155,12 +155,10 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
 	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
-	constexpr size_t boxTypeLength = sizeof(uint32_t);
-	constexpr size_t boxTypeBufferSize = boxTypeLength + 1;
 
 	uint32_t size = 0;
-	char type[boxTypeBufferSize];
-	char safeType[boxTypeBufferSize] = {};
+	char type[BOX_TYPE_BUFFER_SIZE];
+	char safeType[BOX_TYPE_BUFFER_SIZE] = {};
 	if(maxSz < 4)
 	{
 		AAMPLOG_TRACE("Box data < 4 bytes. Can't determine Size & Type");
@@ -175,13 +173,13 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	else
 	{
 		size = READ_U32(hdr);
-		READ_U8(type, hdr, boxTypeLength);
-		type[boxTypeLength] = '\0';
-		for (size_t i = 0; i < boxTypeLength; i++)
+		READ_U8(type, hdr, BOX_TYPE_LENGTH);
+		type[BOX_TYPE_LENGTH] = '\0';
+		for (size_t i = 0; i < BOX_TYPE_LENGTH; i++)
 		{
 			safeType[i] = (type[i] >= 0x20 && type[i] <= 0x7e) ? static_cast<char>(type[i]) : '.';
 		}
-		safeType[boxTypeLength] = '\0';
+		safeType[BOX_TYPE_LENGTH] = '\0';
 	}
 
 	if (size < minHeaderSize)
@@ -291,12 +289,10 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
  */
 void Box::rewriteAsSkipBox(void)
 {
-	constexpr size_t boxTypeLength = sizeof(uint32_t);
-	constexpr size_t boxTypeBufferSize = boxTypeLength + sizeof(char);
 	// buffer
-	std::memcpy(base + sizeof(uint32_t), Box::SKIP, boxTypeLength);
+	std::memcpy(base + sizeof(uint32_t), Box::SKIP, BOX_TYPE_LENGTH);
 	// internal type
-	std::memcpy(type, Box::SKIP, boxTypeBufferSize);
+	std::memcpy(type, Box::SKIP, BOX_TYPE_BUFFER_SIZE);
 }
 
 /**

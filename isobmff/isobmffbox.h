@@ -79,7 +79,7 @@ inline void WRITE_U32(uint8_t *buf, uint32_t val)
 template <typename ByteT>
 inline void READ_U8(void *dst, ByteT *&src, size_t sz)
 {
-	memcpy(dst, src, sz);
+	std::memcpy(dst, src, sz);
 	src += sz;
 }
 
@@ -146,10 +146,12 @@ inline bool IS_TYPE(const char *value, const char *type)
 class Box
 {
 private:
+	static constexpr size_t BOX_TYPE_LENGTH = sizeof(uint32_t);
+	static constexpr size_t BOX_TYPE_BUFFER_SIZE = BOX_TYPE_LENGTH + sizeof(char);
 	uint8_t *base;		/**< Ptr to start of box */
 	uint32_t offset;	/**< Offset from the beginning of the segment */
 	uint32_t size;		/**< Box Size */
-	char type[5]; 		/**< Box Type Including \0 */
+	char type[BOX_TYPE_BUFFER_SIZE]; 		/**< Box Type Including \0 */
 
 /*TODO: Handle special cases separately */
 public:
@@ -427,7 +429,8 @@ public:
 	SkipBox(uint32_t sz, uint8_t *locn) : Box(sz, Box::SKIP)
 	{
 		WRITE_U32(locn, sz);
-		memcpy(locn + sizeof(uint32_t), Box::SKIP, std::strlen(Box::SKIP));
+		std::memcpy(locn + sizeof(uint32_t), Box::SKIP,
+			sizeof(uint32_t));
 	}
 };
 

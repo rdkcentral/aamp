@@ -207,7 +207,7 @@ bool IsoBmffBuffer::parseBoxInternal(const std::vector<std::unique_ptr<Box>> *bo
 					name, offset, size, bufSize);
 				return false;
 			}
-			memcpy(buf, buffer + offset, size);
+			std::memcpy(buf, buffer + offset, size);
 			return true;
 		}
 	}
