@@ -315,7 +315,6 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 								rollover_pts = true;
 							}
 						}
-						current_pts = timeStamp;
 						AAMPLOG_DEBUG("PTS updated %" PRIu64 , current_pts.value);
 						if(!finalized_base_pts)
 						{
