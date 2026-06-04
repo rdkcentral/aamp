@@ -39,7 +39,7 @@
             (void)write(STDERR_FILENO, _log_buf,                            \
                        (_len < (int)sizeof(_log_buf)) ? _len :             \
                        (int)sizeof(_log_buf) - 1);                         \
-        }    
+        }                                                                  \
     } while (0)
 
 
