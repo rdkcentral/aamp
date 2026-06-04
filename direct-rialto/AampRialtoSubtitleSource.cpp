@@ -91,7 +91,9 @@ bool AampRialtoSubtitleSource::mapCodecToMime(
 	// dedicated MIME type and bypass the normal codec mapping.
 	if (isInbandCC())
 	{
-		mimeType    = "application/x-subtitle-cc";
+		//anj:TODO:june4: change it to text/cc
+		mimeType    = "text/cc";
+		//mimeType    = "application/x-subtitle-cc";
 		streamFormat = firebolt::rialto::StreamFormat::RAW;
 		return true;
 	}
