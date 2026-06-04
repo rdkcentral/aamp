@@ -518,7 +518,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		{
 			// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 			// decrypt() call will return without doing anything
-			if (cdmidecryptor->drmSession != NULL)
+			if (cdmidecryptor->drmSession != NULL && cdmidecryptor->sinkCaps != NULL)
 			   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
 			else
 			{ /* If drmSession creation failed, then the call will be aborted here */
@@ -635,7 +635,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			goto free_resources;
 		}
 	}
-
+	if (cdmidecryptor->sinkCaps == NULL) {
+	    GST_WARNING_OBJECT(cdmidecryptor, "sinkCaps is NULL, skipping decrypt");
+	    result = GST_FLOW_NOT_SUPPORTED;
+	    goto free_resources;
+	}
 	errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
 
 	cdmidecryptor->streamEncrypted = true;
