@@ -397,6 +397,9 @@ private:
 	/// Stream() reads this to decide whether it can call play() immediately.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
+	/// GLib source ID for the periodic progress timer. 0 means inactive.
+	unsigned int m_progressTimerId{0};
+
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;
 
@@ -417,6 +420,18 @@ private:
 
 	/// @brief Called when Rialto reports that a media source has run dry.
 	void OnBufferUnderflow(int32_t sourceId);
+
+	/// @brief Static GLib timeout callback for periodic progress reporting.
+	static int ProgressTimerCallback(void *userData);
+
+	/// @brief Start periodic MonitorProgress() reporting.
+	void StartProgressTimer();
+
+	/// @brief Stop periodic MonitorProgress() reporting.
+	void StopProgressTimer();
+
+	/// @brief Timer tick handler that forwards progress to AAMP.
+	void OnProgressTimerTick();
 
 	/**
 	 * @brief Attach a source via its polymorphic attachOrUpdate method.

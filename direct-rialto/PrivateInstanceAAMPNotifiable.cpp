@@ -71,6 +71,22 @@ void PrivateInstanceAAMPNotifiable::MonitorProgress(
 	m_aamp->MonitorProgress(sync, beginningOfStream);
 }
 
+double PrivateInstanceAAMPNotifiable::GetProgressReportIntervalSeconds()
+{
+	double intervalSeconds = 0.0;
+	if (m_aamp == nullptr || m_aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("AAMP or config is null while reading progress interval");
+	}
+	else
+	{
+		intervalSeconds =
+			m_aamp->mConfig->GetConfigValue(eAAMPConfig_ReportProgressInterval);
+	}
+	AAMPLOG_TRACE("intervalSeconds=%f", intervalSeconds);
+	return intervalSeconds;
+}
+
 void PrivateInstanceAAMPNotifiable::NotifySpeedChanged(
 	float rate, bool changeState)
 {
