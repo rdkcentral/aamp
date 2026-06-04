@@ -364,6 +364,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
 	{false, "useDirectRialto", eAAMPConfig_useDirectRialto, false},
+	{true, "RialtoSinkSetsDirectRialto", eAAMPConfig_RialtoSinkSetsDirectRialto, false},
 	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
