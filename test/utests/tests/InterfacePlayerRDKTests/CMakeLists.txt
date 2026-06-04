@@ -29,7 +29,7 @@ include_directories(${AAMP_ROOT}/test/gstTestHarness)
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
 set(TEST_SOURCES InterfacePlayerRDKTestCases.cpp
-				 InterfacePlayerRDKTests.cpp‎
+				 InterfacePlayerRDKTests.cpp
 	)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp)
