@@ -7305,6 +7305,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, media.group_id.c_str(), media.name.c_str(), media.instreamID.c_str(), media.characteristics.c_str());
 				if (!disableWebVTT || media.isCC)
 				{
+					AAMPLOG_WARN("DEBUG--> PopulateAudioAndTextTracks: pushing text track to mTextTracks, current size=%zu, this=%p", mTextTracks.size(), this);
 					mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));	
 				}	
 			}

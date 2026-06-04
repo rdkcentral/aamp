@@ -12458,8 +12458,17 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
 
+	AAMPLOG_WARN("DEBUG--> CheckPreferredTextLanguages: currentTrackIndex=%d trackInfo.size()=%zu", currentTrackIndex, trackInfo.size());
+
 	if (currentTrackIndex >= 0)
 	{
+		if (currentTrackIndex >= static_cast<int>(trackInfo.size()))
+		{
+			AAMPLOG_ERR("DEBUG--> CheckPreferredTextLanguages: OUT OF BOUNDS! currentTrackIndex=%d >= trackInfo.size()=%zu, resetting to -1", currentTrackIndex, trackInfo.size());
+			closedCaptionTrackIdx = FindClosedCaptionTrackIndex(trackInfo);
+			isSelectionChange = true;
+			return;
+		}
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
 		char *currentPrefRendition = const_cast<char *>(trackInfo[currentTrackIndex].rendition.c_str());
 		char *currentPrefInstreamId = const_cast<char *>(trackInfo[currentTrackIndex].instreamId.c_str());
@@ -12571,11 +12580,14 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 	SavePreferredTextLanguages(param, isSelectionChange);
 
 	AAMPPlayerState state = GetState();
+	AAMPLOG_WARN("DEBUG--> SetPreferredTextLanguages: state=%d mpStreamAbstractionAAMP=%p", state, mpStreamAbstractionAAMP);
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
 		{
+			AAMPLOG_WARN("DEBUG--> SetPreferredTextLanguages: before GetAvailableTextTracks, mpStreamAbstractionAAMP=%p", mpStreamAbstractionAAMP);
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+			AAMPLOG_WARN("DEBUG--> SetPreferredTextLanguages: after GetAvailableTextTracks, trackInfo.size()=%zu", trackInfo.size());
 
 			CheckPreferredTextLanguages(trackInfo, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
 
