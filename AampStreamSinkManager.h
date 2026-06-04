@@ -19,7 +19,7 @@
 
 /**
  * @file AampStreamSinkmanager.h
- * @brief manages stream sink of gstreamer
+ * @brief manages stream sink players
  */
 
 #ifndef AAMPSTREAMSINKMANAGER_H
@@ -35,7 +35,7 @@ class PrivateInstanceAAMP;
 
 /**
  * @class AampStreamSinkManager
- * @brief Class declaration that manages stream sink of gstreamer
+ * @brief Class declaration that manages stream sink players
  */
 class AampStreamSinkManager
 {
@@ -59,7 +59,7 @@ public:
 	virtual ~AampStreamSinkManager();
 	/**
 	 *  @fn SetSinglePipelineMode
-	 *  @brief Sets the GStreamer pipeline mode to single.
+	 *  @brief Sets the pipeline mode to single.
 	 *  @param[in] aamp - the PrivateInstanceAAMP, the player that is activating single pipeline
 	 */
 	virtual void SetSinglePipelineMode(PrivateInstanceAAMP *aamp);
@@ -207,8 +207,8 @@ private:
 
 	/**
 	 *  @fn SetActive
-	 *  @brief Makes an instance of PrivateInstanceAAMP as the active i.e. its data fed into Gstreamer pipeline
-	 *  @param[in] aamp - the PrivateInstanceAAMP, data of which will be fed into Gstreamer pipeline
+	 *  @brief Makes an instance of PrivateInstanceAAMP as the active i.e. its data fed into the stream sink pipeline
+	 *  @param[in] aamp - the PrivateInstanceAAMP, data of which will be fed into the stream sink pipeline
 	 *  @param[in] position - the current playback position for the player being activated
 	 */
 	void SetActive(PrivateInstanceAAMP *aamp, double position);
@@ -229,11 +229,11 @@ private:
 	 */
 	StreamSink* CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames);
 
-	StreamSink *mGstPlayer;
+	StreamSink *mStreamPlayer;
 
 	std::map<PrivateInstanceAAMP*, StreamSink*> mClientStreamSinkMap;						/**< To maintain information on client supplied StreamSink for PrivateInstanceAAMP */
-	std::map<PrivateInstanceAAMP*, StreamSink*> mActiveGstPlayersMap;					/**< To maintain information on currently active PrivateInstanceAAMP */
-	std::map<PrivateInstanceAAMP*, AampStreamSinkInactive*> mInactiveGstPlayersMap;			/**< To maintain information on currently inactive PrivateInstanceAAMP*/
+	std::map<PrivateInstanceAAMP*, StreamSink*> mActivePlayersMap;					/**< To maintain information on currently active PrivateInstanceAAMP */
+	std::map<PrivateInstanceAAMP*, AampStreamSinkInactive*> mInactivePlayersMap;			/**< To maintain information on currently inactive PrivateInstanceAAMP*/
 	std::map<int, std::string> mEncryptedHeaders;
 
 	std::vector<std::shared_ptr<MediaHeader> > mMediaHeaders;
