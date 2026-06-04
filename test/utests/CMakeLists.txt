@@ -24,6 +24,7 @@ set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 include(CTest)
 
 set(AAMP_ROOT "../../")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/fakes)
 include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
 include_directories(${AAMP_ROOT}/middleware)
