@@ -36,39 +36,23 @@
 // Size of the size and tag fields in IsoBmff
 #define SIZEOF_SIZE_AND_TAG    (8)
 
-inline uint16_t READ_U16(uint8_t *&buf)
+template <typename ByteT>
+inline uint16_t READ_U16(ByteT *&buf)
 {
 	uint16_t val = (static_cast<uint16_t>(buf[0]) << 8) |
 		static_cast<uint16_t>(buf[1]);
-	buf += 2;
+	buf += sizeof(uint16_t);
 	return val;
 }
 
-inline uint16_t READ_U16(const uint8_t *&buf)
-{
-	uint16_t val = (static_cast<uint16_t>(buf[0]) << 8) |
-		static_cast<uint16_t>(buf[1]);
-	buf += 2;
-	return val;
-}
-
-inline uint32_t READ_U32(uint8_t *&buf)
+template <typename ByteT>
+inline uint32_t READ_U32(ByteT *&buf)
 {
 	uint32_t val = (static_cast<uint32_t>(buf[0]) << 24) |
 		(static_cast<uint32_t>(buf[1]) << 16) |
 		(static_cast<uint32_t>(buf[2]) << 8) |
 		static_cast<uint32_t>(buf[3]);
-	buf += 4;
-	return val;
-}
-
-inline uint32_t READ_U32(const uint8_t *&buf)
-{
-	uint32_t val = (static_cast<uint32_t>(buf[0]) << 24) |
-		(static_cast<uint32_t>(buf[1]) << 16) |
-		(static_cast<uint32_t>(buf[2]) << 8) |
-		static_cast<uint32_t>(buf[3]);
-	buf += 4;
+	buf += sizeof(uint32_t);
 	return val;
 }
 
@@ -92,47 +76,28 @@ inline void WRITE_U32(uint8_t *buf, uint32_t val)
 	buf[3] = static_cast<uint8_t>(val);
 }
 
-inline void READ_U8(void *dst, uint8_t *&src, size_t sz)
+template <typename ByteT>
+inline void READ_U8(void *dst, ByteT *&src, size_t sz)
 {
 	memcpy(dst, src, sz);
 	src += sz;
 }
 
-inline void READ_U8(void *dst, const uint8_t *&src, size_t sz)
-{
-	memcpy(dst, src, sz);
-	src += sz;
-}
-
-inline uint8_t READ_VERSION(uint8_t *&buf)
+template <typename ByteT>
+inline uint8_t READ_VERSION(ByteT *&buf)
 {
 	uint8_t version = buf[0];
-	buf++;
+	buf += sizeof(uint8_t);
 	return version;
 }
 
-inline uint8_t READ_VERSION(const uint8_t *&buf)
-{
-	uint8_t version = buf[0];
-	buf++;
-	return version;
-}
-
-inline uint32_t READ_FLAGS(uint8_t *&buf)
+template <typename ByteT>
+inline uint32_t READ_FLAGS(ByteT *&buf)
 {
 	uint32_t flags = (static_cast<uint32_t>(buf[0]) << 16) |
 		(static_cast<uint32_t>(buf[1]) << 8) |
 		static_cast<uint32_t>(buf[2]);
-	buf += 3;
-	return flags;
-}
-
-inline uint32_t READ_FLAGS(const uint8_t *&buf)
-{
-	uint32_t flags = (static_cast<uint32_t>(buf[0]) << 16) |
-		(static_cast<uint32_t>(buf[1]) << 8) |
-		static_cast<uint32_t>(buf[2]);
-	buf += 3;
+	buf += (sizeof(uint8_t) * 3);
 	return flags;
 }
 
@@ -160,42 +125,17 @@ void WriteUint64(uint8_t *dst, uint64_t val);
  */
 int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
 
-inline uint64_t READ_U64(uint8_t *&buf)
+template <typename ByteT>
+inline uint64_t READ_U64(ByteT *&buf)
 {
 	uint64_t val = ReadUint64(buf);
-	buf += 8;
+	buf += sizeof(uint64_t);
 	return val;
-}
-
-inline uint64_t READ_U64(const uint8_t *&buf)
-{
-	uint64_t val = ReadUint64(buf);
-	buf += 8;
-	return val;
-}
-
-inline bool IS_TYPE(const uint8_t *value, const char *type)
-{
-	return (value[0] == static_cast<uint8_t>(type[0])) &&
-		(value[1] == static_cast<uint8_t>(type[1])) &&
-		(value[2] == static_cast<uint8_t>(type[2])) &&
-		(value[3] == static_cast<uint8_t>(type[3]));
-}
-
-inline bool IS_TYPE(const uint8_t *value, const uint8_t *type)
-{
-	return (value[0] == type[0]) &&
-		(value[1] == type[1]) &&
-		(value[2] == type[2]) &&
-		(value[3] == type[3]);
 }
 
 inline bool IS_TYPE(const char *value, const char *type)
 {
-	return (value[0] == type[0]) &&
-		(value[1] == type[1]) &&
-		(value[2] == type[2]) &&
-		(value[3] == type[3]);
+	return (std::memcmp(value, type, sizeof(uint32_t)) == 0);
 }
 
 

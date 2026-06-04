@@ -271,9 +271,9 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 				size, remaining);
 			break;
 		}
-		uint8_t type[5];
-		READ_U8(type, buf, 4);
-		type[4] = '\0';
+		char type[5];
+		READ_U8(type, buf, sizeof(uint32_t));
+		type[sizeof(uint32_t)] = '\0';
 
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
@@ -327,9 +327,9 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 				size, remaining);
 			break;
 		}
-		uint8_t type[5];
-		READ_U8(type, buf, 4);
-		type[4] = '\0';
+		char type[5];
+		READ_U8(type, buf, sizeof(uint32_t));
+		type[sizeof(uint32_t)] = '\0';
 
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
@@ -593,7 +593,7 @@ void IsoBmffBuffer::printBoxesInternal(
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
 		Box *box = boxes->at(i).get();
-		AAMPLOG_WARN("Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
+		AAMPLOG_MIL("Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
 		if (IS_TYPE(box->getType(), Box::TFDT))
 		{
 			TfdtBox *tfdtBox = dynamic_cast<TfdtBox *>(box);
@@ -738,7 +738,7 @@ void IsoBmffBuffer::printMdatBoxes()
 	(void)getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
 	for (auto box : mdatBoxes)
 	{
-		AAMPLOG_WARN("Offset[%u] Type[%s] Size[%u]", box->getOffset(),
+		AAMPLOG_MIL("Offset[%u] Type[%s] Size[%u]", box->getOffset(),
 			box->getType(), box->getSize());
 	}
 }

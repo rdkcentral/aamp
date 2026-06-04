@@ -65,7 +65,7 @@ TEST_F(IsoBmffBoxTests, skipTests)
 {
 	// Create a skip box
 	auto size{512};
-	auto name = new uint8_t[4]{'s', 'k', 'i', 'p'};
+	const char name[] = "skip";
 
 	auto skip = new SkipBox(size, buffer);
 
@@ -75,8 +75,8 @@ TEST_F(IsoBmffBoxTests, skipTests)
 	EXPECT_EQ(value, size);
 
 	// Check the tag is correct
-	EXPECT_TRUE((IS_TYPE(ptr, name)));
-	EXPECT_TRUE((IS_TYPE(ptr, Box::SKIP)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), name)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), Box::SKIP)));
 }
 
 TEST_F(IsoBmffBoxTests, mdatTests)
@@ -91,7 +91,7 @@ TEST_F(IsoBmffBoxTests, mdatTests)
 	memcpy(buffer, mdatData, sizeof(mdatData));
 	auto ptr{buffer};
 	auto mdatSize = READ_U32(ptr);
-	EXPECT_TRUE((IS_TYPE(ptr, Box::MDAT)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), Box::MDAT)));
 	ptr += SIZEOF_TAG;
 
 	// NB hard coded in test data
@@ -113,7 +113,7 @@ TEST_F(IsoBmffBoxTests, sencTests)
 	memcpy(buffer, sencSingleSample, sizeof(sencSingleSample));
 	auto ptr{buffer};
 	auto sencSize = READ_U32(ptr);
-	EXPECT_TRUE((IS_TYPE(ptr, Box::SENC)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), Box::SENC)));
 	ptr += SIZEOF_TAG;
 	auto senc = SencBox::constructSencBox(sencSize, ptr);
 
@@ -132,7 +132,7 @@ TEST_F(IsoBmffBoxTests, saizTests)
 	memcpy(buffer, saizSingleSample, sizeof(saizSingleSample));
 	auto ptr{buffer};
 	auto seizSize = READ_U32(ptr);
-	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), Box::SAIZ)));
 	ptr += SIZEOF_TAG;
 	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
 
@@ -150,7 +150,7 @@ TEST_F(IsoBmffBoxTests, trunTests)
 	memcpy(buffer, trunSingleEntryTrackDefaults, sizeof(trunSingleEntryTrackDefaults));
 	auto ptr{buffer};
 	auto trunSize = READ_U32(ptr);
-	EXPECT_TRUE((IS_TYPE(ptr, Box::TRUN)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), Box::TRUN)));
 	ptr += SIZEOF_TAG;
 	auto trun = TrunBox::constructTrunBox(trunSize, ptr);
 
@@ -169,7 +169,7 @@ TEST_F(IsoBmffBoxTests, tfhdDefaultSampleDurationTests)
 	memcpy(buffer, tfhdDefaultSampleDurationPresent, sizeof(tfhdDefaultSampleDurationPresent));
 	auto ptr{buffer};
 	auto tfhdSize = READ_U32(ptr);
-	EXPECT_TRUE((IS_TYPE(ptr, Box::TFHD)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), Box::TFHD)));
 	ptr += SIZEOF_TAG;
 	auto tfhd{TfhdBox::constructTfhdBox(tfhdSize, ptr)};
 
@@ -193,7 +193,7 @@ TEST_F(IsoBmffBoxTests, tfhdDefaultSampleDurationTests)
 	memcpy(buffer, tfhdDefaultSampleDurationAbsent, sizeof(tfhdDefaultSampleDurationAbsent));
 	ptr = buffer;
 	tfhdSize = READ_U32(ptr);
-	EXPECT_TRUE((IS_TYPE(ptr, Box::TFHD)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), Box::TFHD)));
 	ptr += SIZEOF_TAG;
 	tfhd = TfhdBox::constructTfhdBox(tfhdSize, ptr);
 
@@ -267,7 +267,7 @@ TEST_P(IsoBmffTfdtBoxVersionTests, tfdtVersionTests)
 	memcpy(buffer, testData.first, testData.second);
 	auto ptr{buffer};
 	auto tfdtSize = READ_U32(ptr);
-	EXPECT_TRUE((IS_TYPE(ptr, Box::TFDT)));
+	EXPECT_TRUE((IS_TYPE(reinterpret_cast<const char *>(ptr), Box::TFDT)));
 	ptr += SIZEOF_TAG;
 	auto tfdt{TfdtBox::constructTfdtBox(tfdtSize, ptr)};
 

@@ -155,10 +155,12 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
 	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	constexpr size_t boxTypeLength = sizeof(uint32_t);
+	constexpr size_t boxTypeBufferSize = boxTypeLength + 1;
 
 	uint32_t size = 0;
-	uint8_t type[5];
-	char safeType[5] = {};
+	char type[boxTypeBufferSize];
+	char safeType[boxTypeBufferSize] = {};
 	if(maxSz < 4)
 	{
 		AAMPLOG_TRACE("Box data < 4 bytes. Can't determine Size & Type");
@@ -173,11 +175,13 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	else
 	{
 		size = READ_U32(hdr);
-		READ_U8(type, hdr, 4);
-		type[4] = '\0';
-		for (int i = 0; i < 4; i++)
+		READ_U8(type, hdr, boxTypeLength);
+		type[boxTypeLength] = '\0';
+		for (size_t i = 0; i < boxTypeLength; i++)
+		{
 			safeType[i] = (type[i] >= 0x20 && type[i] <= 0x7e) ? static_cast<char>(type[i]) : '.';
-		safeType[4] = '\0';
+		}
+		safeType[boxTypeLength] = '\0';
 	}
 
 	if (size < minHeaderSize)
@@ -841,6 +845,8 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 	 */
 	if (1 == version)
 	{
+		// v1 fixed fields: timescale (u32), presentation_time (u64),
+		// event_duration (u32), and id (u32).
 		if (!hasRemaining((sizeof(uint32_t) * 3) + sizeof(uint64_t),
 			"version1 fixed fields"))
 		{
