@@ -3056,6 +3056,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		{
 			mCdaiObject->PlaceAds(mMPDParseHelper);
 		}
+		// For static manifests (cold CDVR, iVOD, any completed recording), always cache the
+		// MPD parse helper unconditionally – regardless of whether CDAI config is currently set.
+		// On some devices the JS layer sets the CDAI config flag after tune init (async), so
+		// mCachedMPDParseHelper must be populated here to ensure FulFillAdObject can call
+		// PlaceAds() when the ad URL arrives later.  If CDAI is not in use, PlaceAds() is a
+		// no-op because mPlacementObj.curAdIdx == -1 and no ad-breaks are registered.
+		else if(!mIsLiveStream)
+		{
+			mCdaiObject->CacheHelperAndPlaceAds(mMPDParseHelper);
+		}
 
 		ret = AAMPStatusType::eAAMPSTATUS_OK;
 	}
@@ -5328,12 +5338,16 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					AAMPLOG_INFO("SCTEDBG adjust start time %" PRIu64 " -> %" PRIu64 " (duration %d)", eventInfo.presentationTime, eventStartTime, eventInfo.duration);
 				}
 
-				//for livestream send the timedMetadata only., because at init, control does not come here
-				if(mIsLiveManifest && ! ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive))
+				// Route through the CDAI pipeline (FoundEventBreak) when:
+				//   a) live manifest and bulk-timed-meta is NOT enabled, OR
+				//   b) static manifest (cold CDVR, iVOD, any completed recording) with CDAI enabled.
+				// For case (b) we must not restrict to IsCDVRContent() — iVOD and other
+				// non-live CDAI-enabled types must also reach FoundEventBreak.
+				bool isStaticManifestWithCDAI = !mIsLiveManifest && ISCONFIGSET(eAAMPConfig_EnableClientDai);
+				if(isStaticManifestWithCDAI || (mIsLiveManifest && !ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive)))
 				{
-					// The current process relies on enabling eAAMPConfig_EnableClientDai and that may not be desirable
-					// for our requirements. We'll just skip this and use the VOD process to send events
-					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
+					// eAAMPConfig_EnableSCTE35PresentationTime adjustment only applies on live streams
+					bool modifySCTEProcessing = mIsLiveManifest && ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 					if (modifySCTEProcessing)
 					{
 						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
@@ -12435,8 +12449,12 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 						// For forward playback, we need to wait till the adbreak is placed. Then only we will know which period to change to
 						if (!mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdBreakPlaced)
 						{
-							// This log might cause log flooding, hence changed to trace
-							AAMPLOG_TRACE("[CDAI]: All Ads in the ADBREAK[%s] FINISHED. Waiting for the ADBREAK to place.", mCdaiObject->mCurPlayingBreakId.c_str());
+							// Promoted from TRACE to WARN - fires each cycle of the WAIT2CATCHUP spin
+							AAMPLOG_WARN("[CDAI]: All Ads in ADBREAK[%s] done but mAdBreakPlaced=false. endPeriodId=[%s] endPeriodOffset=%" PRIu64 " curAdIdx=%d. Spinning.",
+								mCdaiObject->mCurPlayingBreakId.c_str(),
+								mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodId.c_str(),
+								mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].endPeriodOffset,
+								mCdaiObject->mCurAdIdx);
 							// Moving the state back to IN_ADBREAK_WAIT2CATCHUP, so that we can further wait till adbreak is placed
 							mCdaiObject->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
 							if (mCdaiObject->mCurAdIdx >= mCdaiObject->mCurAds->size())

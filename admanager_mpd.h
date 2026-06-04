@@ -392,6 +392,7 @@ public:
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
+	AampMPDParseHelperPtr                          mCachedMPDParseHelper; /**< Cached MPD parse helper for static manifest immediate ad placement */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -502,6 +503,20 @@ public:
 	 * @param AampMPDParseHelperPtr shared_ptr to the AampMPDParseHelper object.
 	 */
 	void PlaceAds(AampMPDParseHelperPtr adMPDParseHelper);
+
+	/**
+	 * @brief Caches the MPD parse helper for static manifests and resolves any pending ad placements.
+	 *
+	 * Called when the manifest is static or transitions from live (Hot CDVR) to static
+	 * (completed recording, iVOD, etc.). Since no further manifest refreshes will occur,
+	 * this function:
+	 *   1. Caches @p parseHelper so FulFillAdObject() can call PlaceAds() on demand.
+	 *   2. Immediately calls PlaceAds() to resolve any placements that were queued but
+	 *      not yet fulfilled during the live phase.
+	 *
+	 * @param parseHelper shared_ptr to the AampMPDParseHelper for the now-static manifest.
+	 */
+	void CacheHelperAndPlaceAds(AampMPDParseHelperPtr parseHelper);
 
 	/**
 	 * @brief Updates ad placement details for the next period in the MPD.

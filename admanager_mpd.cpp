@@ -97,7 +97,7 @@ bool CDAIObjectMPD::IsAdPlaying()
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
-					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
+					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV(), mCachedMPDParseHelper(nullptr)
 {
 	StartFulfillAdLoop();
 	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
@@ -241,8 +241,16 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 	{
 		mpd = adMPDParseHelper->getMPD();
 	}
+	if(!mpd || (-1 == mPlacementObj.curAdIdx) || "" == mPlacementObj.pendingAdbrkId || !isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
+	{
+		AAMPLOG_WARN("[CDAI] PlaceAds: no-op. mpd=%s curAdIdx=%d pendingAdbrkId=[%s] adbrkExists=%d",
+			mpd?"valid":"NULL", mPlacementObj.curAdIdx, mPlacementObj.pendingAdbrkId.c_str(),
+			isAdBreakObjectExist(mPlacementObj.pendingAdbrkId));
+	}
 	if(mpd && (-1 != mPlacementObj.curAdIdx) && "" != mPlacementObj.pendingAdbrkId && isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
 	{
+		AAMPLOG_WARN("[CDAI] PlaceAds: guard passed. curAdIdx=%d pendingAdbrkId=%s",
+			 mPlacementObj.curAdIdx, mPlacementObj.pendingAdbrkId.c_str());
 		AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
 		vector<IPeriod *> periods = mpd->GetPeriods();
 		if(!abObj.adjustEndPeriodOffset) // not all ads are placed
@@ -673,9 +681,24 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						// 1) The current period duration is significantly longer that the inserted ADs
 						// 2) Just closing the current period and the next period start not added to manifest.
 
-						AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64 " unfilledBreakTimeMs %" PRIi64,
-							 periods.at(iter)->GetId().c_str(), periodDelta, unfilledBreakTimeMs);
-
+						if (!mAamp->IsLive())
+						{
+							// For static/cold CDVR manifests, UpdateMPD() always fails (static manifest no
+							// longer accessible after recording completes). PlaceAds will never be called
+							// again from the WAIT2CATCHUP spin loop. Force-complete placement now to prevent
+							// an infinite freeze.
+							AAMPLOG_WARN("[CDAI] Static manifest: next period duration unavailable. Forcing placement complete for break[%s] (periodDelta=%" PRIi64 " unfilledBreakTimeMs=%" PRIi64 ")",
+								mPlacementObj.pendingAdbrkId.c_str(), periodDelta, unfilledBreakTimeMs);
+							abObj.adjustEndPeriodOffset = false;
+							abObj.mAdBreakPlaced = true;
+						}
+						else
+						{
+							// For live streams, a future manifest refresh will provide the next period's
+							// start time, allowing PlaceAds to complete normally.
+							AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64 " unfilledBreakTimeMs %" PRIi64,
+								 periods.at(iter)->GetId().c_str(), periodDelta, unfilledBreakTimeMs);
+						}
 					}
 					else if (currPeriodDuration != 0 && diff < OFFSET_ALIGN_FACTOR )
 					{
@@ -781,6 +804,26 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 			}
 		}
 	}
+	// Summary log: report mAdBreakPlaced status for current break after PlaceAds completes
+	if (!mPlacementObj.pendingAdbrkId.empty() && mAdBreaks.count(mPlacementObj.pendingAdbrkId))
+	{
+		const AdBreakObject &dbgAbObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
+		AAMPLOG_WARN("[CDAI] PlaceAds exit: break[%s] mAdBreakPlaced=%d adjustEndPeriodOffset=%d endPeriodId=[%s] endPeriodOffset=%" PRIu64 " curAdIdx=%d",
+			mPlacementObj.pendingAdbrkId.c_str(), (int)dbgAbObj.mAdBreakPlaced,
+			(int)dbgAbObj.adjustEndPeriodOffset, dbgAbObj.endPeriodId.c_str(),
+			dbgAbObj.endPeriodOffset, mPlacementObj.curAdIdx);
+	}
+}
+
+/**
+ * @brief Caches the MPD parse helper for static manifests and resolves pending ad placements.
+ */
+void PrivateCDAIObjectMPD::CacheHelperAndPlaceAds(AampMPDParseHelperPtr parseHelper)
+{
+	AAMPLOG_WARN("[CDAI] Cold CDVR: caching MPD parse helper and resolving pending placements. parseHelper=%s",
+		 parseHelper ? "valid" : "NULL");
+	mCachedMPDParseHelper = parseHelper;
+	PlaceAds(parseHelper);
 }
 
 /**
@@ -925,6 +968,21 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 						break;
 					}
 				}
+			}
+		}
+		// For static manifests (cold CDVR): PlaceAds is not called from UpdateMPD because the
+		// manifest URL is no longer accessible after recording completes. We must trigger placement
+		// here whenever we first enter an unplaced ad break, regardless of whether mPlacementObj
+		// was just updated above (pendingAdbrkId switched) or was already pointing to this break
+		// (e.g. advanced by a prior FulFillAdObject->PlaceAds->UpdatePlacementObj chain).
+		if ((adIdx != -1 && !breakId.empty()) && !mAamp->IsLive() && mCachedMPDParseHelper)
+		{
+			AdBreakObject &curAbObj = mAdBreaks[curP2Ad.adBreakId];
+			if (adIdx < (int)curAbObj.ads->size() && !curAbObj.ads->at(adIdx).placed)
+			{
+				AAMPLOG_WARN("[CDAI] Static manifest: break[%s] ad[idx=%d] not yet placed, triggering PlaceAds (mPlacementObj=[%s])",
+							curP2Ad.adBreakId.c_str(), adIdx, mPlacementObj.pendingAdbrkId.c_str());
+				PlaceAds(mCachedMPDParseHelper);
 			}
 		}
 	}
@@ -1318,6 +1376,23 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 						}
 						node.url = mAdFulfillObj.url;
 						node.resolved = true;
+						// For static manifests (cold CDVR, iVOD, etc.) no periodic PlaceAds() calls happen.
+						// Trigger immediate placement now that all node fields (mpd, duration, url) are
+						// fully populated, so PlaceAds reads the correct ad duration during stitching.
+						AAMPLOG_WARN("[CDAI] FulFillAdObject static check: adStatus=%d IsLive=%d mCachedMPDParseHelper=%s",
+									adStatus, (int)mAamp->IsLive(), mCachedMPDParseHelper?"valid":"NULL");
+						if(adStatus && !mAamp->IsLive() && mCachedMPDParseHelper)
+						{
+							AAMPLOG_WARN("[CDAI] Static manifest: triggering immediate PlaceAds after fulfillment of ad[%s] for break[%s]",
+										mAdFulfillObj.adId.c_str(), periodId.c_str());
+							PlaceAds(mCachedMPDParseHelper);
+						}
+
+						else if(adStatus && !mAamp->IsLive() && !mCachedMPDParseHelper)
+						{
+							AAMPLOG_ERR("[CDAI] BUG: mCachedMPDParseHelper is NULL for static manifest! PlaceAds will NOT run for ad[%s] break[%s]. Expect freeze.",
+										mAdFulfillObj.adId.c_str(), periodId.c_str());
+						}
 						break;
 					}
 				}
@@ -1569,6 +1644,9 @@ void PrivateCDAIObjectMPD::setAdMarkers(uint64_t p2AdDataduration,int64_t period
 	abObj.endPeriodId = mPlacementObj.openPeriodId;
 	// Marked for later adjustment
 	abObj.adjustEndPeriodOffset = true;
+	AAMPLOG_WARN("[CDAI] setAdMarkers: break[%s] endPeriodId=[%s] endPeriodOffset=%" PRIu64 " p2AdDataduration=%" PRIu64 " periodDelta=%" PRId64,
+		mPlacementObj.pendingAdbrkId.c_str(), abObj.endPeriodId.c_str(),
+		abObj.endPeriodOffset, p2AdDataduration, periodDelta);
 }
 
 /**
