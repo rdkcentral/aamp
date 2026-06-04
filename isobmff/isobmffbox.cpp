@@ -291,10 +291,12 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
  */
 void Box::rewriteAsSkipBox(void)
 {
+	constexpr size_t boxTypeLength = sizeof(uint32_t);
+	constexpr size_t boxTypeBufferSize = boxTypeLength + sizeof(char);
 	// buffer
-	memcpy(base + 4, Box::SKIP, 4);
+	std::memcpy(base + sizeof(uint32_t), Box::SKIP, boxTypeLength);
 	// internal type
-	memcpy(type, Box::SKIP, 5);
+	std::memcpy(type, Box::SKIP, boxTypeBufferSize);
 }
 
 /**
