@@ -130,6 +130,7 @@ private:
 public:
 	void setPtsOffset( double offs )
 	{ // used to optimize hls/ts discontinuity handling
+		std::lock_guard<std::mutex> lock{mMutex};
 		ptsOffset = offs;
 		// A new encoder epoch begins at each discontinuity. Clear any
 		// stale rollover flag from the previous period so that the first
