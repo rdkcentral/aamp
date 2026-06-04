@@ -3128,15 +3128,15 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 }
 
 /**
- * @brief To change the the gstreamer pipeline to pause/play
+ * @brief To change the the stream sink pipeline to pause/play
  */
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
 	bool ret_val = true;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		if (true != sink->Pause(pause, forceStopGstreamerPreBuffering))
+		if (true != sink->Pause(pause, forceStopPreBuffering))
 		{
 			ret_val = false;
 		}
@@ -5982,7 +5982,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
 			if(!inpData->mPreProcessedManifest.empty())
 			{
-				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
+				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, [this]() -> std::pair<std::string,int> {
+					return SendManifestPreProcessEvent();
+				});
 			}
 			else
 			{
@@ -14622,7 +14624,7 @@ AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 	return NULL;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	std::lock_guard<std::mutex> guard(mPreProcessLock);
@@ -14636,7 +14638,7 @@ std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
 		AAMPLOG_WARN("PreProcessed Manifest not available send Need Manifest data event to application");
 		SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_NEED_MANIFEST_DATA, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)
