@@ -256,6 +256,21 @@ TEST_F(IsoBmffBoxTests, malformedContainerChildSizeTooSmallStopsNestedParse)
 	EXPECT_TRUE(container->getChildren()->empty());
 }
 
+TEST_F(IsoBmffBoxTests, malformedBoxWithNonPrintableTypeIsSanitized)
+{
+	uint8_t malformedBox[] = {
+		0x00, 0x00, 0x00, 0x04,
+		0x01, 0x00, 0x7f, 0xff
+	};
+
+	auto box = Box::constructBox(malformedBox,
+		static_cast<uint32_t>(sizeof(malformedBox)), false, -1);
+
+	ASSERT_NE(box, nullptr);
+	EXPECT_EQ(box->getSize(), 4u);
+	EXPECT_STREQ(box->getType(), "....");
+}
+
 class IsoBmffTfdtBoxVersionTests : public IsoBmffBoxTests,
 								   public testing::WithParamInterface<ConstBuffer>
 {

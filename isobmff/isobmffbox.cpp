@@ -187,7 +187,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	if (size < minHeaderSize)
 	{
 		AAMPLOG_WARN("Box[%s] has invalid small size[%u]", safeType, size);
-		return std::make_unique<Box>(size, (const char *)type);
+		return std::make_unique<Box>(size, safeType);
 	}
 
 	if (size > maxSz)
@@ -204,7 +204,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		{
 			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",
 				safeType, size, maxSz);
-			return std::make_unique<Box>(size, (const char *)type);
+			return std::make_unique<Box>(size, safeType);
 		}
 	}
 	else if (IS_TYPE(type, MOOV))
