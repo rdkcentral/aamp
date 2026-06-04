@@ -11613,13 +11613,8 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			sink->ClearProtectionEvent();
 		}
-		if (clearChannelData)
-		{
-			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
-			{
-				aamp->mDRMLicenseManager->notifyCleanup();
-			}
-		}
+		// notifyCleanup() moved to PrivateInstanceAAMP::TeardownStream after pipeline Stop
+		// to avoid use-after-free race between DRM session deactivation and GStreamer element disposal
 	}
 
 	if (!aamp->DownloadsAreEnabled())
