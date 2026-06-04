@@ -5622,10 +5622,16 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 			}
 			// Deactivate DRM session after pipeline teardown to avoid use-after-free race
 			// between GStreamer element disposal and async DRM session cleanup
+			AAMPLOG_ERROR("Neil TeardownStream()");
+
 			if (!IsLocalAAMPTsb() && (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK)))
 			{
+			AAMPLOG_ERROR("Neil Valid DRM License?()");
+
 				if (mDRMLicenseManager)
 				{
+					AAMPLOG_ERROR("Neil call mDRMLicenseManager->notifyCleanup()");
+
 					mDRMLicenseManager->notifyCleanup();
 				}
 			}
