@@ -878,9 +878,14 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition=%f]",
 					pMediaStreamContext->type, timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentTime, mLiveEndPosition);
 #endif
+				// [VPAAMP-473] Added mIsLiveManifest guard to the FF trickplay EOS check during
+				// an ad break.  mAbsoluteEndPosition is only meaningful for live manifests; for
+				// static/VOD manifests it defaults to 0.0, which would cause fragmentTime >=
+				// mAbsoluteEndPosition to always be true, prematurely marking EOS and preventing
+				// ad playback in cold cDVR (FOG / local-TSB) scenarios.
 				if ((pMediaStreamContext->timeLineIndex >= timelines.size()) || (pMediaStreamContext->timeLineIndex < 0)
 						||(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState &&
-							((mPlayRate > AAMP_NORMAL_PLAY_RATE && pMediaStreamContext->fragmentTime >= aamp->mAbsoluteEndPosition)
+							((mPlayRate > AAMP_NORMAL_PLAY_RATE && mIsLiveManifest && pMediaStreamContext->fragmentTime >= aamp->mAbsoluteEndPosition)
 							 ||(mPlayRate < AAMP_RATE_PAUSE && pMediaStreamContext->fragmentTime <= mPeriodStartTime))))
 				{
 					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
@@ -5351,6 +5356,22 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 						AAMPLOG_INFO("Saving timedMetadata for VOD %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 						aamp->SaveTimedMetadata(eventStartTime, eventInfo.name.c_str() , eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 					}
+					else if(ISCONFIGSET(eAAMPConfig_EnableClientDai))
+					{
+						// [VPAAMP-473] For VOD/static CDAI: static MPD streams (including cold cDVR
+						// via FOG/local-TSB) enter this else-branch because mIsLiveManifest=false.
+						// Route through FoundEventBreak so the CDAI object registers a placeholder
+						// in mAdBreaks.  Without this, the app's SetAlternateContents() call (ad
+						// resolve) cannot find the break and fails immediately with an error.
+						// FoundEventBreak's gate (mTuneCompleted || !mFogTSBEnabled ||
+						//   (IsCDVRContent() && !IsLive())) ensures:
+						//   - Non-FOG VOD/cold-cDVR: !mFogTSBEnabled=true -> always passes
+						//   - FOG cold-cDVR (static MPD): IsLive()=false -> IsCDVRContent()
+						//     && !IsLive()=true -> passes (the actual cold-cDVR CDAI fix)
+						//   - FOG live/hot-cDVR: mIsLiveManifest=true so this else-branch
+						//     is not reached; the live branch above handles it
+						aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
+					}
 					else
 					{
 						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
@@ -8663,6 +8684,14 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						std::string fragmentUrl;
 						ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
 
+						// [VPAAMP-473] Keep profileChanged=false INSIDE this block (only clear when
+						// the init segment is actually written to the ring buffer).  In FOG/local-TSB
+						// mode Period 0 segments download at full speed, filling the ring buffer before
+						// the ad period's init segment arrives.  If profileChanged were cleared
+						// unconditionally (outside the if), the init fetch would be permanently skipped
+						// once the buffer is full, stalling playback for the entire ad break (120 s
+						// timeout).  By clearing only on success, the FetcherLoop retries on the next
+						// cycle once buffer space becomes available.
 						if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 						{
 							if(!nextrange.empty())
@@ -8673,13 +8702,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							{
 								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 							}
+							pMediaStreamContext->profileChanged = false;
 						}
-						// Clear profileChanged regardless of whether the ring buffer had space.
-						// This prevents FetcherLoop from re-triggering this init-fetch path on
-						// every subsequent OnFragmentDownloadComplete callback.  If the buffer
-						// was full the init will be re-fetched on the next profileChanged cycle
-						// once space is available.
-						pMediaStreamContext->profileChanged = false;
 					}
 					else
 					{
@@ -8769,6 +8793,9 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 									AAMPLOG_INFO("%s [%s]", GetMediaTypeName(pMediaStreamContext->mediaType),
 											range.c_str());
 
+									// [VPAAMP-473] Same as segmentBase path above: profileChanged=false is
+									// kept inside this block to allow retry when the ring buffer is full
+									// (required for FOG cold-cDVR ad init segment delivery).
 									if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 									{
 										if(nextsegurl != NULL && (mIsFogTSB != true))
@@ -8779,13 +8806,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										{
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
+										pMediaStreamContext->profileChanged = false;
 									}
-									// Clear profileChanged regardless of whether the ring buffer had space.
-									// This prevents FetcherLoop from re-triggering this init-fetch path on
-									// every subsequent OnFragmentDownloadComplete callback.  If the buffer
-									// was full the init will be re-fetched on the next profileChanged cycle
-									// once space is available.
-									pMediaStreamContext->profileChanged = false;
 								}
 								else
 								{
@@ -10105,9 +10127,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
 					auto timeBasedBuffer = mMediaStreamContext[trackIdx]->GetTimeBasedBufferManager();
-					// For live stream in ad break, avoid fetching next segment if current fragment time is exceeding the live edge
-					// This is to avoid unnecessary fetch and also to avoid fetching segments which are not expected to be played
+					// [VPAAMP-473] For ad break, avoid fetching next segment if current fragment time exceeds the live edge.
+					// This prevents unnecessary fetches and segments not expected to be played.
+					// mIsLiveManifest guard is required because mAbsoluteEndPosition is only set for live
+					// manifests. For static/VOD manifests (cold cDVR / FOG local-TSB) mAbsoluteEndPosition
+					// defaults to 0.0, so without this guard exceedsLiveEdge would always be true, blocking
+					// AdvanceTrack and stalling playback indefinitely inside the ad break.
 					const bool exceedsLiveEdge = mCdaiObject &&
+							mIsLiveManifest &&
 							(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState) &&
 							(mMediaStreamContext[trackIdx]->fragmentTime >= aamp->mAbsoluteEndPosition);
 

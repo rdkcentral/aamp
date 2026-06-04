@@ -10211,10 +10211,20 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 			std::string url("");
 			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
 		}
-		//Ignoring past SCTE events.
-		//mFogTSBEnabled check is added to ensure the change won't effect IPVOD
-		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mFogTSBEnabled:%d", mTuneCompleted, mFogTSBEnabled);
-		if (mTuneCompleted || !mFogTSBEnabled)
+		// [VPAAMP-473] Gate for cold cDVR CDAI: discard SCTE35 events that arrive at tune init
+		// before AAMP has had a chance to resolve the ad break.  Without this gate, FOG/local-TSB
+		// cold cDVR streams fire SCTE35 events immediately on tune (mTuneCompleted=false), causing
+		// the CDAI object to discard the break before SetAlternateContents() can register an ad.
+		//
+		// Condition: mTuneCompleted || !mFogTSBEnabled || (IsCDVRContent() && !IsLive())
+		//  - mTuneCompleted: normal post-tune path — always allow
+		//  - !mFogTSBEnabled: non-FOG (IPVOD/regular VOD) — always allow (no change to existing behaviour)
+		//  - IsCDVRContent() && !IsLive(): FOG cold-cDVR (static manifest, IsLive()=false) — allow
+		//    immediately so the SCTE event is registered before SetAlternateContents() is called
+		//  - FOG live/hot-cDVR (IsLive()=true): gate stays blocked until mTuneCompleted (correct:
+		//    past SCTE events are discarded at tune init for live/hot-cDVR)
+		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mFogTSBEnabled:%d IsCDVR:%d IsLive:%d", mTuneCompleted, mFogTSBEnabled, IsCDVRContent(), IsLive());
+		if (mTuneCompleted || !mFogTSBEnabled || (IsCDVRContent() && !IsLive()))
 		{
 			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
 		}
