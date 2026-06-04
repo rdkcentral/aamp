@@ -8796,8 +8796,10 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					if (segmentBase)
 					{
 						pMediaStreamContext->fragmentOffset = 0;
-						std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						{
+							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						}
 						std::string range;
 						std::string nextrange; //CMCD get the next range
 						const IURLType *urlType = segmentBase->GetInitialization();
@@ -8931,8 +8933,10 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										{
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
-										pMediaStreamContext->profileChanged = false;
 									}
+									// Consume profile change once SegmentList init handling has run,
+									// even when the free-fragment wait fails, to avoid re-trigger loops.
+									pMediaStreamContext->profileChanged = false;
 								}
 								else
 								{
