@@ -1718,6 +1718,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						pMediaStreamContext->fragmentTime += fragmentDuration;
 						pMediaStreamContext->fragmentOffset += referenced_size;
+						pMediaStreamContext->fragmentDescriptor.Time +=
+							static_cast<uint64_t>(std::llround(
+ 								static_cast<double>(fragmentDuration) *
+ 								static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale)));
 						retval = true;
 					}
 				}
@@ -2655,19 +2659,13 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				int iFogError = -1;
 				AampCurlInstance curlInstance = aamp->GetPlaylistCurlInstance(actualType, false);
 				aamp->CurlInit(curlInstance, 1, aamp->GetNetworkProxy());
-				{
-					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-					aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, pMediaStreamContext->IDX, curlInstance, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
-				}
+				aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, pMediaStreamContext->IDX, curlInstance, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
 				aamp->CurlTerm(curlInstance);
 			}
 			if (!pMediaStreamContext->IDX.empty())
 			{
 				unsigned int referenced_size = 0;
 				float fragmentDuration = 0.00;
-				float fragmentTime = 0.00;
-				int fragmentIndex =0;
-
 				unsigned int lastReferencedSize = 0;
 				float lastFragmentDuration = 0.00;
 				double presentationTimeOffsetSec = segmentBase->GetPresentationTimeOffset();
@@ -2679,46 +2677,187 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 				AAMPLOG_INFO("SegmentBase: Presentation time offset present:%lf", presentationTimeOffsetSec);
 
+				// Start the skip from the current stream position, mirroring the SegmentList
+				// incremental (delta-based) approach.  On the very first call (fragmentIndex==0,
+				// reset by UpdateTrackInfo before SeekInPeriod), also initialise fragmentOffset
+				// to the absolute byte start of the first fragment so that PushNextFragment
+				// inherits a correct file offset rather than the relative-from-zero value that
+				// the lazy-init path would compute (the lazy-init branch is never re-entered
+				// once the IDX is populated).
+				int fragmentIndex = pMediaStreamContext->fragmentIndex;
+				float fragmentTime = (float)(pMediaStreamContext->fragmentTime - mPeriodStartTime)
+				                     + (float)presentationTimeOffsetSec;
 
-				while ((fragmentTime < skipTime + presentationTimeOffsetSec ) || skipToEnd)
+				if (fragmentIndex == 0)
 				{
-					if (ParseSegmentIndexBox(
-											 pMediaStreamContext->IDX.data(),
-											 pMediaStreamContext->IDX.size(),
-											 fragmentIndex++,
-											 &referenced_size,
-											 &fragmentDuration,
-											 NULL))
+					// Compute the absolute byte offset of the first fragment.
+					// The sidx index-range is e.g. "3887-4266", so the first fragment data
+					// starts at byte 4267 (one past the end of the sidx box), plus any
+					// first_offset carried in the sidx header.
+					uint64_t idxRangeStart = 0, idxRangeEnd = 0;
+					sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd);
+					pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
+					unsigned int firstOffset = 0;
+					if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+					                         pMediaStreamContext->IDX.size(),
+					                         0, NULL, NULL, &firstOffset))
 					{
-						lastFragmentDuration = fragmentDuration;
-						lastReferencedSize = referenced_size;
-
-						fragmentTime += fragmentDuration;
-						pMediaStreamContext->fragmentOffset += referenced_size;
+						pMediaStreamContext->fragmentOffset += firstOffset;
 					}
-					else if (skipToEnd)
+					// UpdateTrackInfo resets fragmentIndex to 0 for rate changes within the
+					// same period, but does NOT reset fragmentTime (it only does so on a period
+					// change).  If fragmentTime still carries the stale playback position (e.g.
+					// 6s) and skipTime is the absolute seek target (also 6s from SeekInPeriod),
+					// the forward skip below would treat skipTime as a delta and overshoot to
+					// 12s.  Reset local fragmentTime to PTO so that skipTime is always
+					// interpreted as an absolute position from the period start.
+					fragmentTime = (float)presentationTimeOffsetSec;
+				}
+				else if (skipTime < 0)
+				{
+					// Rewind: compute the absolute sidx target and initialise fragmentOffset
+					// from the beginning (same as the original code's rewind path).
+					double targetTime = (pMediaStreamContext->fragmentTime - mPeriodStartTime
+					                     + presentationTimeOffsetSec) + skipTime;
+					if (targetTime <= presentationTimeOffsetSec)
 					{
-						fragmentTime -= lastFragmentDuration;
-						pMediaStreamContext->fragmentOffset -= lastReferencedSize;
-						fragmentIndex--;
-						break;
+						// Rewound past the beginning of the period.
+						AAMPLOG_INFO("Type[%d] SegmentBase rewind reached beginning of period, targetTime=%f",
+						        pMediaStreamContext->type, targetTime);
+						mFirstPTS = presentationTimeOffsetSec;
+						pMediaStreamContext->fragmentIndex = 0;
+						pMediaStreamContext->fragmentTime = mPeriodStartTime;
+						pMediaStreamContext->mReachedFirstFragOnRewind = true;
+						skipTime = 0;
 					}
 					else
 					{
-						// done with index
+						// Re-initialise fragmentOffset from the beginning and walk to targetTime.
+						uint64_t idxRangeStart = 0, idxRangeEnd = 0;
+						sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd);
+						pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
+						unsigned int firstOffset = 0;
+						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+						                         pMediaStreamContext->IDX.size(),
+						                         0, NULL, NULL, &firstOffset))
 						{
-							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+							pMediaStreamContext->fragmentOffset += firstOffset;
 						}
-						pMediaStreamContext->eos = true;
-						break;
+						fragmentIndex = 0;
+						fragmentTime = (float)presentationTimeOffsetSec;
+						while (fragmentTime < targetTime)
+						{
+							if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+							                         pMediaStreamContext->IDX.size(),
+							                         fragmentIndex++,
+							                         &referenced_size,
+							                         &fragmentDuration,
+							                         NULL))
+							{
+								lastFragmentDuration = fragmentDuration;
+								lastReferencedSize = referenced_size;
+								fragmentTime += fragmentDuration;
+								pMediaStreamContext->fragmentOffset += referenced_size;
+							}
+							else
+							{
+								aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+								pMediaStreamContext->eos = true;
+								break;
+							}
+						}
+						if (!pMediaStreamContext->eos)
+						{
+							// The walk exits when fragmentTime >= targetTime, meaning we
+							// overshot: fragmentIndex and fragmentOffset already point to
+							// the fragment AFTER the one containing targetTime.  Back off
+							// one step so PushNextFragment fetches the correct fragment.
+							if (fragmentTime > targetTime && fragmentIndex > 0)
+							{
+								fragmentIndex--;
+								fragmentTime -= lastFragmentDuration;
+								pMediaStreamContext->fragmentOffset -= lastReferencedSize;
+							}
+							mFirstPTS = fragmentTime;
+							pMediaStreamContext->fragmentIndex = fragmentIndex;
+							pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime - presentationTimeOffsetSec);
+						}
+						skipTime = 0;  // consumed by the rewind walk above
 					}
 				}
 
-				mFirstPTS = fragmentTime;
-				//updated seeked position
-				pMediaStreamContext->fragmentIndex = fragmentIndex;
-				pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime -  presentationTimeOffsetSec);
+				if (skipTime != 0 || skipToEnd)
+				{
+					// Forward skip: advance one fragment at a time, consuming skipTime (delta).
+					// This matches SegmentList: if skipTime < fragmentDuration no fragment
+					// boundary is crossed and PushNextFragment handles sequential advancement.
+					while ((skipTime != 0) || skipToEnd)
+					{
+						if (ParseSegmentIndexBox(
+						                         pMediaStreamContext->IDX.data(),
+						                         pMediaStreamContext->IDX.size(),
+						                         fragmentIndex,
+						                         &referenced_size,
+						                         &fragmentDuration,
+						                         NULL))
+						{
+							lastFragmentDuration = fragmentDuration;
+							lastReferencedSize = referenced_size;
+
+							if (skipToEnd)
+							{
+								// Advance until there is no next entry (this IS the last fragment).
+								unsigned int nextSize; float nextDur;
+								if (!ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+								                          pMediaStreamContext->IDX.size(),
+								                          fragmentIndex + 1, &nextSize, &nextDur, NULL))
+								{
+									break;
+								}
+								fragmentIndex++;
+								fragmentTime += fragmentDuration;
+								pMediaStreamContext->fragmentOffset += referenced_size;
+							}
+							else if (skipTime >= fragmentDuration - FLOATING_POINT_EPSILON)
+							{
+								fragmentIndex++;
+								skipTime -= fragmentDuration;
+								fragmentTime += fragmentDuration;
+								pMediaStreamContext->fragmentOffset += referenced_size;
+							}
+							else
+							{
+								// skipTime < fragmentDuration: cannot cross this fragment boundary;
+								// stop here, same as SegmentList behaviour.
+								skipTime = 0;
+								break;
+							}
+						}
+						else if (skipToEnd)
+						{
+							// ParseSegmentIndexBox returned false: back up to the last valid entry.
+							fragmentTime -= lastFragmentDuration;
+							pMediaStreamContext->fragmentOffset -= lastReferencedSize;
+							fragmentIndex--;
+							break;
+						}
+						else
+						{
+							// done with index
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+							pMediaStreamContext->eos = true;
+							break;
+						}
+					}
+
+					mFirstPTS = fragmentTime;
+					if (!pMediaStreamContext->eos)
+					{
+						//updated seeked position
+						pMediaStreamContext->fragmentIndex = fragmentIndex;
+						pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime - presentationTimeOffsetSec);
+					}
+				}
 			}
 			else
 			{
@@ -8639,10 +8778,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					if (segmentBase)
 					{
 						pMediaStreamContext->fragmentOffset = 0;
-						{
-							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
-						}
+						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
 						std::string range;
 						std::string nextrange; //CMCD get the next range
 						const IURLType *urlType = segmentBase->GetInitialization();
@@ -8673,13 +8809,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							{
 								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 							}
+							pMediaStreamContext->profileChanged = false;
 						}
-						// Clear profileChanged regardless of whether the ring buffer had space.
-						// This prevents FetcherLoop from re-triggering this init-fetch path on
-						// every subsequent OnFragmentDownloadComplete callback.  If the buffer
-						// was full the init will be re-fetched on the next profileChanged cycle
-						// once space is available.
-						pMediaStreamContext->profileChanged = false;
 					}
 					else
 					{
@@ -8779,13 +8910,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										{
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
+										pMediaStreamContext->profileChanged = false;
 									}
-									// Clear profileChanged regardless of whether the ring buffer had space.
-									// This prevents FetcherLoop from re-triggering this init-fetch path on
-									// every subsequent OnFragmentDownloadComplete callback.  If the buffer
-									// was full the init will be re-fetched on the next profileChanged cycle
-									// once space is available.
-									pMediaStreamContext->profileChanged = false;
 								}
 								else
 								{
