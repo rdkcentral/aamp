@@ -5626,11 +5626,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 
 			if (!IsLocalAAMPTsb() && (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK)))
 			{
-			AAMPLOG_ERROR("Neil Valid DRM License?()");
+			AAMPLOG_WARN("Neil Valid DRM License?()");
 
 				if (mDRMLicenseManager)
 				{
-					AAMPLOG_ERROR("Neil call mDRMLicenseManager->notifyCleanup()");
+					AAMPLOG_WARN("Neil call mDRMLicenseManager->notifyCleanup()");
 
 					mDRMLicenseManager->notifyCleanup();
 				}
