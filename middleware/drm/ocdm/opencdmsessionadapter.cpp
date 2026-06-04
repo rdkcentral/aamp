@@ -79,8 +79,8 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper,
 	, m_usableKeys()
 	, m_usableKeysMutex()
 {
-	MW_LOG_WARN("[DRM_FLOW] OCDMSessionAdapter: constructed for keySystem=%s", drmHelper->ocdmSystemId().c_str());
-	MW_LOG_WARN("[DRM_FLOW] OCDMSessionAdapter: key process timeout is %d", drmHelper->keyProcessTimeout());
+	MW_LOG_WARN("OCDMSessionAdapter :: enter");
+	MW_LOG_WARN("OCDMSessionAdapter :: key process timeout is %d", drmHelper->keyProcessTimeout());
 
 	// Get output protection pointer
 	m_pOutputProtection = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
@@ -99,13 +99,12 @@ OCDMSessionAdapter::~OCDMSessionAdapter()
 void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 		uint32_t f_cbInitData, std::string &customData)
 {
-	MW_LOG_WARN("[DRM_FLOW] generateDRMSession: enter keySystem=%s initDataLen=%u customDataLen=%u",
-		m_keySystem.c_str(), f_cbInitData, static_cast<uint32_t>(customData.size()));
+	MW_LOG_INFO("at %p", this);
 
 	std::lock_guard<std::mutex> guard(decryptMutex);
 	if (!m_ocdm)
 	{
-		MW_LOG_WARN("[DRM_FLOW] generateDRMSession: no IOpenCDM provider - aborting");
+		MW_LOG_WARN("OCDMSessionAdapter::generateDRMSession: no IOpenCDM provider");
 		m_eKeyState = KEY_ERROR;
 		return;
 	}
@@ -161,19 +160,15 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 
 	if (!m_session)
 	{
-		MW_LOG_ERR("[DRM_FLOW] generateDRMSession: constructSession FAILED for %s", m_keySystem.c_str());
+		MW_LOG_ERR("OCDMSessionAdapter::generateDRMSession: constructSession failed");
 		m_eKeyState = KEY_ERROR_SESSION_CREATE_FAILED;
-	}
-	else
-	{
-		MW_LOG_WARN("[DRM_FLOW] generateDRMSession: constructSession OK for %s", m_keySystem.c_str());
 	}
 }
 
 
 void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize) {
 
-	MW_LOG_WARN("[DRM_FLOW] processOCDMChallenge: enter challengeSize=%u destUrl=%s", challengeSize, destUrl ? destUrl : "(null)");
+	MW_LOG_INFO("at %p", this);
 
 	const std::string challengeData(reinterpret_cast<const char *>(challenge), challengeSize);
 	const std::set<std::string> individualisationTypes = {"individualization-request", "3"};
@@ -185,7 +180,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 	// Example message: individualization-request:Type:(payload)
 	if ((delimiterPos != std::string::npos) && (individualisationTypes.count(messageType) > 0))
 	{
-		MW_LOG_WARN("[DRM_FLOW] processOCDMChallenge: individualisation message type=%s", messageType.c_str());
+		MW_LOG_WARN("processOCDMChallenge received message with type=%s", messageType.c_str());
 
 		if (m_drmCallbacks)
 		{
@@ -196,7 +191,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 	{
 		// Assuming this is a standard challenge callback
 		m_challenge = challengeData;
-		MW_LOG_WARN("[DRM_FLOW] processOCDMChallenge: standard license challenge received, signalling");
+		MW_LOG_WARN("processOCDMChallenge challenge = %s", m_challenge.c_str());
 
 		m_destUrl.assign(destUrl);
 		MW_LOG_WARN("processOCDMChallenge destUrl = %s (default value used as drm server)", m_destUrl.c_str());
@@ -206,7 +201,6 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 
 	if(messageType == LICENSE_RENEWAL_MESSAGE_TYPE)
 	{
-		MW_LOG_WARN("[DRM_FLOW] processOCDMChallenge: license renewal message received");
 		if (m_drmCallbacks)
 			m_drmCallbacks->LicenseRenewal(m_drmHelper,static_cast<DrmSession*> (this));
 	}
@@ -224,14 +218,12 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 		{
 			m_keyStatus = m_session->getStatus(key, keySize);
 			m_keyStateIndeterminate = false;
-			MW_LOG_WARN("[DRM_FLOW] keyUpdateOCDM: keyStatus=%d", (int)m_keyStatus);
 		}
 		else
 		{
 			m_keyStored.clear();
 			m_keyStored.assign(key, key + keySize);
 			m_keyStateIndeterminate = true;
-			MW_LOG_WARN("[DRM_FLOW] keyUpdateOCDM: key arrived before session (indeterminate)");
 		}
 
 		// Update usable keys list (common for both branches)
@@ -247,7 +239,7 @@ void OCDMSessionAdapter::keyUpdateOCDM(const uint8_t key[], const uint8_t keySiz
 }
 
 void OCDMSessionAdapter::keysUpdatedOCDM() {
-	MW_LOG_WARN("[DRM_FLOW] keysUpdatedOCDM: all key statuses delivered");
+	MW_LOG_INFO("at %p", this);
 	m_keyStatusReady.signal();
 }
 
@@ -269,14 +261,14 @@ DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_
 
 			result = new DrmData(m_challenge.c_str(), m_challenge.length());
 			destinationURL.assign((m_destUrl.c_str()));
-			MW_LOG_WARN("[DRM_FLOW] generateKeyRequest: challenge received, destUrl=%s", destinationURL.c_str());
+			MW_LOG_WARN("destinationURL is %s (default value used as drm server)", destinationURL.c_str());
 			m_eKeyState = KEY_PENDING;
 		}
 		else {
-			MW_LOG_WARN("[DRM_FLOW] generateKeyRequest: empty challenge");
+			MW_LOG_WARN("Empty keyRequest");
 		}
 	} else {
-		MW_LOG_WARN("[DRM_FLOW] generateKeyRequest: timed out waiting for challenge");
+		MW_LOG_WARN("Timed out waiting for keyRequest");
 	}
 	return result;
 }
@@ -294,35 +286,30 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 		const uint8_t* keyMessage   = reinterpret_cast<const uint8_t*>(key->getData().c_str());
 		const uint16_t keyMsgLength = static_cast<uint16_t>(key->getDataLength());
 
-		MW_LOG_WARN("[DRM_FLOW] processDRMKey: calling session->update(), key length=%u", keyMsgLength);
+		MW_LOG_INFO("Calling session update, key length=%u", keyMsgLength);
 		status = m_session->update(keyMessage, keyMsgLength);
-		MW_LOG_WARN("[DRM_FLOW] processDRMKey: session->update() returned status=%d", (int)status);
 	}
 	else
 	{
 		// If no key data has been provided then this suggests the key acquisition
 		// will be performed by the DRM implementation itself. Hence there is no
 		// need to call session update
-		MW_LOG_WARN("[DRM_FLOW] processDRMKey: no key data, assuming external key acquisition");
+		MW_LOG_INFO("NULL key data provided, assuming external key acquisition");
 	}
 
 	if (status == OpenCDMError::ERROR_NONE) {
 		if (m_keyStatusReady.wait(timeout) == true) {
-			MW_LOG_WARN("[DRM_FLOW] processDRMKey: key status signalled");
-		}
-		else
-		{
-			MW_LOG_WARN("[DRM_FLOW] processDRMKey: timed out waiting for key status (timeout=%ums)", timeout);
+			MW_LOG_WARN("Key Status updated");
 		}
 		// The key could be signalled ready before the session is even created, so we need to check we didn't miss it
 		if (m_keyStateIndeterminate) {
 			m_keyStatus = m_session->getStatus(m_keyStored.data(),
 			                                   static_cast<uint8_t>(m_keyStored.size()));
 			m_keyStateIndeterminate = false;
-			MW_LOG_WARN("[DRM_FLOW] processDRMKey: key arrived early, status=%d", (int)m_keyStatus);
+			MW_LOG_WARN("Key arrived early, new state is %d", m_keyStatus);
 		}
 		if (m_keyStatus == KeyStatus::Usable) {
-			MW_LOG_WARN("[DRM_FLOW] processKey: Key Usable!");
+			MW_LOG_WARN("processKey: Key Usable!");
 			m_eKeyState = KEY_READY;
 			retValue = 0;
 		}
@@ -353,17 +340,17 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 		else {
 			if(m_keyStatus == KeyStatus::OutputRestricted)
 			{
-				MW_LOG_WARN("[DRM_FLOW] processKey: Output restricted keystatus: %d", (int) m_keyStatus);
+				MW_LOG_WARN("processKey: Update() Output restricted keystatus: %d", (int) m_keyStatus);
 				retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
 			}
 			else if(m_keyStatus == KeyStatus::OutputRestrictedHDCP22)
 			{
-				MW_LOG_WARN("[DRM_FLOW] processKey: Output Compliance error keystatus: %d", (int) m_keyStatus);
+				MW_LOG_WARN("processKey: Update() Output Compliance error keystatus: %d\n", (int) m_keyStatus);
 				retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
 			}
 			else
 			{
-				MW_LOG_WARN("[DRM_FLOW] processKey: Update() non-usable keystatus: %d", (int) m_keyStatus);
+				MW_LOG_WARN("processKey: Update() returned keystatus: %d\n", (int) m_keyStatus);
 				retValue = (int) m_keyStatus;
 			}
 			m_eKeyState = KEY_ERROR;

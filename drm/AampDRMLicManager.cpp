@@ -239,7 +239,6 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 	if (drmHelper->isExternalLicense() && !isLicenseRenewal)
 	{
 		// External license, assuming the DRM system is ready to proceed
-		AAMPLOG_WARN("[DRM_FLOW] acquireLicense: external license path for %s", drmHelper->friendlyName().c_str());
 		code = KEY_PENDING;
 		if(drmHelper->friendlyName().compare("Verimatrix") == 0)
 		{
@@ -257,16 +256,12 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 		AAMPLOG_INFO("Request to generate license challenge to the aampDRMSession(CDM)");
 
 		ChallengeInfo challengeInfo;
-		AAMPLOG_WARN("[DRM_FLOW] acquireLicense: calling generateKeyRequest slot=%d timeout=%u",
-			sessionSlot, drmHelper->licenseGenerateTimeout());
 		challengeInfo.data.reset(mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->generateKeyRequest(challengeInfo.url, drmHelper->licenseGenerateTimeout()));
 		code = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getState();
-		AAMPLOG_WARN("[DRM_FLOW] acquireLicense: generateKeyRequest complete code=%d challengeData=%s",
-			code, challengeInfo.data ? "present" : "null");
 
 		if (code != KEY_PENDING)
 		{
-			AAMPLOG_ERR("[DRM_FLOW] acquireLicense: challenge generation FAILED code=%d", code);
+			AAMPLOG_ERR("Error in getting license challenge : Key State %d ", code);
 			if(!isLicenseRenewal)
 			{
 				aampInstance->profiler.ProfileError(PROFILE_BUCKET_LA_PREPROC, AAMP_TUNE_DRM_CHALLENGE_FAILED);
@@ -348,13 +343,12 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 				/**
 				 * Perform License acquisition by invoking http license request to license server
 				 */
-				AAMPLOG_WARN("[DRM_FLOW] acquireLicense: sending license request to %s", licenseRequest.url.c_str());
+				AAMPLOG_WARN("Request License from the Drm Server %s", licenseRequest.url.c_str());
 				if(!isLicenseRenewal)
 				{
 					aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_NETWORK);
 				}
 				bool isContentMetadataAvailable = configureLicenseServerParameters(drmHelper, licenseRequest, licenseServerProxy, challengeInfo, aampInstance);
-				AAMPLOG_WARN("[DRM_FLOW] acquireLicense: isContentMetadataAvailable=%d", isContentMetadataAvailable);
 				if (isContentMetadataAvailable)
 				{
 					eventHandle->setSecclientError(true);
@@ -391,7 +385,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 				//Check if license req is aborted. If yes, ignore the response.
 				if(licenseRequestAbort.load(std::memory_order_acquire))
 				{
-					AAMPLOG_ERR("[DRM_FLOW] acquireLicense: aborted after license response, slot=%d", sessionSlot);
+					AAMPLOG_ERR("Error!! License request was aborted, so ignoring the license response. Resetting session slot %d", sessionSlot);
 					eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
 					eventHandle->setResponseCode(CURLE_ABORTED_BY_CALLBACK);
 					responseCode = int(CURLE_ABORTED_BY_CALLBACK);
@@ -403,14 +397,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 
 	if (code == KEY_PENDING)
 	{
-		AAMPLOG_WARN("[DRM_FLOW] acquireLicense: calling handleLicenseResponse slot=%d httpCode=%d",
-			sessionSlot, httpResponseCode);
 		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, std::move(licenseResponse), eventHandle,  isLicenseRenewal);
-		AAMPLOG_WARN("[DRM_FLOW] acquireLicense: handleLicenseResponse returned code=%d", code);
-	}
-	else
-	{
-		AAMPLOG_WARN("[DRM_FLOW] acquireLicense: not calling handleLicenseResponse, code=%d", code);
 	}
 	return code;
 }
@@ -420,8 +407,6 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 	{
 		if ((licenseResponse != NULL) && (licenseResponse->getDataLength() != 0))
 		{
-			AAMPLOG_WARN("[DRM_FLOW] handleLicenseResponse: license response OK len=%u slot=%d",
-				licenseResponse->getDataLength(), sessionSlot);
 			if(!isLicenseRenewal)
 			{
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
@@ -462,8 +447,6 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 		}
 		else
 		{
-			AAMPLOG_ERR("[DRM_FLOW] handleLicenseResponse: invalid/null license response httpCode=%d extCode=%d slot=%d",
-				httpResponseCode, httpExtendedStatusCode, sessionSlot);
 			if(!isLicenseRenewal)
 			{
 				aampInstance->profiler.ProfileError(PROFILE_BUCKET_LA_NETWORK, httpResponseCode);
@@ -538,9 +521,7 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 		aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_POSTPROC);
 	}
 
-	AAMPLOG_WARN("[DRM_FLOW] processLicenseResponse: calling processDRMKey slot=%d", sessionSlot);
 	cdmError = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->processDRMKey(licenseResponse.get(), drmHelper->keyProcessTimeout());
-	AAMPLOG_WARN("[DRM_FLOW] processLicenseResponse: processDRMKey returned cdmError=%d", cdmError);
 
 	if(!isLicenseRenewal)
 	{
@@ -548,7 +529,6 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 	}
 
 	KeyState code = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getState();
-	AAMPLOG_WARN("[DRM_FLOW] processLicenseResponse: final key state=%d slot=%d", code, sessionSlot);
 
 	if (code == KEY_ERROR)
 	{
