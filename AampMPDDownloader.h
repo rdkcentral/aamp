@@ -214,7 +214,7 @@ public:
 	*	@fn Initialize
 	*	@brief Function to initialize MPD Downloader
 	*/
-	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName="",std::function<std::string()> mpdPreProcessFuncptr = nullptr);
+	void Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::string appName="",std::function<std::pair<std::string,int>()> mpdPreProcessFuncptr = nullptr);
 
 	/**
 	*	@fn Release
@@ -442,7 +442,7 @@ private:
 	uint64_t mPublishTime; 		   /* Publish time of updated manifest*/
 	int mMinimalRefreshRetryCount;  /* A counter to checks if the publication time remains the same for 2 consecutive refresh*/
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
-	std::function<std::string()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
+	std::function<std::pair<std::string,int>()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

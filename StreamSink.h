@@ -44,7 +44,7 @@ typedef struct PlaybackQualityData
 
 /**
  * @class StreamSink
- * @brief GStreamer Abstraction class for the implementation of AAMPGstPlayer and gstaamp plugin
+ * @brief Abstract interface for stream sink implementations (e.g. GStreamer, DirectRialto)
  */
 class StreamSink
 {
@@ -169,10 +169,10 @@ public:
      *   @brief Enabled or disable playback pause
      *
      *   @param[in] pause  Enable/Disable
-     *   @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
+     *   @param[in] forceStopPreBuffering - true for disabling pre-buffering in progress
      *   @return true if content successfully paused
      */
-    virtual bool Pause(bool pause, bool forceStopGstreamerPreBuffering){ return true; }
+    virtual bool Pause(bool pause, bool forceStopPreBuffering){ return true; }
 
     /**
      *   @brief Get playback duration in milliseconds
