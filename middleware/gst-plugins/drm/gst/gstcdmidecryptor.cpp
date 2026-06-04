@@ -465,6 +465,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 			cdmidecryptor->sinkCaps = NULL;
 		}
 		cdmidecryptor->sinkCaps = gst_caps_copy(transformedCaps);
+		g_cond_signal(&cdmidecryptor->condition);
 		g_mutex_unlock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(trans, "Set sinkCaps to %" GST_PTR_FORMAT, cdmidecryptor->sinkCaps);
 	}
@@ -510,6 +511,19 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 
 	g_mutex_lock(&cdmidecryptor->mutex);
 	mutexLocked = TRUE;
+
+	if (cdmidecryptor->sinkCaps == NULL && cdmidecryptor->streamReceived) {
+	    // Caps negotiation hasn't completed yet - wait briefly
+	    gint64 end_time = g_get_monotonic_time() + 500 * G_TIME_SPAN_MILLISECOND;
+	    while (cdmidecryptor->sinkCaps == NULL) {
+	        if (!g_cond_wait_until(&cdmidecryptor->condition, &cdmidecryptor->mutex, end_time)) {
+	            GST_WARNING_OBJECT(cdmidecryptor, "Timeout waiting for sinkCaps");
+	            result = GST_FLOW_NOT_SUPPORTED;
+	            goto free_resources;
+	        }
+	    }
+	}
+
 	if (!protectionMeta)
 	{
 		GST_DEBUG_OBJECT(cdmidecryptor,
@@ -518,7 +532,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		{
 			// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 			// decrypt() call will return without doing anything
-			if (cdmidecryptor->drmSession != NULL)
+			if (cdmidecryptor->drmSession != NULL && cdmidecryptor->sinkCaps != NULL)
 			   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
 			else
 			{ /* If drmSession creation failed, then the call will be aborted here */
@@ -635,7 +649,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			goto free_resources;
 		}
 	}
-
+	if (cdmidecryptor->sinkCaps == NULL) {
+	    GST_WARNING_OBJECT(cdmidecryptor, "sinkCaps is NULL, skipping decrypt");
+	    result = GST_FLOW_NOT_SUPPORTED;
+	    goto free_resources;
+	}
 	errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
 
 	cdmidecryptor->streamEncrypted = true;
