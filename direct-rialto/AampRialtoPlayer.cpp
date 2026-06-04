@@ -319,8 +319,6 @@ void AampRialtoPlayer::Configure(
 						OnBufferUnderflow(sid);
 					});
 
-				StartProgressTimer();
-
 				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();
 			}
@@ -1164,6 +1162,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		case firebolt::rialto::PlaybackState::PLAYING:
 		{
 			m_stateMachine.onPlaybackStarted();
+			StartProgressTimer();
 
 			// Clear injectionGated so inject threads resume blocking
 			// normally on needData rather than aborting immediately.
@@ -1270,7 +1269,11 @@ int AampRialtoPlayer::ProgressTimerCallback(void *userData)
 
 void AampRialtoPlayer::StartProgressTimer()
 {
-	StopProgressTimer();
+	if (m_progressTimerId != 0)
+	{
+		AAMPLOG_INFO("Progress timer already running id=%u", m_progressTimerId);
+		return;
+	}
 
 	double intervalSeconds = 0.0;
 	if (m_notifiable == nullptr)

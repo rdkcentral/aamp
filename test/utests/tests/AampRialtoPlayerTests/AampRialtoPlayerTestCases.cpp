@@ -1379,7 +1379,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	Configure_ProgressTimer_UsesConfiguredInterval)
+	OnPlaybackState_Playing_StartsProgressTimer_UsesConfiguredInterval)
 {
 	constexpr guint kExpectedIntervalMs = 250;
 	EXPECT_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
@@ -1392,12 +1392,22 @@ TEST_F(AampRialtoPlayerTest,
 			Return(101)));
 
 	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_DoesNotStartProgressTimer)
+{
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)).Times(0);
+
+	Configure();
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	ProgressTimer_WhenPaused_StillReportsProgress)
 {
 	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 
 	EXPECT_TRUE(m_player->Pause(
 		/*pause=*/true,
@@ -1419,10 +1429,25 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 			SaveArg<2>(&m_progressTimerUserData),
 			Return(77)));
 	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 
 	EXPECT_CALL(*g_mockGLib, g_source_remove(77))
 		.WillOnce(Return(TRUE));
 	m_player->Stop(/*keepLastFrame=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Playing_DoesNotRestartProgressTimerWhenAlreadyRunning)
+{
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)).Times(1)
+		.WillOnce(DoAll(
+			SaveArg<1>(&m_progressTimerCallback),
+			SaveArg<2>(&m_progressTimerUserData),
+			Return(88)));
+
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
 // Segment start = 0: elapsed time equals raw PTS (unchanged behaviour for
