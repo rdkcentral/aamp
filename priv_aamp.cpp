@@ -1833,7 +1833,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 
 	// HACK used for testing only - if Rialto sink is enabled, then also enable direct rialto,
 	// mp4 demux and any other desired configuration
-	if (GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink))
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_RialtoSinkSetsDirectRialto) && GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink))
 	{
 		AAMPLOG_MIL("Rialto sink enabled, enabling direct rialto");
 		SETCONFIGVALUE_PRIV(AAMP_DEV_CFG_SETTING, eAAMPConfig_useDirectRialto, true);
