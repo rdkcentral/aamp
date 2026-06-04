@@ -6438,6 +6438,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	TextTrackInfo preferredTextTrack;
 	std::vector<AudioTrackInfo> aTracks;//aTracks is only used for calling ParseTrackInformation
 	bool isFrstAvailableTxtTrackSelected = false;
+	bool isinbandCCAlsoPresent = false;
 
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
 	mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = false;
@@ -6472,6 +6473,21 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		if (mMPDParseHelper->IsContentType(adaptationSet,eMEDIATYPE_SUBTITLE))
 		{
 			ParseTrackInformation(adaptationSet, iAdaptationSet,eMEDIATYPE_SUBTITLE , aTracks, tTracks);
+			for (int j = 0; j < tTracks.size(); j++)
+			{
+				if (!tTracks[j].isCC)
+					{
+						AAMPLOG_INFO("Available subs - mime %s lang %s index %s isCC %d",
+											 tTracks[j].instreamId.c_str(), tTracks[j].language.c_str(), tTracks[j].index.c_str(),tTracks[j].isCC);
+					}
+					else
+					{
+						AAMPLOG_INFO("Available subs - mime %s lang %s index %s isCC %d",
+								 tTracks[j].instreamId.c_str(), tTracks[j].language.c_str(), tTracks[j].index.c_str(),tTracks[j].isCC);
+						isinbandCCAlsoPresent = true;
+						memset(&preferredTextTrack, 0, sizeof(preferredTextTrack)); // Clear any preferred text track selection if in-band CC is present, as in-band CC will be preferred over subtitle tracks
+					}
+			 }
 			if (AAMP_NORMAL_PLAY_RATE == rate)
 			{
 				if (selAdaptationSetIndex == -1 || isFrstAvailableTxtTrackSelected)
@@ -6490,6 +6506,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 								if (nullptr == firstAvailTextTrack)
 								{
 									firstAvailTextTrack = &tTracks[j];
+
 								}
 							}
 						}
@@ -6497,8 +6514,8 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 					if (nullptr != firstAvailTextTrack)
 					{
 						isFrstAvailableTxtTrackSelected = true;
-						AAMPLOG_INFO("Selected first subtitle track, lang:%s, index:%s",
-									 firstAvailTextTrack->language.c_str(), firstAvailTextTrack->index.c_str());
+						AAMPLOG_INFO("Selected first subtitle track, lang:%s, index:%s isCC %d",
+									 firstAvailTextTrack->language.c_str(), firstAvailTextTrack->index.c_str(),firstAvailTextTrack->isCC);
 					}
 					if (!preferredTextTrack.index.empty())
 					{
@@ -6514,7 +6531,13 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 						// 3. Not set
 						selectedTextTrack = (nullptr != firstAvailTextTrack) ? *firstAvailTextTrack : aamp->GetPreferredTextTrack();
 					}
-
+					if(isinbandCCAlsoPresent)
+					{
+				 		//break the loop here so that gst TTML will not be created
+						AAMPLOG_INFO("Inband CC track is also present in the stream, mIsInbandCC=%d", aamp->mIsInbandCC);
+				 		aamp->mIsInbandCC = true;
+						break;
+					}
 					if (!selectedTextTrack.index.empty())
 					{
 						if (IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, selectedTextTrack.language, adaptationSet, selRepresentationIndex))
