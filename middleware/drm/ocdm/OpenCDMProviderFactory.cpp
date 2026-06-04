@@ -38,7 +38,6 @@ std::unique_ptr<IOpenCDM> OpenCDMProviderFactory::create(const std::string& keyS
 {
 	if (m_creator)
 	{
-		MW_LOG_WARN("[DRM_FLOW] OpenCDMProviderFactory: using injected creator for %s", keySystem.c_str());
 		return m_creator(keySystem);
 	}
 
@@ -47,11 +46,11 @@ std::unique_ptr<IOpenCDM> OpenCDMProviderFactory::create(const std::string& keyS
 	//       but this matches the existing pattern used throughout AAMP middleware.
 	if (gpGlobalConfig && gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoDirect))
 	{
-		MW_LOG_WARN("[DRM_FLOW] OpenCDMProviderFactory: selecting RialtoMediaKeysProvider for %s", keySystem.c_str());
+		MW_LOG_INFO("OpenCDMProviderFactory: creating RialtoMediaKeysProvider for %s", keySystem.c_str());
 		return std::make_unique<RialtoMediaKeysProvider>(keySystem);
 	}
 
-	MW_LOG_WARN("[DRM_FLOW] OpenCDMProviderFactory: selecting OpenCDMProvider for %s", keySystem.c_str());
+	MW_LOG_INFO("OpenCDMProviderFactory: creating OpenCDMProvider for %s", keySystem.c_str());
 	return std::make_unique<OpenCDMProvider>(keySystem);
 }
 
