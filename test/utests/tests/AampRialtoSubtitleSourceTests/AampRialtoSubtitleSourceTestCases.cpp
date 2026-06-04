@@ -30,6 +30,7 @@
 
 using ::testing::_;
 using ::testing::NiceMock;
+using ::testing::Return;
 
 // ---------------------------------------------------------------------------
 // Testable subclass — exposes protected methods for white-box unit testing
@@ -308,4 +309,55 @@ TEST_F(AampRialtoSubtitleSourceTest,
 
 	ASSERT_TRUE(ci.has_value());
 	EXPECT_EQ(ci->mCodecFormat, GST_FORMAT_SUBTITLE_WEBVTT);
+}
+
+// ---------------------------------------------------------------------------
+// Inband CC
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoSubtitleSource_MapCodecToMime_InbandCC_ReturnsCCMime
+ * @brief When enableInbandCC() is called, mapCodecToMime() must return
+ *        "application/x-subtitle-cc" regardless of the codec format.
+ *        This is the MIME type expected by the Rialto server for sources
+ *        whose closed-caption data is embedded in the video bitstream.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_MapCodecToMime_InbandCC_ReturnsCCMime)
+{
+	m_source.enableInbandCC();
+	EXPECT_TRUE(m_source.isInbandCC());
+
+	std::string mimeType;
+	firebolt::rialto::StreamFormat fmt{};
+	const bool ok = m_source.mapCodecToMime(GST_FORMAT_INVALID, mimeType, fmt);
+
+	EXPECT_TRUE(ok);
+	EXPECT_EQ(mimeType, "application/x-subtitle-cc");
+	EXPECT_EQ(fmt, firebolt::rialto::StreamFormat::RAW);
+}
+
+/**
+ * @test AampRialtoSubtitleSource_HandleNeedData_InbandCC_RespondsWithNoAvailableSamples
+ * @brief handleNeedData() must immediately call
+ *        haveData(NO_AVAILABLE_SAMPLES, requestId) for inband CC sources
+ *        and must NOT set hasPending, because AAMP has no data to push —
+ *        the Rialto server extracts CC from the video bitstream internally.
+ */
+TEST_F(AampRialtoSubtitleSourceTest,
+	AampRialtoSubtitleSource_HandleNeedData_InbandCC_RespondsWithNoAvailableSamples)
+{
+	m_source.enableInbandCC();
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES,
+			static_cast<uint32_t>(42)))
+		.WillOnce(Return(true));
+
+	m_source.handleNeedData(/*frameCount=*/1, /*requestId=*/42, m_pipelinePtr);
+
+	// hasPending must NOT be set — no injection should ever be attempted.
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
 }

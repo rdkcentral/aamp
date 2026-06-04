@@ -335,11 +335,18 @@ public:
 	/**
 	 * @brief Enable inband closed-caption mode for this source.
 	 *
-	 * When set, the source uses the "application/x-subtitle-cc" MIME type
-	 * and skips normal injection.  No-op for non-subtitle sources.
-	 * Overridden by AampRialtoSubtitleSource.
+	 * When set, mapCodecToMime() returns "application/x-subtitle-cc" and
+	 * handleNeedData() immediately acknowledges with NO_AVAILABLE_SAMPLES
+	 * rather than queuing a data request — because the Rialto server
+	 * extracts CC from the video bitstream internally and AAMP has no
+	 * CC data to push.
 	 */
-	virtual void enableInbandCC() {}
+	void enableInbandCC() { m_inbandCC = true; }
+
+	/**
+	 * @brief Returns true when inband closed-caption mode is active.
+	 */
+	bool isInbandCC() const { return m_inbandCC; }
 
 protected:
 	// -----------------------------------------------------------------
@@ -396,6 +403,8 @@ protected:
 	std::unique_ptr<Mp4Demux> m_demuxer;
 	std::optional<ProtectionParams> m_protection;
 	std::shared_ptr<firebolt::rialto::CodecData> m_pendingCodecData;
+	/// True when inband CC mode is active (set by enableInbandCC()).
+	bool m_inbandCC{false};
 };
 
 #endif /* AAMP_RIALTO_MEDIA_SOURCE_H */

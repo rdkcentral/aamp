@@ -541,6 +541,25 @@ void AampRialtoMediaSource::handleNeedData(
 	AAMPLOG_INFO("sourceId=%d frameCount=%zu requestId=%u",
 		m_sourceId, frameCount, requestId);
 
+	// Inband CC sources have no data to inject — the Rialto server
+	// extracts CC from the video bitstream internally.  Acknowledge
+	// immediately with NO_AVAILABLE_SAMPLES so the server does not
+	// stall waiting for data that will never arrive from AAMP.
+	if (isInbandCC())
+	{
+		AAMPLOG_INFO("Inband CC source: responding with "
+			"NO_AVAILABLE_SAMPLES requestId=%u", requestId);
+		if (pipeline &&
+		    !pipeline->haveData(
+			    firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES,
+			    requestId))
+		{
+			AAMPLOG_WARN("haveData(NO_AVAILABLE_SAMPLES) failed "
+				"requestId=%u", requestId);
+		}
+		return;
+	}
+
 	bool fireEos = false;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);

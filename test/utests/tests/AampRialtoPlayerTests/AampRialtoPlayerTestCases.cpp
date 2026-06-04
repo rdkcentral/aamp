@@ -1898,6 +1898,41 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SUCCEED();
 }
 
+/**
+ * @test OnNeedMediaData_InbandCCSource_RespondsWithNoAvailableSamples
+ * @brief When NeedMediaData arrives for the inband CC subtitle source, AAMP
+ *        must immediately respond with haveData(NO_AVAILABLE_SAMPLES) because
+ *        the Rialto server extracts CC from the video bitstream internally and
+ *        AAMP has no CC data to inject.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnNeedMediaData_InbandCCSource_RespondsWithNoAvailableSamples)
+{
+	// Configure video + audio only (no explicit subtitle) — this causes
+	// AampRialtoPlayer to create an inband CC subtitle source and call
+	// enableInbandCC() on it before attaching it to the pipeline.
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	// SendVideoInitFragment() attaches the video source (id=0) and then
+	// triggers the deferred attachment of the inband CC subtitle source
+	// (id=1).  The audio source is not yet attached at this point.
+	SendVideoInitFragment();
+
+	std::atomic<bool> haveDataCalled{false};
+	EXPECT_CALL(*m_mockPipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES,
+			static_cast<uint32_t>(100)))
+		.WillOnce(DoAll(
+			Invoke([&haveDataCalled](auto, auto)
+				{ haveDataCalled = true; }),
+			Return(true)));
+
+	// sourceId=1 is the inband CC subtitle source.
+	PostNeedData(/*sourceId=*/1, /*frameCount=*/1, /*requestId=*/100);
+
+	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
+	EXPECT_TRUE(haveDataCalled.load());
+}
+
 // ===========================================================================
 // Back-pressure (synchronous pacing)
 // ===========================================================================

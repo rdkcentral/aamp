@@ -89,7 +89,7 @@ bool AampRialtoSubtitleSource::mapCodecToMime(
 {
 	// Inband CC: the Rialto server reads CC from the video stream; use a
 	// dedicated MIME type and bypass the normal codec mapping.
-	if (m_inbandCC)
+	if (isInbandCC())
 	{
 		mimeType    = "application/x-subtitle-cc";
 		streamFormat = firebolt::rialto::StreamFormat::RAW;
@@ -143,7 +143,7 @@ AampRialtoSubtitleSource::createRialtoSource(
 {
 	// For inband CC sources supply the default text-track identifier so the
 	// Rialto server starts rendering CC1 immediately.
-	const std::string textTrackId = m_inbandCC ? "CC1" : "";
+	const std::string textTrackId = isInbandCC() ? "CC1" : "";
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSourceSubtitle>(
 		mimeType, textTrackId);
