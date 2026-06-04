@@ -521,7 +521,8 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 			cachedKeyIDs[selectedSlot].isFailedKeyEntries = true;
 		return nullptr;
 	}
-	code =this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError, (GstMediaType)streamType, metaDataPtr, false);
+ 	code = this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, 
+								  cdmError, static_cast<GstMediaType>(streamType), metaDataPtr, false);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
