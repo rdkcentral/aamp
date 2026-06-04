@@ -699,7 +699,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 {
 	if (nullptr == mActiveDownloadInfo || nullptr == dlInfo || !aamp->DownloadsAreEnabled() || abort)
 	{
-		AAMPLOG_WARN("mActiveDownloadInfo or dlInfo is NULL or downloads are disabled");
+		AAMPLOG_WARN("mActiveDownloadInfo or dlInfo is NULL or downloads are disabled. DownloadsAreEnabled=%d abort=%d",
+			aamp->DownloadsAreEnabled(), abort);
 		return;
 	}
 
@@ -1062,6 +1063,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
 	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && !IDX.empty() && uriInfo.range.empty())
 	{
+		std::lock_guard<std::mutex> idxLock(mIdxMutex);
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{

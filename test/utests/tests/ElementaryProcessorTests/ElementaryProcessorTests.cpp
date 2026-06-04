@@ -201,7 +201,7 @@ protected:
 	void SetUp() override
 	{
 		mPrivateInstanceAAMP2 = new PrivateInstanceAAMP(gpGlobalConfig);
-		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+		g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
 		// ElementaryProcessor constructor calls GetMediaFormatTypeEnum()
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum())
 			.WillRepeatedly(Return(eMEDIAFORMAT_HLS_MP4));
@@ -214,8 +214,7 @@ protected:
 		mElementaryProcessor = nullptr;
 		delete mPrivateInstanceAAMP2;
 		mPrivateInstanceAAMP2 = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 	}
 
 	ElementaryProcessor    *mElementaryProcessor{};

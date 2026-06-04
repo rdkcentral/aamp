@@ -112,11 +112,11 @@ protected:
 		{
 			gpGlobalConfig =  new AampConfig();
 		}
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
 		if (g_mockPrivateInstanceAAMP == nullptr)
 		{
-			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+			g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		}
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(mConfig);
@@ -148,8 +148,7 @@ protected:
 		delete mStreamAbstractionAAMP;
 		mStreamAbstractionAAMP = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
@@ -157,8 +156,7 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		mMockMediaProcessor.reset();
 	}

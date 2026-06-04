@@ -22,6 +22,7 @@
 
 #include <gmock/gmock.h>
 #include <filesystem>
+#include <memory>
 
 #include "TsbFakeDirectoryIterator.h"
 
@@ -32,6 +33,6 @@ public:
 	MOCK_METHOD(bool, NotEq, (const TSB::FS::directory_iterator&), (const));
 };
 
-extern TsbMockDirectorIterator* g_mockDirectoryIterator;
+extern std::shared_ptr<TsbMockDirectorIterator> g_mockDirectoryIterator;
 
 #endif // __TSB_MOCK_DIRECTORY_ITERATOR__
