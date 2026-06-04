@@ -2704,14 +2704,20 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				float fragmentTime = (float)(pMediaStreamContext->fragmentTime - mPeriodStartTime)
 				                     + (float)presentationTimeOffsetSec;
 
-				if (fragmentIndex == 0)
+			if (fragmentIndex == 0)
 				{
 					// Compute the absolute byte offset of the first fragment.
 					// The sidx index-range is e.g. "3887-4266", so the first fragment data
 					// starts at byte 4267 (one past the end of the sidx box), plus any
 					// first_offset carried in the sidx header.
 					uint64_t idxRangeStart = 0, idxRangeEnd = 0;
-					sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd);
+					if (sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd) != 2)
+					{
+						AAMPLOG_WARN("Type[%d] SegmentBase fragmentIndex==0: malformed index range '%s', cannot compute fragmentOffset",
+						             pMediaStreamContext->type, range.c_str());
+						pMediaStreamContext->eos = true;
+						return false;
+					}
 					pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
 					unsigned int firstOffset = 0;
 					if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
@@ -2750,7 +2756,13 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					{
 						// Re-initialise fragmentOffset from the beginning and walk to targetTime.
 						uint64_t idxRangeStart = 0, idxRangeEnd = 0;
-						sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd);
+						if (sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd) != 2)
+						{
+							AAMPLOG_WARN("Type[%d] SegmentBase rewind: malformed index range '%s', cannot compute fragmentOffset",
+							             pMediaStreamContext->type, range.c_str());
+							pMediaStreamContext->eos = true;
+							return false;
+						}
 						pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
 						unsigned int firstOffset = 0;
 						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
