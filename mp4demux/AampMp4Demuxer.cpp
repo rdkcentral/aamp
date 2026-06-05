@@ -25,6 +25,8 @@
 #include "AampMp4Demuxer.h"
 #include "AampLogManager.h"
 #include "AampUtils.h"
+#include "AampConfig.h"
+#include <cmath>
 
 
 /**
@@ -40,6 +42,79 @@ AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bo
 	// TODO: Should we limit the media types here to only video/audio?
 	// Make restamp logging configurable as it might cause log flooding, since logs will come for each demuxed frames per fragment
 	mEnablePtsRestampLogging = mAamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStampLogging);
+	// mTrickPlayFPS should be set via setFrameRateForTM()
+}
+
+/**
+ * @brief Set frame rate for trickmode
+ * @param[in] frameRate - rate per second
+ */
+void AampMp4Demuxer::setFrameRateForTM(int frameRate)
+{
+	if (frameRate <= 0)
+	{
+		AAMPLOG_WARN("Invalid trickplay FPS %d for media type %s, using default %d",
+			frameRate, GetMediaTypeName(mMediaType), TRICKPLAY_VOD_PLAYBACK_FPS);
+		frameRate = TRICKPLAY_VOD_PLAYBACK_FPS;
+	}
+	mTrickPlayFPS = frameRate;
+	AAMPLOG_INFO("TrickPlay FPS set to %d for media type %s", frameRate, GetMediaTypeName(mMediaType));
+}
+
+/**
+ * @brief Set playback rate
+ * @param[in] rate - playback rate
+ * @param[in] mode - playback mode
+ */
+void AampMp4Demuxer::setRate(double rate, PlayMode mode)
+{
+	if (mRate != rate)
+	{
+		// Rate changed - reset all trickmode state once here so the next
+		// keyframe starts a fresh restamp sequence from 0.
+		resetTrickMode();
+		mLastTrickRate = rate;
+	}
+	mRate = rate;
+	mIsTrickMode = (rate > AAMP_NORMAL_PLAY_RATE) || (rate < 0);
+	AAMPLOG_INFO("Rate set to %.2f, trickmode: %s for media type %s",
+		rate, mIsTrickMode ? "enabled" : "disabled", GetMediaTypeName(mMediaType));
+}
+
+/**
+ * @brief Abort all operations and reset trickmode state
+ */
+void AampMp4Demuxer::abort()
+{
+	mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
+	mLastSamplePts = 0.0;
+	mRestampedPts = 0.0;
+	mRestampedDuration = 0.0;
+	mLastTrickRate = 0.0;
+	AAMPLOG_INFO("Abort: Reset trickmode state for media type %s", GetMediaTypeName(mMediaType));
+}
+
+/**
+ * @brief Reset all trickmode state variables
+ */
+void AampMp4Demuxer::reset()
+{
+	resetTrickMode();
+}
+
+/**
+ * @brief Reset only trickmode-specific state variables.
+ * Separated from reset() so future additions to the public reset() API
+ * do not inadvertently affect the trickmode path in sendSegment().
+ */
+void AampMp4Demuxer::resetTrickMode()
+{
+	mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
+	mLastSamplePts = 0.0;
+	mRestampedPts = 0.0;
+	mRestampedDuration = 0.0;
+	mLastTrickRate = 0.0;
+	AAMPLOG_INFO("Reset trickmode state for media type %s", GetMediaTypeName(mMediaType));
 }
 
 /**
@@ -51,6 +126,86 @@ AampMp4Demuxer::~AampMp4Demuxer()
 	// std::unique_ptr automatically handles cleanup
 }
 
+/**
+ * @brief Apply trickmode PTS restamping to a sample, dynamically adjusting duration based on rate and frame rate
+ * Similar to qtdemux approach but with dynamic duration calculation for smoother trickmode playback
+ * @param[in,out] sample - Sample to restamp
+ * @param[in] duration - Fragment duration
+ * @param[in] discontinuous - True if this sample begins a discontinuous segment
+ */
+void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous)
+{
+	// Store original values for logging
+	double originalPts = sample.mPts;
+	double originalDts = sample.mDts;
+	double originalDuration = sample.mDuration;
+	double fragmentPtsDelta = 0.0;
+	double restampedDuration = 0.0;
+
+	// On the first keyframe of a discontinuous segment (while in STEADY state), advance
+	// the output PTS by the last known duration so the stream stays gapless, then switch
+	// to DISCONTINUITY so the switch below reuses that duration instead of computing a
+	// (potentially huge) cross-discontinuity PTS delta.
+	if (discontinuous && mTrickPhase == Mp4TrickPhase::STEADY)
+	{
+		mRestampedPts += mRestampedDuration;
+		mTrickPhase = Mp4TrickPhase::DISCONTINUITY;
+		AAMPLOG_WARN("[%s] Trickmode discontinuity: advancing restampedPts by %.6f to %.6f",
+			GetMediaTypeName(mMediaType), mRestampedDuration, mRestampedPts);
+	}
+
+	// All phase transitions are owned here.
+	switch (mTrickPhase)
+	{
+		case Mp4TrickPhase::FIRST_SAMPLE:
+			// First sample after initial start or rate change: estimate duration from
+			// rate and trickPlayFPS (no previous PTS delta available).
+			// mTrickPlayFPS is guaranteed > 0 by setFrameRateForTM().
+			restampedDuration = MAX(duration / std::fabs(mRate), 1.0 / mTrickPlayFPS);
+			mRestampedDuration = restampedDuration;
+			mRestampedPts = 0.0;
+			mTrickPhase = Mp4TrickPhase::STEADY;
+			AAMPLOG_INFO("Trickmode FIRST_SAMPLE->STEADY: rate=%.2f", mRate);
+			break;
+		case Mp4TrickPhase::DISCONTINUITY:
+			// First keyframe after a discontinuity. mRestampedPts was already advanced
+			// by sendSegment() before the sample loop; reuse the last known duration
+			// (same as MediaTrack::TrickModePtsRestamp DISCONTINUITY handling).
+			restampedDuration = mRestampedDuration;
+			mTrickPhase = Mp4TrickPhase::STEADY;
+			break;
+		case Mp4TrickPhase::STEADY:
+			// Delta-based duration: distance between current and previous original PTS
+			// divided by |rate|.
+			fragmentPtsDelta = fabs(sample.mPts - mLastSamplePts);
+			restampedDuration = fragmentPtsDelta / std::fabs(mRate);
+			mRestampedDuration = restampedDuration;
+			mRestampedPts += restampedDuration;
+			break;
+	} // end switch
+
+	// Store the current sample PTS before overwriting it
+	mLastSamplePts = sample.mPts;
+
+	// Apply restamped PTS and duration to the sample
+	sample.mPts = mRestampedPts;
+	sample.mDts = mRestampedPts;
+	sample.mDuration = restampedDuration;
+
+	// Single comprehensive log line
+	AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d origPTS %.6f origDTS %.6f origDur %.6f restampedPTS %.6f restampedDTS %.6f restampedDur %.6f lastSamplePTS %.6f inputDuration %.6f",
+		static_cast<int>(mTrickPhase),
+		mRate,
+		mTrickPlayFPS,
+		originalPts,
+		originalDts,
+		originalDuration,
+		sample.mPts,
+		sample.mDts,
+		sample.mDuration,
+		mLastSamplePts,
+		duration);
+}
 /**
  * @fn sendSegment
  *
@@ -67,7 +222,7 @@ AampMp4Demuxer::~AampMp4Demuxer()
  * @return true if fragment was sent, false otherwise
  */
 bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
-								bool isInit, process_fcn_t processor, bool &ptsError)
+				bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool ret = true;
 	(void) processor;
@@ -78,7 +233,10 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		// so each sample keeps the segment buffer alive for its lifetime.
 		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
+		
+	
 		ret = mMp4Demux->Parse(std::move(segment));
+		
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
@@ -88,25 +246,48 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 			auto samples = mMp4Demux->GetSamples();
 			if (!samples.empty())
 			{
-				for (auto& sample : samples)
+				if (mIsTrickMode)
 				{
-					if (mEnablePtsRestamp)
+					for (auto& sample : samples)
 					{
-						const double beforeDTS = sample.mDts;
-						sample.mPts += fragmentPTSoffset;
-						sample.mDts += fragmentPTSoffset;
-						if (mEnablePtsRestampLogging)
+						// In trickmode, only I-frames (key frames) should be sent to the sink.
+						// This mirrors the upstream ConvertToKeyFrame filtering done in the TSB path
+						// and the iframe-track selection in the non-TSB path.
+						if (!sample.mIsKeyFrame)
 						{
-							const uint32_t timeScale = mMp4Demux->GetTimeScale();
-							AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
+							AAMPLOG_TRACE("[%s] Skipping non-key frame sample in trickmode (pts=%.3f)",
+								GetMediaTypeName(mMediaType), sample.mPts);
+							continue;
+						}
+						TrickmodePtsRestamp(sample, duration, discontinuous);
+
+						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
+					}
+				}
+				else
+				{
+					for (auto& sample : samples)
+					{
+						// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
+						if (mEnablePtsRestamp)
+						{
+							double beforeDTS = sample.mDts;
+							sample.mPts += fragmentPTSoffset;
+							sample.mDts += fragmentPTSoffset;
+							// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
+							if (mEnablePtsRestampLogging)
+							{
+								uint32_t timeScale = mMp4Demux->GetTimeScale();
+								AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
 								GetMediaTypeName(mMediaType),
 								timeScale,
 								beforeDTS * timeScale,
 								sample.mDts * timeScale,
 								sample.mDuration * timeScale);
+							}
 						}
+						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 					}
-					mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 				}
 			}
 			else
