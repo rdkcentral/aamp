@@ -10159,10 +10159,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 											((mPlayRate > AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= aamp->mAbsoluteEndPosition) || (mPlayRate < AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= aamp->culledSeconds && (mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)))); // For rewinding, EOS does not need to be set unless the current period is a lower period.
 					if ((!mIsLiveManifest || (mPlayRate != AAMP_NORMAL_PLAY_RATE)) && (eosOutSideAd || eosAdPlayback))
 					{
-						if (vEos)
+						if (vEos && !mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached)
 						{
+							mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 							auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-								mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
@@ -10178,10 +10178,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						}
 						if (audioEnabled)
 						{
-							if (mMediaStreamContext[eMEDIATYPE_AUDIO]->eos)
+							if (mMediaStreamContext[eMEDIATYPE_AUDIO]->eos && !mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached)
 							{
+								mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
 								auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-									mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
