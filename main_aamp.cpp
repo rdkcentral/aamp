@@ -961,6 +961,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					aamp->mbPlayEnabled = true;
 				}
 
+				// Set rate before ActivatePlayer so that GetFirstPTS (called inside
+				// AampStreamSinkManager::ActivatePlayer) sees the new rate and correctly
+				// overrides firstPTS to 0.0 for AampMp4Demuxer trickplay transitions.
+				aamp->rate = rate;
 				aamp->ActivatePlayer();
 				aamp->LogPlayerPreBuffered();
 				if (AAMP_NORMAL_PLAY_RATE != rate)
@@ -976,7 +980,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
-				aamp->rate = rate;
 				// Notify the underflow monitor of the new rate immediately — before
 				// TuneHelper starts downloading fragments at the new rate.  This
 				// prevents a stale normal-play deadline from firing and declaring a

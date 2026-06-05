@@ -11336,6 +11336,14 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 			ptsOffset = mPTSOffset;
 		}
 	}
+	// AampMp4Demuxer restamps ALL trickplay PTS starting from 0.0 — applies to both TSB and
+	// non-TSB paths. Override firstPTS (and clear any PTS offset) after both paths above.
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && (aamp->rate != AAMP_NORMAL_PLAY_RATE))
+	{
+		firstPTS = 0.0;
+		ptsOffset = {};
+		AAMPLOG_INFO("Mp4demux trickplay: overriding firstPTS to 0.0 (restamped by AampMp4Demuxer, rate=%.2f)", aamp->rate);
+	}
 
 	restampedPTS = firstPTS + ptsOffset.inSeconds();
 	AAMPLOG_INFO("Restamped first pts:%lf, firstPTS:%lf, ptsOffsetSec:%lf", restampedPTS, firstPTS, ptsOffset.inSeconds());
@@ -14541,7 +14549,8 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 	bool enablePTSReStamp = ISCONFIGSET(eAAMPConfig_EnablePTSReStamp);
 	bool doFlush = ((!enableMediaProcessor || mIsSegmentTimelineEnabled) &&
 					(!enablePTSReStamp || rate == AAMP_NORMAL_PLAY_RATE));
-	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
+	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f, enablePTSReStamp=%d",
+				 doFlush, newTune, rate, enablePTSReStamp);
 	return doFlush;
 }
 
