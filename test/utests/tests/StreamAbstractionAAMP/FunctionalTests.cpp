@@ -208,11 +208,12 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeEnabled)
 {
 	const double test_rate = 2.0;
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(true));
+	// GetLLDashChunkMode() guard removed — setRate is now always called so that
+	// AampMp4Demuxer::setRate can set mIsTrickMode/mRate for PTS restamping.
 	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
-	EXPECT_CALL(*mMockMediaProcessor, setRate(_, _)).Times(0);
+	EXPECT_CALL(*mMockMediaProcessor, setRate(test_rate, PlayMode_normal)).Times(1);
 	EXPECT_EQ(mStreamAbstractionAAMP->trickplayMode, false);
 
 	mStreamAbstractionAAMP->ReinitializeInjection(test_rate);
@@ -222,7 +223,6 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeDisabled
 {
 	const double test_rate = 2.0;
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(false));
 	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
