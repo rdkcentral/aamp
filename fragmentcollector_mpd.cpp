@@ -10161,38 +10161,48 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					{
 						if (vEos && !mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached)
 						{
-							mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 							auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
 							if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 							{
-								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+								auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
+								if (!future.valid())
+								{
+									AAMPLOG_WARN("Video EOS: SubmitJob failed, falling back to synchronous Execute");
+									dashWorkerJob->Execute();
+								}
 							}
 							else
 							{
 								dashWorkerJob->Execute();
 							}
+							mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
 						}
 						if (audioEnabled)
 						{
 							if (mMediaStreamContext[eMEDIATYPE_AUDIO]->eos && !mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached)
 							{
-								mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
 								auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
 								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 								{
-									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+									auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+									if (!future.valid())
+									{
+										AAMPLOG_WARN("Audio EOS: SubmitJob failed, falling back to synchronous Execute");
+										dashWorkerJob->Execute();
+									}
 								}
 								else
 								{
 									dashWorkerJob->Execute();
 								}
+								mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
 							}
 						}
 						else
