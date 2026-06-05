@@ -949,7 +949,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	if(cachedFragment->initFragment)
 	{
-		if ((pContext) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		if ((pContext) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 		{
 			if (pContext->trickplayMode)
 			{
@@ -1061,7 +1061,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		parsedBufferChunk.insert(parsedBufferChunk.end(),
 				unparsedBufferChunk.data(),
 				unparsedBufferChunk.data() + parsedBufferSize);
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 		{
 			if (pContext && pContext->trickplayMode)
 			{
@@ -1071,13 +1071,10 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			else
 			{
-				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
-				{
-					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-					(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
-												 name, cachedFragment->timeScale);
-					fpts += cachedFragment->PTSOffsetSec;
-				}
+				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+												name, cachedFragment->timeScale);
+				fpts += cachedFragment->PTSOffsetSec;
 			}
 		}
 
@@ -1277,7 +1274,11 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	else
 	{
 		// Restamp 2.0 only for DASH streams
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+		/*
+		* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
+		* after parsing the segment before sending to gstreamer.
+		*/
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 		{
 			if ((pContext && pContext->trickplayMode))
 			{
@@ -1285,26 +1286,19 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 			else
 			{
-				/*
-				 * Ignore restamping for mp4demux here as the restamping will be done in the mp4demux
-				 * after parsing the segment before sending to gstreamer.
-				 */
-				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+				if (!cachedFragment->initFragment)
 				{
-					if (!cachedFragment->initFragment)
-					{
-						// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
-						// would then be missing and it is important for l2 tests
-						int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
+					// would then be missing and it is important for l2 tests
+					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 
-						(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
-														cachedFragment->uri, name,
-														cachedFragment->timeScale);
-					}
-					else
-					{
-						ClearMediaHeaderDuration(cachedFragment);
-					}
+					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+													cachedFragment->uri, name,
+													cachedFragment->timeScale);
+				}
+				else
+				{
+					ClearMediaHeaderDuration(cachedFragment);
 				}
 			}
 		}
@@ -4116,12 +4110,25 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
+					
+					// Set playback rate
+					track->playContext->setRate(aamp->rate, PlayMode_normal);
+					
+					// Set trickplay FPS for the demuxer
+					int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+					
+					track->playContext->setFrameRateForTM(trickPlayFPS);
 				}
 				else
 				{
 					track->playContext = nullptr;
 				}
 			}
+		}
+		else if (track && track->enabled && track->playContext != nullptr)
+		{
+			// playContext already exists (e.g. period change) - update rate only.
+			track->playContext->setRate(aamp->rate, PlayMode_normal);
 		}
 	}
 }
@@ -4701,8 +4708,31 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
 	SetTrickplayMode(rate);
 	ResetTrickModePtsRestamping();
-	if (!aamp->GetLLDashChunkMode())
+
+	// Why this is needed:
+	//   On a rate change (trickplay/seek), StreamAbstractionAAMP_MPD is reused —
+	//   InitializeMediaProcessor is NOT re-called. This loop is therefore the only
+	//   mechanism to update the rate on already-live processor instances.
+	//
+	// Why the old GetLLDashChunkMode() guard was removed:
+	//   Previously setRate was skipped in LL-DASH chunk mode to protect the live-edge
+	//   recording processor (IsoBmffProcessor) from receiving a trickplay rate while it
+	//   was assembling live chunks. That concern is now moot for two reasons:
+	//   1. IsoBmffProcessor PTS restamping (guarded by isRestampConfigEnabled) is only
+	//      active for HLS/HLS-MP4 — calling setRate on a DASH processor is a no-op for
+	//      restamping purposes.
+	//   2. With AampMp4Demuxer enabled (eAAMPConfig_UseMp4Demux), rate MUST be propagated
+	//      so that AampMp4Demuxer::setRate sets mIsTrickMode and mRate correctly for
+	//      keyframe filtering and PTS restamping in TrickmodePtsRestamp(). Without this,
+	//      the demuxer retains rate=1.0 and sends all frames with incorrect PTS during
+	//      trickplay.
+	//
+	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_AUDIO; i++)
 	{
-		SetVideoPlaybackRate(rate);
+		MediaTrack *track = GetMediaTrack((TrackType) i);
+		if (track && track->enabled && track->playContext)
+		{
+			track->playContext->setRate(rate, PlayMode_normal);
+		}
 	}
 }
