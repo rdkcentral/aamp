@@ -161,6 +161,7 @@ if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ] ; then
     install_build_middleware_interface_fn "${OPTION_CLEAN}"
     INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check passed.")
 else
+    sync_internal_middleware_headers_fn
     INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check SKIPPED (using internal).")
 fi
 
