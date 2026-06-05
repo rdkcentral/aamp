@@ -2638,8 +2638,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		ISegmentBase *segmentBase = pMediaStreamContext->representation->GetSegmentBase();
 		if (segmentBase)
 		{ // single-segment
-			// Disable parallel fragment download for segment base streams as there is a sidx box dependency for live contents
-			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
+			//SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
 			std::string range = segmentBase->GetIndexRange();
 			if (pMediaStreamContext->IDX.empty())
 			{ // lazily load index
@@ -2656,7 +2655,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				int iFogError = -1;
 				AampCurlInstance curlInstance = aamp->GetPlaylistCurlInstance(actualType, false);
 				aamp->CurlInit(curlInstance, 1, aamp->GetNetworkProxy());
-				aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, pMediaStreamContext->IDX, curlInstance, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				{
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+					aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, pMediaStreamContext->IDX, curlInstance, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				}
 				aamp->CurlTerm(curlInstance);
 			}
 			if (!pMediaStreamContext->IDX.empty())
@@ -2704,7 +2706,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					else
 					{
 						// done with index
-						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						{
+							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						}
 						pMediaStreamContext->eos = true;
 						break;
 					}
@@ -8634,7 +8639,10 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					if (segmentBase)
 					{
 						pMediaStreamContext->fragmentOffset = 0;
-						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						{
+							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						}
 						std::string range;
 						std::string nextrange; //CMCD get the next range
 						const IURLType *urlType = segmentBase->GetInitialization();
@@ -8665,8 +8673,13 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							{
 								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 							}
-							pMediaStreamContext->profileChanged = false;
 						}
+						// Clear profileChanged regardless of whether the ring buffer had space.
+						// This prevents FetcherLoop from re-triggering this init-fetch path on
+						// every subsequent OnFragmentDownloadComplete callback.  If the buffer
+						// was full the init will be re-fetched on the next profileChanged cycle
+						// once space is available.
+						pMediaStreamContext->profileChanged = false;
 					}
 					else
 					{
@@ -8766,8 +8779,13 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 										{
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
-										pMediaStreamContext->profileChanged = false;
 									}
+									// Clear profileChanged regardless of whether the ring buffer had space.
+									// This prevents FetcherLoop from re-triggering this init-fetch path on
+									// every subsequent OnFragmentDownloadComplete callback.  If the buffer
+									// was full the init will be re-fetched on the next profileChanged cycle
+									// once space is available.
+									pMediaStreamContext->profileChanged = false;
 								}
 								else
 								{
@@ -11317,6 +11335,14 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 		{
 			ptsOffset = mPTSOffset;
 		}
+	}
+	// AampMp4Demuxer restamps ALL trickplay PTS starting from 0.0 — applies to both TSB and
+	// non-TSB paths. Override firstPTS (and clear any PTS offset) after both paths above.
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && (aamp->rate != AAMP_NORMAL_PLAY_RATE))
+	{
+		firstPTS = 0.0;
+		ptsOffset = {};
+		AAMPLOG_INFO("Mp4demux trickplay: overriding firstPTS to 0.0 (restamped by AampMp4Demuxer, rate=%.2f)", aamp->rate);
 	}
 
 	restampedPTS = firstPTS + ptsOffset.inSeconds();
@@ -14523,7 +14549,8 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 	bool enablePTSReStamp = ISCONFIGSET(eAAMPConfig_EnablePTSReStamp);
 	bool doFlush = ((!enableMediaProcessor || mIsSegmentTimelineEnabled) &&
 					(!enablePTSReStamp || rate == AAMP_NORMAL_PLAY_RATE));
-	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
+	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f, enablePTSReStamp=%d",
+				 doFlush, newTune, rate, enablePTSReStamp);
 	return doFlush;
 }
 
