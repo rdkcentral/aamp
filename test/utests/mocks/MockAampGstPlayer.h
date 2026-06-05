@@ -34,7 +34,7 @@ public:
 
     MOCK_METHOD( long long, GetPositionMilliseconds, (), (override));
 
-    MOCK_METHOD(bool, Pause, (bool pause, bool forceStopGstreamerPreBuffering), (override));
+    MOCK_METHOD(bool, Pause, (bool pause, bool forceStopPreBuffering), (override));
 
     MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
 
