@@ -726,11 +726,12 @@ void Mp4Demux::ParseTrackRun()
 		int32_t dataOffset = ReadI32();
 		dataPtr += dataOffset;
 	}
-	uint32_t sampleFlags = 0;
+	// ISO 14496-12: TRUN_FIRST_SAMPLE_FLAGS_PRESENT overrides the first sample only;
+	// TRUN_SAMPLE_FLAGS_PRESENT provides per-sample flags; otherwise use defaultSampleFlags.
+	uint32_t firstSampleFlags = 0;
 	if (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT)
 	{
-		sampleFlags = ReadU32();
-		(void)sampleFlags;
+		firstSampleFlags = ReadU32();
 	}
 	uint64_t dts = baseMediaDecodeTime;
 	for (auto i = 0u; i < sampleCount; i++)
@@ -746,11 +747,18 @@ void Mp4Demux::ParseTrackRun()
 		{
 			sampleLen = ReadU32();
 		}
+		uint32_t effectiveSampleFlags = defaultSampleFlags;
 		if (flags & TRUN_SAMPLE_FLAGS_PRESENT)
-		{ // rarely present?
-			sampleFlags = ReadU32();
-			(void)sampleFlags;
+		{ // per-sample flags present in TRUN
+			effectiveSampleFlags = ReadU32();
 		}
+		else if (i == 0 && (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT))
+		{ // first-sample-only override (mutually exclusive with TRUN_SAMPLE_FLAGS_PRESENT)
+			effectiveSampleFlags = firstSampleFlags;
+		}
+		// ISO 14496-12 sample_flags bit 16: sample_is_non_sync_sample
+		// 0 = sync/key frame (I-frame), 1 = non-sync sample
+		bool isKeyFrame = (effectiveSampleFlags & 0x00010000) == 0;
 		int32_t sampleCompositionTimeOffset = 0;
 		if (flags & TRUN_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)
 		{ // for samples where pts and dts differ (overriding 'trex')
@@ -765,6 +773,7 @@ void Mp4Demux::ParseTrackRun()
 		pendingSample.mDts      = dts / (double)timeScale;
 		pendingSample.mPts      = (dts + sampleCompositionTimeOffset) / (double)timeScale;
 		pendingSample.mDuration = sampleDuration / (double)timeScale;
+		pendingSample.mIsKeyFrame = isKeyFrame;
 		mSampleInfo.emplace_back(pendingSample);
 		dataPtr += sampleLen;
 		dts += sampleDuration;
@@ -802,11 +811,12 @@ void Mp4Demux::ProcessSamples()
 		AampMediaSample& s = samples[pending.sampleIdx];
 		// Aliasing constructor: mData shares mCurrentSegment's refcount but
 		// points directly at the sample payload within that buffer.
-		s.mData     = std::shared_ptr<const uint8_t>(mCurrentSegment, dataPtr);
-		s.mDataSize = sampleLen;
-		s.mDts      = pending.mDts;
-		s.mPts      = pending.mPts;
-		s.mDuration = pending.mDuration;
+		s.mData       = std::shared_ptr<const uint8_t>(mCurrentSegment, dataPtr);
+		s.mDataSize   = sampleLen;
+		s.mDts        = pending.mDts;
+		s.mPts        = pending.mPts;
+		s.mDuration   = pending.mDuration;
+		s.mIsKeyFrame = pending.mIsKeyFrame;
 	}
 	mSampleInfo.clear();
 }
