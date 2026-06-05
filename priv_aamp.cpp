@@ -12465,9 +12465,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 		if (currentTrackIndex >= static_cast<int>(trackInfo.size()))
 		{
 			AAMPLOG_ERR("DEBUG--> CheckPreferredTextLanguages: OUT OF BOUNDS! currentTrackIndex=%d >= trackInfo.size()=%zu, resetting to -1", currentTrackIndex, trackInfo.size());
-			closedCaptionTrackIdx = FindClosedCaptionTrackIndex(trackInfo);
-			isSelectionChange = true;
-			return;
 		}
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
 		char *currentPrefRendition = const_cast<char *>(trackInfo[currentTrackIndex].rendition.c_str());
