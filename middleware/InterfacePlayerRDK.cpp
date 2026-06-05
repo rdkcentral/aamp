@@ -146,7 +146,7 @@ firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPen
 using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
-seekPausedState(0),lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
+seekPausedState(false),lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
 numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL), durationQuery(NULL),
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
@@ -1711,10 +1711,9 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		if ((interfacePlayerPriv->socInterface->IsSimulatorSink() || interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && rate != GST_NORMAL_PLAY_RATE)
 		{
 			const bool isTrickplay = (rate != GST_NORMAL_PLAY_RATE);
-			const bool isRialtoOrSimulator = (interfacePlayerPriv->socInterface->IsSimulatorSink() || interfacePlayerPriv->gstPrivateContext->usingRialtoSink);
 			const bool isLiveMedia = (static_cast<GstMediaFormat>(m_gstConfigParam->media) == eGST_MEDIAFORMAT_OTA);
 			
-			if (isRialtoOrSimulator && isTrickplay)
+			if (isTrickplay)
 			{
 				if (isLiveMedia)
 				{
@@ -4552,11 +4551,19 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 		{
 			MW_LOG_WARN("InterfacePlayerRDK: SetPlayBackRate detected resume while seekPausedState active — forcing resume");
 			/* Pause(false) clears seekPausedState in Pause implementation. */
-			Pause(false, false);
-			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
-			interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
-			/* After explicit resume we consider operation successful */
-			ret = true;
+			bool pauseResult = Pause(false, false);
+			if (pauseResult)
+    		{
+				interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+				interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
+				/* After explicit resume we consider operation successful */
+				ret = true;
+			}
+			else
+    		{
+        		MW_LOG_ERR("SetPlayBackRate: Pause(false) failed — cannot resume");
+        		ret = false;
+    		}
 		}
 
 		return ret;
