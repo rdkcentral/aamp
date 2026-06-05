@@ -4193,16 +4193,20 @@ bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	if(ContentType_EAS == mContentType)
 		return false;
 
-	if(instance < eCURLINSTANCE_MAX && curl[instance])
+	if(instance >= eCURLINSTANCE_MAX)
 	{
-		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
-		
-		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
-		curlDLTimeout[instance] = timeoutMS;
+		AAMPLOG_ERR("SetCurlTimeout: curl instance %d is out of range (max %d)", instance, eCURLINSTANCE_MAX);
+	}
+	else if(!curl[instance])
+	{
+		AAMPLOG_WARN("SetCurlTimeout: curl[%d] not initialized, skipping timeout update", instance);
 	}
 	else
 	{
-		AAMPLOG_ERR("Failed to update timeout for curl instance %d",instance);
+		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
+
+		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
+		curlDLTimeout[instance] = timeoutMS;
 	}
 
 	return timeoutChanged;
@@ -8461,6 +8465,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 			}
 		}
 	}
+	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
 	TeardownStream(true,true); //disable download as well
 	
 	// Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
@@ -8550,7 +8555,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mPreferredTextTrack = TextTrackInfo(); // reset
 	// send signal to any thread waiting for play
 	mDiscontinuityFound = false;
-	SetLLDashChunkMode(false); //Reset ChunkMode
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
 		waitforplaystart.notify_all();
