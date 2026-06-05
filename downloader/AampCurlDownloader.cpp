@@ -625,7 +625,7 @@ void AampCurlDownloader::updateCurlParams()
 	}
 	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_SSLVERSION, mDnldCfg->lSupportedTLSVersion);
 
-#ifdef CURL_HTTP_VERSION_3ONLY
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
 	if(mDnldCfg->bEnableHTTP3)
 	{
 		CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY);

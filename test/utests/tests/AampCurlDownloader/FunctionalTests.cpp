@@ -694,3 +694,59 @@ TEST_F(FunctionalTests, DnsCacheTimeout_PassedFromDownloadConfig_NotHardCoded)
 
 	mAampCurlDownloader->Initialize(inpData);
 }
+
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+/**
+ * @brief Verify AampCurlDownloader sets CURLOPT_HTTP_VERSION to HTTP/3 when bEnableHTTP3 is true
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_InitializeWithHTTP3Enabled)
+{
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->pCurl = nullptr;
+	inpData->bEnableHTTP3 = true;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(Return(CURLE_OK));
+
+	// Key assertion: HTTP/3 must be set when bEnableHTTP3 is true
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.WillOnce(Return(CURLE_OK));
+
+	mAampCurlDownloader->Initialize(inpData);
+}
+
+/**
+ * @brief Verify AampCurlDownloader does NOT set HTTP/3 when bEnableHTTP3 is false
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_InitializeWithHTTP3Disabled)
+{
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->pCurl = nullptr;
+	inpData->bEnableHTTP3 = false;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(Return(CURLE_OK));
+
+	// HTTP/3 should NOT be set
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.Times(0);
+
+	mAampCurlDownloader->Initialize(inpData);
+}
+#endif // CURL_HTTP_VERSION_3ONLY || AAMP_HTTP3_SUPPORTED

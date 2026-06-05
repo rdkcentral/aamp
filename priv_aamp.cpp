@@ -4515,7 +4515,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
 			}
 			context.remoteUrl = remoteUrl;
-#ifdef CURL_HTTP_VERSION_3ONLY
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
 			if( ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3) && mediaType != eMEDIATYPE_LICENCE )
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY);
@@ -4534,7 +4534,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 #endif
 			if(this->mAampLLDashServiceData.lowLatencyMode
-#ifdef CURL_HTTP_VERSION_3ONLY
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
 				&& !ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3)
 #endif
 			)
@@ -4789,7 +4789,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
 					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
 					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
-#ifdef CURL_HTTP_VERSION_3ONLY
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
 					{
 						long httpVersion = 0;
 						curl_off_t speedDownload = 0;
@@ -5014,7 +5014,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-#ifdef CURL_HTTP_VERSION_3ONLY
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
 					if (res == CURLE_HTTP3)
 					{
 						AAMPLOG_ERR("QUIC connection failed (CURLE_HTTP3=%d) mediaType=%d url=%s", res, mediaType, remoteUrl.c_str());
@@ -14438,7 +14438,7 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->bVerbose	=      ISCONFIGSET_PRIV(eAAMPConfig_CurlLogging);
 	inpData->mDnldConfig->bCurlThroughput = ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput);
 	inpData->mDnldConfig->networkPersonaFile = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
-#ifdef CURL_HTTP_VERSION_3ONLY
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
 	inpData->mDnldConfig->bEnableHTTP3 = ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3);
 #else
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3))
