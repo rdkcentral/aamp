@@ -150,8 +150,3 @@ void PrivateCDAIObjectMPD::ValidateAdManifest(AampMPDParseHelper& adMPDParseHelp
 void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
 {
 }
-
-
-void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
-{
-}

@@ -171,13 +171,6 @@ public:
 	void SetRate(float rate, int overshootcorrection=0);
 
 	/**
-	 * @brief Cancel ad reservation
-	 *   @param[in]  cancelAtReservationId - Reservation Id at which the cancellation has to be done.
-	 *   @return void
-	 */
-	void CancelReservation(const std::string& cancelAtReservationId);
-
-	/**
 	 *   @fn SetUserAgent
 	 *
 	 *   @param[in]  userAgent - userAgent value read from browser

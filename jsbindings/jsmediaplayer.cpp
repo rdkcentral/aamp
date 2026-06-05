@@ -3606,50 +3606,6 @@ JSValueRef AAMPMediaPlayerJS_isOOBCCRenderingSupported (JSContextRef ctx, JSObje
 }
 
 /**
- * @brief Callback invoked from JS to cancel ad reservation
- * @param[in] ctx JS execution context
- * @param[in] function JSObject that is the function being called
- * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
- * @param[in] argumentCount number of args
- * @param[in] arguments[] JSValue array of args
- * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
- * @retval JSValue that is the function's return value
- */
-static JSValueRef AAMPMediaPlayer_JS_cancelReservation(JSContextRef ctx, JSObjectRef function,
-                                     JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[],
-                                     JSValueRef* exception)
-{
-	LOG_TRACE("Enter");
-
-	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
-	if(!privObj || !privObj->_aamp)
-	{
-		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call cancelReservation() on instances of AAMPPlayer");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	if (argumentCount != 1)
-	{
-		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1",argumentCount);
-		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute cancelReservation() - 1 argument required");
-		return JSValueMakeUndefined(ctx);
-	}
-
-	char* cancelAtReservationId_c = aamp_JSValueToCString(ctx, arguments[0], exception);
-
-	std::string cancelAtReservationId = cancelAtReservationId_c ? cancelAtReservationId_c : "";
-
-	SAFE_DELETE_ARRAY(cancelAtReservationId_c);
-
-	LOG_WARN(privObj, "cancelReservation called with cancelAtReservationId=%s", cancelAtReservationId.c_str());
-	privObj->_aamp->CancelReservation(cancelAtReservationId);
-
-	LOG_TRACE("Exit");
-	return JSValueMakeUndefined(ctx);
-}
-
-/**
  * @brief Array containing the AAMPMediaPlayer's statically declared functions
  */
 static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
@@ -3726,7 +3682,7 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 
 	{ "getSessionID", AAMPMediaPlayerJS_getSessionID, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "updateManifest", AAMPMediaPlayerJS_updateManifest, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
-	{ "cancelReservation", AAMPMediaPlayer_JS_cancelReservation, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+
 	{ NULL, NULL, 0 },
 };
 

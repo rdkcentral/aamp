@@ -581,15 +581,6 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 	return false;
 }
 
-bool parseAndValidateSCTE35ProgramResumption(const std::string &scte35Data)
-{
-	if (g_mockAampUtils)
-	{
-		return g_mockAampUtils->parseAndValidateSCTE35ProgramResumption(scte35Data);
-	}
-	return false;
-}
-
 long long convertHHMMSSToTime(const char * str)
 {
 	return 0;

@@ -226,17 +226,6 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 
 
 /**
- *  @brief Cancel an ad reservation.
- */
-void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
-{
-	if (aamp)
-	{
-		aamp->CancelReservation(cancelAtReservationId);
-	}
-}
-
-/**
  *   @brief API to reset configuration across tunes for single player instance
  */
 void PlayerInstanceAAMP::ResetConfiguration()

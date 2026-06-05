@@ -1264,8 +1264,7 @@ std::string aamp_GetConfigPath( const std::string &filename )
 }
 
 /**
- * @brief Parses and confirms the SCTE35 data is a valid DAI event.
- * @todo deprecate, as player should not have to parse segmentation_type_id
+ * Parses and confirms the SCTE35 data is a valid DAI event.
  *
  * @param scte35Data The SCTE35 data to be checked.
  * @return True if the SCTE35 data is valid DAI event, false otherwise.
@@ -1295,34 +1294,7 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 	return isValidDAIEvent;
 }
 
-/**
- * @brief Checks if the SCTE35 data contains a program immediate resumption event.
- * @todo deprecate, as player should not have to parse segmentation_type_id
- *
- * @param scte35Data The SCTE35 data to be checked.
- * @return True if the SCTE35 data contains a program immediate resumption event,
- *         false otherwise.
- */
-bool parseAndValidateSCTE35ProgramResumption(const std::string &scte35Data)
-{
-	bool isProgramResumption = false;
-	std::vector<SCTE35SpliceInfo::Summary> spliceInfoSummary;
-	SCTE35SpliceInfo spliceInfo(scte35Data);
 
-	spliceInfo.getSummary(spliceInfoSummary);
-	for (auto &splice : spliceInfoSummary)
-	{
-		AAMPLOG_DEBUG("[CDAI] splice info type %d, time %f, duration %f, id 0x%" PRIx32,
-					  (int)splice.type, splice.time, splice.duration, splice.event_id);
-
-		if (splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROGRAM_IMMEDIATE_RESUMPTION)
-		{
-			isProgramResumption = true;
-			break;
-		}
-	}
-	return isProgramResumption;
-}
 
 long long convertHHMMSSToTime(const char * str)
 { // parse HH:MM:SS.ms

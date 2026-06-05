@@ -1577,13 +1577,6 @@ public:
 	void NotifyOnEnteringLive();
 
 	/**
-	 * @brief Cancel ad reservation
-	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
-	 * @return void
-	 */
-	void CancelReservation(const std::string& cancelAtReservationId);
-
-	/**
 	 * @fn getLastInjectedPosition
 	 *
 	 * @return last injected position
@@ -2474,9 +2467,8 @@ public:
 	 *   @param[in] position - Event position in terms of channel's timeline
 	 *   @param[in] absolutePositionMs - Event absolute position
 	 *   @param[in] immediate - Send it immediate or not
-	 *   @param[in] reason - Reason for reservation end (optional, applicable to END events)
 	 */
-	void SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate=false, const std::string &reason = "");
+	void SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate=false);
 
 	/**
 	 *   @fn SendAdPlacementEvent

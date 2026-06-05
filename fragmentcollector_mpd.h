@@ -618,14 +618,6 @@ protected:
 	void RestorePtsOffsetCalculation(void);
 
 	/**
-	 * @fn AdjustPtsOffsetAfterAdCancellation
-	 *
-	 * @brief Adjust the PTS offset calculation,
-	 *        if the calculated nextPTS needs adjustment after ad cancellation.
-	 */
-	void AdjustPtsOffsetAfterAdCancellation(void);
-
-	/**
 	 * @fn printSelectedTrack
 	 * @param[in] trackIndex - selected track index
 	 * @param[in] media - Media type
@@ -1126,10 +1118,9 @@ protected:
 	 * @param[in] position Period position of the ad break
 	 * @param[in] absolutePosition Absolute position
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
-	 * @param[in] reason Reason for reservation end (optional, applicable to END events)
 	 */
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
-							   uint64_t position, AampTime absolutePosition, bool immediate, const std::string& reason = "");
+							   uint64_t position, AampTime absolutePosition, bool immediate);
 
 	/**
 	 * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline

@@ -393,7 +393,7 @@ AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, ui
 	mErrorDescription = errorDescription;
 }
 
-AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid, const std::string &reason):
+AdReservationEvent::AdReservationEvent(AAMPEventType evtType, const std::string &breakId, uint64_t position, uint64_t absolutePositionMs, std::string sid):
 		AAMPEventObject(evtType, std::move(sid))
 {
 }
@@ -404,7 +404,6 @@ uint64_t AdReservationEvent::getAbsolutePositionMs() const
 }
 uint64_t AdReservationEvent::getPosition( void ) const { return 0; }
 const std::string &AdReservationEvent::getAdBreakId() const { return mAdBreakId; }
-const std::string &AdReservationEvent::getReason() const { return mReason; }
 
 bool AdResolvedEvent::getResolveStatus() const { return mResolveStatus; }
 const std::string &AdResolvedEvent::getAdId() const { return mAdId; }
