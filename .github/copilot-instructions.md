@@ -296,6 +296,19 @@ The `.github/instructions/` directory contains deeper rules:
 
 Copilot must reference these files when generating language-specific code.
 
+### Pull Request Review Behaviour
+
+When performing pull request reviews, also apply:
+
+- `.github/instructions/copilot-review-behaviour.instructions.md`
+
+This file defines:
+- review scope;
+- proportionality expectations;
+- false-positive avoidance;
+- review comment quality requirements;
+- restrictions on speculative or overly large suggestions.
+
 ## AAMP log debugging
 
 - For AAMP run-log analysis, use the reusable prompt file `/aamp-log-debug`.
