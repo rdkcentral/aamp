@@ -22,7 +22,6 @@
 #include <memory>
 
 MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
-MockMediaTrack *g_mockMediaTrack = nullptr;
 
 StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
 {
@@ -238,7 +237,7 @@ bool MediaTrack::isPlaylistDownloaderThreadStarted()
 	return true;
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name), aamp(aamp), type(type), abort(false), abortInject(false)
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name), aamp(aamp), type(type)
 {
 }
 
@@ -293,24 +292,15 @@ bool MediaTrack::SignalIfEOSReached()
 
 void MediaTrack::SetLocalTSBInjection(bool value)
 {
-	if (g_mockMediaTrack != nullptr)
-	{
-		g_mockMediaTrack->SetLocalTSBInjection(value);
-	}
 }
 
 bool MediaTrack::IsLocalTSBInjection()
 {
 	bool localTsbInjection = false;
 
-	if (auto* mockObj = dynamic_cast<MockMediaTrack*>(this))
-	{
-		localTsbInjection = mockObj->IsLocalTSBInjection();
-	}
-
-	if (g_mockMediaTrack != nullptr)
-	{
-		localTsbInjection = g_mockMediaTrack->IsLocalTSBInjection();
+	// When using mock, delegate to mock implementation
+	if (auto* mock = dynamic_cast<MockMediaTrack*>(this)) {
+		localTsbInjection = mock->IsLocalTSBInjection();
 	}
 
 	return localTsbInjection;
