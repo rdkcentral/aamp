@@ -1160,6 +1160,7 @@ public:
 	double mLLActualOffset;				/**< Actual Offset After Seeking in LL Mode*/
 	bool mIsStream4K;                  /**< Identify whether live playing stream is 4K or not; reset on every retune*/
 	bool mIsInbandCC;                   /** Indicate inband cc or out of band cc is selected*/
+	bool mAppSelectedInbandCC;          /**< True when the application explicitly selected an in-band CC track via SetTextTrack; persists across retunes so MPD SelectSubtitleTrack will not overwrite the user's choice with an auto-picked subtitle adaptation set. */
 	std::string mFogDownloadFailReason; /** Identify Fog Manifest Download Failure Reason*/
 	int mBufferFor4kRampup; 		    /** Max Buffer for rampup used for 4k stream */
 	int mBufferFor4kRampdown; 	    /** Min Buffer for rampdown used for 4k Stream */
