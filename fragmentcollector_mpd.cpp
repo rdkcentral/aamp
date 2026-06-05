@@ -6486,6 +6486,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 								 tTracks[j].instreamId.c_str(), tTracks[j].language.c_str(), tTracks[j].index.c_str(),tTracks[j].isCC);
 						isinbandCCAlsoPresent = true;
 						memset(&preferredTextTrack, 0, sizeof(preferredTextTrack)); // Clear any preferred text track selection if in-band CC is present, as in-band CC will be preferred over subtitle tracks
+						break;
 					}
 			 }
 			if (AAMP_NORMAL_PLAY_RATE == rate)
@@ -6506,7 +6507,6 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 								if (nullptr == firstAvailTextTrack)
 								{
 									firstAvailTextTrack = &tTracks[j];
-
 								}
 							}
 						}
