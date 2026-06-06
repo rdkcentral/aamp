@@ -76,7 +76,7 @@ static GSource* g_retryTimerSource = nullptr;
 // Forward declaration
 static gboolean DecryptRetryTimerCallback(gpointer data);
 
-static void StartDecryptRetryTimer(AAMPGstPlayer* player)
+static void StartDecryptRetryTimer(InterfacePlayerRDK* player)
 {
     if (g_retryTimerSource)
     {
@@ -94,7 +94,7 @@ static void StartDecryptRetryTimer(AAMPGstPlayer* player)
                           nullptr);
     g_source_attach(g_retryTimerSource, g_main_context_default());
 
-    AAMPLOG_WARN("Started decrypt retry timer");
+    MW_LOG_WARN("Started decrypt retry timer");
 }
 
 static gboolean DecryptRetryTimerCallback(gpointer data)
@@ -104,7 +104,7 @@ static gboolean DecryptRetryTimerCallback(gpointer data)
     g_timerRunning = false;
     g_retryTimerSource = nullptr;
 
-    AAMPLOG_WARN("Retry timer expired → timerRunning=false");
+    MW_LOG_WARN("Retry timer expired → timerRunning=false");
 
     return G_SOURCE_REMOVE;
 }
@@ -4277,7 +4277,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				{
 					// Drop Rialto errors during active timer
 					MW_LOG_WARN("Dropping Rialto decrypt error (timer active)");
-					return;
+					return TRUE;
 				}
 
 				if (g_decryptRetryCount < 4)
@@ -4287,12 +4287,12 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 					MW_LOG_WARN("Rialto retry attempt %d",
 							g_decryptRetryCount.load());
 
-					StartDecryptRetryTimer(_this);
+					StartDecryptRetryTimer(pInterfacePlayerRDK);
 
 					// Optional: trigger recovery action here
 					// e.g., pipeline reset / key reacquire
 
-					return;
+					return TRUE;
 					} else {
 					MW_LOG_ERR("Max Rialto retries reached");
 					// fall through to existing error handling
