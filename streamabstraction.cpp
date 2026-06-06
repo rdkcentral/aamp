@@ -1236,114 +1236,6 @@ static bool isWebVttSegment( const char *buffer, size_t bufferLen )
 	return bufferLen>=6 && memcmp(buffer,"WEBVTT",6)==0;
 }
 
-std::string MediaTrack::RestampSubtitle(
-	const char* buffer,
-	size_t bufferLen,
-	double position,
-	double duration,
-	double pts_offset_s)
-{
-	AAMPLOG_INFO("[RESTAMP_SUB] IN: pos=%.3f dur=%.3f pts_offset_s=%.6f in_len=%zu",
-		position, duration, pts_offset_s, bufferLen);
-
-	if (!ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp)
-		|| !isWebVttSegment(buffer, bufferLen))
-	{
-		return {buffer, bufferLen};
-	}
-
-	// Locate the blank line separating the VTT header block from the cue blocks.
-	const std::string_view bufView{buffer, bufferLen};
-	const auto headerEndPos{bufView.find("\n\n")};
-	if (headerEndPos == std::string_view::npos)
-	{
-		AAMPLOG_WARN("[RESTAMP_SUB] malformed VTT: no header separator, returning unchanged");
-		return {buffer, bufferLen};
-	}
-
-	const std::string_view headerView{bufView.substr(0, headerEndPos)};
-
-	// Returns the substring past 'key' inside the header, or nullopt if absent.
-	const auto extractField{[&](std::string_view key) -> std::optional<std::string_view>
-	{
-		const auto pos{headerView.find(key)};
-		if (pos == std::string_view::npos) return std::nullopt;
-		return headerView.substr(pos + key.size());
-	}};
-
-	// Extract input MPEGTS from the VTT header.
-	// Per RFC 8216 §E.4 the format is:
-	//   X-TIMESTAMP-MAP=LOCAL:<time>,MPEGTS:<integer>
-	// MPEGTS is the last field on that line so its value is terminated by '\n'
-	// or end-of-header — std::from_chars stops cleanly at the first non-digit.
-	int64_t mpegtsIn{0};
-	if (auto mpegtsField{extractField("MPEGTS:")}; mpegtsField.has_value())
-	{
-		std::from_chars(mpegtsField->data(),
-			mpegtsField->data() + mpegtsField->size(), mpegtsIn);
-	}
-
-	// 90 kHz clock constant for MPEGTS tick conversion.
-	constexpr int64_t kTicksPerSecond{90000};
-
-	// Restamp MPEGTS for the non-zero case.
-	//
-	// Video is restamped via playContext->setPtsOffset(ptsOffset):
-	//   video_GStreamer_PTS = position_demuxer + broadcast_pts/90000 + ptsOffset
-	//                      = P_rel + m_total_before_N
-	// where ptsOffset = m_total_before_N - firstPts_N.
-	//
-	// For the subtitle to align, media_PTS must encode P_rel + m_total_before_N:
-	//   mpegtsOut = mpegtsIn + ptsOffset × 90000
-	//             = (firstPts_N + P_rel) × 90000 + (m_total_before_N - firstPts_N) × 90000
-	//             = (P_rel + m_total_before_N) × 90000
-	// So: display_time = cue_t + (P_rel + m_total_before_N) ✓ matches video.
-	//
-	// For MPEGTS == 0 (SSAI proxy-stripped, RFC 8216: media_PTS = cue_t):
-	// cue times are already absolute presentation times — leave as 0.
-	int64_t mpegtsOut{0};
-	if (mpegtsIn != 0)
-	{
-		// A 33-bit MPEG-TS PTS wraps every ~26.5 h. HLS §4.3.2.3 requires
-		// a DISCONTINUITY tag whenever timestamps are non-monotonic; that
-		// resets pts_offset_s so mpegtsOut cannot go negative.
-		mpegtsOut = mpegtsIn + std::llround(pts_offset_s * static_cast<double>(kTicksPerSecond));
-	}
-
-	// Extract the original LOCAL value string so it can be written to the output
-	// header unchanged (e.g. "00:00:00.000" or any non-zero value the CDN uses).
-	// LOCAL ends at the comma (standard form) or newline (non-standard: MPEGTS on
-	// a separate pseudo-cue line).
-	std::string localStr{"00:00:00.000"};  // safe default
-	if (auto localField{extractField("LOCAL:")}; localField.has_value())
-	{
-		auto sv{*localField};
-		const auto comma{sv.find(',')};
-		const auto newline{sv.find('\n')};
-		localStr = std::string{sv.substr(0, std::min(comma, newline))};
-	}
-
-	AAMPLOG_INFO("[RESTAMP_SUB] HDR: pos=%.3f pts_offset_s=%.6f "
-		"mpegts_in=%lld mpegts_out=%lld",
-		position, pts_offset_s,
-		static_cast<long long>(mpegtsIn),
-		static_cast<long long>(mpegtsOut));
-
-	// Rebuild header with original LOCAL and restamped MPEGTS; carry cue blocks verbatim.
-	std::string out{};
-	out.reserve(bufferLen + 32U);
-	out += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:";
-	out += localStr;
-	out += ",MPEGTS:";
-	out += std::to_string(mpegtsOut);
-	out.append(buffer + headerEndPos, bufferLen - headerEndPos);
-
-	AAMPLOG_INFO("[RESTAMP_SUB] OUT: pos=%.3f out_len=%zu", position, out.size());
-	AAMPLOG_TRACE("[RESTAMP_SUB] OUT content:\n%s", out.c_str());
-
-	return out;
-}
-
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
 {
 	(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment->fragment);
@@ -1430,15 +1322,18 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 						// Video and subtitle segments from the same discontinuity share the same
 						// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
 						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
-						std::string str = RestampSubtitle(
-														  ptr,len,
-														  cachedFragment->position,
-														  cachedFragment->duration,
-														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.assign(str.begin(), str.end());
 						if(mSubtitleParser)
 						{
-							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
+							// DASH-style PTS-offset propagation: rather than rewriting MPEGTS in
+							// the VTT header (RestampSubtitle), push the per-fragment pts offset
+							// down into the subtec parser and forward the buffer unchanged. The
+							// subtec channel applies the offset to media_PTS so cue display time
+							// aligns with the restamped video PTS.
+											const std::string_view vttView{ptr, len};
+											const bool mpegtsIsZero = (vttView.find("MPEGTS:0") != std::string_view::npos);
+											mSubtitleParser->setPtsOffset(mpegtsIsZero ? 0.0 : cachedFragment->PTSOffsetSec);
+											mSubtitleParser->processData(
+												ptr, len, cachedFragment->position, cachedFragment->duration);
 						}
 						break;
 					}

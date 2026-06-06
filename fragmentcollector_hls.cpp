@@ -1807,12 +1807,21 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 	else
 	{
 		fragmentDiscarded = false;
-		aamp->SendStreamCopy(
+		// For HLS-TS audio and video, the PTS/DTS have already been re-stamped
+		// (if restamping enabled) so PTSOffsetSec is 0, initFragment is
+		// always false and the discontinuity is false if PTS restamping is
+		// enabled.
+		// For HLS webvtt subtitles, the PTSOffset is set if PTS restamping
+		// is enabled and is passed downstream to the subtitles renderer
+		aamp->SendStreamTransfer(
 			(AampMediaType)type,
 			cachedFragment->fragment,
 			cachedFragment->position,
 			cachedFragment->position,
-			cachedFragment->duration);
+			cachedFragment->duration,
+			cachedFragment->PTSOffsetSec,
+			cachedFragment->initFragment,
+			cachedFragment->discontinuity);
 	}
 } // InjectFragmentInternal
 
