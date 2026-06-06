@@ -46,6 +46,7 @@ struct AampMediaSample
 	double mPts{0.0};                        /**< Presentation timestamp in seconds */
 	double mDts{0.0};                        /**< Decode timestamp in seconds */
 	double mDuration{0.0};                   /**< Sample duration in seconds */
+	bool mIsKeyFrame{false};                 /**< True if this sample is a sync/key frame (I-frame) */
 	MediaDrmMetadata mDrmMetadata{}; /**< DRM metadata for encrypted samples */
 
 	// Move constructor and move assignment (allow efficient transfers)
