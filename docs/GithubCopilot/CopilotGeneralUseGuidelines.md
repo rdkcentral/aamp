@@ -227,7 +227,7 @@ Explain how playback works.
 
 Large architectural questions often trigger expensive repository traversal.
 
-### Repository Traversal Behaviour
+### Repository Traversal Behavior
 
 Copilot prioritizes explicitly provided files and editor context when answering questions. However, semantic search, dependency tracing, symbol resolution, and agent planning may still cause Copilot to inspect additional files beyond what was explicitly attached.
 
@@ -406,7 +406,7 @@ Regardless of arrangement, the following controls are recommended:
 - Prompt hygiene guidance and periodic review
 - Controlled rollout of agent mode features
 
-Without governance, costs may grow unpredictably. Teams should understand their organisation's specific limits and alert thresholds before relying on high-volume workflows.
+Without governance, costs may grow unpredictably. Teams should understand their organization's specific limits and alert thresholds before relying on high-volume workflows.
 
 ---
 
