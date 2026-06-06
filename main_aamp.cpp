@@ -928,6 +928,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->mSeekFromPausedState = false;
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
+				AAMPLOG_WARN("[EOS_DEBUG] SetRate: Calculating trick mode EOS position - rate[%d] pipeline_paused[%d] state[%d]",
+					aamp->rate, aamp->pipeline_paused, aamp->GetState());
 				aamp->CalculateTrickModePositionEOS();
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
