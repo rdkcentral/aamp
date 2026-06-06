@@ -43,10 +43,20 @@
 #include <functional>
 #include <inttypes.h>
 
+#include <thread>
+#include <chrono>
+
 #define PIPELINE_NAME "AAMPGstPlayerPipeline"
 
 #define AAMP_MIN_DECODE_ERROR_INTERVAL 10000                     /**< Minimum time interval in milliseconds between two decoder error CB to send anomaly error */
 #define INVALID_RATE -9999
+
+
+#define RIALTO_DECRYPT_ERROR_MSG "Rialto dropped a frame that failed to decrypt"
+#define RIALTO_DECRYPT_FAILURE_THRESHOLD 2
+#define RIALTO_DECRYPT_RETRY_DELAY_MS 500
+
+static int sRialtoDecryptFailureCount = 0;
 
 /**
  * @struct AAMPGstPlayerPriv
@@ -571,6 +581,24 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 				AAMPLOG_ERR("%s", errorDesc.c_str());
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,errorDesc.c_str(), false);
 			}
+			else if (busEvent.msg.find(RIALTO_DECRYPT_ERROR_MSG) != std::string::npos)
+			{
+				sRialtoDecryptFailureCount++;
+				if (sRialtoDecryptFailureCount < RIALTO_DECRYPT_FAILURE_THRESHOLD)
+				{
+					AAMPLOG_WARN("Rialto decrypt error received (count=%d/%d), ignoring for now",
+						sRialtoDecryptFailureCount, RIALTO_DECRYPT_FAILURE_THRESHOLD);
+					std::this_thread::sleep_for(std::chrono::milliseconds(RIALTO_DECRYPT_RETRY_DELAY_MS));
+					break;
+				}
+				else
+				{
+					AAMPLOG_ERR("Rialto decrypt error threshold reached (count=%d), reporting error",
+						sRialtoDecryptFailureCount);
+					sRialtoDecryptFailureCount = 0;
+					_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str());
+				}
+			}
 			else
 			{
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str());
@@ -632,6 +660,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 		case MESSAGE_APPLICATION:
 			if (busEvent.msg.find("HDCPProtectionFailure") != std::string::npos)
 			{
+				sRialtoDecryptFailureCount = 0;
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
 				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
 				_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
