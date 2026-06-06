@@ -66,6 +66,49 @@ static const char* GstPluginNameVMX = "verimatrixdecryptor";
 #include <assert.h>
 #define GST_NORMAL_PLAY_RATE		1
 
+
+// --- Decrypt Retry State ---
+static std::atomic<bool> g_timerRunning{false};
+static std::atomic<int> g_decryptRetryCount{0};
+static std::mutex g_retryMutex;
+static GSource* g_retryTimerSource = nullptr;
+
+// Forward declaration
+static gboolean DecryptRetryTimerCallback(gpointer data);
+
+static void StartDecryptRetryTimer(AAMPGstPlayer* player)
+{
+    if (g_retryTimerSource)
+    {
+        g_source_destroy(g_retryTimerSource);
+        g_source_unref(g_retryTimerSource);
+        g_retryTimerSource = nullptr;
+    }
+
+    g_timerRunning = true;
+
+    g_retryTimerSource = g_timeout_source_new(2000);
+    g_source_set_callback(g_retryTimerSource,
+                          (GSourceFunc)DecryptRetryTimerCallback,
+                          player,
+                          nullptr);
+    g_source_attach(g_retryTimerSource, g_main_context_default());
+
+    AAMPLOG_WARN("Started decrypt retry timer");
+}
+
+static gboolean DecryptRetryTimerCallback(gpointer data)
+{
+    std::lock_guard<std::mutex> lock(g_retryMutex);
+
+    g_timerRunning = false;
+    g_retryTimerSource = nullptr;
+
+    AAMPLOG_WARN("Retry timer expired → timerRunning=false");
+
+    return G_SOURCE_REMOVE;
+}
+
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK(bool isRialto) :
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
@@ -4225,6 +4268,44 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 	switch (GST_MESSAGE_TYPE(msg))
 	{
 		case GST_MESSAGE_ERROR:
+
+			if (busEvent.msg.find("Rialto dropped a frame that failed to decrypt") != std::string::npos)
+			{
+                std::lock_guard<std::mutex> lock(g_retryMutex);
+
+				if (g_timerRunning)
+				{
+					// Drop Rialto errors during active timer
+					MW_LOG_WARN("Dropping Rialto decrypt error (timer active)");
+					return;
+				}
+
+				if (g_decryptRetryCount < 4)
+					{
+					g_decryptRetryCount++;
+
+					MW_LOG_WARN("Rialto retry attempt %d",
+							g_decryptRetryCount.load());
+
+					StartDecryptRetryTimer(_this);
+
+					// Optional: trigger recovery action here
+					// e.g., pipeline reset / key reacquire
+
+					return;
+					} else {
+					MW_LOG_ERR("Max Rialto retries reached");
+					// fall through to existing error handling
+				
+					}
+			} 
+			else {
+				MW_LOG_ERR("Non-Rialto error → reset retry state");
+
+				g_timerRunning = false;
+				g_decryptRetryCount = 0;
+
+			}			
 			gst_message_parse_error(msg, &error, &dbg_info);
 			MW_LOG_ERR("GST_MESSAGE_ERROR %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
 			busEvent.msgType = MESSAGE_ERROR;
