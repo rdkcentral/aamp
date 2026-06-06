@@ -48,6 +48,48 @@
 #define AAMP_MIN_DECODE_ERROR_INTERVAL 10000                     /**< Minimum time interval in milliseconds between two decoder error CB to send anomaly error */
 #define INVALID_RATE -9999
 
+// --- Decrypt Retry State ---
+static std::atomic<bool> g_timerRunning{false};
+static std::atomic<int> g_decryptRetryCount{0};
+static std::mutex g_retryMutex;
+static GSource* g_retryTimerSource = nullptr;
+
+// Forward declaration
+static gboolean DecryptRetryTimerCallback(gpointer data);
+
+static void StartDecryptRetryTimer(AAMPGstPlayer* player)
+{
+    if (g_retryTimerSource)
+    {
+        g_source_destroy(g_retryTimerSource);
+        g_source_unref(g_retryTimerSource);
+        g_retryTimerSource = nullptr;
+    }
+
+    g_timerRunning = true;
+
+    g_retryTimerSource = g_timeout_source_new(2000);
+    g_source_set_callback(g_retryTimerSource,
+                          (GSourceFunc)DecryptRetryTimerCallback,
+                          player,
+                          nullptr);
+    g_source_attach(g_retryTimerSource, g_main_context_default());
+
+    AAMPLOG_WARN("Started decrypt retry timer");
+}
+
+static gboolean DecryptRetryTimerCallback(gpointer data)
+{
+    std::lock_guard<std::mutex> lock(g_retryMutex);
+
+    g_timerRunning = false;
+    g_retryTimerSource = nullptr;
+
+    AAMPLOG_WARN("Retry timer expired → timerRunning=false");
+
+    return G_SOURCE_REMOVE;
+}
+
 /**
  * @struct AAMPGstPlayerPriv
  * @brief Holds private variables of AAMPGstPlayer
@@ -549,6 +591,42 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 		case MESSAGE_ERROR:
 		{
 			std::string errorDesc = "GstPipeline Error:" + busEvent.msg;
+			if (busEvent.msg.find("Rialto dropped a frame that failed to decrypt") != std::string::npos)
+			{
+                            std::lock_guard<std::mutex> lock(g_retryMutex);
+
+        		    if (g_timerRunning)
+        		    {
+		                // Drop Rialto errors during active timer
+                		AAMPLOG_WARN("Dropping Rialto decrypt error (timer active)");
+		                return;
+        		    }
+
+		            if (g_decryptRetryCount < 4)
+            		    {
+                		g_decryptRetryCount++;
+
+		                AAMPLOG_WARN("Rialto retry attempt %d",
+                                g_decryptRetryCount.load());
+
+		                StartDecryptRetryTimer(_this);
+
+                		// Optional: trigger recovery action here
+		                // e.g., pipeline reset / key reacquire
+
+                		return;
+            		    } else {
+		                AAMPLOG_ERR("Max Rialto retries reached");
+                		// fall through to existing error handling
+					
+            		    }
+    			} else {
+	                	 AAMPLOG_WARN("Non-Rialto error → reset retry state");
+
+		                g_timerRunning = false;
+                		g_decryptRetryCount = 0;
+
+			}			
 			if (busEvent.msg.find("video decode error") != std::string::npos)
 			{
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str(), false);
@@ -633,6 +711,8 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			if (busEvent.msg.find("HDCPProtectionFailure") != std::string::npos)
 			{
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
+				std::lock_guard<std::mutex> lock(g_retryMutex);
+				g_decryptRetryCount = 0;
 				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
 				_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
 			}
