@@ -1333,8 +1333,11 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 							// down into the subtec parser and forward the buffer unchanged. The
 							// subtec channel applies the offset to media_PTS so cue display time
 							// aligns with the restamped video PTS.
-							mSubtitleParser->setPtsOffset(cachedFragment->PTSOffsetSec);
-							mSubtitleParser->processData(ptr, len, cachedFragment->position, cachedFragment->duration);
+											const std::string_view vttView{ptr, len};
+											const bool mpegtsIsZero = (vttView.find("MPEGTS:0") != std::string_view::npos);
+											mSubtitleParser->setPtsOffset(mpegtsIsZero ? 0.0 : cachedFragment->PTSOffsetSec);
+											mSubtitleParser->processData(
+												ptr, len, cachedFragment->position, cachedFragment->duration);
 						}
 						break;
 					}
