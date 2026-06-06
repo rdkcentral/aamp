@@ -40,9 +40,10 @@ public:
 	void pause(bool pause) override;
 	void mute(bool mute) override;
 	void setTextStyle(const std::string &options) override;
+	void setPtsOffset(double ptsOffsetSec) override;
 protected:
 	std::unique_ptr<SubtecChannel> m_channel;
 private:
-	std::uint64_t time_offset_ms_ = 0;
+	std::int64_t time_offset_ms_ = 0;
 	std::uint64_t start_ms_ = 0;
 };
