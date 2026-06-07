@@ -136,14 +136,13 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
 		string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
 		message("AAMP_CLI_LD_FLAGS: ${AAMP_CLI_LD_FLAGS}")
-		# Use pkg-config library directories for dependencies
-		link_directories(${OPENSSL_LIBRARY_DIRS})
-		link_directories(${GSTREAMER_LIBRARY_DIRS})
-		link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
-		link_directories(${GSTREAMERBASE_LIBRARY_DIRS})
 		pkg_check_modules(GLIB REQUIRED glib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
-		link_directories(${GLIB_LIBRARY_DIRS})
+		# Note: link_directories() is intentionally omitted here. The Xcode generator
+		# appends $(CONFIGURATION) (e.g. "Debug") to every path passed via
+		# link_directories(), producing spurious "search path not found" warnings for
+		# paths like .../lib/Debug that don't exist under Homebrew prefixes.
+		# All libraries are linked via full-path _LINK_LIBRARIES variables instead.
 		set(GL_DEPENDS
 			"-framework OpenGL"
 			"-framework GLUT"
@@ -209,7 +208,7 @@ set(LIBAAMP_DEPENDS
 	${LIBDASH_LINK_LIBRARIES}
 	${LIBXML2_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
-	${OPENSSL_LIBRARIES}
+	${OPENSSL_LINK_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
 	-ldl
