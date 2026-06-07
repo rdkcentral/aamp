@@ -99,7 +99,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
     string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
-    link_directories(${OPENSSL_LIBRARY_DIRS})
+    # link_directories(${OPENSSL_LIBRARY_DIRS}) omitted: the Xcode generator
+    # appends $(CONFIGURATION) to these paths, causing spurious "search path
+    # not found" warnings for non-existent .../lib/Debug directories.
     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
     set(CMAKE_HAVE_THREADS_LIBRARY 1)
     pkg_check_modules(GLIB REQUIRED GLib-2.0)

@@ -136,14 +136,16 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
 		string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
 		message("AAMP_CLI_LD_FLAGS: ${AAMP_CLI_LD_FLAGS}")
-		# Use pkg-config library directories for dependencies
-		link_directories(${OPENSSL_LIBRARY_DIRS})
-		link_directories(${GSTREAMER_LIBRARY_DIRS})
-		link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
-		link_directories(${GSTREAMERBASE_LIBRARY_DIRS})
 		pkg_check_modules(GLIB REQUIRED glib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
-		link_directories(${GLIB_LIBRARY_DIRS})
+		# Note: link_directories() is intentionally omitted here for OpenSSL and
+		# GStreamer. The Xcode generator appends $(CONFIGURATION) (e.g. "Debug") to
+		# every path passed via link_directories(), producing spurious "search path
+		# not found" warnings for paths like .../lib/Debug that don't exist under
+		# Homebrew prefixes. OpenSSL and GStreamer are linked via their
+		# *_LINK_LIBRARIES variables (full absolute paths) so the directory hint is
+		# not needed. Other dependencies (e.g. LIBXML2) still use short library
+		# names and rely on the system linker search path.
 		set(GL_DEPENDS
 			"-framework OpenGL"
 			"-framework GLUT"
@@ -209,11 +211,15 @@ set(LIBAAMP_DEPENDS
 	${LIBDASH_LINK_LIBRARIES}
 	${LIBXML2_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
-	${OPENSSL_LIBRARIES}
+	${OPENSSL_LINK_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
-	-ldl
 )
+# -ldl is part of libSystem on Darwin and linked automatically; adding it
+# explicitly duplicates what transitive dependencies already bring in.
+if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+	list(APPEND LIBAAMP_DEPENDS -ldl)
+endif()
 
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 
