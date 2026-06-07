@@ -34,6 +34,7 @@
 
 // AAMP JS registration
 extern "C" void aamp_LoadJSController(JSGlobalContextRef context);
+extern "C" void aamp_UnloadJSController(JSGlobalContextRef context);
 
 static GMainLoop* gMainLoop = nullptr;
 
@@ -407,6 +408,12 @@ static int main_func(int argc, char** argv)
 
     // Cleanup (only reached if loop exits)
     g_main_loop_unref(gMainLoop);
+    // Unload AAMP JS bindings before releasing the context so that
+    // AAMP_finalize + JSGarbageCollect run while AAMP objects are still valid.
+    // Without this, JSGlobalContextRelease triggers JSC GC which finalizes the
+    // internal AAMP player while its background threads are still alive,
+    // causing "mutex lock failed: Invalid argument" on macOS.
+    aamp_UnloadJSController(ctx);
     JSGlobalContextRelease(ctx);
 
     return 0;

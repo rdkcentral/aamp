@@ -257,7 +257,7 @@ static bool IsAtmosAudio(const IMPDElement *nodePtr)
 	if (!nodePtr){
 		AAMPLOG_ERR("API Failed due to Invalid Arguments");
 	}else{
-		std::vector<INode*> childNodeList = nodePtr->GetAdditionalSubNodes();
+		const std::vector<INode*>& childNodeList = nodePtr->GetAdditionalSubNodes();
 		for (size_t j=0; j < childNodeList.size(); j++) {
 			INode* childNode = childNodeList.at(j);
 			const std::string& name = childNode->GetName();
@@ -3177,7 +3177,7 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 		std::transform(drmInfo.systemUUID.begin(), drmInfo.systemUUID.end(), drmInfo.systemUUID.begin(), [](unsigned char ch){ return std::tolower(ch); });
 
 		// Extract the PSSH data
-		const vector<INode*> node = contentProt.at(iContentProt)->GetAdditionalSubNodes();
+		const std::vector<INode*>& node = contentProt.at(iContentProt)->GetAdditionalSubNodes();
 		if (!node.empty())
 		{
 			for(int i=0; i < node.size(); i++)
@@ -12848,7 +12848,7 @@ static std::string getRole(INode *nodePtr)
 
 void StreamAbstractionAAMP_MPD::ParseAvailablePreselections(IMPDElement *period, std::vector<AudioTrackInfo> & audioAC4Tracks)
 {
-	std::vector<INode*> childNodeList = period->GetAdditionalSubNodes();
+	const std::vector<INode*>& childNodeList = period->GetAdditionalSubNodes();
 	if (childNodeList.size() > 0)
 	{
 		std::string id ;

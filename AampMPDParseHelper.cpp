@@ -418,7 +418,7 @@ bool AampMPDParseHelper::IsEmptyAdaptation(IAdaptationSet *adaptationSet)
  */
 bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)
 {
-	const std::vector<INode *> subnodes = adaptationSet->GetAdditionalSubNodes();
+	const std::vector<INode *>& subnodes = adaptationSet->GetAdditionalSubNodes();
 	for (unsigned i = 0; i < subnodes.size(); i++)
 	{
 		INode *xml = subnodes[i];
@@ -1290,7 +1290,7 @@ int AampMPDParseHelper::getPeriodIdx(const std::string &periodId)
 std::vector<Representation *>  AampMPDParseHelper::GetBitrateInfoFromCustomMpd( const IAdaptationSet *adaptationSet)
 {
 	vector<Representation *> representations;
-	std::vector<xml::INode *> subNodes = adaptationSet->GetAdditionalSubNodes();
+	const std::vector<xml::INode *>& subNodes = adaptationSet->GetAdditionalSubNodes();
 	for(int i = 0; i < subNodes.size(); i ++)
 	{
 		xml::INode * node = subNodes.at(i);
