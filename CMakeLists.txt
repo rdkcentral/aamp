@@ -138,11 +138,14 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		message("AAMP_CLI_LD_FLAGS: ${AAMP_CLI_LD_FLAGS}")
 		pkg_check_modules(GLIB REQUIRED glib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
-		# Note: link_directories() is intentionally omitted here. The Xcode generator
-		# appends $(CONFIGURATION) (e.g. "Debug") to every path passed via
-		# link_directories(), producing spurious "search path not found" warnings for
-		# paths like .../lib/Debug that don't exist under Homebrew prefixes.
-		# All libraries are linked via full-path _LINK_LIBRARIES variables instead.
+		# Note: link_directories() is intentionally omitted here for OpenSSL and
+		# GStreamer. The Xcode generator appends $(CONFIGURATION) (e.g. "Debug") to
+		# every path passed via link_directories(), producing spurious "search path
+		# not found" warnings for paths like .../lib/Debug that don't exist under
+		# Homebrew prefixes. OpenSSL and GStreamer are linked via their
+		# *_LINK_LIBRARIES variables (full absolute paths) so the directory hint is
+		# not needed. Other dependencies (e.g. LIBXML2) still use short library
+		# names and rely on the system linker search path.
 		set(GL_DEPENDS
 			"-framework OpenGL"
 			"-framework GLUT"
