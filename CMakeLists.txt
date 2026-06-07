@@ -214,8 +214,12 @@ set(LIBAAMP_DEPENDS
 	${OPENSSL_LINK_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
-	-ldl
 )
+# -ldl is part of libSystem on Darwin and linked automatically; adding it
+# explicitly duplicates what transitive dependencies already bring in.
+if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+	list(APPEND LIBAAMP_DEPENDS -ldl)
+endif()
 
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 
