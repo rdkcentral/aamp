@@ -33,6 +33,10 @@
 
 const std::string CMCDSession = "sid=";
 const std::string CMCDObject = "ot=";
+// The following vendor-specific CMCD extensions use a comcast.com reverse-domain
+// prefix per CTA-5004 convention. Although CMCD is intended to be operator-agnostic,
+// these keys are currently deployed as-is and changing them would be a breaking
+// wire-format change for any server-side infrastructure consuming them.
 const std::string CMCDDns = "com.comcast-dns=";
 const std::string CMCDFirstByte = "com.comcast-fb=";
 const std::string CMCDLastByte = "com.comcast-lb=";

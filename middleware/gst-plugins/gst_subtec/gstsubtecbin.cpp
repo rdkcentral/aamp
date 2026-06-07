@@ -75,7 +75,7 @@ gst_subtecbin_class_init (GstSubtecBinClass * klass)
       &gst_subtecbin_sink_template);
 
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
-      "OOB Subtec data sink", "Sink/Parser/Subtitle", "Packs TTML or WebVTT data into SubTtxRend APP suitable packets", "Comcast");
+      "OOB Subtec data sink", "Sink/Parser/Subtitle", "Packs TTML or WebVTT data into SubTtxRend APP suitable packets", "RDK");
 
   gobject_class->set_property = gst_subtecbin_set_property;
   gobject_class->get_property = gst_subtecbin_get_property;
@@ -376,7 +376,7 @@ plugin_init (GstPlugin * plugin)
 #define PACKAGE_NAME "MWGstreamerPlugins"
 #endif
 #ifndef GST_PACKAGE_ORIGIN
-#define GST_PACKAGE_ORIGIN "http://comcast.com/"
+#define GST_PACKAGE_ORIGIN "https://github.com/rdkcentral/aamp"
 #endif
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,

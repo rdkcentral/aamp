@@ -1,4 +1,4 @@
-Source: COMCAST
+Source: RDK
 Upstream-Status: Pending
 Notice: Code in patch files takes the license of the source which is being patched.
 --- ./AAMP.xcodeproj/xcshareddata/xcschemes/aamp-cli.xcscheme	2023-03-27 11:07:44

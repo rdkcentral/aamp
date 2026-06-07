@@ -245,7 +245,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | useAbsoluteTimeline | Boolean | false | Enable progress reporting based on Availability Start Time of stream (DASH only). |
 | tsbInterruptHandling | Boolean | false | Enable support for network interruption handling with TSB. Network failures will be ignored and TSB will continue building. |
 | fragmentDownloadFailThreshold | Number | 10 | Maximum number of fragment download failures before reporting playback error. |
-| useSecManager | Boolean | true | Enable/disable usage of SecManager for watermarking functionality (for Comcast streams only). |
+| useSecManager | Boolean | true | Enable/disable usage of SecManager for watermarking functionality (for operator-specific streams only). |
 | drmDecryptFailThreshold | Number | 10 | Maximum number of fragment decrypt failures before reporting playback error. Available in version 1.0. |
 | customHeaderLicense | String | - | Custom header data to add in license request during tune. This can be set with addCustomHTTPHeader API during playback for license rotation if required. |
 | setLicenseCaching | Boolean | true | Enable/disable license caching in player. By default 3 DRM sessions are cached. |
@@ -3114,10 +3114,10 @@ Player supports multiple pause exit behavior on live content based on the config
 
 
 ### Setup Reference Player
-Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
+Procedure to setup the AAMP Reference Player in RDK devices:
 ```markdown
 1.  Host the ReferencePlayer folder in a web server.
-2.  Use Comcast's IBIS tool to launch the reference player in the device:
+2.  Use the IBIS tool to launch the reference player in the device:
         a. Under Launch HTML App, select Select a device to get started.
         b. From the list, find your device (it should be registered previously).
         c. Enter the ReferencePlayer URL in the URL field.

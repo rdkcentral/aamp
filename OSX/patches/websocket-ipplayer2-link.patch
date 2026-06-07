@@ -1,4 +1,4 @@
-Source: COMCAST
+Source: RDK
 Upstream-Status: Pending
 Notice: Code in patch files takes the license of the source which is being patched.
 diff --git a/src/ipp2/CMakeLists.txt b/src/ipp2/CMakeLists.txt

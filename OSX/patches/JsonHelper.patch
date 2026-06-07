@@ -1,4 +1,4 @@
-Source: COMCAST
+Source: RDK
 Upstream-Status: Pending
 Notice: Code in patch files takes the license of the source which is being patched.
 --- a/JsonHelper.cpp	2024-03-07 16:33:38.158962188 +0000

@@ -87,7 +87,7 @@ gst_vipertransform_class_init (GstViperTransformClass * klass)
 	  &gst_vipertransform_sink_template);
 
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
-	  "vipertransform", "Formatter/Subtitle", "Transforms TTML buffers for broadcast", "Comcast");
+	  "vipertransform", "Formatter/Subtitle", "Transforms TTML buffers for broadcast", "RDK");
 
   gobject_class->dispose = gst_vipertransform_dispose;
   gobject_class->finalize = gst_vipertransform_finalize;
@@ -591,7 +591,7 @@ plugin_init (GstPlugin * plugin)
 #define PACKAGE_NAME "MWGstreamerPlugins"
 #endif
 #ifndef GST_PACKAGE_ORIGIN
-#define GST_PACKAGE_ORIGIN "http://comcast.com/"
+#define GST_PACKAGE_ORIGIN "https://github.com/rdkcentral/aamp"
 #endif
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,

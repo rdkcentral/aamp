@@ -4,7 +4,7 @@ Subject: [PATCH] Subject: [PATCH] RDKAAMP-2907 Fix compilation
 Fix compilation issues with subtec
 and its dependent components
 
-Signed-off-by: Vinish K B <Vinish_KorasseryBalakrishnan@comcast.com>
+Signed-off-by: Vinish K B <Vinish_KorasseryBalakrishnan@rdkcentral.com>
 ---
 diff --git a/dvbsubdecoder/include/dvbsubdecoder/BasicAllocator.hpp b/dvbsubdecoder/include/dvbsubdecoder/BasicAllocator.hpp
 index 7fcdba3..f0218da 100644

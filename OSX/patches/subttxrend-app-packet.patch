@@ -1,4 +1,4 @@
-Source: COMCAST
+Source: RDK
 Upstream-Status: Pending
 Notice: Code in patch files takes the license of the source which is being patched.
 diff --git a/subttxrend-protocol/include/Packet.hpp b/subttxrend-protocol/include/Packet.hpp

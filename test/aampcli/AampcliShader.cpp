@@ -41,7 +41,7 @@ std::string aamp_GetLocalPath( const char *filename )
 	{ // skip leading /opt in simulator
 		filename += 4;
 	}
-#elif defined(AAMP_CPC) // AAMP_ENABLE_OPT_OVERRIDE defined only in Comcast PROD builds
+#elif defined(AAMP_CPC) // AAMP_ENABLE_OPT_OVERRIDE defined only in operator PROD builds
 	env_aamp_enable_opt = getenv("AAMP_ENABLE_OPT_OVERRIDE");
 #endif
 	if( env_aamp_enable_opt )

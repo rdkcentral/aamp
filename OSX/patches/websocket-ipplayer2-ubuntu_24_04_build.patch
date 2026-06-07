@@ -4,7 +4,7 @@ Subject: [PATCH] Subject: [PATCH] RDKAAMP-2907 Fix compilation
 Fix compilation issues with subtec
 and its dependent components
 
-Signed-off-by: Vinish K B <Vinish_KorasseryBalakrishnan@comcast.com>
+Signed-off-by: Vinish K B <Vinish_KorasseryBalakrishnan@rdkcentral.com>
 ---
 diff --git a/src/ipp2/clients/IpAddress.h b/src/ipp2/clients/IpAddress.h
 index 3ff9a2f..4e0b925 100644
