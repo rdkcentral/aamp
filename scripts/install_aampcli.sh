@@ -105,6 +105,7 @@ function aampcli_install_build_darwin_fn()
         -DUTEST_ENABLED=ON \
         -DCMAKE_INBUILT_AAMP_DEPENDENCIES=1 \
         -DCMAKE_ENABLE_PTS_RESTAMP:BOOL=TRUE \
+        -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-26.0}" \
         -DCMAKE_XCODE_ATTRIBUTE_SYMROOT="${AAMP_DIR}/build/XcodeDerivedData" \
         -DCMAKE_XCODE_ATTRIBUTE_OBJROOT="${AAMP_DIR}/build/XcodeDerivedData" \
         $(if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ]; then echo "-DCMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES=ON"; fi) \
