@@ -227,9 +227,9 @@ Explain how playback works.
 
 Large architectural questions often trigger expensive repository traversal.
 
-### Repository Traversal Behaviour
+### Repository Traversal Behavior
 
-Copilot prioritises explicitly provided files and editor context when answering questions. However, semantic search, dependency tracing, symbol resolution, and agent planning may still cause Copilot to inspect additional files beyond what was explicitly attached.
+Copilot prioritizes explicitly provided files and editor context when answering questions. However, semantic search, dependency tracing, symbol resolution, and agent planning may still cause Copilot to inspect additional files beyond what was explicitly attached.
 
 To limit unnecessary traversal:
 
@@ -391,9 +391,9 @@ Choose the model appropriate to the task. Do not default all users to the most e
 
 ## 9. Establish Team-Level Governance
 
-Organisations should confirm their specific billing configuration, as arrangements vary:
+Organizations should confirm their specific billing configuration, as arrangements vary:
 
-- **Hard quotas:** Some organisations enforce a fixed monthly spending cap. Once reached, access may be restricted.
+- **Hard quotas:** Some organizations enforce a fixed monthly spending cap. Once reached, access may be restricted.
 - **Metered overages:** Others allow usage beyond the included allowance at a per-unit overage rate.
 - **Pooled enterprise billing:** Some enterprise agreements pool credits across teams or business units.
 
@@ -406,7 +406,7 @@ Regardless of arrangement, the following controls are recommended:
 - Prompt hygiene guidance and periodic review
 - Controlled rollout of agent mode features
 
-Without governance, costs may grow unpredictably. Teams should understand their organisation's specific limits and alert thresholds before relying on high-volume workflows.
+Without governance, costs may grow unpredictably. Teams should understand their organization's specific limits and alert thresholds before relying on high-volume workflows.
 
 ---
 
