@@ -684,7 +684,7 @@ bool MediaTrack::WaitForCachedFragmentAvailable()
 		}
 		else
 		{
-			AAMPLOG_WARN("[EOS_DEBUG] WaitForCachedFragmentAvailable: track[%s] - eosReached=true, skipping wait. cachedFrags[%d] rate[%d] pipeline_paused[%d]",
+			AAMPLOG_WARN("[EOS_DEBUG] WaitForCachedFragmentAvailable: track[%s] - eosReached=true, skipping wait. cachedFrags[%d] rate[%f] pipeline_paused[%d]",
 				name, numberOfFragmentsCached, aamp->rate, aamp->pipeline_paused);
 		}
 	}
@@ -753,7 +753,7 @@ bool MediaTrack::WaitForCachedFragmentChunkAvailable()
 		}
 		else
 		{
-			AAMPLOG_WARN("[EOS_DEBUG] WaitForCachedFragmentChunkAvailable: track[%s] - eosReached=true, skipping wait. cachedChunks[%d] rate[%d] pipeline_paused[%d]",
+			AAMPLOG_WARN("[EOS_DEBUG] WaitForCachedFragmentChunkAvailable: track[%s] - eosReached=true, skipping wait. cachedChunks[%d] rate[%f] pipeline_paused[%d]",
 				name, numberOfFragmentChunksCached, aamp->rate, aamp->pipeline_paused);
 		}
 	}
@@ -957,7 +957,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	CachedFragment* cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
 	if(cachedFragment != NULL && NULL == cachedFragment->fragment.GetPtr())
 	{
-		AAMPLOG_WARN("[EOS_DEBUG] ProcessFragmentChunk: track[%s] - NULL chunk ptr, checking EOS. eosReached[%d] rate[%d] pipeline_paused[%d] state[%d]",
+		AAMPLOG_WARN("[EOS_DEBUG] ProcessFragmentChunk: track[%s] - NULL chunk ptr, checking EOS. eosReached[%d] rate[%f] pipeline_paused[%d] state[%d]",
 			name, eosReached, aamp->rate, aamp->pipeline_paused, aamp->GetState());
 		if(!SignalIfEOSReached())
 		{
@@ -1549,7 +1549,7 @@ bool MediaTrack::InjectFragment()
 		else
 		{
 			//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
-			AAMPLOG_WARN("[EOS_DEBUG] InjectFragment: track[%s] type[%d] - No cached fragment available, checking EOS. eosReached[%d] rate[%d] pipeline_paused[%d]",
+			AAMPLOG_WARN("[EOS_DEBUG] InjectFragment: track[%s] type[%d] - No cached fragment available, checking EOS. eosReached[%d] rate[%f] pipeline_paused[%d]",
 				name, type, eosReached, aamp->rate, aamp->pipeline_paused);
 			if (SignalIfEOSReached())
 			{
@@ -1585,7 +1585,7 @@ bool MediaTrack::InjectFragment()
 	{
 		AAMPLOG_WARN("WaitForCachedFragmentAvailable %s aborted LowLatency: %d ChunkMode %d", name, lowLatency,isChunkMode);
 		//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
-		AAMPLOG_WARN("[EOS_DEBUG] InjectFragment: track[%s] - WaitForCachedFragment aborted, checking EOS. eosReached[%d] rate[%d] pipeline_paused[%d] state[%d]",
+		AAMPLOG_WARN("[EOS_DEBUG] InjectFragment: track[%s] - WaitForCachedFragment aborted, checking EOS. eosReached[%d] rate[%f] pipeline_paused[%d] state[%d]",
 			name, eosReached, aamp->rate, aamp->pipeline_paused, aamp->GetState());
 		SignalIfEOSReached();
 		ret = false;
@@ -3260,7 +3260,7 @@ bool StreamAbstractionAAMP::IsEOSReached()
 		}
 		if (eos)
 		{
-			AAMPLOG_WARN("[EOS_DEBUG] IsEOSReached: All tracks at EOS - rate[%d] pipeline_paused[%d] state[%d]",
+			AAMPLOG_WARN("[EOS_DEBUG] IsEOSReached: All tracks at EOS - rate[%f] pipeline_paused[%d] state[%d]",
 				aamp->rate, aamp->pipeline_paused, aamp->GetState());
 		}
 	}

@@ -1179,7 +1179,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							 ||(mPlayRate < AAMP_RATE_PAUSE && pMediaStreamContext->fragmentTime <= mPeriodStartTime))))
 				{
 					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
-					AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegTimeline): Type[%d] eos=true, timeLineIndex[%d/%zu] mPlayRate[%d] fragmentTime[%f] mPeriodEndTime[%f] pipeline_paused[%d] state[%d]",
+					AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegTimeline): Type[%d] eos=true, timeLineIndex[%d/%zu] mPlayRate[%f] fragmentTime[%f] mPeriodEndTime[%f] pipeline_paused[%d] state[%d]",
 						pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size(), mPlayRate, pMediaStreamContext->fragmentTime, mPeriodEndTime, aamp->pipeline_paused, aamp->GetState());
 					pMediaStreamContext->eos = true;
 				}
@@ -1870,7 +1870,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			|| (pMediaStreamContext->fragmentDescriptor.Time < mPeriodStartTime))))  //CID:93022 - No effect
 			{
 				AAMPLOG_INFO("Type[%d] EOS. pMediaStreamContext->lastSegmentNumber %" PRIu64 " fragmentDescriptor.Time=%f mPeriodEndTime=%f mPeriodStartTime %f  currentTimeSeconds %f FTime=%f", pMediaStreamContext->type, pMediaStreamContext->lastSegmentNumber, pMediaStreamContext->fragmentDescriptor.Time, mPeriodEndTime, mPeriodStartTime, currentTimeSeconds, pMediaStreamContext->fragmentTime);
-				AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegNumber): Type[%d] eos=true, isLive[%d] mPlayRate[%d] bProcessFragment[%d] pipeline_paused[%d] state[%d] lowLatency[%d]",
+				AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegNumber): Type[%d] eos=true, isLive[%d] mPlayRate[%f] bProcessFragment[%d] pipeline_paused[%d] state[%d] lowLatency[%d]",
 					pMediaStreamContext->type, mIsLiveStream, mPlayRate, bProcessFragment, aamp->pipeline_paused, aamp->GetState(), mLowLatencyMode);
 				pMediaStreamContext->eos = true;
 			}
@@ -2088,14 +2088,14 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				else
 				{ // done with index
 					pMediaStreamContext->IDX.Free();
-					AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegBase-IndexDone): Type[%d] eos=true, fragmentTime[%f] mPlayRate[%d] pipeline_paused[%d] state[%d]",
+					AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegBase-IndexDone): Type[%d] eos=true, fragmentTime[%f] mPlayRate[%f] pipeline_paused[%d] state[%d]",
 						pMediaStreamContext->type, pMediaStreamContext->fragmentTime, mPlayRate, aamp->pipeline_paused, aamp->GetState());
 					pMediaStreamContext->eos = true;
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegBase-NoRep): Type[%d] eos=true, mPlayRate[%d] pipeline_paused[%d] state[%d]",
+				AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegBase-NoRep): Type[%d] eos=true, mPlayRate[%f] pipeline_paused[%d] state[%d]",
 					pMediaStreamContext->type, mPlayRate, aamp->pipeline_paused, aamp->GetState());
 				pMediaStreamContext->eos = true;
 			}
@@ -2112,7 +2112,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				const std::vector<ISegmentURL*>segmentURLs = segmentList->GetSegmentURLs();
 				if (pMediaStreamContext->fragmentIndex >= segmentURLs.size() ||  pMediaStreamContext->fragmentIndex < 0)
 				{
-					AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegList-IndexOOB): Type[%d] eos=true, fragmentIndex[%d] segURLs.size[%zu] mPlayRate[%d] pipeline_paused[%d] state[%d]",
+					AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(SegList-IndexOOB): Type[%d] eos=true, fragmentIndex[%d] segURLs.size[%zu] mPlayRate[%f] pipeline_paused[%d] state[%d]",
 						pMediaStreamContext->type, pMediaStreamContext->fragmentIndex, segmentURLs.size(), mPlayRate, aamp->pipeline_paused, aamp->GetState());
 					pMediaStreamContext->eos = true;
 				}
@@ -2281,7 +2281,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				IBaseUrl *baseURL = pMediaStreamContext->representation->GetBaseURLs().at(0);
 				if(baseURL && (pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE))
 				{
-					AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(Subtitle-BaseURL): Type[%d] eos=true, mPlayRate[%d] pipeline_paused[%d] state[%d]",
+					AAMPLOG_WARN("[EOS_DEBUG] PushNextFragment(Subtitle-BaseURL): Type[%d] eos=true, mPlayRate[%f] pipeline_paused[%d] state[%d]",
 						pMediaStreamContext->type, mPlayRate, aamp->pipeline_paused, aamp->GetState());
 					pMediaStreamContext->eos = true;
 				}
@@ -2487,7 +2487,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
 				{
 					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
-					AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(SegTimeline): Type[%d] eos=true, timeLineIndex[%d/%zu] mPlayRate[%d] pipeline_paused[%d] state[%d]",
+					AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(SegTimeline): Type[%d] eos=true, timeLineIndex[%d/%zu] mPlayRate[%f] pipeline_paused[%d] state[%d]",
 						pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size(), mPlayRate, aamp->pipeline_paused, aamp->GetState());
 					pMediaStreamContext->eos = true;
 					break;
@@ -2722,7 +2722,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				if(pMediaStreamContext->fragmentDescriptor.Time > mPeriodEndTime || (mPlayRate < AAMP_RATE_PAUSE && pMediaStreamContext->fragmentDescriptor.Time <= 0))
 				{
 					AAMPLOG_INFO("Type[%d] EOS. fragmentDescriptor.Time=%f",pMediaStreamContext->type, pMediaStreamContext->fragmentDescriptor.Time);
-					AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(SegNumber): Type[%d] eos=true, fDescTime[%f] mPeriodEndTime[%f] mPlayRate[%d] pipeline_paused[%d] state[%d]",
+					AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(SegNumber): Type[%d] eos=true, fDescTime[%f] mPeriodEndTime[%f] mPlayRate[%f] pipeline_paused[%d] state[%d]",
 						pMediaStreamContext->type, pMediaStreamContext->fragmentDescriptor.Time, mPeriodEndTime, mPlayRate, aamp->pipeline_paused, aamp->GetState());
 					pMediaStreamContext->eos = true;
 					break;
@@ -2879,7 +2879,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					{
 						// done with index
 						pMediaStreamContext->IDX.Free();
-						AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(SegBase-IndexDone): Type[%d] eos=true, mPlayRate[%d] pipeline_paused[%d] state[%d]",
+						AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(SegBase-IndexDone): Type[%d] eos=true, mPlayRate[%f] pipeline_paused[%d] state[%d]",
 							pMediaStreamContext->type, mPlayRate, aamp->pipeline_paused, aamp->GetState());
 						pMediaStreamContext->eos = true;
 						break;
@@ -2893,7 +2893,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			}
 			else
 			{
-				AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(NoSegBase): Type[%d] eos=true, mPlayRate[%d] pipeline_paused[%d] state[%d]",
+				AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(NoSegBase): Type[%d] eos=true, mPlayRate[%f] pipeline_paused[%d] state[%d]",
 					pMediaStreamContext->type, mPlayRate, aamp->pipeline_paused, aamp->GetState());
 				pMediaStreamContext->eos = true;
 			}
@@ -2951,7 +2951,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				{
 					if ((pMediaStreamContext->fragmentIndex >= segmentURLs.size()) || (pMediaStreamContext->fragmentIndex < 0))
 					{
-						AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(SegList-SkipOOB): Type[%d] eos=true, fragmentIndex[%d] segURLs.size[%zu] mPlayRate[%d] pipeline_paused[%d] state[%d]",
+						AAMPLOG_WARN("[EOS_DEBUG] SeekInPeriod(SegList-SkipOOB): Type[%d] eos=true, fragmentIndex[%d] segURLs.size[%zu] mPlayRate[%f] pipeline_paused[%d] state[%d]",
 							pMediaStreamContext->type, pMediaStreamContext->fragmentIndex, segmentURLs.size(), mPlayRate, aamp->pipeline_paused, aamp->GetState());
 						pMediaStreamContext->eos = true;
 						break;
@@ -4070,7 +4070,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				}
 				AAMPLOG_WARN("seek target out of range, mark EOS. playTarget:%f End:%f. ",
 					seekPosition, seekWindowEnd);
-				AAMPLOG_WARN("[EOS_DEBUG] Init(SeekRangeError): eosReached=true for all tracks, seekPos[%f] seekEnd[%f] mPlayRate[%d] pipeline_paused[%d] state[%d]",
+				AAMPLOG_WARN("[EOS_DEBUG] Init(SeekRangeError): eosReached=true for all tracks, seekPos[%f] seekEnd[%f] mPlayRate[%f] pipeline_paused[%d] state[%d]",
 					seekPosition, seekWindowEnd, mPlayRate, aamp->pipeline_paused, aamp->GetState());
 				return eAAMPSTATUS_SEEK_RANGE_ERROR;
 			}
@@ -7015,7 +7015,7 @@ uint32_t StreamAbstractionAAMP_MPD::GetCurrentFragmentDuration( MediaStreamConte
 			if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
 			{
 				AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
-				AAMPLOG_WARN("[EOS_DEBUG] SkipFragments(SegTimeline): Type[%d] eos=true, timeLineIndex[%d/%zu] mPlayRate[%d] pipeline_paused[%d] state[%d]",
+				AAMPLOG_WARN("[EOS_DEBUG] SkipFragments(SegTimeline): Type[%d] eos=true, timeLineIndex[%d/%zu] mPlayRate[%f] pipeline_paused[%d] state[%d]",
 					pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size(), mPlayRate, aamp->pipeline_paused, aamp->GetState());
 				pMediaStreamContext->eos = true;
 				return 0;
@@ -9309,7 +9309,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 						//Ensuring that Ad playback doesn't go beyond Adbreak
 						AAMPLOG_WARN("[CDAI] Track[%d] Adbreak ended early. Terminating Ad playback. fragmentTime[%lf] periodStartOffset[%lf]",
 											trackIdx, pMediaStreamContext->fragmentTime, pMediaStreamContext->periodStartOffset);
-						AAMPLOG_WARN("[EOS_DEBUG] FetcherLoop(AdTerminate): Type[%d] eos=true, mPlayRate[%d] pipeline_paused[%d] state[%d] adState[%d]",
+						AAMPLOG_WARN("[EOS_DEBUG] FetcherLoop(AdTerminate): Type[%d] eos=true, mPlayRate[%f] pipeline_paused[%d] state[%d] adState[%d]",
 							pMediaStreamContext->type, mPlayRate, aamp->pipeline_paused, aamp->GetState(), (int)mCdaiObject->mAdState);
 						pMediaStreamContext->eos = true;
 					}
@@ -10229,7 +10229,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						if (vEos)
 						{
 							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
-							AAMPLOG_WARN("[EOS_DEBUG] FetcherLoop(PeriodBoundary): Video eosReached=true, isLive[%d] mPlayRate[%d] eosOutSideAd[%d] eosAdPlayback[%d] pipeline_paused[%d] state[%d] periodIdx[%d]",
+							AAMPLOG_WARN("[EOS_DEBUG] FetcherLoop(PeriodBoundary): Video eosReached=true, isLive[%d] mPlayRate[%f] eosOutSideAd[%d] eosAdPlayback[%d] pipeline_paused[%d] state[%d] periodIdx[%d]",
 								mIsLiveManifest, mPlayRate, eosOutSideAd, eosAdPlayback, aamp->pipeline_paused, aamp->GetState(), mCurrentPeriodIdx);
 							mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 							mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
@@ -10238,7 +10238,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						{
 							if (mMediaStreamContext[eMEDIATYPE_AUDIO]->eos)
 							{
-								AAMPLOG_WARN("[EOS_DEBUG] FetcherLoop(PeriodBoundary): Audio eosReached=true, mPlayRate[%d] pipeline_paused[%d] state[%d]",
+								AAMPLOG_WARN("[EOS_DEBUG] FetcherLoop(PeriodBoundary): Audio eosReached=true, mPlayRate[%f] pipeline_paused[%d] state[%d]",
 									mPlayRate, aamp->pipeline_paused, aamp->GetState());
 								mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
 								mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
@@ -10489,7 +10489,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					{
 						// Mark trickplay EOS and inform injector to perform seek or seek to live
 						AAMPLOG_INFO("Reader at EOS while trickplay");
-						AAMPLOG_WARN("[EOS_DEBUG] TsbReader(TrickPlayEOS): Video eosReached=true, rate[%d] pipeline_paused[%d] state[%d] vEOS[%d] aEOS[%d]",
+						AAMPLOG_WARN("[EOS_DEBUG] TsbReader(TrickPlayEOS): Video eosReached=true, rate[%f] pipeline_paused[%d] state[%d] vEOS[%d] aEOS[%d]",
 							aamp->rate, aamp->pipeline_paused, aamp->GetState(), vEOS, aEOS);
 						mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 						mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);

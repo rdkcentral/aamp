@@ -3302,7 +3302,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 	bool isLive = IsLive();
 
 	AAMPLOG_MIL("Enter . processingDiscontinuity %d isLive %d", isDiscontinuity, isLive);
-	AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: Entry - rate[%d] isLive[%d] isDiscontinuity[%d] pipeline_paused[%d] state[%d] trickStartUTCMS[%lld]",
+	AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: Entry - rate[%f] isLive[%d] isDiscontinuity[%d] pipeline_paused[%d] state[%d] trickStartUTCMS[%lld]",
 		rate, isLive, isDiscontinuity, pipeline_paused, GetState(), trickStartUTCMS);
 	mDiscontinuityFound = isDiscontinuity;
 	if(mDiscontinuityFound)
@@ -3344,7 +3344,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 
 		if (!isLive && rate > AAMP_RATE_PAUSE)
 		{
-			AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: VOD EOS - Setting state COMPLETE and sending AAMP_EVENT_EOS. rate[%d] pipeline_paused[%d] state[%d]",
+			AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: VOD EOS - Setting state COMPLETE and sending AAMP_EVENT_EOS. rate[%f] pipeline_paused[%d] state[%d]",
 				rate, pipeline_paused, GetState());
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
@@ -3364,14 +3364,14 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		/* If rate is normal play, no need to seek to live etc. This can be due to the EPG changing rate from RWD to play near begging of the TSB. */
 		if (rate < AAMP_RATE_PAUSE)
 		{
-			AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: Rewind reached BOS - rate[%d] pipeline_paused[%d] state[%d] isLive[%d]",
+			AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: Rewind reached BOS - rate[%f] pipeline_paused[%d] state[%d] isLive[%d]",
 				rate, pipeline_paused, GetState(), isLive);
 			// A new report progress event to be emitted with position 0 when rewind reaches BOS
 			MonitorProgress(true, true);
 		}
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
-			AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: FastForward EOS - rate[%d] seeking to live. pipeline_paused[%d] state[%d] isLive[%d]",
+			AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: FastForward EOS - rate[%f] seeking to live. pipeline_paused[%d] state[%d] isLive[%d]",
 				rate, pipeline_paused, GetState(), isLive);
 			rate = AAMP_NORMAL_PLAY_RATE;
 			AcquireStreamLock();
@@ -3382,7 +3382,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 	}
 	else
 	{
-		AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: Discontinuity EOS path - rate[%d] pipeline_paused[%d] state[%d] isLive[%d]",
+		AAMPLOG_WARN("[EOS_DEBUG] NotifyEOSReached: Discontinuity EOS path - rate[%f] pipeline_paused[%d] state[%d] isLive[%d]",
 			rate, pipeline_paused, GetState(), isLive);
 		ProcessPendingDiscontinuity();
 		mCondDiscontinuity.notify_one();
@@ -5467,7 +5467,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if(retVal == eAAMPSTATUS_SEEK_RANGE_ERROR)
 		{
 			AAMPLOG_ERR("mpStreamAbstractionAAMP Init Failed.Seek Position(%f) out of range(%lld)",mpStreamAbstractionAAMP->GetStreamPosition(),(GetDurationMs()/1000));
-			AAMPLOG_WARN("[EOS_DEBUG] TuneHelper(SeekRangeError): Seek position out of range triggering EOS - rate[%d] pipeline_paused[%d] state[%d]",
+			AAMPLOG_WARN("[EOS_DEBUG] TuneHelper(SeekRangeError): Seek position out of range triggering EOS - rate[%f] pipeline_paused[%d] state[%d]",
 				rate, pipeline_paused, GetState());
 			NotifyEOSReached();
 		}
@@ -6887,7 +6887,7 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 	if (mediaType != eMEDIATYPE_SUBTITLE)
 	{
-		AAMPLOG_WARN("[EOS_DEBUG] EndOfStreamReached: Sending EOS to sink - mediaType[%d] rate[%d] pipeline_paused[%d] state[%d]",
+		AAMPLOG_WARN("[EOS_DEBUG] EndOfStreamReached: Sending EOS to sink - mediaType[%d] rate[%f] pipeline_paused[%d] state[%d]",
 			mediaType, rate, pipeline_paused, GetState());
 		SyncBegin();
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -6904,7 +6904,7 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 		AAMPPlayerState state = GetState();
 		if(state == eSTATE_BUFFERING)
 		{
-			AAMPLOG_WARN("[EOS_DEBUG] EndOfStreamReached: EOS during BUFFERING state - mediaType[%d] rate[%d] pipeline_paused[%d], transitioning to PLAYING",
+			AAMPLOG_WARN("[EOS_DEBUG] EndOfStreamReached: EOS during BUFFERING state - mediaType[%d] rate[%f] pipeline_paused[%d], transitioning to PLAYING",
 				mediaType, rate, pipeline_paused);
 			if(mpStreamAbstractionAAMP)
 			{
@@ -14085,7 +14085,7 @@ void PrivateInstanceAAMP::CalculateTrickModePositionEOS(void)
 		double livePlayPositionNow = GetLivePlayPosition();
 		mTrickModePositionEOS = livePlayPositionNow + (livePlayPositionNow - positionNow)/(rate - 1);
 		AAMPLOG_INFO("positionNow %lfs livePlayPositionNow %lfs rate %fs mTrickModePositionEOS %lfs", positionNow, livePlayPositionNow, rate, mTrickModePositionEOS);
-		AAMPLOG_WARN("[EOS_DEBUG] CalculateTrickModePositionEOS: rate[%d] posNow[%f] livePos[%f] trickEOS_pos[%f] pipeline_paused[%d] state[%d]",
+		AAMPLOG_WARN("[EOS_DEBUG] CalculateTrickModePositionEOS: rate[%f] posNow[%f] livePos[%f] trickEOS_pos[%f] pipeline_paused[%d] state[%d]",
 			rate, positionNow, livePlayPositionNow, mTrickModePositionEOS, pipeline_paused, GetState());
 	}
 }

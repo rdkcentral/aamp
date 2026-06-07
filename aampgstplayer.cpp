@@ -286,7 +286,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::notifyEOS] = [this]()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		AAMPLOG_WARN("[EOS_DEBUG] GStreamer notifyEOS callback: Pipeline EOS received - rate[%d] pipeline_paused[%d] state[%d]",
+		AAMPLOG_WARN("[EOS_DEBUG] GStreamer notifyEOS callback: Pipeline EOS received - rate[%f] pipeline_paused[%d] state[%d]",
 			aamp->rate, aamp->pipeline_paused, aamp->GetState());
 		aamp->NotifyEOSReached();
 	};
@@ -832,7 +832,7 @@ bool AAMPGstPlayer::PipelineConfiguredForMedia(AampMediaType type)
 void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
 {
 	bool shouldHaltBuffering = false;
-	AAMPLOG_WARN("[EOS_DEBUG] AAMPGstPlayer::EndOfStreamReached: Sending EOS to GStreamer pipeline - mediaType[%d] rate[%d] pipeline_paused[%d]",
+	AAMPLOG_WARN("[EOS_DEBUG] AAMPGstPlayer::EndOfStreamReached: Sending EOS to GStreamer pipeline - mediaType[%d] rate[%f] pipeline_paused[%d]",
 		type, aamp->rate, aamp->pipeline_paused);
 	playerInstance->EndOfStreamReached(type, shouldHaltBuffering);
 	if(shouldHaltBuffering)
