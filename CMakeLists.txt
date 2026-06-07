@@ -77,7 +77,9 @@ endif()
 
 # Platform specific settings
 if(APPLE)
-	set(CMAKE_OSX_DEPLOYMENT_TARGET "15.6")
+	if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "26.0")
+	endif()
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
 	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
