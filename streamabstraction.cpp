@@ -548,7 +548,7 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		NotifyCachedAudioFragmentAvailable();
 		loadNewAudio = false;
 		// Re-enable latency rate correction after audio track switch only if it was previously enabled.
-		if (pContext->mSavedLatencyMonitorState )
+		if (pContext && pContext->mSavedLatencyMonitorState )
 		{
 			aamp->EnableLatencyMonitor(true);
 			pContext->mSavedLatencyMonitorState  = false;
@@ -1231,16 +1231,6 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 {
 	TrickModePtsRestamp(cachedFragment->fragment, cachedFragment->position, cachedFragment->duration,
 						cachedFragment->initFragment, cachedFragment->discontinuity);
-}
-
-static bool isWebVttSegment( const char *buffer, size_t bufferLen )
-{
-	if( bufferLen>=3 && buffer[0]==(char)0xEF && buffer[1]==(char)0xBB && buffer[2]==(char)0xBF )
-	{ // skip UTF-8 BOM if present
-		buffer += 3;
-		bufferLen -= 3;
-	}
-	return bufferLen>=6 && memcmp(buffer,"WEBVTT",6)==0;
 }
 
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)

@@ -7289,7 +7289,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	// set to 1 at trick-play only when an iframe track is found, which also sets
 	// mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled=true, making !enabled false.
 	// At normal play rate all contexts are allocated, so the dereference is safe.
-	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+	if(1 == mNumberOfTracks && mMediaStreamContext[eMEDIATYPE_VIDEO] && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
 		{
@@ -7297,13 +7297,16 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			// set audio only playback flag to true
 			aamp->mAudioOnlyPb = true;
 		}
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->mediaType = eMEDIATYPE_VIDEO;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->type = eTRACK_VIDEO;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->profileChanged = true;
-		mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = false;
+		if(mMediaStreamContext[eMEDIATYPE_AUDIO])
+		{
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->mediaType = eMEDIATYPE_VIDEO;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->type = eTRACK_VIDEO;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->profileChanged = true;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = false;
+		}
 	}
 	// Set audio/text track related structures
 	SetAudioTrackInfo(aTracks, aTrackIdx);
