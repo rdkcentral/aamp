@@ -278,8 +278,10 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
         drm/ocdm/OcdmGstSessionAdapter.cpp
     )
 
-    # Add GStreamer video dependency
-    set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} -lgstvideo-1.0")
+    # Add GStreamer video dependency using full path (from parent's pkg_check_modules
+    # GSTREAMERVIDEO), consistent with VPAAMP-525 which removed link_directories()
+    # to avoid Xcode appending $(CONFIGURATION) to library search paths.
+    set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
 
     if(CMAKE_USE_OPENCDM_ADAPTER_MOCKS)
         # Add mock headers and sources if mock is enabled
