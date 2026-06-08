@@ -22,6 +22,7 @@
  * @brief CMCDHeaders values
  */
 #include "CMCDHeaders.h"
+#include "CMCDSerializer.h"
 using namespace std;
 
 /**
@@ -135,16 +136,20 @@ std::string  CMCDHeaders::GetMediaType()
 /**
  * @brief   BuildCMCDCustomHeaders
  * @param   map which collects formatted CMCD headers
+ *
+ * Seeds the CMCD-Session group with a quoted sid entry (SER-03) via the shared
+ * SerializeToCMCDMap serializer. Subclasses must call this base method first to
+ * populate the Session group, then build their own Object/Request/Status entries
+ * and pass them to SerializeToCMCDMap using the same map. Subclasses must not
+ * clobber the "CMCD-Session:" entry written here.
  */
 void CMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, std::vector<std::string>> &mCMCDCustomHeaders)
 {
-	std::string headerName;
 	mCMCDCustomHeaders.clear();
-	std::vector<std::string> headerValue;
-	std::string delimiter = ",";
-	headerValue.push_back(CMCDSession+sessionId);
-	mCMCDCustomHeaders["CMCD-Session:"] = headerValue;
-	headerValue.clear();
+	// Emit sid as a quoted-string token per CTA-5004 §3 (SER-03).
+	std::vector<CMCDEntry> entries;
+	entries.push_back(CMCDEntry{"sid", sessionId, CMCDGroup::Session, false, true, false});
+	SerializeToCMCDMap(entries, mCMCDCustomHeaders);
 }
 
 /**
