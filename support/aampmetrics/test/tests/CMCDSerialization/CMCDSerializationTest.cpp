@@ -891,3 +891,27 @@ TEST(CMCDSerialization_Merge, TwoCallsSameGroupMergesAndSorts)
     // Confirm sid token was not dropped by the merge.
     EXPECT_THAT(session, HasSubstr("sid=\"my-session\""));
 }
+
+// ---------------------------------------------------------------------------
+// IN-02: All-six-key lock-in: cid<pr<sf<sid<st<v simultaneously present
+// ---------------------------------------------------------------------------
+
+/**
+ * IN-02 / SER-04: All six CMCD-Session keys present simultaneously (live HLS,
+ * 2x trick-play with cid). Exact wire format locks the alpha-sort order
+ * cid < pr < sf < sid < st < v. A future change that misordered pr relative
+ * to cid would not be caught by the five-key tests above.
+ */
+TEST(CMCDSerialization_Session, AllSixKeysSortedWithCidAndPr)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamingFormat("h");
+    v.SetStreamType("l");
+    v.SetContentId("https://cdn.example.com/live/master.m3u8");
+    v.SetPlaybackRate(2.0f);  // triggers pr=2
+
+    auto headers = BuildHeaders(v);
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"),
+              "cid=\"https://cdn.example.com/live/master.m3u8\",pr=2,sf=h,sid=\"test-sid\",st=l,v=1");
+}
