@@ -19,6 +19,7 @@
 
 #include "admanager_mpd.h"
 #include "MockAdManager.h"
+#include <limits>
 
 std::shared_ptr<MockPrivateCDAIObjectMPD> g_MockPrivateCDAIObjectMPD{};
 
@@ -40,7 +41,8 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
 }
 
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx(),
+					mVodAdBreaks(), mNextVodBreakToCheck(std::numeric_limits<double>::max())
 {
 }
 
@@ -168,6 +170,27 @@ void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 }
 
 void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
+{
+}
+
+void CDAIObjectMPD::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                       double breakDurationSec, const std::string &breakType)
+{
+}
+
+void CDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
+{
+}
+
+void PrivateCDAIObjectMPD::RegisterVodAdBreak(const VodAdBreakInfo &info)
+{
+}
+
+void PrivateCDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
+{
+}
+
+void PrivateCDAIObjectMPD::CheckVodAdBreakLookahead(double positionSec, double lookaheadSec)
 {
 }
 

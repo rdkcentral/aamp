@@ -1634,6 +1634,22 @@ public:
 	void CancelReservation(const std::string& cancelAtReservationId);
 
 	/**
+	 * @brief Register a VOD ad-break insertion point.
+	 * @param[in] breakId           Unique break identifier
+	 * @param[in] insertionPointSec Position in VOD timeline in seconds
+	 * @param[in] breakDurationSec  Advisory break duration in seconds
+	 * @param[in] breakType         "preroll", "midroll", or "postroll"
+	 */
+	void RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+	                        double breakDurationSec, const std::string &breakType);
+
+	/**
+	 * @brief Cancel a registered VOD ad-break that has not yet started.
+	 * @param[in] breakId Break identifier previously passed to RegisterVodAdBreak()
+	 */
+	void CancelVodAdBreak(const std::string &breakId);
+
+	/**
 	 * @fn getLastInjectedPosition
 	 *
 	 * @return last injected position

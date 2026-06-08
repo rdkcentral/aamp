@@ -9433,6 +9433,37 @@ void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservati
 }
 
 /**
+ * @brief Register a VOD ad-break insertion point
+ */
+void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                             double breakDurationSec, const std::string &breakType)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->RegisterVodAdBreak(breakId, insertionPointSec, breakDurationSec, breakType);
+	}
+	else
+	{
+		AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot register VOD ad break id=%s", breakId.c_str());
+	}
+}
+
+/**
+ * @brief Cancel a registered VOD ad-break that has not yet started
+ */
+void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->CancelVodAdBreak(breakId);
+	}
+	else
+	{
+		AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot cancel VOD ad break id=%s", breakId.c_str());
+	}
+}
+
+/**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calculation purpose.
  */
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)

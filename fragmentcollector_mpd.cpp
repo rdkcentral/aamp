@@ -9968,6 +9968,16 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			}
 
 			/*
+			 * VOD CDAI: fire vodAdBreakOpportunity events for upcoming insertion points.
+			 * Only runs when CDAI is enabled and content is VOD.
+			 */
+			if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
+			{
+				double lookahead = (double)GETCONFIGVALUE(eAAMPConfig_VodAdBreakLookaheadSec);
+				mCdaiObject->CheckVodAdBreakLookahead(mBasePeriodOffset, lookahead);
+			}
+
+			/*
 			 * Appropriate error handling if period selection fails
 			 */
 			if (!SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId))

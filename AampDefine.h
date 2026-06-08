@@ -113,6 +113,7 @@
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
+#define DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC 5	/**< Default VOD ad-break lookahead in seconds; event fired this many seconds before the insertion point */
 
 #define AAMP_TRACK_COUNT 3		/**< internal use - audio+video+sub track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
