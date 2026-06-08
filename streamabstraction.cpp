@@ -568,7 +568,7 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		NotifyCachedSubtitleFragmentAvailable();
 		loadNewSubtitle = false;
 		// Re-enable latency rate correction after subtitle track switch only if it was previously enabled.
-		if (pContext->mSavedLatencyMonitorState )
+		if (pContext && pContext->mSavedLatencyMonitorState )
 		{
 			aamp->EnableLatencyMonitor(true);
 			pContext->mSavedLatencyMonitorState  = false;
