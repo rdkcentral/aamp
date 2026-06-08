@@ -28,7 +28,6 @@
 
 #include <string>
 #include <unordered_map>
-#include <mutex>
 #include <vector>
 
 const std::string CMCDSession = "sid=";
