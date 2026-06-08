@@ -39,6 +39,7 @@
 #include <uuid/uuid.h>
 #include "AampDefine.h"
 #include "AampLogManager.h"
+#include "middleware/drm/DrmMediaFormat.h"
 #include <algorithm>
 #include "abr.h"
 
@@ -115,6 +116,35 @@ public:
 	void CMCDGetHeaders(AampMediaType mediaType ,  std::vector<std::string> &customHeader);
 	void SetBitrates(AampMediaType mediaType,const std::vector<BitsPerSecond> bitrates);
 	void SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
+
+	/**
+	 * @brief CMCDSetSessionParams Push streaming format and content ID to all CMCDHeaders instances.
+	 *        Called once after Initialize(), propagating sf and cid session keys.
+	 *
+	 * @param[in] mediaFormat - streaming format enum (DASH/HLS/HLS_MP4/Smooth/etc.)
+	 * @param[in] contentId   - content identifier (manifest URL with query+fragment stripped)
+	 * @return None
+	 */
+	void CMCDSetSessionParams(MediaFormat mediaFormat, std::string contentId);
+
+	/**
+	 * @brief CMCDSetLiveStatus Push live/VOD stream type to all CMCDHeaders instances.
+	 *        Called from fragment collectors after manifest parse (st session key).
+	 *
+	 * @param[in] isLive - true for live stream, false for VOD
+	 * @return None
+	 */
+	void CMCDSetLiveStatus(bool isLive);
+
+	/**
+	 * @brief CMCDSetPlaybackRate Push current playback rate to all CMCDHeaders instances.
+	 *        Called from NotifySpeedChanged on every rate change (pr session key).
+	 *
+	 * @param[in] rate - current playback rate (pr omitted when rate == 1.0f)
+	 * @return None
+	 */
+	void CMCDSetPlaybackRate(float rate);
+
 private:
 	bool bCMCDEnabled;			/**< CMCD enable/disable flag  */
 	typedef std::map<int, CMCDHeaders *> StreamTypeCMCD;

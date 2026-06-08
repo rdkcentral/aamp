@@ -338,3 +338,99 @@ void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,BitsPerSec
 		}
 	}
 }
+
+/**
+ * @brief Map MediaFormat enum to CMCD sf (streaming format) token.
+ *        Returns "d" for DASH, "h" for HLS/HLS-MP4, "s" for Smooth Streaming,
+ *        and "" for non-ABR formats (progressive/OTA/HDMI/etc.) which omit sf.
+ */
+static std::string MediaFormatToSf(MediaFormat fmt)
+{
+	switch (fmt)
+	{
+		case eMEDIAFORMAT_DASH:
+			return "d";
+		case eMEDIAFORMAT_HLS:
+		case eMEDIAFORMAT_HLS_MP4:
+			return "h";
+		case eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA:
+			return "s";
+		case eMEDIAFORMAT_PROGRESSIVE:
+		case eMEDIAFORMAT_OTA:
+		case eMEDIAFORMAT_HDMI:
+		case eMEDIAFORMAT_COMPOSITE:
+		case eMEDIAFORMAT_RMF:
+		case eMEDIAFORMAT_UNKNOWN:
+		default:
+			return "";
+	}
+}
+
+/**
+ * @brief CMCDSetSessionParams Push streaming format (sf) and content ID (cid)
+ *        to all CMCDHeaders instances. Called once immediately after Initialize().
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetSessionParams(MediaFormat mediaFormat, std::string contentId)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		const std::string sf = MediaFormatToSf(mediaFormat);
+		for (auto& kv : mCMCDStreamData)
+		{
+			if (kv.second)
+			{
+				kv.second->SetStreamingFormat(sf);
+				kv.second->SetContentId(contentId);
+			}
+		}
+		AAMPLOG_INFO("[CMCD] CMCDSetSessionParams sf=%s cid=%s", sf.c_str(), contentId.c_str());
+	}
+}
+
+/**
+ * @brief CMCDSetLiveStatus Push live/VOD stream type (st) to all CMCDHeaders instances.
+ *        Called from fragment collectors after manifest parse.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetLiveStatus(bool isLive)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		const std::string st = isLive ? "l" : "v";
+		for (auto& kv : mCMCDStreamData)
+		{
+			if (kv.second)
+			{
+				kv.second->SetStreamType(st);
+			}
+		}
+		AAMPLOG_INFO("[CMCD] CMCDSetLiveStatus st=%s", st.c_str());
+	}
+}
+
+/**
+ * @brief CMCDSetPlaybackRate Push current playback rate (pr) to all CMCDHeaders instances.
+ *        Called from NotifySpeedChanged on every rate change.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetPlaybackRate(float rate)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		for (auto& kv : mCMCDStreamData)
+		{
+			if (kv.second)
+			{
+				kv.second->SetPlaybackRate(rate);
+			}
+		}
+		AAMPLOG_TRACE("[CMCD] CMCDSetPlaybackRate rate=%g", static_cast<double>(rate));
+	}
+}
