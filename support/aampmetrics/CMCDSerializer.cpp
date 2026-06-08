@@ -140,10 +140,77 @@ void SerializeToCMCDMap(const std::vector<CMCDEntry>& entries,
         groups[headerKey] += token;
     }
 
-    // Write each group's joined value into the output map as a single-element vector
-    // at index [0], matching the AampCMCDCollector::CMCDGetHeaders assembly contract.
+    // Merge each group's joined value into the output map.
+    // If a group key already exists in out (e.g. CMCD-Session: seeded by the base
+    // class), split the pre-existing comma-delimited tokens, combine with the new
+    // tokens, re-sort all tokens alphabetically by their key (the substring before
+    // '=', or the whole token for bare booleans), and rejoin.  This ensures that
+    // two sequential SerializeToCMCDMap calls targeting the same group produce a
+    // single correctly-sorted value rather than silently discarding the first call.
     for (const auto& kv : groups)
     {
-        out[kv.first] = {kv.second};
+        auto it = out.find(kv.first);
+        if (it == out.end() || it->second.empty() || it->second.at(0).empty())
+        {
+            // No pre-existing entry — write directly.
+            out[kv.first] = {kv.second};
+        }
+        else
+        {
+            // Pre-existing entry present — merge tokens and re-sort by key.
+            std::vector<std::string> tokens;
+
+            // Split existing comma-delimited tokens.
+            const std::string& existing = it->second.at(0);
+            std::size_t start = 0;
+            while (start < existing.size())
+            {
+                std::size_t comma = existing.find(',', start);
+                if (comma == std::string::npos)
+                {
+                    tokens.push_back(existing.substr(start));
+                    break;
+                }
+                tokens.push_back(existing.substr(start, comma - start));
+                start = comma + 1;
+            }
+
+            // Split new tokens from this call.
+            const std::string& incoming = kv.second;
+            start = 0;
+            while (start < incoming.size())
+            {
+                std::size_t comma = incoming.find(',', start);
+                if (comma == std::string::npos)
+                {
+                    tokens.push_back(incoming.substr(start));
+                    break;
+                }
+                tokens.push_back(incoming.substr(start, comma - start));
+                start = comma + 1;
+            }
+
+            // Sort all tokens alphabetically by their CMCD key name.
+            // For a token like "br=3800" the key is "br"; for bare "bs" the key is "bs".
+            std::sort(tokens.begin(), tokens.end(),
+                [](const std::string& a, const std::string& b)
+                {
+                    const std::string keyA = a.substr(0, a.find('='));
+                    const std::string keyB = b.substr(0, b.find('='));
+                    return keyA < keyB;
+                });
+
+            // Rejoin into a single comma-delimited string.
+            std::string merged;
+            for (const auto& tok : tokens)
+            {
+                if (!merged.empty())
+                {
+                    merged += ',';
+                }
+                merged += tok;
+            }
+            it->second = {merged};
+        }
     }
 }

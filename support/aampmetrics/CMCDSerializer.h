@@ -123,6 +123,12 @@ std::string CMCDGroupToHeaderKey(CMCDGroup group);
  * and stores it as the first (and only) element of the vector at the group's
  * header key in out.
  *
+ * If a group key already exists in out (e.g. "CMCD-Session:" seeded by the base
+ * class before a subclass calls this function), the new tokens are merged with
+ * the pre-existing tokens, and the combined set is re-sorted alphabetically by
+ * CMCD key so the final string remains spec-compliant. This allows multiple
+ * sequential calls that each contribute entries to the same group.
+ *
  * Encoding rules applied per entry type:
  *   - isInteger: rounds via RoundToNearest100; entries rounding to 0 are omitted.
  *   - isQuotedString: wraps the value in double-quotes via QuoteString.
@@ -135,6 +141,7 @@ std::string CMCDGroupToHeaderKey(CMCDGroup group);
  * @param out     Output map keyed by header name (e.g. "CMCD-Object:") with a
  *                single-element vector containing the joined value string at [0].
  *                Matches the container consumed by AampCMCDCollector::CMCDGetHeaders.
+ *                Pre-existing entries for a group are merged (not replaced).
  */
 void SerializeToCMCDMap(const std::vector<CMCDEntry>& entries,
                         std::unordered_map<std::string, std::vector<std::string>>& out);
