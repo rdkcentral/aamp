@@ -164,6 +164,7 @@ TEST(CMCDSerialization_Video, BufferLengthRoundedDown)
 
 /**
  * SER-03: sid is wrapped in double-quotes (quoted-string, not a bare token).
+ * v=1 is always present alongside sid (KEYS-09).
  */
 TEST(CMCDSerialization_Session, SidIsQuoted)
 {
@@ -171,7 +172,7 @@ TEST(CMCDSerialization_Session, SidIsQuoted)
     v.SetSessionId("6e2fb550-c457");
 
     auto headers = BuildHeaders(v);
-    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"6e2fb550-c457\"");
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"6e2fb550-c457\",v=1");
 }
 
 /**
@@ -430,8 +431,8 @@ TEST(CMCDSerialization_Video, BaseSessionAndSubclassGroupsCoexist)
 
     auto headers = BuildHeaders(v);
 
-    // Base CMCD-Session: must be present and correctly quoted
-    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"6e2fb550-c457\"");
+    // Base CMCD-Session: must be present and correctly quoted; v=1 always present (KEYS-09)
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"6e2fb550-c457\",v=1");
 
     // Subclass CMCD-Object: must also be present
     const std::string obj = JoinedValue(headers, "CMCD-Object:");
@@ -465,7 +466,7 @@ TEST(CMCDSerialization_Manifest, EmitsOtMAndQuotedSid)
     auto headers = BuildHeaders(m);
 
     EXPECT_EQ(JoinedValue(headers, "CMCD-Object:"), "ot=m");
-    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"manifest-session-id\"");
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"manifest-session-id\",v=1");
     // Manifest does not carry bl/nor/bs — Request and Status must be absent
     EXPECT_EQ(headers.find("CMCD-Request:"), headers.end())
         << "CMCD-Request: must be absent for manifest requests";
@@ -488,7 +489,7 @@ TEST(CMCDSerialization_Subtitle, EmitsOtS)
     auto headers = BuildHeaders(s);
 
     EXPECT_EQ(JoinedValue(headers, "CMCD-Object:"), "ot=s");
-    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"subtitle-session-id\"");
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"subtitle-session-id\",v=1");
 }
 
 // ---------------------------------------------------------------------------
@@ -510,7 +511,7 @@ TEST(CMCDSerialization_Audio, EmitsOtA)
 
     const std::string obj = JoinedValue(headers, "CMCD-Object:");
     EXPECT_THAT(obj, HasSubstr("ot=a"));
-    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"audio-session-id\"");
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"audio-session-id\",v=1");
 }
 
 TEST(CMCDSerialization_Audio, EmitsOtIForInitSegment)
@@ -567,8 +568,8 @@ TEST(CMCDSerialization_EmptyState, DoesNotCrash)
 
     // CMCD-Object: must be present (ot=m)
     EXPECT_EQ(JoinedValue(headers, "CMCD-Object:"), "ot=m");
-    // CMCD-Session: must be present (sid="")
-    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"\"");
+    // CMCD-Session: must be present (sid="" with v=1 always present, KEYS-09)
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"\",v=1");
 }
 
 // ---------------------------------------------------------------------------
@@ -608,6 +609,245 @@ TEST(CMCDSerialization_Audio, NorOmittedWhenNextUrlEmpty)
     const std::string req = JoinedValue(headers, "CMCD-Request:");
 
     EXPECT_THAT(req, ::testing::Not(HasSubstr("nor=")));
+}
+
+// ---------------------------------------------------------------------------
+// KEYS-09 / v: version key always present in CMCD-Session
+// ---------------------------------------------------------------------------
+
+/** KEYS-09: v=1 is always present in CMCD-Session alongside sid (no other keys set). */
+TEST(CMCDSerialization_Session, VersionAlwaysPresent)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_EQ(s, "sid=\"test-sid\",v=1");
+}
+
+// ---------------------------------------------------------------------------
+// KEYS-07 / sf: streaming format present when set, absent when empty
+// ---------------------------------------------------------------------------
+
+/** KEYS-07: SetStreamingFormat("h") -> sf=h in CMCD-Session (HLS). */
+TEST(CMCDSerialization_Session, SfHls)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamingFormat("h");
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, HasSubstr("sf=h"));
+}
+
+/** KEYS-07: SetStreamingFormat("d") -> sf=d in CMCD-Session (DASH). */
+TEST(CMCDSerialization_Session, SfDash)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamingFormat("d");
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, HasSubstr("sf=d"));
+}
+
+/** KEYS-07: SetStreamingFormat("s") -> sf=s in CMCD-Session (Smooth Streaming). */
+TEST(CMCDSerialization_Session, SfSmooth)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamingFormat("s");
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, HasSubstr("sf=s"));
+}
+
+/** KEYS-07: No SetStreamingFormat call -> sf= must be absent from CMCD-Session. */
+TEST(CMCDSerialization_Session, SfOmittedWhenEmpty)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    // No SetStreamingFormat called — mStreamingFormat remains empty.
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, ::testing::Not(HasSubstr("sf=")));
+}
+
+// ---------------------------------------------------------------------------
+// KEYS-08 / st: stream type present when set, absent when empty
+// ---------------------------------------------------------------------------
+
+/** KEYS-08: SetStreamType("l") -> st=l in CMCD-Session (live). */
+TEST(CMCDSerialization_Session, StLive)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamType("l");
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, HasSubstr("st=l"));
+}
+
+/** KEYS-08: SetStreamType("v") -> st=v in CMCD-Session (VOD). */
+TEST(CMCDSerialization_Session, StVod)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamType("v");
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, HasSubstr("st=v"));
+}
+
+/** KEYS-08: No SetStreamType call -> st= must be absent from CMCD-Session. */
+TEST(CMCDSerialization_Session, StOmittedBeforeSet)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    // No SetStreamType called — mStreamType remains empty.
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, ::testing::Not(HasSubstr("st=")));
+}
+
+// ---------------------------------------------------------------------------
+// KEYS-06 / pr: playback rate present (no trailing zeros) at non-1x, absent at 1x
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS-06: SetPlaybackRate(2.0f) -> pr=2 (no trailing zero ".0").
+ * Locks the snprintf "%g" trailing-zero strip (RESEARCH Pitfall 3).
+ */
+TEST(CMCDSerialization_Session, PrPresentWhenNotNormal)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetPlaybackRate(2.0f);
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, HasSubstr("pr=2"));
+    EXPECT_THAT(s, ::testing::Not(HasSubstr("pr=2.0")));
+}
+
+/** KEYS-06: SetPlaybackRate(0.5f) -> pr=0.5 in CMCD-Session (fractional rate). */
+TEST(CMCDSerialization_Session, PrFractional)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetPlaybackRate(0.5f);
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, HasSubstr("pr=0.5"));
+}
+
+/** KEYS-06: Default playback rate (1.0f, no SetPlaybackRate call) -> pr= must be absent. */
+TEST(CMCDSerialization_Session, PrOmittedAtNormalRate)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    // No SetPlaybackRate — mPlaybackRate defaults to 1.0f.
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, ::testing::Not(HasSubstr("pr=")));
+}
+
+// ---------------------------------------------------------------------------
+// KEYS-01 / cid: content id quoted when set, absent when empty
+// ---------------------------------------------------------------------------
+
+/** KEYS-01: SetContentId sets a quoted-string cid token in CMCD-Session. */
+TEST(CMCDSerialization_Session, CidQuotedWhenSet)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetContentId("https://h/p");
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, HasSubstr("cid=\"https://h/p\""));
+}
+
+/** KEYS-01: No SetContentId call -> cid= must be absent from CMCD-Session. */
+TEST(CMCDSerialization_Session, CidOmittedWhenEmpty)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    // No SetContentId called — mContentId remains empty.
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+    EXPECT_THAT(s, ::testing::Not(HasSubstr("cid=")));
+}
+
+// ---------------------------------------------------------------------------
+// SER-04 extension / alpha-sort lock-in: cid<pr<sf<sid<st<v with all six keys
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS-01/07/08/09 + SER-04: All six CMCD-Session keys present (live HLS with cid,
+ * rate=1x so pr absent). Exact wire format locks the alpha-sort cid<sf<sid<st<v.
+ */
+TEST(CMCDSerialization_Session, AllSixKeysAlphaSortedLive)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamingFormat("h");
+    v.SetStreamType("l");
+    v.SetContentId("https://cdn.example.com/live/master.m3u8");
+    // No SetPlaybackRate — mPlaybackRate defaults to 1.0f, so pr is omitted.
+
+    auto headers = BuildHeaders(v);
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"),
+              "cid=\"https://cdn.example.com/live/master.m3u8\",sf=h,sid=\"test-sid\",st=l,v=1");
+}
+
+/**
+ * KEYS-06/07/08/09 + SER-04: DASH VOD at 2x trick-play, no cid.
+ * Exact wire format locks the alpha-sort pr<sf<sid<st<v.
+ */
+TEST(CMCDSerialization_Session, AllSixKeysWithPrTrickPlay)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamingFormat("d");
+    v.SetStreamType("v");
+    v.SetPlaybackRate(2.0f);
+    // No SetContentId — mContentId remains empty, so cid is omitted.
+
+    auto headers = BuildHeaders(v);
+    EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"),
+              "pr=2,sf=d,sid=\"test-sid\",st=v,v=1");
+}
+
+/**
+ * SER-04 / WR-03 extension: With sf and st set, confirm sf < sid < st ordering in
+ * the value string — adding new s-prefixed Session keys must not perturb this boundary.
+ */
+TEST(CMCDSerialization_Session, SidStillFirstAmongSlikeKeys)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStreamingFormat("h");
+    v.SetStreamType("l");
+
+    auto headers = BuildHeaders(v);
+    const std::string s = JoinedValue(headers, "CMCD-Session:");
+
+    EXPECT_LT(s.find("sf="), s.find("sid="))
+        << "sf must sort before sid (ASCII: sf < sid)";
+    EXPECT_LT(s.find("sid="), s.find("st="))
+        << "sid must sort before st (ASCII: sid < st)";
 }
 
 // ---------------------------------------------------------------------------
