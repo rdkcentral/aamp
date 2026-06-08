@@ -100,7 +100,20 @@ void SerializeToCMCDMap(const std::vector<CMCDEntry>& entries,
         }
         else if (e.isInteger)
         {
-            int r = RoundToNearest100(std::stoi(e.value));
+            if (e.value.empty())
+            {
+                continue; // treat missing integer as "unavailable" — omit entry
+            }
+            int parsed = 0;
+            try
+            {
+                parsed = std::stoi(e.value);
+            }
+            catch (const std::exception&)
+            {
+                continue; // malformed value — omit rather than crash
+            }
+            int r = RoundToNearest100(parsed);
             if (r == 0)
             {
                 continue; // omit zero — Pitfall 3 / CTA-5004 optional-key rule
