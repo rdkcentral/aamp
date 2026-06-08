@@ -23,7 +23,25 @@
  */
 #include "CMCDHeaders.h"
 #include "CMCDSerializer.h"
+#include <cstdio>
 using namespace std;
+
+/**
+ * @brief Format a playback rate as a plain decimal string with no trailing zeros.
+ *
+ * Uses snprintf with the %g format specifier to strip unnecessary trailing zeros:
+ * 2.0f -> "2", 1.5f -> "1.5", 0.5f -> "0.5". Avoids std::to_string which
+ * produces "2.000000" for floating-point values.
+ *
+ * @param rate Playback rate value to format.
+ * @return Formatted decimal string suitable for CMCD pr token emission.
+ */
+static std::string FormatPlaybackRate(float rate)
+{
+	char buf[32];
+	std::snprintf(buf, sizeof(buf), "%g", static_cast<double>(rate));
+	return std::string(buf);
+}
 
 /**
  * @brief   SetNetworkMetrics
@@ -146,9 +164,40 @@ std::string  CMCDHeaders::GetMediaType()
 void CMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, std::vector<std::string>> &mCMCDCustomHeaders)
 {
 	mCMCDCustomHeaders.clear();
-	// Emit sid as a quoted-string token per CTA-5004 §3 (SER-03).
+	// Emit all CMCD-Session entries via a single SerializeToCMCDMap call.
+	// SerializeToCMCDMap alpha-sorts keys within the group: cid<pr<sf<sid<st<v.
 	std::vector<CMCDEntry> entries;
+
+	// sid — quoted-string token, always present (SER-03)
 	entries.push_back(CMCDEntry{"sid", sessionId, CMCDGroup::Session, false, true, false});
+
+	// v=1 — constant bare token, always present (KEYS-09)
+	entries.push_back(CMCDEntry{"v", "1", CMCDGroup::Session, false, false, false});
+
+	// sf — bare token; omit when streaming format is not yet determined (KEYS-07)
+	if (!mStreamingFormat.empty())
+	{
+		entries.push_back(CMCDEntry{"sf", mStreamingFormat, CMCDGroup::Session, false, false, false});
+	}
+
+	// st — bare token; omit before first manifest parse (mStreamType empty) (KEYS-08)
+	if (!mStreamType.empty())
+	{
+		entries.push_back(CMCDEntry{"st", mStreamType, CMCDGroup::Session, false, false, false});
+	}
+
+	// pr — bare decimal token; omit at normal 1x playback (KEYS-06)
+	if (mPlaybackRate != 1.0f)
+	{
+		entries.push_back(CMCDEntry{"pr", FormatPlaybackRate(mPlaybackRate), CMCDGroup::Session, false, false, false});
+	}
+
+	// cid — quoted-string token; omit when no content id is available (KEYS-01)
+	if (!mContentId.empty())
+	{
+		entries.push_back(CMCDEntry{"cid", mContentId, CMCDGroup::Session, false, true, false});
+	}
+
 	SerializeToCMCDMap(entries, mCMCDCustomHeaders);
 }
 
