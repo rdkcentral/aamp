@@ -386,6 +386,8 @@ public:
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
+	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for cold CDVR/IVOD */
+	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -643,6 +645,13 @@ public:
 	 * @param[in] periodId Period ID for ad placement
 	 */
 	void InsertToPlacementQueue(const std::string& periodId);
+
+	/**
+	 * @brief Store the latest base-stream MPD parse helper so that PlaceAds
+	 *        can be called immediately from FulFillAdObject for cold CDVR/IVOD.
+	 * @param[in] helper Shared pointer to the current AampMPDParseHelper
+	 */
+	void SetBaseMPDParseHelper(AampMPDParseHelperPtr helper);
 };
 
 #endif /* ADMANAGER_MPD_H_ */

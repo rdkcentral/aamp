@@ -24,6 +24,7 @@
 
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
+#include <unistd.h>
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -371,6 +372,7 @@ static int main_func(int argc, char **argv)
 	AAMPCLI_PRINTF("**************************************************************************\n");
 	AAMPCLI_PRINTF("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
 	AAMPCLI_PRINTF("**************************************************************************\n");
+	AAMPCLI_PRINTF("PID: %d\n", (int)getpid());
 
 	mAampcli.initPlayerLoop(0,NULL);
 	mAampcli.newPlayerInstance();

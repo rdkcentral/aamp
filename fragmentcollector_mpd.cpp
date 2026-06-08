@@ -3218,9 +3218,21 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		}
 
 		mLastPlaylistDownloadTimeMs = aamp_GetCurrentTimeMS();
-		if(mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai))
+		if(ISCONFIGSET(eAAMPConfig_EnableClientDai))
 		{
-			mCdaiObject->PlaceAds(mMPDParseHelper);
+			// Always keep the cold-CDVR/IVOD path in sync with the latest helper so
+			// FulFillAdObject can call PlaceAds as soon as an ad is resolved.
+			bool isColdCDVROrIVOD = !mIsLiveStream && (aamp->IsCDVRContent() || aamp->IsIVODContent());
+			if (isColdCDVROrIVOD)
+			{
+				AAMPLOG_INFO("Setting MPD helper for cold CDVR/IVOD content");
+				mCdaiObject->SetBaseMPDParseHelper(mMPDParseHelper);
+			}
+			if(mIsLiveStream || isColdCDVROrIVOD)
+			{
+				AAMPLOG_INFO("Placing ads for %s stream", mIsLiveStream ? "live" : "cold CDVR/IVOD");
+				mCdaiObject->PlaceAds(mMPDParseHelper);
+			}
 		}
 
 		ret = AAMPStatusType::eAAMPSTATUS_OK;
@@ -5501,6 +5513,22 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 				else
 				{
 					aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
+					AAMPLOG_INFO("Processing CDAI event for period %s with start time %" PRIu64 " ms and duration %" PRIu32 " ms", prdId.c_str(), eventStartTime, eventInfo.duration);
+					// Cold CDVR / IVOD with CDAI enabled: call FoundEventBreak so that
+					// the adbreak placeholder is created in mAdBreaks before the app
+					// calls SetAlternateContents in response to the TIMED_METADATA event.
+					// modifySCTEProcessing takes precedence and falls through to the
+					// regular VOD path (SaveNewTimedMetadata only).
+					bool isColdCDAI = ISCONFIGSET(eAAMPConfig_EnableClientDai)
+						&& !ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime)
+						&& (aamp->IsCDVRContent() || aamp->IsIVODContent());
+					if (isColdCDAI)
+					{
+						AAMPLOG_INFO("Processing cold CDVR/IVOD CDAI event for period %s with start time %" PRIu64 " ms and duration %" PRIu32 " ms", prdId.c_str(), eventStartTime, eventInfo.duration);
+						// FoundEventBreak creates the adbreak placeholder and
+						// internally calls SaveNewTimedMetadata to dispatch the event.
+						aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
+					}
 				}
 			}
 			ret = true;
