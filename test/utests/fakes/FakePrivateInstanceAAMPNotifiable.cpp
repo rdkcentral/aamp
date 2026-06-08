@@ -49,6 +49,11 @@ void PrivateInstanceAAMPNotifiable::NotifyEOSReached() {}
 void PrivateInstanceAAMPNotifiable::MonitorProgress(
 	bool /*sync*/, bool /*beginningOfStream*/) {}
 
+double PrivateInstanceAAMPNotifiable::GetProgressReportIntervalSeconds()
+{
+	return 0.0;
+}
+
 void PrivateInstanceAAMPNotifiable::NotifySpeedChanged(
 	float /*rate*/, bool /*changeState*/) {}
 
@@ -56,3 +61,6 @@ AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
 {
 	return eSTATE_IDLE;
 }
+
+void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(
+	AampMediaType /*type*/) {}

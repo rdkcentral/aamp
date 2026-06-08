@@ -80,7 +80,7 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		// Set TSB log level to TRACE
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
 			.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
@@ -89,11 +89,11 @@ protected:
 		mAampTSBSessionManager = new AampTSBSessionManager(aamp);
 		TSB::Store::Config config;
 		mTSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, aamp->mPlayerId, TSB::LogLevel::TRACE);
-		g_mockTSBStore = new MockTSBStore();
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
-		g_mockAampUtils = new NiceMock<MockAampUtils>();
-		g_mockAampTsbMetaDataManager = new StrictMock<MockAampTsbMetaDataManager>();
+		g_mockTSBStore = std::make_shared<MockTSBStore>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
+		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
+		g_mockAampTsbMetaDataManager = std::make_shared<StrictMock<MockAampTsbMetaDataManager>>();
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBStore(_,_,_)).WillRepeatedly(Return(mTSBStore));
 		mAampTSBSessionManager->SetTsbLength(5);
@@ -120,31 +120,25 @@ protected:
 
 	void TearDown() override
 	{
-		EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
-		mAampTSBSessionManager->Flush();
+		g_mockAampTsbMetaDataManager.reset();
 
-		delete g_mockAampTsbMetaDataManager;
-		g_mockAampTsbMetaDataManager = nullptr;
+		g_mockAampUtils.reset();
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
-
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mAampTSBSessionManager;
 		mAampTSBSessionManager = nullptr;
 
 		mTSBStore = nullptr;
 
-		delete g_mockTSBStore;
-		g_mockTSBStore = nullptr;
+		g_mockTSBStore.reset();
 
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockMediaStreamContext.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
+
+		delete aamp;
+		aamp = nullptr;
 	}
 
 };
@@ -256,6 +250,9 @@ TEST_F(FunctionalTests, TSBWriteTests)
 
 	mAampTSBSessionManager->Init();
 	EXPECT_TRUE(mAampTSBSessionManager->IsActive());
+	// TearDown deletes mAampTSBSessionManager; its destructor calls Flush() which
+	// reaches mTSBStore->Flush() because mInitialized_ is true after re-Init().
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
 }
 
 TEST_F(FunctionalTests, Cullsegments)
@@ -652,4 +649,31 @@ TEST_F(FunctionalTests, AdMetadataBoundaryTest)
 	// Test with zero duration
 	EXPECT_TRUE(mAampTSBSessionManager->StartAdPlacement(
 		TEST_AD_ID, TEST_REL_POSITION, zeroPos, 0.0, TEST_OFFSET));
+}
+
+/**
+ * @brief Verify that Flush() calls NotifyVideoTsbWaiters().
+ * The effect of NotifyVideoTsbWaiters() is observed by a thread
+ * blocking in WaitForVideoTsbContentOrAbort(): if that thread
+ * unblocks after Flush() is called, NotifyVideoTsbWaiters() was invoked.
+ */
+TEST_F(FunctionalTests, FlushCallsNotifyVideoTsbWaiters)
+{
+	// Spawn a thread that blocks on WaitForVideoTsbContentOrAbort(). The real
+	// NotifyVideoTsbWaiters() (called by Flush()) must unblock it.
+	std::atomic<bool> waiterUnblocked{false};
+	std::thread waiter([&]() {
+		mAampTSBSessionManager->WaitForVideoTsbContentOrAbort();
+		waiterUnblocked.store(true);
+	});
+
+	// Brief pause to let the waiter thread enter the condition-variable wait.
+	std::this_thread::sleep_for(std::chrono::milliseconds(25));
+
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
+	mAampTSBSessionManager->Flush();
+
+	// If NotifyVideoTsbWaiters() was called, the waiter thread is now unblocked.
+	waiter.join();
+	EXPECT_TRUE(waiterUnblocked.load());
 }

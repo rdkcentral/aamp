@@ -47,7 +47,7 @@ GST_DEBUG_CATEGORY(gst_widevinedecryptor_debug_category);
 
 static GstStaticPadTemplate gst_widevinedecryptor_src_template =
         GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-h264;video/x-h264(memory:SecMem);audio/mpeg;video/x-h265;video/x-h265(memory:SecMem);audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3;audio/x-opus"));
+        GST_STATIC_CAPS("video/x-h264;video/x-h264(memory:SecMem);audio/mpeg;video/x-h265;video/x-h265(memory:SecMem);audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3;audio/x-opus;audio/x-ac4"));
  
 static GstStaticPadTemplate gst_widevinedecryptor_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
@@ -58,6 +58,7 @@ static GstStaticPadTemplate gst_widevinedecryptor_sink_template =
                         "application/x-cenc, original-media-type=(string)audio/x-ac3, protection-system=(string)" WIDEVINE_PROTECTION_SYSTEM_ID "; "
                         "application/x-cenc, original-media-type=(string)audio/x-opus, protection-system=(string)" WIDEVINE_PROTECTION_SYSTEM_ID "; "
 			"application/x-cenc, original-media-type=(string)audio/x-gst-fourcc-ec_3, protection-system=(string)" WIDEVINE_PROTECTION_SYSTEM_ID "; "
+                        "application/x-cenc, original-media-type=(string)audio/x-ac4, protection-system=(string)" WIDEVINE_PROTECTION_SYSTEM_ID "; "
                         "application/x-cenc, original-media-type=(string)audio/mpeg, protection-system=(string)" WIDEVINE_PROTECTION_SYSTEM_ID));
 
 static GstStaticPadTemplate gst_widevinedecryptor_dummy_sink_template =

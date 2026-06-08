@@ -225,7 +225,7 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig = new MockAampConfig();
+		g_mockAampConfig = std::make_shared<MockAampConfig>();
 
 		mStreamAbstractionAAMP_HLS = new TestableStreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0.0, 1.0);
 	}
@@ -241,8 +241,7 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 	}
 };
 
@@ -262,7 +261,7 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig = new MockAampConfig();
+		g_mockAampConfig = std::make_shared<MockAampConfig>();
 
 		mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, 0.0);
 
@@ -288,8 +287,7 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 	}
 
 public:
@@ -1865,17 +1863,10 @@ TEST_F(TrackStateTests, EnabledTests)
 	ASSERT_FALSE(result);
 }
 
-TEST_F(TrackStateTests, GetFetchBufferTests)
-{
-	TrackStateobj->GetFetchBuffer(true);
-	CachedFragment *fetchBuffer = TrackStateobj->GetFetchBuffer(false);
-	// ASSERT_EQ(fetchBuffer, nullptr);
-}
-
-TEST_F(TrackStateTests, GetFetchChunkBufferTest)
+TEST_F(TrackStateTests, GetFetchBufferTest)
 {
 	// Call the function under test with initialize set to true
-	CachedFragment *cachedFragment = TrackStateobj->GetFetchChunkBuffer(true);
+	CachedFragment *cachedFragment = TrackStateobj->GetFetchBuffer(true);
 	ASSERT_EQ(cachedFragment, nullptr);
 }
 
@@ -1922,6 +1913,10 @@ TEST_F(TrackStateTests, GetBufferStatusTest)
 TEST_F(TrackStateTests, WaitForFreeFragmentAvailableTests)
 {
 	int timeoutMs = 100;
+	// Ensure the chunk cache has capacity so WaitForCachedFragmentInjected
+	// can return true immediately (numberOfFragmentsCached=0 < size=4).
+	TrackStateobj->maxLLDCachedFragmentsPerTrack = DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK;
+	TrackStateobj->SetCachedFragmentSize(DEFAULT_CACHED_FRAGMENTS_PER_TRACK);
 	bool result = TrackStateobj->WaitForFreeFragmentAvailable(timeoutMs);
 	ASSERT_TRUE(result);
 }
@@ -2384,35 +2379,6 @@ TEST_F(TrackStateTests, StartPlaylistDownloaderThreadTest)
 	TrackStateobj->StopPlaylistDownloaderThread();
 }
 
-TEST_F(TrackStateTests, UpdateTSAfterFetchTest)
-{
-	TrackStateobj->numberOfFragmentsCached = 0;
-	TrackStateobj->maxCachedFragmentsPerTrack = 1;
-	TrackStateobj->UpdateTSAfterFetch(true);
-}
-
-TEST_F(TrackStateTests, UpdateTSAfterFetchTest_1)
-{
-	// //TrackStateobj->numberOfFragmentsCached = 0;
-	// TrackStateobj->minInitialCacheSeconds = 0;
-	// TrackStateobj->currentInitialCacheDurationSeconds = 0;
-	TrackStateobj->numberOfFragmentsCached = 0;
-	TrackStateobj->maxCachedFragmentsPerTrack = 1;
-	bool IsInitSegment = false;
-	TrackStateobj->UpdateTSAfterFetch(IsInitSegment);
-}
-
-TEST_F(TrackStateTests, UpdateTSAfterFetchTest_2)
-{
-	// //TrackStateobj->numberOfFragmentsCached = 0;
-	// TrackStateobj->minInitialCacheSeconds = 0;
-	// TrackStateobj->currentInitialCacheDurationSeconds = 0;
-	TrackStateobj->numberOfFragmentsCached = 0;
-	TrackStateobj->maxCachedFragmentsPerTrack = 1;
-	bool IsInitSegment = false;
-	TrackStateobj->UpdateTSAfterFetch(IsInitSegment);
-}
-
 TEST_F(TrackStateTests,SetCurrentBandWidth )
 {
 	TrackStateobj->SetCurrentBandWidth(1);
@@ -2423,12 +2389,12 @@ TEST_F(TrackStateTests,GetProfileIndexForBW )
 	TrackStateobj->GetProfileIndexForBW(1);
 }
 
-TEST_F(TrackStateTests,UpdateTSAfterChunkFetch )
+TEST_F(TrackStateTests,UpdateTSAfterFetch )
 {
-	TrackStateobj->numberOfFragmentChunksCached = 0;
-	TrackStateobj->maxCachedFragmentChunksPerTrack=1;
-	TrackStateobj->SetCachedFragmentChunksSize(1);
-	TrackStateobj->UpdateTSAfterChunkFetch();
+	TrackStateobj->numberOfFragmentsCached = 0;
+	TrackStateobj->maxLLDCachedFragmentsPerTrack=1;
+	TrackStateobj->SetCachedFragmentSize(1);
+	TrackStateobj->UpdateTSAfterFetch();
 }
 
 TEST_F(TrackStateTests,AbortWaitForCachedAndFreeFragment )
@@ -2439,7 +2405,6 @@ TEST_F(TrackStateTests,AbortWaitForCachedAndFreeFragment )
 TEST_F(TrackStateTests,CheckForFutureDiscontinuityTest)
 {
 	double cacheDuration = 1.1;
-	TrackStateobj->numberOfFragmentsCached = 1;
 	TrackStateobj->CheckForFutureDiscontinuity(cacheDuration);
 }
 

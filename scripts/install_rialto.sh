@@ -18,14 +18,8 @@
 
 function rialto_install_fn() {
 
-    # Install
-    if [ -d "protobuf" ]; then
-        echo "rialto is already installed"
-        INSTALL_STATUS_ARR+=("protobuf was already installed.")
-    else
-        do_clone_github_repo_fn https://github.com/protocolbuffers/protobuf.git protobuf -b ${OPTION_PROTOBUF_REFERENCE} --recursive
-    fi
-
+    # rialto is always cloned: its public headers are needed by L1 tests
+    # even when not building the libraries.
     if [ -d "rialto" ]; then
         echo "rialto exists"
         INSTALL_STATUS_ARR+=("rialto was already installed.")
@@ -37,29 +31,26 @@ function rialto_install_fn() {
         popd
     fi
 
-    if [ -d "rialto-gstreamer" ]; then
-        echo "rialto-gstreamer exists"
-        INSTALL_STATUS_ARR+=("rialto-streamer was already installed.")
+}
+
+function rialto_install_build_deps_fn() {
+
+    if [ -d "protobuf" ]; then
+        echo "protobuf is already installed"
+        INSTALL_STATUS_ARR+=("protobuf was already installed.")
     else
-       do_clone_fn https://github.com/rdkcentral/rialto-gstreamer.git rialto-gstreamer
-       pushd rialto-gstreamer
-       echo "Checkout rialto-gstreamer '${OPTION_RIALTO_GSTREAMER_REFERENCE}'"
-       git checkout ${OPTION_RIALTO_GSTREAMER_REFERENCE}
-       popd
+        do_clone_github_repo_fn https://github.com/protocolbuffers/protobuf.git protobuf -b ${OPTION_PROTOBUF_REFERENCE} --recursive
     fi
 
-    # TODO: rialto-ocdm clone/checkout added to support direct-rialto
-    #       AampDrmBridge; should have been a separate, independently reviewed
-    #       change per direct-rialto.instructions.md scope boundary rules.
-    if [ -d "rialto-ocdm" ]; then
-        echo "rialto-ocdm exists"
-        INSTALL_STATUS_ARR+=("rialto-ocdm was already installed.")
+    if [ -d "rialto-gstreamer" ]; then
+        echo "rialto-gstreamer exists"
+        INSTALL_STATUS_ARR+=("rialto-gstreamer was already installed.")
     else
-       do_clone_fn https://github.com/rdkcentral/rialto-ocdm.git rialto-ocdm
-       pushd rialto-ocdm
-       echo "Checkout rialto-ocdm '${OPTION_RIALTO_OCDM_REFERENCE}'"
-       git checkout ${OPTION_RIALTO_OCDM_REFERENCE}
-       popd
+        do_clone_fn https://github.com/rdkcentral/rialto-gstreamer.git rialto-gstreamer
+        pushd rialto-gstreamer
+        echo "Checkout rialto-gstreamer '${OPTION_RIALTO_GSTREAMER_REFERENCE}'"
+        git checkout ${OPTION_RIALTO_GSTREAMER_REFERENCE}
+        popd
     fi
 
 }
@@ -77,15 +68,28 @@ function rialto_build_repo_fn()
     popd
 }   
 
+function rialto_copy_headers_fn()
+{
+    local dest="${LOCAL_DEPS_BUILD_DIR}/include/rialto"
+    echo "Copying rialto public headers to ${dest}"
+    mkdir -p "${dest}"
+    cp "${LOCAL_DEPS_BUILD_DIR}/rialto/media/public/include/"*.h "${dest}/"
+}
+
 function rialto_build_fn() 
 {
-    echo "Building protobuf"
-    pushd protobuf
-    ./autogen.sh
-    ./configure --prefix="${1}"
-    make
-    make install
-    popd 
+    # Skip protobuf rebuild if already installed
+    if [ -f "${1}/lib/libprotobuf.a" ] || [ -f "${1}/lib/libprotobuf.so" ]; then
+        echo "protobuf already built, skipping (use 'clean' to force rebuild)"
+    else
+        echo "Building protobuf"
+        pushd protobuf
+        ./autogen.sh
+        ./configure --prefix="${1}"
+        make
+        make install
+        popd
+    fi
     
     rialto_build_repo_fn rialto -DNATIVE_BUILD=ON -DRIALTO_BUILD_TYPE=Debug
     INSTALL_STATUS_ARR+=("rialto was successfully installed.")
@@ -104,14 +108,16 @@ function rialto_install_build_fn()
         rm -rf protobuf
         rm -rf rialto
         rm -rf rialto-gstreamer
-        rm -rf rialto-ocdm
-    fi
-
-    if [ ${OPTION_RIALTO_BUILD} == false ] ; then
-        return 0
     fi
 
     rialto_install_fn
 
-    rialto_build_fn ${LOCAL_DEPS_BUILD_DIR}
+    # Copy rialto public headers to the expected include directory so that
+    # L1 tests can find them without building the rialto libraries.
+    rialto_copy_headers_fn
+
+    if [ ${OPTION_RIALTO_BUILD} == true ] ; then
+        rialto_install_build_deps_fn
+        rialto_build_fn ${LOCAL_DEPS_BUILD_DIR}
+    fi
 }

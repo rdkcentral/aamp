@@ -195,7 +195,7 @@ Mp4Demux::~Mp4Demux()
 	LogMetrics();
 }
 
-void Mp4Demux::setParseError( Mp4ParseError err )
+void Mp4Demux::setParseError( Mp4ParseError err, const char* what )
 {
 	parseError = err;
 	const char *text = nullptr;
@@ -250,7 +250,14 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 			text = "UNEXPECTED_IS_ENCRYPTED_FIELD";
 			break;
 	}
-	MP4_LOG_ERR( "%s", text );
+	if (what && what[0] != '\0')
+	{
+		MP4_LOG_ERR( "%s: %s", text, what );
+	}
+	else
+	{
+		MP4_LOG_ERR( "%s", text );
+	}
 }
 
 /**
@@ -645,11 +652,9 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
  * - Initialization vector (IV)
  * - Subsample encryption information (clear/encrypted byte pairs)
  * - Cipher mode and pattern encryption settings
+ *
+ * @param next Pointer to next box
  */
-// TODO: Signature and body changes below (next parameter, bounds checks, and
-//       debug logging) were added to support direct-rialto DRM parsing and
-//       should have been a separate, independently reviewed change per
-//       direct-rialto.instructions.md scope boundary rules.
 void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 {
 	ReadHeader();
@@ -659,6 +664,7 @@ void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 		sampleCount, ivSize, flags,
 		(flags & SENC_SUBSAMPLE_ENCRYPTION_PRESENT) ? 1 : 0,
 		static_cast<size_t>(next - ptr));
+
 	if (samples.size() != maxSampleCount)
 	{
 		throw Mp4ParseException(MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH, "senc: sampleCount mismatch");
@@ -789,13 +795,15 @@ void Mp4Demux::ProcessSamples()
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: dataPtr outside mdat");
 		}
 		// Guard: sample payload must not overrun mdat
-		const uint8_t* hardEnd = mdatEnd;
-		if (dataPtr + sampleLen > hardEnd)
+		if (dataPtr + sampleLen > mdatEnd)
 		{
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: sample payload OOB");
 		}
 		AampMediaSample& s = samples[pending.sampleIdx];
-		s.mData.insert(s.mData.end(), dataPtr, dataPtr + sampleLen);
+		// Aliasing constructor: mData shares mCurrentSegment's refcount but
+		// points directly at the sample payload within that buffer.
+		s.mData     = std::shared_ptr<const uint8_t>(mCurrentSegment, dataPtr);
+		s.mDataSize = sampleLen;
 		s.mDts      = pending.mDts;
 		s.mPts      = pending.mPts;
 		s.mDuration = pending.mDuration;
@@ -1327,9 +1335,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				break;
 			default:
 				// Unknown/unhandled box — skip payload and continue
-				// TODO: Skip-and-log behaviour added for direct-rialto DRM; should
-				//       have been a separate change per direct-rialto.instructions.md.
-				MP4_LOG_DEBUG("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
+				MP4_LOG_WARN("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
 				ptr = next;
 				break;
 		}
@@ -1341,24 +1347,30 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 }
 
 /**
- * @brief Parse MP4 data segment
- * Main entry point for MP4 parsing. Resets sample data from previous
- * segments while preserving metadata, then initiates recursive parsing
- * of the MP4 container structure. Handles both initialization segments
- * and media fragments.
+ * @brief Parse MP4 data segment with shared ownership of the backing buffer.
  *
- * @param ptr Pointer to MP4 data buffer
- * @param len Length of data buffer in bytes
+ * Stores @p segment internally during parsing so that every extracted sample's
+ * mData field (aliasing shared_ptr) keeps the buffer alive exactly as long as
+ * the sample exists. Resets sample data from previous segments while preserving
+ * metadata, then initiates recursive parsing of the MP4 container structure.
+ * Handles both initialization segments and media fragments.
+ * The internal mCurrentSegment hold is released before returning; only the
+ * individual samples carry a shared reference thereafter.
+ *
+ * @param segment Shared ownership of the buffer to parse (must not be null/empty).
  * @return true if parsing succeeded, false on error
  */
-
-bool Mp4Demux::Parse(const void *data, size_t len)
+bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 {
-	bool ret = false;
-	if (!data || len == 0) {
-		setParseError( MP4_PARSE_ERROR_INVALID_INPUT );
+	if (!segment || segment->empty())
+	{
+		setParseError(MP4_PARSE_ERROR_INVALID_INPUT);
 		return false;
 	}
+	mCurrentSegment = std::move(segment);
+
+	const void *data = mCurrentSegment->data();
+	size_t len = mCurrentSegment->size();
 	MP4_LOG_DEBUG("Parsing MP4 data segment, ptr:%p len=%zu", data, len);
 
 	// Start timing for metrics
@@ -1378,10 +1390,11 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 	mdatEnd = nullptr;
 	this->ptr = (const uint8_t *)data;
 
+	bool ret = false;
 	try {
 		DemuxHelper(&this->ptr[len]);
 		ret = true;
-		// Force encrypted flag if any encrypted samples were handled previously
+		// Force encrypted flag if any encrypted samples were handled previously.
 		// For GStreamer, renegotiation will fail if the caps change from
 		// encrypted to clear, so we need to keep the encrypted flag set.
 		if (handledEncryptedSamples && codecInfo.mIsEncrypted == false)
@@ -1407,23 +1420,22 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 			MP4_LOG_DEBUG("Demux metrics: %u frames in %.3f ms", frameCount, demuxDuration.count());
 		}
 	} catch (const Mp4ParseException& ex) {
-		setParseError(ex.code());
-		// TODO: MP4_LOG_ERR call added for direct-rialto DRM diagnostics; should
-		//       have been a separate change per direct-rialto.instructions.md.
-		MP4_LOG_ERR("%s", ex.what());
+		setParseError(ex.code(), ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error
 		setParseError(MP4_PARSE_ERROR_INVALID_BOX);
 		ret = false;
 	}
+
+	mCurrentSegment = nullptr;
 	return ret;
 }
 
-
-void Mp4Demux::ParseOrThrow(const void *data, size_t len)
+void Mp4Demux::ParseOrThrow(std::shared_ptr<std::vector<uint8_t>>&& segment)
 {
-	if (!Parse(data, len)) {
+	if (!Parse(std::move(segment)))
+	{
 		throw Mp4ParseException(GetLastError(), "Parse failed");
 	}
 }
@@ -1482,15 +1494,18 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
 }
 
 /**
- * @brief Get parsed media samples
+ * @brief Return parsed media samples with lifetime tracking.
+ *
  * Returns all media samples extracted from the current MP4 fragment,
  * including sample data, timing information, and encryption metadata.
+ * Each sample's mData is an aliasing shared_ptr<const uint8_t> that keeps
+ * the backing segment buffer (previously passed to Parse()) alive for the
+ * sample's lifetime, enabling zero-copy access to the parsed payload.
  *
- * @return Media samples vector with ownership transferred to caller
+ * @return Media samples vector with ownership transferred to caller.
  */
 std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
-	// std::move is required here because codecInfo is a member variable.
 	return std::move(samples);
 }
 

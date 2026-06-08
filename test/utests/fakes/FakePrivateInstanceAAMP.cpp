@@ -18,6 +18,7 @@
 */
 
 #include "priv_aamp.h"
+#include "mp4demux/MP4Demux.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "AampMPDDownloader.h"
 
@@ -25,7 +26,7 @@
 #include "AampSegmentInfo.hpp"
 #include "AampLatencyMonitor.h"
 
-MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
+std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP{};
 
 static int PLAYERID_CNTR = 0;
 
@@ -72,7 +73,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mDrmInitData(),
 	mPreferredTextTrack(),
 	midFragmentSeekCache(false),
-	mDisableRateCorrection (false),
 	mthumbIndexValue(-1),
 	mMPDPeriodsInfo(),
 	mProfileCappedStatus(false),
@@ -101,6 +101,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mLLDashCurrentPlayRate(AAMP_NORMAL_PLAY_RATE),
 	mEventManager(NULL),
 	mbDetached(false),
+	mSeekOperationInProgress(false),
 	mIsFakeTune(false),
 	mIsDefaultOffset(false),
 	mNextPeriodDuration(0),
@@ -138,6 +139,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsChunkMode(false),
 	mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 {
+	mbPlayEnabled = true;
+	mPauseOnFirstVideoFrameDisp = false;
+	mFirstVideoFrameDisplayedEnabled = false;
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
@@ -212,6 +216,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
+	mSeekOperationInProgress = false;
 }
 
 void PrivateInstanceAAMP::SetAudioTrack(int)
@@ -306,7 +311,7 @@ void PrivateInstanceAAMP::NotifyOnEnteringLive()
 
 bool PrivateInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
 {
-	return false;
+	return mPauseOnFirstVideoFrameDisp;
 }
 
 long long PrivateInstanceAAMP::GetPositionMilliseconds()
@@ -352,6 +357,27 @@ void PrivateInstanceAAMP::EnableDownloads()
 
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
+	// Mirror the real implementation: reset flags first, then enable
+	// mSeekOperationInProgress for seek-type tunes, and only set the
+	// pause-on-first-frame flags when both seekWhilePaused is requested
+	// AND a seek operation is in progress (matching the real gating in
+	// priv_aamp.cpp lines ~5857–5875 and ~6272–6275).
+	mPauseOnFirstVideoFrameDisp = false;
+	mFirstVideoFrameDisplayedEnabled = false;
+
+	if (tuneType == eTUNETYPE_SEEK ||
+		tuneType == eTUNETYPE_SEEKTOLIVE ||
+		tuneType == eTUNETYPE_SEEKTOEND)
+	{
+		mSeekOperationInProgress = true;
+	}
+
+	if (seekWhilePaused && mSeekOperationInProgress)
+	{
+		mPauseOnFirstVideoFrameDisp = true;
+		mFirstVideoFrameDisplayedEnabled = true;
+	}
+
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		g_mockPrivateInstanceAAMP->TuneHelper(tuneType, seekWhilePaused);
@@ -1004,12 +1030,9 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SyncBegin(void)
+std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-}
-
-void PrivateInstanceAAMP::SyncEnd(void)
-{
+	return std::unique_lock<std::recursive_mutex>(); // no-op fake: does not acquire mLock
 }
 
 void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
@@ -1548,6 +1571,10 @@ bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 
 void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
 {
+	if (!mFirstVideoFrameDisplayedEnabled && GetState() != eSTATE_IDLE)
+	{
+		SetState(eSTATE_PLAYING);
+	}
 }
 
 void PrivateInstanceAAMP::NotifyEOSReached()
@@ -1560,6 +1587,29 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 {
+	if (!mFirstVideoFrameDisplayedEnabled)
+	{
+		return;
+	}
+
+	mFirstVideoFrameDisplayedEnabled = false;
+
+	if (GetState() == eSTATE_IDLE)
+	{
+		return;
+	}
+
+	if (mPauseOnFirstVideoFrameDisp)
+	{
+		mPauseOnFirstVideoFrameDisp = false;
+		if (GetState() == eSTATE_SEEKING)
+		{
+			SetState(eSTATE_PAUSED);
+		}
+		return;
+	}
+
+	SetState(eSTATE_PLAYING);
 }
 
 void PrivateInstanceAAMP::LogFirstFrame(void)
@@ -1576,7 +1626,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long)
 
 bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
-	return false;
+	return mFirstVideoFrameDisplayedEnabled;
 }
 
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
@@ -1602,12 +1652,22 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
 }
 
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->PausePipeline(
+			pause, forceStopPreBuffering);
+	}
+
 	return false;
 }
 
 void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
+{
+}
+
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
 {
 }
 
@@ -1655,14 +1715,6 @@ void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
 	}
 }
 
-void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
-{
-}
-
-void PrivateInstanceAAMP::WakeupLatencyCheck()
-{
-}
-
 void PrivateInstanceAAMP::IncreaseGSTBufferSize()
 {
 }
@@ -1703,14 +1755,14 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 	return false;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	if(!mProvidedManifestFile.empty())
 	{
 		bRetManifestData = std::move(mProvidedManifestFile);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)
@@ -1835,11 +1887,11 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	}
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, sample);
+		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, std::move(sample));
 	}
 }
 
@@ -1850,4 +1902,29 @@ bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 
 void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->EnableLatencyMonitor(enabled);
+	}
 }
+
+bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
+{
+	bool result = false;
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		result = g_mockPrivateInstanceAAMP->IsLatencyExceedingTrickplayThreshold();
+	}
+	return result;
+}
+	
+
+bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->IsLatencyMonitorEnabled();
+	}
+	return false;
+}
+

@@ -639,7 +639,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 					{
 						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START:
 						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START:
-							AAMPCLI_PRINTF("[AAMPCLI] [CDAI] Dynamic ad start signalled for breakId='%s'\n)", ev->getId().c_str() );
+							AAMPCLI_PRINTF("[AAMPCLI] [CDAI] Dynamic ad start signalled for breakId='%s'\n", ev->getId().c_str() );
 							for( const AdvertInfo &advertInfo : mAdvertList )
 							{
 								if( advertInfo.adBreakId == ev->getId() )
@@ -669,16 +669,32 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
 		{
-			std::string manifest;
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			AAMPCLI_PRINTF("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
-			manifest = mAampcli.mSingleton->GetManifest();
-			AAMPCLI_PRINTF("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
+			AAMPPlayerState state = mAampcli.mSingleton->GetState();
+			switch( state )
+			{
+				case eSTATE_ERROR:
+					AAMPCLI_PRINTF("[AAMPCLI] GetManifest skipped - player is in error state\n");
+					break;
+				case eSTATE_IDLE:
+				case eSTATE_RELEASED:
+				case eSTATE_STOPPED:
+					AAMPCLI_PRINTF("[AAMPCLI] GetManifest skipped - player is not active (state=%d)\n", static_cast<int>(state));
+					break;
+				default:
+				{
+					std::string manifest = mAampcli.mSingleton->GetManifest();
+					AAMPCLI_PRINTF("[AAMPCLI] Dash Manifest length [%zu]\n", manifest.length());
+					break;
+				}
+			}
 			break;
 		}
 		case AAMP_EVENT_TUNE_TIME_METRICS:
 		{
 			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS received\n");
 			// below is redundant with IP_AAMP_TUNETIME logging done in core aamp
 			//AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
 			break;

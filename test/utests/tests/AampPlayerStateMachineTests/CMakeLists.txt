@@ -21,6 +21,9 @@ set(UTESTS_ROOT "../../")
 
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
+# direct-rialto component headers
+include_directories(${AAMP_ROOT}/direct-rialto)
+
 set(TEST_SOURCES
 	AampPlayerStateMachineTests.cpp
 	AampPlayerStateMachineTestCases.cpp

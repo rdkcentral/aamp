@@ -35,7 +35,8 @@
 #ifndef ISTREAM_SINK_NOTIFIABLE_H
 #define ISTREAM_SINK_NOTIFIABLE_H
 
-#include "AampEvent.h"   ///< AAMPPlayerState enum
+#include "AampEvent.h"      ///< AAMPPlayerState enum
+#include "AampMediaType.h"  ///< AampMediaType
 
 #include <string>
 
@@ -109,8 +110,8 @@ public:
 
 	/**
 	 * @brief Drive AAMP to report a progress event.
-	 *        Should be called each time the Rialto server delivers a
-	 *        position update.
+	 *        Called by the StreamSink progress timer to report position
+	 *        periodically, independent of Rialto position callback cadence.
 	 *
 	 * @param[in] sync              Reserved; pass false unless a synchronous
 	 *                              progress report is required.
@@ -118,6 +119,15 @@ public:
 	 */
 	virtual void MonitorProgress(bool sync = false,
 	                             bool beginningOfStream = false) = 0;
+
+	/**
+	 * @brief Return the periodic progress-report interval in seconds.
+	 *
+	 * Direct-Rialto uses this value to schedule an AAMP-side timer that
+	 * drives MonitorProgress() independently of Rialto position-notification
+	 * cadence.
+	 */
+	virtual double GetProgressReportIntervalSeconds() = 0;
 
 	// -----------------------------------------------------------------------
 	// Speed / state
@@ -140,6 +150,22 @@ public:
 	 * (e.g. seek-recovery vs. resume-from-pause).
 	 */
 	virtual AAMPPlayerState GetState() = 0;
+
+	// -----------------------------------------------------------------------
+	// Underflow
+	// -----------------------------------------------------------------------
+
+	/**
+	 * @brief Notify that Rialto's pipeline reported a buffer underflow on
+	 *        the given media track.
+	 *
+	 * If AampUnderflowMonitor is enabled the implementation should log and
+	 * return — the monitor will manage the pause/resume cycle.  Otherwise
+	 * it should schedule a retune.
+	 *
+	 * @param[in] type  The media track that underflowed.
+	 */
+	virtual void NotifyBufferUnderflow(AampMediaType type) = 0;
 };
 
 #endif // ISTREAM_SINK_NOTIFIABLE_H

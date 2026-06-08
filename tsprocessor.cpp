@@ -1029,7 +1029,6 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 	while (packet < bufferEnd)
 	{
 		pid = (((packet[1] << 8) | packet[2]) & 0x1FFF);
-		AAMPLOG_TRACE("pid = %d, m_ttsSize %d", pid, m_ttsSize);
 
 		if (m_checkContinuity)
 		{
@@ -1809,7 +1808,7 @@ void TSProcessor::setPtsOffset( double ptsOffset )
  * @brief Does configured operation on the segment and injects data to sink
  *        Process and send media fragment
  */
-bool TSProcessor::sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+bool TSProcessor::sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization

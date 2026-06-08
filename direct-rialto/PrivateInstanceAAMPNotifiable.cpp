@@ -71,6 +71,22 @@ void PrivateInstanceAAMPNotifiable::MonitorProgress(
 	m_aamp->MonitorProgress(sync, beginningOfStream);
 }
 
+double PrivateInstanceAAMPNotifiable::GetProgressReportIntervalSeconds()
+{
+	double intervalSeconds = 0.0;
+	if (m_aamp == nullptr || m_aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("AAMP or config is null while reading progress interval");
+	}
+	else
+	{
+		intervalSeconds =
+			m_aamp->mConfig->GetConfigValue(eAAMPConfig_ReportProgressInterval);
+	}
+	AAMPLOG_TRACE("intervalSeconds=%f", intervalSeconds);
+	return intervalSeconds;
+}
+
 void PrivateInstanceAAMPNotifiable::NotifySpeedChanged(
 	float rate, bool changeState)
 {
@@ -83,4 +99,20 @@ AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
 	AAMPPlayerState state = m_aamp->GetState();
 	AAMPLOG_TRACE("state=%d", static_cast<int>(state));
 	return state;
+}
+
+void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
+{
+	AAMPLOG_TRACE("type=%d", static_cast<int>(type));
+	if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		AAMPLOG_INFO(
+			"Underflow will be handled by AampUnderflowMonitor, "
+			"skipping retune for mediaType=%d",
+			static_cast<int>(type));
+	}
+	else
+	{
+		m_aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type);
+	}
 }

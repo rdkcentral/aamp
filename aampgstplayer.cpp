@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <glib.h>
 #include "priv_aamp.h"
+#include "StreamAbstractionAAMP.h"
 #include <atomic>
 #include <algorithm>
 #include "AampDRMLicManager.h"
@@ -70,6 +71,11 @@ struct AAMPGstPlayerPriv
  */
 static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 {
+	if (_this->aamp == nullptr || _this->aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("aamp or mConfig is null in InitializePlayerConfigs; skipping config push to pipeline");
+		return;
+	}
 	auto interfacePlayer = static_cast<InterfacePlayerRDK*>(playerInstance);
 	auto& config = _this->aamp->mConfig;
 //	assert( config );
@@ -235,6 +241,11 @@ static void RegisterBusCb(AAMPGstPlayer *_this, void *playerInstance)
  */
 static void NeedData(int mediaType, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr || _this->privateContext == nullptr)
+	{
+		AAMPLOG_WARN("aamp or privateContext is null in NeedData");
+		return;
+	}
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	AampMediaType media = static_cast<AampMediaType>(mediaType);
 	_this->privateContext->mBufferControl[media].needData(_this, media);
@@ -248,6 +259,11 @@ static void NeedData(int mediaType, AAMPGstPlayer * _this)
  */
 static void EnoughData(int mediaType, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr || _this->privateContext == nullptr)
+	{
+		AAMPLOG_WARN("aamp or privateContext is null in EnoughData");
+		return;
+	}
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	AampMediaType media = static_cast<AampMediaType>(mediaType);
 	_this->privateContext->mBufferControl[media].enoughData(_this, media);
@@ -389,7 +405,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 /*AAMPGstPlayer constructor*/
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
-	aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL),
+	aamp(NULL), mEncryptedAamp(NULL), mEncryptedAampId(-1), privateContext(NULL),
 	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{std::move(id3HandlerCallback)},
 	cbExportYUVFrame(NULL), monitorAvTimerId(0), mMonitorAVInterval(0)
 
@@ -402,6 +418,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		this->aamp = aamp;
 		// Initially set to this instance, can be changed by SetEncryptedAamp
 		this->mEncryptedAamp = aamp;
+		this->mEncryptedAampId = (aamp ? aamp->mPlayerId : -1);
 
 		this->cbExportYUVFrame = exportFrames;
 		playerInstance->gstCbExportYUVFrame = std::move(exportFrames);
@@ -412,7 +429,14 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		}
 		InitializePlayerConfigs(this,playerInstance);
 		playerInstance->SetPlayerName(PLAYER_NAME);
-		playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDrmSessionManager);
+		if (aamp != nullptr && aamp->mDRMLicenseManager != nullptr)
+		{
+			playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDrmSessionManager);
+		}
+		else
+		{
+			AAMPLOG_WARN("aamp or mDRMLicenseManager is null; skipping initial setEncryption");
+		}
 
 		RegisterFirstFrameCallbacks();
 		mMonitorAVInterval = GETCONFIGVALUE(eAAMPConfig_MonitorAVReportingInterval);
@@ -461,7 +485,7 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
 			if(isRateCorrectionDefaultOnPlaying)
 			{
 				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
-				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
+				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyRateCorrection) && aamp->IsLive())
 				{
 					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
@@ -483,6 +507,11 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
  */
 static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr)
+	{
+		AAMPLOG_WARN("aamp is null in HandleOnGstDecodeErrorCb");
+		return;
+	}
 	_this->aamp->SendAnomalyEvent(ANOMALY_WARNING, "Decode Error Message Callback=%d time=%d",decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
 	AAMPLOG_ERR("## APP[%s] Got Decode Error message",_this->aamp->GetAppName().c_str());
 }
@@ -496,6 +525,11 @@ static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _th
  */
 static void HandleOnGstPtsErrorCb(bool isVideo, bool isAudioSink, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr)
+	{
+		AAMPLOG_WARN("aamp is null in HandleOnGstPtsErrorCb");
+		return;
+	}
 	AAMPLOG_ERR("## APP[%s] Got PTS error message", _this->aamp->GetAppName().c_str());
 	if(isVideo)
 	{
@@ -515,6 +549,16 @@ static void HandleOnGstPtsErrorCb(bool isVideo, bool isAudioSink, AAMPGstPlayer 
  */
 static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this)
 {
+	if (_this->privateContext == nullptr)
+	{
+		AAMPLOG_WARN("privateContext is null in HandleOnGstBufferUnderflowCb");
+		return;
+	}
+	if (_this->aamp == nullptr || _this->aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("aamp or mConfig is null in HandleOnGstBufferUnderflowCb");
+		return;
+	}
 	AampMediaType type = static_cast<AampMediaType>(mediaType);
 
 	bool isBufferFull = _this->privateContext->mBufferControl[type].isBufferFull(type);
@@ -550,6 +594,11 @@ static void HandleRedButtonCallback(const char *data, AAMPGstPlayer * _this)
  */
 static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 {
+	if (_this->aamp == nullptr)
+	{
+		AAMPLOG_WARN("aamp is null in HandleBusMessage");
+		return;
+	}
 	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	switch(busEvent.msgType)
 	{
@@ -640,7 +689,10 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			if (busEvent.msg.find("HDCPProtectionFailure") != std::string::npos)
 			{
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
-				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
+				
+				// Removed flush(teardown) here as injection threads may still be running
+				// Allow retune to reset everything but mute video as HDCP failed
+				_this->SetVideoMute(true);
 				_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
 			}
 			break;
@@ -692,6 +744,19 @@ void AAMPGstPlayer::NotifyInjectorToResume()
  */
 bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, MediaSample&& sample, bool initFragment, bool discontinuity)
 {
+	// Reject malformed samples up-front.  With the shared_ptr-backed
+	// MediaSample, mData and mDataSize are independent fields so a caller
+	// could construct an inconsistent pair (null data with non-zero size, or
+	// a non-null pointer with zero size).  Both would cause downstream UB:
+	// IsValidHeader() dereferences the pointer when size >= 10, and
+	// gst_buffer_new_wrapped_full() does not defend against null/zero.
+	// Fail fast here so we also avoid mutating mbNewSegmentEvtSent[] for a
+	// sample that never actually ships.
+	if (!sample.data() || sample.size() == 0)
+	{
+		return false;
+	}
+
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		if (eMEDIATYPE_VIDEO == mediaType)
@@ -822,10 +887,11 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	PipelinePriority = envVal ? atoi(envVal) : -1;
 
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
+	bool isLiveRateCorrection = aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyRateCorrection) && aamp->IsLive();
 	/*Configure and create the pipeline*/
 	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(subFormat),
 									  bESChangeStatus,setReadyAfterPipelineCreation,
-									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
+									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str(), isLiveRateCorrection);
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 	StartMonitorAvTimer();
 }
@@ -862,6 +928,7 @@ void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
  */
 void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
+	auto syncLock = aamp->SyncLock();
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
 	StopMonitorAvTimer();
 	playerInstance->Stop(keepLastFrame);
@@ -879,13 +946,44 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
 	mEncryptedAamp = aamp;
- 	void*	mDRMSessionManager = aamp->mDRMLicenseManager->mDrmSessionManager;
-	playerInstance->setEncryption((void*)mEncryptedAamp,(void*)mDRMSessionManager);
+	mEncryptedAampId = (aamp ? aamp->mPlayerId : -1); // store the id of the last encrypted player to be set
+	if (aamp == nullptr)
+	{
+		AAMPLOG_WARN("aamp is null; skipping DRM session manager lookup and encryption setup");
+		return;
+	}
+	if (aamp->mDRMLicenseManager == nullptr)
+	{
+		AAMPLOG_WARN("mDRMLicenseManager is null; skipping encryption setup");
+		return;
+	}
+	if (playerInstance == nullptr)
+	{
+		AAMPLOG_WARN("playerInstance is null; skipping setEncryption call");
+		return;
+	}
+	void* mDRMSessionManager = aamp->mDRMLicenseManager->mDrmSessionManager;
+	playerInstance->setEncryption((void*)mEncryptedAamp, (void*)mDRMSessionManager);
 }
 
+/**
+ * @brief Check if the specified player is associated with the pipeline
+ * @param[in] aampInstance - pointer to new instance of PrivateInstanceAAMP
+ */
 bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 {
 	return aamp == aampInstance;
+}
+
+/**
+ * @brief Return encrypted player id
+ * @return ID of encrypted player else -1
+ */
+const int AAMPGstPlayer::GetEncryptedAampId(void) const
+{
+	// Only return the id if there is an encrypted aamp ptr but use the stored player id
+	// in case the ptr is stale
+	return (mEncryptedAamp ? mEncryptedAampId : -1);
 }
 
 /**
@@ -898,6 +996,12 @@ bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	aamp = newAamp;
+	if (aamp == nullptr)
+	{
+		AAMPLOG_WARN("newAamp is null in ChangeAamp");
+		m_ID3MetadataHandler = std::move(id3HandlerCallback);
+		return;
+	}
 	if(aamp->DownloadsAreEnabled())
 	{
 		playerInstance->ResumeInjector();
@@ -915,12 +1019,6 @@ void AAMPGstPlayer::FlushTrack(AampMediaType type,double pos)
 	double audioDelta = aamp->mAudioDelta;
 	double subDelta = aamp->mSubtitleDelta;
 	double rate = playerInstance->FlushTrack(mediaType, pos, audioDelta, subDelta);
-
-	if(aamp->mCorrectionRate != rate)
-	{
-		AAMPLOG_MIL("Reset Rate Correction to 1");
-		aamp->mCorrectionRate = rate;
-	}
 }
 
 /**
@@ -946,23 +1044,20 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 /**
  *  @brief To pause/play pipeline
  */
-bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
+bool AAMPGstPlayer::Pause( bool pause, bool forceStopPreBuffering )
 {
-	aamp->SyncBegin();					/* Obtains a mutex lock */
+	auto syncLock = aamp->SyncLock();
 
-	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
+	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopPreBuffering);
 
-	bool res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
-	if(res)
+	bool res = this->playerInstance->Pause(pause, forceStopPreBuffering);
+	if (res && !aamp->IsGstreamerSubsEnabled())
 	{
-		if(!aamp->IsGstreamerSubsEnabled())
-			aamp->PauseSubtitleParser(pause);
+		aamp->PauseSubtitleParser(pause);
 	}
 
-	aamp->SyncEnd();					/* Releases the mutex */
-
+	AAMPLOG_TRACE("exit AAMPGstPlayer_Pause returns %d", res);
 	return res;
-	//return retValue;
 }
 
 /**
@@ -1041,8 +1136,6 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
 			privateContext->mBufferControl[i].flush();
 		}
-
-		aamp->mCorrectionRate = (double)AAMP_NORMAL_PLAY_RATE;
 	}
 }
 
@@ -1066,6 +1159,15 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 	else if(shouldHaltBuffering)
 	{
 		StopBuffering(true);
+		// Disarm the underflow monitor during codec-change EOS/flush sequence.
+		// GstPlayer_SignalEOS() has been sent; no video fragments will arrive until
+		// after pipeline reinitialisation.  Without this call the monitor would fire
+		// during the flush gap and falsely pause the pipeline, preventing GST_MESSAGE_EOS
+		// from being processed and AAMP_EVENT_STATE_CHANGED: COMPLETE from ever firing.
+		if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) && aamp->mpStreamAbstractionAAMP)
+		{
+			aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+		}
 	}
 	return ret;
 }
@@ -1305,6 +1407,11 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
  */
 void AAMPGstPlayer::StartMonitorAvTimer()
 {
+	if (aamp == nullptr || aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("aamp or mConfig is null in StartMonitorAvTimer");
+		return;
+	}
 	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) && monitorAvTimerId == 0)
 	{
 		// mMonitorAVInterval is in milliseconds
@@ -1348,13 +1455,21 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  * @brief Inject AampMediaSample to gstreamer pipeline
  * 
  * @param[in] mediaType - Media type
- * @param[in,out] sample - Media sample to inject
+ * @param[in] sample - Media sample to inject (consumed; caller must not access after this call)
  * @return true if sample is successfully injected, false otherwise
  */
-bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
 {
-	MediaSample gstSample(std::move(sample.mData), sample.mPts, sample.mDts, sample.mDuration, 0.0);
-	gstSample.mDrmMetadata = std::move(sample.mDrmMetadata);
-
-	return SendHelper(mediaType, std::move(gstSample));
+	// Bridge AampMediaSample to MediaSample. The single cast to the mutable gpointer type
+	// required by GStreamer's C API is pushed to the C-API boundary inside
+	// InterfacePlayerRDK, where the buffer is wrapped with
+	// GST_MEMORY_FLAG_READONLY so GStreamer will not mutate the data.
+	return SendHelper(mediaType, MediaSample{
+		std::move(sample.mData),
+		sample.mDataSize,
+		sample.mPts,
+		sample.mDts,
+		sample.mDuration,
+		std::move(sample.mDrmMetadata)
+	});
 }

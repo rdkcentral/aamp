@@ -52,7 +52,19 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
-find_package(Rialto REQUIRED)
+find_package(Rialto)
+
+# When the real Rialto client library is not available (e.g. macOS or builds
+# without the "rialto" option), build and link the Rialto simulator so that AAMP
+# can still compile.  The simulator drives DirectRialto callbacks for L2 tests.
+if(NOT RIALTO_FOUND)
+	message(STATUS "Rialto client library not found — building simulator from test/rialto/")
+	add_subdirectory(test/rialto)
+	set(RIALTO_LIBRARIES RialtoSimulator)
+	if(NOT RIALTO_INCLUDE_DIRS)
+		set(RIALTO_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/.libs/include/rialto")
+	endif()
+endif()
 
 # CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
 # option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
@@ -101,12 +113,6 @@ if(APPLE)
 else()
 	# For other builds, use the origin of the executable as the RPATH
 	set(CMAKE_INSTALL_RPATH "$ORIGIN")
-endif()
-
-option(ENABLE_AAMP_NET_TRACE "Enable network activity tracing instrumentation" OFF)
-if(ENABLE_AAMP_NET_TRACE)
-	message("AAMP_NET_TRACE set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_NET_TRACE=1")
 endif()
 
 #update XCode scheme flags, harmless for non Darwin builds
@@ -288,6 +294,13 @@ if(CMAKE_SYSTEMD_JOURNAL)
 	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
 endif()
+# std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
+# GCC emits __atomic_load_16 / __atomic_store_16 which require the atomic
+# support library shipped with GCC.  ARM64 handles them natively.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-latomic")
+	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-latomic")
+endif()
 #Enabling ethan log macro and lib
 if(CMAKE_USE_ETHAN_LOG)
 	message("DCMAKE_USE_ETHAN_LOG set")
@@ -301,7 +314,7 @@ if(CMAKE_USE_ETHAN_LOG)
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 # Building jsbindings
-if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
+if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
 
 	set(LIBJSBINDINGS_SOURCES
@@ -382,6 +395,47 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
 		xcode_define_schema(aampjsbindings)
 		xcode_define_schema(uveExecuter)
 
+    elseif(CMAKE_PLATFORM_UBUNTU)
+        # On Ubuntu use the system JavaScriptCore provided by webkitgtk
+        pkg_check_modules(JSC javascriptcoregtk-4.1)
+        if(NOT JSC_FOUND)
+            pkg_check_modules(JSC javascriptcoregtk-4.0)
+        endif()
+        if(NOT JSC_FOUND)
+            message(FATAL_ERROR "JavaScriptCore library not found on Ubuntu. "
+                "Please install libjavascriptcoregtk-4.1-dev or libjavascriptcoregtk-4.0-dev.")
+        endif()
+        message("Found JavaScriptCore: ${JSC_LINK_LIBRARIES}")
+
+        include_directories(${JSC_INCLUDE_DIRS})
+        set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${JSC_LINK_LIBRARIES})
+        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+
+        target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${LIBAAMPJSBINDINGS_DEPENDS})
+        set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
+
+        install(TARGETS aampjsbindings DESTINATION lib)
+
+        set(LIBJSBINDINGS_SIMULATOR_SOURCES test/jsBindingTest/UVEBinding.cpp)
+
+        add_executable(uveExecuter ${LIBJSBINDINGS_SIMULATOR_SOURCES})
+
+        set_target_properties(uveExecuter PROPERTIES
+            COMPILE_FLAGS "${OS_CXX_FLAGS} ${LIBAAMP_DEFINES}")
+
+        target_include_directories(uveExecuter PRIVATE
+            ${JSC_INCLUDE_DIRS}
+            ${GSTREAMER_INCLUDE_DIRS}
+        )
+
+        target_link_libraries(uveExecuter PRIVATE
+            aampjsbindings
+            ${GSTREAMER_LINK_LIBRARIES}
+            ${JSC_LINK_LIBRARIES}
+        )
+
+        install(TARGETS uveExecuter DESTINATION bin)
+
     else()
         pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
         if(NOT WPE_WEBKIT_FOUND)
@@ -445,16 +499,22 @@ set(LIBAAMP_SOURCES
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
 	direct-rialto/AampDrmBridge.cpp
+	direct-rialto/AampPlayerStateMachine.cpp
+	direct-rialto/AampRialtoAudioSource.cpp
 	direct-rialto/AampRialtoMediaPipelineClient.cpp
 	direct-rialto/AampRialtoPlayer.cpp
+	direct-rialto/AampRialtoMediaSource.cpp
 	direct-rialto/AampRialtoPlayer.h
-	direct-rialto/AampPlayerStateMachine.cpp
-	direct-rialto/AampSourceWorker.cpp
+	direct-rialto/AampRialtoControlBackend.cpp
 	direct-rialto/PrivateInstanceAAMPNotifiable.cpp
+	direct-rialto/AampRialtoSourceCreators.cpp
+	direct-rialto/AampRialtoSubtitleSource.cpp
+	direct-rialto/AampRialtoVideoSource.cpp
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	AampNetworkPersona.cpp AampNetworkPersona.h
 	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
@@ -510,6 +570,7 @@ set(LIBAAMP_SOURCES
 	AampDemuxDataTypes.h
 	net_trace.h
 	AampLatencyMonitor.cpp AampLatencyMonitor.h
+	simnet/net_persona_fitter.cpp simnet/net_persona_fitter.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -684,6 +745,7 @@ install(FILES
 	abr/RollingMedianOutlierEstimator.h
 	abr/HarmonicEwmaEstimator.h
 	abr/BandwidthEstimatorBase.h
+	AampSpeedCache.h
 	DESTINATION include
 )
 

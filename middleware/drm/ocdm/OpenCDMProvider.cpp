@@ -189,9 +189,9 @@ std::unique_ptr<IOpenCDMSession> OpenCDMProvider::constructSession(
 	//
 	// IMPORTANT: cCallbacks is stored inside cbCopy (heap-allocated) rather than
 	// as a local stack variable.  The OCDM library retains the pointer passed to
-	// opencdm_construct_session and fires it asynchronously (e.g. from a worker
-	// thread on opencdm_session_update).  A stack-allocated struct would produce
-	// a dangling pointer and a SIGILL crash once the stack frame is gone.
+	// opencdm_construct_session and fires it asynchronously (e.g. from a WorkerPool
+	// thread during opencdm_session_update).  A stack-allocated struct would be a
+	// dangling pointer once this function returns, causing a SIGILL crash.
 	auto* cbCopy = new OpenCDMSessionCallbackSet(callbacks);
 
 	cbCopy->cCallbacks.process_challenge_callback = [](OpenCDMSession*, void* userData,

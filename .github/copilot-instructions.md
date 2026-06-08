@@ -9,15 +9,49 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 # ==============================
 
 ## 1. Code Formatting
-- Indentation uses hard tabs (4-space width).
+- Indentation uses hard tabs (tab width 4, indent width 4).
 - Maximum line length target is 80 characters.
 - Add spaces around operators and after commas.
+- Use Allman brace style (opening brace on its own line) where applicable.
+- Follow `clang-format` alignment where the repository already documents formatting.
 
 ## 2. Testing
-- All public functions require unit tests.
-- Use Google Test/Google Mock.
+- New or modified public behaviour should be tested **proportionate to
+  risk and complexity**, not by a rigid rule that every public function
+  must have a dedicated unit test.
+- Prioritise tests for non-obvious contracts, error paths, historically
+  regression-prone code, and the playback / buffering / ABR / DRM hot paths.
+- Do not chase a numeric coverage target. Tests written only to raise
+  coverage tend to be brittle and implementation-coupled.
+- Use Google Test / Google Mock.
 - Review **`instructions/testing.instructions.md`** before creating any tests.
 - All tests must run via the CI pipeline.
+
+### L1 Test Workflow (Mandatory)
+For L1 test creation, review, validity checks, or failure diagnosis, prefer
+the **L1 Test Engineer** agent (`@l1-test-engineer`). It enforces the full
+workflow below automatically. When the agent is not explicitly selected,
+Copilot must still follow these steps:
+
+1. **Identify the component under test** before writing any code.
+2. **Check for existing tests** under `test/utests/tests/` — do not create
+   duplicate suites. See `instructions/l1-structure.instructions.md`.
+3. **Derive the behavioral contract and correctness oracle** before
+   proposing or reviewing tests.
+   See `instructions/l1-oracle-design.instructions.md`.
+4. **Follow the approved build/run workflow exactly.** For new tests, the
+   mandatory first step is `cd test/utests && ./run.sh`. Do not invent
+   alternate build commands. See `instructions/l1-build-run.instructions.md`.
+5. **Use AAMP fakes and mocks**, not generic GoogleTest patterns. Fake
+   behavior intentionally differs from production — adapt expectations.
+   See `instructions/l1-fakes-mocks.instructions.md`.
+6. **Test component behavior, not fake/mock behavior.** Every assertion
+   must verify how the component under test responds, not how a
+   dependency stub works.
+7. **Do not invent file names, paths, or CMake structure.** Follow the
+   exact conventions in `instructions/l1-structure.instructions.md`.
+8. **When reviewing tests**, use the verdict language and checklist from
+   `instructions/l1-validity-review.instructions.md`.
 
 ## 3. Version Control
 - Use meaningful, imperative commit messages (“Add X”, “Fix Y”).
@@ -26,6 +60,13 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 ## 4. Code Reviews
 - All changes must go through pull requests.
 - Feedback must be constructive and based on these guidelines.
+- Review comments should be **concrete, actionable, and tied to changed
+  code**. Do not raise drive-by Core-Guidelines or modernization comments
+  on untouched surrounding code unless the user explicitly asks for a
+  broader review.
+- Generation guidance (write modern C++17, prefer smart pointers, etc.)
+  applies when creating or editing code. When reviewing, apply it to the
+  diff, not to the rest of the file.
 
 ## 5. Performance Considerations
 - Optimize only when profiling indicates a need.
@@ -39,7 +80,7 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
 # ==============================
 
 ## Prompt Feedback (Compact)
-- Assess prompt quality for every prompt.
+- Always assess prompt quality for every prompt and emit scores unless the scoring thresholds for suppression are met.
 - When feedback is not suppressed, use the following format:
 - Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10 | Critique: <brief> | Improve: <specific edit>`.
 - Scoring: Completeness and Clarity are higher-is-better; Assumptions is lower-is-better.
@@ -49,6 +90,8 @@ They apply to all code suggestions, documentation, tests, diagrams, and refactor
   - If target, scope, constraints, or success criteria are omitted,
     cap Completeness and Clarity at 7/10 and set Assumptions to at least 3/10.
 - Keep it short and specific; avoid generic advice.
+- Never suppress scored feedback for underspecified prompts (including
+  prompts that fall under the strict rubric above).
 - Suppress displayed feedback when Completeness >= 8, Assumptions <= 2,
   and Clarity >= 8,
   unless the user explicitly asks to apply feedback to the current prompt.
@@ -73,8 +116,13 @@ Language-specific patterns live in `.github/instructions/`.
    This is a streaming video player. Low latency, correct buffering, and real-time behavior are critical.
 
 3. **Modernization Goal**  
-   New code should be modern C++ (RAII, smart pointers, interfaces).  
-   Legacy code should be gently refactored toward modern patterns.
+   The existing AAMP codebase is predominantly C++11.  
+   **All new production code and L1 test code must target C++17**, using
+   modern C++ idioms (RAII, smart pointers, STL containers, interfaces).
+   Legacy code should be modernized only as part of a directly related
+   change — do not perform opportunistic repository-wide rewrites.
+   C++20-only features (`std::span`, concepts, ranges, `std::format`,
+   coroutines) are **not currently permitted** in active code.
 
 4. **Testing First**  
    Always reference `instructions/testing.instructions.md` before writing tests.
@@ -118,7 +166,7 @@ Language-specific patterns live in `.github/instructions/`.
 # ==============================
 #  DOCUMENTATION & DIAGRAMS
 # ==============================
-- Use Doxygen-style comments for all APIs.
+- Follow the commenting and documentation rules defined in `instructions/cpp.instructions.md` (section 3).
 - Generate diagrams with PlantUML.
 - See `instructions/diagrams.instructions.md` for details.
 
@@ -215,13 +263,36 @@ The `.github/instructions/` directory contains deeper rules:
   Describes AAMP’s architecture, modules, and legacy constraints.
 
 - `testing.instructions.md`  
-  **Critical:** L1 Test structure, build flow, Fake framework, Google Test rules.
+  General testing philosophy, Python/JS patterns, and integration testing.
+
 - `direct-rialto.instructions.md`
   **Scoped to `direct-rialto/` only.** Mandates the TDD Red→Green→Refactor cycle
   for every change, applies SOLID principles to new code in this directory, and
   explicitly forbids cascading refactors into the rest of AAMP to avoid merge
-  conflicts. Consult this file before any `AampRialtoPlayer` or
-  `AampRialtoMediaPipelineClient` work.
+  conflicts. Consult this file before modifying any file in `direct-rialto/` the
+  directory.
+
+### L1 Unit Testing (read all five for any L1 work)
+- `l1-build-run.instructions.md`  
+  Mandatory build/run workflow. Do not skip or improvise.
+
+- `l1-structure.instructions.md`  
+  Directory layout, file naming, CMake patterns, existing-test checks.
+
+- `l1-fakes-mocks.instructions.md`  
+  AAMP-specific fake/mock guidance. Golden rule: test the component, not the fake.
+
+- `l1-oracle-design.instructions.md`  
+  Behavioral contract and correctness oracle derivation. Required before writing or reviewing tests.
+
+- `l1-validity-review.instructions.md`  
+  Review checklist and verdict language for L1 test quality.
+
+### L1 Test Engineer Agent
+- `agents/l1-test-engineer.agent.md`  
+  Preferred specialist for L1 test creation, review, diagnosis, and explanation.
+  Reads and enforces all five L1 instruction files. Select via `@l1-test-engineer`.
+
 ### Language-Specific
 - `cpp.instructions.md`  
 - `legacy-cpp-patterns.instructions.md`   

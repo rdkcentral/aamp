@@ -1,0 +1,25 @@
+You are validating runtime behavior against the ABR normative spec.
+You must infer behavior only from explicit log/traces provided.
+
+Spec (authoritative):
+[PASTE NORMATIVE SPEC v1 HERE]
+
+Runtime logs / traces:
+[PASTE LOGS HERE]
+(Include timestamps if available; include events: buffer level, selected profile, predicted download time, bail, targetLatency changes, stableBufferTime, playbackSpeed changes, state transitions.)
+
+Config used:
+[PASTE CONFIG HERE]
+
+Tasks:
+1) Reconstruct a timeline of key state:
+   - buffer, playbackSpeed, latency, targetLatency, stableBufferTime, selected profile, bail events
+2) Check compliance for:
+   - danger episode one-shot rule
+   - targetLatency clamping floor/ceiling
+   - speed change hysteresis (must pass through 1x)
+   - “all profiles predict underflow” fallback
+   - bail condition correctness (only when continuing predicts underflow and restart avoids)
+3) Output:
+   - PASS/FAIL findings with log evidence (quote lines)
+   - Any missing instrumentation needed to make compliance determinable

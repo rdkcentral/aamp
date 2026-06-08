@@ -24,8 +24,8 @@
  */
 
 #include "AampRialtoPlayer.h"
+#include "AampRialtoMediaSource.h"
 #include "PrivateInstanceAAMPNotifiable.h"
-#include "mp4demux/MP4Demux.h"
 #include "AampLogManager.h"
 
 AampRialtoPlayer::AampRialtoPlayer(
@@ -33,6 +33,10 @@ AampRialtoPlayer::AampRialtoPlayer(
 	id3_callback_t /*id3HandlerCallback*/,
 	std::function<void(const unsigned char *, int, int, int)> /*exportFrames*/)
 	: m_aamp(aamp)
+	, m_drmBridge(nullptr)
+	, m_controlBackend(nullptr)
+	, m_client(nullptr)
+	, m_pipeline(nullptr)
 {
 }
 
@@ -51,7 +55,7 @@ bool AampRialtoPlayer::SendTransfer(
 	bool, bool)
 { return false; }
 
-bool AampRialtoPlayer::SendSample(AampMediaType, AampMediaSample &)
+bool AampRialtoPlayer::SendSample(AampMediaType, AampMediaSample &&)
 { return false; }
 
 bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType)

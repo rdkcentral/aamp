@@ -876,7 +876,7 @@ protected:
 	/**
 	 * @fn UpdateTrackInfo
 	 */
-	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
+	virtual AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
@@ -884,8 +884,18 @@ protected:
 	void SkipToEnd( class MediaStreamContext *pMediaStreamContext); //Added to support rewind in multiperiod assets
 
 	/**
+	 * @fn HandleSeekEOSAndPeriodTransition
+	 * @param remainingSeek remaining seek time after skipping fragments
+	 * @param skipToEnd true when seek operation is a seek-to-end
+	 * @return true if period switched; false otherwise
+	 */
+	bool HandleSeekEOSAndPeriodTransition(double remainingSeek, bool skipToEnd);
+
+	/**
 	 * @fn SeekInPeriod
-	 * @param seekPositionSeconds seek position in seconds
+	 * @param seekPositionSeconds seek position in seconds relative to the first
+	 *        segment currently present in the manifest for this period (after any
+	 *        culling)
 	 */
 	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);
 	/**
@@ -1240,10 +1250,22 @@ protected:
 	*/
 	void ProcessVssLicenseRequest();
 	/**
+	* @fn ProcessLicenseFromEAP
+	* @brief Process DRM license for early available periods found in the given manifest response
+	* @param[in] mpdDnldResp Manifest download response containing the MPD parse helper used
+	*                        to identify and process early available periods
+	*/
+	void ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp);
+	/**
 	* @fn GetAvailableVSSPeriods
 	* @param PeriodIds VSS Periods
 	*/
 	void GetAvailableVSSPeriods(std::vector<IPeriod*>& PeriodIds);
+	/**
+	* @fn GetEarlyAvailablePeriods
+	* @param PeriodIds Non-VSS early available periods
+	*/
+	void GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper);
 	/**
 	* @fn GetVssVirtualStreamID
 	*/
@@ -1263,6 +1285,16 @@ protected:
 	 * @return void
 	 */
 	void UpdateStartTimeOfFirstPTS();
+
+	/**
+	 * @fn GetCurrentAdStartTimeSeconds
+	 * @brief When playing inside a multi-ad pod (mCurAdIdx > 0), returns
+	 *        absoluteAdBreakStartTime + sum-of-prior-ad-durations (in seconds).
+	 *        Returns -1.0 if the preconditions are not met (not in a pod, or
+	 *        absoluteAdBreakStartTime is not yet known).
+	 * @return Seeded fragment start time in seconds, or -1.0 if not applicable.
+	 */
+	double GetCurrentAdStartTimeSeconds() const;
 
 	/**
 	 * @fn ShouldCheckOnlyIframeAdaptation

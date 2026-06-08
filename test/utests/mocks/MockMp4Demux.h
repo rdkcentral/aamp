@@ -21,13 +21,14 @@
 #define MOCK_MP4_DEMUX_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include <vector>
 #include "AampDemuxDataTypes.h"
 
 class MockMp4Demux
 {
 public:
-    MOCK_METHOD(bool, Parse, (const void *ptr, size_t len));
+    MOCK_METHOD(bool, Parse, (std::shared_ptr<std::vector<uint8_t>> segment));
     MOCK_METHOD(uint32_t, GetTimeScale, (), (const));
     MOCK_METHOD(MediaCodecInfo, GetCodecInfo, ());
     MOCK_METHOD(std::vector<MediaProtectionInfo>, GetProtectionEvents, ());
@@ -35,6 +36,6 @@ public:
     MOCK_METHOD(Mp4ParseError, GetLastError, (), (const));
 };
 
-extern MockMp4Demux *g_mockMp4Demux;
+extern std::shared_ptr<MockMp4Demux> g_mockMp4Demux;
 
 #endif /* MOCK_MP4_DEMUX_H */
