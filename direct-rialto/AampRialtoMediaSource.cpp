@@ -453,8 +453,7 @@ bool AampRialtoMediaSource::injectOneSample(
 				m_firstPtsMs.compare_exchange_strong(
 					expected, ptsMs, std::memory_order_relaxed);
 			}
-
-			if (addStatus != firebolt::rialto::AddSegmentStatus::OK)
+			else
 			{
 				AAMPLOG_WARN("addSegment failed sourceId=%d "
 					"requestId=%u status=%d",
