@@ -34,6 +34,7 @@ set(LIBMETRICS_SOURCES
 	IPLatencyReport.cpp
 	ManifestGenericStats.cpp
 	CMCDHeaders.cpp
+	CMCDSerializer.cpp
 	VideoCMCDHeaders.cpp
 	AudioCMCDHeaders.cpp
 	SubtitleCMCDHeaders.cpp
@@ -50,6 +51,7 @@ set(LIBMETRICS_PUBLIC_HEADERS
 	StatsDefine.h
 	ManifestGenericStats.h
 	CMCDHeaders.h
+	CMCDSerializer.h
 	VideoCMCDHeaders.h
 	AudioCMCDHeaders.h
 	SubtitleCMCDHeaders.h
