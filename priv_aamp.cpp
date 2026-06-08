@@ -5817,6 +5817,67 @@ void PrivateInstanceAAMP::ReloadTSB()
 	}
 }
 
+
+static time_t g_wifiStartTime = 0;
+guint wifiLoggingId = 0;
+
+static gboolean WifiLoggingTimerCallback(gpointer user_data)
+{
+    (void)user_data;
+
+    // Stop after 60 seconds
+    time_t now = time(NULL);
+    if (now - g_wifiStartTime >= 60)
+    {
+        AAMPLOG_WARN("WifiLoggingTimer stopped after 60 seconds");
+        return FALSE;   // stops the timer
+    }
+
+    const char *cmd =
+        "curl -s -X POST "
+        "-H \"Content-Type: application/json\" "
+        "http://127.0.0.1:9998/jsonrpc "
+        "-d '{\"jsonrpc\":\"2.0\",\"id\":4,"
+        "\"method\":\"org.rdk.NetworkManager.GetWiFiSignalQuality\"}'";
+
+    char buffer[4096] = {0};
+
+    FILE *fp = popen(cmd, "r");
+    if (fp)
+    {
+        fread(buffer, 1, sizeof(buffer) - 1, fp);
+        pclose(fp);
+
+        AAMPLOG_WARN("WiFiSignalQuality: %s", buffer);
+    }
+    else
+    {
+        AAMPLOG_WARN("WiFiSignalQuality: popen failed");
+    }
+
+    return TRUE; // continue timer until 60 seconds reached
+} 
+
+
+void PrivateInstanceAAMP::startWifiLogging()
+{
+    g_wifiStartTime = time(NULL);   // mark start time
+
+    int wifiLoggingInterval = 4000; // every 4 seconds
+    wifiLoggingId = g_timeout_add(wifiLoggingInterval,
+                                  WifiLoggingTimerCallback,
+                                  this);
+
+    if (wifiLoggingId == 0)
+    {
+        AAMPLOG_WARN("Failed to start WifiLoggingTimer");
+    }
+    else
+    {
+        AAMPLOG_WARN("WifiLoggingTimer started with interval %d ms", wifiLoggingInterval);
+    }
+}
+
 /**
  * @brief Tune API
  */
@@ -6259,7 +6320,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	SAFE_DELETE(mCdaiObject);
-
+	startWifiLogging();
 	AcquireStreamLock();
 	TuneHelper(tuneType);
 
