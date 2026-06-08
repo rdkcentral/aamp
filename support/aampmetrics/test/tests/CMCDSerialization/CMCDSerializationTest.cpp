@@ -43,6 +43,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include "CMCDSerializer.h"
 #include "VideoCMCDHeaders.h"
 #include "AudioCMCDHeaders.h"
 #include "ManifestCMCDHeaders.h"
@@ -568,4 +569,85 @@ TEST(CMCDSerialization_EmptyState, DoesNotCrash)
     EXPECT_EQ(JoinedValue(headers, "CMCD-Object:"), "ot=m");
     // CMCD-Session: must be present (sid="")
     EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"), "sid=\"\"");
+}
+
+// ---------------------------------------------------------------------------
+// WR-01 regression: nor must not appear when nextUrl is empty (IN-03)
+// ---------------------------------------------------------------------------
+
+/**
+ * WR-01 / IN-03: Default-constructed VideoCMCDHeaders (no nextUrl set) must not
+ * emit nor at all. The empty-nor="" emission violated CTA-5004 §3 optional-key rule.
+ * Covers both the dns=0/range-empty else-branch and the dns>0 branch.
+ */
+TEST(CMCDSerialization_Video, NorOmittedWhenNextUrlEmpty)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    // No SetNextUrl — nextUrl remains empty string.
+    // No SetNextRange — mNextRange remains empty string.
+    // dnsLookUptime defaults to 0.
+
+    auto headers = BuildHeaders(v);
+    const std::string req = JoinedValue(headers, "CMCD-Request:");
+
+    // nor must not appear at all when nextUrl is empty.
+    EXPECT_THAT(req, ::testing::Not(HasSubstr("nor=")));
+}
+
+/**
+ * WR-01 regression (Audio): same guard applies to AudioCMCDHeaders.
+ */
+TEST(CMCDSerialization_Audio, NorOmittedWhenNextUrlEmpty)
+{
+    AudioCMCDHeaders a;
+    a.SetSessionId("test-sid");
+    // No SetNextUrl — nextUrl remains empty string.
+
+    auto headers = BuildHeaders(a);
+    const std::string req = JoinedValue(headers, "CMCD-Request:");
+
+    EXPECT_THAT(req, ::testing::Not(HasSubstr("nor=")));
+}
+
+// ---------------------------------------------------------------------------
+// WR-03 regression: SerializeToCMCDMap merges rather than overwrites same group
+// ---------------------------------------------------------------------------
+
+/**
+ * WR-03: Two sequential SerializeToCMCDMap calls that both target CMCD-Session
+ * must produce a single alphabetically-sorted value containing tokens from both
+ * calls — not just the second call's tokens.
+ *
+ * Simulates a future pattern where a base class seeds sid and a subclass adds
+ * additional Session keys (e.g. cid, sf, st) via a second SerializeToCMCDMap call.
+ */
+TEST(CMCDSerialization_Merge, TwoCallsSameGroupMergesAndSorts)
+{
+    std::unordered_map<std::string, std::vector<std::string>> out;
+
+    // First call: seed CMCD-Session with sid.
+    std::vector<CMCDEntry> first{
+        CMCDEntry{"sid", "my-session", CMCDGroup::Session, false, true}
+    };
+    SerializeToCMCDMap(first, out);
+
+    // Confirm first call wrote CMCD-Session.
+    ASSERT_EQ(out.count("CMCD-Session:"), 1u);
+    EXPECT_EQ(out.at("CMCD-Session:").at(0), "sid=\"my-session\"");
+
+    // Second call: add sf and st to the same CMCD-Session group.
+    std::vector<CMCDEntry> second{
+        CMCDEntry{"sf", "d", CMCDGroup::Session},   // bare token: sf=d
+        CMCDEntry{"st", "v", CMCDGroup::Session}    // bare token: st=v
+    };
+    SerializeToCMCDMap(second, out);
+
+    // CMCD-Session must now contain all three tokens, alpha-sorted: sf < sid < st.
+    const std::string session = JoinedValue(out, "CMCD-Session:");
+    EXPECT_EQ(session, "sf=d,sid=\"my-session\",st=v")
+        << "Merged CMCD-Session must be alphabetically sorted: sf < sid < st";
+
+    // Confirm sid token was not dropped by the merge.
+    EXPECT_THAT(session, HasSubstr("sid=\"my-session\""));
 }
