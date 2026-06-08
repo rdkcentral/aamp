@@ -120,12 +120,13 @@ public:
 	/**
 	 * @brief CMCDSetSessionParams Push streaming format and content ID to all CMCDHeaders instances.
 	 *        Called once after Initialize(), propagating sf and cid session keys.
+	 *        Strips query string and fragment from rawUrl internally (auth-token leakage prevention).
 	 *
 	 * @param[in] mediaFormat - streaming format enum (DASH/HLS/HLS_MP4/Smooth/etc.)
-	 * @param[in] contentId   - content identifier (manifest URL with query+fragment stripped)
+	 * @param[in] rawUrl      - raw manifest URL; query string and fragment stripped before use as cid
 	 * @return None
 	 */
-	void CMCDSetSessionParams(MediaFormat mediaFormat, std::string contentId);
+	void CMCDSetSessionParams(MediaFormat mediaFormat, const std::string& rawUrl);
 
 	/**
 	 * @brief CMCDSetLiveStatus Push live/VOD stream type to all CMCDHeaders instances.

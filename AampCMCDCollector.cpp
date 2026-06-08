@@ -371,14 +371,24 @@ static std::string MediaFormatToSf(MediaFormat fmt)
 /**
  * @brief CMCDSetSessionParams Push streaming format (sf) and content ID (cid)
  *        to all CMCDHeaders instances. Called once immediately after Initialize().
+ *        Strips query string and fragment from rawUrl before using it as cid to
+ *        prevent auth-token leakage (takes earliest of '?' or '#').
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetSessionParams(MediaFormat mediaFormat, std::string contentId)
+void AampCMCDCollector::CMCDSetSessionParams(MediaFormat mediaFormat, const std::string& rawUrl)
 {
 	std::lock_guard<std::mutex> lock(myMutex);
 	if (bCMCDEnabled)
 	{
+		// Strip query string and fragment from cid (auth-token leakage prevention).
+		// Take substring up to the first '?' or '#', whichever comes first.
+		auto qPos = rawUrl.find('?');
+		auto fPos = rawUrl.find('#');
+		auto stripPos = std::min(qPos, fPos);
+		const std::string contentId = (stripPos != std::string::npos)
+			? rawUrl.substr(0, stripPos) : rawUrl;
+
 		const std::string sf = MediaFormatToSf(mediaFormat);
 		for (auto& kv : mCMCDStreamData)
 		{
