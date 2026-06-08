@@ -4296,6 +4296,13 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 		bool bufferRedStatus = (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED);
 		int kBitsPerSecond = (int)(currentBitrate/1000);
 		mCMCDCollector->SetTrackData( mediaType, bufferRedStatus, bufferedDurationMs, kBitsPerSecond, IsMuxedStream() );
+		// mtp: measured network throughput in kbps — sourced from ABR bandwidth estimator (bps -> kbps)
+		int mtpKbps = (int)(mhAbrManager.GetNetworkBandwidth() / 1000);
+		mCMCDCollector->CMCDSetMeasuredThroughput(mediaType, mtpKbps);
+		// su: startup-urgent — true during initial tune (IsTuneTypeNew) or active rebuffer (BUFFER_STATUS_RED).
+		// Recomputed on every call so su clears once IsTuneTypeNew goes false after startup (RESEARCH Pitfall 3).
+		bool suFlag = bufferRedStatus || IsTuneTypeNew;
+		mCMCDCollector->CMCDSetStartupUrgent(mediaType, suFlag);
 	}
 }
 
@@ -4627,6 +4634,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			std::vector<std::string> cmcdCustomHeader;
 			AampMediaType mmediaT;
 			mmediaT = (mediaType == eMEDIATYPE_INIT_VIDEO) ? eMEDIATYPE_VIDEO : (mediaType == eMEDIATYPE_INIT_AUDIO) ? eMEDIATYPE_AUDIO :mediaType;
+			// d: object duration in ms — emit only for actual media segments (not init/manifest).
+			// Uses mmediaT (remapped type) so INIT_VIDEO/INIT_AUDIO are excluded by the gate on
+			// original mediaType while the correct VIDEO/AUDIO header instance is updated (RESEARCH Pitfall 4).
+			if (mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO)
+			{
+				mCMCDCollector->CMCDSetFragmentDuration(mmediaT, fragmentDurationMs);
+			}
 			mCMCDCollector->CMCDGetHeaders(mmediaT,cmcdCustomHeader);
 
 			if (cmcdCustomHeader.size() > 0)
