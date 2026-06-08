@@ -99,7 +99,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
     string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
-    link_directories(${OPENSSL_LIBRARY_DIRS})
+    # link_directories(${OPENSSL_LIBRARY_DIRS}) omitted: the Xcode generator
+    # appends $(CONFIGURATION) to these paths, causing spurious "search path
+    # not found" warnings for non-existent .../lib/Debug directories.
     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
     set(CMAKE_HAVE_THREADS_LIBRARY 1)
     pkg_check_modules(GLIB REQUIRED GLib-2.0)
@@ -276,8 +278,19 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
         drm/ocdm/OcdmGstSessionAdapter.cpp
     )
 
-    # Add GStreamer video dependency
-    set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} -lgstvideo-1.0")
+    # Add GStreamer video dependency.
+    # On Darwin: use the full absolute path via GSTREAMERVIDEO_LINK_LIBRARIES (set by
+    # pkg_check_modules in the parent CMakeLists.txt Darwin block). This is required
+    # because VPAAMP-525 removed link_directories() for Homebrew paths to avoid Xcode
+    # appending $(CONFIGURATION) to search paths; without a directory hint the short
+    # -l flag cannot be resolved by the Xcode linker.
+    # On other platforms: keep the original short flag; link_directories() is still
+    # in effect there and GSTREAMERVIDEO_LINK_LIBRARIES is not set.
+    if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+        set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
+    else()
+        set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} -lgstvideo-1.0")
+    endif()
 
     if(CMAKE_USE_OPENCDM_ADAPTER_MOCKS)
         # Add mock headers and sources if mock is enabled
