@@ -1750,6 +1750,7 @@ VodAdBreakOpportunityEvent::VodAdBreakOpportunityEvent(const std::string &breakI
 {
 }
 
+
 const std::string &VodAdBreakOpportunityEvent::getBreakId() const
 {
 	return mBreakId;
