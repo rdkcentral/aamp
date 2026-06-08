@@ -3438,6 +3438,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatencyMs(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
 	}
+	mCMCDCollector->CMCDSetPlaybackRate(rate);
 }
 
 /**
@@ -6643,6 +6644,15 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
 	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mFogTSBEnabled),sTraceId);
+	{
+		// Derive cid from mManifestUrl with query string and fragment stripped (T-02-IL: no auth-token leakage).
+		// Take substring up to the first '?' or '#', whichever comes first.
+		std::string::size_type qPos = mManifestUrl.find('?');
+		std::string::size_type fPos = mManifestUrl.find('#');
+		std::string::size_type stripPos = std::min(qPos, fPos);
+		std::string strippedContentId = (stripPos != std::string::npos) ? mManifestUrl.substr(0, stripPos) : mManifestUrl;
+		mCMCDCollector->CMCDSetSessionParams(mMediaFormat, strippedContentId);
+	}
 // This feature is causing trickplay issues for client dai
 // hence removing code which reads this config from tune url , Ideally it should be fixed by app and not to enable this feature
 //	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mFogTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
