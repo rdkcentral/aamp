@@ -2088,11 +2088,10 @@ void PrivateCDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
  */
 void PrivateCDAIObjectMPD::CheckVodAdBreakLookahead(double positionSec, double lookaheadSec)
 {
+	std::lock_guard<std::mutex> guard(mDaiMtx);
 	// Fast-path: nothing to check yet.
 	if (positionSec + lookaheadSec < mNextVodBreakToCheck)
 		return;
-
-	std::lock_guard<std::mutex> guard(mDaiMtx);
 	double newNextBreak = std::numeric_limits<double>::max();
 	for (auto &kv : mVodAdBreaks)
 	{

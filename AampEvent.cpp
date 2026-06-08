@@ -1742,30 +1742,30 @@ uint64_t MonitorAVStatusEvent::getDroppedFrames() const
  * @brief VodAdBreakOpportunityEvent Constructor
  */
 VodAdBreakOpportunityEvent::VodAdBreakOpportunityEvent(const std::string &breakId,
-        double insertionPointSec, double breakDurationSec,
-        const std::string &breakType, std::string sid)
-    : AAMPEventObject(AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY, std::move(sid)),
-      mBreakId(breakId), mInsertionPointSec(insertionPointSec),
-      mBreakDurationSec(breakDurationSec), mBreakType(breakType)
+		double insertionPointSec, double breakDurationSec,
+		const std::string &breakType, std::string sid):
+		AAMPEventObject(AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY, std::move(sid)),
+		mBreakId(breakId), mInsertionPointSec(insertionPointSec),
+		mBreakDurationSec(breakDurationSec), mBreakType(breakType)
 {
 }
 
 const std::string &VodAdBreakOpportunityEvent::getBreakId() const
 {
-    return mBreakId;
+	return mBreakId;
 }
 
 double VodAdBreakOpportunityEvent::getInsertionPointSec() const
 {
-    return mInsertionPointSec;
+	return mInsertionPointSec;
 }
 
 double VodAdBreakOpportunityEvent::getBreakDurationSec() const
 {
-    return mBreakDurationSec;
+	return mBreakDurationSec;
 }
 
 const std::string &VodAdBreakOpportunityEvent::getBreakType() const
 {
-    return mBreakType;
+	return mBreakType;
 }

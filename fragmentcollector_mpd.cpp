@@ -9974,6 +9974,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
 			{
 				double lookahead = (double)GETCONFIGVALUE(eAAMPConfig_VodAdBreakLookaheadSec);
+				if (lookahead < 0.0) lookahead = 0.0;
 				mCdaiObject->CheckVodAdBreakLookahead(mBasePeriodOffset, lookahead);
 			}
 
