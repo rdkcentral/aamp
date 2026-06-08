@@ -36,6 +36,12 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 {
 	assert(!aamp->GetLLDashChunkMode());
 
+	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	{
+		fragmentDiscarded = false;
+		return;
+	}
+
 	if(playContext)
 	{
 		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
@@ -202,10 +208,10 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		return false;
 	}
 	bool ret = true;
-	if (WaitForCachedFragmentChunkInjected())
+	if (WaitForCachedFragmentInjected())
 	{
 		CachedFragment *cachedFragment = NULL;
-		cachedFragment = GetFetchChunkBuffer(true);
+		cachedFragment = GetFetchBuffer(true);
 		if (NULL == cachedFragment)
 		{
 			AAMPLOG_WARN("[%s] Something Went wrong - Can't get FetchChunkBuffer", name);
@@ -254,11 +260,11 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.data());
-		UpdateTSAfterChunkFetch();
+		UpdateTSAfterFetch();
 	}
 	else
 	{
-		AAMPLOG_TRACE("[%s] WaitForCachedFragmentChunkInjected aborted", name);
+		AAMPLOG_TRACE("[%s] WaitForCachedFragmentInjected aborted", name);
 		ret = false;
 	}
 	return ret;
@@ -627,13 +633,13 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
-	if(!fragment->fragment.empty() && WaitForCachedFragmentChunkInjected())
+	if(!fragment->fragment.empty() && WaitForCachedFragmentInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
-		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
+		CachedFragment* cachedFragment = GetFetchBuffer(true);
 		if(!cachedFragment)
 		{
-			AAMPLOG_ERR("[%s] GetFetchChunkBuffer returned null", name);
+			AAMPLOG_ERR("[%s] GetFetchBuffer returned null", name);
 			return false;
 		}
 		if(!cachedFragment->fragment.empty())
@@ -645,7 +651,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 		if(!cachedFragment->fragment.empty())
 		{
 			ret = true;
-			UpdateTSAfterChunkFetch();
+			UpdateTSAfterFetch();
 		}
 		else
 		{
@@ -693,8 +699,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 {
 	if (nullptr == mActiveDownloadInfo || nullptr == dlInfo || !aamp->DownloadsAreEnabled() || abort)
 	{
-		AAMPLOG_WARN("mActiveDownloadInfo=%p dlInfo=%p DownloadsAreEnabled=%d abort=%d",
-			(void*)mActiveDownloadInfo.get(), (void*)dlInfo.get(), aamp->DownloadsAreEnabled(), abort);
+		AAMPLOG_WARN("mActiveDownloadInfo or dlInfo is NULL or downloads are disabled. DownloadsAreEnabled=%d abort=%d",
+			aamp->DownloadsAreEnabled(), abort);
 		return;
 	}
 
@@ -1057,6 +1063,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
 	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && !IDX.empty() && uriInfo.range.empty())
 	{
+		std::lock_guard<std::mutex> idxLock(mIdxMutex);
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{

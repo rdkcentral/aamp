@@ -31,7 +31,7 @@
  *  - RialtoMediaKeysProvider : delegates to firebolt::rialto::IMediaKeys.
  *
  * The correct implementation is chosen by OpenCDMProviderFactory based on the
- * eAAMPConfig_useRialtoDirect config flag.
+ * eAAMPConfig_useDirectRialto config flag.
  *
  * TODO: [SHARED-INFRA] This file lives in middleware/drm/ocdm/ which is shared
  *       AAMP infrastructure.  Per direct-rialto.instructions.md, changes to

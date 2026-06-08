@@ -43,6 +43,9 @@ public:
 	MOCK_METHOD(void, MonitorProgress,
 		(bool sync, bool beginningOfStream), (override));
 
+	MOCK_METHOD(double, GetProgressReportIntervalSeconds,
+		(), (override));
+
 	MOCK_METHOD(void, NotifySpeedChanged,
 		(float rate, bool changeState), (override));
 

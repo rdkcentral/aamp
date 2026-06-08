@@ -20,7 +20,7 @@
 #include "isobmffbuffer.h"
 #include "MockIsoBmffBuffer.h"
 
-MockIsoBmffBuffer *g_mockIsoBmffBuffer = nullptr;
+std::shared_ptr<MockIsoBmffBuffer> g_mockIsoBmffBuffer{};
 
 IsoBmffBuffer::~IsoBmffBuffer()
 {

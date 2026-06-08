@@ -57,8 +57,8 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockMp4Demux = new NiceMock<MockMp4Demux>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
 
 		// Create the demuxer instance with mocked AAMP
 		mDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_VIDEO, false);
@@ -70,10 +70,8 @@ protected:
 		mDemuxer = nullptr;
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
-		delete g_mockMp4Demux;
-		g_mockMp4Demux = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
+		g_mockMp4Demux.reset();
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 	}

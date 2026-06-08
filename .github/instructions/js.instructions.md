@@ -1,4 +1,5 @@
 ---
+description: JavaScript / TypeScript guidance for AAMP-adjacent tooling and UI code
 applyTo:
   - "**/*.js"
   - "**/*.ts"

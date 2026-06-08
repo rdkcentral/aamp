@@ -31,10 +31,13 @@
 #include <gmock/gmock.h>
 
 #include "PrivateInstanceAAMPNotifiable.h"
+#include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
 
 using ::testing::Return;
+using ::testing::NiceMock;
 using ::testing::_;
+using ::testing::NiceMock;
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -45,7 +48,8 @@ class PrivateInstanceAAMPNotifiableTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		g_mockPrivateInstanceAAMP = &m_mock;
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		m_notifiable = std::make_unique<PrivateInstanceAAMPNotifiable>(
 			&m_aamp);
 	}
@@ -53,11 +57,11 @@ protected:
 	void TearDown() override
 	{
 		m_notifiable.reset();
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
+		g_mockAampConfig.reset();
 	}
 
 	PrivateInstanceAAMP m_aamp{};
-	MockPrivateInstanceAAMP m_mock;
 	std::unique_ptr<PrivateInstanceAAMPNotifiable> m_notifiable;
 };
 
@@ -68,7 +72,7 @@ protected:
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	GetState_ForwardsToAamp_ReturnsMockedValue)
 {
-	EXPECT_CALL(m_mock, GetState())
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.WillOnce(Return(eSTATE_PLAYING));
 
 	EXPECT_EQ(m_notifiable->GetState(), eSTATE_PLAYING);
@@ -77,7 +81,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifySpeedChanged_ForwardsRateAndChangeState)
 {
-	EXPECT_CALL(m_mock, NotifySpeedChanged(2.0f, true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0f, true));
 
 	m_notifiable->NotifySpeedChanged(2.0f, true);
 }
@@ -91,9 +95,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 {
 	// NotifyFirstFrameReceived in the fake calls SetState internally;
 	// set up the mock to handle GetState/SetState calls.
-	EXPECT_CALL(m_mock, GetState())
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.WillRepeatedly(Return(eSTATE_IDLE));
-	EXPECT_CALL(m_mock, SetState(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_, _)).Times(testing::AnyNumber());
 
 	m_notifiable->NotifyFirstFrameReceived(42);
 }
@@ -137,17 +141,18 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 {
 	// Arrange: create a second AAMP instance and wire its mock.
 	PrivateInstanceAAMP newAamp{};
-	MockPrivateInstanceAAMP newMock;
+	std::shared_ptr<MockPrivateInstanceAAMP> oldMock = g_mockPrivateInstanceAAMP;
+	std::shared_ptr<MockPrivateInstanceAAMP> newMock = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
 	// Act: switch the adapter to the new instance.
 	m_notifiable->ChangeAamp(&newAamp);
 
 	// Assert: subsequent calls go to newMock, not m_mock.
 	// The global pointer must point at newMock for the fake to delegate.
-	g_mockPrivateInstanceAAMP = &newMock;
+	g_mockPrivateInstanceAAMP = newMock;
 
-	EXPECT_CALL(newMock, GetState()).WillOnce(Return(eSTATE_PLAYING));
-	EXPECT_CALL(m_mock, GetState()).Times(0);
+	EXPECT_CALL(*newMock, GetState()).WillOnce(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*oldMock, GetState()).Times(0);
 
 	EXPECT_EQ(m_notifiable->GetState(), eSTATE_PLAYING);
 }
@@ -157,13 +162,38 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 {
 	// After ChangeAamp the original instance must receive no notifications.
 	PrivateInstanceAAMP newAamp{};
-	MockPrivateInstanceAAMP newMock;
+	std::shared_ptr<MockPrivateInstanceAAMP> oldMock = g_mockPrivateInstanceAAMP;
+	std::shared_ptr<MockPrivateInstanceAAMP> newMock = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
 	m_notifiable->ChangeAamp(&newAamp);
-	g_mockPrivateInstanceAAMP = &newMock;
+	g_mockPrivateInstanceAAMP = newMock;
 
-	EXPECT_CALL(newMock, NotifySpeedChanged(1.5f, false));
-	EXPECT_CALL(m_mock, NotifySpeedChanged(_, _)).Times(0);
+	EXPECT_CALL(*newMock, NotifySpeedChanged(1.5f, false));
+	EXPECT_CALL(*oldMock, NotifySpeedChanged(_, _)).Times(0);
 
 	m_notifiable->NotifySpeedChanged(1.5f, false);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	GetProgressReportIntervalSeconds_WithNullConfig_ReturnsZero)
+{
+	AampConfig *config = nullptr;
+	PrivateInstanceAAMP aampWithNullConfig(config);
+	PrivateInstanceAAMPNotifiable notifiable(&aampWithNullConfig);
+
+	EXPECT_DOUBLE_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.0);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	GetProgressReportIntervalSeconds_WithConfig_ForwardsToAampConfig)
+{
+	AampConfig config;
+	PrivateInstanceAAMP aampWithConfig(&config);
+	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
+
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(eAAMPConfig_ReportProgressInterval))
+		.WillOnce(Return(0.75));
+
+	EXPECT_DOUBLE_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.75);
 }

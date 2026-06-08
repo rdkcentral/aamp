@@ -97,7 +97,16 @@ public:
 	double GetBufferedDuration() override { return 0; };
 
 	// Promote protected members so tests can set them directly.
-	using MediaTrack::fragmentChunkIdxToFetch;
+	using MediaTrack::fragmentIdxToFetch;
+
+	// Wrapper to expose protected RestampSubtitle for unit tests.
+	std::string RestampSubtitle(
+		const char* buffer, size_t bufferLen,
+		double position, double duration, double pts_offset)
+	{
+		return MediaTrack::RestampSubtitle(
+			buffer, bufferLen, position, duration, pts_offset);
+	}
 
 protected:
 	// Must return something non-null to avoid a crash
@@ -118,15 +127,15 @@ protected:
 	void SetUp() override
 	{
 		gpGlobalConfig = new AampConfig();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
 		// A fake PrivateInstanceAAMP
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockIsoBmffHelper = new NiceMock<MockIsoBmffHelper>();
-		g_mockIsoBmffBuffer = new NiceMock<MockIsoBmffBuffer>();
-		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockIsoBmffHelper = std::make_shared<NiceMock<MockIsoBmffHelper>>();
+		g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
+		g_mockStreamAbstractionAAMP_MPD = std::make_shared<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
 
 		// A fake StreamAbstractionAAMP_MPD that derives from a *real* StreamAbstractionAAMP.
 		// The tests can't use a fake/mock StreamAbstractionAAMP base class because
@@ -137,26 +146,21 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockStreamAbstractionAAMP_MPD;
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
-		delete g_mockIsoBmffHelper;
-		g_mockIsoBmffHelper = nullptr;
+		g_mockIsoBmffHelper.reset();
 
-		delete g_mockIsoBmffBuffer;
-		g_mockIsoBmffBuffer = nullptr;
+		g_mockIsoBmffBuffer.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -169,8 +173,8 @@ protected:
 		CachedFragment* bufferedFragment{nullptr};
 
 		// Always use the chunk cache buffer
-		bufferedFragment = mediaTrack.GetFetchChunkBuffer(true);
-		mediaTrack.numberOfFragmentChunksCached = 1;
+		bufferedFragment = mediaTrack.GetFetchBuffer(true);
+		mediaTrack.numberOfFragmentsCached = 1;
 		bufferedFragment->Copy(testFragment);
 		if (lowLatencyMode && !bufferedFragment->initFragment)
 		{
@@ -241,7 +245,7 @@ protected:
 			.WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 			.WillRepeatedly(Return(1));
-		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 			.WillRepeatedly(Return(1));
 		EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
@@ -253,8 +257,8 @@ protected:
 		CachedFragment initFragment{};
 		initFragment.initFragment = true;
 		initFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-		CachedFragment* buf = videoTrack->GetFetchChunkBuffer(true);
-		videoTrack->numberOfFragmentChunksCached = 1;
+		CachedFragment* buf = videoTrack->GetFetchBuffer(true);
+		videoTrack->numberOfFragmentsCached = 1;
 		buf->Copy(initFragment);
 		EXPECT_TRUE(videoTrack->InjectFragment());
 
@@ -267,8 +271,8 @@ protected:
 		mediaFragment.uri = "test_segment.m4s";
 		mediaFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 
-		buf = videoTrack->GetFetchChunkBuffer(true);
-		videoTrack->numberOfFragmentChunksCached = 1;
+		buf = videoTrack->GetFetchBuffer(true);
+		videoTrack->numberOfFragmentsCached = 1;
 		buf->Copy(mediaFragment);
 
 		return {std::move(videoTrack), buf};
@@ -312,7 +316,7 @@ TEST_P(MediaTrackDashPtsRestampNotConfiguredTests, PtsRestampNotConfiguredTest)
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(testParam.lowLatencyMode));
@@ -371,7 +375,7 @@ TEST_P(MediaTrackDashQtDemuxOverrideConfiguredTests, QtDemuxOverrideConfiguredTe
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(testParam.lowLatencyMode));
@@ -432,7 +436,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		.WillRepeatedly(Return(TRICKMODE_FPS));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(testParam.lowLatencyMode));
@@ -603,7 +607,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(lowLatencyMode));
@@ -652,7 +656,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	testFragment.uri = expectedUri;
 	testFragment.fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
-	videoTrack.numberOfFragmentChunksCached = 1;
+	videoTrack.numberOfFragmentsCached = 1;
 	ASSERT_NE(bufferedFragment, nullptr);
 	ASSERT_GT(bufferedFragment->fragment.size(), 0);
 	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
@@ -704,7 +708,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampInvalidPlayRateTests, InvalidPlayRateTes
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
 
@@ -748,7 +752,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 		.WillRepeatedly(Return(TRICKMODE_FPS));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 
 	TestableMediaTrack iframeTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "iframe",
@@ -871,35 +875,35 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(5));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(5));
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 
 	// Init fragment at chunk slot 0
-	bufferedFragment1 = videoTrack.GetFetchChunkBuffer(true);
+	bufferedFragment1 = videoTrack.GetFetchBuffer(true);
 	bufferedFragment1->initFragment = true;
 	bufferedFragment1->fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-	videoTrack.numberOfFragmentChunksCached = 1;
-	videoTrack.fragmentChunkIdxToFetch = 1;
+	videoTrack.numberOfFragmentsCached = 1;
+	videoTrack.fragmentIdxToFetch = 1;
 
 	// First media fragment at chunk slot 1
-	bufferedFragment2 = videoTrack.GetFetchChunkBuffer(true);
+	bufferedFragment2 = videoTrack.GetFetchBuffer(true);
 	bufferedFragment2->initFragment = false;
 	bufferedFragment2->duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment2->position = FIRST_PTS.inSeconds();
 	bufferedFragment2->fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
-	videoTrack.numberOfFragmentChunksCached = 2;
-	videoTrack.fragmentChunkIdxToFetch = 2;
+	videoTrack.numberOfFragmentsCached = 2;
+	videoTrack.fragmentIdxToFetch = 2;
 
 	// Second media fragment at chunk slot 2 (not counted for injection)
-	bufferedFragment3 = videoTrack.GetFetchChunkBuffer(true);
+	bufferedFragment3 = videoTrack.GetFetchBuffer(true);
 	bufferedFragment3->initFragment = false;
 	bufferedFragment3->duration = FRAGMENT_DURATION.inSeconds();
 	bufferedFragment3->position = 2 * FIRST_PTS.inSeconds();
 	bufferedFragment3->fragment.assign(FRAGMENT_TEST_DATA, FRAGMENT_TEST_DATA + FRAGMENT_TEST_DATA_SIZE);
 
-	ASSERT_EQ(videoTrack.numberOfFragmentChunksCached, 2);
+	ASSERT_EQ(videoTrack.numberOfFragmentsCached, 2);
 	ASSERT_EQ(bufferedFragment1->position, 0);
 	ASSERT_EQ(bufferedFragment2->position, FIRST_PTS.inSeconds());
 	ASSERT_EQ(bufferedFragment3->position, (2 * FIRST_PTS.inSeconds()));
@@ -907,7 +911,7 @@ TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
 	videoTrack.FlushFetchedFragments();
 
 	// Fragments at slots 0 and 1 (counted) should be cleared; slot 2 (uncounted) should not
-	EXPECT_EQ(videoTrack.numberOfFragmentChunksCached, 0);
+	EXPECT_EQ(videoTrack.numberOfFragmentsCached, 0);
 	EXPECT_EQ(bufferedFragment1->position, 0);
 	EXPECT_EQ(bufferedFragment2->position, 0);
 	EXPECT_EQ(bufferedFragment3->position, (2 * FIRST_PTS.inSeconds()));
@@ -920,11 +924,11 @@ TEST_F(MediaTrackTests, MediaTrackConstructorTest)
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(kMaxFragmentCached));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(kMaxFragmentChunkCached));
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
-	EXPECT_EQ(videoTrack.GetCachedFragmentChunksSize(), kMaxFragmentCached);
+	EXPECT_EQ(videoTrack.GetCachedFragmentSize(), kMaxFragmentCached);
 }
 
 TEST_F(MediaTrackTests, MediaTrackConstructorChunkModeTest)
@@ -934,11 +938,11 @@ TEST_F(MediaTrackTests, MediaTrackConstructorChunkModeTest)
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(kMaxFragmentCached));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(kMaxFragmentChunkCached));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(true));
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
-	EXPECT_EQ(videoTrack.GetCachedFragmentChunksSize(), kMaxFragmentChunkCached);
+	EXPECT_EQ(videoTrack.GetCachedFragmentSize(), kMaxFragmentChunkCached);
 }
 
 /**
@@ -1101,111 +1105,111 @@ TEST_F(MediaTrackTests, GetBufferStatus_ReturnsRed_WhenBufferIsBelowUnderflowThr
 }
 
 /**
- * @brief When the chunk cache is not full, WaitForCachedFragmentChunkInjected returns
+ * @brief When the chunk cache is not full, WaitForCachedFragmentInjected returns
  * true immediately without waiting.
  */
-TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_CacheHasSpace_ReturnsTrueImmediately)
+TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_CacheHasSpace_ReturnsTrueImmediately)
 {
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 
 	// Cache is empty (not full), so no wait is entered and the function returns true.
-	ASSERT_LT(videoTrack.numberOfFragmentChunksCached,
-			  static_cast<int>(videoTrack.GetCachedFragmentChunksSize()));
-	EXPECT_TRUE(videoTrack.WaitForCachedFragmentChunkInjected(0));
+	ASSERT_LT(videoTrack.numberOfFragmentsCached,
+			  static_cast<int>(videoTrack.GetCachedFragmentSize()));
+	EXPECT_TRUE(videoTrack.WaitForCachedFragmentInjected(0));
 }
 
 /**
  * @brief When the chunk cache is full and the timeout expires with no signal,
- * WaitForCachedFragmentChunkInjected returns false.
+ * WaitForCachedFragmentInjected returns false.
  */
-TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_TimeoutWithCacheFull_ReturnsFalse)
+TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_TimeoutWithCacheFull_ReturnsFalse)
 {
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 
-	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
-	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+	// Fill the cache to capacity so WaitForCachedFragmentInjected will block.
+	videoTrack.numberOfFragmentsCached = static_cast<int>(videoTrack.GetCachedFragmentSize());
 
 	// No signal is ever fired; the short timeout must cause a false return.
-	EXPECT_FALSE(videoTrack.WaitForCachedFragmentChunkInjected(50 /*ms*/));
+	EXPECT_FALSE(videoTrack.WaitForCachedFragmentInjected(50 /*ms*/));
 }
 
 /**
  * @brief Exercises the "signaled but still full" branch (streamabstraction.cpp ~R725-R729):
  * the cache is full, the condition variable is signaled without the abort flag being set
- * and without numberOfFragmentChunksCached being decremented.
- * WaitForCachedFragmentChunkInjected must return false because the cache is still full
+ * and without numberOfFragmentsCached being decremented.
+ * WaitForCachedFragmentInjected must return false because the cache is still full
  * after the wakeup.
  */
-TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_SignaledButStillFull_ReturnsFalse)
+TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_SignaledButStillFull_ReturnsFalse)
 {
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 
-	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
-	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+	// Fill the cache to capacity so WaitForCachedFragmentInjected will block.
+	videoTrack.numberOfFragmentsCached = static_cast<int>(videoTrack.GetCachedFragmentSize());
 
 	// From a background thread: signal the CV without draining the cache and without
 	// setting abort — this mirrors the scenario introduced at ~R725-R729 where the
 	// caller is woken up spuriously or by an unrelated event.
 	std::thread signalThread([&videoTrack]() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
-		// AbortWaitForCachedFragmentChunk signals fragmentChunkInjected but does NOT
-		// decrement numberOfFragmentChunksCached or set the abort flag.
-		videoTrack.AbortWaitForCachedFragmentChunk();
+		// AbortWaitForCachedFragmentInjected signals fragmentInjected but does NOT
+		// decrement numberOfFragmentsCached or set the abort flag.
+		videoTrack.AbortWaitForCachedFragmentInjected();
 	});
 
 	// Must return false: was signaled, abort is clear, but cache is still full.
-	bool result = videoTrack.WaitForCachedFragmentChunkInjected(5000 /*ms*/);
+	bool result = videoTrack.WaitForCachedFragmentInjected(200 /*ms*/);
 	signalThread.join();
 
 	EXPECT_FALSE(result);
 }
 
 /**
- * @brief When the condition variable is signaled and numberOfFragmentChunksCached is
- * decremented before the caller wakes up, WaitForCachedFragmentChunkInjected returns true.
+ * @brief When the condition variable is signaled and numberOfFragmentsCached is
+ * decremented before the caller wakes up, WaitForCachedFragmentInjected returns true.
  * This is the complementary positive case confirming the non-full path still works.
  */
-TEST_F(MediaTrackTests, WaitForCachedFragmentChunkInjected_SignaledAndCacheCleared_ReturnsTrue)
+TEST_F(MediaTrackTests, WaitForCachedFragmentInjected_SignaledAndCacheCleared_ReturnsTrue)
 {
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
 		.WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxLLDFragmentCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 
-	// Fill the cache to capacity so WaitForCachedFragmentChunkInjected will block.
-	videoTrack.numberOfFragmentChunksCached = static_cast<int>(videoTrack.GetCachedFragmentChunksSize());
+	// Fill the cache to capacity so WaitForCachedFragmentInjected will block.
+	videoTrack.numberOfFragmentsCached = static_cast<int>(videoTrack.GetCachedFragmentSize());
 
 	// From a background thread: simulate an injector consuming a slot, then signal.
 	std::thread signalThread([&videoTrack]() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		// Decrement the cache count (simulating a completed injection), then notify.
-		videoTrack.numberOfFragmentChunksCached--;
-		videoTrack.AbortWaitForCachedFragmentChunk();
+		videoTrack.numberOfFragmentsCached--;
+		videoTrack.AbortWaitForCachedFragmentInjected();
 	});
 
 	// Must return true: was signaled and cache now has a free slot.
-	bool result = videoTrack.WaitForCachedFragmentChunkInjected(5000 /*ms*/);
+	bool result = videoTrack.WaitForCachedFragmentInjected(5000 /*ms*/);
 	signalThread.join();
 
 	EXPECT_TRUE(result);
@@ -1224,9 +1228,8 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 
-	MockAampMp4Demuxer mockDemuxer;
-	g_mockAampMp4Demuxer = &mockDemuxer;
-	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+	g_mockAampMp4Demuxer = std::make_shared<MockAampMp4Demuxer>();
+	EXPECT_CALL(*g_mockAampMp4Demuxer, getPTSRestampStatus())
 		.WillRepeatedly(Return(true));
 
 	TestableMediaTrack subtitleTrack{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
@@ -1244,7 +1247,7 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 										isDiscontinuity, ret);
 
 	EXPECT_FALSE(isDiscontinuity);
-	g_mockAampMp4Demuxer = nullptr;
+	g_mockAampMp4Demuxer.reset();
 }
 
 /**
@@ -1288,9 +1291,8 @@ TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
 	subtitleTrack.playContext = nullptr;
 	EXPECT_FALSE(subtitleTrack.IsPTSRestampEnabled());
 
-	MockAampMp4Demuxer mockDemuxer;
-	g_mockAampMp4Demuxer = &mockDemuxer;
-	EXPECT_CALL(mockDemuxer, getPTSRestampStatus())
+	g_mockAampMp4Demuxer = std::make_shared<MockAampMp4Demuxer>();
+	EXPECT_CALL(*g_mockAampMp4Demuxer, getPTSRestampStatus())
 		.WillOnce(Return(false))
 		.WillOnce(Return(true));
 
@@ -1304,7 +1306,7 @@ TEST_F(MediaTrackTests, IsPTSRestampEnabled_UsesActivePlayContextCapability)
 			eMEDIATYPE_SUBTITLE, true);
 	EXPECT_TRUE(subtitleTrack.IsPTSRestampEnabled());
 
-	g_mockAampMp4Demuxer = nullptr;
+	g_mockAampMp4Demuxer.reset();
 }
 
 /**
@@ -1333,4 +1335,159 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_FallsThrough_WhenPtsRestampDisable
 
 	// Else branch: isDiscontinuity was not modified, remains true.
 	EXPECT_TRUE(isDiscontinuity);
+}
+
+// ---------------------------------------------------------------------------
+// RestampSubtitle tests
+// ---------------------------------------------------------------------------
+
+namespace
+{
+	// Minimal valid WebVTT segment with a single cue block.
+	constexpr const char kVttWithMpegts[] =
+		"WEBVTT\n"
+		"X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000\n"
+		"\n"
+		"00:00:01.000 --> 00:00:03.000\n"
+		"Hello world\n";
+
+	constexpr const char kVttMpegtsZero[] =
+		"WEBVTT\n"
+		"X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0\n"
+		"\n"
+		"00:00:01.000 --> 00:00:03.000\n"
+		"Subtitle text\n";
+
+	// VTT header with no blank-line separator (malformed).
+	constexpr const char kVttMalformedNoSeparator[] =
+		"WEBVTT\n"
+		"X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000";
+
+	// Non-WebVTT binary-like buffer.
+	constexpr const char kNonVttBuffer[] = "\x47\x00\x00\x12\x01\x02\x03";
+} // namespace
+
+/**
+ * @brief When eAAMPConfig_HlsTsEnablePTSReStamp is disabled, RestampSubtitle
+ * must return the input buffer unchanged.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_ConfigDisabled_ReturnsInputUnchanged)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillOnce(Return(false));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttWithMpegts};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 0.0, 6.0, 10.0);
+
+	EXPECT_EQ(result, input);
+}
+
+/**
+ * @brief A non-WebVTT buffer must be returned unchanged regardless of config.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_NonWebVttBuffer_ReturnsInputUnchanged)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillOnce(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kNonVttBuffer, sizeof(kNonVttBuffer) - 1};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 0.0, 6.0, 10.0);
+
+	EXPECT_EQ(result, input);
+}
+
+/**
+ * @brief A VTT segment that has no blank-line header separator is malformed.
+ * RestampSubtitle must return it unchanged.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_MalformedVtt_NoHeaderSeparator_ReturnsInputUnchanged)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttMalformedNoSeparator};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 0.0, 6.0, 10.0);
+
+	EXPECT_EQ(result, input);
+}
+
+/**
+ * @brief When MPEGTS is non-zero, it must be adjusted by pts_offset_s * 90000.
+ * Expected: MPEGTS:900000 + llround(10.0 * 90000) = 1800000.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_NonZeroMpegts_AdjustedByPtsOffset)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttWithMpegts};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 5.0, 6.0, 10.0);
+
+	EXPECT_NE(result.find("MPEGTS:1800000"), std::string::npos)
+		<< "Expected adjusted MPEGTS:1800000 in output:\n" << result;
+}
+
+/**
+ * @brief When MPEGTS is 0 (SSAI proxy-stripped segments), it must remain 0
+ * regardless of pts_offset_s (RFC 8216: cue times are already absolute).
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_ZeroMpegts_RemainsZero)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttMpegtsZero};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 5.0, 6.0, 10.0);
+
+	EXPECT_NE(result.find("MPEGTS:0"), std::string::npos)
+		<< "Expected MPEGTS:0 to be unchanged in output:\n" << result;
+}
+
+/**
+ * @brief Cue blocks after the header must be carried verbatim. This guards
+ * against a regression of the original bug where cue timestamps were shifted.
+ */
+TEST_F(MediaTrackTests, RestampSubtitle_CueBlocksPassedVerbatim)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	TestableMediaTrack track{eTRACK_SUBTITLE, mPrivateInstanceAAMP,
+							 "subtitle", mStreamAbstractionAAMP_MPD};
+
+	const std::string input{kVttWithMpegts};
+	const std::string result = track.RestampSubtitle(
+		input.data(), input.size(), 0.0, 6.0, 1.0);
+
+	// The cue line and payload must appear unchanged in the output.
+	EXPECT_NE(result.find("00:00:01.000 --> 00:00:03.000"), std::string::npos)
+		<< "Cue timing line must not be modified:\n" << result;
+	EXPECT_NE(result.find("Hello world"), std::string::npos)
+		<< "Cue text must not be modified:\n" << result;
 }

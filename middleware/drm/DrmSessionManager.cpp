@@ -513,7 +513,16 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 		}
 		return nullptr;
 	}
-	code =this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+	if (!AcquireLicenseCb)
+	{
+		MW_LOG_WARN("AcquireLicenseCb not registered - cannot acquire license");
+		std::lock_guard<std::mutex> guard(cachedKeyMutex);
+		if (cachedKeyIDs)
+			cachedKeyIDs[selectedSlot].isFailedKeyEntries = true;
+		return nullptr;
+	}
+ 	code = this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, 
+								  cdmError, static_cast<GstMediaType>(streamType), metaDataPtr, false);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
