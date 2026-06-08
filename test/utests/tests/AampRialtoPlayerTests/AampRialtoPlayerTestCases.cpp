@@ -482,11 +482,9 @@ protected:
 
 	void TriggerProgressTimerTick()
 	{
-		ASSERT_NE(m_progressTimerCallback, nullptr)
-			<< "Configure() must install progress timer callback";
-		ASSERT_NE(m_progressTimerUserData, nullptr)
-			<< "Configure() must install progress timer user data";
-		m_progressTimerCallback(m_progressTimerUserData);
+		// With the new ProgressTimer implementation, we directly invoke
+		// OnProgressTimerTick() to simulate a timer tick.
+		m_player->OnProgressTimerTick();
 	}
 
 	std::shared_ptr<NiceMock<MockIMediaPipelineFactory>> m_mockFactory;
@@ -1537,7 +1535,7 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
 		.WillOnce(Return(0.25));
 	EXPECT_CALL(*g_mockGLib,
-		g_timeout_add(kExpectedIntervalMs, _, m_player.get()))
+		g_timeout_add(kExpectedIntervalMs, _, _))
 		.WillOnce(DoAll(
 			SaveArg<1>(&m_progressTimerCallback),
 			SaveArg<2>(&m_progressTimerUserData),
@@ -1591,15 +1589,44 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 TEST_F(AampRialtoPlayerTest,
 	OnPlaybackState_Playing_DoesNotRestartProgressTimerWhenAlreadyRunning)
 {
-	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)).Times(1)
-		.WillOnce(DoAll(
-			SaveArg<1>(&m_progressTimerCallback),
-			SaveArg<2>(&m_progressTimerUserData),
-			Return(88)));
+	// First PLAYING: start() fires immediately then schedules g_timeout_add(id=88).
+	// Second PLAYING: kick() calls g_source_remove(88) then a new g_timeout_add(id=89).
+	// Teardown: player dtor calls stop() which calls g_source_remove(89).
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)).Times(2)
+		.WillOnce(Return(88))
+		.WillOnce(Return(89));
+	EXPECT_CALL(*g_mockGLib, g_source_remove(88)).WillOnce(Return(TRUE));
+	EXPECT_CALL(*g_mockGLib, g_source_remove(89)).WillOnce(Return(TRUE));
 
 	Configure();
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StartProgressTimer_WhenAlreadyRunning_KicksTimerForImmediateDispatch)
+{
+	// start() fires once immediately then schedules the periodic timer (id=101).
+	// kick() removes id=101 and reschedules (id=102).
+	// Teardown: player dtor calls stop() which calls g_source_remove(102).
+	constexpr guint kIntervalMs = 500;
+	EXPECT_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
+		.WillOnce(Return(0.5));
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(kIntervalMs, _, _)).Times(2)
+		.WillOnce(Return(101))
+		.WillOnce(Return(102));
+	EXPECT_CALL(*g_mockGLib, g_source_remove(101)).WillOnce(Return(TRUE));
+	EXPECT_CALL(*g_mockGLib, g_source_remove(102)).WillOnce(Return(TRUE));
+
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	// StartProgressTimer() on an already-running timer kicks it:
+	// one immediate MonitorProgress() call.
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(/*sync=*/false, /*bos=*/false))
+		.Times(1);
+
+	m_player->StartProgressTimer();
 }
 
 // Segment start = 0: elapsed time equals raw PTS (unchanged behaviour for

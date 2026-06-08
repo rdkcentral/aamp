@@ -287,6 +287,20 @@ public:
 	/// @copydoc StreamSink::ResetFirstFrame
 	void ResetFirstFrame() override;
 
+	/// @brief Start periodic MonitorProgress() reporting.
+	///
+	/// Fires immediately on first call, then at configured interval.
+	/// If called while already running, kicks the timer for immediate dispatch.
+	void StartProgressTimer();
+
+	/// @brief Stop periodic MonitorProgress() reporting.
+	void StopProgressTimer();
+
+	/// @brief Timer tick handler that forwards progress to AAMP.
+	///
+	/// Public for testing purposes; called internally by the progress timer.
+	void OnProgressTimerTick();
+
 private:
 	/**
 	 * @brief Bridges Rialto client log messages into AAMP's logging system.
@@ -396,8 +410,50 @@ private:
 	/// Stream() reads this to decide whether it can call play() immediately.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
-	/// GLib source ID for the periodic progress timer. 0 means inactive.
-	unsigned int m_progressTimerId{0};
+	/// @brief Embedded progress timer with immediate-start and kick capability.
+	///
+	/// Fires immediately on start, then continues at specified interval.
+	/// Can be kicked to force immediate dispatch while maintaining interval.
+	class ProgressTimer
+	{
+	public:
+		using Callback = std::function<void()>;
+
+		ProgressTimer() = default;
+		~ProgressTimer();
+
+		/// Start the timer: fires immediately, then at interval.
+		/// Does nothing if already running.
+		void start(guint interval_ms, Callback cb);
+
+		/// Force immediate callback dispatch and restart the interval.
+		void kick();
+
+		/// Stop the timer and clean up resources.
+		void stop();
+
+		/// Return true if the timer is currently running.
+		bool isRunning() const { return started; }
+
+	private:
+		guint interval = 0;
+		Callback callback;
+
+		guint source_id = 0;
+		bool started = false;
+
+	private:
+		// Periodic timeout handler (will be called with AampRialtoPlayer as data)
+		static gboolean timeout_handler(gpointer data);
+
+		// Run callback once
+		void runOnce();
+
+		friend class AampRialtoPlayer;
+	};
+
+	/// Progress timer instance.
+	std::unique_ptr<ProgressTimer> m_progressTimer;
 
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;
@@ -427,18 +483,6 @@ private:
 	/// This ensures the SEGMENT event is not discarded while the server
 	/// is still processing the flush.
 	void OnSourceFlushed(int32_t sourceId);
-
-	/// @brief Static GLib timeout callback for periodic progress reporting.
-	static int ProgressTimerCallback(void *userData);
-
-	/// @brief Start periodic MonitorProgress() reporting.
-	void StartProgressTimer();
-
-	/// @brief Stop periodic MonitorProgress() reporting.
-	void StopProgressTimer();
-
-	/// @brief Timer tick handler that forwards progress to AAMP.
-	void OnProgressTimerTick();
 
 	/**
 	 * @brief Attach a source via its polymorphic attachOrUpdate method.
