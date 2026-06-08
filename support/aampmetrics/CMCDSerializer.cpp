@@ -35,6 +35,10 @@
 
 int RoundToNearest100(int value)
 {
+    if (value <= 0)
+    {
+        return 0; // negative/zero treated as "unavailable" — prevents INT_MIN+50 overflow
+    }
     return ((value + 50) / 100) * 100;
 }
 

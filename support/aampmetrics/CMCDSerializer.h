@@ -76,15 +76,18 @@ struct CMCDEntry
 };
 
 /**
- * @brief Round a non-negative integer value to the nearest 100 (half-up).
+ * @brief Round an integer value to the nearest 100 (half-up).
  *
  * Implements the CTA-5004 §3 rounding rule for numeric CMCD keys (br, tb, bl).
  * Values that round to zero should be treated as "unavailable" and omitted by
  * the caller (SerializeToCMCDMap enforces this for integer entries automatically).
  *
- * @param value Non-negative integer value (kbps or ms).
+ * Negative values and zero are treated as "unavailable" and return 0 immediately,
+ * preventing the INT_MIN+50 signed-overflow that the naive formula would produce.
+ *
+ * @param value Integer value (kbps or ms). Negative values are treated as unavailable.
  * @return Value rounded to the nearest 100 using round-half-up semantics.
- *         Returns 0 for inputs in the range [0, 49].
+ *         Returns 0 for any input in the range (-inf, 50).
  */
 int RoundToNearest100(int value);
 
