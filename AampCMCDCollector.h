@@ -18,7 +18,7 @@
  */
 
 /**
- * @file AampCMCDCollector.cpp
+ * @file AampCMCDCollector.h
  * @brief Class to collect the CMCD Data
  */
 
