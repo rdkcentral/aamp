@@ -1260,3 +1260,248 @@ TEST(CMCDSerialization_FullSet, FullVideoRequest_AllNewKeysStartup)
     EXPECT_EQ(JoinedValue(h, "CMCD-Request:"), "bl=2400,dl=2400,mtp=4800,su");
     EXPECT_EQ(JoinedValue(h, "CMCD-Status:"),  "rtp=7600");
 }
+
+// ---------------------------------------------------------------------------
+// TST-02: SER-01 — br/tb/mtp/rtp rounded to nearest 100 kbps (new-key angles)
+// ---------------------------------------------------------------------------
+
+/**
+ * SER-01: mtp rounded to nearest 100 kbps.
+ * SetMeasuredThroughput(4842) -> mtp = (4842+50)/100*100 = 4800.
+ * Named SER-rule test to explicitly document the SER-01 contract for mtp.
+ */
+TEST(CMCDSerialization_SER01, SER01_MtpRoundedTo100kbps)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetMeasuredThroughput(4842);
+
+    auto h = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(h, "CMCD-Request:"), HasSubstr("mtp=4800"));
+}
+
+/**
+ * SER-01: rtp rounded to nearest 100 kbps.
+ * SetBitrate(3842) -> rtp = 3842*2 = 7684 -> (7684+50)/100*100 = 7700.
+ * Named SER-rule test to explicitly document the SER-01 contract for rtp.
+ */
+TEST(CMCDSerialization_SER01, SER01_RtpRoundedTo100kbps)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(3842);
+
+    auto h = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(h, "CMCD-Status:"), HasSubstr("rtp=7700"));
+}
+
+// ---------------------------------------------------------------------------
+// TST-02: SER-02 — bl/dl rounded to 100 ms; d NOT rounded (exact ms)
+// ---------------------------------------------------------------------------
+
+/**
+ * SER-02: dl rounded to nearest 100 ms.
+ * SetBufferLength(2350) at rate 1.0 -> dl = 2350 -> (2350+50)/100*100 = 2400.
+ * Named SER-rule test to explicitly document the SER-02 contract for dl.
+ */
+TEST(CMCDSerialization_SER02, SER02_DlRoundedTo100ms)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBufferLength(2350);
+
+    auto h = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(h, "CMCD-Request:"), HasSubstr("dl=2400"));
+}
+
+/**
+ * SER-02: d is NOT rounded — exact ms value passed through.
+ * SetFragmentDuration(2150) -> d=2150; must NOT become d=2200.
+ * Locks the "d is plain ms, never rounded" invariant (CONTEXT.md decision).
+ * This is distinct from bl/dl because d uses a bare token entry (all flags false),
+ * bypassing RoundToNearest100 entirely.
+ */
+TEST(CMCDSerialization_SER02, SER02_DNotRounded)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(3800);          // emits br and rtp alongside d in sibling groups
+    v.SetFragmentDuration(2150); // d must stay exactly 2150
+
+    auto h = BuildHeaders(v);
+    const std::string obj = JoinedValue(h, "CMCD-Object:");
+    EXPECT_THAT(obj, HasSubstr("d=2150"));
+    EXPECT_THAT(obj, ::testing::Not(HasSubstr("d=2200")));
+    // br IS rounded (3800 stays on boundary); confirms rounding still applies to sibling key
+    EXPECT_THAT(obj, HasSubstr("br=3800"));
+}
+
+// ---------------------------------------------------------------------------
+// TST-02: SER-04 — alpha-sort within each group with the full key set
+// ---------------------------------------------------------------------------
+
+/**
+ * SER-04: Object group alpha order with d present: br < d < ot < tb.
+ * SetBitrate(3800), SetTopBitrate(6000), SetFragmentDuration(2000) ->
+ * CMCD-Object: = "br=3800,d=2000,ot=v,tb=6000".
+ * Locks the four-key sort order including the new 'd' key.
+ */
+TEST(CMCDSerialization_SER04, SER04_ObjectGroupAlphaSort_WithD)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(3800);
+    v.SetTopBitrate(6000);
+    v.SetFragmentDuration(2000);
+
+    auto h = BuildHeaders(v);
+    EXPECT_EQ(JoinedValue(h, "CMCD-Object:"), "br=3800,d=2000,ot=v,tb=6000");
+}
+
+/**
+ * SER-04: Request group full alpha order with all keys present:
+ * bl < com.comcast-dns < com.comcast-fb < com.comcast-lb < dl < mtp < nor < su.
+ *
+ * Setup mirrors KeysAlphabeticallySortedWithComcastKeys: SetNetworkMetrics with
+ * dnsLookUptime>0 so all Comcast keys are emitted and nor goes through the dns branch.
+ * SetStartupUrgent(true) adds the su bare token at the end.
+ *
+ * Expected CMCD-Request:
+ *   bl=2400,com.comcast-dns=5,com.comcast-fb=2,com.comcast-lb=10,dl=2400,mtp=4800,nor="../seg35.m4s",su
+ */
+TEST(CMCDSerialization_SER04, SER04_RequestGroupAlphaSort_Full)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBufferLength(2400);            // bl=2400; dl=2400/1.0=2400 (rate=1.0)
+    v.SetMeasuredThroughput(4800);      // mtp=4800
+    v.SetStartupUrgent(true);           // su (bare)
+    v.SetNextUrl("../seg35.m4s");       // nor="../seg35.m4s" (quoted)
+    v.SetNetworkMetrics(2, 10, 5);      // dns=5 -> com.comcast-dns=5, fb=2, lb=10
+
+    auto h = BuildHeaders(v);
+    const std::string req = JoinedValue(h, "CMCD-Request:");
+
+    // Exact full-string assertion locks every key and its position simultaneously.
+    EXPECT_EQ(req,
+        "bl=2400,com.comcast-dns=5,com.comcast-fb=2,com.comcast-lb=10,"
+        "dl=2400,mtp=4800,nor=\"../seg35.m4s\",su");
+}
+
+/**
+ * SER-04: Status group alpha order with both keys present: bs < rtp.
+ * SetBufferStarvation(true) + SetBitrate(3800) ->
+ * CMCD-Status: = "bs,rtp=7600"  (3800*2=7600).
+ * Locks the two-key sort order in the Status group.
+ */
+TEST(CMCDSerialization_SER04, SER04_StatusGroupAlphaSort_WithRtp)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBufferStarvation(true);
+    v.SetBitrate(3800);  // rtp = 3800*2 = 7600 (on 100-boundary)
+
+    auto h = BuildHeaders(v);
+    EXPECT_EQ(JoinedValue(h, "CMCD-Status:"), "bs,rtp=7600");
+}
+
+// ---------------------------------------------------------------------------
+// TST-02: SER-06 — su bare token present when true, absent when false
+// ---------------------------------------------------------------------------
+
+/**
+ * SER-06: su emitted as a bare token (no '=') when SetStartupUrgent(true).
+ * Instance B (default false) must omit su entirely from CMCD-Request.
+ * Pairs with the existing SER-06/bs tests to give full bool-token coverage.
+ */
+TEST(CMCDSerialization_SER06, SER06_SuBareTokenTrueAndFalse)
+{
+    // Instance A: su=true -> bare token "su" present, no "su=" form.
+    {
+        VideoCMCDHeaders v;
+        v.SetSessionId("test-sid");
+        v.SetStartupUrgent(true);
+
+        const std::string req = JoinedValue(BuildHeaders(v), "CMCD-Request:");
+        EXPECT_THAT(req, HasSubstr("su"));
+        EXPECT_THAT(req, ::testing::Not(HasSubstr("su=")));
+    }
+
+    // Instance B: default (su=false) -> "su" must be absent entirely.
+    {
+        VideoCMCDHeaders v;
+        v.SetSessionId("test-sid");
+        // No SetStartupUrgent call — mStartupUrgent defaults to false.
+
+        EXPECT_THAT(JoinedValue(BuildHeaders(v), "CMCD-Request:"),
+                    ::testing::Not(HasSubstr("su")));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TST-02: SER-07 — each key maps to its correct CTA-5004 group (new keys)
+// ---------------------------------------------------------------------------
+
+/**
+ * SER-07: d appears only in CMCD-Object; not in Request or Status.
+ * Verifies the group mapping for the new d key.
+ */
+TEST(CMCDSerialization_SER07, SER07_DInObjectGroupOnly)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetFragmentDuration(2000);
+
+    auto h = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(h, "CMCD-Object:"),  HasSubstr("d=2000"));
+    EXPECT_THAT(JoinedValue(h, "CMCD-Request:"), ::testing::Not(HasSubstr("d=")));
+    EXPECT_THAT(JoinedValue(h, "CMCD-Status:"),  ::testing::Not(HasSubstr("d=")));
+}
+
+/**
+ * SER-07: dl, mtp, and su appear only in CMCD-Request; not in Object or Status.
+ * Verifies the group mapping for all three new Request-group keys simultaneously.
+ */
+TEST(CMCDSerialization_SER07, SER07_DlMtpSuInRequestGroupOnly)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBufferLength(2400);        // -> dl=2400
+    v.SetMeasuredThroughput(4800);  // -> mtp=4800
+    v.SetStartupUrgent(true);       // -> su (bare)
+
+    auto h = BuildHeaders(v);
+    const std::string req = JoinedValue(h, "CMCD-Request:");
+    const std::string obj = JoinedValue(h, "CMCD-Object:");
+    const std::string status = JoinedValue(h, "CMCD-Status:");
+
+    // All three must be in Request
+    EXPECT_THAT(req, HasSubstr("dl="));
+    EXPECT_THAT(req, HasSubstr("mtp="));
+    EXPECT_THAT(req, HasSubstr("su"));
+
+    // None must leak into Object or Status
+    EXPECT_THAT(obj,    ::testing::Not(HasSubstr("dl=")));
+    EXPECT_THAT(obj,    ::testing::Not(HasSubstr("mtp=")));
+    EXPECT_THAT(obj,    ::testing::Not(HasSubstr("su")));
+    EXPECT_THAT(status, ::testing::Not(HasSubstr("dl=")));
+    EXPECT_THAT(status, ::testing::Not(HasSubstr("mtp=")));
+    EXPECT_THAT(status, ::testing::Not(HasSubstr("su")));
+}
+
+/**
+ * SER-07: rtp appears only in CMCD-Status; not in Object, Request, or Session.
+ * Verifies the group mapping for the new rtp key.
+ */
+TEST(CMCDSerialization_SER07, SER07_RtpInStatusGroupOnly)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(4000);  // rtp = 4000*2 = 8000
+
+    auto h = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(h, "CMCD-Status:"),   HasSubstr("rtp=8000"));
+    EXPECT_THAT(JoinedValue(h, "CMCD-Object:"),   ::testing::Not(HasSubstr("rtp=")));
+    EXPECT_THAT(JoinedValue(h, "CMCD-Request:"),  ::testing::Not(HasSubstr("rtp=")));
+    EXPECT_THAT(JoinedValue(h, "CMCD-Session:"),  ::testing::Not(HasSubstr("rtp=")));
+}
