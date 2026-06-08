@@ -227,7 +227,7 @@ endif()
 
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} ${SOURCES}  ${SUBTEC_CLASS_SOURCES})
 
-include_directories(${GSTVIDEO_INCLUDE_DIRS})
+include_directories(${GSTREAMERVIDEO_INCLUDE_DIRS})
 
 if(CMAKE_USE_THUNDER_OCDM_API_0_2)
 	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
@@ -286,6 +286,7 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
     # -l flag cannot be resolved by the Xcode linker.
     # On other platforms: keep the original short flag; link_directories() is still
     # in effect there and GSTREAMERVIDEO_LINK_LIBRARIES is not set.
+    # For extracting SEI timecode. This path is gated under CMAKE_SIM_DRM_SUPPORT for Darwin.
     if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
         set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
     else()
@@ -390,9 +391,9 @@ add_subdirectory(gst-plugins)
 
 target_link_libraries(playergstinterface ${LIBPLAYERGSTINTERFACE_DEPENDS})
 
-target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
+target_link_libraries(playergstinterface ${GST_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
-target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
+target_link_libraries(playergstinterface ${GSTREAMERVIDEO_LINK_LIBRARIES})
 
 if (CMAKE_RDK_SVP)
 	target_link_libraries(playergstinterface gstsvpext)
@@ -405,7 +406,6 @@ install(TARGETS playergstinterface
     PUBLIC_HEADER DESTINATION lib/include
 )
 target_link_libraries(subtec playerlogmanager)
-target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
 target_link_libraries(playergstinterface subtec)
 target_link_libraries(playergstinterface baseconversion)
 target_link_libraries(playergstinterface playerfbinterface)
