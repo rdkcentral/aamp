@@ -23,6 +23,7 @@
  */
 
 #include "AudioCMCDHeaders.h"
+#include "CMCDSerializer.h"
 using namespace std;
 
 /**
@@ -31,39 +32,65 @@ using namespace std;
  */
 void AudioCMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, std::vector<std::string>> &mCMCDCustomHeaders)
 {
-	//For audio sessionid,object type,currentvideobitrate,maximum videobitrate,bufferlength are send as a part of CMCD Headers
-	CMCDHeaders::BuildCMCDCustomHeaders(mCMCDCustomHeaders); 
-	std::string headerName;
-	std::vector<std::string> headerValue;
-	std::string delimiter = ",";
-	if(mediaType == "INIT_AUDIO")
+	// Step 1: seed the CMCD-Session group with a quoted sid entry via the base class.
+	CMCDHeaders::BuildCMCDCustomHeaders(mCMCDCustomHeaders);
+
+	// Step 2: build structured entries for Object/Request/Status groups.
+	std::vector<CMCDEntry> entries;
+
+	// ot token: bare identifier (i for init, a otherwise).
+	std::string otToken;
+	if (mediaType == "INIT_AUDIO")
 	{
-		headerName="i";
+		otToken = "i";
 	}
 	else
 	{
-		headerName="a";
+		otToken = "a";
 	}
-	if(bufferStarvation)
+	entries.push_back(CMCDEntry{"ot", otToken, CMCDGroup::Object});
+
+	// br and tb: kbps integers — serializer applies RoundToNearest100 and omits zeros.
+	entries.push_back(CMCDEntry{"br", std::to_string(bitrate), CMCDGroup::Object, true});
+	entries.push_back(CMCDEntry{"tb", std::to_string(topBitrate), CMCDGroup::Object, true});
+
+	// bl: buffer length in ms — serializer rounds and omits zero.
+	entries.push_back(CMCDEntry{"bl", std::to_string(bufferLength), CMCDGroup::Request, true});
+
+	// bs: boolean bare token — emit only when bufferStarvation is true (SER-06).
+	if (bufferStarvation)
 	{
-		headerValue.push_back(CMCDBUFFERSTARVATION);
-		mCMCDCustomHeaders["CMCD-Status:"] = headerValue;
+		entries.push_back(CMCDEntry{"bs", "1", CMCDGroup::Status, false, false, true});
 	}
-	headerValue.clear();
- 	headerValue.push_back(CMCDBITRATE+std::to_string(bitrate)+delimiter+CMCDObject+headerName+delimiter+CMCDTOPBITRATE+std::to_string(topBitrate));
- 	mCMCDCustomHeaders["CMCD-Object:"] = headerValue;
-	headerValue.clear();
-	if(dnsLookUptime > 0)
+
+	// nor / nrr / Comcast custom keys: preserve existing branch logic.
+	// Note: nor/nrr are wrapped in double-quotes (isQuotedString=true).
+	// AAMP segment paths are already URL-safe ASCII, so quoting without
+	// percent-encoding is sufficient (RESEARCH Pitfall 4 / Assumption A1).
+	// Comcast keys are bare integers (NOT isInteger) to preserve raw unrounded
+	// values — they are outside the SER-01/SER-02 kbps/ms rounding scope.
+	if (dnsLookUptime > 0)
 	{
-		headerValue.push_back(CMCDBUFFERLENGTH+std::to_string(bufferLength)+delimiter+CMCDNEXTURL+nextUrl+delimiter+CMCDDns+std::to_string(dnsLookUptime)+delimiter+CMCDFirstByte+std::to_string(firstByte)+delimiter+CMCDLastByte+std::to_string(lastByte));
+		entries.push_back(CMCDEntry{"nor", nextUrl, CMCDGroup::Request, false, true});
+		entries.push_back(CMCDEntry{"com.comcast-dns", std::to_string(dnsLookUptime), CMCDGroup::Request});
+		entries.push_back(CMCDEntry{"com.comcast-fb", std::to_string(firstByte), CMCDGroup::Request});
+		entries.push_back(CMCDEntry{"com.comcast-lb", std::to_string(lastByte), CMCDGroup::Request});
 	}
-	else if(!mNextRange.empty())
-        {
-                headerValue.push_back(CMCDBUFFERLENGTH+std::to_string(bufferLength)+delimiter+CMCDNEXTRANGEREQUEST+mNextRange+delimiter+CMCDFirstByte+std::to_string(firstByte)+delimiter+CMCDLastByte+std::to_string(lastByte));
-        }
+	else if (!mNextRange.empty())
+	{
+		entries.push_back(CMCDEntry{"nrr", mNextRange, CMCDGroup::Request, false, true});
+		entries.push_back(CMCDEntry{"com.comcast-fb", std::to_string(firstByte), CMCDGroup::Request});
+		entries.push_back(CMCDEntry{"com.comcast-lb", std::to_string(lastByte), CMCDGroup::Request});
+	}
 	else
 	{
-		headerValue.push_back(CMCDBUFFERLENGTH+std::to_string(bufferLength)+delimiter+CMCDNEXTURL+nextUrl+delimiter+CMCDFirstByte+std::to_string(firstByte)+delimiter+CMCDLastByte+std::to_string(lastByte));
+		entries.push_back(CMCDEntry{"nor", nextUrl, CMCDGroup::Request, false, true});
+		entries.push_back(CMCDEntry{"com.comcast-fb", std::to_string(firstByte), CMCDGroup::Request});
+		entries.push_back(CMCDEntry{"com.comcast-lb", std::to_string(lastByte), CMCDGroup::Request});
 	}
-	mCMCDCustomHeaders["CMCD-Request:"] = std::move(headerValue);
+
+	// Step 3: serialize Object/Request/Status entries into the map.
+	// SerializeToCMCDMap merges into the existing map without clearing, so the
+	// CMCD-Session: entry written by the base class is preserved.
+	SerializeToCMCDMap(entries, mCMCDCustomHeaders);
 }
