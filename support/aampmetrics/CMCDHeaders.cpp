@@ -24,6 +24,7 @@
 #include "CMCDHeaders.h"
 #include "CMCDSerializer.h"
 #include <cstdio>
+#include <cmath>
 using namespace std;
 
 /**
@@ -186,8 +187,14 @@ void CMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, std::ve
 		entries.push_back(CMCDEntry{"st", mStreamType, CMCDGroup::Session, false, false, false});
 	}
 
-	// pr — bare decimal token; omit at normal 1x playback (KEYS-06)
-	if (mPlaybackRate != 1.0f)
+	// pr — bare decimal token; omit at normal 1x playback (KEYS-06).
+	// Use epsilon comparison rather than exact float equality: 1.0f has an exact
+	// IEEE-754 representation and AAMP_NORMAL_PLAY_RATE is integer 1 (promoted to
+	// 1.0f), so equality holds in practice — but a future double-to-float conversion
+	// could produce a value indistinguishable from 1 that fails the strict check.
+	static constexpr float kNormalPlayRate = 1.0f;
+	static constexpr float kPlayRateEps    = 1e-4f;
+	if (std::fabs(mPlaybackRate - kNormalPlayRate) > kPlayRateEps)
 	{
 		entries.push_back(CMCDEntry{"pr", FormatPlaybackRate(mPlaybackRate), CMCDGroup::Session, false, false, false});
 	}
