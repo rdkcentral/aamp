@@ -27,6 +27,47 @@
 #
 # Required tools: git, cmake, make, pkg-config
 
+# Sync internal middleware headers to .libs/include.
+# When using --player-interface-source=internal (the default), headers in
+# .libs/include are never refreshed by the install flow.  If the source tree
+# is updated (e.g. a new constructor parameter), the stale installed copy is
+# found first on the include path and causes build errors.
+# This function compares every header already present in .libs/include against
+# its counterpart in middleware/ and overwrites any that differ.
+function sync_internal_middleware_headers_fn()
+{
+    local include_dir="${LOCAL_DEPS_BUILD_DIR}/include"
+    local middleware_dir="${AAMP_DIR}/middleware"
+    local updated=0
+
+    if [[ ! -d "${include_dir}" ]] || [[ ! -d "${middleware_dir}" ]]; then
+        return 0
+    fi
+
+    while IFS= read -r -d '' installed; do
+        local base
+        base=$(basename "${installed}")
+        local src
+        src=$(find "${middleware_dir}" -maxdepth 4 -name "${base}" 2>/dev/null | head -1)
+        if [[ -n "${src}" ]] && ! diff -q "${installed}" "${src}" > /dev/null 2>&1; then
+            echo "Refreshing stale header: ${base}"
+            cp "${src}" "${installed}" || {
+                echo "Error: Failed to copy ${src} -> ${installed}"
+                return 1
+            }
+            (( updated++ )) || true
+        fi
+    done < <(find "${include_dir}" \( -name "*.h" -o -name "*.hpp" \) -print0)
+
+    if [[ ${updated} -eq 0 ]]; then
+        echo "Internal middleware headers are up to date."
+        INSTALL_STATUS_ARR+=("sync_internal_middleware_headers_fn: all headers up to date.")
+    else
+        echo "Refreshed ${updated} stale middleware header(s)."
+        INSTALL_STATUS_ARR+=("sync_internal_middleware_headers_fn: refreshed ${updated} header(s).")
+    fi
+}
+
 function install_build_middleware_interface_fn()
 {
     # Validate required variables

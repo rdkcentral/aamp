@@ -93,7 +93,7 @@ public:
 	MOCK_METHOD(bool, GetLLDashChunkMode, ());
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
-	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopGstreamerPreBuffering));
+	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopPreBuffering));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(void, SetCCStatusSetByApp, ());
 	MOCK_METHOD(bool, IsAtLivePoint, ());
