@@ -155,7 +155,7 @@ public:
 		bool discontinuity = false) override;
 
 	/// @copydoc StreamSink::SendSample
-	bool SendSample(AampMediaType mediaType, AampMediaSample &&sample) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample &&sample, bool morePending = false) override;
 
 	/// @copydoc StreamSink::PipelineConfiguredForMedia
 	bool PipelineConfiguredForMedia(AampMediaType type) override;
@@ -287,6 +287,20 @@ public:
 	/// @copydoc StreamSink::ResetFirstFrame
 	void ResetFirstFrame() override;
 
+	/// @brief Start periodic MonitorProgress() reporting.
+	///
+	/// Fires immediately on first call, then at configured interval.
+	/// If called while already running, kicks the timer for immediate dispatch.
+	void StartProgressTimer();
+
+	/// @brief Stop periodic MonitorProgress() reporting.
+	void StopProgressTimer();
+
+	/// @brief Timer tick handler that forwards progress to AAMP.
+	///
+	/// Public for testing purposes; called internally by the progress timer.
+	void OnProgressTimerTick();
+
 private:
 	/**
 	 * @brief Bridges Rialto client log messages into AAMP's logging system.
@@ -302,15 +316,11 @@ private:
 			const std::string &message) override;
 	};
 
-
-	std::atomic<int64_t> m_positionMs{0};
-
-	/// Pipeline PTS at the first OnPosition notification in a session.
-	/// priv_aamp adds seek_pos_seconds to whatever GetPositionMilliseconds()
-	/// returns, so we must return elapsed time (delta from segment start),
-	/// not the raw pipeline PTS — mirroring GStreamer's segmentStart
-	/// subtraction in InterfacePlayerRDK.  -1 = not yet set.
-	std::atomic<int64_t> m_segmentStartMs{-1};
+	/// Current playback rate, updated by Flush().  Used by
+	/// GetPositionMilliseconds() to mirror GStreamer's rate multiplication:
+	///   elapsed * rate
+	/// giving a negative delta for reverse trickplay (rate < 0).
+	std::atomic<int> m_rate{1};
 
 	/// Set to true once the first PLAYING playback state is forwarded to
 	/// the notifiable.  Reset to false on each Configure() call so that
@@ -326,6 +336,9 @@ private:
 	std::string m_videoRectangle;
 
 	PrivateInstanceAAMP *m_aamp;                           ///< Owning AAMP instance
+
+	id3_callback_t m_ID3MetadataHandler;                   ///< Function to call to generate the JS event for in ID3 packet
+
 	IStreamSinkNotifiable *m_notifiable{nullptr};          ///< Playback-state notifier (not owned)
 	/// Owned adapter wrapping PrivateInstanceAAMP as an IStreamSinkNotifiable.
 	/// Non-null only when no test notifiable was injected.
@@ -397,8 +410,50 @@ private:
 	/// Stream() reads this to decide whether it can call play() immediately.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
-	/// GLib source ID for the periodic progress timer. 0 means inactive.
-	unsigned int m_progressTimerId{0};
+	/// @brief Embedded progress timer with immediate-start and kick capability.
+	///
+	/// Fires immediately on start, then continues at specified interval.
+	/// Can be kicked to force immediate dispatch while maintaining interval.
+	class ProgressTimer
+	{
+	public:
+		using Callback = std::function<void()>;
+
+		ProgressTimer() = default;
+		~ProgressTimer();
+
+		/// Start the timer: fires immediately, then at interval.
+		/// Does nothing if already running.
+		void start(guint interval_ms, Callback cb);
+
+		/// Force immediate callback dispatch and restart the interval.
+		void kick();
+
+		/// Stop the timer and clean up resources.
+		void stop();
+
+		/// Return true if the timer is currently running.
+		bool isRunning() const { return started; }
+
+	private:
+		guint interval = 0;
+		Callback callback;
+
+		guint source_id = 0;
+		bool started = false;
+
+	private:
+		// Periodic timeout handler (will be called with AampRialtoPlayer as data)
+		static gboolean timeout_handler(gpointer data);
+
+		// Run callback once
+		void runOnce();
+
+		friend class AampRialtoPlayer;
+	};
+
+	/// Progress timer instance.
+	std::unique_ptr<ProgressTimer> m_progressTimer;
 
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;
@@ -421,17 +476,13 @@ private:
 	/// @brief Called when Rialto reports that a media source has run dry.
 	void OnBufferUnderflow(int32_t sourceId);
 
-	/// @brief Static GLib timeout callback for periodic progress reporting.
-	static int ProgressTimerCallback(void *userData);
-
-	/// @brief Start periodic MonitorProgress() reporting.
-	void StartProgressTimer();
-
-	/// @brief Stop periodic MonitorProgress() reporting.
-	void StopProgressTimer();
-
-	/// @brief Timer tick handler that forwards progress to AAMP.
-	void OnProgressTimerTick();
+	/// @brief Called when Rialto confirms a source flush is complete.
+	///
+	/// Clears the flushing flag on the source and calls
+	/// setSourcePosition() now that the server has confirmed the flush.
+	/// This ensures the SEGMENT event is not discarded while the server
+	/// is still processing the flush.
+	void OnSourceFlushed(int32_t sourceId);
 
 	/**
 	 * @brief Attach a source via its polymorphic attachOrUpdate method.
@@ -445,6 +496,35 @@ private:
 	 *        been attached.
 	 */
 	void CheckAllSourcesAttached();
+
+	/// Set by Stop() to guarantee the next Configure() always recreates
+	/// the pipeline even when stream formats are unchanged.
+	std::atomic<bool> m_pipelineStopped{false};
+
+	/**
+	 * @brief Return true when Configure() must recreate the pipeline.
+	 *
+	 * Rialto does not support dynamic source management; any change to
+	 * the source set requires a full pipeline teardown and recreation.
+	 * The exception is audio transitioning to FORMAT_INVALID (trickplay),
+	 * which is signalled as EOS on the audio source rather than a
+	 * pipeline rebuild.
+	 *
+	 * @param videoFormat                  Requested video format.
+	 * @param audioFormat                  Requested audio format.
+	 * @param subFormat                    Requested subtitle format.
+	 * @param bESChangeStatus              True when an ES change forces
+	 *                                     recreation.
+	 * @param setReadyAfterPipelineCreation True when track-ID mismatch
+	 *                                     forces recreation.
+	 * @return true if the pipeline must be recreated; false otherwise.
+	 */
+	bool ShouldRecreatePipeline(
+		StreamOutputFormat videoFormat,
+		StreamOutputFormat audioFormat,
+		StreamOutputFormat subFormat,
+		bool bESChangeStatus,
+		bool setReadyAfterPipelineCreation) const;
 };
 
 #endif // AAMP_RIALTO_PLAYER_H

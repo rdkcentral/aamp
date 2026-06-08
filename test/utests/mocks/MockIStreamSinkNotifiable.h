@@ -32,6 +32,8 @@ public:
 	MOCK_METHOD(void, NotifyFirstBufferProcessed,
 		(const std::string &videoRectangle), (override));
 
+	MOCK_METHOD(void, NotifyFirstVideoFrameDisplayed, (), (override));
+
 	MOCK_METHOD(void, LogFirstFrame, (), (override));
 
 	MOCK_METHOD(void, LogTuneComplete, (), (override));

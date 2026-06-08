@@ -115,6 +115,12 @@ public:
 
 	/// After a flush new init fragments arrive, restarting source attachment.
 	std::unique_ptr<IPlayerState> onSourceAttaching() override;
+
+	/// Rialto sends PLAYING while flushing (e.g. after seek completes).
+	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
+
+	/// Rialto sends PAUSED while flushing (e.g. seek with keepPaused=1).
+	std::unique_ptr<IPlayerState> onPlaybackPaused() override;
 };
 
 class StoppedState final : public IPlayerState
@@ -204,6 +210,16 @@ std::unique_ptr<IPlayerState> PausedState::onFlush()
 std::unique_ptr<IPlayerState> FlushingState::onSourceAttaching()
 {
 	return std::make_unique<SourcesAttachingState>();
+}
+
+std::unique_ptr<IPlayerState> FlushingState::onPlaybackStarted()
+{
+	return std::make_unique<PlayingState>();
+}
+
+std::unique_ptr<IPlayerState> FlushingState::onPlaybackPaused()
+{
+	return std::make_unique<PausedState>();
 }
 
 // ============================================================================

@@ -93,6 +93,18 @@ public:
 	 */
 	virtual void LogTuneComplete() = 0;
 
+	/**
+	 * @brief Notify that the first video frame has been displayed on screen.
+	 *        Signals to AAMP that the video sink has rendered the first
+	 *        frame, allowing state transitions that depend on visible
+	 *        playback (e.g. pause-on-first-frame).
+	 *
+ 	 * The sink may call this after initial tune and/or seek recovery.
+ 	 * Implementations should internally gate the behavior via
+ 	 * PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired().
+	 */
+	virtual void NotifyFirstVideoFrameDisplayed() = 0;
+
 	// -----------------------------------------------------------------------
 	// End-of-stream
 	// -----------------------------------------------------------------------

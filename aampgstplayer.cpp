@@ -1458,8 +1458,9 @@ void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo
  * @param[in] sample - Media sample to inject (consumed; caller must not access after this call)
  * @return true if sample is successfully injected, false otherwise
  */
-bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool /*morePending*/)
 {
+	// morePending is ignored in this implementation
 	// Bridge AampMediaSample to MediaSample. The single cast to the mutable gpointer type
 	// required by GStreamer's C API is pushed to the C-API boundary inside
 	// InterfacePlayerRDK, where the buffer is wrapped with

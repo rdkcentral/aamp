@@ -132,6 +132,51 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	m_notifiable->MonitorProgress(true, false);
 }
 
+// ===========================================================================
+// ChangeAamp
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_UpdatesTargetInstance)
+{
+	// The fixture's m_aamp is constructed without config (mConfig == nullptr),
+	// while newAamp has a non-null config. This lets us verify ChangeAamp
+	// switched the wrapped instance without relying on g_mockPrivateInstanceAAMP.
+	AampConfig config;
+	PrivateInstanceAAMP newAamp(&config);
+
+	// Force FakeAampConfig fallback behavior for non-null config access.
+	g_mockAampConfig.reset();
+
+	// Sanity: before change, adapter points to fixture m_aamp with null config.
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 0.0);
+
+	// Act.
+	m_notifiable->ChangeAamp(&newAamp);
+
+	// Assert: non-null config path is now used on the new wrapped instance.
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), -1.0);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_AfterChange_OldInstanceNotNotified)
+{
+	// Use an oracle that depends on the wrapped instance pointer itself:
+	// fixture m_aamp has null config, while newAamp has non-null config.
+	AampConfig config;
+	PrivateInstanceAAMP newAamp(&config);
+
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 0.0);
+
+	m_notifiable->ChangeAamp(&newAamp);
+
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(eAAMPConfig_ReportProgressInterval))
+		.WillOnce(Return(1.5));
+
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 1.5);
+}
+
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	GetProgressReportIntervalSeconds_WithNullConfig_ReturnsZero)
 {

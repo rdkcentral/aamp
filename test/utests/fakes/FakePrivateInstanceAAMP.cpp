@@ -1492,8 +1492,12 @@ void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
  * @brief Resume downloads for a track.
  * Called from StreamSink to control flow
  */
-void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
+void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ResumeTrackDownloads(type);
+	}
 }
 
 void PrivateInstanceAAMP::SetDiscontinuityParam()
@@ -1887,11 +1891,11 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	}
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample, bool morePending)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, std::move(sample));
+		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, std::move(sample), morePending);
 	}
 }
 
