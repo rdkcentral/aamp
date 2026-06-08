@@ -278,10 +278,19 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
         drm/ocdm/OcdmGstSessionAdapter.cpp
     )
 
-    # Add GStreamer video dependency using full path (from parent's pkg_check_modules
-    # GSTREAMERVIDEO), consistent with VPAAMP-525 which removed link_directories()
-    # to avoid Xcode appending $(CONFIGURATION) to library search paths.
-    set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
+    # Add GStreamer video dependency.
+    # On Darwin: use the full absolute path via GSTREAMERVIDEO_LINK_LIBRARIES (set by
+    # pkg_check_modules in the parent CMakeLists.txt Darwin block). This is required
+    # because VPAAMP-525 removed link_directories() for Homebrew paths to avoid Xcode
+    # appending $(CONFIGURATION) to search paths; without a directory hint the short
+    # -l flag cannot be resolved by the Xcode linker.
+    # On other platforms: keep the original short flag; link_directories() is still
+    # in effect there and GSTREAMERVIDEO_LINK_LIBRARIES is not set.
+    if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+        set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
+    else()
+        set(LIBPLAYERGSTINTERFACE_DEPENDS "${LIBPLAYERGSTINTERFACE_DEPENDS} -lgstvideo-1.0")
+    endif()
 
     if(CMAKE_USE_OPENCDM_ADAPTER_MOCKS)
         # Add mock headers and sources if mock is enabled
