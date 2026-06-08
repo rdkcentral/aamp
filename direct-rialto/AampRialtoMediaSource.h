@@ -334,10 +334,9 @@ public:
 	 * @brief PTS of the first sample injected since the last reset or
 	 *        invalidateGeneration().
 	 *
-	 * Set on the first injectOneSample() call in each session.  Only one
-	 * injection thread runs per source at a time, so the write is a plain
-	 * atomic store; the atomic type ensures the progress thread's read in
-	 * GetPositionMilliseconds() sees a consistent value.
+	 * Set when the first addSegment() call succeeds in each session.
+	 * This avoids establishing a segment-start baseline for samples that
+	 * never become accepted pipeline content.
 	 * Returns kFirstPtsNotSet if no sample has been injected yet.
 	 *
 	 * Used by AampRialtoPlayer::GetPositionMilliseconds() as the segment-
@@ -436,7 +435,8 @@ protected:
 
 	/// PTS of the first sample injected since the last reset or
 	/// invalidateGeneration(), in milliseconds.  Set lazily via
-	/// compare-exchange in injectOneSample().  kFirstPtsNotSet = not set.
+	/// compare-exchange after addSegment(OK) in injectOneSample().
+	/// kFirstPtsNotSet = not set.
 	std::atomic<int64_t> m_firstPtsMs{kFirstPtsNotSet};
 };
 

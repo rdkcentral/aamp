@@ -733,6 +733,73 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosSetTh
 	EXPECT_TRUE(injected.load());
 }
 
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_NoSpace_DoesNotSetFirstPts
+ * @brief Verify firstPtsMs remains unset when addSegment does not accept
+ *        the sample and the injection loop aborts.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_NoSpace_DoesNotSetFirstPts)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 81;
+		st.pendingFrameCount     = 1;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 81))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x10, 0x11};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 4.0;
+	sample.mDuration = 0.033;
+
+	std::atomic<bool> injected{true};
+	std::atomic<bool> addSegmentReturned{false};
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(81, _))
+		.WillOnce(Invoke([&](uint32_t,
+			const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &)
+			{
+				addSegmentReturned.store(true, std::memory_order_release);
+				return firebolt::rialto::AddSegmentStatus::NO_SPACE;
+			}));
+
+	std::thread injector([&] {
+		injected = m_source.injectOneSample(
+			*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	const auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::milliseconds(200);
+	while (!addSegmentReturned.load(std::memory_order_acquire) &&
+		std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	ASSERT_TRUE(addSegmentReturned.load(std::memory_order_acquire));
+	EXPECT_EQ(m_source.firstPtsMs(), AampRialtoMediaSource::kFirstPtsNotSet);
+
+	m_source.invalidateGeneration();
+
+	injector.join();
+
+	EXPECT_FALSE(injected.load());
+}
+
 // ===========================================================================
 // Fixture: AampRialtoVideoSourceWithDemuxTest
 // Extends AampRialtoVideoSourceTest with a fake Mp4Demux backed by

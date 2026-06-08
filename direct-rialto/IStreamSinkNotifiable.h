@@ -99,8 +99,9 @@ public:
 	 *        frame, allowing state transitions that depend on visible
 	 *        playback (e.g. pause-on-first-frame).
 	 *
-	 * This is only called on the initial tune when the feature is enabled
-	 * via IsFirstVideoFrameDisplayedRequired().
+ 	 * The sink may call this after initial tune and/or seek recovery.
+ 	 * Implementations should internally gate the behavior via
+ 	 * PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired().
 	 */
 	virtual void NotifyFirstVideoFrameDisplayed() = 0;
 

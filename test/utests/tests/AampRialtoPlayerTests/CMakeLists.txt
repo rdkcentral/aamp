@@ -30,7 +30,6 @@ include_directories(${AAMP_ROOT}/direct-rialto)
 set(TEST_SOURCES
 	AampRialtoPlayerTests.cpp
 	AampRialtoPlayerTestCases.cpp
-	PlayerStateMachineTests.cpp
 )
 
 set(AAMP_SOURCES

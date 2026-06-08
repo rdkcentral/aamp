@@ -297,16 +297,6 @@ bool AampRialtoMediaSource::injectOneSample(
 		m_state.injectorActive = true;
 	}
 
-	// Record segment-start on the first sample of each session.
-	// Only one injection thread runs per source at a time, so a plain
-	// load+store is safe.  The relaxed atomic ensures GetPositionMilliseconds()
-	// on the progress thread always sees a consistent value.
-	if (m_firstPtsMs.load(std::memory_order_relaxed) == kFirstPtsNotSet)
-	{
-		const int64_t ptsMs = static_cast<int64_t>(sample.mPts * 1000.0);
-		m_firstPtsMs.store(ptsMs, std::memory_order_relaxed);
-	}
-
 	bool done = false;
 	while (!done)
 	{
@@ -456,6 +446,14 @@ bool AampRialtoMediaSource::injectOneSample(
 		}
 		else
 		{
+			if (addStatus == firebolt::rialto::AddSegmentStatus::OK)
+			{
+				const int64_t ptsMs = static_cast<int64_t>(sample.mPts * 1000.0);
+				int64_t expected = kFirstPtsNotSet;
+				m_firstPtsMs.compare_exchange_strong(
+					expected, ptsMs, std::memory_order_relaxed);
+			}
+
 			if (addStatus != firebolt::rialto::AddSegmentStatus::OK)
 			{
 				AAMPLOG_WARN("addSegment failed sourceId=%d "
@@ -471,7 +469,7 @@ bool AampRialtoMediaSource::injectOneSample(
 				    m_state.hasPending &&
 				    m_state.pendingRequestId == reqId)
 				{
-						++m_state.segmentsAddedInBatch;
+					++m_state.segmentsAddedInBatch;
 					if (m_state.eos)
 					{
 						// Last sample — signal EOS to Rialto.
