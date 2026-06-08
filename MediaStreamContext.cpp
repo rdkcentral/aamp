@@ -36,6 +36,24 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 {
 	assert(!aamp->GetLLDashChunkMode());
 
+	if (cachedFragment->initFragment)
+	{
+		mPendingInitCorrelation = true;
+	}
+	else if (mPendingInitCorrelation || cachedFragment->discontinuity || isDiscontinuity)
+	{
+		AAMPLOG_INFO("TPDBG[InjectCorrelation][%s] initUrl=%s mediaUrl=%s disc=%d abs=%.3f pos=%.3f dur=%.3f ptsOffset=%.3f",
+			name,
+			initialization.c_str(),
+			cachedFragment->uri.c_str(),
+			(cachedFragment->discontinuity || isDiscontinuity),
+			cachedFragment->absPosition,
+			cachedFragment->position,
+			cachedFragment->duration,
+			cachedFragment->PTSOffsetSec);
+		mPendingInitCorrelation = false;
+	}
+
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		fragmentDiscarded = false;
@@ -1047,15 +1065,25 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	URIInfo uriInfo;
 	if (dlInfo->uriList.size() > 0)
 	{
+		AAMPLOG_INFO("TPDBG[DownloadFragment][%s] isInit=%d disc=%d reqBw=%" BITSPERSECOND_FORMAT " mapSize=%zu pts=%.3f abs=%.3f num=%" PRIu64 "",
+			GetMediaTypeName(dlInfo->mediaType), dlInfo->isInitSegment, dlInfo->isDiscontinuity,
+			fragmentDescriptor.Bandwidth, dlInfo->uriList.size(), dlInfo->pts,
+			dlInfo->absolutePosition, dlInfo->fragmentNumber);
 		// Asses the current bandwidth and get the appropriate URIInfo from the map with resolved URLs
 		if (dlInfo->uriList.find(fragmentDescriptor.Bandwidth) != dlInfo->uriList.end())
 		{
 			uriInfo = dlInfo->uriList[fragmentDescriptor.Bandwidth];
+			AAMPLOG_INFO("TPDBG[DownloadFragment][%s] matchedBw=%" BITSPERSECOND_FORMAT " url=%s",
+				GetMediaTypeName(dlInfo->mediaType), fragmentDescriptor.Bandwidth,
+				uriInfo.url.c_str());
 		}
 		if (uriInfo.url.empty() && dlInfo->uriList.size() > 0)
 		{
 			// If the fragment URL is not found in the map, then use the first URL in the map
-			AAMPLOG_WARN("Fragment URL not found in the map, using the first URL in the map");
+			AAMPLOG_WARN("TPDBG[DownloadFragment][%s] URL map miss reqBw=%" BITSPERSECOND_FORMAT " firstBw=%" BITSPERSECOND_FORMAT " usingFirstUrl=%s",
+				GetMediaTypeName(dlInfo->mediaType), fragmentDescriptor.Bandwidth,
+				dlInfo->uriList.begin()->first,
+				dlInfo->uriList.begin()->second.url.c_str());
 			uriInfo = dlInfo->uriList.begin()->second;
 		}
 	}
@@ -1128,6 +1156,9 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 
 	if (dlInfo->isInitSegment)
 	{
+		AAMPLOG_INFO("TPDBG[InitSwitch][%s] newInit=%s prevInit=%s disc=%d",
+			GetMediaTypeName(dlInfo->mediaType), dlInfo->url.c_str(),
+			initialization.c_str(), dlInfo->isDiscontinuity);
 		if (!(initialization.empty()) && (0 == initialization.compare(dlInfo->url)) && !dlInfo->isDiscontinuity)
 		{
 			AAMPLOG_TRACE("We have pushed the same initialization segment for %s skipping", GetMediaTypeName(dlInfo->mediaType));

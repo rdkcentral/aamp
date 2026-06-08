@@ -67,6 +67,7 @@ public:
 			fragmentDescriptor(),
 			context(ctx),
 			initialization(""),
+			mPendingInitCorrelation(false),
 			discontinuity(false),
 			mSkipSegmentOnError(true),
 			lastDownloadedPosition(0), // ,mCMCDNetworkMetrics{-1,-1,-1}
@@ -362,6 +363,7 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	int representationIndex;
 	StreamAbstractionAAMP_MPD* context;
 	std::string initialization;
+	bool mPendingInitCorrelation;
 	uint32_t adaptationSetId;
 	bool mSkipSegmentOnError;
 	double scaledPTO;

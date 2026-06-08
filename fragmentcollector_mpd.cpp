@@ -627,6 +627,14 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		uriList[pMediaStreamContext->fragmentDescriptor.Bandwidth] = fragmentUrl;
 	}
 	AampMediaType actualType = (AampMediaType)(isInitializationSegment?(eMEDIATYPE_INIT_VIDEO+pMediaStreamContext->type):pMediaStreamContext->type);
+	AAMPLOG_INFO("TPDBG[FetchFragment][%s] isInit=%d disc=%d periodIdx=%d periodId=%s fragNum=%" PRIu64 " fragTime=%.3f fDescTime=%.3f bw=%" BITSPERSECOND_FORMAT " rate=%.3f",
+		GetMediaTypeName(actualType), isInitializationSegment, discontinuity,
+		mCurrentPeriodIdx, (mCurrentPeriod ? mCurrentPeriod->GetId().c_str() : "NULL"),
+		pMediaStreamContext->fragmentDescriptor.Number,
+		pMediaStreamContext->fragmentTime,
+		pMediaStreamContext->fragmentDescriptor.Time,
+		pMediaStreamContext->fragmentDescriptor.Bandwidth,
+		mPlayRate);
 	// Log the fragment URLs submission for debugging purpose
 	AAMPLOG_TRACE("JobRequestEnd: %d,%d,", isInitializationSegment? 2:0, actualType);
 	for (const auto& url : uriList)
@@ -8599,6 +8607,17 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool discontinuity)
 {
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
+		AAMPLOG_INFO("TPDBG[FetchInit] track=%d enabled=%d profileChanged=%d discArg=%d discFlag=%d periodIdx=%d periodId=%s fragNum=%" PRIu64 " fragTime=%.3f fDescTime=%.3f",
+			trackIdx,
+			pMediaStreamContext->enabled,
+			pMediaStreamContext->profileChanged,
+			discontinuity,
+			pMediaStreamContext->discontinuity,
+			mCurrentPeriodIdx,
+			(mCurrentPeriod ? mCurrentPeriod->GetId().c_str() : "NULL"),
+			pMediaStreamContext->fragmentDescriptor.Number,
+			pMediaStreamContext->fragmentTime,
+			pMediaStreamContext->fragmentDescriptor.Time);
 
 		if(discontinuity && pMediaStreamContext->enabled)
 		{
@@ -8615,6 +8634,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					std::string initialization = segmentTemplates.Getinitialization();
 					if (!initialization.empty())
 					{
+						AAMPLOG_INFO("TPDBG[FetchInit] track=%d initTemplate=%s mediaTemplate=%s",
+							trackIdx, initialization.c_str(), segmentTemplates.Getmedia().c_str());
 						std::string media = segmentTemplates.Getmedia();
 						pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time;
 						pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number;
@@ -9732,6 +9753,9 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChanged, uint64_t nextSegmentTime)
 {
 	bool discontinuity = false;
+	AAMPLOG_INFO("TPDBG[Discontinuity] enter periodChanged=%d nextSegmentTime=%" PRIu64 " periodIdx=%d periodId=%s rate=%.3f",
+		periodChanged, nextSegmentTime, mCurrentPeriodIdx,
+		(mCurrentPeriod ? mCurrentPeriod->GetId().c_str() : "NULL"), mPlayRate);
 
 	/*Discontinuity handling on period change*/
 	if (periodChanged && ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandling) && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled &&
@@ -9833,6 +9857,9 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 		}
 	}
 	FetchAndInjectInitFragments(discontinuity);
+	AAMPLOG_INFO("TPDBG[Discontinuity] exit discontinuity=%d periodIdx=%d periodId=%s",
+		discontinuity, mCurrentPeriodIdx,
+		(mCurrentPeriod ? mCurrentPeriod->GetId().c_str() : "NULL"));
 }
 
 /**
