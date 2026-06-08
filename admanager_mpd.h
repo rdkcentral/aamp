@@ -364,7 +364,7 @@ class PrivateCDAIObjectMPD
 {
 public:
 	PrivateInstanceAAMP*                           mAamp;               /**< AAMP player's private instance */
-	std::mutex                                     mDaiMtx;             /**< Mutex protecting DAI critical section */
+	std::recursive_mutex                           mDaiMtx;             /**< Mutex protecting DAI critical section (recursive to allow PlaceAds to lock from within a caller already holding mDaiMtx) */
 	bool                                           mIsFogTSB;           /**< Channel playing from TSB or not */
 	std::unordered_map<std::string, AdBreakObject> mAdBreaks;           /**< Periodid to adbreakobject map*/
 	std::unordered_map<std::string, Period2AdData> mPeriodMap;          /**< periodId to Ad map */
@@ -386,6 +386,8 @@ public:
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
+	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
+	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -643,6 +645,13 @@ public:
 	 * @param[in] periodId Period ID for ad placement
 	 */
 	void InsertToPlacementQueue(const std::string& periodId);
+
+	/**
+	 * @brief Store the latest base-stream MPD parse helper so that PlaceAds
+	 *        can be called immediately from FulFillAdObject for cold CDVR/IVOD.
+	 * @param[in] helper Shared pointer to the current AampMPDParseHelper
+	 */
+	void SetBaseMPDParseHelper(AampMPDParseHelperPtr helper);
 };
 
 #endif /* ADMANAGER_MPD_H_ */

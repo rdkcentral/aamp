@@ -83,7 +83,8 @@ void CDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
-					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
+					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV(),
+					mWaitForManifestUpdate(0), mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
 {
 	StartFulfillAdLoop();
 	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
@@ -133,7 +134,7 @@ bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
 void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodIds)
 {
 	//Erase all adbreaks other than new adbreaks
-	std::lock_guard<std::mutex> lock( mDaiMtx );
+	std::lock_guard<std::recursive_mutex> lock( mDaiMtx );
 	for (auto it = mAdBreaks.begin(); it != mAdBreaks.end();)
 	{
 		/* We should not remove the adbreakObj that is currently getting placed (probably due to a bug in PlaceAds)
@@ -185,7 +186,7 @@ void PrivateCDAIObjectMPD::ResetState()
 	 mIsFogTSB = false;
 	 mCurPlayingBreakId = "";
 	 mCurAds = nullptr;
-	 std::lock_guard<std::mutex> lock(mDaiMtx);
+	 std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 	 mCurAdIdx = -1;
 	 mContentSeekOffset = 0;
 	 mAdState = AdState::OUTSIDE_ADBREAK;
@@ -221,6 +222,7 @@ void PrivateCDAIObjectMPD::ClearMaps()
  */
 void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 {
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 	//Some Ad is still waiting for the placement
 	const dash::mpd::IMPD* mpd = nullptr;
 	if (adMPDParseHelper)
@@ -229,10 +231,12 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 	}
 	if(mpd && (-1 != mPlacementObj.curAdIdx) && "" != mPlacementObj.pendingAdbrkId && isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
 	{
+		AAMPLOG_INFO("[CDAI] PlaceAds started for adbreak:%s curAdIdx:%d", mPlacementObj.pendingAdbrkId.c_str(), mPlacementObj.curAdIdx);
 		AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
 		vector<IPeriod *> periods = mpd->GetPeriods();
 		if(!abObj.adjustEndPeriodOffset) // not all ads are placed
 		{
+			AAMPLOG_DEBUG("[CDAI] Adjusting end period offset for adbreak:%s", mPlacementObj.pendingAdbrkId.c_str());
 			bool openPrdFound = false;
 			std::string prevOpenperiodId = mPlacementObj.openPeriodId;
 
@@ -758,6 +762,12 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 			}
 		}
 	}
+	else
+	{
+		AAMPLOG_DEBUG("[CDAI] PlaceAds skipped. mpd:%p, curAdIdx:%d, pendingAdbrkId:%s, isAdBreakObjectExist:%d",
+			mpd, mPlacementObj.curAdIdx, mPlacementObj.pendingAdbrkId.c_str(), isAdBreakObjectExist(mPlacementObj.pendingAdbrkId));
+		return;
+	}
 }
 
 /**
@@ -774,7 +784,7 @@ void PrivateCDAIObjectMPD::UpdateNextPeriodAdPlacement(IPeriod* nextPeriod, uint
 		if (isAdBreakObjectExist(nextPeriodId) && mAdBreaks[nextPeriodId].adsDuration > 0)
 		{
 			// Lock the mutex, so we can delete this entry
-			std::lock_guard<std::mutex> lock(mDaiMtx);
+			std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 			const auto& adBreakObj = mAdBreaks[nextPeriodId];
 			AAMPLOG_ERR("[CDAI] Detected ads for next period[id:%s, breakdur:%" PRIu32 ", numads:%zu] in split periods, not expected",
 				nextPeriodId.c_str(), adBreakObj.brkDuration, adBreakObj.ads->size());
@@ -1160,6 +1170,19 @@ void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
 }
 
 /**
+ * @brief Store the latest base-stream MPD parse helper.
+ *        Called on every manifest refresh so that FulFillAdObject can call
+ *        PlaceAds immediately for static manifest.
+ * @param[in] helper Shared pointer to the current AampMPDParseHelper
+ */
+void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
+{
+	std::lock_guard<std::mutex> lock(mBaseMPDHelperMtx);
+	mBaseMPDParseHelper = helper;
+	AAMPLOG_INFO("mBaseMPDParseHelper updated: %p", (void*)mBaseMPDParseHelper.get());
+}
+
+/**
  * @fn ValidateAdManifest
  * @brief Validate the ad manifest for basic requirements
  * @param[in] adMPDParseHelper - AampMPDParseHelper reference of the ad manifest
@@ -1219,7 +1242,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
 	bool finalManifest = false;
-	std::lock_guard<std::mutex> lock( mDaiMtx );
+	std::unique_lock<std::recursive_mutex> lock( mDaiMtx );
 	int http_error = 0;
 	double downloadTime = 0;
 	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, adErrorCode, true);
@@ -1280,6 +1303,8 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 								adStatus = true;
 							}
 						}
+						// Set node properties before calling PlaceAds so that
+						// PlaceAds sees the correct ad duration.
 						node.mpd = ad;
 						node.duration = durationMs;
 						if (iter == 0)
@@ -1295,6 +1320,22 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 						}
 						node.url = mAdFulfillObj.url;
 						node.resolved = true;
+						// For static manifest content, PlaceAds is not driven by periodic
+						// manifest refreshes.  Call it immediately after the node is fully
+						// set up so the period-to-ad map is built before onAdEvent first runs.
+						// mBaseMPDParseHelper being set is the gate — it is only populated
+						// for static manifests.
+						AampMPDParseHelperPtr baseMPDHelper;
+						{
+							std::lock_guard<std::mutex> helperLock(mBaseMPDHelperMtx);
+							baseMPDHelper = mBaseMPDParseHelper;
+						}
+						if (adStatus && baseMPDHelper)
+						{
+							AAMPLOG_INFO("[CDAI] Static manifest: triggering immediate PlaceAds after fulfillment of ad[%s] for break[%s]",
+								mAdFulfillObj.adId.c_str(), periodId.c_str());
+							PlaceAds(baseMPDHelper);
+						}
 						break;
 					}
 				}
@@ -1377,7 +1418,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 {
 	if("" == adId || "" == url)
 	{
-		std::lock_guard<std::mutex> lock(mDaiMtx);
+		std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 		//Putting a place holder
 		if(!(isAdBreakObjectExist(periodId)))
 		{
@@ -1790,7 +1831,7 @@ bool PrivateCDAIObjectMPD::GetNextAdInBreakToPlace()
  */
 void PrivateCDAIObjectMPD::CancelReservation(const std::string& cancelAtReservationId)
 {
-	std::lock_guard<std::mutex> lock(mDaiMtx); // Ensure thread safety if ad state is shared
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx); // Ensure thread safety if ad state is shared
 
 	if (cancelAtReservationId.empty())
 	{
@@ -1828,7 +1869,7 @@ void PrivateCDAIObjectMPD::CancelReservation(const std::string& cancelAtReservat
  */
 void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 {
-	std::lock_guard<std::mutex> lock(mDaiMtx);
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 	if (isAdBreakObjectExist(reservationId))
 	{
 		AdBreakObject& abObj = mAdBreaks[reservationId];
