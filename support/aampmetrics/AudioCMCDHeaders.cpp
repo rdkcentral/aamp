@@ -71,7 +71,11 @@ void AudioCMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, st
 	// values — they are outside the SER-01/SER-02 kbps/ms rounding scope.
 	if (dnsLookUptime > 0)
 	{
-		entries.push_back(CMCDEntry{"nor", nextUrl, CMCDGroup::Request, false, true});
+		// Guard nor: only emit if the next URL is known — CTA-5004 optional-key rule.
+		if (!nextUrl.empty())
+		{
+			entries.push_back(CMCDEntry{"nor", nextUrl, CMCDGroup::Request, false, true});
+		}
 		entries.push_back(CMCDEntry{"com.comcast-dns", std::to_string(dnsLookUptime), CMCDGroup::Request});
 		entries.push_back(CMCDEntry{"com.comcast-fb", std::to_string(firstByte), CMCDGroup::Request});
 		entries.push_back(CMCDEntry{"com.comcast-lb", std::to_string(lastByte), CMCDGroup::Request});
@@ -82,15 +86,16 @@ void AudioCMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, st
 		entries.push_back(CMCDEntry{"com.comcast-fb", std::to_string(firstByte), CMCDGroup::Request});
 		entries.push_back(CMCDEntry{"com.comcast-lb", std::to_string(lastByte), CMCDGroup::Request});
 	}
-	else
+	else if (!nextUrl.empty())
 	{
+		// Only emit nor when we actually have a next URL to report.
 		entries.push_back(CMCDEntry{"nor", nextUrl, CMCDGroup::Request, false, true});
 		entries.push_back(CMCDEntry{"com.comcast-fb", std::to_string(firstByte), CMCDGroup::Request});
 		entries.push_back(CMCDEntry{"com.comcast-lb", std::to_string(lastByte), CMCDGroup::Request});
 	}
 
 	// Step 3: serialize Object/Request/Status entries into the map.
-	// SerializeToCMCDMap merges into the existing map without clearing, so the
-	// CMCD-Session: entry written by the base class is preserved.
+	// SerializeToCMCDMap writes to different group keys (Object/Request/Status)
+	// than the base class (Session), so the CMCD-Session: entry is preserved.
 	SerializeToCMCDMap(entries, mCMCDCustomHeaders);
 }
