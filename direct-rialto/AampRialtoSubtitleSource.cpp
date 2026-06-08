@@ -104,7 +104,8 @@ bool AampRialtoSubtitleSource::processDataFragment(
 
 bool AampRialtoSubtitleSource::injectSingleSample(
 	firebolt::rialto::IMediaPipeline & /*pipeline*/,
-	AampMediaSample && /*sample*/)
+	AampMediaSample &&/*sample*/,
+	bool /*morePending*/)
 {
 	// TODO: implement subtitle sample injection when subtitle
 	// injection via Rialto is supported.

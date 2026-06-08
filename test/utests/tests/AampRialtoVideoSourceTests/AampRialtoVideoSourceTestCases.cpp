@@ -494,7 +494,10 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_HandleCancelNeedData_Cle
 
 /**
  * @test AampRialtoVideoSource_FlushSource_CallsPipelineFlush
- * @brief Verify flushSource calls flush and setSourcePosition on the pipeline.
+ * @brief Verify flushSource calls flush on the pipeline.
+ *
+ * setSourcePosition() is NOT called from flushSource() — it is deferred
+ * to OnSourceFlushed() after the server confirms the flush.
  */
 TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_CallsPipelineFlush)
 {
@@ -504,9 +507,7 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_FlushSource_CallsPipelin
 	const int64_t posNs = 3'000'000'000LL;
 	EXPECT_CALL(*m_pipelinePtr, flush(m_source.sourceId(), true, _))
 		.WillOnce(Return(true));
-	EXPECT_CALL(*m_pipelinePtr,
-		setSourcePosition(m_source.sourceId(), posNs, _, _, _))
-		.WillOnce(Return(true));
+	EXPECT_CALL(*m_pipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
 
 	m_source.flushSource(*m_pipelinePtr, posNs);
 }
@@ -730,6 +731,73 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InjectOneSample_EosSetTh
 
 	injector.join();
 	EXPECT_TRUE(injected.load());
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_NoSpace_DoesNotSetFirstPts
+ * @brief Verify firstPtsMs remains unset when addSegment does not accept
+ *        the sample and the injection loop aborts.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_NoSpace_DoesNotSetFirstPts)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 81;
+		st.pendingFrameCount     = 1;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 81))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x10, 0x11};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 4.0;
+	sample.mDuration = 0.033;
+
+	std::atomic<bool> injected{true};
+	std::atomic<bool> addSegmentReturned{false};
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(81, _))
+		.WillOnce(Invoke([&](uint32_t,
+			const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &)
+			{
+				addSegmentReturned.store(true, std::memory_order_release);
+				return firebolt::rialto::AddSegmentStatus::NO_SPACE;
+			}));
+
+	std::thread injector([&] {
+		injected = m_source.injectOneSample(
+			*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	const auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::milliseconds(200);
+	while (!addSegmentReturned.load(std::memory_order_acquire) &&
+		std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	ASSERT_TRUE(addSegmentReturned.load(std::memory_order_acquire));
+	EXPECT_EQ(m_source.firstPtsMs(), AampRialtoMediaSource::kFirstPtsNotSet);
+
+	m_source.invalidateGeneration();
+
+	injector.join();
+
+	EXPECT_FALSE(injected.load());
 }
 
 // ===========================================================================
@@ -1004,4 +1072,46 @@ TEST_F(AampRialtoVideoSourceTest,
 		*m_pipelinePtr, std::move(sample));
 
 	EXPECT_TRUE(result);
+}
+
+// ---------------------------------------------------------------------------
+// format() / setFormat() — StreamOutputFormat base-class state
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_format_InitiallyInvalid)
+{
+	/**
+	 * @brief format() must return FORMAT_INVALID before any setFormat() call.
+	 */
+	EXPECT_EQ(m_source.format(), FORMAT_INVALID);
+}
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_setFormat_RoundTrip)
+{
+	/**
+	 * @brief setFormat() stores the value and format() returns it.
+	 */
+	m_source.setFormat(FORMAT_ISO_BMFF);
+	EXPECT_EQ(m_source.format(), FORMAT_ISO_BMFF);
+
+	m_source.setFormat(FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(m_source.format(), FORMAT_VIDEO_ES_H264);
+}
+
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_reset_PreservesFormat)
+{
+	/**
+	 * @brief reset() must not clear the stored stream format.
+	 *
+	 * AampRialtoPlayer::Configure() calls reset() at the start of each
+	 * full-recreation pass.  The format must survive this reset so that
+	 * the old format is still available for comparison before the source
+	 * is replaced.
+	 */
+	m_source.setFormat(FORMAT_ISO_BMFF);
+	m_source.reset();
+	EXPECT_EQ(m_source.format(), FORMAT_ISO_BMFF);
 }

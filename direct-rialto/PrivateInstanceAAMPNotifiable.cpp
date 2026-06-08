@@ -32,6 +32,13 @@ PrivateInstanceAAMPNotifiable::PrivateInstanceAAMPNotifiable(
 {
 }
 
+void PrivateInstanceAAMPNotifiable::ChangeAamp(
+	PrivateInstanceAAMP *newAamp) noexcept
+{
+	AAMPLOG_TRACE("newAamp=%p", newAamp);
+	m_aamp = newAamp;
+}
+
 void PrivateInstanceAAMPNotifiable::NotifyFirstFrameReceived(
 	unsigned long ccDecoderHandle)
 {
@@ -44,6 +51,12 @@ void PrivateInstanceAAMPNotifiable::NotifyFirstBufferProcessed(
 {
 	AAMPLOG_TRACE("videoRectangle=%s", videoRectangle.c_str());
 	m_aamp->NotifyFirstBufferProcessed(videoRectangle);
+}
+
+void PrivateInstanceAAMPNotifiable::NotifyFirstVideoFrameDisplayed()
+{
+	AAMPLOG_TRACE("NotifyFirstVideoFrameDisplayed");
+	m_aamp->NotifyFirstVideoFrameDisplayed();
 }
 
 void PrivateInstanceAAMPNotifiable::LogFirstFrame()

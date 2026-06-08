@@ -59,4 +59,6 @@ public:
 		createSegment,
 		(const AampMediaSample &sample),
 		(const, override));
+
+	MOCK_METHOD(int64_t, firstPtsMs, (), (const, override));
 };

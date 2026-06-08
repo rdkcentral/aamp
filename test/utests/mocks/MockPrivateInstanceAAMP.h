@@ -50,7 +50,7 @@ public:
 	MOCK_METHOD(void, SendErrorEvent, (AAMPTuneFailure, const char *, bool, int32_t, int32_t, int32_t, const std::string &));
 	MOCK_METHOD(void, SendDownloadErrorEvent, (AAMPTuneFailure, long));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
-	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&));
+	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&, bool));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration));
@@ -109,6 +109,7 @@ public:
 	MOCK_METHOD(void, NotifyReservationComplete, (const std::string& reservationId));
 	MOCK_METHOD(void, LoadIDX, (ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, std::vector<uint8_t>& fragment, unsigned int curlInstance, const char *range, int& http_code, double *downloadTime, AampMediaType mediaType, int *fogError));
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
+	MOCK_METHOD(void, ResumeTrackDownloads, (AampMediaType type));
 };
 
 extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;

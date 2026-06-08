@@ -40,6 +40,8 @@ void PrivateInstanceAAMPNotifiable::NotifyFirstFrameReceived(
 void PrivateInstanceAAMPNotifiable::NotifyFirstBufferProcessed(
 	const std::string & /*videoRectangle*/) {}
 
+void PrivateInstanceAAMPNotifiable::NotifyFirstVideoFrameDisplayed() {}
+
 void PrivateInstanceAAMPNotifiable::LogFirstFrame() {}
 
 void PrivateInstanceAAMPNotifiable::LogTuneComplete() {}

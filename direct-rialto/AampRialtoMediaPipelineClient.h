@@ -72,6 +72,10 @@ public:
 	/// Parameter: sourceId
 	using BufferUnderflowCallback = std::function<void(int32_t)>;
 
+	/// Callback invoked when Rialto confirms a source flush is complete.
+	/// Parameter: sourceId
+	using SourceFlushedCallback = std::function<void(int32_t)>;
+
 	AampRialtoMediaPipelineClient();
 	~AampRialtoMediaPipelineClient() override;
 
@@ -113,6 +117,12 @@ public:
 		m_bufferUnderflowCallback = std::move(cb);
 	}
 
+	/// @brief Install callback for notifySourceFlushed events.
+	void SetSourceFlushedCallback(SourceFlushedCallback cb)
+	{
+		m_sourceFlushedCallback = std::move(cb);
+	}
+
 	// IMediaPipelineClient Implementation (All required pure virtuals)
 	void notifyNetworkState(NetworkState state) override;
 	void notifyPlaybackState(PlaybackState state) override;
@@ -147,6 +157,7 @@ private:
 	PositionCallback m_positionCallback;
 	DurationCallback m_durationCallback;
 	BufferUnderflowCallback m_bufferUnderflowCallback;
+	SourceFlushedCallback m_sourceFlushedCallback;
 };
 
 #endif // AAMP_RIALTO_MEDIA_PIPELINE_CLIENT_H

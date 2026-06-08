@@ -55,7 +55,7 @@ bool AampRialtoPlayer::SendTransfer(
 	bool, bool)
 { return false; }
 
-bool AampRialtoPlayer::SendSample(AampMediaType, AampMediaSample &&)
+bool AampRialtoPlayer::SendSample(AampMediaType, AampMediaSample &&, bool /*morePending*/)
 { return false; }
 
 bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType)
@@ -111,6 +111,12 @@ bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *) { return false; }
 void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *, id3_callback_t) {}
 void AampRialtoPlayer::SetEncryptedAamp(PrivateInstanceAAMP *) {}
 void AampRialtoPlayer::ResetFirstFrame() {}
+
+void AampRialtoPlayer::StartProgressTimer() {}
+void AampRialtoPlayer::StopProgressTimer() {}
+void AampRialtoPlayer::OnProgressTimerTick() {}
+
+AampRialtoPlayer::ProgressTimer::~ProgressTimer() {}
 
 void AampRialtoPlayer::RialtoLogHandler::log(
 	Level, const std::string &, int,

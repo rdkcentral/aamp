@@ -8352,12 +8352,12 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vecto
 	aamp_utils::ClearAndRelease(buffer);
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample, bool morePending)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SendSample(mediaType, std::move(sample));
+		sink->SendSample(mediaType, std::move(sample), morePending);
 	}
 }
 

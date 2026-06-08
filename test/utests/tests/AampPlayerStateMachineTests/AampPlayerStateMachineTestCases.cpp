@@ -193,6 +193,36 @@ TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromFlushing_TransitionsToS
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::SOURCES_ATTACHING);
 }
 
+/**
+ * @test FLUSHING + onPlaybackStarted → PLAYING.
+ */
+TEST_F(AampPlayerStateMachineTest,
+	OnPlaybackStarted_FromFlushing_TransitionsToPlaying)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
+	m_sm.onPlaybackStarted();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
+}
+
+/**
+ * @test FLUSHING + onPlaybackPaused → PAUSED.
+ */
+TEST_F(AampPlayerStateMachineTest,
+	OnPlaybackPaused_FromFlushing_TransitionsToPaused)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onPlaybackPaused();
+	m_sm.onFlush();
+	m_sm.onPlaybackPaused();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
+}
+
 // ===========================================================================
 // Cross-state events: onStop (valid from any non-terminal state)
 // ===========================================================================
@@ -301,6 +331,19 @@ TEST_F(AampPlayerStateMachineTest, OnError_FromPaused_TransitionsToError)
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
 }
 
+/**
+ * @test onError from FLUSHING → ERROR.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromFlushing_TransitionsToError)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
+	m_sm.onError();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
 // ===========================================================================
 // Cross-state events: onReconfigure (re-tune resets to IDLE)
 // ===========================================================================
@@ -345,6 +388,19 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromError_TransitionsToIdle)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onError();
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test onReconfigure from FLUSHING → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushing_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
 	m_sm.onReconfigure();
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }
