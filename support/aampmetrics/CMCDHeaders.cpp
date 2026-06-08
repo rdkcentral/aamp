@@ -160,3 +160,39 @@ void  CMCDHeaders::SetNextRange(const std::string &nextrange)
 {
 	mNextRange = nextrange;
 }
+
+/**
+ * @brief   SetStreamingFormat
+ * @param   sf CMCD streaming format token: "d" (DASH), "h" (HLS/HLS-MP4), "s" (Smooth)
+ */
+void CMCDHeaders::SetStreamingFormat(const std::string &sf)
+{
+	mStreamingFormat = sf;
+}
+
+/**
+ * @brief   SetStreamType
+ * @param   st CMCD stream type token: "v" (VOD) or "l" (live)
+ */
+void CMCDHeaders::SetStreamType(const std::string &st)
+{
+	mStreamType = st;
+}
+
+/**
+ * @brief   SetContentId
+ * @param   cid CMCD content identifier; empty string causes the cid key to be omitted
+ */
+void CMCDHeaders::SetContentId(const std::string &cid)
+{
+	mContentId = cid;
+}
+
+/**
+ * @brief   SetPlaybackRate
+ * @param   rate playback rate; 1.0f is normal play (pr key omitted at 1.0f)
+ */
+void CMCDHeaders::SetPlaybackRate(const float &rate)
+{
+	mPlaybackRate = rate;
+}
