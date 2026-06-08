@@ -33,7 +33,8 @@ include_directories(${GMOCK_INCLUDE_DIRS})
 
 set(TEST_SOURCES    VideoCMCDHeadersGTest.cpp
                     VideoCMCDHeadersTest.cpp)
-set(ABR_SOURCES ${AAMPMETRICS_ROOT}/VideoCMCDHeaders.cpp )
+set(ABR_SOURCES ${AAMPMETRICS_ROOT}/VideoCMCDHeaders.cpp
+                ${AAMPMETRICS_ROOT}/CMCDSerializer.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
