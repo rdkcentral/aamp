@@ -24,6 +24,8 @@
 
 #include "VideoCMCDHeaders.h"
 #include "CMCDSerializer.h"
+#include <algorithm>
+#include <cmath>
 using namespace std;
 
 /**
@@ -61,10 +63,48 @@ void VideoCMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, st
 	// bl: buffer length in ms — serializer rounds and omits zero.
 	entries.push_back(CMCDEntry{"bl", std::to_string(bufferLength), CMCDGroup::Request, true});
 
+	// d (KEYS-02): object duration in ms — NOT rounded (all CMCDEntry flags false = default bare token).
+	// Plain integer ms per CTA-5004 §3; locked decision in CONTEXT.md.
+	if (mFragmentDuration > 0)
+	{
+		entries.push_back(CMCDEntry{"d", std::to_string(mFragmentDuration), CMCDGroup::Object});
+	}
+
+	// dl (KEYS-03): deadline in ms = buffered duration / playback rate — isInteger rounds to 100 ms.
+	// kMinRate floor prevents division blow-up at pause/near-zero rate (RESEARCH Pitfall 5).
+	if (bufferLength > 0)
+	{
+		static constexpr float kMinRate = 0.5f;
+		float safeRate = std::max(std::fabs(mPlaybackRate), kMinRate);
+		int dlMs = static_cast<int>(static_cast<float>(bufferLength) / safeRate);
+		entries.push_back(CMCDEntry{"dl", std::to_string(dlMs), CMCDGroup::Request, true});
+	}
+
+	// mtp (KEYS-04): measured throughput in kbps — isInteger rounds to 100 kbps.
+	if (mMeasuredThroughput > 0)
+	{
+		entries.push_back(CMCDEntry{"mtp", std::to_string(mMeasuredThroughput), CMCDGroup::Request, true});
+	}
+
+	// su (KEYS-05): startup-urgent bare token — isBoolToken, identical pattern to bs.
+	if (mStartupUrgent)
+	{
+		entries.push_back(CMCDEntry{"su", "1", CMCDGroup::Request, false, false, true});
+	}
+
 	// bs: boolean bare token — emit only when bufferStarvation is true (SER-06).
 	if (bufferStarvation)
 	{
 		entries.push_back(CMCDEntry{"bs", "1", CMCDGroup::Status, false, false, true});
+	}
+
+	// rtp (KEYS-10): requested max throughput = bitrate * 2, rounded to 100 kbps via isInteger.
+	// Factor of 2 per CTA-5004 client-discretion clause; matches ExoPlayer community default.
+	if (bitrate > 0)
+	{
+		static constexpr float kRtpFactor = 2.0f;
+		int rtpKbps = static_cast<int>(bitrate * kRtpFactor);
+		entries.push_back(CMCDEntry{"rtp", std::to_string(rtpKbps), CMCDGroup::Status, true});
 	}
 
 	// nor / nrr / Comcast custom keys: preserve existing branch logic.

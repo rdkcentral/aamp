@@ -357,9 +357,11 @@ TEST(CMCDSerialization_GroupMapping, KeysInCorrectGroups)
     EXPECT_THAT(obj, ::testing::Not(HasSubstr("sid=")));
     EXPECT_THAT(req, ::testing::Not(HasSubstr("sid=")));
 
-    // bs must be in CMCD-Status and not leak into Object/Request
+    // bs must be in CMCD-Status and not leak into Object/Request.
+    // rtp=4000 (bitrate=2000*2) also appears in Status now that rtp emission is implemented —
+    // the test only checks that bs is in the correct group, not that Status has exactly one token.
     const std::string status = JoinedValue(headers, "CMCD-Status:");
-    EXPECT_EQ(status, "bs");
+    EXPECT_THAT(status, HasSubstr("bs"));
     EXPECT_THAT(obj, ::testing::Not(HasSubstr("bs")));
     EXPECT_THAT(req, ::testing::Not(HasSubstr("bs")));
 }
