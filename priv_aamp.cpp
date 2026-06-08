@@ -3438,7 +3438,10 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatencyMs(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
 	}
-	mCMCDCollector->CMCDSetPlaybackRate(rate);
+	if (mCMCDCollector)
+	{
+		mCMCDCollector->CMCDSetPlaybackRate(rate);
+	}
 }
 
 /**
@@ -4637,11 +4640,22 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			// d: object duration in ms — emit only for actual media segments (not init/manifest).
 			// Uses mmediaT (remapped type) so INIT_VIDEO/INIT_AUDIO are excluded by the gate on
 			// original mediaType while the correct VIDEO/AUDIO header instance is updated (RESEARCH Pitfall 4).
-			if (mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO)
+			if (mCMCDCollector)
 			{
-				mCMCDCollector->CMCDSetFragmentDuration(mmediaT, fragmentDurationMs);
+				if (mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO)
+				{
+					mCMCDCollector->CMCDSetFragmentDuration(mmediaT, fragmentDurationMs);
+				}
+				else if (mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_INIT_AUDIO)
+				{
+					// Init segment: clear d so the previous media-segment duration does not
+					// leak through the shared VIDEO/AUDIO CMCDHeaders instance (CR-01).
+					// CTA-5004 §3: d = duration of the *requested object*; init segments
+					// have no playback duration, so d must be omitted.
+					mCMCDCollector->CMCDSetFragmentDuration(mmediaT, 0);
+				}
+				mCMCDCollector->CMCDGetHeaders(mmediaT,cmcdCustomHeader);
 			}
-			mCMCDCollector->CMCDGetHeaders(mmediaT,cmcdCustomHeader);
 
 			if (cmcdCustomHeader.size() > 0)
 			{
