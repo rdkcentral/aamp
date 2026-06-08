@@ -58,5 +58,8 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} Fake ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+# Do NOT link Fake here — the serializer tests exercise pure free functions with
+# no CMCDHeaders dependency. Fake provides a no-op BuildCMCDCustomHeaders override
+# that is unnecessary here and creates a brittle cross-binary dependency.
+target_link_libraries(${EXEC_NAME} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
