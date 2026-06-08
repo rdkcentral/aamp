@@ -446,3 +446,65 @@ void AampCMCDCollector::CMCDSetPlaybackRate(float rate)
 		AAMPLOG_TRACE("[CMCD] CMCDSetPlaybackRate rate=%g", static_cast<double>(rate));
 	}
 }
+
+/**
+ * @brief CMCDSetFragmentDuration Set the object duration (d) in ms on a single media-type instance.
+ *        Per-download value; uses single-instance find() pattern (not all-instances loop).
+ *        Phase-2 CR-01 guard: checks both it != end() and it->second before dereferencing.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetFragmentDuration(AampMediaType mediaType, int durationMs)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		StreamTypeCMCDIter it = mCMCDStreamData.find(mediaType);
+		if (it != mCMCDStreamData.end() && it->second)
+		{
+			it->second->SetFragmentDuration(durationMs);
+		}
+	}
+}
+
+/**
+ * @brief CMCDSetMeasuredThroughput Set the measured throughput (mtp) in kbps on a single media-type instance.
+ *        Per-download value; uses single-instance find() pattern (not all-instances loop).
+ *        Phase-2 CR-01 guard: checks both it != end() and it->second before dereferencing.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetMeasuredThroughput(AampMediaType mediaType, int kbps)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		StreamTypeCMCDIter it = mCMCDStreamData.find(mediaType);
+		if (it != mCMCDStreamData.end() && it->second)
+		{
+			it->second->SetMeasuredThroughput(kbps);
+		}
+	}
+}
+
+/**
+ * @brief CMCDSetStartupUrgent Set the startup-urgent flag (su) on a single media-type instance.
+ *        Per-download value; uses single-instance find() pattern (not all-instances loop).
+ *        Phase-2 CR-01 guard: checks both it != end() and it->second before dereferencing.
+ *        Must be called with the current computed value on every SetCMCDTrackData invocation
+ *        so that su clears once IsTuneTypeNew goes false after startup (RESEARCH Pitfall 3).
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetStartupUrgent(AampMediaType mediaType, bool startupUrgent)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		StreamTypeCMCDIter it = mCMCDStreamData.find(mediaType);
+		if (it != mCMCDStreamData.end() && it->second)
+		{
+			it->second->SetStartupUrgent(startupUrgent);
+		}
+	}
+}

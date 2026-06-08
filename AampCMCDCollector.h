@@ -146,6 +146,39 @@ public:
 	 */
 	void CMCDSetPlaybackRate(float rate);
 
+	/**
+	 * @brief CMCDSetFragmentDuration Set the object duration (d) in ms for a single media-type instance.
+	 *        Called from GetFile() for video/audio media segments only (not init/manifest).
+	 *        Feeds the d key in CMCD-Object.
+	 *
+	 * @param[in] mediaType  - media type identifying the CMCDHeaders instance to update
+	 * @param[in] durationMs - fragment duration in milliseconds; 0 is stored but subclass omits when 0
+	 * @return None
+	 */
+	void CMCDSetFragmentDuration(AampMediaType mediaType, int durationMs);
+
+	/**
+	 * @brief CMCDSetMeasuredThroughput Set the measured throughput (mtp) in kbps for a single media-type instance.
+	 *        Called from SetCMCDTrackData() using mhAbrManager.GetNetworkBandwidth()/1000.
+	 *        Feeds the mtp key in CMCD-Request.
+	 *
+	 * @param[in] mediaType - media type identifying the CMCDHeaders instance to update
+	 * @param[in] kbps      - measured throughput in kilobits per second; 0 suppresses emission
+	 * @return None
+	 */
+	void CMCDSetMeasuredThroughput(AampMediaType mediaType, int kbps);
+
+	/**
+	 * @brief CMCDSetStartupUrgent Set the startup-urgent flag (su) for a single media-type instance.
+	 *        Called from SetCMCDTrackData() with bufferRedStatus || IsTuneTypeNew.
+	 *        Feeds the su bare token in CMCD-Request when true.
+	 *
+	 * @param[in] mediaType      - media type identifying the CMCDHeaders instance to update
+	 * @param[in] startupUrgent  - true when request is startup, seek, or rebuffer urgent
+	 * @return None
+	 */
+	void CMCDSetStartupUrgent(AampMediaType mediaType, bool startupUrgent);
+
 private:
 	bool bCMCDEnabled;			/**< CMCD enable/disable flag  */
 	typedef std::map<int, CMCDHeaders *> StreamTypeCMCD;
