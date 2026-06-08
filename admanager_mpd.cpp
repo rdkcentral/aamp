@@ -97,7 +97,8 @@ bool CDAIObjectMPD::IsAdPlaying()
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
-					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
+					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV(),
+					mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
 {
 	StartFulfillAdLoop();
 	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
@@ -241,12 +242,20 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 	{
 		mpd = adMPDParseHelper->getMPD();
 	}
+	if(!mpd || (-1 == mPlacementObj.curAdIdx) || "" == mPlacementObj.pendingAdbrkId || !isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
+	{
+		AAMPLOG_INFO("[CDAI] PlaceAds skipped. mpd:%p, curAdIdx:%d, pendingAdbrkId:%s, isAdBreakObjectExist:%d",
+			mpd, mPlacementObj.curAdIdx, mPlacementObj.pendingAdbrkId.c_str(), isAdBreakObjectExist(mPlacementObj.pendingAdbrkId));
+		return;
+	}
 	if(mpd && (-1 != mPlacementObj.curAdIdx) && "" != mPlacementObj.pendingAdbrkId && isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
 	{
+		AAMPLOG_INFO("[CDAI] PlaceAds started for adbreak:%s curAdIdx:%d", mPlacementObj.pendingAdbrkId.c_str(), mPlacementObj.curAdIdx);
 		AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
 		vector<IPeriod *> periods = mpd->GetPeriods();
 		if(!abObj.adjustEndPeriodOffset) // not all ads are placed
 		{
+			AAMPLOG_INFO("[CDAI] Adjusting end period offset for adbreak:%s", mPlacementObj.pendingAdbrkId.c_str());
 			bool openPrdFound = false;
 			std::string prevOpenperiodId = mPlacementObj.openPeriodId;
 
@@ -1183,6 +1192,19 @@ void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
 }
 
 /**
+ * @brief Store the latest base-stream MPD parse helper.
+ *        Called on every manifest refresh so that FulFillAdObject can call
+ *        PlaceAds immediately for cold CDVR / IVOD content.
+ * @param[in] helper Shared pointer to the current AampMPDParseHelper
+ */
+void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
+{
+	std::lock_guard<std::mutex> lock(mBaseMPDHelperMtx);
+	mBaseMPDParseHelper = helper;
+	AAMPLOG_INFO("mBaseMPDParseHelper updated in SetBaseMPDParseHelper: %p", mBaseMPDParseHelper.get());
+}
+
+/**
  * @fn ValidateAdManifest
  * @brief Validate the ad manifest for basic requirements
  * @param[in] adMPDParseHelper - AampMPDParseHelper reference of the ad manifest
@@ -1242,7 +1264,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
 	bool finalManifest = false;
-	std::lock_guard<std::mutex> lock( mDaiMtx );
+	std::unique_lock<std::mutex> lock( mDaiMtx );
 	int http_error = 0;
 	double downloadTime = 0;
 	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, adErrorCode, true);
@@ -1303,6 +1325,8 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 								adStatus = true;
 							}
 						}
+						// Set node properties before calling PlaceAds so that
+						// PlaceAds sees the correct ad duration.
 						node.mpd = ad;
 						node.duration = durationMs;
 						if (iter == 0)
@@ -1318,6 +1342,38 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 						}
 						node.url = mAdFulfillObj.url;
 						node.resolved = true;
+						// For cold CDVR / IVOD the manifest is static – PlaceAds is not
+						// driven by periodic manifest refreshes.  Call it immediately
+						// after the node is fully set up so the period-to-ad map is
+						// built before onAdEvent first runs.
+						if (adStatus && (mAamp->IsCDVRContent() || mAamp->IsIVODContent()))
+						{
+							AAMPLOG_INFO("[CDAI] Cold CDVR/IVOD: calling PlaceAds immediately after fulfilling ad[%s] for break[%s]",
+								mAdFulfillObj.adId.c_str(), periodId.c_str());
+							AampMPDParseHelperPtr baseMPDHelper;
+							{
+								std::lock_guard<std::mutex> helperLock(mBaseMPDHelperMtx);
+								baseMPDHelper = mBaseMPDParseHelper;
+								AAMPLOG_INFO("[CDAI] Cold CDVR/IVOD: got mBaseMPDHelper %p in FulFillAdObject", baseMPDHelper.get());
+							}
+							if (baseMPDHelper)
+							{
+								AAMPLOG_INFO("[CDAI] Static manifest: triggering immediate PlaceAds after fulfillment of ad[%s] for break[%s]",
+									mAdFulfillObj.adId.c_str(), periodId.c_str());
+								// Release mDaiMtx while calling PlaceAds so that the
+								// fetcher thread can also run onAdEvent concurrently.
+								lock.unlock();
+								AAMPLOG_INFO("[CDAI] Cold CDVR/IVOD: calling PlaceAds with base MPD helper %p", baseMPDHelper.get());
+								PlaceAds(baseMPDHelper);
+								lock.lock();
+							}
+							else
+							{
+								AAMPLOG_INFO("[CDAI] Cold CDVR/IVOD: base MPD helper not set yet, "
+									"PlaceAds deferred to next manifest refresh periodId:%s",
+									periodId.c_str());
+							}
+						}
 						break;
 					}
 				}
