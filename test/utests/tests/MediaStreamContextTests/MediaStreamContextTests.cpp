@@ -45,8 +45,8 @@ class MediaStreamContextTest : public testing::Test
         mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(NULL,123.45,12.34);
         mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
         mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO,mStreamAbstractionAAMP_MPD,mPrivateInstanceAAMP,"SAMPLETEXT");
-        g_mockAampConfig = new MockAampConfig();
-        g_mockMediaTrack = new NiceMock<MockMediaTrack>();
+        g_mockAampConfig = std::make_shared<MockAampConfig>();
+        g_mockMediaTrack = std::make_shared<NiceMock<MockMediaTrack>>();
     }
     
     void TearDown() override
@@ -60,11 +60,9 @@ class MediaStreamContextTest : public testing::Test
         delete mMediaStreamContext;
         mMediaStreamContext = nullptr;
         
-        delete g_mockAampConfig;
-        g_mockAampConfig = nullptr;
+        g_mockAampConfig.reset();
 
-        delete g_mockMediaTrack;
-        g_mockMediaTrack = nullptr;
+        g_mockMediaTrack.reset();
     }
     public:
     StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
@@ -225,7 +223,7 @@ TEST_F(MediaStreamContextTest, CacheFragmentChunkTestWithDurationInTicks)
     mMediaStreamContext->mActiveDownloadInfo = downloadInfo;
 
     CachedFragment cachedFragment;
-    EXPECT_CALL(*g_mockMediaTrack, GetFetchChunkBuffer(true))
+    EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(true))
         .WillOnce(Return(&cachedFragment));
 
     bool result = mMediaStreamContext->CacheFragmentChunk(eMEDIATYPE_VIDEO, testData, testDataSize, remoteUrl, dnldStartTime, durationInTicks);

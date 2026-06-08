@@ -32,6 +32,7 @@
 #include "priv_aamp.h"
 #include "IControl.h"
 #include "AampRialtoControlBackend.h"
+#include <glib.h>
 #include <chrono>
 #include <cinttypes>
 #include <algorithm>
@@ -82,6 +83,8 @@ namespace {
 	/// the timeout exists only to avoid a permanent hang if the Rialto server
 	/// never reports RUNNING.
 	constexpr int kRialtoRunningTimeoutMs = 2000;
+
+	constexpr unsigned int kMsPerSecond = 1000;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +164,7 @@ AampRialtoPlayer::AampRialtoPlayer(
 
 AampRialtoPlayer::~AampRialtoPlayer()
 {
+	StopProgressTimer();
 	for (auto &source : m_sources)
 	{
 		if (source)
@@ -300,6 +304,7 @@ void AampRialtoPlayer::Configure(
 	// (re-tune or first tune).  This resets to IDLE from whatever previous
 	// state the player was in.
 	m_stateMachine.onReconfigure();
+	StopProgressTimer();
 
 	// Reset first-frame flag so the new tune session forwards the initial
 	// PLAYING notification correctly.
@@ -788,6 +793,7 @@ void AampRialtoPlayer::Stream()
 void AampRialtoPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_INFO("ENTRY keepLastFrame=%d", keepLastFrame);
+	StopProgressTimer();
 	
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
@@ -1374,6 +1380,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		case firebolt::rialto::PlaybackState::PLAYING:
 		{
 			m_stateMachine.onPlaybackStarted();
+			StartProgressTimer();
 
 			// Clear injectionGated so inject threads resume blocking
 			// normally on needData rather than aborting immediately.
@@ -1435,7 +1442,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 
 void AampRialtoPlayer::OnPosition(int64_t positionNs)
 {
-	m_notifiable->MonitorProgress();
+	// Not used
 }
 
 void AampRialtoPlayer::OnDuration(int64_t durationNs)
@@ -1489,4 +1496,86 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 	}
 
 	AAMPLOG_INFO("EXIT");
+}
+
+int AampRialtoPlayer::ProgressTimerCallback(void *userData)
+{
+	gboolean keepRunning = G_SOURCE_REMOVE;
+	auto *player = static_cast<AampRialtoPlayer *>(userData);
+	if (player)
+	{
+		player->OnProgressTimerTick();
+		keepRunning = G_SOURCE_CONTINUE;
+	}
+	return keepRunning;
+}
+
+void AampRialtoPlayer::StartProgressTimer()
+{
+	if (m_progressTimerId != 0)
+	{
+		AAMPLOG_INFO("Progress timer already running id=%u", m_progressTimerId);
+		return;
+	}
+
+	double intervalSeconds = 0.0;
+	if (m_notifiable == nullptr)
+	{
+		AAMPLOG_WARN("notifiable is null, progress timer not started");
+	}
+	else
+	{
+		intervalSeconds = m_notifiable->GetProgressReportIntervalSeconds();
+	}
+
+	unsigned int intervalMs = 0;
+	if (intervalSeconds > 0.0)
+	{
+		intervalMs = static_cast<unsigned int>(intervalSeconds * kMsPerSecond);
+	}
+
+	if (intervalMs == 0)
+	{
+		AAMPLOG_WARN("Invalid progress interval=%f seconds; timer disabled",
+			intervalSeconds);
+	}
+	else
+	{
+		m_progressTimerId = g_timeout_add(intervalMs, ProgressTimerCallback, this);
+		if (m_progressTimerId == 0)
+		{
+			AAMPLOG_WARN("Failed to start progress timer");
+		}
+		else
+		{
+			AAMPLOG_INFO("Started progress timer id=%u interval=%u ms",
+				m_progressTimerId, intervalMs);
+		}
+	}
+}
+
+void AampRialtoPlayer::StopProgressTimer()
+{
+	if (m_progressTimerId != 0)
+	{
+		if (!g_source_remove(m_progressTimerId))
+		{
+			AAMPLOG_WARN("Failed to remove progress timer id=%u",
+				m_progressTimerId);
+		}
+		m_progressTimerId = 0;
+	}
+}
+
+void AampRialtoPlayer::OnProgressTimerTick()
+{
+	if (m_notifiable == nullptr)
+	{
+		AAMPLOG_WARN("notifiable is null on progress timer tick");
+	}
+	else
+	{
+		m_notifiable->MonitorProgress(/*sync=*/false,
+			/*beginningOfStream=*/false);
+	}
 }

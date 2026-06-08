@@ -27,7 +27,7 @@
 #include <cstdarg>
 
 
-MockCurl *g_mockCurl = nullptr;
+std::shared_ptr<MockCurl> g_mockCurl{};
 
 
 void curl_easy_cleanup(CURL *curl)
@@ -130,6 +130,13 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...)
             {
                 curl_progress_callback_t func_ptr = va_arg(arg, curl_progress_callback_t);
                 curl_code = g_mockCurl->curl_easy_setopt_func_xferinfo(handle, option, func_ptr);
+            }
+            break;
+
+            case CURLOPT_DNS_CACHE_TIMEOUT:
+            {
+                long value = va_arg(arg, long);
+                curl_code = g_mockCurl->curl_easy_setopt_long(handle, option, value);
             }
             break;
 

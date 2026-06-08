@@ -21,6 +21,7 @@
 #define AAMP_MOCK_STREAM_ABSTRACTION_AAMP_MPD_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "fragmentcollector_mpd.h"
 
 class MockStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
@@ -42,9 +43,10 @@ public:
 	MOCK_METHOD(std::vector<AudioTrackInfo>&, GetAvailableAudioTracks, (bool allTrack), (override));
 	MOCK_METHOD(double, GetFirstPTS, (), (override));
 	MOCK_METHOD(double, GetBufferedDuration, (), (override));
+	MOCK_METHOD(AAMPStatusType, UpdateTrackInfo, (bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit), (override));
 
   };
 
-extern MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD;
+extern std::shared_ptr<MockStreamAbstractionAAMP_MPD> g_mockStreamAbstractionAAMP_MPD;
 
 #endif /* AAMP_MOCK_STREAM_ABSTRACTION_AAMP_MPD_H */

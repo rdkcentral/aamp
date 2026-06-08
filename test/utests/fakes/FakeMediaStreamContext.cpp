@@ -20,7 +20,7 @@
 #include "MediaStreamContext.h"
 #include "MockMediaStreamContext.h"
 
-MockMediaStreamContext *g_mockMediaStreamContext = nullptr;
+std::shared_ptr<MockMediaStreamContext> g_mockMediaStreamContext{};
 
 bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
 {

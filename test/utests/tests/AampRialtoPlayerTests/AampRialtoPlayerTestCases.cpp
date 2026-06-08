@@ -46,6 +46,8 @@
 #include "MockIStreamSinkNotifiable.h"
 #include "MockIRialtoControlBackend.h"
 #include "MockAampRialtoMediaSource.h"
+#include "MockAampConfig.h"
+#include "MockGLib.h"
 
 using ::testing::_;
 using ::testing::AnyOf;
@@ -53,6 +55,7 @@ using ::testing::DoAll;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::SaveArg;
 using ::testing::SetArgReferee;
 using ::testing::StrictMock;
 using ::testing::WithArg;
@@ -110,7 +113,25 @@ class AampRialtoPlayerTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockGLib = std::make_shared<NiceMock<MockGLib>>();
+
+		ON_CALL(*g_mockAampConfig,
+			GetConfigValue(eAAMPConfig_ReportProgressInterval))
+			.WillByDefault(Return(1.0));
+
+		ON_CALL(*g_mockGLib, g_timeout_add(_, _, _))
+			.WillByDefault(Invoke(
+				[this](guint /*interval*/, GSourceFunc function, gpointer data)
+				{
+					m_progressTimerCallback = function;
+					m_progressTimerUserData = data;
+					return m_nextTimerId++;
+				}));
+
+		ON_CALL(*g_mockGLib, g_source_remove(_))
+			.WillByDefault(Return(TRUE));
 
 		m_mockFactory = std::make_shared<NiceMock<MockIMediaPipelineFactory>>();
 		m_mockPipeline = std::make_unique<NiceMock<MockIMediaPipeline>>();
@@ -178,6 +199,9 @@ protected:
 
 		// Build a SourceCreator lambda that returns mock sources and
 		// captures raw pointers so tests can set per-test expectations.
+		ON_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
+			.WillByDefault(Return(1.0));
+
 		SourceCreator sourceCreator =
 			[this](AampMediaType type)
 				-> std::unique_ptr<AampRialtoMediaSource>
@@ -269,7 +293,7 @@ protected:
 			};
 
 		m_player = std::make_unique<AampRialtoPlayer>(
-				reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
+				reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
 				&m_mockNotifiable,
 				std::move(controlBackend),
 				/*id3HandlerCallback=*/nullptr,
@@ -280,12 +304,16 @@ protected:
 	void TearDown() override
 	{
 		m_player.reset();
+		g_mockGLib.reset();
+		g_mockAampConfig.reset();
 		g_mockPipelineFactory = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 		m_nextSourceId = 0;
 		m_createSourceCallCount = 0;
 		m_mockSources = {};
+		m_progressTimerCallback = nullptr;
+		m_progressTimerUserData = nullptr;
+		m_nextTimerId = 1;
 	}
 
 	/// Post a playback-state notification via the captured client.
@@ -452,6 +480,15 @@ protected:
 			0, 0, 0, 0, /*initFragment=*/true);
 	}
 
+	void TriggerProgressTimerTick()
+	{
+		ASSERT_NE(m_progressTimerCallback, nullptr)
+			<< "Configure() must install progress timer callback";
+		ASSERT_NE(m_progressTimerUserData, nullptr)
+			<< "Configure() must install progress timer user data";
+		m_progressTimerCallback(m_progressTimerUserData);
+	}
+
 	std::shared_ptr<NiceMock<MockIMediaPipelineFactory>> m_mockFactory;
 	std::unique_ptr<NiceMock<MockIMediaPipeline>>        m_mockPipeline;
 	NiceMock<MockIMediaPipeline> *                       m_mockPipelinePtr{nullptr};
@@ -462,6 +499,9 @@ protected:
 	std::array<NiceMock<MockAampRialtoMediaSource> *, 3> m_mockSources{};
 	int                                                  m_createSourceCallCount{0};
 	int32_t                                              m_nextSourceId{0};
+	GSourceFunc                                          m_progressTimerCallback{nullptr};
+	gpointer                                             m_progressTimerUserData{nullptr};
+	guint                                                m_nextTimerId{1};
 };
 
 /**
@@ -475,12 +515,12 @@ protected:
 	void SetUp() override
 	{
 		AampRialtoPlayerTest::SetUp();
-		g_mockMp4Demux = new NiceMock<MockMp4Demux>();
+		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockMp4Demux;
+		g_mockMp4Demux.reset();
 		g_mockMp4Demux = nullptr;
 		AampRialtoPlayerTest::TearDown();
 	}
@@ -507,7 +547,7 @@ TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
 	SourceCreator nullCreator = [](AampMediaType) { return nullptr; };
 
 	m_player = std::make_unique<AampRialtoPlayer>(
-		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP),
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
 		&m_mockNotifiable,
 		std::unique_ptr<IRialtoControlBackend>(nullptr),
 		/*id3HandlerCallback=*/nullptr,
@@ -1214,7 +1254,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 	// that ClearProtectionEvent has a live bridge to call clearSessions() on.
 	// The fake AampDrmBridge delegates every call to g_mockDrmBridge, which
 	// the fixture wires to m_mockDrmBridge — so the expectation is satisfied.
-	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP);
+	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
 	m_player->SetEncryptedAamp(aamp);
 
 	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(1);
@@ -1231,7 +1271,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 	// Before any call the bridge is absent; SetEncryptedAamp must create it.
 	// The fake AampDrmBridge delegates to g_mockDrmBridge, so subsequent
 	// calls on the player's bridge reach m_mockDrmBridge.
-	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP);
+	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
 	m_player->SetEncryptedAamp(aamp);
 
 	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(1);
@@ -1259,7 +1299,7 @@ TEST_F(AampRialtoPlayerDrmTest,
 	// NOT replace it — the lazy guard `if (!m_drmBridge)` ensures this.
 	// Verify by checking createSession is called through the same mock.
 	const uint8_t initData[] = {0x01};
-	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP);
+	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
 	m_player->SetEncryptedAamp(aamp);
 
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
@@ -1479,15 +1519,87 @@ TEST_F(AampRialtoPlayerTest,
 // ===========================================================================
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	NotifyPosition_CallsMonitorProgress)
+	NotifyPosition_DoesNotCallMonitorProgress)
 {
 	Configure();
 
 	EXPECT_CALL(m_mockNotifiable, MonitorProgress(/*sync=*/false, /*bos=*/false))
-		.Times(1);
+		.Times(0);
 
 	constexpr int64_t kTwoSecondsNs = 2'000'000'000LL;
 	PostPosition(kTwoSecondsNs);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Playing_StartsProgressTimer_UsesConfiguredInterval)
+{
+	constexpr guint kExpectedIntervalMs = 250;
+	EXPECT_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
+		.WillOnce(Return(0.25));
+	EXPECT_CALL(*g_mockGLib,
+		g_timeout_add(kExpectedIntervalMs, _, m_player.get()))
+		.WillOnce(DoAll(
+			SaveArg<1>(&m_progressTimerCallback),
+			SaveArg<2>(&m_progressTimerUserData),
+			Return(101)));
+
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_DoesNotStartProgressTimer)
+{
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)).Times(0);
+
+	Configure();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	ProgressTimer_WhenPaused_StillReportsProgress)
+{
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_TRUE(m_player->Pause(
+		/*pause=*/true,
+		/*forceStopGstreamerPreBuffering=*/false));
+
+	EXPECT_CALL(m_mockNotifiable,
+		MonitorProgress(/*sync=*/false, /*bos=*/false))
+		.Times(1);
+
+	TriggerProgressTimerTick();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_RemovesProgressTimer)
+{
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _))
+		.WillOnce(DoAll(
+			SaveArg<1>(&m_progressTimerCallback),
+			SaveArg<2>(&m_progressTimerUserData),
+			Return(77)));
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*g_mockGLib, g_source_remove(77))
+		.WillOnce(Return(TRUE));
+	m_player->Stop(/*keepLastFrame=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Playing_DoesNotRestartProgressTimerWhenAlreadyRunning)
+{
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)).Times(1)
+		.WillOnce(DoAll(
+			SaveArg<1>(&m_progressTimerCallback),
+			SaveArg<2>(&m_progressTimerUserData),
+			Return(88)));
+
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
 
 // Segment start = 0: elapsed time equals raw PTS (unchanged behaviour for

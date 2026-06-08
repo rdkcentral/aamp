@@ -1,0 +1,21 @@
+You are designing assertions and instrumentation to make ABR spec compliance auditable.
+
+Spec (authoritative):
+[PASTE NORMATIVE SPEC v1 HERE]
+
+Existing logging/events (if any):
+[PASTE EXAMPLES OR NOTE NONE]
+
+Tasks:
+1) For each MUST/MUST NOT rule:
+   - Propose an invariant check (assertion) or structured log event
+   - Specify required fields (buffer, predicted times, chosen profile, alternatives, etc.)
+2) Identify which rules cannot be audited with current data and what must be logged
+3) Provide a minimal event schema (JSON-like) for:
+   - Profile decision
+   - Prediction inputs/outputs
+   - Bail decision and alternatives
+   - targetLatency adjustments (with reason + episode id)
+   - stableBufferTime resets/advances
+   - playbackSpeed transitions
+4) Provide example log lines for one normal and one edge-case scenario.
