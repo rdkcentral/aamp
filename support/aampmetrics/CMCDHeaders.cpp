@@ -252,3 +252,30 @@ void CMCDHeaders::SetPlaybackRate(const float &rate)
 {
 	mPlaybackRate = rate;
 }
+
+/**
+ * @brief   SetFragmentDuration
+ * @param   durationMs object duration in milliseconds; 0 omits the d key
+ */
+void CMCDHeaders::SetFragmentDuration(const int &durationMs)
+{
+	mFragmentDuration = durationMs;
+}
+
+/**
+ * @brief   SetMeasuredThroughput
+ * @param   kbps measured network throughput in kbps; 0 omits the mtp key
+ */
+void CMCDHeaders::SetMeasuredThroughput(const int &kbps)
+{
+	mMeasuredThroughput = kbps;
+}
+
+/**
+ * @brief   SetStartupUrgent
+ * @param   startupUrgent true emits bare su token in CMCD-Request; false omits it
+ */
+void CMCDHeaders::SetStartupUrgent(const bool &startupUrgent)
+{
+	mStartupUrgent = startupUrgent;
+}

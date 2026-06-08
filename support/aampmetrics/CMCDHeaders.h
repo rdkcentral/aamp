@@ -64,9 +64,12 @@ protected:
 	std::string mStreamType;      ///< CMCD st token: "v" (VOD) or "l" (live); empty = omit until known
 	std::string mContentId;       ///< CMCD cid value (quoted-string); empty = omit
 	float mPlaybackRate;          ///< CMCD pr value; 1.0f = normal play (pr omitted); set by SetPlaybackRate
+	int mFragmentDuration;        ///< CMCD d value: object duration in ms; 0 = omit
+	int mMeasuredThroughput;      ///< CMCD mtp value: measured throughput in kbps; 0 = omit
+	bool mStartupUrgent;          ///< CMCD su flag: true when request is startup/seek/rebuffer urgent
 
 public:
-	CMCDHeaders() : sessionId(""), mediaType(""), firstByte(0), lastByte(0), dnsLookUptime(0), bufferStarvation(false), bitrate(0), topBitrate(0), bufferLength(0), nextUrl(""), mNextRange(""), mStreamingFormat(""), mStreamType(""), mContentId(""), mPlaybackRate(1.0f) {}
+	CMCDHeaders() : sessionId(""), mediaType(""), firstByte(0), lastByte(0), dnsLookUptime(0), bufferStarvation(false), bitrate(0), topBitrate(0), bufferLength(0), nextUrl(""), mNextRange(""), mStreamingFormat(""), mStreamType(""), mContentId(""), mPlaybackRate(1.0f), mFragmentDuration(0), mMeasuredThroughput(0), mStartupUrgent(false) {}
 	virtual void SetNetworkMetrics(const int &startTransferTime,const int &totalTime,const int &dnsLookUpTime);
 	virtual void GetNetworkMetrics(int &startTransferTime, int &totalTime, int &dnsLookUpTime);
 	virtual void SetSessionId(const std::string &sid);
@@ -92,6 +95,15 @@ public:
 
 	/** @brief Set the CMCD playback rate (pr). Emitted only when rate != 1.0f. */
 	virtual void SetPlaybackRate(const float &rate);
+
+	/** @brief Set the CMCD object duration (d) in milliseconds. Feeds the d key in CMCD-Object. */
+	virtual void SetFragmentDuration(const int &durationMs);
+
+	/** @brief Set the CMCD measured throughput (mtp) in kbps. Feeds the mtp key in CMCD-Request. */
+	virtual void SetMeasuredThroughput(const int &kbps);
+
+	/** @brief Set the CMCD startup-urgent flag (su). Feeds the su bare token in CMCD-Request when true. */
+	virtual void SetStartupUrgent(const bool &startupUrgent);
 
 	virtual ~CMCDHeaders() {};
 };
