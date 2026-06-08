@@ -235,6 +235,7 @@ typedef enum
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
 	eAAMPConfig_MonitorMp4Integrity,			/**< Parse every downloaded video/audio segment with Mp4Demux; log each segment, write corrupt ones to harvestPath */
+	eAAMPConfig_EnableTimeshiftDAI,				/**< Enable Timeshift DAI: suppress timed metadata events before seek position for CDVR/iVOD */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;

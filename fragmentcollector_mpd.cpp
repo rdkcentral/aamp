@@ -5328,6 +5328,16 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					AAMPLOG_INFO("SCTEDBG adjust start time %" PRIu64 " -> %" PRIu64 " (duration %d)", eventInfo.presentationTime, eventStartTime, eventInfo.duration);
 				}
 
+				// [Timeshift DAI] For CDVR/iVOD recorded assets: only notify timed metadata for
+				// SCTE triggers encountered in the forward direction from the resumed playback position.
+				if (ISCONFIGSET(eAAMPConfig_EnableTimeshiftDAI) && (aamp->IsCDVRContent() || aamp->IsIVODContent()) &&
+				    seekPosition > 0.0 && static_cast<double>(eventStartTime) < seekPosition * 1000.0)
+				{
+					AAMPLOG_INFO("Timeshift DAI: skipping past SCTE event at %" PRIu64 "ms for %s content (seekPosition=%.3fs)",
+					             eventStartTime, aamp->IsCDVRContent() ? "CDVR" : "iVOD", seekPosition);
+					continue;
+				}
+
 				//for livestream send the timedMetadata only., because at init, control does not come here
 				if(mIsLiveManifest && ! ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive))
 				{

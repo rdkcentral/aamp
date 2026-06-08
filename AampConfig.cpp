@@ -383,6 +383,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "monitorMp4Integrity", eAAMPConfig_MonitorMp4Integrity, false},
+	{false, "enableTimeshiftDAI", eAAMPConfig_EnableTimeshiftDAI, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
