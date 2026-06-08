@@ -1201,6 +1201,19 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_FALSE(m_player->SetPlayBackRate(1.5));
 }
 
+TEST_F(AampRialtoPlayerTest,
+	ChangeAamp_NullNewAamp_KeepsExistingAssociation)
+{
+	auto *originalAamp =
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
+
+	EXPECT_TRUE(m_player->IsAssociatedAamp(originalAamp));
+
+	m_player->ChangeAamp(nullptr, nullptr);
+
+	EXPECT_TRUE(m_player->IsAssociatedAamp(originalAamp));
+}
+
 // ===========================================================================
 // Phase DRM — QueueProtectionEvent / ClearProtectionEvent
 // ===========================================================================
@@ -1252,8 +1265,8 @@ TEST_F(AampRialtoPlayerDrmTest,
 	// that ClearProtectionEvent has a live bridge to call clearSessions() on.
 	// The fake AampDrmBridge delegates every call to g_mockDrmBridge, which
 	// the fixture wires to m_mockDrmBridge — so the expectation is satisfied.
-	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
-	m_player->SetEncryptedAamp(aamp);
+ 	PrivateInstanceAAMP encryptedAamp{};
+ 	m_player->SetEncryptedAamp(&encryptedAamp);
 
 	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(1);
 	m_player->ClearProtectionEvent();
@@ -1269,8 +1282,8 @@ TEST_F(AampRialtoPlayerDrmTest,
 	// Before any call the bridge is absent; SetEncryptedAamp must create it.
 	// The fake AampDrmBridge delegates to g_mockDrmBridge, so subsequent
 	// calls on the player's bridge reach m_mockDrmBridge.
-	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
-	m_player->SetEncryptedAamp(aamp);
+ 	PrivateInstanceAAMP encryptedAamp{};
+ 	m_player->SetEncryptedAamp(&encryptedAamp);
 
 	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(1);
 	m_player->ClearProtectionEvent();
@@ -1297,9 +1310,9 @@ TEST_F(AampRialtoPlayerDrmTest,
 	// NOT replace it — the lazy guard `if (!m_drmBridge)` ensures this.
 	// Verify by checking createSession is called through the same mock.
 	const uint8_t initData[] = {0x01};
-	auto *aamp = reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
-	m_player->SetEncryptedAamp(aamp);
-
+ 	PrivateInstanceAAMP encryptedAamp{};
+ 	m_player->SetEncryptedAamp(&encryptedAamp);
+	
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 	m_player->QueueProtectionEvent(
 		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);

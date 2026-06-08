@@ -133,8 +133,10 @@ void AampRialtoPlayer::ProgressTimer::kick()
 	// concurrently with the immediate runOnce() call below.
 	if (source_id != 0)
 	{
-		g_source_remove(source_id);
-		source_id = 0;
+ 		if (!g_source_remove(source_id))
+ 		{
+ 			AAMPLOG_WARN("Failed to remove progress timer id=%u", source_id);
+ 		}
 	}
 
 	// Dispatch immediately.
@@ -162,7 +164,10 @@ void AampRialtoPlayer::ProgressTimer::stop()
 
 	if (source_id != 0)
 	{
-		g_source_remove(source_id);
+ 		if (!g_source_remove(source_id))
+ 		{
+ 			AAMPLOG_WARN("Failed to remove progress timer id=%u", source_id);
+ 		}
 		source_id = 0;
 	}
 
@@ -1424,12 +1429,19 @@ bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 void AampRialtoPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	AAMPLOG_INFO("ENTRY newAamp=%p", newAamp);
-	m_aamp = newAamp;
 	m_ID3MetadataHandler = std::move(id3HandlerCallback);
-	if (m_notifiableAdapter)
+	if (newAamp == nullptr)
 	{
-		static_cast<PrivateInstanceAAMPNotifiable *>(m_notifiableAdapter.get())
-			->ChangeAamp(newAamp);
+		AAMPLOG_WARN("newAamp is null in ChangeAamp; keeping current association");
+	}
+	else
+	{
+		m_aamp = newAamp;
+		if (m_notifiableAdapter)
+		{
+			static_cast<PrivateInstanceAAMPNotifiable *>(
+				m_notifiableAdapter.get())->ChangeAamp(newAamp);
+		}
 	}
 	AAMPLOG_INFO("EXIT");
 }

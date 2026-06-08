@@ -139,39 +139,42 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	ChangeAamp_UpdatesTargetInstance)
 {
-	// Arrange: create a second AAMP instance and wire its mock.
-	PrivateInstanceAAMP newAamp{};
-	std::shared_ptr<MockPrivateInstanceAAMP> oldMock = g_mockPrivateInstanceAAMP;
-	std::shared_ptr<MockPrivateInstanceAAMP> newMock = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+	// The fixture's m_aamp is constructed without config (mConfig == nullptr),
+	// while newAamp has a non-null config. This lets us verify ChangeAamp
+	// switched the wrapped instance without relying on g_mockPrivateInstanceAAMP.
+	AampConfig config;
+	PrivateInstanceAAMP newAamp(&config);
 
-	// Act: switch the adapter to the new instance.
+	// Force FakeAampConfig fallback behavior for non-null config access.
+	g_mockAampConfig.reset();
+
+	// Sanity: before change, adapter points to fixture m_aamp with null config.
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 0.0);
+
+	// Act.
 	m_notifiable->ChangeAamp(&newAamp);
 
-	// Assert: subsequent calls go to newMock, not m_mock.
-	// The global pointer must point at newMock for the fake to delegate.
-	g_mockPrivateInstanceAAMP = newMock;
-
-	EXPECT_CALL(*newMock, GetState()).WillOnce(Return(eSTATE_PLAYING));
-	EXPECT_CALL(*oldMock, GetState()).Times(0);
-
-	EXPECT_EQ(m_notifiable->GetState(), eSTATE_PLAYING);
+	// Assert: non-null config path is now used on the new wrapped instance.
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), -1.0);
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	ChangeAamp_AfterChange_OldInstanceNotNotified)
 {
-	// After ChangeAamp the original instance must receive no notifications.
-	PrivateInstanceAAMP newAamp{};
-	std::shared_ptr<MockPrivateInstanceAAMP> oldMock = g_mockPrivateInstanceAAMP;
-	std::shared_ptr<MockPrivateInstanceAAMP> newMock = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+	// Use an oracle that depends on the wrapped instance pointer itself:
+	// fixture m_aamp has null config, while newAamp has non-null config.
+	AampConfig config;
+	PrivateInstanceAAMP newAamp(&config);
+
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 0.0);
 
 	m_notifiable->ChangeAamp(&newAamp);
-	g_mockPrivateInstanceAAMP = newMock;
 
-	EXPECT_CALL(*newMock, NotifySpeedChanged(1.5f, false));
-	EXPECT_CALL(*oldMock, NotifySpeedChanged(_, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(eAAMPConfig_ReportProgressInterval))
+		.WillOnce(Return(1.5));
 
-	m_notifiable->NotifySpeedChanged(1.5f, false);
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 1.5);
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
