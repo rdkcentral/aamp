@@ -1505,3 +1505,129 @@ TEST(CMCDSerialization_SER07, SER07_RtpInStatusGroupOnly)
     EXPECT_THAT(JoinedValue(h, "CMCD-Request:"),  ::testing::Not(HasSubstr("rtp=")));
     EXPECT_THAT(JoinedValue(h, "CMCD-Session:"),  ::testing::Not(HasSubstr("rtp=")));
 }
+
+// ---------------------------------------------------------------------------
+// CR-01 regression: SetFragmentDuration(0) clears d — init-segment guard
+// ---------------------------------------------------------------------------
+
+/**
+ * CR01_FragmentDurationClearedToZeroOmitsD: locks the clearing behavior at the
+ * header level.  SetFragmentDuration(2000) emits d=2000; a subsequent
+ * SetFragmentDuration(0) must make CMCD-Object NOT contain "d=" at all.
+ *
+ * This mirrors the priv_aamp.cpp fix where an init-segment request calls
+ * CMCDSetFragmentDuration(mmediaT, 0) to clear the stale value left by the
+ * preceding media-segment request on the same shared VIDEO/AUDIO instance.
+ */
+TEST(CMCDSerialization_Object, CR01_FragmentDurationClearedToZeroOmitsD)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetFragmentDuration(2000);  // simulate previous media-segment set
+
+    // Confirm d is present before clearing.
+    {
+        auto h = BuildHeaders(v);
+        EXPECT_THAT(JoinedValue(h, "CMCD-Object:"), HasSubstr("d=2000"));
+    }
+
+    // Now clear — simulates the init-segment path calling SetFragmentDuration(0).
+    v.SetFragmentDuration(0);
+    auto h = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(h, "CMCD-Object:"), ::testing::Not(HasSubstr("d=")));
+}
+
+// ---------------------------------------------------------------------------
+// WR-01: AudioCMCDHeaders coverage — rtp, dl, mtp, su
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS10_RtpPresentForAudio: AudioCMCDHeaders, SetBitrate(4000) ->
+ * rtp = 4000*2 = 8000 in CMCD-Status. Mirrors the Video subclass rtp test,
+ * confirming the identical emission path works for the Audio subclass.
+ */
+TEST(CMCDSerialization_Status, KEYS10_RtpPresentForAudio)
+{
+    AudioCMCDHeaders a;
+    a.SetSessionId("test-sid");
+    a.SetBitrate(4000);  // rtp = 4000*2 = 8000
+
+    auto headers = BuildHeaders(a);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Status:"), HasSubstr("rtp=8000"));
+}
+
+/**
+ * FullAudioRequest_AllNewKeysNormalPlay: full-set lock-in for AudioCMCDHeaders
+ * mirroring FullVideoRequest_AllNewKeysNormalPlay.  Covers rtp (Status),
+ * dl and mtp (Request), and su (Request — absent when false) simultaneously
+ * on the Audio subclass, closing the Audio coverage gap for all four keys.
+ *
+ * Expected (su=false, bs=false):
+ *   CMCD-Object:  br=3800,d=2000,ot=a,tb=6000
+ *   CMCD-Request: bl=2400,dl=2400,mtp=4800
+ *   CMCD-Status:  rtp=7600  (3800*2=7600)
+ */
+TEST(CMCDSerialization_FullSet, FullAudioRequest_AllNewKeysNormalPlay)
+{
+    AudioCMCDHeaders a;
+    a.SetSessionId("test-sid");
+    a.SetMediaType("AUDIO");
+    a.SetBitrate(3800);
+    a.SetTopBitrate(6000);
+    a.SetBufferLength(2400);
+    a.SetFragmentDuration(2000);
+    a.SetMeasuredThroughput(4800);
+    a.SetStartupUrgent(false);
+    a.SetBufferStarvation(false);
+
+    auto h = BuildHeaders(a);
+    EXPECT_EQ(JoinedValue(h, "CMCD-Object:"),  "br=3800,d=2000,ot=a,tb=6000");
+    EXPECT_EQ(JoinedValue(h, "CMCD-Request:"), "bl=2400,dl=2400,mtp=4800");
+    EXPECT_EQ(JoinedValue(h, "CMCD-Status:"),  "rtp=7600");
+}
+
+/**
+ * FullAudioRequest_AllNewKeysStartup: same as above but SetStartupUrgent(true) ->
+ * CMCD-Request gains "su" bare token at the end (alpha order: bl<dl<mtp<su).
+ */
+TEST(CMCDSerialization_FullSet, FullAudioRequest_AllNewKeysStartup)
+{
+    AudioCMCDHeaders a;
+    a.SetSessionId("test-sid");
+    a.SetMediaType("AUDIO");
+    a.SetBitrate(3800);
+    a.SetTopBitrate(6000);
+    a.SetBufferLength(2400);
+    a.SetFragmentDuration(2000);
+    a.SetMeasuredThroughput(4800);
+    a.SetStartupUrgent(true);
+    a.SetBufferStarvation(false);
+
+    auto h = BuildHeaders(a);
+    EXPECT_EQ(JoinedValue(h, "CMCD-Object:"),  "br=3800,d=2000,ot=a,tb=6000");
+    EXPECT_EQ(JoinedValue(h, "CMCD-Request:"), "bl=2400,dl=2400,mtp=4800,su");
+    EXPECT_EQ(JoinedValue(h, "CMCD-Status:"),  "rtp=7600");
+}
+
+// ---------------------------------------------------------------------------
+// IN-01: dl with a negative playback rate (reverse trick play)
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS03_DlNegativeRateTreatedAsAbsolute: SetPlaybackRate(-2.0f) ->
+ * dl = int(4000 / fabs(-2.0)) = int(4000/2.0) = 2000.
+ * Locks the fabs() branch in VideoCMCDHeaders dl computation; confirms that
+ * negative (reverse trick-play) rates produce the same dl as their positive
+ * equivalent and do not cause a sign error or division blow-up.
+ */
+TEST(CMCDSerialization_Request, KEYS03_DlNegativeRateTreatedAsAbsolute)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBufferLength(4000);
+    v.SetPlaybackRate(-2.0f);  // reverse trick play
+
+    // dl = int(4000 / fabs(-2.0)) = int(4000/2.0) = 2000
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), HasSubstr("dl=2000"));
+}
