@@ -917,3 +917,346 @@ TEST(CMCDSerialization_Session, AllSixKeysSortedWithCidAndPr)
     EXPECT_EQ(JoinedValue(headers, "CMCD-Session:"),
               "cid=\"https://cdn.example.com/live/master.m3u8\",pr=2,sf=h,sid=\"test-sid\",st=l,v=1");
 }
+
+// ---------------------------------------------------------------------------
+// TST-01: d (KEYS-02) — object duration, NOT rounded, media-only
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS02_DPresentInObjectGroup: SetFragmentDuration(2000) -> CMCD-Object HasSubstr("d=2000").
+ * Also confirms d does not appear in CMCD-Request or CMCD-Status.
+ */
+TEST(CMCDSerialization_Object, KEYS02_DPresentInObjectGroup)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetFragmentDuration(2000);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Object:"),  HasSubstr("d=2000"));
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), ::testing::Not(HasSubstr("d=")));
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Status:"),  ::testing::Not(HasSubstr("d=")));
+}
+
+/**
+ * KEYS02_DOmittedWhenZero: no SetFragmentDuration call (default 0) ->
+ * CMCD-Object must NOT contain "d=".
+ */
+TEST(CMCDSerialization_Object, KEYS02_DOmittedWhenZero)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    // No SetFragmentDuration — mFragmentDuration defaults to 0.
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Object:"), ::testing::Not(HasSubstr("d=")));
+}
+
+/**
+ * KEYS02_DIsNotRounded: SetFragmentDuration(2150) -> CMCD-Object contains "d=2150"
+ * and NOT "d=2200". Locks the "d is plain ms, never rounded" invariant from CONTEXT.md.
+ */
+TEST(CMCDSerialization_Object, KEYS02_DIsNotRounded)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetFragmentDuration(2150);
+
+    auto headers = BuildHeaders(v);
+    const std::string obj = JoinedValue(headers, "CMCD-Object:");
+    EXPECT_THAT(obj, HasSubstr("d=2150"));
+    EXPECT_THAT(obj, ::testing::Not(HasSubstr("d=2200")));
+}
+
+/**
+ * KEYS02_DPresentForAudio: AudioCMCDHeaders, SetFragmentDuration(1920) ->
+ * CMCD-Object HasSubstr("d=1920"). Confirms Audio subclass also emits d.
+ */
+TEST(CMCDSerialization_Object, KEYS02_DPresentForAudio)
+{
+    AudioCMCDHeaders a;
+    a.SetSessionId("test-sid");
+    a.SetFragmentDuration(1920);
+
+    auto headers = BuildHeaders(a);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Object:"), HasSubstr("d=1920"));
+}
+
+/**
+ * KEYS02_DAbsentInManifest: ManifestCMCDHeaders does not emit d even after
+ * SetFragmentDuration is called (Manifest subclass only emits ot=m). Locks
+ * the "d is media-segments-only" invariant; ManifestCMCDHeaders does not
+ * call SetFragmentDuration and its BuildCMCDCustomHeaders does not add d.
+ */
+TEST(CMCDSerialization_Object, KEYS02_DAbsentInManifest)
+{
+    ManifestCMCDHeaders m;
+    m.SetSessionId("test-sid");
+    // SetFragmentDuration is inherited from CMCDHeaders but ManifestCMCDHeaders
+    // BuildCMCDCustomHeaders only emits ot=m; d is not added.
+    m.SetFragmentDuration(2000);
+
+    auto headers = BuildHeaders(m);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Object:"), ::testing::Not(HasSubstr("d=")));
+}
+
+// ---------------------------------------------------------------------------
+// TST-01: dl (KEYS-03) — deadline, rounded 100 ms, scaled by rate
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS03_DlPresentInRequestGroup: SetBufferLength(2400) at default rate 1.0 ->
+ * CMCD-Request HasSubstr("dl=2400"). dl = 2400/1.0 = 2400; rounds to 2400.
+ */
+TEST(CMCDSerialization_Request, KEYS03_DlPresentInRequestGroup)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBufferLength(2400);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), HasSubstr("dl=2400"));
+}
+
+/**
+ * KEYS03_DlRoundedTo100ms: SetBufferLength(2350) -> dl=2400; SetBufferLength(2249) -> dl=2200.
+ * Exercises round-up (2350+50=2400 -> 2400) and round-down (2249+50=2299 -> 2200).
+ */
+TEST(CMCDSerialization_Request, KEYS03_DlRoundedTo100ms)
+{
+    {
+        VideoCMCDHeaders v;
+        v.SetSessionId("test-sid");
+        v.SetBufferLength(2350);
+        auto headers = BuildHeaders(v);
+        EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), HasSubstr("dl=2400"));
+    }
+    {
+        VideoCMCDHeaders v;
+        v.SetSessionId("test-sid");
+        v.SetBufferLength(2249);
+        auto headers = BuildHeaders(v);
+        EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), HasSubstr("dl=2200"));
+    }
+}
+
+/**
+ * KEYS03_DlOmittedWhenZeroBuffer: SetBufferLength(0) -> CMCD-Request must NOT
+ * contain "dl=". No guard fires because bufferLength == 0.
+ */
+TEST(CMCDSerialization_Request, KEYS03_DlOmittedWhenZeroBuffer)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBufferLength(0);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), ::testing::Not(HasSubstr("dl=")));
+}
+
+/**
+ * KEYS03_DlScaledByRate: SetBufferLength(4000) + SetPlaybackRate(2.0f) ->
+ * dl = int(4000/2.0) = 2000 -> rounds to 2000. Confirms rate scaling is applied.
+ */
+TEST(CMCDSerialization_Request, KEYS03_DlScaledByRate)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBufferLength(4000);
+    v.SetPlaybackRate(2.0f);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), HasSubstr("dl=2000"));
+}
+
+// ---------------------------------------------------------------------------
+// TST-01: mtp (KEYS-04) — measured throughput, rounded 100 kbps
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS04_MtpPresentInRequestGroup: SetMeasuredThroughput(4800) ->
+ * CMCD-Request HasSubstr("mtp=4800"). 4800 is on a 100-boundary; stays 4800.
+ */
+TEST(CMCDSerialization_Request, KEYS04_MtpPresentInRequestGroup)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetMeasuredThroughput(4800);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), HasSubstr("mtp=4800"));
+}
+
+/**
+ * KEYS04_MtpRoundedTo100kbps: SetMeasuredThroughput(4842) -> mtp=4800;
+ * SetMeasuredThroughput(4850) -> mtp=4900.
+ * Exercises: (4842+50)/100*100 = 4800; (4850+50)/100*100 = 4900.
+ */
+TEST(CMCDSerialization_Request, KEYS04_MtpRoundedTo100kbps)
+{
+    {
+        VideoCMCDHeaders v;
+        v.SetSessionId("test-sid");
+        v.SetMeasuredThroughput(4842);
+        auto headers = BuildHeaders(v);
+        EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), HasSubstr("mtp=4800"));
+    }
+    {
+        VideoCMCDHeaders v;
+        v.SetSessionId("test-sid");
+        v.SetMeasuredThroughput(4850);
+        auto headers = BuildHeaders(v);
+        EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), HasSubstr("mtp=4900"));
+    }
+}
+
+/**
+ * KEYS04_MtpOmittedWhenZero: default (no SetMeasuredThroughput call) ->
+ * CMCD-Request must NOT contain "mtp=".
+ */
+TEST(CMCDSerialization_Request, KEYS04_MtpOmittedWhenZero)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    // No SetMeasuredThroughput — mMeasuredThroughput defaults to 0.
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), ::testing::Not(HasSubstr("mtp=")));
+}
+
+// ---------------------------------------------------------------------------
+// TST-01: su (KEYS-05) — startup-urgent bare bool token
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS05_SuPresentAsBareTokenWhenTrue: SetStartupUrgent(true) ->
+ * CMCD-Request HasSubstr("su") and NOT HasSubstr("su=").
+ * Bare token: emitted as just the key name with no "=" or value.
+ */
+TEST(CMCDSerialization_Request, KEYS05_SuPresentAsBareTokenWhenTrue)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStartupUrgent(true);
+
+    auto headers = BuildHeaders(v);
+    const std::string req = JoinedValue(headers, "CMCD-Request:");
+    EXPECT_THAT(req, HasSubstr("su"));
+    EXPECT_THAT(req, ::testing::Not(HasSubstr("su=")));
+}
+
+/**
+ * KEYS05_SuOmittedWhenFalse: default false -> CMCD-Request must NOT contain "su".
+ * SetStartupUrgent(false) is equivalent to the default — su is omitted entirely.
+ */
+TEST(CMCDSerialization_Request, KEYS05_SuOmittedWhenFalse)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetStartupUrgent(false);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Request:"), ::testing::Not(HasSubstr("su")));
+}
+
+// ---------------------------------------------------------------------------
+// TST-01: rtp (KEYS-10) — requested max throughput, bitrate*2 rounded 100 kbps
+// ---------------------------------------------------------------------------
+
+/**
+ * KEYS10_RtpPresentInStatusGroup: SetBitrate(4000) -> rtp = 4000*2 = 8000 ->
+ * CMCD-Status HasSubstr("rtp=8000").
+ */
+TEST(CMCDSerialization_Status, KEYS10_RtpPresentInStatusGroup)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(4000);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Status:"), HasSubstr("rtp=8000"));
+}
+
+/**
+ * KEYS10_RtpRoundedTo100kbps: SetBitrate(3842) -> rtp = 3842*2 = 7684 ->
+ * rounded: (7684+50)/100*100 = 7700. Locks the rtp rounding formula.
+ */
+TEST(CMCDSerialization_Status, KEYS10_RtpRoundedTo100kbps)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(3842);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Status:"), HasSubstr("rtp=7700"));
+}
+
+/**
+ * KEYS10_RtpOmittedWhenZeroBitrate: SetBitrate(0) -> CMCD-Status must NOT
+ * contain "rtp=". The bitrate==0 guard prevents emission.
+ */
+TEST(CMCDSerialization_Status, KEYS10_RtpOmittedWhenZeroBitrate)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(0);
+    v.SetBufferStarvation(false);
+
+    auto headers = BuildHeaders(v);
+    EXPECT_THAT(JoinedValue(headers, "CMCD-Status:"), ::testing::Not(HasSubstr("rtp=")));
+}
+
+// ---------------------------------------------------------------------------
+// TST-01: Full-set lock-in — all new keys in a representative Video request
+// ---------------------------------------------------------------------------
+
+/**
+ * FullVideoRequest_AllNewKeysNormalPlay: exact CMCD-Object / Request / Status
+ * strings with all five new keys at normal playback (su=false, bs=false).
+ * Locks alpha-sort order and derived values simultaneously.
+ *
+ * Expected:
+ *   CMCD-Object:  br=3800,d=2000,ot=v,tb=6000
+ *   CMCD-Request: bl=2400,dl=2400,mtp=4800
+ *   CMCD-Status:  rtp=7600  (3800*2=7600, already on 100 boundary)
+ */
+TEST(CMCDSerialization_FullSet, FullVideoRequest_AllNewKeysNormalPlay)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(3800);
+    v.SetTopBitrate(6000);
+    v.SetBufferLength(2400);
+    v.SetFragmentDuration(2000);
+    v.SetMeasuredThroughput(4800);
+    v.SetStartupUrgent(false);
+    v.SetBufferStarvation(false);
+
+    auto h = BuildHeaders(v);
+    EXPECT_EQ(JoinedValue(h, "CMCD-Object:"),  "br=3800,d=2000,ot=v,tb=6000");
+    EXPECT_EQ(JoinedValue(h, "CMCD-Request:"), "bl=2400,dl=2400,mtp=4800");
+    EXPECT_EQ(JoinedValue(h, "CMCD-Status:"),  "rtp=7600");
+}
+
+/**
+ * FullVideoRequest_AllNewKeysStartup: same setup but SetStartupUrgent(true) ->
+ * CMCD-Request gains "su" bare token (alpha-sorted: bl<dl<mtp<su).
+ * CMCD-Status is unchanged (rtp=7600).
+ */
+TEST(CMCDSerialization_FullSet, FullVideoRequest_AllNewKeysStartup)
+{
+    VideoCMCDHeaders v;
+    v.SetSessionId("test-sid");
+    v.SetBitrate(3800);
+    v.SetTopBitrate(6000);
+    v.SetBufferLength(2400);
+    v.SetFragmentDuration(2000);
+    v.SetMeasuredThroughput(4800);
+    v.SetStartupUrgent(true);
+    v.SetBufferStarvation(false);
+
+    auto h = BuildHeaders(v);
+    EXPECT_EQ(JoinedValue(h, "CMCD-Object:"),  "br=3800,d=2000,ot=v,tb=6000");
+    EXPECT_EQ(JoinedValue(h, "CMCD-Request:"), "bl=2400,dl=2400,mtp=4800,su");
+    EXPECT_EQ(JoinedValue(h, "CMCD-Status:"),  "rtp=7600");
+}
