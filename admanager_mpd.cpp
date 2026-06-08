@@ -1970,7 +1970,8 @@ void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservat
 		//We are Aborting the wait when the AdBreakObject is empty. Not for the each ad to be resolved.
 		if (!abObj.ads || abObj.ads->empty())
 		{
-			AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play.", reservationId.c_str());
+			AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play. Marking reservation invalid", reservationId.c_str());
+			abObj.invalid = true;
 			AbortWaitForNextAdResolved();
 		}
 	}

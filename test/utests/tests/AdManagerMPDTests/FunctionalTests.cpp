@@ -4654,6 +4654,9 @@ TEST_F(AdManagerMPDTests, NotifyReservationComplete_EmptyAdBreak_NotifiesAndReso
 
     waiter.join();
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].resolved);
+    // Empty ad breaks must also be marked invalid so that subsequent
+    // SetAlternateContents() calls reject further ads for this break.
+    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].invalid);
     // The waiting thread should have completed (not timed out)
     EXPECT_TRUE(completed);
 }
