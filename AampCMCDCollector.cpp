@@ -290,9 +290,11 @@ void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<Bi
  */
 void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed)
 {
+	std::lock_guard<std::mutex> lock(myMutex);
 	if(bCMCDEnabled)
 	{
-		// This is internal function called from GetHeaders. No Mutex lock needed here
+		// Called from PrivateInstanceAAMP::SetCMCDTrackData on a download thread,
+		// concurrently with CMCDGetHeaders on other download threads. Lock required.
 		StreamTypeCMCDIter it=mCMCDStreamData.find(mediaType);
 		if(it == mCMCDStreamData.end())
 		{
