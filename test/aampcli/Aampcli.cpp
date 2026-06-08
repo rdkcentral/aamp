@@ -648,7 +648,15 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 							}
 							if( !mapped )
 							{
-								AAMPCLI_PRINTF( "[AAMPCLI] unmapped breakId=%s\n", ev->getId().c_str() );
+								AAMPCLI_PRINTF( "[AAMPCLI] unmapped breakId=%s, notifying reservation complete\n", ev->getId().c_str() );
+							}
+							if( !mAampcli.mDeferReservationComplete )
+							{
+								mAampcli.mSingleton->NotifyReservationComplete(ev->getId());
+							}
+							else
+							{
+								AAMPCLI_PRINTF( "[AAMPCLI] [CDAI] deferred NotifyReservationComplete for breakId=%s\n", ev->getId().c_str() );
 							}
 							break;
 						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROGRAM_IMMEDIATE_RESUMPTION:
