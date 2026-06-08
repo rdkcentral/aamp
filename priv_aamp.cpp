@@ -6646,6 +6646,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mFogTSBEnabled),sTraceId);
 	// Pass raw manifest URL; CMCDSetSessionParams strips query/fragment internally.
 	mCMCDCollector->CMCDSetSessionParams(mMediaFormat, mManifestUrl);
+	// Seed the initial playback rate into the collector immediately after Initialize.
+	// Handles the edge case where NotifySpeedChanged fired before Initialize (e.g.
+	// auto-resume idle task at line 360 fires before TuneHelper), which would have
+	// been silently dropped because bCMCDEnabled was false at that point.
+	mCMCDCollector->CMCDSetPlaybackRate(rate);
 // This feature is causing trickplay issues for client dai
 // hence removing code which reads this config from tune url , Ideally it should be fixed by app and not to enable this feature
 //	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mFogTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
