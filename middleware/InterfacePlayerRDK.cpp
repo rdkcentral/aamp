@@ -4677,13 +4677,9 @@ static gboolean buffering_timeout (gpointer data)
 				 * but BEFORE the Pause(1) from keepPaused logic arrives — causing a race. */
 				if (privatePlayer->gstPrivateContext->seekPausedState)
 				{
-					MW_LOG_WARN("buffering_timeout: skipping PLAYING — seekPausedState active (cnt %u, frames %d)", privatePlayer->gstPrivateContext->buffering_timeout_cnt, frames);
-					if (privatePlayer->gstPrivateContext->buffering_timeout_cnt == 0)
-					{
-						MW_LOG_ERR("buffering_timeout: seekPausedState still active after timeout exhausted — clearing to unblock");
-						privatePlayer->gstPrivateContext->seekPausedState = false;
-					}
-					return privatePlayer->gstPrivateContext->buffering_in_progress;
+					MW_LOG_WARN("buffering_timeout: skipping PLAYING — seekPausedState active");
+					privatePlayer->gstPrivateContext->buffering_in_progress = false;
+					return false;  //stop the timer
 				}
 
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
