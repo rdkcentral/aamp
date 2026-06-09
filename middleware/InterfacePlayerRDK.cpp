@@ -4519,6 +4519,7 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 	bool ret = false;
 	std::vector<GstElement*> sources;
 	MW_LOG_TRACE("InterfacePlayerRDK: gst_event_new_instant_rate_change: %f ...V6", rate);
+	
 	if (rate == 0.0 || interfacePlayerPriv->gstPrivateContext->paused)
 	{
     	MW_LOG_WARN("SetPlayBackRate: pipeline paused or rate==0 — skipping rate change");
