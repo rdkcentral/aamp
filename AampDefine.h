@@ -325,7 +325,6 @@ enum AAMPStatusType
 	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR		/**< Unsupported DRM */
 };
 
-
 /**
  *
  * @enum UTC TIMING

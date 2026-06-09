@@ -50,6 +50,7 @@
 #include "MockAampCurlStore.h"
 #include "MockAampJsonObject.h"
 #include "MockAampUtils.h"
+#include "MockAampMPDDownloader.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBStore.h"
 #include "fragmentcollector_mpd.h"
@@ -82,12 +83,40 @@ const char SAMPLE_URL[] = "https://sampleUrl";
 const char SAMPLE_DEFOGGED_URL[] = "https://sampleDeFoggedUrl";
 const char SAMPLE_FOG_URL[] = "http://127.0.0.1:9080/tsb?clientId=\"FOG_AAMP\"&recordedUrl=https://sampleDeFoggedUrl";
 
+class TestablePrivateInstanceAAMP : public PrivateInstanceAAMP
+{
+public:
+	explicit TestablePrivateInstanceAAMP(AampConfig *config)
+		: PrivateInstanceAAMP(config)
+	{
+	}
+
+	~TestablePrivateInstanceAAMP()
+	{
+		if (mMPDDownloaderInstance != nullptr)
+		{
+			delete mMPDDownloaderInstance;
+			mMPDDownloaderInstance = nullptr;
+		}
+	}
+
+	void EnsureMPDDownloaderForTest()
+	{
+		if (mMPDDownloaderInstance != nullptr)
+		{
+			delete mMPDDownloaderInstance;
+			mMPDDownloaderInstance = nullptr;
+		}
+		mMPDDownloaderInstance = new AampMPDDownloader();
+	}
+};
+
 // Class to test class PrivateInstanceAAMP public interface
 class PrivAampTests : public ::testing::Test
 {
 public:
 	static constexpr double kAbsErrorLivePlayPosition = 0.1;
-	PrivateInstanceAAMP *p_aamp{nullptr};
+	TestablePrivateInstanceAAMP *p_aamp{nullptr};
 	AampConfig *config{nullptr};
 	CURL *mCurlEasyHandle{nullptr};
 	MediaStreamContext *mVideoStreamContext{nullptr};
@@ -100,7 +129,7 @@ protected:
 		PlayerCCManager::DestroyInstance();
 
 		config=new AampConfig();
-		p_aamp = new PrivateInstanceAAMP(config);
+		p_aamp = new TestablePrivateInstanceAAMP(config);
 		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
 		g_mockAampGstPlayer = std::make_shared<NiceMock<MockAAMPGstPlayer>>(p_aamp);
 		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
@@ -118,6 +147,10 @@ protected:
 		g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
 		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 		g_mockAampLatencyMonitor = std::make_shared<NiceMock<MockAampLatencyMonitor>>();
+		g_mockAampMPDDownloader = std::make_shared<NiceMock<MockAampMPDDownloader>>();
+		ON_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+			.WillByDefault(Return(ManifestRefreshStatus()));
+		p_aamp->EnsureMPDDownloaderForTest();
 		// Create real MediaStreamContext for tests that need chunk injection
 		// FakeMediaStreamContext.cpp forwards CacheFragmentChunk() to g_mockMediaStreamContext
 		mVideoStreamContext = new MediaStreamContext(eTRACK_VIDEO, g_mockStreamAbstractionAAMP_MPD.get(), p_aamp, "video");
@@ -153,6 +186,8 @@ protected:
 		g_mockAampUtils.reset();
 
 		g_mockAampLatencyMonitor.reset();
+
+		g_mockAampMPDDownloader.reset();
 
 		delete mVideoStreamContext;
 		mVideoStreamContext = nullptr;
@@ -2296,6 +2331,84 @@ TEST_F(PrivAampTests, SendBufferChangeEvent_UnderflowStatusTracksTransitions)
 
 	p_aamp->SendBufferChangeEvent(false);
 	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+}
+
+// ---------------------------------------------------------------------------
+// HandleManifestRefreshFailureOnBuffering tests
+// ---------------------------------------------------------------------------
+
+// When no manifest retry error is pending, the function must
+// return false and leave underflow status untouched.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_NoError_ReturnsFalse)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus()));
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+	// No underflow status change expected.
+	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+}
+
+// When manifest refresh reports a content error, the function
+// must return true to signal that an error event was sent and the normal
+// buffering path should be skipped.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_ContentError_ReturnsTrue)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR, 0)));
+	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// When the error code is a real HTTP/curl transport error (e.g. 408), the function
+// must return true (manifest-req-failed event path).
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_TransportError_ReturnsTrue)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408)));
+	EXPECT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// After clearing the retry state, subsequent calls must
+// return false — confirming the latch is properly cleared on recovery.
+TEST_F(PrivAampTests, HandleManifestRefreshFailureOnBuffering_AfterRecovery_ReturnsFalse)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 503)))
+		.WillOnce(Return(ManifestRefreshStatus()));
+	ASSERT_TRUE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+
+	EXPECT_FALSE(p_aamp->HandleManifestRefreshFailureOnBuffering());
+}
+
+// When a manifest retry error is pending, SendBufferChangeEvent(true) must take
+// the early-return path: underflow status must NOT be set (player tears down via
+// the error event; the normal buffering path is skipped entirely).
+TEST_F(PrivAampTests, SendBufferChangeEvent_ManifestRetryPending_SkipsUnderflowStatus)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus(
+			AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR, 408)));
+	ASSERT_FALSE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(true);
+
+	// Early return was taken — SetBufUnderFlowStatus(true) must NOT have been called.
+	EXPECT_FALSE(p_aamp->GetBufUnderFlowStatus());
+}
+
+// When no manifest retry error is pending, SendBufferChangeEvent(true) must follow
+// the normal path and set the underflow status flag.
+TEST_F(PrivAampTests, SendBufferChangeEvent_NoManifestRetry_SetsUnderflowStatus)
+{
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifestRefreshStatus())
+		.WillOnce(Return(ManifestRefreshStatus()));
+	ASSERT_FALSE(p_aamp->GetBufUnderFlowStatus());
+
+	p_aamp->SendBufferChangeEvent(true);
+
+	EXPECT_TRUE(p_aamp->GetBufUnderFlowStatus());
 }
 
 // Back-to-back episodes must each be tracked independently: the second start time
