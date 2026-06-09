@@ -60,21 +60,10 @@ public:
 		(const AampMediaSample &sample),
 		(const, override));
 
-	/**
-	 * @brief Proxy for injectSingleSample — avoids move-only parameter issue.
-	 *
-	 * AampMediaSample is move-only, so MOCK_METHOD cannot be used directly.
-	 * Tests should set expectations on injectSingleSampleProxy instead.
-	 */
 	MOCK_METHOD(bool, injectSingleSampleProxy,
 		(firebolt::rialto::IMediaPipeline &pipeline),
 		());
 
-	/**
-	 * @brief Proxy for processDataFragment — avoids shared_ptr/move issue.
-	 *
-	 * Tests should set expectations on processDataFragmentProxy instead.
-	 */
 	MOCK_METHOD(bool, processDataFragmentProxy,
 		(firebolt::rialto::IMediaPipeline &pipeline,
 		 double fpts, double fdts, double fDuration,
@@ -89,12 +78,13 @@ public:
 	 */
 	bool injectSingleSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
-		AampMediaSample &&sample) override
+		AampMediaSample &&sample,
+		bool morePending) override
 	{
 		if (mediaType() == eMEDIATYPE_SUBTITLE)
 			return injectSingleSampleProxy(pipeline);
 		return AampRialtoMediaSource::injectSingleSample(
-			pipeline, std::move(sample));
+			pipeline, std::move(sample), morePending);
 	}
 
 	/**

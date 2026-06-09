@@ -4229,7 +4229,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				// AampRialtoPlayer::Configure() queues the source attachment.
 				const bool needsDemuxer =
 					(i != eMEDIATYPE_SUBTITLE) ||
-					(ISCONFIGSET(eAAMPConfig_useRialtoDirect) &&
+					(ISCONFIGSET(eAAMPConfig_useDirectRialto) &&
 					 subtitleFormat == FORMAT_SUBTITLE_MP4);
 				if (needsDemuxer)
 				{

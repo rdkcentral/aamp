@@ -1385,6 +1385,15 @@ TEST_F(AampRialtoPlayerDrmTest,
 				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
 					*src).setId(m_nextSourceId++);
 				return true;
+			}))
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				// Inband CC subtitle source — no DRM expected.
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
 			}));
 	SendVideoInitFragment();
 }
@@ -3065,6 +3074,8 @@ TEST_F(AampRialtoPlayerTest,
 		ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 		ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ResumeTrackDownloads(eMEDIATYPE_SUBTITLE)).Times(1);
 
 	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
 		/*bESChangeStatus=*/false,
