@@ -140,7 +140,7 @@ public:
 	 * @param[in] mediaType stream type
 	 * @param[in] sample media sample
 	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample) override;
+	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
 
 	/**
 		 * @fn PipelineConfiguredForMedia
@@ -172,10 +172,10 @@ public:
 	/**
 		 * @fn Pause
 		 * @param[in] pause flag to pause/play the pipeline
-		 * @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
+		 * @param[in] forceStopPreBuffering - true for disabling buffer-in-progress
 		 * @retval true if content successfully paused
 		 */
-	bool Pause(bool pause, bool forceStopGstreamerPreBuffering) override;
+	bool Pause(bool pause, bool forceStopPreBuffering) override;
 	/**
 		 * @fn GetPositionMilliseconds
 		 * @retval playback position in MS

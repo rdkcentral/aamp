@@ -32,6 +32,13 @@ PrivateInstanceAAMPNotifiable::PrivateInstanceAAMPNotifiable(
 {
 }
 
+void PrivateInstanceAAMPNotifiable::ChangeAamp(
+	PrivateInstanceAAMP *newAamp) noexcept
+{
+	AAMPLOG_TRACE("newAamp=%p", newAamp);
+	m_aamp = newAamp;
+}
+
 void PrivateInstanceAAMPNotifiable::NotifyFirstFrameReceived(
 	unsigned long ccDecoderHandle)
 {
@@ -44,6 +51,12 @@ void PrivateInstanceAAMPNotifiable::NotifyFirstBufferProcessed(
 {
 	AAMPLOG_TRACE("videoRectangle=%s", videoRectangle.c_str());
 	m_aamp->NotifyFirstBufferProcessed(videoRectangle);
+}
+
+void PrivateInstanceAAMPNotifiable::NotifyFirstVideoFrameDisplayed()
+{
+	AAMPLOG_TRACE("NotifyFirstVideoFrameDisplayed");
+	m_aamp->NotifyFirstVideoFrameDisplayed();
 }
 
 void PrivateInstanceAAMPNotifiable::LogFirstFrame()
@@ -69,6 +82,22 @@ void PrivateInstanceAAMPNotifiable::MonitorProgress(
 {
 	AAMPLOG_TRACE("sync=%d beginningOfStream=%d", sync, beginningOfStream);
 	m_aamp->MonitorProgress(sync, beginningOfStream);
+}
+
+double PrivateInstanceAAMPNotifiable::GetProgressReportIntervalSeconds()
+{
+	double intervalSeconds = 0.0;
+	if (m_aamp == nullptr || m_aamp->mConfig == nullptr)
+	{
+		AAMPLOG_WARN("AAMP or config is null while reading progress interval");
+	}
+	else
+	{
+		intervalSeconds =
+			m_aamp->mConfig->GetConfigValue(eAAMPConfig_ReportProgressInterval);
+	}
+	AAMPLOG_TRACE("intervalSeconds=%f", intervalSeconds);
+	return intervalSeconds;
 }
 
 void PrivateInstanceAAMPNotifiable::NotifySpeedChanged(

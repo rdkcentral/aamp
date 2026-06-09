@@ -164,6 +164,10 @@ void AampRialtoMediaPipelineClient::notifyPlaybackError(
 void AampRialtoMediaPipelineClient::notifySourceFlushed(int32_t sourceId)
 {
 	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
+	if (m_sourceFlushedCallback)
+	{
+		m_sourceFlushedCallback(sourceId);
+	}
 	AAMPLOG_INFO("EXIT");
 }
 

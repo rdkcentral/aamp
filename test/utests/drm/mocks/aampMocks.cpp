@@ -26,12 +26,13 @@
 #include "DrmUtils.h"
 #include "AampConfig.h"
 #include "priv_aamp.h"
+#include "mp4demux/MP4Demux.h"
 #include "aampgstplayer.h"
 #include "AampLatencyMonitor.h"
 
 #include "MockPrivateInstanceAAMP.h"
 
-MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
+std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP{};
 
 std::shared_ptr<AampConfig> gGlobalConfig;
 AampConfig *gpGlobalConfig;
@@ -813,12 +814,9 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SyncBegin(void)
+std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-}
-
-void PrivateInstanceAAMP::SyncEnd(void)
-{
+	return std::unique_lock<std::recursive_mutex>(); // no-op mock: does not acquire mLock
 }
 
 void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
@@ -1306,7 +1304,7 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
 }
 
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
 	return false;
 }
@@ -1321,14 +1319,14 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	return 0;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	if(!mProvidedManifestFile.empty())
 	{
 		bRetManifestData = std::move(mProvidedManifestFile);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)

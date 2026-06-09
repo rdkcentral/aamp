@@ -594,7 +594,6 @@ public:
 	 * @brief To Load New subtitle on seamless subtitle switch
 	 */
 	void LoadNewSubtitle(bool val);
-
 	/**
 	 * @brief To set Track's Fetch and Inject duration after playlist update
 	 */
@@ -617,7 +616,7 @@ public:
 	/**
 	 * @brief SetCachedFragmentSize - Setter for fragment cache active window size
 	 *
-	 * @param[in] size Active window size (must be > 0 and <= DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK)
+	 * @param[in] size Active window size (must be > 0 and <= MAX_CACHED_FRAGMENTS_PER_TRACK)
 	 */
 	void SetCachedFragmentSize(size_t size);
 
@@ -721,10 +720,9 @@ protected:
 
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
+	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
+
 private:
-	bool gotLocalTime;
-	bool ptsRollover;
-	long long currentLocalTimeMs;
 	
 	/**
 	 * @fn GetBufferHealthStatusString
@@ -741,8 +739,6 @@ private:
 	 * @param[in] cachedFragment - fragment to be restamped for trickmodes
 	 */
 	void TrickModePtsRestamp(CachedFragment* cachedFragment);
-
-	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
 
 	/**
 	 * @fn TrickModePtsRestamp
@@ -803,9 +799,10 @@ public:
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
-	/** Per-track ring buffer; static capacity sized for live LLD chunks.
-	 *  The active window is `mCachedFragmentSize`, which never exceeds the array size. */
-	std::array<CachedFragment, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK> mCachedFragment{};
+	/** Per-track ring buffer; capacity is MAX_CACHED_FRAGMENTS_PER_TRACK slots.
+	 *  The active window is `mCachedFragmentSize` (set via SetCachedFragmentSize()),
+	 *  which never exceeds MAX_CACHED_FRAGMENTS_PER_TRACK. */
+	std::array<CachedFragment, MAX_CACHED_FRAGMENTS_PER_TRACK> mCachedFragment{};
 	std::vector<uint8_t> unparsedBufferChunk{}; /**< Unparsed buffer chunk for ISOBMFF chunk processing */
 	std::vector<uint8_t> parsedBufferChunk{};   /**< Parsed buffer chunk for ISOBMFF chunk processing */
 	bool abort;                         /**< Abort all operations if flag is set*/
@@ -1430,6 +1427,7 @@ public:
 	bool hasDrm;                            /**< denotes if the current asset is DRM protected*/
 
 	bool mIsAtLivePoint;                    /**< flag that denotes if playback is at live point*/
+	bool mSavedLatencyMonitorState ; /**< Saved latency monitor state before audio/subtitle track switch; used to restore only if it was active prior to the switch */
 
 	bool mIsPlaybackStalled;                /**< flag that denotes if playback was stalled or not*/
 	bool mNetworkDownDetected;              /**< Network down status indicator */

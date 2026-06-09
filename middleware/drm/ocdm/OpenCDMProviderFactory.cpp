@@ -44,7 +44,7 @@ std::unique_ptr<IOpenCDM> OpenCDMProviderFactory::create(const std::string& keyS
 	// TODO: [SHARED-INFRA] gpGlobalConfig is AAMP's global config pointer.
 	//       A cleaner approach would be to pass the config flag as a parameter,
 	//       but this matches the existing pattern used throughout AAMP middleware.
-	if (gpGlobalConfig && gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoDirect))
+	if (gpGlobalConfig && gpGlobalConfig->IsConfigSet(eAAMPConfig_useDirectRialto))
 	{
 		MW_LOG_INFO("OpenCDMProviderFactory: creating RialtoMediaKeysProvider for %s", keySystem.c_str());
 		return std::make_unique<RialtoMediaKeysProvider>(keySystem);

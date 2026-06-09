@@ -31,10 +31,13 @@
 #include <gmock/gmock.h>
 
 #include "PrivateInstanceAAMPNotifiable.h"
+#include "MockAampConfig.h"
 #include "MockPrivateInstanceAAMP.h"
 
 using ::testing::Return;
+using ::testing::NiceMock;
 using ::testing::_;
+using ::testing::NiceMock;
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -45,7 +48,8 @@ class PrivateInstanceAAMPNotifiableTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		g_mockPrivateInstanceAAMP = &m_mock;
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		m_notifiable = std::make_unique<PrivateInstanceAAMPNotifiable>(
 			&m_aamp);
 	}
@@ -53,11 +57,11 @@ protected:
 	void TearDown() override
 	{
 		m_notifiable.reset();
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
+		g_mockAampConfig.reset();
 	}
 
 	PrivateInstanceAAMP m_aamp{};
-	MockPrivateInstanceAAMP m_mock;
 	std::unique_ptr<PrivateInstanceAAMPNotifiable> m_notifiable;
 };
 
@@ -68,7 +72,7 @@ protected:
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	GetState_ForwardsToAamp_ReturnsMockedValue)
 {
-	EXPECT_CALL(m_mock, GetState())
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.WillOnce(Return(eSTATE_PLAYING));
 
 	EXPECT_EQ(m_notifiable->GetState(), eSTATE_PLAYING);
@@ -77,7 +81,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	NotifySpeedChanged_ForwardsRateAndChangeState)
 {
-	EXPECT_CALL(m_mock, NotifySpeedChanged(2.0f, true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0f, true));
 
 	m_notifiable->NotifySpeedChanged(2.0f, true);
 }
@@ -91,9 +95,9 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 {
 	// NotifyFirstFrameReceived in the fake calls SetState internally;
 	// set up the mock to handle GetState/SetState calls.
-	EXPECT_CALL(m_mock, GetState())
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.WillRepeatedly(Return(eSTATE_IDLE));
-	EXPECT_CALL(m_mock, SetState(_, _)).Times(testing::AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_, _)).Times(testing::AnyNumber());
 
 	m_notifiable->NotifyFirstFrameReceived(42);
 }
@@ -126,4 +130,73 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 	MonitorProgress_ForwardsWithoutCrash)
 {
 	m_notifiable->MonitorProgress(true, false);
+}
+
+// ===========================================================================
+// ChangeAamp
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_UpdatesTargetInstance)
+{
+	// The fixture's m_aamp is constructed without config (mConfig == nullptr),
+	// while newAamp has a non-null config. This lets us verify ChangeAamp
+	// switched the wrapped instance without relying on g_mockPrivateInstanceAAMP.
+	AampConfig config;
+	PrivateInstanceAAMP newAamp(&config);
+
+	// Force FakeAampConfig fallback behavior for non-null config access.
+	g_mockAampConfig.reset();
+
+	// Sanity: before change, adapter points to fixture m_aamp with null config.
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 0.0);
+
+	// Act.
+	m_notifiable->ChangeAamp(&newAamp);
+
+	// Assert: non-null config path is now used on the new wrapped instance.
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), -1.0);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	ChangeAamp_AfterChange_OldInstanceNotNotified)
+{
+	// Use an oracle that depends on the wrapped instance pointer itself:
+	// fixture m_aamp has null config, while newAamp has non-null config.
+	AampConfig config;
+	PrivateInstanceAAMP newAamp(&config);
+
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 0.0);
+
+	m_notifiable->ChangeAamp(&newAamp);
+
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(eAAMPConfig_ReportProgressInterval))
+		.WillOnce(Return(1.5));
+
+	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 1.5);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	GetProgressReportIntervalSeconds_WithNullConfig_ReturnsZero)
+{
+	AampConfig *config = nullptr;
+	PrivateInstanceAAMP aampWithNullConfig(config);
+	PrivateInstanceAAMPNotifiable notifiable(&aampWithNullConfig);
+
+	EXPECT_DOUBLE_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.0);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	GetProgressReportIntervalSeconds_WithConfig_ForwardsToAampConfig)
+{
+	AampConfig config;
+	PrivateInstanceAAMP aampWithConfig(&config);
+	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
+
+	EXPECT_CALL(*g_mockAampConfig,
+		GetConfigValue(eAAMPConfig_ReportProgressInterval))
+		.WillOnce(Return(0.75));
+
+	EXPECT_DOUBLE_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.75);
 }

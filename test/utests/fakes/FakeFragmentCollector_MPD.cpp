@@ -22,7 +22,7 @@
 
 TimeSyncClient::TimeSyncClient() = default;
 
-MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
+std::shared_ptr<MockStreamAbstractionAAMP_MPD> g_mockStreamAbstractionAAMP_MPD{};
 
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
 	: StreamAbstractionAAMP(aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
@@ -56,7 +56,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 {
 	AAMPStatusType status = eAAMPSTATUS_OK;
-	AAMPLOG_WARN("g_mockStreamAbstractionAAMP_MPD = %p", g_mockStreamAbstractionAAMP_MPD);
+	AAMPLOG_WARN("g_mockStreamAbstractionAAMP_MPD = %p", g_mockStreamAbstractionAAMP_MPD.get());
 	if (g_mockStreamAbstractionAAMP_MPD)
 	{
 		status = g_mockStreamAbstractionAAMP_MPD->InitTsbReader(tuneType);

@@ -93,6 +93,18 @@ public:
 	 */
 	virtual void LogTuneComplete() = 0;
 
+	/**
+	 * @brief Notify that the first video frame has been displayed on screen.
+	 *        Signals to AAMP that the video sink has rendered the first
+	 *        frame, allowing state transitions that depend on visible
+	 *        playback (e.g. pause-on-first-frame).
+	 *
+ 	 * The sink may call this after initial tune and/or seek recovery.
+ 	 * Implementations should internally gate the behavior via
+ 	 * PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired().
+	 */
+	virtual void NotifyFirstVideoFrameDisplayed() = 0;
+
 	// -----------------------------------------------------------------------
 	// End-of-stream
 	// -----------------------------------------------------------------------
@@ -110,8 +122,8 @@ public:
 
 	/**
 	 * @brief Drive AAMP to report a progress event.
-	 *        Should be called each time the Rialto server delivers a
-	 *        position update.
+	 *        Called by the StreamSink progress timer to report position
+	 *        periodically, independent of Rialto position callback cadence.
 	 *
 	 * @param[in] sync              Reserved; pass false unless a synchronous
 	 *                              progress report is required.
@@ -119,6 +131,15 @@ public:
 	 */
 	virtual void MonitorProgress(bool sync = false,
 	                             bool beginningOfStream = false) = 0;
+
+	/**
+	 * @brief Return the periodic progress-report interval in seconds.
+	 *
+	 * Direct-Rialto uses this value to schedule an AAMP-side timer that
+	 * drives MonitorProgress() independently of Rialto position-notification
+	 * cadence.
+	 */
+	virtual double GetProgressReportIntervalSeconds() = 0;
 
 	// -----------------------------------------------------------------------
 	// Speed / state

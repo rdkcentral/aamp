@@ -115,4 +115,6 @@ public:
 			pipeline, std::move(buffer),
 			fpts, fdts, fDuration, fragmentPTSoffset);
 	}
+
+	MOCK_METHOD(int64_t, firstPtsMs, (), (const, override));
 };

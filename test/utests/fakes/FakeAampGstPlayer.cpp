@@ -22,7 +22,7 @@
 #include "priv_aamp.h"
 #include "AampLogManager.h"
 
-MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
+std::shared_ptr<MockAAMPGstPlayer> g_mockAampGstPlayer{};
 // // Required by AampGstPlayer mocks
 // AAMPGstPlayer::id3_callback_t mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t & ){ };
 
@@ -89,7 +89,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	return true;
 }
 
-bool AAMPGstPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
+bool AAMPGstPlayer::Pause(bool pause, bool forceStopPreBuffering)
 {
 	return true;
 }
@@ -275,7 +275,7 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
 {
 }
-bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool /*morePending*/)
 {
 	return true;
 }

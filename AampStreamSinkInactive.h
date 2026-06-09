@@ -78,9 +78,10 @@ public:
 	 *   @param[in] sample - Media sample; ownership would be consumed (rvalue-ref
 	 *                       to match the StreamSink interface), but this stub
 	 *                       discards the sample and returns false.
+	 *   @param[in] morePending - True if more samples are available (ignored in stub).
 	 *   @return Always false.
 	 */
-	virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample)
+	virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;
@@ -139,7 +140,7 @@ public:
      *   @fn Pause
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool Pause(bool pause, bool forceStopGstreamerPreBuffering)
+	virtual bool Pause(bool pause, bool forceStopPreBuffering)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;

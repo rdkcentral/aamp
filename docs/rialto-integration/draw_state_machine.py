@@ -89,6 +89,12 @@ TRANSITIONS = [
     # After flush + re-configure, new init fragments re-drive attachment.
     ("FLUSHING",          "onSourceAttaching",    "attachSource()",        "SOURCES_ATTACHING"),
 
+    # FlushingState responds to Rialto playback state notifications.
+    # This prevents the state machine from staying stuck in FLUSHING when
+    # Rialto sends PLAYING or PAUSED during a flush/seek operation.
+    ("FLUSHING",          "onPlaybackStarted",    "Rialto sends PLAYING",  "PLAYING"),
+    ("FLUSHING",          "onPlaybackPaused",     "Rialto sends PAUSED",   "PAUSED"),
+
     # ── Stop — valid from any non-terminal state ───────────────────────────
     ("PIPELINE_CREATED",  "onStop",               "stop()",                "STOPPED"),
     ("SOURCES_ATTACHING", "onStop",               "stop()",                "STOPPED"),

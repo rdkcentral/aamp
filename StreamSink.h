@@ -44,7 +44,7 @@ typedef struct PlaybackQualityData
 
 /**
  * @class StreamSink
- * @brief GStreamer Abstraction class for the implementation of AAMPGstPlayer and gstaamp plugin
+ * @brief Abstract interface for stream sink implementations (e.g. GStreamer, DirectRialto)
  */
 class StreamSink
 {
@@ -97,9 +97,10 @@ public:
      *   @param[in]  sample - Media sample; ownership is transferred (consumed).
      *                        Callers must pass via std::move() and must not
      *                        access the sample after this call returns.
+     *   @param[in]  morePending - True if more samples are available to inject after this one (default: false).
      *   @return true if sample was accepted by the sink, false otherwise.
      */
-    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
+    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false ) = 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type
@@ -169,10 +170,10 @@ public:
      *   @brief Enabled or disable playback pause
      *
      *   @param[in] pause  Enable/Disable
-     *   @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
+     *   @param[in] forceStopPreBuffering - true for disabling pre-buffering in progress
      *   @return true if content successfully paused
      */
-    virtual bool Pause(bool pause, bool forceStopGstreamerPreBuffering){ return true; }
+    virtual bool Pause(bool pause, bool forceStopPreBuffering){ return true; }
 
     /**
      *   @brief Get playback duration in milliseconds

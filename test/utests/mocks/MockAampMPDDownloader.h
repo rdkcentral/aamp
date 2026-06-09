@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_MPD_DOWNLOADER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampMPDDownloader.h"
 
 class MockAampMPDDownloader
@@ -32,6 +33,6 @@ public:
 	MOCK_METHOD(void, Initialize, (std::shared_ptr<ManifestDownloadConfig> mpdDnldCfg, std::string appName));
 };
 
-extern MockAampMPDDownloader *g_mockAampMPDDownloader;
+extern std::shared_ptr<MockAampMPDDownloader> g_mockAampMPDDownloader;
 
 #endif /* AAMP_MOCK_AAMP_MPD_DOWNLOADER_H */

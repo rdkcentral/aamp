@@ -34,6 +34,7 @@
 #include "AampDemuxDataTypes.h"
 #include "AampMediaType.h"
 #include "IDrmBridge.h"
+#include "StreamOutputFormat.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -158,6 +159,18 @@ public:
 	int32_t sourceId() const { return m_sourceId; }
 	bool isAttached() const { return m_sourceId >= 0; }
 
+	/// True while an async Rialto flush is in flight for this source.
+	/// Set by flushSource(); cleared by AampRialtoPlayer::OnSourceFlushed()
+	/// when Rialto sends the corresponding SourceFlushedEvent.
+	bool isFlushing() const
+	{
+		return m_flushing.load(std::memory_order_acquire);
+	}
+	void setFlushing(bool value)
+	{
+		m_flushing.store(value, std::memory_order_release);
+	}
+
 	/// Block if this source's Rialto attachment is still deferred (waiting
 	/// for video to attach first).  Returns true when injection may safely
 	/// proceed; returns false when the caller should discard the frame
@@ -202,6 +215,21 @@ public:
 	std::shared_ptr<firebolt::rialto::CodecData> takePendingCodecData();
 
 	// -----------------------------------------------------------------
+	// Stream format
+	// -----------------------------------------------------------------
+
+	/// @brief Return the StreamOutputFormat recorded by setFormat().
+	StreamOutputFormat format() const { return m_streamFormat; }
+
+	/// @brief Record the StreamOutputFormat for which this source was created.
+	///
+	/// Called by AampRialtoPlayer::Configure() immediately after source
+	/// construction.  Used to detect format changes on subsequent Configure()
+	/// calls so the pipeline is only recreated when necessary.  Never
+	/// cleared by reset().
+	void setFormat(StreamOutputFormat f) { m_streamFormat = f; }
+
+	// -----------------------------------------------------------------
 	// Core operations
 	// -----------------------------------------------------------------
 
@@ -226,12 +254,20 @@ public:
 	 * Blocks until a needData request arrives for this source, then
 	 * delivers the sample via addSegment.  Returns false if the batch
 	 * was aborted by Flush/Stop.
+	 *
+	 * @param pipeline       The Rialto media pipeline.
+	 * @param capturedGen    Generation token captured before blocking.
+	 * @param sample         The sample to inject (moved in).
+	 * @param codecData      Optional codec data to attach.
+	 * @param morePending    True if more samples are available to inject after this one (default: false).
+	 * @return true on successful injection; false if aborted.
 	 */
 	bool injectOneSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
 		uint64_t capturedGen,
 		AampMediaSample &&sample,
-		std::shared_ptr<firebolt::rialto::CodecData> codecData);
+		std::shared_ptr<firebolt::rialto::CodecData> codecData,
+		bool morePending = false);
 
 	/**
 	 * @brief Parse an init segment and return the decoded codec info.
@@ -283,13 +319,35 @@ public:
 	 * injectOneSample().  Returns false if the source is not attached
 	 * or if injection was aborted by Flush/Stop.
 	 *
-	 * @param pipeline  The active Rialto media pipeline.
-	 * @param sample    The decoded sample to inject (moved in).
+	 * @param pipeline     The active Rialto media pipeline.
+	 * @param sample       The decoded sample to inject (moved in).
+	 * @param morePending  True if more samples are available to inject after this one (default: false).
 	 * @return true on successful injection; false otherwise.
 	 */
 	virtual bool injectSingleSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
-		AampMediaSample &&sample);
+		AampMediaSample &&sample,
+		bool morePending = false);
+
+	/// Sentinel value returned by firstPtsMs() when no sample has been
+	/// injected yet in the current session.  Mirrors the -1 sentinel
+	/// used by GStreamer's segmentStart in InterfacePlayerRDK.
+	static constexpr int64_t kFirstPtsNotSet = -1LL;
+
+	/**
+	 * @brief PTS of the first sample injected since the last reset or
+	 *        invalidateGeneration().
+	 *
+	 * Set when the first addSegment() call succeeds in each session.
+	 * This avoids establishing a segment-start baseline for samples that
+	 * never become accepted pipeline content.
+	 * Returns kFirstPtsNotSet if no sample has been injected yet.
+	 *
+	 * Used by AampRialtoPlayer::GetPositionMilliseconds() as the segment-
+	 * start baseline, mirroring GStreamer's segmentStart subtraction in
+	 * InterfacePlayerRDK::GetPositionMilliseconds().
+	 */
+	virtual int64_t firstPtsMs() const;
 
 	/**
 	 * @brief Signal end-of-stream for this source.
@@ -389,6 +447,21 @@ protected:
 	std::unique_ptr<Mp4Demux> m_demuxer;
 	std::optional<ProtectionParams> m_protection;
 	std::shared_ptr<firebolt::rialto::CodecData> m_pendingCodecData;
+	/// Stream format passed to Configure() when this source was created.
+	/// Never cleared by reset() so Configure() can compare formats across
+	/// sessions without unnecessarily recreating the pipeline.
+	StreamOutputFormat m_streamFormat{FORMAT_INVALID};
+
+	/// Set while an async Rialto flush is in flight for this source.
+	/// Atomic so Flush() (AAMP thread) and OnSourceFlushed() (Rialto IPC
+	/// thread) can access it without holding m_state.mu.
+	std::atomic<bool> m_flushing{false};
+
+	/// PTS of the first sample injected since the last reset or
+	/// invalidateGeneration(), in milliseconds.  Set lazily via
+	/// compare-exchange after addSegment(OK) in injectOneSample().
+	/// kFirstPtsNotSet = not set.
+	std::atomic<int64_t> m_firstPtsMs{kFirstPtsNotSet};
 };
 
 #endif /* AAMP_RIALTO_MEDIA_SOURCE_H */

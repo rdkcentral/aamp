@@ -32,6 +32,8 @@ public:
 	MOCK_METHOD(void, NotifyFirstBufferProcessed,
 		(const std::string &videoRectangle), (override));
 
+	MOCK_METHOD(void, NotifyFirstVideoFrameDisplayed, (), (override));
+
 	MOCK_METHOD(void, LogFirstFrame, (), (override));
 
 	MOCK_METHOD(void, LogTuneComplete, (), (override));
@@ -40,6 +42,9 @@ public:
 
 	MOCK_METHOD(void, MonitorProgress,
 		(bool sync, bool beginningOfStream), (override));
+
+	MOCK_METHOD(double, GetProgressReportIntervalSeconds,
+		(), (override));
 
 	MOCK_METHOD(void, NotifySpeedChanged,
 		(float rate, bool changeState), (override));

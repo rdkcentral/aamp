@@ -88,6 +88,8 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 			auto samples = mMp4Demux->GetSamples();
 			if (!samples.empty())
 			{
+				size_t sampleIndex = 0;
+				const size_t totalSamples = samples.size();
 				for (auto&& sample : samples)
 				{
 					// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
@@ -112,7 +114,9 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							sample.mDuration * timeScale);
 						}
 					}
-					mAamp->SendStreamTransfer(mMediaType, std::move(sample));
+					++sampleIndex;
+					bool morePending = (sampleIndex < totalSamples);
+					mAamp->SendStreamTransfer(mMediaType, std::move(sample), morePending);
 				}
 			}
 			else

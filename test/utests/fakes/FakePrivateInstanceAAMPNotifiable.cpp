@@ -40,6 +40,8 @@ void PrivateInstanceAAMPNotifiable::NotifyFirstFrameReceived(
 void PrivateInstanceAAMPNotifiable::NotifyFirstBufferProcessed(
 	const std::string & /*videoRectangle*/) {}
 
+void PrivateInstanceAAMPNotifiable::NotifyFirstVideoFrameDisplayed() {}
+
 void PrivateInstanceAAMPNotifiable::LogFirstFrame() {}
 
 void PrivateInstanceAAMPNotifiable::LogTuneComplete() {}
@@ -48,6 +50,11 @@ void PrivateInstanceAAMPNotifiable::NotifyEOSReached() {}
 
 void PrivateInstanceAAMPNotifiable::MonitorProgress(
 	bool /*sync*/, bool /*beginningOfStream*/) {}
+
+double PrivateInstanceAAMPNotifiable::GetProgressReportIntervalSeconds()
+{
+	return 0.0;
+}
 
 void PrivateInstanceAAMPNotifiable::NotifySpeedChanged(
 	float /*rate*/, bool /*changeState*/) {}
