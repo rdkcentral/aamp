@@ -204,6 +204,7 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 	// reset
 	Release();
 	mReleaseCalled = false;
+	ClearManifestRefreshRetryStatus();
 
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mMPDDnldCfg = std::move(mpdDnldCfg);
