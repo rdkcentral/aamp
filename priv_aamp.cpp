@@ -5836,7 +5836,7 @@ static gboolean WifiLoggingTimerCallback(gpointer user_data)
     const char *cmd =
         "curl -s -X POST "
         "-H \"Content-Type: application/json\" "
-        "http://127.0.0.1:9998/jsonrpc "
+        "http://164.64.11.1:9998/jsonrpc "
         "-d '{\"jsonrpc\":\"2.0\",\"id\":4,"
         "\"method\":\"org.rdk.NetworkManager.GetWiFiSignalQuality\"}'";
 
