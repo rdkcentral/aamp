@@ -71,11 +71,11 @@ protected:
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 123.45, 12.34);
 		mMediaStreamContext = new TestableMediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockMediaTrack = new StrictMock<MockMediaTrack>();
-		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
-		g_mockAampTimeBasedBufferManager = new StrictMock<aamp::MockAampTimeBasedBufferManager>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockMediaTrack = std::make_shared<StrictMock<MockMediaTrack>>();
+		g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
+		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
+		g_mockAampTimeBasedBufferManager = std::make_shared<StrictMock<aamp::MockAampTimeBasedBufferManager>>();
 		// GetBufferedDurationSecs() is called for every video-track fragment via
 		// NotifyBufferLevelToLatencyMonitor.  Allow any number of calls so all tests
 		// in this fixture pass without needing per-test EXPECT_CALL boilerplate.
@@ -83,20 +83,20 @@ protected:
 			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
 		mTsbSessionMgr = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
 		mMockTSBSessionMgr = std::make_unique<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
-		g_mockTSBSessionManager = mMockTSBSessionMgr.get();
+		g_mockTSBSessionManager = std::shared_ptr<MockTSBSessionManager>(mMockTSBSessionMgr.get(), [](MockTSBSessionManager*){});
 		mTsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, nullptr, eMEDIATYPE_VIDEO, "sessionId");
 		g_mockTSBReader = std::make_shared<MockTSBReader>();
 		mMockStreamAbstractionAAMP_MPD = std::make_unique<NiceMock<MockStreamAbstractionAAMP_MPD>>(mPrivateInstanceAAMP, 0, 0);
-		g_mockStreamAbstractionAAMP_MPD = mMockStreamAbstractionAAMP_MPD.get();
+		g_mockStreamAbstractionAAMP_MPD = std::shared_ptr<MockStreamAbstractionAAMP_MPD>(mMockStreamAbstractionAAMP_MPD.get(), [](MockStreamAbstractionAAMP_MPD*){});
 	}
 
 	void TearDown() override
 	{
-		g_mockStreamAbstractionAAMP_MPD = nullptr;
+		g_mockStreamAbstractionAAMP_MPD.reset();
 		mMockStreamAbstractionAAMP_MPD.reset();
 		g_mockTSBReader.reset();
 		mTsbReader.reset();
-		g_mockTSBSessionManager = nullptr;
+		g_mockTSBSessionManager.reset();
 		mMockTSBSessionMgr.reset();
 		mTsbSessionMgr.reset();
 
@@ -109,20 +109,15 @@ protected:
 		delete mMediaStreamContext;
 		mMediaStreamContext = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockMediaTrack;
-		g_mockMediaTrack = nullptr;
+		g_mockMediaTrack.reset();
 
-		delete g_mockStreamAbstractionAAMP;
-		g_mockStreamAbstractionAAMP = nullptr;
+		g_mockStreamAbstractionAAMP.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockAampTimeBasedBufferManager;
-		g_mockAampTimeBasedBufferManager = nullptr;
+		g_mockAampTimeBasedBufferManager.reset();
 	}
 
 public:
@@ -143,6 +138,8 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_NullActiveDownloadInfo)
 {
 	mMediaStreamContext->mActiveDownloadInfo = nullptr;
 	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	// Allow DownloadsAreEnabled() to be called and return true to avoid uninteresting mock call failure
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	mMediaStreamContext->OnFragmentDownloadSuccess(dlInfo);
 	// Expect no crash or exception
 }

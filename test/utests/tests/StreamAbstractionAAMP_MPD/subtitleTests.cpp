@@ -142,11 +142,11 @@ public:
 			gpGlobalConfig = new AampConfig();
 		}
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
+		g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
 
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 		mStreamAbstractionAAMP_MPD = new TestStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
@@ -169,14 +169,10 @@ public:
 		mCdaiObj = nullptr;
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
-		delete g_mockAampMPDDownloader;
-		g_mockAampMPDDownloader = nullptr;
+		g_mockAampConfig.reset();
+		g_mockPrivateInstanceAAMP.reset();
+		g_mockMediaStreamContext.reset();
+		g_mockAampMPDDownloader.reset();
 		mManifest = nullptr;
 	}
 
@@ -472,6 +468,8 @@ TEST_F(SubtitleTrackTests, RefreshTrack)
 	EXPECT_NE(track, nullptr);
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 	EXPECT_EQ(pMediaStreamContext->refreshSubtitles,false);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLatencyMonitorEnabled()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, EnableLatencyMonitor(false)).Times(1);
 	CallRefreshTrack(eMEDIATYPE_SUBTITLE);
 	EXPECT_EQ(pMediaStreamContext->refreshSubtitles,true);
 }

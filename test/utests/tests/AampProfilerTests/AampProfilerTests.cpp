@@ -28,7 +28,7 @@
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
-extern MockAampConfig *g_mockAampConfig;
+extern std::shared_ptr<MockAampConfig> g_mockAampConfig;
 
 class AampProfilertests : public testing::Test {
 protected:
@@ -67,7 +67,6 @@ TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
 {
     TuneEndMetrics tuneMetricsData;
 	const char *tuneTimeStrPrefix = "[tuneTimeStrPrefix]";
-	unsigned int licenseAcqNWTime = 2;
     bool playerPreBuffered = true;
     unsigned int durationSeconds = 3;
     bool interfaceWifi = true;
@@ -75,7 +74,7 @@ TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
     std::string appName = "test3";
     cJSON *item = cJSON_CreateObject();
     cJSON_AddNumberToObject(item,"ver",AAMP_TUNETIME_VERSION);
-    std::string s1 = profileEvent->GetTuneTimeMetricAsJson(tuneMetricsData, tuneTimeStrPrefix,licenseAcqNWTime, playerPreBuffered,durationSeconds,interfaceWifi, failureReason, appName);
+    std::string s1 = profileEvent->GetTuneTimeMetricAsJson(tuneMetricsData, tuneTimeStrPrefix, playerPreBuffered,durationSeconds,interfaceWifi, failureReason, appName);
     profileEvent->TuneBegin();
     profileEvent->SetDiscontinuityParam();
 }
@@ -650,12 +649,11 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKEnabled)
     AampConfig* savedConfig = gpGlobalConfig;
     
     // Setup: Create mock and configure gpGlobalConfig with eAAMPConfig_UseFireboltSDK enabled
-    MockAampConfig mockConfig;
-    g_mockAampConfig = &mockConfig;
+    g_mockAampConfig = std::make_shared<MockAampConfig>();
     gpGlobalConfig = new AampConfig();
     
     // Set expectation that IsConfigSet will be called and return true
-    EXPECT_CALL(mockConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
         .WillOnce(Return(true));
     
     // Prepare TuneEndMetrics
@@ -693,7 +691,7 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKEnabled)
     // Cleanup
     delete gpGlobalConfig;
     gpGlobalConfig = savedConfig;
-    g_mockAampConfig = nullptr;
+    g_mockAampConfig.reset();
 }
 
 TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKDisabled)
@@ -702,12 +700,11 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKDisabled)
     AampConfig* savedConfig = gpGlobalConfig;
     
     // Setup: Create mock and configure gpGlobalConfig with eAAMPConfig_UseFireboltSDK disabled
-    MockAampConfig mockConfig;
-    g_mockAampConfig = &mockConfig;
+    g_mockAampConfig = std::make_shared<MockAampConfig>();
     gpGlobalConfig = new AampConfig();
     
     // Set expectation that IsConfigSet will be called and return false
-    EXPECT_CALL(mockConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
         .WillOnce(Return(false));
     
     // Prepare TuneEndMetrics
@@ -750,7 +747,7 @@ TEST_F(AampProfilertests, TuneEndVIPATaggingWithFireboltSDKDisabled)
     // Cleanup
     delete gpGlobalConfig;
     gpGlobalConfig = savedConfig;
-    g_mockAampConfig = nullptr;
+    g_mockAampConfig.reset();
 }
 TEST_F(AampProfilertests, TuneEndVIPATaggingWithNullConfig)
 {

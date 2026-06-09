@@ -79,6 +79,7 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "AampSegmentInfo.hpp"
 
 #include "AampCurlStore.h"
+#include "mp4demux/MP4Demux.h"
 
 #include <iomanip>
 #include <unordered_set>
@@ -378,9 +379,8 @@ static gboolean PrivateInstanceAAMP_ProcessDiscontinuity(gpointer ptr)
 		// This is to avoid calling cond signal, in case Stop() interrupts the ProcessPendingDiscontinuity
 		if (ret)
 		{
-			aamp->SyncBegin();
+			auto syncLock = aamp->SyncLock();
 			aamp->mDiscontinuityTuneOperationId = 0;
-			aamp->SyncEnd();
 		}
 		aamp->mCondDiscontinuity.notify_one();
 	}
@@ -1531,13 +1531,13 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		}
 	}
 
-	context->aamp->SyncBegin();
-	if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
-		rc = 1; // CURLE_ABORTED_BY_CALLBACK
+		auto syncLock = context->aamp->SyncLock();
+		if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
+		{
+			rc = 1; // CURLE_ABORTED_BY_CALLBACK
+		}
 	}
-
-	context->aamp->SyncEnd();
 	if( rc==0 )
 	{ // only proceed if not an aborted download
 		if (dlnow > 0 && context->stallTimeout > 0)
@@ -1681,12 +1681,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, vDynamicDrmData()
 	, midFragmentSeekCache(false)
 	, mLiveOffsetDrift(AAMP_DEFAULT_LIVE_OFFSET_DRIFT)
-	, mDisableRateCorrection (false)
-	, mRateCorrectionThread ()
-	, mRateCorrectionWait()
-	, mRateCorrectionTimeoutLock()
-	, mAbortRateCorrection (false)
-	, mCorrectionRate(AAMP_NORMAL_PLAY_RATE)
 	, mPreviousAudioType (FORMAT_INVALID)
 	, mTsbRecordingId()
 	, mthumbIndexValue(-1)
@@ -1805,8 +1799,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),mMPDStichRefreshUrl("")
 	, mTsbType("none")
 	, mTsbDepthMs(0)
-	, mDiscStartTime(0)
-	, mRateCorrectionDelay(false)
 	, mDownloadDelay(0)
 	, curlhost{}
 	, mWaitForDiscoToComplete()
@@ -1830,6 +1822,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
 	, mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
+	, mTuneTimeMetricData()
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -2305,7 +2298,6 @@ void PrivateInstanceAAMP::NotifyPauseOnStartPlayback(void)
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 		}
 		AAMPLOG_INFO("Live latency correction is disabled after Pause");
-		mDisableRateCorrection = true;
 
 		mSinkPaused = true;
 	}
@@ -2349,225 +2341,14 @@ void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMedi
 }
 
 /**
- *   @brief GStreamer operation start
- */
-void PrivateInstanceAAMP::SyncBegin(void)
-{
-	mLock.lock();
-}
-
-/**
- * @brief GStreamer operation end
+ * @brief Acquire the GStreamer operation lock (RAII).
  *
+ * Returns a std::unique_lock that holds mLock for its lifetime.
+ * The lock is released automatically when the lock object is destroyed.
  */
-void PrivateInstanceAAMP::SyncEnd(void)
+std::unique_lock<std::recursive_mutex> PrivateInstanceAAMP::SyncLock()
 {
-	mLock.unlock();
-}
-
-/**
- * @brief Abort wait for playlist download
- */
-void PrivateInstanceAAMP::WakeupLatencyCheck()
-{
-	mRateCorrectionWait.notify_one();
-}
-
-/**
- * @brief Wait until timeout is reached or interrupted
- */
-void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
-{
-	if(timeInMs > 0 && DownloadsAreEnabled())
-	{
-		std::unique_lock<std::mutex> lock(mRateCorrectionTimeoutLock);
-		if(mRateCorrectionWait.wait_for(lock, std::chrono::milliseconds(timeInMs)) == std::cv_status::timeout)
-		{
-			AAMPLOG_TRACE(" Timeout exceeded Rate Correction Thread : %d", timeInMs); // make it trace
-		}
-		else
-		{
-			mAbortRateCorrection = true;
-			AAMPLOG_INFO(" Aborted Rate Correction Thread"); // TRACE
-		}
-	}
-}
-
-/**
- * @brief The helper function which perform tuning
- * Common tune operations used on Tune, Seek, SetRate etc
- */
-void PrivateInstanceAAMP::StopRateCorrectionWorkerThread(void)
-{
-	if (mRateCorrectionThread.joinable())
-	{
-		try
-		{
-			mAbortRateCorrection = true;
-			WakeupLatencyCheck();
-			mRateCorrectionThread.join();
-			mCorrectionRate = AAMP_NORMAL_PLAY_RATE;
-		}
-		catch (exception& exp)
-		{
-			AAMPLOG_ERR("Rate Correction Thread Failed to Stop : %s ", exp.what());
-		}
-	}
-}
-/**
- * @brief The helper function which perform tuning
- * Common tune operations used on Tune, Seek, SetRate etc
- */
-void PrivateInstanceAAMP::StartRateCorrectionWorkerThread(void)
-{
-	try
-	{
-		bool newTune = IsNewTune();
-		bool enabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
-		/** Spawn the rate Correction thread if it is live, new tune, thread not started yet, and rate correction enabled **/
-		if(IsLive() && newTune && !mRateCorrectionThread.joinable() && enabled )
-		{
-			mAbortRateCorrection = false;
-			mRateCorrectionThread = std::thread(&PrivateInstanceAAMP::RateCorrectionWorkerThread, this);
-			AAMPLOG_INFO("Rate Correction Thread started [%zx]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
-		}
-	}
-	catch (exception& exp)
-	{
-		AAMPLOG_ERR("Rate Correction Thread Failed to start : %s ", exp.what());
-	}
-}
-
-/**
- * @brief Rate correction API call in thread to avoid the time delay for setting rate
- * This is single sleeping thread ; only wake up whenever it needed
- */
-void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
-{
-	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
-	{
-		int latencyMonitorInterval = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorIntervalMs);
-		double normalPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_NormalLatencyCorrectionPlaybackRate);
-		double maxPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxLatencyCorrectionPlaybackRate);
-		double minPlaybackRate = GETCONFIGVALUE_PRIV(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
-		int disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
-		int latencyMonitorDelay = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorDelayMs);
-		AAMPLOG_TRACE("latencyMonitorDelay %d latencyMonitorInterval=%d", latencyMonitorDelay,latencyMonitorInterval );
-		double latencyMonitorScheduleTimeMs = latencyMonitorDelay - latencyMonitorInterval;
-		//To handle latencyMonitorDelay < latencyMonitorInterval case
-		if( latencyMonitorScheduleTimeMs < 0)
-		{ // clamp!
-			AAMPLOG_INFO("unexpected latencyMonitorScheduleTime(%lf) ms", latencyMonitorScheduleTimeMs );
-			latencyMonitorScheduleTimeMs = 500; //TimedWaitForLatencyCheck here is 500 ms
-		}
-		while(!mAbortRateCorrection)
-		{
-			mCorrectionRate = rate; /**< To align with main playback rate start with rate*/
-			double rateRequired = normalPlaybackRate; /**< Can be vary for debug*/
-			TimedWaitForLatencyCheck(latencyMonitorScheduleTimeMs);
-			while(DownloadsAreEnabled())
-			{
-				interruptibleMsSleep(latencyMonitorInterval);
-				AAMPPlayerState state = GetState();
-				if (!mAbortRateCorrection &&!mDisableRateCorrection && DownloadsAreEnabled() && state == eSTATE_PLAYING)
-				{
-					double bufferedDuration = 0.0;
-					{
-						std::lock_guard<std::recursive_mutex> guard(mStreamLock);
-						if (mpStreamAbstractionAAMP)
-						{
-							bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
-						}
-					}
-					//If the player detect an empty period switch, it will set the  buffer duration as -1 even though  the player has content from previous period.
-					//In this case, player should not increase the playback speed to catchup the latency.
-					//So Setting isEnoughBuffer  true by default and the value will update accordingly if only buffer duration is greater than -1.
-					bool isEnoughBuffer = true;
-					if(bufferedDuration > -1.0)
-					{
-						isEnoughBuffer = bufferedDuration > (mLiveOffset / 2);
-					}
-					double latency = static_cast<double>(GetCurrentLatencyMs()) / 1000.0; // in seconds
-					AAMPLOG_INFO("Current latency is %.02lf current playback rate is %.02lf maxLiveOffset is %.02lf sec, target LiveOffset is %.02lf sec, minLiveOffset is %.02lf sec AvailableBuffer = %.02lf",
-					latency, mCorrectionRate, (mLiveOffset + mLiveOffsetDrift ), mLiveOffset, (mLiveOffset - mLiveOffsetDrift), bufferedDuration );
-					if ((latency > (mLiveOffset + mLiveOffsetDrift)) && isEnoughBuffer)
-					{
-						rateRequired = maxPlaybackRate;
-					}
-					else if (latency < (mLiveOffset - mLiveOffsetDrift))
-					{
-						rateRequired = minPlaybackRate;
-					}
-					else if (((latency <= mLiveOffset) && mCorrectionRate ==  maxPlaybackRate) ||
-							((latency >= mLiveOffset) && mCorrectionRate == minPlaybackRate) ||
-							((mCorrectionRate ==  maxPlaybackRate) && !isEnoughBuffer))
-					{
-						rateRequired = normalPlaybackRate;
-					}
-
-					if (disableRateCorrectionTimeInSeconds > 0 && mDiscStartTime > 0 && true == mRateCorrectionDelay)
-					{
-						int deltaTime = (int)(NOW_STEADY_TS_SECS- mDiscStartTime);
-
-						AAMPLOG_INFO("mDiscStartTime %ld currenttime=%" PRId64 " delta=%d disableRateCorrectionTimeInSeconds=%d",
-							mDiscStartTime, NOW_STEADY_TS_SECS, deltaTime, disableRateCorrectionTimeInSeconds);
-
-						if ( deltaTime > disableRateCorrectionTimeInSeconds )
-						{
-							mRateCorrectionDelay = false;
-							mDiscStartTime = 0;
-							AAMPLOG_WARN("Rate correction is enabled after discontinuity processing");
-						}
-						else
-						{
-							AAMPLOG_INFO("Rate correction is still disabled because still in discontinuity processing %ld", mDiscStartTime);
-						}
-					}
-
-					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-					if (sink)
-					{
-						if( !mRateCorrectionDelay && (mCorrectionRate != rateRequired) && !mDiscontinuityTuneOperationInProgress)
-						{
-							if (sink->SetPlayBackRate(rateRequired))
-							{
-								mCorrectionRate = rateRequired;
-								UpdateVideoEndMetrics(rateRequired);
-								SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
-								AAMPLOG_WARN("Rate Changed to : %f Live latency : %lf", rateRequired, latency);
-								profiler.IncrementChangeCount(Count_RateCorrection);
-							}
-						}
-					}
-				}
-				else
-				{
-					if (mDisableRateCorrection && DownloadsAreEnabled() && (rate == AAMP_NORMAL_PLAY_RATE && mCorrectionRate != normalPlaybackRate))
-					{
-						//Rate correction stopping from correction rate so reset to normal
-						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-						if (sink)
-						{
-							if (sink->SetPlayBackRate(normalPlaybackRate))
-							{
-								mCorrectionRate = normalPlaybackRate;
-								AAMPLOG_WARN("Rate Changed to : %f", mCorrectionRate);
-							}
-							else
-							{
-								AAMPLOG_WARN("Failed to reset the playback rate!!");
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	else
-	{
-		AAMPLOG_WARN("Rate Correction Ignored Due to Rate Correction disabled from config;  EnableLiveLatencyRateCorrection [%d]",
-		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection));
-	}
+	return std::unique_lock<std::recursive_mutex>(mLock);
 }
 
 /**
@@ -2605,6 +2386,11 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_COMPLETE) &&
 		(state != eSTATE_SEEKING))
 	{
+		// mTuneMetricDataPending is checked inside SendTuneMetricsEvent()
+		if (state == eSTATE_PLAYING)
+		{
+			SendTuneMetricsEvent();
+		}
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = beginningOfStream? 0: GetPositionMilliseconds();
 		double duration = durationSeconds * 1000.0;
@@ -2672,7 +2458,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 		}
-		if ((mReportProgressPosn == position) && !mSinkPaused.load() && beginningOfStream != true)
+		if ((mReportProgressPosn == position) && !mSinkPaused.load() && beginningOfStream != true && !reachedStart)
 		{
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
 			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
@@ -2693,15 +2479,6 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		{
 			start -= offset;
 			end -= offset;
-		}
-
-		// If tsb is not available for linear send -1  for start and end
-		// so that xre detect this as tsbless playback
-		// Override above logic if mEnableSeekableRange is set, used by third-party apps
-		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
-		{
-			start = -1;
-			end = -1;
 		}
 
 		if(IsLiveStream())
@@ -2737,6 +2514,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 		}
 
+		// If TSB is not available for linear playback, send -1 for start and end
+		// so that XRE detects this as TSB-less playback.
+		// Override the above logic when mEnableSeekableRange is set for third-party apps.
+		if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
+		{
+			start = -1;
+			end = -1;
+		}
+
 		const BitsPerSecond availableBandwidth = mhAbrManager.GetCurrentlyAvailableBandwidth();
 		const BitsPerSecond networkBandwidth = mhAbrManager.GetNetworkBandwidth();
 
@@ -2752,13 +2538,9 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			// This is trickplay or slow motion
 			currentRate = rate;
 		}
-		else if(mAampLLDashServiceData.lowLatencyMode)
+		else if(mLatencyMonitor->IsRateCorrectionEnabled())
 		{
 			currentRate = mLatencyMonitor->GetCurrentRate();
-		}
-		else if (!mAampLLDashServiceData.lowLatencyMode && ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection) )
-		{
-			currentRate = mCorrectionRate;
 		}
 		else
 		{
@@ -3346,15 +3128,15 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 }
 
 /**
- * @brief To change the the gstreamer pipeline to pause/play
+ * @brief To change the the stream sink pipeline to pause/play
  */
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
 	bool ret_val = true;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		if (true != sink->Pause(pause, forceStopGstreamerPreBuffering))
+		if (true != sink->Pause(pause, forceStopPreBuffering))
 		{
 			ret_val = false;
 		}
@@ -3370,13 +3152,16 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 /**
  * @brief providing the Tune Timemetric info
  */
-void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
+void PrivateInstanceAAMP::SendTuneMetricsEvent()
 {
-	// Providing the Tune Timemetric info as an event
-	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData, GetSessionId());
+	if (!mTuneTimeMetricData.empty() && mTuneMetricDataPending.load())
+	{
+		TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(std::move(mTuneTimeMetricData), GetSessionId());
 
-	AAMPLOG_TRACE("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
-	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+		AAMPLOG_TRACE("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
+		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+	}
+	mTuneMetricDataPending.store(false);
 }
 
 /**
@@ -3690,15 +3475,17 @@ double PrivateInstanceAAMP::getLastInjectedPosition()
 bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 {
 	bool ret = true;
-	SyncBegin();
-	if (mDiscontinuityTuneOperationInProgress)
+	bool operationInProgress;
 	{
-		SyncEnd();
+		auto syncLock = SyncLock();
+		operationInProgress = mDiscontinuityTuneOperationInProgress;
+	}
+	if (operationInProgress)
+	{
 		AAMPLOG_WARN("PrivateInstanceAAMP: Discontinuity Tune Operation already in progress");
 		UnblockWaitForDiscontinuityProcessToComplete();
 		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
-	SyncEnd();
 
 	if (!(DiscontinuitySeenInAllTracks()))
 	{
@@ -3707,9 +3494,10 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		return ret; // true so that PrivateInstanceAAMP_ProcessDiscontinuity can cleanup properly
 	}
 
-	SyncBegin();
-	mDiscontinuityTuneOperationInProgress = true;
-	SyncEnd();
+	{
+		auto syncLock = SyncLock();
+		mDiscontinuityTuneOperationInProgress = true;
+	}
 
 	if (DiscontinuitySeenInAllTracks())
 	{
@@ -3754,20 +3542,22 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 		}
 		trickStartUTCMS = -1;
 
-		SyncBegin();
-		mProgressReportFromProcessDiscontinuity = true;
-		SyncEnd();
+		{
+			auto syncLock = SyncLock();
+			mProgressReportFromProcessDiscontinuity = true;
+		}
 
 		// To notify app of discontinuity processing complete
 		MonitorProgress();
 
 		// There is a chance some other operation maybe invoked from JS/App because of the above MonitorProgress
 		// Make sure we have still mDiscontinuityTuneOperationInProgress set
-		SyncBegin();
-		AAMPLOG_WARN("Progress event sent as part of ProcessPendingDiscontinuity, mDiscontinuityTuneOperationInProgress:%d", mDiscontinuityTuneOperationInProgress);
-		mProgressReportFromProcessDiscontinuity = false;
-		continueDiscontProcessing = mDiscontinuityTuneOperationInProgress;
-		SyncEnd();
+		{
+			auto syncLock = SyncLock();
+			AAMPLOG_WARN("Progress event sent as part of ProcessPendingDiscontinuity, mDiscontinuityTuneOperationInProgress:%d", mDiscontinuityTuneOperationInProgress);
+			mProgressReportFromProcessDiscontinuity = false;
+			continueDiscontProcessing = mDiscontinuityTuneOperationInProgress;
+		}
 
 		if (continueDiscontProcessing)
 		{
@@ -3818,17 +3608,10 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 			mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 
-			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
-			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
-			if( disableRateCorrectionTimeInSeconds > 0  && isRateCorrectionEnabled )
+			bool rateCorrectionStatus = mLatencyMonitor->IsRateCorrectionEnabled();
+			if(rateCorrectionStatus)
 			{
-				mRateCorrectionDelay = true;
-				mDiscStartTime = NOW_STEADY_TS_SECS;
-				AAMPLOG_WARN("Rate correction is disabled on discontinuity processing : %ld", mDiscStartTime);
-			}
-			else
-			{
-				AAMPLOG_WARN("DisableRateCorrectionTimeInSeconds : %d isRateCorrectionEnabled : %d", disableRateCorrectionTimeInSeconds, isRateCorrectionEnabled);
+				EnableLatencyMonitor(false);
 			}
 
 			if(mDiscontinuityFound)
@@ -3844,6 +3627,13 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				sink->Stream();
 			}
 			mIsTrackIdMismatch = false;
+
+			// Discontinuity processing is complete; re-enable rate correction only if
+			// it was active before, filtering out unwanted latency correction wake-ups.
+			if (rateCorrectionStatus)
+			{
+				EnableLatencyMonitor(true);
+			}
 		}
 		else
 		{
@@ -3854,9 +3644,8 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 	if (ret)
 	{
-		SyncBegin();
+		auto syncLock = SyncLock();
 		mDiscontinuityTuneOperationInProgress = false;
-		SyncEnd();
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
@@ -3959,14 +3748,6 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
-			if (ContentType_EAS == mContentType)
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Stop(false);
-				}
-			}
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
 			trickStartUTCMS = -1;
 			return;
@@ -4115,16 +3896,15 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	{
 		LogPlayerPreBuffered();        //Need to calculate prebuffered time when tune interruption happens with player prebuffer
 	}
-	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
-	std::string tuneData("");
+
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
 	if(mManifestUrl != FAKE_TUNE_URL)
 	{
-		profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
-	}
-	if(eventAvailStatus)
-	{
-		SendTuneMetricsEvent(tuneData);
+		bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
+		profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &mTuneTimeMetricData : NULL);
+		mTuneMetricDataPending.store(eventAvailStatus);
+		// Send the tune time metrics event as the progress event will not fire here.
+		SendTuneMetricsEvent();
 	}
 	AdditionalTuneFailLogEntries();
 }
@@ -4147,15 +3927,13 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mFogTSBEnabled              = mFogTSBEnabled;
 	mTuneMetrics.mFirstTune                  = mFirstTune;
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
-	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
 	if(mManifestUrl != FAKE_TUNE_URL)
 	{
-		profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
-	}
-	if(eventAvailStatus)
-	{
-		SendTuneMetricsEvent(tuneData);
+		profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &mTuneTimeMetricData : NULL);
+		mTuneMetricDataPending.store(eventAvailStatus);
+		// Tune Metrics event will be sent as part of progress event, as this guarantees the event
+		// is sent after state=PLAYING whose timing is critical for upstream components.
 	}
 	//update tunedManifestUrl if FOG was NOT used as manifestUrl might be updated with redirected url.
 	if(!IsFogTSBSupported())
@@ -4412,16 +4190,20 @@ bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	if(ContentType_EAS == mContentType)
 		return false;
 
-	if(instance < eCURLINSTANCE_MAX && curl[instance])
+	if(instance >= eCURLINSTANCE_MAX)
 	{
-		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
-		
-		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
-		curlDLTimeout[instance] = timeoutMS;
+		AAMPLOG_ERR("SetCurlTimeout: curl instance %d is out of range (max %d)", instance, eCURLINSTANCE_MAX);
+	}
+	else if(!curl[instance])
+	{
+		AAMPLOG_WARN("SetCurlTimeout: curl[%d] not initialized, skipping timeout update", instance);
 	}
 	else
 	{
-		AAMPLOG_ERR("Failed to update timeout for curl instance %d",instance);
+		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
+
+		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
+		curlDLTimeout[instance] = timeoutMS;
 	}
 
 	return timeoutChanged;
@@ -4526,6 +4308,66 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 			curlCode == CURLE_PARTIAL_FILE ||
 			abortReason == eCURL_ABORT_REASON_STALL_TIMEDOUT ||
 			abortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+}
+
+/**
+ * @brief Parse a downloaded segment with a persistent per-track Mp4Demux to detect
+ *        structural corruption (any condition that triggers Mp4Demux::setParseError).
+ *        Every video/audio segment is logged at INFO level regardless of validity.
+ *        Corrupt segments are logged at WARN level and written to harvestPath or /tmp.
+ */
+void PrivateInstanceAAMP::CheckSegmentIntegrity(const std::vector<uint8_t>& buffer,
+	AampMediaType mediaType,
+	const std::string& remoteUrl)
+{
+	AAMPLOG_INFO("[Mp4Mon][%s] url=%s size=%zu",
+		GetMediaTypeName(mediaType), remoteUrl.c_str(), buffer.size());
+
+	// Select the appropriate persistent validator; init lazily on first use.
+	// A single validator per track preserves init-segment state (timescale, IV size)
+	// so that subsequent media-segment parses do not produce false-positive failures.
+	std::unique_ptr<Mp4Demux>* validatorPtr{nullptr};
+	if (mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO)
+	{
+		validatorPtr = &mVideoIntegrityValidator;
+	}
+	else if (mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO)
+	{
+		validatorPtr = &mAudioIntegrityValidator;
+	}
+	else
+	{
+		return;
+	}
+
+	if (!(*validatorPtr))
+	{
+		*validatorPtr = std::make_unique<Mp4Demux>();
+	}
+
+	// Copy the buffer so the download pipeline's copy remains intact.
+	auto segment = std::make_shared<std::vector<uint8_t>>(buffer);
+	bool parseOk = (*validatorPtr)->Parse(std::move(segment));
+	// Drop the aliasing shared_ptrs the demuxer stored for its sample list so the
+	// copied segment buffer can be freed immediately rather than pinned until the
+	// next Parse() call clears them.
+	(*validatorPtr)->GetSamples();
+	if (!parseOk)
+	{
+		AAMPLOG_WARN("[Mp4Mon][%s] CORRUPT err=%d url=%s",
+			GetMediaTypeName(mediaType),
+			static_cast<int>((*validatorPtr)->GetLastError()),
+			remoteUrl.c_str());
+
+		std::string dumpPath = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
+		if (dumpPath.empty())
+		{
+			dumpPath = "/tmp";
+		}
+		aamp_WriteFile(remoteUrl,
+			reinterpret_cast<const char*>(buffer.data()),
+			buffer.size(), mediaType, 0, dumpPath.c_str());
+	}
 }
 
 /**
@@ -4846,7 +4688,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				if (!personaPath.empty())
 					AampNetworkPersona::Instance().LoadFromFile(personaPath);
 			}
-			AAMPLOG_WARN("priv_aamp: download url=%s personaLoaded=%d", remoteUrl.c_str(), AampNetworkPersona::Instance().IsLoaded() ? 1 : 0);
 			if (AampNetworkPersona::Instance().IsLoaded())
 			{
 				// Chunk the TTFB sleep into 50 ms slices so that StopDownloads()
@@ -5414,6 +5255,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
+
+			if (ISCONFIGSET_PRIV(eAAMPConfig_MonitorMp4Integrity) &&
+				!buffer.empty() &&
+				(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO ||
+				 mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_INIT_AUDIO))
+			{
+				CheckSegmentIntegrity(buffer, mediaType, remoteUrl);
+			}
+
 			ret = true; // default
 			if( !context.downloadIsEncoded )
 			{
@@ -6038,8 +5888,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
 	{
 		/** Enabled rate Correction by default, seek case and live added later point  **/
-		AAMPLOG_INFO("Live latency correction is disabled for seek by default!!");
-		mDisableRateCorrection = true;
 		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
 		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 		{
@@ -6047,10 +5895,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 			mIsLoggingNeeded = false;
 		}
-	}
-	else
-	{
-		mDisableRateCorrection = false;
 	}
 
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
@@ -6142,7 +5986,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
 			if(!inpData->mPreProcessedManifest.empty())
 			{
-				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
+				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, [this]() -> std::pair<std::string,int> {
+					return SendManifestPreProcessEvent();
+				});
 			}
 			else
 			{
@@ -6413,15 +6259,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
 
-		if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection))
-		{
-			StartRateCorrectionWorkerThread();
-		}
-		if (mMediaFormat == eMEDIAFORMAT_DASH && mAampLLDashServiceData.lowLatencyMode)
-		{
-			// Start latency monitor for DASH Low Latency content.
-			StartLatencyMonitor();
-		}
+		StartLatencyMonitor();
 
 		// Enable fragment initial caching. Retune not supported
 		if(tuneType != eTUNETYPE_RETUNE
@@ -7742,13 +7580,14 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 	if (mediaType != eMEDIATYPE_SUBTITLE)
 	{
-		SyncBegin();
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-		if (sink)
 		{
-			sink->EndOfStreamReached(mediaType);
-		}
-		SyncEnd();
+			auto syncLock = SyncLock();
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->EndOfStreamReached(mediaType);
+			}
+		} // syncLock released — matches original SyncEnd() position
 
 		// If EOS during Buffering, set Playing and let buffer to dry out
 		// Sink is already unpaused by EndOfStreamReached()
@@ -8577,7 +8416,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	DisableDownloads();
 	
 	UnblockWaitForDiscontinuityProcessToComplete();
-	StopRateCorrectionWorkerThread();
 	if(mTelemetryInterval > 0)
 	{
 		double bufferedDuration = 0.0;
@@ -8624,6 +8462,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 			}
 		}
 	}
+	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
 	TeardownStream(true,true); //disable download as well
 	
 	// Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
@@ -8708,13 +8547,11 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
-	mDisableRateCorrection = false;
 	mMaxLanguageCount = 0; // reset language count
 	//mPreferredAudioTrack = AudioTrackInfo(); // reset
 	mPreferredTextTrack = TextTrackInfo(); // reset
 	// send signal to any thread waiting for play
 	mDiscontinuityFound = false;
-	SetLLDashChunkMode(false); //Reset ChunkMode
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
 		waitforplaystart.notify_all();
@@ -9058,6 +8895,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	// If mFirstVideoFrameDisplayedEnabled, state will be changed in NotifyFirstVideoDisplayed()
 	if(!mFirstVideoFrameDisplayedEnabled)
 	{
+		AAMPLOG_MIL("Player changing state to PLAYING on first frame received");
 		SetState(eSTATE_PLAYING);
 	}
 	{
@@ -9091,13 +8929,12 @@ bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinui
 	}
 	else
 	{
-		SyncBegin();
+		auto syncLock = SyncLock();
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
 		{
 			ret = sink->Discontinuity(track);
 		}
-		SyncEnd();
 	}
 
 	if (ret)
@@ -9324,6 +9161,17 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	{
 		return;
 	}
+
+	static const char* const kStateNames[] = {
+		"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
+		"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
+		"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
+	};
+	auto stateName = [](AAMPPlayerState s) -> const char* {
+		return (s >= 0 && s < (int)(sizeof(kStateNames)/sizeof(kStateNames[0])))
+			? kStateNames[s] : "UNKNOWN";
+	};
+	AAMPLOG_MIL("Player state changed: %s -> %s", stateName(oldState), stateName(state));
 
 	// Handle SEEKED event based on the actual previous state
 	// Only the thread that performed this specific transition will send the event
@@ -11546,6 +11394,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 		AAMPPlayerState state = GetState();
 		if(state != eSTATE_BUFFERING)
 		{
+			AAMPLOG_MIL("Player changing state to BUFFERING as fragment caching is required");
 			if(mpStreamAbstractionAAMP)
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
@@ -13004,6 +12853,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						{
 							seek_pos_seconds = GetPositionSeconds();
 							AAMPLOG_MIL("Retune to change the audio track at pos %fs", seek_pos_seconds);
+							bool wasAtLivePoint = IsAtLivePoint();
 							if (IsLocalAAMPTsb())
 							{
 								mAampTsbLanguageChangeInProgress = true;
@@ -13034,7 +12884,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 									AAMPLOG_ERR("TSB Session Manager is NULL");
 								}
 							}
-							else if(mDisableRateCorrection)
+							else if(!wasAtLivePoint)
 							{
 								TuneHelper(eTUNETYPE_SEEK);
 							}
@@ -14778,7 +14628,7 @@ AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 	return NULL;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	std::lock_guard<std::mutex> guard(mPreProcessLock);
@@ -14792,7 +14642,7 @@ std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
 		AAMPLOG_WARN("PreProcessed Manifest not available send Need Manifest data event to application");
 		SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_NEED_MANIFEST_DATA, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)
@@ -15114,6 +14964,8 @@ void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
 	config.targetLatencyMs = mLiveOffset * 1000;
 	config.minLatencyMs = config.targetLatencyMs - (mLiveOffsetDrift * 1000);
 	config.maxLatencyMs = config.targetLatencyMs + (mLiveOffsetDrift * 1000);
+	AAMPLOG_MIL("Live LatencyMonitor Config - targetLatencyMs: %f, minLatencyMs: %f, maxLatencyMs: %f",
+		config.targetLatencyMs, config.minLatencyMs, config.maxLatencyMs);
 }
 
 /**
@@ -15131,9 +14983,10 @@ void PrivateInstanceAAMP::StartLatencyMonitor()
 {
 	bool lowLatencyCorrection = mAampLLDashServiceData.lowLatencyMode &&
 								ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyCorrection);
+	bool liveLatencyCorrection = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyRateCorrection);
 	bool isAtLivePointWithNormalRate = IsAtLivePoint() && (rate == AAMP_NORMAL_PLAY_RATE);
 
-	if (IsLive() && lowLatencyCorrection &&
+	if (IsLive() && (lowLatencyCorrection || liveLatencyCorrection) &&
 		isAtLivePointWithNormalRate && !mbPauseOnStartPlayback && !mPauseOnFirstVideoFrameDisp)
 	{
 		if (!mLatencyMonitor->IsRunning())
@@ -15147,6 +15000,14 @@ void PrivateInstanceAAMP::StartLatencyMonitor()
 			EnableLatencyMonitor(true);
 		}
 	}
+}
+
+/**
+ * @brief Returns true if rate correction is currently enabled in the latency monitor.
+ */
+bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
+{
+	return mLatencyMonitor->IsRateCorrectionEnabled();
 }
 
 /**
@@ -15164,6 +15025,21 @@ void PrivateInstanceAAMP::StopLatencyMonitor()
 void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
 {
 	mLatencyMonitor->EnableRateCorrection(enabled);
+}
+
+/**
+ * @brief Check whether the accumulated latency increment exceeds the
+ * trickplay-unblock threshold.
+ */
+bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
+{
+	if (mLatencyMonitor == nullptr)
+	{
+		return false;
+	}
+
+	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs()
+		>= DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS;
 }
 
 /**

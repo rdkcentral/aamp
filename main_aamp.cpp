@@ -750,7 +750,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			if (rate >= AAMP_NORMAL_PLAY_RATE &&
 				aamp->IsAtLivePoint() &&
-				!aamp->mbDetached)
+				!aamp->mbDetached && !aamp->mSinkPaused.load()
+				&& !aamp->IsLatencyExceedingTrickplayThreshold())
 			{
 				AAMPLOG_WARN("Already at logical live point, hence skipping operation (rate=%.2f)", rate);
 				aamp->NotifyOnEnteringLive();
@@ -949,14 +950,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					aamp->mSinkPaused = true;
 
-					if(aamp->GetLLDashServiceData()->lowLatencyMode)
-					{
-						// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
-						AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
-						aamp->EnableLatencyMonitor(false);
-					}
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is disabled due to the Pause operation!!");
-					aamp->mDisableRateCorrection = true;
+					AAMPLOG_INFO("Latency correction is disabled due to the Pause operation!!");
+					aamp->EnableLatencyMonitor(false);
 				}
 			}
 			else
@@ -966,6 +961,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					aamp->mbPlayEnabled = true;
 				}
 
+				// Set rate before ActivatePlayer so that GetFirstPTS (called inside
+				// AampStreamSinkManager::ActivatePlayer) sees the new rate and correctly
+				// overrides firstPTS to 0.0 for AampMp4Demuxer trickplay transitions.
+				aamp->rate = rate;
 				aamp->ActivatePlayer();
 				aamp->LogPlayerPreBuffered();
 				if (AAMP_NORMAL_PLAY_RATE != rate)
@@ -981,7 +980,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
-				aamp->rate = rate;
 				// Notify the underflow monitor of the new rate immediately — before
 				// TuneHelper starts downloading fragments at the new rate.  This
 				// prevents a stale normal-play deadline from firing and declaring a

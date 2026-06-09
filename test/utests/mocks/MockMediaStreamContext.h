@@ -21,6 +21,7 @@
 #define AAMP_MOCK_MEDIA_STREAM_CONTEXT_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "MediaStreamContext.h"
 
 class MockMediaStreamContext
@@ -32,6 +33,6 @@ public:
 	MOCK_METHOD(bool, IsLocalTSBInjection, ());
 };
 
-extern MockMediaStreamContext *g_mockMediaStreamContext;
+extern std::shared_ptr<MockMediaStreamContext> g_mockMediaStreamContext;
 
 #endif /* AAMP_MOCK_MEDIA_STREAM_CONTEXT_H */

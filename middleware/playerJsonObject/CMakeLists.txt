@@ -23,7 +23,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FindPkgConfig)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
-link_directories(${LIBCJSON_LIBRARY_DIRS})
+# link_directories(${LIBCJSON_LIBRARY_DIRS}) omitted: the Xcode generator
+# appends $(CONFIGURATION) to these paths, producing spurious "search path
+# not found" warnings. target_link_libraries already uses LIBCJSON_LINK_LIBRARIES
+# (full absolute paths) so the directory hint is not needed.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../baseConversion)
 set(PlayerJsonObject_SRC PlayerJsonObject.cpp)
 

@@ -20,7 +20,7 @@
 #include "admanager_mpd.h"
 #include "MockAdManager.h"
 
-MockPrivateCDAIObjectMPD *g_MockPrivateCDAIObjectMPD = nullptr;
+std::shared_ptr<MockPrivateCDAIObjectMPD> g_MockPrivateCDAIObjectMPD{};
 
 CDAIObjectMPD::CDAIObjectMPD(PrivateInstanceAAMP* aamp): CDAIObject(aamp), mPrivObj(new PrivateCDAIObjectMPD(aamp))
 {
