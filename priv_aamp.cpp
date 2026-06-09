@@ -3053,11 +3053,61 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 }
 
 /**
- * @brief Sends UnderFlow Event messages
- * @param[in] bufferingStarted True if buffering started, false if buffering ended.
+ * @brief Handle a pending manifest refresh failure when buffering starts.
+ *
+ * If buffering begins while the MPD downloader is already in a manifest
+ * refresh failure state, send the corresponding fatal error event and let
+ * the caller skip the normal BufferingChanged path.
+ *
+ * @return true if a manifest failure event was sent; false otherwise.
  */
+bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
+{
+	if (mMPDDownloaderInstance == nullptr)
+	{
+		return false;
+	}
+
+	ManifestRefreshStatus retryStatus =
+		mMPDDownloaderInstance->GetManifestRefreshStatus();
+	AAMPStatusType retryErrorType = retryStatus.type;
+	int manifestRefreshError = retryStatus.errorCode;
+	if (retryErrorType == AAMPStatusType::eAAMPSTATUS_OK)
+	{
+		return false;
+	}
+	// Buffer drained while manifest refresh was already failing.
+	// Send the appropriate fatal error event instead of a BufferingChanged event.
+	// SetBufUnderFlowStatus is intentionally omitted here: the error event triggers
+	// player teardown, so the underflow flag is irrelevant. The normal buffering path
+	// (when this function returns false) sets it via SetBufUnderFlowStatus(bufferingStarted).
+	if (retryErrorType == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with manifest content failure; sending init-failed content error");
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+	}
+	else if (retryErrorType == AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with manifest parse failure; sending init-failed parse error");
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR);
+	}
+	else
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry failure (status=%d err=%d); sending manifest request failed event",
+			retryErrorType,
+			manifestRefreshError);
+		SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, manifestRefreshError);
+	}
+	return true;
+}
+
 void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
+	if (bufferingStarted && HandleManifestRefreshFailureOnBuffering())
+	{
+		return;
+	}
+
 	// Buffer Change event indicate buffer availability
 	// bufferingStarted need to be inverted to indicate if buffer available or not
 	// BufferChangeEvent with False = Underflow / non-availability of buffer to play
