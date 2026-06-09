@@ -450,7 +450,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 		.Times(1)
 		.WillOnce(Return(true));
 
-	TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL;
+	TuneType tuneType = TuneType::eTUNETYPE_RETUNE;
 	// Will start fetching the ad, but fails in ad init fragment and should fallback to source period and its init fragment
 	status = Init(tuneType);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
