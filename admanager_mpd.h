@@ -139,6 +139,8 @@ public:
         virtual double GetVirtualPosition(double sourcePositionSec) override;
 };
 
+#define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
+
 enum class AdEvent
 {
 	INIT,                       /**< Playback initialization */
