@@ -326,6 +326,33 @@ enum AAMPStatusType
 	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR		/**< Unsupported DRM */
 };
 
+/**
+ * @brief Semantic type for manifest-refresh retry status.
+ */
+enum ManifestRefreshRetryErrorType
+{
+	eManifestRefreshRetryErrorNone = 0,      /**< No retry error pending */
+	eManifestRefreshRetryErrorSemantic,      /**< HTTP success but manifest invalid */
+	eManifestRefreshRetryErrorTransport      /**< HTTP/curl transport failure */
+};
+
+/**
+ * @brief Manifest-refresh retry status shared between downloader and player core.
+ */
+struct ManifestRefreshRetryStatus
+{
+	ManifestRefreshRetryErrorType type;  /**< Retry error category */
+	int errorCode;                       /**< HTTP/curl code for diagnostics */
+
+	ManifestRefreshRetryStatus(
+		ManifestRefreshRetryErrorType retryType =
+			eManifestRefreshRetryErrorNone,
+		int code = 0)
+		: type(retryType), errorCode(code)
+	{
+	}
+};
+
 
 /**
  *

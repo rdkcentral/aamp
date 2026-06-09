@@ -3053,11 +3053,56 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 }
 
 /**
- * @brief Sends UnderFlow Event messages
- * @param[in] bufferingStarted True if buffering started, false if buffering ended.
+ * @brief Handle a pending manifest refresh failure when buffering starts.
+ *
+ * If buffering begins while the MPD downloader is already in a manifest
+ * refresh failure state, send the corresponding fatal error event and let
+ * the caller skip the normal BufferingChanged path.
+ *
+ * @return true if a manifest failure event was sent; false otherwise.
  */
+bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
+{
+	if (mMPDDownloaderInstance == nullptr)
+	{
+		return false;
+	}
+
+	ManifestRefreshRetryStatus retryStatus =
+		mMPDDownloaderInstance->GetManifestRefreshStatus();
+	ManifestRefreshRetryErrorType retryErrorType = retryStatus.type;
+	int manifestRefreshError = retryStatus.errorCode;
+	if (retryErrorType == eManifestRefreshRetryErrorNone)
+	{
+		return false;
+	}
+	// Buffer drained while manifest refresh was already failing.
+	// Send the appropriate fatal error event instead of a BufferingChanged event.
+	// SetBufUnderFlowStatus is intentionally omitted here: the error event triggers
+	// player teardown, so the underflow flag is irrelevant. The normal buffering path
+	// (when this function returns false) sets it via SetBufUnderFlowStatus(bufferingStarted).
+	if (retryErrorType == eManifestRefreshRetryErrorSemantic)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with semantic manifest failure (transport code=%d); sending invalid manifest failure",
+			manifestRefreshError);
+		SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE);
+	}
+	else
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry failure (err=%d); sending manifest request failed event",
+			manifestRefreshError);
+		SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, manifestRefreshError);
+	}
+	return true;
+}
+
 void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
+	if (bufferingStarted && HandleManifestRefreshFailureOnBuffering())
+	{
+		return;
+	}
+
 	// Buffer Change event indicate buffer availability
 	// bufferingStarted need to be inverted to indicate if buffer available or not
 	// BufferChangeEvent with False = Underflow / non-availability of buffer to play

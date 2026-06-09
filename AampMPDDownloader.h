@@ -281,6 +281,22 @@ public:
 	 */
 	void RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *);
 	/**
+	 * @fn GetManifestRefreshStatus
+	 * @brief Return latest manifest-refresh retry state.
+	 */
+	ManifestRefreshRetryStatus GetManifestRefreshStatus() const;
+	/**
+	 * @fn ClearManifestRefreshRetryStatus
+	 * @brief Clear manifest-refresh retry state.
+	 */
+	void ClearManifestRefreshRetryStatus();
+	/**
+	 * @fn UpdateManifestRefreshRetryStatus
+	 * @brief Update manifest-refresh retry state and consecutive failure count.
+	 */
+	void UpdateManifestRefreshRetryStatus(
+		const ManifestRefreshRetryStatus& retryStatus);
+	/**
 	 * @fn UnRegisterCallback
 	 * @brief Unregister the callback function for manifest update notifications.
 	 */
@@ -451,6 +467,11 @@ private:
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
 	std::function<std::pair<std::string,int>()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
 	int mPreProcessErrorCode; /**< curl/HTTP error injected when mMpdPreProcessFuncptr returns empty; default CURLE_OPERATION_TIMEDOUT */
+	static constexpr int kManifestRefreshFailureThreshold = 2; /**< Consecutive refresh failures required before surfacing a manifest retry error to buffering logic. */
+	std::atomic<int> mManifestRefreshFailureCount; /**< Number of consecutive manifest refresh failures since the last successful refresh. */
+	std::atomic<int> mManifestRefreshRetryErrorCode;
+	std::atomic<ManifestRefreshRetryErrorType>
+		mManifestRefreshRetryErrorType;
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

@@ -750,9 +750,7 @@ public:
 	 */
 	void SetBufferingState(bool buffering);
 
-	/**
-	 * @fn mediaType2Bucket
-	 *
+	 /**
 	 * @param[in] mediaType - Media filetype
 	 * @return Profiler bucket type
 	 */
@@ -1584,6 +1582,16 @@ public:
 	 * @param[in] bufferingStarted True if buffering started, false if buffering ended.
 	 */
 	void SendBufferChangeEvent(bool bufferingStart=false);
+
+	/**
+	 * @fn HandleManifestRefreshFailureOnBuffering
+	 * @brief When buffering starts, checks whether the buffer drained because manifest
+	 *        refresh was already failing. If so, sends the appropriate error event
+	 *        (manifest request failed or invalid manifest) and returns true so the
+	 *        caller can skip the normal BufferingChanged event.
+	 * @return true if a fatal manifest error event was sent; false otherwise.
+	 */
+	bool HandleManifestRefreshFailureOnBuffering();
 
 	/**
 	 * @fn SendTuneMetricsEvent
