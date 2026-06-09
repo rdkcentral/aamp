@@ -16,7 +16,7 @@
 # limitations under the License.
 cmake_minimum_required (VERSION 3.5)
 project (Metrics)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(PkgConfig REQUIRED)
@@ -34,6 +34,7 @@ set(LIBMETRICS_SOURCES
 	IPLatencyReport.cpp
 	ManifestGenericStats.cpp
 	CMCDHeaders.cpp
+	CMCDSerializer.cpp
 	VideoCMCDHeaders.cpp
 	AudioCMCDHeaders.cpp
 	SubtitleCMCDHeaders.cpp
@@ -50,6 +51,7 @@ set(LIBMETRICS_PUBLIC_HEADERS
 	StatsDefine.h
 	ManifestGenericStats.h
 	CMCDHeaders.h
+	CMCDSerializer.h
 	VideoCMCDHeaders.h
 	AudioCMCDHeaders.h
 	SubtitleCMCDHeaders.h

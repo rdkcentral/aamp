@@ -23,6 +23,7 @@
  */
 
 #include "SubtitleCMCDHeaders.h"
+#include "CMCDSerializer.h"
 using namespace std;
 
 /**
@@ -31,13 +32,12 @@ using namespace std;
  */
 void SubtitleCMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, std::vector<std::string>> &mCMCDCustomHeaders)
 {
-	//For manifest sessionid and object type is passed as a part of CMCD Headers
+	// Seed the CMCD-Session group with a quoted sid entry via the base class.
 	CMCDHeaders::BuildCMCDCustomHeaders(mCMCDCustomHeaders);
-	std::string headerName;
-	std::vector<std::string> headerValue;
-	std::string delimiter = ",";
-	headerName="s";
-	headerValue.clear();
-	headerValue.push_back((CMCDObject+headerName));
-	mCMCDCustomHeaders["CMCD-Object:"] = std::move(headerValue);
+	// Emit ot=s as a bare token in CMCD-Object (subtitle type).
+	// SerializeToCMCDMap merges into the existing map without clearing, so the
+	// CMCD-Session: entry written by the base class is preserved.
+	std::vector<CMCDEntry> entries;
+	entries.push_back(CMCDEntry{"ot", "s", CMCDGroup::Object});
+	SerializeToCMCDMap(entries, mCMCDCustomHeaders);
 }
