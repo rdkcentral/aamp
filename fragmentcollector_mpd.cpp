@@ -12346,7 +12346,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			}
 			else
 			{
-				AAMPLOG_WARN("[CDAI]: Unsupported event[%d] in IN_ADBREAK_AD_NOT_PLAYING state. Ignoring.", evt);
+				AAMPLOG_WARN("[CDAI]: Unsupported event[%d] in IN_ADBREAK_AD_NOT_PLAYING state. Ignoring.", static_cast<int>(evt));
 			}
 			break;
 		case AdState::IN_ADBREAK_AD_PLAYING:
