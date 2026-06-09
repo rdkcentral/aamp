@@ -24,3 +24,10 @@ Linux/googletest/
 test/l2test/result/
 test/l2test/data/aamp/*
 **/*.swp
+
+# XiOne cross-build working dirs (local only)
+/build-xione/
+/dbc-src/
+/dbc-build/
+/reference-binaries/
+/staging-xione/
