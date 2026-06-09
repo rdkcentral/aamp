@@ -5405,11 +5405,12 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					}
 					AAMPLOG_INFO("SCTEDBG adjust start time %" PRIu64 " -> %" PRIu64 " (duration %d)", eventInfo.presentationTime, eventStartTime, eventInfo.duration);
 				}
-				//Call the SetAlternateContent API whenever the ClientDai flag is enabled, regardless of whether the stream is VOD or live. This is to ensure that the client has the necessary information to make decisions about ad insertion, even for VOD content.
+				// For unresolved DAI events, place an empty ad entry to
+				//guard against redundant SCTE-35 events on the same ad break.
 				aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
 				if(reportBulkMeta)
 				{
-					AAMPLOG_INFO("Saving timedMetadata for VOD %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
+					AAMPLOG_INFO("Saving timedMetadata  event %s for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 					aamp->SaveTimedMetadata(eventStartTime, eventInfo.name.c_str() , eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 				}
 				else
