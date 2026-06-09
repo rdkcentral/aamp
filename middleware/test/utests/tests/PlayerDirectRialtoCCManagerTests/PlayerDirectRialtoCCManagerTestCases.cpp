@@ -38,20 +38,12 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::StrictMock;
 
-// ---------------------------------------------------------------------------
-// Mock
-// ---------------------------------------------------------------------------
-
 class MockIDirectRialtoCC : public IDirectRialtoCC
 {
 public:
 	MOCK_METHOD(bool, setTextTrackIdentifier, (const std::string &id), (override));
 	MOCK_METHOD(bool, setCCMute, (bool muted), (override));
 };
-
-// ---------------------------------------------------------------------------
-// Testable subclass — exposes protected methods as public for white-box tests
-// ---------------------------------------------------------------------------
 
 class PlayerDirectRialtoCCManagerTestable : public PlayerDirectRialtoCCManager
 {
@@ -61,10 +53,6 @@ public:
 	using PlayerDirectRialtoCCManager::StopRendering;
 	using PlayerDirectRialtoCCManager::ResetState;
 };
-
-// ---------------------------------------------------------------------------
-// Fixture
-// ---------------------------------------------------------------------------
 
 class PlayerDirectRialtoCCManagerTest : public ::testing::Test
 {
@@ -79,9 +67,6 @@ protected:
 		m_mock.reset();
 	}
 
-	/// Convenience: initialise the manager with the mock handle and
-	/// consume the default SetTrack call that Initialize() issues for an
-	/// empty cached track.
 	void InitWithDefaultTrack()
 	{
 		EXPECT_CALL(*m_mock, setTextTrackIdentifier("CC1"))
@@ -94,10 +79,6 @@ protected:
 	std::unique_ptr<MockIDirectRialtoCC>   m_mock;
 };
 
-// ===========================================================================
-// Initialize
-// ===========================================================================
-
 /**
  * @test Initialize_WithNullHandle_DoesNotCallControl
  * @brief Passing nullptr must not crash and must not call the mock.
@@ -105,7 +86,6 @@ protected:
 TEST_F(PlayerDirectRialtoCCManagerTest,
 	Initialize_WithNullHandle_DoesNotCallControl)
 {
-	// StrictMock — any unexpected call fails the test.
 	EXPECT_NO_FATAL_FAILURE(m_mgr.Initialize(nullptr));
 }
 
@@ -132,20 +112,14 @@ TEST_F(PlayerDirectRialtoCCManagerTest,
 TEST_F(PlayerDirectRialtoCCManagerTest,
 	Initialize_WithCachedTrack_ReappliesCachedTrack)
 {
-	// Cache track before first Initialize (no control yet — stored only).
 	m_mgr.SetTrack("CC3");
 
-	// On Initialize the manager must re-apply CC3 (not the default CC1).
 	EXPECT_CALL(*m_mock, setTextTrackIdentifier("CC3"))
 		.Times(1)
 		.WillOnce(Return(true));
 
 	m_mgr.Initialize(m_mock.get());
 }
-
-// ===========================================================================
-// SetTrack — identifier mapping
-// ===========================================================================
 
 /**
  * @test SetTrack_NumericWith608Format_PrependsCCPrefix
@@ -196,10 +170,6 @@ TEST_F(PlayerDirectRialtoCCManagerTest,
 	m_mgr.SetTrack("CC1");
 }
 
-// ===========================================================================
-// StartRendering / StopRendering
-// ===========================================================================
-
 /**
  * @test StartRendering_CallsCCMuteFalse
  * @brief StartRendering() must un-mute CC by calling setCCMute(false).
@@ -232,10 +202,6 @@ TEST_F(PlayerDirectRialtoCCManagerTest,
 	m_mgr.StopRendering();
 }
 
-// ===========================================================================
-// ResetState
-// ===========================================================================
-
 /**
  * @test ResetState_ClearsControlHandle
  * @brief After ResetState(), StartRendering() must not call the old mock.
@@ -245,10 +211,7 @@ TEST_F(PlayerDirectRialtoCCManagerTest,
 {
 	InitWithDefaultTrack();
 
-	// Reset clears the stored handle.
 	m_mgr.ResetState();
 
-	// StrictMock — if StartRendering() tried to call setCCMute the test
-	// would fail with an unexpected call.
 	EXPECT_NO_FATAL_FAILURE(m_mgr.StartRendering());
 }
