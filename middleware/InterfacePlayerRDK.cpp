@@ -4534,7 +4534,7 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 		 * higher-level callers may retry or skip setting rate — forcing an
 		 * explicit resume in the middleware prevents the pipeline from being
 		 * stuck in PAUSED. */
-		if (rate != 0.0 && interfacePlayerPriv->gstPrivateContext->seekPausedState && interfacePlayerPriv->gstPrivateContext->paused)
+		if (!interfacePlayerPriv->gstPrivateContext->paused && interfacePlayerPriv->gstPrivateContext->seekPausedState)
 		{
 			MW_LOG_WARN("InterfacePlayerRDK: SetPlayBackRate detected resume while seekPausedState active — forcing resume");
 			/* Pause(false) clears seekPausedState in Pause implementation. */
