@@ -1252,6 +1252,22 @@ void AampRialtoPlayer::OnCancelNeedMediaData(int32_t sourceId)
 	}
 }
 
+unsigned long AampRialtoPlayer::GetCCHandle() const
+{
+	auto *mediaSource = m_sources[eMEDIATYPE_SUBTITLE].get();
+	auto *subtitleSource = dynamic_cast<AampRialtoSubtitleSource *>(mediaSource);
+	// Build the CC decoder handle. In inband-CC mode pass the
+	// IDirectRialtoCC pointer (as unsigned long) so that
+	// priv_aamp::InitializeCC() initialises the CC manager with the
+	// correct control interface.
+	const unsigned long ccHandle = (subtitleSource && subtitleSource->isInbandCC())
+		? reinterpret_cast<unsigned long>(
+			static_cast<const IDirectRialtoCC *>(this))
+		: 0UL;
+
+	return ccHandle;
+}
+
 void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 {
 	AAMPLOG_INFO("state=%d", static_cast<int>(state));
@@ -1275,17 +1291,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 
 			const bool firstFrame =
 				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
-
-			auto *mediaSource = m_sources[eMEDIATYPE_SUBTITLE].get();
-			auto *subtitleSource = dynamic_cast<AampRialtoSubtitleSource *>(mediaSource);
-			// Build the CC decoder handle.  In inband-CC mode pass the
-			// IDirectRialtoCC pointer (as unsigned long) so that
-			// priv_aamp::InitializeCC() initialises the CC manager with the
-			// correct control interface.
-			const unsigned long ccHandle = (subtitleSource && subtitleSource->isInbandCC())
-				? reinterpret_cast<unsigned long>(
-					static_cast<IDirectRialtoCC *>(this))
-				: 0UL;
+			const unsigned long ccHandle = GetCCHandle();
 
 			if (firstFrame)
 			{

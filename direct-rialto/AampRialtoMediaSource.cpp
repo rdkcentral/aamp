@@ -227,8 +227,6 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	}
 
 	// 7. Create the Rialto source object (virtual — video/audio differ)
-//ANJ:TODO:1 here MediaSourceSubtitle gets cretaed without textTrackIdentifier. Check how to include this or call property setting later
-//anj:TODO:2: Is mimeType completely mapped for sub? check
 	auto source = createRialtoSource(
 		mimeType, m_mksId >= 0, codecInfo, streamFormat, codecData);
 	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource>

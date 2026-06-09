@@ -226,9 +226,6 @@ public:
 	 * Blocks until a needData request arrives for this source, then
 	 * delivers the sample via addSegment.  Returns false if the batch
 	 * was aborted by Flush/Stop.
-	 *
-	 * The display offset (for subtitle timing correction) is derived
-	 * inside createSegment() by the concrete subclass.
 	 */
 	bool injectOneSample(
 		firebolt::rialto::IMediaPipeline &pipeline,
@@ -244,7 +241,6 @@ public:
 	 * before invoking this method.
 	 *
 	 * The default implementation delegates to the owned demuxer.
-	 * Subclasses may override to use an alternative parser.
 	 *
 	 * @param buffer  Shared ownership of the raw init-segment bytes.
 	 * @return The parsed MediaCodecInfo on success; std::nullopt on
@@ -262,8 +258,6 @@ public:
 	 *
 	 * The default implementation delegates to the owned demuxer and
 	 * then injects each sample via injectOneSample().
-	 * Subclasses may override to use an alternative parse/inject path
-	 * (e.g. AampRialtoSubtitleSource handles raw TTML/WebVTT directly).
 	 *
 	 * @param pipeline          The active Rialto media pipeline.
 	 * @param buffer            Shared ownership of the raw segment bytes.

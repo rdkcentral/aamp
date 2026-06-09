@@ -424,6 +424,9 @@ private:
 	/// @brief Called (via callback) when the Rialto server changes state.
 	void OnPlaybackState(firebolt::rialto::PlaybackState state);
 
+	/// @brief Build the CC decoder handle used by NotifyFirstFrameReceived.
+	unsigned long GetCCHandle() const;
+
 	/// @brief Called when the Rialto server reports a new playback position.
 	void OnPosition(int64_t positionNs);
 
