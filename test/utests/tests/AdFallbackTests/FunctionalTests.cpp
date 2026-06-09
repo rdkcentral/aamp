@@ -450,6 +450,11 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 		.Times(1)
 		.WillOnce(Return(true));
 
+	// eTUNETYPE_RETUNE is required here because Init() has a guard that skips onAdEvent(INIT)
+	// for eTUNETYPE_NEW_NORMAL and eTUNETYPE_NEW_SEEK. Skipping onAdEvent(INIT) means the CDAI
+	// state never transitions to IN_ADBREAK_AD_PLAYING during Init(), so StreamSelection() does
+	// not set the ad manifest URL and no ad init fragment is fetched. eTUNETYPE_RETUNE bypasses
+	// that guard, allowing onAdEvent(INIT) to run and the ad init path to be exercised as intended.
 	TuneType tuneType = TuneType::eTUNETYPE_RETUNE;
 	// Will start fetching the ad, but fails in ad init fragment and should fallback to source period and its init fragment
 	status = Init(tuneType);
