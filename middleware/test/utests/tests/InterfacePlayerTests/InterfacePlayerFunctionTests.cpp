@@ -3053,3 +3053,65 @@ TEST_F(InterfacePlayerTests, SetStreamCaps_EncryptedAudioCodecFormat)
 
 	delete g_mockGstUtils;
 }
+
+/**
+ * @brief Test that NotifyFragmentCachingComplete defers PLAYING while seekPausedState is active.
+ *
+ * This matches the middleware behavior required for seek-with-keepPaused flows,
+ * where fragment caching completion should not force playback transition until
+ * explicit resume is requested.
+ */
+TEST_F(InterfacePlayerTests, NotifyFragmentCachingComplete_DefersPlayingWhenSeekPaused)
+{
+	// Arrange: Create a pending play state and protect it with seekPausedState
+	mPlayerContext->pendingPlayState = true;
+	mPlayerContext->seekPausedState = true;
+	mPlayerContext->buffering_target_state = GST_STATE_PAUSED;
+
+	// Act: Notify fragment caching complete
+        mInterfaceGstPlayer->NotifyFragmentCachingComplete();
+
+
+	// Assert: Pending state should remain until explicit resume, and target stays PLAYING
+	EXPECT_EQ(mPlayerContext->pendingPlayState, true);
+	EXPECT_EQ(mPlayerContext->seekPausedState, true);
+	EXPECT_EQ(mPlayerContext->buffering_target_state, GST_STATE_PLAYING);
+}
+
+/**
+ * @brief Test that SetPlayBackRate clears seekPausedState when resuming from a seek-paused state.
+ *
+ * When a non-zero rate arrives while seekPausedState is active and the pipeline is still paused,
+ * the middleware should force resume and clear the protection state.
+ */
+TEST_F(InterfacePlayerTests, SetPlayBackRate_ForceResumeClearsSeekPausedState)
+{
+	// Arrange: Simulate a paused pipeline in seek-paused state
+	mPlayerContext->paused = true;
+	mPlayerContext->seekPausedState = true;
+	mPlayerContext->pendingPlayState = true;
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	// Mock the socInterface->SetPlaybackRate call
+	auto mockSocInterface = std::make_shared<NiceMock<MockSocInterfaceForPts>>();
+	mInterfacePrivatePlayer->socInterface = mockSocInterface;
+	ON_CALL(*mockSocInterface, SetPlaybackRate).WillByDefault(Return(true));
+
+	// Mock gst_element_set_state to return PLAYING state change
+	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(&gst_element_pipeline, GST_STATE_PLAYING))
+		.WillOnce(Return(GST_STATE_CHANGE_SUCCESS));
+
+	// Mock gst_element_get_state for both the initial call and validateStateWithMsTimeout
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, NotNull(), NotNull(), _))
+		.WillRepeatedly(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_NULL),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+
+	// Act: Request a resume rate
+        bool result = mInterfaceGstPlayer->SetPlayBackRate(1.0);
+	// Assert: Middleware should clear seekPausedState and pendingPlayState, and return true
+	EXPECT_TRUE(result);
+	EXPECT_EQ(mPlayerContext->seekPausedState, false);
+	EXPECT_EQ(mPlayerContext->pendingPlayState, false);
+}
