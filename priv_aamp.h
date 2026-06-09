@@ -887,6 +887,17 @@ public:
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
+
+	/** Pre-tune VOD ad-break registrations buffered before mCdaiObject is created */
+	struct PendingVodAdBreak
+	{
+		std::string breakId;
+		double      insertionPointSec;
+		double      breakDurationSec;
+		std::string breakType;
+	};
+	std::vector<PendingVodAdBreak> mPendingVodAdBreaks; /**< Breaks queued before mCdaiObject exists */
+
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */

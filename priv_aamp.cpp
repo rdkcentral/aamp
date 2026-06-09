@@ -6024,6 +6024,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (NULL == mCdaiObject)
 			{
 				mCdaiObject = new CDAIObjectMPD(this); // special version for DASH
+				// Replay any RegisterVodAdBreak calls that arrived before mCdaiObject was created.
+				for (auto &brk : mPendingVodAdBreaks)
+				{
+					AAMPLOG_INFO("[AAMP] Replaying pending VOD ad break registration id=%s", brk.breakId.c_str());
+					mCdaiObject->RegisterVodAdBreak(brk.breakId, brk.insertionPointSec,
+					                               brk.breakDurationSec, brk.breakType);
+				}
+				mPendingVodAdBreaks.clear();
 			}
 		}
 		else
@@ -8581,6 +8589,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 
 	SAFE_DELETE(mCdaiObject);
+	mPendingVodAdBreaks.clear();
 
 #if 0
 	/* Clear the session data*/
@@ -9444,7 +9453,9 @@ void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double 
 	}
 	else
 	{
-		AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot register VOD ad break id=%s", breakId.c_str());
+		// mCdaiObject is created during TuneHelper; buffer the registration for replay at tune time.
+		AAMPLOG_INFO("[AAMP] CDAIObject not yet created; queuing VOD ad break id=%s for replay at tune", breakId.c_str());
+		mPendingVodAdBreaks.push_back({breakId, insertionPointSec, breakDurationSec, breakType});
 	}
 }
 
@@ -9459,7 +9470,18 @@ void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
 	}
 	else
 	{
-		AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot cancel VOD ad break id=%s", breakId.c_str());
+		// Remove from the pending queue if the break has not yet been forwarded to mCdaiObject.
+		auto it = std::remove_if(mPendingVodAdBreaks.begin(), mPendingVodAdBreaks.end(),
+			[&breakId](const PendingVodAdBreak &b) { return b.breakId == breakId; });
+		if (it != mPendingVodAdBreaks.end())
+		{
+			AAMPLOG_INFO("[AAMP] CancelVodAdBreak id=%s: removed from pending queue", breakId.c_str());
+			mPendingVodAdBreaks.erase(it, mPendingVodAdBreaks.end());
+		}
+		else
+		{
+			AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot cancel VOD ad break id=%s", breakId.c_str());
+		}
 	}
 }
 

@@ -205,8 +205,10 @@ void PrivateCDAIObjectMPD::ResetState()
 	 mCurAdIdx = -1;
 	 mContentSeekOffset = 0;
 	 mAdState = AdState::OUTSIDE_ADBREAK;
-	 mVodAdBreaks.clear();
-	 mNextVodBreakToCheck = std::numeric_limits<double>::max();
+	 // NOTE: mVodAdBreaks and mNextVodBreakToCheck are intentionally NOT cleared here.
+	 // They are populated by RegisterVodAdBreak() before Init() is called and must
+	 // survive the ResetState() call that Init() makes at startup.  They are cleared
+	 // in ClearMaps() (called on Stop/retune) instead.
 }
 
 /**
