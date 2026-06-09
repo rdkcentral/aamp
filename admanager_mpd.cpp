@@ -97,7 +97,7 @@ bool CDAIObjectMPD::IsAdPlaying()
  * @brief PrivateCDAIObjectMPD constructor
  */
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK), mVodResumeOffset(0.0),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV(),
 					mWaitForManifestUpdate(0),
 					mVodAdBreaks(), mNextVodBreakToCheck(std::numeric_limits<double>::max()),
@@ -1403,8 +1403,20 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 							}
 							else
 							{
-								// Insert the adbreak to placement queue if not already present
-								InsertToPlacementQueue(periodId);
+								// Insert to placement queue (live CDAI / TSB).
+								// For VOD CDAI breaks there is no TSB: mark ad and break
+								// as placed immediately so the state machine can proceed.
+								if (IsVodAdBreak(periodId))
+								{
+									node.placed = true;
+									adbreakObj.mAdBreakPlaced = true;
+									AAMPLOG_INFO("[CDAI-VOD] Ad id=%s placed immediately (no TSB for VOD)",
+										mAdFulfillObj.adId.c_str());
+								}
+								else
+								{
+									InsertToPlacementQueue(periodId);
+								}
 								adStatus = true;
 							}
 						}
@@ -1532,6 +1544,26 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 	{
 		bool adCached = false;
 		AAMPCDAIError adErrorCode = eCDAI_ERROR_UNKNOWN;
+		// VOD CDAI: create the AdBreakObject on the first SetAlternateContents
+		// call for a registered VOD break (live CDAI creates it via a prior
+		// placeholder SetAlternateContents("","") call; VOD skips that step).
+		if (!isAdBreakObjectExist(periodId))
+		{
+			auto vodIt = mVodAdBreakIdToPos.find(periodId);
+			if (vodIt != mVodAdBreakIdToPos.end())
+			{
+				auto posIt = mVodAdBreaks.find(vodIt->second);
+				if (posIt != mVodAdBreaks.end() && !posIt->second.cancelled)
+				{
+					uint32_t brkDurMs = (uint32_t)(posIt->second.breakDurationSec * 1000.0);
+					auto adBreakAssets = std::make_shared<std::vector<AdNode>>();
+					mAdBreaks.emplace(periodId,
+						AdBreakObject{brkDurMs, std::move(adBreakAssets), "", 0, 0});
+					AAMPLOG_INFO("[CDAI-VOD] Created AdBreakObject for VOD break id=%s (durMs=%u)",
+						periodId.c_str(), brkDurMs);
+				}
+			}
+		}
 		if(isAdBreakObjectExist(periodId))
 		{
 			auto &adbreakObj = mAdBreaks[periodId];
@@ -2172,6 +2204,7 @@ void PrivateCDAIObjectMPD::RegisterVodAdBreak(const VodAdBreakInfo &info)
 {
 	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 	mVodAdBreaks[info.insertionPointSec] = info;
+	mVodAdBreakIdToPos[info.breakId] = info.insertionPointSec;
 	if (info.insertionPointSec < mNextVodBreakToCheck)
 	{
 		mNextVodBreakToCheck = info.insertionPointSec;
@@ -2193,6 +2226,7 @@ void PrivateCDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
 		if (kv.second.breakId == breakId)
 		{
 			kv.second.cancelled = true;
+			mVodAdBreakIdToPos.erase(breakId);
 			AAMPLOG_INFO("[CDAI-VOD] CancelVodAdBreak id=%s: cancelled", breakId.c_str());
 			// Recompute fast-path sentinel
 			mNextVodBreakToCheck = std::numeric_limits<double>::max();
@@ -2272,4 +2306,149 @@ void CDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
 	{
 		mPrivObj->CancelVodAdBreak(breakId);
 	}
+}
+// ---------------------------------------------------------------------------
+// Phase 2 VOD CDAI implementations
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Return true if breakId was registered via RegisterVodAdBreak().
+ */
+bool PrivateCDAIObjectMPD::IsVodAdBreak(const std::string &breakId) const
+{
+	return mVodAdBreakIdToPos.find(breakId) != mVodAdBreakIdToPos.end();
+}
+
+/**
+ * @brief Check whether the playhead has crossed a VOD insertion point that has
+ * a resolved ad pod ready.  Sets up mCurAds/mCurAdIdx/mCurPlayingBreakId and
+ * marks the break as started.  Caller must follow with onAdEvent(VOD_BREAK_START).
+ */
+bool PrivateCDAIObjectMPD::CheckVodAdBreakCrossing(double positionSec, const std::string &currentPeriodId)
+{
+	std::lock_guard<std::mutex> lock(mDaiMtx);
+	for (auto &kv : mVodAdBreaks)
+	{
+		VodAdBreakInfo &info = kv.second;
+		if (info.cancelled || info.adPodStarted)
+			continue;
+		if (info.insertionPointSec > positionSec)
+			continue;
+		// Break crossed: check that at least the first ad is resolved.
+		auto breakIt = mAdBreaks.find(info.breakId);
+		if (breakIt == mAdBreaks.end())
+			continue;
+		AdBreakObject &abObj = breakIt->second;
+		if (!abObj.ads || abObj.ads->empty())
+			continue;
+		if (!abObj.ads->at(0).resolved)
+			continue;
+		// Set up state for onAdEvent(VOD_BREAK_START).
+		mCurPlayingBreakId = info.breakId;
+		mCurAds            = abObj.ads;
+		mCurAdIdx          = 0;
+		abObj.endPeriodId     = currentPeriodId;
+		abObj.endPeriodOffset = (uint64_t)(info.insertionPointSec * 1000.0);
+		info.adPodStarted = true;
+		mVodResumeOffset  = info.insertionPointSec;
+		AAMPLOG_WARN("[CDAI-VOD] CheckVodAdBreakCrossing: break id=%s at %.3f s triggered at pos=%.3f",
+			info.breakId.c_str(), info.insertionPointSec, positionSec);
+		return true;
+	}
+	return false;
+}
+
+/**
+ * @brief Return true if positionSec has reached a VOD break whose opportunity
+ * has fired but whose ad has not yet been resolved (preroll / slow-server stall).
+ */
+bool PrivateCDAIObjectMPD::HasPendingVodBreakAtPosition(double positionSec) const
+{
+	// NOTE: called without lock from FetcherLoop; mVodAdBreaks and mAdBreaks are
+	// written only under mDaiMtx, and this is a best-effort stall check.
+	for (const auto &kv : mVodAdBreaks)
+	{
+		const VodAdBreakInfo &info = kv.second;
+		if (info.cancelled || info.adPodStarted)
+			continue;
+		if (info.insertionPointSec > positionSec)
+			continue;
+		if (!info.opportunityFired)
+			continue;
+		// Break is due and opportunity was sent.  Check whether the ad is resolved.
+		auto breakIt = mAdBreaks.find(info.breakId);
+		if (breakIt == mAdBreaks.end())
+			return true;  // SetAlternateContents not yet called
+		const AdBreakObject &abObj = breakIt->second;
+		if (!abObj.ads || abObj.ads->empty() || !abObj.ads->at(0).resolved)
+			return true;  // Ad URL received but MPD not yet downloaded
+	}
+	return false;
+}
+
+/**
+ * @brief Mark a VOD ad-break pod as fully completed.
+ * Caller must hold mDaiMtx (called from within onAdEvent).
+ */
+void PrivateCDAIObjectMPD::MarkVodAdBreakCompleted(const std::string &breakId)
+{
+	auto vodIt = mVodAdBreakIdToPos.find(breakId);
+	if (vodIt != mVodAdBreakIdToPos.end())
+	{
+		auto posIt = mVodAdBreaks.find(vodIt->second);
+		if (posIt != mVodAdBreaks.end())
+		{
+			posIt->second.adPodCompleted = true;
+			AAMPLOG_INFO("[CDAI-VOD] MarkVodAdBreakCompleted: break id=%s completed",
+				breakId.c_str());
+		}
+	}
+	mVodResumeOffset = 0.0;
+}
+
+/**
+ * @brief Compute the virtual-timeline position for the VOD asset.
+ */
+double PrivateCDAIObjectMPD::GetVirtualPosition(double sourcePositionSec)
+{
+	std::lock_guard<std::mutex> lock(mDaiMtx);
+	double virtualPos = sourcePositionSec;
+	for (const auto &kv : mVodAdBreaks)
+	{
+		const VodAdBreakInfo &info = kv.second;
+		if (info.cancelled)
+			continue;
+		if (!info.adPodStarted)
+			continue;
+		if (info.insertionPointSec > sourcePositionSec)
+			continue;  // This break is past current source position
+		if (info.adPodCompleted)
+		{
+			// Full pod has been played; add its whole duration.
+			virtualPos += info.breakDurationSec;
+		}
+		else
+		{
+			// Pod is in progress: add elapsed time from completed ads in the pod.
+			if (mCurAds && mCurAdIdx > 0)
+			{
+				uint64_t elapsedMs = 0;
+				int limit = std::min(mCurAdIdx, (int)mCurAds->size());
+				for (int i = 0; i < limit; ++i)
+					elapsedMs += mCurAds->at(i).duration;
+				virtualPos += (double)elapsedMs / 1000.0;
+			}
+		}
+	}
+	return virtualPos;
+}
+
+/**
+ * @brief CDAIObjectMPD public wrapper for GetVirtualPosition.
+ */
+double CDAIObjectMPD::GetVirtualPosition(double sourcePositionSec)
+{
+	if (mPrivObj)
+		return mPrivObj->GetVirtualPosition(sourcePositionSec);
+	return sourcePositionSec;
 }

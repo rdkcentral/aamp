@@ -9953,6 +9953,35 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 			}
 		}
 	}
+	// VOD CDAI: after an ad pod ends, seek back to the source content resume
+	// position (mVodResumeOffset stored by CheckVodAdBreakCrossing).
+	// mContentSeekOffset already holds insertionPointSec (set by onAdEvent);
+	// apply the same startDelta adjustment used for live CDAI.
+	if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && adStateChanged)
+	{
+		double vodSeekSec = 0.0;
+		{
+			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+			vodSeekSec = mCdaiObject->mContentSeekOffset;
+			mCdaiObject->mContentSeekOffset = 0;
+		}
+		if (vodSeekSec > 0.0)
+		{
+			double startDelta = mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mCurrentPeriod);
+			if (vodSeekSec > startDelta)
+				vodSeekSec -= startDelta;
+			else
+				vodSeekSec = 0.0;
+			AAMPLOG_INFO("[CDAI-VOD]: Resuming source content at PeriodID[%s] Position[%lf]",
+				currentPeriodId.c_str(), vodSeekSec);
+			if (mPlayRate > AAMP_RATE_PAUSE)
+			{
+				SeekInPeriod(vodSeekSec);
+				mShortAdOffsetCalc = true;
+				mSeekedInPeriod    = true;
+			}
+		}
+	}
 	return true;
 }
 
@@ -10253,6 +10282,18 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 				else if(CheckEndOfStream(waitForAdBreakCatchup))
 				{
+					// VOD CDAI postroll intercept: if a resolved postroll break is
+					// registered at insertionPointSec >= VOD duration, play it now
+					// instead of sending EOS.  The break was fired by the lookahead
+					// check above; here we just need to cross it.
+					if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject
+						&& mCdaiObject->mAdState == AdState::OUTSIDE_ADBREAK
+						&& mCdaiObject->CheckVodAdBreakCrossing(mBasePeriodOffset, mBasePeriodId))
+					{
+						AAMPLOG_INFO("[CDAI-VOD] EOS intercepted for postroll at pos=%.3f", mBasePeriodOffset);
+						adStateChanged = onAdEvent(AdEvent::VOD_BREAK_START);
+						continue; // re-enter loop to process the ad pod
+					}
 					break;
 				}
 				else if(mIterPeriodIndex >= mNumberOfPeriods)
@@ -12710,6 +12751,11 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					}
 					AAMPLOG_WARN("[CDAI]: All Ads in the ADBREAK[%s] FINISHED. Playing the basePeriod[%s] at Offset[%lf].", mCdaiObject->mCurPlayingBreakId.c_str(), mBasePeriodId.c_str(), mCdaiObject->mContentSeekOffset);
 					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
+					// VOD CDAI: mark the break as fully completed for virtual-position accounting.
+					if (mCdaiObject->IsVodAdBreak(mCdaiObject->mCurPlayingBreakId))
+					{
+						mCdaiObject->MarkVodAdBreakCompleted(mCdaiObject->mCurPlayingBreakId);
+					}
 					reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_END;
 					reservationEndReason = GetAdReservationEndReason(curAdFailed, curAdCancelled);
 					sendImmediate = curAdFailed;    //Current Ad failed. Hence may not get discontinuity from gstreamer.
