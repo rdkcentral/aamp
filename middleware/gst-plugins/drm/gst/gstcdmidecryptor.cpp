@@ -465,6 +465,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 			cdmidecryptor->sinkCaps = NULL;
 		}
 		cdmidecryptor->sinkCaps = gst_caps_copy(transformedCaps);
+		g_cond_signal(&cdmidecryptor->condition);
 		g_mutex_unlock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(trans, "Set sinkCaps to %" GST_PTR_FORMAT, cdmidecryptor->sinkCaps);
 	}
