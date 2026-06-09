@@ -118,14 +118,6 @@ class AdFallbackTests : public ::testing::Test
 			{
 				return StreamAbstractionAAMP_MPD::IndexNewMPDDocument(updateTrackInfo);
 			}
-
-			void SetBasePeriodId(const std::string& periodId, int periodIdx, double offset = 0.0)
-			{
-				mBasePeriodId = periodId;
-				mBasePeriodOffset = offset;
-				mCurrentPeriodIdx = periodIdx;
-				mIterPeriodIndex = periodIdx;
-			}
 		};
 		PrivateInstanceAAMP *mPrivateInstanceAAMP;
 		CDAIObjectMPD *mCdaiObj;
@@ -302,12 +294,13 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 {
 	static const char *manifest = R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT2M0S">
-  <!-- Period 1 - no ad marker; Init() tunes here with eTUNETYPE_NEW_NORMAL -->
+  <!-- Period 1 with Ad Marker in the first 15 seconds -->
   <Period id="1" start="PT0H0M0.000S">
     <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_p1_init.mp4" media="video_p1_$Number$.mp4" duration="900000">
+      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
         <SegmentTimeline>
-          <S t="0" d="1350000"/>
+          <!-- Ad Marker SCTE placed here for first 15 seconds -->
+          <S t="0" d="1350000" scte35:signal="SCTE-35 AD_MARKER"/>
           <S t="1350000" d="1350000"/>
           <S t="2700000" d="1350000"/>
           <S t="4050000" d="1350000"/>
@@ -316,7 +309,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
       <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
     </AdaptationSet>
 	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="audio_p1_init.mp4" media="audio_p1_$Number$.mp4" duration="900000">
+      <SegmentTemplate timescale="90000" initialization="audio_init.mp4" media="audio$Number$.mp4" duration="900000">
         <SegmentTimeline>
           <S t="0" d="1350000"/>
           <S t="1350000" d="1350000"/>
@@ -328,17 +321,10 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
     </AdaptationSet>
   </Period>
 
-  <!-- Period 2 - with SCTE35 EventStream ad marker; FetcherLoop processes ad here -->
+  <!-- Period 2 -  without Ad Marker -->
   <Period id="2" start="PT1M0S">
-    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000">
-      <Event presentationTime="0" duration="1350000">
-        <scte35:Signal>
-          <scte35:Binary>/DAsAAAQdSsYAP/wBQb+3zKJFQAWAhRDVUVJAAAkQn/AAABOcUAAACIAAJR2FfM=</scte35:Binary>
-        </scte35:Signal>
-      </Event>
-    </EventStream>
     <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_p2_init.mp4" media="video_p2_$Number$.mp4" duration="900000">
+      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
         <SegmentTimeline>
           <S t="0" d="1350000"/>
           <S t="1350000" d="1350000"/>
@@ -349,7 +335,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
       <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
     </AdaptationSet>
 	<AdaptationSet contentType="audio" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="audio_p2_init.mp4" media="audio_p2_$Number$.mp4" duration="900000">
+      <SegmentTemplate timescale="90000" initialization="audio_init.mp4" media="audio$Number$.mp4" duration="900000">
         <SegmentTimeline>
           <S t="0" d="1350000"/>
           <S t="1350000" d="1350000"/>
@@ -394,10 +380,8 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 
 	std::string AdInitFragmentUrl = std::string(TEST_AD_BASE_URL) + std::string("video_init.mp4");
 	std::string AdAudioInitFragmentUrl = std::string(TEST_AD_BASE_URL) + std::string("audio_init.mp4");
-	std::string SourceP1InitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
-	std::string SourceP1AudioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p1_init.mp4");
-	std::string SourceP2InitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p2_init.mp4");
-	std::string SourceP2AudioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p2_init.mp4");
+	std::string SourceInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
+	std::string SourceAudioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_init.mp4");
 	AAMPStatusType status;
 	mPrivateInstanceAAMP->rate = 1.0;
 
@@ -407,7 +391,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 					return config == eAAMPConfig_EnableClientDai;
 					}));
 
-	std::string periodId = "2"; // Ad break on Period 2
+	std::string periodId = "1";
 	std::string adId = "Ad1";
 	std::string adurl = "";
 	uint64_t startMS = 0;
@@ -448,45 +432,32 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 				return (++counter < 10);
 			});
 
-	// Period 1 source init fetched during Init() — no ad break on Period 1
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceP1InitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
-		.Times(1)
-		.WillOnce(Return(true));
-
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceP1AudioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
-		.Times(1)
-		.WillOnce(Return(true));
-
-	// Ad init fetched in FetcherLoop (Period 2 ad break) — forced to fail
+	// Need to fail ad Video init fragment
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(AdInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
 		.WillOnce(Return(false));
 
+	//Need to fail ad audio init fragment
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(AdAudioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
-		.Times(1)
-		.WillOnce(Return(false));
+        .Times(1)
+        .WillOnce(Return(false));
 
-	// Period 2 source init fetched in FetcherLoop fallback after ad init failure
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceP2InitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceP2AudioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceAudioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
 
 	TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL;
-	// Init tunes to Period 1; onAdEvent(INIT) is skipped for NEW_NORMAL so state stays OUTSIDE_ADBREAK
+	// Will start fetching the ad, but fails in ad init fragment and should fallback to source period and its init fragment
 	status = Init(tuneType);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::OUTSIDE_ADBREAK);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
 
-	// Advance player state to Period 2 where the ad break is set up
-	mStreamAbstractionAAMP_MPD->SetBasePeriodId("2", 1);
-
-	// FetcherLoop: onAdEvent(DEFAULT) finds ad on Period 2 → IN_ADBREAK_AD_PLAYING
-	// → ad init fetch fails → AD_FAILED → IN_ADBREAK_AD_NOT_PLAYING → fallback to Period 2 source
 	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+	// Gets updated in FetcherLoop
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
 	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), 0.0);
 }
