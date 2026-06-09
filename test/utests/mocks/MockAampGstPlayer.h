@@ -34,15 +34,15 @@ public:
 
     MOCK_METHOD( long long, GetPositionMilliseconds, (), (override));
 
-    MOCK_METHOD(bool, Pause, (bool pause, bool forceStopGstreamerPreBuffering), (override));
+    MOCK_METHOD(bool, Pause, (bool pause, bool forceStopPreBuffering), (override));
 
     MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
 
-    MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, id3_callback_t));
+    MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, id3_callback_t), (override));
 
     MOCK_METHOD(void, Flush, (double position, int rate, bool shouldTearDown), (override));
 
-    MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *));
+    MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *), (override));
 
 	MOCK_METHOD(void, Stop, (bool), (override));
 

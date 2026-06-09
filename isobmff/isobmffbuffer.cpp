@@ -1328,7 +1328,7 @@ int IsoBmffBuffer::getLastMdatBoxIndex() const
 	{
 		if (IS_TYPE(boxes.at(i)->getType(), Box::MDAT))
 		{
-			index = i;
+			index = static_cast<int>(i);
 		}
 	}
 	return index;

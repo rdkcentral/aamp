@@ -1019,6 +1019,7 @@ void AAMPGstPlayer::FlushTrack(AampMediaType type,double pos)
 	double audioDelta = aamp->mAudioDelta;
 	double subDelta = aamp->mSubtitleDelta;
 	double rate = playerInstance->FlushTrack(mediaType, pos, audioDelta, subDelta);
+	(void)rate;
 }
 
 /**
@@ -1044,13 +1045,13 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 /**
  *  @brief To pause/play pipeline
  */
-bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
+bool AAMPGstPlayer::Pause( bool pause, bool forceStopPreBuffering )
 {
 	auto syncLock = aamp->SyncLock();
 
-	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
+	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopPreBuffering);
 
-	bool res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
+	bool res = this->playerInstance->Pause(pause, forceStopPreBuffering);
 	if (res && !aamp->IsGstreamerSubsEnabled())
 	{
 		aamp->PauseSubtitleParser(pause);

@@ -3128,15 +3128,15 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 }
 
 /**
- * @brief To change the the gstreamer pipeline to pause/play
+ * @brief To change the the stream sink pipeline to pause/play
  */
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
 	bool ret_val = true;
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		if (true != sink->Pause(pause, forceStopGstreamerPreBuffering))
+		if (true != sink->Pause(pause, forceStopPreBuffering))
 		{
 			ret_val = false;
 		}
@@ -4190,16 +4190,20 @@ bool PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 	if(ContentType_EAS == mContentType)
 		return false;
 
-	if(instance < eCURLINSTANCE_MAX && curl[instance])
+	if(instance >= eCURLINSTANCE_MAX)
 	{
-		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
-		
-		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
-		curlDLTimeout[instance] = timeoutMS;
+		AAMPLOG_ERR("SetCurlTimeout: curl instance %d is out of range (max %d)", instance, eCURLINSTANCE_MAX);
+	}
+	else if(!curl[instance])
+	{
+		AAMPLOG_WARN("SetCurlTimeout: curl[%d] not initialized, skipping timeout update", instance);
 	}
 	else
 	{
-		AAMPLOG_ERR("Failed to update timeout for curl instance %d",instance);
+		timeoutChanged = (curlDLTimeout[instance] != timeoutMS); // return true if the timeout is changing
+
+		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
+		curlDLTimeout[instance] = timeoutMS;
 	}
 
 	return timeoutChanged;
@@ -5982,7 +5986,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
 			if(!inpData->mPreProcessedManifest.empty())
 			{
-				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
+				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, [this]() -> std::pair<std::string,int> {
+					return SendManifestPreProcessEvent();
+				});
 			}
 			else
 			{
@@ -8456,6 +8462,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 			}
 		}
 	}
+	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
 	TeardownStream(true,true); //disable download as well
 	
 	// Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
@@ -8545,7 +8552,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mPreferredTextTrack = TextTrackInfo(); // reset
 	// send signal to any thread waiting for play
 	mDiscontinuityFound = false;
-	SetLLDashChunkMode(false); //Reset ChunkMode
 	{
 		std::lock_guard<std::mutex> guard(mMutexPlaystart);
 		waitforplaystart.notify_all();
@@ -14622,7 +14628,7 @@ AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 	return NULL;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	std::lock_guard<std::mutex> guard(mPreProcessLock);
@@ -14636,7 +14642,7 @@ std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
 		AAMPLOG_WARN("PreProcessed Manifest not available send Need Manifest data event to application");
 		SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_NEED_MANIFEST_DATA, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)
