@@ -1630,7 +1630,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 
 	}
 	// If rate indicates playback (not paused seek), clear seekPausedState
-	if (rate > 0 && !interfacePlayerPriv->gstPrivateContext->paused)
+	if (!interfacePlayerPriv->gstPrivateContext->paused)
 	{
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 		MW_LOG_MIL("InterfacePlayerRDK: rate indicates playback, clearing seekPausedState");
@@ -1710,21 +1710,8 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	{
 		if ((interfacePlayerPriv->socInterface->IsSimulatorSink() || interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && rate != GST_NORMAL_PLAY_RATE)
 		{
-			const bool isTrickplay = (rate != GST_NORMAL_PLAY_RATE);
-			const bool isLiveMedia = (static_cast<GstMediaFormat>(m_gstConfigParam->media) == eGST_MEDIAFORMAT_OTA);
-			
-			if (isTrickplay)
-			{
-				if (isLiveMedia)
-				{
-					MW_LOG_WARN("Live trickplay active - preserving flush seek position %f", position);
-				}
-				else
-				{
-					MW_LOG_INFO("Resetting seek position to zero");
-					position = 0;
-				}
-			}
+			MW_LOG_INFO("Resetting seek position to zero");
+			position = 0;
 		}
 	}
 	if (!gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
