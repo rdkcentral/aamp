@@ -46,6 +46,7 @@ struct AampMediaSample
 	double mPts{0.0};                        /**< Presentation timestamp in seconds */
 	double mDts{0.0};                        /**< Decode timestamp in seconds */
 	double mDuration{0.0};                   /**< Sample duration in seconds */
+	int64_t mDisplayOffsetMs{0};             /**< Display timing offset in milliseconds. Set by AampMp4Demuxer when PTS restamping is enabled; 0 otherwise. Used by AampRialtoPlayer for subtitle presentation timing. */
 	MediaDrmMetadata mDrmMetadata{}; /**< DRM metadata for encrypted samples */
 
 	// Move constructor and move assignment (allow efficient transfers)

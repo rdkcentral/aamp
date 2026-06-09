@@ -38,6 +38,7 @@
 #include "IRialtoControlBackend.h"
 #include "IStreamSinkNotifiable.h"
 #include "AampRialtoMediaSource.h"
+#include "IDirectRialtoCC.h"
 
 #include <array>
 #include <atomic>
@@ -65,7 +66,7 @@ using SourceCreator =
  * @class AampRialtoPlayer
  * @brief StreamSink implementation that interfaces with Rialto client.
  */
-class AampRialtoPlayer : public StreamSink
+class AampRialtoPlayer : public StreamSink, public IDirectRialtoCC
 {
 public:
 	~AampRialtoPlayer() override;
@@ -287,6 +288,16 @@ public:
 	/// @copydoc StreamSink::ResetFirstFrame
 	void ResetFirstFrame() override;
 
+	// -------------------------------------------------------------------
+	// IDirectRialtoCC interface
+	// -------------------------------------------------------------------
+
+	/// @copydoc IDirectRialtoCC::setTextTrackIdentifier
+	bool setTextTrackIdentifier(const std::string &id) override;
+
+	/// @copydoc IDirectRialtoCC::setCCMute
+	bool setCCMute(bool muted) override;
+
 	/// @brief Start periodic MonitorProgress() reporting.
 	///
 	/// Fires immediately on first call, then at configured interval.
@@ -410,6 +421,10 @@ private:
 	/// Stream() reads this to decide whether it can call play() immediately.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
+	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
+	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
+	bool m_subtitleMuted{false};
+
 	/// @brief Embedded progress timer with immediate-start and kick capability.
 	///
 	/// Fires immediately on start, then continues at specified interval.
@@ -466,6 +481,9 @@ private:
 
 	/// @brief Called (via callback) when the Rialto server changes state.
 	void OnPlaybackState(firebolt::rialto::PlaybackState state);
+
+	/// @brief Build the CC decoder handle used by NotifyFirstFrameReceived.
+	unsigned long GetCCHandle() const;
 
 	/// @brief Called when the Rialto server reports a new playback position.
 	void OnPosition(int64_t positionNs);

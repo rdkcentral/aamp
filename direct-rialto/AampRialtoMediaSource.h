@@ -277,7 +277,6 @@ public:
 	 * before invoking this method.
 	 *
 	 * The default implementation delegates to the owned demuxer.
-	 * Subclasses may override to use an alternative parser.
 	 *
 	 * @param buffer  Shared ownership of the raw init-segment bytes.
 	 * @return The parsed MediaCodecInfo on success; std::nullopt on
@@ -295,16 +294,23 @@ public:
 	 *
 	 * The default implementation delegates to the owned demuxer and
 	 * then injects each sample via injectOneSample().
-	 * Subclasses may override to use an alternative parse/inject path.
 	 *
-	 * @param pipeline  The active Rialto media pipeline.
-	 * @param buffer    Shared ownership of the raw segment bytes.
+	 * @param pipeline          The active Rialto media pipeline.
+	 * @param buffer            Shared ownership of the raw segment bytes.
+	 * @param fpts              Fragment presentation timestamp (seconds).
+	 * @param fdts              Fragment decode timestamp (seconds).
+	 * @param fDuration         Fragment duration (seconds).
+	 * @param fragmentPTSoffset Period-start PTS offset (seconds) from AAMP.
 	 * @return true on success (including empty sample list); false on
 	 *         parse failure.
 	 */
 	virtual bool processDataFragment(
 		firebolt::rialto::IMediaPipeline &pipeline,
-		std::shared_ptr<std::vector<uint8_t>> buffer);
+		std::shared_ptr<std::vector<uint8_t>> buffer,
+		double fpts,
+		double fdts,
+		double fDuration,
+		double fragmentPTSoffset);
 
 	/**
 	 * @brief Inject a single decoded sample into the pipeline.
@@ -312,8 +318,6 @@ public:
 	 * Blocks on waitForAttach(), then delivers the sample via
 	 * injectOneSample().  Returns false if the source is not attached
 	 * or if injection was aborted by Flush/Stop.
-	 *
-	 * Subclasses may override to add pre/post-injection behaviour.
 	 *
 	 * @param pipeline     The active Rialto media pipeline.
 	 * @param sample       The decoded sample to inject (moved in).
@@ -370,6 +374,15 @@ public:
 		firebolt::rialto::IMediaPipeline &pipeline,
 		int64_t positionNs);
 
+	/**
+	 * @brief Returns true when inband closed-caption mode is active.
+	 *
+	 * Default returns false; AampRialtoSubtitleSource overrides to expose
+	 * its m_inbandCC member so that handleNeedData() (which lives in the
+	 * base) can skip injection for inband-CC sources.
+	 */
+	virtual bool isInbandCC() const { return false; }
+
 protected:
 	// -----------------------------------------------------------------
 	// Subclass hooks (pure virtual)
@@ -412,6 +425,7 @@ protected:
 	 */
 	virtual std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 		createSegment(const AampMediaSample &sample) const = 0;
+
 
 	// -----------------------------------------------------------------
 	// Members

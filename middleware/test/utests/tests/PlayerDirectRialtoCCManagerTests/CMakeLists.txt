@@ -15,41 +15,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(EXEC_NAME AampRialtoAudioSourceTests)
-set(AAMP_ROOT "../../../../")
-set(UTESTS_ROOT "../../")
+include(GoogleTest)
 
-include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
+set(PLAYER_ROOT "../../../../")
+set(UTESTS_ROOT "../../")
+set(EXEC_NAME PlayerDirectRialtoCCManagerTests)
+
+include_directories(${PLAYER_ROOT}
+	${PLAYER_ROOT}/closedcaptions
+	${PLAYER_ROOT}/closedcaptions/direct-rialto
+	${PLAYER_ROOT}/playerLogManager)
+
+include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GMOCK_INCLUDE_DIRS})
+include_directories(${GLIB_INCLUDE_DIRS})
+include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES
-	AampRialtoAudioSourceTests.cpp
-	AampRialtoAudioSourceTestCases.cpp
-)
+	PlayerDirectRialtoCCManagerTests.cpp
+	PlayerDirectRialtoCCManagerTestCases.cpp
+	PlayerDirectRialtoCCManagerBaseStubs.cpp)
 
-set(AAMP_SOURCES
-	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
-	${AAMP_ROOT}/direct-rialto/AampRialtoAudioSource.cpp
-)
+set(PLAYER_SOURCES
+	${PLAYER_ROOT}/closedcaptions/direct-rialto/PlayerDirectRialtoCCManager.cpp
+	${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp)
 
 add_executable(${EXEC_NAME}
 	${TEST_SOURCES}
-	${AAMP_SOURCES}
-)
+	${PLAYER_SOURCES})
 
-if(CMAKE_XCODE_BUILD_SYSTEM)
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
+if (CMAKE_XCODE_BUILD_SYSTEM)
+	# XCode schema target
 	xcode_define_schema(${EXEC_NAME})
 endif()
 
-if(COVERAGE_ENABLED)
+if (COVERAGE_ENABLED)
 	include(CodeCoverage)
 	APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
 target_link_libraries(${EXEC_NAME}
-	${GLIB_LINK_LIBRARIES}
 	fakes
 	-pthread
+	${GLIB_LINK_LIBRARIES}
 	${OS_LD_FLAGS}
 	${GMOCK_LINK_LIBRARIES}
-	${GTEST_LINK_LIBRARIES}
-)
+	${GTEST_LINK_LIBRARIES})
+
+player_utest_run_add(${EXEC_NAME})

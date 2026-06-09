@@ -95,7 +95,9 @@ constexpr CodecMapping gCodecMappings[] = {
 	{ MultiChar_Constant("hvcC"), GST_FORMAT_VIDEO_ES_HEVC },
 	{ MultiChar_Constant("esds"), GST_FORMAT_AUDIO_ES_AAC_RAW },
 	{ MultiChar_Constant("dec3"), GST_FORMAT_AUDIO_ES_EC3 },
-	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 } // AC-4 decoder config box
+	{ MultiChar_Constant("dac4"), GST_FORMAT_AUDIO_ES_AC4 }, // AC-4 decoder config box
+	{ MultiChar_Constant("stpp"), GST_FORMAT_SUBTITLE_TTML }, // TTML in MP4
+	{ MultiChar_Constant("wvtt"), GST_FORMAT_SUBTITLE_WEBVTT } // WebVTT in MP4
 };
 
 /**
@@ -1017,6 +1019,16 @@ void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 			mMediaTypeName = "audio";
 			ParseAudioInformation();
 			break;
+		case MultiChar_Constant("stpp"): // TTML subtitle in MP4
+		case MultiChar_Constant("wvtt"): // WebVTT subtitle in MP4
+			mMediaTypeName = "subtitle";
+			// Subtitle sample entries carry no codec-config child box
+			// (unlike hev1→hvcC or avc1→avcC). Set the codec format
+			// directly from the sample entry FourCC so that
+			// GetCodecInfo() returns a valid format and
+			// AampMp4Demuxer::sendSegment() can call SetStreamCaps().
+			codecInfo.mCodecFormat = GetGstStreamOutputFormatFromFourCC(type);
+			break;
 		default:
 			mMediaTypeName = "unknown";
 			throw Mp4ParseException(MP4_PARSE_ERROR_UNSUPPORTED_STREAM_FORMAT, "stsd entry: unsupported format");
@@ -1214,6 +1226,8 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("ac-4"):
 			case MultiChar_Constant("enca"):
 			case MultiChar_Constant("encv"):
+			case MultiChar_Constant("stpp"): // TTML subtitle
+			case MultiChar_Constant("wvtt"): // WebVTT subtitle
 				ParseStreamFormatBox(type, next);
 				break;
 			case MultiChar_Constant("hvcC"):
