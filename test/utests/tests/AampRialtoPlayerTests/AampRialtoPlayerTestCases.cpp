@@ -1909,8 +1909,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnNeedMediaData_InbandCCSource_RespondsWithNoAvailableSamples)
 {
 	// Configure video + audio only (no explicit subtitle) — this causes
-	// AampRialtoPlayer to create an inband CC subtitle source and call
-	// enableInbandCC() on it before attaching it to the pipeline.
+	// AampRialtoPlayer to create an inband CC subtitle source.  The source
+	// enters inband-CC mode during attachSource() when mapCodecToMime()
+	// is called with GST_FORMAT_UNKNOWN.
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
 	// SendVideoInitFragment() attaches the video source (id=0) and then
 	// triggers the deferred attachment of the inband CC subtitle source

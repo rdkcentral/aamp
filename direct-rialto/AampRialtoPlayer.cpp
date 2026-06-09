@@ -26,14 +26,13 @@
 #include "AampRialtoPlayer.h"
 #include "AampRialtoMediaPipelineClient.h"
 #include "AampRialtoMediaSource.h"
+#include "AampRialtoSubtitleSource.h"
 #include "AampDrmBridge.h"
 #include "AampLogManager.h"
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
 #include "IControl.h"
 #include "AampRialtoControlBackend.h"
-#include "PlayerDirectRialtoCCManager.h"
-#include "PlayerCCManager.h"
 #include <chrono>
 #include <cinttypes>
 #include <algorithm>
@@ -197,7 +196,6 @@ void AampRialtoPlayer::Configure(
 	m_firstFrameNotified.store(false, std::memory_order_relaxed);
 	m_segmentStartMs.store(-1, std::memory_order_relaxed);
 	m_positionMs.store(0, std::memory_order_relaxed);
-	m_usingInbandCC = false;
 
 	if (!m_client)
 	{
@@ -328,16 +326,6 @@ void AampRialtoPlayer::Configure(
 	//                  is created lazily on the first SendTransfer call.
 	// FORMAT_UNKNOWN:  streamabstraction demuxes externally (SetStreamCaps path).
 
-	// Inject the direct-rialto CC manager as the PlayerCCManager singleton so
-	// that priv_aamp::InitializeCC() reaches our IDirectRialtoCC implementation
-	// rather than the GStreamer-based PlayerRialtoCCManager.
-	if (!m_ccManagerRaw)
-	{
-		auto *ccMgr = new PlayerDirectRialtoCCManager();
-		PlayerCCManager::SetInstance(ccMgr); // PlayerCCManager takes ownership
-		m_ccManagerRaw = ccMgr;
-		AAMPLOG_INFO("Injected PlayerDirectRialtoCCManager as CC singleton");
-	}
 	if (videoFormat != FORMAT_INVALID)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_VIDEO);
@@ -368,7 +356,8 @@ void AampRialtoPlayer::Configure(
 			AAMPLOG_INFO("Created audio source (format=%d)", static_cast<int>(audioFormat));
 		}
 	}
-	if (subFormat != FORMAT_INVALID)
+
+	if (subFormat == FORMAT_SUBTITLE_TTML || subFormat == FORMAT_SUBTITLE_MP4 || subFormat == FORMAT_SUBTITLE_WEBVTT)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
 		if (src)
@@ -381,19 +370,15 @@ void AampRialtoPlayer::Configure(
 			// segment, so no AampMp4Demuxer is created and SetStreamCaps
 			// is never called for subtitle.  Queue the source attachment
 			// here so it fires once video attaches (same deferred path as
-			// audio).  FORMAT_SUBTITLE_MP4 is handled via the demuxer
-			// updateCachedMetadata → SetStreamCaps path as before.
-			if (subFormat == FORMAT_SUBTITLE_TTML ||
-			    subFormat == FORMAT_SUBTITLE_WEBVTT)
-			{
-				MediaCodecInfo ci{};
-				ci.mCodecFormat = (subFormat == FORMAT_SUBTITLE_TTML)
-				                  ? GST_FORMAT_SUBTITLE_TTML
-				                  : GST_FORMAT_SUBTITLE_WEBVTT;
-				AAMPLOG_INFO("Queueing subtitle attachment for raw format=%d",
-					static_cast<int>(subFormat));
-				AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
-			}
+			// audio).  FORMAT_SUBTITLE_MP4 is also handled via the demuxer
+			// updateCachedMetadata → SetStreamCaps path.
+			MediaCodecInfo ci{};
+			ci.mCodecFormat = (subFormat == FORMAT_SUBTITLE_WEBVTT)
+						? GST_FORMAT_SUBTITLE_WEBVTT
+						: GST_FORMAT_SUBTITLE_TTML;
+			AAMPLOG_INFO("Queueing subtitle attachment for format=%d",
+				static_cast<int>(subFormat));
+			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
 		}
 	}
 	else if (videoFormat != FORMAT_INVALID)
@@ -404,10 +389,9 @@ void AampRialtoPlayer::Configure(
 		auto ccSrc = m_sourceCreator(eMEDIATYPE_SUBTITLE);
 		if (ccSrc)
 		{
-			ccSrc->enableInbandCC();
 			m_sources[eMEDIATYPE_SUBTITLE] = std::move(ccSrc);
-			m_usingInbandCC = true;
 			MediaCodecInfo ci{};
+			ci.mCodecFormat = GST_FORMAT_UNKNOWN;
 			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
 			AAMPLOG_INFO("Created inband CC subtitle source");
 		}
@@ -1292,11 +1276,13 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			const bool firstFrame =
 				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
 
+			auto *mediaSource = m_sources[eMEDIATYPE_SUBTITLE].get();
+			auto *subtitleSource = dynamic_cast<AampRialtoSubtitleSource *>(mediaSource);
 			// Build the CC decoder handle.  In inband-CC mode pass the
 			// IDirectRialtoCC pointer (as unsigned long) so that
 			// priv_aamp::InitializeCC() initialises the CC manager with the
 			// correct control interface.
-			const unsigned long ccHandle = m_usingInbandCC
+			const unsigned long ccHandle = (subtitleSource && subtitleSource->isInbandCC())
 				? reinterpret_cast<unsigned long>(
 					static_cast<IDirectRialtoCC *>(this))
 				: 0UL;

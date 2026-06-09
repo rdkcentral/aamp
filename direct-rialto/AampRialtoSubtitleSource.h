@@ -56,14 +56,6 @@ public:
 	AampMediaType mediaType() const override { return eMEDIATYPE_SUBTITLE; }
 
 	/**
-	 * @brief Record the stream format determined at Configure() time.
-	 *
-	 * Must be called before the first processInitFragment() so that the
-	 * raw subtitle path can synthesise the correct codec format.
-	 */
-	void setSubtitleFormat(StreamOutputFormat fmt) { m_subtitleFormat = fmt; }
-
-	/**
 	 * @brief Parse or synthesise the init segment for this subtitle track.
 	 *
 	 * For raw TTML/WebVTT (FORMAT_SUBTITLE_TTML / FORMAT_SUBTITLE_WEBVTT)
@@ -169,6 +161,19 @@ private:
 	/// true when the resolved codec is TTML (raw or stpp-in-MP4);
 	/// false for WebVTT (raw or wvtt-in-MP4) which needs no correction.
 	bool m_applyTextTransform{false};
+
+	/// True when inband CC mode is active (set by mapCodecToMime() when
+	/// GST_FORMAT_UNKNOWN is resolved to "text/cc").
+	mutable bool m_inbandCC{false};
+
+public:
+	/**
+	 * @brief Returns true when inband closed-caption mode is active.
+	 *
+	 * Set internally by mapCodecToMime() when the codec format resolves
+	 * to GST_FORMAT_UNKNOWN (the inband-CC path).
+	 */
+	bool isInbandCC() const override { return m_inbandCC; }
 };
 
 #endif /* AAMP_RIALTO_SUBTITLE_SOURCE_H */

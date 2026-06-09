@@ -57,7 +57,6 @@ class PrivateInstanceAAMP;
 class PrivateInstanceAAMPNotifiable;
 class AampRialtoMediaPipelineClient;
 class Mp4Demux;
-class PlayerDirectRialtoCCManager;
 
 /// Callable that creates a per-track AampRialtoMediaSource.
 using SourceCreator =
@@ -412,16 +411,6 @@ private:
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
 	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
 	bool m_subtitleMuted{false};
-
-	/// true when the player is operating in inband closed-caption mode.
-	/// Set in OnPlaybackState(PLAYING) when a CC subtitle source is created.
-	bool m_usingInbandCC{false};
-
-	/// Non-owning raw pointer to the PlayerDirectRialtoCCManager injected
-	/// into the PlayerCCManager singleton by Configure().  Ownership is
-	/// transferred to PlayerCCManager via SetInstance(); this pointer is
-	/// kept only to detect re-entrance and for unit-test introspection.
-	PlayerDirectRialtoCCManager *m_ccManagerRaw{nullptr};
 
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;

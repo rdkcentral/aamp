@@ -41,6 +41,7 @@ class TestableAampRialtoSubtitleSource : public AampRialtoSubtitleSource
 public:
 	using AampRialtoSubtitleSource::mapCodecToMime;
 	using AampRialtoSubtitleSource::createSegment;
+	using AampRialtoMediaSource::handleNeedData;
 };
 
 // ---------------------------------------------------------------------------
@@ -214,23 +215,6 @@ TEST_F(AampRialtoSubtitleSourceTest,
 }
 
 /**
- * @test AampRialtoSubtitleSource_MapCodecToMime_FallbackWebVTT_ReturnsVttMime
- * @brief When codec format is INVALID but subtitleFormat is WEBVTT, maps to
- *        "text/vtt" via the StreamOutputFormat fallback.
- */
-TEST_F(AampRialtoSubtitleSourceTest,
-	AampRialtoSubtitleSource_MapCodecToMime_FallbackWebVTT_ReturnsVttMime)
-{
-	m_source.setSubtitleFormat(FORMAT_SUBTITLE_WEBVTT);
-	std::string mimeType;
-	firebolt::rialto::StreamFormat fmt{};
-	const bool ok = m_source.mapCodecToMime(
-		GST_FORMAT_INVALID, mimeType, fmt);
-	EXPECT_TRUE(ok);
-	EXPECT_EQ(mimeType, "text/vtt");
-}
-
-/**
  * @test AampRialtoSubtitleSource_MapCodecToMime_UnknownFormat_ReturnsFalse
  * @brief When both codec format and subtitleFormat are unrecognised,
  *        mapCodecToMime returns false.
@@ -272,68 +256,26 @@ TEST_F(AampRialtoSubtitleSourceTest,
 }
 
 // ---------------------------------------------------------------------------
-// processInitFragment
-// ---------------------------------------------------------------------------
-
-/**
- * @test AampRialtoSubtitleSource_ProcessInitFragment_RawTTML_ReturnsSyntheticCodecInfo
- * @brief Raw TTML format must return a synthetic MediaCodecInfo without
- *        touching the MP4 demuxer path.
- */
-TEST_F(AampRialtoSubtitleSourceTest,
-	AampRialtoSubtitleSource_ProcessInitFragment_RawTTML_ReturnsSyntheticCodecInfo)
-{
-	m_source.setSubtitleFormat(FORMAT_SUBTITLE_TTML);
-	auto buf = std::make_shared<std::vector<uint8_t>>(
-		std::vector<uint8_t>{0x3C, 0x74, 0x74, 0x3E}); // "<tt>"
-
-	auto ci = m_source.processInitFragment(buf);
-
-	ASSERT_TRUE(ci.has_value());
-	EXPECT_EQ(ci->mCodecFormat, GST_FORMAT_SUBTITLE_TTML);
-}
-
-/**
- * @test AampRialtoSubtitleSource_ProcessInitFragment_RawWebVTT_ReturnsSyntheticCodecInfo
- * @brief Raw WebVTT format returns a synthetic MediaCodecInfo with WebVTT
- *        codec format.
- */
-TEST_F(AampRialtoSubtitleSourceTest,
-	AampRialtoSubtitleSource_ProcessInitFragment_RawWebVTT_ReturnsSyntheticCodecInfo)
-{
-	m_source.setSubtitleFormat(FORMAT_SUBTITLE_WEBVTT);
-	auto buf = std::make_shared<std::vector<uint8_t>>(
-		std::vector<uint8_t>{0x57, 0x45, 0x42, 0x56}); // "WEBV"
-
-	auto ci = m_source.processInitFragment(buf);
-
-	ASSERT_TRUE(ci.has_value());
-	EXPECT_EQ(ci->mCodecFormat, GST_FORMAT_SUBTITLE_WEBVTT);
-}
-
-// ---------------------------------------------------------------------------
 // Inband CC
 // ---------------------------------------------------------------------------
 
 /**
  * @test AampRialtoSubtitleSource_MapCodecToMime_InbandCC_ReturnsCCMime
- * @brief When enableInbandCC() is called, mapCodecToMime() must return
- *        "application/x-subtitle-cc" regardless of the codec format.
- *        This is the MIME type expected by the Rialto server for sources
- *        whose closed-caption data is embedded in the video bitstream.
+ * @brief When GST_FORMAT_UNKNOWN is passed to mapCodecToMime(), the source
+ *        enters inband-CC mode and must return "text/cc" with RAW format.
+ *        The Rialto server uses this MIME type for sources whose
+ *        closed-caption data is embedded in the video bitstream.
  */
 TEST_F(AampRialtoSubtitleSourceTest,
 	AampRialtoSubtitleSource_MapCodecToMime_InbandCC_ReturnsCCMime)
 {
-	m_source.enableInbandCC();
-	EXPECT_TRUE(m_source.isInbandCC());
-
 	std::string mimeType;
 	firebolt::rialto::StreamFormat fmt{};
-	const bool ok = m_source.mapCodecToMime(GST_FORMAT_INVALID, mimeType, fmt);
+	const bool ok = m_source.mapCodecToMime(GST_FORMAT_UNKNOWN, mimeType, fmt);
 
 	EXPECT_TRUE(ok);
-	EXPECT_EQ(mimeType, "application/x-subtitle-cc");
+	EXPECT_TRUE(m_source.isInbandCC());
+	EXPECT_EQ(mimeType, "text/cc");
 	EXPECT_EQ(fmt, firebolt::rialto::StreamFormat::RAW);
 }
 
@@ -347,7 +289,10 @@ TEST_F(AampRialtoSubtitleSourceTest,
 TEST_F(AampRialtoSubtitleSourceTest,
 	AampRialtoSubtitleSource_HandleNeedData_InbandCC_RespondsWithNoAvailableSamples)
 {
-	m_source.enableInbandCC();
+	// Trigger inband-CC mode by passing GST_FORMAT_UNKNOWN to mapCodecToMime.
+	std::string mime;
+	firebolt::rialto::StreamFormat fmt{};
+	m_source.mapCodecToMime(GST_FORMAT_UNKNOWN, mime, fmt);
 
 	EXPECT_CALL(*m_pipelinePtr,
 		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES,

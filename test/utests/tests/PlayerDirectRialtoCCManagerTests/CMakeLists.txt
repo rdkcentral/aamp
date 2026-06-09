@@ -21,11 +21,8 @@ set(UTESTS_ROOT "../../")
 
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-# direct-rialto component headers
-include_directories(${AAMP_ROOT}/direct-rialto)
-
 # Middleware closed-caption headers
-include_directories(${AAMP_ROOT}/middleware/closedcaptions)
+include_directories(${AAMP_ROOT}/middleware/closedcaptions/direct-rialto)
 
 set(TEST_SOURCES
 	PlayerDirectRialtoCCManagerTests.cpp
@@ -33,7 +30,7 @@ set(TEST_SOURCES
 )
 
 set(AAMP_SOURCES
-	${AAMP_ROOT}/direct-rialto/PlayerDirectRialtoCCManager.cpp
+	${AAMP_ROOT}/middleware/closedcaptions/direct-rialto/PlayerDirectRialtoCCManager.cpp
 )
 
 add_executable(${EXEC_NAME}

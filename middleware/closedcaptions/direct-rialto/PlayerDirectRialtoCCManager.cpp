@@ -23,7 +23,7 @@
  */
 
 #include "PlayerDirectRialtoCCManager.h"
-#include "AampLogManager.h"
+#include "PlayerLogManager.h"
 
 #include <cctype>
 #include <string>
@@ -62,7 +62,7 @@ std::string PlayerDirectRialtoCCManager::mapTrackIdentifier(
 
 int PlayerDirectRialtoCCManager::Initialize(void *handle)
 {
-	AAMPLOG_INFO("ENTRY handle=%p", handle);
+	MW_LOG_INFO("ENTRY handle=%p", handle);
 
 	auto *newControl = static_cast<IDirectRialtoCC *>(handle);
 	const bool changedHandle = (newControl != m_control);
@@ -70,8 +70,8 @@ int PlayerDirectRialtoCCManager::Initialize(void *handle)
 
 	if (m_control == nullptr)
 	{
-		AAMPLOG_WARN("Initialize called with null handle");
-		AAMPLOG_INFO("EXIT");
+		MW_LOG_WARN("Initialize called with null handle");
+		MW_LOG_INFO("EXIT");
 		return 0;
 	}
 
@@ -79,7 +79,7 @@ int PlayerDirectRialtoCCManager::Initialize(void *handle)
 	{
 		// Apps expect CC1 as the default; apply it so the first frame
 		// renders without an explicit SetTextTrack() call.
-		AAMPLOG_INFO("Setting default track CC1");
+		MW_LOG_INFO("Setting default track CC1");
 		(void) SetTrack("CC1");
 	}
 	else if (changedHandle)
@@ -88,7 +88,7 @@ int PlayerDirectRialtoCCManager::Initialize(void *handle)
 		(void) SetTrack(GetTrack(), mTrackFormat);
 	}
 
-	AAMPLOG_INFO("EXIT");
+	MW_LOG_INFO("EXIT");
 	return 0;
 }
 
@@ -97,7 +97,7 @@ int PlayerDirectRialtoCCManager::GetId()
 	std::lock_guard<std::mutex> lock(m_idLock);
 	++m_id;
 	m_idSet.insert(m_id);
-	AAMPLOG_INFO("id=%d users=%zu", m_id, m_idSet.size());
+	MW_LOG_INFO("id=%d users=%zu", m_id, m_idSet.size());
 	return m_id;
 }
 
@@ -106,7 +106,7 @@ void PlayerDirectRialtoCCManager::Release(int id)
 	std::lock_guard<std::mutex> lock(m_idLock);
 	if (m_idSet.erase(id) > 0)
 	{
-		AAMPLOG_INFO("id=%d users=%zu", id, m_idSet.size());
+		MW_LOG_INFO("id=%d users=%zu", id, m_idSet.size());
 		if (m_idSet.empty())
 		{
 			ResetState();
@@ -114,7 +114,7 @@ void PlayerDirectRialtoCCManager::Release(int id)
 	}
 	else
 	{
-		AAMPLOG_WARN("id=%d not found", id);
+		MW_LOG_WARN("id=%d not found", id);
 	}
 }
 
@@ -125,48 +125,48 @@ int PlayerDirectRialtoCCManager::SetTrack(
 	mTrack       = track;
 	mTrackFormat = format;
 
-	AAMPLOG_INFO("track=\"%s\" format=%d", track.c_str(), static_cast<int>(format));
+	MW_LOG_INFO("track=\"%s\" format=%d", track.c_str(), static_cast<int>(format));
 
 	if (m_control == nullptr)
 	{
-		AAMPLOG_INFO("No control handle — track cached");
+		MW_LOG_INFO("No control handle — track cached");
 		return 0;
 	}
 
 	const std::string identifier = mapTrackIdentifier(track, format);
-	AAMPLOG_INFO("setTextTrackIdentifier=\"%s\"", identifier.c_str());
+	MW_LOG_INFO("setTextTrackIdentifier=\"%s\"", identifier.c_str());
 	m_control->setTextTrackIdentifier(identifier);
 	return 0;
 }
 
 void PlayerDirectRialtoCCManager::StartRendering()
 {
-	AAMPLOG_INFO("ENTRY — unmuting CC");
+	MW_LOG_INFO("ENTRY — unmuting CC");
 	if (m_control == nullptr)
 	{
-		AAMPLOG_WARN("No control handle — cannot unmute");
+		MW_LOG_WARN("No control handle — cannot unmute");
 		return;
 	}
 	m_control->setCCMute(false);
-	AAMPLOG_INFO("EXIT");
+	MW_LOG_INFO("EXIT");
 }
 
 void PlayerDirectRialtoCCManager::StopRendering()
 {
-	AAMPLOG_INFO("ENTRY — muting CC");
+	MW_LOG_INFO("ENTRY — muting CC");
 	if (m_control == nullptr)
 	{
-		AAMPLOG_WARN("No control handle — cannot mute");
+		MW_LOG_WARN("No control handle — cannot mute");
 		return;
 	}
 	m_control->setCCMute(true);
-	AAMPLOG_INFO("EXIT");
+	MW_LOG_INFO("EXIT");
 }
 
 void PlayerDirectRialtoCCManager::ResetState()
 {
-	AAMPLOG_INFO("ENTRY");
+	MW_LOG_INFO("ENTRY");
 	PlayerCCManagerBase::ResetState();
 	m_control = nullptr;
-	AAMPLOG_INFO("EXIT");
+	MW_LOG_INFO("EXIT");
 }

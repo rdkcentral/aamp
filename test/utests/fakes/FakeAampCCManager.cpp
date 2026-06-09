@@ -135,14 +135,8 @@ void PlayerCCManager::DestroyInstance()
 	mInstance = nullptr;
 }
 
-void PlayerCCManager::SetRialto(bool state)
+void PlayerCCManager::SetRialto(bool bIsRialto, bool bIsDirectRialto)
 {
-}
-
-void PlayerCCManager::SetInstance(PlayerCCManagerBase *instance)
-{
-	delete mInstance;
-	mInstance = instance;
 }
 
 PlayerCCManagerBase *PlayerCCManager::GetInstance()

@@ -510,7 +510,6 @@ set(LIBAAMP_SOURCES
 	direct-rialto/AampRialtoSourceCreators.cpp
 	direct-rialto/AampRialtoSubtitleSource.cpp
 	direct-rialto/AampRialtoVideoSource.cpp
-	direct-rialto/PlayerDirectRialtoCCManager.cpp
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h

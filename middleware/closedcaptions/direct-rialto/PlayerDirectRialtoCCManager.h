@@ -27,8 +27,9 @@
  * AampRialtoPlayer.
  *
  * Lifecycle:
- *  1. AampRialtoPlayer::Configure() creates an instance and injects it as
- *     the PlayerCCManager singleton via PlayerCCManager::SetInstance().
+ *  1. PlayerCCManager::GetInstance() creates this instance when
+ *     mCCManagerType == DirectRialtoCCManager, which is set by calling
+ *     PlayerCCManager::SetRialto(true, true) during player construction.
  *  2. When the first PLAYING playback-state arrives, AampRialtoPlayer passes
  *     itself (as IDirectRialtoCC*) via NotifyFirstFrameReceived(), which
  *     flows through priv_aamp::InitializeCC() → PlayerCCManagerBase::Init()

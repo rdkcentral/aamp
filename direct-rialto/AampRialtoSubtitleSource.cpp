@@ -87,17 +87,7 @@ bool AampRialtoSubtitleSource::mapCodecToMime(
 	std::string &mimeType,
 	firebolt::rialto::StreamFormat &streamFormat) const
 {
-	// Inband CC: the Rialto server reads CC from the video stream; use a
-	// dedicated MIME type and bypass the normal codec mapping.
-	if (isInbandCC())
-	{
-		//anj:TODO:june4: change it to text/cc
-		mimeType    = "text/cc";
-		//mimeType    = "application/x-subtitle-cc";
-		streamFormat = firebolt::rialto::StreamFormat::RAW;
-		return true;
-	}
-
+	bool result = false;
 	streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
 
 	switch (codecFormat)
@@ -105,30 +95,23 @@ bool AampRialtoSubtitleSource::mapCodecToMime(
 		case GST_FORMAT_SUBTITLE_TTML:
 		case GST_FORMAT_SUBTITLE_MP4:
 			mimeType = "text/ttml";
-			return true;
+			result = true;
+			break;
 		case GST_FORMAT_SUBTITLE_WEBVTT:
 			mimeType = "text/vtt";
-			return true;
+			result = true;
+			break;
+		case GST_FORMAT_UNKNOWN:
+			mimeType = "text/cc";
+			streamFormat = firebolt::rialto::StreamFormat::RAW;
+			m_inbandCC = true;
+			result = true;
+			break;
 		default:
 			break;
 	}
 
-	// Fallback: use the format set at Configure() time via setSubtitleFormat().
-	switch (m_subtitleFormat)
-	{
-		case FORMAT_SUBTITLE_MP4:
-		case FORMAT_SUBTITLE_TTML:
-			mimeType = "text/ttml";
-			return true;
-		case FORMAT_SUBTITLE_WEBVTT:
-			mimeType = "text/vtt";
-			return true;
-		default:
-			AAMPLOG_WARN("Subtitle: unrecognised codecFormat=%d subtitleFormat=%d",
-				static_cast<int>(codecFormat),
-				static_cast<int>(m_subtitleFormat));
-			return false;
-	}
+	return result;
 }
 
 // ---------------------------------------------------------------------------
