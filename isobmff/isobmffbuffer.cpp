@@ -126,6 +126,12 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, u
 bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 {
 	constexpr size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	const bool effectiveCorrectBoxSize =
+		(correctBoxSize && !readOnlyBuffer);
+	if (correctBoxSize && readOnlyBuffer)
+	{
+		AAMPLOG_WARN("Read-only buffer: disabling correctBoxSize to avoid mutation");
+	}
 	size_t curOffset = 0;
 	while (curOffset < bufSize)
 	{
@@ -138,7 +144,7 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 		}
 
 		auto box = Box::constructBox(const_cast<uint8_t *>(buffer + curOffset),
-			(uint32_t)remaining, correctBoxSize, newTrackId);
+			(uint32_t)remaining, effectiveCorrectBoxSize, newTrackId);
 		const uint32_t boxSize = box->getSize();
 		if (boxSize > remaining)
 		{
@@ -154,10 +160,6 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 			AAMPLOG_WARN("Invalid box size[%u] at offset %zu (remaining %zu); stopping parse",
 				boxSize, curOffset, remaining);
 			break;
-		}
-		if( ((bufSize - curOffset) < 4) || ( (bufSize - curOffset) < box->getSize()) )
-		{
-			chunkedBox = box.get();
 		}
 		box->setOffset((uint32_t)curOffset);
 		boxes.push_back(std::move(box));

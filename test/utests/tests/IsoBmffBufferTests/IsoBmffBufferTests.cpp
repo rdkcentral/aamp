@@ -194,6 +194,7 @@ TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsMutation)
 {
 	std::string file_path = std::string(TESTS_DIR) + "/" + "initSegmentTests/vInit.mp4";
 	auto result = readFile(file_path.c_str());
+	ASSERT_FALSE(result.first.empty()) << "Failed to load test data: " << file_path;
 	std::vector<uint8_t> vInitSeg;
 	if (!result.first.empty())
 	{
@@ -225,6 +226,7 @@ TEST_F(IsoBmffBufferTests, readOnlyBufferDisallowsRestampPtsMutation)
 	uint64_t firstPtsAfter = 0;
 	std::string file_path = std::string(TESTS_DIR) + "/" + "mp4SegmentTests/vFragment.mp4";
 	auto result = readFile(file_path.c_str());
+	ASSERT_FALSE(result.first.empty()) << "Failed to load test data: " << file_path;
 	std::vector<uint8_t> segment;
 	if (!result.first.empty())
 	{
