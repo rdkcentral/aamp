@@ -297,7 +297,12 @@ void AampUnderflowMonitor::Run()
         if (!mAamp) break;
 
         const AAMPPlayerState state = mAamp->GetState();
+        if (state == eSTATE_STOPPED || state == eSTATE_RELEASED ||
+            state == eSTATE_ERROR   || state == eSTATE_IDLE ||
+            state == eSTATE_COMPLETE)
+        {
 			AAMPLOG_INFO("[video] AampUnderflowMonitor: exiting (state=%d)", (int)state);
+            break;
         }
 
         // Use the cached play rate (updated under mMutex in NotifyVideoFragment) rather
