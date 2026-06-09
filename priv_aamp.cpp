@@ -37,6 +37,7 @@
 #include "fragmentcollector_progressive.h"
 #include "MediaStreamContext.h"
 #include "AampLatencyMonitor.h"
+#include "AampErrorInjector.h"
 #include "AampNetworkPersona.h"
 #include <unistd.h>
 #include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
@@ -1907,6 +1908,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
 	, mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
+	, mErrorInjector(nullptr)
 	, mTuneTimeMetricData()
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
@@ -1915,6 +1917,10 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mEventManager = new AampEventManager(mPlayerId);
 	// Create the CMCD collector
 	mCMCDCollector = new AampCMCDCollector();
+
+	// Initialize error injector for testing
+	mErrorInjector = new AampErrorInjector(this);
+	mErrorInjector->LoadConfig();
 
 	// Ensure the correct CC variant class will be used
 	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
@@ -2036,6 +2042,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 
 	SAFE_DELETE(mEventManager);
 	SAFE_DELETE(mCMCDCollector);
+	SAFE_DELETE(mErrorInjector);
 
 	AampStreamSinkManager::GetInstance().DeleteStreamSink(this);
 
@@ -2478,6 +2485,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = beginningOfStream? 0: GetPositionMilliseconds();
+		double positionSec = position / 1000.0;
+
+		// Check for position-based error injection
+		if (mErrorInjector && mErrorInjector->ShouldInjectAtPosition(positionSec)) {
+			AAMPLOG_WARN("Error injection at position %.2f seconds triggered", positionSec);
+			mErrorInjector->InjectError();
+			return; // Stop progress monitoring
+		}
+
 		double duration = durationSeconds * 1000.0;
 		float speed = mSinkPaused.load() ? 0 : rate;
 		double start = -1;
@@ -7188,8 +7204,22 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	SAFE_DELETE(mCdaiObject);
 
+	// Reset and reload error injector configuration for new tune
+	if (mErrorInjector) {
+		mErrorInjector->Reset();
+		mErrorInjector->LoadConfig();
+	}
+
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+
+		// Check for error injection at initialization
+		if (mErrorInjector && mErrorInjector->ShouldInjectAtInit()) {
+			AAMPLOG_WARN("Error injection at initialization triggered");
+			mErrorInjector->InjectError();
+			return; // Stop tune process
+		}
+
 		TuneHelper(tuneType);
 
 		//Apply the cached video mute call as it got invoked when stream lock was not available

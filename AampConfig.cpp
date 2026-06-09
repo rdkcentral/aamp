@@ -487,6 +487,8 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS, "underflowLowBufferPollMs", eAAMPConfig_UnderflowLowBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
+	{-1, "errorInjectionCode", eAAMPConfig_ErrorInjectionCode, false},
+	{0, "errorInjectionSubCode", eAAMPConfig_ErrorInjectionSubCode, false},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility
@@ -527,6 +529,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_LATENCY_STABLE_DURATION_SEC, "latencyStableDurationSec", eAAMPConfig_LatencyStableDurationSec, false},
 	{DEFAULT_LATENCY_DANGER_BUFFER_SEC, "latencyDangerBufferSec", eAAMPConfig_LatencyDangerBufferSec, false},
 	{DEFAULT_LATENCY_RESTORATION_BUFFER_SEC, "latencyRestorationBufferSec", eAAMPConfig_LatencyRestorationBufferSec, false},
+	{0.0, "errorInjectionPositionSec", eAAMPConfig_ErrorInjectionPositionSec, false},
 	{DEFAULT_MIN_LOW_LATENCY, "lowLatencyMinValue", eAAMPConfig_LLMinLatency, true},
 	{DEFAULT_TARGET_LOW_LATENCY, "lowLatencyTargetValue", eAAMPConfig_LLTargetLatency, true},
 	{DEFAULT_MAX_LOW_LATENCY, "lowLatencyMaxValue", eAAMPConfig_LLMaxLatency, true},

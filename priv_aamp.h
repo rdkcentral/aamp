@@ -80,6 +80,7 @@
 class Mp4Demux;
 class AampMPDDownloader;
 class AampLatencyMonitor;
+class AampErrorInjector;
 struct LatencyConfig;
 
 // forward declaration
@@ -3745,6 +3746,13 @@ public:
 	void NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs);
 
 	/**
+	 * @fn GetErrorInjector
+	 * @brief Get error injector instance for testing
+	 * @return Pointer to error injector
+	 */
+	AampErrorInjector* GetErrorInjector() { return mErrorInjector; }
+
+	/**
 	 *     @fn SetCurrentLatency
 	 *     @param[in] currentLatency - Current latency to set
 	 *     @return void
@@ -4459,6 +4467,7 @@ protected:
 	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 	std::unique_ptr<AampLatencyMonitor> mLatencyMonitor; /**< Unified live latency monitor */
+	AampErrorInjector* mErrorInjector;					/**< Error injection manager for testing */
 	std::atomic<bool> mTuneMetricDataPending{false}; /**< True when mTuneTimeMetricData has been populated and not yet consumed */
 	std::string mTuneTimeMetricData{}; /**< JSON string containing data for tune time metrics */
 

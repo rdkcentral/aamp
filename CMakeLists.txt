@@ -522,6 +522,7 @@ set(LIBAAMP_SOURCES
 	net_trace.h
 	AampLatencyMonitor.cpp AampLatencyMonitor.h
 	simnet/net_persona_fitter.cpp simnet/net_persona_fitter.h
+	AampErrorInjector.cpp AampErrorInjector.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)

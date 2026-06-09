@@ -341,6 +341,8 @@ typedef enum
 	eAAMPConfig_UnderflowLowBufferPollMs,			/**< Underflow monitor polling interval for low buffer condition in milliseconds */
 	eAAMPConfig_UnderflowMediumBufferPollMs,		/**< Underflow monitor polling interval for medium buffer condition in milliseconds */
 	eAAMPConfig_UnderflowHighBufferPollMs,			/**< Underflow monitor polling interval for high buffer condition in milliseconds */
+	eAAMPConfig_ErrorInjectionCode,					/**< Error injection category (0=disabled, 10=init error, 20=runtime error, 40=DRM error) */
+	eAAMPConfig_ErrorInjectionSubCode,				/**< Error injection sub-code (HTTP/CURL code for download errors, AAMPTuneFailure for DRM errors) */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -373,6 +375,7 @@ typedef enum
 	eAAMPConfig_LatencyStableDurationSec,				/**< Duration (s) of consecutive healthy buffer required before one latency-threshold restoration step (default: DEFAULT_LATENCY_STABLE_DURATION_SEC) */
 	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
 	eAAMPConfig_LatencyRestorationBufferSec,		/**< Buffer level (s) required during the full stable window before one latency-threshold restoration step is applied (default: DEFAULT_LATENCY_RESTORATION_BUFFER_SEC) */
+	eAAMPConfig_ErrorInjectionPositionSec,			/**< Playback position to inject error (0=at init, non-zero=at position in seconds) */
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */

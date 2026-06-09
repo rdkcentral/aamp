@@ -104,7 +104,6 @@ typedef struct _manifestDownloadConfig
 	std::string mPreProcessedManifest; // provided pre-processed manifest file
 	int mPlayerId;
 
-
 	_manifestDownloadConfig( int playerId ) :mDnldConfig(std::make_shared<DownloadConfig> ()),mTuneUrl(),mStichUrl(),
 									mIsLLDConfigEnabled(false),	mCullManifestAtTuneStart(false),mTSBDuration(-1),
 									mStartPosnToTSB(-1),mCMCDCollector(nullptr),mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),
