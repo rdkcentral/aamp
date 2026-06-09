@@ -67,6 +67,22 @@
 typedef void (*ManifestUpdateCallbackFunc)(void *);
 
 /**
+ * @brief Manifest-refresh status shared between downloader and player private instance.
+ */
+struct ManifestRefreshStatus
+{
+	AAMPStatusType type;  /**< Refresh status from the latest manifest refresh */
+	int errorCode;        /**< HTTP/curl code if manifest failed */
+
+	ManifestRefreshStatus(
+		AAMPStatusType retryType = AAMPStatusType::eAAMPSTATUS_OK,
+		int code = 0)
+		: type(retryType), errorCode(code)
+	{
+	}
+};
+
+/**
  * @struct _manifestDownloadConfig
  * @brief structure to store the download configuration
  */
@@ -274,6 +290,11 @@ public:
 	 */
 	void RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *);
 	/**
+	 * @fn GetManifestRefreshStatus
+	 * @brief Return latest manifest-refresh state.
+	 */
+	ManifestRefreshStatus GetManifestRefreshStatus() const;
+	/**
 	 * @fn UnRegisterCallback
 	 * @brief Unregister the callback function for manifest update notifications.
 	 */
@@ -443,6 +464,8 @@ private:
 	int mMinimalRefreshRetryCount;  /* A counter to checks if the publication time remains the same for 2 consecutive refresh*/
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
 	std::function<std::pair<std::string,int>()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
+	std::atomic<int> mManifestRefreshErrorCode;
+	std::atomic<AAMPStatusType> mManifestRefreshErrorType;
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */
