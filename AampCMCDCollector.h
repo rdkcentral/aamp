@@ -18,7 +18,7 @@
  */
 
 /**
- * @file AampCMCDCollector.cpp
+ * @file AampCMCDCollector.h
  * @brief Class to collect the CMCD Data
  */
 
@@ -39,6 +39,7 @@
 #include <uuid/uuid.h>
 #include "AampDefine.h"
 #include "AampLogManager.h"
+#include "middleware/drm/DrmMediaFormat.h"
 #include <algorithm>
 #include "ABRManager.h"
 
@@ -79,7 +80,7 @@ public:
 	 * @param[in] mediaT - media type
 	 * @return None
 	 */
-	void CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,AampMediaType mediaT=eMEDIATYPE_VIDEO);
+	void CMCDSetNextObjectRequest(std::string url,BitsPerSecond CMCDBandwidth,AampMediaType mediaT=eMEDIATYPE_VIDEO);
     
     	/**
 	* @brief CMCDSetNextRangeRequest Store the next range relative to the current url
@@ -89,7 +90,7 @@ public:
 	* @param[in] mediaT - media type
 	* @return None
 	*/
-	void CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,AampMediaType mediaType);
+	void CMCDSetNextRangeRequest(std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType);
 
 	/**
 	 * @brief Initialize AampCMCD Collector instance
@@ -115,6 +116,69 @@ public:
 	void CMCDGetHeaders(AampMediaType mediaType ,  std::vector<std::string> &customHeader);
 	void SetBitrates(AampMediaType mediaType,const std::vector<BitsPerSecond> bitrates);
 	void SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
+
+	/**
+	 * @brief CMCDSetSessionParams Push streaming format and content ID to all CMCDHeaders instances.
+	 *        Called once after Initialize(), propagating sf and cid session keys.
+	 *        Strips query string and fragment from rawUrl internally (auth-token leakage prevention).
+	 *
+	 * @param[in] mediaFormat - streaming format enum (DASH/HLS/HLS_MP4/Smooth/etc.)
+	 * @param[in] rawUrl      - raw manifest URL; query string and fragment stripped before use as cid
+	 * @return None
+	 */
+	void CMCDSetSessionParams(MediaFormat mediaFormat, const std::string& rawUrl);
+
+	/**
+	 * @brief CMCDSetLiveStatus Push live/VOD stream type to all CMCDHeaders instances.
+	 *        Called from fragment collectors after manifest parse (st session key).
+	 *
+	 * @param[in] isLive - true for live stream, false for VOD
+	 * @return None
+	 */
+	void CMCDSetLiveStatus(bool isLive);
+
+	/**
+	 * @brief CMCDSetPlaybackRate Push current playback rate to all CMCDHeaders instances.
+	 *        Called from NotifySpeedChanged on every rate change (pr session key).
+	 *
+	 * @param[in] rate - current playback rate (pr omitted when rate == 1.0f)
+	 * @return None
+	 */
+	void CMCDSetPlaybackRate(float rate);
+
+	/**
+	 * @brief CMCDSetFragmentDuration Set the object duration (d) in ms for a single media-type instance.
+	 *        Called from GetFile() for video/audio media segments only (not init/manifest).
+	 *        Feeds the d key in CMCD-Object.
+	 *
+	 * @param[in] mediaType  - media type identifying the CMCDHeaders instance to update
+	 * @param[in] durationMs - fragment duration in milliseconds; 0 is stored but subclass omits when 0
+	 * @return None
+	 */
+	void CMCDSetFragmentDuration(AampMediaType mediaType, int durationMs);
+
+	/**
+	 * @brief CMCDSetMeasuredThroughput Set the measured throughput (mtp) in kbps for a single media-type instance.
+	 *        Called from SetCMCDTrackData() using mhAbrManager.GetNetworkBandwidth()/1000.
+	 *        Feeds the mtp key in CMCD-Request.
+	 *
+	 * @param[in] mediaType - media type identifying the CMCDHeaders instance to update
+	 * @param[in] kbps      - measured throughput in kilobits per second; 0 suppresses emission
+	 * @return None
+	 */
+	void CMCDSetMeasuredThroughput(AampMediaType mediaType, int kbps);
+
+	/**
+	 * @brief CMCDSetStartupUrgent Set the startup-urgent flag (su) for a single media-type instance.
+	 *        Called from SetCMCDTrackData() with bufferRedStatus || IsTuneTypeNew.
+	 *        Feeds the su bare token in CMCD-Request when true.
+	 *
+	 * @param[in] mediaType      - media type identifying the CMCDHeaders instance to update
+	 * @param[in] startupUrgent  - true when request is startup, seek, or rebuffer urgent
+	 * @return None
+	 */
+	void CMCDSetStartupUrgent(AampMediaType mediaType, bool startupUrgent);
+
 private:
 	bool bCMCDEnabled;			/**< CMCD enable/disable flag  */
 	typedef std::map<int, CMCDHeaders *> StreamTypeCMCD;

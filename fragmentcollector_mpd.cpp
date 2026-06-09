@@ -3085,6 +3085,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		}
 		mIsLiveManifest		=	mMPDParseHelper->IsLiveManifest();
 		aamp->SetIsLive(mIsLiveManifest);
+		// Feed CMCD st (stream type) key: "l" (live) or "v" (VOD).
+		if (aamp->mCMCDCollector)
+		{
+			aamp->mCMCDCollector->CMCDSetLiveStatus(mIsLiveManifest);
+		}
 
 		if(init)
 		{

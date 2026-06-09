@@ -114,18 +114,6 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
 		pCMCDMetrics->SetMediaType("INIT_AUDIO");
 		delete mCMCDStreamData[eMEDIATYPE_INIT_AUDIO];
 		mCMCDStreamData[eMEDIATYPE_INIT_AUDIO] = pCMCDMetrics;
-		// for Aux Audio
-		pCMCDMetrics = new AudioCMCDHeaders();
-		pCMCDMetrics->SetSessionId(mTraceId);
-		pCMCDMetrics->SetMediaType("AUXAUDIO");
-		delete mCMCDStreamData[eMEDIATYPE_AUX_AUDIO];
-		mCMCDStreamData[eMEDIATYPE_AUX_AUDIO] = pCMCDMetrics;
-		// for Aux Audio Init
-		pCMCDMetrics = new AudioCMCDHeaders();
-		pCMCDMetrics->SetSessionId(mTraceId);
-		pCMCDMetrics->SetMediaType("INIT_AUDIO");
-		delete mCMCDStreamData[eMEDIATYPE_INIT_AUX_AUDIO];
-		mCMCDStreamData[eMEDIATYPE_INIT_AUX_AUDIO] = pCMCDMetrics;
 		// for Subtitle
 		pCMCDMetrics = new SubtitleCMCDHeaders();
 		pCMCDMetrics->SetSessionId(mTraceId);
@@ -169,7 +157,7 @@ void AampCMCDCollector::Initialize(bool enableDisable , std::string &traceId)
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,long CMCDBandwidth,AampMediaType mediaT)
+void AampCMCDCollector::CMCDSetNextObjectRequest(std::string url,BitsPerSecond CMCDBandwidth,AampMediaType mediaT)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled)
@@ -281,8 +269,8 @@ void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<Bi
 		if(it != mCMCDStreamData.end())
 		{
 			CMCDHeaders *pCMCDMetrics = it->second;
-			long maxBitrate = *max_element(bitrateList.begin(), bitrateList.end());
-			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %ld",mediaType,maxBitrate);
+			BitsPerSecond maxBitrate = *max_element(bitrateList.begin(), bitrateList.end());
+			AAMPLOG_INFO("[CMCD][%d]Top Bitrate %" BITSPERSECOND_FORMAT, mediaType,maxBitrate);
 			if(mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO)
 			{
 				pCMCDMetrics->SetTopBitrate( (int)(maxBitrate/1000) );
@@ -302,9 +290,11 @@ void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<Bi
  */
 void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed)
 {
+	std::lock_guard<std::mutex> lock(myMutex);
 	if(bCMCDEnabled)
 	{
-		// This is internal function called from GetHeaders. No Mutex lock needed here
+		// Called from PrivateInstanceAAMP::SetCMCDTrackData on a download thread,
+		// concurrently with CMCDGetHeaders on other download threads. Lock required.
 		StreamTypeCMCDIter it=mCMCDStreamData.find(mediaType);
 		if(it == mCMCDStreamData.end())
 		{
@@ -326,7 +316,6 @@ void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatu
 			pCMCDMetrics->SetBufferStarvation(bufferRedStatus);
 			pCMCDMetrics->SetBufferLength(bufferedDuration);
 		}
-		// No data for Aux Audio now //////////////
 	}
 }
 
@@ -335,7 +324,7 @@ void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatu
  *
  * @return None
  */
-void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandwidth,AampMediaType mediaType)
+void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,BitsPerSecond bandwidth,AampMediaType mediaType)
 {
 	std::lock_guard<std::mutex> lock (myMutex);
 	if(bCMCDEnabled && (!nextrange.empty()))
@@ -348,6 +337,174 @@ void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandw
 			CMCDNextRangeRequest = std::move(nextrange);
 			pCMCDMetrics->SetBitrate((int)(bandwidth/1000));
 			pCMCDMetrics->SetNextRange(CMCDNextRangeRequest);
+		}
+	}
+}
+
+/**
+ * @brief Map MediaFormat enum to CMCD sf (streaming format) token.
+ *        Returns "d" for DASH, "h" for HLS/HLS-MP4, "s" for Smooth Streaming,
+ *        and "" for non-ABR formats (progressive/OTA/HDMI/etc.) which omit sf.
+ */
+static std::string MediaFormatToSf(MediaFormat fmt)
+{
+	switch (fmt)
+	{
+		case eMEDIAFORMAT_DASH:
+			return "d";
+		case eMEDIAFORMAT_HLS:
+		case eMEDIAFORMAT_HLS_MP4:
+			return "h";
+		case eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA:
+			return "s";
+		case eMEDIAFORMAT_PROGRESSIVE:
+		case eMEDIAFORMAT_OTA:
+		case eMEDIAFORMAT_HDMI:
+		case eMEDIAFORMAT_COMPOSITE:
+		case eMEDIAFORMAT_RMF:
+		case eMEDIAFORMAT_UNKNOWN:
+		default:
+			return "";
+	}
+}
+
+/**
+ * @brief CMCDSetSessionParams Push streaming format (sf) and content ID (cid)
+ *        to all CMCDHeaders instances. Called once immediately after Initialize().
+ *        Strips query string and fragment from rawUrl before using it as cid to
+ *        prevent auth-token leakage (takes earliest of '?' or '#').
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetSessionParams(MediaFormat mediaFormat, const std::string& rawUrl)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		// Strip query string and fragment from cid (auth-token leakage prevention).
+		// Take substring up to the first '?' or '#', whichever comes first.
+		auto qPos = rawUrl.find('?');
+		auto fPos = rawUrl.find('#');
+		auto stripPos = std::min(qPos, fPos);
+		const std::string contentId = (stripPos != std::string::npos)
+			? rawUrl.substr(0, stripPos) : rawUrl;
+
+		const std::string sf = MediaFormatToSf(mediaFormat);
+		for (auto& kv : mCMCDStreamData)
+		{
+			if (kv.second)
+			{
+				kv.second->SetStreamingFormat(sf);
+				kv.second->SetContentId(contentId);
+			}
+		}
+		AAMPLOG_INFO("[CMCD] CMCDSetSessionParams sf=%s cid=%s", sf.c_str(), contentId.c_str());
+	}
+}
+
+/**
+ * @brief CMCDSetLiveStatus Push live/VOD stream type (st) to all CMCDHeaders instances.
+ *        Called from fragment collectors after manifest parse.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetLiveStatus(bool isLive)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		const std::string st = isLive ? "l" : "v";
+		for (auto& kv : mCMCDStreamData)
+		{
+			if (kv.second)
+			{
+				kv.second->SetStreamType(st);
+			}
+		}
+		AAMPLOG_INFO("[CMCD] CMCDSetLiveStatus st=%s", st.c_str());
+	}
+}
+
+/**
+ * @brief CMCDSetPlaybackRate Push current playback rate (pr) to all CMCDHeaders instances.
+ *        Called from NotifySpeedChanged on every rate change.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetPlaybackRate(float rate)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		for (auto& kv : mCMCDStreamData)
+		{
+			if (kv.second)
+			{
+				kv.second->SetPlaybackRate(rate);
+			}
+		}
+		AAMPLOG_TRACE("[CMCD] CMCDSetPlaybackRate rate=%g", static_cast<double>(rate));
+	}
+}
+
+/**
+ * @brief CMCDSetFragmentDuration Set the object duration (d) in ms on a single media-type instance.
+ *        Per-download value; uses single-instance find() pattern (not all-instances loop).
+ *        Guards on both it != end() and it->second before dereferencing.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetFragmentDuration(AampMediaType mediaType, int durationMs)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		StreamTypeCMCDIter it = mCMCDStreamData.find(mediaType);
+		if (it != mCMCDStreamData.end() && it->second)
+		{
+			it->second->SetFragmentDuration(durationMs);
+		}
+	}
+}
+
+/**
+ * @brief CMCDSetMeasuredThroughput Set the measured throughput (mtp) in kbps on a single media-type instance.
+ *        Per-download value; uses single-instance find() pattern (not all-instances loop).
+ *        Guards on both it != end() and it->second before dereferencing.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetMeasuredThroughput(AampMediaType mediaType, int kbps)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		StreamTypeCMCDIter it = mCMCDStreamData.find(mediaType);
+		if (it != mCMCDStreamData.end() && it->second)
+		{
+			it->second->SetMeasuredThroughput(kbps);
+		}
+	}
+}
+
+/**
+ * @brief CMCDSetStartupUrgent Set the startup-urgent flag (su) on a single media-type instance.
+ *        Per-download value; uses single-instance find() pattern (not all-instances loop).
+ *        Guards on both it != end() and it->second before dereferencing.
+ *        Must be called with the current computed value on every SetCMCDTrackData invocation
+ *        so that su clears once IsTuneTypeNew goes false after startup.
+ *
+ * @return None
+ */
+void AampCMCDCollector::CMCDSetStartupUrgent(AampMediaType mediaType, bool startupUrgent)
+{
+	std::lock_guard<std::mutex> lock(myMutex);
+	if (bCMCDEnabled)
+	{
+		StreamTypeCMCDIter it = mCMCDStreamData.find(mediaType);
+		if (it != mCMCDStreamData.end() && it->second)
+		{
+			it->second->SetStartupUrgent(startupUrgent);
 		}
 	}
 }

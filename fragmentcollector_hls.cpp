@@ -2201,6 +2201,11 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 		}
 		// When setting live status to stream, check the playlist type of both video/audio(demuxed)
 		aamp->SetIsLive(context->IsLive());
+		// Feed CMCD st (stream type) key: "l" (live) or "v" (VOD).
+		if (aamp->mCMCDCollector)
+		{
+			aamp->mCMCDCollector->CMCDSetLiveStatus(context->IsLive());
+		}
 		if(!IsLive())
 		{
 			aamp->getAampCacheHandler()->InsertToPlaylistCache(mPlaylistUrl, &playlist, mEffectiveUrl,IsLive(),TrackTypeToMediaType(type));
