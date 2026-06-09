@@ -5049,9 +5049,8 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 				sink->ClearProtectionEvent();
 			}
 		}
-		// notifyCleanup() moved to PrivateInstanceAAMP::TeardownStream after pipeline Stop
-		// to avoid use-after-free race between DRM session deactivation and GStreamer element disposal
 	}
+
 	if(!clearChannelData)
 	{
 		aamp->EnableDownloads();

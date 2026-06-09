@@ -11613,10 +11613,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			sink->ClearProtectionEvent();
 		}
-		AAMPLOG_WARN("Neil  Cleanup no longer called");
-
-		// notifyCleanup() moved to PrivateInstanceAAMP::TeardownStream after pipeline Stop
-		// to avoid use-after-free race between DRM session deactivation and GStreamer element disposal
 	}
 
 	if (!aamp->DownloadsAreEnabled())
