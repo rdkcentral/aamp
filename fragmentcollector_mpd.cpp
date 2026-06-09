@@ -6628,13 +6628,14 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 	*/
 	if (aamp->previousAudioType != selectedCodecType)
 	{
-
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
 
 		if ( (selectedCodecType == eAUDIO_DDPLUS && aamp->previousAudioType == eAUDIO_ATMOS)
 		|| (selectedCodecType == eAUDIO_ATMOS && aamp->previousAudioType == eAUDIO_DDPLUS))
 		{
-			/*Ignore change between 2 dolby audio types which should be compatible*/
+			/* Ignore change between 2 dolby audio types which should be compatible
+			* they will both be using the 'ec-3' codec
+			*/
 		}
 		else
 		{
