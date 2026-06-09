@@ -343,6 +343,7 @@ void AampMPDDownloader::Start()
 */
 void AampMPDDownloader::downloadMPDThread1()
 {
+	int counter = 0;
 	UsingPlayerId playerId(mMPDDnldCfg->mPlayerId);
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
@@ -398,9 +399,16 @@ void AampMPDDownloader::downloadMPDThread1()
 			else
 			{
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
+				counter++;
 			}
 		}
 		long long tEndTime = NOW_STEADY_TS_MS;
+		if (counter >= mMPDDnldCfg->mTestCounter)
+		{
+			AAMPLOG_WARN("Test code executing, refresh count reached: %d", counter);
+			// Simulate CURL ERR 56 failure
+			mMPDData->mMPDDownloadResponse->iHttpRetValue = mMPDDnldCfg->mTestHttpCode;
+		}
 
 		if( IS_HTTP_SUCCESS(mMPDData->mMPDDownloadResponse->iHttpRetValue) )
 		{

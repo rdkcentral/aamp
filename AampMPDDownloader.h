@@ -87,6 +87,8 @@ typedef struct _manifestDownloadConfig
 	AampCMCDCollector* mCMCDCollector; // new variable for cmcd header collector
 	std::string mPreProcessedManifest; // provided pre-processed manifest file
 	int mPlayerId;
+	int mTestCounter{20};
+	int mTestHttpCode{56};
 
 
 	_manifestDownloadConfig( int playerId ) :mDnldConfig(std::make_shared<DownloadConfig> ()),mTuneUrl(),mStichUrl(),

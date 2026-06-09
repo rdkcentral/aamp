@@ -14427,6 +14427,8 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mHarvestPathConfigured		=	GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
 	inpData->mDnldConfig->iCurlConnectionTimeout =  GETCONFIGVALUE_PRIV(eAAMPConfig_Curl_ConnectTimeout);
 	inpData->mDnldConfig->iDnsCacheTimeOut =   GETCONFIGVALUE_PRIV(eAAMPConfig_Dns_CacheTimeout);
+	inpData->mTestCounter = GETCONFIGVALUE_PRIV(eAAMPConfig_TestManifestRefreshCounter);
+	inpData->mTestHttpCode = GETCONFIGVALUE_PRIV(eAAMPConfig_TestManifestHttpCode);
 
 	std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
 	// append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
