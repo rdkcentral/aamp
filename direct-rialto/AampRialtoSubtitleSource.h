@@ -102,8 +102,6 @@ protected:
 			firebolt::rialto::StreamFormat streamFormat,
 			std::shared_ptr<firebolt::rialto::CodecData> codecData) const override;
 
-	size_t needDataBatchSize() const override { return 1; }
-
 	void updateCachedMetadata(const MediaCodecInfo &codecInfo) override;
 
 	/**
@@ -162,10 +160,6 @@ private:
 	/// false for WebVTT (raw or wvtt-in-MP4) which needs no correction.
 	bool m_applyTextTransform{false};
 
-	/// True when inband CC mode is active (set by mapCodecToMime() when
-	/// GST_FORMAT_UNKNOWN is resolved to "text/cc").
-	mutable bool m_inbandCC{false};
-
 public:
 	/**
 	 * @brief Returns true when inband closed-caption mode is active.
@@ -173,7 +167,7 @@ public:
 	 * Set internally by mapCodecToMime() when the codec format resolves
 	 * to GST_FORMAT_UNKNOWN (the inband-CC path).
 	 */
-	bool isInbandCC() const override { return m_inbandCC; }
+	bool isInbandCC() const override;
 };
 
 #endif /* AAMP_RIALTO_SUBTITLE_SOURCE_H */

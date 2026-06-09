@@ -60,51 +60,20 @@ public:
 		(const AampMediaSample &sample),
 		(const, override));
 
-	MOCK_METHOD(bool, injectSingleSampleProxy,
-		(firebolt::rialto::IMediaPipeline &pipeline),
-		());
-
-	MOCK_METHOD(bool, processDataFragmentProxy,
+	MOCK_METHOD(bool, injectSingleSample,
 		(firebolt::rialto::IMediaPipeline &pipeline,
+		 AampMediaSample &&sample,
+		 bool morePending),
+		(override));
+
+	MOCK_METHOD(bool, processDataFragment,
+		(firebolt::rialto::IMediaPipeline &pipeline,
+		 std::shared_ptr<std::vector<uint8_t>> buffer,
 		 double fpts, double fdts, double fDuration,
 		 double fragmentPTSoffset),
-		());
-
-	/**
-	 * For SUBTITLE sources, routes through injectSingleSampleProxy so
-	 * tests can verify routing without a Rialto NeedData handshake.
-	 * For other media types, the base class implementation is used so
-	 * existing video/audio SendSample tests continue to work correctly.
-	 */
-	bool injectSingleSample(
-		firebolt::rialto::IMediaPipeline &pipeline,
-		AampMediaSample &&sample,
-		bool morePending) override
-	{
-		if (mediaType() == eMEDIATYPE_SUBTITLE)
-			return injectSingleSampleProxy(pipeline);
-		return AampRialtoMediaSource::injectSingleSample(
-			pipeline, std::move(sample), morePending);
-	}
-
-	/**
-	 * For SUBTITLE sources, routes through processDataFragmentProxy so
-	 * tests can verify routing and parameters without demuxer setup.
-	 * For other media types, the base class implementation is used.
-	 */
-	bool processDataFragment(
-		firebolt::rialto::IMediaPipeline &pipeline,
-		std::shared_ptr<std::vector<uint8_t>> buffer,
-		double fpts, double fdts, double fDuration,
-		double fragmentPTSoffset) override
-	{
-		if (mediaType() == eMEDIATYPE_SUBTITLE)
-			return processDataFragmentProxy(
-				pipeline, fpts, fdts, fDuration, fragmentPTSoffset);
-		return AampRialtoMediaSource::processDataFragment(
-			pipeline, std::move(buffer),
-			fpts, fdts, fDuration, fragmentPTSoffset);
-	}
+		(override));
 
 	MOCK_METHOD(int64_t, firstPtsMs, (), (const, override));
+
+	MOCK_METHOD(bool, isInbandCC, (), (const, override));
 };

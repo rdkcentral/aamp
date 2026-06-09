@@ -224,7 +224,12 @@ protected:
 					ON_CALL(*rawPtr, mediaType())
 						.WillByDefault(Return(type));
 
-					// mapCodecToMime returns true with reasonable defaults
+					// Delegate isInbandCC() to the real format check so
+					// that setFormat(FORMAT_INVALID) makes it return true.
+					ON_CALL(*rawPtr, isInbandCC())
+						.WillByDefault([rawPtr]() {
+							return rawPtr->format() == FORMAT_INVALID;
+						});
 					ON_CALL(*rawPtr, mapCodecToMime(_, _, _))
 						.WillByDefault(Invoke(
 							[type](GstStreamOutputFormat,
@@ -288,15 +293,39 @@ protected:
 					ON_CALL(*rawPtr, updateCachedMetadata(_))
 						.WillByDefault(Return());
 
-					// injectSingleSampleProxy default — subtitle SendSample tests
-					// verify routing without requiring a NeedData handshake.
-					ON_CALL(*rawPtr, injectSingleSampleProxy(_))
-						.WillByDefault(Return(true));
-
-					// processDataFragmentProxy default — subtitle SendTransfer tests
-					// verify routing without demuxer setup.
-					ON_CALL(*rawPtr, processDataFragmentProxy(_, _, _, _, _))
-						.WillByDefault(Return(true));
+					// For subtitle sources, default to Return(true) since
+					// there is no NeedData handshake or demuxer to drive.
+					// For video/audio, delegate to the base class so the
+					// real Rialto state machine runs.
+					if (type == eMEDIATYPE_SUBTITLE)
+					{
+						ON_CALL(*rawPtr, injectSingleSample(_, _, _))
+							.WillByDefault(Return(true));
+						ON_CALL(*rawPtr, processDataFragment(_, _, _, _, _, _))
+							.WillByDefault(Return(true));
+					}
+					else
+					{
+						ON_CALL(*rawPtr, injectSingleSample(_, _, _))
+							.WillByDefault(
+								[rawPtr](firebolt::rialto::IMediaPipeline &pipeline,
+									AampMediaSample &&sample, bool morePending)
+								{
+									return rawPtr->AampRialtoMediaSource::injectSingleSample(
+										pipeline, std::move(sample), morePending);
+								});
+						ON_CALL(*rawPtr, processDataFragment(_, _, _, _, _, _))
+							.WillByDefault(
+								[rawPtr](firebolt::rialto::IMediaPipeline &pipeline,
+									std::shared_ptr<std::vector<uint8_t>> buffer,
+									double fpts, double fdts,
+									double fDuration, double offset)
+								{
+									return rawPtr->AampRialtoMediaSource::processDataFragment(
+										pipeline, std::move(buffer),
+										fpts, fdts, fDuration, offset);
+								});
+					}
 
 					ON_CALL(*rawPtr, createSegment(_))
 						.WillByDefault(Invoke(
@@ -3123,8 +3152,8 @@ TEST_F(AampRialtoPlayerTest,
 	 *        processDataFragment() (the subtitle source override), with the
 	 *        correct fpts, fdts, fDuration and fragmentPTSoffset parameters.
 	 *
-	 *        The mock's processDataFragmentProxy intercepts the call so the
-	 *        test does not need a demuxer or a Rialto NeedData handshake.
+	 *        The mock's processDataFragment default (Return(true)) means
+	 *        the test does not need a demuxer or a Rialto NeedData handshake.
 	 */
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
 	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
@@ -3132,8 +3161,8 @@ TEST_F(AampRialtoPlayerTest,
 	// Expect processDataFragment proxy called with the exact parameters
 	// passed to SendTransfer (fragmentPTSoffset == 0.0).
 	EXPECT_CALL(*m_mockSources[eMEDIATYPE_SUBTITLE],
-		processDataFragmentProxy(
-			Ref(*m_mockPipelinePtr),
+		processDataFragment(
+			Ref(*m_mockPipelinePtr), _,
 			/*fpts=*/1.0, /*fdts=*/1.0, /*fDuration=*/0.5,
 			/*fragmentPTSoffset=*/0.0))
 		.WillOnce(Return(true));
@@ -3163,8 +3192,8 @@ TEST_F(AampRialtoPlayerTest,
 	constexpr double kOffsetSec = 5.0;
 
 	EXPECT_CALL(*m_mockSources[eMEDIATYPE_SUBTITLE],
-		processDataFragmentProxy(
-			Ref(*m_mockPipelinePtr),
+		processDataFragment(
+			Ref(*m_mockPipelinePtr), _,
 			/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/1.0,
 			/*fragmentPTSoffset=*/kOffsetSec))
 		.WillOnce(Return(true));

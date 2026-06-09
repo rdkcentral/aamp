@@ -26,7 +26,6 @@
 #include "AampRialtoPlayer.h"
 #include "AampRialtoMediaPipelineClient.h"
 #include "AampRialtoMediaSource.h"
-#include "AampRialtoSubtitleSource.h"
 #include "AampDrmBridge.h"
 #include "AampLogManager.h"
 #include "PrivateInstanceAAMPNotifiable.h"
@@ -311,6 +310,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 
 	const auto *videoSrc = m_sources[eMEDIATYPE_VIDEO].get();
 	const auto *audioSrc = m_sources[eMEDIATYPE_AUDIO].get();
+	const auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
 
 	// Video track: any change — add, remove, or codec change — needs rebuild.
 	if (videoSrc == nullptr)
@@ -345,9 +345,21 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		return true;  // Audio codec changed to a different valid format.
 	}
 
-	// subFormat is intentionally not checked: subtitle source creation is
-	// disabled (guarded by `if (false && ...)`) until AampRialtoSubtitleSource
-	// is fully implemented.
+	if (subtitleSrc == nullptr)
+	{
+		if (subFormat != FORMAT_INVALID)
+		{
+			return true;  
+		}
+		if (videoFormat != FORMAT_INVALID)
+		{
+			return true;
+		}
+	}
+	else if (subtitleSrc->format() != subFormat)
+	{
+		return true;
+	}
 
 	return false;
 }
@@ -596,6 +608,7 @@ void AampRialtoPlayer::Configure(
 		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
 		if (src)
 		{
+			src->setFormat(subFormat);
 			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
 			AAMPLOG_INFO("Created subtitle source (format=%d)", static_cast<int>(subFormat));
@@ -620,10 +633,11 @@ void AampRialtoPlayer::Configure(
 		// No sidecar subtitle track — create an inband CC source that uses
 		// the "application/x-subtitle-cc" MIME type so the Rialto pipeline
 		// can deliver closed-caption data from the video stream.
-		auto ccSrc = m_sourceCreator(eMEDIATYPE_SUBTITLE);
-		if (ccSrc)
+		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
+		if (src)
 		{
-			m_sources[eMEDIATYPE_SUBTITLE] = std::move(ccSrc);
+			src->setFormat(FORMAT_INVALID);
+			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
 			MediaCodecInfo ci{};
 			ci.mCodecFormat = GST_FORMAT_UNKNOWN;
 			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
@@ -1600,12 +1614,11 @@ void AampRialtoPlayer::OnCancelNeedMediaData(int32_t sourceId)
 unsigned long AampRialtoPlayer::GetCCHandle() const
 {
 	auto *mediaSource = m_sources[eMEDIATYPE_SUBTITLE].get();
-	auto *subtitleSource = dynamic_cast<AampRialtoSubtitleSource *>(mediaSource);
 	// Build the CC decoder handle. In inband-CC mode pass the
 	// IDirectRialtoCC pointer (as unsigned long) so that
 	// priv_aamp::InitializeCC() initialises the CC manager with the
 	// correct control interface.
-	const unsigned long ccHandle = (subtitleSource && subtitleSource->isInbandCC())
+	const unsigned long ccHandle = (mediaSource && mediaSource->isInbandCC())
 		? reinterpret_cast<unsigned long>(
 			static_cast<const IDirectRialtoCC *>(this))
 		: 0UL;

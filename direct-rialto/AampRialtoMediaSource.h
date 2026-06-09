@@ -355,16 +355,6 @@ public:
 	void signalEos(firebolt::rialto::IMediaPipeline *pipeline);
 
 	/**
-	 * @brief Maximum segments to inject per needData batch.
-	 *
-	 * Returns 0 to use the frame count requested by the pipeline
-	 * (default for audio/video).  Subtitle overrides to return 1 so
-	 * that haveData() is sent after every injected segment, avoiding
-	 * the Rialto EnoughData guard that fires before isDataPushed is set.
-	 */
-	virtual size_t needDataBatchSize() const { return 0; }
-
-	/**
 	 * @brief Handle a needData event from the pipeline client.
 	 */
 	void handleNeedData(
@@ -383,6 +373,15 @@ public:
 	void flushSource(
 		firebolt::rialto::IMediaPipeline &pipeline,
 		int64_t positionNs);
+
+	/**
+	 * @brief Returns true when inband closed-caption mode is active.
+	 *
+	 * Default returns false; AampRialtoSubtitleSource overrides to expose
+	 * its m_inbandCC member so that handleNeedData() (which lives in the
+	 * base) can skip injection for inband-CC sources.
+	 */
+	virtual bool isInbandCC() const { return false; }
 
 protected:
 	// -----------------------------------------------------------------
@@ -426,15 +425,6 @@ protected:
 	 */
 	virtual std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 		createSegment(const AampMediaSample &sample) const = 0;
-
-	/**
-	 * @brief Returns true when inband closed-caption mode is active.
-	 *
-	 * Default returns false; AampRialtoSubtitleSource overrides to expose
-	 * its m_inbandCC member so that handleNeedData() (which lives in the
-	 * base) can skip injection for inband-CC sources.
-	 */
-	virtual bool isInbandCC() const { return false; }
 
 
 	// -----------------------------------------------------------------

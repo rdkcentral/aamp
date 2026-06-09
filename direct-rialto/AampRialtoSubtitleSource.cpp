@@ -104,7 +104,6 @@ bool AampRialtoSubtitleSource::mapCodecToMime(
 		case GST_FORMAT_UNKNOWN:
 			mimeType = "text/cc";
 			streamFormat = firebolt::rialto::StreamFormat::RAW;
-			m_inbandCC = true;
 			result = true;
 			break;
 		default:
@@ -393,3 +392,11 @@ int64_t AampRialtoSubtitleSource::refineDisplayOffset(
 	return result;
 }
 
+// ---------------------------------------------------------------------------
+// isInbandCC
+// ---------------------------------------------------------------------------
+
+bool AampRialtoSubtitleSource::isInbandCC() const
+{
+	return m_streamFormat == FORMAT_INVALID;
+}
