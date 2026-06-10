@@ -169,6 +169,8 @@ void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
 }
 
 void PrivateCDAIObjectMPD::PlaceAdsForStaticManifest(const std::string& reservationId)
+
+void PrivateCDAIObjectMPD::ClearCurrentAdBreak()
 {
 }
 
