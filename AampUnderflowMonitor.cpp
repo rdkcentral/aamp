@@ -301,7 +301,7 @@ void AampUnderflowMonitor::Run()
             state == eSTATE_ERROR   || state == eSTATE_IDLE ||
             state == eSTATE_COMPLETE)
         {
-			AAMPLOG_INFO("[video] AampUnderflowMonitor: exiting (state=%d)", (int)state);
+            AAMPLOG_INFO("[video] AampUnderflowMonitor: exiting (state=%d)", static_cast<int>(state));
             break;
         }
 
