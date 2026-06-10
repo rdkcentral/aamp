@@ -5158,4 +5158,115 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
   // No placement queued (adStatus was false).
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+
+/**
+ * @brief RegisterVodAdBreak + CheckVodAdBreakLookahead: opportunity fires exactly
+ * once when playhead enters the lookahead window, and mNextVodBreakToCheck
+ * advances to max() after the only break is consumed.
+ */
+TEST_F(AdManagerMPDTests, VodAdBreak_OpportunityFiresOnceInWindow)
+{
+  VodAdBreakInfo info;
+  info.breakId = "brk1";
+  info.insertionPointSec = 30.0;
+  info.breakDurationSec = 15.0;
+  info.breakType = "midroll";
+  info.opportunityFired = false;
+  info.cancelled = false;
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(info);
+
+  // Position outside lookahead window — should not fire.
+  mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(20.0, 5.0);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mVodAdBreaks.at(30.0).opportunityFired);
+
+  // Position inside lookahead window (30 - 5 = 25, pos 25 >= 25) — should fire.
+  mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(25.0, 5.0);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.at(30.0).opportunityFired);
+
+  // Sentinel should now be max() — no remaining unfired breaks.
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck,
+    std::numeric_limits<double>::max());
+
+  // Second call at same position — must not re-fire (opportunityFired stays true).
+  mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(25.0, 5.0);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.at(30.0).opportunityFired);
+}
+
+/**
+ * @brief CancelVodAdBreak: cancelled breaks never cause an opportunity event and
+ * mNextVodBreakToCheck skips over them to the next active break.
+ */
+TEST_F(AdManagerMPDTests, VodAdBreak_CancelledBreakNeverFires)
+{
+  VodAdBreakInfo brk1;
+  brk1.breakId = "brkA";
+  brk1.insertionPointSec = 20.0;
+  brk1.breakDurationSec = 10.0;
+  brk1.breakType = "midroll";
+  brk1.opportunityFired = false;
+  brk1.cancelled = false;
+
+  VodAdBreakInfo brk2;
+  brk2.breakId = "brkB";
+  brk2.insertionPointSec = 50.0;
+  brk2.breakDurationSec = 10.0;
+  brk2.breakType = "midroll";
+  brk2.opportunityFired = false;
+  brk2.cancelled = false;
+
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(brk1);
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(brk2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 20.0);
+
+  // Cancel the earlier break.
+  mPrivateCDAIObjectMPD->CancelVodAdBreak("brkA");
+
+  // Sentinel should advance to the next active break (brkB at 50).
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 50.0);
+
+  // Passing through the cancelled break's window — should not fire.
+  mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(19.0, 5.0);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mVodAdBreaks.at(20.0).opportunityFired);
+}
+
+/**
+ * @brief mNextVodBreakToCheck sentinel: adding multiple breaks sets it to the
+ * earliest; cancelling the earliest recomputes it to the next one; cancelling
+ * all breaks sets it to max().
+ */
+TEST_F(AdManagerMPDTests, VodAdBreak_SentinelTracksEarliestActiveBreak)
+{
+  VodAdBreakInfo b1;
+  b1.breakId = "b1"; b1.insertionPointSec = 60.0;
+  b1.breakDurationSec = 5.0; b1.breakType = "midroll";
+  b1.opportunityFired = false; b1.cancelled = false;
+
+  VodAdBreakInfo b2;
+  b2.breakId = "b2"; b2.insertionPointSec = 30.0;
+  b2.breakDurationSec = 5.0; b2.breakType = "midroll";
+  b2.opportunityFired = false; b2.cancelled = false;
+
+  VodAdBreakInfo b3;
+  b3.breakId = "b3"; b3.insertionPointSec = 90.0;
+  b3.breakDurationSec = 5.0; b3.breakType = "midroll";
+  b3.opportunityFired = false; b3.cancelled = false;
+
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(b1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 60.0);
+
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(b2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 30.0);  // earlier
+
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(b3);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 30.0);  // unchanged
+
+  mPrivateCDAIObjectMPD->CancelVodAdBreak("b2");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 60.0);  // next earliest
+
+  mPrivateCDAIObjectMPD->CancelVodAdBreak("b1");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 90.0);
+
+  mPrivateCDAIObjectMPD->CancelVodAdBreak("b3");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck,
+    std::numeric_limits<double>::max());
 }

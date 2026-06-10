@@ -106,6 +106,22 @@ public:
 	 */
 	virtual void CancelReservation(const std::string& cancelAtReservationId) override;
 
+	/**
+	 * @brief Register a VOD ad-break insertion point
+	 * @param[in] breakId           Unique break identifier
+	 * @param[in] insertionPointSec VOD timeline position in seconds
+	 * @param[in] breakDurationSec  Advisory break duration in seconds
+	 * @param[in] breakType         "preroll", "midroll", or "postroll"
+	 */
+	virtual void RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+	                                double breakDurationSec, const std::string &breakType) override;
+
+	/**
+	 * @brief Cancel a registered VOD ad-break that has not yet started
+	 * @param[in] breakId Break identifier previously passed to RegisterVodAdBreak()
+	 */
+	virtual void CancelVodAdBreak(const std::string &breakId) override;
+
 	/** 
 	 * @brief Check if an ad is currently playing
 	 * @return true if an ad is playing, false otherwise
@@ -364,6 +380,24 @@ struct PlacementObj {
 
 
 /**
+ * @struct VodAdBreakInfo
+ * @brief Metadata for a single VOD ad-break insertion point registered via registerVodAdBreak().
+ */
+struct VodAdBreakInfo {
+	std::string breakId;            /**< Unique break identifier (mirrors reservationId semantics) */
+	double      insertionPointSec;  /**< Position in VOD timeline (seconds) where the ad break begins */
+	double      breakDurationSec;   /**< Advisory break duration in seconds */
+	std::string breakType;          /**< "preroll", "midroll", or "postroll" */
+	bool        opportunityFired;   /**< true once the vodAdBreakOpportunity event has been sent */
+	bool        cancelled;          /**< true if cancelVodAdBreak() was called for this break */
+
+	VodAdBreakInfo() : insertionPointSec(0.0), breakDurationSec(0.0), opportunityFired(false), cancelled(false) {}
+	VodAdBreakInfo(const std::string &id, double ptSec, double durSec, const std::string &type)
+		: breakId(id), insertionPointSec(ptSec), breakDurationSec(durSec), breakType(type),
+		  opportunityFired(false), cancelled(false) {}
+};
+
+/**
  * @class PrivateCDAIObjectMPD
  *
  * @brief Private Client Side DAI object for DASH
@@ -396,7 +430,8 @@ public:
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
 	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
-
+	std::map<double, VodAdBreakInfo>               mVodAdBreaks;          /**< VOD insertion points keyed by insertionPointSec; populated by RegisterVodAdBreak() */
+	double                                         mNextVodBreakToCheck;  /**< Smallest insertion point not yet fired; updated when breaks are added or fired */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -441,6 +476,26 @@ public:
 	 * @param[in] cancelAtReservationId The reservation identifier which needs to be cancelled
 	 */
 	void CancelReservation(const std::string& cancelAtReservationId);
+
+	/**
+	 * @brief Register a VOD ad-break insertion point.
+	 * @param[in] info VodAdBreakInfo describing the break
+	 */
+	void RegisterVodAdBreak(const VodAdBreakInfo &info);
+
+	/**
+	 * @brief Cancel a registered VOD ad-break that has not yet started.
+	 * @param[in] breakId The break identifier to cancel
+	 */
+	void CancelVodAdBreak(const std::string &breakId);
+
+	/**
+	 * @brief Check whether the playhead is within the lookahead window for any unannounced VOD break,
+	 *        and if so fire the vodAdBreakOpportunity event.
+	 * @param[in] positionSec Current VOD playhead position in seconds
+	 * @param[in] lookaheadSec Lookahead window in seconds (from config)
+	 */
+	void CheckVodAdBreakLookahead(double positionSec, double lookaheadSec);
 	/**
 	 * @fn FulFillAdObject
 	 *
