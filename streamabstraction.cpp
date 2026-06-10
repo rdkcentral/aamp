@@ -1556,13 +1556,6 @@ bool MediaTrack::InjectFragment()
 					{
 						aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
 					}
-					// Stop underflow monitor — all VOD fragments are injected;
-					// the GStreamer EOS bubble is now in flight and no further
-					// fragment arrivals are expected, so underflow detection is invalid.
-					if (!aamp->IsLive() && type == eTRACK_VIDEO)
-					{
-						pContext->StopUnderflowMonitor();
-					}
 				}
 				else
 				{
