@@ -378,7 +378,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
-	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
+
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
