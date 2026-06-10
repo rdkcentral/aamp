@@ -159,6 +159,10 @@ bool PrivateCDAIObjectMPD::IsAdPlaying()
 	return false;
 }
 
+void PrivateCDAIObjectMPD::ClearCurrentAdBreak()
+{
+}
+
 void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 {
 	if (g_MockPrivateCDAIObjectMPD)
