@@ -292,6 +292,29 @@ void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservatio
 }
 
 /**
+ *  @brief Register a VOD ad-break insertion point.
+ */
+void PlayerInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                            double breakDurationSec, const std::string &breakType)
+{
+	if (aamp)
+	{
+		aamp->RegisterVodAdBreak(breakId, insertionPointSec, breakDurationSec, breakType);
+	}
+}
+
+/**
+ *  @brief Cancel a registered VOD ad-break that has not yet started.
+ */
+void PlayerInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+	if (aamp)
+	{
+		aamp->CancelVodAdBreak(breakId);
+	}
+}
+
+/**
  *   @brief API to reset configuration across tunes for single player instance
  */
 void PlayerInstanceAAMP::ResetConfiguration()

@@ -117,6 +117,19 @@ public:
 	 */
 	virtual void CancelReservation(const std::string& cancelAtReservationId) {}
 
+	/**
+	 * @brief Register a VOD ad-break insertion point.
+	 * Default implementation is a no-op; overridden by CDAIObjectMPD for DASH VOD.
+	 */
+	virtual void RegisterVodAdBreak(const std::string &/*breakId*/, double /*insertionPointSec*/,
+	                                double /*breakDurationSec*/, const std::string &/*breakType*/) {}
+
+	/**
+	 * @brief Cancel a previously registered VOD ad-break.
+	 * Default implementation is a no-op; overridden by CDAIObjectMPD for DASH VOD.
+	 */
+	virtual void CancelVodAdBreak(const std::string &/*breakId*/) {}
+
 	/** 
 	 * @brief Check if an ad is currently playing
 	 * @return true if an ad is playing, false otherwise
