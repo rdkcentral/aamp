@@ -506,10 +506,12 @@ void AampRialtoPlayer::Configure(
 		{
 			AAMPLOG_INFO("Created pipeline %p", m_pipeline.get());
 
+			// TODO: How do we determine value for isLive
 			if (!m_pipeline->load(
 					firebolt::rialto::MediaType::MSE,
 					"video/mp4",
-					/*url=*/""))
+					/*url=*/"",
+					/*isLive*/false))
 			{
 				AAMPLOG_ERR("load() failed — Rialto will reject attachSource calls");
 			}
