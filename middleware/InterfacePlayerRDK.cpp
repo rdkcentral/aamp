@@ -1629,7 +1629,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 
 
 	}
-	// If rate indicates playback (not paused seek), clear seekPausedState
+	// If pipeline is not paused (normal playback seek), clear seekPausedState
 	if (!interfacePlayerPriv->gstPrivateContext->paused)
 	{
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
