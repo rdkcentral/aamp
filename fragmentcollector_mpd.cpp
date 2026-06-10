@@ -2921,12 +2921,6 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		{
 			FindPeriodGapsAndReport();
 		}
-
-		if (ISCONFIGSET(eAAMPConfig_ProcessLicenseFromEAP) && mIsLiveManifest)
-		{
-			ProcessLicenseFromEAP(mpdDnldResp);
-		}
-
 		// Process VSS stream
 		if(aamp->mIsVSS)
 		{
@@ -2938,70 +2932,6 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		}
 		// Process and send manifest http headers
 		ProcessManifestHeaderResponse(std::move(mpdDnldResp), init);
-	}
-}
-
-/**
- * @brief Function to process non-VSS early available periods and queue content protection for all adaptation sets
- */
-void StreamAbstractionAAMP_MPD::ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp)
-{
-	if (!mpdDnldResp)
-	{
-		return;
-	}
-
-	AampMPDParseHelperPtr mpdParseHelper = mpdDnldResp->GetMPDParseHelper();
-	if (!mpdParseHelper)
-	{
-		AAMPLOG_WARN("Skipping early available period processing due to null MPD parse helper");
-		return;
-	}
-
-	std::vector<IPeriod*> earlyPeriods;
-	GetEarlyAvailablePeriods(earlyPeriods, mpdParseHelper);
-	AAMPLOG_INFO("Early available period scan complete. detected=%zu", earlyPeriods.size());
-
-	if (earlyPeriods.empty())
-	{
-		return;
-	}
-
-	IPeriod *period = earlyPeriods.front();
-	if (!period)
-	{
-		AAMPLOG_WARN("Null period pointer in early available periods list");
-		return;
-	}
-	mEarlyAvailablePeriodIds.push_back(period->GetId());
-	AAMPLOG_INFO("Early available period detected: id=%s adaptationSets=%zu", period->GetId().c_str(), period->GetAdaptationSets().size());
-	const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
-	for (size_t adaptationSetIdx = 0; adaptationSetIdx < adaptationSets.size(); adaptationSetIdx++)
-	{
-		IAdaptationSet *adaptationSet = adaptationSets.at(adaptationSetIdx);
-		if (!adaptationSet)
-		{
-			continue;
-		}
-		AampMediaType mediaType = eMEDIATYPE_DEFAULT;
-		if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
-		{
-			mediaType = eMEDIATYPE_VIDEO;
-		}
-		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO))
-		{
-			mediaType = eMEDIATYPE_AUDIO;
-		}
-		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE))
-		{
-			mediaType = eMEDIATYPE_SUBTITLE;
-		}
-		else
-		{
-			continue;
-		}
-		AAMPLOG_INFO("QueueContentProtection for early period id=%s adaptationSetIdx=%zu mediaType=%d", period->GetId().c_str(), adaptationSetIdx, mediaType);
-		QueueContentProtection(period, static_cast<uint32_t>(adaptationSetIdx), mediaType, false, false);
 	}
 }
 
@@ -3313,6 +3243,7 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 		drmHelper->setDrmMetaData(contentMetadata);
 		drmHelper->setDefaultKeyID(cencDefaultData);
 	}
+
 	return drmHelper;
 }
 
@@ -10520,46 +10451,6 @@ void StreamAbstractionAAMP_MPD::GetAvailableVSSPeriods(std::vector<IPeriod*>& Pe
 					PeriodIds.push_back(tempPeriod);
 				}
 			}
-		}
-	}
-}
-
-/**
- * @brief Check new non-VSS early available periods from manifest
- */
-void StreamAbstractionAAMP_MPD::GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper)
-{
-   if (!mpdParseHelper)
-   {
-	   AAMPLOG_WARN("Skipping early available period detection due to null MPD parse helper");
-	   return;
-   }
-
-	const IMPD *manifestMpd = mpdParseHelper->getMPD();
-	if (!manifestMpd)
-	{
-		AAMPLOG_WARN("Skipping early available period detection due to null MPD");
-		return;
-	}
-
-	const std::vector<IPeriod*> &allPeriods = manifestMpd->GetPeriods();
-	if (allPeriods.empty())
-	{
-		return;
-	}
-
-	int periodIter = static_cast<int>(allPeriods.size()) - 1;
-	IPeriod *tempPeriod = allPeriods.at(periodIter);
-	if (!tempPeriod)
-		return;
-	if (STARTS_WITH_IGNORE_CASE(tempPeriod->GetId().c_str(), VSS_DASH_EARLY_AVAILABLE_PERIOD_PREFIX))
-		return;
-	if (!tempPeriod->GetAdaptationSets().empty() && mpdParseHelper->IsEmptyPeriod(periodIter, false))
-	{
-		if (std::find(mEarlyAvailablePeriodIds.begin(), mEarlyAvailablePeriodIds.end(), tempPeriod->GetId()) == mEarlyAvailablePeriodIds.end())
-		{
-			AAMPLOG_INFO("Found new non-VSS early available period candidate: id=%s index=%d", tempPeriod->GetId().c_str(), periodIter);
-			PeriodIds.push_back(tempPeriod);
 		}
 	}
 }

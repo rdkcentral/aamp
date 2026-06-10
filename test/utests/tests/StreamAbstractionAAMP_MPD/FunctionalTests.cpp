@@ -39,8 +39,6 @@
 #include "MockTSBSessionManager.h"
 #include "MockTSBReader.h"
 #include "MockABRManager.h"
-#include "MockAampLicManager.h"
-#include "MockDrmHelper.h"
 
 
 using ::testing::_;
@@ -123,7 +121,6 @@ protected:
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_UseMp4Demux, false},
 		{eAAMPConfig_UTCSyncOnStartup, true},
-		{eAAMPConfig_ProcessLicenseFromEAP, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -653,26 +650,6 @@ protected:
 			GetAvailableVSSPeriods(PeriodIds);
 		}
 
-		void CallProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp)
-		{
-				ProcessLicenseFromEAP(mpdDnldResp);
-		}
-
-		void CallGetEarlyAvailablePeriods(std::vector<IPeriod *> &PeriodIds, AampMPDParseHelperPtr mpdParseHelper)
-		{
-			GetEarlyAvailablePeriods(PeriodIds, mpdParseHelper);
-		}
-
-		AAMPStatusType CallGetMPDFromManifest(ManifestDownloadResponsePtr mpdDnldResp, bool init)
-		{
-			return GetMPDFromManifest(mpdDnldResp, init);
-		}
-
-		const std::vector<std::string>& GetEarlyAvailablePeriodIds() const
-		{
-			return mEarlyAvailablePeriodIds;
-		}
-
 		std::string CallGetVssVirtualStreamID()
 		{
 			return GetVssVirtualStreamID();
@@ -736,8 +713,6 @@ protected:
 		g_MockPrivateCDAIObjectMPD = std::make_shared<NiceMock<MockPrivateCDAIObjectMPD>>();
 		g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
 		g_mockABRManager = std::make_shared<NiceMock<MockABRManager>>();
-		g_mockAampLicenseManager = std::make_shared<NiceMock<MockAampLicenseManager>>();
-		g_mockDrmHelper = std::make_shared<NiceMock<MockDrmHelper>>();
 	}
 
 	void TearDown() override
@@ -761,10 +736,6 @@ protected:
 		g_mockAampUtils.reset();
 
 		g_mockABRManager.reset();
-
-		g_mockAampLicenseManager.reset();
-
-		g_mockDrmHelper.reset();
 
 		g_mockAampConfig.reset();
 	}
@@ -2567,272 +2538,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetAvailableVSSPeriodsTest)
 TEST_F(StreamAbstractionAAMP_MPDTest, GetVssVirtualStreamIDTest)
 {
 	std::string result = mStreamAbstractionAAMP_MPD->CallGetVssVirtualStreamID();
-}
-
-TEST_F(StreamAbstractionAAMP_MPDTest, GetEarlyAvailablePeriodsDetectsOnlyEarlyNonVssPeriods)
-{
-	static const char *manifest =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
-	<Period id="1" start="PT6S">
-		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="ab96e298-610d-f101-519f-7b9c1c3f4f3e"/>
-			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
-				<cenc:pssh>ABCD</cenc:pssh>
-			</ContentProtection>
-			<SegmentTemplate duration="2" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.m4s" startNumber="1"/>
-			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
-		</AdaptationSet>
-	</Period>
-	<Period id="vss-2">
-		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="22222222-2222-2222-2222-222222222222"/>
-			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
-				<cenc:pssh>IJKL</cenc:pssh>
-			</ContentProtection>
-			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
-		</AdaptationSet>
-	</Period>
-	<Period id="3">
-		<AdaptationSet id="10003" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="22222222-2222-2222-2222-222222222222"/>
-			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
-				<cenc:pssh>IJKL</cenc:pssh>
-			</ContentProtection>
-			<Representation id="root_video3" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
-		</AdaptationSet>
-	</Period>
-</MPD>
-)";
-
-	mManifest = manifest;
-	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
-	ASSERT_NE(response, nullptr);
-	ASSERT_NE(response->mMPDInstance.get(), nullptr);
-
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
-
-	std::vector<IPeriod *> earlyPeriods;
-	// Setup time mocks
-	const long long startTimeMS = 1000000000LL; // Arbitrary start time
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillRepeatedly(Return(startTimeMS));
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	
-	mStreamAbstractionAAMP_MPD->CallGetEarlyAvailablePeriods(earlyPeriods, response->GetMPDParseHelper());
-
-	ASSERT_EQ(earlyPeriods.size(), 1);
-	EXPECT_EQ(earlyPeriods.at(0)->GetId(), "3");
-}
-
-TEST_F(StreamAbstractionAAMP_MPDTest, ProcessLicenseFromEAPDetectsOnlyEarlyNonVssPeriods)
-{
-	static const char *manifest =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
-	<Period id="1" start="PT6S">
-		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="ab96e298-610d-f101-519f-7b9c1c3f4f3e"/>
-			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
-				<cenc:pssh>ABCD</cenc:pssh>
-			</ContentProtection>
-			<SegmentTemplate duration="2" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.m4s" startNumber="1"/>
-			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
-		</AdaptationSet>
-	</Period>
-	<Period id="2">
-		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="11111111-1111-1111-1111-111111111111"/>
-			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
-		</AdaptationSet>
-	</Period>
-</MPD>
-)";
-
-	mManifest = manifest;
-	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
-	ASSERT_NE(response, nullptr);
-	ASSERT_NE(response->mMPDInstance.get(), nullptr);
-
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
-	// Setup time mocks
-	const long long startTimeMS = 1000000000LL; // Arbitrary start time
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
-		.WillRepeatedly(Return(startTimeMS));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ProcessLicenseFromEAP))
-		.WillRepeatedly(Return(true));
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-
-	mStreamAbstractionAAMP_MPD->CallProcessLicenseFromEAP(response);
-
-	const std::vector<std::string> &earlyIds = mStreamAbstractionAAMP_MPD->GetEarlyAvailablePeriodIds();
-	ASSERT_EQ(earlyIds.size(), 1);
-	EXPECT_EQ(earlyIds.at(0), "2");
-}
-
-TEST_F(StreamAbstractionAAMP_MPDTest, GetEarlyAvailablePeriodsSkipsWhenLastPeriodIsVss)
-{
-	static const char *manifest =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
-	<Period id="1">
-		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="33333333-3333-3333-3333-333333333333"/>
-			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
-				<cenc:pssh>MNOP</cenc:pssh>
-			</ContentProtection>
-			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
-		</AdaptationSet>
-	</Period>
-	<Period id="vss-2">
-		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="44444444-4444-4444-4444-444444444444"/>
-			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
-				<cenc:pssh>QRST</cenc:pssh>
-			</ContentProtection>
-			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
-		</AdaptationSet>
-	</Period>
-</MPD>
-)";
-
-	mManifest = manifest;
-	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
-	ASSERT_NE(response, nullptr);
-	ASSERT_NE(response->mMPDInstance.get(), nullptr);
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
-
-	std::vector<IPeriod *> earlyPeriods;
-	const long long startTimeMS = 1772440139000LL;
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(startTimeMS));
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-
-	mStreamAbstractionAAMP_MPD->CallGetEarlyAvailablePeriods(earlyPeriods, response->GetMPDParseHelper());
-	EXPECT_TRUE(earlyPeriods.empty());
-}
-
-TEST_F(StreamAbstractionAAMP_MPDTest, GetEarlyAvailablePeriodsSkipsWhenLastPeriodHasNoAdaptationSets)
-{
-	static const char *manifest =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
-	<Period id="1">
-		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
-		</AdaptationSet>
-	</Period>
-	<Period id="2">
-	</Period>
-</MPD>
-)";
-
-	mManifest = manifest;
-	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
-	ASSERT_NE(response, nullptr);
-	ASSERT_NE(response->mMPDInstance.get(), nullptr);
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
-
-	std::vector<IPeriod *> earlyPeriods;
-	const long long startTimeMS = 1000000000LL;
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(startTimeMS));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ProcessLicenseFromEAP)).WillRepeatedly(Return(true));
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-
-	mStreamAbstractionAAMP_MPD->CallGetEarlyAvailablePeriods(earlyPeriods, response->GetMPDParseHelper());
-	EXPECT_TRUE(earlyPeriods.empty());
-}
-
-TEST_F(StreamAbstractionAAMP_MPDTest, GetEarlyAvailablePeriodsSkipsWhenLastPeriodHasFragmentsPresent)
-{
-	static const char *manifest =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
-	<Period id="1">
-		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="55555555-5555-5555-5555-555555555555"/>
-			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
-				<cenc:pssh>UVWX</cenc:pssh>
-			</ContentProtection>
-			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
-		</AdaptationSet>
-	</Period>
-	<Period id="2">
-		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="66666666-6666-6666-6666-666666666666"/>
-			<ContentProtection schemeIdUri="urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962">
-				<cenc:pssh>YZ12</cenc:pssh>
-			</ContentProtection>
-			<SegmentTemplate duration="2" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.m4s" startNumber="1"/>
-			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
-		</AdaptationSet>
-	</Period>
-</MPD>
-)";
-
-	mManifest = manifest;
-	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
-	ASSERT_NE(response, nullptr);
-	ASSERT_NE(response->mMPDInstance.get(), nullptr);
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
-
-	std::vector<IPeriod *> earlyPeriods;
-	const long long startTimeMS = 1772440139000LL;
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(startTimeMS));
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-
-	mStreamAbstractionAAMP_MPD->CallGetEarlyAvailablePeriods(earlyPeriods, response->GetMPDParseHelper());
-	EXPECT_TRUE(earlyPeriods.empty());
-}
-
-TEST_F(StreamAbstractionAAMP_MPDTest, ProcessLicenseFromEAPQueuesContentProtectionWithExpectedParameters)
-{
-	static const char *manifest =
-		R"(<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" type="dynamic" minimumUpdatePeriod="PT2S" availabilityStartTime="2026-02-26T10:00:00Z" minBufferTime="PT2S">
-	<Period id="1" start="PT6S">
-		<AdaptationSet id="10001" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="ab96e298-610d-f101-519f-7b9c1c3f4f3e"/>
-			<ContentProtection schemeIdUri="urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95">
-				<cenc:pssh>ABCD</cenc:pssh>
-			</ContentProtection>
-			<Representation id="root_video1" bandwidth="4459600" codecs="hvc1.1.6.L120.90" width="1280" height="720"/>
-		</AdaptationSet>
-	</Period>
-	<Period id="2">
-		<AdaptationSet id="10002" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-			<ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cbcs" cenc:default_KID="11111111-1111-1111-1111-111111111111"/>
-			<ContentProtection schemeIdUri="urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95">
-				<cenc:pssh>EFGH</cenc:pssh>
-			</ContentProtection>
-			<Representation id="root_video2" bandwidth="1996000" codecs="hvc1.1.6.L93.90" width="960" height="540"/>
-		</AdaptationSet>
-	</Period>
-</MPD>
-)";
-
-	mManifest = manifest;
-	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
-	ASSERT_NE(response, nullptr);
-	ASSERT_NE(response->mMPDInstance.get(), nullptr);
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
-
-	if (!mPrivateInstanceAAMP->mDRMLicenseManager)
-	{
-		mPrivateInstanceAAMP->mDRMLicenseManager = new AampDRMLicenseManager(0, mPrivateInstanceAAMP);
-	}
-	ASSERT_NE(mPrivateInstanceAAMP->mDRMLicenseManager, nullptr);
-
-	EXPECT_CALL(*g_mockDrmHelper, parsePssh(_, _)).WillRepeatedly(Return(true));
-
-	const long long startTimeMS = 1772440139000LL;
-	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS()).WillRepeatedly(Return(startTimeMS));
-	EXPECT_CALL(*g_mockAampLicenseManager, queueProtectionEvent(_, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockAampLicenseManager, queueContentProtection(_, "2", 0, eMEDIATYPE_VIDEO, false))
-		.Times(1)
-		.WillOnce(Return(true));
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-
-	mStreamAbstractionAAMP_MPD->CallProcessLicenseFromEAP(response);
 }
 
 
