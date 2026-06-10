@@ -599,6 +599,54 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 	}
 }
 
+void PlaybackCommand::HandleCommandRegisterVodAdBreak( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
+{
+	std::istringstream input;
+	input.str(cmd);
+
+	std::string token;
+	std::getline(input, token, ' ');
+	assert(token == "registerVodAdBreak");
+
+	std::string breakId, breakType, insertionStr, durationStr;
+	if (std::getline(input, breakId, ' ') &&
+	    std::getline(input, breakType, ' ') &&
+	    std::getline(input, insertionStr, ' ') &&
+	    std::getline(input, durationStr, ' '))
+	{
+		double insertionPointSec = std::stod(insertionStr);
+		double breakDurationSec  = std::stod(durationStr);
+		AAMPCLI_PRINTF("[AAMP-CLI] registerVodAdBreak breakId=%s type=%s insertionPt=%.3f dur=%.3f\n",
+			breakId.c_str(), breakType.c_str(), insertionPointSec, breakDurationSec);
+		playerInstanceAamp->RegisterVodAdBreak(breakId, insertionPointSec, breakDurationSec, breakType);
+	}
+	else
+	{
+		AAMPCLI_PRINTF("[AAMP-CLI] ERROR - usage: registerVodAdBreak <breakId> <breakType> <insertionPointSec> <breakDurationSec>\n");
+	}
+}
+
+void PlaybackCommand::HandleCommandCancelVodAdBreak( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
+{
+	std::istringstream input;
+	input.str(cmd);
+
+	std::string token;
+	std::getline(input, token, ' ');
+	assert(token == "cancelVodAdBreak");
+
+	std::string breakId;
+	if (std::getline(input, breakId, ' '))
+	{
+		AAMPCLI_PRINTF("[AAMP-CLI] cancelVodAdBreak breakId=%s\n", breakId.c_str());
+		playerInstanceAamp->CancelVodAdBreak(breakId);
+	}
+	else
+	{
+		AAMPCLI_PRINTF("[AAMP-CLI] ERROR - usage: cancelVodAdBreak <breakId>\n");
+	}
+}
+
 void PlaybackCommand::HandleCommandScte35( const char *cmd )
 {
 	std::istringstream input;
@@ -931,6 +979,14 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		HandleCommandAdvert( cmd, playerInstanceAamp );
 	}
+	else if( isCommandMatch(cmd, "registerVodAdBreak") )
+	{
+		HandleCommandRegisterVodAdBreak( cmd, playerInstanceAamp );
+	}
+	else if( isCommandMatch(cmd, "cancelVodAdBreak") )
+	{
+		HandleCommandCancelVodAdBreak( cmd, playerInstanceAamp );
+	}
 	else if( isCommandMatch(cmd, "scte35") )
 	{
 		HandleCommandScte35( cmd );
@@ -1099,6 +1155,8 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("auto <params", "stress test with defaults: startChan(500) endChan(1000) maxTuneTime(6) playTime(15) betweenTime(15)" );
 	addCommand("exit","Exit aampcli");
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
+	addCommand("registerVodAdBreak <breakId> <breakType> <insertionPointSec> <breakDurationSec>", "register a VOD ad-break insertion point");
+	addCommand("cancelVodAdBreak <breakId>", "cancel a previously registered VOD ad-break");
 	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
 	addCommand("release <playerId/playerName>", "to remove the player");
 	addCommand("tunedata <url>","Tune passing a manifest buffer as a string");

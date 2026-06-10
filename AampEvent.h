@@ -95,6 +95,7 @@ typedef enum
 	AAMP_EVENT_TUNE_TIME_METRICS,	/**< 44, Event when Tune time metric data sends*/
 	AAMP_EVENT_NEED_MANIFEST_DATA, /**< 45, DASH need preprocessed manifest notification */
 	AAMP_EVENT_MONITORAV_STATUS,	/**< 46, MonitorAV status notification */
+	AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY,	/**< 47, VOD ad-break opportunity approaching; JS should trigger ad-decision request */
 	AAMP_MAX_NUM_EVENTS
 } AAMPEventType;
 
@@ -2575,6 +2576,64 @@ using ContentProtectionDataEventPtr = std::shared_ptr<ContentProtectionDataEvent
 using ManifestRefreshEventPtr = std::shared_ptr<ManifestRefreshEvent>;
 using TuneTimeMetricsEventPtr = std::shared_ptr<TuneTimeMetricsEvent>;
 using MonitorAVStatusEventPtr = std::shared_ptr<MonitorAVStatusEvent>;
+
+/**
+ * @class VodAdBreakOpportunityEvent
+ * @brief Fired when the playhead is approaching a registered VOD ad-break insertion point.
+ *        JS uses this to trigger an ad-decision request before the break begins.
+ */
+class VodAdBreakOpportunityEvent: public AAMPEventObject
+{
+	std::string mBreakId;			/**< Unique identifier (matches breakId from registerVodAdBreak) */
+	double      mInsertionPointSec;	/**< VOD timeline position in seconds */
+	double      mBreakDurationSec;	/**< Advisory break duration in seconds */
+	std::string mBreakType;			/**< "preroll", "midroll", or "postroll" */
+
+public:
+	VodAdBreakOpportunityEvent() = delete;
+	VodAdBreakOpportunityEvent(const VodAdBreakOpportunityEvent&) = delete;
+	VodAdBreakOpportunityEvent& operator=(const VodAdBreakOpportunityEvent&) = delete;
+
+	/**
+	 * @fn VodAdBreakOpportunityEvent
+	 *
+	 * @param[in] breakId           - Break identifier
+	 * @param[in] insertionPointSec - VOD insertion point in seconds
+	 * @param[in] breakDurationSec  - Advisory break duration in seconds
+	 * @param[in] breakType         - Break type string ("preroll", "midroll", "postroll")
+	 * @param[in] sid               - Session identifier
+	 */
+	VodAdBreakOpportunityEvent(const std::string &breakId, double insertionPointSec,
+	                           double breakDurationSec, const std::string &breakType,
+	                           std::string sid);
+
+	/**
+	 * @brief VodAdBreakOpportunityEvent Destructor
+	 */
+	virtual ~VodAdBreakOpportunityEvent() { }
+
+	/**
+	 * @fn getBreakId
+	 */
+	const std::string &getBreakId() const;
+
+	/**
+	 * @fn getInsertionPointSec
+	 */
+	double getInsertionPointSec() const;
+
+	/**
+	 * @fn getBreakDurationSec
+	 */
+	double getBreakDurationSec() const;
+
+	/**
+	 * @fn getBreakType
+	 */
+	const std::string &getBreakType() const;
+};
+
+using VodAdBreakOpportunityEventPtr = std::shared_ptr<VodAdBreakOpportunityEvent>;
 
 #endif /* __AAMP_EVENTS_H__ */
 

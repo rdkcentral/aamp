@@ -9968,6 +9968,19 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			}
 
 			/*
+			 * VOD CDAI: fire vodAdBreakOpportunity events for upcoming insertion points.
+			 * Only runs when CDAI is enabled and content is VOD.
+			 * Use the rendered playback position (not the downloader offset) so the
+			 * lookahead window is measured against what the viewer has actually seen.
+			 */
+			if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
+			{
+				double lookahead = (double)GETCONFIGVALUE(eAAMPConfig_VodAdBreakLookaheadSec);
+				if (lookahead < 0.0) lookahead = 0.0;
+				mCdaiObject->CheckVodAdBreakLookahead(aamp->GetPositionSeconds(), lookahead);
+			}
+
+			/*
 			 * Appropriate error handling if period selection fails
 			 */
 			if (!SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId))
@@ -10129,6 +10142,18 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									aamp->mAbsoluteEndPosition);
 						}
 					}
+				}
+
+				// VOD CDAI: check for upcoming insertion points on every segment-loop iteration
+				// using the rendered playback position so the opportunity event fires as soon
+				// as the playhead enters the lookahead window.  mBasePeriodOffset is the
+				// downloader position and plateaus at the buffer limit well before the
+				// insertion point; aamp->GetPositionSeconds() tracks actual render progress.
+				if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
+				{
+					double lookahead = (double)GETCONFIGVALUE(eAAMPConfig_VodAdBreakLookaheadSec);
+					if (lookahead < 0.0) lookahead = 0.0;
+					mCdaiObject->CheckVodAdBreakLookahead(aamp->GetPositionSeconds(), lookahead);
 				}
 
 				// If download status is disabled then need to exit from fetcher loop
