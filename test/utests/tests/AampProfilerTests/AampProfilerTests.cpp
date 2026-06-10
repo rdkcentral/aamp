@@ -65,9 +65,7 @@ TEST_F(AampProfilertests, SetLatencyParamTest13)
 TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
 {
     TuneEndMetrics tuneMetricsData;
-    char tuneTimeStrPrefixdata[] = {1,2,3,4,5};
-    char *tuneTimeStrPrefix = tuneTimeStrPrefixdata;
-    unsigned int licenseAcqNWTime = 2;
+    const char *tuneTimeStrPrefix = "[tuneTimeStrPrefix]";
     bool playerPreBuffered = true;
     unsigned int durationSeconds = 3;
     bool interfaceWifi = true;
@@ -75,7 +73,7 @@ TEST_F(AampProfilertests, GetTuneTimeMetricAsJsonTest)
     std::string appName = "test3";
     cJSON *item = cJSON_CreateObject();
     cJSON_AddNumberToObject(item,"ver",AAMP_TUNETIME_VERSION);
-    std::string s1 = profileEvent->GetTuneTimeMetricAsJson(tuneMetricsData, tuneTimeStrPrefix,licenseAcqNWTime, playerPreBuffered,durationSeconds,interfaceWifi, failureReason, appName);
+    std::string s1 = profileEvent->GetTuneTimeMetricAsJson(tuneMetricsData, tuneTimeStrPrefix, playerPreBuffered,durationSeconds,interfaceWifi, failureReason, appName);
     profileEvent->TuneBegin();
     profileEvent->SetDiscontinuityParam();
 }
