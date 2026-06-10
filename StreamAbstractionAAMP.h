@@ -1635,7 +1635,7 @@ public:
 	 *
 	 *   @return std::vector<TextTrackInfo> list of text tracks
 	 */
-	virtual std::vector<TextTrackInfo> &GetAvailableTextTracks(bool allTrack = false) { AAMPLOG_WARN("DEBUG--> GetAvailableTextTracks: mTextTracks.size()=%zu this=%p", mTextTracks.size(), this); return mTextTracks; };
+	virtual std::vector<TextTrackInfo> &GetAvailableTextTracks(bool allTrack = false) { return mTextTracks; };
 
 	/**
 	*   @brief Update seek position when player is initialized

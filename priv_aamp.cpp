@@ -12458,8 +12458,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
 
-	AAMPLOG_WARN("DEBUG--> CheckPreferredTextLanguages: currentTrackIndex=%d trackInfo.size()=%zu", currentTrackIndex, trackInfo.size());
-
 	//Added out of bound check to prevent crash in case of currentTrackIndex is more than available tracks.
 	if (currentTrackIndex >= 0 && !(currentTrackIndex >= static_cast<int>(trackInfo.size())))
 	{
@@ -12579,14 +12577,11 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 	SavePreferredTextLanguages(param, isSelectionChange);
 
 	AAMPPlayerState state = GetState();
-	AAMPLOG_WARN("DEBUG--> SetPreferredTextLanguages: state=%d mpStreamAbstractionAAMP=%p", state, mpStreamAbstractionAAMP);
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
 		{
-			AAMPLOG_WARN("DEBUG--> SetPreferredTextLanguages: before GetAvailableTextTracks, mpStreamAbstractionAAMP=%p", mpStreamAbstractionAAMP);
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-			AAMPLOG_WARN("DEBUG--> SetPreferredTextLanguages: after GetAvailableTextTracks, trackInfo.size()=%zu", trackInfo.size());
 
 			CheckPreferredTextLanguages(trackInfo, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
 
