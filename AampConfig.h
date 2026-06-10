@@ -361,6 +361,7 @@ typedef enum
 	eAAMPConfig_UnderflowResumeThresholdSec,		/**< Underflow resume threshold in seconds */
 	eAAMPConfig_UnderflowLowBufferSec,				/**< Low buffer threshold in seconds */
 	eAAMPConfig_UnderflowHighBufferSec,				/**< High buffer threshold in seconds */
+	eAAMPConfig_UnderflowEosEndToleranceSec,		/**< EOS end-boundary tolerance for suppressing underflow in seconds */
 	eAAMPConfig_BufferLevelToEnableCorrectionSec,   /**< Buffer level to enable latency correction in seconds */
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
