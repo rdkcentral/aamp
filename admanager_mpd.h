@@ -123,8 +123,7 @@ enum class AdEvent
 	BASE_OFFSET_CHANGE,         /**< Base period's offset change */
 	AD_FINISHED,                /**< Ad playback finished */
 	AD_FAILED,                  /**< Ad playback failed */
-	PERIOD_CHANGE,              /**< Period changed */
-	DEFAULT = PERIOD_CHANGE     /**< Default event */
+	PERIOD_CHANGE,              /**< Period changed, Default event */
 };
 
 #define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
@@ -669,6 +668,14 @@ public:
 	 * @return true if an ad is playing, false otherwise
 	 */
 	bool IsAdPlaying();
+
+	/**
+	 * @brief Clear current ad break tracking state
+	 * 
+	 * Resets the current playing break ID, ads vector, and ad index to initial state.
+	 * This is used when exiting an ad break or when ad playback is invalidated.
+	 */
+	void ClearCurrentAdBreak();
 
 	/**
 	 * @brief Check if all ads in an adbreak are resolved.
