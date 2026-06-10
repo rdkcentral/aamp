@@ -156,7 +156,6 @@
 #define DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC 1.0		/**< Threshold to resume from underflow in seconds */
 #define DEFAULT_UNDERFLOW_LOW_BUFFER_SEC 5.0			/**< Low buffer threshold in seconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC 10.0			/**< High buffer threshold in seconds */
-#define DEFAULT_UNDERFLOW_EOS_END_TOLERANCE_SEC 0.25	/**< EOS end-boundary tolerance for suppressing underflow in seconds */
 
 #define DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC 0.0  /*< Default is 0.0 means latency correction is enabled at all buffer values */
 #define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
