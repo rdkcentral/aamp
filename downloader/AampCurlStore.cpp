@@ -346,8 +346,8 @@ void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, Aamp
 	else
 	{
 		curl_easy_cleanup(curl);
-		curl = nullptr;
- 	}
+		// no need to set to nulptr here since passed by value and not subsequently used
+	}
 }
 
 /**
