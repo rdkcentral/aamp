@@ -675,6 +675,8 @@ public:
 				const char *manifestData = NULL
 				);
 
+	void startWifiLogging();
+
 	/**
 	 * @brief API Used to reload TSB with new session
 	 *
