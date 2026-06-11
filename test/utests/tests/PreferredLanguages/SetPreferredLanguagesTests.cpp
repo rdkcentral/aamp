@@ -148,6 +148,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest2)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
@@ -182,6 +183,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest3)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
@@ -249,6 +251,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest5)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
@@ -314,6 +317,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest7)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
@@ -354,6 +358,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest8)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
@@ -408,6 +413,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest2)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -462,6 +468,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest4)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -491,6 +498,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest5)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -524,6 +532,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest6)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -580,6 +589,7 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest2)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -612,6 +622,7 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest3)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -673,6 +684,7 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest5)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -706,6 +718,7 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest6)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -743,6 +756,7 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest7)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -800,6 +814,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest2)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -854,6 +869,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest4)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -884,6 +900,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest5)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -917,6 +934,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest6)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -973,6 +991,7 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest2)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
@@ -1005,6 +1024,7 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest3)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
