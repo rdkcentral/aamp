@@ -55,6 +55,7 @@ struct _GstCDMIDecryptor
 
     GMutex                          mutex;
     GCond                           condition;
+    GCond                           sinkCapsCond;
 
     GstEvent*                       protectionEvent;
     const gchar*                    selectedProtection;
