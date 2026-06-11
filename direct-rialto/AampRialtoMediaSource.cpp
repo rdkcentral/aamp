@@ -560,6 +560,7 @@ void AampRialtoMediaSource::handleNeedData(
 	AAMPLOG_INFO("sourceId=%d frameCount=%zu requestId=%u",
 		m_sourceId, frameCount, requestId);
 
+#if 0//anj
 	// Inband CC sources have no data to inject — the Rialto server
 	// extracts CC from the video bitstream internally.  Acknowledge
 	// immediately with NO_AVAILABLE_SAMPLES so the server does not
@@ -578,6 +579,7 @@ void AampRialtoMediaSource::handleNeedData(
 		}
 		return;
 	}
+#endif//anj
 
 	bool fireEos = false;
 	{
