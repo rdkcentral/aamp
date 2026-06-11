@@ -465,6 +465,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 			cdmidecryptor->sinkCaps = NULL;
 		}
 		cdmidecryptor->sinkCaps = gst_caps_copy(transformedCaps);
+		g_cond_signal(&cdmidecryptor->condition);
 		g_mutex_unlock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(trans, "Set sinkCaps to %" GST_PTR_FORMAT, cdmidecryptor->sinkCaps);
 	}
@@ -510,6 +511,18 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 
 	g_mutex_lock(&cdmidecryptor->mutex);
 	mutexLocked = TRUE;
+	if (cdmidecryptor->sinkCaps == NULL && cdmidecryptor->streamReceived) {
+	    // Caps negotiation hasn't completed yet - wait briefly
+	    gint64 end_time = g_get_monotonic_time() + 500 * G_TIME_SPAN_MILLISECOND;
+	    while (cdmidecryptor->sinkCaps == NULL) {
+	        if (!g_cond_wait_until(&cdmidecryptor->condition, &cdmidecryptor->mutex, end_time)) {
+	            GST_WARNING_OBJECT(cdmidecryptor, "Timeout waiting for sinkCaps");
+	            result = GST_FLOW_NOT_SUPPORTED;
+	            goto free_resources;
+	        }
+	    }
+	}
+
 	if (!protectionMeta)
 	{
 		GST_DEBUG_OBJECT(cdmidecryptor,
