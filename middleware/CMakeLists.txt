@@ -280,7 +280,6 @@ if(CMAKE_USE_DIRECT_RIALTO_ADAPTER)
         find_package(Rialto REQUIRED)
     endif()
     include_directories(${RIALTO_INCLUDE_DIRS})
-    set(LIBPLAYERGSTINTERFACE_DEPENDS ${LIBPLAYERGSTINTERFACE_DEPENDS} ${RIALTO_LIBRARIES})
 endif()
 
 if(CMAKE_USE_OPENCDM_ADAPTER)
@@ -314,6 +313,14 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
     include_directories(${STAGING_INCDIR}/gstreamer-1.0)
 
 endif()
+
+# Append Rialto libraries after all string-concat DEPENDS operations above to
+# avoid CMake list/string mixing that would cause ninja to treat
+# "/path/libRialtoClient.so -lgstvideo-1.0" as a single file prerequisite.
+if(CMAKE_USE_DIRECT_RIALTO_ADAPTER)
+    set(LIBPLAYERGSTINTERFACE_DEPENDS ${LIBPLAYERGSTINTERFACE_DEPENDS} ${RIALTO_LIBRARIES})
+endif()
+
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES}  ${LIBPLAYERGSTINTERFACE_DRM_SOURCES} ${LIBPLAYERGSTINTERFACE_HELP_SOURCES} )
 
 add_library(subtec SHARED subtec/libsubtec/PacketSender.cpp subtec/libsubtec/SubtecChannel.cpp)
