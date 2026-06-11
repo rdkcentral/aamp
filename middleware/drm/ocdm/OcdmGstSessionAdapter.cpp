@@ -322,7 +322,7 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 
 			/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
 			type GST_TYPE_CAPS. This will avoid crash when caps is not of type GST_TYPE_CAPS. */
-			if (OCDMGSTSessionDecrypt && caps != NULL && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
+			if (OCDMGSTSessionDecrypt && caps != nullptr && GST_IS_CAPS(caps) && !gst_caps_is_empty(caps))
 			{
 						GstProtectionMeta* protectionMeta = reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
 
