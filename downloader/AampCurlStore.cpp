@@ -58,7 +58,7 @@ static std::mutex gCurlShMutex;
  * process lifetime. Therefore, a single static CurlDataShareLock is used
  * here and must never be deleted.
  */
-CurlDataShareLock CurlStore::gSharedCurlLock;
+CurlDataShareLock CurlStore::mSharedCurlLock;
 
 /**
  * @brief
@@ -274,7 +274,7 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
 CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname )
 {
 	CurlSocketStoreStruct *CurlSock = new curlstorestruct();
-	CurlDataShareLock *locks = &CurlStore::gSharedCurlLock;
+	CurlDataShareLock *locks = &CurlStore::mSharedCurlLock;
 	if ( NULL == CurlSock )
 	{
 		AAMPLOG_WARN("Failed to alloc memory for curl store");

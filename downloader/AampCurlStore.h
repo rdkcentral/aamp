@@ -103,7 +103,7 @@ class CurlStore
 private:
 	std::mutex mCurlInstLock{};
 	int MaxCurlSockStore;
-        static CurlDataShareLock gSharedCurlLock; // Single shared curl share lock (process lifetime)
+	static CurlDataShareLock mSharedCurlLock; // Single shared curl share lock (process lifetime)
 
 
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*> CurlSockData ;
