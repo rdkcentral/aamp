@@ -45,7 +45,7 @@ AampConfig *gpGlobalConfig{nullptr};
 // Defined here (not via libfakes) so FakeStreamAbstractionAamp.cpp.o is not
 // loaded from the archive — which would cause duplicate-symbol errors with the
 // streamabstraction.cpp that is compiled directly into this test binary.
-std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP{};
+MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP{nullptr};
 
 class MediaTrackTest : public MediaTrack
 {
@@ -244,6 +244,9 @@ protected:
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
 
+		delete g_mockStreamAbstractionAAMP;
+		g_mockStreamAbstractionAAMP = nullptr;
+
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
@@ -406,8 +409,9 @@ TEST_F(TrackInjectTests, InjectFragment_VodEos_StopsUnderflowMonitor)
 	mPrivateInstanceAAMP->SetIsLive(false); // VOD
 
 	// Attach a MockStreamAbstractionAAMP so StopUnderflowMonitor() can be observed.
-	g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
-	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	g_mockStreamAbstractionAAMP =
+		new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	Initialize();
@@ -433,7 +437,8 @@ TEST_F(TrackInjectTests, InjectFragment_VodEos_StopsUnderflowMonitor)
 	mMediaTrack->RunInjectLoop();
 
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
-	g_mockStreamAbstractionAAMP.reset();
+	delete g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP = nullptr;
 }
 
 /**
@@ -450,8 +455,9 @@ TEST_F(TrackInjectTests, InjectFragment_LiveEos_DoesNotStopUnderflowMonitor)
 	mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	mPrivateInstanceAAMP->SetIsLive(true); // LIVE
 
-	g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
-	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	g_mockStreamAbstractionAAMP =
+		new NiceMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	Initialize();
@@ -472,5 +478,6 @@ TEST_F(TrackInjectTests, InjectFragment_LiveEos_DoesNotStopUnderflowMonitor)
 	mMediaTrack->RunInjectLoop();
 
 	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
-	g_mockStreamAbstractionAAMP.reset();
+	delete g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP = nullptr;
 }
