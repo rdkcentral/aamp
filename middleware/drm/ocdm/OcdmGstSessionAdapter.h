@@ -23,6 +23,7 @@
  */
 
 
+#include <dlfcn.h>
 #include <mutex>
 #include <gst/gst.h>
 #include "opencdmsessionadapter.h"
@@ -35,19 +36,23 @@
 
 class OCDMGSTSessionAdapter : public OCDMSessionAdapter
 {
-	void ExtractSEI( GstBuffer *buffer);
+        void ExtractSEI( GstBuffer *buffer);
 public:
-	OCDMGSTSessionAdapter(DrmHelperPtr drmHelper,
-	                      std::unique_ptr<IOpenCDM> ocdm,
-	                      DrmCallbacks *drmCallbacks)
-	: OCDMSessionAdapter(drmHelper, std::move(ocdm), drmCallbacks)
+	OCDMGSTSessionAdapter(DrmHelperPtr drmHelper,  DrmCallbacks *drmCallbacks) : OCDMSessionAdapter(drmHelper, drmCallbacks)
+, OCDMGSTSessionDecrypt(nullptr)
 	{
-		// The GStreamer decrypt function pointer is now resolved inside
-		// OpenCDMSessionProvider at session construction time.
+                const char* ocdmgstsessiondecrypt = "opencdm_gstreamer_session_decrypt_buffer";
+                OCDMGSTSessionDecrypt = (OpenCDMError(*)(struct OpenCDMSession*, GstBuffer*, GstCaps*))dlsym(RTLD_DEFAULT, ocdmgstsessiondecrypt);
+                if (OCDMGSTSessionDecrypt)
+                    MW_LOG_WARN("Has opencdm_gstreamer_session_decrypt_buffer");
+                else
+                    MW_LOG_WARN("No opencdm_gstreamer_session_decrypt_buffer found");
 	};
 	~OCDMGSTSessionAdapter() {};
 
 	int decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuffer* buffer, unsigned subSampleCount, GstBuffer* subSamplesBuffer, GstCaps* caps);
 	int decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData);
+private:
+        OpenCDMError(*OCDMGSTSessionDecrypt)(struct OpenCDMSession*, GstBuffer*, GstCaps*);
 
 };

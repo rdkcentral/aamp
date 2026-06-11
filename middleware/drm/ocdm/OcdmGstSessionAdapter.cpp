@@ -295,7 +295,7 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 {
 	int retValue = -1;
 
-	if (m_session)
+	if (m_pOpenCDMSession)
 	{
 		if (!verifyOutputProtection())
 		{
@@ -322,21 +322,21 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 
 			/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
 			type GST_TYPE_CAPS. This will avoid crash when caps is not of type GST_TYPE_CAPS. */
-			if (m_session->hasGstDecryptBuffer() && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
+			if (OCDMGSTSessionDecrypt && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
 			{
-					GstProtectionMeta* protectionMeta = reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
+						GstProtectionMeta* protectionMeta = reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
 
-					if (protectionMeta != nullptr) {
-						gst_structure_set (protectionMeta->info, "subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
-					} else {
-							GstStructure *crypto_info = gst_structure_new ("protection_meta_info","subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
+						if (protectionMeta != nullptr) {
+							gst_structure_set (protectionMeta->info, "subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
+						} else {
+								GstStructure *crypto_info = gst_structure_new ("protection_meta_info","subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
 					gst_buffer_add_protection_meta (buffer, crypto_info);
-						}
-					retValue = m_session->decryptGst(buffer, caps);
+							}
+						retValue = OCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, caps);
 			}
 			else
 				/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
-				retValue = m_session->decryptGstLegacy(buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
+				retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
 			uint64_t end_decrypt_time = GetCurrentTimeStampInMSec();
 			if (retValue != 0)
 			{
@@ -345,16 +345,38 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 				{
 					uint8_t *mappedKeyID = reinterpret_cast<uint8_t*>(keyIDMap.data);
 					uint32_t mappedKeyIDSize = static_cast<uint32_t>(keyIDMap.size);
-					KeyStatus keyStatus = m_session->getStatus(mappedKeyID, static_cast<uint8_t>(mappedKeyIDSize));
+	#ifdef USE_THUNDER_OCDM_API_0_2
+					KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, mappedKeyID, mappedKeyIDSize);
+	#else
+					KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, mappedKeyID,mappedKeyIDSize );
+	#endif
 					MW_LOG_INFO("OCDMSessionAdapter: decrypt returned : %d key status is : %d", retValue, keyStatus);
+	#ifdef USE_THUNDER_OCDM_API_0_2
+					if (keyStatus == OutputRestricted){
+	#else
 					if(keyStatus == KeyStatus::OutputRestricted){
+	#endif
 						retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
 					}
+	#ifdef USE_THUNDER_OCDM_API_0_2
+					else if (keyStatus == OutputRestrictedHDCP22){
+	#else
 					else if(keyStatus == KeyStatus::OutputRestrictedHDCP22){
+	#endif
 						retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
 					}
 					gst_buffer_unmap(keyIDBuffer, &keyIDMap);
 				}
+			}
+
+			GstMapInfo mapInfo;
+			if (gst_buffer_map(buffer, &mapInfo, GST_MAP_READ))
+			{
+				if (mapInfo.size > 0)
+				{
+					LogPerformanceExt(__FUNCTION__, start_decrypt_time, end_decrypt_time, mapInfo.size);
+				}
+				gst_buffer_unmap(buffer, &mapInfo);
 			}
 		}
 	}
@@ -365,7 +387,7 @@ int OCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const
 {
 	int retValue = -1;
 
-	if (m_session)
+	if (m_pOpenCDMSession)
 	{
 		if (!verifyOutputProtection())
 		{
@@ -377,19 +399,28 @@ int OCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const
 			EncryptionScheme encScheme = AesCtr_Cenc;
 			EncryptionPattern pattern = {0};
 			/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
-			retValue = m_session->decrypt((uint8_t *)payloadData, payloadDataSize,
-			                              encScheme, pattern,
-			                              f_pbIV, f_cbIV,
-			                              nullptr, 0, 0);
+			retValue = opencdm_session_decrypt(m_pOpenCDMSession, (uint8_t *)payloadData, payloadDataSize, encScheme, pattern, f_pbIV, f_cbIV, NULL, 0, 0);
 			if (retValue != 0)
 			{
-				KeyStatus keyStatus = m_session->getStatus(nullptr, 0);
+#ifdef USE_THUNDER_OCDM_API_0_2
+				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
+#else
+				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
+#endif
 				MW_LOG_INFO("OCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
+#ifdef USE_THUNDER_OCDM_API_0_2
+				if (keyStatus == OutputRestricted)
+#else
 				if(keyStatus == KeyStatus::OutputRestricted)
+#endif
 				{
 					retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
 				}
+#ifdef USE_THUNDER_OCDM_API_0_2
+				else if (keyStatus == OutputRestrictedHDCP22)
+#else
 				else if(keyStatus == KeyStatus::OutputRestrictedHDCP22)
+#endif
 				{
 					retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
 				}

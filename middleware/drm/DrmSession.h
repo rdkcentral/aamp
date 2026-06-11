@@ -146,7 +146,7 @@ public:
 	/**
 	 * @brief Returns the Rialto media key session ID for this DRM session.
 	 *
-	 * Only meaningful for sessions backed by the Rialto OCDM stack.
+	 * Only meaningful for sessions backed by the Rialto DRM stack.
 	 * Returns -1 for all other session types.
 	 *
 	 * @retval Rialto mks_id (>= 0) or -1 if not applicable.

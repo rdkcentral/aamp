@@ -37,6 +37,7 @@
 #include "IMediaPipeline.h"
 #include "IClientLogControl.h"
 #include "IControl.h"
+#include "IMediaKeys.h"
 
 #include <atomic>
 #include <chrono>
@@ -95,10 +96,10 @@ public:
 	}
 
 	bool load(MediaType type, const std::string &mimeType,
-		const std::string &url) override
+		const std::string &url, bool isLive) override
 	{
-		RIALTO_SIM_LOG("load: type=%d mime=%s url=%s",
-			static_cast<int>(type), mimeType.c_str(), url.c_str());
+		RIALTO_SIM_LOG("load: type=%d mime=%s url=%s isLive=%d",
+			static_cast<int>(type), mimeType.c_str(), url.c_str(), isLive);
 		m_loaded = true;
 		return true;
 	}
@@ -198,8 +199,8 @@ public:
 	}
 
 	bool setImmediateOutput(int32_t, bool) override { return true; }
-	bool setReportDecodeErrors(int32_t, bool) override { return true; }
-	bool getQueuedFrames(int32_t, uint32_t &qf) override { qf = 0; return true; }
+//	bool setReportDecodeErrors(int32_t, bool) override { return true; }
+//	bool getQueuedFrames(int32_t, uint32_t &qf) override { qf = 0; return true; }
 	bool getImmediateOutput(int32_t, bool &io) override { io = false; return true; }
 
 	bool setVideoWindow(uint32_t x, uint32_t y,
@@ -315,6 +316,8 @@ public:
 			static_cast<int>(source->getType()));
 		return true;
 	}
+
+    bool getDuration(int64_t &duration) override { return 0; }
 
 private:
 	int64_t getCurrentPositionNs() const
@@ -552,6 +555,19 @@ void IMediaPipeline::MediaSegmentVideo::copy(const MediaSegmentVideo &other)
 	m_width = other.m_width;
 	m_height = other.m_height;
 	m_frameRate = other.m_frameRate;
+}
+
+} // namespace firebolt::rialto
+
+namespace firebolt::rialto
+{
+
+// Stub IMediaKeysFactory for builds that link RialtoSimulator instead of
+// the real libRialtoClient.  The Rialto DRM path is not exercised in these
+// builds, so returning nullptr is sufficient to satisfy the linker.
+std::shared_ptr<IMediaKeysFactory> IMediaKeysFactory::createFactory()
+{
+    return nullptr;
 }
 
 } // namespace firebolt::rialto

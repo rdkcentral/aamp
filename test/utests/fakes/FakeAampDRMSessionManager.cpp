@@ -95,7 +95,7 @@ const std::vector<std::vector<uint8_t>>& DrmSession::getUsableKeys() const
 	return emptyVector;
 }
 
-void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
+void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround, bool useDirectRialto)
 {
 }
 

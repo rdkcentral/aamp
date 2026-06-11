@@ -66,6 +66,9 @@ if(NOT RIALTO_FOUND)
 	endif()
 endif()
 
+# Enable the Direct Rialto DRM adapter whenever Rialto is available (real or simulator).
+set(CMAKE_USE_DIRECT_RIALTO_ADAPTER TRUE)
+
 # CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
 # option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
 # components should be sourced from external repositories or built from the local aamp repository.
