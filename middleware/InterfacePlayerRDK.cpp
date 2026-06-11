@@ -489,18 +489,15 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = true;
 		interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 
-		// buffering_timeout will handle the PLAYING transition, so seekPausedState must not block it.
-	    if (interfacePlayerPriv->gstPrivateContext->seekPausedState)
-	    {
-			MW_LOG_WARN("ConfigurePipeline: clearing seekPausedState — buffering will drive PLAYING transition");
-	        interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
-	    }
 		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_PAUSED failed");
 		}
 		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
-		interfacePlayerPriv->gstPrivateContext->paused = false;
+		if (!interfacePlayerPriv->gstPrivateContext->seekPausedState)
+		{
+    		interfacePlayerPriv->gstPrivateContext->paused = false;
+		}
 	}
 	else
 	{
