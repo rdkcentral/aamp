@@ -273,16 +273,10 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
  */
 CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname )
 {
-	CurlSocketStoreStruct *CurlSock = new curlstorestruct();
+	CurlSocketStoreStruct *CurlSock = new curlstorestruct(); // throws std::bad_alloc on failure; no NULL check needed
 	CurlDataShareLock *locks = &CurlStore::mSharedCurlLock;
-	if ( NULL == CurlSock )
-	{
-		AAMPLOG_WARN("Failed to alloc memory for curl store");
-		return NULL;
-	}
 
 	CurlSock->timestamp = aamp_GetCurrentTimeMS();
-	CurlSock->pstShareLocks = locks;
 	CurlSock->mCurlStoreUserCount += 1;
 
 	CurlSock->mCurlShared = curl_share_init();
@@ -346,7 +340,7 @@ void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, Aamp
 	else
 	{
 		curl_easy_cleanup(curl);
-		// no need to set to nulptr here since passed by value and not subsequently used
+		// no need to set to nullptr here since passed by value and not subsequently used
 	}
 }
 
@@ -579,8 +573,7 @@ CurlStore::~CurlStore()
 			if(itFreeQ.curl)
 			{
 				curl_easy_cleanup(itFreeQ.curl);
-				itFreeQ.curl = nullptr;
-				itFreeQ.eHdlTimestamp = 0;
+				// no field reset needed: CurlSock is deleted immediately after this loop
 			}
 		}
 
@@ -588,7 +581,6 @@ CurlStore::~CurlStore()
 		{
 			(void)curl_share_cleanup(CurlSock->mCurlShared);
 			CurlSock->mCurlShared = nullptr;
-			CurlSock->pstShareLocks = nullptr;
 		}
 
 		SAFE_DELETE(CurlSock);
@@ -896,8 +888,7 @@ void CurlStore::RemoveCurlSock ( void )
 			if(it->curl)
 			{
 				curl_easy_cleanup(it->curl);
-				it->curl = nullptr;
-				it->eHdlTimestamp = 0;
+				// no field reset needed: element is erased immediately below
 			}
 			it=RmCurlSock->mFreeQ.erase(it);
 		}
@@ -907,7 +898,6 @@ void CurlStore::RemoveCurlSock ( void )
 		{
 			curl_share_cleanup(RmCurlSock->mCurlShared);
 			RmCurlSock->mCurlShared = nullptr;
-			RmCurlSock->pstShareLocks = nullptr;
 		}
 
 		SAFE_DELETE(RmCurlSock);
@@ -943,7 +933,7 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 			{
 				AAMPLOG_INFO("Removing host:%s curlInstance:%d:%p", (removeIter->first).c_str(), it->curlId,it->curl);
 				curl_easy_cleanup(it->curl);
-				it->curl = nullptr;
+				// no field reset needed: element is erased immediately below
 			}
 			it=RmCurlSock->mFreeQ.erase(it);
 		}
@@ -956,7 +946,6 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 				AAMPLOG_INFO("cleaning up curl shared context %p",RmCurlSock->mCurlShared);
 				curl_share_cleanup(RmCurlSock->mCurlShared);
 				RmCurlSock->mCurlShared = nullptr;
-				RmCurlSock->pstShareLocks = nullptr;
 			}
 			else
 			{

@@ -80,12 +80,12 @@ typedef struct curlstorestruct
 {
 	std::deque<CurlHandleStruct> mFreeQ;
 	CURLSH* mCurlShared;
-	CurlDataShareLock *pstShareLocks;
+	// pstShareLocks removed: lock lifetime is managed by CurlStore::mSharedCurlLock (static)
 
 	unsigned int mCurlStoreUserCount;
 	long long timestamp;
 
-	curlstorestruct():mCurlShared(NULL), pstShareLocks(NULL), timestamp(0), mCurlStoreUserCount(0), mFreeQ()
+	curlstorestruct():mCurlShared(NULL), timestamp(0), mCurlStoreUserCount(0), mFreeQ()
 	{}
 
 	//Disabled for now
