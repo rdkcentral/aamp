@@ -887,11 +887,11 @@ void PlayerCCManager::SetRialto(bool bIsRialto, bool bIsDirectRialto)
 
 	if (bIsDirectRialto)
 	{
-		CCManagerType newType = CCManagerType::DirectRialtoCCManager;
+		newType = CCManagerType::DirectRialtoCCManager;
 	}
 	else if (bIsRialto)
 	{
-		CCManagerType newType = CCManagerType::RialtoCCManager;
+		newType = CCManagerType::RialtoCCManager;
 	}
 
 	if (mInstance == NULL)
