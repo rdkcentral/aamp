@@ -276,9 +276,7 @@ if(CMAKE_USE_DIRECT_RIALTO_ADAPTER)
         drm/rialto/RialtoMediaKeySystem.cpp
         drm/rialto/RialtoMediaKeySessionAdapter.cpp
     )
-    # Rialto library: inherit from parent scope when built as part of the aamp tree,
-    # otherwise discover it here.
-    if(NOT RIALTO_FOUND AND NOT RIALTO_LIBRARIES)
+    if(NOT RIALTO_FOUND)
         find_package(Rialto REQUIRED)
     endif()
     include_directories(${RIALTO_INCLUDE_DIRS})
