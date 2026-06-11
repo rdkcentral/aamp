@@ -96,11 +96,10 @@ bool CDAIObjectMPD::IsAdPlaying()
 /**
  * @brief PrivateCDAIObjectMPD constructor
  */
-PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK), mVodResumeOffset(0.0),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp), mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
+					mCurAdIdx(-1), mAdFulfillObj(), mPlacementObj(), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK), currentAdPeriodClosed(false), mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV(),
-					mWaitForManifestUpdate(0),
-					mVodAdBreaks(), mNextVodBreakToCheck(std::numeric_limits<double>::max()),
+					mWaitForManifestUpdate(0), mVodAdBreaks(), mVodAdBreakIdToPos(), mNextVodBreakToCheck(std::numeric_limits<double>::max()), mVodResumeOffset(0.0),
 					mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
 {
 	StartFulfillAdLoop();
@@ -2202,9 +2201,17 @@ bool PrivateCDAIObjectMPD::IsAdPlaying()
  */
 void PrivateCDAIObjectMPD::RegisterVodAdBreak(const VodAdBreakInfo &info)
 {
-	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+	std::lock_guard<std::mutex> guard(mDaiMtx);
+	// If the same breakId was previously registered at a different position, remove
+	// the old mVodAdBreaks entry to prevent duplicate/stale keys.
+	auto existingIt = mVodAdBreakIdToPos.find(info.breakId);
+	if (existingIt != mVodAdBreakIdToPos.end() && existingIt->second != info.insertionPointSec)
+	{
+		mVodAdBreaks.erase(existingIt->second);
+	}
 	mVodAdBreaks[info.insertionPointSec] = info;
 	mVodAdBreakIdToPos[info.breakId] = info.insertionPointSec;
+	// Recompute sentinel so it stays accurate even on an update.
 	if (info.insertionPointSec < mNextVodBreakToCheck)
 	{
 		mNextVodBreakToCheck = info.insertionPointSec;
@@ -2362,10 +2369,9 @@ bool PrivateCDAIObjectMPD::CheckVodAdBreakCrossing(double positionSec, const std
  * @brief Return true if positionSec has reached a VOD break whose opportunity
  * has fired but whose ad has not yet been resolved (preroll / slow-server stall).
  */
-bool PrivateCDAIObjectMPD::HasPendingVodBreakAtPosition(double positionSec) const
+bool PrivateCDAIObjectMPD::HasPendingVodBreakAtPosition(double positionSec)
 {
-	// NOTE: called without lock from FetcherLoop; mVodAdBreaks and mAdBreaks are
-	// written only under mDaiMtx, and this is a best-effort stall check.
+	std::lock_guard<std::mutex> guard(mDaiMtx);
 	for (const auto &kv : mVodAdBreaks)
 	{
 		const VodAdBreakInfo &info = kv.second;

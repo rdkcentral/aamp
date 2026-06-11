@@ -527,7 +527,7 @@ public:
 	 *        insertion point whose opportunity has fired but whose ad has
 	 *        not yet been resolved (preroll stall guard).
 	 */
-	bool HasPendingVodBreakAtPosition(double positionSec) const;
+	bool HasPendingVodBreakAtPosition(double positionSec);
 
 	/**
 	 * @brief Mark a VOD ad-break pod as fully completed.  Caller must hold mDaiMtx.

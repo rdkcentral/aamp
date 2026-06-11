@@ -10286,9 +10286,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					// registered at insertionPointSec >= VOD duration, play it now
 					// instead of sending EOS.  The break was fired by the lookahead
 					// check above; here we just need to cross it.
-					if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject
-						&& mCdaiObject->mAdState == AdState::OUTSIDE_ADBREAK
-						&& mCdaiObject->CheckVodAdBreakCrossing(mBasePeriodOffset, mBasePeriodId))
+					//
+					// Snapshot mAdState under the mutex to avoid a data race; do NOT
+					// hold the lock across CheckVodAdBreakCrossing, which takes it
+					// internally.
+					bool outsideAdBreak = false;
+					if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
+					{
+						std::lock_guard<std::mutex> snapLock(mCdaiObject->mDaiMtx);
+						outsideAdBreak = (mCdaiObject->mAdState == AdState::OUTSIDE_ADBREAK);
+					}
+					if (outsideAdBreak && mCdaiObject->CheckVodAdBreakCrossing(mBasePeriodOffset, mBasePeriodId))
 					{
 						AAMPLOG_INFO("[CDAI-VOD] EOS intercepted for postroll at pos=%.3f", mBasePeriodOffset);
 						adStateChanged = onAdEvent(AdEvent::VOD_BREAK_START);

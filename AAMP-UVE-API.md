@@ -2683,7 +2683,7 @@ Register a VOD ad-break insertion point.  Must be called before the playhead rea
 | breakInfo | Object | Insertion point descriptor |
 | breakInfo.breakId | String | Unique identifier for this break; used as `reservationId` in `setAlternateContent` |
 | breakInfo.insertionPointSec | Number | Position in the source VOD timeline (seconds) at which the ad pod will be inserted.  Use the source duration for a postroll. |
-| breakInfo.breakDurationSec | Number | Advisory maximum break duration in seconds.  Used by the lookahead window calculation. |
+| breakInfo.breakDurationSec | Number | Advisory break duration in seconds.  Forwarded as metadata in the `vodAdBreakOpportunity` event for the application's accounting purposes; not used by the player's lookahead-window calculation (which is driven by the global `vodAdBreakLookaheadSec` configuration value). |
 | breakInfo.breakType | String | `"preroll"`, `"midroll"`, or `"postroll"` (informational only) |
 
 ```javascript

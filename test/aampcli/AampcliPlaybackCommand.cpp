@@ -652,7 +652,11 @@ void PlaybackCommand::HandleCommandCancelVodAdBreak( const char *cmd, PlayerInst
 
 	std::string token;
 	std::getline(input, token, ' ');
-	assert(token == "cancelVodAdBreak");
+	if (token != "cancelVodAdBreak")
+	{
+		AAMPCLI_PRINTF("[AAMP-CLI] ERROR - unexpected command token: %s\n", token.c_str());
+		return;
+	}
 
 	std::string breakId;
 	if (std::getline(input, breakId, ' '))
