@@ -37,6 +37,20 @@ enum ProfilerAction
     PROFILE_ACTION_END,
     PROFILE_ACTION_ERROR
 };
+
+/**
+ * @struct FutureKeyEntry
+ * @brief Holds a future key ID (binary) and the license response that contains it,
+ *        enabling re-use when a new PSSH references a key already delivered in a
+ *        prior multi-key license response.
+ */
+struct FutureKeyEntry
+{
+	std::vector<uint8_t> keyId;          /**< Future key ID in normalised binary form */
+	std::shared_ptr<DrmData> licenseData; /**< Deep copy of the license response */
+	std::string keySystem;               /**< OCDM system ID the license belongs to */
+};
+
 class AampDRMLicenseManager
 {
 public:
@@ -343,4 +357,39 @@ public:
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 
 	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
+
+	/**
+	 * @brief Clear the future key cache.
+	 *
+	 * Should be called on a forced session clear (e.g. tune/stop) to ensure
+	 * stale future keys are not reused across content boundaries.
+	 */
+	void clearFutureKeyCache();
+
+private:
+	/**
+	 * @brief After a successful multi-key license acquisition, inspect the CDM's
+	 *        usable key set and cache any keys that were not in the originating PSSH.
+	 *        Those keys are "future keys" delivered pre-emptively by the server.
+	 *
+	 * @param[in] drmHelper  Helper for the session whose license was just processed.
+	 * @param[in] sessionSlot Session slot that was just made KEY_READY.
+	 * @param[in] licenseData The license response that was processed by the CDM.
+	 */
+	void cacheFutureKeys(const std::shared_ptr<DrmHelper>& drmHelper,
+	                     int sessionSlot,
+	                     const std::shared_ptr<DrmData>& licenseData);
+
+	/**
+	 * @brief Look up the future key cache for a given key ID and key system.
+	 *
+	 * @param[in] keyId     Key ID in binary form (as returned by DrmHelper::getKey).
+	 * @param[in] keySystem OCDM system ID string.
+	 * @return  A copy of the cached license data if found, nullptr otherwise.
+	 */
+	std::shared_ptr<DrmData> findCachedFutureKey(const std::vector<uint8_t>& keyId,
+	                                              const std::string& keySystem) const;
+
+	std::vector<FutureKeyEntry> mFutureKeyCache;   /**< Cache of pre-delivered future keys */
+	mutable std::mutex          mFutureKeyCacheMutex; /**< Guards mFutureKeyCache */
 };
