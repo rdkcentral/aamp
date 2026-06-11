@@ -30,6 +30,36 @@
 // Curl callback functions
 static std::mutex gCurlShMutex;
 
+
+/*
+ * IMPORTANT: Static curl share lock is required.
+ *
+ * libcurl stores the pointer passed via CURLSHOPT_USERDATA internally and may
+ * invoke curl_lock_callback / curl_unlock_callback asynchronously and from
+ * different threads (e.g., during curl_easy_cleanup, curl_share_cleanup, or
+ * other shared-state operations triggered by unrelated easy handles).
+ *
+ * libcurl has no knowledge of the caller’s object lifetime and does not
+ * revalidate the USERDATA pointer before invoking callbacks. If the lock
+ * object is dynamically allocated and freed by the caller, libcurl may later
+ * dereference a dangling pointer, leading to use-after-free, deadlocks, or
+ * process aborts.
+ *
+ * libcurl does not provide internal synchronization for data shared via
+ * CURLSH handles; the application is responsible for providing thread-safe
+ * locking for the entire duration libcurl may invoke these callbacks.
+ *
+ * NOTE: This shared lock is used only to protect libcurl shared state such as
+ * DNS cache, SSL session cache, and connection bookkeeping. It does NOT
+ * serialize actual media data transfers (audio/video/manifest downloads),
+ * which continue to run in parallel.
+ *
+ * To guarantee correctness and thread safety, the lock object must have
+ * process lifetime. Therefore, a single static CurlDataShareLock is used
+ * here and must never be deleted.
+ */
+CurlDataShareLock CurlStore::gSharedCurlLock;
+
 /**
  * @brief
  * @param curl ptr to CURL instance
@@ -244,8 +274,8 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
 CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname )
 {
 	CurlSocketStoreStruct *CurlSock = new curlstorestruct();
-	CurlDataShareLock *locks = new curldatasharelock();
-	if ( NULL == CurlSock || NULL == locks )
+	CurlDataShareLock *locks = &CurlStore::gSharedCurlLock;
+	if ( NULL == CurlSock )
 	{
 		AAMPLOG_WARN("Failed to alloc memory for curl store");
 		return NULL;
@@ -316,7 +346,8 @@ void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, Aamp
 	else
 	{
 		curl_easy_cleanup(curl);
-	}
+		curl = nullptr;
+ 	}
 }
 
 /**
@@ -548,13 +579,16 @@ CurlStore::~CurlStore()
 			if(itFreeQ.curl)
 			{
 				curl_easy_cleanup(itFreeQ.curl);
+				itFreeQ.curl = nullptr;
+				itFreeQ.eHdlTimestamp = 0;
 			}
 		}
 
 		if(CurlSock->mCurlShared)
 		{
 			(void)curl_share_cleanup(CurlSock->mCurlShared);
-			SAFE_DELETE(CurlSock->pstShareLocks);
+			CurlSock->mCurlShared = nullptr;
+			CurlSock->pstShareLocks = nullptr;
 		}
 
 		SAFE_DELETE(CurlSock);
@@ -862,6 +896,8 @@ void CurlStore::RemoveCurlSock ( void )
 			if(it->curl)
 			{
 				curl_easy_cleanup(it->curl);
+				it->curl = nullptr;
+				it->eHdlTimestamp = 0;
 			}
 			it=RmCurlSock->mFreeQ.erase(it);
 		}
@@ -870,7 +906,8 @@ void CurlStore::RemoveCurlSock ( void )
 		if(RmCurlSock->mCurlShared)
 		{
 			curl_share_cleanup(RmCurlSock->mCurlShared);
-			SAFE_DELETE(RmCurlSock->pstShareLocks);
+			RmCurlSock->mCurlShared = nullptr;
+			RmCurlSock->pstShareLocks = nullptr;
 		}
 
 		SAFE_DELETE(RmCurlSock);
@@ -906,7 +943,7 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 			{
 				AAMPLOG_INFO("Removing host:%s curlInstance:%d:%p", (removeIter->first).c_str(), it->curlId,it->curl);
 				curl_easy_cleanup(it->curl);
-				it->curl = NULL;
+				it->curl = nullptr;
 			}
 			it=RmCurlSock->mFreeQ.erase(it);
 		}
@@ -918,7 +955,8 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 			{
 				AAMPLOG_INFO("cleaning up curl shared context %p",RmCurlSock->mCurlShared);
 				curl_share_cleanup(RmCurlSock->mCurlShared);
-				SAFE_DELETE(RmCurlSock->pstShareLocks);
+				RmCurlSock->mCurlShared = nullptr;
+				RmCurlSock->pstShareLocks = nullptr;
 			}
 			else
 			{
