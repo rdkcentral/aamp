@@ -272,10 +272,156 @@ static std::vector<uint8_t> normalizeToBinary(const std::vector<uint8_t>& key)
 	return binary;
 }
 
+// ---------------------------------------------------------------------------
+// Minimal protobuf wire-format helpers for Widevine license response parsing.
+//
+// Wire-format summary used here:
+//   SignedMessage { msg=2  →  License { key=3  →  KeyContainer { id=1 } } }
+// ---------------------------------------------------------------------------
+
 /**
- * @brief After a successful multi-key license, cache any key IDs delivered by
- *        the CDM that were not part of the originating PSSH.  Those are "future
- *        keys" that can be reused without a new server round-trip.
+ * @brief Read a protobuf base-128 varint from buf[pos], advancing pos.
+ */
+static bool protoReadVarint(const uint8_t* buf, size_t size,
+                             size_t& pos, uint64_t& value)
+{
+	value = 0;
+	int shift = 0;
+	while (pos < size && shift < 64)
+	{
+		uint8_t b = buf[pos++];
+		value |= static_cast<uint64_t>(b & 0x7F) << shift;
+		if (!(b & 0x80))
+		{
+			return true;
+		}
+		shift += 7;
+	}
+	return false;
+}
+
+/**
+ * @brief Skip a protobuf field payload given its wire type.
+ *        The field tag varint must already have been consumed.
+ */
+static bool protoSkipField(const uint8_t* buf, size_t size,
+                            size_t& pos, int wireType)
+{
+	uint64_t skip = 0;
+	switch (wireType)
+	{
+		case 0:  // varint
+			return protoReadVarint(buf, size, pos, skip);
+		case 1:  // 64-bit
+			if (pos + 8 > size) return false;
+			pos += 8;
+			return true;
+		case 2:  // length-delimited
+			if (!protoReadVarint(buf, size, pos, skip)) return false;
+			if (pos + skip > size) return false;
+			pos += static_cast<size_t>(skip);
+			return true;
+		case 5:  // 32-bit
+			if (pos + 4 > size) return false;
+			pos += 4;
+			return true;
+		default:
+			return false;
+	}
+}
+
+/**
+ * @brief Extract key_id (field 1, bytes) from a Widevine KeyContainer blob.
+ */
+static std::vector<uint8_t> wvKeyContainerId(const uint8_t* buf, size_t size)
+{
+	size_t pos = 0;
+	while (pos < size)
+	{
+		uint64_t tag = 0;
+		if (!protoReadVarint(buf, size, pos, tag)) break;
+		int fieldNum = static_cast<int>(tag >> 3);
+		int wireType = static_cast<int>(tag & 0x7);
+		if (fieldNum == 1 && wireType == 2)
+		{
+			// KeyContainer.id = key_id (bytes)
+			uint64_t len = 0;
+			if (!protoReadVarint(buf, size, pos, len)) break;
+			if (pos + len > size) break;
+			return std::vector<uint8_t>(buf + pos, buf + pos + len);
+		}
+		if (!protoSkipField(buf, size, pos, wireType)) break;
+	}
+	return {};
+}
+
+/**
+ * @brief Parse a Widevine License proto and return one binary key ID per
+ *        KeyContainer (License.key = field 3, repeated).
+ */
+static std::vector<std::vector<uint8_t>> wvLicenseKeyIds(
+    const uint8_t* buf, size_t size)
+{
+	std::vector<std::vector<uint8_t>> keyIds;
+	size_t pos = 0;
+	while (pos < size)
+	{
+		uint64_t tag = 0;
+		if (!protoReadVarint(buf, size, pos, tag)) break;
+		int fieldNum = static_cast<int>(tag >> 3);
+		int wireType = static_cast<int>(tag & 0x7);
+		if (fieldNum == 3 && wireType == 2)
+		{
+			// License.key = KeyContainer
+			uint64_t len = 0;
+			if (!protoReadVarint(buf, size, pos, len)) break;
+			if (pos + len > size) break;
+			auto keyId = wvKeyContainerId(buf + pos, static_cast<size_t>(len));
+			if (!keyId.empty())
+			{
+				keyIds.push_back(std::move(keyId));
+			}
+			pos += static_cast<size_t>(len);
+			continue;
+		}
+		if (!protoSkipField(buf, size, pos, wireType)) break;
+	}
+	return keyIds;
+}
+
+/**
+ * @brief Unwrap a Widevine SignedMessage (SignedMessage.msg = field 2) and
+ *        return the binary key IDs from all KeyContainers in the License.
+ */
+static std::vector<std::vector<uint8_t>> wvSignedMessageKeyIds(
+    const char* data, size_t size)
+{
+	const auto* buf = reinterpret_cast<const uint8_t*>(data);
+	size_t pos = 0;
+	while (pos < size)
+	{
+		uint64_t tag = 0;
+		if (!protoReadVarint(buf, size, pos, tag)) break;
+		int fieldNum = static_cast<int>(tag >> 3);
+		int wireType = static_cast<int>(tag & 0x7);
+		if (fieldNum == 2 && wireType == 2)
+		{
+			// SignedMessage.msg = serialised License
+			uint64_t len = 0;
+			if (!protoReadVarint(buf, size, pos, len)) break;
+			if (pos + len > size) break;
+			return wvLicenseKeyIds(buf + pos, static_cast<size_t>(len));
+		}
+		if (!protoSkipField(buf, size, pos, wireType)) break;
+	}
+	return {};
+}
+
+/**
+ * @brief After a successful license acquisition, parse the license response
+ *        bytes to discover all delivered key IDs.  Any that were not in the
+ *        originating PSSH are stored as "future keys" so subsequent PSSH
+ *        arrivals can be served from cache without a new server round-trip.
  */
 void AampDRMLicenseManager::cacheFutureKeys(const std::shared_ptr<DrmHelper>& drmHelper,
                                              int sessionSlot,
@@ -291,35 +437,34 @@ void AampDRMLicenseManager::cacheFutureKeys(const std::shared_ptr<DrmHelper>& dr
 		return;
 	}
 
-	// Collect all CDM usable keys for this slot
-	std::vector<std::vector<uint8_t>> usableKeys;
+	const std::string keySystem = drmHelper->ocdmSystemId();
+
+	// Parse key IDs directly from the license response bytes.
+	// For Widevine the response is a SignedMessage protobuf; the helper
+	// descends SignedMessage.msg → License.key → KeyContainer.id and
+	// returns one binary key ID per KeyContainer.
+	AAMPLOG_WARN("vk:: cacheFutureKeys: parsing license response for key IDs "
+	             "system=%s dataLen=%zu",
+	             keySystem.c_str(), licenseData->getDataLength());
+
+	std::vector<std::vector<uint8_t>> licenseKeys =
+	    wvSignedMessageKeyIds(licenseData->getData().c_str(),
+	                          licenseData->getDataLength());
+
+	AAMPLOG_WARN("vk:: cacheFutureKeys: parsed %zu key ID(s) from license response",
+	             licenseKeys.size());
+	for (size_t i = 0; i < licenseKeys.size(); ++i)
 	{
-		std::lock_guard<std::mutex> guard(
-		    mDrmSessionManager->drmSessionContexts[sessionSlot].sessionMutex);
-		if (mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession)
-		{
-			usableKeys = mDrmSessionManager->drmSessionContexts[sessionSlot]
-			                 .drmSession->getUsableKeys();
-			AAMPLOG_WARN("vk:: cacheFutureKeys: CDM reported %zu usable key(s) for slot %d",
-			             usableKeys.size(), sessionSlot);
-			for (size_t i = 0; i < usableKeys.size(); ++i)
-			{
-				AAMPLOG_INFO("vk:: cacheFutureKeys: usableKey[%zu]=%s",
-				             i,
-				             PlayerLogManager::getHexDebugStr(usableKeys[i]).c_str());
-			}
-		}
-		else
-		{
-			AAMPLOG_WARN("vk:: cacheFutureKeys: no drmSession at slot %d", sessionSlot);
-		}
+		AAMPLOG_INFO("vk:: cacheFutureKeys: licenseKey[%zu]=%s",
+		             i,
+		             PlayerLogManager::getHexDebugStr(licenseKeys[i]).c_str());
 	}
 
-	if (usableKeys.size() <= 1)
+	if (licenseKeys.size() <= 1)
 	{
-		AAMPLOG_WARN("vk:: cacheFutureKeys: only %zu usable key(s), no future keys to cache",
-		             usableKeys.size());
-		return;  // Single key delivered – nothing to pre-cache
+		AAMPLOG_WARN("vk:: cacheFutureKeys: only %zu key(s) in response, "
+		             "no future keys to cache", licenseKeys.size());
+		return;
 	}
 
 	// Collect PSSH key IDs (binary) from the helper
@@ -348,28 +493,27 @@ void AampDRMLicenseManager::cacheFutureKeys(const std::shared_ptr<DrmHelper>& dr
 		}
 	}
 
-	if (usableKeys.size() <= psshKeyMap.size())
+	if (licenseKeys.size() <= psshKeyMap.size())
 	{
-		AAMPLOG_WARN("vk:: cacheFutureKeys: usable(%zu) <= pssh(%zu), no extra keys to cache",
-		             usableKeys.size(), psshKeyMap.size());
-		return;  // No extra keys beyond what the PSSH declared
+		AAMPLOG_WARN("vk:: cacheFutureKeys: licenseKeys(%zu) <= pssh(%zu), "
+		             "no extra keys to cache",
+		             licenseKeys.size(), psshKeyMap.size());
+		return;
 	}
 
-	const std::string keySystem =
-	    mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getKeySystem();
-
-	AAMPLOG_WARN("vk:: cacheFutureKeys: %zu CDM keys vs %zu PSSH keys for system %s – "
+	AAMPLOG_WARN("vk:: cacheFutureKeys: %zu license keys vs %zu PSSH keys for system %s – "
 	             "expecting %zu future key(s)",
-	             usableKeys.size(), psshKeyMap.size(), keySystem.c_str(),
-	             usableKeys.size() - psshKeyMap.size());
+	             licenseKeys.size(), psshKeyMap.size(), keySystem.c_str(),
+	             licenseKeys.size() - psshKeyMap.size());
 
 	std::lock_guard<std::mutex> guard(mFutureKeyCacheMutex);
-	for (const auto& usableKey : usableKeys)
+	for (const auto& licKey : licenseKeys)
 	{
-		const std::vector<uint8_t> normUsable = normalizeToBinary(usableKey);
-		AAMPLOG_INFO("vk:: cacheFutureKeys: processing usableKey=%s (normalised=%s)",
-		             PlayerLogManager::getHexDebugStr(usableKey).c_str(),
-		             PlayerLogManager::getHexDebugStr(normUsable).c_str());
+		// Keys from the protobuf parser are already binary; normalizeToBinary
+		// will pass them through unchanged.
+		const std::vector<uint8_t> normKey = normalizeToBinary(licKey);
+		AAMPLOG_INFO("vk:: cacheFutureKeys: processing licenseKey=%s",
+		             PlayerLogManager::getHexDebugStr(normKey).c_str());
 
 		// Check if this key was already in the PSSH
 		bool inPssh = false;
@@ -379,10 +523,10 @@ void AampDRMLicenseManager::cacheFutureKeys(const std::shared_ptr<DrmHelper>& dr
 			AAMPLOG_TRACE("vk:: cacheFutureKeys: comparing with psshKey[%d]=%s",
 			              psshEntry.first,
 			              PlayerLogManager::getHexDebugStr(normPssh).c_str());
-			if (normUsable == normPssh)
+			if (normKey == normPssh)
 			{
 				AAMPLOG_INFO("vk:: cacheFutureKeys: key %s matches PSSH entry[%d], skipping",
-				             PlayerLogManager::getHexDebugStr(normUsable).c_str(),
+				             PlayerLogManager::getHexDebugStr(normKey).c_str(),
 				             psshEntry.first);
 				inPssh = true;
 				break;
@@ -398,12 +542,12 @@ void AampDRMLicenseManager::cacheFutureKeys(const std::shared_ptr<DrmHelper>& dr
 		    mFutureKeyCache.begin(), mFutureKeyCache.end(),
 		    [&](const FutureKeyEntry& e)
 		    {
-			    return e.keySystem == keySystem && e.keyId == normUsable;
+			    return e.keySystem == keySystem && e.keyId == normKey;
 		    });
 		if (it != mFutureKeyCache.end())
 		{
 			AAMPLOG_INFO("vk:: cacheFutureKeys: key %s already in future cache, skipping duplicate",
-			             PlayerLogManager::getHexDebugStr(normUsable).c_str());
+			             PlayerLogManager::getHexDebugStr(normKey).c_str());
 			continue;
 		}
 
@@ -414,16 +558,16 @@ void AampDRMLicenseManager::cacheFutureKeys(const std::shared_ptr<DrmHelper>& dr
 
 		AAMPLOG_WARN("vk:: cacheFutureKeys: STORING future key %s system=%s licenseDataLen=%zu "
 		             "(cache size will be %zu)",
-		             PlayerLogManager::getHexDebugStr(normUsable).c_str(),
+		             PlayerLogManager::getHexDebugStr(normKey).c_str(),
 		             keySystem.c_str(),
 		             dataCopy->getDataLength(),
 		             mFutureKeyCache.size() + 1);
 
 		AAMPLOG_INFO("Caching future key %s for DRM system %s",
-		             PlayerLogManager::getHexDebugStr(normUsable).c_str(),
+		             PlayerLogManager::getHexDebugStr(normKey).c_str(),
 		             keySystem.c_str());
 
-		mFutureKeyCache.push_back({normUsable, std::move(dataCopy), keySystem});
+		mFutureKeyCache.push_back({normKey, std::move(dataCopy), keySystem});
 	}
 
 	AAMPLOG_WARN("vk:: cacheFutureKeys exit: future cache now holds %zu entry(s)",

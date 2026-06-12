@@ -366,7 +366,7 @@ public:
 	 */
 	void clearFutureKeyCache();
 
-private:
+protected:
 	/**
 	 * @brief After a successful multi-key license acquisition, inspect the CDM's
 	 *        usable key set and cache any keys that were not in the originating PSSH.
