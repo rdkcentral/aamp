@@ -85,7 +85,7 @@ typedef struct curlstorestruct
 	unsigned int mCurlStoreUserCount;
 	long long timestamp;
 
-	curlstorestruct():mCurlShared(NULL), timestamp(0), mCurlStoreUserCount(0), mFreeQ(), mShareLock()
+	curlstorestruct():mFreeQ(), mCurlShared(NULL), mShareLock(), mCurlStoreUserCount(0), timestamp(0)
 	{}
 
 	//Disabled for now

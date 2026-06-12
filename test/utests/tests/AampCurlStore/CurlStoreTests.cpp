@@ -190,13 +190,18 @@ TEST_F(CurlStoreTests, CreateCurlStore_UserDataDiffersAcrossHosts)
         .WillOnce(DoAll(SaveArg<2>(&userDataB), Return(CURLSHE_OK)))
         .WillRepeatedly(Return(CURLSHE_OK));
 
-    GetHandleForHost("t1-host-a.example.com");
-    GetHandleForHost("t1-host-b.example.com");
+    CURL *t1HandleA = GetHandleForHost("t1-host-a.example.com");
+    CURL *t1HandleB = GetHandleForHost("t1-host-b.example.com");
 
     ASSERT_NE(userDataA, nullptr);
     ASSERT_NE(userDataB, nullptr);
     EXPECT_NE(userDataA, userDataB)
         << "Each host must have its own per-host lock (VPAAMP-558 regression)";
+
+    // Return handles so mCurlStoreUserCount drops to 0; prevents cross-test
+    // coupling via the process-lifetime singleton CurlStore.
+    ReturnHandleForHost("t1-host-a.example.com", t1HandleA);
+    ReturnHandleForHost("t1-host-b.example.com", t1HandleB);
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +228,7 @@ TEST_F(CurlStoreTests, LockCallback_WorksWhileEntryIsAlive)
         .WillRepeatedly(Return(CURLSHE_OK));
 
     // Create entry; mCurlStoreUserCount = 1 (still alive)
-    GetHandleForHost("t2-host.example.com");
+    CURL *t2Handle = GetHandleForHost("t2-host.example.com");
 
     ASSERT_NE(capturedUserData,  nullptr) << "USERDATA must be non-null";
     ASSERT_NE(capturedLockFn,   nullptr)  << "lock callback must be non-null";
@@ -233,6 +238,10 @@ TEST_F(CurlStoreTests, LockCallback_WorksWhileEntryIsAlive)
     // lock is valid so this must not crash.
     capturedLockFn(nullptr, CURL_LOCK_DATA_DNS, CURL_LOCK_ACCESS_SHARED, capturedUserData);
     capturedUnlockFn(nullptr, CURL_LOCK_DATA_DNS, capturedUserData);
+
+    // Return the handle so mCurlStoreUserCount drops to 0; prevents cross-test
+    // coupling via the process-lifetime singleton CurlStore.
+    ReturnHandleForHost("t2-host.example.com", t2Handle);
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +278,13 @@ TEST_F(CurlStoreTests, ShareCleanup_CalledOnEviction)
     EXPECT_CALL(*g_mockCurl, curl_share_cleanup(reinterpret_cast<CURLSH *>(0x6001)))
         .Times(1);
 
-    GetHandleForHost("t3-trigger.example.com");
+    CURL *t3TriggerHandle = GetHandleForHost("t3-trigger.example.com");
+
+    // Return the trigger handle so mCurlStoreUserCount drops to 0; prevents
+    // cross-test coupling via the process-lifetime singleton CurlStore.
+    // Note: t3-host was already evicted by RemoveCurlSock above, so no return
+    // is needed for it.
+    ReturnHandleForHost("t3-trigger.example.com", t3TriggerHandle);
 }
 
 // ---------------------------------------------------------------------------
@@ -293,7 +308,7 @@ TEST_F(CurlStoreTests, LockCallback_HandlesAllLockDataTypes)
         .WillOnce(DoAll(SaveArg<2>(&capturedUnlockFn), Return(CURLSHE_OK)))
         .WillRepeatedly(Return(CURLSHE_OK));
 
-    GetHandleForHost("t4-host.example.com");
+    CURL *t4Handle = GetHandleForHost("t4-host.example.com");
 
     ASSERT_NE(capturedUserData,  nullptr);
     ASSERT_NE(capturedLockFn,   nullptr);
@@ -311,4 +326,8 @@ TEST_F(CurlStoreTests, LockCallback_HandlesAllLockDataTypes)
         capturedLockFn(nullptr, data, CURL_LOCK_ACCESS_SHARED, capturedUserData);
         capturedUnlockFn(nullptr, data, capturedUserData);
     }
+
+    // Return the handle so mCurlStoreUserCount drops to 0; prevents cross-test
+    // coupling via the process-lifetime singleton CurlStore.
+    ReturnHandleForHost("t4-host.example.com", t4Handle);
 }
