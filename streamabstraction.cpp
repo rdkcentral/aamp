@@ -4065,7 +4065,14 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 		// Some tracks can get enabled later during playback, example subtitle tracks in ad->content transition. Avoid overwriting playContext instance
 		if(track && track->enabled && track->playContext == nullptr)
 		{
-			if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+			/* AampMp4Demuxer is only applicable for DASH streams. HLS (TS or fMP4),
+			 * TSB, and other formats must continue to use IsoBmffProcessor so that
+			 * TS demuxing, PTS restamping, and chunk injection work correctly.
+			 * Enabling UseMp4Demux on non-DASH streams feeds TS bytes into an MP4
+			 * box parser, causing all segments to be silently dropped. */
+			const bool useMp4Demux = ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
+			                         (aamp->mMediaFormat == eMEDIAFORMAT_DASH);
+			if (!useMp4Demux)
 			{
 				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
 				if(eMEDIATYPE_SUBTITLE != i)
@@ -4108,7 +4115,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			}
 			else
 			{
-				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
+				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux (DASH)", track->name);
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
