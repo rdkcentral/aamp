@@ -1012,6 +1012,14 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 	std::string currentPeriodId = "p1";
 	mTestableStreamAbstractionAAMP_MPD->InvokeUpdateTrackInfo(false, false);
 
+	/* In the real code path, StreamSelection() resets enabled=false before
+	 * UpdateTrackInfo is called, which causes UpdateTrackInfo to set
+	 * profileChanged=true on the track. The test calls InvokeUpdateTrackInfo
+	 * directly (skipping StreamSelection), so profileChanged stays false.
+	 * Set it here to replicate the state that would exist when
+	 * DetectDiscontinuityAndFetchInit is called after a real period transition. */
+	pMediaStreamContext->profileChanged = true;
+
 	/* Test API to detect discontinuity and fetch the initialization segment
 	 * for the next period.
 	 * Test the period change (discontinuity) is not marked.
