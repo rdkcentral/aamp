@@ -4653,6 +4653,20 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 	bool ret = false;
 	std::vector<GstElement*> sources;
 	MW_LOG_TRACE("InterfacePlayerRDK: gst_event_new_instant_rate_change: %f ...V6", rate);
+
+	/* Guard: do not process rate change when rate is 0 or pipeline is paused */
+	if (rate == 0.0)
+	{
+		MW_LOG_WARN("SetPlayBackRate: rate==0 — skipping rate change");
+		return false;
+	}
+
+	if (interfacePlayerPriv->gstPrivateContext->paused)
+	{
+		MW_LOG_WARN("SetPlayBackRate: pipeline is paused — skipping rate change");
+		return false;
+	}
+
 	for (int iTrack = 0; iTrack < GST_TRACK_COUNT; iTrack++)
 	{
 		if (iTrack != static_cast<int>(eGST_MEDIATYPE_SUBTITLE) && interfacePlayerPriv->gstPrivateContext->stream[iTrack].source != nullptr)
@@ -4660,26 +4674,10 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 			sources.push_back(interfacePlayerPriv->gstPrivateContext->stream[iTrack].source);
 		}
 	}
-		ret = interfacePlayerPriv->socInterface->SetPlaybackRate(sources, interfacePlayerPriv->gstPrivateContext->pipeline, rate, interfacePlayerPriv->gstPrivateContext->video_dec,interfacePlayerPriv->gstPrivateContext->audio_dec);
 
-		/* If application requested resume via rate change but middleware's
-		 * seek-paused protection left the pipeline in PAUSED, ensure we clear
-		 * `seekPausedState` here at middleware level. This handles cases where
-		 * higher-level callers may retry or skip setting rate — forcing an
-		 * explicit resume in the middleware prevents the pipeline from being
-		 * stuck in PAUSED. */
-		if (rate != 0.0 && interfacePlayerPriv->gstPrivateContext->seekPausedState && interfacePlayerPriv->gstPrivateContext->paused)
-		{
-			MW_LOG_WARN("InterfacePlayerRDK: SetPlayBackRate detected resume while seekPausedState active — forcing resume");
-			/* Pause(false) clears seekPausedState in Pause implementation. */
-			Pause(false, false);
-			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
-			interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
-			/* After explicit resume we consider operation successful */
-			ret = true;
-		}
+	ret = interfacePlayerPriv->socInterface->SetPlaybackRate(sources, interfacePlayerPriv->gstPrivateContext->pipeline, rate, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->audio_dec);
 
-		return ret;
+	return ret;
 }
 
 /**
