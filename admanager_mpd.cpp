@@ -655,17 +655,26 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					uint64_t WaitForManifestUpdate_copy = mWaitForManifestUpdate;
 					int64_t periodDelta = static_cast<int64_t>(adMPDParseHelper->GetPeriodNewContentDurationMs(periods.at(iter), WaitForManifestUpdate_copy));
 
-					if ( currPeriodDuration == 0 && periodDelta < OFFSET_ALIGN_FACTOR )
+					// Unfilled time remaining in the SCTE break after all ads are placed
+					// (positive = break has leftover time, negative = ads exceeded the break).
+					// brkDuration is the SCTE break duration; adsDuration is the cumulative
+					// duration of ads placed so far (starts at 0, incremented per ad in SetAlternateContents).
+					int64_t unfilledBreakTimeMs = static_cast<int64_t>(abObj.brkDuration) - static_cast<int64_t>(abObj.adsDuration);
+					if ( currPeriodDuration == 0 && (periodDelta < OFFSET_ALIGN_FACTOR || (unfilledBreakTimeMs > 0 && unfilledBreakTimeMs < OFFSET_ALIGN_FACTOR)) )
 					{
 						// Cannot determine the duration of the period where the ads were inserted because the start time of
 						// the following period is not available.
-						// AND less than 2Sec of segments has been added to the period since the AD finished.
+						// AND either:
+						// a) less than 2Sec of segments has been added to the period since the AD finished, OR
+						// b) between 0 and 2Sec of the SCTE break was left unfilled after ad placement (ad short by < 2s).
+						//    When unfilledBreakTimeMs == 0 (exact fill) or negative (ad longer than break), fall through
+						//    to the else branch so placement completes rather than waiting indefinitely.
 						// This may be for a couple of reasons
 						// 1) The current period duration is significantly longer that the inserted ADs
 						// 2) Just closing the current period and the next period start not added to manifest.
 
-						AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64,
-							 periods.at(iter)->GetId().c_str(), periodDelta);
+						AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64 " unfilledBreakTimeMs %" PRIi64,
+							 periods.at(iter)->GetId().c_str(), periodDelta, unfilledBreakTimeMs);
 
 					}
 					else if (currPeriodDuration != 0 && diff < OFFSET_ALIGN_FACTOR )
@@ -1961,7 +1970,8 @@ void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservat
 		//We are Aborting the wait when the AdBreakObject is empty. Not for the each ad to be resolved.
 		if (!abObj.ads || abObj.ads->empty())
 		{
-			AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play.", reservationId.c_str());
+			AAMPLOG_INFO("[CDAI] Ad break %s is empty. No ads to play. Marking reservation invalid", reservationId.c_str());
+			abObj.invalid = true;
 			AbortWaitForNextAdResolved();
 		}
 	}

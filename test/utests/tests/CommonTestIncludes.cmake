@@ -55,3 +55,10 @@ include_directories(${AAMP_ROOT}/middleware
                     ${AAMP_ROOT}/middleware/baseConversion
                     ${AAMP_ROOT}/middleware/playerLogManager
                     ${AAMP_ROOT}/middleware/vendor)
+
+# std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
+# GCC emits __atomic_load_16 / __atomic_store_16 requiring the atomic support
+# library, which GCC always ships for its target arch.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(OS_LD_FLAGS ${OS_LD_FLAGS} "-latomic")
+endif()

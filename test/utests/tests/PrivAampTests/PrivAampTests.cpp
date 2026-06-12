@@ -1569,6 +1569,105 @@ TEST_F(PrivAampTests, MonitorProgressBeginningOfTSBDetected)
 	EXPECT_DOUBLE_EQ(p_aamp->seek_pos_seconds, 0.0);
 }
 
+/**
+ * @brief Regression test for VPLAY-13206 / PR #1345.
+ *
+ * When rewinding reaches BoS during VoD ad playback, JSPP relies on the order
+ * of the events. This test guarantees that the order is not altered.
+ */
+TEST_F(PrivAampTests, MonitorProgressRewindToBoS_ProgressBeforeSpeedChange)
+{
+	constexpr double REWIND_RATE = -4.0;
+	constexpr double CULLED_SECONDS = 10.0;
+	constexpr double DURATION_SECONDS = 100.0;
+
+	// Setup: configure player for rewind scenario reaching BoS.
+	p_aamp->rate = REWIND_RATE;
+	p_aamp->seek_pos_seconds = 0.0;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mSinkPaused = false;
+	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	// Pretend a CDAI ad placement is in progress on this player. This is
+	// what makes ReportAdProgress() actually emit an
+	// AAMP_EVENT_AD_PLACEMENT_PROGRESS event; with an empty mAdProgressId
+	// it would early-return and the ordering bug would be invisible.
+	// trickStartUTCMS must be non-negative to enable ProgressEvent
+	// emission inside MonitorProgress(); without this the regular
+	// AAMP_EVENT_PROGRESS for this tick would be suppressed.
+	p_aamp->trickStartUTCMS = 1;
+	p_aamp->mAdProgressId = "ad-1";
+	p_aamp->mAdAbsoluteStartTime = 0;
+	p_aamp->mAdDuration = 1000;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
+		.WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	// Ordering assertion: in the BoS branch MonitorProgress() emits, in
+	// order, AAMP_EVENT_AD_PLACEMENT_PROGRESS (from ReportAdProgress),
+	// AAMP_EVENT_PROGRESS (the regular ProgressEvent for this tick), and
+	// finally AAMP_EVENT_SPEED_CHANGED (from PlayFromTsbStart resetting
+	// the rate). InSequence enforces the relative order.
+	testing::InSequence seq;
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_AD_PLACEMENT_PROGRESS), _)).Times(1);
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(AnEventOfType(AAMP_EVENT_PROGRESS), _)).Times(1);
+	EXPECT_CALL(*g_mockAampEventManager,
+		SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	// Trigger BoS handling. position < start (culledSeconds*1000) ensures
+	// the reachedStart branch is taken in MonitorProgress().
+	p_aamp->MonitorProgress(true, false);
+}
+
+/**
+ * @brief Regression test for Positive Live latency value.
+ *
+ * Verifies that live latency is never negative during TSB-less linear HLS
+ * playback. Before the fix, start/end were overwritten to -1 (XRE sentinel)
+ * before HLS latency was calculated (latency = end - position), producing a
+ * large negative latency value. The fix moves the sentinel assignment to after
+ * the latency calculation.
+ */
+TEST_F(PrivAampTests, MonitorProgress_TsbLessLinearHLS_LatencyNonNegative)
+{
+	constexpr double CULLED_SECONDS = 0.0;
+	constexpr double DURATION_SECONDS = 1000.0;
+	constexpr double SEEK_POS_SECONDS = 100.0;
+
+	// Setup: TSB-less linear HLS live playback
+	p_aamp->SetState(eSTATE_PLAYING, true);
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	p_aamp->mSinkPaused = false;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_HLS;
+	p_aamp->SetIsLiveStream(true);
+	p_aamp->SetContentType("LINEAR_TV");
+	p_aamp->mFogTSBEnabled = false;
+	p_aamp->SetLocalAAMPTsb(false);
+	p_aamp->durationSeconds = DURATION_SECONDS;
+	p_aamp->culledSeconds = CULLED_SECONDS;
+	p_aamp->seek_pos_seconds = SEEK_POS_SECONDS;
+	p_aamp->trickStartUTCMS = -1;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	p_aamp->MonitorProgress(true, false);
+
+	// Live latency must be non-negative after the fix.
+	EXPECT_GE(p_aamp->GetCurrentLatencyMs(), 0L);
+}
+
 TEST_F(PrivAampTests,UpdateDurationTest)
 {
 	p_aamp->UpdateDuration(232.436);
@@ -5070,11 +5169,15 @@ TEST_F(PrivAampTests,BlockUntilGstreamerWantsDataTest11)
 	p_aamp->BlockUntilGstreamerWantsData(NULL,10,20);
 }
 
-TEST_F(PrivAampTests,stopTest_11)
+TEST_F(PrivAampTests, Stop_ActualImplementation_SetsPlayerStateToIdle)
 {
-	p_aamp->mFogTSBEnabled = true;
-	p_aamp->IsFogTSBSupported();
-	p_aamp->Stop();
+	p_aamp->SetState(eSTATE_PLAYING, false);
+
+	ASSERT_EQ(p_aamp->GetState(), eSTATE_PLAYING);
+
+	p_aamp->Stop(false);
+
+	EXPECT_EQ(p_aamp->GetState(), eSTATE_IDLE);
 }
 
 TEST_F(PrivAampTests, Stop_StateTransition_WithStateChangeEvent)
@@ -5339,7 +5442,9 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
 	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
 	p_aamp->culledSeconds = SEEK_POS;
 
-	EXPECT_DOUBLE_EQ(p_aamp->GetTSBSessionManager()->GetTotalStoreDuration(eMEDIATYPE_VIDEO), 0);
+	// Empty TSB is represented by a null session manager in this test context
+	// (no manager created = no TSB data, equivalent to GetTotalStoreDuration() == 0)
+	EXPECT_EQ(p_aamp->GetTSBSessionManager(), nullptr);
 	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 	EXPECT_FALSE(p_aamp->IsLocalAAMPTsbInjection());
 }
@@ -5731,8 +5836,7 @@ struct GetStreamFormatTestParams {
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigEnabledAndPlayEnabled_UpdatesAbrStatics)
 {
-	ABRManager::mPersistBandwidth = 0;
-	ABRManager::mPersistBandwidthUpdatedTime = 0;
+	ABRManager::setPersistBandwidth(0, 0);
 
 	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
@@ -5744,8 +5848,9 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigEnabledAndPlayEnabled_Updates
 	p_aamp->mbPlayEnabled = true;
 	p_aamp->UpdatePersistBandwidth(5000);
 
-	EXPECT_EQ(ABRManager::getPersistBandwidth(), 5000);
-	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 1234);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 5000);
+	EXPECT_EQ(data.updatedTimeMs, 1234);
 }
 
 /**
@@ -5753,8 +5858,7 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigEnabledAndPlayEnabled_Updates
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigDisabled_DoesNotUpdateAbrStatics)
 {
-	ABRManager::mPersistBandwidth = 123;
-	ABRManager::mPersistBandwidthUpdatedTime = 999;
+	ABRManager::setPersistBandwidth(123, 999);
 
 	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
@@ -5767,8 +5871,9 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigDisabled_DoesNotUpdateAbrStat
 	p_aamp->mbPlayEnabled = true;
 	p_aamp->UpdatePersistBandwidth(5000);
 
-	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
-	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 123);
+	EXPECT_EQ(data.updatedTimeMs, 999);
 }
 
 /**
@@ -5776,8 +5881,7 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ConfigDisabled_DoesNotUpdateAbrStat
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrStatics)
 {
-	ABRManager::mPersistBandwidth = 123;
-	ABRManager::mPersistBandwidthUpdatedTime = 999;
+	ABRManager::setPersistBandwidth(123, 999);
 
 	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
@@ -5788,8 +5892,9 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_PlaybackDisabled_DoesNotUpdateAbrSt
 	p_aamp->mbPlayEnabled = false;
 	p_aamp->UpdatePersistBandwidth(5000);
 
-	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
-	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 123);
+	EXPECT_EQ(data.updatedTimeMs, 999);
 }
 
 /**
@@ -5815,8 +5920,7 @@ TEST_F(PrivAampTests, DetachFlushesAndBlocksAsyncEvents)
  */
 TEST_F(PrivAampTests, UpdatePersistBandwidth_ZeroBandwidth_DoesNotUpdateAbrStatics)
 {
-	ABRManager::mPersistBandwidth = 123;
-	ABRManager::mPersistBandwidthUpdatedTime = 999;
+	ABRManager::setPersistBandwidth(123, 999);
 
 	ON_CALL(*g_mockAampConfig, IsConfigSet(_)).WillByDefault(Return(false));
 	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_PersistLowNetworkBandwidth))
@@ -5827,8 +5931,9 @@ TEST_F(PrivAampTests, UpdatePersistBandwidth_ZeroBandwidth_DoesNotUpdateAbrStati
 	p_aamp->mbPlayEnabled = true;
 	p_aamp->UpdatePersistBandwidth(0);
 
-	EXPECT_EQ(ABRManager::getPersistBandwidth(), 123);
-	EXPECT_EQ(ABRManager::mPersistBandwidthUpdatedTime, 999);
+	auto data = ABRManager::getPersistBandwidth();
+	EXPECT_EQ(data.bandwidth, 123);
+	EXPECT_EQ(data.updatedTimeMs, 999);
 }
 
 // This function is used by Google Test to print the parameter value.

@@ -60,7 +60,7 @@
 #define DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL 5
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
-#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 0			/**< Default ABR Bandwidth Estimation Algorithm */
+#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 1			/**< Default ABR bandwidth estimation algorithm; value must stay in sync with BandwidthEstimationAlgorithm ordinal 1 in abr/abr.h */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */
 #define DEFAULT_PROGRESS_LOGGING_DIVISOR 4			/**< Divisor of progress logging frequency to print logging */
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
@@ -156,6 +156,7 @@
 #define DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC 1.0		/**< Threshold to resume from underflow in seconds */
 #define DEFAULT_UNDERFLOW_LOW_BUFFER_SEC 5.0			/**< Low buffer threshold in seconds */
 #define DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC 10.0			/**< High buffer threshold in seconds */
+#define DEFAULT_UNDERFLOW_EOS_END_TOLERANCE_SEC 0.25	/**< EOS end-boundary tolerance for suppressing underflow in seconds */
 
 #define DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC 0.0  /*< Default is 0.0 means latency correction is enabled at all buffer values */
 #define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
@@ -206,7 +207,6 @@
 #define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback; 4 sec to ABR; So Allow ABR first*/
 #define DEFAULT_MIN_BUFFER_LOW_LATENCY          (2.0f)      /**< Default minimum buffer for Low latency stream*/
 #define DEFAULT_TARGET_BUFFER_LOW_LATENCY       (4.0f)      /**< Default minimum buffer for Low latency stream*/
-#define DEFAULT_ALLOWED_DELAY_LOW_LATENCY       (2.5f)      /**< Default allowed server delay for Low latency stream*/
 
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD 4               /**< 2 fragments for MSO specific linear streams. */
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD 1           /**< LLD 1 sec minimum buffer to alert */
@@ -214,7 +214,7 @@
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
-#define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragment chunks per track */
+#define DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK	20					/**< Default LLD cached fragments per track */
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */

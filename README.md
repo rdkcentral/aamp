@@ -387,6 +387,8 @@ advert <params>
 		note: multiple sequential ads can be mapped to fill a single ad break by calling advert map multiple times with same adBreakId
 	advert clear (clear current advert map)
 	advert list	(display the advert list)
+	advert defer	(toggle deferred NotifyReservationComplete; when ON, the auto-notify on SCTE-35 ad-break start is suppressed)
+	advert rc <breakId>	(manually call NotifyReservationComplete for the given break ID)
 new <name>	create a new player instance with optional name
 select <val|name> move player val or name to foreground. With no option list all players
 detach		move current foreground player to background
@@ -511,6 +513,8 @@ note: the branch changes over time - dev_sprint_YY_Q
 currently dev_sprint_25_2
 ```
 cd aamp
+brew update
+brew upgrade
 bash install-aamp.sh
 ```
 select aamp-cli as default project

@@ -231,6 +231,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","gstlevel", eAAMPConfig_GstDebugLevel,false},
 	{"","tsbType", eAAMPConfig_TsbType, false},
 	{DEFAULT_TSB_LOCATION,"tsbLocation",eAAMPConfig_TsbLocation, true},
+	{"","networkPersonaFile", eAAMPConfig_NetworkPersonaFile, false},
 };
 
 /**
@@ -250,6 +251,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"stereoOnly",eAAMPConfig_StereoOnly,true},
 	{false,"descriptiveTrackName",eAAMPConfig_DescriptiveTrackName,false},
 	{false,"disableAC3",eAAMPConfig_DisableAC3,true},
+	{true,"preferHEVC",eAAMPConfig_PreferHEVC,true},
 	{true,"disablePlaylistIndexEvent",eAAMPConfig_DisablePlaylistIndexEvent,false},
 	{true,"enableSubscribedTags",eAAMPConfig_EnableSubscribedTags,false},
 	{false,"dashIgnoreBaseUrlIfSlash",eAAMPConfig_DASHIgnoreBaseURLIfSlash,false},
@@ -296,7 +298,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"useMatchingBaseUrl",eAAMPConfig_MatchBaseUrl,false},
 	{false,"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false},
 	{false,"enableSeekableRange",eAAMPConfig_EnableSeekRange,false},
-	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyCorrection,true},
+	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyRateCorrection,true},
 	{true,"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false},
 	{false,"persistBitrateOverSeek",eAAMPConfig_PersistentBitRateOverSeek,true},
 	{true,"setLicenseCaching",eAAMPConfig_SetLicenseCaching,false},
@@ -311,7 +313,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"webVttNative",eAAMPConfig_WebVTTNative,false},
 	{false,"asyncTune",eAAMPConfig_AsyncTune,true},
 	{false,"disableUnderflow",eAAMPConfig_DisableUnderflow,false},
-	{false,"enableAampUnderflowMonitor",eAAMPConfig_EnableAampUnderflowMonitor,true},
+	{true,"enableAampUnderflowMonitor",eAAMPConfig_EnableAampUnderflowMonitor,true},
 	{false,"limitResolution",eAAMPConfig_LimitResolution,false},
 	{false,"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false},
 	{true,"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false},
@@ -374,6 +376,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
+	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
+	{false, "logFilename", eAAMPConfig_LogFilename, false},
 
 };
 
@@ -428,7 +432,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{MAX_GST_AUDIO_BUFFER_BYTES,"gstAudioBufBytes", eAAMPConfig_GstAudioBufBytes,true},
 	{DEFAULT_LATENCY_MONITOR_DELAY_MS,"latencyMonitorDelayMs",eAAMPConfig_LatencyMonitorDelayMs,false},
 	{DEFAULT_LATENCY_MONITOR_INTERVAL_MS,"latencyMonitorIntervalMs",eAAMPConfig_LatencyMonitorIntervalMs,false},
-	{DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxFragmentChunkCached,false},
+	{DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxLLDFragmentCached,false},
 	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
 	{MAX_SEG_DOWNLOAD_FAIL_COUNT,"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
 	{MAX_INIT_FRAGMENT_CACHE_PER_TRACK,"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
@@ -513,6 +517,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC, "underflowResumeThresholdSec", eAAMPConfig_UnderflowResumeThresholdSec, true},
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_SEC, "underflowLowBufferSec", eAAMPConfig_UnderflowLowBufferSec, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC, "underflowHighBufferSec", eAAMPConfig_UnderflowHighBufferSec, true},
+	{DEFAULT_UNDERFLOW_EOS_END_TOLERANCE_SEC, "underflowEosEndToleranceSec", eAAMPConfig_UnderflowEosEndToleranceSec, true},
 	{DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC, "bufferLevelToEnableLatencySec", eAAMPConfig_BufferLevelToEnableCorrectionSec, false},
 	{DEFAULT_REBUFFER_LATENCY_STEP_SEC, "rebufferLatencyStepSec", eAAMPConfig_RebufferLatencyStepSec, false},
 	{DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC, "rebufferLatencyMaxIncrementSec", eAAMPConfig_RebufferLatencyMaxIncrementSec, false},
@@ -1836,6 +1841,8 @@ void AampConfig::ConfigureLogSettings()
 		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 		AampLogManager::lockLogLevel(true);
 	}
+
+	AampLogManager::logFilename = configValueBool[eAAMPConfig_LogFilename].value;
 }
 
 /**

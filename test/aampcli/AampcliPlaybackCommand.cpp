@@ -592,6 +592,25 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 			mAdvertList.push_back(advertInfo);
 			AAMPCLI_PRINTF("[AAMP-CLI] mapped adBreakId %s\n", advertInfo.adBreakId.c_str() );
 		}
+		else if( token == "defer" )
+		{
+			mAampcli.mDeferReservationComplete = !mAampcli.mDeferReservationComplete;
+			AAMPCLI_PRINTF("[AAMP-CLI] deferred NotifyReservationComplete: %s\n",
+				mAampcli.mDeferReservationComplete ? "ON" : "OFF" );
+		}
+		else if( token == "rc" )
+		{
+			std::string breakId;
+			if( std::getline(input, breakId, ' ') && !breakId.empty() )
+			{
+				AAMPCLI_PRINTF("[AAMP-CLI] NotifyReservationComplete breakId=%s\n", breakId.c_str() );
+				playerInstanceAamp->NotifyReservationComplete(breakId);
+			}
+			else
+			{
+				AAMPCLI_PRINTF("[AAMP-CLI] ERROR - expected 'advert rc <breakId>'\n");
+			}
+		}
 	}
 	else
 	{
@@ -1098,7 +1117,12 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("progress","Toggle progress event logging (default=false)");
 	addCommand("auto <params", "stress test with defaults: startChan(500) endChan(1000) maxTuneTime(6) playTime(15) betweenTime(15)" );
 	addCommand("exit","Exit aampcli");
-	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
+	addCommand("advert <params>", "manage injected advert list:\n"
+		"\t  advert list                 - show current ad map\n"
+		"\t  advert map <breakId> <url>  - map a URL to an ad break ID\n"
+		"\t  advert clear                - clear all ad mappings\n"
+		"\t  advert defer                - toggle deferred NotifyReservationComplete (suppresses auto-notify on SCTE-35)\n"
+		"\t  advert rc <breakId>         - manually call NotifyReservationComplete for the given break ID");
 	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
 	addCommand("release <playerId/playerName>", "to remove the player");
 	addCommand("tunedata <url>","Tune passing a manifest buffer as a string");
@@ -1127,11 +1151,21 @@ void PlaybackCommand::parse( const char *path )
 			if( pos>=0 )
 			{
 				size_t len = (size_t)pos;
-				void *ptr = malloc(len);
-				if( ptr )
+				std::shared_ptr<std::vector<uint8_t>> segment;
+				try
+				{
+					segment = std::make_shared<std::vector<uint8_t>>(len);
+				}
+				catch (const std::bad_alloc &)
+				{
+					AAMPCLI_PRINTF( "allocation failed for %zu bytes while reading '%s'\n", len, path );
+					fclose( f );
+					return;
+				}
+				if (!segment->empty())
 				{
 					fseek(f,0,SEEK_SET);
-					size_t rc = fread(ptr,1,len,f);
+					size_t rc = fread(segment->data(),1,len,f);
 					if( rc == len )
 					{
 						// Lazy initialization of global MP4 demuxer
@@ -1140,7 +1174,7 @@ void PlaybackCommand::parse( const char *path )
 						{
 							gMp4Demux = std::make_shared<Mp4Demux>();
 						}
-						gMp4Demux->Parse(ptr,len);
+						gMp4Demux->Parse(std::move(segment));
 						auto samples = gMp4Demux->GetSamples();
 						if (samples.empty())
 						{
@@ -1165,8 +1199,8 @@ void PlaybackCommand::parse( const char *path )
 							for (auto &sample : samples)
 							{
 								AAMPCLI_PRINTF("Sample PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf, DRM:%d\n",
-										sample.mData.data(),
-										sample.mData.size(),
+										sample.mData.get(),
+										sample.mDataSize,
 										(double)sample.mPts,
 										(double)sample.mDts,
 										(double)sample.mDuration,
@@ -1202,7 +1236,6 @@ void PlaybackCommand::parse( const char *path )
 							}
 						}
 					}
-					free( ptr );
 				}
 			}
 			fclose( f );

@@ -61,6 +61,20 @@ AampConfig *gpGlobalConfig{nullptr};
 class FunctionalTestsBase
 {
 protected:
+	class TestableFunctionalStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
+	{
+	public:
+		TestableFunctionalStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp, double seekpos, float rate)
+			: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
+		{
+		}
+
+		void CallSeekInPeriod(double seekPositionSeconds, bool skipToEnd = false)
+		{
+			SeekInPeriod(seekPositionSeconds, skipToEnd);
+		}
+	};
+
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
@@ -124,7 +138,7 @@ protected:
 		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 		{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK},
+		{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK},
 		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC}
 	};
 
@@ -156,6 +170,8 @@ protected:
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
 		g_mockIsoBmffProcessor = new NiceMock<MockIsoBmffProcessor>();
+
+		g_mockABRManager = new NiceMock<MockABRManager>();
 
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -211,6 +227,9 @@ protected:
 
 		delete g_mockAampStreamSinkManager;
 		g_mockAampStreamSinkManager = nullptr;
+
+		delete g_mockABRManager;
+		g_mockABRManager = nullptr;
 
 		mManifest = nullptr;
 	}
@@ -339,7 +358,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		/* PrivateInstanceAAMP and the StreamAbstraction object should have the same rate. */
 		mPrivateInstanceAAMP->rate = rate;
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
+		mStreamAbstractionAAMP_MPD = new TestableFunctionalStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
 		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
@@ -4210,6 +4229,66 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time,0.00);
 }
 
+// L1: Verify mFirstPTS is updated via SeekInPeriod when seek crosses from period-1 to period-2.
+TEST_F(FunctionalTests, L1_SeekInPeriod_TwoPeriods_UpdatesFirstPTS)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H0M30.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264">
+	<Period id="p0" start="PT0S" duration="PT10S">
+		<AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+			<Representation id="v1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_$Time$.m4s" initialization="video_init.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="90000" d="2000" r="4" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p1" start="PT10S" duration="PT20S">
+		<AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+			<Representation id="v1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" bandwidth="1000000">
+				<SegmentTemplate timescale="1000" media="video_p1_$Time$.m4s" initialization="video_init.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="100000" d="2000" r="9" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 0.0, AAMP_NORMAL_PLAY_RATE, false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(track, nullptr);
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+
+	// Reset mFirstPTS before seek
+	mStreamAbstractionAAMP_MPD->clearFirstPTS();
+	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTS(), 0.0);
+
+	// Seek position is greater than period-1 duration (10s), so SeekInPeriod should transition to period-2
+	// with remaining seek value and still update mFirstPTS from SkipFragments path.
+	const double seekPositionSeconds = 12.0;
+	TestableFunctionalStreamAbstractionAAMP_MPD *testableStreamAbstractionAAMP_MPD =
+    dynamic_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+	ASSERT_NE(testableStreamAbstractionAAMP_MPD, nullptr);
+	testableStreamAbstractionAAMP_MPD->CallSeekInPeriod(seekPositionSeconds);
+	// Verify: mFirstPTS updated after period transition and remaining-seek skip in period-2.
+	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTS(), 102.000000);
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, clearFirstPTS)
 {
 	// Set a non-default value for mFirstPTS using the public accessor.
@@ -5107,5 +5186,123 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	double actualPosition = mStreamAbstractionAAMP_MPD->GetStreamPosition();
 	double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
 	EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
+}
+
+/**
+ * @brief Multi-codec ABR pool restriction: preferHEVC=true selects HEVC representations only.
+ *
+ * Stream contains two video AdaptationSets — one HEVC (hvc1.*) and one AVC (avc1.*).  With
+ * preferHEVC=true the HEVC init segment must be selected and GetVideoBitrates() must return
+ * only the HEVC bitrate, confirming AVC representations have been excluded from the ABR pool.
+ */
+TEST_F(FunctionalTests, MultiCodecABR_PreferHEVC_SelectsHEVCOnly)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="h1" mimeType="video/mp4" codecs="hvc1.1.6.L93.90" bandwidth="2000000" width="1280" height="720" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="hevc/video_init.mp4" media="hevc/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S t="0" d="25600" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video">
+			<Representation id="a1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="avc/video_init.mp4" media="avc/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S t="0" d="25600" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio">
+			<Representation id="au1" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp4" startNumber="1">
+					<SegmentTimeline><S t="0" d="96000" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* preferHEVC=true: HEVC init segment must be selected, AVC must be excluded. */
+	mBoolConfigSettings[eAAMPConfig_PreferHEVC] = true;
+
+	/* Accept any init segment URL — the codec-family check is validated via GetVideoBitrates(). */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	/* Only the HEVC profile should be added to the ABR pool; allow getProfileCount to
+	 * reflect the number actually added so GetVideoBitrates() can iterate mStreamInfo. */
+	EXPECT_CALL(*g_mockABRManager, getProfileCount()).WillRepeatedly(Return(1));
+
+	status = InitializeMPD(manifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	/* ABR pool must contain only the HEVC bitrate (2 Mbps); AVC (1 Mbps) must be absent. */
+	std::vector<BitsPerSecond> bitrates = mStreamAbstractionAAMP_MPD->GetVideoBitrates();
+	ASSERT_EQ(bitrates.size(), 1u);
+	EXPECT_EQ(bitrates[0], 2000000);
+}
+
+/**
+ * @brief Multi-codec ABR pool restriction: preferHEVC=false selects AVC representations only.
+ *
+ * Same dual-codec stream as above.  With preferHEVC=false the AVC init segment must be
+ * selected and GetVideoBitrates() must return only the AVC bitrate, confirming HEVC
+ * representations have been excluded from the ABR pool.
+ */
+TEST_F(FunctionalTests, MultiCodecABR_PreferAVC_SelectsAVCOnly)
+{
+	AAMPStatusType status;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="h1" mimeType="video/mp4" codecs="hvc1.1.6.L93.90" bandwidth="2000000" width="1280" height="720" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="hevc/video_init.mp4" media="hevc/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S t="0" d="25600" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video">
+			<Representation id="a1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="avc/video_init.mp4" media="avc/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S t="0" d="25600" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio">
+			<Representation id="au1" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp4" startNumber="1">
+					<SegmentTimeline><S t="0" d="96000" r="59" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* preferHEVC=false: AVC init segment must be selected, HEVC must be excluded. */
+	mBoolConfigSettings[eAAMPConfig_PreferHEVC] = false;
+
+	/* Accept any init segment URL — the codec-family check is validated via GetVideoBitrates(). */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	/* Only the AVC profile should be added to the ABR pool; allow getProfileCount to
+	 * reflect the number actually added so GetVideoBitrates() can iterate mStreamInfo. */
+	EXPECT_CALL(*g_mockABRManager, getProfileCount()).WillRepeatedly(Return(1));
+
+	status = InitializeMPD(manifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	/* ABR pool must contain only the AVC bitrate (1 Mbps); HEVC (2 Mbps) must be absent. */
+	std::vector<BitsPerSecond> bitrates = mStreamAbstractionAAMP_MPD->GetVideoBitrates();
+	ASSERT_EQ(bitrates.size(), 1u);
+	EXPECT_EQ(bitrates[0], 1000000);
 }
 

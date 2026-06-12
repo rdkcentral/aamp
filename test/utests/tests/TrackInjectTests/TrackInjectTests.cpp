@@ -111,35 +111,19 @@ public:
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
-	void fillCachedFragment(bool isInit, bool isDisc, bool isLLD)
+	void fillCachedFragment(bool isInit, bool isDisc)
 	{
 		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
-		int fragmentIdxToFetch = 0;
-		// int fragmentIdxToFetch = 0;
-		CachedFragment *cachFragment = nullptr;
-		if (isLLD)
-		{
-			cachFragment = &this->mCachedFragmentChunks[fragmentIdxToFetch];
-		}
-		else
-		{
-			// cachFragment = GetFetchBuffer(true);
-			this->mCachedFragment = new CachedFragment[3];
-			cachFragment = &this->mCachedFragment[fragmentIdxToFetch];
-		}
+		// DASH now routes all fragments through the chunk cache (see
+		// MediaStreamContext::CacheStagingFragmentForInjection); the old per-fragment
+		// ring-buffer path is no longer populated here.
+		CachedFragment *cachFragment = &this->mCachedFragment[0];
 		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
 		cachFragment->fragment.assign(data, data + sizeof(data));
-		if (isLLD)
-		{
-			UpdateTSAfterChunkFetch();
-		}
-		else
-		{
-			UpdateTSAfterFetch(false);
-		}
+		UpdateTSAfterFetch();
 	}
 };
 
@@ -205,7 +189,7 @@ public:
 			{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 			{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
-			{eAAMPConfig_MaxFragmentChunkCached, 20},
+			{eAAMPConfig_MaxLLDFragmentCached, 20},
 			{eAAMPConfig_DiscontinuityTimeout, 1}};
 
 	IntConfigSettings mIntConfigSettings;
@@ -288,7 +272,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(false, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
@@ -314,7 +298,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(true, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(true, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
@@ -340,7 +324,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(false, false);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
@@ -379,7 +363,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(true, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(true, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))

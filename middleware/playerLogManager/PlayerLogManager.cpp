@@ -157,6 +157,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char
 					    ethanLogLevel = ETHAN_LOG_MILESTONE;
 					    break;
 			    }
+			    format_ptr[format_bytes-1] = 0x00; // strip explicit newline, since Ethan logger will add one and we don't want it doubled
 			    vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
 		    }
 		    else

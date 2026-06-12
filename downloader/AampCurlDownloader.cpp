@@ -25,8 +25,10 @@
 #include "AampCurlDownloader.h"
 #include "AampUtils.h"
 #include <vector>
+#include <unistd.h>
 #include "AampLogManager.h"
 #include "AampDefine.h"
+#include "AampNetworkPersona.h"
 
 void _downloadConfig::show()
 {
@@ -176,17 +178,149 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				mDownloadResponse->sEffectiveUrl = urlStr;
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
+			// ── Network persona: load once before first download ────────────────
+			// Manifest downloads always precede segment downloads, so loading here
+			// ensures the persona is active for every subsequent GetFile call.
+			// LoadFromFile is internally double-check guarded so this is safe to
+			// call on every manifest refresh; the file is only parsed once.
+			if (mDnldCfg && !mDnldCfg->networkPersonaFile.empty())
+				AampNetworkPersona::Instance().LoadFromFile(mDnldCfg->networkPersonaFile);
+
 			bool loopAgain = false;
 			// High-resolution start time captured before any retry so that total in
 			// downloadCompleteMetrics reflects the full wall-clock span including retries.
 			auto loopStartTimeHR = std::chrono::steady_clock::now();
+			double ttfbSleptMs = 0.0; // TTFB slept on the last attempt; used to synthesize startTransfer
 			do{
-				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+				// Single lock-free atomic load for the entire iteration.
+				// In production (no persona loaded) this is the only overhead: one
+				// acquire-load (~1 ns) with no mutex, no clock call, nothing else.
+				const bool personaActive = AampNetworkPersona::Instance().IsLoaded();
+				AAMPLOG_WARN("AampCurlDownloader::Download personaActive=%d url=%s", personaActive ? 1 : 0, urlStr.c_str());
+
+				// Wall-clock start captured only when throttling is active, so
+				// production builds pay zero cost for the timeout-budget tracking.
+				const long long loopIterStartMs = personaActive ? NOW_STEADY_TS_MS : 0LL;
+
 				if( mDnldCfg && mDnldCfg->bCurlThroughput )
 				{
 					AAMPLOG_MIL( "curl-begin type=%d", eMEDIATYPE_MANIFEST);
 				}
-				httpRetVal = curl_easy_perform(mCurl);
+
+				// ── Network persona: TTFB sleep (test only) ─────────────────────
+				// Sleep before curl_easy_perform to simulate time-to-first-byte.
+				// The sleep is chunked into 50 ms slices so that Release() or a
+				// track-abort can interrupt it without waiting for the full TTFB delay.
+				// ttfbAborted is a separate flag so that httpRetVal (which may be
+				// non-zero on a retry iteration) does not incorrectly gate the sleep
+				// or the subsequent curl_easy_perform call.
+				bool ttfbAborted = false;
+				ttfbSleptMs = 0.0; // reset per iteration — will hold last attempt's value after the loop
+				if (personaActive)
+				{
+					double ttfbRemMs = AampNetworkPersona::Instance().SampleTtfbMs();
+					constexpr double kTtfbChunkMs = 50.0;
+					while (ttfbRemMs >= 1.0 && !ttfbAborted)
+					{
+						const double sleepMs = std::min(ttfbRemMs, kTtfbChunkMs);
+						usleep(static_cast<useconds_t>(sleepMs * 1000.0));
+						ttfbRemMs -= sleepMs;
+						ttfbSleptMs += sleepMs;
+						std::lock_guard<std::mutex> lk(mCurlMutex);
+						if (!mDownloadActive)
+							ttfbAborted = true;
+					}
+				}
+
+				// Reset download-progress timers AFTER the TTFB sleep so that
+				// progress-callback timeout checks (iStartTimeout, iStallTimeout,
+				// iLowBWTimeout) measure actual curl transfer time, not wall-clock
+				// time that includes the simulated TTFB delay.
+				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+
+				if (ttfbAborted)
+					httpRetVal = CURLE_ABORTED_BY_CALLBACK;
+				else
+					httpRetVal = curl_easy_perform(mCurl);
+
+				// ── Network persona: idle sleep to reach predicted transfer time ─
+				// Pads remaining wall-clock time so that total elapsed
+				// (TTFB + curl + idle) matches the persona's predicted transfer
+				// duration.  This makes AAMP's ABR bandwidth estimator see
+				// realistic throughput without requiring an actual slow network.
+				//
+				// Two safety constraints are enforced:
+				//   1. The idle sleep is capped by the configured download-timeout
+				//      budget (measured from loopIterStartMs so TTFB counts against
+				//      it).  If the persona predicts a longer download than the
+				//      timeout allows, CURLE_OPERATION_TIMEDOUT is returned so
+				//      AAMP's bail/retry logic fires exactly as on a real network.
+				//   2. The sleep is chunked into 50 ms slices and mDownloadActive
+				//      is checked between each slice, so Release() or a track-abort
+				//      can interrupt the sleep immediately rather than blocking for
+				//      the full idle duration.
+				if (personaActive && httpRetVal == CURLE_OK)
+				{
+					const long long tActualCurlMs = NOW_STEADY_TS_MS - mDownloadStartTime;
+					const double predictedTransferMs =
+						AampNetworkPersona::Instance().SampleTransferMs(
+							mDownloadResponse ? mDownloadResponse->mDownloadData.size() : 0);
+					double idleMs = predictedTransferMs - static_cast<double>(tActualCurlMs);
+					AAMPLOG_WARN("AampCurlDownloader: persona idle: predicted=%.0fms actualCurl=%lldms idle=%.0fms timeout_budget=%lldms",
+							 predictedTransferMs, tActualCurlMs, idleMs,
+							 (mDnldCfg && mDnldCfg->iDownloadTimeout > 0) ? static_cast<long long>(mDnldCfg->iDownloadTimeout) * 1000LL - (NOW_STEADY_TS_MS - loopIterStartMs) : -1LL);
+
+					// Cap idle to the remaining download-timeout budget.
+					if (mDnldCfg && mDnldCfg->iDownloadTimeout > 0)
+					{
+						const long long totalElapsedMs    = NOW_STEADY_TS_MS - loopIterStartMs;
+						const long long budgetRemainingMs = static_cast<long long>(mDnldCfg->iDownloadTimeout) * 1000LL - totalElapsedMs;
+						if (budgetRemainingMs <= 0)
+						{
+							// Already over budget — simulate download timeout.
+							AAMPLOG_WARN("AampCurlDownloader: persona idle BUDGET EXCEEDED before sleep — simulating timeout (iDownloadTimeout=%u elapsed=%lldms)",
+									mDnldCfg->iDownloadTimeout, totalElapsedMs);
+							httpRetVal = CURLE_OPERATION_TIMEDOUT;
+							idleMs = 0.0;
+						}
+						else
+						{
+							idleMs = std::min(idleMs, static_cast<double>(budgetRemainingMs));
+						}
+					}
+
+					// Chunked idle sleep with abort and timeout checks.
+					constexpr double kIdleChunkMs = 50.0;
+					while (idleMs >= 1.0 && httpRetVal == CURLE_OK)
+					{
+						const double sleepMs = std::min(idleMs, kIdleChunkMs);
+						usleep(static_cast<useconds_t>(sleepMs * 1000.0));
+						idleMs -= sleepMs;
+
+						// Abort if download was cancelled externally (e.g. Release() called).
+						{
+							std::lock_guard<std::mutex> lk(mCurlMutex);
+							if (!mDownloadActive)
+							{
+								httpRetVal = CURLE_ABORTED_BY_CALLBACK;
+								break;
+							}
+						}
+
+						// Abort if the download-timeout budget has been exhausted.
+						if (mDnldCfg && mDnldCfg->iDownloadTimeout > 0)
+						{
+							const long long totalElapsedMs = NOW_STEADY_TS_MS - loopIterStartMs;
+							if (totalElapsedMs >= static_cast<long long>(mDnldCfg->iDownloadTimeout) * 1000LL)
+							{
+								AAMPLOG_WARN("AampCurlDownloader: persona idle TIMEOUT during sleep — totalElapsed=%lldms budget=%lldms",
+										 totalElapsedMs, static_cast<long long>(mDnldCfg->iDownloadTimeout) * 1000LL);
+								httpRetVal = CURLE_OPERATION_TIMEDOUT;
+								break;
+							}
+						}
+					}
+				}
 				loopAgain = false;
 				numDownloadAttempts++;
 				if(httpRetVal == CURLE_OK)
@@ -236,8 +370,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
 					{ //Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) )
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR)
 						{
+							AAMPLOG_WARN("Download failed due to curl error %d numDownloadAttempts %d numRetriesAllowed %d",httpRetVal,numDownloadAttempts,numRetriesAllowed);
 							loopAgain = true;
 						}
 					}
@@ -271,6 +406,12 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					std::chrono::steady_clock::now() - loopStartTimeHR).count();
 				// Always override total: CURLINFO_TOTAL_TIME only covers the last attempt.
 				mDownloadResponse->downloadCompleteMetrics.total = cumulativeTotal;
+				// Synthesize startTransfer to include persona TTFB so HttpRequestEnd
+				// is indistinguishable from a real impaired-network session.
+				if (AampNetworkPersona::Instance().IsLoaded() && httpRetVal == CURLE_OK)
+				{
+					mDownloadResponse->downloadCompleteMetrics.startTransfer += ttfbSleptMs / 1000.0;
+				}
 				if (cumulativeTotal > 0)
 				{
 					mDownloadResponse->downloadCompleteMetrics.downloadbps =
