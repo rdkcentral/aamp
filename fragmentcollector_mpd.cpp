@@ -8859,13 +8859,38 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 		bool temp = false;
 		try
 		{
-			DownloadInfoPtr info = std::make_shared<DownloadInfo>();
-			info->absolutePosition = 0;
-			info->ptsOffset = 0;
-			info->isInitSegment = true;
-			info->mediaType = (AampMediaType)trackIdx;
-			mMediaStreamContext[trackIdx]->mActiveDownloadInfo = std::move(info);
-			temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0);
+			DownloadInfoPtr downloadInfo = std::make_shared<DownloadInfo>();
+			downloadInfo->absolutePosition = 0;
+			downloadInfo->isInitSegment = true;
+			downloadInfo->ptsOffset = 0;
+			/* Stamp the download descriptor with the originating track type so that
+			 * downstream consumers (DRM context, segment parser) can associate the
+			 * fetched buffer with the correct media type.
+			 * When UseMp4Demux is active the encrypted init segment must be fetched
+			 * through DownloadFragment rather than CacheFragment: DownloadFragment
+			 * owns its own curl connection slot (identified by curlInstance, which is
+			 * offset from eCURLINSTANCE_VIDEO by the track's media-type ordinal so
+			 * each track uses a dedicated slot), and it delivers the raw MP4 init box
+			 * directly to the demuxer.  OnFragmentDownloadComplete is then called to
+			 * drive any post-download bookkeeping (profile/discontinuity reset, etc.).
+			 * Without UseMp4Demux the legacy CacheFragment path is taken instead. */
+			downloadInfo->mediaType = static_cast<AampMediaType>(trackIdx);
+			if(ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+			{
+				if (!mMediaStreamContext[trackIdx]->discontinuity)
+				{
+					mMediaStreamContext[trackIdx]->profileChanged = true;
+				}
+				downloadInfo->curlInstance = static_cast<AampCurlInstance>(eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType);
+				downloadInfo->uriList[0] = URIInfo(headerUrl);
+				temp = mMediaStreamContext[trackIdx]->DownloadFragment(downloadInfo);
+				this->OnFragmentDownloadComplete(temp, downloadInfo);
+			}
+			else
+			{
+				mMediaStreamContext[trackIdx]->mActiveDownloadInfo = std::move(downloadInfo);
+				temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0);
+			}
 		}
 		catch(const std::regex_error& e)
 		{
