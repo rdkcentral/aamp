@@ -19,7 +19,6 @@
 
 #include "WebVttSubtecParser.hpp"
 #include "TextStyleAttributes.h"
-#include <cmath>
 
 WebVTTSubtecParser::WebVTTSubtecParser(SubtitleMimeType type, int width, int height) : SubtitleParser(type, width, height), m_channel(nullptr)
 {
@@ -71,18 +70,9 @@ bool WebVTTSubtecParser::processData(const char* buffer, size_t bufferLen, doubl
 	std::string str(const_cast<const char*>(buffer), bufferLen);
 	std::vector<uint8_t> data(str.begin(), str.end());
 
-	m_channel->SendDataPacket(std::move(data), time_offset_ms_);
+	m_channel->SendDataPacket(std::move(data), 0);
 
 	return true;
-}
-
-void WebVTTSubtecParser::setPtsOffset(double ptsOffsetSec)
-{
-	// Subtec's display_time = media_PTS - time_offset_ms (subtraction
-	// convention shared with Rialto SetSubtitlePtsOffset). The HLS
-	// restamped video PTS is media_PTS + ptsOffsetSec, so we negate
-	// here to make subtec add the offset on the subtitle path.
-	time_offset_ms_ = -static_cast<std::int64_t>(std::llround(ptsOffsetSec * 1000.0));
 }
 
 void WebVTTSubtecParser::mute(bool mute)

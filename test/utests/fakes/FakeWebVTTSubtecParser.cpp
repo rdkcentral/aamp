@@ -51,7 +51,3 @@ void WebVTTSubtecParser::pause(bool pause)
 void WebVTTSubtecParser::setTextStyle(const std::string &options)
 {
 }
-
-void WebVTTSubtecParser::setPtsOffset(double ptsOffsetSec)
-{
-}

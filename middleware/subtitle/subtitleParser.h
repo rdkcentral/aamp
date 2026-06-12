@@ -93,15 +93,6 @@ public:
 	virtual void mute(bool mute) {}
 	virtual void isLinear(bool isLinear) {}
 	virtual void setTextStyle(const std::string &options){}
-	/**
-	 * @brief Set a per-fragment PTS offset (seconds) that the parser
-	 *        applies when forwarding cue data to its subtitle sink.
-	 *
-	 * Used by the HLS PTS-restamp path to align subtitle display time
-	 * with the restamped video PTS without rewriting MPEGTS in the
-	 * VTT header. Default no-op; subtec-based parsers override.
-	 */
-	virtual void setPtsOffset(double ptsOffsetSec) {}
 	void RegisterCallback(const PlayerCallbacks& playerCallBack)
 	{
 		playerResumeTrackDownloads_CB = playerCallBack.resumeTrackDownloads_CB;

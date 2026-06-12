@@ -65,12 +65,12 @@ class PrivateInstanceAAMP;
 class Demuxer
 {
 private:
-	double ptsOffset = 0.0;
-	PrivateInstanceAAMP *aamp = nullptr;
-	int pes_state = 0;
-	int pes_header_ext_len = 0;
-	int pes_header_ext_read = 0;
-	std::vector<uint8_t> pes_header{};
+	double ptsOffset;
+	PrivateInstanceAAMP *aamp;
+	int pes_state;
+	int pes_header_ext_len;
+	int pes_header_ext_read;
+	std::vector<uint8_t> pes_header;
 	
 	/* All public methods should be locked using this mutex as
 	 * member data is highly coupled (especially in processdata()).
@@ -78,26 +78,21 @@ private:
 	 * Testing shows that 4 threads can access one instance of this class.
 	 * setBasePTS(), getBasePTS() & HasCachedData() methods imply
 	 * that there are pre-existing interface races that this change does not address*/
-	std::mutex mMutex{};
-	std::vector<uint8_t> es{};
-	double position = 0.0;
-	double duration = 0.0;
-	uint33_t base_pts{};
-	bool rollover_pts = false;
-	uint33_t current_pts{};
-	uint33_t current_dts{};
-	uint33_t first_pts{};
-	bool update_first_pts = false;
-	AampMediaType type = eMEDIATYPE_DEFAULT;
-	bool trickmode = false;
-	bool finalized_base_pts = false;
-	bool allowPtsRewind = false;
-	bool reached_steady_state = false;
-	/* When true, skip the next rollover detection (used after discontinuity/ptsOffset changes)
-	 * to avoid false-positive rollover detection caused by the large PTS jump across encoder epochs.
-	 */
-	bool suppress_rollover_detection = false;
-
+	std::mutex mMutex;
+	std::vector<uint8_t> es;
+	double position;
+	double duration;
+	uint33_t base_pts;
+	bool rollover_pts;
+	uint33_t current_pts;
+	uint33_t current_dts;
+	uint33_t first_pts;
+	bool update_first_pts;
+	AampMediaType type;
+	bool trickmode;
+	bool finalized_base_pts;
+	bool allowPtsRewind;
+	bool reached_steady_state;
 
 	/**
 	 * Checks whether the steady state has been reached
@@ -130,17 +125,7 @@ private:
 public:
 	void setPtsOffset( double offs )
 	{ // used to optimize hls/ts discontinuity handling
-		std::lock_guard<std::mutex> lock{mMutex};
 		ptsOffset = offs;
-		// A new encoder epoch begins at each discontinuity. Clear any
-		// stale rollover flag from the previous period so that the first
-		// frames of the incoming segment (which may start near PTS 0)
-		// are not incorrectly bumped by one full 33-bit cycle.
-		rollover_pts = false;
-		// Suppress rollover detection for the next PTS update to avoid
-		// falsely detecting a 33-bit wrap when there is a large PTS jump
-		// caused by the discontinuity / restamp boundary.
-		suppress_rollover_detection = true;
 	}
 	
 	/**
@@ -149,7 +134,11 @@ public:
 	 * @param[in] type Media type to be demuxed
 	 */
 	Demuxer(class PrivateInstanceAAMP *aamp, AampMediaType type, bool optimizeMuxed )
-	 : aamp(aamp), type(type)
+	 : aamp(aamp), pes_state(0),
+		pes_header_ext_len(0), pes_header_ext_read(0), pes_header(), mMutex(),
+		es(), position(0), duration(0), base_pts{0}, rollover_pts(false), current_pts{0},
+		current_dts{0}, type(type), trickmode(false), finalized_base_pts(false),
+		allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false), ptsOffset(0.0)
 	{
 		//mutex in init
 		init(0, 0, false, true, optimizeMuxed );

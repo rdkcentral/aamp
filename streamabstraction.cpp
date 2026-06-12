@@ -51,9 +51,6 @@
 #include <inttypes.h>
 #include <math.h>
 #include <iterator>
-#include <charconv>
-#include <optional>
-#include <string_view>
 #include <sys/time.h>
 #include <cmath>
 #include "AampTSBSessionManager.h"
@@ -1236,6 +1233,81 @@ static bool isWebVttSegment( const char *buffer, size_t bufferLen )
 	return bufferLen>=6 && memcmp(buffer,"WEBVTT",6)==0;
 }
 
+std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset_s )
+{
+	long long pts_offset_ms = pts_offset_s*1000;
+	std::string str;
+	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && isWebVttSegment(buffer,bufferLen) )
+	{
+		const char *fin = &buffer[bufferLen];
+		const char *prev = buffer;
+		bool processedHeader = false;
+		while( prev<fin )
+		{
+			const char *line_start = mystrstr( prev, fin, "\n\n" );
+			if( line_start )
+			{
+				if( !processedHeader )
+				{
+					const char *localTimePtr = mystrstr(prev,line_start,"LOCAL:");
+					long long localTimeMs = localTimePtr?convertHHMMSSToTime(localTimePtr+6):0;
+					const char *mpegtsPtr = mystrstr(prev,line_start,"MPEGTS:");
+					long long mpegts = mpegtsPtr?atoll(mpegtsPtr+7):0;
+					pts_offset_ms -= localTimeMs;
+					if( localTimeMs != currentLocalTimeMs  )
+					{
+						if( gotLocalTime )
+						{
+							AAMPLOG_MIL( "webvtt pts rollover" );
+							ptsRollover = true;
+						}
+						currentLocalTimeMs = localTimeMs;
+						gotLocalTime = true;
+					}
+					line_start += 2; // advance past \n\n
+					str += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:";
+					str += std::to_string(mpegts);
+					str += "\n\n";
+					processedHeader = true;
+					if( ptsRollover )
+					{ // adjust by max pts ms
+						pts_offset_ms += 95443717; // 0x1ffffffff/90
+					}
+				}
+				else
+				{
+					line_start += 2; // advance past \n\n
+					str += std::string(prev,line_start-prev);
+				}
+				prev = line_start;
+				const char *line_end = mystrstr(line_start, fin, "\n" );
+				if( line_end )
+				{
+					const char *line_delim = mystrstr( line_start, line_end, " --> " );
+					if( line_delim )
+					{ // apply pts offset by rewriting inline begin/end times
+						prev = line_end;
+						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_start) + pts_offset_ms );
+						str +=  " --> ";
+						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_delim+5) + pts_offset_ms );
+					}
+				}
+			}
+			else
+			{ // trailing
+				str += std::string(prev,fin-prev);
+				prev = fin;
+			}
+		}
+	}
+	else
+	{
+		str = std::string(buffer,bufferLen);
+	}
+	printf( "***restamped caption: %s\n", str.c_str() );
+	return str;
+}
+
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
 {
 	(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment->fragment);
@@ -1314,26 +1386,22 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				{
 					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 					{
-						AAMPLOG_WARN( "blocking subtitle track injection waiting for pts_offset[%" PRIu64 "]", cachedFragment->discontinuityIndex );
+						AAMPLOG_WARN( "blocking subtitle track injection\n" );
 						pContext->aamp->interruptibleMsSleep(1000);
 					}
 					else
 					{
-						// Video and subtitle segments from the same discontinuity share the same
-						// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
-						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
+						auto firstElement = *pContext->mPtsOffsetMap.begin();
+						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex] - firstElement.second;
+						std::string str = RestampSubtitle(
+														  ptr,len,
+														  cachedFragment->position,
+														  cachedFragment->duration,
+														  cachedFragment->PTSOffsetSec );
+						cachedFragment->fragment.assign(str.begin(), str.end());
 						if(mSubtitleParser)
 						{
-							// DASH-style PTS-offset propagation: rather than rewriting MPEGTS in
-							// the VTT header (RestampSubtitle), push the per-fragment pts offset
-							// down into the subtec parser and forward the buffer unchanged. The
-							// subtec channel applies the offset to media_PTS so cue display time
-							// aligns with the restamped video PTS.
-											const std::string_view vttView{ptr, len};
-											const bool mpegtsIsZero = (vttView.find("MPEGTS:0") != std::string_view::npos);
-											mSubtitleParser->setPtsOffset(mpegtsIsZero ? 0.0 : cachedFragment->PTSOffsetSec);
-											mSubtitleParser->processData(
-												ptr, len, cachedFragment->position, cachedFragment->duration);
+							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
 						}
 						break;
 					}
@@ -1898,7 +1966,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
-		,m_totalDurationForPtsRestamping(0.0)
+		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	const int sldCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 
