@@ -675,6 +675,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_TUNE_TIME_METRICS:
 		{
 			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS received\n");
 			// below is redundant with IP_AAMP_TUNETIME logging done in core aamp
 			//AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
 			break;

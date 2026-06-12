@@ -2429,9 +2429,9 @@ public:
 	/**
 	 * @fn TuneTimeMetricsEvent
 	 *
-	 * @param[in] profilingData - tune profiling data
+	 * @param[in] tuneMetricData - tune profiling data
 	 */
-	TuneTimeMetricsEvent(const std::string &profilingData, std::string sid);
+	TuneTimeMetricsEvent(std::string &&tuneMetricData, std::string sid);
 
 	/**
 	 * @brief TuneTimeMetricsEvent Destructor
