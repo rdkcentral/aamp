@@ -127,7 +127,8 @@ AampRialtoSubtitleSource::createRialtoSource(
 {
 	// For inband CC sources supply the default text-track identifier so the
 	// Rialto server starts rendering CC1 immediately.
-	const std::string textTrackId = isInbandCC() ? "CC1" : "";
+	const std::string textTrackId = "CC1";
+	//const std::string textTrackId = isInbandCC() ? "CC1" : "";//anj
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSourceSubtitle>(
 		mimeType, textTrackId);
