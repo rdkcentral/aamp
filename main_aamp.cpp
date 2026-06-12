@@ -295,7 +295,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPPlayerState state = aamp->GetState();
-
+		
 		// 1. Ensure scheduler is suspended and all tasks if any to be cleaned
 		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
 		// 3. Restart the scheduler , needed if same instance is used for tune again

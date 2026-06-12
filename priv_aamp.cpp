@@ -1300,6 +1300,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsFlushOperationInProgress(false)
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
+	, wifiLoggingId(0)
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -1387,6 +1388,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 	StopPausePositionMonitoring("AAMP destroyed");
+	g_source_remove(wifiLoggingId);
+	wifiLoggingId = 0;
+	
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
 	{
@@ -5819,7 +5823,6 @@ void PrivateInstanceAAMP::ReloadTSB()
 
 
 static time_t g_wifiStartTime = 0;
-guint wifiLoggingId = 0;
 
 static gboolean WifiLoggingTimerCallback(gpointer user_data)
 {
@@ -7758,6 +7761,9 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
+	
+	g_source_remove(wifiLoggingId);
+	wifiLoggingId = 0;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	// Set state to STOPPING irrespective of sending state change event or not

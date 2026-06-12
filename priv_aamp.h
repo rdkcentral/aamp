@@ -676,6 +676,7 @@ public:
 				);
 
 	void startWifiLogging();
+	guint wifiLoggingId;
 
 	/**
 	 * @brief API Used to reload TSB with new session
