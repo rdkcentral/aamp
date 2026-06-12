@@ -126,7 +126,7 @@ firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPen
 using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
-lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
+seekPausedState(false), lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
 numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL),
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
@@ -479,18 +479,16 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = true;
 		interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 
-		// buffering_timeout will handle the PLAYING transition, so seekPausedState must not block it.
-	    if (interfacePlayerPriv->gstPrivateContext->seekPausedState)
-	    {
-			MW_LOG_WARN("ConfigurePipeline: clearing seekPausedState — buffering will drive PLAYING transition");
-	        interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
-	    }
+
 		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_PAUSED failed");
 		}
 		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
-		interfacePlayerPriv->gstPrivateContext->paused = false;
+		if (!interfacePlayerPriv->gstPrivateContext->seekPausedState)
+		{
+    		interfacePlayerPriv->gstPrivateContext->paused = false;
+		}
 	}
 	else
 	{
@@ -1614,10 +1612,11 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		// Reset buffering state to prevent stale timeout_cnt from triggering error after seek
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;
 		interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
-	
+
+
 	}
-	// If rate indicates playback (not paused seek), clear seekPausedState
-	if (rate > 0 && !interfacePlayerPriv->gstPrivateContext->paused)
+	// If pipeline is not paused (normal playback seek), clear seekPausedState
+	if (!interfacePlayerPriv->gstPrivateContext->paused)
 	{
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 		MW_LOG_MIL("InterfacePlayerRDK: rate indicates playback, clearing seekPausedState");
@@ -4804,13 +4803,9 @@ static gboolean buffering_timeout (gpointer data)
 				 * but BEFORE the Pause(1) from keepPaused logic arrives — causing a race. */
 				if (privatePlayer->gstPrivateContext->seekPausedState)
 				{
-					MW_LOG_WARN("buffering_timeout: skipping PLAYING — seekPausedState active (cnt %u, frames %d)", privatePlayer->gstPrivateContext->buffering_timeout_cnt, frames);
-					if (privatePlayer->gstPrivateContext->buffering_timeout_cnt == 0)
-					{
-						MW_LOG_ERR("buffering_timeout: seekPausedState still active after timeout exhausted — clearing to unblock");
-						privatePlayer->gstPrivateContext->seekPausedState = false;
-					}
-					return privatePlayer->gstPrivateContext->buffering_in_progress;
+					MW_LOG_WARN("buffering_timeout: skipping PLAYING — seekPausedState active");
+					privatePlayer->gstPrivateContext->buffering_in_progress = false;
+					return false;  //stop the timer
 				}
 
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
