@@ -555,13 +555,15 @@ static MediaStreamContext* MakeContext(
 }
 
 /**
- * @brief When UseMp4Demux is enabled, DownloadFragment must be called
- *        with isInitSegment = true.
+ * @brief When UseMp4Demux is enabled, DownloadFragment must be called with the
+ *        correct headerUrl (1st arg) and isInitSegment=true (6th arg), and
+ *        mActiveDownloadInfo must be cleared after the call returns.
  */
 TEST_F(StreamAbstractionAAMP_MPD_Test,
-	CacheEncryptedHeader_Mp4DemuxEnabled_DownloadFragmentCalledWithInitSegmentTrue)
+	CacheEncryptedHeader_Mp4DemuxEnabled)
 {
 	const int trackIdx = eMEDIATYPE_VIDEO;
+	const std::string headerUrl = "http://cdn/header.mp4";
 	MediaStreamContext* ctx = MakeContext(trackIdx, mPrivateInstanceAAMP);
 	mMpdStream->SetMediaStreamContext(trackIdx, ctx);
 
@@ -569,54 +571,14 @@ TEST_F(StreamAbstractionAAMP_MPD_Test,
 		.WillRepeatedly(Return(true));
 
 	// DownloadFragment fakes through to g_mockMediaStreamContext->CacheFragment.
-	// Verify initSegment argument (6th param) is true.
+	// Verify the correct URL is forwarded (1st arg) and isInitSegment=true (6th arg).
 	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragment(_, _, _, _, _, /*initSegment=*/true, _, _, _))
-		.WillOnce(Return(true));
-
-	mMpdStream->TestCacheEncryptedHeader(trackIdx, "http://cdn/header.mp4");
-}
-
-/**
- * @brief When UseMp4Demux is enabled, the headerUrl must reach DownloadFragment
- *        as the fragment URL.
- */
-TEST_F(StreamAbstractionAAMP_MPD_Test,
-	CacheEncryptedHeader_Mp4DemuxEnabled_CorrectUrlPropagated)
-{
-	const int trackIdx = eMEDIATYPE_VIDEO;
-	const std::string headerUrl = "http://cdn/encrypted-init.mp4";
-	MediaStreamContext* ctx = MakeContext(trackIdx, mPrivateInstanceAAMP);
-	mMpdStream->SetMediaStreamContext(trackIdx, ctx);
-
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
-		.WillRepeatedly(Return(true));
-
-	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragment(headerUrl, _, _, _, _, _, _, _, _))
+		CacheFragment(headerUrl, _, _, _, _, /*initSegment=*/true, _, _, _))
 		.WillOnce(Return(true));
 
 	mMpdStream->TestCacheEncryptedHeader(trackIdx, headerUrl);
-}
 
-/**
- * @brief When UseMp4Demux is enabled and download succeeds, mActiveDownloadInfo
- *        must be reset to nullptr after CacheEncryptedHeader returns.
- */
-TEST_F(StreamAbstractionAAMP_MPD_Test,
-	CacheEncryptedHeader_Mp4DemuxEnabled_AfterSuccess_ActiveDownloadInfoCleared)
-{
-	const int trackIdx = eMEDIATYPE_VIDEO;
-	MediaStreamContext* ctx = MakeContext(trackIdx, mPrivateInstanceAAMP);
-	mMpdStream->SetMediaStreamContext(trackIdx, ctx);
-
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
-		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
-		.WillOnce(Return(true));
-
-	mMpdStream->TestCacheEncryptedHeader(trackIdx, "http://cdn/header.mp4");
-
+	// After a successful download mActiveDownloadInfo must be released (no dangling ref).
 	EXPECT_EQ(ctx->mActiveDownloadInfo, nullptr);
 }
 
@@ -646,65 +608,29 @@ TEST_F(StreamAbstractionAAMP_MPD_Test,
 
 /**
  * @brief When UseMp4Demux is disabled, CacheFragment must be called directly
- *        with isInitSegment = true.
+ *        with the correct headerUrl (1st arg) and isInitSegment=true (6th arg),
+ *        and mActiveDownloadInfo must be cleared after the call regardless of
+ *        the download result.
  */
 TEST_F(StreamAbstractionAAMP_MPD_Test,
-	CacheEncryptedHeader_Mp4DemuxDisabled_CacheFragmentCalledWithInitSegmentTrue)
+	CacheEncryptedHeader_Mp4DemuxDisabled)
 {
 	const int trackIdx = eMEDIATYPE_VIDEO;
+	const std::string headerUrl = "http://cdn/header.mp4";
 	MediaStreamContext* ctx = MakeContext(trackIdx, mPrivateInstanceAAMP);
 	mMpdStream->SetMediaStreamContext(trackIdx, ctx);
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
 		.WillRepeatedly(Return(false));
 
-	// CacheFragment is called directly; initSegment is the 6th argument (true).
+	// CacheFragment is called directly; verify the correct URL is forwarded (1st arg)
+	// and isInitSegment=true (6th arg).
 	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragment(_, _, _, _, _, /*initSegment=*/true, _, _, _))
-		.WillOnce(Return(true));
-
-	mMpdStream->TestCacheEncryptedHeader(trackIdx, "http://cdn/header.mp4");
-}
-
-/**
- * @brief When UseMp4Demux is disabled, the headerUrl must be the first argument
- *        passed to CacheFragment.
- */
-TEST_F(StreamAbstractionAAMP_MPD_Test,
-	CacheEncryptedHeader_Mp4DemuxDisabled_CorrectUrlPropagated)
-{
-	const int trackIdx = eMEDIATYPE_VIDEO;
-	const std::string headerUrl = "http://cdn/encrypted-init-ts.mp4";
-	MediaStreamContext* ctx = MakeContext(trackIdx, mPrivateInstanceAAMP);
-	mMpdStream->SetMediaStreamContext(trackIdx, ctx);
-
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
-		.WillRepeatedly(Return(false));
-
-	EXPECT_CALL(*g_mockMediaStreamContext,
-		CacheFragment(headerUrl, _, _, _, _, _, _, _, _))
+		CacheFragment(headerUrl, _, _, _, _, /*initSegment=*/true, _, _, _))
 		.WillOnce(Return(true));
 
 	mMpdStream->TestCacheEncryptedHeader(trackIdx, headerUrl);
-}
 
-/**
- * @brief When UseMp4Demux is disabled, mActiveDownloadInfo must be nullptr
- *        after CacheEncryptedHeader returns regardless of download result.
- */
-TEST_F(StreamAbstractionAAMP_MPD_Test,
-	CacheEncryptedHeader_Mp4DemuxDisabled_AfterCall_ActiveDownloadInfoCleared)
-{
-	const int trackIdx = eMEDIATYPE_VIDEO;
-	MediaStreamContext* ctx = MakeContext(trackIdx, mPrivateInstanceAAMP);
-	mMpdStream->SetMediaStreamContext(trackIdx, ctx);
-
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
-		.WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
-		.WillOnce(Return(false));
-
-	mMpdStream->TestCacheEncryptedHeader(trackIdx, "http://cdn/header.mp4");
-
+	// mActiveDownloadInfo must be released after the call regardless of download result.
 	EXPECT_EQ(ctx->mActiveDownloadInfo, nullptr);
 }
