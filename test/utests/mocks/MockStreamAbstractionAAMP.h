@@ -106,8 +106,6 @@ public:
 	MOCK_METHOD(void, SetIsAtLivePoint, (bool isAtLivePoint));
 
 	MOCK_METHOD(bool, IsCurrentProfileLowest, ());
-
-	MOCK_METHOD(void, StopUnderflowMonitor, (), (override));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;
