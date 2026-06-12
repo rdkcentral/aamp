@@ -8592,11 +8592,6 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 {
 	for( int i = 0; i < mNumberOfTracks; i++)
 	{
-		//if(!discontinuity)
-		//{
-		//	// Set profileChanged to true to trigger initialization fragment fetch on first tune and on manifest refresh without period change
-		//	mMediaStreamContext[i]->profileChanged = true;
-		//}
 		FetchAndInjectInitialization(i,discontinuity);
 	}
 }
