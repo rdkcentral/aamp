@@ -51,9 +51,6 @@
 #include <inttypes.h>
 #include <math.h>
 #include <iterator>
-#include <charconv>
-#include <optional>
-#include <string_view>
 #include <sys/time.h>
 #include <cmath>
 #include "AampTSBSessionManager.h"
@@ -1236,112 +1233,79 @@ static bool isWebVttSegment( const char *buffer, size_t bufferLen )
 	return bufferLen>=6 && memcmp(buffer,"WEBVTT",6)==0;
 }
 
-std::string MediaTrack::RestampSubtitle(
-	const char* buffer,
-	size_t bufferLen,
-	double position,
-	double duration,
-	double pts_offset_s)
+std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset_s )
 {
-	AAMPLOG_INFO("[RESTAMP_SUB] IN: pos=%.3f dur=%.3f pts_offset_s=%.6f in_len=%zu",
-		position, duration, pts_offset_s, bufferLen);
-
-	if (!ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp)
-		|| !isWebVttSegment(buffer, bufferLen))
+	long long pts_offset_ms = pts_offset_s*1000;
+	std::string str;
+	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && isWebVttSegment(buffer,bufferLen) )
 	{
-		return {buffer, bufferLen};
+		const char *fin = &buffer[bufferLen];
+		const char *prev = buffer;
+		bool processedHeader = false;
+		while( prev<fin )
+		{
+			const char *line_start = mystrstr( prev, fin, "\n\n" );
+			if( line_start )
+			{
+				if( !processedHeader )
+				{
+					const char *localTimePtr = mystrstr(prev,line_start,"LOCAL:");
+					long long localTimeMs = localTimePtr?convertHHMMSSToTime(localTimePtr+6):0;
+					const char *mpegtsPtr = mystrstr(prev,line_start,"MPEGTS:");
+					long long mpegts = mpegtsPtr?atoll(mpegtsPtr+7):0;
+					pts_offset_ms -= localTimeMs;
+					if( localTimeMs != currentLocalTimeMs  )
+					{
+						if( gotLocalTime )
+						{
+							AAMPLOG_MIL( "webvtt pts rollover" );
+							ptsRollover = true;
+						}
+						currentLocalTimeMs = localTimeMs;
+						gotLocalTime = true;
+					}
+					line_start += 2; // advance past \n\n
+					str += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:";
+					str += std::to_string(mpegts);
+					str += "\n\n";
+					processedHeader = true;
+					if( ptsRollover )
+					{ // adjust by max pts ms
+						pts_offset_ms += 95443717; // 0x1ffffffff/90
+					}
+				}
+				else
+				{
+					line_start += 2; // advance past \n\n
+					str += std::string(prev,line_start-prev);
+				}
+				prev = line_start;
+				const char *line_end = mystrstr(line_start, fin, "\n" );
+				if( line_end )
+				{
+					const char *line_delim = mystrstr( line_start, line_end, " --> " );
+					if( line_delim )
+					{ // apply pts offset by rewriting inline begin/end times
+						prev = line_end;
+						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_start) + pts_offset_ms );
+						str +=  " --> ";
+						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_delim+5) + pts_offset_ms );
+					}
+				}
+			}
+			else
+			{ // trailing
+				str += std::string(prev,fin-prev);
+				prev = fin;
+			}
+		}
 	}
-
-	// Locate the blank line separating the VTT header block from the cue blocks.
-	const std::string_view bufView{buffer, bufferLen};
-	const auto headerEndPos{bufView.find("\n\n")};
-	if (headerEndPos == std::string_view::npos)
+	else
 	{
-		AAMPLOG_WARN("[RESTAMP_SUB] malformed VTT: no header separator, returning unchanged");
-		return {buffer, bufferLen};
+		str = std::string(buffer,bufferLen);
 	}
-
-	const std::string_view headerView{bufView.substr(0, headerEndPos)};
-
-	// Returns the substring past 'key' inside the header, or nullopt if absent.
-	const auto extractField{[&](std::string_view key) -> std::optional<std::string_view>
-	{
-		const auto pos{headerView.find(key)};
-		if (pos == std::string_view::npos) return std::nullopt;
-		return headerView.substr(pos + key.size());
-	}};
-
-	// Extract input MPEGTS from the VTT header.
-	// Per RFC 8216 §E.4 the format is:
-	//   X-TIMESTAMP-MAP=LOCAL:<time>,MPEGTS:<integer>
-	// MPEGTS is the last field on that line so its value is terminated by '\n'
-	// or end-of-header — std::from_chars stops cleanly at the first non-digit.
-	int64_t mpegtsIn{0};
-	if (auto mpegtsField{extractField("MPEGTS:")}; mpegtsField.has_value())
-	{
-		std::from_chars(mpegtsField->data(),
-			mpegtsField->data() + mpegtsField->size(), mpegtsIn);
-	}
-
-	// 90 kHz clock constant for MPEGTS tick conversion.
-	constexpr int64_t kTicksPerSecond{90000};
-
-	// Restamp MPEGTS for the non-zero case.
-	//
-	// Video is restamped via playContext->setPtsOffset(ptsOffset):
-	//   video_GStreamer_PTS = position_demuxer + broadcast_pts/90000 + ptsOffset
-	//                      = P_rel + m_total_before_N
-	// where ptsOffset = m_total_before_N - firstPts_N.
-	//
-	// For the subtitle to align, media_PTS must encode P_rel + m_total_before_N:
-	//   mpegtsOut = mpegtsIn + ptsOffset × 90000
-	//             = (firstPts_N + P_rel) × 90000 + (m_total_before_N - firstPts_N) × 90000
-	//             = (P_rel + m_total_before_N) × 90000
-	// So: display_time = cue_t + (P_rel + m_total_before_N) ✓ matches video.
-	//
-	// For MPEGTS == 0 (SSAI proxy-stripped, RFC 8216: media_PTS = cue_t):
-	// cue times are already absolute presentation times — leave as 0.
-	int64_t mpegtsOut{0};
-	if (mpegtsIn != 0)
-	{
-		// A 33-bit MPEG-TS PTS wraps every ~26.5 h. HLS §4.3.2.3 requires
-		// a DISCONTINUITY tag whenever timestamps are non-monotonic; that
-		// resets pts_offset_s so mpegtsOut cannot go negative.
-		mpegtsOut = mpegtsIn + std::llround(pts_offset_s * static_cast<double>(kTicksPerSecond));
-	}
-
-	// Extract the original LOCAL value string so it can be written to the output
-	// header unchanged (e.g. "00:00:00.000" or any non-zero value the CDN uses).
-	// LOCAL ends at the comma (standard form) or newline (non-standard: MPEGTS on
-	// a separate pseudo-cue line).
-	std::string localStr{"00:00:00.000"};  // safe default
-	if (auto localField{extractField("LOCAL:")}; localField.has_value())
-	{
-		auto sv{*localField};
-		const auto comma{sv.find(',')};
-		const auto newline{sv.find('\n')};
-		localStr = std::string{sv.substr(0, std::min(comma, newline))};
-	}
-
-	AAMPLOG_INFO("[RESTAMP_SUB] HDR: pos=%.3f pts_offset_s=%.6f "
-		"mpegts_in=%lld mpegts_out=%lld",
-		position, pts_offset_s,
-		static_cast<long long>(mpegtsIn),
-		static_cast<long long>(mpegtsOut));
-
-	// Rebuild header with original LOCAL and restamped MPEGTS; carry cue blocks verbatim.
-	std::string out{};
-	out.reserve(bufferLen + 32U);
-	out += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:";
-	out += localStr;
-	out += ",MPEGTS:";
-	out += std::to_string(mpegtsOut);
-	out.append(buffer + headerEndPos, bufferLen - headerEndPos);
-
-	AAMPLOG_INFO("[RESTAMP_SUB] OUT: pos=%.3f out_len=%zu", position, out.size());
-	AAMPLOG_TRACE("[RESTAMP_SUB] OUT content:\n%s", out.c_str());
-
-	return out;
+	printf( "***restamped caption: %s\n", str.c_str() );
+	return str;
 }
 
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
@@ -1422,14 +1386,13 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				{
 					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 					{
-						AAMPLOG_WARN( "blocking subtitle track injection waiting for pts_offset[%" PRIu64 "]", cachedFragment->discontinuityIndex );
+						AAMPLOG_WARN( "blocking subtitle track injection\n" );
 						pContext->aamp->interruptibleMsSleep(1000);
 					}
 					else
 					{
-						// Video and subtitle segments from the same discontinuity share the same
-						// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
-						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
+						auto firstElement = *pContext->mPtsOffsetMap.begin();
+						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex] - firstElement.second;
 						std::string str = RestampSubtitle(
 														  ptr,len,
 														  cachedFragment->position,
@@ -2003,7 +1966,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
-		,m_totalDurationForPtsRestamping(0.0)
+		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	const int sldCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 
