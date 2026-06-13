@@ -11080,12 +11080,13 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  */
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
-	// When UseMp4Demux is true the pipeline is still configured as ISO_BMFF;
-	// AampMp4Demuxer demuxes the boxes and calls SetStreamCaps to push ES data
-	// directly into the appsrc. ConfigurePipeline must see FORMAT_ISO_BMFF so that
-	// it tears down and re-creates the pipeline correctly on period transitions and
-	// seeks, matching the behaviour of the non-mp4demux path.
-	StreamOutputFormat format = FORMAT_ISO_BMFF;
+	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+	{
+		// Mp4Demuxer will set the format later once the init fragment is parsed
+		// format is only used for video and audio formats. Subtitle should be unaffected
+		format = FORMAT_UNKNOWN;
+	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
 		primaryOutputFormat = format;
