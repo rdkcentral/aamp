@@ -5394,7 +5394,9 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
 {
 	GstCaps *caps = GetCaps(codecInfo.mCodecFormat);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[type];
-	stream->format = codecInfo.mCodecFormat;
+	// Do not overwrite stream->format here. ConfigurePipeline already set it to
+	// FORMAT_ISO_BMFF, which is correct for the pipeline topology. The actual
+	// appsrc caps (ES format + codec_data) are updated below via gst_app_src_set_caps.
 	interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback = true;
 	if (caps)
 	{
