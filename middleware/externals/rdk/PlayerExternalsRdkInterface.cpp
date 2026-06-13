@@ -45,6 +45,7 @@ static bool isInterfaceWifi = false;
 std::shared_ptr<PlayerExternalsRdkInterface> PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance()
 {
     if(s_pPlayerIarmRdkOP == nullptr) {
+        MW_PRE_LOGGER_LOG("createing  PlayerExternalsRdkInterface\n");
         s_pPlayerIarmRdkOP = std::shared_ptr<PlayerExternalsRdkInterface>(new PlayerExternalsRdkInterface());
     }
 
@@ -196,8 +197,9 @@ void PlayerExternalsRdkInterface::OnResolutionPreChange(int width, int height)
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
 {
+    MW_LOG_WARN(" PlayerExternalsRdkInterface destructor called\n");
 #ifdef USE_DS_EVENT_SUPPORTED
-	RemoveDsClientEventHandlers();
+    RemoveDsClientEventHandlers();
 #endif
     m_pDeviceInterfaceBase = nullptr;
     s_pPlayerIarmRdkOP = nullptr;

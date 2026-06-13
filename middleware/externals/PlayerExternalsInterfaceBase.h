@@ -89,6 +89,8 @@ class PlayerExternalsInterfaceBase
                 // Source Material is UHD
                 retVal = true;
             }
+            
+            MW_LOG_WARN("source UHD retval: %d",retVal);
             return retVal;
         }
 
