@@ -171,11 +171,12 @@ void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
 }
 
 void PrivateCDAIObjectMPD::PlaceAdsForStaticManifest(const std::string& reservationId)
+{
+}
 
 void PrivateCDAIObjectMPD::ClearCurrentAdBreak()
 {
 }
-
 void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 {
 	if (g_MockPrivateCDAIObjectMPD)
