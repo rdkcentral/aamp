@@ -9494,11 +9494,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				periodChanged = false;
 			}
 			// Calling the function to play ads from first ad break(existing logic).
-			adStateChanged = onAdEvent(AdEvent::PERIOD_CHANGE);
+			adStateChanged = onAdEvent(AdEvent::DEFAULT);
 			if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 			{
 				// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
-				adStateChanged = onAdEvent(AdEvent::PERIOD_CHANGE);
+				adStateChanged = onAdEvent(AdEvent::DEFAULT);
 			}
 			// endPeriod for the ad break is not available, so wait for the ad break to complete
 			if (AdState::IN_ADBREAK_WAIT2CATCHUP == mCdaiObject->mAdState)
@@ -9539,11 +9539,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					}
 				}
 				// Check if the new period is having ads
-				adStateChanged = onAdEvent(AdEvent::PERIOD_CHANGE);
+				adStateChanged = onAdEvent(AdEvent::DEFAULT);
 				if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 				{
 					// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
-					adStateChanged = onAdEvent(AdEvent::PERIOD_CHANGE);
+					adStateChanged = onAdEvent(AdEvent::DEFAULT);
 				}
 			}
 
@@ -12231,7 +12231,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 		case AdState::OUTSIDE_ADBREAK:
 		case AdState::OUTSIDE_ADBREAK_WAIT4ADS:
 			// Default event state or Idle event state is OUTSIDE_ADBREAK
-			if(AdEvent::PERIOD_CHANGE == evt || AdEvent::INIT == evt)
+			if(AdEvent::DEFAULT == evt || AdEvent::INIT == evt)
 			{
 				// Getting called from StreamAbstractionAAMP_MPD::Init or from FetcherLoop
 				std::string brkId = "";
@@ -12289,15 +12289,15 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					else
 					{
 						// On rewind, if the ad is not found at the offset, it could also be a partial ads
-						if (mPlayRate < AAMP_RATE_PAUSE && mCdaiObject->mAdBreaks[brkId].ads)
+						if (mPlayRate < AAMP_RATE_PAUSE)
 						{
 							// This will ensure that we play the ads once the offset reaches a position where ad is available
 							mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
 							stateChanged = true;
 						}
-						// If an adbreak exists for this basePeriodId, then ads might become available.
+						// If an adbreak exists for this basePeriodId, then ads might be available.
 						// Only for scenarios where mBasePeriodOffset is zero, we have to wait for the ads to be added by application.
-						// Otherwise for partial ad fill, once the ads are played, we will get adIdx as -1 from CheckForAdStart().
+						// Otherwise for partial ad fill, once the ads are played, we will wait as adIdx will be -1 from CheckForAdStart().
 						else if (mBasePeriodOffset == 0)
 						{
 							// If the adbreak is not invalidated, wait for ads to be added and resolved
@@ -12312,7 +12312,6 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 									if (mCdaiObject->mAdBreaks[brkId].ads->at(0).invalid)
 									{
 										mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
-										mCdaiObject->ClearCurrentAdBreak();
 									}
 								}
 								else
@@ -12327,7 +12326,6 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 							{
 								// Ads are not added or ads failed to resolve, invalidate the adbreak
 								AAMPLOG_WARN("[CDAI] AdBreak[%s] is invalidated. Skipping.", mBasePeriodId.c_str());
-								mCdaiObject->ClearCurrentAdBreak();
 								if(AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 								{
 									stateChanged = true;
@@ -12340,7 +12338,6 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				else
 				{
 					AAMPLOG_INFO("[CDAI] No AdBreak found for period[%s] at offset:%lf", mBasePeriodId.c_str(), mBasePeriodOffset);
-					mCdaiObject->ClearCurrentAdBreak();
 					if (AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 					{
 						stateChanged = true;
@@ -12354,9 +12351,8 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			{
 				std::string brkId = "";
 				int adIdx = mCdaiObject->CheckForAdStart(mPlayRate, false, mBasePeriodId, mBasePeriodOffset, brkId, adOffset);
-				if(!brkId.empty() && (adIdx != -1) && mCdaiObject->mAdBreaks[brkId].ads)
+				if(-1 != adIdx && mCdaiObject->mAdBreaks[brkId].ads)
 				{
-					mCdaiObject->mCurPlayingBreakId = brkId;
 					if (mPlayRate >= AAMP_NORMAL_PLAY_RATE)
 					{
 						// Wait for some time if the ad is not ready yet.
@@ -12388,15 +12384,13 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				{
 					AAMPLOG_WARN("[CDAI]: ADBREAK[%s] ENDED. Playing the basePeriod[%s].", mCdaiObject->mCurPlayingBreakId.c_str(), mBasePeriodId.c_str());
 					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
-					mCdaiObject->ClearCurrentAdBreak();
+					mCdaiObject->mCurPlayingBreakId = "";
+					mCdaiObject->mCurAds = nullptr;
+					mCdaiObject->mCurAdIdx = -1;
 					//Base content playing already. No need to jump to offset again.
 					mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
 					stateChanged = true;
 				}
-			}
-			else
-			{
-				AAMPLOG_WARN("[CDAI]: Unsupported event[%d] in IN_ADBREAK_AD_NOT_PLAYING state. Ignoring.", static_cast<int>(evt));
 			}
 			break;
 		case AdState::IN_ADBREAK_AD_PLAYING:
@@ -12444,14 +12438,16 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			{
 				AAMPLOG_WARN("[CDAI]: BUG! BUG!! BUG!!! We should not come here.AdIdx[-1].");
 				mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
-				mCdaiObject->ClearCurrentAdBreak();
+				mCdaiObject->mCurPlayingBreakId = "";
+				mCdaiObject->mCurAds = nullptr;
+				mCdaiObject->mCurAdIdx = -1;
 				mCdaiObject->mContentSeekOffset = mBasePeriodOffset;
 				mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
 				stateChanged = true;
 				break;
 			}
 			//In every event, we need to check this.But do it only on the beginning of the fetcher loop. Hence it is the default event
-			if(AdEvent::PERIOD_CHANGE == evt)
+			if(AdEvent::DEFAULT == evt)
 			{
 				// For rewind cases, we don't need to wait for the ad to get placed. The below TODO says otherwise,
 				// but not seeing any use of base period offset for rewind in the below logic
@@ -12465,11 +12461,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_READY2PLAY;
 			}
 		case AdState::IN_ADBREAK_AD_READY2PLAY:
-			if(AdEvent::PERIOD_CHANGE == evt)
+			if(AdEvent::DEFAULT == evt)
 			{
 				bool curAdFailed = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid;	//TODO: Vinod, may need to check boundary.
 				bool curAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
-				int prevAdIdx = mCdaiObject->mCurAdIdx;
 
 				GetNextAdInBreak((mPlayRate >= AAMP_NORMAL_PLAY_RATE) ? 1 : -1);
 
@@ -12508,7 +12503,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 							if (mCdaiObject->mCurAdIdx >= mCdaiObject->mCurAds->size())
 							{
 								// Change to index back to valid range
-								mCdaiObject->mCurAdIdx = prevAdIdx;
+								mCdaiObject->mCurAdIdx--;
 							}
 							stateChanged = false;
 							break;
@@ -12542,7 +12537,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_END;
 					reservationEndReason = GetAdReservationEndReason(curAdFailed, curAdCancelled);
 					sendImmediate = curAdFailed;	//Current Ad failed. Hence may not get discontinuity from gstreamer.
-					mCdaiObject->ClearCurrentAdBreak();
+					mCdaiObject->mCurPlayingBreakId = "";
+					mCdaiObject->mCurAds = nullptr;
+					mCdaiObject->mCurAdIdx = -1;
 					mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;	//No more offset check needed. Hence, changing to OUTSIDE_ADBREAK
 					stateChanged = true;
 				}
