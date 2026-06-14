@@ -5060,9 +5060,6 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 ***************************************************************************/
 void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subOutputFormat)
 {
-	/* AampMp4Demuxer is never used for HLS (UseMp4Demux is DASH-only).
-	 * Always report the actual track formats so that IsoBmffProcessor and
-	 * the GStreamer pipeline are configured correctly. */
 	primaryOutputFormat = trackState[eMEDIATYPE_VIDEO]->streamOutputFormat;
 	audioOutputFormat = trackState[eMEDIATYPE_AUDIO]->streamOutputFormat;
 	subOutputFormat = trackState[eMEDIATYPE_SUBTITLE]->streamOutputFormat;
