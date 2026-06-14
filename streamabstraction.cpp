@@ -4057,13 +4057,18 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 		// Some tracks can get enabled later during playback, example subtitle tracks in ad->content transition. Avoid overwriting playContext instance
 		if(track && track->enabled && track->playContext == nullptr)
 		{
-			/* AampMp4Demuxer is only applicable for DASH streams. HLS (TS or fMP4),
-			 * TSB, and other formats must continue to use IsoBmffProcessor so that
-			 * TS demuxing, PTS restamping, and chunk injection work correctly.
-			 * Enabling UseMp4Demux on non-DASH streams feeds TS bytes into an MP4
-			 * box parser, causing all segments to be silently dropped. */
+			// Pick the output format for this specific track.
+			StreamOutputFormat trackFormat = (i == eMEDIATYPE_VIDEO)    ? videoFormat
+			                              : (i == eMEDIATYPE_AUDIO)    ? audioFormat
+			                              :                               subtitleFormat;
+			/* AampMp4Demuxer applies to any ISOBMFF track when useMp4Demux is enabled.
+			 * This covers both DASH (eMEDIAFORMAT_DASH) and HLS-fMP4 (FORMAT_ISO_BMFF)
+			 * segments — in both cases the elementary streams are carried in MP4 boxes
+			 * and AampMp4Demuxer is a drop-in replacement for qtdemux/IsoBmffProcessor.
+			 * HLS-TS segments (FORMAT_MPEGTS) must continue to use tsprocessor; they
+			 * never reach InitializeMediaProcessor from the HLS collector. */
 			const bool useMp4Demux = ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
-			                         (aamp->mMediaFormat == eMEDIAFORMAT_DASH);
+			                         (trackFormat == FORMAT_ISO_BMFF);
 			if (!useMp4Demux)
 			{
 				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
@@ -4107,7 +4112,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			}
 			else
 			{
-				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux (DASH)", track->name);
+				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
