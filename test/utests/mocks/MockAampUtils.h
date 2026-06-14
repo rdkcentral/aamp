@@ -39,6 +39,8 @@ public:
 	MOCK_METHOD(double, GetNetworkTime, (const std::string& remoteUrl, int *http_error , std::string NetworkProxy));
 
 	MOCK_METHOD(std::string, Getiso639map_NormalizeLanguageCode, (std::string, LangCodePreference));
+	MOCK_METHOD(std::string, getHostFromURL, (std::string));
+	MOCK_METHOD(bool, isLocalHost, (std::string));
 };
 
 extern std::shared_ptr<MockAampUtils> g_mockAampUtils;

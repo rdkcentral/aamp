@@ -43,6 +43,12 @@ public:
 	MOCK_METHOD(CURLcode, curl_easy_setopt_slist, (CURL *handle, CURLoption option, struct curl_slist *list));
 	MOCK_METHOD(char *, curl_easy_unescape, (CURL *curl, const char *url, int inlength, int *outlength));
 	MOCK_METHOD(void, curl_free, (void *ptr));
+	MOCK_METHOD(CURLSH *, curl_share_init, ());
+	MOCK_METHOD(CURLSHcode, curl_share_setopt_ptr, (CURLSH *sh, CURLSHoption option, void *ptr));
+	MOCK_METHOD(CURLSHcode, curl_share_setopt_func_lock, (CURLSH *sh, CURLSHoption option, curl_lock_function fn));
+	MOCK_METHOD(CURLSHcode, curl_share_setopt_func_unlock, (CURLSH *sh, CURLSHoption option, curl_unlock_function fn));
+	MOCK_METHOD(CURLSHcode, curl_share_setopt_long, (CURLSH *sh, CURLSHoption option, long value));
+	MOCK_METHOD(CURLSHcode, curl_share_cleanup, (CURLSH *sh));
 };
 extern std::shared_ptr<MockCurl> g_mockCurl;
 
