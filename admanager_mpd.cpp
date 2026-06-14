@@ -193,24 +193,16 @@ void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodId
 }
 
 /**
- * @brief Clear current ad break tracking state
- */
-void PrivateCDAIObjectMPD::ClearCurrentAdBreak()
-{
-	mCurPlayingBreakId = "";
-	mCurAds = nullptr;
-	mCurAdIdx = -1;
-}
-
-/**
  * @brief Method to reset the state of the CDAI state machine
  */
 void PrivateCDAIObjectMPD::ResetState()
 {
 	 //TODO: Vinod, maybe we can move these playback state variables to PrivateStreamAbstractionMPD
 	 mIsFogTSB = false;
-	 ClearCurrentAdBreak();
+	 mCurPlayingBreakId = "";
+	 mCurAds = nullptr;
 	 std::lock_guard<std::mutex> lock(mDaiMtx);
+	 mCurAdIdx = -1;
 	 mContentSeekOffset = 0;
 	 mAdState = AdState::OUTSIDE_ADBREAK;
 	 // NOTE: mVodAdBreaks and mNextVodBreakToCheck are intentionally NOT cleared here.
@@ -941,7 +933,6 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 				}
 			}
 		}
-		AAMPLOG_INFO("[CDAI] CheckForAdStart for periodId:%s offset:%.2f found adIdx:%d breakId:%s adOffset:%.2f", periodId.c_str(), offSet, adIdx, breakId.c_str(), adOffset);
 	}
 	return adIdx;
 }
