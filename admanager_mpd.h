@@ -139,8 +139,7 @@ enum class AdEvent
 	BASE_OFFSET_CHANGE,         /**< Base period's offset change */
 	AD_FINISHED,                /**< Ad playback finished */
 	AD_FAILED,                  /**< Ad playback failed */
-	PERIOD_CHANGE,              /**< Period changed */
-	DEFAULT = PERIOD_CHANGE     /**< Default event */
+	PERIOD_CHANGE,              /**< Period changed, Default event */
 };
 
 #define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
