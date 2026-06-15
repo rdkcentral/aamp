@@ -5417,8 +5417,9 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
 			}
 			else if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_HEVC)
 			{
+				const char* hevcStreamFormat = codecInfo.mStreamFormat.empty() ? "hvc1" : codecInfo.mStreamFormat.c_str();
 				gst_caps_set_simple(caps,
-									"stream-format", G_TYPE_STRING, "hvc1",
+									"stream-format", G_TYPE_STRING, hevcStreamFormat,
 									"alignment", G_TYPE_STRING, "au",
 									"width", G_TYPE_INT, codecInfo.mInfo.video.mWidth,
 									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,

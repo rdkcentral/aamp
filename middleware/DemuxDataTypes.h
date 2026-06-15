@@ -93,6 +93,7 @@ struct MediaCodecInfo
 {
 	GstStreamOutputFormat mCodecFormat; // GST_FORMAT_VIDEO_ES_H264, etc
 	std::vector<uint8_t> mCodecData; // codec private data, e.g. avcC box
+	std::string mStreamFormat; // HEVC sample entry type: "hev1" (in-band params) or "hvc1" (out-of-band params)
 	bool mIsEncrypted;
 	union
 	{
@@ -116,7 +117,7 @@ struct MediaCodecInfo
 	 *       Uniform initialization is preferred for C++ types as it's type-safe, clearer in intent,
 	 *       and works correctly with all C++ types including those with constructors.
 	 */
-	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData(), mInfo{0}
+	MediaCodecInfo() : mCodecFormat(GST_FORMAT_INVALID), mIsEncrypted(false), mCodecData(), mStreamFormat(), mInfo{0}
 	{
 	}
 
@@ -128,7 +129,7 @@ struct MediaCodecInfo
 	 *       Uniform initialization is preferred for C++ types as it's type-safe, clearer in intent,
 	 *       and works correctly with all C++ types including those with constructors.
 	 */
-	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData(), mInfo{0}
+	MediaCodecInfo(GstStreamOutputFormat format) : mCodecFormat(format), mIsEncrypted(false), mCodecData(), mStreamFormat(), mInfo{0}
 	{
 	}
 
@@ -143,6 +144,7 @@ struct MediaCodecInfo
 	MediaCodecInfo(MediaCodecInfo&& other) noexcept
         : mCodecFormat(exchange(other.mCodecFormat, GST_FORMAT_INVALID))
         , mCodecData(exchange(other.mCodecData, {}))
+        , mStreamFormat(std::move(other.mStreamFormat))
         , mIsEncrypted(exchange(other.mIsEncrypted, false))
         , mInfo(exchange(other.mInfo, {})) // POD union - exchange with zero-initialized union
     {
@@ -159,6 +161,7 @@ struct MediaCodecInfo
 		{
 			mCodecFormat = exchange(other.mCodecFormat, GST_FORMAT_INVALID);
 			mCodecData = exchange(other.mCodecData, {});
+			mStreamFormat = std::move(other.mStreamFormat);
 			mIsEncrypted = exchange(other.mIsEncrypted, false);
 			mInfo = exchange(other.mInfo, {}); // POD union - exchange with zero-initialized union
 		}
