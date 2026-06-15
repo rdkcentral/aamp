@@ -1011,6 +1011,10 @@ void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 void Mp4Demux::ParseStreamFormatBox(uint32_t type, const uint8_t *next)
 {
 	streamFormat = type;
+	if (type == MultiChar_Constant("hev1"))
+		codecInfo.mStreamFormat = "hev1";
+	else if (type == MultiChar_Constant("hvc1"))
+		codecInfo.mStreamFormat = "hvc1";
 	switch (streamFormat)
 	{
 		case MultiChar_Constant("hev1"):
