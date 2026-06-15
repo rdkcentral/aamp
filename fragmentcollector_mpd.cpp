@@ -6406,6 +6406,19 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		return;
 	}
 
+	// If an inband CC track was explicitly selected by the application,
+	// do not re-run OOB subtitle language scoring on seek or trickplay
+	// resume.  Running GetBestTextTrackByLanguage() would score and select
+	// a TTML subtitle track, then clear mIsInbandCC before the subtitle
+	// parser init check — silently losing the CC selection (VPAAMP-495).
+	// On a genuine new tune mIsInbandCC is always false (reset in Stop()),
+	// so this guard does not affect first-tune behaviour.
+	if (aamp->mIsInbandCC && !newTune)
+	{
+		AAMPLOG_INFO("SelectSubtitleTrack: inband CC active, skipping OOB subtitle selection");
+		return;
+	}
+
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
 	if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 	{
