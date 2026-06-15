@@ -28,37 +28,26 @@
 #include <mutex>
 
 // Curl callback functions
-static std::mutex gCurlShMutex;
-
-
-/*
- * IMPORTANT: Static curl share lock is required.
- *
- * libcurl stores the pointer passed via CURLSHOPT_USERDATA internally and may
- * invoke curl_lock_callback / curl_unlock_callback asynchronously and from
- * different threads (e.g., during curl_easy_cleanup, curl_share_cleanup, or
- * other shared-state operations triggered by unrelated easy handles).
- *
- * libcurl has no knowledge of the caller’s object lifetime and does not
- * revalidate the USERDATA pointer before invoking callbacks. If the lock
- * object is dynamically allocated and freed by the caller, libcurl may later
- * dereference a dangling pointer, leading to use-after-free, deadlocks, or
- * process aborts.
- *
- * libcurl does not provide internal synchronization for data shared via
- * CURLSH handles; the application is responsible for providing thread-safe
- * locking for the entire duration libcurl may invoke these callbacks.
- *
- * NOTE: This shared lock is used only to protect libcurl shared state such as
- * DNS cache, SSL session cache, and connection bookkeeping. It does NOT
- * serialize actual media data transfers (audio/video/manifest downloads),
- * which continue to run in parallel.
- *
- * To guarantee correctness and thread safety, the lock object must have
- * process lifetime. Therefore, a single static CurlDataShareLock is used
- * here and must never be deleted.
- */
-CurlDataShareLock CurlStore::mSharedCurlLock;
+//
+// VPAAMP-558: per-host embedded lock (curlstorestruct::mShareLock).
+//
+// Each curlstorestruct embeds a CurlDataShareLock as a value member.
+// CURLSHOPT_USERDATA is set to &CurlSock->mShareLock so that DNS, SSL, and
+// general libcurl-share operations for each CDN hostname use independent
+// per-host mutexes, restoring the parallelism lost by the
+// VPAAMP-139 single-static-lock fix.
+//
+// Safety: every cleanup path (RemoveCurlSock, ~CurlStore, FlushCurlSockForHost)
+// follows the order:
+//   1. curl_easy_cleanup all queued handles  (no further easy-handle callbacks)
+//   2. curl_share_cleanup(mCurlShared)        (share teardown; lock may fire)
+//   3. SAFE_DELETE(CurlSock)                  (destroys embedded mShareLock)
+// The embedded lock is therefore always alive when curl_share_cleanup needs it.
+//
+// Non-store path: gCurlShLock (file-scope static, process lifetime) is passed
+// as CURLSHOPT_USERDATA in CurlInit when the curl store is disabled, giving
+// the same per-type DNS / SSL / general mutex granularity.
+static CurlDataShareLock gCurlShLock; // process-lifetime; used by non-store path
 
 /**
  * @brief
@@ -97,7 +86,7 @@ static void curl_lock_callback(CURL *curl, curl_lock_data data, curl_lock_access
 	}
 	else
 	{
-		gCurlShMutex.lock();
+		gCurlShLock.mCurlSharedlock.lock(); // defensive fallback; user_ptr should never be NULL
 	}
 }
 
@@ -136,7 +125,7 @@ static void curl_unlock_callback(CURL *curl, curl_lock_data data, void *user_ptr
 	}
 	else
 	{
-		gCurlShMutex.unlock();
+		gCurlShLock.mCurlSharedlock.unlock(); // defensive fallback; user_ptr should never be NULL
 	}
 }
 
@@ -274,7 +263,7 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
 CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname )
 {
 	CurlSocketStoreStruct *CurlSock = new curlstorestruct(); // throws std::bad_alloc on failure; no NULL check needed
-	CurlDataShareLock *locks = &CurlStore::mSharedCurlLock;
+	CurlDataShareLock *locks = &CurlSock->mShareLock; // per-host embedded lock (VPAAMP-558)
 
 	CurlSock->timestamp = aamp_GetCurrentTimeMS();
 	CurlSock->mCurlStoreUserCount += 1;
@@ -455,7 +444,7 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 			if(NULL==aamp->mCurlShared)
 			{
 				aamp->mCurlShared = curl_share_init();
-				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_USERDATA, (void*)NULL);
+				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_USERDATA, (void*)&gCurlShLock);
 				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
 				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
 				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
