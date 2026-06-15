@@ -1493,6 +1493,13 @@ bool MediaTrack::SignalIfEOSReached()
 			{
 				aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
 			}
+			// Stop underflow monitor when video EOS is reached on VOD.
+			// EOS can be signalled from both normal sentinel and aborted-wait
+			// paths, so centralize monitor shutdown here.
+			if (!aamp->IsLive() && type == eTRACK_VIDEO)
+			{
+				pContext->StopUnderflowMonitor();
+			}
 			ret = true;
 		}
 		else
