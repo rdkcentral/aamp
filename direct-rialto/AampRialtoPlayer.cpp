@@ -563,11 +563,6 @@ void AampRialtoPlayer::Configure(
 		auto src = m_sourceCreator(eMEDIATYPE_VIDEO);
 		if (src)
 		{
-			// Apply any protection queued before this source existed.
-			if (m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
-			{
-				src->setProtection(*m_pendingProtection[eMEDIATYPE_VIDEO]);
-			}
 			src->setFormat(videoFormat);
 			m_sources[eMEDIATYPE_VIDEO] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
@@ -579,11 +574,6 @@ void AampRialtoPlayer::Configure(
 		auto src = m_sourceCreator(eMEDIATYPE_AUDIO);
 		if (src)
 		{
-			// Apply any protection queued before this source existed.
-			if (m_pendingProtection[eMEDIATYPE_AUDIO].has_value())
-			{
-				src->setProtection(*m_pendingProtection[eMEDIATYPE_AUDIO]);
-			}
 			src->setFormat(audioFormat);
 			m_sources[eMEDIATYPE_AUDIO] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO);
@@ -745,7 +735,8 @@ void AampRialtoPlayer::AttachSource(
 
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
-		m_pendingFlushPositionNs.load(std::memory_order_relaxed));
+		m_pendingFlushPositionNs.load(std::memory_order_relaxed),
+		m_pendingProtection[static_cast<size_t>(type)]);
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
 	    result == AampRialtoMediaSource::AttachResult::UPDATED)
@@ -1250,19 +1241,6 @@ void AampRialtoPlayer::QueueProtectionEvent(
 			m_pendingProtection[idx] = prot;
 		}
 
-		// Also apply to the source immediately if one exists, so that
-		// late-arriving protection (after Configure) takes effect.
-		auto *source = getSource(type);
-		if (source)
-		{
-			source->setProtection(std::move(prot));
-		}
-		else
-		{
-			AAMPLOG_INFO("No source yet for type=%d — protection buffered at player level",
-				static_cast<int>(type));
-		}
-
 		AAMPLOG_INFO("EXIT — params stored for type=%d", static_cast<int>(type));
 	}
 }
@@ -1270,20 +1248,9 @@ void AampRialtoPlayer::QueueProtectionEvent(
 void AampRialtoPlayer::ClearProtectionEvent()
 {
 	AAMPLOG_INFO("ENTRY");
-	if (m_drmBridge)
-	{
-		m_drmBridge->clearSessions();
-	}
 	for (auto &prot : m_pendingProtection)
 	{
 		prot.reset();
-	}
-	for (auto &source : m_sources)
-	{
-		if (source)
-		{
-			source->clearProtection();
-		}
 	}
 	AAMPLOG_INFO("EXIT");
 }

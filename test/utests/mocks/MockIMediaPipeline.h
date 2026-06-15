@@ -42,7 +42,8 @@ public:
 	MOCK_METHOD(bool, load,
 		(firebolt::rialto::MediaType type,
 		 const std::string &mimeType,
-		 const std::string &url),
+		 const std::string &url,
+		bool isLive),
 		(override));
 
 	MOCK_METHOD(bool, attachSource,
@@ -73,14 +74,6 @@ public:
 
 	MOCK_METHOD(bool, setImmediateOutput,
 		(int32_t sourceId, bool immediateOutput),
-		(override));
-
-	MOCK_METHOD(bool, setReportDecodeErrors,
-		(int32_t sourceId, bool reportDecodeErrors),
-		(override));
-
-	MOCK_METHOD(bool, getQueuedFrames,
-		(int32_t sourceId, uint32_t &queuedFrames),
 		(override));
 
 	MOCK_METHOD(bool, getImmediateOutput,
@@ -167,6 +160,9 @@ public:
 		(const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> &source),
 		(override));
 	// clang-format on
+
+	MOCK_METHOD(bool, getDuration, (int64_t &duration), (override));
+
 };
 
 #endif // MOCK_IMEDIA_PIPELINE_H

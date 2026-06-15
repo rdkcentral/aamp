@@ -141,21 +141,6 @@ uint64_t AampRialtoMediaSource::captureGeneration()
 }
 
 // ---------------------------------------------------------------------------
-// Protection
-// ---------------------------------------------------------------------------
-
-void AampRialtoMediaSource::setProtection(ProtectionParams params)
-{
-	m_protection = std::move(params);
-}
-
-void AampRialtoMediaSource::clearProtection()
-{
-	m_mksId = -1;
-	m_protection = std::nullopt;
-}
-
-// ---------------------------------------------------------------------------
 // Codec data
 // ---------------------------------------------------------------------------
 
@@ -173,7 +158,8 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	firebolt::rialto::IMediaPipeline &pipeline,
 	MediaCodecInfo &codecInfo,
 	IDrmBridge *drmBridge,
-	int64_t flushPosNs)
+	int64_t flushPosNs,
+	const std::optional<ProtectionParams> &protection)
 {
 	// 1. Validate codec
 	std::string mimeType;
@@ -211,15 +197,15 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	}
 
 	// 6. First attach — create DRM session if protection params are present
-	if (m_protection.has_value() && !drmBridge)
+	if (protection.has_value() && !drmBridge)
 	{
 		AAMPLOG_ERR("Protection params present but drmBridge is null for mediaType=%d"
 			" — DRM session will not be created",
 			static_cast<int>(mediaType()));
 	}
-	if (m_protection.has_value() && drmBridge)
+	if (protection.has_value() && drmBridge)
 	{
-		const auto &prot = *m_protection;
+		const auto &prot = *protection;
 		m_mksId = drmBridge->createSession(
 			prot.systemId.c_str(),
 			prot.initData.data(),
