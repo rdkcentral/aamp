@@ -5063,6 +5063,19 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	primaryOutputFormat = trackState[eMEDIATYPE_VIDEO]->streamOutputFormat;
 	audioOutputFormat = trackState[eMEDIATYPE_AUDIO]->streamOutputFormat;
 	subOutputFormat = trackState[eMEDIATYPE_SUBTITLE]->streamOutputFormat;
+	/* When AampMp4Demuxer is active for HLS-fMP4, tell Configure() that the
+	 * initial appsrc format is unknown.  This suppresses qtdemux insertion and
+	 * enables typefind on the appsrc so that GStreamer auto-detects caps from
+	 * the first demuxed ES sample pushed by AampMp4Demuxer::SetStreamCaps().
+	 * This mirrors the behaviour of the DASH path where GetStreamFormat already
+	 * returns FORMAT_UNKNOWN when useMp4Demux is set. */
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+	{
+		if (primaryOutputFormat == FORMAT_ISO_BMFF)
+			primaryOutputFormat = FORMAT_UNKNOWN;
+		if (audioOutputFormat == FORMAT_ISO_BMFF)
+			audioOutputFormat = FORMAT_UNKNOWN;
+	}
 }
 /***************************************************************************
 * @brief Function to get available video bitrates

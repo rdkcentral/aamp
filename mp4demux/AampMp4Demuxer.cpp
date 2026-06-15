@@ -240,6 +240,13 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
+			/* Signal a PTS error for non-init segment parse failures so that
+			 * AAMP triggers playback-failure recovery (error code 80), matching
+			 * the behaviour of IsoBmffProcessor. */
+			if (!isInit)
+			{
+				ptsError = true;
+			}
 		}
 		else
 		{
@@ -268,23 +275,22 @@ TrickmodePtsRestamp(sample, duration, discontinuous);
 				{
 					for (auto& sample : samples)
 					{
-						// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
-						if (mEnablePtsRestamp)
+						double beforeDTS = sample.mDts;
+						/* Always apply the cross-period PTS offset so that GStreamer
+						 * receives monotonically increasing timestamps across period
+						 * boundaries.  The restamping flag controls only the within-
+						 * segment PTS continuity correction logged below. */
+						sample.mPts += fragmentPTSoffset;
+						sample.mDts += fragmentPTSoffset;
+						if (mEnablePtsRestamp && mEnablePtsRestampLogging)
 						{
-							double beforeDTS = sample.mDts;
-							sample.mPts += fragmentPTSoffset;
-							sample.mDts += fragmentPTSoffset;
-							// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
-							if (mEnablePtsRestampLogging)
-							{
-								uint32_t timeScale = mMp4Demux->GetTimeScale();
-								AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
-								GetMediaTypeName(mMediaType),
-								timeScale,
-								beforeDTS * timeScale,
-								sample.mDts * timeScale,
-								sample.mDuration * timeScale);
-							}
+							uint32_t timeScale = mMp4Demux->GetTimeScale();
+							AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
+							GetMediaTypeName(mMediaType),
+							timeScale,
+							beforeDTS * timeScale,
+							sample.mDts * timeScale,
+							sample.mDuration * timeScale);
 						}
 						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 					}
