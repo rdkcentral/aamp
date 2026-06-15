@@ -20,30 +20,35 @@
 /**
  * @file CurlStoreTests.cpp
  *
- * Regression tests for VPAAMP-139: use-after-free in CurlStore lock callbacks.
+ * Regression tests for VPAAMP-139 / follow-up optimisation VPAAMP-558.
  *
- * Root cause: old code heap-allocated a CurlDataShareLock per host entry and
- * passed its address as CURLSHOPT_USERDATA.  On store cleanup the object was
- * deleted while libcurl could still invoke the lock/unlock callbacks with the
- * stale pointer, causing a use-after-free.
+ * VPAAMP-139 root cause: old code heap-allocated a CurlDataShareLock per host
+ * and passed its address as CURLSHOPT_USERDATA.  Cleanup freed the object while
+ * libcurl could still invoke the lock callbacks with the stale pointer.
+ * VPAAMP-139 fix: a single static CurlStore::mSharedCurlLock with process
+ * lifetime replaced per-host heap allocations — eliminating the UAF but
+ * serialising DNS/SSL cache operations for every CDN hostname on one mutex.
  *
- * Fix: a single static CurlDataShareLock (CurlStore::mSharedCurlLock) with
- * process lifetime is now used for all CURLSH handles.
+ * VPAAMP-558 optimisation: replace the single static lock with a per-host
+ * CurlDataShareLock embedded directly in curlstorestruct (mShareLock).
+ * Lifetime safety is preserved because every cleanup path calls
+ * curl_share_cleanup before SAFE_DELETE(CurlSock), so the embedded lock is
+ * always alive when libcurl needs it.
+ * The non-store path (CurlInit when the curl store is disabled) now passes
+ * &gCurlShLock (file-scope static) as CURLSHOPT_USERDATA instead of NULL.
  *
  * Test strategy:
- *   T1 - Two different hostnames must receive the SAME CURLSHOPT_USERDATA
- *        pointer.  On old code they each got a distinct heap allocation so
- *        the pointers differed; on fixed code both equal &mSharedCurlLock.
+ *   T1 - Two different hostname entries must receive DISTINCT CURLSHOPT_USERDATA
+ *        pointers.  If they share the same pointer, DNS/SSL cache operations
+ *        for different CDNs serialise (the VPAAMP-139 state).
  *
- *   T2 - After a store entry is evicted and the same hostname is re-added,
- *        the new CURLSHOPT_USERDATA must be identical to the original.  On old
- *        code a fresh heap allocation produced a different address.
+ *   T2 - Lock/unlock callbacks work correctly while the store entry is alive
+ *        (mCurlStoreUserCount > 0).  The embedded lock is valid; no crash.
  *
- *   T3 - (ASAN regression) After a store entry is evicted — the path where
- *        old code freed the per-entry lock — invoking the captured lock
- *        callback with the captured USERDATA must not crash or trigger an
- *        AddressSanitizer use-after-free report.  On fixed code USERDATA
- *        points to the static object which is never freed.
+ *   T3 - When a store entry is evicted, curl_share_cleanup is called for its
+ *        CURLSH handle before the struct is deleted.  This verifies the
+ *        cleanup order that guarantees the embedded lock is alive during
+ *        curl_share_cleanup.
  *
  *   T4 - Lock/unlock callbacks handle all three CURL_LOCK_DATA_* cases
  *        (DNS, SSL, default/generic) without crashing.
@@ -166,85 +171,52 @@ protected:
 };
 
 // ---------------------------------------------------------------------------
-// T1: Two different hostnames must receive the SAME CURLSHOPT_USERDATA pointer.
+// T1: Two different hostname entries must receive DISTINCT CURLSHOPT_USERDATA pointers.
 //
-// Regression: old code did `new curldatasharelock()` per host, so two hosts
-// got different heap addresses and this test would FAIL.
-// Fixed code passes &mSharedCurlLock for every host → addresses are equal.
+// VPAAMP-558: each curlstorestruct embeds its own CurlDataShareLock (mShareLock)
+// so DNS/SSL cache operations for different CDN hosts use independent mutexes.
+//
+// Regression: if all hosts share one lock (VPAAMP-139 state), the addresses
+// are equal and this test would FAIL.
 // ---------------------------------------------------------------------------
-TEST_F(CurlStoreTests, CreateCurlStore_UserDataIsSameStaticPointerAcrossHosts)
+TEST_F(CurlStoreTests, CreateCurlStore_UserDataDiffersAcrossHosts)
 {
     void *userDataA = nullptr;
     void *userDataB = nullptr;
 
-    // Capture the first CURLSHOPT_USERDATA call (host A) then the second (host B)
+    // Capture the CURLSHOPT_USERDATA for host A then host B
     EXPECT_CALL(*g_mockCurl, curl_share_setopt_ptr(_, CURLSHOPT_USERDATA, _))
         .WillOnce(DoAll(SaveArg<2>(&userDataA), Return(CURLSHE_OK)))
         .WillOnce(DoAll(SaveArg<2>(&userDataB), Return(CURLSHE_OK)))
-        .WillRepeatedly(Return(CURLSHE_OK)); // allow further calls from prior-test evictions
+        .WillRepeatedly(Return(CURLSHE_OK));
 
-    GetHandleForHost("t1-host-a.example.com");
-    GetHandleForHost("t1-host-b.example.com");
+    CURL *t1HandleA = GetHandleForHost("t1-host-a.example.com");
+    CURL *t1HandleB = GetHandleForHost("t1-host-b.example.com");
 
     ASSERT_NE(userDataA, nullptr);
     ASSERT_NE(userDataB, nullptr);
-    EXPECT_EQ(userDataA, userDataB)
-        << "CURLSHOPT_USERDATA must be the same static lock for all hosts";
+    EXPECT_NE(userDataA, userDataB)
+        << "Each host must have its own per-host lock (VPAAMP-558 regression)";
+
+    // Return handles so mCurlStoreUserCount drops to 0; prevents cross-test
+    // coupling via the process-lifetime singleton CurlStore.
+    ReturnHandleForHost("t1-host-a.example.com", t1HandleA);
+    ReturnHandleForHost("t1-host-b.example.com", t1HandleB);
 }
 
 // ---------------------------------------------------------------------------
-// T2: After a store entry is evicted and its hostname re-added, the new
-// CURLSHOPT_USERDATA must equal the original one.
+// T2: Lock/unlock callbacks work correctly while a store entry is alive.
 //
-// Regression: old code allocated a fresh lock on each CreateCurlStore call,
-// so the second allocation produced a different address → test FAIL.
-// Fixed code always uses &mSharedCurlLock → addresses are equal.
+// The per-host embedded lock (mShareLock) is valid for the lifetime of its
+// curlstorestruct.  When mCurlStoreUserCount > 0 the entry is live and
+// invoking the captured lock/unlock callbacks must not crash.
 // ---------------------------------------------------------------------------
-TEST_F(CurlStoreTests, CreateCurlStore_UserDataSameAfterEntryRecreation)
+TEST_F(CurlStoreTests, LockCallback_WorksWhileEntryIsAlive)
 {
-    void *userDataFirst  = nullptr;
-    void *userDataSecond = nullptr;
+    void                *capturedUserData  = nullptr;
+    curl_lock_function   capturedLockFn    = nullptr;
+    curl_unlock_function capturedUnlockFn  = nullptr;
 
-    // We expect three CreateCurlStore calls: t2-orig, t2-trigger (causes
-    // eviction of t2-orig), t2-orig again.  Capture 1st and 3rd USERDATA.
-    EXPECT_CALL(*g_mockCurl, curl_share_setopt_ptr(_, CURLSHOPT_USERDATA, _))
-        .WillOnce(DoAll(SaveArg<2>(&userDataFirst),  Return(CURLSHE_OK))) // t2-orig created
-        .WillOnce(Return(CURLSHE_OK))                                       // t2-trigger created
-        .WillOnce(DoAll(SaveArg<2>(&userDataSecond), Return(CURLSHE_OK))) // t2-orig re-created
-        .WillRepeatedly(Return(CURLSHE_OK));
-
-    CURL *handleOrig = GetHandleForHost("t2-orig.example.com");
-    // Return handle to store so mCurlStoreUserCount = 0, enabling eviction
-    ReturnHandleForHost("t2-orig.example.com", handleOrig);
-    // Adding a new host triggers RemoveCurlSock which evicts t2-orig
-    GetHandleForHost("t2-trigger.example.com");
-    // Re-add t2-orig: should call CreateCurlStore again with the same USERDATA
-    GetHandleForHost("t2-orig.example.com");
-
-    ASSERT_NE(userDataFirst,  nullptr);
-    ASSERT_NE(userDataSecond, nullptr);
-    EXPECT_EQ(userDataFirst, userDataSecond)
-        << "CURLSHOPT_USERDATA must be the same static lock after re-creation";
-}
-
-// ---------------------------------------------------------------------------
-// T3 (ASAN regression): Invoke the captured lock callback with the captured
-// USERDATA *after* the owning store entry has been evicted.
-//
-// Old code: cleanup called SAFE_DELETE(pstShareLocks) — the heap object pointed
-// to by USERDATA was freed.  Invoking the callback after that is use-after-free;
-// AddressSanitizer would report it.
-//
-// Fixed code: USERDATA = &mSharedCurlLock (static, never freed).  Invoking the
-// callback after eviction is safe.  This test passes cleanly under ASAN.
-// ---------------------------------------------------------------------------
-TEST_F(CurlStoreTests, LockCallback_SafeToCallAfterStoreEviction)
-{
-    void               *capturedUserData  = nullptr;
-    curl_lock_function  capturedLockFn    = nullptr;
-    curl_unlock_function capturedUnlockFn = nullptr;
-
-    // Capture the lock-related setopt arguments from CreateCurlStore("t3-evict")
     EXPECT_CALL(*g_mockCurl, curl_share_setopt_ptr(_, CURLSHOPT_USERDATA, _))
         .WillOnce(DoAll(SaveArg<2>(&capturedUserData), Return(CURLSHE_OK)))
         .WillRepeatedly(Return(CURLSHE_OK));
@@ -255,25 +227,64 @@ TEST_F(CurlStoreTests, LockCallback_SafeToCallAfterStoreEviction)
         .WillOnce(DoAll(SaveArg<2>(&capturedUnlockFn), Return(CURLSHE_OK)))
         .WillRepeatedly(Return(CURLSHE_OK));
 
-    // Step 1: create store entry for t3-evict, capture its USERDATA and callbacks
-    CURL *handleEvict = GetHandleForHost("t3-evict.example.com");
+    // Create entry; mCurlStoreUserCount = 1 (still alive)
+    CURL *t2Handle = GetHandleForHost("t2-host.example.com");
 
     ASSERT_NE(capturedUserData,  nullptr) << "USERDATA must be non-null";
-    ASSERT_NE(capturedLockFn,   nullptr) << "lock callback must be non-null";
-    ASSERT_NE(capturedUnlockFn, nullptr) << "unlock callback must be non-null";
+    ASSERT_NE(capturedLockFn,   nullptr)  << "lock callback must be non-null";
+    ASSERT_NE(capturedUnlockFn, nullptr)  << "unlock callback must be non-null";
 
-    // Step 2: return the handle so mCurlStoreUserCount drops to 0
-    ReturnHandleForHost("t3-evict.example.com", handleEvict);
-
-    // Step 3: adding a new host triggers RemoveCurlSock which evicts t3-evict.
-    // On old code this would have deleted the heap lock (USERDATA now dangling).
-    // On fixed code the static lock is untouched.
-    GetHandleForHost("t3-trigger.example.com");
-
-    // Step 4: invoke the production lock callback with the captured USERDATA.
-    // With ASAN: use-after-free is detected here on old code; passes on fixed code.
+    // Invoke the production callbacks while the entry is alive — the embedded
+    // lock is valid so this must not crash.
     capturedLockFn(nullptr, CURL_LOCK_DATA_DNS, CURL_LOCK_ACCESS_SHARED, capturedUserData);
     capturedUnlockFn(nullptr, CURL_LOCK_DATA_DNS, capturedUserData);
+
+    // Return the handle so mCurlStoreUserCount drops to 0; prevents cross-test
+    // coupling via the process-lifetime singleton CurlStore.
+    ReturnHandleForHost("t2-host.example.com", t2Handle);
+}
+
+// ---------------------------------------------------------------------------
+// T3: curl_share_cleanup is called for the evicted entry's CURLSH handle.
+//
+// VPAAMP-558 safety invariant: in every cleanup path the order is
+//   (1) curl_share_cleanup(mCurlShared)   — share teardown, lock may fire
+//   (2) SAFE_DELETE(CurlSock)             — destroys embedded mShareLock
+// This test verifies step (1) actually happens (via mock expectation) so that
+// the embedded lock is guaranteed alive whenever libcurl needs it.
+//
+// Mechanism: RemoveCurlSock fires when CreateCurlStore finds the map at or
+// above MaxCurlSockStore (== 0 in tests).  It evicts the entry with the
+// oldest timestamp and mCurlStoreUserCount == 0.
+// ---------------------------------------------------------------------------
+TEST_F(CurlStoreTests, ShareCleanup_CalledOnEviction)
+{
+    // Give distinct CURLSH handles to each curl_share_init call so we can
+    // identify which entry is cleaned up.
+    uintptr_t shareSeq = 0x6001;
+    EXPECT_CALL(*g_mockCurl, curl_share_init())
+        .WillOnce(Return(reinterpret_cast<CURLSH *>(0x6001))) // t3-host
+        .WillOnce(Return(reinterpret_cast<CURLSH *>(0x6002))) // t3-trigger
+        .WillRepeatedly(Return(reinterpret_cast<CURLSH *>(0x6003)));
+    (void)shareSeq;
+
+    CURL *hdl = GetHandleForHost("t3-host.example.com");
+    // mCurlStoreUserCount = 1 after GetHandleForHost; drop to 0 so evictable
+    ReturnHandleForHost("t3-host.example.com", hdl);
+
+    // When GetHandleForHost("t3-trigger") calls CreateCurlStore, RemoveCurlSock
+    // must call curl_share_cleanup on t3-host's CURLSH handle (0x6001) before
+    // deleting the struct.  Exactly one call is expected.
+    EXPECT_CALL(*g_mockCurl, curl_share_cleanup(reinterpret_cast<CURLSH *>(0x6001)))
+        .Times(1);
+
+    CURL *t3TriggerHandle = GetHandleForHost("t3-trigger.example.com");
+
+    // Return the trigger handle so mCurlStoreUserCount drops to 0; prevents
+    // cross-test coupling via the process-lifetime singleton CurlStore.
+    // Note: t3-host was already evicted by RemoveCurlSock above, so no return
+    // is needed for it.
+    ReturnHandleForHost("t3-trigger.example.com", t3TriggerHandle);
 }
 
 // ---------------------------------------------------------------------------
@@ -297,7 +308,7 @@ TEST_F(CurlStoreTests, LockCallback_HandlesAllLockDataTypes)
         .WillOnce(DoAll(SaveArg<2>(&capturedUnlockFn), Return(CURLSHE_OK)))
         .WillRepeatedly(Return(CURLSHE_OK));
 
-    GetHandleForHost("t4-host.example.com");
+    CURL *t4Handle = GetHandleForHost("t4-host.example.com");
 
     ASSERT_NE(capturedUserData,  nullptr);
     ASSERT_NE(capturedLockFn,   nullptr);
@@ -315,4 +326,8 @@ TEST_F(CurlStoreTests, LockCallback_HandlesAllLockDataTypes)
         capturedLockFn(nullptr, data, CURL_LOCK_ACCESS_SHARED, capturedUserData);
         capturedUnlockFn(nullptr, data, capturedUserData);
     }
+
+    // Return the handle so mCurlStoreUserCount drops to 0; prevents cross-test
+    // coupling via the process-lifetime singleton CurlStore.
+    ReturnHandleForHost("t4-host.example.com", t4Handle);
 }
