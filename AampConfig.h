@@ -289,6 +289,7 @@ typedef enum
 	eAAMPConfig_MaxLLDFragmentCached,           				/**< LLD fragment cache length */
 	eAAMPConfig_ABRChunkThresholdSize,                			/**< AAMP ABR Chunk threshold size*/
 	eAAMPConfig_FragmentDownloadFailThreshold, 				/**< Retry attempts for non-init fragment curl timeout failures*/
+	eAAMPConfig_ManifestRefreshFailEventThreshold,			/**< Consecutive manifest refresh download failures before raising AAMP_TUNE_MANIFEST_REQ_FAILED; 0 suppresses event while retries continue */
 	eAAMPConfig_MaxInitFragCachePerTrack,					/**< Max no of Init fragment cache per track */
 	eAAMPConfig_FogMaxConcurrentDownloads,                                  /**< Concurrent download posted to fog from player*/
 	eAAMPConfig_ContentProtectionDataUpdateTimeout,				/**< Default Timeout For ContentProtectionData Update in milliseconds */

@@ -161,7 +161,7 @@ After all per-download retries are exhausted, the track-level download loop cont
 |---|---|---|---|
 | `segDLFailCount` (media segments) | `eAAMPConfig_FragmentDownloadFailThreshold` | `MAX_SEG_DOWNLOAD_FAIL_COUNT` = **10** | `SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE)` |
 | `manifestDLFailCount` (HLS sub-manifest) | `MAX_MANIFEST_DOWNLOAD_RETRY` | **3** (`fragmentcollector_hls.h`) | `SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED)` |
-| MPD manifest failures | `MAX_MANIFEST_DOWNLOAD_RETRY_MPD` | **2** (`fragmentcollector_mpd.h`) | Same error event |
+| MPD manifest refresh failures (DASH live) | `eAAMPConfig_ManifestRefreshFailEventThreshold` | **0** (`AampConfig.cpp`) | While retries continue, suppress `AAMP_TUNE_MANIFEST_REQ_FAILED`; emit once after N consecutive failures when threshold `> 0` |
 | Ad segment failures | `MAX_AD_SEG_DOWNLOAD_FAIL_COUNT` | **2** (`AampDefine.h`) | Ad playback failure event |
 
 ---
@@ -178,3 +178,20 @@ After all per-download retries are exhausted, the track-level download loop cont
 | `fragmentcollector_mpd.cpp` | DASH manifest failure counting |
 | `AampDefine.h` | All default timeout and retry constants |
 | `priv_aamp.h` | Internal partial-download error codes (130–133) |
+
+---
+
+## DASH Live Manifest Refresh Event Policy
+
+For DASH live MPD refresh callbacks:
+
+- `AampMPDDownloader` keeps retrying refreshes after transient download failures
+	(including curl 56 / `CURLE_RECV_ERROR`).
+- `fragmentcollector_mpd.cpp` tracks consecutive refresh-download failures.
+- By default (`manifestRefreshFailEventThreshold = 0`),
+	`AAMP_TUNE_MANIFEST_REQ_FAILED` is suppressed while retries are in progress,
+	to avoid apps treating a recoverable refresh hiccup as a terminal stream
+	failure.
+- If `manifestRefreshFailEventThreshold` is set to `N > 0`, AAMP emits
+	`AAMP_TUNE_MANIFEST_REQ_FAILED` once after `N` consecutive refresh failures,
+	then waits for a successful refresh to reset the streak.

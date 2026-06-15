@@ -133,7 +133,7 @@ static constexpr const char* GetAdReservationEndReason(bool adFailed, bool adCan
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
 	: StreamAbstractionAAMP(aamp, std::move(id3Handler)),
 	mLangList(), seekPosition(seek_pos), mPlayRate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
-	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false), mUpdateManifestState(false),
+	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false), mManifestRefreshFailureCount(0), mManifestRefreshHardFailureEventSent(false), mUpdateManifestState(false),
 	mStreamInfo(), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
 	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
@@ -4621,6 +4621,8 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	if(tmpManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
 	{
 		mNetworkDownDetected = false;
+		mManifestRefreshFailureCount = 0;
+		mManifestRefreshHardFailureEventSent = false;
 		ProcessMetadataFromManifest(tmpManifestDnldRespPtr , false);
 		AampMPDParseHelperPtr	mMPDParser = tmpManifestDnldRespPtr->GetMPDParseHelper();
 
@@ -4646,6 +4648,28 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 		// Failure from the manifest download during refresh --- fire , what to do ??
 		// Check if the App only insisted to stop the download resulting in partial failure ?
 		int http_error	=	tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
+		int manifestRefreshFailEventThreshold = GETCONFIGVALUE(eAAMPConfig_ManifestRefreshFailEventThreshold);
+
+		auto shouldRaiseManifestRefreshFailureEvent = [&]() -> bool
+		{
+			if(manifestRefreshFailEventThreshold <= 0)
+			{
+				return false;
+			}
+
+			if(mManifestRefreshHardFailureEventSent)
+			{
+				return false;
+			}
+
+			if(mManifestRefreshFailureCount < manifestRefreshFailEventThreshold)
+			{
+				return false;
+			}
+
+			mManifestRefreshHardFailureEventSent = true;
+			return true;
+		};
 
 		if (aamp->DownloadsAreEnabled())
 		{
@@ -4655,7 +4679,17 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("Ignore curl timeout");
+				mManifestRefreshFailureCount++;
+				if (shouldRaiseManifestRefreshFailureEvent())
+				{
+					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+					AAMPLOG_ERR("manifest download failed after %d consecutive refresh failures", mManifestRefreshFailureCount);
+				}
+				else
+				{
+					AAMPLOG_WARN("Suppress manifest refresh failure event while retrying (%d consecutive failures, threshold=%d)",
+						mManifestRefreshFailureCount, manifestRefreshFailEventThreshold);
+				}
 			}
 			else
 			{
@@ -4689,8 +4723,17 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				}
 				else
 				{
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
-					AAMPLOG_ERR("manifest download failed");
+					mManifestRefreshFailureCount++;
+					if (shouldRaiseManifestRefreshFailureEvent())
+					{
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+						AAMPLOG_ERR("manifest download failed after %d consecutive refresh failures", mManifestRefreshFailureCount);
+					}
+					else
+					{
+						AAMPLOG_WARN("Suppress manifest refresh failure event while retrying (%d consecutive failures, threshold=%d)",
+							mManifestRefreshFailureCount, manifestRefreshFailEventThreshold);
+					}
 				}
 			}
 		}

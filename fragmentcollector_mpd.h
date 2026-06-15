@@ -1139,6 +1139,8 @@ protected:
 	std::thread tsbReaderThreadID;
 	ManifestDownloadResponsePtr mManifestDnldRespPtr ;
 	bool    mManifestUpdateHandleFlag;
+	int mManifestRefreshFailureCount;
+	bool mManifestRefreshHardFailureEventSent;
 	AampMPDParseHelperPtr	mMPDParseHelper;
 	bool mLowLatencyMode;
 	dash::mpd::IMPD *mpd;

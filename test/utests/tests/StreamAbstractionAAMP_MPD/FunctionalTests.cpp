@@ -527,6 +527,11 @@ protected:
 			return FetchDashManifest();
 		}
 
+		void CallMPDUpdateCallbackExec()
+		{
+			MPDUpdateCallbackExec();
+		}
+
 		void CallFindTimedMetadata(dash::mpd::MPD *mpd, Node *root, bool init, bool reportBulkMet)
 		{
 			FindTimedMetadata(mpd, root, init, reportBulkMet);
@@ -4472,6 +4477,88 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FetchDashManifest_ConnectTimeout_WithManif
 	// Execute test
 	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallFetchDashManifest();
 	EXPECT_EQ(result, AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+}
+
+// Verify default option-2 behavior: suppress manifest refresh failure events
+// while retries are in progress.
+TEST_F(StreamAbstractionAAMP_MPDTest, MPDUpdateCallbackExec_SuppressesManifestFailureEventByDefault)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H10M54.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264">
+	<Period duration="PT1M0S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+				<SegmentTemplate timescale="2500" media="video_$Time$.mp4" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="5000" r="29" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mIntConfigSettings[eAAMPConfig_ManifestRefreshFailEventThreshold] = 0;
+	AAMPStatusType status = InitializeMPD(manifest);
+	ASSERT_EQ(status, AAMPStatusType::eAAMPSTATUS_OK);
+
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
+		.WillOnce(WithArgs<2>(Invoke([this](int errorSimulation) {
+			return this->GetManifestForMPDDownloaderTimeout(CURLE_RECV_ERROR);
+		})));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, CURLE_RECV_ERROR))
+		.Times(0);
+
+	mStreamAbstractionAAMP_MPD->CallMPDUpdateCallbackExec();
+}
+
+// Verify threshold behavior for option-2: emit hard failure once after N
+// consecutive refresh failures, then suppress repeats until recovery.
+TEST_F(StreamAbstractionAAMP_MPDTest, MPDUpdateCallbackExec_RaisesManifestFailureAfterThresholdOnce)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H10M54.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264">
+	<Period duration="PT1M0S">
+		<AdaptationSet maxWidth="1920" maxHeight="1080" maxFrameRate="25" par="16:9">
+			<Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000">
+				<SegmentTemplate timescale="2500" media="video_$Time$.mp4" initialization="video_init.mp4">
+					<SegmentTimeline>
+						<S d="5000" r="29" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mIntConfigSettings[eAAMPConfig_ManifestRefreshFailEventThreshold] = 2;
+	AAMPStatusType status = InitializeMPD(manifest);
+	ASSERT_EQ(status, AAMPStatusType::eAAMPSTATUS_OK);
+
+	EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
+		.Times(3)
+		.WillRepeatedly(WithArgs<2>(Invoke([this](int errorSimulation) {
+			return this->GetManifestForMPDDownloaderTimeout(CURLE_RECV_ERROR);
+		})));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(3)
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, CURLE_RECV_ERROR))
+		.Times(1);
+
+	mStreamAbstractionAAMP_MPD->CallMPDUpdateCallbackExec();
+	mStreamAbstractionAAMP_MPD->CallMPDUpdateCallbackExec();
+	mStreamAbstractionAAMP_MPD->CallMPDUpdateCallbackExec();
 }
 
 /**
