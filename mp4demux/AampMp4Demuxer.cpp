@@ -242,6 +242,13 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
+			/* Signal a PTS error for non-init segment parse failures so that
+			 * AAMP triggers playback-failure recovery (error code 80), matching
+			 * the behaviour of IsoBmffProcessor. */
+			if (!isInit)
+			{
+				ptsError = true;
+			}
 		}
 		else
 		{
@@ -259,21 +266,32 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				{
 					for (auto& sample : samples)
 					{
-						if (mEnablePtsRestamp)
+						double beforeDTS = sample.mDts;
+						/* Apply the cross-period PTS offset when either PTS
+						 * restamping is active (mEnablePtsRestamp) or the offset is
+						 * positive (i.e. we are in period 1+ and the accumulated
+						 * duration must be added to keep timestamps monotonic).
+						 * A negative offset occurs for single-period streams where
+						 * UpdatePtsOffset normalizes the large timeline start time
+						 * to near-zero; applying that negative offset to raw Unix-
+						 * timestamp PTS would shift the GStreamer presentation time
+						 * far into the future (for live streams) causing PLAYING to
+						 * time out, so we skip it. */
+						if (mEnablePtsRestamp || fragmentPTSoffset > 0.0)
 						{
-							const double beforeDTS = sample.mDts;
 							sample.mPts += fragmentPTSoffset;
 							sample.mDts += fragmentPTSoffset;
-							if (mEnablePtsRestampLogging)
-							{
-								const uint32_t timeScale = mMp4Demux->GetTimeScale();
-								AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
-								GetMediaTypeName(mMediaType),
-								timeScale,
-								beforeDTS * timeScale,
-								sample.mDts * timeScale,
-								sample.mDuration * timeScale);
-							}
+						}
+
+						if (mEnablePtsRestamp && mEnablePtsRestampLogging)
+						{
+							uint32_t timeScale = mMp4Demux->GetTimeScale();
+							AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
+							GetMediaTypeName(mMediaType),
+							timeScale,
+							beforeDTS * timeScale,
+							sample.mDts * timeScale,
+							sample.mDuration * timeScale);
 						}
 						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 					}
