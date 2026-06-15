@@ -4232,7 +4232,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
 		// all segments including the init segments for the GST buffer that goes with the init
-		mPTSOffset = 0.0;
+		if (newTune || !ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+		{
+			/* Fresh tune: start the PTS accumulation from zero. */
+			mPTSOffset = 0.0;
+		}
+		/* else: non-new-tune re-init (e.g. back-to-back CDAI seek) with
+		 * AampMp4Demuxer active — preserve the accumulated mPTSOffset so
+		 * GStreamer receives monotonically increasing timestamps across the
+		 * new period sequence. */
 		mNextPts = 0.0;
 		UpdatePtsOffset(true);
 		FetchAndInjectInitFragments();
