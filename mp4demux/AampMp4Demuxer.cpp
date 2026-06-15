@@ -242,13 +242,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
-			/* Signal a PTS error for non-init segment parse failures so that
-			 * AAMP triggers playback-failure recovery (error code 80), matching
-			 * the behaviour of IsoBmffProcessor. */
-			if (!isInit)
-			{
-				ptsError = true;
-			}
+
 		}
 		else
 		{
@@ -282,7 +276,6 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							sample.mPts += fragmentPTSoffset;
 							sample.mDts += fragmentPTSoffset;
 						}
-
 						if (mEnablePtsRestamp && mEnablePtsRestampLogging)
 						{
 							uint32_t timeScale = mMp4Demux->GetTimeScale();
