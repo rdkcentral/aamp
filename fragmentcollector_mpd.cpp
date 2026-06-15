@@ -4236,12 +4236,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		{
 			/* Fresh tune: start the PTS accumulation from zero. */
 			mPTSOffset = 0.0;
+			mNextPts = 0.0;
 		}
-		/* else: non-new-tune re-init (e.g. back-to-back CDAI seek) with
-		 * AampMp4Demuxer active — preserve the accumulated mPTSOffset so
-		 * GStreamer receives monotonically increasing timestamps across the
-		 * new period sequence. */
-		mNextPts = 0.0;
+		/* else: non-new-tune re-init (e.g. back-to-back CDAI period transition)
+		 * with AampMp4Demuxer active — preserve mNextPts so UpdatePtsOffset()
+		 * carries forward the accumulated timeline position and computes a
+		 * correct (near-zero) mPTSOffset for the new period. */
 		UpdatePtsOffset(true);
 		FetchAndInjectInitFragments();
 	}
