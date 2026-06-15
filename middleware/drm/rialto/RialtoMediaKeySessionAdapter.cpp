@@ -105,11 +105,17 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 
 		if (key != nullptr && keySize > 0)
 		{
+			if (PlayerLogManager::isLogLevelAllowed(mLOGLEVEL_TRACE))
+			{
+				MW_LOG_TRACE("RialtoMediaKeySessionAdapter: onKeyUpdate keyId:");
+				DumpBinaryBlob(key, keySize);
+			}
 			std::vector<uint8_t> keyData(key, key + keySize);
 			{
 				std::lock_guard<std::mutex> lock(m_usableKeysMutex);
 				if (std::find(m_usableKeys.begin(), m_usableKeys.end(), keyData) == m_usableKeys.end())
 				{
+					MW_LOG_TRACE("RialtoMediaKeySessionAdapter: new usable key added");
 					m_usableKeys.push_back(keyData);
 				}
 			}

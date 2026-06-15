@@ -95,6 +95,14 @@ void RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged(
 
 	for (const auto& [keyId, status] : keyStatuses)
 	{
+		if (PlayerLogManager::isLogLevelAllowed(mLOGLEVEL_TRACE))
+		{
+			MW_LOG_TRACE("RialtoMediaKeySystem::MediaKeysClient: "
+			             "key status=%d keyIdSize=%zu",
+			             static_cast<int>(status), keyId.size());
+			DumpBinaryBlob(keyId.data(), keyId.size());
+		}
+
 		// Update the session's own key status cache.
 		if (sessIt != sessions.end())
 		{

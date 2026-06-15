@@ -378,6 +378,23 @@ bool AampRialtoMediaSource::injectOneSample(
 					sample.mDrmMetadata.mSkipByteBlock);
 			}
 
+			AAMPLOG_TRACE("Encrypted segment: sourceId=%d mksId=%d cipher=%d "
+				"keyIdSize=%zu ivSize=%zu numSubSamples=%u",
+				m_sourceId, m_mksId,
+				static_cast<int>(sample.mDrmMetadata.mCipher),
+				sample.mDrmMetadata.mKeyId.size(),
+				sample.mDrmMetadata.mIV.size(),
+				sample.mDrmMetadata.mNumSubSamples);
+			if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+			{
+				AAMPLOG_TRACE("  keyId:");
+				DumpBlob(sample.mDrmMetadata.mKeyId.data(),
+					sample.mDrmMetadata.mKeyId.size());
+				AAMPLOG_TRACE("  IV:");
+				DumpBlob(sample.mDrmMetadata.mIV.data(),
+					sample.mDrmMetadata.mIV.size());
+			}
+
 			if (sample.mDrmMetadata.mNumSubSamples > 0)
 			{
 				const size_t kEntrySize = 6;
@@ -399,6 +416,8 @@ bool AampRialtoMediaSource::injectOneSample(
 						(static_cast<uint32_t>(raw[offset + 4]) <<  8) |
 						 static_cast<uint32_t>(raw[offset + 5]);
 					segment->addSubSample(clearBytes, encBytes);
+					AAMPLOG_TRACE("  sub-sample[%u] clear=%u enc=%u",
+						s, clearBytes, encBytes);
 				}
 			}
 			else
@@ -406,7 +425,15 @@ bool AampRialtoMediaSource::injectOneSample(
 				segment->addSubSample(
 					/*numClearBytes=*/0,
 					static_cast<uint32_t>(sample.mDataSize));
+				AAMPLOG_TRACE("  single sub-sample: clear=0 enc=%zu",
+					sample.mDataSize);
 			}
+		}
+		if (!sample.mDrmMetadata.mIsEncrypted && m_mksId >= 0)
+		{
+			AAMPLOG_TRACE("Unencrypted sample for sourceId=%d with active DRM "
+				"session (mksId=%d) — segment sent without encryption metadata",
+				m_sourceId, m_mksId);
 		}
 
 		segment->setData(
