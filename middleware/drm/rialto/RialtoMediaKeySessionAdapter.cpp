@@ -27,6 +27,7 @@
 #include "PlayerUtils.h"
 
 #include <chrono>
+#include <set>
 
 #define LICENSE_RENEWAL_MESSAGE_TYPE "1"
 
@@ -89,11 +90,29 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 	                               uint16_t challengeSize)
 	{
 		long long elapsed = GetCurrentTimeMS() - m_timeBeforeCallback;
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onChallenge received, elapsed=%lld ms size=%u",
-		            elapsed, challengeSize);
+		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onChallenge received, elapsed=%lld ms size=%u destUrl=%s",
+		            elapsed, challengeSize, destUrl);
+
+		const std::string challengeData(reinterpret_cast<const char*>(challenge), challengeSize);
+		const std::string delimiter(":Type:");
+		const size_t delimiterPos = challengeData.find(delimiter);
+		const std::string messageType = challengeData.substr(0, delimiterPos);
+		const std::set<std::string> individualisationTypes = {"individualization-request", "3"};
+
+		if ((delimiterPos != std::string::npos) && (individualisationTypes.count(messageType) > 0))
+		{
+			MW_LOG_INFO("RialtoMediaKeySessionAdapter: onChallenge individualisation type=%s",
+			            messageType.c_str());
+			if (m_drmCallbacks)
+			{
+				m_drmCallbacks->Individualization(
+					challengeData.substr(delimiterPos + delimiter.length()));
+			}
+			return;
+		}
 
 		std::lock_guard<std::mutex> lock(m_eventMutex);
-		m_challenge.assign(reinterpret_cast<const char*>(challenge), challengeSize);
+		m_challenge.assign(challengeData);
 		m_destUrl.assign(destUrl);
 		m_challengeReceived = true;
 		m_challengeReady.notify_all();
