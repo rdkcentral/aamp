@@ -31,6 +31,7 @@
 #include "TextStyleAttributes.h"
 #include <memory>
 #include <gst/gst.h>
+#include <gst/pbutils/pbutils.h>
 #ifdef USE_EXTERNAL_STATS
 #include "player-xternal-stats.h"
 #endif
@@ -5414,6 +5415,9 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
 									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
 									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
 									NULL);
+				if (codecInfo.mCodecData.size() > 1)
+					gst_codec_utils_h264_caps_set_level_and_profile(caps,
+							codecInfo.mCodecData.data() + 1, codecInfo.mCodecData.size() - 1);
 			}
 			else if (codecInfo.mCodecFormat == GST_FORMAT_VIDEO_ES_HEVC)
 			{
@@ -5425,6 +5429,9 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
 									"height", G_TYPE_INT, codecInfo.mInfo.video.mHeight,
 									"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
 									NULL);
+				if (codecInfo.mCodecData.size() > 1)
+					gst_codec_utils_h265_caps_set_level_tier_and_profile(caps,
+							codecInfo.mCodecData.data() + 1, codecInfo.mCodecData.size() - 1);
 			}
 		}
 		else if (type == eGST_MEDIATYPE_AUDIO)

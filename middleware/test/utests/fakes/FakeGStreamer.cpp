@@ -1081,6 +1081,16 @@ void gst_base_transform_set_gap_aware(GstBaseTransform *trans, gboolean gap_awar
 void gst_base_transform_set_in_place(GstBaseTransform *trans, gboolean in_place){}
 void gst_base_transform_set_passthrough(GstBaseTransform *trans, gboolean passthrough){}
 
+gboolean gst_codec_utils_h264_caps_set_level_and_profile(GstCaps *caps, const guint8 *sps, guint len)
+{
+	return FALSE;
+}
+
+gboolean gst_codec_utils_h265_caps_set_level_tier_and_profile(GstCaps *caps, const guint8 *profile_tier_level, guint len)
+{
+	return FALSE;
+}
+
 #ifdef __cplusplus
 }
 #endif
