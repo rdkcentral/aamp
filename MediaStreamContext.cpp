@@ -221,10 +221,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					AAMPLOG_INFO("Audio track_id read from init fragment: %d ", track_id);
 					if(aamp->mCurrentAudioTrackId != -1 && track_id != aamp->mCurrentAudioTrackId)
 					{
+						overWriteTrackId = true;
 						if(overWriteTrackId)
 						{
 							buffer.parseBuffer(false, aamp->mCurrentAudioTrackId);
-							AAMPLOG_WARN("Audio track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
+							AAMPLOG_WARN("DEBUG-->Audio track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
 							trackIdUpdated = true;
 						}
 						else
