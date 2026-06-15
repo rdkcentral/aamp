@@ -148,6 +148,8 @@ GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
 void PlayerCliGstInit(int *argc, char ***argv)
 {
 	gst_init(argc,argv);
+	/* TEMPORARY: caps debug logging for VPAAMP-550 investigation - remove before merge */
+	gst_debug_set_threshold_from_string("GST_CAPS:5,appsrc:5,qtdemux:5,typefind:5", FALSE);
 }
 
 /**
