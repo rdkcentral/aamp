@@ -345,6 +345,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"enableCMCD", eAAMPConfig_EnableCMCD, true},
 	{true,"SlowMotion", eAAMPConfig_EnableSlowMotion, true},
 	{false,"enableSCTE35PresentationTime", eAAMPConfig_EnableSCTE35PresentationTime, false},
+	{false,"enableSCTERelativeTime", eAAMPCConfig_EnableSCTERelativeTime, false},
 	{false,"jsinfo",eAAMPConfig_JsInfoLogging,false},
 	{false,"ignoreAppLiveOffset", eAAMPConfig_IgnoreAppLiveOffset, false},
 	{false,"useTCPServerSink",eAAMPConfig_useTCPServerSink,false},

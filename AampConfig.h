@@ -199,6 +199,7 @@ typedef enum
 	eAAMPConfig_EnableCMCD,							/**< Enable/Disable CMCD config feature */
 	eAAMPConfig_EnableSlowMotion,						/**< Enable/Disable Slowmotion playback */
 	eAAMPConfig_EnableSCTE35PresentationTime,				/**< Enable/Disable use of SCTE PTS presentation time */
+	eAAMPCConfig_EnableSCTERelativeTime,				/**< Enable/Disable use of SCTE Time Relative to playback position */
 	eAAMPConfig_JsInfoLogging,						/**< Enable/disable jsinfo logging       */
 	eAAMPConfig_IgnoreAppLiveOffset,					/**< Config to ignore the liveOffset from App for LLD */
 	eAAMPConfig_useTCPServerSink,						/**< Route audio/video to tcpserversink, suppressing decode and presentation */

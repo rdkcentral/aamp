@@ -4918,22 +4918,33 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 				periodCnt++;
 
 				// Calculate period start time and duration
-				periodStartMS += periodDurationMS;
-				if (node->HasAttribute("start")) {
-					const std::string& value = node->GetAttributeValue("start");
-					uint64_t valueMS = 0;
-					if (!value.empty())
-						valueMS = ParseISO8601Duration(value.c_str() );
-					if (periodStartMS < valueMS)
-						periodStartMS = valueMS;
+				// GetPeriodStartTime returns absolute time; subtract mAvailabilityStartTime to get
+				// the relative offset from the presentation start (works for both VOD and live).
+				if(IsConfigSet(eAAMPConfig_EnableSCTERelativeTime))
+				{
+					// For SCTE processing with relative time, we want to use the period start time and duration as the reference for event processing instead of the segment times. This is because in some cases (like DVR content) the segment times can be discontinuous or have large gaps, while the period times are continuous and provide a more stable reference for event timing.
+					periodStartMS = (uint64_t)((mMPDParseHelper->GetPeriodStartTime(periodCnt-1, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) * 1000);
+					periodDurationMS = (uint64_t)mMPDParseHelper->GetPeriodDuration(periodCnt-1, mLastPlaylistDownloadTimeMs, false, aamp->IsUninterruptedTSB());
 				}
-				periodDurationMS = 0;
-				if (node->HasAttribute("duration")) {
-					const std::string& value = node->GetAttributeValue("duration");
-					uint64_t valueMS = 0;
-					if (!value.empty())
-						valueMS = ParseISO8601Duration(value.c_str() );
-					periodDurationMS = valueMS;
+				else
+				{
+					periodStartMS += periodDurationMS;
+					if (node->HasAttribute("start")) {
+						const std::string& value = node->GetAttributeValue("start");
+						uint64_t valueMS = 0;
+						if (!value.empty())
+							valueMS = ParseISO8601Duration(value.c_str() );
+						if (periodStartMS < valueMS)
+							periodStartMS = valueMS;
+					}
+					periodDurationMS = 0;
+					if (node->HasAttribute("duration")) {
+						const std::string& value = node->GetAttributeValue("duration");
+						uint64_t valueMS = 0;
+						if (!value.empty())
+							valueMS = ParseISO8601Duration(value.c_str() );
+						periodDurationMS = valueMS;
+					}
 				}
 				IPeriod * period = NULL;
 				if (mpd != NULL)
