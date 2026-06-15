@@ -4069,14 +4069,17 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			StreamOutputFormat trackFormat = (i == eMEDIATYPE_VIDEO)    ? videoFormat
 			                              : (i == eMEDIATYPE_AUDIO)    ? audioFormat
 			                              :                               subtitleFormat;
-			/* AampMp4Demuxer applies to any ISOBMFF track when useMp4Demux is enabled.
-			 * This covers both DASH (eMEDIAFORMAT_DASH) and HLS-fMP4 (FORMAT_ISO_BMFF)
-			 * segments — in both cases the elementary streams are carried in MP4 boxes
-			 * and AampMp4Demuxer is a drop-in replacement for qtdemux/IsoBmffProcessor.
-			 * HLS-TS segments (FORMAT_MPEGTS) must continue to use tsprocessor; they
-			 * never reach InitializeMediaProcessor from the HLS collector. */
+			/* AampMp4Demuxer applies to DASH streams and HLS-fMP4 segments when
+			 * useMp4Demux is enabled.  For DASH, GetStreamFormat returns FORMAT_UNKNOWN
+			 * (the real codec format is resolved later from the init segment); for
+			 * HLS-fMP4, it returns FORMAT_ISO_BMFF directly from the playlist parser.
+			 * HLS-TS (FORMAT_MPEGTS) never reaches InitializeMediaProcessor, so the
+			 * condition below only needs to block FORMAT_MPEGTS implicitly — any track
+			 * that is neither DASH nor HLS-fMP4 FORMAT_ISO_BMFF falls through to the
+			 * IsoBmffProcessor path. */
 			const bool useMp4Demux = ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
-			                         (trackFormat == FORMAT_ISO_BMFF);
+			                         (aamp->mMediaFormat == eMEDIAFORMAT_DASH ||
+			                          trackFormat == FORMAT_ISO_BMFF);
 			if (!useMp4Demux)
 			{
 				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
