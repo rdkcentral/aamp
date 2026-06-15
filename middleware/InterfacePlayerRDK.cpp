@@ -468,12 +468,13 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 			// RDKEMW-18286: Reinforce show-video-window before pipeline state change
 			if (interfacePlayerPriv->gstPrivateContext->videoMuted)
 			{
-                            MW_LOG_MIL("InterfacePlayerRDK - ConfigurePipeline: reinforcing "
-                                             "show-video-window=FALSE on %s (videoMuted=%d)",
-                                              GST_ELEMENT_NAME(vidsink),
-                                              interfacePlayerPriv->gstPrivateContext->videoMuted);
-                            g_object_set(vidsink, "show-video-window", FALSE, NULL);
-                        }
+				MW_LOG_MIL(
+					"InterfacePlayerRDK - ConfigurePipeline: reinforcing "
+					"show-video-window=FALSE on %s (videoMuted=%d)",
+					GST_ELEMENT_NAME(vidsink),
+					interfacePlayerPriv->gstPrivateContext->videoMuted);
+				g_object_set(vidsink, "show-video-window", FALSE, NULL);
+			}
 		}
 		else
 		{
@@ -2336,19 +2337,20 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				}
 				interfacePlayerPriv->gstPrivateContext->video_sink = vidsink;
 
-                                // RDKEMW-18286: Set show-video-window=FALSE at sink creation time.
-                                // This is the EARLIEST possible point. The Rialto delegate will queue
-                                // this (m_videoMuteQueued=true) and apply it server-side when the
-                                // source attaches — which happens BEFORE the pipeline goes to PLAYING
-                                // and BEFORE any frame can be decoded.
-                                if (interfacePlayerPriv->gstPrivateContext->videoMuted)
-                                {
-                                    MW_LOG_MIL("InterfacePlayerRDK - %s: setting show-video-window=FALSE "
-                                                 "at creation time (videoMuted=%d)",
-                                                 GST_ELEMENT_NAME(vidsink),
-                                                 interfacePlayerPriv->gstPrivateContext->videoMuted);
-                                    g_object_set(vidsink, "show-video-window", FALSE, NULL);
-                                }
+				// RDKEMW-18286: Set show-video-window=FALSE at sink creation time.
+				// This is the earliest possible point. The Rialto delegate will queue
+				// this (m_videoMuteQueued=true) and apply it server-side when the source
+				// attaches - which happens before the pipeline goes to PLAYING and before
+				// any frame can be decoded.
+				if (interfacePlayerPriv->gstPrivateContext->videoMuted)
+				{
+					MW_LOG_MIL(
+						"InterfacePlayerRDK - %s: setting show-video-window=FALSE "
+						"at creation time (videoMuted=%d)",
+						GST_ELEMENT_NAME(vidsink),
+						interfacePlayerPriv->gstPrivateContext->videoMuted);
+					g_object_set(vidsink, "show-video-window", FALSE, NULL);
+				}
 
 			}
 			else
