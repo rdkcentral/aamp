@@ -161,6 +161,7 @@ class InterfacePlayerRDK
 {
 	private:
 		bool trickTeardown;
+		volatile bool m_bBeingDestroyed;
 		std::mutex mMutex;
 		std::map<std::string, int> configMap;
 
@@ -175,6 +176,7 @@ class InterfacePlayerRDK
 		PlayerScheduler mScheduler;
 		InterfacePlayerRDK(bool isRialto = false);
 		~InterfacePlayerRDK();
+		bool IsBeingDestroyed() const { return m_bBeingDestroyed; }
 		InterfacePlayerPriv* GetPrivatePlayer();
 		/**
 		 * @brief Clears the flags for an idle task.
