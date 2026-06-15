@@ -1059,7 +1059,7 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPrefer
 	 * ReleaseStreamLock */
 	std::thread threadA([&]() {
 
-		mPrivateInstanceAAMP->AcquireStreamLock();
+		std::lock_guard<std::recursive_mutex> lock(mPrivateInstanceAAMP->GetStreamLock());
 
 		/* Signal Thread B that the lock is held (Tune in progress) */
 		{
@@ -1072,8 +1072,7 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPrefer
 		 * execution time. In the real crash, this was ~50ms. */
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-		/* Release stream lock - simulates end of TuneHelper/Init path */
-		mPrivateInstanceAAMP->ReleaseStreamLock();
+
 	});
 
 	/* Thread B (main test thread): Calls SetPreferredTextLanguages.
