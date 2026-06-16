@@ -159,7 +159,8 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	MediaCodecInfo &codecInfo,
 	IDrmBridge *drmBridge,
 	int64_t flushPosNs,
-	const std::optional<ProtectionParams> &protection)
+	const std::optional<ProtectionParams> &protection,
+	double appliedRate)
 {
 	// 1. Validate codec
 	std::string mimeType;
@@ -243,16 +244,16 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	if (flushPosNs >= 0)
 	{
 		if (!pipeline.setSourcePosition(
-				m_sourceId, flushPosNs, /*resetTime=*/true))
+				m_sourceId, flushPosNs, /*resetTime=*/true, appliedRate))
 		{
-			AAMPLOG_WARN("setSourcePosition(%" PRId64 ") failed for "
-				"mediaType=%d", flushPosNs,
+			AAMPLOG_WARN("setSourcePosition(%" PRId64 ") appliedRate=%f failed "
+				"for mediaType=%d", flushPosNs, appliedRate,
 				static_cast<int>(mediaType()));
 		}
 		else
 		{
-			AAMPLOG_INFO("setSourcePosition(%" PRId64 ") ok for "
-				"mediaType=%d", flushPosNs,
+			AAMPLOG_INFO("setSourcePosition(%" PRId64 ") appliedRate=%f ok for "
+				"mediaType=%d", flushPosNs, appliedRate,
 				static_cast<int>(mediaType()));
 		}
 	}

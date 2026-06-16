@@ -475,6 +475,19 @@ void AampRialtoPlayer::Configure(
 	{
 		m_pipelineFactory = firebolt::rialto::IMediaPipelineFactory::createFactory();
 	}
+	if (!m_pipelineCapabilities)
+	{
+		auto capFactory =
+			firebolt::rialto::IMediaPipelineCapabilitiesFactory::createFactory();
+		if (capFactory)
+		{
+			m_pipelineCapabilities = capFactory->createMediaPipelineCapabilities();
+		}
+		else
+		{
+			AAMPLOG_WARN("Failed to create IMediaPipelineCapabilitiesFactory");
+		}
+	}
 	auto &factory = m_pipelineFactory;
 	if (!factory)
 	{
@@ -736,7 +749,8 @@ void AampRialtoPlayer::AttachSource(
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
 		m_pendingFlushPositionNs.load(std::memory_order_relaxed),
-		m_pendingProtection[static_cast<size_t>(type)]);
+		m_pendingProtection[static_cast<size_t>(type)],
+		computeAppliedRate());
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
 	    result == AampRialtoMediaSource::AttachResult::UPDATED)
@@ -1575,6 +1589,20 @@ void AampRialtoPlayer::OnBufferUnderflow(int32_t sourceId)
 	m_notifiable->NotifyBufferUnderflow(source->mediaType());
 }
 
+double AampRialtoPlayer::computeAppliedRate() const
+{
+	if (m_pipelineCapabilities)
+	{
+		bool videoMaster = false;
+		if (m_pipelineCapabilities->isVideoMaster(videoMaster) && !videoMaster)
+		{
+			return static_cast<double>(
+				m_rate.load(std::memory_order_relaxed));
+		}
+	}
+	return 1.0;
+}
+
 void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 {
 	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
@@ -1593,7 +1621,8 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 			m_pendingFlushPositionNs.load(std::memory_order_relaxed);
 		if (m_pipeline &&
 			!m_pipeline->setSourcePosition(
-				sourceId, posNs, /*resetTime=*/true))
+				sourceId, posNs, /*resetTime=*/true,
+				computeAppliedRate()))
 		{
 			AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
 				sourceId);

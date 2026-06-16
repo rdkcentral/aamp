@@ -238,7 +238,8 @@ public:
 		MediaCodecInfo &codecInfo,
 		IDrmBridge *drmBridge,
 		int64_t flushPosNs,
-		const std::optional<ProtectionParams> &protection = std::nullopt);
+		const std::optional<ProtectionParams> &protection = std::nullopt,
+		double appliedRate = 1.0);
 
 	/**
 	 * @brief Inject one sample into the Rialto pipeline.

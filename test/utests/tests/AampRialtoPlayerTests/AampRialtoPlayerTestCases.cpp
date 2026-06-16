@@ -48,6 +48,7 @@
 #include "MockAampRialtoMediaSource.h"
 #include "MockAampConfig.h"
 #include "MockGLib.h"
+#include "MockIMediaPipelineCapabilities.h"
 
 using ::testing::_;
 using ::testing::AnyOf;
@@ -190,6 +191,17 @@ protected:
 
 		g_mockPipelineFactory = m_mockFactory;
 
+		// Set up the capabilities factory mock.  Default returns nullptr so
+		// computeAppliedRate() falls back to 1.0 unless a test overrides it.
+		m_mockCapabilitiesFactory =
+			std::make_shared<NiceMock<MockIMediaPipelineCapabilitiesFactory>>();
+		ON_CALL(*m_mockCapabilitiesFactory, createMediaPipelineCapabilities())
+			.WillByDefault(Invoke([]{
+				return std::unique_ptr<
+					firebolt::rialto::IMediaPipelineCapabilities>{nullptr};
+			}));
+		g_mockCapabilitiesFactory = m_mockCapabilitiesFactory;
+
 		// Create a NiceMock control backend.
 		auto controlBackend =
 				std::make_unique<NiceMock<MockIRialtoControlBackend>>();
@@ -307,6 +319,7 @@ protected:
 		g_mockGLib.reset();
 		g_mockAampConfig.reset();
 		g_mockPipelineFactory = nullptr;
+		g_mockCapabilitiesFactory = nullptr;
 		g_mockPrivateInstanceAAMP.reset();
 		m_nextSourceId = 0;
 		m_createSourceCallCount = 0;
@@ -487,19 +500,21 @@ protected:
 		m_player->OnProgressTimerTick();
 	}
 
-	std::shared_ptr<NiceMock<MockIMediaPipelineFactory>> m_mockFactory;
-	std::unique_ptr<NiceMock<MockIMediaPipeline>>        m_mockPipeline;
-	NiceMock<MockIMediaPipeline> *                       m_mockPipelinePtr{nullptr};
-	std::unique_ptr<AampRialtoPlayer>                    m_player;
-	std::weak_ptr<firebolt::rialto::IMediaPipelineClient> m_capturedClient;
-	NiceMock<MockIStreamSinkNotifiable>                  m_mockNotifiable;
-	MockIRialtoControlBackend *                          m_mockControlBackend{nullptr};
-	std::array<NiceMock<MockAampRialtoMediaSource> *, 3> m_mockSources{};
-	int                                                  m_createSourceCallCount{0};
-	int32_t                                              m_nextSourceId{0};
-	GSourceFunc                                          m_progressTimerCallback{nullptr};
-	gpointer                                             m_progressTimerUserData{nullptr};
-	guint                                                m_nextTimerId{1};
+	std::shared_ptr<NiceMock<MockIMediaPipelineFactory>>        m_mockFactory;
+	std::unique_ptr<NiceMock<MockIMediaPipeline>>               m_mockPipeline;
+	NiceMock<MockIMediaPipeline> *                              m_mockPipelinePtr{nullptr};
+	std::shared_ptr<NiceMock<MockIMediaPipelineCapabilitiesFactory>>
+	                                                            m_mockCapabilitiesFactory;
+	std::unique_ptr<AampRialtoPlayer>                           m_player;
+	std::weak_ptr<firebolt::rialto::IMediaPipelineClient>       m_capturedClient;
+	NiceMock<MockIStreamSinkNotifiable>                         m_mockNotifiable;
+	MockIRialtoControlBackend *                                 m_mockControlBackend{nullptr};
+	std::array<NiceMock<MockAampRialtoMediaSource> *, 3>        m_mockSources{};
+	int                                                         m_createSourceCallCount{0};
+	int32_t                                                     m_nextSourceId{0};
+	GSourceFunc                                                 m_progressTimerCallback{nullptr};
+	gpointer                                                    m_progressTimerUserData{nullptr};
+	guint                                                       m_nextTimerId{1};
 };
 
 /**
@@ -2967,4 +2982,171 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	// Verify player transitions to FLUSHING state.
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+}
+
+// ===========================================================================
+// appliedRate selection in setSourcePosition — isVideoMaster integration
+// ===========================================================================
+
+/// Helper: build a NiceMock<MockIMediaPipelineCapabilities> that returns the
+/// given isVideoMaster result and output, then programs the factory to return
+/// it.  Caller owns the returned raw pointer for setting EXPECT_CALLs.
+static void SetupCapabilities(
+	std::shared_ptr<NiceMock<MockIMediaPipelineCapabilitiesFactory>> &factory,
+	bool querySucceeds,
+	bool videoMaster)
+{
+	ON_CALL(*factory, createMediaPipelineCapabilities())
+		.WillByDefault(Invoke(
+			[querySucceeds, videoMaster]()
+				-> std::unique_ptr<firebolt::rialto::IMediaPipelineCapabilities>
+			{
+				auto caps =
+					std::make_unique<NiceMock<MockIMediaPipelineCapabilities>>();
+				ON_CALL(*caps, isVideoMaster(_))
+					.WillByDefault(DoAll(
+						SetArgReferee<0>(videoMaster),
+						Return(querySucceeds)));
+				return caps;
+			}));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition)
+{
+	/**
+	 * @brief When the platform reports isVideoMaster==false, setSourcePosition
+	 * must be called with appliedRate equal to the flushed rate (2.0 here).
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/false);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 2.0, _))
+		.WillOnce(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_FlushAtRate2_VideoMaster_UsesRate1InSetSourcePosition)
+{
+	/**
+	 * @brief When the platform reports isVideoMaster==true, setSourcePosition
+	 * must be called with appliedRate == 1.0 regardless of stored rate.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/true);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 1.0, _))
+		.WillOnce(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_FlushAtRate2_CapabilityQueryFails_UsesRate1InSetSourcePosition)
+{
+	/**
+	 * @brief When isVideoMaster() call itself fails (returns false), fall back
+	 * to appliedRate == 1.0.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/false,
+		/*videoMaster=*/false);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 1.0, _))
+		.WillOnce(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnSourceFlushed_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition)
+{
+	/**
+	 * @brief OnSourceFlushed must forward appliedRate == stored rate when the
+	 * platform reports isVideoMaster==false.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/false);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// Attach source first so Flush() can mark it flushing.
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 2.0, _))
+		.WillOnce(Return(true));
+
+	PostSourceFlushed(/*sourceId=*/0);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnSourceFlushed_FlushAtRate2_VideoMaster_UsesRate1InSetSourcePosition)
+{
+	/**
+	 * @brief OnSourceFlushed must forward appliedRate == 1.0 when the platform
+	 * reports isVideoMaster==true.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/true);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// Attach source first so Flush() can mark it flushing.
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 1.0, _))
+		.WillOnce(Return(true));
+
+	PostSourceFlushed(/*sourceId=*/0);
 }

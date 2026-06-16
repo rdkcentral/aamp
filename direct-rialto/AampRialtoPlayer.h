@@ -28,6 +28,7 @@
 #include "StreamSink.h"
 #include "ID3Metadata.hpp"
 #include "IMediaPipeline.h"
+#include "IMediaPipelineCapabilities.h"
 #include "IClientLogControl.h"
 #include "IClientLogHandler.h"
 #include "StreamOutputFormat.h"
@@ -347,6 +348,10 @@ private:
 	std::shared_ptr<RialtoLogHandler> m_rialtoLogHandler; ///< Rialto log bridge
 	/// Rialto pipeline factory; null until Configure() calls createFactory().
 	std::shared_ptr<firebolt::rialto::IMediaPipelineFactory> m_pipelineFactory;
+	/// Rialto pipeline capabilities; created once in Configure() so that
+	/// computeAppliedRate() and any future callers share a single instance.
+	std::unique_ptr<firebolt::rialto::IMediaPipelineCapabilities>
+		m_pipelineCapabilities;
 	/// Control backend used to wait for ApplicationState::RUNNING before
 	/// creating the media pipeline.
 	std::unique_ptr<IRialtoControlBackend> m_controlBackend;
@@ -490,6 +495,15 @@ private:
 	 * Caller must hold m_attachMutex and verify m_pipeline is non-null.
 	 */
 	void AttachSource(AampRialtoMediaSource &source, MediaCodecInfo &codecInfo);
+
+	/**
+	 * @brief Compute the appliedRate to pass to setSourcePosition().
+	 *
+	 * Queries IMediaPipelineCapabilitiesFactory for the isVideoMaster
+	 * property.  Returns the stored playback rate when the query
+	 * succeeds and isVideoMaster is false; returns 1.0 otherwise.
+	 */
+	double computeAppliedRate() const;
 
 	/**
 	 * @brief Call allSourcesAttached() once every expected source has
