@@ -3743,7 +3743,7 @@ double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
 	}
 	else if(IsMuxedStream())
 	{
-		// Audio is muxed into the video track; report video buffer duration instead
+		// For muxed A/V playback, report video buffer duration as audio buffer duration
 		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 		if(video)
 		{
