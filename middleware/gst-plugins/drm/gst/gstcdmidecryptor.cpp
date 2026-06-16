@@ -268,9 +268,9 @@ void gst_cdmidecryptor_dispose(GObject * object)
 		cdmidecryptor->sinkCaps = NULL;
 	}
 
-	g_mutex_clear(&cdmidecryptor->mutex);
 	g_cond_clear(&cdmidecryptor->condition);
 	g_cond_clear(&cdmidecryptor->sinkCapsCond);
+	g_mutex_clear(&cdmidecryptor->mutex);
 
 	G_OBJECT_CLASS(gst_cdmidecryptor_parent_class)->dispose(object);
 }
