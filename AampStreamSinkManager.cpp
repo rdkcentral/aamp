@@ -224,7 +224,7 @@ void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink 
 void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	
+
 	//Do not edit or remove this log - it is used in L2 test
 	AAMPLOG_WARN("AampStreamSinkManager(%p) DeleteStreamSink for PLAYER[%d]", this, aamp->mPlayerId);
 
@@ -309,7 +309,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	
+
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_UNDEFINED:
@@ -377,7 +377,7 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	
+
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_UNDEFINED:
@@ -453,7 +453,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	AAMPLOG_INFO("flushPosition:%lf, position:%lf", flushPosition, position);
 
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	
+
 	switch(mPipelineMode)
 	{
 		case ePIPELINEMODE_SINGLE:
@@ -511,7 +511,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 
 void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position)
 {
-	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
+	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f) subtitles_muted=%d", this, aamp->mPlayerId, position, aamp->subtitles_muted);
 
 	mStreamPlayer->ChangeAamp(aamp, mInactivePlayersMap[aamp]->GetID3MetadataHandler());
 	aamp->mIsFlushOperationInProgress = true;
