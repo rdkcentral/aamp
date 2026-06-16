@@ -200,8 +200,6 @@ public:
 	}
 
 	bool setImmediateOutput(int32_t, bool) override { return true; }
-//	bool setReportDecodeErrors(int32_t, bool) override { return true; }
-//	bool getQueuedFrames(int32_t, uint32_t &qf) override { qf = 0; return true; }
 	bool getImmediateOutput(int32_t, bool &io) override { io = false; return true; }
 
 	bool setVideoWindow(uint32_t x, uint32_t y,
@@ -318,7 +316,11 @@ public:
 		return true;
 	}
 
-    bool getDuration(int64_t &duration) override { return 0; }
+	bool getDuration(int64_t &duration) override
+	{
+		duration = 0;
+		return true;
+	}
 
 private:
 	int64_t getCurrentPositionNs() const

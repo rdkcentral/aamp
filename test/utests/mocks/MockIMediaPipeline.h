@@ -43,7 +43,7 @@ public:
 		(firebolt::rialto::MediaType type,
 		 const std::string &mimeType,
 		 const std::string &url,
-		bool isLive),
+		 bool isLive),
 		(override));
 
 	MOCK_METHOD(bool, attachSource,
@@ -159,10 +159,8 @@ public:
 	MOCK_METHOD(bool, switchSource,
 		(const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSource> &source),
 		(override));
-	// clang-format on
 
 	MOCK_METHOD(bool, getDuration, (int64_t &duration), (override));
-
 };
 
 #endif // MOCK_IMEDIA_PIPELINE_H
