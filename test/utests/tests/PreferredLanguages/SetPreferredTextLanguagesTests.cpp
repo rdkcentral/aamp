@@ -1013,19 +1013,6 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 /**
  * @brief Reproduce crash when PopulateAudioAndTextTracks races with
  *        SetPreferredTextLanguages on separate threads.
- *
- *        This simulates the exact crash from the field:
- *        Thread A (Tune/d562ce71): Inside Init() calling
- *                  PopulateAudioAndTextTracks() to populate mTextTracks.
- *        Thread B (JS API/78fa9c43): Calls SetPreferredTextLanguages() which
- *                  reads mTextTracks via GetAvailableTextTracks().
- *
- *        Because PopulateAudioAndTextTracks has NOT yet populated mTextTracks,
- *        GetAvailableTextTracks() returns an EMPTY vector. But
- *        mCurrentTextTrackIndex is already set to 0 .
- *        CheckPreferredTextLanguages then tries trackInfo[0] on an empty
- *        vector → SIGSEGV.
-
  */
 TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPreferredText)
 {
