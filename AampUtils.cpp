@@ -1488,7 +1488,8 @@ bool aamp_isTuneScheme( const char *cmdBuf )
 {
     size_t cmdLen = strlen(cmdBuf);
     bool isTuneScheme = false;
-    static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
+    static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:",
+                                       "http%3A","https%3A" };
     for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
     {
         size_t protocolLen = strlen(protocol[i]);
