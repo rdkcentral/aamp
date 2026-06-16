@@ -511,7 +511,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 
 void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position)
 {
-	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f) subtitles_muted=%d", this, aamp->mPlayerId, position, aamp->subtitles_muted);
+	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f) subtitles_muted=%d", this, aamp->mPlayerId, position, aamp->subtitles_muted.load());
 
 	mStreamPlayer->ChangeAamp(aamp, mInactivePlayersMap[aamp]->GetID3MetadataHandler());
 	aamp->mIsFlushOperationInProgress = true;
