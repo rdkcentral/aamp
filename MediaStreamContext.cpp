@@ -652,6 +652,18 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 		{
 			ret = true;
 			UpdateTSAfterFetch();
+			// OnFragmentDownloadSuccess is not called in the TSB read path, so
+			// lastDownloadedPosition is never advanced.  Without it, GetBufferedDuration()
+			// always returns 0, causing GetBufferStatus() to misreport BUFFER_STATUS_RED
+			// after elapsed time exceeds totalInjectedDuration and triggering a spurious
+			// retune/teardown.  Update it here from the fields populated by Read().
+			if (!cachedFragment->initFragment && cachedFragment->absPosition > 0.0)
+			{
+				lastDownloadedPosition.store(cachedFragment->absPosition + cachedFragment->duration);
+				AAMPLOG_DEBUG("[%s] (TSB) lastDownloadedPosition %.3fs (absPos %.3f + dur %.3f)",
+					name, lastDownloadedPosition.load(),
+					cachedFragment->absPosition, cachedFragment->duration);
+			}
 		}
 		else
 		{
