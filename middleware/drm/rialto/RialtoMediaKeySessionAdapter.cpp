@@ -26,6 +26,7 @@
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
 
+#include <algorithm>
 #include <chrono>
 #include <set>
 
@@ -199,19 +200,27 @@ DrmData* RialtoMediaKeySessionAdapter::generateKeyRequest(
 		}
 	}
 
-	if (!m_challenge.empty())
+	std::string challenge;
+	std::string destUrl;
+	{
+		std::lock_guard<std::mutex> lock(m_eventMutex);
+		challenge = m_challenge;
+		destUrl = m_destUrl;
+	}
+
+	if (!challenge.empty())
 	{
 		// Strip type prefix if present (same format as OCDM: "Type:payload")
-		std::string delimiter(":Type:");
-		std::string challengeData = m_challenge;
+		const std::string delimiter(":Type:");
+		std::string challengeData = challenge;
 		std::string requestType(challengeData.substr(0, challengeData.find(delimiter)));
-		if ((requestType.size() != 0) && (requestType.size() != challengeData.size()))
+		if (!requestType.empty() && requestType.size() != challengeData.size())
 		{
 			challengeData.erase(0, challengeData.find(delimiter) + delimiter.length());
 		}
 
 		result = new DrmData(challengeData.c_str(), challengeData.length());
-		destinationURL.assign(m_destUrl);
+		destinationURL.assign(destUrl);
 		MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateKeyRequest: destUrl=%s",
 		            destinationURL.c_str());
 		m_eKeyState = KEY_PENDING;

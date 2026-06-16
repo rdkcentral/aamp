@@ -45,13 +45,20 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest(
 	MW_LOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRequest session=%d url=%s size=%zu",
 	            keySessionId, url.c_str(), licenseRequestMessage.size());
 
-	std::lock_guard<std::mutex> lock(mutex);
-	auto it = callbacks.find(keySessionId);
-	if (it != callbacks.end() && it->second.onChallenge)
+	std::function<void(const char*, const uint8_t*, uint16_t)> onChallenge;
 	{
-		it->second.onChallenge(url.c_str(),
-		                       licenseRequestMessage.data(),
-		                       static_cast<uint16_t>(licenseRequestMessage.size()));
+		std::lock_guard<std::mutex> lock(mutex);
+		auto it = callbacks.find(keySessionId);
+		if (it != callbacks.end())
+		{
+			onChallenge = it->second.onChallenge;
+		}
+	}
+	if (onChallenge)
+	{
+		onChallenge(url.c_str(),
+		            licenseRequestMessage.data(),
+		            static_cast<uint16_t>(licenseRequestMessage.size()));
 	}
 	else
 	{
@@ -66,13 +73,19 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRenewal(
 {
 	MW_LOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRenewal session=%d size=%zu",
 	            keySessionId, licenseRenewalMessage.size());
-
-	std::lock_guard<std::mutex> lock(mutex);
-	auto it = callbacks.find(keySessionId);
-	if (it != callbacks.end() && it->second.onLicenseRenewal)
+	std::function<void(const uint8_t*, size_t)> onLicenseRenewal;
 	{
-		it->second.onLicenseRenewal(licenseRenewalMessage.data(),
-		                            licenseRenewalMessage.size());
+		std::lock_guard<std::mutex> lock(mutex);
+		auto it = callbacks.find(keySessionId);
+		if (it != callbacks.end())
+		{
+			onLicenseRenewal = it->second.onLicenseRenewal;
+		}
+	}
+	if (onLicenseRenewal)
+	{
+		onLicenseRenewal(licenseRenewalMessage.data(),
+		                 licenseRenewalMessage.size());
 	}
 	else
 	{

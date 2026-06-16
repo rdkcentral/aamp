@@ -2988,9 +2988,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // appliedRate selection in setSourcePosition — isVideoMaster integration
 // ===========================================================================
 
-/// Helper: build a NiceMock<MockIMediaPipelineCapabilities> that returns the
-/// given isVideoMaster result and output, then programs the factory to return
-/// it.  Caller owns the returned raw pointer for setting EXPECT_CALLs.
+ /// Helper: program the IMediaPipelineCapabilitiesFactory mock to return a
+ /// NiceMock<MockIMediaPipelineCapabilities> whose isVideoMaster() behavior is
+ /// controlled by querySucceeds/videoMaster.
 static void SetupCapabilities(
 	std::shared_ptr<NiceMock<MockIMediaPipelineCapabilitiesFactory>> &factory,
 	bool querySucceeds,
