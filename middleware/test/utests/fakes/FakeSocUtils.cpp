@@ -21,9 +21,6 @@
 
 namespace SocUtils
 {
-	void Init()
-	{
-	}
 	void InitializePlatformConfigs()
 	{
 	}

@@ -298,6 +298,7 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_NullPlayer_DoesNotCrash)
 	// Assert: Should return G_SOURCE_REMOVE safely
 	EXPECT_EQ(result, G_SOURCE_REMOVE);
 }
+
 /**
  * @brief Test that ProgressCallbackOnTimeout handles null player pointer gracefully
  * 
