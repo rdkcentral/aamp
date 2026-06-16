@@ -81,7 +81,17 @@ TEST_F(OCDMSessionAdapterTests, generateDRMSession)
 	const char *initDataType = "cenc";
 	uint8_t initDataTypeLen = strlen(initDataType);
 
-	((*g_mockopencdm).gmock_opencdm_construct_session(ocdmSystem, LicenseType::Temporary, MemBufEq(initDataType, initDataTypeLen), MemBufEq(initData, initDataLen), f_cbInitData, MemBufEq(customData.c_str(), customData.length()), customData.length(),_,_,_))(::testing::internal::GetWithoutMatchers(), nullptr) .InternalExpectedAt("/home/rekha/RDK/latest/l1_Final/aamp/middleware/test/utests/tests/OCDMSessionAdapter/FunctionalTests.cpp", 91, "*g_mockopencdm", "opencdm_construct_session(ocdmSystem, LicenseType::Temporary, MemBufEq(initDataType, initDataTypeLen), MemBufEq(initData, initDataLen), f_cbInitData, MemBufEq(customData.c_str(), customData.length()), customData.length(),_,_,_)").WillOnce(Return(ERROR_NONE));
+ 	EXPECT_CALL(*g_mockopencdm,
+ 		opencdm_construct_session(
+ 			ocdmSystem,
+ 			LicenseType::Temporary,
+ 			MemBufEq(initDataType, initDataTypeLen),
+ 			MemBufEq(initData, initDataLen),
+ 			f_cbInitData,
+ 			MemBufEq(customData.c_str(), customData.length()),
+ 			customData.length(),
+ 			_, _, _))
+ 		.WillOnce(Return(ERROR_NONE));
 
 	m_ocdmsessionadapter->generateDRMSession(initData, f_cbInitData, customData);
 }

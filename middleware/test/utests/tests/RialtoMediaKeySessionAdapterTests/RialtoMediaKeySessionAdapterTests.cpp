@@ -214,7 +214,6 @@ TEST_F(RialtoMediaKeySessionAdapterTest, ProcessDRMKeySuccess)
 	// Simulate key becoming usable (in separate thread to avoid deadlock)
 	const std::vector<uint8_t> keyId = {0xAA, 0xBB};
 	std::thread callbackThread([this, &keyId]() {
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
 		simulateKeyStatusUsable(keyId);
 	});
 

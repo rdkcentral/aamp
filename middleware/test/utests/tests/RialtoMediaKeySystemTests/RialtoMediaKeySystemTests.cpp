@@ -167,8 +167,15 @@ TEST_F(RialtoMediaKeySystemTest, OnLicenseRequestRoutesToCallback)
 	auto system = createSystemWithMediaKeys();
 	const uint8_t initData[] = {0x00};
 
+	std::weak_ptr<firebolt::rialto::IMediaKeysClient> capturedClient;
 	EXPECT_CALL(*m_mockMediaKeysRaw, createKeySession(_, _, _))
 		.WillOnce(DoAll(
+ 			Invoke([&capturedClient](firebolt::rialto::KeySessionType,
+ 			              std::weak_ptr<firebolt::rialto::IMediaKeysClient> client,
+ 			              int32_t&)
+ 			{
+ 				capturedClient = client;
+ 			}),
 			SetArgReferee<2>(TEST_SESSION_ID),
 			Return(firebolt::rialto::MediaKeyErrorStatus::OK)));
 
@@ -188,10 +195,13 @@ TEST_F(RialtoMediaKeySystemTest, OnLicenseRequestRoutesToCallback)
 	auto session = system->createSession("cenc", initData, sizeof(initData), callbacks);
 	ASSERT_NE(nullptr, session);
 
-	// Simulate the Rialto callback by extracting the client from createKeySession
-	// and calling onLicenseRequest directly. To do this properly we need to capture
-	// the client weak_ptr. Let's verify the callback wiring by calling system internals.
-	// For integration testing of callback routing, see the adapter tests.
+ 	auto client = capturedClient.lock();
+ 	ASSERT_NE(nullptr, client);
+ 	const std::string url = "https://license.example.com";
+ 	const std::vector<unsigned char> challengeMsg = {'c', 'h', 'a', 'l'};
+ 	client->onLicenseRequest(TEST_SESSION_ID, challengeMsg, url);
+ 	EXPECT_TRUE(challengeReceived);
+ 	EXPECT_EQ(receivedUrl, url);
 }
 
 TEST_F(RialtoMediaKeySystemTest, CreateSessionOnInvalidSystem)

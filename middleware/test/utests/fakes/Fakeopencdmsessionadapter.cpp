@@ -24,7 +24,6 @@
 
 MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter = nullptr;
 std::vector<uint8_t> g_mockKeyId{1,2,3,4,5,6,7,8,9,0,1,2,3,4};
-const std::vector<std::vector<uint8_t>> g_emptyUsableKeys{};
 
 OCDMSessionAdapter::OCDMSessionAdapter(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks *callbacks) :
     DrmSession("ocdmkeysystem"), m_keyId{g_mockKeyId}, m_drmHelper{drmHelper}
@@ -79,15 +78,14 @@ bool OCDMSessionAdapter::waitForState(KeyState state, const uint32_t timeout)
 
 /**
  * @brief Get the list of usable key IDs from the DRM session
- * @retval Reference to vector of usable key IDs
- * @note Default implementation returns the reference to an empty vector
+ * @retval Snapshot copy of usable key IDs
  */
-const std::vector<std::vector<uint8_t>>& OCDMSessionAdapter::getUsableKeys() const
+std::vector<std::vector<uint8_t>> OCDMSessionAdapter::getUsableKeys() const
 {
     if (g_mockOpenCdmSessionAdapter) {
         return g_mockOpenCdmSessionAdapter->getUsableKeys();
     }
-    return g_emptyUsableKeys;
+    return {};
 }
 
 #if defined(USE_OPENCDM_ADAPTER)

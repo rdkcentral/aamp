@@ -77,6 +77,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 	{
 		MW_LOG_ERR("RialtoMediaKeySessionAdapter::generateDRMSession: no valid RialtoMediaKeySystem");
 		m_eKeyState = KEY_ERROR;
+		m_stateChanged.notify_all();
 		return;
 	}
 
@@ -165,6 +166,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 	{
 		MW_LOG_ERR("RialtoMediaKeySessionAdapter::generateDRMSession: createSession failed");
 		m_eKeyState = KEY_ERROR_SESSION_CREATE_FAILED;
+		m_stateChanged.notify_all();
 	}
 	else
 	{
@@ -232,6 +234,7 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 	{
 		MW_LOG_ERR("RialtoMediaKeySessionAdapter::processDRMKey: no active session");
 		m_eKeyState = KEY_ERROR;
+		m_stateChanged.notify_all();
 		return retValue;
 	}
 
@@ -356,6 +359,7 @@ void RialtoMediaKeySessionAdapter::clearDecryptContext()
 	}
 
 	m_eKeyState = KEY_INIT;
+	m_stateChanged.notify_all();
 }
 
 int RialtoMediaKeySessionAdapter::decrypt(
@@ -385,7 +389,7 @@ int32_t RialtoMediaKeySessionAdapter::getMediaKeySessionId() const
 	return -1;
 }
 
-const std::vector<std::vector<uint8_t>>& RialtoMediaKeySessionAdapter::getUsableKeys() const
+std::vector<std::vector<uint8_t>> RialtoMediaKeySessionAdapter::getUsableKeys() const
 {
 	std::lock_guard<std::mutex> lock(m_usableKeysMutex);
 	return m_usableKeys;

@@ -68,11 +68,9 @@ int DrmSession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *p
 
 /**
  * @brief Get the list of usable key IDs from the DRM session
- * @retval Reference to vector of usable key IDs
- * @note Default implementation returns the reference to an empty vector
+ * @retval Snapshot copy of usable key IDs
  */
-const std::vector<std::vector<uint8_t>>& DrmSession::getUsableKeys() const
+std::vector<std::vector<uint8_t>> DrmSession::getUsableKeys() const
 {
-	static const std::vector<std::vector<uint8_t>> emptyVector;
-	return emptyVector;
+	return {};
 }

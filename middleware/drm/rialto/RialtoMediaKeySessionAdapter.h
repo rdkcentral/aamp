@@ -36,6 +36,7 @@
 #include "RialtoMediaKeySystem.h"
 #include "RialtoMediaKeySession.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -96,7 +97,7 @@ public:
 
 	int32_t getMediaKeySessionId() const override;
 
-	const std::vector<std::vector<uint8_t>>& getUsableKeys() const override;
+	std::vector<std::vector<uint8_t>> getUsableKeys() const override;
 
 private:
 	/// Owned Rialto key system.
@@ -108,7 +109,7 @@ private:
 	DrmHelperPtr m_drmHelper;
 	DrmCallbacks* m_drmCallbacks;
 
-	KeyState m_eKeyState;
+	std::atomic<KeyState> m_eKeyState;
 	std::mutex m_mutex;
 
 	/// Challenge received from Rialto onLicenseRequest callback.
