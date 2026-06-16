@@ -148,7 +148,7 @@ protected:
 					return std::move(m_mockPipeline);
 				}));
 
-		ON_CALL(*m_mockPipelinePtr, load(_, _, _))
+		ON_CALL(*m_mockPipelinePtr, load(_, _, _, _))
 			.WillByDefault(Return(true));
 
 		ON_CALL(*m_mockPipelinePtr, attachSource(_))
@@ -386,7 +386,7 @@ protected:
 		m_mockPipeline = std::make_unique<NiceMock<MockIMediaPipeline>>();
 		m_mockPipelinePtr = m_mockPipeline.get();
 
-		ON_CALL(*m_mockPipelinePtr, load(_, _, _))
+		ON_CALL(*m_mockPipelinePtr, load(_, _, _, _))
 			.WillByDefault(Return(true));
 		ON_CALL(*m_mockPipelinePtr, attachSource(_))
 			.WillByDefault(Invoke(
@@ -531,7 +531,7 @@ protected:
 TEST_F(AampRialtoPlayerTest, Configure_ValidFormats_CreatesPipeline)
 {
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
-	EXPECT_CALL(*m_mockPipelinePtr, load(_, _, _))
+	EXPECT_CALL(*m_mockPipelinePtr, load(_, _, _, _))
 		.WillOnce(Return(true));
 
 	Configure();
