@@ -1015,18 +1015,20 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
  *        SetPreferredTextLanguages on separate threads.
  *
  *        This simulates the exact crash from the field:
- *        Thread A  Holds mStreamLock, inside Init() which
- *                  calls PopulateAudioAndTextTracks() to populate mTextTracks.
- *        Thread B Calls SetPreferredTextLanguages() which
+ *        Thread A (Tune/d562ce71): Inside Init() calling
+ *                  PopulateAudioAndTextTracks() to populate mTextTracks.
+ *        Thread B (JS API/78fa9c43): Calls SetPreferredTextLanguages() which
  *                  reads mTextTracks via GetAvailableTextTracks().
  *
+ *        Because PopulateAudioAndTextTracks has NOT yet populated mTextTracks,
+ *        GetAvailableTextTracks() returns an EMPTY vector. But
+ *        mCurrentTextTrackIndex is already set to 0 .
+ *        CheckPreferredTextLanguages then tries trackInfo[0] on an empty
+ *        vector → SIGSEGV.
+
  */
 TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPreferredText)
 {
-
-	std::vector<TextTrackInfo> populatedTracks;
-	populatedTracks.push_back(TextTrackInfo("idx0", "eng", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
-
 
 	std::vector<TextTrackInfo> emptyTracks;
 
@@ -1035,60 +1037,23 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPrefer
 	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("eng");
 	mPrivateInstanceAAMP->subtitles_muted = false;
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
-
 	mPrivateInstanceAAMP->mCurrentTextTrackIndex = 0;
-
-	std::mutex syncMtx;
-	std::condition_variable cvLockHeld;
-	std::condition_variable cvTestDone;
-	bool lockHeld = false;
-	bool testDone = false;
-	std::atomic<bool> threadBCompleted{false};
-	std::atomic<bool> threadBGotEmptyTracks{false};
 
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
-		.WillOnce(Invoke([&](bool) -> std::vector<TextTrackInfo>& {
-			return populatedTracks;
-		}));
+		.WillOnce(ReturnRef(emptyTracks));
 
-	/* Thread A: Simulates the Tune thread holding mStreamLock while
-	 * PopulateAudioAndTextTracks is running. In production this is:
-	 * aamp_Tune -> AcquireStreamLock -> TuneHelper -> Init ->
-	 * PopulateAudioAndTextTracks (writes mTextTracks) -> ... ->
-	 * ReleaseStreamLock */
-	std::thread threadA([&]() {
-
-		std::lock_guard<std::recursive_mutex> lock(mPrivateInstanceAAMP->GetStreamLock());
-
-		/* Signal Thread B that the lock is held (Tune in progress) */
-		{
-			std::lock_guard<std::mutex> lk(syncMtx);
-			lockHeld = true;
-		}
-		cvLockHeld.notify_one();
-
-		/* Hold the lock for a brief period simulating PopulateAudioAndTextTracks
-		 * execution time. In the real crash, this was ~50ms. */
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-
-	});
-
-	/* Thread B (main test thread): Calls SetPreferredTextLanguages.
-	 * Wait for Thread A to hold the lock first to reproduce the race window. */
-	{
-		std::unique_lock<std::mutex> lk(syncMtx);
-		cvLockHeld.wait(lk, [&] { return lockHeld; });
-	}
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+		.Times(::testing::AnyNumber());
 
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"eng\",\"\"],\"sub-type\":\"SUBTITLES\"}");
-	threadBCompleted.store(true);
 
-	threadA.join();
-
-	EXPECT_TRUE(threadBCompleted.load());
-
-	EXPECT_FALSE(threadBGotEmptyTracks.load());
+	/* If we reach here, the bounds check prevented the crash */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "eng,");
 }
