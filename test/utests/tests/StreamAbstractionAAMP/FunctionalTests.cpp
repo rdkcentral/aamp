@@ -317,3 +317,23 @@ TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsVideoBuffe
 
 	EXPECT_DOUBLE_EQ(8.75, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
 }
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() does not fall back to video
+ *        when AudioOnlyPlayback is enabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsSentinel_WhenAudioOnlyPlaybackEnabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = false;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.Times(0);
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(0);
+
+	EXPECT_DOUBLE_EQ(-1.0, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+}
