@@ -147,7 +147,24 @@ GstBuffer* CreateGstBufferWithData(gconstpointer data, gsize size)
 
 void PlayerCliGstInit(int *argc, char ***argv)
 {
-	gst_init(argc,argv);
+	gst_init(argc, argv);
+
+	// Enable GStreamer debug logging for caps negotiation and pad-linking
+	// diagnostics.  This helps identify "Internal data stream error /
+	// streaming stopped, reason not-linked" failures that can occur when
+	// AampMp4Demuxer is active and caps are set dynamically after the
+	// initial pipeline setup (e.g. after the init-segment is parsed).
+	//
+	// Output goes to stderr.  In the L2 test environment stderr is merged
+	// with stdout (aamp-cli is launched with 2>&1), so these lines appear
+	// in the aamp.log alongside AAMP's own logging.
+	//
+	// FALSE means existing thresholds are only raised, never lowered, so
+	// GST_DEBUG environment-variable overrides are still respected.
+	gst_debug_set_colored(FALSE);
+	gst_debug_set_threshold_from_string(
+		"GST_CAPS:5,GST_PADS:5,appsrc:5,basesrc:5,decodebin:5,uridecodebin:5",
+		FALSE);
 }
 
 /**
