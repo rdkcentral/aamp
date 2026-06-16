@@ -433,6 +433,10 @@ void AampTSBSessionManager::ProcessWriteQueue()
 						NOW_STEADY_TS_MS - tStartTime, writeData.cachedFragment->fragment.size(), writeData.cachedFragment->cacheFragStreamInfo.bandwidthBitsPerSecond, GetMediaTypeName(writeData.cachedFragment->type),
 						writeData.cachedFragment->discontinuity, writeData.pts, writeData.periodId.c_str(), writeData.url.c_str());
 					LockReadMutex();
+					// Cache the shared_ptr once so that a concurrent teardown that resets
+					// the member cannot destroy the AampTsbReader between the null-check
+					// and the method call (TOCTOU use-after-free).
+					std::shared_ptr<AampTsbReader> tsbReader = GetTsbReader(mediatype);
 					if (writeData.cachedFragment->initFragment)
 					{
 						TSBDataAddStatus = GetTsbDataManager(mediatype)->AddInitFragment(writeData.url,
@@ -447,26 +451,26 @@ void AampTSBSessionManager::ProcessWriteQueue()
 						TSBDataAddStatus = GetTsbDataManager(mediatype)->AddFragment(writeData,
 																					mediatype,
 																					writeData.cachedFragment->discontinuity);
-						if(GetTsbReader(mediatype))
+						if(tsbReader)
 						{
-							GetTsbReader(mediatype)->SetNewInitWaiting(false);
+							tsbReader->SetNewInitWaiting(false);
 						}
 					}
 					UpdateTotalStoreDuration(mediatype, writeData.cachedFragment->duration);
 					if (TSBDataAddStatus)
 					{
-						if (GetTsbReader(mediatype))
+						if (tsbReader)
 						{
 							if(writeData.cachedFragment->initFragment)
 							{
-								GetTsbReader(mediatype)->SetNewInitWaiting(true);
+								tsbReader->SetNewInitWaiting(true);
 								AAMPLOG_INFO("[%s] New init active at live edge %s", GetMediaTypeName(mediatype), writeData.url.c_str());
 							}
 							else if(eTUNETYPE_SEEKTOLIVE != mActiveTuneType)
 							{
 								// Reset EOS for all other tune types except seek to live
 								// For seek to live, segment injection has to go through chunked transfer and reader has to exit
-								GetTsbReader(mediatype)->ResetEos();
+								tsbReader->ResetEos();
 								AAMPLOG_INFO("[%s] Resetting EOS", GetMediaTypeName(mediatype));
 							}
 						}
