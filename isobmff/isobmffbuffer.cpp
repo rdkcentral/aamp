@@ -273,7 +273,7 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 				size, remaining);
 			break;
 		}
-		char type[5];
+		char type[Box::BOX_TYPE_BUFFER_SIZE];
 		READ_U8(type, buf, sizeof(uint32_t));
 		type[sizeof(uint32_t)] = '\0';
 
@@ -329,7 +329,7 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 				size, remaining);
 			break;
 		}
-		char type[5];
+		char type[Box::BOX_TYPE_BUFFER_SIZE];
 		READ_U8(type, buf, sizeof(uint32_t));
 		type[sizeof(uint32_t)] = '\0';
 

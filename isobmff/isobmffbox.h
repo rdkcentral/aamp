@@ -133,7 +133,8 @@ inline uint64_t READ_U64(ByteT *&buf)
 	return val;
 }
 
-inline bool IS_TYPE(const char *value, const char *type)
+template <typename T, typename U>
+inline bool IS_TYPE(const T *value, const U *type)
 {
 	return (std::memcmp(value, type, sizeof(uint32_t)) == 0);
 }
@@ -145,16 +146,10 @@ inline bool IS_TYPE(const char *value, const char *type)
  */
 class Box
 {
-private:
+public:
 	static constexpr size_t BOX_TYPE_LENGTH = sizeof(uint32_t);
 	static constexpr size_t BOX_TYPE_BUFFER_SIZE = BOX_TYPE_LENGTH + sizeof(char);
-	uint8_t *base;		/**< Ptr to start of box */
-	uint32_t offset;	/**< Offset from the beginning of the segment */
-	uint32_t size;		/**< Box Size */
-	char type[BOX_TYPE_BUFFER_SIZE]; 		/**< Box Type Including \0 */
 
-/*TODO: Handle special cases separately */
-public:
 	static constexpr const char *FTYP = "ftyp";
 	static constexpr const char *MOOV = "moov";
 	static constexpr const char *MVHD = "mvhd";
@@ -178,6 +173,13 @@ public:
 	static constexpr const char *SENC = "senc";
 	static constexpr const char *SAIZ = "saiz";
 
+private:
+	uint8_t *base;		/**< Ptr to start of box */
+	uint32_t offset;	/**< Offset from the beginning of the segment */
+	uint32_t size;		/**< Box Size */
+	char type[BOX_TYPE_BUFFER_SIZE]; 		/**< Box Type Including \0 */
+
+public:
 	/**
 	 * @fn Box
 	 *

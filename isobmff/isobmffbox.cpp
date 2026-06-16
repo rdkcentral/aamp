@@ -27,7 +27,6 @@
 #include "AampUtils.h"
 #include <stddef.h>
 #include <inttypes.h>
-#include <cstdlib>
 
 const uint32_t TRUN_FLAG_DATA_OFFSET_PRESENT                    = 0x0001;
 const uint32_t TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT             = 0x0004;
@@ -158,16 +157,31 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 
 	uint32_t size = 0;
-	char type[BOX_TYPE_BUFFER_SIZE];
+	uint8_t type[BOX_TYPE_BUFFER_SIZE];
 	char safeType[BOX_TYPE_BUFFER_SIZE] = {};
-	if(maxSz < 4)
+	bool safeTypeInitialized = false;
+	auto ensureSafeType = [&]()
 	{
-		AAMPLOG_TRACE("Box data < 4 bytes. Can't determine Size & Type");
+		if (safeTypeInitialized)
+		{
+			return;
+		}
+		for (int i = 0; i < BOX_TYPE_LENGTH; i++)
+		{
+			safeType[i] = (type[i] >= 0x20 && type[i] <= 0x7e) ?
+				static_cast<char>(type[i]) : '.';
+		}
+		safeType[BOX_TYPE_LENGTH] = '\0';
+		safeTypeInitialized = true;
+	};
+	if(maxSz < BOX_TYPE_LENGTH)
+	{
+		AAMPLOG_TRACE("Box data < %zu bytes. Can't determine Size & Type", BOX_TYPE_LENGTH);
 		return std::make_unique<Box>(maxSz, (const char *)"UKWN");
 	}
-	else if(maxSz >= 4 && maxSz < 8)
+	else if(maxSz >= BOX_TYPE_LENGTH && maxSz < (BOX_TYPE_LENGTH + sizeof(uint32_t)))
 	{
-		AAMPLOG_TRACE("Box Size between >4 but <8 bytes. Can't determine Type");
+		AAMPLOG_TRACE("Box Size between >%zu but <%zu bytes. Can't determine Type", BOX_TYPE_LENGTH, (BOX_TYPE_LENGTH + sizeof(uint32_t)));
 		//size = READ_U32(hdr);
 		return std::make_unique<Box>(maxSz, (const char *)"UKWN");
 	}
@@ -176,15 +190,11 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		size = READ_U32(hdr);
 		READ_U8(type, hdr, BOX_TYPE_LENGTH);
 		type[BOX_TYPE_LENGTH] = '\0';
-		for (size_t i = 0; i < BOX_TYPE_LENGTH; i++)
-		{
-			safeType[i] = (type[i] >= 0x20 && type[i] <= 0x7e) ? static_cast<char>(type[i]) : '.';
-		}
-		safeType[BOX_TYPE_LENGTH] = '\0';
 	}
 
 	if (size < minHeaderSize)
 	{
+		ensureSafeType();
 		AAMPLOG_WARN("Box[%s] has invalid small size[%u]", safeType, size);
 		return std::make_unique<Box>(size, safeType);
 	}
@@ -193,6 +203,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	{
 		if(correctBoxSize)
 		{
+			ensureSafeType();
 			//Fix box size to handle cases like receiving whole file for HTTP range requests
 			AAMPLOG_WARN("Box[%s] fixing size error:size[%u] > maxSz[%u]", safeType, size, maxSz);
 			hdr = hdr_start;
@@ -201,8 +212,11 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		}
 		else
 		{
+			ensureSafeType();
+		#ifdef AAMP_DEBUG_BOX_CONSTRUCT
 			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",
 				safeType, size, maxSz);
+		#endif
 			return std::make_unique<Box>(size, safeType);
 		}
 	}
@@ -280,7 +294,8 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		return std::unique_ptr<Box>(SaizBox::constructSaizBox(size, hdr));
 	}
 
-	return std::make_unique<Box>(size, (const char *)type);
+	ensureSafeType();
+	return std::make_unique<Box>(size, safeType);
 }
 
 /**
@@ -291,7 +306,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 void Box::rewriteAsSkipBox(void)
 {
 	// buffer
-	std::memcpy(base + sizeof(uint32_t), Box::SKIP, BOX_TYPE_LENGTH);
+	std::memcpy(base + BOX_TYPE_LENGTH, Box::SKIP, BOX_TYPE_LENGTH);
 	// internal type
 	std::memcpy(type, Box::SKIP, BOX_TYPE_BUFFER_SIZE);
 }
@@ -648,17 +663,17 @@ EmsgBox::~EmsgBox()
 {
 	if (messageData)
 	{
-		std::free(messageData);
+		free(messageData);
 	}
 
 	if (schemeIdUri)
 	{
-		std::free(schemeIdUri);
+		free(schemeIdUri);
 	}
 
 	if (value)
 	{
-		std::free(value);
+		free(value);
 	}
 }
 
@@ -824,13 +839,10 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 	uint32_t evtDur = 0;
 	uint32_t boxId = 0;
 
-	auto freeDeleter = &std::free;
-	std::unique_ptr<char, decltype(freeDeleter)> schemeId(nullptr,
-		freeDeleter);
-	std::unique_ptr<uint8_t, decltype(freeDeleter)> schemeIdValue(nullptr,
-		freeDeleter);
-	std::unique_ptr<uint8_t, decltype(freeDeleter)> message(nullptr,
-		freeDeleter);
+	char * schemeId = nullptr;
+	uint8_t* schemeIdValue = nullptr;
+
+	uint8_t* message = nullptr;
 	FullBox fbox(sz, Box::EMSG, version, flags);
 	auto hasRemaining = [&](uint32_t needed, const char *field) -> bool
 	{
@@ -847,8 +859,6 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 	 */
 	if (1 == version)
 	{
-		// v1 fixed fields: timescale (u32), presentation_time (u64),
-		// event_duration (u32), and id (u32).
 		if (!hasRemaining((sizeof(uint32_t) * 3) + sizeof(uint64_t),
 			"version1 fixed fields"))
 		{
@@ -863,26 +873,14 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
 		if(schemeIdLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdLen))
 		{
-			schemeId.reset(static_cast<char*>(std::malloc(
-				static_cast<size_t>(schemeIdLen))));
-			if (!schemeId)
-			{
-				AAMPLOG_WARN("Malformed emsg v1: allocation failed for schemeIdUri");
-				return new EmsgBox(fbox, 0, 0, 0, 0, 0);
-			}
-			READ_U8(schemeId.get(), ptr, schemeIdLen);
+			schemeId = (char*) malloc(sizeof(char)*schemeIdLen);
+			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);
 			if (schemeIdValueLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdValueLen))
 			{
-				schemeIdValue.reset(static_cast<uint8_t*>(std::malloc(
-					static_cast<size_t>(schemeIdValueLen))));
-				if (!schemeIdValue)
-				{
-					AAMPLOG_WARN("Malformed emsg v1: allocation failed for value");
-					return new EmsgBox(fbox, 0, 0, 0, 0, 0);
-				}
-				READ_U8(schemeIdValue.get(), ptr, schemeIdValueLen);
+				schemeIdValue = (uint8_t*) malloc(sizeof(uint8_t)*schemeIdValueLen);
+				READ_U8(schemeIdValue, ptr, schemeIdValueLen);
 				remainingSize -= (sizeof(uint8_t) * schemeIdValueLen);
 			}
 		}
@@ -897,26 +895,14 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
 		if(schemeIdLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdLen))
 		{
-			schemeId.reset(static_cast<char*>(std::malloc(
-				static_cast<size_t>(schemeIdLen))));
-			if (!schemeId)
-			{
-				AAMPLOG_WARN("Malformed emsg v0: allocation failed for schemeIdUri");
-				return new EmsgBox(fbox, 0, 0, 0, 0, 0);
-			}
-			READ_U8(schemeId.get(), ptr, schemeIdLen);
+			schemeId = (char*) malloc(sizeof(char)*schemeIdLen);
+			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);
 			if (schemeIdValueLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdValueLen))
 			{
-				schemeIdValue.reset(static_cast<uint8_t*>(std::malloc(
-					static_cast<size_t>(schemeIdValueLen))));
-				if (!schemeIdValue)
-				{
-					AAMPLOG_WARN("Malformed emsg v0: allocation failed for value");
-					return new EmsgBox(fbox, 0, 0, 0, 0, 0);
-				}
-				READ_U8(schemeIdValue.get(), ptr, schemeIdValueLen);
+				schemeIdValue = (uint8_t*) malloc(sizeof(uint8_t)*schemeIdValueLen);
+				READ_U8(schemeIdValue, ptr, schemeIdValueLen);
 				remainingSize -= (sizeof(uint8_t) * schemeIdValueLen);
 			}
 			else
@@ -933,11 +919,27 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 
 		if (malformedValueField)
 		{
+			if (schemeId)
+			{
+				free(schemeId);
+			}
+			if (schemeIdValue)
+			{
+				free(schemeIdValue);
+			}
 			return new EmsgBox(fbox, 0, 0, 0, 0, 0);
 		}
 
 		if (!hasRemaining(sizeof(uint32_t) * 4, "version0 fixed fields"))
 		{
+			if (schemeId)
+			{
+				free(schemeId);
+			}
+			if (schemeIdValue)
+			{
+				free(schemeIdValue);
+			}
 			return new EmsgBox(fbox, 0, 0, 0, 0, 0);
 		}
 		tScale = READ_U32(ptr);
@@ -958,23 +960,40 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		// Extract remaining message
 		if(remainingSize > 0)
 		{
-			message.reset(static_cast<uint8_t*>(std::malloc(
-				static_cast<size_t>(remainingSize))));
+			message = (uint8_t*) malloc(sizeof(uint8_t)*remainingSize);
+			READ_U8(message, ptr, remainingSize);
 			if(message)
 			{
-				READ_U8(message.get(), ptr, remainingSize);
-				retBox->setMessage(message.release(), remainingSize);
+				retBox->setMessage(message, remainingSize);
 			}
 		}
 
 		// Save schemeIdUri and value if present
 		if (schemeId)
 		{
-			retBox->setSchemeIdUri(schemeId.release());
+			retBox->setSchemeIdUri(schemeId);
 			if(schemeIdValue)
 			{
-				retBox->setValue(schemeIdValue.release());
+				retBox->setValue(schemeIdValue);
 			}
+		}
+		else
+		{
+			if(schemeIdValue)
+			{
+				free(schemeIdValue);
+			}
+		}
+	}
+	else
+	{
+		if (schemeId)
+		{
+			free(schemeId);
+		}
+		if(schemeIdValue)
+		{
+			free(schemeIdValue);
 		}
 	}
 	return retBox;
