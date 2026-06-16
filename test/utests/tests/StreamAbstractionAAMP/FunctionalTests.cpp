@@ -281,3 +281,39 @@ TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_DoesNotRestoreLatency
 
         EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorState);
 }
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() reports audio track buffer
+ *        duration when the audio track is enabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsAudioBuffer_WhenAudioTrackEnabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = true;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.WillOnce(Return(12.5));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(0);
+
+	EXPECT_DOUBLE_EQ(12.5, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+}
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() falls back to video buffer
+ *        duration when audio is muxed and the audio track is disabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsVideoBuffer_WhenAudioTrackDisabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = false;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.Times(0);
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillOnce(Return(8.75));
+
+	EXPECT_DOUBLE_EQ(8.75, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+}
