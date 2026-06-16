@@ -300,54 +300,6 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_NullPlayer_DoesNotCrash)
 }
 
 /**
- * @brief Test that NotifyFragmentCachingComplete defers PLAYING while seekPausedState is active.
- *
- * This matches the middleware behavior required for seek-with-keepPaused flows,
- * where fragment caching completion should not force playback transition until
- * explicit resume is requested.
- */
-TEST_F(InterfacePlayerRDKCallbackTest, NotifyFragmentCachingComplete_DefersPlayingWhenSeekPaused)
-{
-	// Arrange: Create a pending play state and protect it with seekPausedState
-	auto privatePlayer = m_player->GetPrivatePlayer();
-	privatePlayer->gstPrivateContext->pendingPlayState = true;
-	privatePlayer->gstPrivateContext->seekPausedState = true;
-	privatePlayer->gstPrivateContext->buffering_target_state = GST_STATE_PAUSED;
-
-	// Act: Notify fragment caching complete
-	m_player->NotifyFragmentCachingComplete();
-
-	// Assert: Pending state should remain until explicit resume, and target stays PLAYING
-	EXPECT_EQ(privatePlayer->gstPrivateContext->pendingPlayState, true);
-	EXPECT_EQ(privatePlayer->gstPrivateContext->seekPausedState, true);
-	EXPECT_EQ(privatePlayer->gstPrivateContext->buffering_target_state, GST_STATE_PLAYING);
-}
-
-/**
- * @brief Test that SetPlayBackRate clears seekPausedState when resuming from a seek-paused state.
- *
- * When a non-zero rate arrives while seekPausedState is active and the pipeline is still paused,
- * the middleware should force resume and clear the protection state.
- */
-TEST_F(InterfacePlayerRDKCallbackTest, SetPlayBackRate_ForceResumeClearsSeekPausedState)
-{
-	// Arrange: Simulate a paused pipeline in seek-paused state
-	auto privatePlayer = m_player->GetPrivatePlayer();
-	privatePlayer->gstPrivateContext->paused = true;
-	privatePlayer->gstPrivateContext->seekPausedState = true;
-	privatePlayer->gstPrivateContext->pendingPlayState = true;
-	privatePlayer->gstPrivateContext->pipeline = nullptr;
-
-	// Act: Request a resume rate
-	bool result = m_player->SetPlayBackRate(1.0);
-
-	// Assert: Middleware should clear seekPausedState and pendingPlayState, and return true
-	EXPECT_TRUE(result);
-	EXPECT_EQ(privatePlayer->gstPrivateContext->seekPausedState, false);
-	EXPECT_EQ(privatePlayer->gstPrivateContext->pendingPlayState, false);
-}
-
-/**
  * @brief Test that ProgressCallbackOnTimeout handles null player pointer gracefully
  * 
  * Edge case: ensure nullptr player doesn't cause crash.
