@@ -105,7 +105,8 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
 			aampInstance->mIsFakeTune,
-			aampInstance->mConfig->IsConfigSet(eAAMPConfig_WideVineKIDWorkaround));
+			aampInstance->mConfig->IsConfigSet(eAAMPConfig_WideVineKIDWorkaround),
+			aampInstance->mConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
 			
 }
 /**

@@ -37,6 +37,8 @@
 #include "IMediaPipeline.h"
 #include "IClientLogControl.h"
 #include "IControl.h"
+#include "IMediaKeys.h"
+#include "IMediaPipelineCapabilities.h"
 
 #include <atomic>
 #include <chrono>
@@ -559,3 +561,65 @@ void IMediaPipeline::MediaSegmentVideo::copy(const MediaSegmentVideo &other)
 }
 
 } // namespace firebolt::rialto
+
+namespace firebolt::rialto
+{
+
+// Stub IMediaKeysFactory for builds that link RialtoSimulator instead of
+// the real libRialtoClient.  The Rialto DRM path is not exercised in these
+// builds, so returning nullptr is sufficient to satisfy the linker.
+std::shared_ptr<IMediaKeysFactory> IMediaKeysFactory::createFactory()
+{
+    return nullptr;
+}
+
+} // namespace firebolt::rialto
+
+namespace firebolt::rialto
+{
+
+// Stub IMediaPipelineCapabilitiesFactory for builds that link RialtoSimulator
+// instead of the real libRialtoClient.  Returns a capabilities object whose
+// isVideoMaster() reports false (audio-master), which is the safe default for
+// simulator/test builds.
+class SimMediaPipelineCapabilities : public IMediaPipelineCapabilities
+{
+public:
+	std::vector<std::string> getSupportedMimeTypes(MediaSourceType) override
+	{
+		return {};
+	}
+	bool isMimeTypeSupported(const std::string &) override { return true; }
+	std::vector<std::string> getSupportedProperties(
+		MediaSourceType, const std::vector<std::string> &) override
+	{
+		return {};
+	}
+	bool isVideoMaster(bool &videoMaster) override
+	{
+		videoMaster = false;
+		return true;
+	}
+};
+
+class SimMediaPipelineCapabilitiesFactory
+	: public IMediaPipelineCapabilitiesFactory
+{
+public:
+	std::unique_ptr<IMediaPipelineCapabilities>
+	createMediaPipelineCapabilities() const override
+	{
+		return std::make_unique<SimMediaPipelineCapabilities>();
+	}
+};
+
+std::shared_ptr<IMediaPipelineCapabilitiesFactory>
+IMediaPipelineCapabilitiesFactory::createFactory()
+{
+	static auto factory =
+		std::make_shared<SimMediaPipelineCapabilitiesFactory>();
+	return factory;
+}
+
+} // namespace firebolt::rialto
+

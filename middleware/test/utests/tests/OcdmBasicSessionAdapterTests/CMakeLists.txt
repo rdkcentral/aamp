@@ -63,13 +63,6 @@ However, OCDMSessionAdapter has a more complex implementation, so a fake has bee
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${PLAYER_SOURCES})
-
-# Force the source-tree header to take precedence over any installed copy
-# in .libs/include/ (which may carry a stale opencdmsessionadapter.h).
-target_include_directories(${EXEC_NAME} BEFORE PRIVATE
-    ${PLAYER_ROOT}/drm/ocdm
-    ${PLAYER_ROOT}/drm)
-
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)

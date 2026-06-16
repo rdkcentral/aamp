@@ -289,12 +289,11 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_AttachWithDRM_CreatesDrm
 	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
 	prot.initData = {0xCA, 0xFE};
 	prot.type     = eMEDIATYPE_AUDIO;
-	m_source.setProtection(std::move(prot));
 
 	auto codecInfo = MakeAacCodecInfo();
 
 	auto result = m_source.attachOrUpdate(
-		*m_pipelinePtr, codecInfo, &mockDrm, -1);
+		*m_pipelinePtr, codecInfo, &mockDrm, -1, prot);
 
 	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
 	EXPECT_EQ(m_source.mksId(), 77);
@@ -440,28 +439,3 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_FlushSource_CallsPipelin
 	m_source.flushSource(*m_pipelinePtr, posNs);
 }
 
-// ---------------------------------------------------------------------------
-// Protection params
-// ---------------------------------------------------------------------------
-
-/**
- * @test AampRialtoAudioSource_SetClearProtection_WorksCorrectly
- * @brief Verify set/clear protection lifecycle.
- */
-TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_SetClearProtection_WorksCorrectly)
-{
-	EXPECT_FALSE(m_source.hasProtection());
-
-	AampRialtoMediaSource::ProtectionParams prot;
-	prot.systemId = "test-uuid";
-	prot.initData = {0x01};
-	prot.type     = eMEDIATYPE_AUDIO;
-	m_source.setProtection(std::move(prot));
-
-	EXPECT_TRUE(m_source.hasProtection());
-
-	m_source.clearProtection();
-
-	EXPECT_FALSE(m_source.hasProtection());
-	EXPECT_EQ(m_source.mksId(), -1);
-}

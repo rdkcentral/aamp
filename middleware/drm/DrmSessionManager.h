@@ -134,6 +134,7 @@ struct configs{
     bool  mPropagateURIParam;
     bool mIsFakeTune;
     bool mIsWVKIDWorkaround;
+    bool mUseDirectRialto;
 };
 /**
  *  @class	DrmSessionManager
@@ -502,12 +503,13 @@ public:
         /**
 	 * @brief Configuration parameters needed from Player
 	 */
-        void UpdateDRMConfig(
+    void UpdateDRMConfig(
                        bool useSecManager,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
                        bool isFakeTune,
-		       bool wideVineKIDWorkaround);
+                       bool wideVineKIDWorkaround,
+                       bool useDirectRialto = false);
 
 
 };

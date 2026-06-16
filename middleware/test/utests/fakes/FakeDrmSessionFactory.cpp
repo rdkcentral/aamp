@@ -34,11 +34,11 @@ MockDrmSessionFactory* g_MockDrmSessionFactory = nullptr;
  * If g_MockDrmSessionFactory is set, delegates to the mock.
  * Otherwise returns nullptr.
  */
-DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks)
+DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks, bool useDirectRialto)
 {
 	if (g_MockDrmSessionFactory)
 	{
-		return g_MockDrmSessionFactory->GetDrmSession(drmHelper, drmCallbacks);
+		return g_MockDrmSessionFactory->GetDrmSession(drmHelper, drmCallbacks, useDirectRialto);
 	}
 	return nullptr;
 }

@@ -252,7 +252,7 @@ void PlayerStateMachine::dispatch(
 	auto next = (m_state.get()->*handler)();
 	if (next)
 	{
-		AAMPLOG_MIL("PlayerState: %s → %s",
+		AAMPLOG_MIL("PlayerState: %s -> %s",
 			m_state->name(), next->name());
 		m_state = std::move(next);
 	}

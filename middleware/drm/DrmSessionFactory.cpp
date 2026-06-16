@@ -26,16 +26,35 @@
 #if defined(USE_OPENCDM_ADAPTER)
 #include "OcdmBasicSessionAdapter.h"
 #include "OcdmGstSessionAdapter.h"
-#include "OpenCDMProviderFactory.h"
 #endif
 #include "ClearKeyDrmSession.h"
+#if defined(USE_DIRECT_RIALTO_ADAPTER)
+#include "RialtoMediaKeySessionAdapter.h"
+#include "RialtoMediaKeySystem.h"
+#endif
+#include "PlayerLogManager.h"
 
 /**
  *  @brief Creates an appropriate DRM session based on the given DrmHelper
  */
-DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
+DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks, bool useDirectRialto)
 {
 	const std::string systemId = drmHelper->ocdmSystemId();
+
+#if defined(USE_DIRECT_RIALTO_ADAPTER)
+	if (useDirectRialto)
+	{
+		MW_LOG_INFO("DrmSessionFactory: creating Rialto session for %s", systemId.c_str());
+		auto system = std::make_unique<RialtoMediaKeySystem>(systemId);
+		if (!system->isValid())
+		{
+			MW_LOG_ERR("DrmSessionFactory: RialtoMediaKeySystem creation failed for %s",
+			           systemId.c_str());
+			return nullptr;
+		}
+		return new RialtoMediaKeySessionAdapter(drmHelper, std::move(system), drmCallbacks);
+	}
+#endif
 
 #if defined (USE_OPENCDM_ADAPTER)
 	if (drmHelper->isClearDecrypt())
@@ -48,14 +67,12 @@ DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallback
 		else
 #endif
 		{
-			auto ocdm = OpenCDMProviderFactory::instance().create(systemId);
-			return new OCDMBasicSessionAdapter(drmHelper, std::move(ocdm), drmCallbacks);
+			return new OCDMBasicSessionAdapter(drmHelper, drmCallbacks);
 		}
 	}
 	else
 	{
-		auto ocdm = OpenCDMProviderFactory::instance().create(systemId);
-		return new OCDMGSTSessionAdapter(drmHelper, std::move(ocdm), drmCallbacks);
+		return new OCDMGSTSessionAdapter(drmHelper, drmCallbacks);
 	}
 #else // No form of OCDM support. Attempt to fallback to hardcoded session classes
     if (systemId == CLEAR_KEY_SYSTEM_STRING)

@@ -90,13 +90,15 @@ void DrmSessionManager::UpdateDRMConfig(
 		bool enablePROutputProtection,
 		bool propagateURIParam,
 		bool isFakeTune,
-		bool wideVineKIDWorkaround)
+		bool wideVineKIDWorkaround,
+		bool useDirectRialto)
 {
         m_drmConfigParam->mUseSecManager = useSecManager;
 	m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
 	m_drmConfigParam->mPropagateURIParam = propagateURIParam;
 	m_drmConfigParam->mIsFakeTune = isFakeTune;
 	m_drmConfigParam->mIsWVKIDWorkaround = wideVineKIDWorkaround;
+	m_drmConfigParam->mUseDirectRialto = useDirectRialto;
 
 }
 
@@ -513,6 +515,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 		}
 		return nullptr;
 	}
+
 	if (!AcquireLicenseCb)
 	{
 		MW_LOG_WARN("AcquireLicenseCb not registered - cannot acquire license");
@@ -521,8 +524,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 			cachedKeyIDs[selectedSlot].isFailedKeyEntries = true;
 		return nullptr;
 	}
- 	code = this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, 
-								  cdmError, static_cast<GstMediaType>(streamType), metaDataPtr, false);
+	code = AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
@@ -888,7 +890,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	}
         this->ProfileUpdateCb();
 
-	drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance);
+	drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance, m_drmConfigParam->mUseDirectRialto);
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
 		MW_LOG_INFO("Created new DrmSession for DrmSystemId %s", systemId.c_str());

@@ -262,12 +262,11 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_AttachWithDRM_CreatesDrm
 	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
 	prot.initData = {0xCA, 0xFE};
 	prot.type     = eMEDIATYPE_VIDEO;
-	m_source.setProtection(std::move(prot));
 
 	auto codecInfo = MakeH264CodecInfo();
 
 	auto result = m_source.attachOrUpdate(
-		*m_pipelinePtr, codecInfo, &mockDrm, -1);
+		*m_pipelinePtr, codecInfo, &mockDrm, -1, prot);
 
 	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
 	EXPECT_EQ(m_source.mksId(), 42);
@@ -335,32 +334,6 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_CreateSegment_AfterAttac
 	EXPECT_TRUE(m_source.isAttached());
 	EXPECT_EQ(m_source.width(), 1920);
 	EXPECT_EQ(m_source.height(), 1080);
-}
-
-// ---------------------------------------------------------------------------
-// Protection params
-// ---------------------------------------------------------------------------
-
-/**
- * @test AampRialtoVideoSource_SetClearProtection_WorksCorrectly
- * @brief Verify set/clear protection lifecycle.
- */
-TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_SetClearProtection_WorksCorrectly)
-{
-	EXPECT_FALSE(m_source.hasProtection());
-
-	AampRialtoMediaSource::ProtectionParams prot;
-	prot.systemId = "test-uuid";
-	prot.initData = {0x01};
-	prot.type     = eMEDIATYPE_VIDEO;
-	m_source.setProtection(std::move(prot));
-
-	EXPECT_TRUE(m_source.hasProtection());
-
-	m_source.clearProtection();
-
-	EXPECT_FALSE(m_source.hasProtection());
-	EXPECT_EQ(m_source.mksId(), -1);
 }
 
 // ---------------------------------------------------------------------------
