@@ -905,6 +905,20 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 						}
 					}
 				}
+				else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+				{
+					// AampMp4Demuxer maintains a monotonic PTS sequence via
+					// fragmentPTSoffset across period boundaries and signals
+					// format changes via SetStreamCaps().  No GStreamer EOS or
+					// inject-loop stop is needed; just notify the sink and keep
+					// injecting period-1 data without interruption.
+					context->ProcessDiscontinuity(type);
+					if (type != eTRACK_SUBTITLE)
+					{
+						context->resetDiscontinuityTrackState();
+						aamp->ResetDiscontinuityInTracks();
+					}
+				}
 				else
 				{
 					stopInjection = context->ProcessDiscontinuity(type);
