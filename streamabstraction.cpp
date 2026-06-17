@@ -487,49 +487,6 @@ void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFr
  * @param[in] cachedFragment - Fragment supplying duration and metadata
  * @param[in] isInitSegment  - true for initialization segments
  */
-void MediaTrack::UpdateTSAfterFetchStats(TrackState* trackState, const FetchedFragment& cachedFragment, bool isInitSegment)
-{
-	const char *name = trackState->GetMediaTypeName();
-	StreamAbstractionAAMP* playContext = trackState->GetPlayContext();
-
-	if (isInitSegment)
-	{
-		// Update profile information for init fragments
-		if (playContext)
-		{
-			playContext->UpdateProfile(cachedFragment.mDownloadedProfile);
-		}
-		AAMPLOG_WARN("[AAMP_DEBUG_PERIOD] UpdateTSAfterFetchStats: %s init fragment", name);
-	}
-	else
-	{
-		AAMPLOG_WARN("[AAMP_DEBUG_PERIOD] UpdateTSAfterFetchStats: %s media fragment - pos=%.3f, dur=%.3f, discontinuity=%d", name, cachedFragment.position, cachedFragment.duration, cachedFragment.discontinuity);
-	}
-}
-
-/**
- * @brief To flush the Audio position even if the MediaProcessor is not not enabled.
- */
-void MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment )
-{
-	IsoBmffBuffer buffer;
-	buffer.setBuffer(cachedFragment->fragment);
-	buffer.parseBuffer();
-	uint64_t currentPTS = 0;
-	if(buffer.getFirstPTS(currentPTS))
-	{
-		double pos = (double)currentPTS / (double)aamp->GetAudTimeScale();
-		aamp->FlushTrack(eMEDIATYPE_AUDIO,pos);
-		AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,aamp->GetAudTimeScale());
-	}
-}
-
-/**
- * @brief Updates fetch statistics using a caller-supplied fragment.
- *
- * @param[in] cachedFragment - Fragment supplying duration and metadata
- * @param[in] isInitSegment  - true for initialization segments
- */
 void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment)
 {
 	bool notifyCacheCompleted = false;
@@ -854,6 +811,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
 			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
+			AAMPLOG_MIL("[PERIOD_DBG] CheckForDiscontinuity: track=%s pos=%.3f dur=%.3f ptsError=%d discoIgnoredForOther=%d", name, cachedFragment->position, cachedFragment->duration, ptsError, isDiscoIgnoredForOtherTrack);
 			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
 			if (eTRACK_SUBTITLE != type)
 			{
@@ -1532,6 +1490,7 @@ bool MediaTrack::SignalIfEOSReached()
 	{
 		//Save the playback rate prior to sending EOS
 		StreamAbstractionAAMP* pContext = GetContext();
+		AAMPLOG_MIL("[PERIOD_DBG] SignalIfEOSReached: track=%s signaling EOS to pipeline", name);
 		if(pContext != NULL)
 		{
 			int rate = pContext->aamp->rate;
@@ -3564,7 +3523,9 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 		{
 			lock.unlock();
 
+			AAMPLOG_MIL("[PERIOD_DBG] ProcessDiscontinuity: calling aamp->Discontinuity for track=%d mTrackState=%d wait=%d", type, mTrackState, wait);
 			ret = aamp->Discontinuity((AampMediaType) type, false);
+			AAMPLOG_MIL("[PERIOD_DBG] ProcessDiscontinuity: aamp->Discontinuity returned %d for track=%d", ret, type);
 			//Discontinuity ignored, so we need to remove state from mTrackState
 			if (ret == false)
 			{

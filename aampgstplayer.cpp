@@ -915,6 +915,7 @@ bool AAMPGstPlayer::PipelineConfiguredForMedia(AampMediaType type)
  */
 void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
 {
+	AAMPLOG_MIL("[PERIOD_DBG] AAMPGstPlayer::EndOfStreamReached: type=%d", type);
 	bool shouldHaltBuffering = false;
 	playerInstance->EndOfStreamReached(type, shouldHaltBuffering);
 	if(shouldHaltBuffering)

@@ -226,6 +226,8 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 {
 	bool ret = true;
 	(void) processor;
+	AAMPLOG_MIL("[PERIOD_DBG] AampMp4Demuxer::sendSegment type=%d pos=%.3f dur=%.3f ptsOffset=%.3f init=%d discontinuous=%d size=%zu",
+		mMediaType, position, duration, fragmentPTSoffset, isInit, discontinuous, buffer.size());
 	if (mMp4Demux && !buffer.empty())
 	{
 		// Move the caller's buffer into a shared_ptr and pass ownership into
@@ -248,6 +250,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		else
 		{
 			auto samples = mMp4Demux->GetSamples();
+			AAMPLOG_MIL("[PERIOD_DBG] AampMp4Demuxer::sendSegment type=%d parsed OK: %zu samples", mMediaType, samples.size());
 			if (!samples.empty())
 			{
 				if (mIsTrickMode)

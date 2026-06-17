@@ -7586,6 +7586,7 @@ void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fra
  */
 void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
+	AAMPLOG_MIL("[PERIOD_DBG] EndOfStreamReached: mediaType=%d", mediaType);
 	if (mediaType != eMEDIATYPE_SUBTITLE)
 	{
 		{
