@@ -498,5420 +498,4245 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		cachedFragment->profileIndex = pContext->profileIdxForBandwidthNotification;
 		pContext->UpdateStreamInfoBitrateData(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo);
 	}
-
-	AAMPLOG_WARN("[AAMP_DEBUG_PERIOD] UpdateTSAfterFetchStats: type=%s, init=%d, pos=%.3f, dur=%.3f, discontinuity=%d",
-		name, isInitSegment, cachedFragment->position, cachedFragment->duration, cachedFragment->discontinuity);
-
-	if (isInitSegment)
 	{
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information for init fragments
-		// Update profile information
+		// Lock-order: mutex (held above) -> mTrackParamsMutex (taken here).
+		// mTrackParamsMutex is leaf-level: nothing else takes it first then
+		// reaches for mutex.
+		std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
+		totalFetchedDuration += cachedFragment->duration;
+	}
+	currentInitialCacheDurationSeconds += cachedFragment->duration;
+
+	if ((eTRACK_VIDEO == type)
+		&& aamp->IsFragmentCachingRequired()
+		&& !cachingCompleted)
+	{
+		const int minInitialCacheSeconds = aamp->GetInitialBufferDuration();
+		if (currentInitialCacheDurationSeconds >= minInitialCacheSeconds)
+		{
+			AAMPLOG_WARN("##[%s] Caching Complete cacheDuration %d minInitialCacheSeconds %d##",
+						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
+			notifyCacheCompleted = true;
+			cachingCompleted = true;
+		}
+		else if (sinkBufferIsFull && numberOfFragmentsCached == mCachedFragmentSize)
+		{
+			AAMPLOG_WARN("## [%s] Fragment Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
+						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
+			notifyCacheCompleted = true;
+			cachingCompleted = true;
+		}
+		else
+		{
+			AAMPLOG_INFO("## [%s] Caching Ongoing cacheDuration %d minInitialCacheSeconds %d##",
+						 name, currentInitialCacheDurationSeconds, minInitialCacheSeconds);
+		}
+	}
+	if (loadNewAudio && (eTRACK_AUDIO == type) && !isInitSegment)
+	{
+		if (playContext)
+		{
+			AAMPLOG_INFO("Resetting PTS on audio track switch with MediaProcessor enabled. position: %f PTSOffsetSec: %f",
+						 cachedFragment->position, cachedFragment->PTSOffsetSec);
+			playContext->resetPTSOnAudioSwitch(cachedFragment->fragment, cachedFragment->position, cachedFragment->PTSOffsetSec);
+		}
+		else
+		{
+			FlushAudioPositionDuringTrackSwitch(cachedFragment);
+		}
+		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_AUDIO);
+		NotifyCachedAudioFragmentAvailable();
+		loadNewAudio = false;
+		// Re-enable latency rate correction after audio track switch only if it was previously enabled.
+		if (pContext && pContext->mSavedLatencyMonitorState )
+		{
+			aamp->EnableLatencyMonitor(true);
+			pContext->mSavedLatencyMonitorState  = false;
+		}
+	}
+	if (loadNewSubtitle && (eTRACK_SUBTITLE == type) && !isInitSegment)
+	{
+		if (playContext)
+		{
+			playContext->resetPTSOnSubtitleSwitch(cachedFragment->fragment, cachedFragment->position);
+		}
+		else
+		{
+			FlushSubtitlePositionDuringTrackSwitch(cachedFragment);
+		}
+		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_SUBTITLE);
+		NotifyCachedSubtitleFragmentAvailable();
+		loadNewSubtitle = false;
+		// Re-enable latency rate correction after subtitle track switch only if it was previously enabled.
+		if (pContext && pContext->mSavedLatencyMonitorState )
+		{
+			aamp->EnableLatencyMonitor(true);
+			pContext->mSavedLatencyMonitorState  = false;
+		}
+	}
+	if (!isInitSegment)
+	{
+		std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
+		totalFragmentsDownloaded++;
+	}
+	lock.unlock();
+	if (notifyCacheCompleted)
+	{
+		aamp->NotifyFragmentCachingComplete();
+	}
+}
+
+/**
+ * @brief Process New Audio On Lang Switch
+ */
+void MediaTrack::LoadNewAudio(bool val)
+{
+	loadNewAudio = val;
+}
+
+void MediaTrack::LoadNewSubtitle(bool val)
+{
+	loadNewSubtitle = val;
+}
+
+/**
+ *  @brief Updates internal state after a fragment fetch
+ */
+void MediaTrack::UpdateTSAfterFetch()
+{
+	std::lock_guard<std::mutex> guard(mutex);
+
+	numberOfFragmentsCached++;
+	AAMPLOG_DEBUG("[%s] numberOfFragmentsCached++ [%d]", name,numberOfFragmentsCached);
+
+	//this should never HIT
+	assert(numberOfFragmentsCached <= mCachedFragmentSize);
+
+	fragmentIdxToFetch = (fragmentIdxToFetch+1) % mCachedFragmentSize;
+
+	AAMPLOG_DEBUG("[%s] updated fragmentIdxToFetch [%d] numberOfFragmentsCached [%d]",
+				  name, fragmentIdxToFetch, numberOfFragmentsCached);
+
+	fragmentFetched.notify_one();
+}
+
+/**
+ * @brief Wait until a free fragment is available.
+ * @note To be called before fragment fetch by subclasses
+ */
+bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
+{
+	bool ret = true;
+	AAMPPlayerState state;
+	int preplaybuffercount = GETCONFIGVALUE(eAAMPConfig_PrePlayBufferCount);
+
+	if(abort)
+	{
+		ret = false;
+	}
+	else
+	{
+		// Still in preparation mode , not to inject any more fragments beyond capacity
+		// Wait for 100ms
+		std::unique_lock<std::mutex> lock(aamp->mMutexPlaystart);
+		state = aamp->GetState();
+		int cachedFragmentCount;
+		{
+			std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
+			cachedFragmentCount = totalFragmentsDownloaded;
+		}
+		if(state == eSTATE_PREPARED && cachedFragmentCount > preplaybuffercount && !aamp->IsFragmentCachingRequired())
+		{
+			timeoutMs = 500;
+			if (std::cv_status::timeout == aamp->waitforplaystart.wait_for(lock,std::chrono::milliseconds(timeoutMs)))
+			{
+				AAMPLOG_TRACE("Timed out waiting for waitforplaystart");
+				ret = false;
+			}
+		}
+	}
+
+	if (ret)
+	{
+		ret = WaitForCachedFragmentInjected(timeoutMs);
+	}
+	return ret;
+}
+
+/**
+ *  @brief Wait until a cached fragment is injected.
+ */
+bool MediaTrack::WaitForCachedFragmentInjected(int timeoutMs)
+{
+	bool ret = true;
+	if(abort)
+	{
+		ret = false;
+	}
+	std::unique_lock<std::mutex> lock(mutex);
+	if (ret && (numberOfFragmentsCached == mCachedFragmentSize))
+	{
+		if (timeoutMs >= 0)
+		{
+			AAMPLOG_DEBUG("[%s] waiting for fragmentInjected condition (timeout %dms)", name, timeoutMs);
+			fragmentInjected.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this] { // Predicate to avoid spurious wake ups
+				return numberOfFragmentsCached < mCachedFragmentSize || abort;
+			});
+		}
+		else
+		{
+			AAMPLOG_DEBUG("[%s] waiting for fragmentInjected condition", name);
+			fragmentInjected.wait(lock, [this] { // Predicate to avoid spurious wake ups
+				return numberOfFragmentsCached < mCachedFragmentSize || abort;
+			});
+			AAMPLOG_DEBUG("[%s] wait complete for fragmentInjected", name);
+		}
+		if (abort)
+		{
+			AAMPLOG_DEBUG("[%s] abort set, returning false", name);
+			ret = false;
+		}
+		else if (numberOfFragmentsCached == mCachedFragmentSize)
+		{
+			AAMPLOG_DEBUG("[%s] cache still full (%d/%zu), returning false", name, numberOfFragmentsCached, mCachedFragmentSize);
+			ret = false;
+		}
+	}
+
+	AAMPLOG_DEBUG("[%s] fragmentIdxToFetch = %d numberOfFragmentsCached %d mCachedFragmentSize %zu",
+				  name, fragmentIdxToFetch, numberOfFragmentsCached, mCachedFragmentSize);
+	return ret;
+}
+
+/**
+ *  @brief Wait until a cached fragment is available.
+ */
+bool MediaTrack::WaitForCachedFragmentAvailable()
+{
+	bool ret = true;
+	AAMPLOG_TRACE("DEBUG Enter");
+	std::unique_lock<std::mutex> lock(mutex);
+
+	AAMPLOG_DEBUG("[%s] Acquired MUTEX ==> fragmentIdxToInject = %d numberOfFragmentsCached %d ret = %d abort = %d abortInject = %d ", name, fragmentIdxToInject, numberOfFragmentsCached, ret, abort, abortInject);
+
+	if ((numberOfFragmentsCached == 0) && !(abort || abortInject))
+	{
+		AAMPLOG_DEBUG("## [%s] Waiting for CachedFragment to be available, eosReached=%d ##", name, eosReached);
+
+		if (!eosReached)
+		{
+			fragmentFetched.wait(lock);
+			AAMPLOG_DEBUG("[%s] wait complete for fragmentFetched", name);
+		}
+	}
+
+	ret = !(abort || abortInject || numberOfFragmentsCached == 0);
+	AAMPLOG_DEBUG("[%s] fragmentIdxToInject = %d numberOfFragmentsCached %d ret = %d abort = %d abortInject = %d",
+				  name, fragmentIdxToInject, numberOfFragmentsCached, ret, abort, abortInject);
+	return ret;
+}
+
+/**
+ *  @brief Abort the waiting for cached fragments and free fragment slot
+ */
+void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
+{
+	std::unique_lock<std::mutex> lock(mutex);
+	if (immediate)
+	{
+		abort = true;
+		AAMPLOG_DEBUG("[%s] signal fragmentInjected condition", name);
+		// For TSB playback, WaitForCachedFragmentInjected is invoked from TSBReader and CacheFragment threads
+		fragmentInjected.notify_all();
+	}
+	AAMPLOG_DEBUG("[%s] signal fragmentFetched condition", name);
+	fragmentFetched.notify_one();
+	aamp->waitforplaystart.notify_one();
+	lock.unlock();
+
+	GetContext()?GetContext()->AbortWaitForDiscontinuity(): void();
+}
+
+/**
+ * @brief Abort the waiting for cached fragments immediately
+ */
+void MediaTrack::AbortWaitForCachedFragment()
+{
+	std::unique_lock<std::mutex> lock(mutex);
+	AAMPLOG_DEBUG("[%s] signal fragmentFetched condition", name);
+	fragmentFetched.notify_one();
+
+	abortInject = true;
+	lock.unlock();
+
+	GetContext()?GetContext()->AbortWaitForDiscontinuity():void();
+}
+
+/**
+ * @brief Abort waiting for a cached fragment to be injected.
+ */
+void MediaTrack::AbortWaitForCachedFragmentInjected()
+{
+	std::lock_guard<std::mutex> guard(mutex);
+	AAMPLOG_TRACE("[%s] signal fragmentInjected condition", name);
+	fragmentInjected.notify_all();
+}
+
+/**
+ * @brief Check whether PTS re-stamping should be applied for this track.
+ */
+bool MediaTrack::IsPTSRestampEnabled() const
+{
+	// Restamp 2.0: restamping is applied outside playContext for DASH streams
+	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+	{
+		return true;
+	}
+	// All other cases (e.g. HLS ISOBMFF): restamping is handled inside playContext
+	return playContext && playContext->getPTSRestampStatus();
+}
+
+/**
+ *  @brief Process next cached fragment
+ */
+bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fragmentDiscarded, bool& isDiscontinuity, bool &ret)
+{
+	//Get Cache buffer
+	bool stopInjection = false;
+	StreamAbstractionAAMP* context = GetContext();
+	double injectedDuration = GetTotalInjectedDuration();
+
+	if(cachedFragment->fragment.capacity() != 0)
+	{
+		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
+		{
+			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
+			AAMPLOG_MIL("[PERIOD_DBG] CheckForDiscontinuity: track=%s pos=%.3f dur=%.3f ptsError=%d discoIgnoredForOther=%d", name, cachedFragment->position, cachedFragment->duration, ptsError, isDiscoIgnoredForOtherTrack);
+			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
+			if (eTRACK_SUBTITLE != type)
+			{
+				cachedFragment->discontinuity = false;
+			}
+			ptsError = false;
+
+			/* GetESChangeStatus() check is specifically added to fix an audio loss issue due to no reconfigure pipeline when there was an audio codec change for a very short period with no fragments.
+			 * The totalInjectedDuration will be 0 for the very short duration periods if the single fragment is not injected or failed (due to fragment download failures).
+			 * In that case, if there is an audio codec change is detected for this period, it could cause audio loss since ignoring the discontinuity to be processed since totalInjectedDuration is 0.
+			 */
+			/* PipelineValid is used here to avoid skipping the discontinuity if the pipeline has not been configured for the media type.
+			 * This was seen with subtitles where switching to a period with subtitles enabled from one without could result in fragments being pushed
+			 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
+			 */
+			if (injectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus()&& aamp->PipelineValid((AampMediaType)type))
+			{
+				stopInjection = false;
+
+				if (!isDiscoIgnoredForOtherTrack)
+				{
+					// Subtitles never have any discontinuity pairing logic. Ignore for it now
+					if (type != eTRACK_SUBTITLE)
+					{
+						// set discontinuity ignored flag to check and avoid paired discontinuity processing of other track.
+						aamp->SetTrackDiscontinuityIgnoredStatus((AampMediaType)type);
+					}
+				}
+				else
+				{
+					AAMPLOG_WARN("discontinuity ignored for other AV track, no need to process %s track", name);
+					// reset the flag when both the paired discontinuities ignored; since no buffer pushed before.
+					aamp->ResetTrackDiscontinuityIgnoredStatus();
+					aamp->UnblockWaitForDiscontinuityProcessToComplete();
+				}
+				AAMPLOG_WARN("ignoring %s discontinuity since no buffer pushed before!", name);
+			}
+			else if (isDiscoIgnoredForOtherTrack && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus() && aamp->PipelineValid((AampMediaType)type))
+			{
+				AAMPLOG_WARN("discontinuity ignored for other AV track , no need to process %s track", name);
+				stopInjection = false;
+
+				// reset the flag when both the paired discontinuities ignored.
+				aamp->ResetTrackDiscontinuityIgnoredStatus();
+				aamp->UnblockWaitForDiscontinuityProcessToComplete();
+				MediaTrack* subtitle = GetContext()?GetContext()->GetMediaTrack(eTRACK_SUBTITLE):nullptr;
+				if (subtitle && subtitle->enabled)
+				{
+					if(subtitle->playContext)
+					{
+						subtitle->playContext->abortWaitForVideoPTS();
+					}
+				}
+			}
+			else
+			{
+				if (!aamp->PipelineValid((AampMediaType)type))
+				{
+					AAMPLOG_WARN("Pipeline not yet configured for %s! Process discontinuity...", name);
+				}
+				// Check whether PTS re-stamping is active for this track before processing
+				// discontinuity.
+				if(IsPTSRestampEnabled())
+				{
+					if (context->GetESChangeStatus() || context->GetPipelineFlushStatus())
+					{
+						stopInjection = context->ProcessDiscontinuity(type);
+					}
+					else
+					{
+						context->ProcessDiscontinuity(type);
+					}
+					bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((AampMediaType)type);
+					if( true != isDiscontinuityIgnoredForCurrentTrack )
+					{
+						isDiscontinuity = true;
+						AAMPLOG_WARN("track %s discontinuity not ignored = %d - discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);
+					}
+					else
+					{
+						isDiscontinuity = false;
+						AAMPLOG_WARN("track %s - discontinuity ignored = %d continue without discontinuity @position - %f", name, isDiscontinuityIgnoredForCurrentTrack, cachedFragment->position);
+					}
+
+					if(type != eTRACK_SUBTITLE)
+					{
+						// Reset the discontinuity flags if we are not stopping injection
+						if (!stopInjection)
+						{
+							context->resetDiscontinuityTrackState();
+							aamp->ResetDiscontinuityInTracks();
+						}
+					}
+				}
+				else
+				{
+					stopInjection = context->ProcessDiscontinuity(type);
+				}
+			}
+
+			if (stopInjection)
+			{
+				ret = false;
+				discontinuityProcessed = true;
+				AAMPLOG_WARN("track %s - stopping injection @position - %f", name, cachedFragment->position);
+			}
+			else
+			{
+				AAMPLOG_WARN("track %s - continuing injection", name);
+			}
+		}
+		else if (cachedFragment->discontinuity && !ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		{
+			//Only needed when we are using the qtdemux
+			SignalTrickModeDiscontinuity();
+		}
+	}
+	return (stopInjection);
+}
+
+/**
+ *  @brief Process next cached fragment chunk
+ */
+bool MediaTrack::ProcessFragmentChunk()
+{
+	class StreamAbstractionAAMP* pContext = GetContext();
+	//Get Cache buffer
+	CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToInject];
+	if(cachedFragment != NULL && cachedFragment->fragment.capacity() == 0)
+	{
+		if(!SignalIfEOSReached())
+		{
+			AAMPLOG_TRACE("[%s] Ignore NULL Chunk - cachedFragment->fragment.len %zu", name, cachedFragment->fragment.size());
+		}
+		return false;
+	}
+	if(cachedFragment->initFragment)
+	{
+		if ((pContext) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
+		{
+			if (pContext->trickplayMode)
+			{
+				// If in trick mode, do trick mode PTS restamp
+				TrickModePtsRestamp(cachedFragment);
+			}
+			else
+			{
+				ClearMediaHeaderDuration(cachedFragment);
+			}
+		}
+		else if (pContext && ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration))
+		{
+			if (!pContext->trickplayMode)
+			{
+				ClearMediaHeaderDuration(cachedFragment);
+			}
+		}
+		if (mSubtitleParser && type == eTRACK_SUBTITLE)
+		{
+			mSubtitleParser->processData(reinterpret_cast<const char*>(cachedFragment->fragment.data()), cachedFragment->fragment.size(), cachedFragment->position, cachedFragment->duration);
+		}
+		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
+		{
+			AAMPLOG_INFO("Injecting init chunk for %s",name);
+
+			InjectFragmentChunkInternal((AampMediaType)type, cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
+			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
+			{
+				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
+			}
+		}
+		cachedFragment->initFragment = false;
+		return true;
+	}
+	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (!unparsedBufferChunk.empty()))
+	{
+		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%" PRIu64 "] != currentdownloadtime[%" PRIu64 "]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
+		aamp_utils::ClearAndRelease(unparsedBufferChunk);
+	}
+	size_t requiredLength = cachedFragment->fragment.size() + unparsedBufferChunk.size();
+	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.size(), unparsedBufferChunk.size(), requiredLength);
+
+	//Append Cache buffer to unparsed buffer for processing
+	unparsedBufferChunk.insert(unparsedBufferChunk.end(),
+			cachedFragment->fragment.data(),
+			cachedFragment->fragment.data() + cachedFragment->fragment.size());
+
+	//Parse Chunk Data
+	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
+	uint8_t *unParsedBuffer = unparsedBufferChunk.data();
+	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
+	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.size();
+	isobuf.setBuffer(unparsedBufferChunk);
+	AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,unparsedBufferChunk.size() );
+
+	bool bParse = false;
+	try
+	{
+		bParse = isobuf.parseBuffer();
+	}
+	catch( std::bad_alloc& ba)
+	{
+		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
+	}
+	catch( std::exception &e)
+	{
+		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
+	}
+	catch( ... )
+	{
+		AAMPLOG_ERR("Unknown exception");
+	}
+	if(!bParse)
+	{
+		AAMPLOG_INFO("[%s] No Box available in cache chunk: fragmentIdxToInject %d", name, fragmentIdxToInject);
+		return true;
+	}
+	//Print box details
+	//isobuf.printBoxes();
+
+	// Use the timescale stored in the cached fragment, which represents the timescale
+	// of the segment being injected. This is critical when using TSB, as the segment
+	// being downloaded at the live edge may have a different timescale (e.g., an ad)
+	// than the segment being injected from TSB (e.g., base content).
+	uint32_t timeScale = cachedFragment->timeScale;
+	if(!timeScale)
+	{
+		AAMPLOG_ERR("[%s] Cached fragment timescale is 0, fragment URI: %s", name, cachedFragment->uri.c_str());
+		// Return true so the chunk will be removed from the cached fragment chunk buffer
+		return true;
+	}
+	double fpts = 0.0, fduration = 0.0;
+	bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
+	if(!ret) /**  Nothing to parse */
+	{
+		if( noMDATCount > MAX_MDAT_NOT_FOUND_COUNT )
+		{
+			AAMPLOG_INFO("[%s] noMDATCount=%d ChunkIndex=%d totchunklen=%zu", name,noMDATCount, fragmentIdxToInject,unParsedBufferSize);
+			noMDATCount=0;
+		}
+		noMDATCount++;
+		return true;
+	}
+	noMDATCount = 0;
+	if(parsedBufferSize)
+	{
+		//Prepare parsed buffer
+		parsedBufferChunk.insert(parsedBufferChunk.end(),
+				unparsedBufferChunk.data(),
+				unparsedBufferChunk.data() + parsedBufferSize);
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
+		{
+			if (pContext && pContext->trickplayMode)
+			{
+				AAMPLOG_INFO("%s LLD chunk fpts = %f, absPosition = %f", name, fpts, cachedFragment->absPosition);
+				fpts = cachedFragment->absPosition;
+				TrickModePtsRestamp(parsedBufferChunk,fpts,fduration,cachedFragment->initFragment,cachedFragment->discontinuity);
+			}
+			else
+			{
+				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+												name, cachedFragment->timeScale);
+				fpts += cachedFragment->PTSOffsetSec;
+			}
+		}
+
+		if (mSubtitleParser && type == eTRACK_SUBTITLE)
+		{
+			mSubtitleParser->processData(reinterpret_cast<const char*>(parsedBufferChunk.data()), parsedBufferChunk.size(), fpts, fduration);
+		}
+		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
+		{
+			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
+			{
+				AAMPLOG_MIL( "curl-inject type=%d", type );
+			}
+			AAMPLOG_INFO("Injecting chunk for %s br=%" BITSPERSECOND_FORMAT ",chunksize=%zu fpts=%f fduration=%f", name, bandwidthBitsPerSecond, parsedBufferChunk.size(), fpts, fduration);
+			InjectFragmentChunkInternal((AampMediaType)type, parsedBufferChunk, fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
+			{
+				std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
+				totalInjectedChunksDuration += fduration;
+			}
+		}
+	}
+	// Move unparsed data sections to beginning
+	//Available size remains same
+	//This buffer should be released on Track cleanup
+	if(unParsedBufferSize)
+	{
+		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name, static_cast<const void*>(unParsedBuffer), unParsedBufferSize);
+		// unParsedBuffer was advanced by ParseChunkData past the parsed data
+		std::vector<uint8_t> remaining(unParsedBuffer, unParsedBuffer + unParsedBufferSize);
+		unparsedBufferChunk = std::move(remaining);
+	}
+	else
+	{
+		AAMPLOG_TRACE("[%s] Set Unparsed Buffer chunk Empty...", name);
+		aamp_utils::ClearAndRelease(unparsedBufferChunk);
+	}
+	aamp_utils::ClearAndRelease(parsedBufferChunk);
+	return true;
+}
+
+void StreamAbstractionAAMP::ResetTrickModePtsRestamping(void)
+{
+	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+	{
+		auto track = GetMediaTrack(static_cast<TrackType>(i));
+		if(nullptr != track)
+		{
+			track->ResetTrickModePtsRestamping();
+		}
+	}
+}
+
+void MediaTrack::ResetTrickModePtsRestamping(void)
+{
+	mTrickmodeState = TrickmodeState::UNDEF;
+	mRestampedPts = 0.0;
+}
+
+void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &position, double &duration,
+									 bool initFragment, bool  discontinuity)
+{
+	// Trick mode PTS restamping is supported for fast-forward and rewind
+	// (not pause or slow motion)
+	if (!((aamp->rate > AAMP_NORMAL_PLAY_RATE) || (aamp->rate < 0)))
+	{
+		AAMPLOG_WARN("Unsupported trickplay rate %f - cannot restamp", aamp->rate);
+		return;
+	}
+
+	int trickPlayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
+	AampTime fragmentPtsDelta = 0.0;
+	AampTime inFragmentPosition = position;
+	AampTime inFragmentDuration = duration;
+
+	if (initFragment)
+	{
+		// Init fragment is injected after any rate change or discontinuity
+		// The timescale in the ISOBMFF init segment is restamped to a value TRICKMODE_TIMESCALE to
+		// enable restamping the media segment PTS and duration with adequate precision, e.g.
+		// 100,000
+		(void)mIsoBmffHelper->SetTimescale(fragment, TRICKMODE_TIMESCALE);
+		(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment);
+
+		if (discontinuity)
+		{
+			// Remember the discontinuity so that the first media segment can be handled differently
+			// because it's only set on an Init fragment
+			mTrickmodeState = TrickmodeState::DISCONTINUITY;
+			mRestampedPts += mRestampedDuration;
+		}
+		else
+		{
+			if (TrickmodeState::UNDEF == mTrickmodeState)
+			{
+				mTrickmodeState = TrickmodeState::FIRST_FRAGMENT;
+			}
+		}
+	}
+	else // Media segment
+	{
+		switch (mTrickmodeState)
+		{
+			case TrickmodeState::FIRST_FRAGMENT:
+				// This is the first media fragment after an init fragment (that is not a
+				// discontinuity): The first restamped pts starts from 0.
+				// Estimate the first fragment duration based on the rate and trickPlayFPS.
+				// Subsequent durations will be based on the delta between the current fragment and
+				// the last fragment. This is an estimate because we don't know how long the
+				// duration should be, as there isn't a previous PTS from which to calculate a
+				// delta.  Better to avoid too small a number, so limited to 0.25 seconds. GStreamer
+				// works ok with this in practice.
+				mRestampedDuration = MAX(duration / std::fabs(aamp->rate), 1.0 / trickPlayFPS);
+				break;
+
+			case TrickmodeState::DISCONTINUITY:
+				// Assume that the restamped duration is the same as used for the previous fragment
+				break;
+
+			case TrickmodeState::STEADY:
+				// Calculate the duration between the next fragment and the previous fragment and
+				// divide it by the rate to determine the next pts
+				fragmentPtsDelta = fabs(position - mLastFragmentPts);
+				mRestampedDuration = fragmentPtsDelta / std::fabs(aamp->rate);
+				mRestampedPts += mRestampedDuration;
+				break;
+
+			default:
+				AAMPLOG_ERR("Unexpected trickmode state %d", static_cast<int>(mTrickmodeState));
+				break;
+		}
+		// Transition immediately (back) to STEADY following the first frame or a discontinuity
+		mTrickmodeState = TrickmodeState::STEADY;
+
+		mLastFragmentPts = position;
+		duration = mRestampedDuration.inSeconds();
+
+		// Restamp the ISOBMFF position and duration in the media segment
+		(void)mIsoBmffHelper->SetPtsAndDuration(fragment,
+												static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedPts),
+												static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedDuration));
+	}
+	// Update cached values for GStreamer
+	position = mRestampedPts.inSeconds();
+
+	AAMPLOG_INFO("state %d rate %f trickPlayFPS %d initFragment %d discontinuity %d "
+				 "position %lfs duration %lfs restamped position %lfs duration %lfs",
+				 static_cast<int>(mTrickmodeState),
+				 aamp->rate, trickPlayFPS, initFragment, discontinuity,
+				 inFragmentPosition.inSeconds(), inFragmentDuration.inSeconds(),
+				 position, duration);
+}
+
+void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
+{
+	TrickModePtsRestamp(cachedFragment->fragment, cachedFragment->position, cachedFragment->duration,
+						cachedFragment->initFragment, cachedFragment->discontinuity);
+}
+
+void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
+{
+	(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment->fragment);
+}
+
+/**
+ *  @brief Inject fragment Chunk into the gstreamer
+ */
+void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool fragmentDiscarded, bool isDiscontinuity, bool &ret )
+{
+	class StreamAbstractionAAMP* pContext = GetContext();
+	// This will change for trickplay if restamping is enabled (cachedFragment->duration is changed according to abs rate)
+	double inFragmentDuration = cachedFragment->duration;
+	if (aamp->GetLLDashChunkMode())
+	{
+		bool bIgnore = true;
+		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
+		if(!cachedFragment->isDummy)
+		{
+			bIgnore = ProcessFragmentChunk();
+		}
+		if(bIgnore)
+		{
+			AAMPLOG_TRACE("[%s] Updating the chunk inject ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
+			UpdateTSAfterInject();
+			AAMPLOG_TRACE("[%s] Updated the chunk inject ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
+		}
+	}
+	else
+	{
+		// Restamp 2.0 only for DASH streams
+		/*
+		* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
+		* after parsing the segment before sending to gstreamer.
+		*/
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
+		{
+			if ((pContext && pContext->trickplayMode))
+			{
+				TrickModePtsRestamp(cachedFragment);
+			}
+			else
+			{
+				if (!cachedFragment->initFragment)
+				{
+					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
+					// would then be missing and it is important for l2 tests
+					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+
+					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+													cachedFragment->uri, name,
+													cachedFragment->timeScale);
+				}
+				else
+				{
+					ClearMediaHeaderDuration(cachedFragment);
+				}
+			}
+		}
+		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
+			(eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+		{
+			// Only for DASH streams
+			ClearMediaHeaderDuration(cachedFragment);
+		}
+		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
+		{
+			auto ptr = reinterpret_cast<const char*>(cachedFragment->fragment.data());
+			auto len = cachedFragment->fragment.size();
+			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+			{
+				while( aamp->mDownloadsEnabled )
+				{
+					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
+					{
+						AAMPLOG_WARN( "blocking subtitle track injection waiting for pts_offset[%" PRIu64 "]", cachedFragment->discontinuityIndex );
+						pContext->aamp->interruptibleMsSleep(1000);
+					}
+					else
+					{
+						// Video and subtitle segments from the same discontinuity share the same
+						// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
+						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
+						if(mSubtitleParser)
+						{
+							// DASH-style PTS-offset propagation: rather than rewriting MPEGTS in
+							// the VTT header (RestampSubtitle), push the per-fragment pts offset
+							// down into the subtec parser and forward the buffer unchanged. The
+							// subtec channel applies the offset to media_PTS so cue display time
+							// aligns with the restamped video PTS.
+											const std::string_view vttView{ptr, len};
+											const bool mpegtsIsZero = (vttView.find("MPEGTS:0") != std::string_view::npos);
+											mSubtitleParser->setPtsOffset(mpegtsIsZero ? 0.0 : cachedFragment->PTSOffsetSec);
+											mSubtitleParser->processData(
+												ptr, len, cachedFragment->position, cachedFragment->duration);
+						}
+						break;
+					}
+				}
+			}
+			else if(mSubtitleParser)
+			{ // no restamping
+				mSubtitleParser->processData( ptr, len, cachedFragment->position, cachedFragment->duration);
+			}
+		}
+		if (!cachedFragment->isDummy && (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled())))
+		{
+			if(AAMP_NORMAL_PLAY_RATE==aamp->rate)
+			{
+				InjectFragmentInternal(cachedFragment, fragmentDiscarded, isDiscontinuity);
+			}
+			else
+			{
+				InjectFragmentInternal(cachedFragment, fragmentDiscarded, cachedFragment->discontinuity);
+			}
+		}
+		class StreamAbstractionAAMP* pContext = GetContext();
+		if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
+		{
+			pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
+		}
+		AAMPLOG_DEBUG("%s - injected cached fragment at pos %f dur %f", name, cachedFragment->position, cachedFragment->duration);
+		if (!fragmentDiscarded)
+		{
+			std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+			totalInjectedDuration += cachedFragment->duration;
+			lastInjectedPosition = cachedFragment->absPosition;
+			lastInjectedDuration = cachedFragment->absPosition + cachedFragment->duration;
+			mSegInjectFailCount = 0;
+		}
+		else
+		{
+			AAMPLOG_WARN("[%s] - Not updating totalInjectedDuration since fragment is Discarded", name);
+			mSegInjectFailCount++;
+			int SegInjectFailCount = GETCONFIGVALUE(eAAMPConfig_SegmentInjectThreshold);
+			if(SegInjectFailCount <= mSegInjectFailCount)
+			{
+				ret	= false;
+				AAMPLOG_ERR("[%s] Reached max inject failure count: %d, stopping playback", name, SegInjectFailCount);
+				aamp->SendErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR);
+			}
+		}
+
+		// Release the memory and Update the inject
+		UpdateTSAfterInject();
+		// Plain SLD DASH (not LLD chunk mode, not AAMP TSB) routes through the chunk
+		// cache but still needs time-based buffer accounting, as it did before.
+		if (!aamp->GetLLDashChunkMode() && !aamp->IsLocalAAMPTsb())
+		{
+			auto timeBasedBufferManager = GetTimeBasedBufferManager();
+			if (timeBasedBufferManager)
+			{
+				timeBasedBufferManager->ConsumeBuffer(inFragmentDuration);
+			}
+		}
+	}
+}
+
+/**
+ *  @brief Inject fragment into the gstreamer
+ */
+bool MediaTrack::InjectFragment()
+{
+	bool ret = true;
+	bool isChunkMode = aamp->GetLLDashChunkMode() && (aamp->IsLocalAAMPTsbInjection() == false);
+	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
+	StreamAbstractionAAMP* pContext = GetContext();
+
+	if(!isChunkMode)
+	{
+		aamp->BlockUntilGstreamerWantsData(NULL, 0, type);
+	}
+	bool notAborted = WaitForCachedFragmentAvailable();
+	if (notAborted)
+	{
+		bool stopInjection = false;
+		bool fragmentDiscarded = false;
+		bool isDiscontinuity = false;
+		CachedFragment* cachedFragment = &this->mCachedFragment[fragmentIdxToInject];
+		AAMPLOG_TRACE("[%s] fragmentIdxToInject : %d Discontinuity %d ", name, fragmentIdxToInject, cachedFragment->discontinuity);
+		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
+					  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.data());
+		if (cachedFragment->fragment.capacity() != 0)
+		{
+			// This is currently supported for non-LL DASH streams only at normal play rate
+			if (!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
+			{
+				HandleFragmentPositionJump(cachedFragment);
+			}
+			stopInjection = CheckForDiscontinuity(cachedFragment, fragmentDiscarded, isDiscontinuity, ret);
+			if (!stopInjection)
+			{
+				ProcessAndInjectFragment(cachedFragment, fragmentDiscarded, isDiscontinuity, ret);
+			}
+		}
+		else
+		{
+			//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
+			if (SignalIfEOSReached())
+			{
+				//Save the playback rate prior to sending EOS
+				if(pContext != NULL)
+				{
+					int rate = pContext->aamp->rate;
+					aamp->EndOfStreamReached((AampMediaType)type);
+					/*For muxed streams, provide EOS for audio track as well since
+					 * no separate MediaTrack for audio is present*/
+					MediaTrack* audio = pContext->GetMediaTrack(eTRACK_AUDIO);
+					if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
+					{
+						aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
+					}
+					// Stop underflow monitor — all VOD fragments are injected;
+					// the GStreamer EOS bubble is now in flight and no further
+					// fragment arrivals are expected, so underflow detection is invalid.
+					if (!aamp->IsLive() && type == eTRACK_VIDEO)
+					{
+						pContext->StopUnderflowMonitor();
+					}
+				}
+				else
+				{
+					AAMPLOG_WARN("GetContext is null");  //CID:81799 - Null Return
+				}
+				AAMPLOG_INFO("%s EOS Signalled to pipeline", name);
+			}
+			else
+			{
+				AAMPLOG_WARN("%s - NULL ptr to inject. fragmentIdxToInject %d", name, fragmentIdxToInject);
+			}
+			ret = false;
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("WaitForCachedFragmentAvailable %s aborted LowLatency: %d ChunkMode %d", name, lowLatency,isChunkMode);
+		//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
+		SignalIfEOSReached();
+		ret = false;
+	}
+	return ret;
+} // InjectFragment
+
+/**
+ *  @brief SignalIfEOSReached - Signal end-of-stream to pipeline if injector at EOS
+ *
+ * @return bool
+ */
+bool MediaTrack::SignalIfEOSReached()
+{
+	bool ret = false;
+	//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
+	if (eosReached && (eTRACK_SUBTITLE != type))
+	{
+		//Save the playback rate prior to sending EOS
+		StreamAbstractionAAMP* pContext = GetContext();
+		AAMPLOG_MIL("[PERIOD_DBG] SignalIfEOSReached: track=%s signaling EOS to pipeline", name);
+		if(pContext != NULL)
+		{
+			int rate = pContext->aamp->rate;
+			aamp->EndOfStreamReached((AampMediaType)type);
+			/*For muxed streams, provide EOS for audio track as well since
+			 * no separate MediaTrack for audio is present*/
+			MediaTrack* audio = pContext->GetMediaTrack(eTRACK_AUDIO);
+			if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
+			{
+				aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
+			}
+			ret = true;
+		}
+		else
+		{
+			AAMPLOG_WARN("GetContext is null");  //CID:81799 - Null Return
+		}
+	}
+	return ret;
+}
+
+/**
+ *  @brief Start fragment injector loop
+ */
+void MediaTrack::StartInjectLoop()
+{
+
+	try
+	{
+		std::lock_guard<std::mutex> guard(injectorStartMutex);
+		if (fragmentInjectorThreadID.joinable())
+		{
+			AAMPLOG_WARN("Fragment injector thread already started");
+		}
+		else
+		{
+			abort = false;
+			abortInject = false;
+			discontinuityProcessed = false;
+
+			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
+			AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
+		}
+	}
+	catch(const std::exception& e)
+	{
+		AAMPLOG_WARN("Failed to create FragmentInjector thread ; %s", e.what());
+	}
+}
+
+/**
+ * @brief Wait till the new Audio fragment cache available
+ * after clearing the existing buffer
+ */
+void MediaTrack::WaitForCachedAudioFragmentAvailable()
+{
+	AAMPLOG_WARN("Enter WaitForCachedAudioFragmentAvailable");
+	std::unique_lock<std::mutex> lock(audioMutex);
+	audioFragmentCached.wait(lock);
+	AAMPLOG_DEBUG("[%s] wait complete for audioFragmentCached", name);
+}
+
+void MediaTrack::WaitForCachedSubtitleFragmentAvailable()
+{
+	AAMPLOG_WARN("Enter WaitForCachedSubtitleFragmentAvailable");
+	std::unique_lock<std::mutex> lock(subtitleMutex);
+	subtitleFragmentCached.wait(lock);
+	AAMPLOG_DEBUG("[%s] wait complete for subtitleFragmentCached", name);
+}
+
+/**
+ * @brief Notify the new Audio fragment cache available
+ * after clearing the existing buffer
+ */
+void MediaTrack::NotifyCachedAudioFragmentAvailable()
+{
+	std::lock_guard<std::mutex> guard(audioMutex);
+	audioFragmentCached.notify_one();
+}
+
+void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
+{
+	std::lock_guard<std::mutex> guard(subtitleMutex);
+	subtitleFragmentCached.notify_one();
+}
+
+/**
+ *  @brief Injection loop - use internally by injection logic
+ */
+void MediaTrack::RunInjectLoop()
+{
+	UsingPlayerId playerId( aamp->mPlayerId );
+	AAMPLOG_MIL("fragment injector started. track %s", name);
+
+	bool notifyFirstFragment = true;
+	bool keepInjecting = true;
+	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
+	StreamAbstractionAAMP* pContext = GetContext();
+	if ((AAMP_NORMAL_PLAY_RATE == aamp->rate) )
+	{
+		if (!bufferMonitorThreadDisabled && !bufferMonitorThreadID.joinable())
+		{
+			try
+			{
+				bufferMonitorThreadID = std::thread(&MediaTrack::MonitorBufferHealth, this);
+				AAMPLOG_INFO("Thread created for MonitorBufferHealth [%zx]", GetPrintableThreadID(bufferMonitorThreadID));
+			}
+			catch(const std::exception& e)
+			{
+				AAMPLOG_WARN("Failed to create BufferHealthMonitor thread: %s", e.what());
+			}
+		}
+		if ((type == eTRACK_SUBTITLE) && ( !UpdateSubtitleClockTaskStarted ) && aamp->IsGstreamerSubsEnabled() && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
+		{
+			try
+			{
+				if (!ISCONFIGSET(eAAMPConfig_useRialtoSink))
+				{
+					subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
+					UpdateSubtitleClockTaskStarted = true;
+					AAMPLOG_INFO("Thread created for UpdateSubtitleClockTask [%zx]", GetPrintableThreadID(subtitleClockThreadID));
+				}
+			}
+			catch(const std::exception& e)
+			{
+				AAMPLOG_WARN("Failed to create UpdateSubtitleClockTask thread: %s", e.what());
+			}
+		}
+	}
+	{
+		std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+		totalInjectedDuration = 0;
+		totalInjectedChunksDuration = 0;
+		lastInjectedPosition = 0;
+		lastInjectedDuration = 0;
+	}
+	while (aamp->DownloadsAreEnabled() && keepInjecting)
+	{
+		if(type == eTRACK_AUDIO && (loadNewAudio || refreshAudio) && !lowLatency) //TBD
+		{
+			WaitForCachedAudioFragmentAvailable();
+		}
+		if(type == eTRACK_SUBTITLE && (loadNewSubtitle || refreshSubtitles) && !lowLatency) // TBD
+		{
+			WaitForCachedSubtitleFragmentAvailable();
+		}
+		if (!InjectFragment())
+		{
+			if(!(loadNewAudio || refreshAudio ||loadNewSubtitle || refreshSubtitles ))
+			{
+				keepInjecting = false;
+			}
+		}
+		if (notifyFirstFragment && type != eTRACK_SUBTITLE)
+		{
+			notifyFirstFragment = false;
+			if (pContext)
+			{
+				pContext->NotifyFirstFragmentInjected();
+			}
+		}
+		// Disable audio video balancing for CDVR content ..
+		// CDVR Content includes eac3 audio, the duration of audio doesn't match with video
+		// and hence balancing fetch/inject not needed for CDVR
+		// TBD Not needed for LLD
+		// Not needed for local TSB gstreamer will balance A/V - thats what it does
+		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency && !aamp->IsLocalAAMPTsb())
+		{
+			if(pContext != NULL)
+			{
+				if(eTRACK_AUDIO == type)
+				{
+					pContext->WaitForVideoTrackCatchup();
+				}
+				else if (eTRACK_VIDEO == type)
+				{
+					pContext->ReassessAndResumeAudioTrack(false);
+				}
+				else if (eTRACK_SUBTITLE == type)
+				{
+					pContext->WaitForAudioTrackCatchup();
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("GetContext  is null");  //CID:85546 - Null Return
+			}
+		}
+	}
+
+	abortInject = true;
+	AAMPLOG_WARN("fragment injector done. track %s", name);
+}
+
+/**
+ *  @brief Stop fragment injector loop
+ */
+void MediaTrack::StopInjectLoop()
+{
+	NotifyCachedAudioFragmentAvailable();
+	NotifyCachedSubtitleFragmentAvailable();
+	std::lock_guard<std::mutex> guard(injectorStartMutex);
+	if(fragmentInjectorThreadID.joinable())
+	{
+		fragmentInjectorThreadID.join();
+		AAMPLOG_INFO("Fragment injector thread joined");
+	}
+}
+
+/**
+ *  @brief Check if a track is enabled
+ */
+bool MediaTrack::Enabled()
+{
+	return enabled;
+}
+
+/**
+ * @brief Check if fragment injector thread is started
+ * @return true if thread is joinable, false otherwise
+ */
+bool MediaTrack::isFragmentInjectorThreadStarted()
+{
+	std::lock_guard<std::mutex> guard(injectorStartMutex);
+	return fragmentInjectorThreadID.joinable();
+}
+
+/**
+ * @brief Check if playlist downloader thread is started
+ * @return true if thread is joinable, false otherwise
+ */
+bool MediaTrack::isPlaylistDownloaderThreadStarted()
+{
+	return (playlistDownloaderThread && playlistDownloaderThread->joinable());
+}
+
+/**
+ *  @brief Get buffer to fetch and cache next fragment chunk
+ */
+CachedFragment* MediaTrack::GetFetchBuffer(bool initialize)
+{
+	if(fragmentIdxToFetch <0 || fragmentIdxToFetch >= mCachedFragmentSize)
+	{
+		AAMPLOG_WARN("[%s] OUT OF RANGE => fragmentIdxToFetch: %d mCachedFragmentSize: %zu",name,fragmentIdxToFetch, mCachedFragmentSize);
+		return NULL;
+	}
+
+	CachedFragment* cachedFragment = NULL;
+	cachedFragment = &this->mCachedFragment[fragmentIdxToFetch];
+
+	AAMPLOG_DEBUG("[%s] fragmentIdxToFetch: %d cachedFragment: %p",name, fragmentIdxToFetch, cachedFragment);
+
+	if(initialize && cachedFragment)
+	{
+		if (cachedFragment->fragment.capacity() != 0)
+		{
+			AAMPLOG_WARN("[%s] fragment.ptr[%p] already set - possible memory leak (len=[%zu],avail=[%zu])",name, cachedFragment->fragment.data(), cachedFragment->fragment.size(), cachedFragment->fragment.capacity() );
+		}
+		cachedFragment->fragment.clear();
+	}
+	return cachedFragment;
+}
+
+/**
+ * @brief Check if the fragment cache buffer is full
+ * @return true if the fragment cache buffer is full, false otherwise
+ */
+bool MediaTrack::IsFragmentCacheFull()
+{
+	bool rc = false;
+	std::lock_guard<std::mutex> guard(mutex);
+	AAMPLOG_DEBUG("[%s] numberOfFragmentsCached %d mCachedFragmentSize %zu", name, numberOfFragmentsCached, mCachedFragmentSize);
+	rc = (numberOfFragmentsCached == mCachedFragmentSize);
+	return rc;
+}
+
+/**
+ *  @brief Set current bandwidth of track
+ */
+void MediaTrack::SetCurrentBandWidth( BitsPerSecond bandwidthBps )
+{
+	this->bandwidthBitsPerSecond = bandwidthBps;
+}
+
+/**
+ *  @brief Get profile index for TsbBandwidth
+ */
+int MediaTrack::GetProfileIndexForBW( BitsPerSecond mTsbBandwidth )
+{
+	return GetContext()?GetContext()->GetProfileIndexForBandwidth(mTsbBandwidth):0;
+}
+
+/**
+ *  @brief Get current bandwidth in bps
+ */
+BitsPerSecond MediaTrack::GetCurrentBandWidth()
+{
+	return this->bandwidthBitsPerSecond;
+}
+
+
+/**
+ * @brief Flushes all fetched cached fragments
+ * Flushes all fetched media fragments
+ */
+void MediaTrack::FlushFetchedFragments()
+{
+	std::lock_guard<std::mutex> guard(mutex);
+	while (numberOfFragmentsCached)
+	{
+		AAMPLOG_DEBUG("[%s] Free mCachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
+		mCachedFragment[fragmentIdxToInject].Clear();
+
+		fragmentIdxToInject++;
+		if (fragmentIdxToInject == mCachedFragmentSize)
+		{
+			fragmentIdxToInject = 0;
+		}
+		numberOfFragmentsCached--;
+	}
+	fragmentInjected.notify_one();
+}
+
+/**
+ * @brief Flushes all cached fragments
+ * Flushes all media fragments and resets all relevant counters
+ * Only intended for use on subtitle streams
+ */
+void MediaTrack::FlushFragments()
+{
+	AAMPLOG_WARN("[%s]", name);
+	for (size_t i = 0; i < mCachedFragmentSize; i++)
+	{
+		mCachedFragment[i].Clear();
+	}
+	aamp_utils::ClearAndRelease(unparsedBufferChunk);
+	aamp_utils::ClearAndRelease(parsedBufferChunk);
+	fragmentIdxToInject = 0;
+	fragmentIdxToFetch = 0;
+	std::lock_guard<std::mutex> guard(mutex);
+	numberOfFragmentsCached = 0;
+
+	// All fragment-injected/fetched duration counters live under mTrackParamsMutex.
+	// Always reset totalInjectedChunksDuration here (LLD chunk-mode peer of
+	// totalInjectedDuration); the audio/subtitle-only counters below are reset
+	// only when the track is not in the middle of a seamless switch.
+	{
+		std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
+		totalInjectedChunksDuration = 0;
+
+		// For audio/subtitle tracks that are not mid-switch, reset the
+		// business-logic lifetime counters so post-flush callers (GetBufferStatus,
+		// HandleTrackChange, ABR) start from a clean slate for the new track.
+		if (( type == eTRACK_AUDIO && !loadNewAudio ) || ( type == eTRACK_SUBTITLE && !loadNewSubtitle ))
+		{
+			totalFetchedDuration = 0;
+			totalFragmentsDownloaded = 0;
+			totalInjectedDuration = 0;
+		}
+	}
+}
+
+
+/**
+ *  @brief OffsetTrackParams To set Track's Fetch and Inject duration after playlist update
+ *  Currently intended for use on seamless audio track change
+ */
+void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded)
+{
+	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	AAMPLOG_MIL("Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
+
+	totalFetchedDuration -= deltaFetchedDuration;
+	// injected and fetched duration should be same
+	totalInjectedDuration -= deltaInjectedDuration;
+	totalFragmentsDownloaded -= deltaFragmentsDownloaded;
+
+	AAMPLOG_MIL("New totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
+}
+
+/**
+ *  @brief MediaTrack Constructor
+ */
+MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
+		eosReached(false), enabled(false), numberOfFragmentsCached(0), fragmentIdxToInject(0),
+		fragmentIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0),
+		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
+		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
+		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
+		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
+		discontinuityProcessed(false), ptsError(false), name(name), type(type), aamp(aamp),
+		mutex(), abortInject(false),
+		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false),
+		mCachedFragment{}, fragmentFetched(), fragmentInjected(), maxLLDCachedFragmentsPerTrack(0),
+		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
+		abortPlaylistDownloader(true), plDownloadWait()
+		,dwnldMutex(), playlistDownloaderThread(NULL), mManifestUpdateCounter(0)
+		,mManifestUpdateWait(),prevDownloadStartTime(-1)
+		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
+		,mIsLocalTSBInjection(false), mCachedFragmentSize(0)
+		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
+		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
+		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
+		,m_totalDurationForPtsRestamping(0.0)
+{
+	const int sldCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
+
+	maxLLDCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxLLDFragmentCached);
+	SetCachedFragmentSize((aamp->GetLLDashChunkMode()) ? maxLLDCachedFragmentsPerTrack : sldCacheSize);
+}
+
+
+/**
+ *  @brief MediaTrack Destructor
+ */
+MediaTrack::~MediaTrack()
+{
+	if (bufferMonitorThreadID.joinable())
+	{
+		bufferMonitorThreadID.join();
+		{
+			AAMPLOG_TRACE("joined bufferMonitorThreadID");
+		}
+	}
+	if ((UpdateSubtitleClockTaskStarted) && (type == eTRACK_SUBTITLE))
+	{
+		AAMPLOG_TRACE("joining subtitleClockThreadID for UpdateSubtitleClockTask");
+		if (subtitleClockThreadID.joinable())
+		{
+			subtitleClockThreadID.join();
+			AAMPLOG_TRACE("joined subtitleClockThreadID for UpdateSubtitleClockTask");
+		}
+		else
+		{
+			AAMPLOG_ERR("Unable to join subtitleClockThreadID for UpdateSubtitleClockTask!");
+		}
+	}
+}
+
+/**
+ *  @brief Unblock track if caught up with video or downloads are stopped
+ */
+void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
+{
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if( audio && video )
+	{
+		std::lock_guard<std::mutex> guard(mLock);
+		double audioDuration = audio->GetTotalInjectedDuration();
+		double videoDuration = video->GetTotalInjectedDuration();
+		if(audioDuration < (videoDuration + (2 * video->fragmentDurationSeconds)) || !aamp->DownloadsAreEnabled() || video->IsDiscontinuityProcessed() || abort || video->IsAtEndOfTrack())
+		{
+			mCond.notify_one();
+		}
+	}
+}
+
+
+/**
+ * @brief Blocks audio track injection until caught up with video track.
+ *        Used internally by injection logic
+ */
+void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
+{
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if( video != NULL)
+	{
+		std::unique_lock<std::mutex> lock(mLock);
+		double audioDuration = audio->GetTotalInjectedDuration();
+		double videoDuration = video->GetTotalInjectedDuration();
+		while ((audioDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
+		{
+			if (mTrackState == eDISCONTINUITY_IN_VIDEO)
+			{
+				AAMPLOG_WARN("Skipping WaitForVideoTrackCatchup as video is processing a discontinuity");
+				break;
+			}
+
+			if (std::cv_status::no_timeout == mCond.wait_for(lock, std::chrono::milliseconds(100)))
+			{
+				break;
+			}
+			// Update video and audio duration after wait
+			audioDuration = audio->GetTotalInjectedDuration();
+			videoDuration = video->GetTotalInjectedDuration();
+		}
+	}
+}
+
+
+/**
+ * @brief StreamAbstractionAAMP constructor.
+ */
+StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler):
+		trickplayMode(false), currentProfileIndex(0), mCurrentBandwidth(0),currentAudioProfileIndex(-1),currentTextTrackProfileIndex(-1),
+		mTsbBandwidth(0),mNwConsistencyBypass(true), profileIdxForBandwidthNotification(0),
+		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false), mAudiostateChangeCount(0),
+		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
+		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
+		mSavedLatencyMonitorState (false),
+		mIsPlaybackStalled(false), mTuneType(), mLock(),
+		mCond(), mLastVideoFragCheckedForABR(0), mLastVideoFragParsedTimeMS(0),
+		mSubCond(), mAudioTracks(), mTextTracks(),mABRHighBufferCounter(0),mABRLowBufferCounter(0),mMaxBufferCountCheck(0),
+		mStateLock(), mStateCond(), mTrackState(eDISCONTINUITY_FREE),
+		mRampDownLimit(-1), mRampDownCount(0),mABRMaxBuffer(0), mABRCacheLength(0), mABRMinBuffer(0), mABRNwConsistency(0),
+		mBitrateReason(eAAMP_BITRATE_CHANGE_BY_TUNE),
+		mAudioTrackIndex(), mTextTrackIndex(),
+		mAudioTracksAll(), mTextTracksAll(),
+		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
+		mPTSOffset(0.0),
+		mID3Handler{std::move(mID3Handler)}
+{
+	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
+	AAMPLOG_TRACE("StreamAbstractionAAMP");
+	mMaxBufferCountCheck = GETCONFIGVALUE(eAAMPConfig_ABRCacheLength);
+	mABRCacheLength = mMaxBufferCountCheck;
+	mABRBufferCounter = GETCONFIGVALUE(eAAMPConfig_ABRBufferCounter);
+	mABRMaxBuffer = GETCONFIGVALUE(eAAMPConfig_MaxABRNWBufferRampUp);
+	mABRMinBuffer = GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown);
+	mABRNwConsistency = GETCONFIGVALUE(eAAMPConfig_ABRNWConsistency);
+	aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
+
+	BitsPerSecond ibitrate = aamp->GetIframeBitrate();
+	if (ibitrate > 0)
+	{
+		aamp->mhAbrManager.setDefaultIframeBitrate(ibitrate);
+	}
+	mRampDownLimit = GETCONFIGVALUE(eAAMPConfig_RampDownLimit);
+	if (!aamp->IsNewTune())
+	{
+		mBitrateReason = (aamp->rate != AAMP_NORMAL_PLAY_RATE) ? eAAMP_BITRATE_CHANGE_BY_TRICKPLAY : eAAMP_BITRATE_CHANGE_BY_SEEK;
+	}
+}
+
+
+/**
+ *  @brief StreamAbstractionAAMP destructor.
+ */
+StreamAbstractionAAMP::~StreamAbstractionAAMP()
+{
+	AAMPLOG_INFO("Exit StreamAbstractionAAMP");
+}
+
+/**
+ *  @brief Get the last video fragment parsed time.
+ */
+double StreamAbstractionAAMP::LastVideoFragParsedTimeMS(void)
+{
+	return mLastVideoFragParsedTimeMS;
+}
+
+/**
+ *  @brief Get the desired profile to start fetching.
+ */
+int StreamAbstractionAAMP::GetDesiredProfile(bool getMidProfile)
+{
+	int desiredProfileIndex = 0;
+	if(GetProfileCount())
+	{
+		if (this->UseIframeTrack() && ABRManager::INVALID_PROFILE != aamp->mhAbrManager.getLowestIframeProfile())
+		{
+			desiredProfileIndex = GetIframeTrack();
+		}
+		else
+		{
+			desiredProfileIndex = aamp->mhAbrManager.getInitialProfileIndex(getMidProfile);
+		}
+		profileIdxForBandwidthNotification = desiredProfileIndex;
+		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+		if(video)
+		{
+			StreamInfo* streamInfo = GetStreamInfo(profileIdxForBandwidthNotification);
+			if(streamInfo != NULL)
+			{
+				video->SetCurrentBandWidth( streamInfo->bandwidthBitsPerSecond);
+			}
+			else
+			{
+				AAMPLOG_WARN("GetStreamInfo is null");  //CID:81678 - Null Returns
+			}
+		}
+		else
+		{
+			AAMPLOG_TRACE("video track NULL");
+		}
+		AAMPLOG_DEBUG("profileIdxForBandwidthNotification updated to %d ", profileIdxForBandwidthNotification);
+	}
+	return desiredProfileIndex;
+}
+
+/**
+ *   @brief Get profile index of highest bandwidth
+ *
+ *   @return Profile highest BW profile index
+ */
+int StreamAbstractionAAMP::GetMaxBWProfile()
+{
+	int ret = 0;
+	if(aamp->IsFogTSBSupported() && mTsbMaxBitrateProfileIndex >= 0)
+	{
+		ret = mTsbMaxBitrateProfileIndex;
+	}
+	else
+	{
+		ret =  aamp->mhAbrManager.getMaxBandwidthProfile();
+	}
+	return ret;
+}
+
+/**
+ *   @brief Notify bitrate updates to application.
+ *          Used internally by injection logic
+ */
+void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamInfo &cacheFragStreamInfo, double position)
+{
+	AAMPLOG_TRACE("[DEBUG]:stream Info bps(%" BITSPERSECOND_FORMAT ") w(%d) h(%d) fr(%f) profileIndex %d aamp->GetPersistedProfileIndex() %d",
+				  cacheFragStreamInfo.bandwidthBitsPerSecond, cacheFragStreamInfo.resolution.width, cacheFragStreamInfo.resolution.height, cacheFragStreamInfo.resolution.framerate, profileIndex,aamp->GetPersistedProfileIndex());
+	if (profileIndex != aamp->GetPersistedProfileIndex() && cacheFragStreamInfo.bandwidthBitsPerSecond != 0)
+	{
+		StreamInfo* streamInfo = GetStreamInfo(GetMaxBWProfile());
+		if(streamInfo != NULL)
+		{
+			bool lGetBWIndex = false;
+			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->CheckABREnabled()))
+			{
+				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+				AAMPLOG_MIL("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
+				aamp->IsTuneTypeNew = false;
+				lGetBWIndex = true;
+			}
+
+			// Send bitrate notification
+			aamp->profiler.IncrementChangeCount(Count_BitrateChange);
+			aamp->NotifyBitRateChangeEvent( (int)cacheFragStreamInfo.bandwidthBitsPerSecond,
+										   cacheFragStreamInfo.reason, cacheFragStreamInfo.resolution.width,
+										   cacheFragStreamInfo.resolution.height, cacheFragStreamInfo.resolution.framerate, position, lGetBWIndex);
+			// Store the profile , compare it before sending it . This avoids sending of event after trickplay if same bitrate
+			aamp->SetPersistedProfileIndex(profileIndex);
+		}
+		else
+		{
+			AAMPLOG_WARN("StreamInfo is null");  //CID:82200 - Null Returns
+		}
+	}
+}
+
+/**
+ *  @brief Check if Initial Fragment Caching is supported
+ */
+bool StreamAbstractionAAMP::IsInitialCachingSupported()
+{
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	return (video && video->enabled);
+}
+
+/**
+ *  @brief Function to update stream info of current fetched fragment
+ */
+void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
+{
+	StreamInfo* streamInfo = GetStreamInfo(profileIndex);
+
+	if (streamInfo)
+	{
+		cacheFragStreamInfo.bandwidthBitsPerSecond = streamInfo->bandwidthBitsPerSecond;
+		cacheFragStreamInfo.reason = mBitrateReason;
+		cacheFragStreamInfo.resolution.height = streamInfo->resolution.height;
+		cacheFragStreamInfo.resolution.framerate = streamInfo->resolution.framerate;
+		cacheFragStreamInfo.resolution.width = streamInfo->resolution.width;
+		//AAMPLOG_WARN("stream Info bps(%ld) w(%d) h(%d) fr(%f)", cacheFragStreamInfo.bandwidthBitsPerSecond, cacheFragStreamInfo.resolution.width, cacheFragStreamInfo.resolution.height, cacheFragStreamInfo.resolution.framerate);
+	}
+	else
+	{
+		AAMPLOG_ERR("UpdateStreamInfoBitrateData: Failed to get stream info for profile %d, using default values", profileIndex);
+		// Set default values to prevent undefined behavior
+		cacheFragStreamInfo.bandwidthBitsPerSecond = 0;
+		cacheFragStreamInfo.reason = mBitrateReason;
+		cacheFragStreamInfo.resolution.height = 0;
+		cacheFragStreamInfo.resolution.framerate = 0;
+		cacheFragStreamInfo.resolution.width = 0;
+	}
+}
+
+
+/**
+ *  @brief Update profile state based on bandwidth of fragments downloaded.
+ */
+void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
+{
+	// This function checks for bandwidth change based on the fragment url from FOG
+	int desiredProfileIndex = 0;
+	if (mCurrentBandwidth != mTsbBandwidth)
+	{
+		// a) Check if network bandwidth changed from starting bw
+		// b) Check if netwwork bandwidth is different from persisted bandwidth( needed for first time reporting)
+		// find the profile for the newbandwidth
+		desiredProfileIndex = GetMediaTrack(eTRACK_VIDEO)->GetProfileIndexForBW(mTsbBandwidth);
+		mCurrentBandwidth = mTsbBandwidth;
+		StreamInfo* streamInfo = GetStreamInfo(profileIdxForBandwidthNotification);
+		if (profileIdxForBandwidthNotification != desiredProfileIndex)
+		{
+			if(streamInfo != NULL)
+			{
+				profileIdxForBandwidthNotification = desiredProfileIndex;
+				GetMediaTrack(eTRACK_VIDEO)->SetCurrentBandWidth( streamInfo->bandwidthBitsPerSecond );
+				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_FOG_ABR;
+			}
+			else
+			{
+				AAMPLOG_WARN("GetStreamInfo is null");  //CID:84179 - Null Returns
+			}
+		}
+	}
+}
+
+/**
+ *  @brief Update rampdown or Up profile  reason
+ */
+void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
+{
+	mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
+	if(mUpdateReason && aamp->IsFogTSBSupported())
+	{
+		mBitrateReason = eAAMP_BITRATE_CHANGE_BY_FOG_ABR;
+		mUpdateReason = false;
+	}
+}
+
+/**
+ *  @brief Get Desired Profile based on Buffer availability
+ */
+void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int &newProfileIndex)
+{
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+
+	double bufferValue = GetBufferValue(video);
+	double minBufferNeeded ;
+	if(bufferValue > 0)
+	{
+		if(aamp->GetLLDashServiceData()->lowLatencyMode)
+		{
+			minBufferNeeded	= mABRMinBuffer;
+		}
+		else
+		{
+			minBufferNeeded = video->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
+		}
+		aamp->mhAbrManager.GetDesiredProfileOnBuffer(currProfileIndex,newProfileIndex,bufferValue,minBufferNeeded);
+	}
+	//When buffer goes zero, no need to ramp up - Switch directly to 0th profile ,inorder to build buffer
+	else
+	{
+		AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
+		newProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+	}
+}
+
+/**
+ *  @brief Get Desired Profile on steady state
+ */
+void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex, int &newProfileIndex, long nwBandwidth)
+{
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	double bufferValue = GetBufferValue(video);
+	//long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
+	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
+	{
+		AAMPLOG_DEBUG("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
+		if(bufferValue > mABRMaxBuffer && !aamp->GetLLDashServiceData()->lowLatencyMode)
+		{
+			mABRHighBufferCounter++;
+			mABRLowBufferCounter = 0 ;
+			if(mABRHighBufferCounter > mMaxBufferCountCheck)
+			{
+				int nProfileIdx =  aamp->mhAbrManager.getRampedUpProfileIndex(currProfileIndex);
+				long newBandwidth = GetStreamInfo(nProfileIdx)->bandwidthBitsPerSecond;
+				ABRManager::BitrateChangeReason mhBitrateReason;
+				mhBitrateReason = (ABRManager::BitrateChangeReason) mBitrateReason;
+				aamp->mhAbrManager.CheckRampupFromSteadyState(currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth,mhBitrateReason,mMaxBufferCountCheck);
+				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
+				mABRHighBufferCounter = 0;
+			}
+		}
+		// steady state ,with no ABR cache available to determine actual bandwidth
+		// this state can happen due to timeouts
+		// Adding delta check: When bandwidth is higher than currentprofile bandwidth but insufficient to download both audio and video simultaneously, a delta less than 2000 kbps indicates a need for steady state rampdown.
+		if(bufferValue < mABRMinBuffer && !video->IsInjectionAborted())
+		{
+			if(aamp->GetLLDashServiceData()->lowLatencyMode || nwBandwidth == -1)
+			{
+				mABRLowBufferCounter++;
+				mABRHighBufferCounter = 0;
+				ABRManager::BitrateChangeReason mhBitrateReason;
+				mhBitrateReason = (ABRManager::BitrateChangeReason) mBitrateReason;
+				aamp->mhAbrManager.CheckRampdownFromSteadyState(currProfileIndex,newProfileIndex,mhBitrateReason,mABRLowBufferCounter);
+				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
+				mABRLowBufferCounter = (mABRLowBufferCounter >= mABRBufferCounter)? 0 : mABRLowBufferCounter ;
+			}
+		}
+
+		if(currProfileIndex != newProfileIndex)
+		{
+			AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
+		}
+	}
+	else
+	{
+		mABRLowBufferCounter = 0 ;
+		mABRHighBufferCounter = 0;
+	}
+}
+
+/**
+ *  @brief Configure download timeouts based on buffer
+ */
+void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
+{
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+
+	if(video && video->enabled)
+	{
+		// If buffer is high , set high timeout , not to fail the download
+		// If buffer is low , set timeout less than the buffer availability
+		double vBufferDuration = video->GetBufferedDuration();
+		if(vBufferDuration > 0)
+		{
+			int timeoutMs = vBufferDuration*1000;
+			if(vBufferDuration < mABRMaxBuffer)
+			{
+				timeoutMs = aamp->mNetworkTimeoutMs;
+			}
+			else
+			{	// enough buffer available
+				timeoutMs = std::min(timeoutMs/2, mABRMaxBuffer*1000 );
+				timeoutMs = std::max(timeoutMs , aamp->mNetworkTimeoutMs);
+			}
+			if (aamp->SetCurlTimeout(timeoutMs,eCURLINSTANCE_VIDEO)) // only log if it changes to prevent log flooding
+			{
+				AAMPLOG_INFO("Setting Video timeout to :%d %f",timeoutMs,vBufferDuration);
+			}
+		}
+	}
+	if(audio && audio->enabled)
+	{
+		// If buffer is high , set high timeout , not to fail the download
+		// If buffer is low , set timeout less than the buffer availability
+		double aBufferDuration = audio->GetBufferedDuration();
+		if(aBufferDuration > 0)
+		{
+			int timeoutMs = aBufferDuration*1000;
+			if(aBufferDuration < mABRMaxBuffer)
+			{
+				timeoutMs = aamp->mNetworkTimeoutMs;
+			}
+			else
+			{
+				timeoutMs = std::min(timeoutMs/2, mABRMaxBuffer*1000 );
+				timeoutMs = std::max(timeoutMs , aamp->mNetworkTimeoutMs);
+			}
+			if (aamp->SetCurlTimeout(timeoutMs,eCURLINSTANCE_AUDIO)) // only log if it changes to prevent log flooding
+			{
+				AAMPLOG_INFO("Setting Audio timeout to :%d %f",timeoutMs,aBufferDuration);
+			}
+		}
+	}
+}
+
+
+/**
+ *  @brief Update rampdown profile on network failure
+ */
+double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
+{
+	double bufferValue = 0.0;
+	if (track)
+	{
+		bufferValue = track->GetBufferedDuration();
+		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
+		{
+			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
+			if(tsbSessionManager)
+			{
+				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
+				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
+				bufferValue += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
+				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
+							 bufferValue, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
+				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
+				{
+					bufferValue = 0;
+				}
+			}
+			else
+			{
+				AAMPLOG_ERR("tsbSessionManager is NULL for LocalTSB!! Returning buffer value as %.02lf !!",bufferValue);
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("Video is NULL!! Returning buffer value as %.02lf !!",bufferValue);
+	}
+	return bufferValue;
+}
+
+/**
+ *  @brief Get desired profile based on cached duration
+ */
+int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
+{
+	int desiredProfileIndex = currentProfileIndex;
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if(video != NULL)
+	{
+		double bufferValue = GetBufferValue(video);
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue < AAMP_LLDABR_MIN_BUFFER_VALUE && !video->IsLocalTSBInjection())
+		{
+			//InsufficientBufferRule: Buffer is empty
+			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+			if(currentProfileIndex != desiredProfileIndex)
+			{
+				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_EMPTY;
+			}
+			return desiredProfileIndex;
+		}
+		if (this->UseIframeTrack())
+		{
+			int tmpIframeProfile = GetIframeTrack();
+			if(tmpIframeProfile != ABRManager::INVALID_PROFILE)
+			{
+				if (currentProfileIndex != tmpIframeProfile)
+				{
+					mBitrateReason = eAAMP_BITRATE_CHANGE_BY_ABR;
+				}
+				desiredProfileIndex = tmpIframeProfile;
+			}
+		}
+		/*In live, fog takes care of ABR, and cache updating is not based only on bandwidth,
+		 * but also depends on fragment availability in CDN*/
+		else
+		{
+			long currentBandwidth = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
+			const BitsPerSecond networkBandwidth = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
+			aamp->UpdatePersistBandwidth(networkBandwidth);
+			int nwConsistencyCnt = (mNwConsistencyBypass)?1:mABRNwConsistency;
+			if(aamp->GetLLDashServiceData()->lowLatencyMode)
+			{
+				/** Avoid bypass for LLD so that buffer can be build up*/
+				nwConsistencyCnt = mABRNwConsistency;
+			}
+
+			// Ramp up/down (do ABR)
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexByBitrateRampUpOrDown(currentProfileIndex,
+																						  currentBandwidth, networkBandwidth, nwConsistencyCnt);
+
+			AAMP_LogLevel logLevel = eLOGLEVEL_DEBUG; // prevent log flooding
+
+			if (currentProfileIndex != desiredProfileIndex)
+			{
+				logLevel = eLOGLEVEL_INFO; // Increase log level if profile changed
+
+				// There is a chance that desiredProfileIndex is reset in below GetDesiredProfileOnBuffer call
+				// Since bitrate notification will not be triggered in this case, its fine
+				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_ABR;
+			}
+
+			if (aamp->IsTuneTypeNew)
+			{
+				logLevel = eLOGLEVEL_MIL; //  milestone if new tune
+			}
+			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer:%lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue);
+
+			if(!mNwConsistencyBypass && ISCONFIGSET(eAAMPConfig_ABRBufferCheckEnabled))
+			{
+				// Checking if frequent profile change happening
+				if(currentProfileIndex != desiredProfileIndex)
+				{
+					GetDesiredProfileOnBuffer(currentProfileIndex, desiredProfileIndex);
+				}
+
+				// Now check for Fixed BitRate for longer time(valley)
+				GetDesiredProfileOnSteadyState(currentProfileIndex, desiredProfileIndex, networkBandwidth);
+
+				// After ABR is done , next configure the timeouts for next downloads based on buffer
+				ConfigureTimeoutOnBuffer();
+			}
+		}
+		// only for first call, consistency check is ignored
+		mNwConsistencyBypass = false;
+	}
+	else
+	{
+		AAMPLOG_WARN("video is null");  //CID:84160 - Null Returns
+	}
+	return desiredProfileIndex;
+}
+
+/**
+ *  @brief Rampdown profile
+ */
+bool StreamAbstractionAAMP::RampDownProfile(int http_error)
+{
+	bool ret = false;
+	int desiredProfileIndex = currentProfileIndex;
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if (this->UseIframeTrack())
+	{
+		//We use only second last and lowest profiles for iframes
+		int lowestIframeProfile = aamp->mhAbrManager.getLowestIframeProfile();
+		if (ABRManager::INVALID_PROFILE != lowestIframeProfile)
+		{
+			desiredProfileIndex = lowestIframeProfile;
+		}
+		else
+		{
+			AAMPLOG_WARN("lowestIframeProfile Invalid - Stream does not has an iframe track!! ");
+		}
+	}
+	else if (video)
+	{
+		double bufferValue = GetBufferValue(video);
+		if (bufferValue <= 2.0 )
+		{ // panic mode - jump directly to lowest profile
+			AAMPLOG_WARN("rampdown to lowest profile as buffer near zero");
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+		}
+		else if (bufferValue > mABRMaxBuffer)
+		{
+			// ample buffering, so ramp down in single steps
+			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
+		}
+		else
+		{ // variable rampdown based on available bandwidth
+			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(bufferValue, currentProfileIndex);
+			if( desiredBw > 0)
+			{
+				desiredProfileIndex = GetProfileIndexForBandwidth(desiredBw);
+			}
+			else
+			{
+				AAMPLOG_ERR("desiredBw received is 0, which is not expected.. Rampdown failed!!");
+			}
+		}
+	}
+	if (desiredProfileIndex != currentProfileIndex)
+	{
+		AAMPAbrInfo stAbrInfo = {};
+
+		stAbrInfo.abrCalledFor = AAMPAbrFragmentDownloadFailed;
+		stAbrInfo.currentProfileIndex = currentProfileIndex;
+		stAbrInfo.desiredProfileIndex = desiredProfileIndex;
+		StreamInfo* streamInfoDesired = GetStreamInfo(desiredProfileIndex);
+		StreamInfo* streamInfoCurrent = GetStreamInfo(currentProfileIndex);
+		if((streamInfoCurrent != NULL) && (streamInfoDesired != NULL))   //CID:160715 - Forward null
+		{
+			stAbrInfo.currentBandwidth = streamInfoCurrent->bandwidthBitsPerSecond;
+			stAbrInfo.desiredBandwidth = streamInfoDesired->bandwidthBitsPerSecond;
+			stAbrInfo.networkBandwidth = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
+			aamp->UpdatePersistBandwidth(stAbrInfo.networkBandwidth);
+			stAbrInfo.errorType = AAMPNetworkErrorHttp;
+			stAbrInfo.errorCode = http_error;
+
+			AampLogManager::LogABRInfo(&stAbrInfo);
+
+			aamp->UpdateVideoEndMetrics(stAbrInfo);
+
+			if(ISCONFIGSET(eAAMPConfig_ABRBufferCheckEnabled))
+			{
+				// After Rampdown, configure the timeouts for next downloads based on buffer
+				ConfigureTimeoutOnBuffer();
+			}
+
+			this->currentProfileIndex = desiredProfileIndex;
+			profileIdxForBandwidthNotification = desiredProfileIndex;
+			AAMPLOG_DEBUG(" profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
+			ret = true;
+			long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
+			if(video)
+			{
+				video->SetCurrentBandWidth( newBW );
+				aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
+				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
+
+				// Send abr notification
+				video->ABRProfileChanged();
+				mABRLowBufferCounter = 0 ;
+				mABRHighBufferCounter = 0;
+			}
+			else
+			{
+				AAMPLOG_WARN("Video is null");
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("GetStreamInfo is null");  //CID:84132 - Null Returns
+		}
+	}
+
+	return ret;
+}
+
+/**
+ *  @brief Check whether the current profile is lowest.
+ */
+bool StreamAbstractionAAMP::IsCurrentProfileLowest()
+{
+	bool ret = false;
+
+	if (UseIframeTrack())
+	{
+		if (currentProfileIndex == aamp->mhAbrManager.getLowestIframeProfile())
+		{
+			ret = true;
+		}
+	}
+	else
+	{
+		ret = aamp->mhAbrManager.isProfileIndexBitrateLowest(currentProfileIndex);
+	}
+
+	return ret;
+}
+
+/**
+ *  @brief Convert custom curl errors to original
+ */
+int StreamAbstractionAAMP::getOriginalCurlError(int http_error)
+{
+	int ret = http_error;
+
+	if (http_error >= PARTIAL_FILE_CONNECTIVITY_AAMP && http_error <= PARTIAL_FILE_START_STALL_TIMEOUT_AAMP)
+	{
+		if (http_error == OPERATION_TIMEOUT_CONNECTIVITY_AAMP)
+		{
+			ret = CURLE_OPERATION_TIMEDOUT;
+		}
+		else
+		{
+			ret = CURLE_PARTIAL_FILE;
+		}
+	}
+
+	// return original error code
+	return ret;
+}
+
+
+/**
+ *  @brief Check for rampdown profile.
+ */
+bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
+{
+	bool retValue = false;
+
+	if (!aamp->CheckABREnabled())
+	{
+		return retValue;
+	}
+
+	// If lowest profile reached, then no need to check for ramp up/down for timeout cases, instead skip the failed fragment and jump to next fragment to download.
+	if (GetABRMode() == ABRMode::ABR_MANAGER && !IsCurrentProfileLowest())
+	{
+		http_error = getOriginalCurlError(http_error);
+
+		if (http_error == 404 || http_error == 403 ||
+			http_error == 500 || http_error == 503 ||
+			http_error == CURLE_PARTIAL_FILE)
+		{
+			if (RampDownProfile(http_error))
+			{
+				AAMPLOG_INFO("StreamAbstractionAAMP: Condition Rampdown Success");
+				retValue = true;
+			}
+		}
+		// For timeout, use FragmentfailureRampdown (via RampDownProfile) which selects
+		// a ramp-down target based on buffer fill percentage.  UpdateProfileBasedOnFragmentCache
+		// is intentionally NOT called here: it computes the desired profile from the EWMA
+		// bandwidth estimate, which can still be very high from pre-stall successful downloads.
+		// When the EWMA-desired profile is higher than the current one (e.g. after ramping down
+		// to 480p), UpdateProfileBasedOnFragmentCache would ramp UP instead of down, causing an
+		// infinite 480p-stall → ramp-up-to-1080p → 1080p-stall → ramp-down → 480p-stall loop.
+		// FragmentfailureRampdown already performs multi-step ramp-downs for timeout scenarios.
+		else if (IsCurlTimeoutFailure (http_error))
+		{
+			if (RampDownProfile(http_error))
+			{
+				retValue = true;
+			}
+		}
+	}
+
+	if ((true == retValue) && (mRampDownLimit > 0))
+	{
+		mRampDownCount++;
+	}
+
+	return retValue;
+}
+
+/**
+ *  @brief Checks and update profile based on bandwidth.
+ */
+void StreamAbstractionAAMP::CheckForProfileChange(void)
+{
+	switch (GetABRMode())
+	{
+		case ABRMode::FOG_TSB:
+			// This is for FOG based download , where bandwidth is calculated based on downloaded fragment file name
+			// No profile change will be done or manifest download triggered based on profilechange
+			UpdateProfileBasedOnFragmentDownloaded();
+			break;
+
+		case ABRMode::ABR_MANAGER:
+		{
+			MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+			if(video != NULL)
+			{
+				UpdateProfileBasedOnFragmentCache();
+			}
+			else
+			{
+				AAMPLOG_WARN("Video is null");  //CID:82070 - Null Returns
+			}
+			break;
+		}
+
+		default:
+			AAMPLOG_ERR("ABR mode not supported");
+			break;
+	}
+}
+
+/**
+ *  @brief Get iframe track index.
+ *         This shall be called only after UpdateIframeTracks() is done
+ */
+int StreamAbstractionAAMP::GetIframeTrack()
+{
+	return aamp->mhAbrManager.getDesiredIframeProfile();
+}
+
+/**
+ *   @brief Update iframe tracks.
+ *          Subclasses shall invoke this after StreamInfo is populated .
+ */
+void StreamAbstractionAAMP::UpdateIframeTracks()
+{
+	aamp->mhAbrManager.updateProfile();
+}
+
+
+/**
+ *  @brief Function called when playback is paused to update related flags.
+ */
+void StreamAbstractionAAMP::NotifyPlaybackPaused(bool paused)
+{
+	std::lock_guard<std::mutex> guard(mLock);
+	mIsPaused = paused;
+	if (paused)
+	{
+		mIsAtLivePoint = false;
+		mLastPausedTimeStamp = aamp_GetCurrentTimeMS();
+	}
+	else
+	{
+		if(-1 != mLastPausedTimeStamp)
+		{
+			mTotalPausedDurationMS += (aamp_GetCurrentTimeMS() - mLastPausedTimeStamp);
+			mLastPausedTimeStamp = -1;
+		}
+		else
+		{
+			AAMPLOG_WARN("StreamAbstractionAAMP: mLastPausedTimeStamp -1");
+		}
+	}
+}
+
+
+/**
+ *  @brief Check if player caches are running dry.
+ */
+bool StreamAbstractionAAMP::CheckIfPlayerRunningDry()
+{
+	MediaTrack *videoTrack = GetMediaTrack(eTRACK_VIDEO);
+	MediaTrack *audioTrack = GetMediaTrack(eTRACK_AUDIO);
+
+	if (!audioTrack || !videoTrack)
+	{
+		return false;
+	}
+	bool videoBufferIsEmpty = (videoTrack->numberOfFragmentsCached == 0) && aamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
+	bool audioBufferIsEmpty = (audioTrack->Enabled()
+		? audioTrack->numberOfFragmentsCached == 0
+		: true) && aamp->IsSinkCacheEmpty(eMEDIATYPE_AUDIO);
+	if (videoBufferIsEmpty || audioBufferIsEmpty) /* Changed the condition from '&&' to '||', because if video getting stalled it doesn't need to wait until audio become dry */
+	{
+		AAMPLOG_WARN("StreamAbstractionAAMP: Stall detected. Buffer status is RED!");
+		return true;
+	}
+	return false;
+}
+
+/**
+ *  @brief Update profile based on fragment cache.
+ */
+bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
+{
+	bool retVal = false;
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	int desiredProfileIndex = currentProfileIndex;
+	double totalFetchedDuration = video->GetTotalFetchedDuration();
+	const BitsPerSecond availBW = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
+	aamp->UpdatePersistBandwidth(availBW);
+	bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
+	//For LLD, it's necessary to initiate a rampdown process when there is a consistent download delay in order to construct the buffer.
+	if (aamp->GetLLDashServiceData()->lowLatencyMode && !checkProfileChange && (aamp->mDownloadDelay >= (int)(floor(aamp->mLiveOffset / 2))))
+	{
+		desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
+		AAMPLOG_INFO("ProfileChange Due to Download Delay %lf totalFetchedDuration ,%d aamp->mDownloadDelay %lf aamp->mLiveOffset %d desiredProfileIndex",totalFetchedDuration,aamp->mDownloadDelay,aamp->mLiveOffset,desiredProfileIndex);
+		aamp->mDownloadDelay = 0;
+	}
+
+	if(checkProfileChange)
+	{
+		desiredProfileIndex = GetDesiredProfileBasedOnCache();
+	}
+
+	if (desiredProfileIndex != currentProfileIndex)
+	{
+#if 0 /* Commented since the same is supported via AampLogManager::LogABRInfo */
+		AAMPLOG_WARN("**aamp changing profile: %d->%d [%ld->%ld]",
+					 currentProfileIndex, desiredProfileIndex,
+					 GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond,
+					 GetStreamInfo(desiredProfileIndex)->bandwidthBitsPerSecond);
+#else
+		AAMPAbrInfo stAbrInfo = {};
+
+		stAbrInfo.abrCalledFor = AAMPAbrBandwidthUpdate;
+		stAbrInfo.currentProfileIndex = currentProfileIndex;
+		stAbrInfo.desiredProfileIndex = desiredProfileIndex;
+		stAbrInfo.currentBandwidth = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
+		stAbrInfo.desiredBandwidth = GetStreamInfo(desiredProfileIndex)->bandwidthBitsPerSecond;
+		stAbrInfo.networkBandwidth = aamp->mhAbrManager.GetCurrentlyAvailableBandwidth();
+		aamp->UpdatePersistBandwidth(stAbrInfo.networkBandwidth);
+		stAbrInfo.errorType = AAMPNetworkErrorNone;
+
+		AampLogManager::LogABRInfo(&stAbrInfo);
+		aamp->UpdateVideoEndMetrics(stAbrInfo);
+#endif /* 0 */
+
+		this->currentProfileIndex = desiredProfileIndex;
+		profileIdxForBandwidthNotification = desiredProfileIndex;
+		AAMPLOG_DEBUG(" profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
+		video->ABRProfileChanged();
+		long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
+		video->SetCurrentBandWidth(newBW);
+		aamp->mhAbrManager.ResetCurrentlyAvailableBandwidth();
+		mABRLowBufferCounter = 0 ;
+		mABRHighBufferCounter = 0;
+		retVal = true;
+	}
+	else
+	{
+		/* No profile change. */
+	}
+
+	return retVal;
+}
+
+void StreamAbstractionAAMP::StartUnderflowMonitor()
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	// Run underflow monitor only when explicitly enabled via config
+	if (!GETCONFIGVALUE(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		AAMPLOG_TRACE("UnderflowMonitor gated off by config; skipping");
+		return;
+	}
+	if (!GetMediaTrack(eTRACK_VIDEO))
+	{
+		AAMPLOG_WARN("StartUnderflowMonitor: video track unavailable");
+		return;
+	}
+	if (!mUnderflowMonitor)
+	{
+		try
+		{
+			mUnderflowMonitor = std::make_unique<AampUnderflowMonitor>(aamp);
+			mUnderflowMonitor->Start();
+		}
+		catch (const std::exception &e)
+		{
+			AAMPLOG_ERR("Failed to create/start AampUnderflowMonitor: %s", e.what());
+			// Ensure future calls can attempt creation again
+			mUnderflowMonitor.reset();
+		}
+	}
+	else
+	{
+		// Attempt to start existing monitor; Start() is idempotent
+		try
+		{
+			mUnderflowMonitor->Start();
+		}
+		catch (const std::exception &e)
+		{
+			AAMPLOG_ERR("Failed to start existing AampUnderflowMonitor: %s", e.what());
+			// Reset to allow recreation on next call
+			mUnderflowMonitor.reset();
+		}
+	}
+}
+
+void StreamAbstractionAAMP::StopUnderflowMonitor()
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->Stop();
+		mUnderflowMonitor.reset();
+		AAMPLOG_INFO("Stopped AampUnderflowMonitor for video");
+	}
+}
+
+bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	return (mUnderflowMonitor && mUnderflowMonitor->IsRunning());
+}
+
+void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate)
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->NotifyVideoFragment(endPosition, playRate);
+	}
+}
+
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+{
+	if (aamp)
+	{
+		aamp->NotifyBufferLevelToLatencyMonitor(bufferMs);
+	}
+}
+
+void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->NotifyPipelinePaused();
+	}
+}
+
+void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		mUnderflowMonitor->NotifyRateChange(rate);
+	}
+}
+
+void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
+{
+	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+	if (mUnderflowMonitor)
+	{
+		// Reconstruct end-of-buffer position: currentPosition + bufferedDuration.
+		const double positionSec = aamp->GetPositionMs() / 1000.0;
+		const double buffered    = GetBufferedVideoDurationSec();
+		const double endPosition = positionSec + (buffered > 0.0 ? buffered : 0.0);
+		mUnderflowMonitor->NotifyPipelineResumed(endPosition, playRate);
+	}
+}
+
+/**
+ *  @brief Check if playback has stalled and update related flags.
+ */
+void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
+{
+	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	{
+		return;
+	}
+	if (fragmentParsed)
+	{
+		mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
+		if (mIsPlaybackStalled)
+		{
+			mIsPlaybackStalled = false;
+		}
+	}
+	else
+	{
+		/** Need to confirm if we are stalled here */
+		double timeElapsedSinceLastFragment = (aamp_GetCurrentTimeMS() - mLastVideoFragParsedTimeMS);
+
+		// We have not received a new fragment for a long time, check for cache empty required for dash
+		MediaTrack* mediatrack = GetMediaTrack(eTRACK_VIDEO);
+		if(mediatrack != NULL)
+		{
+			int stalltimeout = GETCONFIGVALUE(eAAMPConfig_StallTimeoutMS);
+			bool cacheEmpty = mediatrack->numberOfFragmentsCached == 0;
+			if (!mNetworkDownDetected && (timeElapsedSinceLastFragment > stalltimeout) && cacheEmpty)
+			{
+				AAMPLOG_INFO("StreamAbstractionAAMP: Didn't download a new fragment for a long time(%f) and cache empty!", timeElapsedSinceLastFragment);
+				mIsPlaybackStalled = true;
+				if (CheckIfPlayerRunningDry())
+				{
+					AAMPLOG_WARN("StreamAbstractionAAMP: Stall detected!. Time elapsed since fragment parsed(%f), caches are all empty!", timeElapsedSinceLastFragment);
+					aamp->SetFlushFdsNeededInCurlStore(true);
+					aamp->SendStalledErrorEvent();
+				}
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("GetMediaTrack  is null");  //CID:85383 - Null Returns
+		}
+	}
+}
+
+
+/**
+ *  @brief MediaTracks shall call this to notify first fragment is injected.
+ */
+void StreamAbstractionAAMP::NotifyFirstFragmentInjected()
+{
+	std::lock_guard<std::mutex> guard(mLock);
+	mIsPaused = false;
+	mLastPausedTimeStamp = -1;
+	mTotalPausedDurationMS = 0;
+	mStartTimeStamp = aamp_GetCurrentTimeMS();
+}
+
+/**
+ *  @brief Get elapsed time of play-back.
+ */
+double StreamAbstractionAAMP::GetElapsedTime()
+{
+	double elapsedTime;
+	std::lock_guard<std::mutex> guard(mLock);
+	AAMPLOG_DEBUG("StreamAbstractionAAMP:mStartTimeStamp %lld mTotalPausedDurationMS %lld mLastPausedTimeStamp %lld", mStartTimeStamp, mTotalPausedDurationMS, mLastPausedTimeStamp);
+	if (!mIsPaused)
+	{
+		elapsedTime = (double)(aamp_GetCurrentTimeMS() - mStartTimeStamp - mTotalPausedDurationMS) / 1000;
+	}
+	else
+	{
+		elapsedTime = (double)(mLastPausedTimeStamp - mStartTimeStamp - mTotalPausedDurationMS) / 1000;
+	}
+	return elapsedTime;
+}
+
+/**
+ *  @brief Get the bitrate of current video profile selected.
+ */
+BitsPerSecond StreamAbstractionAAMP::GetVideoBitrate(void)
+{
+	BitsPerSecond bitrate = 0;
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+
+	if (video && video->enabled)
+	{
+		AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
+		if (video->IsLocalTSBInjection() && tsbSessionManager)
+		{
+			// Return the video bitrate from TSB session manager
+			bitrate = tsbSessionManager->GetVideoBitrate();
+		}
+		else
+		{
+			bitrate = video->GetCurrentBandWidth();
+		}
+	}
+	return bitrate;
+}
+
+/**
+ *  @brief Get the bitrate of current audio profile selected.
+ */
+BitsPerSecond StreamAbstractionAAMP::GetAudioBitrate(void)
+{
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	return ((audio && audio->enabled) ? (audio->GetCurrentBandWidth()) : 0);
+}
+
+
+/**
+ *  @brief Check if current stream is muxed
+ */
+bool StreamAbstractionAAMP::IsMuxedStream()
+{
+	bool ret = false;
+
+	if ((!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback)) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
+	{
+		MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+		if (!audio || !video || !audio->enabled || !video->enabled)
+		{
+			ret = true;
+		}
+	}
+	return ret;
+}
+
+/**
+ *   @brief Set AudioTrack info from Muxed stream
+ *
+ *   @param[in] vector AudioTrack info
+ *   @return void
+ */
+void StreamAbstractionAAMP::SetAudioTrackInfoFromMuxedStream(std::vector<AudioTrackInfo>& vector)
+{
+	if( vector.size()>0 )
+	{ // copy track info from mpegts PMT
+		mAudioTracks = vector;
+		aamp->NotifyAudioTracksChanged();
+	}
+}
+
+
+/**
+ *   @brief Waits subtitle track injection until caught up with muxed/audio track.
+ *          Used internally by injection logic
+ */
+void StreamAbstractionAAMP::WaitForAudioTrackCatchup()
+{
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	MediaTrack *subtitle = GetMediaTrack(eTRACK_SUBTITLE);
+	if (audio && !audio->enabled)
+	{ // muxed a/v
+		audio = GetMediaTrack(eTRACK_VIDEO);
+	}
+	if( audio && subtitle )
+	{
+		std::unique_lock<std::mutex> lock(mLock);
+		double audioDuration = audio->GetTotalInjectedDuration();
+		double subtitleDuration = subtitle->GetTotalInjectedDuration();
+		//Allow subtitles to be ahead by 15 seconds compared to audio
+		while ((subtitleDuration > (audioDuration + audio->fragmentDurationSeconds + 15.0)) && aamp->DownloadsAreEnabled() && !subtitle->IsDiscontinuityProcessed() && !audio->IsInjectionAborted())
+		{
+			AAMPLOG_DEBUG("Blocked on Inside mSubCond with sub:%f and audio:%f", subtitleDuration, audioDuration);
+			if (std::cv_status::no_timeout == mSubCond.wait_for(lock, std::chrono::milliseconds(100)))
+			{
+				break;
+			}
+			audioDuration = audio->GetTotalInjectedDuration();
+			subtitleDuration = subtitle->GetTotalInjectedDuration();
+		}
+	}
+}
+
+/**
+ *  @brief Unblock subtitle track injector if downloads are stopped
+ */
+void StreamAbstractionAAMP::AbortWaitForAudioTrackCatchup(bool force)
+{
+	MediaTrack *subtitle = GetMediaTrack(eTRACK_SUBTITLE);
+	if (subtitle && subtitle->enabled)
+	{
+		std::lock_guard<std::mutex> guard(mLock);
+		if (force || !aamp->DownloadsAreEnabled())
+		{
+			mSubCond.notify_one();
+		}
+	}
+}
+
+/**
+ *  @brief Send a MUTE/UNMUTE packet to the subtitle renderer
+ */
+void StreamAbstractionAAMP::MuteSubtitles(bool mute)
+{
+	MediaTrack *subtitle = GetMediaTrack(eTRACK_SUBTITLE);
+	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
+	{
+		subtitle->mSubtitleParser->mute(mute);
+	}
+}
+
+/**
+ *  @brief Checks if streamer reached end of stream
+ */
+bool StreamAbstractionAAMP::IsEOSReached()
+{
+	bool eos = true;
+	if(!aamp->IsLocalAAMPTsb())
+	{
+		for (int i = 0 ; i < AAMP_TRACK_COUNT; i++)
+		{
+			// For determining EOS we will Ignore the subtitle track
+			if ((TrackType)i == eTRACK_SUBTITLE)
+			{
+				continue;
+			}
+
+			MediaTrack *track = GetMediaTrack((TrackType) i);
+			if (track && track->enabled)
+			{
+				eos = eos && track->IsAtEndOfTrack();
+				if (!eos)
+				{
+					AAMPLOG_WARN("EOS not seen by track: %s, skip check for rest of the tracks", track->name);
+					aamp->ResetEOSSignalledFlag();
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
+		if(tsbSessionManager)
+		{
+			for (int i = 0 ; i < AAMP_TRACK_COUNT; i++)
+			{
+				// For determining EOS we will Ignore the subtitle track
+				if ((TrackType)i == eTRACK_SUBTITLE)
+					continue;
+				// Implement Track enabled and proper EOS logic for Discontinuities
+			}
+		}
+	}
+	return eos;
+}
+
+/**
+ *  @brief Function to returns last injected fragment position
+ */
+double StreamAbstractionAAMP::GetLastInjectedFragmentPosition()
+{
+	// We get the position of video, we use video position for most of our position related things
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	double pos = 0;
+	if (video)
+	{
+		pos = video->GetTotalInjectedDuration();
+	}
+	AAMPLOG_INFO("Last Injected fragment Position : %f", pos);
+	return pos;
+}
+
+/**
+ * @brief Set local AAMP TSB injection flag
+ */
+void MediaTrack::SetLocalTSBInjection(bool value)
+{
+	mIsLocalTSBInjection.store(value);
+	AAMPLOG_INFO("isLocalAampTsbInjection %d", mIsLocalTSBInjection.load());
+}
+
+/**
+ * @brief Is injection from local AAMP TSB
+ *
+ * @return true if injection is from local AAMP TSB, false otherwise
+ */
+bool MediaTrack::IsLocalTSBInjection()
+{
+	return mIsLocalTSBInjection.load();
+}
+
+/**
+ * @brief Function to Resume track downloader
+ */
+void StreamAbstractionAAMP::ResumeTrackDownloadsHandler( )
+{
+	aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+}
+
+/**
+ * @brief Function to Stop track downloader
+ */
+void StreamAbstractionAAMP::StopTrackDownloadsHandler( )
+{
+	aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+}
+
+/**
+ * @brief Function to Send VTT Cue Data as event
+ */
+void StreamAbstractionAAMP::SendVTTCueDataHandler(VTTCue* cueData)
+{
+	aamp->SendVTTCueDataAsEvent(cueData);
+}
+
+/**
+ * @brief Function to Get the seek position current playback position in seconds
+ */
+void StreamAbstractionAAMP::GetPlayerPositionsHandler(long long& getPositionMS, double& seekPositionSeconds)
+{
+    getPositionMS = aamp->GetPositionMs();
+    seekPositionSeconds = aamp->seek_pos_seconds;
+}
+
+/**
+ * @brief Function to initialize the player related callbacks
+ */
+void StreamAbstractionAAMP::InitializePlayerCallbacks(PlayerCallbacks& callbacks)
+{
+	callbacks.resumeTrackDownloads_CB = std::bind(&StreamAbstractionAAMP::ResumeTrackDownloadsHandler, this);
+	callbacks.stopTrackDownloads_CB = std::bind(&StreamAbstractionAAMP::StopTrackDownloadsHandler, this);
+	callbacks.sendVTTCueData_CB = std::bind(&StreamAbstractionAAMP::SendVTTCueDataHandler, this, std::placeholders::_1);
+	callbacks.getPlayerPositions_CB = std::bind(&StreamAbstractionAAMP::GetPlayerPositionsHandler, this, std::placeholders::_1, std::placeholders::_2);
+}
+
+/**
+ * @brief Function to initialize the create subtitle parser instance & player related callbacks
+ */
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType)
+{
+	SubtitleMimeType type = eSUB_TYPE_UNKNOWN;
+
+	AAMPLOG_INFO("RegisterSubtitleParser_CB: mimeType %s", mimeType.c_str());
+
+	if (!mimeType.compare("text/vtt"))
+		type = eSUB_TYPE_WEBVTT;
+	else if (!mimeType.compare("application/ttml+xml") ||
+			!mimeType.compare("application/mp4"))
+		type = eSUB_TYPE_TTML;
+
+	return RegisterSubtitleParser_CB(type, isExpectedMimeType);
+}
+
+/**
+ * @brief Function to initialize the create subtitle parser instance & player related callbacks
+ */
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimeType) {
+    int width = 0, height = 0;
+    bool webVTTCueListenersRegistered = false, isWebVTTNativeConfigured = false, resumeTrackDownload = false;
+    PlayerCallbacks playerCallBack = {};
+
+	if(isExpectedMimeType)
+	{
+		webVTTCueListenersRegistered = aamp->WebVTTCueListenersRegistered();
+		isWebVTTNativeConfigured = ISCONFIGSET(eAAMPConfig_WebVTTNative);
+	}
+
+    this->InitializePlayerCallbacks(playerCallBack);
+    aamp->GetPlayerVideoSize(width, height);
+
+    std::unique_ptr<SubtitleParser> subtitleParser = SubtecFactory::createSubtitleParser(mimeType, width, height, webVTTCueListenersRegistered, isWebVTTNativeConfigured, resumeTrackDownload);
+    if (subtitleParser) {
+        subtitleParser->RegisterCallback(playerCallBack);
+        if (resumeTrackDownload) {
+            aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+        }
+    }
+    return subtitleParser;
+}
+
+/**
+ *  @brief To check for discontinuity in future fragments.
+ */
+bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
+{
+	bool ret = false;
+	cachedDuration = 0;
+	int index = 0;
+	int count = 0;
+	int maxFrags = 0;
+	CachedFragment *pCachedFragment = NULL;
+
+	std::lock_guard<std::mutex> guard(mutex);
+
+	index = fragmentIdxToInject;
+	count = numberOfFragmentsCached;
+	maxFrags = static_cast<int>(mCachedFragmentSize);
+	pCachedFragment = mCachedFragment.data();
+
+	while (count > 0)
+	{
+		if (!ret)
+		{
+			ret = ret || pCachedFragment[index].discontinuity;
+			if (ret)
+			{
+				AAMPLOG_WARN("Found discontinuity for track %s at index: %d and position : %f", name, index, pCachedFragment[index].position);
+			}
+		}
+		cachedDuration += pCachedFragment[index].duration;
+		if (++index == maxFrags)
+		{
+			index = 0;
+		}
+		count--;
+	}
+	AAMPLOG_WARN("track %s numberOfFragmentsCached %d, cachedDuration %f", name, numberOfFragmentsCached, cachedDuration);
+
+	return ret;
+}
+
+/**
+ *  @brief Called if sink buffer is full
+ */
+void MediaTrack::OnSinkBufferFull()
+{
+	//check if we should stop initial caching here
+	if(sinkBufferIsFull)
+	{
+		return;
+	}
+
+	bool notifyCacheCompleted = false;
+	bool cachingCompletedFlag = false;
+	{
+		{
+			std::lock_guard<std::mutex> guard(mutex);
+			sinkBufferIsFull = true;
+			cachingCompletedFlag = cachingCompleted;
+		}
+
+		// check if cache buffer is full and caching was needed
+		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
+			aamp->IsFragmentCachingRequired() && !cachingCompletedFlag)
+		{
+			std::lock_guard<std::mutex> guard(mutex);
+			AAMPLOG_WARN("## [%s] Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
+						name, currentInitialCacheDurationSeconds, aamp->GetInitialBufferDuration());
+			notifyCacheCompleted = true;
+			cachingCompleted = true;
+		}
+	}
+
+	if(notifyCacheCompleted)
+	{
+		aamp->NotifyFragmentCachingComplete();
+	}
+}
+
+/**
+ *  @brief Function to reset the paired discontinuity.
+ */
+void StreamAbstractionAAMP::resetDiscontinuityTrackState()
+{
+	mTrackState = eDISCONTINUITY_FREE;
+}
+
+/**
+ *  @brief Function to process discontinuity.
+ */
+bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
+{
+	bool ret = true;
+	MediaTrackDiscontinuityState state = eDISCONTINUITY_FREE;
+	bool isMuxedAndAudioDiscoIgnored = false;
+
+	std::unique_lock<std::mutex> lock(mStateLock);
+	if (type == eTRACK_VIDEO)
+	{
+		state = eDISCONTINUITY_IN_VIDEO;
+
+		/*For muxed streams, give discontinuity for audio track as well*/
+		MediaTrack* audio = GetMediaTrack(eTRACK_AUDIO);
+		if (audio && !audio->enabled)
+		{
+			mTrackState = (MediaTrackDiscontinuityState) (mTrackState | eDISCONTINUITY_IN_BOTH);
+			ret = aamp->Discontinuity(eMEDIATYPE_AUDIO, false);
+
+			/* In muxed stream, if discontinuity-EOS processing for audio track failed, then set the "mProcessingDiscontinuity" flag of audio to true if video track discontinuity succeeded.
+			 * In this case, no need to reset mTrackState by removing audio track, because need to process the video track discontinuity-EOS process since its a muxed stream.
+			 */
+			if (ret == false)
+			{
+				AAMPLOG_WARN("muxed track audio discontinuity/EOS processing ignored!");
+				isMuxedAndAudioDiscoIgnored = true;
+			}
+		}
+	}
+	else if (type == eTRACK_AUDIO)
+	{
+		state = eDISCONTINUITY_IN_AUDIO;
+	}
+	else if (type == eTRACK_SUBTITLE)
+	{
+		ret=true;
+	}
+
+	if (state != eDISCONTINUITY_FREE)
+	{
+		bool aborted = false;
+		bool wait = false;
+		mTrackState = (MediaTrackDiscontinuityState) (mTrackState | state);
+
+		AAMPLOG_MIL("mTrackState:%d!", mTrackState);
+
+		if (mTrackState == state)
+		{
+			wait = true;
+			AAMPLOG_MIL("track[%d] Going into wait for processing discontinuity in other track!", type);
+			mStateCond.wait(lock);
+			MediaTrack *track = GetMediaTrack(type);
+			if (track && track->IsInjectionAborted())
+			{
+				//AbortWaitForDiscontinuity called, don't push discontinuity
+				//Just exit with ret = true to avoid InjectFragmentInternal
+				aborted = true;
+			}
+			else if (type == eTRACK_AUDIO)
+			{
+				//AbortWaitForDiscontinuity() will be triggered by video first, check video injection aborted
+				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+				if (video && video->IsInjectionAborted())
+				{
+					aborted = true;
+				}
+			}
+
+			//Check if mTrackState was reset from CheckForMediaTrackInjectionStall
+			if ((!ISCONFIGSET(eAAMPConfig_RetuneForUnpairDiscontinuity) || type == eTRACK_AUDIO) && (!aborted && ((mTrackState & state) != state)))
+			{
+				//Ignore discontinuity
+				ret = false;
+				aborted = true;
+			}
+		}
+		AAMPLOG_MIL("track[%d] mTrackState:%d wait:%d aborted:%d", type, mTrackState, wait, aborted);
+		// We can't ensure that mTrackState == eDISCONTINUITY_IN_BOTH after wait, because
+		// if Discontinuity() returns false, we need to reset the track bit from mTrackState
+		if (mTrackState == eDISCONTINUITY_IN_BOTH || (wait && !aborted))
+		{
+			lock.unlock();
+
+			AAMPLOG_MIL("[PERIOD_DBG] ProcessDiscontinuity: calling aamp->Discontinuity for track=%d mTrackState=%d wait=%d", type, mTrackState, wait);
+			ret = aamp->Discontinuity((AampMediaType) type, false);
+			AAMPLOG_MIL("[PERIOD_DBG] ProcessDiscontinuity: aamp->Discontinuity returned %d for track=%d", ret, type);
+			//Discontinuity ignored, so we need to remove state from mTrackState
+			if (ret == false)
+			{
+				mTrackState = (MediaTrackDiscontinuityState) (mTrackState & ~state);
+				AAMPLOG_WARN("track:%d discontinuity processing ignored! reset mTrackState to: %d!", type, mTrackState);
+				aamp->UnblockWaitForDiscontinuityProcessToComplete();
+			}
+			else if (isMuxedAndAudioDiscoIgnored && type == eTRACK_VIDEO)
+			{
+				// In muxed stream, set the audio track's mProcessingDiscontinuity flag to true to unblock the ProcessPendingDiscontinuity if video track discontinuity-EOS processing succeeded
+				AAMPLOG_MIL("set muxed track audio discontinuity flag to true since video discontinuity processing succeeded.");
+				aamp->Discontinuity((AampMediaType) eTRACK_AUDIO, true);
+			}
+
+			lock.lock();
+			mStateCond.notify_one();
+		}
+	}
+
+	return ret;
+}
+
+/**
+ *  @brief Function to abort any wait for discontinuity by injector threads.
+ */
+void StreamAbstractionAAMP::AbortWaitForDiscontinuity()
+{
+	//Release injector thread blocked in ProcessDiscontinuity
+	std::lock_guard<std::mutex> guard(mStateLock);
+	mStateCond.notify_one();
+}
+
+/**
+ *  @brief Function to check if any media tracks are stalled on discontinuity.
+ */
+void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
+{
+	MediaTrackDiscontinuityState state = eDISCONTINUITY_FREE;
+	MediaTrack *track = GetMediaTrack(type);
+	MediaTrack *otherTrack = NULL;
+	bool bProcessFlag = false;
+
+	if (type == eTRACK_AUDIO)
+	{
+		otherTrack = GetMediaTrack(eTRACK_VIDEO);
+		state = eDISCONTINUITY_IN_AUDIO;
+	}
+	else if (type == eTRACK_VIDEO)
+	{
+		otherTrack = GetMediaTrack(eTRACK_AUDIO);
+		state = eDISCONTINUITY_IN_VIDEO;
+	}
+
+	// If both tracks are available and enabled, then only check required
+	if (track && track->enabled && otherTrack && otherTrack->enabled)
+	{
+		std::lock_guard<std::mutex> guard(mStateLock);
+		if (mTrackState == eDISCONTINUITY_IN_VIDEO || mTrackState == eDISCONTINUITY_IN_AUDIO)
+		{
+			bool isDiscontinuitySeen = mTrackState & state;
+			if (isDiscontinuitySeen)
+			{
+				double cachedDuration = 0;
+				bool isDiscontinuityPresent;
+				double duration = track->GetTotalInjectedDuration();
+				double otherTrackDuration = otherTrack->GetTotalInjectedDuration();
+				double diff = otherTrackDuration - duration;
+				AAMPLOG_WARN("Discontinuity encountered in track:%d with injectedDuration:%f and other track injectedDuration:%f, other.fragmentDurationSeconds:%f, diff:%f",
+							 type, duration, otherTrackDuration, otherTrack->fragmentDurationSeconds, diff);
+				if (otherTrackDuration >= duration)
+				{
+					//Check for future discontinuity
+					isDiscontinuityPresent = otherTrack->CheckForFutureDiscontinuity(cachedDuration);
+					if (isDiscontinuityPresent)
+					{
+						//Scenario - video wait on discontinuity, and audio has a future discontinuity
+						if (type == eTRACK_VIDEO)
+						{
+							AAMPLOG_WARN("For discontinuity in track:%d, other track has injectedDuration:%f and future discontinuity, signal mCond var!",
+										 type, otherTrackDuration);
+							std::lock_guard<std::mutex> guardLock(mLock);
+							mCond.notify_one();
+						}
+					}
+					// If discontinuity is not seen in future fragments or if the unblocked track has finished more than 2 * fragmentDurationSeconds,
+					// unblock this track.
+					// If the last downloaded content was an init fragment (likely due to an ABR change) the fragment duration  will be 0 before the
+					// condition is checked. So the following condition may be falsely satisfied in that case, leading to ignoring discontinuity process
+					// that is actually required.
+					else if ((otherTrack->fragmentDurationSeconds > 0) && ((diff + cachedDuration) > (2 * otherTrack->fragmentDurationSeconds)))
+					{
+						AAMPLOG_WARN("Discontinuity in track:%d does not have a discontinuity in other track (diff: %f, injectedDuration: %f, cachedDuration: %f)",
+									 type, diff, otherTrackDuration, cachedDuration);
+						bProcessFlag = true;
+					}
+				}
+				// Current track injected duration goes very huge value with the below cases
+				// 1. When the EOS for earlier discontinuity missed to processing due to singular discontinuity or some edge case missing
+				// 2. When there is no EOS processed message for the previous discontinuity seen from the pipeline.
+				// In that case the diff value will go to negative and this CheckForMediaTrackInjectionStall() continuously called
+				// until stall happens from outside or explicitly aamp_stop() to be called from XRE or Apps,
+				// so need to control the stalling as soon as possible for the negative diff case from here.
+				else if ((diff < 0) && (otherTrack->fragmentDurationSeconds > 0) && (abs(diff) > (2 * otherTrack->fragmentDurationSeconds)))
+				{
+					AAMPLOG_WARN("Discontinuity in track:%d does not have a discontinuity in other track (diff is negative: %f, injectedDuration: %f)",
+								 type, diff, otherTrackDuration);
+					(void)otherTrack->CheckForFutureDiscontinuity(cachedDuration); // called just to get the value of cachedDuration of the track.
+					bProcessFlag = true;
+				}
+
+				if (bProcessFlag)
+				{
+					if (ISCONFIGSET(eAAMPConfig_RetuneForUnpairDiscontinuity) && type != eTRACK_AUDIO)
+					{
+						if(aamp->GetBufUnderFlowStatus())
+						{
+							AAMPLOG_WARN("Schedule retune since for discontinuity in track:%d other track doesn't have a discontinuity (diff: %f, injectedDuration: %f, cachedDuration: %f)",
+										 type, diff, otherTrackDuration, cachedDuration);
+							aamp->ScheduleRetune(eSTALL_AFTER_DISCONTINUITY, (AampMediaType) type);
+						}
+						else
+						{
+							//Check for PTS change for 1 second
+							aamp->CheckForDiscontinuityStall((AampMediaType) type);
+						}
+					}
+					else
+					{
+						AAMPLOG_WARN("Ignoring discontinuity in track:%d since other track doesn't have a discontinuity (diff: %f, injectedDuration: %f, cachedDuration: %f)",
+									 type, diff, otherTrackDuration, cachedDuration);
+						// special case handling for CDVR streams having SCTE signals
+						// During the period transition, the audio track detected the discontinuity, but the Player didn’t detect discontinuity for the video track within the expected time frame.
+						// So the Audio track is exiting from the discontinuity process due to singular discontinuity condition,
+						// but after that, the video track encountered discontinuity and ended in a deadlock due to no more discontinuity in audio to match with it.
+						if(aamp->IsDashAsset())
+						{
+							AAMPLOG_WARN("Ignoring discontinuity in DASH period for track:%d",type);
+							aamp->SetTrackDiscontinuityIgnoredStatus((AampMediaType)type);
+						}
+						mTrackState = (MediaTrackDiscontinuityState) (mTrackState & ~state);
+						mStateCond.notify_one();
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+ *  @brief Check for ramp down limit reached by player
+ */
+bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
+{
+	bool ret = false;
+	// Check rampdownlimit reached when the value is set,
+	// limit will be -1 by default, function will return false to attempt rampdown.
+	if ((mRampDownCount >= mRampDownLimit) && (mRampDownLimit >= 0))
+	{
+		ret = true;
+		mRampDownCount = 0;
+		AAMPLOG_WARN("Rampdown limit reached, Limit is %d", mRampDownLimit);
+	}
+	return ret;
+}
+
+/**
+ * @brief Unblocks all waiting tracks by calling AbortWaitForCachedFragmentInjected() on each track.
+ *
+ * Iterates over all track types and invokes AbortWaitForCachedFragmentInjected()
+ * on each MediaTrack, ensuring that any threads waiting for cached fragments
+ * are unblocked.
+ */
+void StreamAbstractionAAMP::UnblockWaitForCachedFragmentInjected()
+{
+	for ( int type = eTRACK_VIDEO; type <= eTRACK_SUBTITLE; type++)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType)type);
+		if(track)
+		{
+			track->AbortWaitForCachedFragmentInjected();
+		}
+	}
+}
+
+/**
+ *  @brief Get buffered video duration in seconds
+ */
+double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
+{
+	double bufferValue = -1.0;
+	// do not support trickplay track
+	if(AAMP_NORMAL_PLAY_RATE != aamp->rate)
+	{
+		return bufferValue;
+	}
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if(video)
+	{
+		bufferValue = GetBufferValue(video);
+	}
+	return bufferValue;
+}
+
+/**
+ *  @brief Get buffered audio duration in seconds
+ */
+double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
+{
+	double bufferValue = -1.0;
+	// do not support trickplay track
+	if(AAMP_NORMAL_PLAY_RATE != aamp->rate)
+	{
+		return bufferValue;
+	}
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	if(audio)
+	{
+		bufferValue = GetBufferValue(audio);
+	}
+	return bufferValue;
+}
+
+/**
+ *  @brief Get current audio track information
+ */
+bool StreamAbstractionAAMP::GetCurrentAudioTrack(AudioTrackInfo &audioTrack)
+{
+	bool bFound = false;
+	if (!mAudioTrackIndex.empty())
+	{
+		for (auto it = mAudioTracks.begin(); it != mAudioTracks.end(); it++)
+		{
+			if (it->index == mAudioTrackIndex)
+			{
+				audioTrack = *it;
+				bFound = true;
+			}
+		}
+	}
+	return bFound;
+}
+
+
+/**
+ *   @brief Get current text track
+ */
+bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
+{
+	bool bFound = false;
+	if (!mTextTrackIndex.empty())
+	{
+		for (auto it = mTextTracks.begin(); it != mTextTracks.end(); it++)
+		{
+			if (it->index == mTextTrackIndex)
+			{
+				textTrack = *it;
+				bFound = true;
+			}
+		}
+	}
+	return bFound;
+}
+
+/**
+ *   @brief Set current text track index
+ */
+void StreamAbstractionAAMP::SetCurrentTextTrackIndex(const std::string& index)
+{
+	mTextTrackIndex = index;
+}
+
+/**
+*   @brief verify in-band CC availability for a stream.
+*/
+bool StreamAbstractionAAMP::isInBandCcAvailable()
+{
+	bool inBandCC = false;
+	for (auto it = mTextTracks.begin(); it != mTextTracks.end(); it++)
+	{
+		// Use the rendition to identify whether the stream has inband CC or not.
+		// Note that this field is not mandatory but most streams have this field.
+		// Note that adaptation set for text track may not be present for inband CC(608/708) streams.
+		if(!it->rendition.empty())
+		{
+			AAMPLOG_INFO("Accessibility:%s",it->rendition.c_str());
+			inBandCC = true;
+			break;
+		}
+	}
+	return inBandCC;
+}
+/**
+ *   @brief Get current audio track
+ */
+int StreamAbstractionAAMP::GetAudioTrack()
+{
+	int index = -1;
+	if (!mAudioTrackIndex.empty())
+	{
+		for (auto it = mAudioTracks.begin(); it != mAudioTracks.end(); it++)
+		{
+			if (it->index == mAudioTrackIndex)
+			{
+				index = (int)std::distance(mAudioTracks.begin(), it);
+			}
+		}
+	}
+	return index;
+}
+
+/**
+ *  @brief Get current text track
+ */
+int StreamAbstractionAAMP::GetTextTrack()
+{
+	int index = -1;
+	if (!mTextTrackIndex.empty())
+	{
+		for (auto it = mTextTracks.begin(); it != mTextTracks.end(); it++)
+		{
+			if (it->index == mTextTrackIndex)
+			{
+				index = (int)std::distance(mTextTracks.begin(), it);
+			}
+		}
+	}
+	return index;
+}
+
+/**
+ *  @brief Refresh subtitle track
+ */
+void StreamAbstractionAAMP::RefreshSubtitles()
+{
+	MediaTrack *subtitle = GetMediaTrack(eTRACK_SUBTITLE);
+	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
+	{
+		AAMPLOG_WARN("Setting refreshSubtitles");
+		subtitle->refreshSubtitles = true;
+		subtitle->AbortWaitForCachedAndFreeFragment(true);
+	}
+}
+
+/**
+ * @fn GetPreferredLiveOffsetFromConfig
+ * @brief check if current stream have 4K content
+ * @retval true on success
+ */
+bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()
+{
+	bool stream4K = false;
+	do
+	{
+		int height = 0;
+		BitsPerSecond bandwidth = 0;
+
+		/** Update Live Offset with default or configured liveOffset*/
+		aamp->UpdateLiveOffset();
+
+		/**< 1. Is it CDVR or iVOD? not required live Offset correction*/
+		if(!aamp->IsLiveAdjustRequired())
+		{
+			/** 4K live offset not applicable for CDVR/IVOD */
+			stream4K = false;
+			break;
+		}
+
+		/**< 2. Check whether it is 4K stream or not*/
+		stream4K =  Is4KStream(height, bandwidth);
+		if (!stream4K)
+		{
+			/**Not a 4K */
+			break;
+		}
+
+		/**< 3. 4K disabled by user? **/
+		if (ISCONFIGSET(eAAMPConfig_Disable4K) )
+		{
+			AAMPLOG_WARN("4K playback disabled by User!!");
+			break;
+		}
+
+		/**< 4. maxbitrate should be less than 4K bitrate? */
+		BitsPerSecond maxBitrate = aamp->GetMaximumBitrate();
+		if (bandwidth > maxBitrate)
+		{
+			AAMPLOG_WARN("Maxbitrate (%" BITSPERSECOND_FORMAT ") set by user is less than 4K bitrate (%" BITSPERSECOND_FORMAT ");", maxBitrate, bandwidth);
+			stream4K = false;
+			break;
+		}
+
+		/**< 5. If display resolution check enabled and resolution available then it should be grater than 4K profile */
+		if (ISCONFIGSET(eAAMPConfig_LimitResolution) && aamp->mDisplayHeight == 0)
+		{
+			AAMPLOG_WARN("Ignoring display resolution check due to invalid display height 0");
+		}
+		else
+		{
+			if (ISCONFIGSET(eAAMPConfig_LimitResolution) && aamp->mDisplayHeight < height  )
+			{
+				AAMPLOG_WARN("Display resolution (%d) doesn't support the 4K resolution (%d)", aamp->mDisplayHeight, height);
+				stream4K = false;
+				break;
+			}
+		}
+
+		/** 4K stream and 4K support is found ; Use 4K live offset if provided*/
+		if (GETCONFIGOWNER(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
+		{
+			/**Update live Offset with 4K stream live offset configured*/
+			aamp->mLiveOffset = GETCONFIGVALUE(eAAMPConfig_LiveOffset4K);
+			if(aamp->mBufferFor4kRampup != 0)
+			{
+				SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,aamp->mBufferFor4kRampup);
+				SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,aamp->mBufferFor4kRampdown);
+				aamp->LoadAampAbrConfig();
+			}
+			AAMPLOG_INFO("Updated live offset for 4K stream %lf", aamp->mLiveOffset);
+			stream4K = true;
+		}
+	} while(0);
+	return stream4K;
+}
+
+/**
+ * @brief Set the text style of the subtitle to the options passed
+ *
+ * @param[in] - options - reference to the Json string that contains the information
+ * @return - true indicating successful operation in passing options to the parser
+ */
+bool StreamAbstractionAAMP::SetTextStyle(const std::string &options)
+{
+	bool retVal = false;
+	MediaTrack *subtitle = GetMediaTrack(eTRACK_SUBTITLE);
+	// If embedded subtitles enabled
+	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
+	{
+		AAMPLOG_INFO("Calling SubtitleParser::SetTextStyle(%s)", options.c_str());
+		subtitle->mSubtitleParser->setTextStyle(options);
+		retVal = true;
+	}
+	return retVal;
+}
+/**
+ * @brief Whether we are playing at live point or not.
+ *
+ * @param[in] - seekPosition - seek position in seconds
+ * @return true if we are at live point.
+ */
+bool StreamAbstractionAAMP::IsStreamerAtLivePoint(double seekPosition)
+{
+	if(mIsAtLivePoint)
+	{
+		double endPos = aamp->culledSeconds+aamp->durationSeconds;
+		if(seekPosition > (endPos-aamp->mLiveOffset))
+		{
+			AAMPLOG_INFO("SeekPostion[%lf] is greater than endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
+		}
+		else
+		{
+			AAMPLOG_INFO("SeekPostion[%lf] is within range of endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
+			mIsAtLivePoint = false;
+		}
+	}
+	return mIsAtLivePoint;
+}
+
+/**
+ * @brief Set whether we are playing at live point or not.
+ *
+ * @param[in] isAtLivePoint true if at live point, false otherwise.
+ */
+void StreamAbstractionAAMP::SetIsAtLivePoint(bool isAtLivePoint)
+{
+	if (mIsAtLivePoint != isAtLivePoint)
+	{
+		AAMPLOG_INFO("SetIsAtLivePoint: changing mIsAtLivePoint from %d to %d", mIsAtLivePoint, isAtLivePoint);
+		mIsAtLivePoint = isAtLivePoint;
+	}
+}
+
+/**
+ * @brief Whether we seeked to live offset range or not.
+ *
+ * @param[in] - seekPosition - seek position in seconds
+ * @return true if we seeked to live.
+ */
+bool StreamAbstractionAAMP::IsSeekedToLive(double seekPosition)
+{
+	bool ret = false;
+	double endPos = aamp->culledSeconds + aamp->durationSeconds;
+
+	// if case seekPosition is in live range, endPos-mLiveOffset to endPos.
+	// else if endPos updates after seek cmd received or seekPosition < endPos-LiveOffset, seekPosition sent by App won't be in live range.
+	if (ceil(endPos - seekPosition) <= aamp->mLiveOffset)
+	{
+		AAMPLOG_WARN("SeekPostion[%lf] is in live range, endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
+		ret = true;
+	}
+	else
+	{
+		AAMPLOG_INFO("SeekPostion[%lf] is not in live range, endPos[%lf]-mLiveOffset(%lf) i.e:%lf",seekPosition,endPos,aamp->mLiveOffset,endPos-aamp->mLiveOffset);
+	}
+	return ret;
+}
+
+/**
+ * @fn SetVideoPlaybackRate
+ * @brief Set the Video playback rate
+ *
+ * @param[in] rate - play rate
+ *
+ * Note: A common abstraction object is used for recording the live edge to TSB, and playing back from TSB.
+ * For this reason we only want to adjust the MediaProcessors speed when playing back from TSB.
+ */
+void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
+{
+	MediaTrack *track = GetMediaTrack(eTRACK_VIDEO);
+	if (track && track->enabled)
+	{
+		track->playContext->setRate(rate, PlayMode_normal);
+	}
+}
+
+/**
+ * @brief Initialize ISOBMFF Media Processor
+ * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
+ */
+void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
+{
+	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
+	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
+	std::shared_ptr<MediaProcessor> subtitleESProcessor = nullptr;
+	StreamOutputFormat videoFormat, audioFormat, subtitleFormat;
+	GetStreamFormat(videoFormat, audioFormat, subtitleFormat);
+	for (int i = eMEDIATYPE_SUBTITLE; i >= eMEDIATYPE_VIDEO; i--)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType) i);
+		// Some tracks can get enabled later during playback, example subtitle tracks in ad->content transition. Avoid overwriting playContext instance
+		if(track && track->enabled && track->playContext == nullptr)
+		{
+			if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+			{
+				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - FORMAT_ISO_BMFF", track->name);
+				if(eMEDIATYPE_SUBTITLE != i)
+				{
+					std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mID3Handler, (IsoBmffProcessorType) i,
+																	passThroughMode, peerAudioProcessor.get(), peerSubtitleProcessor.get());
+					track->SourceFormat(FORMAT_ISO_BMFF);
+					track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
+					track->playContext->setRate(aamp->rate, PlayMode_normal);
+					if(eMEDIATYPE_AUDIO == i)
+					{
+						peerAudioProcessor = std::move(processor);
+					}
+					else if (eMEDIATYPE_VIDEO == i && subtitleESProcessor)
+					{
+						processor->addPeerListener(subtitleESProcessor.get());
+					}
+				}
+				else
+				{
+					if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
+					{
+						peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
+						track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
+						track->playContext->setRate(aamp->rate, PlayMode_normal);
+					}
+					else
+					{
+						subtitleESProcessor = std::make_shared<ElementaryProcessor>(aamp);
+						track->playContext = subtitleESProcessor;
+					}
+
+					// If video playcontext is already created, attach subtitle processor to it.
+					MediaTrack *videoTrack = GetMediaTrack(eTRACK_VIDEO);
+					if (videoTrack && videoTrack->enabled && videoTrack->playContext)
+					{
+						std::static_pointer_cast<IsoBmffProcessor> (videoTrack->playContext)->setPeerSubtitleProcessor(peerSubtitleProcessor.get());
+					}
+				}
+			}
+			else
+			{
+				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
+				if (i != eMEDIATYPE_SUBTITLE)
+				{
+					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
+					
+					// Set playback rate
+					track->playContext->setRate(aamp->rate, PlayMode_normal);
+					
+					// Set trickplay FPS for the demuxer
+					int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+					
+					track->playContext->setFrameRateForTM(trickPlayFPS);
+				}
+				else
+				{
+					track->playContext = nullptr;
+				}
+			}
+		}
+		else if (track && track->enabled && track->playContext != nullptr)
+		{
+			// playContext already exists (e.g. period change) - update rate only.
+			track->playContext->setRate(aamp->rate, PlayMode_normal);
+		}
+	}
+}
+
+/**
+ * @brief Returns playlist type of track
+ */
+AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isIframe)
+{
+	AampMediaType playlistType = eMEDIATYPE_MANIFEST;
+	// For DASH, return playlist type as manifest
+	if(eMEDIAFORMAT_DASH != aamp->mMediaFormat)
+	{
+		if(isIframe)
+		{
+			playlistType = eMEDIATYPE_PLAYLIST_IFRAME;
+		}
+		else if (type == eTRACK_AUDIO )
+		{
+			playlistType = eMEDIATYPE_PLAYLIST_AUDIO;
+		}
+		else if (type == eTRACK_SUBTITLE)
+		{
+			playlistType = eMEDIATYPE_PLAYLIST_SUBTITLE;
+		}
+		else if (type == eTRACK_VIDEO)
+		{
+			playlistType = eMEDIATYPE_PLAYLIST_VIDEO;
+		}
+	}
+	return playlistType;
+}
+
+
+/**
+ * @brief Notify playlist downloader threads of tracks
+ */
+void StreamAbstractionAAMP::DisablePlaylistDownloads()
+{
+	for (int i = 0 ; i < AAMP_TRACK_COUNT; i++)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType) i);
+		if (track && track->enabled)
+		{
+			track->AbortWaitForPlaylistDownload();
+			track->AbortWaitForManifestUpdate();
+		}
+	}
+}
+
+/**
+ * @brief Abort wait for playlist download
+ */
+void MediaTrack::AbortWaitForPlaylistDownload()
+{
+	std::unique_lock<std::mutex> lock(dwnldMutex);
+	// This API is called to trigger an immediate playlist download after updating the playlist URL.
+	if((playlistDownloaderThread) && (playlistDownloaderThread->joinable()))
+	{
+		plDownloadWait.notify_one();
+	}
+}
+
+/**
+ * @brief Wait until timeout is reached or interrupted
+ */
+void MediaTrack::EnterTimedWaitForPlaylistRefresh(int timeInMs)
+{
+	if(timeInMs > 0 && aamp->DownloadsAreEnabled())
+	{
+		std::unique_lock<std::mutex> lock(dwnldMutex);
+		if(plDownloadWait.wait_for(lock, std::chrono::milliseconds(timeInMs)) == std::cv_status::timeout)
+		{
+			AAMPLOG_TRACE("[%s] timeout exceeded %d", name, timeInMs); // make it trace
+		}
+		else
+		{
+			AAMPLOG_TRACE("[%s] Signalled conditional wait", name); // TRACE
+		}
+	}
+}
+
+/**
+ * @brief Abort wait for manifest update
+ * This function is called to signal the fragment collector thread to wake up from WaitForManifestUpdate.
+ */
+void MediaTrack::AbortWaitForManifestUpdate()
+{
+	std::lock_guard<std::mutex> lock(dwnldMutex);
+	// Increment the update counter while holding the mutex, then wake all
+	// waiters. Each waiter holds its own snapshot of the previous value, so
+	// every thread that was blocked will find (live != snapshot) == true and
+	// proceed. No thread can "steal" the signal from another by resetting a
+	// shared flag.
+	++mManifestUpdateCounter;
+	mManifestUpdateWait.notify_all();
+}
+
+/**
+ * @brief Return the current manifest update counter.
+ * The caller must snapshot this value BEFORE any check or download work
+ * that might cause it to decide to wait, then pass it to
+ * WaitForManifestUpdate(snapshotCounter).
+ */
+uint32_t MediaTrack::GetManifestUpdateCounter()
+{
+	std::lock_guard<std::mutex> lock(dwnldMutex);
+	return mManifestUpdateCounter;
+}
+
+/**
+ * @brief Wait for manifest update — caller-snapshot overload.
+ * Blocks until the counter advances past snapshotCounter.
+ * If AbortWaitForManifestUpdate() already ran after the snapshot was
+ * taken, the predicate is immediately true and wait() skips blocking.
+ * @param[in] snapshotCounter - the value that was snapshot before deciding to wait
+ */
+void MediaTrack::WaitForManifestUpdate(uint32_t snapshotCounter)
+{
+	if(aamp->DownloadsAreEnabled())
+	{
+		std::unique_lock<std::mutex> lock(dwnldMutex);
+		AAMPLOG_DEBUG("[%d] Waiting for manifest update (snapshotCounter=%u, currentCounter=%u)...",
+		              type, snapshotCounter, mManifestUpdateCounter);
+		mManifestUpdateWait.wait(lock, [this, snapshotCounter]
+		{
+			return mManifestUpdateCounter != snapshotCounter;
+		});
+		AAMPLOG_DEBUG("[%d] Manifest update received (counter=%u).", type, mManifestUpdateCounter);
+	}
+}
+
+/**
+ * @brief Wait for manifest update
+ * This function is called by the fragment collector thread to wait until a manifest update is received.
+ */
+void MediaTrack::WaitForManifestUpdate()
+{
+	if(aamp->DownloadsAreEnabled())
+	{
+		std::unique_lock<std::mutex> lock(dwnldMutex);
+		// Snapshot the manifest update counter under the mutex before blocking.
+		const uint32_t snapshotCounter = mManifestUpdateCounter;
+		AAMPLOG_DEBUG("[%d] Waiting for manifest update (snapshotCounter=%u)...", type, snapshotCounter);
+		mManifestUpdateWait.wait(lock, [this, snapshotCounter]
+		{
+			return mManifestUpdateCounter != snapshotCounter;
+		});
+		AAMPLOG_DEBUG("[%d] Manifest update received (counter=%u).", type, mManifestUpdateCounter);
+	}
+}
+
+/**
+ * @brief Playlist downloader
+ */
+void MediaTrack::PlaylistDownloader()
+{
+	AampMediaType mediaType = GetPlaylistMediaTypeFromTrack(type, IS_FOR_IFRAME(aamp->rate,type));
+	std::string trackName = GetMediaTypeName(mediaType);
+	int updateDuration = 0, liveRefreshTimeOutInMs = 0 ;
+	updateDuration = GetDefaultDurationBetweenPlaylistUpdates();
+	long long lastPlaylistDownloadTimeMS = 0;
+	bool quickPlaylistDownload = false;
+	bool firstTimeDownload = true;
+	long minUpdateDuration = 0, maxSegDuration = 0,availTimeOffMs=0;
+
+	// abortPlaylistDownloader is by default true, sets as "false" when thread initializes
+	// This supports Single download mode for VOD and looped mode for Live (always runs in thread)
+	if(abortPlaylistDownloader)
+	{
+		// Playlist downloader called one time, For VOD content profile changes
+		AAMPLOG_INFO("Downloading playlist : %s", name);
+	}
+	else
+	{
+		// Playlist downloader called in loop mode
+		AAMPLOG_WARN("[%s] : Enter, track '%s'", trackName.c_str(), name);
+		AAMPLOG_INFO("[%s] Playlist download timeout : %d", trackName.c_str(), updateDuration);
+	}
+
+	if( aamp->GetLLDashServiceData()->lowLatencyMode )
+	{
+		minUpdateDuration = GetMinUpdateDuration();
+		maxSegDuration = (long)(aamp->GetLLDashServiceData()->fragmentDuration*1000);
+		availTimeOffMs = (long)((aamp->GetLLDashServiceData()->availabilityTimeOffset)*1000);
+
+		AAMPLOG_INFO("LL-DASH [%s] maxSegDuration=i[%d]d[%f] minUpdateDuration=[%d]d[%f],availTimeOff=%d]d[%f]",
+					 name,(int)maxSegDuration,(double)maxSegDuration,(int)minUpdateDuration,(double)minUpdateDuration,(int)availTimeOffMs,(double)availTimeOffMs);
+	}
+
+	/* DOWNLOADER LOOP */
+	do
+	{
+		/* TIMEOUT WAIT LOGIC
+		 *
+		 * Skipping this for VOD contents.
+		 * Hits : When player attempts ABR, Player rampdown for retry logic
+		 * 			Subtitle language change is requested
+		 * quickPlaylistDownload is enabled under above cases for live refresh.
+		 *
+		 */
+		if(aamp->DownloadsAreEnabled() && aamp->IsLive() && !quickPlaylistDownload)
+		{
+			lastPlaylistDownloadTimeMS = GetLastPlaylistDownloadTime();
+			liveRefreshTimeOutInMs = updateDuration - (int)(aamp_GetCurrentTimeMS() - lastPlaylistDownloadTimeMS);
+			if(liveRefreshTimeOutInMs <= 0 && aamp->IsLive() && aamp->rate > 0)
+			{
+				AAMPLOG_DEBUG("[%s] Refreshing playlist as it exceeded download timeout : %d", trackName.c_str(), updateDuration);
+			}
+			else
+			{
+				// For DASH first time download, always take maximum time to download enough fragments from different tracks
+				// Else calculate wait time based on buffer
+				if (firstTimeDownload && (eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+				{
+					if(aamp->GetLLDashServiceData()->lowLatencyMode)
+					{
+						if((minUpdateDuration > 0) &&
+							(minUpdateDuration > availTimeOffMs) &&
+							(minUpdateDuration < MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS) )
+						{
+							liveRefreshTimeOutInMs = (int)(minUpdateDuration-availTimeOffMs);
+						}
+						else if(maxSegDuration > 0 && maxSegDuration > availTimeOffMs)
+						{
+							liveRefreshTimeOutInMs = (int)(maxSegDuration - availTimeOffMs);
+						}
+						else
+						{
+							liveRefreshTimeOutInMs = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+						}
+					}
+					else
+					{
+						liveRefreshTimeOutInMs = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+					}
+				}
+				else
+				{
+					liveRefreshTimeOutInMs = WaitTimeBasedOnBufferAvailable();
+				}
+				AAMPLOG_INFO("Refreshing playlist at %d ", liveRefreshTimeOutInMs);
+				// Intricate timing issues exist, where we could enter timed wait even though we signalled
+				// AbortWaitForPlaylistDownload from switch audio track. Seamless audio switch needs to happen immediately
+				if (!seamlessAudioSwitchInProgress)
+				{
+					EnterTimedWaitForPlaylistRefresh(liveRefreshTimeOutInMs);
+				}
+			}
+			firstTimeDownload = false;
+		}
+
+		/* PLAYLIST DOWNLOAD LOGIC
+		 *
+		 * Proceed if downloads are enabled.
+		 *
+		 */
+		if(aamp->DownloadsAreEnabled())
+		{
+			std::vector<uint8_t> manifest;
+			// reset quickPlaylistDownload for live playlist
+			quickPlaylistDownload = false;
+			std::string manifestUrl = GetPlaylistUrl();
+			// take the original url before it gets changed in GetFile
+			std::string effectiveUrl = GetEffectivePlaylistUrl();
+			bool gotManifest = false;
+			int http_error = 0;
+			double downloadTime;
+
+			/*
+			 *
+			 * FOR HLS, This should be called here
+			 * FOR DASH, after getting MPD doc
+			 *
+			 */
+			if(eMEDIAFORMAT_DASH != aamp->mMediaFormat)
+			{
+				long long lastPlaylistDownloadTime = aamp_GetCurrentTimeMS();
+				SetLastPlaylistDownloadTime(lastPlaylistDownloadTime);
+			}
+
+			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(manifestUrl, manifest, effectiveUrl,mediaType))
+			{
+				gotManifest = true;
+				AAMPLOG_INFO("manifest[%s] retrieved from cache", trackName.c_str());
+			}
+			else
+			{
+				AampCurlInstance curlInstance = aamp->GetPlaylistCurlInstance(mediaType, false);
+				// Enable downloads of mediaType if disabled
+				if(!aamp->mMediaDownloadsEnabled[mediaType])
+				{
+					AAMPLOG_INFO("[%s] Re-enabling media download", trackName.c_str());
+					aamp->EnableMediaDownloads(mediaType);
+				}
+				gotManifest = aamp->GetFile(manifestUrl, mediaType, manifest, effectiveUrl, http_error, &downloadTime, NULL, curlInstance, true );
+				if(seamlessAudioSwitchInProgress && (manifestUrl != GetPlaylistUrl()))
+				{
+					//new Playlist updated in mid.
+					quickPlaylistDownload = true;
+					//To avoid below signaling to fragment collector
+					continue;
+				}
+
+				//update videoend info
+				aamp->UpdateVideoEndMetrics(mediaType,0,http_error,effectiveUrl,downloadTime);
+			}
+
+			if(gotManifest)
+			{
+				if(eMEDIAFORMAT_DASH == aamp->mMediaFormat)
+				{
+					aamp->mManifestUrl = std::move(effectiveUrl);
+				}
+				else
+				{
+					// HLS or HLS_MP4
+					// Set effective URL, else fragments will be mapped from old url
+					SetEffectivePlaylistUrl(std::move(effectiveUrl));
+				}
+			}
+
+			// Index playlist and update track informations.
+			ProcessPlaylist(manifest, http_error);
+
+			// HTTP Response header needs to be sent to app when:
+			// 1. HTTP header response event listener is available
+			// 2. HTTP header response values are present
+			// 3. Manifest refresh has happened during Live
+			// Sending response after ProcessPlaylist is done
+			if (aamp->IsEventListenerAvailable(AAMP_EVENT_HTTP_RESPONSE_HEADER) && gotManifest && !aamp->httpHeaderResponses.empty() && aamp->IsLive())
+			{
+				aamp->SendHTTPHeaderResponse();
+			}
+
+			if(gotManifest)
+			{
+				// (gotManifest => false) If manifest download failed due to ABR request from HLS, don't abort wait.
+				// Signal fragment collector to abort it's wait for playlist process
+				AbortWaitForManifestUpdate();
+			}
+
+			// Check whether downloads are still enabled after processing playlist
+			if (aamp->DownloadsAreEnabled())
+			{
+				if (!aamp->mMediaDownloadsEnabled[mediaType])
+				{
+					AAMPLOG_ERR("[%s] Aborted playlist download by callback, retrying..", trackName.c_str());
+					// Download playlist without any wait
+					quickPlaylistDownload = true;
+				}
+			}
+			else // if downloads disabled
+			{
+				AAMPLOG_ERR("[%s] : Downloads are disabled, exiting", trackName.c_str());
+				abortPlaylistDownloader = true;
+			}
+		}
+		else
+		{
+			AAMPLOG_ERR("[%s] : Downloads are disabled, exiting", trackName.c_str());
+			abortPlaylistDownloader = true;
+		}
+	} while (!abortPlaylistDownloader && aamp->IsLive());
+	// abortPlaylistDownloader is true by default, made for VOD playlist.
+	// Loop runs for Live manifests, closes at dynamic => static transition
+
+	AAMPLOG_WARN("[%s] : Exit", trackName.c_str());
+}
+/**
+ * @brief Wait time for playlist refresh based on buffer available
+ *
+ * @return minDelayBetweenPlaylistUpdates - wait time for playlist refresh
+ */
+int MediaTrack::WaitTimeBasedOnBufferAvailable()
+{
+	long long lastPlaylistDownloadTimeMS = GetLastPlaylistDownloadTime();
+	int minDelayBetweenPlaylistUpdates = 0;
+	if (lastPlaylistDownloadTimeMS)
+	{
+		int timeSinceLastPlaylistDownload = (int)(aamp_GetCurrentTimeMS() - lastPlaylistDownloadTimeMS);
+		long long currentPlayPosition = aamp->GetPositionMilliseconds();
+		long long endPositionAvailable = (aamp->culledSeconds + aamp->durationSeconds)*1000;
+		bool lowLatencyMode = aamp->GetLLDashServiceData()->lowLatencyMode;
+		// playTarget value will vary if TSB is full and trickplay is attempted. Cant use for buffer calculation
+		// So using the endposition in playlist - Current playing position to get the buffer availability
+		long bufferAvailable = (endPositionAvailable - currentPlayPosition);
+		//Get Minimum update duration in milliseconds
+		long minUpdateDuration = GetMinUpdateDuration();
+		minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+		// when target duration is high value(>Max delay)  but buffer is available just above the max update interval,then go with max delay between playlist refresh.
+		if(bufferAvailable < (2* MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS))
+		{
+			if ((minUpdateDuration > 0) && (bufferAvailable  > minUpdateDuration))
+			{
+				//1.If buffer Available is > 2*minUpdateDuration , may be 1.0 times also can be set ???
+				//2.If buffer is between 2*target & mMinUpdateDurationMs
+				float mFactor=0.0f;
+				if (lowLatencyMode)
+				{
+					mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? (float)(minUpdateDuration/1000) : 0.5;
+				}
+				else
+				{
+					mFactor = (bufferAvailable  > (minUpdateDuration * 2)) ? 1.5 : 0.5;
+				}
+				minDelayBetweenPlaylistUpdates = (int)(mFactor * minUpdateDuration);
+			}
+			// if buffer < targetDuration && buffer < MaxDelayInterval
+			else
+			{
+				// if bufferAvailable is less than targetDuration ,its in RED alert . Close to freeze
+				// need to refresh soon ..
+				minDelayBetweenPlaylistUpdates = (bufferAvailable) ? (int)(bufferAvailable / 3) : MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS; //500ms
+
+				// limit the logs when buffer is low
+				{
+					static int bufferlowCnt;
+					if((bufferlowCnt++ & 5) == 0)
+					{
+						AAMPLOG_WARN("Buffer is running low(%ld).Refreshing playlist(%d).PlayPosition(%lld) End(%lld)",
+									 bufferAvailable,minDelayBetweenPlaylistUpdates,currentPlayPosition,endPositionAvailable);
+					}
+				}
+			}
+		}
+
+		// First cap max limit ..
+		// remove already consumed time from last update
+		// if time interval goes negative, limit to min value
+		// restrict to Max delay interval
+		if (minDelayBetweenPlaylistUpdates > MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS)
+		{
+			minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+		}
+
+		// adjust with last refreshed time interval
+		minDelayBetweenPlaylistUpdates -= timeSinceLastPlaylistDownload;
+
+		if(minDelayBetweenPlaylistUpdates < MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS)
+		{
+			if (lowLatencyMode)
+			{
+				long availTimeOffMs = (long)((aamp->GetLLDashServiceData()->availabilityTimeOffset)*1000);
+				long maxSegDuration = (long)(aamp->GetLLDashServiceData()->fragmentDuration*1000);
+				if(minUpdateDuration > 0 && minUpdateDuration < maxSegDuration)
+				{
+					minDelayBetweenPlaylistUpdates = (int)minUpdateDuration;
+				}
+				else if(minUpdateDuration > 0 && minUpdateDuration > availTimeOffMs)
+				{
+					minDelayBetweenPlaylistUpdates = (int)(minUpdateDuration-availTimeOffMs);
+				}
+				else if (maxSegDuration > 0 && maxSegDuration > availTimeOffMs)
+				{
+					minDelayBetweenPlaylistUpdates = (int)(maxSegDuration-availTimeOffMs);
+				}
+				else
+				{
+					// minimum of 500 mSec needed to avoid too frequent download.
+					minDelayBetweenPlaylistUpdates = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+				}
+				if(minDelayBetweenPlaylistUpdates < MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS)
+				{
+					// minimum of 500 mSec needed to avoid too frequent download.
+					minDelayBetweenPlaylistUpdates = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+				}
+			}
+			else
+			{
+				// minimum of 500 mSec needed to avoid too frequent download.
+				minDelayBetweenPlaylistUpdates = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+			}
+		}
+		AAMPLOG_INFO("aamp playlist end refresh bufferMs(%ld) delay(%d) delta(%d) End(%lld) PlayPosition(%lld)",
+					 bufferAvailable,minDelayBetweenPlaylistUpdates,timeSinceLastPlaylistDownload,endPositionAvailable,currentPlayPosition);
+	}
+	return minDelayBetweenPlaylistUpdates;
+}
+
+/**
+ * @brief Get total fragment injected duration
+ *
+ * @return Total duration in seconds
+ */
+double MediaTrack::GetTotalInjectedDuration()
+{
+	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	double ret = totalInjectedDuration;
+	if (aamp->GetLLDashChunkMode())
+	{
+		ret = totalInjectedChunksDuration;
+	}
+	return ret;
+}
+
+/**
+ * @brief Get total duration of fetched fragments
+ *
+ * @return Total duration in seconds
+ */
+double MediaTrack::GetTotalFetchedDuration()
+{
+	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	return totalFetchedDuration;
+}
+
+/**
+ * @brief update total fragment injected duration
+ *
+ * @return void
+ */
+void MediaTrack::UpdateInjectedDuration(double surplusDuration)
+{
+	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	totalInjectedDuration -= surplusDuration ;
+}
+
+/**
+ * @brief SetCachedFragmentSize - Setter for fragment cache size
+ *
+ * @param[in] size Size for fragment chunks cache
+ */
+void MediaTrack::SetCachedFragmentSize(size_t size)
+{
+	if (size > 0 && size <= MAX_CACHED_FRAGMENTS_PER_TRACK)
+	{
+		AAMPLOG_TRACE("Set mCachedFragment size:%zu successfully", size);
+		mCachedFragmentSize = size;
+	}
+	else
+	{
+		AAMPLOG_ERR("Failed to set size:%zu", size);
+	}
+}
+
+/**
+ * Handles the fragment position jump for the media track.
+ *
+ * This function is responsible for handling the fragment position jump for the media track.
+ * It calculates the delta between the last injected fragment end position and the current fragment position,
+ * and updates the total injected duration accordingly.
+ *
+ * @param cachedFragment pointer to the cached fragment.
+ */
+void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
+{
+	// Not tested for HLS_MP4 and HLS, hence limiting to DASH for now.
+	if ((lastInjectedDuration > 0) && (aamp->mMediaFormat == eMEDIAFORMAT_DASH))
+	{
+		// Find the delta between the last injected fragment end position and the current fragment position
+		double positionDelta = (cachedFragment->absPosition - lastInjectedDuration);
+		// There is a delta which implies a fragment might have been skipped
+		// Here we are comparing against absolute position, so discontinuous periods have no effect
+		if (positionDelta > 0)
+		{
+			// Update the total injected duration
+			{
+				std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+				totalInjectedDuration += positionDelta;
+			}
+			if (type != eTRACK_SUBTITLE)
+			{
+				AAMPLOG_WARN("[%s] Found a positionDelta (%lf) between lastInjectedDuration (%lf) and new fragment absPosition (%lf)",
+						name, positionDelta, lastInjectedDuration, cachedFragment->absPosition);
+			}
+		}
+	}
+}
+
+/**
+ *   @brief Re-initializes the injection
+ *   @param[in] rate - play rate
+ */
+void StreamAbstractionAAMP::ReinitializeInjection(double rate)
+{
+	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
+	SetTrickplayMode(rate);
+	ResetTrickModePtsRestamping();
+
+	// Why this is needed:
+	//   On a rate change (trickplay/seek), StreamAbstractionAAMP_MPD is reused —
+	//   InitializeMediaProcessor is NOT re-called. This loop is therefore the only
+	//   mechanism to update the rate on already-live processor instances.
+	//
+	// Why the old GetLLDashChunkMode() guard was removed:
+	//   Previously setRate was skipped in LL-DASH chunk mode to protect the live-edge
+	//   recording processor (IsoBmffProcessor) from receiving a trickplay rate while it
+	//   was assembling live chunks. That concern is now moot for two reasons:
+	//   1. IsoBmffProcessor PTS restamping (guarded by isRestampConfigEnabled) is only
+	//      active for HLS/HLS-MP4 — calling setRate on a DASH processor is a no-op for
+	//      restamping purposes.
+	//   2. With AampMp4Demuxer enabled (eAAMPConfig_UseMp4Demux), rate MUST be propagated
+	//      so that AampMp4Demuxer::setRate sets mIsTrickMode and mRate correctly for
+	//      keyframe filtering and PTS restamping in TrickmodePtsRestamp(). Without this,
+	//      the demuxer retains rate=1.0 and sends all frames with incorrect PTS during
+	//      trickplay.
+	//
+	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_AUDIO; i++)
+	{
+		MediaTrack *track = GetMediaTrack((TrackType) i);
+		if (track && track->enabled && track->playContext)
+		{
+			track->playContext->setRate(rate, PlayMode_normal);
+		}
+	}
+}

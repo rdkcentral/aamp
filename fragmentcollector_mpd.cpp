@@ -9559,16 +9559,29 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 			{
 				// If not: playing from aamp tsb, or paused on live before entering tsb
 				// Then wait for ad discontinuity to be processed by stream injection before continuing
+				AAMPLOG_MIL("[PERIOD_DBG] period changed: '%s'->'%s' isPeriodChangeMarked=%d isLocalTSBInj=%d sinkPaused=%d adaptCount=%d",
+					currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(),
+					aamp->GetIsPeriodChangeMarked(),
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection(),
+					aamp->mSinkPaused.load(),
+					adaptationSetCount);
 				if (aamp->GetIsPeriodChangeMarked() &&
 					!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
 					!(aamp->IsLocalAAMPTsb() && aamp->mSinkPaused.load()))
 				{
+					AAMPLOG_MIL("[PERIOD_DBG] waiting for discontinuity process to complete (period '%s'->'%s')",
+						currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str());
 					aamp->WaitForDiscontinuityProcessToComplete();
+					AAMPLOG_MIL("[PERIOD_DBG] WaitForDiscontinuityProcessToComplete returned (period '%s'->'%s')",
+						currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str());
 				}
 
 				/*If next period is empty, period ID change is not processed.
 				Will check the period change for the same period in the next iteration.*/
-				if ((adaptationSetCount > 0 || !(IsEmptyPeriod(mCurrentPeriodIdx))) && (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
+				double periodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
+				AAMPLOG_MIL("[PERIOD_DBG] period advance check: periodIdx=%d adaptCount=%d periodDuration=%.3f threshold=%.3f emptyPeriod=%d",
+					mCurrentPeriodIdx, adaptationSetCount, periodDuration, THRESHOLD_TOIGNORE_TINYPERIOD, IsEmptyPeriod(mCurrentPeriodIdx));
+				if ((adaptationSetCount > 0 || !(IsEmptyPeriod(mCurrentPeriodIdx))) && (periodDuration >= THRESHOLD_TOIGNORE_TINYPERIOD))
 				{
 					AAMPLOG_MIL("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 					currentPeriodId = mCurrentPeriod->GetId();
