@@ -1149,7 +1149,17 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 
 	bool CompleteDiscontinuityDataDeliverForPTSRestamp =false;
 	bool shouldHaltBuffering = false;
-	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->ReconfigureForElementaryStreamUpdate(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
+	// codecChange: true only for an actual audio/video ES codec change
+	// (GetESChangeStatus).  PTO-only discontinuities (GetPipelineFlushStatus
+	// but !GetESChangeStatus) set codecChange=false so the Mp4Demux no-EOS
+	// path in CheckDiscontinuity is correctly taken.
+	// ReconfigureForElementaryStreamUpdate() is kept for the non-Mp4Demux
+	// path which already handles pipeline-flush internally.
+	bool esChange = aamp->mpStreamAbstractionAAMP ?
+		aamp->mpStreamAbstractionAAMP->GetESChangeStatus() : false;
+	bool reconfigForES = aamp->ReconfigureForElementaryStreamUpdate();
+	bool codecChange = ISCONFIGSET(eAAMPConfig_UseMp4Demux) ? esChange : reconfigForES;
+	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, codecChange, CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
 
 	if(CompleteDiscontinuityDataDeliverForPTSRestamp)
 	{
