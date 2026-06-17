@@ -8938,21 +8938,6 @@ bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinui
 	}
 	else
 	{
-		// With AampMp4Demuxer, fragments are injected at download speed rather than
-		// playback speed. This can cause the period-0->period-1 discontinuity to fire
-		// while the GStreamer pipeline is still in PREPARED state (before the first
-		// frame has been rendered). Calling sink->Discontinuity() (which issues a
-		// flush/seek) on a not-yet-playing pipeline discards all buffered frames and
-		// resets preroll, preventing the pipeline from ever reaching PLAYING.
-		// Wait for PLAYING before flushing the pipeline.
-		if (GetState() < eSTATE_PLAYING)
-		{
-			AAMPLOG_MIL("PrivateInstanceAAMP::Discontinuity track=%d: state is PREPARED, waiting for PLAYING before flush", (int)track);
-			std::unique_lock<std::mutex> guard(mMutexPlaystart);
-			waitforplaystart.wait_for(guard, std::chrono::seconds(5),
-				[this]{ return GetState() >= eSTATE_PLAYING || !mDownloadsEnabled; });
-			AAMPLOG_MIL("PrivateInstanceAAMP::Discontinuity track=%d: wait done, state=%d", (int)track, (int)GetState());
-		}
 		auto syncLock = SyncLock();
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 		if (sink)
