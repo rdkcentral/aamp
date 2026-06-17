@@ -487,6 +487,49 @@ void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFr
  * @param[in] cachedFragment - Fragment supplying duration and metadata
  * @param[in] isInitSegment  - true for initialization segments
  */
+void MediaTrack::UpdateTSAfterFetchStats(TrackState* trackState, const FetchedFragment& cachedFragment, bool isInitSegment)
+{
+	const char *name = trackState->GetMediaTypeName();
+	StreamAbstractionAAMP* playContext = trackState->GetPlayContext();
+
+	if (isInitSegment)
+	{
+		// Update profile information for init fragments
+		if (playContext)
+		{
+			playContext->UpdateProfile(cachedFragment.mDownloadedProfile);
+		}
+		AAMPLOG_WARN("[AAMP_DEBUG_PERIOD] UpdateTSAfterFetchStats: %s init fragment", name);
+	}
+	else
+	{
+		AAMPLOG_WARN("[AAMP_DEBUG_PERIOD] UpdateTSAfterFetchStats: %s media fragment - pos=%.3f, dur=%.3f, discontinuity=%d", name, cachedFragment.position, cachedFragment.duration, cachedFragment.discontinuity);
+	}
+}
+
+/**
+ * @brief To flush the Audio position even if the MediaProcessor is not not enabled.
+ */
+void MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment )
+{
+	IsoBmffBuffer buffer;
+	buffer.setBuffer(cachedFragment->fragment);
+	buffer.parseBuffer();
+	uint64_t currentPTS = 0;
+	if(buffer.getFirstPTS(currentPTS))
+	{
+		double pos = (double)currentPTS / (double)aamp->GetAudTimeScale();
+		aamp->FlushTrack(eMEDIATYPE_AUDIO,pos);
+		AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,aamp->GetAudTimeScale());
+	}
+}
+
+/**
+ * @brief Updates fetch statistics using a caller-supplied fragment.
+ *
+ * @param[in] cachedFragment - Fragment supplying duration and metadata
+ * @param[in] isInitSegment  - true for initialization segments
+ */
 void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool isInitSegment)
 {
 	bool notifyCacheCompleted = false;
@@ -1104,14 +1147,14 @@ bool MediaTrack::ProcessFragmentChunk()
 		AAMPLOG_TRACE("[%s] unparsed[%p] unparsed_size[%zu]", name, static_cast<const void*>(unParsedBuffer), unParsedBufferSize);
 		// unParsedBuffer was advanced by ParseChunkData past the parsed data
 		std::vector<uint8_t> remaining(unParsedBuffer, unParsedBuffer + unParsedBufferSize);
-		unparsedBufferChunk = std::move(remaining);
+		unparsedBuffer_chunk = std::move(remaining);
 	}
 	else
 	{
 		AAMPLOG_TRACE("[%s] Set Unparsed Buffer chunk Empty...", name);
-		aamp_utils::ClearAndRelease(unparsedBufferChunk);
+		aamp_utils::ClearAndRelease(unparsedBuffer_chunk);
 	}
-	aamp_utils::ClearAndRelease(parsedBufferChunk);
+	aamp_utils::ClearAndRelease(parsedBuffer_chunk);
 	return true;
 }
 
@@ -1622,8 +1665,8 @@ void MediaTrack::RunInjectLoop()
 		std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 		totalInjectedDuration = 0;
 		totalInjectedChunksDuration = 0;
-		lastInjectedPosition = 0;
-		lastInjectedDuration = 0;
+		lastInjected_position = 0;
+		lastInjected_duration = 0;
 	}
 	while (aamp->DownloadsAreEnabled() && keepInjecting)
 	{
@@ -1824,8 +1867,8 @@ void MediaTrack::FlushFragments()
 	{
 		mCachedFragment[i].Clear();
 	}
-	aamp_utils::ClearAndRelease(unparsedBufferChunk);
-	aamp_utils::ClearAndRelease(parsedBufferChunk);
+	aamp_utils::ClearAndRelease(unparsedBuffer_chunk);
+	aamp_utils::ClearAndRelease(parsedBuffer_chunk);
 	fragmentIdxToInject = 0;
 	fragmentIdxToFetch = 0;
 	std::lock_guard<std::mutex> guard(mutex);
@@ -1837,16 +1880,16 @@ void MediaTrack::FlushFragments()
 	// only when the track is not in the middle of a seamless switch.
 	{
 		std::lock_guard<std::mutex> trackLock(mTrackParamsMutex);
-		totalInjectedChunksDuration = 0;
+		totalInjectedChunks_duration = 0;
 
 		// For audio/subtitle tracks that are not mid-switch, reset the
 		// business-logic lifetime counters so post-flush callers (GetBufferStatus,
 		// HandleTrackChange, ABR) start from a clean slate for the new track.
 		if (( type == eTRACK_AUDIO && !loadNewAudio ) || ( type == eTRACK_SUBTITLE && !loadNewSubtitle ))
 		{
-			totalFetchedDuration = 0;
+			totalFetched_duration = 0;
 			totalFragmentsDownloaded = 0;
-			totalInjectedDuration = 0;
+			totalInjected_duration = 0;
 		}
 	}
 }
@@ -1859,14 +1902,14 @@ void MediaTrack::FlushFragments()
 void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded)
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
-	AAMPLOG_MIL("Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
+	AAMPLOG_MIL("Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetched_duration, totalInjected_duration, totalFragmentsDownloaded);
 
-	totalFetchedDuration -= deltaFetchedDuration;
+	totalFetched_duration -= deltaFetchedDuration;
 	// injected and fetched duration should be same
-	totalInjectedDuration -= deltaInjectedDuration;
+	totalInjected_duration -= deltaInjectedDuration;
 	totalFragmentsDownloaded -= deltaFragmentsDownloaded;
 
-	AAMPLOG_MIL("New totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
+	AAMPLOG_MIL("New totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetched_duration, totalInjected_duration, totalFragmentsDownloaded);
 }
 
 /**
@@ -1875,10 +1918,10 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
 MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
 		eosReached(false), enabled(false), numberOfFragmentsCached(0), fragmentIdxToInject(0),
 		fragmentIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0),
-		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
+		UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunks_duration(0), currentInitialCacheDurationSeconds(0),
 		sinkBufferIsFull(false), cachingCompleted(false), fragmentDurationSeconds(0),  segDLFailCount(0),segDrmDecryptFailCount(0),mSegInjectFailCount(0),
 		bufferStatus(BUFFER_STATUS_GREEN), prevBufferStatus(BUFFER_STATUS_GREEN),
-		bandwidthBitsPerSecond(0), totalFetchedDuration(0),
+		bandwidthBitsPerSecond(0), totalFetched_duration(0),
 		discontinuityProcessed(false), ptsError(false), name(name), type(type), aamp(aamp),
 		mutex(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false),
@@ -1887,7 +1930,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		abortPlaylistDownloader(true), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), mManifestUpdateCounter(0)
 		,mManifestUpdateWait(),prevDownloadStartTime(-1)
-		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
+		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjected_position(0), lastInjected_duration(0), seamlessSubtitleSwitchInProgress(false)
 		,mIsLocalTSBInjection(false), mCachedFragmentSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
@@ -2324,7 +2367,7 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 				timeoutMs = aamp->mNetworkTimeoutMs;
 			}
 			else
-			{	// enough buffer available
+			{
 				timeoutMs = std::min(timeoutMs/2, mABRMaxBuffer*1000 );
 				timeoutMs = std::max(timeoutMs , aamp->mNetworkTimeoutMs);
 			}
@@ -4636,7 +4679,7 @@ double MediaTrack::GetTotalInjectedDuration()
 	double ret = totalInjectedDuration;
 	if (aamp->GetLLDashChunkMode())
 	{
-		ret = totalInjectedChunksDuration;
+		ret = totalInjectedChunks_duration;
 	}
 	return ret;
 }
@@ -4649,7 +4692,7 @@ double MediaTrack::GetTotalInjectedDuration()
 double MediaTrack::GetTotalFetchedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
-	return totalFetchedDuration;
+	return totalFetched_duration;
 }
 
 /**
@@ -4660,7 +4703,7 @@ double MediaTrack::GetTotalFetchedDuration()
 void MediaTrack::UpdateInjectedDuration(double surplusDuration)
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
-	totalInjectedDuration -= surplusDuration ;
+	totalInjected_duration -= surplusDuration ;
 }
 
 /**
@@ -4704,7 +4747,7 @@ void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
 			// Update the total injected duration
 			{
 				std::lock_guard<std::mutex> lock(mTrackParamsMutex);
-				totalInjectedDuration += positionDelta;
+				totalInjected_duration += positionDelta;
 			}
 			if (type != eTRACK_SUBTITLE)
 			{
