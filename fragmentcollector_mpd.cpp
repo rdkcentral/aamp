@@ -9587,7 +9587,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				/*If next period is empty, period ID change is not processed.
 				Will check the period change for the same period in the next iteration.*/
 				double periodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB());
-				AAMPLOG_MIL("[PERIOD_DBG] period advance check: periodIdx=%d adaptCount=%d periodDuration=%.3f threshold=%.3f emptyPeriod=%d",
+				AAMPLOG_MIL("[PERIOD_DBG] period advance check: periodIdx=%d adaptCount=%d periodDuration=%.3f threshold=%d emptyPeriod=%d",
 					mCurrentPeriodIdx, adaptationSetCount, periodDuration, THRESHOLD_TOIGNORE_TINYPERIOD, IsEmptyPeriod(mCurrentPeriodIdx));
 				if ((adaptationSetCount > 0 || !(IsEmptyPeriod(mCurrentPeriodIdx))) && (periodDuration >= THRESHOLD_TOIGNORE_TINYPERIOD))
 				{
