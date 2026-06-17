@@ -3172,6 +3172,13 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 			notifyFirstBufferProcessed = true;
 		}
 		resetTrickUTC = interfacePlayerPriv->socInterface->ResetTrickUTC();
+
+		if (eGST_MEDIATYPE_SUBTITLE == mediaType)
+		{
+			MW_LOG_INFO("patrick");
+			SetSubtitleMute(interfacePlayerPriv->gstPrivateContext->subtitleMuted);
+		}
+
 	}
 	if (eGST_MEDIATYPE_VIDEO == mediaType)
 	{
