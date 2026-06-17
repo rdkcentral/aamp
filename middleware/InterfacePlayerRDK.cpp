@@ -3584,6 +3584,15 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
 			unblockDiscProcess = true;
 			ret = true;
 		}
+		else if (interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback && !codecChange)
+		{
+			// AampMp4Demuxer always applies fragmentPTSoffset to maintain a
+			// monotonic PTS sequence across period boundaries, so the decoder
+			// sees a continuous stream and no GStreamer EOS/flush is needed.
+			MW_LOG_MIL("Mp4Demux playback: skipping GStreamer EOS for discontinuity (type=%d)", (int)type);
+			unblockDiscProcess = true;
+			ret = true;
+		}
 		else
 		{
 			if (m_gstConfigParam->enablePTSReStamp && codecChange)
