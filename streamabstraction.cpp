@@ -905,13 +905,15 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 						}
 					}
 				}
-				else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+				else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && !context->GetESChangeStatus())
 				{
 					// AampMp4Demuxer maintains a monotonic PTS sequence via
 					// fragmentPTSoffset across period boundaries and signals
 					// format changes via SetStreamCaps().  No GStreamer EOS or
-					// inject-loop stop is needed; just notify the sink and keep
-					// injecting period-1 data without interruption.
+					// inject-loop stop is needed for PTO-only discontinuities
+					// (PipelineFlushStatus set but no actual codec change).
+					// When ESChangeStatus is set (real codec change), fall through
+					// to the legacy EOS path so the pipeline is reconfigured.
 					context->ProcessDiscontinuity(type);
 					if (type != eTRACK_SUBTITLE)
 					{

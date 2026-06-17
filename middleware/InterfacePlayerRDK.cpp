@@ -3584,14 +3584,16 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
 			unblockDiscProcess = true;
 			ret = true;
 		}
-		else if (interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback)
+		else if (interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback && !codecChange)
 		{
 			// AampMp4Demuxer maintains monotonic PTS via fragmentPTSoffset and
-			// calls SetStreamCaps() for format changes; no GStreamer EOS/flush
-			// is needed regardless of codec change or PTO-induced pipeline-flush
-			// status.  Return ret=false so mProcessingDiscontinuity is NOT set
-			// and ProcessPendingDiscontinuity does not trigger a pipeline
-			// reconfigure.
+			// calls SetStreamCaps() for format changes.  Skip GStreamer EOS/flush
+			// when there is no codec change (e.g. PTO-only discontinuity where
+			// PipelineFlushStatus is set but ESChangeStatus is not).
+			// When codecChange is true due to a real audio/video codec change,
+			// fall through to GstPlayer_SignalEOS so the pipeline is reconfigured.
+			// Return ret=false so mProcessingDiscontinuity is NOT set and
+			// ProcessPendingDiscontinuity does not trigger a spurious reconfigure.
 			MW_LOG_MIL("Mp4Demux playback: skipping GStreamer EOS for discontinuity (type=%d)", (int)type);
 			unblockDiscProcess = true;
 			ret = false;
