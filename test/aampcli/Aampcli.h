@@ -63,6 +63,7 @@ class Aampcli
 		bool mEnableProgressLog;
 		bool mbAutoPlay;
 		bool mIndexedAds = false;
+		bool mDeferReservationComplete = false; /**< When true, suppress automatic NotifyReservationComplete on SCTE-35 ad break start */
 		std::string mContentType;
 		std::string mTuneFailureDescription;
 		PlayerInstanceAAMP *mSingleton;

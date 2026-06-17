@@ -142,7 +142,8 @@ protected:
 		{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 		{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK},
-		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC}
+		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC},
+		{eAAMPConfig_VodAdBreakLookaheadSec, DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC}
 	};
 
 	IntConfigSettings mIntConfigSettings;
@@ -156,25 +157,25 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
-		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>( mPrivateInstanceAAMP);
 
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
 
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+		g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
 
-		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
 
-		g_mockIsoBmffProcessor = new NiceMock<MockIsoBmffProcessor>();
+		g_mockIsoBmffProcessor = std::make_shared<NiceMock<MockIsoBmffProcessor>>();
 
-		g_mockABRManager = new NiceMock<MockABRManager>();
+		g_mockABRManager = std::make_shared<NiceMock<MockABRManager>>();
 
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -188,8 +189,7 @@ protected:
 
 	void TearDown()
 	{
-		delete g_mockIsoBmffProcessor;
-		g_mockIsoBmffProcessor = nullptr;
+		g_mockIsoBmffProcessor.reset();
 
 		if (mStreamAbstractionAAMP_MPD)
 		{
@@ -209,30 +209,22 @@ protected:
 
 		if (g_mockAampUtils)
 		{
-			delete g_mockAampUtils;
-			g_mockAampUtils = nullptr;
+			g_mockAampUtils.reset();
 		}
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
+		g_mockAampGstPlayer.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockMediaStreamContext.reset();
 
-		delete g_mockAampMPDDownloader;
-		g_mockAampMPDDownloader = nullptr;
+		g_mockAampMPDDownloader.reset();
 
-		delete g_mockAampStreamSinkManager;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
-		delete g_mockABRManager;
-		g_mockABRManager = nullptr;
+		g_mockABRManager.reset();
 
 		mManifest = nullptr;
 	}
@@ -441,13 +433,12 @@ protected:
 		}
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		_instanceStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 	}
 
 	void TearDown() override
 	{
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete _instanceStreamAbstractionAAMP_MPD;
 		_instanceStreamAbstractionAAMP_MPD = nullptr;
@@ -735,57 +726,48 @@ protected:
 	{
 		// Set up your objects before each test case
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
-		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
-		g_mockAampUtils = new StrictMock<MockAampUtils>();
+		g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
+		g_mockAampUtils = std::make_shared<StrictMock<MockAampUtils>>();
 
 		// Ensure mMPDParseHelper is initialized to avoid NULL dereference
 		mStreamAbstractionAAMP_MPD->SetMPDParseHelper( std::make_shared<AampMPDParseHelper>() );
-		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
-		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
-		g_mockABRManager = new NiceMock<MockABRManager>();
-		g_mockAampLicenseManager = new NiceMock<MockAampLicenseManager>();
-		g_mockDrmHelper = new NiceMock<MockDrmHelper>();
+		g_MockPrivateCDAIObjectMPD = std::make_shared<NiceMock<MockPrivateCDAIObjectMPD>>();
+		g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
+		g_mockABRManager = std::make_shared<NiceMock<MockABRManager>>();
+		g_mockAampLicenseManager = std::make_shared<NiceMock<MockAampLicenseManager>>();
+		g_mockDrmHelper = std::make_shared<NiceMock<MockDrmHelper>>();
 	}
 
 	void TearDown() override
 	{
 		// Clean up your objects after each test
-		delete g_mockTSBSessionManager;
-		g_mockTSBSessionManager = nullptr;
+		g_mockTSBSessionManager.reset();
 
 		mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_MockPrivateCDAIObjectMPD;
-		g_MockPrivateCDAIObjectMPD = nullptr;
+		g_MockPrivateCDAIObjectMPD.reset();
 
-		delete g_mockAampMPDDownloader;
-		g_mockAampMPDDownloader = nullptr;
+		g_mockAampMPDDownloader.reset();
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
-		delete g_mockABRManager;
-		g_mockABRManager = nullptr;
+		g_mockABRManager.reset();
 
-		delete g_mockAampLicenseManager;
-		g_mockAampLicenseManager = nullptr;
+		g_mockAampLicenseManager.reset();
 
-		delete g_mockDrmHelper;
-		g_mockDrmHelper = nullptr;
+		g_mockDrmHelper.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 	}
 };
 
@@ -1002,7 +984,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	constexpr uint32_t segmentDurationSec = segmentTemplateDuration / timescale;
 
 	/* Setup AAMP utils mock. */
-	g_mockAampUtils = new StrictMock<MockAampUtils>();
+	g_mockAampUtils = std::make_shared<StrictMock<MockAampUtils>>();
 	currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
 	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
 	deltaTime = currentTime - availabilityStartTime;
@@ -1110,7 +1092,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	constexpr uint32_t segmentDurationSec = segmentTemplateDuration / timescale;
 
 	/* Setup the AAMP utils mock. */
-	g_mockAampUtils = new StrictMock<MockAampUtils>();
+	g_mockAampUtils = std::make_shared<StrictMock<MockAampUtils>>();
 	currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
 	availabilityStartTime = ISO8601DateTimeToUTCSeconds(availabilityStartTimeISO);
 	deltaTime = currentTime - (availabilityStartTime + periodDuration); /* In period p1. */
@@ -3300,7 +3282,7 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
 	// The manifest URL contains parameters
 	mManifestUrl = "http://host/asset/manifest.mpd?chunked";
 
-	g_mockAampUtils = new NiceMock<MockAampUtils>();
+	g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 	const char *currentTimeISO = "2023-01-01T00:00:00Z";
 	double currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
 	long long timeMS = 1000LL*((long long)currentTime);
@@ -3649,7 +3631,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// The manifest URL contains parameters
 	mManifestUrl = "http://host/asset/manifest.mpd?chunked";
 
-	g_mockAampUtils = new NiceMock<MockAampUtils>();
+	g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 	.WillRepeatedly(Return(true));
@@ -3661,7 +3643,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	std::shared_ptr<AampTsbDataManager> dataMgr = std::make_shared<AampTsbDataManager>();
 	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "");
 
-	g_mockTSBSessionManager = new MockTSBSessionManager(mPrivateInstanceAAMP);
+	g_mockTSBSessionManager = std::make_shared<MockTSBSessionManager>(mPrivateInstanceAAMP);
 	g_mockTSBReader = std::make_shared<MockTSBReader>();
 
 	ASSERT_NE(g_mockTSBSessionManager, nullptr);
@@ -3671,7 +3653,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	ASSERT_NE(videoTrack, nullptr);
 	videoTrack->SetLocalTSBInjection(true);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
 
 	EXPECT_CALL(*g_mockTSBReader, GetFirstPTS()).WillOnce(Return(5.0));
@@ -3679,7 +3661,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	EXPECT_EQ(15.0, mStreamAbstractionAAMP_MPD->GetFirstPTS());
 
-	delete g_mockTSBSessionManager;
+	g_mockTSBSessionManager.reset();
 	g_mockTSBReader.reset();
 }
 
@@ -3943,7 +3925,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjec
 
 	// Set up expectations for TSB manager without local injection
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-		.WillRepeatedly(Return(g_mockTSBSessionManager));
+		.WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(false));
@@ -3993,7 +3975,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInje
 
 	// Set up expectations for TSB manager with local injection
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-		.WillRepeatedly(Return(g_mockTSBSessionManager));
+		.WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(true));
@@ -4092,7 +4074,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdPlacementEvent_WithTSBNoLocalInjecti
 
 	// Set up expectations for TSB manager without local injection
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-		.WillRepeatedly(Return(g_mockTSBSessionManager));
+		.WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(false));
@@ -4189,7 +4171,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SendAdPlacementEvent_WithTSBAndLocalInject
 
 	// Set up expectations for TSB manager with local injection
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
-		.WillRepeatedly(Return(g_mockTSBSessionManager));
+		.WillRepeatedly(Return(g_mockTSBSessionManager.get()));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
 		.WillRepeatedly(Return(true));

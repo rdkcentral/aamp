@@ -26,7 +26,7 @@
 #include "AampSegmentInfo.hpp"
 #include "AampLatencyMonitor.h"
 
-MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
+std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP{};
 
 static int PLAYERID_CNTR = 0;
 
@@ -73,7 +73,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mDrmInitData(),
 	mPreferredTextTrack(),
 	midFragmentSeekCache(false),
-	mDisableRateCorrection (false),
 	mthumbIndexValue(-1),
 	mMPDPeriodsInfo(),
 	mProfileCappedStatus(false),
@@ -291,6 +290,15 @@ void PrivateInstanceAAMP::NotifyReservationComplete(const std::string& reservati
 void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId)
 {
 
+}
+
+void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                             double breakDurationSec, const std::string &breakType)
+{
+}
+
+void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
 }
 
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
@@ -1653,12 +1661,12 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
 }
 
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		return g_mockPrivateInstanceAAMP->PausePipeline(
-			pause, forceStopGstreamerPreBuffering);
+			pause, forceStopPreBuffering);
 	}
 
 	return false;
@@ -1716,14 +1724,6 @@ void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
 	}
 }
 
-void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
-{
-}
-
-void PrivateInstanceAAMP::WakeupLatencyCheck()
-{
-}
-
 void PrivateInstanceAAMP::IncreaseGSTBufferSize()
 {
 }
@@ -1764,14 +1764,14 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 	return false;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	if(!mProvidedManifestFile.empty())
 	{
 		bRetManifestData = std::move(mProvidedManifestFile);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)
@@ -1911,6 +1911,10 @@ bool PrivateInstanceAAMP::CheckForChunkEarlyAbort(CurlCallbackContext *context)
 
 void PrivateInstanceAAMP::EnableLatencyMonitor(bool enabled)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->EnableLatencyMonitor(enabled);
+	}
 }
 
 bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
@@ -1922,3 +1926,14 @@ bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
 	}
 	return result;
 }
+	
+
+bool PrivateInstanceAAMP::IsLatencyMonitorEnabled() const
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->IsLatencyMonitorEnabled();
+	}
+	return false;
+}
+

@@ -22,7 +22,7 @@
 
 std::atomic<ABRManager::PersistBandwidthData> ABRManager::mPersistBandwidthData{};
 
-MockABRManager *g_mockABRManager = nullptr;
+std::shared_ptr<MockABRManager> g_mockABRManager{};
 
 ABRManager::ABRManager() : bLowLatencyStartABR(false) , bLowLatencyServiceConfigured(false) , mBandwidthEstimationAlgorithm(BANDWIDTH_ESTIMATION_ALGORITHM_ROLLING_MEDIAN_OUTLIER)
 {

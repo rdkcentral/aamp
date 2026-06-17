@@ -22,6 +22,7 @@
 #define MOCK_AAMP_LATENCY_MONITOR_H
 
 #include <gmock/gmock.h>
+#include <memory>
 
 /**
  * @class MockAampLatencyMonitor
@@ -35,8 +36,10 @@ class MockAampLatencyMonitor
 {
 public:
 	MOCK_METHOD(double, GetAccumulatedLatencyIncrementMs, (), (const));
+	MOCK_METHOD(void, Start, (const LatencyConfig &config));
+	MOCK_METHOD(void, EnableRateCorrection, (bool enabled));
 };
 
-extern MockAampLatencyMonitor *g_mockAampLatencyMonitor;
+extern std::shared_ptr<MockAampLatencyMonitor> g_mockAampLatencyMonitor;
 
 #endif /* MOCK_AAMP_LATENCY_MONITOR_H */

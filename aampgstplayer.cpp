@@ -1019,12 +1019,7 @@ void AAMPGstPlayer::FlushTrack(AampMediaType type,double pos)
 	double audioDelta = aamp->mAudioDelta;
 	double subDelta = aamp->mSubtitleDelta;
 	double rate = playerInstance->FlushTrack(mediaType, pos, audioDelta, subDelta);
-
-	if(aamp->mCorrectionRate != rate)
-	{
-		AAMPLOG_MIL("Reset Rate Correction to 1");
-		aamp->mCorrectionRate = rate;
-	}
+	(void)rate;
 }
 
 /**
@@ -1050,13 +1045,13 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
 /**
  *  @brief To pause/play pipeline
  */
-bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
+bool AAMPGstPlayer::Pause( bool pause, bool forceStopPreBuffering )
 {
 	auto syncLock = aamp->SyncLock();
 
-	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
+	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopPreBuffering);
 
-	bool res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
+	bool res = this->playerInstance->Pause(pause, forceStopPreBuffering);
 	if (res && !aamp->IsGstreamerSubsEnabled())
 	{
 		aamp->PauseSubtitleParser(pause);
@@ -1142,8 +1137,6 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
 			privateContext->mBufferControl[i].flush();
 		}
-
-		aamp->mCorrectionRate = (double)AAMP_NORMAL_PLAY_RATE;
 	}
 }
 

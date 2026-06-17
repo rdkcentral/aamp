@@ -51,6 +51,9 @@
 #include <inttypes.h>
 #include <math.h>
 #include <iterator>
+#include <charconv>
+#include <optional>
+#include <string_view>
 #include <sys/time.h>
 #include <cmath>
 #include "AampTSBSessionManager.h"
@@ -544,7 +547,12 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_AUDIO);
 		NotifyCachedAudioFragmentAvailable();
 		loadNewAudio = false;
-		aamp->mDisableRateCorrection = false;
+		// Re-enable latency rate correction after audio track switch only if it was previously enabled.
+		if (pContext && pContext->mSavedLatencyMonitorState )
+		{
+			aamp->EnableLatencyMonitor(true);
+			pContext->mSavedLatencyMonitorState  = false;
+		}
 	}
 	if (loadNewSubtitle && (eTRACK_SUBTITLE == type) && !isInitSegment)
 	{
@@ -559,7 +567,12 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 		aamp->ResumeTrackInjection((AampMediaType)eMEDIATYPE_SUBTITLE);
 		NotifyCachedSubtitleFragmentAvailable();
 		loadNewSubtitle = false;
-		aamp->mDisableRateCorrection = false;
+		// Re-enable latency rate correction after subtitle track switch only if it was previously enabled.
+		if (pContext && pContext->mSavedLatencyMonitorState )
+		{
+			aamp->EnableLatencyMonitor(true);
+			pContext->mSavedLatencyMonitorState  = false;
+		}
 	}
 	if (!isInitSegment)
 	{
@@ -936,7 +949,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	if(cachedFragment->initFragment)
 	{
-		if ((pContext) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		if ((pContext) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 		{
 			if (pContext->trickplayMode)
 			{
@@ -1048,7 +1061,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		parsedBufferChunk.insert(parsedBufferChunk.end(),
 				unparsedBufferChunk.data(),
 				unparsedBufferChunk.data() + parsedBufferSize);
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 		{
 			if (pContext && pContext->trickplayMode)
 			{
@@ -1058,13 +1071,10 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			else
 			{
-				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
-				{
-					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
-					(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
-												 name, cachedFragment->timeScale);
-					fpts += cachedFragment->PTSOffsetSec;
-				}
+				int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
+												name, cachedFragment->timeScale);
+				fpts += cachedFragment->PTSOffsetSec;
 			}
 		}
 
@@ -1223,91 +1233,6 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 						cachedFragment->initFragment, cachedFragment->discontinuity);
 }
 
-static bool isWebVttSegment( const char *buffer, size_t bufferLen )
-{
-	if( bufferLen>=3 && buffer[0]==(char)0xEF && buffer[1]==(char)0xBB && buffer[2]==(char)0xBF )
-	{ // skip UTF-8 BOM if present
-		buffer += 3;
-		bufferLen -= 3;
-	}
-	return bufferLen>=6 && memcmp(buffer,"WEBVTT",6)==0;
-}
-
-std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset_s )
-{
-	long long pts_offset_ms = pts_offset_s*1000;
-	std::string str;
-	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && isWebVttSegment(buffer,bufferLen) )
-	{
-		const char *fin = &buffer[bufferLen];
-		const char *prev = buffer;
-		bool processedHeader = false;
-		while( prev<fin )
-		{
-			const char *line_start = mystrstr( prev, fin, "\n\n" );
-			if( line_start )
-			{
-				if( !processedHeader )
-				{
-					const char *localTimePtr = mystrstr(prev,line_start,"LOCAL:");
-					long long localTimeMs = localTimePtr?convertHHMMSSToTime(localTimePtr+6):0;
-					const char *mpegtsPtr = mystrstr(prev,line_start,"MPEGTS:");
-					long long mpegts = mpegtsPtr?atoll(mpegtsPtr+7):0;
-					pts_offset_ms -= localTimeMs;
-					if( localTimeMs != currentLocalTimeMs  )
-					{
-						if( gotLocalTime )
-						{
-							AAMPLOG_MIL( "webvtt pts rollover" );
-							ptsRollover = true;
-						}
-						currentLocalTimeMs = localTimeMs;
-						gotLocalTime = true;
-					}
-					line_start += 2; // advance past \n\n
-					str += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:";
-					str += std::to_string(mpegts);
-					str += "\n\n";
-					processedHeader = true;
-					if( ptsRollover )
-					{ // adjust by max pts ms
-						pts_offset_ms += 95443717; // 0x1ffffffff/90
-					}
-				}
-				else
-				{
-					line_start += 2; // advance past \n\n
-					str += std::string(prev,line_start-prev);
-				}
-				prev = line_start;
-				const char *line_end = mystrstr(line_start, fin, "\n" );
-				if( line_end )
-				{
-					const char *line_delim = mystrstr( line_start, line_end, " --> " );
-					if( line_delim )
-					{ // apply pts offset by rewriting inline begin/end times
-						prev = line_end;
-						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_start) + pts_offset_ms );
-						str +=  " --> ";
-						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_delim+5) + pts_offset_ms );
-					}
-				}
-			}
-			else
-			{ // trailing
-				str += std::string(prev,fin-prev);
-				prev = fin;
-			}
-		}
-	}
-	else
-	{
-		str = std::string(buffer,bufferLen);
-	}
-	printf( "***restamped caption: %s\n", str.c_str() );
-	return str;
-}
-
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
 {
 	(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment->fragment);
@@ -1339,7 +1264,11 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	else
 	{
 		// Restamp 2.0 only for DASH streams
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+		/*
+		* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
+		* after parsing the segment before sending to gstreamer.
+		*/
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
 		{
 			if ((pContext && pContext->trickplayMode))
 			{
@@ -1347,26 +1276,19 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 			else
 			{
-				/*
-				 * Ignore restamping for mp4demux here as the restamping will be done in the mp4demux
-				 * after parsing the segment before sending to gstreamer.
-				 */
-				if (!ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+				if (!cachedFragment->initFragment)
 				{
-					if (!cachedFragment->initFragment)
-					{
-						// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
-						// would then be missing and it is important for l2 tests
-						int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
+					// We could skip RestampPts when PTSOffsetSec==0 but the RestampPts log line
+					// would then be missing and it is important for l2 tests
+					int64_t ptsOffset = cachedFragment->PTSOffsetSec * cachedFragment->timeScale;
 
-						(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
-														cachedFragment->uri, name,
-														cachedFragment->timeScale);
-					}
-					else
-					{
-						ClearMediaHeaderDuration(cachedFragment);
-					}
+					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
+													cachedFragment->uri, name,
+													cachedFragment->timeScale);
+				}
+				else
+				{
+					ClearMediaHeaderDuration(cachedFragment);
 				}
 			}
 		}
@@ -1386,22 +1308,26 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				{
 					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 					{
-						AAMPLOG_WARN( "blocking subtitle track injection\n" );
+						AAMPLOG_WARN( "blocking subtitle track injection waiting for pts_offset[%" PRIu64 "]", cachedFragment->discontinuityIndex );
 						pContext->aamp->interruptibleMsSleep(1000);
 					}
 					else
 					{
-						auto firstElement = *pContext->mPtsOffsetMap.begin();
-						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex] - firstElement.second;
-						std::string str = RestampSubtitle(
-														  ptr,len,
-														  cachedFragment->position,
-														  cachedFragment->duration,
-														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.assign(str.begin(), str.end());
+						// Video and subtitle segments from the same discontinuity share the same
+						// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
+						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
 						if(mSubtitleParser)
 						{
-							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
+							// DASH-style PTS-offset propagation: rather than rewriting MPEGTS in
+							// the VTT header (RestampSubtitle), push the per-fragment pts offset
+							// down into the subtec parser and forward the buffer unchanged. The
+							// subtec channel applies the offset to media_PTS so cue display time
+							// aligns with the restamped video PTS.
+											const std::string_view vttView{ptr, len};
+											const bool mpegtsIsZero = (vttView.find("MPEGTS:0") != std::string_view::npos);
+											mSubtitleParser->setPtsOffset(mpegtsIsZero ? 0.0 : cachedFragment->PTSOffsetSec);
+											mSubtitleParser->processData(
+												ptr, len, cachedFragment->position, cachedFragment->duration);
 						}
 						break;
 					}
@@ -1518,6 +1444,13 @@ bool MediaTrack::InjectFragment()
 					if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
 					{
 						aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
+					}
+					// Stop underflow monitor — all VOD fragments are injected;
+					// the GStreamer EOS bubble is now in flight and no further
+					// fragment arrivals are expected, so underflow detection is invalid.
+					if (!aamp->IsLive() && type == eTRACK_VIDEO)
+					{
+						pContext->StopUnderflowMonitor();
 					}
 				}
 				else
@@ -1959,7 +1892,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false), mTimeBasedBufferManager(nullptr)
-		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
+		,m_totalDurationForPtsRestamping(0.0)
 {
 	const int sldCacheSize = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 
@@ -2057,6 +1990,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false), mPipelineFlushStatus(false), mAudiostateChangeCount(0),
 		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
 		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
+		mSavedLatencyMonitorState (false),
 		mIsPlaybackStalled(false), mTuneType(), mLock(),
 		mCond(), mLastVideoFragCheckedForABR(0), mLastVideoFragParsedTimeMS(0),
 		mSubCond(), mAudioTracks(), mTextTracks(),mABRHighBufferCounter(0),mABRLowBufferCounter(0),mMaxBufferCountCheck(0),
@@ -3805,9 +3739,18 @@ double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
 		return bufferValue;
 	}
 	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
-	if(audio)
+	if(audio && audio->enabled)
 	{
 		bufferValue = GetBufferValue(audio);
+	}
+	else if(IsMuxedStream())
+	{
+		// For muxed A/V playback, report video buffer duration as audio buffer duration
+		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+		if(video)
+		{
+			bufferValue = GetBufferValue(video);
+		}
 	}
 	return bufferValue;
 }
@@ -4178,12 +4121,25 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
+					
+					// Set playback rate
+					track->playContext->setRate(aamp->rate, PlayMode_normal);
+					
+					// Set trickplay FPS for the demuxer
+					int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+					
+					track->playContext->setFrameRateForTM(trickPlayFPS);
 				}
 				else
 				{
 					track->playContext = nullptr;
 				}
 			}
+		}
+		else if (track && track->enabled && track->playContext != nullptr)
+		{
+			// playContext already exists (e.g. period change) - update rate only.
+			track->playContext->setRate(aamp->rate, PlayMode_normal);
 		}
 	}
 }
@@ -4763,8 +4719,31 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
 	SetTrickplayMode(rate);
 	ResetTrickModePtsRestamping();
-	if (!aamp->GetLLDashChunkMode())
+
+	// Why this is needed:
+	//   On a rate change (trickplay/seek), StreamAbstractionAAMP_MPD is reused —
+	//   InitializeMediaProcessor is NOT re-called. This loop is therefore the only
+	//   mechanism to update the rate on already-live processor instances.
+	//
+	// Why the old GetLLDashChunkMode() guard was removed:
+	//   Previously setRate was skipped in LL-DASH chunk mode to protect the live-edge
+	//   recording processor (IsoBmffProcessor) from receiving a trickplay rate while it
+	//   was assembling live chunks. That concern is now moot for two reasons:
+	//   1. IsoBmffProcessor PTS restamping (guarded by isRestampConfigEnabled) is only
+	//      active for HLS/HLS-MP4 — calling setRate on a DASH processor is a no-op for
+	//      restamping purposes.
+	//   2. With AampMp4Demuxer enabled (eAAMPConfig_UseMp4Demux), rate MUST be propagated
+	//      so that AampMp4Demuxer::setRate sets mIsTrickMode and mRate correctly for
+	//      keyframe filtering and PTS restamping in TrickmodePtsRestamp(). Without this,
+	//      the demuxer retains rate=1.0 and sends all frames with incorrect PTS during
+	//      trickplay.
+	//
+	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_AUDIO; i++)
 	{
-		SetVideoPlaybackRate(rate);
+		MediaTrack *track = GetMediaTrack((TrackType) i);
+		if (track && track->enabled && track->playContext)
+		{
+			track->playContext->setRate(rate, PlayMode_normal);
+		}
 	}
 }

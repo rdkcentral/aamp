@@ -216,9 +216,9 @@ protected:
 	void SetUp() override
 	{
 		// Initialize mocks with smart pointers
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		g_mockDRMSessionManager = new NiceMock<MockDRMSessionManager>();
-		g_mockAampLicenseManager = new NiceMock<MockAampLicenseManager>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockDRMSessionManager = std::make_shared<NiceMock<MockDRMSessionManager>>();
+		g_mockAampLicenseManager = std::make_shared<NiceMock<MockAampLicenseManager>>();
 		mPrivateInstanceAAMP = std::make_unique<PrivateInstanceAAMP>();
 		mAampDRMLicenseManager = std::make_unique<AampDRMLicenseManager>(5, mPrivateInstanceAAMP.get());
 
@@ -238,14 +238,11 @@ protected:
 		mAampDRMLicenseManager.reset();
 		mPrivateInstanceAAMP.reset();
 
-		delete g_mockAampLicenseManager;
-		g_mockAampLicenseManager = nullptr;
+		g_mockAampLicenseManager.reset();
 
-		delete g_mockDRMSessionManager;
-		g_mockDRMSessionManager = nullptr;
+		g_mockDRMSessionManager.reset();
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 	}
 
 	/**

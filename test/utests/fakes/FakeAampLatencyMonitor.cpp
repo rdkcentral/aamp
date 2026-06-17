@@ -26,7 +26,7 @@
 #include "AampLatencyMonitor.h"
 #include "MockAampLatencyMonitor.h"
 
-MockAampLatencyMonitor *g_mockAampLatencyMonitor = nullptr;
+std::shared_ptr<MockAampLatencyMonitor> g_mockAampLatencyMonitor{};
 
 AampLatencyMonitor::AampLatencyMonitor(PrivateInstanceAAMP* aamp)
 	: mAamp{aamp}
@@ -52,6 +52,10 @@ AampLatencyMonitor::~AampLatencyMonitor()
 
 void AampLatencyMonitor::Start(const LatencyConfig& config)
 {
+	if (g_mockAampLatencyMonitor != nullptr)
+	{
+		g_mockAampLatencyMonitor->Start(config);
+	}
 }
 
 void AampLatencyMonitor::Stop()

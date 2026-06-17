@@ -195,7 +195,7 @@ Mp4Demux::~Mp4Demux()
 	LogMetrics();
 }
 
-void Mp4Demux::setParseError( Mp4ParseError err )
+void Mp4Demux::setParseError( Mp4ParseError err, const char* what )
 {
 	parseError = err;
 	const char *text = nullptr;
@@ -250,7 +250,14 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 			text = "UNEXPECTED_IS_ENCRYPTED_FIELD";
 			break;
 	}
-	MP4_LOG_ERR( "%s", text );
+	if (what && what[0] != '\0')
+	{
+		MP4_LOG_ERR( "%s: %s", text, what );
+	}
+	else
+	{
+		MP4_LOG_ERR( "%s", text );
+	}
 }
 
 /**
@@ -645,12 +652,19 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
  * - Initialization vector (IV)
  * - Subsample encryption information (clear/encrypted byte pairs)
  * - Cipher mode and pattern encryption settings
+ *
+ * @param next Pointer to next box
  */
-void Mp4Demux::ParseSampleEncryption()
+void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t sampleCount = ReadU32();
 	uint64_t maxSampleCount = sampleOffset + sampleCount;
+	MP4_LOG_DEBUG("senc: sampleCount=%" PRIu32 " ivSize=%u flags=0x%x subSamplePresent=%d boxRemaining=%zu",
+		sampleCount, ivSize, flags,
+		(flags & SENC_SUBSAMPLE_ENCRYPTION_PRESENT) ? 1 : 0,
+		static_cast<size_t>(next - ptr));
+
 	if (samples.size() != maxSampleCount)
 	{
 		throw Mp4ParseException(MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH, "senc: sampleCount mismatch");
@@ -712,11 +726,12 @@ void Mp4Demux::ParseTrackRun()
 		int32_t dataOffset = ReadI32();
 		dataPtr += dataOffset;
 	}
-	uint32_t sampleFlags = 0;
+	// ISO 14496-12: TRUN_FIRST_SAMPLE_FLAGS_PRESENT overrides the first sample only;
+	// TRUN_SAMPLE_FLAGS_PRESENT provides per-sample flags; otherwise use defaultSampleFlags.
+	uint32_t firstSampleFlags = 0;
 	if (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT)
 	{
-		sampleFlags = ReadU32();
-		(void)sampleFlags;
+		firstSampleFlags = ReadU32();
 	}
 	uint64_t dts = baseMediaDecodeTime;
 	for (auto i = 0u; i < sampleCount; i++)
@@ -732,11 +747,18 @@ void Mp4Demux::ParseTrackRun()
 		{
 			sampleLen = ReadU32();
 		}
+		uint32_t effectiveSampleFlags = defaultSampleFlags;
 		if (flags & TRUN_SAMPLE_FLAGS_PRESENT)
-		{ // rarely present?
-			sampleFlags = ReadU32();
-			(void)sampleFlags;
+		{ // per-sample flags present in TRUN
+			effectiveSampleFlags = ReadU32();
 		}
+		else if (i == 0 && (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT))
+		{ // first-sample-only override (mutually exclusive with TRUN_SAMPLE_FLAGS_PRESENT)
+			effectiveSampleFlags = firstSampleFlags;
+		}
+		// ISO 14496-12 sample_flags bit 16: sample_is_non_sync_sample
+		// 0 = sync/key frame (I-frame), 1 = non-sync sample
+		bool isKeyFrame = (effectiveSampleFlags & 0x00010000) == 0;
 		int32_t sampleCompositionTimeOffset = 0;
 		if (flags & TRUN_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)
 		{ // for samples where pts and dts differ (overriding 'trex')
@@ -751,6 +773,7 @@ void Mp4Demux::ParseTrackRun()
 		pendingSample.mDts      = dts / (double)timeScale;
 		pendingSample.mPts      = (dts + sampleCompositionTimeOffset) / (double)timeScale;
 		pendingSample.mDuration = sampleDuration / (double)timeScale;
+		pendingSample.mIsKeyFrame = isKeyFrame;
 		mSampleInfo.emplace_back(pendingSample);
 		dataPtr += sampleLen;
 		dts += sampleDuration;
@@ -788,11 +811,12 @@ void Mp4Demux::ProcessSamples()
 		AampMediaSample& s = samples[pending.sampleIdx];
 		// Aliasing constructor: mData shares mCurrentSegment's refcount but
 		// points directly at the sample payload within that buffer.
-		s.mData     = std::shared_ptr<const uint8_t>(mCurrentSegment, dataPtr);
-		s.mDataSize = sampleLen;
-		s.mDts      = pending.mDts;
-		s.mPts      = pending.mPts;
-		s.mDuration = pending.mDuration;
+		s.mData       = std::shared_ptr<const uint8_t>(mCurrentSegment, dataPtr);
+		s.mDataSize   = sampleLen;
+		s.mDts        = pending.mDts;
+		s.mPts        = pending.mPts;
+		s.mDuration   = pending.mDuration;
+		s.mIsKeyFrame = pending.mIsKeyFrame;
 	}
 	mSampleInfo.clear();
 }
@@ -1219,7 +1243,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ParseSampleAuxiliaryInformationSizes();
 				break;
 			case MultiChar_Constant("senc"): // modern, optional
-				ParseSampleEncryption();
+				ParseSampleEncryption(next);
 				break;
 			case MultiChar_Constant("tfhd"):
 				ParseTrackFragmentHeader();
@@ -1320,6 +1344,9 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ptr = next; // skip payload
 				break;
 			default:
+				// Unknown/unhandled box — skip payload and continue
+				MP4_LOG_WARN("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
+				ptr = next;
 				break;
 		}
 		if (ptr != next)
@@ -1403,7 +1430,7 @@ bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 			MP4_LOG_DEBUG("Demux metrics: %u frames in %.3f ms", frameCount, demuxDuration.count());
 		}
 	} catch (const Mp4ParseException& ex) {
-		setParseError(ex.code());
+		setParseError(ex.code(), ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error

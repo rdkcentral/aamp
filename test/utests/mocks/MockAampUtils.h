@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_UTILS_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "main_aamp.h"
 #include "InterfacePlayerRDK.h"
 class MockAampUtils
@@ -38,8 +39,10 @@ public:
 	MOCK_METHOD(double, GetNetworkTime, (const std::string& remoteUrl, int *http_error , std::string NetworkProxy));
 
 	MOCK_METHOD(std::string, Getiso639map_NormalizeLanguageCode, (std::string, LangCodePreference));
+	MOCK_METHOD(std::string, getHostFromURL, (std::string));
+	MOCK_METHOD(bool, isLocalHost, (std::string));
 };
 
-extern MockAampUtils *g_mockAampUtils;
+extern std::shared_ptr<MockAampUtils> g_mockAampUtils;
 
 #endif /* AAMP_MOCK_AAMP_UTILS_H */
