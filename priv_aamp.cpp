@@ -13245,7 +13245,7 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 
 
 	//Added out of bound check to prevent crash in case of currentTrackIndex is more than available tracks.
-	if (currentTrackIndex >= 0 && !(currentTrackIndex >= static_cast<int>(trackInfo.size())))
+	if (currentTrackIndex >= 0 && (currentTrackIndex < static_cast<int>(trackInfo.size())))
 	{
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
 		char *currentPrefRendition = const_cast<char *>(trackInfo[currentTrackIndex].rendition.c_str());
@@ -13335,11 +13335,8 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	}
 	else
 	{
-		if (currentTrackIndex >= static_cast<int>(trackInfo.size()))
-		{
-			AAMPLOG_WARN("CheckPreferredTextLanguages: currentTrackIndex=%d out of bounds (trackInfo.size()=%zu), treating as no selection",
+			AAMPLOG_INFO("CheckPreferredTextLanguages: currentTrackIndex=%d , trackInfo.size()=%zu either no track is currently selected or currentTrackIndex is out of bounds, so we will check for closed caption track index if there is one",
 						 currentTrackIndex, trackInfo.size());
-		}
 		isSelectionChange = true;
 		// no track is currently selected but need to find closedCaptionTrackIdx if there is one
 	}
