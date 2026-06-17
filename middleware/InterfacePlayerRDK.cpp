@@ -3173,12 +3173,6 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		}
 		resetTrickUTC = interfacePlayerPriv->socInterface->ResetTrickUTC();
 
-		if (eGST_MEDIATYPE_SUBTITLE == mediaType)
-		{
-			MW_LOG_INFO("patrick");
-			SetSubtitleMute(interfacePlayerPriv->gstPrivateContext->subtitleMuted);
-		}
-
 	}
 	if (eGST_MEDIATYPE_VIDEO == mediaType)
 	{
@@ -4376,6 +4370,13 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask, pInterfacePlayerRDK->IdleCallbackFirstVideoFrameDisplayed);
 				}
 
+				// Subtitle unmute lost in SetupStream() because gstreamer not ready
+				// So, set subtitle mute state when first frame is received
+				if (privatePlayer->gstPrivateContext->subtitle_sink && !privatePlayer->gstPrivateContext->subtitleMuted)
+				{
+					MW_LOG_INFO("patrick");
+					pInterfacePlayerRDK->SetSubtitleMute(privatePlayer->gstPrivateContext->subtitleMuted);
+				}
 			}
 			//this code should be handled as part of IARM modification
 			if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
