@@ -750,7 +750,8 @@ void AampRialtoPlayer::AttachSource(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
 		m_pendingFlushPositionNs.load(std::memory_order_relaxed),
 		m_pendingProtection[static_cast<size_t>(type)],
-		computeAppliedRate());
+		computeAppliedRate(
+			m_pendingFlushRate.load(std::memory_order_relaxed)));
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
 	    result == AampRialtoMediaSource::AttachResult::UPDATED)
@@ -962,6 +963,12 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 
+	// Stage latest flush parameters first so re-entrant Flush() calls while
+	// FLUSHING can still retarget the pending segment start and applied rate.
+	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
+	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
+
 	// shouldTearDown controls recovery behavior when NOT in PLAYING/PAUSED states.
 	// - PLAYING/PAUSED: Always proceed with flush (shouldTearDown ignored)
 	// - Other states + shouldTearDown=true: Call Stop() for recovery/cleanup
@@ -972,6 +979,13 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	const PlayerStateId state = m_stateMachine.currentState();
 	const bool isPlayingOrPaused = (state == PlayerStateId::PLAYING ||
 	                                state == PlayerStateId::PAUSED);
+	if (state == PlayerStateId::FLUSHING)
+	{
+		AAMPLOG_INFO("Flush requested while already FLUSHING - updated pending position/rate only (position=%f rate=%d shouldTearDown=%d)",
+			position, rate, shouldTearDown);
+		AAMPLOG_INFO("EXIT - already flushing");
+		return;
+	}
 
 	if (!isPlayingOrPaused && shouldTearDown)
 	{
@@ -1001,17 +1015,9 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		}
 	}
 
-	// Store the segment start position so it can be forwarded to the Rialto
-	// server via setSourcePosition() for every attached source.  This is
-	// required to make the Rialto server emit a GStreamer segment event
-	// before the first buffer; without it pushSampleIfRequired() is a no-op
-	// and frames at large live-stream PTS values (e.g. 12542 s) are never
-	// rendered by the downstream decoder.
-	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
-	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
-
 	if (m_pipeline)
 	{
+		bool anyAttachedSource = false;
 		// Mark each attached source as flushing *before* sending the
 		// IPC flush command so OnSourceFlushed() can call
 		// setSourcePosition() once the server confirms the flush.
@@ -1019,16 +1025,34 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		{
 			if (source && source->isAttached())
 			{
+				anyAttachedSource = true;
 				source->setFlushing(true);
 				source->flushSource(*m_pipeline, posNs);
 			}
 		}
-	}
 
-	// Store the new rate so GetPositionMilliseconds() can multiply elapsed
-	// time correctly (negative for reverse trickplay - mirrors GStreamer's
-	//   rc = (pos - segmentStart) * rate).
-	m_rate.store(rate, std::memory_order_relaxed);
+		// If no source is attached, there will be no SourceFlushedEvent to
+		// commit the pending rate. Commit it immediately so position
+		// calculations after Flush() observe the requested trickplay rate.
+		if (!anyAttachedSource)
+		{
+			m_rate.store(
+				m_pendingFlushRate.load(std::memory_order_relaxed),
+				std::memory_order_relaxed);
+			AAMPLOG_INFO("No attached sources to flush - committed playback rate=%d",
+				m_rate.load(std::memory_order_relaxed));
+		}
+	}
+	else
+	{
+		// With no pipeline there can be no SourceFlushedEvent callback, so
+		// commit the pending rate immediately.
+		m_rate.store(
+			m_pendingFlushRate.load(std::memory_order_relaxed),
+			std::memory_order_relaxed);
+		AAMPLOG_INFO("No pipeline during flush - committed playback rate=%d",
+			m_rate.load(std::memory_order_relaxed));
+	}
 
 	// m_firstPtsMs is reset automatically on each source by
 	// invalidateGeneration() (called above), so the next injection into
@@ -1589,15 +1613,14 @@ void AampRialtoPlayer::OnBufferUnderflow(int32_t sourceId)
 	m_notifiable->NotifyBufferUnderflow(source->mediaType());
 }
 
-double AampRialtoPlayer::computeAppliedRate() const
+double AampRialtoPlayer::computeAppliedRate(int candidateRate) const
 {
 	if (m_pipelineCapabilities)
 	{
 		bool videoMaster = false;
 		if (m_pipelineCapabilities->isVideoMaster(videoMaster) && !videoMaster)
 		{
-			return static_cast<double>(
-				m_rate.load(std::memory_order_relaxed));
+			return static_cast<double>(candidateRate);
 		}
 	}
 	return 1.0;
@@ -1619,13 +1642,32 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 		// and causing an immediate END_OF_STREAM on the next play().
 		const int64_t posNs =
 			m_pendingFlushPositionNs.load(std::memory_order_relaxed);
+		const int pendingRate =
+			m_pendingFlushRate.load(std::memory_order_relaxed);
 		if (m_pipeline &&
 			!m_pipeline->setSourcePosition(
 				sourceId, posNs, /*resetTime=*/true,
-				computeAppliedRate()))
+				computeAppliedRate(pendingRate)))
 		{
 			AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
 				sourceId);
+		}
+
+		bool allSourcesFlushed = true;
+		for (const auto &s : m_sources)
+		{
+			if (s && s->isFlushing())
+			{
+				allSourcesFlushed = false;
+				break;
+			}
+		}
+
+		if (allSourcesFlushed)
+		{
+			m_rate.store(pendingRate, std::memory_order_relaxed);
+			AAMPLOG_INFO("All sources flushed - committed playback rate=%d",
+				pendingRate);
 		}
 
 		// If Stream() was called while this source was still flushing,
@@ -1633,25 +1675,21 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 		// sends the GStreamer SEGMENT event.  Now that this source's
 		// setSourcePosition() has been sent, check whether all sources have
 		// finished flushing and, if so, issue the deferred play().
-		if (m_playRequested.load(std::memory_order_seq_cst) &&
+		if (allSourcesFlushed &&
+		    m_playRequested.load(std::memory_order_seq_cst) &&
 		    m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
 		{
-			for (const auto &s : m_sources)
-			{
-				if (s && s->isFlushing())
-				{
-					AAMPLOG_INFO("source %d still flushing - play() still deferred",
-						s->sourceId());
-					AAMPLOG_INFO("EXIT");
-					return;
-				}
-			}
 			AAMPLOG_INFO("All sources flushed - issuing deferred play()");
 			bool async = false;
 			if (!m_pipeline->play(async))
 			{
 				AAMPLOG_ERR("play() failed after flush");
 			}
+		}
+		else if (!allSourcesFlushed)
+		{
+			AAMPLOG_INFO("source %d still flushing - play() still deferred",
+				sourceId);
 		}
 	}
 	else

@@ -2984,6 +2984,84 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 }
 
+static void SetupCapabilities(
+	std::shared_ptr<NiceMock<MockIMediaPipelineCapabilitiesFactory>> &factory,
+	bool querySucceeds,
+	bool videoMaster);
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_AlreadyFlushing_SkipsSecondPipelineFlushButUpdatesRateAndPosition)
+{
+	/**
+	 * @brief A second Flush() while already in FLUSHING should not re-issue
+	 *        pipeline flush IPC, but must still update staged position/rate.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	// First flush transitions SOURCES_ATTACHED -> FLUSHING.
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(1);
+	m_player->Flush(/*position=*/10.0, /*rate=*/2, /*shouldTearDown=*/false);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Precondition: first Flush() must put player into FLUSHING";
+
+	// Re-entrant flush while FLUSHING: no second pipeline flush command.
+	m_player->Flush(/*position=*/33.0, /*rate=*/-4, /*shouldTearDown=*/false);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Re-entrant Flush() must keep player in FLUSHING";
+
+	// Pending position used by OnSourceFlushed() must reflect latest flush.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(33'000'000'000LL),
+			/*resetTime=*/true, _, _))
+		.WillOnce(Return(true));
+	PostSourceFlushed(/*sourceId=*/0);
+
+	// GetPositionMilliseconds() must use latest rate from second flush.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_MultiSource_CommitsRateAfterAllSourcesFlushed)
+{
+	/**
+	 * @brief Flush() stages pending rate immediately, but active playback rate
+	 *        must change only after every attached source reports flushed.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/false);
+
+	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
+
+	// First source flushed -> active rate must remain old value (1x).
+	PostSourceFlushed(/*sourceId=*/0);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
+
+	// Second source flushed -> pending rate commits to active rate.
+	PostSourceFlushed(/*sourceId=*/1);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
+}
+
 // ===========================================================================
 // appliedRate selection in setSourcePosition — isVideoMaster integration
 // ===========================================================================

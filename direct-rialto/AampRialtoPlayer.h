@@ -323,6 +323,10 @@ private:
 	/// giving a negative delta for reverse trickplay (rate < 0).
 	std::atomic<int> m_rate{1};
 
+	/// Pending playback rate staged by Flush() for the current flush cycle.
+	/// Becomes active in m_rate once all sources report SourceFlushedEvent.
+	std::atomic<int> m_pendingFlushRate{1};
+
 	/// Set to true once the first PLAYING playback state is forwarded to
 	/// the notifiable.  Reset to false on each Configure() call so that
 	/// re-tunes correctly forward the first-frame notification again.
@@ -500,10 +504,10 @@ private:
 	 * @brief Compute the appliedRate to pass to setSourcePosition().
 	 *
 	 * Queries IMediaPipelineCapabilitiesFactory for the isVideoMaster
-	 * property.  Returns the stored playback rate when the query
-	 * succeeds and isVideoMaster is false; returns 1.0 otherwise.
+	 * property.  Returns @p candidateRate when the query succeeds and
+	 * isVideoMaster is false; returns 1.0 otherwise.
 	 */
-	double computeAppliedRate() const;
+	double computeAppliedRate(int candidateRate) const;
 
 	/**
 	 * @brief Call allSourcesAttached() once every expected source has
