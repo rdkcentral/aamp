@@ -1674,3 +1674,48 @@ TEST_F(FunctionalTests, Multiperiod_StartTimeLive4)
 	EXPECT_EQ(periodIdx, 2);
 	EXPECT_NEAR(periodDuration2, 212107, 1);
 }
+
+TEST_F(FunctionalTests, Multiperiod_StartTimeStatic_LastPeriodReturnsZero)
+{
+	dash::mpd::IMPD *mpd;
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" minBufferTime="PT1.500S" maxSegmentDuration="PT2S">
+  <Period id="p0" start="PT0S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate duration="2000" initialization="v_init.mp4" media="v_$Number$.m4s" startNumber="1" timescale="1000" />
+      <Representation id="v0" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+  <Period id="p1" start="PT40S">
+    <AdaptationSet contentType="video" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="v_init.mp4" media="v_$Number$.m4s" startNumber="1" timescale="1000">
+				<SegmentTimeline>
+					<S t="40000" d="2000" r="0"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+      <Representation id="v1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" bandwidth="1000000" />
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr respData = GetManifestForMPDDownloader();
+	mpd = respData->mMPDInstance.get();
+	ParseHelper->Initialize(mpd);
+
+	ASSERT_NE(mpd, nullptr);
+	ASSERT_EQ(mpd->GetPeriods().size(), 2);
+	EXPECT_EQ(ParseHelper->IsLiveManifest(), false);
+
+	int firstPeriodIdx = 0;
+	double firstPeriodDurationMs = ParseHelper->GetPeriodDurationFromStart(firstPeriodIdx);
+	EXPECT_EQ(firstPeriodIdx, 1);
+	EXPECT_EQ(firstPeriodDurationMs, 40000);
+
+	int secondPeriodIdx = 1;
+	double secondPeriodDurationMs = ParseHelper->GetPeriodDurationFromStart(secondPeriodIdx);
+	EXPECT_EQ(secondPeriodIdx, 1);
+	EXPECT_EQ(secondPeriodDurationMs, 0);
+}

@@ -371,6 +371,7 @@ static int main_func(int argc, char **argv)
 	AAMPCLI_PRINTF("**************************************************************************\n");
 	AAMPCLI_PRINTF("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
 	AAMPCLI_PRINTF("**************************************************************************\n");
+	AAMPCLI_PRINTF("PID: %d\n", static_cast<int>(getpid()));
 
 	mAampcli.initPlayerLoop(0,NULL);
 	mAampcli.newPlayerInstance();

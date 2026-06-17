@@ -138,6 +138,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	mPrevAdaptationSetCount(0), mBitrateIndexVector(), mProfileMaps(), mIsFogTSB(false),
 	mCurrentPeriod(NULL), mBasePeriodId(""), mBasePeriodOffset(0), mCdaiObject(NULL), mLiveEndPosition(0), mCulledSeconds(0)
 	,mAdPlayingFromCDN(false)
+	,mPostRollAdPlaybackDone(false)
 	,mMaxTSBBandwidth(0), mTSBDepth(0)
 	,mVideoPosRemainder(0)
 	,mPresentationOffsetDelay(0)
@@ -9710,6 +9711,18 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				break;
 			}
 
+			// Post-roll on static manifest (cold CDVR/iVOD): after the post-roll ad finishes
+			// and state returns to OUTSIDE_ADBREAK, there is no more source content to play.
+			// Break out so CheckEndOfStream can trigger EOS instead of refreshing the manifest.
+			if (mPostRollAdPlaybackDone && adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState)
+			{
+				AAMPLOG_INFO("[CDAI] Post-roll ad playback done on static manifest. Triggering EOS path.");
+				mPostRollAdPlaybackDone = false;
+				waitForAdBreakCatchup = false;
+				ret = false;
+				break;
+			}
+
 			// If adStateChanged is true with OUTSIDE_ADBREAK, it means the current ad break playback completed.
 			// We need to check if the new period is also having ads.
 			if (adStateChanged && AdState::OUTSIDE_ADBREAK == mCdaiObject->mAdState)
@@ -10311,12 +10324,12 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				{
 					// For live stream in ad break, avoid fetching next segment if current fragment time is exceeding the live edge
 					// This is to avoid unnecessary fetch and also to avoid fetching segments which are not expected to be played
-					const bool exceedsLiveEdge = mCdaiObject &&
+					const bool exceedsLiveEdge = mIsLiveManifest && mCdaiObject &&
 							(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState) &&
 							(mMediaStreamContext[trackIdx]->fragmentTime >= aamp->mAbsoluteEndPosition);
 					// When injecting from TSB reader then fetcher should ignore the cache full status
 					cacheFullStatus[trackIdx] = !aamp->IsLocalAAMPTsbInjection();
-					if (!mMediaStreamContext[trackIdx]->eos && !exceedsLiveEdge)
+					if (!mMediaStreamContext[trackIdx]->eos && (!exceedsLiveEdge))
 					{
 						if (parallelDnld && trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
 						{
@@ -10372,7 +10385,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 				bool vEos = mMediaStreamContext[eMEDIATYPE_VIDEO]->eos;
 				bool audioEnabled = (mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled);
+			
 				bool aEos = (audioEnabled && mMediaStreamContext[eMEDIATYPE_AUDIO]->eos);
+				AAMPLOG_TRACE("vEos:%d aEos:%d audioEnabled:%d", vEos, aEos, audioEnabled);
 				if (vEos || aEos)
 				{
 					bool eosOutSideAd = (AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState &&
@@ -10384,7 +10399,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					{
 						if (vEos)
 						{
-							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
 							mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 							mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 						}
@@ -12625,7 +12639,15 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
 					reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_END;
 					reservationEndReason = GetAdReservationEndReason(curAdFailed, curAdCancelled);
-					sendImmediate = curAdFailed;	//Current Ad failed. Hence may not get discontinuity from gstreamer.
+					sendImmediate = curAdFailed;    //Current Ad failed. Hence may not get discontinuity from gstreamer.
+					// For a post-roll on a static manifest (cold CDVR/iVOD), mark playback done
+					// so SelectSourceOrAdPeriod triggers EOS instead of refreshing the manifest.
+					// Must check before mCurPlayingBreakId is cleared below.
+					if (mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mIsPostRollAdBreak)
+					{
+						mPostRollAdPlaybackDone = true;
+						AAMPLOG_INFO("[CDAI] Post-roll ad playback complete. Will trigger EOS path in SelectSourceOrAdPeriod.");
+					}
 					mCdaiObject->mCurPlayingBreakId = "";
 					mCdaiObject->mCurAds = nullptr;
 					mCdaiObject->mCurAdIdx = -1;
@@ -12734,9 +12756,13 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			if(AAMP_EVENT_AD_PLACEMENT_START == placementEvt2Send || AAMP_EVENT_AD_PLACEMENT_END == placementEvt2Send || AAMP_EVENT_AD_PLACEMENT_ERROR == placementEvt2Send)
 			{
 				uint32_t adDuration = 30000;
-				if(AAMP_EVENT_AD_PLACEMENT_START == placementEvt2Send)
+				// Use current ad metadata for start/end/error so event payloads report the real ad duration.
+				if (mCdaiObject->mCurAds && mCdaiObject->mCurAdIdx >= 0 && mCdaiObject->mCurAdIdx < (int)mCdaiObject->mCurAds->size())
 				{
 					adDuration = (uint32_t)mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).duration;
+				}
+				if(AAMP_EVENT_AD_PLACEMENT_START == placementEvt2Send)
+				{
 					adPos2Send += adOffset;
 					aamp->SendAnomalyEvent(ANOMALY_TRACE, "[CDAI] AdId=%s starts. Duration=%u sec URL=%s",
 						adId2Send.c_str(),(adDuration/1000), mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).url.c_str());

@@ -231,7 +231,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 	}
 	if(mpd && (-1 != mPlacementObj.curAdIdx) && "" != mPlacementObj.pendingAdbrkId && isAdBreakObjectExist(mPlacementObj.pendingAdbrkId))
 	{
-		AAMPLOG_INFO("[CDAI] PlaceAds started for adbreak:%s curAdIdx:%d", mPlacementObj.pendingAdbrkId.c_str(), mPlacementObj.curAdIdx);
+		AAMPLOG_DEBUG("[CDAI] PlaceAds started for adbreak:%s curAdIdx:%d", mPlacementObj.pendingAdbrkId.c_str(), mPlacementObj.curAdIdx);
 		AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
 		vector<IPeriod *> periods = mpd->GetPeriods();
 		if(!abObj.adjustEndPeriodOffset) // not all ads are placed
@@ -654,8 +654,22 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						// 1) The current period duration is significantly longer that the inserted ADs
 						// 2) Just closing the current period and the next period start not added to manifest.
 
-						AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64,
-							 periods.at(iter)->GetId().c_str(), periodDelta);
+						// For static manifests the last period has no following period, so
+						// currPeriodDuration will always be 0 and periodDelta will always be 0.
+						// In that case (post-roll ad), treat placement as complete immediately.
+						if (iter == (int)periods.size() - 1 && !adMPDParseHelper->IsLiveManifest())
+						{
+							abObj.adjustEndPeriodOffset = false;
+							abObj.mAdBreakPlaced = true;
+							abObj.mIsPostRollAdBreak = true;
+							AAMPLOG_INFO("[CDAI] Last period in static manifest (post-roll): placement done for period %s offset %" PRIu64,
+								periods.at(iter)->GetId().c_str(), abObj.endPeriodOffset);
+						}
+						else
+						{
+							AAMPLOG_INFO("[CDAI] Next period start not available. Waiting at currentPeriod %s periodDelta %" PRIi64,
+								periods.at(iter)->GetId().c_str(), periodDelta);
+						}
 
 					}
 					else if (currPeriodDuration != 0 && diff < OFFSET_ALIGN_FACTOR )
