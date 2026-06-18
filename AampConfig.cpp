@@ -521,7 +521,6 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_UNDERFLOW_RESUME_THRESHOLD_SEC, "underflowResumeThresholdSec", eAAMPConfig_UnderflowResumeThresholdSec, true},
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_SEC, "underflowLowBufferSec", eAAMPConfig_UnderflowLowBufferSec, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_SEC, "underflowHighBufferSec", eAAMPConfig_UnderflowHighBufferSec, true},
-	{DEFAULT_UNDERFLOW_EOS_END_TOLERANCE_SEC, "underflowEosEndToleranceSec", eAAMPConfig_UnderflowEosEndToleranceSec, true},
 	{DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC, "bufferLevelToEnableLatencySec", eAAMPConfig_BufferLevelToEnableCorrectionSec, false},
 	{DEFAULT_REBUFFER_LATENCY_STEP_SEC, "rebufferLatencyStepSec", eAAMPConfig_RebufferLatencyStepSec, false},
 	{DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC, "rebufferLatencyMaxIncrementSec", eAAMPConfig_RebufferLatencyMaxIncrementSec, false},

@@ -29,6 +29,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockIsoBmffBuffer.h"
+#include "MockStreamAbstractionAAMP.h"
 
 // #include "fragmentcollector_mpd.h"
 #include "isobmff/isobmffprocessor.h"
@@ -40,6 +41,11 @@ using namespace testing;
 static constexpr uint32_t PLAYBACK_TIMESCALE{90000};
 
 AampConfig *gpGlobalConfig{nullptr};
+
+// Defined here (not via libfakes) so FakeStreamAbstractionAamp.cpp.o is not
+// loaded from the archive — which would cause duplicate-symbol errors with the
+// streamabstraction.cpp that is compiled directly into this test binary.
+std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP{};
 
 class MediaTrackTest : public MediaTrack
 {
@@ -410,8 +416,7 @@ TEST_F(TrackInjectTests, InjectFragment_VodEos_StopsUnderflowMonitor)
 	// Mark the video track at EOS and prepare the EOS-sentinel slot.
 	// fillCachedFragment increments numberOfFragmentsCached so that
 	// WaitForCachedFragmentAvailable() returns true (not "aborted").
-	// 
-  then clears fragment.capacity() to 0, which is the
+	// then clears fragment.capacity() to 0, which is the
 	// signal InjectFragment uses to trigger the EOS path.
 	mMediaTrack->eosReached = true;
 	mMediaTrack->fillCachedFragment(false, false);
