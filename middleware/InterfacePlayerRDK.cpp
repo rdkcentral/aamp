@@ -3463,7 +3463,22 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 		
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = nextState;
 		interfacePlayerPriv->gstPrivateContext->paused = pause;
-		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
+		/* RDKEMW-19484: On resume (pause=false), if the pipeline couldn't immediately transition to
+		 * PLAYING (GST_STATE_CHANGE_ASYNC) due to buffering_in_progress being true (set at live point
+		 * during ConfigurePipeline), the only path to drive PAUSED->PLAYING is via
+		 * NotifyFragmentCachingComplete(). That function is gated on pendingPlayState=true.
+		 * Clearing pendingPlayState=false here on an ASYNC resume would leave the pipeline stuck
+		 * in PAUSED indefinitely. Keep pendingPlayState=true for async resumes so the buffering
+		 * completion path can finish the transition.
+		 */
+		if (!pause && rc == GST_STATE_CHANGE_ASYNC)
+		{
+			interfacePlayerPriv->gstPrivateContext->pendingPlayState = true;
+		}
+		else
+		{
+			interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
+		}
 	}
 	else
 	{
