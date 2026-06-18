@@ -377,9 +377,8 @@ public:
 	/**
 	 * @brief Returns true when inband closed-caption mode is active.
 	 *
-	 * Default returns false; AampRialtoSubtitleSource overrides to expose
-	 * its m_inbandCC member so that handleNeedData() (which lives in the
-	 * base) can skip injection for inband-CC sources.
+	 * Default returns false; AampRialtoSubtitleSource overrides to return
+	 * true if the current selected subtitle is inband-CC.
 	 */
 	virtual bool isInbandCC() const { return false; }
 
