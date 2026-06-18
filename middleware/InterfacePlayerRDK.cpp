@@ -4378,7 +4378,6 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				if (privatePlayer->gstPrivateContext->subtitle_sink && !privatePlayer->gstPrivateContext->subtitleMuted)
 				{
 					MW_LOG_INFO("patrick");
-					SetStateWithWarnings(privatePlayer->gstPrivateContext->subtitle_sink, GST_STATE_PLAYING);
 					pInterfacePlayerRDK->SetSubtitleMute(false);
 				}
 			}
