@@ -485,6 +485,23 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		}
 		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
 		interfacePlayerPriv->gstPrivateContext->paused = false;
+		/* When the pipeline is already in PAUSED state (e.g. the user
+		 * paused before seeking, or a prior seek left the pipeline paused), calling
+		 * SetStateWithWarnings(PAUSED) returns GST_STATE_CHANGE_SUCCESS — no async state
+		 * transition occurs and therefore GST_MESSAGE_ASYNC_DONE is never received.
+		 * The bus_sync_handler arms bufferingTimeoutTimerId only on ASYNC_DONE, so the
+		 * timer would never start and the pipeline would stay stuck in PAUSED indefinitely.
+		 * Arm the buffering timer directly here to ensure the PAUSED→PLAYING transition
+		 * is still driven after sufficient data has been buffered.
+		 */
+		if (pipelineRc == GST_STATE_CHANGE_SUCCESS &&
+		    interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId == PLAYER_TASK_ID_INVALID)
+		{
+			MW_LOG_MIL("ConfigurePipeline: Pipeline already PAUSED (no ASYNC transition) — arming buffering timer directly");
+			interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId =
+				g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS,
+				                   buffering_timeout, this, NULL);
+		}
 	}
 	else
 	{
