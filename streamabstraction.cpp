@@ -911,15 +911,18 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 						}
 					}
 				}
-				else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && !context->GetESChangeStatus())
+				else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) && !context->GetESChangeStatus())
 				{
-					// AampMp4Demuxer maintains a monotonic PTS sequence via
-					// fragmentPTSoffset across period boundaries and signals
-					// format changes via SetStreamCaps().  No GStreamer EOS or
-					// inject-loop stop is needed for PTO-only discontinuities
-					// (PipelineFlushStatus set but no actual codec change).
+					// AampMp4Demuxer is only used for DASH content (mMediaFormat==DASH).
+					// It maintains a monotonic PTS sequence via fragmentPTSoffset across
+					// period boundaries and signals format changes via SetStreamCaps().
+					// No GStreamer EOS or inject-loop stop is needed for PTO-only
+					// discontinuities (PipelineFlushStatus set but no actual codec change).
 					// When ESChangeStatus is set (real codec change), fall through
 					// to the legacy EOS path so the pipeline is reconfigured.
+					// Non-DASH streams (e.g. HLS TS) must use the legacy EOS path even
+					// when eAAMPConfig_UseMp4Demux is set (the config is global but
+					// AampMp4Demuxer is not instantiated for HLS TS tracks).
 					context->ProcessDiscontinuity(type);
 					if (type != eTRACK_SUBTITLE)
 					{
