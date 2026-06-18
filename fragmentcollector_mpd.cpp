@@ -10738,9 +10738,23 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						// Decide whether to wait or exit
 						if (IsAtLiveEdge() && mCdaiObject->mAdState != AdState::IN_ADBREAK_WAIT2CATCHUP)
 						{
-							// At live edge, wait for manifest update to get new segments or period.
-							// Avoids tight looping.
-							WaitForManifestUpdate(snapshotCounter);
+							if (mPlayRate != AAMP_NORMAL_PLAY_RATE)
+							{
+								// Trickplay has consumed all available content at the live edge.
+								// Exit the fetch loop so the EOS already signalled to GStreamer can
+								// propagate cleanly (triggers SPEED_CHANGED rate=1.0 via NotifyEOS).
+								// Waiting for new live segments is incorrect here: the trickplay
+								// session is over and any new data pushed after EOS undoes the
+								// EOS signal from GStreamer's perspective.
+								AAMPLOG_MIL("Trickplay EOS at live edge, exiting fetch loop (rate=%.2f)", mPlayRate);
+								exitFetchLoop = true;
+							}
+							else
+							{
+								// Normal play at live edge: wait for manifest update to get new
+								// segments or a new period.  Avoids tight looping.
+								WaitForManifestUpdate(snapshotCounter);
+							}
 						}
 						else
 						{
