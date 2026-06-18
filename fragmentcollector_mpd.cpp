@@ -12436,8 +12436,16 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			}
 			break;
 		case AdState::IN_ADBREAK_AD_NOT_PLAYING:
-			if(AdEvent::BASE_OFFSET_CHANGE == evt || AdEvent::PERIOD_CHANGE == evt)
+			if(AdEvent::BASE_OFFSET_CHANGE == evt || AdEvent::PERIOD_CHANGE == evt ||
+			   (AdEvent::DEFAULT == evt && mPlayRate != AAMP_NORMAL_PLAY_RATE))
 			{
+				// During trickplay/seek, base-offset-change may not always fire promptly.
+				// Re-check ad start on DEFAULT so we can re-enter the ad state machine.
+				if (AdEvent::DEFAULT == evt)
+				{
+					AAMPLOG_TRACE("[CDAI] Re-evaluating ad start on DEFAULT in IN_ADBREAK_AD_NOT_PLAYING rate=%0.3f basePeriod=%s baseOffset=%lf",
+						mPlayRate, mBasePeriodId.c_str(), mBasePeriodOffset);
+				}
 				std::string brkId = "";
 				int adIdx = mCdaiObject->CheckForAdStart(mPlayRate, false, mBasePeriodId, mBasePeriodOffset, brkId, adOffset);
 				if(-1 != adIdx && mCdaiObject->mAdBreaks[brkId].ads)
@@ -12456,6 +12464,8 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 
 						mCdaiObject->mCurAdIdx = adIdx;
 						mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+						AAMPLOG_TRACE("[CDAI] Re-entered ad playback from IN_ADBREAK_AD_NOT_PLAYING breakId=%s adIdx=%d rate=%0.3f basePeriod=%s baseOffset=%lf",
+							brkId.c_str(), adIdx, mPlayRate, mBasePeriodId.c_str(), mBasePeriodOffset);
 
 						for(int i=0; i<adIdx; i++)
 						{
