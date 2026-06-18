@@ -5121,18 +5121,6 @@ void InterfacePlayerRDK::EndOfStreamReached(int mediaType, bool &shouldHaltBuffe
 			{
 				GstPlayer_SignalEOS(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE]);
 			}
-			// With useMp4Demux=true (isMp4DemuxPlayback), CDAI period transitions during
-			// trickplay are handled inside AAMP (AampMp4Demuxer PTS adjustment) without
-			// GStreamer pipeline flushes.  The pipeline accumulates state across period
-			// boundaries, so GST_MESSAGE_EOS may not propagate reliably when trickplay
-			// reaches true end-of-content.  Call NotifyEOS() directly to guarantee the
-			// EOS callback fires.  NotifyEOS() is idempotent (eosSignalled guard), so a
-			// later GST_MESSAGE_EOS from GStreamer will be a harmless no-op.
-			if (interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback)
-			{
-				MW_LOG_MIL("Mp4Demux trickplay EOS: calling NotifyEOS() directly (GST_MESSAGE_EOS may not propagate)");
-				NotifyEOS();
-			}
 		}
 		else
 		{
