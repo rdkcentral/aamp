@@ -182,6 +182,7 @@ GstPlayerPriv::~GstPlayerPriv()
 	g_clear_object(&audio_dec);
 	g_clear_object(&video_sink);
 	g_clear_object(&audio_sink);
+	MW_LOG_INFO("patrick");
 	g_clear_object(&subtitle_sink);
 	g_clear_object(&task_pool);
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
@@ -1389,6 +1390,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	}
 	else if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 	{
+		MW_LOG_INFO("patrick");
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 	}
 	tearDownCb(false, mediaType);
@@ -2167,6 +2169,7 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 	if (privatePlayer->gstPrivateContext->subtitle_sink)
 	{
 		MW_LOG_ERR("subtitle_sink already assigned");
+			MW_LOG_INFO("patrick");
 		g_clear_object(&privatePlayer->gstPrivateContext->subtitle_sink);
 	}
 	if (stream->source)
@@ -4375,7 +4378,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				if (privatePlayer->gstPrivateContext->subtitle_sink && !privatePlayer->gstPrivateContext->subtitleMuted)
 				{
 					MW_LOG_INFO("patrick");
-					pInterfacePlayerRDK->SetSubtitleMute(true);
+					SetStateWithWarnings(privatePlayer->gstPrivateContext->subtitle_sink, GST_STATE_PLAYING);
 					pInterfacePlayerRDK->SetSubtitleMute(false);
 				}
 			}
