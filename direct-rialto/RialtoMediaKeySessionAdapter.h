@@ -30,7 +30,7 @@
  * the Rialto IMediaKeys API.
  */
 
-#include "DrmSession.h"
+#include "IDrmSession.h"
 #include "DrmHelper.h"
 #include "DrmCallbacks.h"
 #include "RialtoMediaKeySystem.h"
@@ -54,7 +54,7 @@
  * decrypt() methods are no-ops — decryption is handled server-side
  * by the Rialto pipeline.
  */
-class RialtoMediaKeySessionAdapter : public DrmSession
+class RialtoMediaKeySessionAdapter : public IDrmSession
 {
 public:
 	/**
@@ -77,7 +77,7 @@ public:
 	                        uint32_t f_cbInitData,
 	                        std::string& customData) override;
 
-	DrmData* generateKeyRequest(string& destinationURL, uint32_t timeout) override;
+	DrmData* generateKeyRequest(std::string& destinationURL, uint32_t timeout) override;
 
 	int processDRMKey(DrmData* key, uint32_t timeout) override;
 
@@ -87,19 +87,21 @@ public:
 
 	void clearDecryptContext() override;
 
-	int decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer,
-	            GstBuffer* buffer, unsigned subSampleCount,
-	            GstBuffer* subSamplesBuffer, GstCaps* caps = nullptr) override;
-
-	int decrypt(const uint8_t* f_pbIV, uint32_t f_cbIV,
-	            const uint8_t* payloadData, uint32_t payloadDataSize,
-	            uint8_t** ppOpaqueData) override;
-
 	int32_t getMediaKeySessionId() const override;
 
 	std::vector<std::vector<uint8_t>> getUsableKeys() const override;
 
+	std::string getKeySystem() override { return m_keySystem; }
+
+	void setOutputProtection(bool /*bValue*/) override {}
+
+	/// decrypt() is a no-op — decryption is performed server-side by the Rialto pipeline.
+	int decrypt(const uint8_t* /*f_pbIV*/, uint32_t /*f_cbIV*/,
+	            const uint8_t* /*payloadData*/, uint32_t /*payloadDataSize*/,
+	            uint8_t** /*ppOpaqueData*/) override { return 0; }
+
 private:
+	std::string m_keySystem;
 	/// Owned Rialto key system.
 	std::unique_ptr<RialtoMediaKeySystem> m_system;
 

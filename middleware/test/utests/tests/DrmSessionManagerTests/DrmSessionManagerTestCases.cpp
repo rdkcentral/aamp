@@ -195,7 +195,7 @@ protected:
 	 * @param slot The slot index to retrieve the session from
 	 * @return The DRM session in the slot, or nullptr if invalid
 	 */
-	DrmSession* GetDrmSessionFromSlot(int slot)
+	IDrmSession* GetDrmSessionFromSlot(int slot)
 	{
 		if (slot >= 0 && slot < maxDrmSessions)
 		{

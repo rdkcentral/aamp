@@ -45,7 +45,7 @@ AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
     }
 }
 
-AampDRMLicenseManager::AampDRMLicenseManager(int, PrivateInstanceAAMP*)
+AampDRMLicenseManager::AampDRMLicenseManager(int, PrivateInstanceAAMP*, DrmSessionCreator)
 {
 }
 
@@ -139,12 +139,12 @@ void AampDRMLicenseManager::SetCommonKeyDuration(int keyDuration)
 void AampDRMLicenseManager::notifyCleanup()
 {
 }
-DrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, unsigned char const*, unsigned short, int, DrmCallbacks*, std::shared_ptr<DrmMetaDataEvent>, unsigned char const*, bool)
+IDrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, unsigned char const*, unsigned short, int, DrmCallbacks*, std::shared_ptr<DrmMetaDataEvent>, unsigned char const*, bool)
 {
 	return NULL;
 }
 
-DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
+IDrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
 {
     if(g_mockAampLicenseManager)
     {

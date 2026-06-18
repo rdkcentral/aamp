@@ -26,7 +26,6 @@
 #include "priv_aamp.h"
 #include "AampDRMLicManager.h"
 #include "DrmSessionManager.h"
-#include "DrmSession.h"
 #include "DrmMediaFormat.h"
 #include "AampLogManager.h"
 
@@ -67,7 +66,7 @@ int32_t AampDrmBridge::createSession(
 	AAMPLOG_INFO("AampDrmBridge::createSession systemId=%s len=%zu type=%d",
 		systemId, len, streamType);
 
-	DrmSession *session = dsm->createDrmSession(
+	IDrmSession *session = dsm->createDrmSession(
 		responseCode,
 		err,
 		systemId,

@@ -31,6 +31,7 @@
 #include <gst/gst.h>
 #include "DrmUtils.h"
 #include "ContentSecurityManagerSession.h"
+#include "IDrmSession.h"
 
 using namespace std;
 
@@ -41,27 +42,17 @@ using namespace std;
 
 #define HDCP_COMPLIANCE_CHECK_FAILURE 4327
 #define HDCP_OUTPUT_PROTECTION_FAILURE 4427
-/**
- * @enum KeyState 
- * @brief DRM session states
- */
-typedef	enum
-{
-	KEY_INIT = 0,			/**< Has been initialized */
-	KEY_PENDING = 1,		/**< Has a key message pending to be processed */
-	KEY_READY = 2,			/**< Has a usable key */
-	KEY_ERROR = 3,			/**< Has an error */
-	KEY_CLOSED = 4,			/**< Has been closed */
-	KEY_ERROR_EMPTY_SESSION_ID = 5,	/**< Has Empty DRM session id */
-	KEY_ERROR_SESSION_CREATE_FAILED = 6 /**< Session creation failed (OCDM) */
-	
-} KeyState;
 
 /**
  * @class DrmSession
- * @brief Base class for DRM sessions
+ * @brief Concrete base for middleware DRM sessions.
+ *
+ * Implements IDrmSession and provides shared state (key system string,
+ * output-protection flag, ContentSecurityManagerSession) plus default
+ * no-op implementations of decrypt() for GStreamer-based paths.
+ * Rialto sessions inherit IDrmSession directly and do not use this class.
  */
-class DrmSession
+class DrmSession : public IDrmSession
 {
 protected:
 	std::string m_keySystem;
@@ -178,14 +169,14 @@ public:
 	 * @fn getKeySystem
 	 * @retval DRM system uuid
 	 */
-	string getKeySystem();
+	std::string getKeySystem() override;
 
 	/**
 	 * @brief Set the OutputProtection for DRM Session
 	 * @param bValue : Enable/Disable flag
 	 * @retval void
 	 */
-	void setOutputProtection(bool bValue) { m_OutputProtectionEnabled = bValue;}
+	void setOutputProtection(bool bValue) override { m_OutputProtectionEnabled = bValue;}
 #if defined(USE_OPENCDM_ADAPTER)
 	virtual void setKeyId(const std::vector<uint8_t>& keyId) {};
 #endif

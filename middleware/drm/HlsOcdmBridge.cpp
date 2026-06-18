@@ -28,7 +28,7 @@
 #define DRM_IV_LEN 16
 
 
-HlsOcdmBridge::HlsOcdmBridge(DrmSession * drmSession) :
+HlsOcdmBridge::HlsOcdmBridge(IDrmSession * drmSession) :
 	m_drmInfo(nullptr),
 	m_drmSession(drmSession),
 	m_drmState(eDRM_INITIALIZED),

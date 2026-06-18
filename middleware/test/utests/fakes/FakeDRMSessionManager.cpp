@@ -22,7 +22,7 @@
 #include "MockDrmSessionManager.h"
 MockDRMSessionManager *g_mockDRMSessionManager = nullptr;
 
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback, DrmSessionCreator creator) 
 {
 }
 
@@ -57,7 +57,7 @@ void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 }
 
 
-DrmSession * DrmSessionManager::createDrmSession(int& responsecode, int& err,
+IDrmSession * DrmSessionManager::createDrmSession(int& responsecode, int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, 
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,

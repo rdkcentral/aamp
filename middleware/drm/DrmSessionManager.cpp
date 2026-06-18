@@ -24,6 +24,7 @@
  */
 
 #include "DrmSessionManager.h"
+#include "DrmSession.h"
 #include "_base64.h"
 #include <iostream>
 #include "DrmHelper.h"
@@ -48,13 +49,14 @@ KeyIdEntries::KeyIdEntries() : creationTime(0), isFailedKeyEntries(false), isPri
 /**
  *  @brief DrmSessionManager constructor.
  */
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) : drmSessionContexts(NULL),
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback, DrmSessionCreator creator) : drmSessionContexts(NULL),
 		cachedKeyIDs(NULL), accessToken(NULL),
 		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(),
 		cachedKeyMutex()
 		,mEnableAccessAttributes(true)
 		,mDrmSessionLock()
 		,mMaxDRMSessions(maxDrmSessions)
+		,m_sessionCreator(std::move(creator))
 		,playerSecInstance(nullptr)
 		,mContentSecurityManagerSession()
 		,mIsVideoOnMute(false)
@@ -90,15 +92,13 @@ void DrmSessionManager::UpdateDRMConfig(
 		bool enablePROutputProtection,
 		bool propagateURIParam,
 		bool isFakeTune,
-		bool wideVineKIDWorkaround,
-		bool useDirectRialto)
+		bool wideVineKIDWorkaround)
 {
         m_drmConfigParam->mUseSecManager = useSecManager;
 	m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
 	m_drmConfigParam->mPropagateURIParam = propagateURIParam;
 	m_drmConfigParam->mIsFakeTune = isFakeTune;
 	m_drmConfigParam->mIsWVKIDWorkaround = wideVineKIDWorkaround;
-	m_drmConfigParam->mUseDirectRialto = useDirectRialto;
 
 }
 
@@ -362,7 +362,7 @@ bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &
 }
 
 
-int DrmSessionManager::getSlotIdForSession(DrmSession* session)
+int DrmSessionManager::getSlotIdForSession(IDrmSession* session)
 {
 	int slot = -1;
 	std::lock_guard<std::mutex> guard(mDrmSessionLock);
@@ -396,7 +396,7 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* session)
  *              with new keyId if no matching keyId is found in existing sessions.
  *  @return     Pointer to DrmSession for the given PSSH data; NULL if session creation/mapping fails.
  */
-DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
+IDrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		int &err, const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType,
 		DrmCallbacks* player, void *metaDataPtr, const unsigned char* contentMetadataPtr,
@@ -404,7 +404,7 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 {
 	DrmInfo drmInfo;
 	std::shared_ptr<DrmHelper> drmHelper;
-	DrmSession *drmSession = NULL;
+	IDrmSession *drmSession = NULL;
 
 	drmInfo.method = eMETHOD_AES_128;
 	drmInfo.mediaFormat = mediaFormat;
@@ -441,7 +441,7 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 /**
  *  @brief Create DrmSession by using the DrmHelper object
  */
-DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
+IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
 {
 	if (!drmHelper || !Instance)
 	{
@@ -890,7 +890,15 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	}
         this->ProfileUpdateCb();
 
-	drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance, m_drmConfigParam->mUseDirectRialto);
+	if (m_sessionCreator)
+	{
+		auto owned = m_sessionCreator(drmHelper, Instance);
+		drmSessionContexts[sessionSlot].drmSession = owned.release();
+	}
+	else
+	{
+		drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance);
+	}
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
 		MW_LOG_INFO("Created new DrmSession for DrmSystemId %s", systemId.c_str());

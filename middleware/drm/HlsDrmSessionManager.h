@@ -27,6 +27,7 @@
 
 
 #include "PlayerHlsDrmSessionInterfaceBase.h"
+#include "IDrmSession.h"
 
 /**
  * @class HlsDrmSessionManager
@@ -35,7 +36,7 @@
 
 class HlsDrmSessionManager : public PlayerHlsDrmSessionInterfaceBase
 {
-	DrmSession* mDrmSession;
+	IDrmSession* mDrmSession;
 public:
 	/**
 	 * @fn getInstance 

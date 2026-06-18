@@ -35,7 +35,7 @@
 class FakeHlsOcdmBridge : public HlsDrmBase
 {
 public:
-	FakeHlsOcdmBridge(DrmSession * DrmSession){}
+	FakeHlsOcdmBridge(IDrmSession * DrmSession){}
 
 	virtual ~FakeHlsOcdmBridge(){}
 
@@ -68,7 +68,7 @@ class HlsOcdmBridgeInterface
 
 public:
 
-    static HlsDrmBase* GetBridge(DrmSession * drmSession);
+    static HlsDrmBase* GetBridge(IDrmSession * drmSession);
 
 };
 

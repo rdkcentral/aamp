@@ -209,7 +209,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 	if(messageType == LICENSE_RENEWAL_MESSAGE_TYPE)
 	{
 		if (m_drmCallbacks)
-			m_drmCallbacks->LicenseRenewal(m_drmHelper,static_cast<DrmSession*> (this));
+			m_drmCallbacks->LicenseRenewal(m_drmHelper, static_cast<IDrmSession*>(this));
 	}
 }
 

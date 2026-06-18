@@ -18,11 +18,12 @@
 */
 
 #include "DrmSessionManager.h"
+#include "DrmSession.h"
 #include "DrmHelper.h"
 #include "MockAampDRMSessionManager.h"
 std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager{};
 
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback, DrmSessionCreator creator) 
 {
 }
 
@@ -59,7 +60,7 @@ void DrmSessionManager::clearSessionData(void)
 {
 }
 
-int DrmSessionManager::getSlotIdForSession(DrmSession* )
+int DrmSessionManager::getSlotIdForSession(IDrmSession* )
 {
 	return false;	
 }
@@ -94,11 +95,11 @@ std::vector<std::vector<uint8_t>> DrmSession::getUsableKeys() const
 	return {};
 }
 
-void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround, bool useDirectRialto)
+void DrmSessionManager::UpdateDRMConfig(bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
 {
 }
 
-DrmSession * DrmSessionManager::createDrmSession(int &responseCode,int& err,
+IDrmSession * DrmSessionManager::createDrmSession(int &responseCode,int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, 
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,
@@ -107,7 +108,7 @@ DrmSession * DrmSessionManager::createDrmSession(int &responseCode,int& err,
 	return nullptr;
 }
 
-DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
+IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
 {
 	if (g_mockDRMSessionManager)
 	{

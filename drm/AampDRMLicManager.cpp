@@ -25,6 +25,7 @@
 #include "AampDRMLicManager.h"
 #include "priv_aamp.h"   
 #include "DrmHelper.h"
+#include "DrmSession.h"
 #include <pthread.h>
 #include "downloader/AampCurlStore.h"
 #include "_base64.h"
@@ -105,19 +106,19 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
 			aampInstance->mIsFakeTune,
-			aampInstance->mConfig->IsConfigSet(eAAMPConfig_WideVineKIDWorkaround),
-			aampInstance->mConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
+			aampInstance->mConfig->IsConfigSet(eAAMPConfig_WideVineKIDWorkaround));
 			
 }
 /**
  *  @brief AampDRMLicenseManager constructor.
  */
-AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : mMaxDRMSessions(maxDrmSessions),
+AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp,
+                                             DrmSessionCreator creator) : mMaxDRMSessions(maxDrmSessions),
 		aampInstance(aamp), mDrmSessionManager(NULL), accessToken()
 {
     aampInstance = aamp; 
 	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, std::move(waterMarkSessionUpdateCB));
+    mDrmSessionManager = new DrmSessionManager(maxDrmSessions, aampInstance, std::move(waterMarkSessionUpdateCB), std::move(creator));
     registerCb(this, mDrmSessionManager);
     getConfigs(mDrmSessionManager, aampInstance);
     mLicenseDownloader = new AampCurlDownloader[mMaxDRMSessions];
@@ -186,7 +187,7 @@ void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmH
 }
 void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, void* userData, PrivateInstanceAAMP* aampInstance)
 {
-	DrmSession* session = static_cast<DrmSession*>(userData);
+	IDrmSession* session = static_cast<IDrmSession*>(userData);
 	int sessionSlot = mDrmSessionManager->getSlotIdForSession(session);
 	if (sessionSlot >= 0)
 	{
@@ -1522,13 +1523,13 @@ void AampDRMLicenseManager::notifyCleanup()
 /**
  *  @brief Create DrmSession by using the AampDrmHelper object
  */
-DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
+IDrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
 {
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
 
-	DrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
+	IDrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
 	// Check if session creation failed
 	if(err != -1)
 	{
@@ -1547,7 +1548,7 @@ DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> 
  *              with new keyId if no matching keyId is found in existing sessions.
  *  @return     Pointer to DrmSession for the given PSSH data; NULL if session creation/mapping fails.
  */
-DrmSession * AampDRMLicenseManager::createDrmSession(
+IDrmSession * AampDRMLicenseManager::createDrmSession(
 		 const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType,
 		DrmCallbacks* aamp, DrmMetaDataEventPtr eventHandle, const unsigned char* contentMetadataPtr,
@@ -1556,7 +1557,7 @@ DrmSession * AampDRMLicenseManager::createDrmSession(
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
-    DrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
+    IDrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
 
 	if(err != -1)
 	{

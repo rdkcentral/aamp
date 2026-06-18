@@ -26,6 +26,7 @@
  */
 
 #include "HlsDrmBase.h"
+#include "IDrmSession.h"
 
 /**
  * @class HlsOcdmBridge
@@ -37,10 +38,10 @@ class HlsOcdmBridge : public HlsDrmBase
 	DRMState m_drmState;
 
 	const DrmInfo* m_drmInfo;
-	DrmSession* m_drmSession;
+	IDrmSession* m_drmSession;
 	std::mutex m_Mutex;
 public:
-	HlsOcdmBridge(DrmSession * DrmSession);
+	HlsOcdmBridge(IDrmSession * DrmSession);
 
 	~HlsOcdmBridge();
 

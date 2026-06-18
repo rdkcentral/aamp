@@ -27,7 +27,7 @@
 
 
 #include "HlsDrmBase.h"
-#include "DrmSession.h"
+#include "IDrmSession.h"
 #include <functional>
 #include "DrmHelper.h"
 
@@ -39,7 +39,7 @@ enum DrmMediaType
 	eDRM_MEDIATYPE_DEFAULT              /**< Type unknown */
 };
 
-using GetHlsDrmSessionCallback = std::function<void(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  DrmSession* &session , int streamType)>;
+using GetHlsDrmSessionCallback = std::function<void(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  IDrmSession* &session , int streamType)>;
 
 /**
  * @class PlayerHlsDrmSessionInterfaceBase
@@ -49,7 +49,7 @@ using GetHlsDrmSessionCallback = std::function<void(std::shared_ptr <HlsDrmBase>
 class PlayerHlsDrmSessionInterfaceBase
 {
 protected:
-	DrmSession* mDrmSession;
+	IDrmSession* mDrmSession;
 public:
 	/**
 	 * @fn isDrmSupported

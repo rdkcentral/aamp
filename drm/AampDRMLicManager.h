@@ -27,7 +27,8 @@
 
 #include "priv_aamp.h"
 #include "AampDRMLicPreFetcher.h"
-#include "DrmSession.h"
+#include "DrmSessionFactory.h"
+#include "IDrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
 
@@ -43,7 +44,8 @@ public:
 	/**
 	 *  @fn AampDRMLicenseManager
 	 */
-	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp);
+	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp,
+	                      DrmSessionCreator creator = nullptr);
 
 	/**
 	 *  @fn ~AampDRMLicenseManager
@@ -83,13 +85,13 @@ public:
 	 * @fn handleLicenseResponse
 	 */
 	KeyState handleLicenseResponse(int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
-					int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal = false);
+int32_t httpResponseCode, int32_t httpExtResponseCode, std::shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal = false);
 
 	/**
 	 * @fn processLicenseResponse
 	 */
 	KeyState processLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
-					shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, bool isLicenseRenewal = false);
+				std::shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, bool isLicenseRenewal = false);
 	/**
 	 * @fn configureLicenseServerParameters
 	 */
@@ -322,7 +324,7 @@ public:
 	 * @param[in]   event handle for capturing errors
 	 * @param[in]   input stream type
 	 */
-	DrmSession* createDrmSession(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn);
+	IDrmSession* createDrmSession(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn);
 	
 	/**
 	 *  @fn         createDrmSession
@@ -338,7 +340,7 @@ public:
 	 *  @retval     error_code - Gets updated with proper error code, if session creation fails.
 	 *                      No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */
-	DrmSession * createDrmSession(const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
+	IDrmSession * createDrmSession(const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, DrmCallbacks* aamp, DrmMetaDataEventPtr eventHandle,
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 

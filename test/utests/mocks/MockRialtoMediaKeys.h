@@ -98,6 +98,10 @@ public:
 	MOCK_METHOD(firebolt::rialto::MediaKeyErrorStatus, getCdmKeySessionId,
 	            (int32_t keySessionId, std::string& cdmKeySessionId),
 	            (override));
+
+	MOCK_METHOD(firebolt::rialto::MediaKeyErrorStatus, getMetricSystemData,
+	            (std::vector<uint8_t>& buffer),
+	            (override));
 };
 
 class MockMediaKeysFactory : public firebolt::rialto::IMediaKeysFactory

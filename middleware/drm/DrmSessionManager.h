@@ -26,17 +26,26 @@
 #define DrmSessionManager_h
 
 #include "DrmSessionFactory.h"
-#include "DrmSession.h"
+#include "IDrmSession.h"
 #include "DrmUtils.h"
 #include "GstUtils.h"
 #include <string>
 #include <atomic>
+#include <functional>
+#include <memory>
 #include "DrmHelper.h"
 
 #include "PlayerSecInterface.h"
 #include "ContentSecurityManagerSession.h"
 
-#include <functional>
+/**
+ * @brief Factory callable type for creating DRM sessions.
+ *
+ * Stored per-player in DrmSessionManager to support creator injection
+ * (e.g. the direct-Rialto path).
+ */
+using DrmSessionCreator =
+	std::function<std::unique_ptr<IDrmSession>(DrmHelperPtr, DrmCallbacks*)>;
 
 
 #define VIDEO_SESSION 0
@@ -50,7 +59,7 @@ struct DrmSessionContext
 {
 	std::vector<uint8_t> data;
 	std::mutex sessionMutex;
-	DrmSession * drmSession;
+	IDrmSession * drmSession;
 
 	DrmSessionContext() : sessionMutex(), drmSession(NULL),data()
 	{
@@ -134,7 +143,6 @@ struct configs{
     bool  mPropagateURIParam;
     bool mIsFakeTune;
     bool mIsWVKIDWorkaround;
-    bool mUseDirectRialto;
 };
 /**
  *  @class	DrmSessionManager
@@ -162,6 +170,7 @@ private:
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;
+	DrmSessionCreator m_sessionCreator;
 	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
 	/**     
 	 * @brief Copy constructor disabled
@@ -208,10 +217,7 @@ public:
 	/**
 	 *  @fn DrmSessionManager
 	 */
-	DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback);
-
-	void initializeDrmSessions();
-
+	DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback, DrmSessionCreator creator = nullptr);
 	/**
 	 *  @fn watermarkSessionHandlerWrapper
 	 *  @brief Wrapper function to handle session watermark.
@@ -285,7 +291,7 @@ public:
 	 *  @retval  	error_code - Gets updated with proper error code, if session creation fails.
 	 *  			No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */
-	DrmSession * createDrmSession(int &responseCode, int &err, const char* systemId, MediaFormat mediaFormat,
+	IDrmSession * createDrmSession(int &responseCode, int &err, const char* systemId, MediaFormat mediaFormat,
 			const unsigned char * initDataPtr, uint16_t dataLength, int streamType,
 			DrmCallbacks* player, void *ptr, const unsigned char *contentMetadata = nullptr, 
 	                	bool isPrimarySession = false );
@@ -293,7 +299,7 @@ public:
 	 * @fn createDrmSession
 	 * @return drmSession
 	 */
-	DrmSession* createDrmSession(int& responseCode, int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
+	IDrmSession* createDrmSession(int& responseCode, int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
 
 	/**
 	 *  @fn		IsKeyIdProcessed
@@ -402,7 +408,7 @@ public:
 	 * @fn getSlotIdForSession
 	 * @return index to the session slot for selected drmSessionContext 
 	 */
-	int getSlotIdForSession(DrmSession* session);
+	int getSlotIdForSession(IDrmSession* session);
 	/**
 	 * @fn releaseLicenseRenewalThreads
 	 */
@@ -508,8 +514,7 @@ public:
                        bool enablePROutputProtection,
                        bool propagateURIParam,
                        bool isFakeTune,
-                       bool wideVineKIDWorkaround,
-                       bool useDirectRialto = false);
+                       bool wideVineKIDWorkaround);
 
 
 };

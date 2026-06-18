@@ -18,27 +18,17 @@
  */
 
 /**
- * @file FakeDrmSessionFactory.cpp
- * @brief Fake implementation for DrmSessionFactory with mock support
+ * @file FakeRialtoSessionCreator.cpp
+ * @brief Fake implementation of makeRialtoSessionCreator() for L1 tests.
+ *
+ * Returns a null-creator so that no real Rialto types are instantiated
+ * during unit tests. Tests that need a real creator should inject one
+ * directly via the DrmSessionManager constructor.
  */
 
-#include "DrmSessionFactory.h"
-#include "MockDrmSessionFactory.h"
+#include "RialtoSessionCreator.h"
 
-// Global pointer to the mock DrmSessionFactory instance
-MockDrmSessionFactory* g_MockDrmSessionFactory = nullptr;
-
-/**
- * @brief Fake implementation of GetDrmSession
- * 
- * If g_MockDrmSessionFactory is set, delegates to the mock.
- * Otherwise returns nullptr.
- */
-IDrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks)
+DrmSessionCreator makeRialtoSessionCreator()
 {
-	if (g_MockDrmSessionFactory)
-	{
-		return g_MockDrmSessionFactory->GetDrmSession(drmHelper, drmCallbacks);
-	}
 	return nullptr;
 }

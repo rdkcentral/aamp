@@ -21,27 +21,26 @@
 #define PLAYER_MOCK_DRM_SESSION_H
 
 #include <gmock/gmock.h>
-#include "DrmSession.h"
+#include "IDrmSession.h"
 
 /**
  * @class MockDrmSession
- * @brief Mock implementation of DrmSession for unit testing
- * 
- * This mock allows testing DRM session behavior without requiring
- * actual OCDM system interactions.
+ * @brief Mock implementation of IDrmSession for unit testing
  */
-class MockDrmSession : public DrmSession
+class MockDrmSession : public IDrmSession
 {
 public:
-	MockDrmSession() : DrmSession("mock-key-system") {}
+	MockDrmSession() {}
 	virtual ~MockDrmSession() = default;
 
 	MOCK_METHOD(void, generateDRMSession, (const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData), (override));
-	MOCK_METHOD(DrmData*, generateKeyRequest, (string& destinationURL, uint32_t timeout), (override));
+	MOCK_METHOD(DrmData*, generateKeyRequest, (std::string& destinationURL, uint32_t timeout), (override));
 	MOCK_METHOD(int, processDRMKey, (DrmData* key, uint32_t timeout), (override));
 	MOCK_METHOD(KeyState, getState, (), (override));
 	MOCK_METHOD(void, clearDecryptContext, (), (override));
 	MOCK_METHOD(std::vector<std::vector<uint8_t>>, getUsableKeys, (), (const, override));
+	MOCK_METHOD(std::string, getKeySystem, (), (override));
+	MOCK_METHOD(void, setOutputProtection, (bool bValue), (override));
 };
 
 #endif /* PLAYER_MOCK_DRM_SESSION_H */

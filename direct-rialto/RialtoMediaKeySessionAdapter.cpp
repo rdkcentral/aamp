@@ -36,7 +36,7 @@ RialtoMediaKeySessionAdapter::RialtoMediaKeySessionAdapter(
 	DrmHelperPtr drmHelper,
 	std::unique_ptr<RialtoMediaKeySystem> system,
 	DrmCallbacks* callbacks)
-	: DrmSession(drmHelper->ocdmSystemId())
+	: m_keySystem(drmHelper->ocdmSystemId())
 	, m_system(std::move(system))
 	, m_session(nullptr)
 	, m_drmHelper(drmHelper)
@@ -157,7 +157,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onLicenseRenewal");
 		if (m_drmCallbacks)
 		{
-			m_drmCallbacks->LicenseRenewal(m_drmHelper, static_cast<DrmSession*>(this));
+			m_drmCallbacks->LicenseRenewal(m_drmHelper, static_cast<IDrmSession*>(this));
 		}
 	};
 
@@ -177,7 +177,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 }
 
 DrmData* RialtoMediaKeySessionAdapter::generateKeyRequest(
-	string& destinationURL, uint32_t timeout)
+	std::string& destinationURL, uint32_t timeout)
 {
 	MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateKeyRequest timeout=%u", timeout);
 
@@ -369,24 +369,6 @@ void RialtoMediaKeySessionAdapter::clearDecryptContext()
 
 	m_eKeyState = KEY_INIT;
 	m_stateChanged.notify_all();
-}
-
-int RialtoMediaKeySessionAdapter::decrypt(
-	GstBuffer* /*keyIDBuffer*/, GstBuffer* /*ivBuffer*/,
-	GstBuffer* /*buffer*/, unsigned /*subSampleCount*/,
-	GstBuffer* /*subSamplesBuffer*/, GstCaps* /*caps*/)
-{
-	// Decryption is performed server-side by the Rialto pipeline.
-	return 0;
-}
-
-int RialtoMediaKeySessionAdapter::decrypt(
-	const uint8_t* /*f_pbIV*/, uint32_t /*f_cbIV*/,
-	const uint8_t* /*payloadData*/, uint32_t /*payloadDataSize*/,
-	uint8_t** /*ppOpaqueData*/)
-{
-	// Decryption is performed server-side by the Rialto pipeline.
-	return 0;
 }
 
 int32_t RialtoMediaKeySessionAdapter::getMediaKeySessionId() const
