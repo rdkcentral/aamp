@@ -154,6 +154,11 @@ void PlayerExternalsRdkInterface::SetResolution(int width, int height)
  */
 void PlayerExternalsRdkInterface::SetHDMIStatus()
 {
+    std::unique_lock<std::mutex> lock(m_hdmiStatusMutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        MW_LOG_WARN("SetHDMIStatus: Already in progress on another thread, skipping\n");
+        return;
+    }
     bool                    isConnected              = false;
     bool                    isHDCPCompliant          = false;
     bool                    isHDCPEnabled            = true;
@@ -229,6 +234,7 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
     }
     catch (...) {
         MW_LOG_WARN("DeviceSettings exception caught\n");
+	try { device::Manager::DeInitialize(); } catch (...) {} 
     }
 
     m_isHDCPEnabled = isHDCPEnabled;

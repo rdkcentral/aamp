@@ -240,8 +240,21 @@ void terminatePowerController()
 static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentState,
                                       const PowerController_PowerState_t newState, void* userdata)
 {
+
 	MW_LOG_INFO("Entering IARM_PowerChangeHandler:State Changed currentState: %d, newState: %d",
 			currentState, newState);
+	
+
+	std::shared_ptr<PlayerExternalsRdkInterface> pInstance =
+		PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+	if (newState != POWER_STATE_ON) {
+		pInstance->SetPowerEvent(true);
+		MW_LOG_INFO(" Power transition to non-ON state, blocking HDMI events\n");
+	} else {
+		pInstance->SetPowerEvent(false);
+		MW_LOG_INFO(" Power transition to ON, allowing HDMI events\n");
+	}
+
 	bool isOnOrStandby = (newState == POWER_STATE_STANDBY || newState == POWER_STATE_ON);
 	if((currentState == POWER_STATE_STANDBY_DEEP_SLEEP && isOnOrStandby) || 
         (prevState == POWER_STATE_STANDBY_DEEP_SLEEP && currentState == POWER_STATE_STANDBY_LIGHT_SLEEP && isOnOrStandby))
@@ -408,6 +421,12 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
 {
     std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
+
+    if (pInstance->GetPowerEvent())
+    {
+        MW_LOG_WARN(" Skipping HDMI event processing during power transition\n");
+        return;
+    }
     switch (eventId)
     {
         case IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG :
@@ -421,6 +440,10 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
 
             pInstance->SetHDMIStatus();
 
+	    // Dispatch to detached worker thread — do NOT block IARM dispatch thread
+            std::thread([pInstance]() {
+                pInstance->SetHDMIStatus();
+            }).detach();
             break;
         }
         case IARM_BUS_DSMGR_EVENT_HDCP_STATUS :
@@ -432,6 +455,9 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
                       hdcpStatus, hdcpStatusStr);
 
             pInstance->SetHDMIStatus();
+	    std::thread([pInstance]() {
+                pInstance->SetHDMIStatus();
+            }).detach();
             break;
         }
         default:
