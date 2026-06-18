@@ -875,7 +875,13 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				// discontinuity.
 				if(IsPTSRestampEnabled())
 				{
-					if (context->GetESChangeStatus() || context->GetPipelineFlushStatus())
+					// For AampMp4Demuxer PTO-only discontinuities (PipelineFlushStatus
+					// set but !ESChangeStatus), injection must continue uninterrupted —
+					// the Flush triggered by mProcessingDiscontinuity (ret=true from
+					// CheckDiscontinuity) recovers the pipeline via ASYNC_DONE→PLAYING.
+					// Only set stopInjection for a real codec/ES change.
+					bool mp4DemuxPtoOnly = ISCONFIGSET(eAAMPConfig_UseMp4Demux) && !context->GetESChangeStatus();
+					if ((context->GetESChangeStatus() || context->GetPipelineFlushStatus()) && !mp4DemuxPtoOnly)
 					{
 						stopInjection = context->ProcessDiscontinuity(type);
 					}
