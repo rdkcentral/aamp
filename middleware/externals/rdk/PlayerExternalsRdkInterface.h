@@ -37,7 +37,7 @@
 #include <memory>
 
 #include "PlayerExternalsInterfaceBase.h"
-
+#include <mutex>
  /*
 IARM Deprecation Note:
 IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
@@ -60,6 +60,7 @@ class DeviceInterfaceBase;
 //class representing IARM interface in rdk
 class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 {
+	std::mutex m_hdmiStatusMutex;
         enum InitState{
             NOT_INITIALIZED,
             FIREBOLT,
