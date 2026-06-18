@@ -43,6 +43,6 @@ public:
 	 *  @param[in]	drmHelper - DrmHelper instance
 	 *  @return		Pointer to DrmSession.
 	 */
-	static DrmSession* GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks);
+	static DrmSession* GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks, bool useDirectRialto = false);
 };
 #endif

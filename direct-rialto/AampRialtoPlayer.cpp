@@ -19,7 +19,7 @@
 
 /**
  * @file AampRialtoPlayer.cpp
- * @brief Implementation of AampRialtoPlayer — all StreamSink calls are
+ * @brief Implementation of AampRialtoPlayer - all StreamSink calls are
  *        forwarded to the internally owned AAMPGstPlayer instance.
  */
 
@@ -38,7 +38,7 @@
 #include <algorithm>
 
 // ---------------------------------------------------------------------------
-// Rialto → AAMP log bridge
+// Rialto -> AAMP log bridge
 // ---------------------------------------------------------------------------
 
 void AampRialtoPlayer::RialtoLogHandler::log(
@@ -312,7 +312,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	const auto *audioSrc = m_sources[eMEDIATYPE_AUDIO].get();
 	const auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
 
-	// Video track: any change — add, remove, or codec change — needs rebuild.
+	// Video track: any change  add, remove, or codec change - needs rebuild.
 	if (videoSrc == nullptr)
 	{
 		if (videoFormat != FORMAT_INVALID)
@@ -389,7 +389,7 @@ void AampRialtoPlayer::Configure(
 		{
 			if (audioGoingInvalid)
 			{
-				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) — "
+				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
 					"signalling EOS on audio source, no pipeline recreation");
 				m_sources[eMEDIATYPE_AUDIO]->signalEos(m_pipeline.get());
 			}
@@ -403,7 +403,7 @@ void AampRialtoPlayer::Configure(
 				if (st.eos)
 				{
 					AAMPLOG_INFO("Audio returning from FORMAT_INVALID "
-						"(trickplay exit) — clearing EOS on audio source");
+						"(trickplay exit) - clearing EOS on audio source");
 					st.eos = false;
 				}
 			}
@@ -419,7 +419,7 @@ void AampRialtoPlayer::Configure(
 				}
 			}
 
-			AAMPLOG_INFO("EXIT — source set unchanged, skipping pipeline recreation");
+			AAMPLOG_INFO("EXIT - source set unchanged, skipping pipeline recreation");
 			return;
 		}
 	}
@@ -466,7 +466,7 @@ void AampRialtoPlayer::Configure(
 		pa.reset();
 	}
 
-	// Register Rialto → AAMP log bridge once.
+	// Register Rialto -> AAMP log bridge once.
 	if (!m_rialtoLogHandler)
 	{
 		m_rialtoLogHandler = std::make_shared<RialtoLogHandler>();
@@ -480,7 +480,7 @@ void AampRialtoPlayer::Configure(
 		}
 		else
 		{
-			AAMPLOG_WARN("Failed to create IClientLogControlFactory — Rialto logs suppressed");
+			AAMPLOG_WARN("Failed to create IClientLogControlFactory - Rialto logs suppressed");
 		}
 	}
 
@@ -488,15 +488,28 @@ void AampRialtoPlayer::Configure(
 	{
 		m_pipelineFactory = firebolt::rialto::IMediaPipelineFactory::createFactory();
 	}
+	if (!m_pipelineCapabilities)
+	{
+		auto capFactory =
+			firebolt::rialto::IMediaPipelineCapabilitiesFactory::createFactory();
+		if (capFactory)
+		{
+			m_pipelineCapabilities = capFactory->createMediaPipelineCapabilities();
+		}
+		else
+		{
+			AAMPLOG_WARN("Failed to create IMediaPipelineCapabilitiesFactory");
+		}
+	}
 	auto &factory = m_pipelineFactory;
 	if (!factory)
 	{
-		AAMPLOG_ERR("Failed to create IMediaPipelineFactory — is the Rialto server running?");
+		AAMPLOG_ERR("Failed to create IMediaPipelineFactory - is the Rialto server running?");
 	}
 	else
 	{
 		// Wait for the Rialto server to report ApplicationState::RUNNING before
-		// creating the media pipeline — ensures the proxy ctor sees RUNNING from
+		// creating the media pipeline - ensures the proxy ctor sees RUNNING from
 		// its internal registerClient() call, preventing NeedMediaData events
 		// from being silently dropped.
 		if (m_controlBackend && !m_controlBackend->waitForRunning(kRialtoRunningTimeoutMs))
@@ -513,7 +526,7 @@ void AampRialtoPlayer::Configure(
 			kRequirements);
 		if (!m_pipeline)
 		{
-			AAMPLOG_ERR("createMediaPipeline returned nullptr — check Rialto server logs (syslog) for details");
+			AAMPLOG_ERR("createMediaPipeline returned nullptr - check Rialto server logs (syslog) for details");
 		}
 		else
 		{
@@ -526,7 +539,7 @@ void AampRialtoPlayer::Configure(
 					/*url=*/"",
 					/*isLive*/false))
 			{
-				AAMPLOG_ERR("load() failed — Rialto will reject attachSource calls");
+				AAMPLOG_ERR("load() failed - Rialto will reject attachSource calls");
 			}
 			else
 			{
@@ -577,11 +590,6 @@ void AampRialtoPlayer::Configure(
 		auto src = m_sourceCreator(eMEDIATYPE_VIDEO);
 		if (src)
 		{
-			// Apply any protection queued before this source existed.
-			if (m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
-			{
-				src->setProtection(*m_pendingProtection[eMEDIATYPE_VIDEO]);
-			}
 			src->setFormat(videoFormat);
 			m_sources[eMEDIATYPE_VIDEO] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
@@ -593,11 +601,6 @@ void AampRialtoPlayer::Configure(
 		auto src = m_sourceCreator(eMEDIATYPE_AUDIO);
 		if (src)
 		{
-			// Apply any protection queued before this source existed.
-			if (m_pendingProtection[eMEDIATYPE_AUDIO].has_value())
-			{
-				src->setProtection(*m_pendingProtection[eMEDIATYPE_AUDIO]);
-			}
 			src->setFormat(audioFormat);
 			m_sources[eMEDIATYPE_AUDIO] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO);
@@ -681,7 +684,7 @@ bool AampRialtoPlayer::SendTransfer(
 	if (!source)
 	{
 		// No source for this track (e.g. subtitle not yet supported).
-		AAMPLOG_INFO("No source for mediaType=%d — ignoring transfer",
+		AAMPLOG_INFO("No source for mediaType=%d - ignoring transfer",
 			static_cast<int>(mediaType));
 		AAMPLOG_INFO("EXIT");
 		return true;
@@ -734,7 +737,7 @@ bool AampRialtoPlayer::SendTransfer(
 }
 
 // ---------------------------------------------------------------------------
-// AttachSource — unified attach via polymorphic source
+// AttachSource - unified attach via polymorphic source
 // ---------------------------------------------------------------------------
 
 void AampRialtoPlayer::AttachSource(
@@ -742,11 +745,11 @@ void AampRialtoPlayer::AttachSource(
 {
 	const auto type = source.mediaType();
 
-	// THEORY (unproven — revert this block if disproved):
+	// THEORY (unproven - revert this block if disproved):
 	// In the failing first-tune log, audio attached first (id=1) and video
 	// second (id=2); the Rialto server then reported:
 	//   "audsrc: not-linked (-1)"
-	// and transitioned SOURCES_ATTACHED → ERROR.  In the passing second-tune
+	// and transitioned SOURCES_ATTACHED -> ERROR.  In the passing second-tune
 	// log, video happened to attach first and no error occurred.  The
 	// hypothesis is that GStreamer's playbin/uridecodebin autoplugging requires
 	// video to be present before audio is added.  This has NOT been confirmed
@@ -789,7 +792,9 @@ void AampRialtoPlayer::AttachSource(
 
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
-		m_pendingFlushPositionNs.load(std::memory_order_relaxed));
+		m_pendingFlushPositionNs.load(std::memory_order_relaxed),
+		m_pendingProtection[static_cast<size_t>(type)],
+		computeAppliedRate());
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
 	    result == AampRialtoMediaSource::AttachResult::UPDATED)
@@ -865,7 +870,7 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 		}
 	}
 
-	AAMPLOG_INFO("All sources attached — calling allSourcesAttached()");
+	AAMPLOG_INFO("All sources attached - calling allSourcesAttached()");
 
 	if (!m_pipeline->allSourcesAttached())
 	{
@@ -878,7 +883,7 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 
 		if (m_playRequested.load(std::memory_order_seq_cst))
 		{
-			AAMPLOG_INFO("play() deferred by Stream() — issuing now");
+			AAMPLOG_INFO("play() deferred by Stream() - issuing now");
 			bool async = false;
 			if (!m_pipeline->play(async))
 			{
@@ -944,7 +949,26 @@ void AampRialtoPlayer::Stream()
 
 		if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
 		{
-			// allSourcesAttached() already completed before this call —
+			// Guard: if any source is still flushing, do not call play()
+			// yet.  setSourcePosition() (which emits the GStreamer SEGMENT
+			// event) is called from OnSourceFlushed(), which fires after
+			// the server confirms the flush.  Issuing play() before that
+			// point leaves the pipeline without a SEGMENT event and causes
+			// frames at large live-stream PTS values to be silently dropped.
+			// OnSourceFlushed() will issue the deferred play() once all
+			// sources report flushing complete.
+			for (const auto &source : m_sources)
+			{
+				if (source && source->isFlushing())
+				{
+					AAMPLOG_INFO("deferring play() - source %d still flushing",
+						source->sourceId());
+					AAMPLOG_INFO("EXIT");
+					return;
+				}
+			}
+
+			// allSourcesAttached() already completed before this call -
 			// promote to PLAYING immediately.
 			bool async = false;
 			if (!m_pipeline->play(async))
@@ -1007,11 +1031,11 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 
 	if (!isPlayingOrPaused && shouldTearDown)
 	{
-		// Not in PLAYING/PAUSED and shouldTearDown=true → tear down for recovery.
-		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED and shouldTearDown=true — calling Stop(true)",
+		// Not in PLAYING/PAUSED and shouldTearDown=true -> tear down for recovery.
+		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED and shouldTearDown=true - calling Stop(true)",
 			m_stateMachine.currentStateName());
 		Stop(true);
-		AAMPLOG_INFO("EXIT — teardown requested");
+		AAMPLOG_INFO("EXIT - teardown requested");
 		return;
 	}
 
@@ -1058,7 +1082,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	}
 
 	// Store the new rate so GetPositionMilliseconds() can multiply elapsed
-	// time correctly (negative for reverse trickplay — mirrors GStreamer's
+	// time correctly (negative for reverse trickplay - mirrors GStreamer's
 	//   rc = (pos - segmentStart) * rate).
 	m_rate.store(rate, std::memory_order_relaxed);
 
@@ -1132,7 +1156,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 	// Segment-start: PTS (ms) of the first video sample injected since the
 	// last Configure/Flush.  Mirrors GStreamer's segmentStart, which is
 	// derived from the segment event pushed before the first buffer.
-	// kFirstPtsNotSet (-1) means no sample has arrived yet → return 0.
+	// kFirstPtsNotSet (-1) means no sample has arrived yet -> return 0.
 	const auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
 	const int64_t startMs = videoSource
 		? videoSource->firstPtsMs()
@@ -1158,7 +1182,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 				// For forward play (rate > 0) clamp to zero to avoid a
 				// negative blip caused by clock jitter at startup.  For
 				// reverse trickplay (rate < 0) allow negative so the caller
-				// observes a decrementing position — mirroring GStreamer's
+				// observes a decrementing position - mirroring GStreamer's
 				//   rc = (pos - segmentStart) * rate.
 				result = (rate > 0)
 					? std::max(int64_t{0}, elapsed) * rate
@@ -1324,7 +1348,7 @@ void AampRialtoPlayer::QueueProtectionEvent(
 	AAMPLOG_INFO("ENTRY protSystemId=%s len=%zu type=%d", protSystemId ? protSystemId : "(null)", len, static_cast<int>(type));
 	if (!ptr || len == 0 || !protSystemId)
 	{
-		AAMPLOG_INFO("EXIT — no init data");
+		AAMPLOG_INFO("EXIT - no init data");
 	}
 	else
 	{
@@ -1343,40 +1367,16 @@ void AampRialtoPlayer::QueueProtectionEvent(
 			m_pendingProtection[idx] = prot;
 		}
 
-		// Also apply to the source immediately if one exists, so that
-		// late-arriving protection (after Configure) takes effect.
-		auto *source = getSource(type);
-		if (source)
-		{
-			source->setProtection(std::move(prot));
-		}
-		else
-		{
-			AAMPLOG_INFO("No source yet for type=%d — protection buffered at player level",
-				static_cast<int>(type));
-		}
-
-		AAMPLOG_INFO("EXIT — params stored for type=%d", static_cast<int>(type));
+		AAMPLOG_INFO("EXIT - params stored for type=%d", static_cast<int>(type));
 	}
 }
 
 void AampRialtoPlayer::ClearProtectionEvent()
 {
 	AAMPLOG_INFO("ENTRY");
-	if (m_drmBridge)
-	{
-		m_drmBridge->clearSessions();
-	}
 	for (auto &prot : m_pendingProtection)
 	{
 		prot.reset();
-	}
-	for (auto &source : m_sources)
-	{
-		if (source)
-		{
-			source->clearProtection();
-		}
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -1418,8 +1418,8 @@ std::string AampRialtoPlayer::GetVideoRectangle()
 void AampRialtoPlayer::StopBuffering(bool forceStop)
 {
 	// forceStop semantics (GStreamer reference: InterfacePlayerRDK::StopBuffering):
-	//   true  — resume playback unconditionally, regardless of buffer level.
-	//   false — resume only if enough decoded frames are queued in the decoder.
+	//   true  - resume playback unconditionally, regardless of buffer level.
+	//   false - resume only if enough decoded frames are queued in the decoder.
 	//
 	// The Rialto client API does not expose the server-side decoder's queued
 	// frame count, so there is no condition to gate the non-forced path on.
@@ -1686,7 +1686,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// threads should remain blocked on needData rather than
 			// aborting and discarding the current batch of samples.
 			// Injection is only aborted by invalidateGeneration() which is
-			// called on flush / stop / seek — not on every pipeline pause.
+			// called on flush / stop / seek - not on every pipeline pause.
 			break;
 		case firebolt::rialto::PlaybackState::END_OF_STREAM:
 			m_notifiable->NotifyEOSReached();
@@ -1717,11 +1717,25 @@ void AampRialtoPlayer::OnBufferUnderflow(int32_t sourceId)
 	auto *source = findSourceByRialtoId(sourceId);
 	if (!source)
 	{
-		AAMPLOG_WARN("unknown sourceId=%d — ignoring underflow notification",
+		AAMPLOG_WARN("unknown sourceId=%d - ignoring underflow notification",
 			sourceId);
 		return;
 	}
 	m_notifiable->NotifyBufferUnderflow(source->mediaType());
+}
+
+double AampRialtoPlayer::computeAppliedRate() const
+{
+	if (m_pipelineCapabilities)
+	{
+		bool videoMaster = false;
+		if (m_pipelineCapabilities->isVideoMaster(videoMaster) && !videoMaster)
+		{
+			return static_cast<double>(
+				m_rate.load(std::memory_order_relaxed));
+		}
+	}
+	return 1.0;
 }
 
 void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
@@ -1736,21 +1750,48 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 		// server.  setSourcePosition() was previously called inside
 		// flushSource() before SourceFlushedEvent, but if the server
 		// was still processing the flush at that point it could discard
-		// the SEGMENT event — leaving the pipeline's EOS state intact
+		// the SEGMENT event - leaving the pipeline's EOS state intact
 		// and causing an immediate END_OF_STREAM on the next play().
 		const int64_t posNs =
 			m_pendingFlushPositionNs.load(std::memory_order_relaxed);
 		if (m_pipeline &&
 			!m_pipeline->setSourcePosition(
-				sourceId, posNs, /*resetTime=*/true))
+				sourceId, posNs, /*resetTime=*/true,
+				computeAppliedRate()))
 		{
 			AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
 				sourceId);
 		}
+
+		// If Stream() was called while this source was still flushing,
+		// play() was deferred to avoid issuing it before setSourcePosition()
+		// sends the GStreamer SEGMENT event.  Now that this source's
+		// setSourcePosition() has been sent, check whether all sources have
+		// finished flushing and, if so, issue the deferred play().
+		if (m_playRequested.load(std::memory_order_seq_cst) &&
+		    m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
+		{
+			for (const auto &s : m_sources)
+			{
+				if (s && s->isFlushing())
+				{
+					AAMPLOG_INFO("source %d still flushing - play() still deferred",
+						s->sourceId());
+					AAMPLOG_INFO("EXIT");
+					return;
+				}
+			}
+			AAMPLOG_INFO("All sources flushed - issuing deferred play()");
+			bool async = false;
+			if (!m_pipeline->play(async))
+			{
+				AAMPLOG_ERR("play() failed after flush");
+			}
+		}
 	}
 	else
 	{
-		AAMPLOG_WARN("unknown sourceId=%d — ignoring source-flushed notification",
+		AAMPLOG_WARN("unknown sourceId=%d - ignoring source-flushed notification",
 			sourceId);
 	}
 
@@ -1766,7 +1807,7 @@ void AampRialtoPlayer::StartProgressTimer()
 
 	if (m_progressTimer->isRunning())
 	{
-		AAMPLOG_INFO("Progress timer already running — kicking for immediate dispatch");
+		AAMPLOG_INFO("Progress timer already running - kicking for immediate dispatch");
 		m_progressTimer->kick();
 		return;
 	}

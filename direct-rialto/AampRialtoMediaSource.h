@@ -198,16 +198,6 @@ public:
 	// Protection
 	// -----------------------------------------------------------------
 
-	void setProtection(ProtectionParams params);
-	void clearProtection();
-	bool hasProtection() const { return m_protection.has_value(); }
-	ProtectionParams takeProtection()
-	{
-		ProtectionParams p = std::move(*m_protection);
-		m_protection.reset();
-		return p;
-	}
-
 	// -----------------------------------------------------------------
 	// Codec data
 	// -----------------------------------------------------------------
@@ -240,13 +230,16 @@ public:
 	 * @param codecInfo   Codec information from the init segment.
 	 * @param drmBridge   DRM bridge for session creation (may be null).
 	 * @param flushPosNs  Pending flush position in nanoseconds (-1 = none).
+	 * @param protection  Optional protection params for DRM session creation.
 	 * @return AttachResult indicating what happened.
 	 */
 	AttachResult attachOrUpdate(
 		firebolt::rialto::IMediaPipeline &pipeline,
 		MediaCodecInfo &codecInfo,
 		IDrmBridge *drmBridge,
-		int64_t flushPosNs);
+		int64_t flushPosNs,
+		const std::optional<ProtectionParams> &protection = std::nullopt,
+		double appliedRate = 1.0);
 
 	/**
 	 * @brief Inject one sample into the Rialto pipeline.
@@ -434,7 +427,6 @@ protected:
 	int32_t m_sourceId{-1};
 	int32_t m_mksId{-1};
 	std::unique_ptr<Mp4Demux> m_demuxer;
-	std::optional<ProtectionParams> m_protection;
 	std::shared_ptr<firebolt::rialto::CodecData> m_pendingCodecData;
 	/// Stream format passed to Configure() when this source was created.
 	/// Never cleared by reset() so Configure() can compare formats across

@@ -30,7 +30,7 @@ class MockOpenCdmSessionAdapter
 
         MOCK_METHOD(bool, verifyOutputProtection, ());
         MOCK_METHOD(void, setKeyId, (const std::vector<uint8_t>&));
-        MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const));
+        MOCK_METHOD(std::vector<std::vector<uint8_t>>, getUsableKeys, (), (const));
         MOCK_METHOD(void, generateDRMSession, (const uint8_t*, uint32_t, std::string&));
         MOCK_METHOD(KeyState, getState, ());
 };

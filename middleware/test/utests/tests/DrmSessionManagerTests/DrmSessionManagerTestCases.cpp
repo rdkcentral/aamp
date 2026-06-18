@@ -728,7 +728,7 @@ TEST_F(DrmSessionManagerComplexTests, ValidateMultiKeySlot_RealWidevinePssh_Thre
 	usableKeys.push_back(RawKeyToKeyId(binaryKey3.data(), binaryKey3.size()));
 	
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys())
-		.WillRepeatedly(ReturnRef(usableKeys));
+		.WillRepeatedly(Return(usableKeys));
 	
 	// Validate with first key (should match after dash normalization)
 	bool result = mDrmSessionManager->ValidateMultiKeySlot(keyIDs[0], 0);
@@ -824,7 +824,7 @@ TEST_F(DrmSessionManagerComplexTests, ValidateMultiKeySlot_CreateDrmHelperFromIn
 	usableKeys.push_back(expectedKeyIdAscii);
 	
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys())
-		.WillRepeatedly(ReturnRef(usableKeys));
+		.WillRepeatedly(Return(usableKeys));
 	
 	// Validate slot
 	bool result = mDrmSessionManager->ValidateMultiKeySlot(keyIDs[0], 0);
@@ -982,7 +982,7 @@ TEST_F(DrmSessionManagerComplexTests, CreateDrmHelperFromInitData_MultipleKeys_C
 	usableKeys.push_back(RawKeyToKeyId(expectedSdKey.data(), expectedSdKey.size()));
 	
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys())
-		.WillRepeatedly(ReturnRef(usableKeys));
+		.WillRepeatedly(Return(usableKeys));
 	
 	// Validate with HD key (second key) - should succeed
 	bool result = mDrmSessionManager->ValidateMultiKeySlot(keyIDs[1], 0);
@@ -1060,7 +1060,7 @@ TEST_F(DrmSessionManagerComplexTests, InitDataFlow_EndToEnd_CreateHelperAndValid
 	usableKeys.push_back(RawKeyToKeyId(keyBinary.data(), keyBinary.size()));
 	
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys())
-		.WillRepeatedly(ReturnRef(usableKeys));
+		.WillRepeatedly(Return(usableKeys));
 	
 	// Step 9: Validate slot
 	bool validationResult = mDrmSessionManager->ValidateMultiKeySlot(keyIDs[0], 0);
@@ -1116,7 +1116,7 @@ TEST_F(DrmSessionManagerComplexTests, ValidateMultiKeySlot_RealWidevinePssh_Thre
 	usableKeys.push_back(RawKeyToKeyId(binaryKey.data(), binaryKey.size()));
 	
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys())
-		.WillRepeatedly(ReturnRef(usableKeys));
+		.WillRepeatedly(Return(usableKeys));
 	
 	// Validate
 	bool result = mDrmSessionManager->ValidateMultiKeySlot(keyIDs[0], 0);
@@ -1178,7 +1178,7 @@ TEST_F(DrmSessionManagerComplexTests, ValidateMultiKeySlot_RealWidevinePssh_Sing
 	usableKeys.push_back(RawKeyToKeyId(binaryKey.data(), binaryKey.size()));
 	
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys())
-		.WillRepeatedly(ReturnRef(usableKeys));
+		.WillRepeatedly(Return(usableKeys));
 	
 	// Validate
 	bool result = mDrmSessionManager->ValidateMultiKeySlot(keyIDs[0], 0);
@@ -1234,7 +1234,7 @@ TEST_F(DrmSessionManagerComplexTests, ValidateMultiKeySlot_RealWidevinePssh_Part
 	usableKeys.push_back(RawKeyToKeyId(binaryKey3.data(), binaryKey3.size()));
 	
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys())
-		.WillRepeatedly(ReturnRef(usableKeys));
+		.WillRepeatedly(Return(usableKeys));
 	
 	// Validate with second key (should succeed as it's in usableKeys)
 	bool result = mDrmSessionManager->ValidateMultiKeySlot(keyIDs[1], 0);

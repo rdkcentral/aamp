@@ -23,7 +23,6 @@
 #include "opencdmsessionadapter.h"
 #include "MockDrmHelper.h"
 #include "MockOpenCdm.h"
-#include "MockIOpenCDM.h"
 #include <cstring>
 #include "_base64.h"
 
@@ -47,7 +46,6 @@ protected:
 	OCDMSessionAdapter *m_ocdmsessionadapter = nullptr;
 	struct OpenCDMSystem *ocdmSystem = (OpenCDMSystem *)0x1234;
 	std::string systemId = "com.microsoft.playready";
-	NiceMock<MockIOpenCDM>* m_mockOcdm = nullptr; // raw ptr; owned by the adapter
 
 	void SetUp() override
 	{
@@ -55,18 +53,15 @@ protected:
 		g_mockopencdm = new NiceMock<MockOpenCdm>();
 
 		EXPECT_CALL(*drmHelper, ocdmSystemId()).WillOnce(ReturnRef(systemId));
+		EXPECT_CALL(*g_mockopencdm, opencdm_create_system(MemBufEq(systemId.c_str(), systemId.length() + 1))).WillOnce(Return(ocdmSystem));
 
-		auto mockOcdm = std::make_unique<NiceMock<MockIOpenCDM>>();
-		m_mockOcdm = mockOcdm.get();
-
-		m_ocdmsessionadapter = new OCDMSessionAdapter(drmHelper, std::move(mockOcdm), nullptr);
+		m_ocdmsessionadapter = new OCDMSessionAdapter(drmHelper, nullptr);
 	}
 
 	void TearDown() override
 	{
 		delete m_ocdmsessionadapter;
 		m_ocdmsessionadapter = nullptr;
-		m_mockOcdm = nullptr; // owned by adapter; already deleted
 
 		delete g_mockopencdm;
 		g_mockopencdm = nullptr;
@@ -83,21 +78,20 @@ TEST_F(OCDMSessionAdapterTests, generateDRMSession)
 	uint8_t initDataLen = sizeof(initData);
 	uint32_t f_cbInitData = 99;
 	std::string customData = "Custom Data";
+	const char *initDataType = "cenc";
+	uint8_t initDataTypeLen = strlen(initDataType);
 
-	// generateDRMSession() now calls m_ocdm->constructSession() through IOpenCDM.
-	// Verify the call is made with the correct key system, license type, init data
-	// length, and custom data; return a live mock session so m_session is non-null.
-	EXPECT_CALL(*m_mockOcdm, constructSession(
-		systemId,
-		LicenseType::Temporary,
-		std::string("cenc"),
-		MemBufEq(initData, initDataLen),
-		f_cbInitData,
-		_, _,  // customData ptr/len
-		_))    // callbacks
-	.WillOnce(testing::Invoke([](auto&&...) {
-		return std::make_unique<NiceMock<MockIOpenCDMSession>>();
-	}));
+ 	EXPECT_CALL(*g_mockopencdm,
+ 		opencdm_construct_session(
+ 			ocdmSystem,
+ 			LicenseType::Temporary,
+ 			MemBufEq(initDataType, initDataTypeLen),
+ 			MemBufEq(initData, initDataLen),
+ 			f_cbInitData,
+ 			MemBufEq(customData.c_str(), customData.length()),
+ 			customData.length(),
+ 			_, _, _))
+ 		.WillOnce(Return(ERROR_NONE));
 
 	m_ocdmsessionadapter->generateDRMSession(initData, f_cbInitData, customData);
 }

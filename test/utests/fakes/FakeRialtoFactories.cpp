@@ -28,14 +28,19 @@
  */
 
 #include "IMediaPipeline.h"
+#include "IMediaPipelineCapabilities.h"
 #include "IClientLogControl.h"
 #include "IControl.h"
 #include "MockIMediaPipelineFactory.h"
+#include "MockIMediaPipelineCapabilities.h"
 #include "MockIControlFactory.h"
 #include <memory>
 
 /// Definition of the global declared in MockIMediaPipelineFactory.h.
 std::shared_ptr<MockIMediaPipelineFactory> g_mockPipelineFactory;
+
+/// Definition of the global declared in MockIMediaPipelineCapabilities.h.
+std::shared_ptr<MockIMediaPipelineCapabilitiesFactory> g_mockCapabilitiesFactory;
 
 /// Definition of the global declared in MockIControlFactory.h.
 std::shared_ptr<MockIControlFactory> g_mockControlFactory;
@@ -46,6 +51,12 @@ namespace firebolt::rialto
 std::shared_ptr<IMediaPipelineFactory> IMediaPipelineFactory::createFactory()
 {
 	return g_mockPipelineFactory;
+}
+
+std::shared_ptr<IMediaPipelineCapabilitiesFactory>
+IMediaPipelineCapabilitiesFactory::createFactory()
+{
+	return g_mockCapabilitiesFactory;
 }
 
 std::shared_ptr<IClientLogControlFactory> IClientLogControlFactory::createFactory()

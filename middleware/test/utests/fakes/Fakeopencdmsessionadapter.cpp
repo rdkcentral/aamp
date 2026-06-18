@@ -21,18 +21,13 @@
 #include "DrmData.h"
 #include "DrmSession.h"
 #include "MockOpenCdmSessionAdapter.h"
-#include "IOpenCDM.h"
 
 MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter = nullptr;
 std::vector<uint8_t> g_mockKeyId{1,2,3,4,5,6,7,8,9,0,1,2,3,4};
-const std::vector<std::vector<uint8_t>> g_emptyUsableKeys{};
 
-OCDMSessionAdapter::OCDMSessionAdapter(std::shared_ptr<DrmHelper> drmHelper,
-                                       std::unique_ptr<IOpenCDM> ocdm,
-                                       DrmCallbacks *callbacks) :
+OCDMSessionAdapter::OCDMSessionAdapter(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks *callbacks) :
     DrmSession("ocdmkeysystem"), m_keyId{g_mockKeyId}, m_drmHelper{drmHelper}
 {
-    m_ocdm = std::move(ocdm);
 }
 
 OCDMSessionAdapter::~OCDMSessionAdapter()
@@ -52,15 +47,6 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData, uint32_
     if (g_mockOpenCdmSessionAdapter != nullptr)
     {
         g_mockOpenCdmSessionAdapter->generateDRMSession(f_pbInitData, f_cbInitData, customData);
-    }
-    // Populate m_session so that OcdmBasicSessionAdapter::decrypt() can call
-    // m_session->decrypt() without dereferencing a null pointer.
-    if (m_ocdm)
-    {
-        OpenCDMSessionCallbackSet dummy;
-        m_session = m_ocdm->constructSession(
-            m_keySystem, LicenseType::Temporary, std::string("cenc"),
-            f_pbInitData, f_cbInitData, nullptr, 0, dummy);
     }
 }
 
@@ -92,15 +78,14 @@ bool OCDMSessionAdapter::waitForState(KeyState state, const uint32_t timeout)
 
 /**
  * @brief Get the list of usable key IDs from the DRM session
- * @retval Reference to vector of usable key IDs
- * @note Default implementation returns the reference to an empty vector
+ * @retval Snapshot copy of usable key IDs
  */
-const std::vector<std::vector<uint8_t>>& OCDMSessionAdapter::getUsableKeys() const
+std::vector<std::vector<uint8_t>> OCDMSessionAdapter::getUsableKeys() const
 {
     if (g_mockOpenCdmSessionAdapter) {
         return g_mockOpenCdmSessionAdapter->getUsableKeys();
     }
-    return g_emptyUsableKeys;
+    return {};
 }
 
 #if defined(USE_OPENCDM_ADAPTER)
@@ -111,8 +96,3 @@ void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
     }
 }
 #endif
-
-int32_t OCDMSessionAdapter::getMediaKeySessionId() const
-{
-    return -1;
-}

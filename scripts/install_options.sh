@@ -32,6 +32,7 @@ OPTION_QUICK=false
 OPTION_RIALTO_REFERENCE="v0.21.0"
 OPTION_RIALTO_GSTREAMER_REFERENCE="v0.19.0"
 OPTION_RIALTO_BUILD=false
+OPTION_RIALTO_FORCE_SIMULATOR=false
 OPTION_SUBTEC_SKIP=false
 OPTION_AAMPCLIKOTLIN_SKIP=true
 OPTION_SUBTEC_BUILD=true
@@ -58,6 +59,10 @@ function install_options_fn()
       --middleware-player-interface-commit-id=*)
         OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${1#*=}"
         echo "Middleware player interface commit ID: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+        ;;
+      --rialto-force-simulator)
+        OPTION_RIALTO_FORCE_SIMULATOR=true
+        echo "Force Rialto simulator: ${OPTION_RIALTO_FORCE_SIMULATOR}"
         ;;
       *)
         remaining_args+=("$1")
@@ -143,6 +148,7 @@ function install_options_fn()
         [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
         [--player-interface-source=internal|external] Choose player interface source (default: internal)
         [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external (default: 269f2b1a38492c26f2f7cfb41d194029a8ea88d2)
+        [--rialto-force-simulator] Force simulator build instead of linking system Rialto client
         [-t] Remove .libs and build directories before build (full rebuild)
         [-u] Enable Ubuntu address sanitizer (Linux only)"
 

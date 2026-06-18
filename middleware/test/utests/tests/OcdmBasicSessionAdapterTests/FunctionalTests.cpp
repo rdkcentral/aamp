@@ -24,7 +24,6 @@
 #include "MockOpenCdmSessionAdapter.h"
 #include "MockDrmHelper.h"
 #include "MockOpenCdm.h"
-#include "MockIOpenCDM.h"
 #include "MockDrmMemorySystem.h"
 #include <cstring>
 
@@ -61,16 +60,12 @@ std::shared_ptr<MockDrmHelper> drmHelper;
 DrmInfo drminfo;
 MockDrmMemorySystem *g_mockMemorySystem;
 static std::string g_defaultSystemId = "com.widevine.alpha";
-static std::vector<std::vector<uint8_t>> g_emptyKeys;
 
 class OcdmBasicSessionAdapterTests : public ::testing::Test
 {
 
 protected:
 	OCDMBasicSessionAdapter *m_ocdmbasicsessionadapter = nullptr;
-	/// Raw pointer to the mock session injected via MockIOpenCDM::constructSession().
-	/// Owned by the adapter's m_session unique_ptr; do NOT delete manually.
-	NiceMock<MockIOpenCDMSession>* m_mockSession = nullptr;
 
 	void SetUp() override
 	{
@@ -86,37 +81,15 @@ protected:
 		g_mockMemorySystem = new NiceMock<MockDrmMemorySystem>();
 		
 		// Now set up expectations on the created mocks
-		ON_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys()).WillByDefault(testing::ReturnRef(g_emptyKeys));
-
-		// Create the mock session; constructSession on MockIOpenCDM will hand
-		// ownership to the adapter's m_session so we keep only a raw pointer.
-		auto* rawSession = new NiceMock<MockIOpenCDMSession>();
-		m_mockSession = rawSession;
-
-		auto mockOcdm = std::make_unique<NiceMock<MockIOpenCDM>>();
-		ON_CALL(*mockOcdm, constructSession(_, _, _, _, _, _, _, _))
-			.WillByDefault(testing::Invoke([rawSession](auto&&...) {
-				return std::unique_ptr<IOpenCDMSession>(rawSession);
-			}));
-
-		m_ocdmbasicsessionadapter = new OCDMBasicSessionAdapter(
-			drmHelper, std::move(mockOcdm), nullptr);
-
-		// Call generateDRMSession so that m_session is populated from MockIOpenCDM.
-		// OcdmBasicSessionAdapter::decrypt() requires a live m_session.
-		const uint8_t dummyInit[] = {0x00};
-		std::string emptyCustomData;
-		m_ocdmbasicsessionadapter->generateDRMSession(
-			dummyInit, sizeof(dummyInit), emptyCustomData);
+		ON_CALL(*g_mockOpenCdmSessionAdapter, getUsableKeys()).WillByDefault(testing::Return(std::vector<std::vector<uint8_t>>{}));
+		
+		m_ocdmbasicsessionadapter = new OCDMBasicSessionAdapter(drmHelper,nullptr);
 	}
 
 	void TearDown() override
 	{
-		// Deleting the adapter calls clearDecryptContext() which resets m_session,
-		// deleting the MockIOpenCDMSession.  Do NOT call delete m_mockSession.
 		delete m_ocdmbasicsessionadapter;
 		m_ocdmbasicsessionadapter = nullptr;
-		m_mockSession = nullptr;
 
 		delete g_mockOpenCdmSessionAdapter;
 		g_mockOpenCdmSessionAdapter = nullptr;
@@ -137,7 +110,7 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptHDCPComplianceFailure)
 {
 	int ret_value;
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(false));
-	EXPECT_CALL(*m_mockSession, decrypt(_,_,_,_,_,_,_,_,_)).Times(0);
+	EXPECT_CALL(*g_mockopencdm, opencdm_session_decrypt(_,_,_,_,_,_,_,_,_,_)).Times(0);
 
 	ret_value = m_ocdmbasicsessionadapter->decrypt(nullptr, 0x0, nullptr,
 										 0, nullptr);
@@ -157,16 +130,17 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithNullMemorySystem)
 
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
 	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*m_mockSession, decrypt(
-						MemBufEq(payloadData, payloadDataSize),
-						payloadDataSize,
-						encScheme,
-						_,
-						f_pbIV,
-						_,   // ivSize (uint16_t narrowed from f_cbIV)
-						_,   // keyId pointer
-						_,   // keyId size
-						initWithLast15)).WillOnce(Return(ERROR_NONE));
+	EXPECT_CALL(*g_mockopencdm,
+				opencdm_session_decrypt(_,
+										MemBufEq(payloadData, payloadDataSize),
+										payloadDataSize,
+										encScheme,
+										_,
+										f_pbIV,
+										f_cbIV,
+										_,   // keyId pointer (can be anything)
+										_,   // keyId size (can be anything)
+										initWithLast15)).WillOnce(Return(ERROR_NONE));
 	ret_value = m_ocdmbasicsessionadapter->decrypt(f_pbIV, f_cbIV, payloadData,
 										 payloadDataSize, nullptr);
 
@@ -189,16 +163,17 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithValidMemorySystem)
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
 	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(true)));
-	EXPECT_CALL(*m_mockSession, decrypt(
-						MemBufEq(dataToSend, sizeToSend),
-						sizeToSend,
-						encScheme,
-						_,
-						f_pbIV,
-						_,   // ivSize
-						MemBufEq(g_mockKeyId.data(), g_mockKeyId.size()),
-						(uint16_t)g_mockKeyId.size(),
-						initWithLast15)).WillOnce(Return(ERROR_NONE));
+	EXPECT_CALL(*g_mockopencdm,
+				opencdm_session_decrypt(_,
+										MemBufEq(dataToSend, sizeToSend),
+										sizeToSend,
+										encScheme,
+										_,
+										f_pbIV,
+										f_cbIV,
+										MemBufEq(g_mockKeyId.data(), g_mockKeyId.size()),   // Check correct keyId pointer
+										g_mockKeyId.size(),   // Check correct keyId size
+										initWithLast15)).WillOnce(Return(ERROR_NONE));
 	EXPECT_CALL(*g_mockMemorySystem, decode(MemBufEq(dataToSend, sizeToSend), sizeToSend,const_cast<uint8_t *>(payloadData), payloadDataSize)).WillOnce(Return(true));
 	ret_value = m_ocdmbasicsessionadapter->decrypt(f_pbIV, f_cbIV, payloadData,
 										 payloadDataSize, nullptr);
@@ -221,7 +196,7 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithValidMemorySystemEncodeFail)
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
 	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(false)));
-	EXPECT_CALL(*m_mockSession, decrypt(_,_,_,_,_,_,_,_,_)).Times(0);
+	EXPECT_CALL(*g_mockopencdm, opencdm_session_decrypt(_,_,_,_,_,_,_,_,_,_)).Times(0);
 	EXPECT_CALL(*g_mockMemorySystem, decode(_,_,_,_)).Times(0);
 	ret_value = m_ocdmbasicsessionadapter->decrypt(f_pbIV, f_cbIV, payloadData,
 										 payloadDataSize, nullptr);
@@ -244,16 +219,17 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptWithValidMemorySystemDecodeFail)
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
 	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(true)));
-	EXPECT_CALL(*m_mockSession, decrypt(
-						MemBufEq(dataToSend, sizeToSend),
-						sizeToSend,
-						encScheme,
-						_,
-						f_pbIV,
-						_,   // ivSize
-						_,   // keyId pointer
-						_,   // keyId size
-						initWithLast15)).WillOnce(Return(ERROR_NONE));
+	EXPECT_CALL(*g_mockopencdm,
+				opencdm_session_decrypt(_,
+										MemBufEq(dataToSend, sizeToSend),
+										sizeToSend,
+										encScheme,
+										_,
+										f_pbIV,
+										f_cbIV,
+										_,   // Accept any keyId pointer
+										_,   // Accept any keyId size
+										initWithLast15)).WillOnce(Return(ERROR_NONE));
 	EXPECT_CALL(*g_mockMemorySystem, decode(MemBufEq(dataToSend, sizeToSend), sizeToSend,const_cast<uint8_t *>(payloadData), payloadDataSize)).WillOnce(Return(false));
 	ret_value = m_ocdmbasicsessionadapter->decrypt(f_pbIV, f_cbIV, payloadData, payloadDataSize, nullptr);
 
@@ -276,16 +252,17 @@ TEST_F(OcdmBasicSessionAdapterTests, DecryptFail)
 	EXPECT_CALL(*g_mockOpenCdmSessionAdapter, verifyOutputProtection()).WillOnce(Return(true));
 	EXPECT_CALL(*drmHelper, getMemorySystem()).WillRepeatedly(Return(g_mockMemorySystem));
 	EXPECT_CALL(*g_mockMemorySystem, encode(payloadData,payloadDataSize,_)).WillOnce(DoAll(SetArgReferee<2>(vdata), Return(true)));
-	EXPECT_CALL(*m_mockSession, decrypt(
-						MemBufEq(dataToSend, sizeToSend),
-						sizeToSend,
-						encScheme,
-						_,
-						f_pbIV,
-						_,   // ivSize
-						MemBufEq(g_mockKeyId.data(), g_mockKeyId.size()),
-						(uint16_t)g_mockKeyId.size(),
-						initWithLast15)).WillOnce(Return(ERROR_UNKNOWN));
+	EXPECT_CALL(*g_mockopencdm,
+				opencdm_session_decrypt(_,
+										MemBufEq(dataToSend, sizeToSend),
+										sizeToSend,
+										encScheme,
+										_,
+										f_pbIV,
+										f_cbIV,
+										MemBufEq(g_mockKeyId.data(), g_mockKeyId.size()),   // Check correct keyId pointer
+										g_mockKeyId.size(),   // Check correct keyId size
+										initWithLast15)).WillOnce(Return(ERROR_UNKNOWN));
 	EXPECT_CALL(*g_mockMemorySystem, terminateEarly());
 	ret_value = m_ocdmbasicsessionadapter->decrypt(f_pbIV, f_cbIV, payloadData, payloadDataSize, nullptr);
 	EXPECT_EQ(ret_value,ERROR_UNKNOWN);

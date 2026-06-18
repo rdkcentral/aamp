@@ -138,15 +138,16 @@ public:
 
 	/**
 	 * @brief Get the list of usable key IDs from the DRM session
-	 * @retval Reference to vector of usable key IDs
-	 * @note Default implementation returns the reference to an empty vector
+	 * @retval Snapshot copy of usable key IDs, taken under the session's
+	 *         internal lock where applicable. Callers receive their own
+	 *         independent copy and need not hold any external lock.
 	 */
-	virtual const std::vector<std::vector<uint8_t>>& getUsableKeys() const;
+	virtual std::vector<std::vector<uint8_t>> getUsableKeys() const;
 
 	/**
 	 * @brief Returns the Rialto media key session ID for this DRM session.
 	 *
-	 * Only meaningful for sessions backed by the Rialto OCDM stack.
+	 * Only meaningful for sessions backed by the Rialto DRM stack.
 	 * Returns -1 for all other session types.
 	 *
 	 * @retval Rialto mks_id (>= 0) or -1 if not applicable.

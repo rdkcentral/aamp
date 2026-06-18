@@ -41,7 +41,7 @@ public:
 	MOCK_METHOD(int, processDRMKey, (DrmData* key, uint32_t timeout), (override));
 	MOCK_METHOD(KeyState, getState, (), (override));
 	MOCK_METHOD(void, clearDecryptContext, (), (override));
-	MOCK_METHOD(const std::vector<std::vector<uint8_t>>&, getUsableKeys, (), (const, override));
+	MOCK_METHOD(std::vector<std::vector<uint8_t>>, getUsableKeys, (), (const, override));
 };
 
 #endif /* PLAYER_MOCK_DRM_SESSION_H */

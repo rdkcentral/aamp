@@ -102,6 +102,15 @@ function rialto_install_build_fn()
 {
     cd $LOCAL_DEPS_BUILD_DIR
 
+    # The real Rialto libraries (protobuf, rialto, rialto-gstreamer) require a
+    # Linux build environment.  Reject the 'rialto' option early on macOS so
+    # the user gets a clear message rather than a confusing build failure.
+    if [ "${OPTION_RIALTO_BUILD}" = true ] && [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "WARNING: The 'rialto' option is not supported on macOS (protobuf/Rialto require Linux)."
+        echo "         The simulator will be used automatically on this platform."
+        OPTION_RIALTO_BUILD=false
+    fi
+
     # OPTION_CLEAN == true
     if [ ${1} == true ] ; then
         echo " clean"

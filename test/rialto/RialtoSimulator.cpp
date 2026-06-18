@@ -37,6 +37,8 @@
 #include "IMediaPipeline.h"
 #include "IClientLogControl.h"
 #include "IControl.h"
+#include "IMediaKeys.h"
+#include "IMediaPipelineCapabilities.h"
 
 #include <atomic>
 #include <chrono>
@@ -95,10 +97,10 @@ public:
 	}
 
 	bool load(MediaType type, const std::string &mimeType,
-		const std::string &url) override
+		const std::string &url, bool isLive) override
 	{
-		RIALTO_SIM_LOG("load: type=%d mime=%s url=%s",
-			static_cast<int>(type), mimeType.c_str(), url.c_str());
+		RIALTO_SIM_LOG("load: type=%d mime=%s url=%s isLive=%d",
+			static_cast<int>(type), mimeType.c_str(), url.c_str(), isLive);
 		m_loaded = true;
 		return true;
 	}
@@ -198,8 +200,6 @@ public:
 	}
 
 	bool setImmediateOutput(int32_t, bool) override { return true; }
-	bool setReportDecodeErrors(int32_t, bool) override { return true; }
-	bool getQueuedFrames(int32_t, uint32_t &qf) override { qf = 0; return true; }
 	bool getImmediateOutput(int32_t, bool &io) override { io = false; return true; }
 
 	bool setVideoWindow(uint32_t x, uint32_t y,
@@ -313,6 +313,12 @@ public:
 	{
 		RIALTO_SIM_LOG("switchSource: type=%d",
 			static_cast<int>(source->getType()));
+		return true;
+	}
+
+	bool getDuration(int64_t &duration) override
+	{
+		duration = 0;
 		return true;
 	}
 
@@ -555,3 +561,65 @@ void IMediaPipeline::MediaSegmentVideo::copy(const MediaSegmentVideo &other)
 }
 
 } // namespace firebolt::rialto
+
+namespace firebolt::rialto
+{
+
+// Stub IMediaKeysFactory for builds that link RialtoSimulator instead of
+// the real libRialtoClient.  The Rialto DRM path is not exercised in these
+// builds, so returning nullptr is sufficient to satisfy the linker.
+std::shared_ptr<IMediaKeysFactory> IMediaKeysFactory::createFactory()
+{
+    return nullptr;
+}
+
+} // namespace firebolt::rialto
+
+namespace firebolt::rialto
+{
+
+// Stub IMediaPipelineCapabilitiesFactory for builds that link RialtoSimulator
+// instead of the real libRialtoClient.  Returns a capabilities object whose
+// isVideoMaster() reports false (audio-master), which is the safe default for
+// simulator/test builds.
+class SimMediaPipelineCapabilities : public IMediaPipelineCapabilities
+{
+public:
+	std::vector<std::string> getSupportedMimeTypes(MediaSourceType) override
+	{
+		return {};
+	}
+	bool isMimeTypeSupported(const std::string &) override { return true; }
+	std::vector<std::string> getSupportedProperties(
+		MediaSourceType, const std::vector<std::string> &) override
+	{
+		return {};
+	}
+	bool isVideoMaster(bool &videoMaster) override
+	{
+		videoMaster = false;
+		return true;
+	}
+};
+
+class SimMediaPipelineCapabilitiesFactory
+	: public IMediaPipelineCapabilitiesFactory
+{
+public:
+	std::unique_ptr<IMediaPipelineCapabilities>
+	createMediaPipelineCapabilities() const override
+	{
+		return std::make_unique<SimMediaPipelineCapabilities>();
+	}
+};
+
+std::shared_ptr<IMediaPipelineCapabilitiesFactory>
+IMediaPipelineCapabilitiesFactory::createFactory()
+{
+	static auto factory =
+		std::make_shared<SimMediaPipelineCapabilitiesFactory>();
+	return factory;
+}
+
+} // namespace firebolt::rialto
+
