@@ -19,7 +19,7 @@
 
 /**
  * @file RialtoMediaKeySessionAdapter.cpp
- * @brief DrmSession adapter implementation for the Rialto Direct path.
+ * @brief IDrmSession adapter implementation for the Rialto Direct path.
  */
 
 #include "RialtoMediaKeySessionAdapter.h"

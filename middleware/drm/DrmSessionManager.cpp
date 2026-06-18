@@ -24,7 +24,7 @@
  */
 
 #include "DrmSessionManager.h"
-#include "DrmSession.h"
+#include "IDrmSession.h"
 #include "_base64.h"
 #include <iostream>
 #include "DrmHelper.h"
@@ -390,11 +390,11 @@ int DrmSessionManager::getSlotIdForSession(IDrmSession* session)
 
 /**
  *  @brief      Creates and/or returns the DRM session corresponding to keyId (Present in initDataPtr)
- *              DRMSession manager has two static DrmSession objects.
+ *              DRMSession manager has two static IDrmSession objects.
  *              This method will return the existing DRM session pointer if any one of these static
  *              DRM session objects are created against requested keyId. Binds the oldest DRM Session
  *              with new keyId if no matching keyId is found in existing sessions.
- *  @return     Pointer to DrmSession for the given PSSH data; NULL if session creation/mapping fails.
+ *  @return     Pointer to IDrmSession for the given PSSH data; NULL if session creation/mapping fails.
  */
 IDrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		int &err, const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
@@ -439,7 +439,7 @@ IDrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 	return drmSession;
 }
 /**
- *  @brief Create DrmSession by using the DrmHelper object
+ *  @brief Create IDrmSession by using the DrmHelper object
  */
 IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
 {
@@ -490,13 +490,13 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 
 	if ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT))
 	{
-		MW_LOG_WARN(" Unable to get DrmSession : Key State %d ", code);
+		MW_LOG_WARN(" Unable to get IDrmSession : Key State %d ", code);
 		return nullptr;
 	}
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);
 	if (code != KEY_INIT)
 	{
-		MW_LOG_WARN(" Unable to initialize DrmSession : Key State %d, err code: %d", code, err);
+		MW_LOG_WARN(" Unable to initialize IDrmSession : Key State %d, err code: %d", code, err);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 		if (cachedKeyIDs)
 		{
@@ -527,7 +527,7 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 	code = AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
 	if (code != KEY_READY)
 	{
-		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
+		MW_LOG_WARN(" Unable to get Ready Status IDrmSession : Key State %d ", code);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 		if (cachedKeyIDs)
 		{
@@ -566,7 +566,7 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 }
 
 /**
- * @fn Validate multiple key IDs for a given DRM session slot using the usable keys from the DrmSession
+ * @fn Validate multiple key IDs for a given DRM session slot using the usable keys from the IDrmSession
  *
  * @param[in] keyId The key ID to validate
  * @param[in] selectedSlot The DRM session slot to validate
@@ -583,7 +583,7 @@ bool DrmSessionManager::ValidateMultiKeySlot(const std::vector<uint8_t> &keyId, 
 
 	MW_LOG_INFO("Multiple KeyIDs present for the session at slot %d, validating each", selectedSlot);
 
-	// Acquire usable keys from the DrmSession (under its mutex)
+	// Acquire usable keys from the IDrmSession (under its mutex)
 	std::vector<std::vector<uint8_t>> usableKeyIds;
 	{
 		std::lock_guard<std::mutex> sessionGuard(drmSessionContexts[selectedSlot].sessionMutex);
@@ -901,7 +901,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	}
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
-		MW_LOG_INFO("Created new DrmSession for DrmSystemId %s", systemId.c_str());
+		MW_LOG_INFO("Created new IDrmSession for DrmSystemId %s", systemId.c_str());
 		drmSessionContexts[sessionSlot].data = keyIdArray;
 		code = drmSessionContexts[sessionSlot].drmSession->getState();
 		// exception : by default for all types of drm , outputprotection is not handled in player
@@ -911,16 +911,13 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			drmSessionContexts[sessionSlot].drmSession->setOutputProtection(true);
 			drmHelper->setOutputProtectionFlag(true);
 		}
+		drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
 	}
 	else
 	{
-		MW_LOG_WARN("Unable to Get DrmSession for DrmSystemId %s", systemId.c_str());
+		MW_LOG_WARN("Unable to Get IDrmSession for DrmSystemId %s", systemId.c_str());
 		err = MW_DRM_INIT_FAILED ;
 	}
-
-#if defined(USE_OPENCDM_ADAPTER)
-	drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
-#endif
 
 	return code;
 }
@@ -972,7 +969,7 @@ void DrmSessionManager::notifyCleanup()
 		// Set current session to inactive
 		MW_LOG_WARN("De-activate DRM session [%" PRId64 "] and watermark", localSession.getSessionID() );
 		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
-		// Reset the session ID, the session ID is preserved within DrmSession instances
+		// Reset the session ID, the session ID is preserved within IDrmSession instances
 		mContentSecurityManagerSession.setSessionInvalid();	//note this doesn't necessarily close the session as the session ID is also saved in the slot
 		mCurrentSpeed.store(0);
 		mFirstFrameSeen.store(false);

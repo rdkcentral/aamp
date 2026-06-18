@@ -35,7 +35,7 @@
 #ifdef AAMP_VANILLA_AES_SUPPORT
 #include "Aes.h"
 #endif
-#include "DrmSession.h"
+#include "IDrmSession.h"
 #include "DrmHelper.h"
 #include "PlayerHlsDrmSessionInterface.h"
 /**

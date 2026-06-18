@@ -25,7 +25,7 @@
 #include "AampDRMLicManager.h"
 #include "priv_aamp.h"   
 #include "DrmHelper.h"
-#include "DrmSession.h"
+#include "IDrmSession.h"
 #include <pthread.h>
 #include "downloader/AampCurlStore.h"
 #include "_base64.h"
@@ -1521,7 +1521,7 @@ void AampDRMLicenseManager::notifyCleanup()
 	mDrmSessionManager->notifyCleanup();
 }
 /**
- *  @brief Create DrmSession by using the AampDrmHelper object
+ *  @brief Create IDrmSession by using the AampDrmHelper object
  */
 IDrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
 {
@@ -1546,7 +1546,7 @@ IDrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper>
  *              This method will return the existing DRM session pointer if any one of these static
  *              DRM session objects are created against requested keyId. Binds the oldest DRM Session
  *              with new keyId if no matching keyId is found in existing sessions.
- *  @return     Pointer to DrmSession for the given PSSH data; NULL if session creation/mapping fails.
+ *  @return     Pointer to IDrmSession for the given PSSH data; NULL if session creation/mapping fails.
  */
 IDrmSession * AampDRMLicenseManager::createDrmSession(
 		 const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,

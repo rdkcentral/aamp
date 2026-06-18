@@ -176,8 +176,8 @@ public:
 		GstBuffer* /*subSamplesBuffer*/, GstCaps* /*caps*/ = nullptr) { return 0; }
 #endif
 
-/**
-* @brief Store the DRM key ID for this session.
+    /**
+     * @brief Store the DRM key ID for this session.
      *        No-op for session types that do not use key-ID tracking.
      */
     virtual void setKeyId(const std::vector<uint8_t>& /*keyId*/) {}

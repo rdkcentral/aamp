@@ -46,7 +46,7 @@ public:
 	 *
 	 * @param[in] drmHelper     DrmHelper instance.
 	 * @param[in] drmCallbacks  Callback sink.
-	 * @return Pointer to a new DrmSession, or nullptr on failure.
+	 * @return Pointer to a new IDrmSession, or nullptr on failure.
 	 */
 	static IDrmSession* GetDrmSession(
 		DrmHelperPtr drmHelper,

@@ -22,10 +22,10 @@
 
 /**
  * @file RialtoMediaKeySessionAdapter.h
- * @brief DrmSession adapter for the Rialto Direct path.
+ * @brief IDrmSession adapter for the Rialto Direct path.
  *
  * Integrates RialtoMediaKeySystem/RialtoMediaKeySession with the
- * DrmSessionManager by implementing the DrmSession interface.
+ * DrmSessionManager by implementing the IDrmSession interface.
  * Decryption is server-side (no-op). Key management flows through
  * the Rialto IMediaKeys API.
  */
@@ -35,6 +35,7 @@
 #include "DrmCallbacks.h"
 #include "RialtoMediaKeySystem.h"
 #include "RialtoMediaKeySession.h"
+#include "ContentSecurityManagerSession.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -45,7 +46,7 @@
 
 /**
  * @class RialtoMediaKeySessionAdapter
- * @brief DrmSession implementation for the Rialto Direct DRM path.
+ * @brief IDrmSession implementation for the Rialto Direct DRM path.
  *
  * Follows the same lifecycle as OCDMSessionAdapter:
  *   generateDRMSession → generateKeyRequest → processDRMKey
@@ -95,6 +96,16 @@ public:
 
 	void setOutputProtection(bool /*bValue*/) override {}
 
+	void setSecManagerSession(ContentSecurityManagerSession session) override
+	{
+		m_secManagerSession = std::move(session);
+	}
+
+	ContentSecurityManagerSession getSecManagerSession() const override
+	{
+		return m_secManagerSession;
+	}
+
 	/// decrypt() is a no-op — decryption is performed server-side by the Rialto pipeline.
 	int decrypt(const uint8_t* /*f_pbIV*/, uint32_t /*f_cbIV*/,
 	            const uint8_t* /*payloadData*/, uint32_t /*payloadDataSize*/,
@@ -132,6 +143,8 @@ private:
 
 	/// Timing for diagnostics.
 	long long m_timeBeforeCallback;
+
+	ContentSecurityManagerSession m_secManagerSession;
 };
 
 #endif // RialtoMediaKeySessionAdapter_h

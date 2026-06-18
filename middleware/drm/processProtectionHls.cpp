@@ -27,7 +27,7 @@
 * 
 */
 #include "_base64.h"
-#include "DrmSession.h"
+#include "IDrmSession.h"
 #include "DrmHelper.h"
 
 #include "PlayerLogManager.h"

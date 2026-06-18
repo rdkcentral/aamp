@@ -174,9 +174,6 @@ public:
 	 * @retval void
 	 */
 	void setOutputProtection(bool bValue) override { m_OutputProtectionEnabled = bValue;}
-#if defined(USE_OPENCDM_ADAPTER)
-	virtual void setKeyId(const std::vector<uint8_t>& keyId) {};
-#endif
 	void setSecManagerSession(ContentSecurityManagerSession session){mContentSecurityManagerSession=session;}
 	ContentSecurityManagerSession getSecManagerSession() const { return mContentSecurityManagerSession;}
 };
