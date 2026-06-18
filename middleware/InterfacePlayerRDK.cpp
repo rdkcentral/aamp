@@ -4988,6 +4988,12 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			{
 				privatePlayer->gstPrivateContext->bufferingTimeoutTimerId = g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS, buffering_timeout, pInterfacePlayerRDK, NULL);
 			}
+			// Signal the mp4demux injection gate: decodebin async pad-linking is now complete
+			// and the pipeline is safe to accept the first data buffer.
+			if (pInterfacePlayerRDK->callbackMap[InterfaceCB::asyncDone])
+			{
+				pInterfacePlayerRDK->TriggerEvent(InterfaceCB::asyncDone);
+			}
 
 			break;
 

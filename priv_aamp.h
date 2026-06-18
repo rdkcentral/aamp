@@ -2058,6 +2058,35 @@ public:
 	void BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track);
 
 	/**
+	 *   @fn ResetMp4DemuxPipelineReady
+	 *   Called at the start of each pipeline Configure when useMp4Demux is active.
+	 *   Clears the ASYNC_DONE gate so that BlockUntilMp4DemuxPipelineReady will
+	 *   block injection until the pipeline reports ASYNC_DONE.
+	 *   @return void
+	 */
+	void ResetMp4DemuxPipelineReady();
+
+	/**
+	 *   @fn NotifyMp4DemuxPipelineReady
+	 *   Called (via the asyncDone InterfaceCB) when GST_MESSAGE_ASYNC_DONE is
+	 *   received, indicating that decodebin has finished async pad-linking and
+	 *   the pipeline is ready to accept the first data buffer.
+	 *   @return void
+	 */
+	void NotifyMp4DemuxPipelineReady();
+
+	/**
+	 *   @fn BlockUntilMp4DemuxPipelineReady
+	 *   Blocks the calling injector thread until the GStreamer pipeline has
+	 *   reported ASYNC_DONE (i.e. decodebin pad-linking is complete) or until
+	 *   downloads are disabled (abort).  Returns immediately if the pipeline is
+	 *   already ready (mMp4DemuxPipelineReady == true).
+	 *   @param[in] track - Track id (used to check per-track injection-blocked flag)
+	 *   @return void
+	 */
+	void BlockUntilMp4DemuxPipelineReady(int track);
+
+	/**
 	 *   @fn LogTuneComplete
 	 *
 	 *   @return void
@@ -4254,6 +4283,12 @@ protected:
 	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
 	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
+	// mp4demux ASYNC_DONE gate: cleared by ResetMp4DemuxPipelineReady() at the start of
+	// each Configure and set by NotifyMp4DemuxPipelineReady() when GST_MESSAGE_ASYNC_DONE
+	// fires.  Starts true so non-mp4demux paths are never blocked.
+	bool mMp4DemuxPipelineReady {true};
+	std::mutex mMp4DemuxReadyMtx;
+	std::condition_variable mMp4DemuxReadyCV;
 	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];

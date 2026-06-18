@@ -153,7 +153,8 @@ enum class InterfaceCB
 	progressCb,
 	firstVideoFrameReceived,
 	notifyEOS,
-	startNewSubtitleStream // Add more events here if needed
+	startNewSubtitleStream, // Add more events here if needed
+	asyncDone               // GST_MESSAGE_ASYNC_DONE: decodebin pad-linking complete
 };
 
 // Class to encapsulate GStreamer-related functionality

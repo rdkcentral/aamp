@@ -304,6 +304,11 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 		UsingPlayerId playerId(aamp->mPlayerId);
 		aamp->NotifyEOSReached();
 	};
+	playerInstance->callbackMap[InterfaceCB::asyncDone] = [this]()
+	{
+		UsingPlayerId playerId(aamp->mPlayerId);
+		aamp->NotifyMp4DemuxPipelineReady();
+	};
 	playerInstance->FirstFrameCallback([this](int mediatype, bool notifyFirstBuffer, bool initCC, bool& requireFirstVideoFrameDisplay, bool &audioOnly) {
 		UsingPlayerId playerId(aamp->mPlayerId);
 		this->NotifyFirstFrame((AampMediaType)mediatype, notifyFirstBuffer, initCC, requireFirstVideoFrameDisplay, audioOnly);
@@ -357,6 +362,7 @@ void AAMPGstPlayer::UnregisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::progressCb] = nullptr;
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameReceived] = nullptr;
 	playerInstance->callbackMap[InterfaceCB::notifyEOS] = nullptr;
+	playerInstance->callbackMap[InterfaceCB::asyncDone] = nullptr;
 	playerInstance->FirstFrameCallback(nullptr);
 	playerInstance->setupStreamCallbackMap[InterfaceCB::startNewSubtitleStream] = nullptr;
 	playerInstance->StopCallback(nullptr);
@@ -881,6 +887,13 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);
+	// Reset the mp4demux ASYNC_DONE gate before starting the pipeline. The gate will be
+	// lifted in NotifyMp4DemuxPipelineReady() once GST_MESSAGE_ASYNC_DONE fires, ensuring
+	// the first data buffer is not injected before decodebin completes async pad-linking.
+	if (aamp->mConfig->IsConfigSet(eAAMPConfig_UseMp4Demux))
+	{
+		aamp->ResetMp4DemuxPipelineReady();
+	}
 	/*set the run time configs for pipeline configuration*/
 
 	const char *envVal = getenv("AAMP_AV_PIPELINE_PRIORITY");

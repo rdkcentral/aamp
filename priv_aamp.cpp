@@ -4118,6 +4118,50 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 }
 
 /**
+ * @brief Reset the mp4demux ASYNC_DONE gate at the start of each pipeline Configure.
+ *        BlockUntilMp4DemuxPipelineReady will block until NotifyMp4DemuxPipelineReady is called.
+ */
+void PrivateInstanceAAMP::ResetMp4DemuxPipelineReady()
+{
+	std::lock_guard<std::mutex> lock(mMp4DemuxReadyMtx);
+	mMp4DemuxPipelineReady = false;
+	AAMPLOG_INFO("Mp4Demux pipeline ready gate: RESET (waiting for ASYNC_DONE)");
+}
+
+/**
+ * @brief Signal that the GStreamer pipeline has completed async pad-linking (ASYNC_DONE received).
+ *        Unblocks any thread waiting in BlockUntilMp4DemuxPipelineReady.
+ */
+void PrivateInstanceAAMP::NotifyMp4DemuxPipelineReady()
+{
+	{
+		std::lock_guard<std::mutex> lock(mMp4DemuxReadyMtx);
+		mMp4DemuxPipelineReady = true;
+	}
+	mMp4DemuxReadyCV.notify_all();
+	AAMPLOG_INFO("Mp4Demux pipeline ready gate: SET (ASYNC_DONE received)");
+}
+
+/**
+ * @brief Block the calling injector thread until the GStreamer pipeline has reported ASYNC_DONE
+ *        (i.e. decodebin async pad-linking is complete) or until downloads are disabled (abort).
+ *        Returns immediately when mMp4DemuxPipelineReady is already true.
+ */
+void PrivateInstanceAAMP::BlockUntilMp4DemuxPipelineReady(int track)
+{
+	constexpr auto kTimeout = std::chrono::seconds(5);
+	std::unique_lock<std::mutex> lock(mMp4DemuxReadyMtx);
+	bool satisfied = mMp4DemuxReadyCV.wait_for(lock, kTimeout, [this, track]() {
+		return mMp4DemuxPipelineReady || !mDownloadsEnabled || mTrackInjectionBlocked[track];
+	});
+	if (!satisfied)
+	{
+		AAMPLOG_WARN("Timed out waiting for mp4demux ASYNC_DONE on track %d — proceeding anyway to avoid stall", track);
+		mMp4DemuxPipelineReady = true; // avoid repeated timeouts on subsequent calls
+	}
+}
+
+/**
  * @brief Curl initialization function
  */
 void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName)
