@@ -23,7 +23,6 @@ set(EXEC_NAME InterfacePlayerRDKTests)
 
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
-include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 include_directories(${AAMP_ROOT}/test/gstTestHarness)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
