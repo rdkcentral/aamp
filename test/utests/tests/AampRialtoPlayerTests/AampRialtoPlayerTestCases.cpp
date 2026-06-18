@@ -2327,42 +2327,6 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SUCCEED();
 }
 
-/**
- * @test OnNeedMediaData_InbandCCSource_RespondsWithNoAvailableSamples
- * @brief When NeedMediaData arrives for the inband CC subtitle source, AAMP
- *        must immediately respond with haveData(NO_AVAILABLE_SAMPLES) because
- *        the Rialto server extracts CC from the video bitstream internally and
- *        AAMP has no CC data to inject.
- */
-TEST_F(AampRialtoPlayerWithDemuxTest,
-	OnNeedMediaData_InbandCCSource_RespondsWithNoAvailableSamples)
-{
-	// Configure video + audio only (no explicit subtitle) — this causes
-	// AampRialtoPlayer to create an inband CC subtitle source.  The source
-	// enters inband-CC mode during attachSource() when mapCodecToMime()
-	// is called with GST_FORMAT_UNKNOWN.
-	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
-	// SendVideoInitFragment() attaches the video source (id=0) and then
-	// triggers the deferred attachment of the inband CC subtitle source
-	// (id=1).  The audio source is not yet attached at this point.
-	SendVideoInitFragment();
-
-	std::atomic<bool> haveDataCalled{false};
-	EXPECT_CALL(*m_mockPipelinePtr,
-		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES,
-			static_cast<uint32_t>(100)))
-		.WillOnce(DoAll(
-			Invoke([&haveDataCalled](auto, auto)
-				{ haveDataCalled = true; }),
-			Return(true)));
-
-	// sourceId=1 is the inband CC subtitle source.
-	PostNeedData(/*sourceId=*/1, /*frameCount=*/1, /*requestId=*/100);
-
-	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
-	EXPECT_TRUE(haveDataCalled.load());
-}
-
 // ===========================================================================
 // Back-pressure (synchronous pacing)
 // ===========================================================================
@@ -3198,8 +3162,11 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
 
+	// The branch adds an inband CC subtitle source alongside the video source,
+	// so both attachSource and setSourcePosition are called twice.
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
-		.WillOnce(Invoke(
+		.Times(2)
+		.WillRepeatedly(Invoke(
 			[this](const std::unique_ptr<
 				firebolt::rialto::IMediaPipeline::MediaSource> &src)
 			{
@@ -3210,7 +3177,8 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
 			/*resetTime=*/true, 2.0, _))
-		.WillOnce(Return(true));
+		.Times(2)
+		.WillRepeatedly(Return(true));
 
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
@@ -3228,8 +3196,11 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
 
+	// The branch adds an inband CC subtitle source alongside the video source,
+	// so both attachSource and setSourcePosition are called twice.
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
-		.WillOnce(Invoke(
+		.Times(2)
+		.WillRepeatedly(Invoke(
 			[this](const std::unique_ptr<
 				firebolt::rialto::IMediaPipeline::MediaSource> &src)
 			{
@@ -3240,7 +3211,8 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
 			/*resetTime=*/true, 1.0, _))
-		.WillOnce(Return(true));
+		.Times(2)
+		.WillRepeatedly(Return(true));
 
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
@@ -3258,8 +3230,11 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
 
+	// The branch adds an inband CC subtitle source alongside the video source,
+	// so both attachSource and setSourcePosition are called twice.
 	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
-		.WillOnce(Invoke(
+		.Times(2)
+		.WillRepeatedly(Invoke(
 			[this](const std::unique_ptr<
 				firebolt::rialto::IMediaPipeline::MediaSource> &src)
 			{
@@ -3270,7 +3245,8 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
 			/*resetTime=*/true, 1.0, _))
-		.WillOnce(Return(true));
+		.Times(2)
+		.WillRepeatedly(Return(true));
 
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }

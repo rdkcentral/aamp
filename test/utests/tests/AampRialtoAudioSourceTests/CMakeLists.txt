@@ -53,3 +53,7 @@ target_link_libraries(${EXEC_NAME}
 	${GMOCK_LINK_LIBRARIES}
 	${GTEST_LINK_LIBRARIES}
 )
+
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
+aamp_utest_run_add(${EXEC_NAME})

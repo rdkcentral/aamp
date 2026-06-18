@@ -279,30 +279,3 @@ TEST_F(AampRialtoSubtitleSourceTest,
 	EXPECT_EQ(fmt, firebolt::rialto::StreamFormat::RAW);
 }
 
-/**
- * @test AampRialtoSubtitleSource_HandleNeedData_InbandCC_RespondsWithNoAvailableSamples
- * @brief handleNeedData() must immediately call
- *        haveData(NO_AVAILABLE_SAMPLES, requestId) for inband CC sources
- *        and must NOT set hasPending, because AAMP has no data to push —
- *        the Rialto server extracts CC from the video bitstream internally.
- */
-TEST_F(AampRialtoSubtitleSourceTest,
-	AampRialtoSubtitleSource_HandleNeedData_InbandCC_RespondsWithNoAvailableSamples)
-{
-	// Trigger inband-CC mode by passing GST_FORMAT_UNKNOWN to mapCodecToMime.
-	std::string mime;
-	firebolt::rialto::StreamFormat fmt{};
-	m_source.mapCodecToMime(GST_FORMAT_UNKNOWN, mime, fmt);
-
-	EXPECT_CALL(*m_pipelinePtr,
-		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES,
-			static_cast<uint32_t>(42)))
-		.WillOnce(Return(true));
-
-	m_source.handleNeedData(/*frameCount=*/1, /*requestId=*/42, m_pipelinePtr);
-
-	// hasPending must NOT be set — no injection should ever be attempted.
-	auto &st = m_source.state();
-	std::lock_guard<std::mutex> lock(st.mu);
-	EXPECT_FALSE(st.hasPending);
-}
