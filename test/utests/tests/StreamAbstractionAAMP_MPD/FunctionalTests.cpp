@@ -4633,3 +4633,139 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     double availabilityStartTime = ISO8601DateTimeToUTCSeconds("2025-11-15T00:00:00Z");
     EXPECT_EQ(actualPosition, availabilityStartTime + seekPosition);
 }
+
+// Init() with NEW_NORMAL must not call onAdEvent(INIT) - CDAI ad processing skipped at tune start.
+TEST_F(FunctionalTests, CDAI_Init_NewNormal_SkipsOnAdEventInit)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+     mediaPresentationDuration="PT1M0S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" duration="PT1M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="2500" initialization="video_init.mp4"
+                             media="video_$Number$.m4s" startNumber="1"
+                             duration="2500"/>
+            <Representation id="1" bandwidth="1000000" codecs="avc1.640028"
+                            width="640" height="360" frameRate="25"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    mBoolConfigSettings[eAAMPConfig_EnableClientDai] = true;
+    g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
+    EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _)).Times(0);
+
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+    AAMPStatusType status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    delete g_MockPrivateCDAIObjectMPD;
+    g_MockPrivateCDAIObjectMPD = nullptr;
+}
+
+// Init() with NEW_SEEK must not call onAdEvent(INIT) - CDAI ad processing skipped at tune start.
+TEST_F(FunctionalTests, CDAI_Init_NewSeek_SkipsOnAdEventInit)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+     mediaPresentationDuration="PT1M0S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" duration="PT1M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="2500" initialization="video_init.mp4"
+                             media="video_$Number$.m4s" startNumber="1"
+                             duration="2500"/>
+            <Representation id="1" bandwidth="1000000" codecs="avc1.640028"
+                            width="640" height="360" frameRate="25"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    mBoolConfigSettings[eAAMPConfig_EnableClientDai] = true;
+    g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
+    EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _)).Times(0);
+
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+    AAMPStatusType status = InitializeMPD(manifest, eTUNETYPE_NEW_SEEK);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    delete g_MockPrivateCDAIObjectMPD;
+    g_MockPrivateCDAIObjectMPD = nullptr;
+}
+
+// Init() with NEW_END must not call onAdEvent(INIT) - CDAI ad processing skipped at tune start.
+TEST_F(FunctionalTests, CDAI_Init_NewEnd_SkipsOnAdEventInit)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+     mediaPresentationDuration="PT1M0S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" duration="PT1M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="2500" initialization="video_init.mp4"
+                             media="video_$Number$.m4s" startNumber="1"
+                             duration="2500"/>
+            <Representation id="1" bandwidth="1000000" codecs="avc1.640028"
+                            width="640" height="360" frameRate="25"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    mBoolConfigSettings[eAAMPConfig_EnableClientDai] = true;
+    g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
+    EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _)).Times(0);
+
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+    AAMPStatusType status = InitializeMPD(manifest, eTUNETYPE_NEW_END);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    delete g_MockPrivateCDAIObjectMPD;
+    g_MockPrivateCDAIObjectMPD = nullptr;
+}
+
+// Init() with RETUNE must call onAdEvent(INIT) once - CDAI state machine primed on resumption.
+TEST_F(FunctionalTests, CDAI_Init_Retune_CallsOnAdEventInit)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+     mediaPresentationDuration="PT1M0S"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011">
+    <Period id="p0" duration="PT1M0S">
+        <AdaptationSet contentType="video" mimeType="video/mp4">
+            <SegmentTemplate timescale="2500" initialization="video_init.mp4"
+                             media="video_$Number$.m4s" startNumber="1"
+                             duration="2500"/>
+            <Representation id="1" bandwidth="1000000" codecs="avc1.640028"
+                            width="640" height="360" frameRate="25"/>
+        </AdaptationSet>
+    </Period>
+</MPD>
+)";
+    mBoolConfigSettings[eAAMPConfig_EnableClientDai] = true;
+    g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
+    EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _)).Times(1);
+
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+    AAMPStatusType status = InitializeMPD(manifest, eTUNETYPE_RETUNE);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+    delete g_MockPrivateCDAIObjectMPD;
+    g_MockPrivateCDAIObjectMPD = nullptr;
+}
