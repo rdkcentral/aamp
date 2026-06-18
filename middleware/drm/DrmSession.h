@@ -33,13 +33,6 @@
 #include "ContentSecurityManagerSession.h"
 #include "IDrmSession.h"
 
-using namespace std;
-
-#define PLAYREADY_KEY_SYSTEM_STRING "com.microsoft.playready"
-#define WIDEVINE_KEY_SYSTEM_STRING "com.widevine.alpha"
-#define CLEAR_KEY_SYSTEM_STRING "org.w3.clearkey"
-#define VERIMATRIX_KEY_SYSTEM_STRING "com.verimatrix.ott"
-
 /**
  * @class DrmSession
  * @brief Concrete base for middleware DRM sessions.
@@ -52,7 +45,7 @@ using namespace std;
 class DrmSession : public IDrmSession
 {
 protected:
-	std::string m_keySystem;
+	string m_keySystem;
 	bool m_OutputProtectionEnabled;
 	ContentSecurityManagerSession mContentSecurityManagerSession;
 public:
@@ -61,7 +54,7 @@ public:
 	 * @param f_pbInitData : pointer to initdata
 	 * @param f_cbInitData : init data size
 	 */
-	virtual void generateDRMSession(const uint8_t *f_pbInitData,uint32_t f_cbInitData, std::string &customData ) = 0;
+	virtual void generateDRMSession(const uint8_t *f_pbInitData,uint32_t f_cbInitData, string &customData ) = 0;
 
 	/**
 	 * @brief Generate key request from DRM session
@@ -130,7 +123,7 @@ public:
 	 *         internal lock where applicable. Callers receive their own
 	 *         independent copy and need not hold any external lock.
 	 */
-	virtual std::vector<std::vector<uint8_t>> getUsableKeys() const;
+	virtual vector<vector<uint8_t>> getUsableKeys() const;
 
 	/**
 	 * @brief Returns the Rialto media key session ID for this DRM session.
@@ -166,7 +159,7 @@ public:
 	 * @fn getKeySystem
 	 * @retval DRM system uuid
 	 */
-	std::string getKeySystem() override;
+	string getKeySystem() override;
 
 	/**
 	 * @brief Set the OutputProtection for DRM Session
