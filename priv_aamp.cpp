@@ -11815,6 +11815,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				{
 					mIsInbandCC = true;
 					SetPreferredTextTrack(track);
+					SetCCStatusInternal();
 					SetClosedCaptionsFromTextTrack(track);
 				}
 				else
