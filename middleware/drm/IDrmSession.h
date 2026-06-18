@@ -36,6 +36,19 @@
 #include "DrmUtils.h"
 #include "ContentSecurityManagerSession.h"
 
+#if defined(USE_OPENCDM_ADAPTER)
+// Forward declarations for GStreamer types used in the GstBuffer decrypt overload.
+// Including gst headers here would add a GStreamer dependency to the interface;
+// forward declarations are sufficient for pointer/reference parameters.
+typedef struct _GstBuffer GstBuffer;
+typedef struct _GstCaps   GstCaps;
+#endif
+
+/**
+ * @brief HDCP compliance check failure error code.
+ */
+#define HDCP_COMPLIANCE_CHECK_FAILURE 4327
+
 /**
  * @brief HDCP output protection failure error code.
  */
@@ -145,6 +158,23 @@ public:
 	virtual int decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 		const uint8_t *payloadData, uint32_t payloadDataSize,
 		uint8_t **ppOpaqueData) = 0;
+
+#if defined(USE_OPENCDM_ADAPTER)
+	/**
+	 * @brief Decrypt a GStreamer buffer (OCDM/GStreamer path).
+	 *
+	 * @param[in] keyIDBuffer      Key ID GstBuffer.
+	 * @param[in] ivBuffer         IV GstBuffer.
+	 * @param[in] buffer           Encrypted data GstBuffer.
+	 * @param[in] subSampleCount   Number of sub-samples.
+	 * @param[in] subSamplesBuffer Sub-sample mapping GstBuffer.
+	 * @param[in] caps             Sink caps of the media being decrypted.
+	 * @return 0 on success, non-zero on failure.
+	 */
+	virtual int decrypt(GstBuffer* /*keyIDBuffer*/, GstBuffer* /*ivBuffer*/,
+		GstBuffer* /*buffer*/, unsigned /*subSampleCount*/,
+		GstBuffer* /*subSamplesBuffer*/, GstCaps* /*caps*/ = nullptr) { return 0; }
+#endif
 
 /**
 * @brief Store the DRM key ID for this session.

@@ -40,9 +40,6 @@ using namespace std;
 #define CLEAR_KEY_SYSTEM_STRING "org.w3.clearkey"
 #define VERIMATRIX_KEY_SYSTEM_STRING "com.verimatrix.ott"
 
-#define HDCP_COMPLIANCE_CHECK_FAILURE 4327
-#define HDCP_OUTPUT_PROTECTION_FAILURE 4427
-
 /**
  * @class DrmSession
  * @brief Concrete base for middleware DRM sessions.
