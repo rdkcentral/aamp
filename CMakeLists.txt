@@ -62,12 +62,6 @@ if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 	pkg_check_modules(SUBTEC REQUIRED libsubtec)
 endif()	
 
-if(CMAKE_PREINIT_DECODER)
-       message("CMAKE_PREINIT_DECODER Set")
-       set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_PREINIT_DECODING=1")
-       set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_PREINIT_DECODING=1")
-endif()
-
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
 	pkg_check_modules(CURL REQUIRED libcurl>=8.5)
