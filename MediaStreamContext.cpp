@@ -59,6 +59,15 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		};
 		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment), cachedFragment->position,
 														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
+		// After a successful init-segment push the appsrc caps are now set, which
+		// triggers decodebin to begin async pad-linking.  Flag this so that the next
+		// ASYNC_DONE (the one that follows decodebin's work) is recognised as the
+		// genuine "pipeline ready" event rather than the premature ASYNC_DONE that
+		// fires when the empty pipeline first reaches PLAYING state.
+		if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && cachedFragment->initFragment && !fragmentDiscarded)
+		{
+			aamp->NotifyMp4DemuxInitSegmentSent();
+		}
 	}
 	else
 	{

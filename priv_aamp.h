@@ -2067,10 +2067,21 @@ public:
 	void ResetMp4DemuxPipelineReady();
 
 	/**
+	 *   @fn NotifyMp4DemuxInitSegmentSent
+	 *   Called by MediaStreamContext::InjectFragmentInternal() immediately after a
+	 *   successful init-segment sendSegment() call.  Marks that the appsrc caps have
+	 *   been set and decodebin will begin its async pad-linking work.  Only after this
+	 *   point will a subsequent ASYNC_DONE be treated as the "pipeline ready" signal.
+	 *   @return void
+	 */
+	void NotifyMp4DemuxInitSegmentSent();
+
+	/**
 	 *   @fn NotifyMp4DemuxPipelineReady
 	 *   Called (via the asyncDone InterfaceCB) when GST_MESSAGE_ASYNC_DONE is
 	 *   received, indicating that decodebin has finished async pad-linking and
-	 *   the pipeline is ready to accept the first data buffer.
+	 *   the pipeline is ready to accept the first data buffer.  Silently ignored
+	 *   if mMp4DemuxInitSegmentSent is false (premature ASYNC_DONE before caps set).
 	 *   @return void
 	 */
 	void NotifyMp4DemuxPipelineReady();
@@ -4286,7 +4297,13 @@ protected:
 	// mp4demux ASYNC_DONE gate: cleared by ResetMp4DemuxPipelineReady() at the start of
 	// each Configure and set by NotifyMp4DemuxPipelineReady() when GST_MESSAGE_ASYNC_DONE
 	// fires.  Starts true so non-mp4demux paths are never blocked.
+	// mMp4DemuxInitSegmentSent is set to true by NotifyMp4DemuxInitSegmentSent() once the
+	// init segment has been successfully pushed to the appsrc.  NotifyMp4DemuxPipelineReady
+	// ignores any ASYNC_DONE that arrives before the init segment has been sent, preventing
+	// the premature ASYNC_DONE (from the initial pipeline state-change to PLAYING) from
+	// opening the gate before decodebin has actually linked its pad chain.
 	bool mMp4DemuxPipelineReady {true};
+	bool mMp4DemuxInitSegmentSent {false};
 	std::mutex mMp4DemuxReadyMtx;
 	std::condition_variable mMp4DemuxReadyCV;
 	DrmHelperPtr mCurrentDrm;

@@ -4125,21 +4125,43 @@ void PrivateInstanceAAMP::ResetMp4DemuxPipelineReady()
 {
 	std::lock_guard<std::mutex> lock(mMp4DemuxReadyMtx);
 	mMp4DemuxPipelineReady = false;
-	AAMPLOG_INFO("Mp4Demux pipeline ready gate: RESET (waiting for ASYNC_DONE)");
+	mMp4DemuxInitSegmentSent = false;
+	AAMPLOG_INFO("Mp4Demux pipeline ready gate: RESET (waiting for init segment then ASYNC_DONE)");
+}
+
+/**
+ * @brief Mark that the init segment has been successfully pushed to the appsrc.
+ *        Only after this point will a subsequent ASYNC_DONE open the injection gate.
+ */
+void PrivateInstanceAAMP::NotifyMp4DemuxInitSegmentSent()
+{
+	std::lock_guard<std::mutex> lock(mMp4DemuxReadyMtx);
+	mMp4DemuxInitSegmentSent = true;
+	AAMPLOG_INFO("Mp4Demux gate: init segment sent, next ASYNC_DONE will open gate");
 }
 
 /**
  * @brief Signal that the GStreamer pipeline has completed async pad-linking (ASYNC_DONE received).
+ *        Silently ignored if the init segment has not yet been sent (premature ASYNC_DONE).
  *        Unblocks any thread waiting in BlockUntilMp4DemuxPipelineReady.
  */
 void PrivateInstanceAAMP::NotifyMp4DemuxPipelineReady()
 {
 	{
 		std::lock_guard<std::mutex> lock(mMp4DemuxReadyMtx);
+		if (!mMp4DemuxInitSegmentSent)
+		{
+			// Premature ASYNC_DONE: the pipeline completed its initial state-change
+			// before any init segment was pushed.  Decodebin has not started linking
+			// yet — opening the gate now would race with pad creation.  Ignore.
+			AAMPLOG_INFO("Mp4Demux gate: ASYNC_DONE ignored (init segment not yet sent)");
+			return;
+		}
 		mMp4DemuxPipelineReady = true;
+		mMp4DemuxInitSegmentSent = false; // reset for next stream cycle
 	}
 	mMp4DemuxReadyCV.notify_all();
-	AAMPLOG_INFO("Mp4Demux pipeline ready gate: SET (ASYNC_DONE received)");
+	AAMPLOG_INFO("Mp4Demux pipeline ready gate: SET (post-init ASYNC_DONE received)");
 }
 
 /**
