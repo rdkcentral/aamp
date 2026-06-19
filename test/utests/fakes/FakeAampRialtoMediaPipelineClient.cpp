@@ -118,3 +118,5 @@ void AampRialtoMediaPipelineClient::notifySourceFlushed(
 }
 void AampRialtoMediaPipelineClient::notifyPlaybackInfo(
 	const firebolt::rialto::PlaybackInfo & /*playbackInfo*/) {}
+
+void AampRialtoMediaPipelineClient::notifyFirstFrameReceived(int32_t sourceId) {}
