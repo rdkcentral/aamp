@@ -241,6 +241,7 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 
 
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
+static gboolean buffering_timeout(gpointer data);
 /**
  * @brief Configures the GStreamer pipeline.
  * @param format Video format.
@@ -499,10 +500,12 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		    interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId == PLAYER_TASK_ID_INVALID)
 		{
 			MW_LOG_MIL("ConfigurePipeline: Pipeline already PAUSED (no ASYNC transition) — arming buffering timer directly");
-			interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId =
-				g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS,
+			interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId  =	
+					g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS,
 				                   buffering_timeout, this, NULL);
 								   
+
+
 			if (!interfacePlayerPriv->gstPrivateContext->seekPausedState)
 			{
 				interfacePlayerPriv->gstPrivateContext->paused = false;
