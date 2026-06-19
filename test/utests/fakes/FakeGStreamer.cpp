@@ -446,11 +446,12 @@ GstEvent *gst_event_new_step (GstFormat format,
 gboolean gst_pad_push_event(GstPad *pad, GstEvent *event)
 {
 	TRACE_FUNC();
+	bool rtn = FALSE;
 	if (g_mockGStreamer != nullptr)
 	{
-		g_mockGStreamer->gst_pad_push_event(pad, event);
+		rtn = g_mockGStreamer->gst_pad_push_event(pad, event);
 	}
-	return FALSE;
+	return rtn;
 }
 
 void gst_segment_init(GstSegment *segment, GstFormat format)

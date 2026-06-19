@@ -46,7 +46,6 @@ public:
 	MOCK_METHOD(void, gst_mini_object_unref,(GstMiniObject *mini_object));
 
 	MOCK_METHOD(GstSample *,gst_app_sink_pull_sample,(GstAppSink *appsink));
-	MOCK_METHOD(GstStructure *,gst_app_sink_set_caps,(GstAppSink *appsink, const GstCaps *caps));
 	MOCK_METHOD(GstStructure *,gst_caps_get_structure,(const GstCaps *caps, guint index));
 	MOCK_METHOD(void, gst_message_parse_state_changed, (GstMessage * message, GstState * oldstate, GstState * newstate, GstState * pending));
 
