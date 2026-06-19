@@ -82,7 +82,6 @@ public:
 	MOCK_METHOD(GstPad*, gst_element_get_static_pad, (GstElement *element, const gchar *name));
 	MOCK_METHOD(gboolean, gst_pad_push_event, (GstPad* pad, GstEvent* event), ());
 	MOCK_METHOD(void, gst_segment_init, (GstSegment *segment, GstFormat format));
-	MOCK_METHOD(GstEvent *, gst_event_new_segment, (GstSegment *segment));
 	MOCK_METHOD(GstEvent*, gst_event_new_custom, (GstEventType type, GstStructure* structure), ());
 	MOCK_METHOD(void, gst_caps_set_simple, (GstCaps *, const char *));
 	MOCK_METHOD(GstBuffer*, gst_buffer_new_allocate, (GstAllocator *allocator, gsize size, GstAllocationParams *params));
