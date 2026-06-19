@@ -245,6 +245,11 @@ class InterfacePlayerRDK
 		 */
 		bool IsPipelinePaused();
 		/**
+		 * @brief Checks if the GStreamer pipeline object is NULL (not yet created or destroyed)
+		 * @return true if pipeline is NULL, false if pipeline exists
+		 */
+		bool IsPipelineNull();
+		/**
 		 * @brief Sets a flag indicating that pipeline transition to PLAYING state is pending
 		 */
 		void EnablePendingPlayState();

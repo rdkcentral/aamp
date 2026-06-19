@@ -890,7 +890,10 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	// Reset the mp4demux ASYNC_DONE gate before starting the pipeline. The gate will be
 	// lifted in NotifyMp4DemuxPipelineReady() once GST_MESSAGE_ASYNC_DONE fires, ensuring
 	// the first data buffer is not injected before decodebin completes async pad-linking.
-	if (aamp->mConfig->IsConfigSet(eAAMPConfig_UseMp4Demux))
+	// Only reset when a fresh pipeline is about to be created (pipeline == NULL). On seeks
+	// and retunes the existing pipeline is reused; pads are already linked so ASYNC_DONE
+	// will not fire again, and resetting the gate would cause a spurious 5-second stall.
+	if (aamp->mConfig->IsConfigSet(eAAMPConfig_UseMp4Demux) && playerInstance->IsPipelineNull())
 	{
 		aamp->ResetMp4DemuxPipelineReady();
 	}

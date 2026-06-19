@@ -216,6 +216,11 @@ bool InterfacePlayerRDK::IsPipelinePaused()
 	return interfacePlayerPriv->gstPrivateContext->paused;
 }
 
+bool InterfacePlayerRDK::IsPipelineNull()
+{
+	return interfacePlayerPriv->gstPrivateContext->pipeline == NULL;
+}
+
 /**
  * @brief Sets a flag indicating that pipeline transition to PLAYING state is pending
  */
