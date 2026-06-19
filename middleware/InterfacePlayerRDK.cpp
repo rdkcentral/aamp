@@ -1074,6 +1074,22 @@ void InterfacePlayerRDK::RemoveProbe(int type)
 		stream->demuxProbeId = 0;
 		stream->demuxPad = NULL;
 	}
+	// Clean up the mp4demux link-wait blocking probe if it is still active.
+	if (stream->mp4DemuxLinkProbeId && stream->mp4DemuxLinkPad)
+	{
+		MW_LOG_WARN("InterfacePlayerRDK: Removing mp4demux link-wait probe for media type %d, probe id %lu", mediaType, stream->mp4DemuxLinkProbeId);
+		gst_pad_remove_probe(stream->mp4DemuxLinkPad, stream->mp4DemuxLinkProbeId);
+		gst_object_unref(stream->mp4DemuxLinkPad);
+		stream->mp4DemuxLinkPad = nullptr;
+		stream->mp4DemuxLinkProbeId = 0;
+	}
+	// Clean up the decodebin pad-added signal handler if it is still connected.
+	if (stream->mp4DemuxDecodebinLinkedSig && stream->mp4DemuxDecodebinElem)
+	{
+		g_signal_handler_disconnect(stream->mp4DemuxDecodebinElem, stream->mp4DemuxDecodebinLinkedSig);
+		stream->mp4DemuxDecodebinLinkedSig = 0;
+		stream->mp4DemuxDecodebinElem = nullptr;
+	}
 }
 
 /**
@@ -1921,6 +1937,77 @@ static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallbackAny(GstPad *pad
 	}
 	return rtn;
 }
+
+/**
+ * @brief Blocking probe installed on the appsrc "src" pad when AampMp4Demuxer
+ *        changes stream caps from ISO_BMFF to ES format.  The probe blocks the
+ *        injection thread until decodebin has finished async pad-linking for the
+ *        new caps, preventing a GST_FLOW_NOT_LINKED error.
+ *
+ *        The probe is removed (and the block lifted) by
+ *        Mp4DemuxDecodebinPadAddedCb when decodebin signals "pad-added".
+ *        Should decodebin somehow never fire (e.g. teardown), RemoveProbe()
+ *        cleans it up explicitly.
+ */
+static GstPadProbeReturn Mp4DemuxAppsrcLinkWaitProbe(GstPad * /*pad*/, GstPadProbeInfo * /*info*/, gpointer /*user_data*/)
+{
+	// Nothing to do in the probe body — the block itself is what we want.
+	// The probe is removed from Mp4DemuxDecodebinPadAddedCb once decodebin
+	// has linked its src pads (meaning the downstream path is ready).
+	return GST_PAD_PROBE_OK;
+}
+
+/**
+ * @brief Fired by decodebin when it emits a src "pad-added" signal inside
+ *        the sinkbin (playbin).  This means decodebin has finished autoplug-
+ *        linking for the new caps and the downstream path is safe to receive
+ *        data.  We remove the blocking probe that was installed on the appsrc
+ *        "src" pad by SetStreamCaps().
+ */
+static void Mp4DemuxDecodebinPadAddedCb(GstElement *decodebin, GstPad * /*newPad*/, gpointer user_data)
+{
+	InterfacePlayerRDK *player = static_cast<InterfacePlayerRDK *>(user_data);
+	if (!player)
+	{
+		return;
+	}
+	InterfacePlayerPriv *priv = player->GetPrivatePlayer();
+	if (!priv || !priv->gstPrivateContext)
+	{
+		return;
+	}
+	// Walk the stream array and find the stream whose sinkbin contains this decodebin.
+	GstElement *parent = GST_ELEMENT_PARENT(decodebin);
+	while (parent)
+	{
+		for (int i = 0; i < GST_TRACK_COUNT; i++)
+		{
+			gst_media_stream *stream = &priv->gstPrivateContext->stream[i];
+			if (parent == stream->sinkbin)
+			{
+				if (stream->mp4DemuxLinkPad && stream->mp4DemuxLinkProbeId)
+				{
+					MW_LOG_MIL("Mp4Demux link-wait: decodebin pad-added; removing blocking probe on appsrc src (track %d)", i);
+					gst_pad_remove_probe(stream->mp4DemuxLinkPad, stream->mp4DemuxLinkProbeId);
+					gst_object_unref(stream->mp4DemuxLinkPad);
+					stream->mp4DemuxLinkPad = nullptr;
+					stream->mp4DemuxLinkProbeId = 0;
+				}
+				// Disconnect this one-shot signal handler to avoid redundant fires.
+				if (stream->mp4DemuxDecodebinLinkedSig)
+				{
+					g_signal_handler_disconnect(decodebin, stream->mp4DemuxDecodebinLinkedSig);
+					stream->mp4DemuxDecodebinLinkedSig = 0;
+					stream->mp4DemuxDecodebinElem = nullptr;
+				}
+				return;
+			}
+		}
+		parent = GST_ELEMENT_PARENT(parent);
+	}
+	MW_LOG_WARN("Mp4Demux link-wait: could not match decodebin to a stream; probe not removed");
+}
+
 static void GstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, void* _this)
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK *)_this;
@@ -1989,11 +2076,50 @@ static void GstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, void*
 }
 static void element_setup_cb(void *playbin, void *element, void *instance)
 {
+	InterfacePlayerRDK *pInterfacePlayerRDK = static_cast<InterfacePlayerRDK *>(instance);
 	gchar* elemName = gst_element_get_name((GstElement*)element);
 	if (elemName && gst_StartsWith(elemName, "qtdemux"))
 	{
 		MW_LOG_WARN( "Add pad-added callback to demux:%s", elemName);
 		g_signal_connect(element, "pad-added", G_CALLBACK(GstPlayer_OnDemuxPadAddedCb), instance);
+	}
+	else if (pInterfacePlayerRDK && pInterfacePlayerRDK->m_gstConfigParam->useMp4Demux
+		&& elemName && gst_StartsWith(elemName, "decodebin"))
+	{
+		// For the AampMp4Demuxer path, hook decodebin "pad-added" so we can
+		// lift the blocking probe on the appsrc src pad once the downstream
+		// decoder chain is ready.  The signal ID is stored per-stream in
+		// Mp4DemuxDecodebinPadAddedCb so it can be disconnected after the
+		// first pad fires.
+		MW_LOG_WARN("Mp4Demux link-wait: hooking decodebin pad-added: %s", elemName);
+		InterfacePlayerPriv *priv = pInterfacePlayerRDK->GetPrivatePlayer();
+		if (priv && priv->gstPrivateContext)
+		{
+			// Identify which stream this decodebin belongs to by walking the parent chain.
+			GstElement *parent = GST_ELEMENT_PARENT((GstElement*)element);
+			while (parent)
+			{
+				for (int i = 0; i < GST_TRACK_COUNT; i++)
+				{
+					gst_media_stream *stream = &priv->gstPrivateContext->stream[i];
+					if (parent == stream->sinkbin)
+					{
+						// Disconnect any stale handler from a previous cycle.
+						if (stream->mp4DemuxDecodebinLinkedSig && stream->mp4DemuxDecodebinElem)
+						{
+							g_signal_handler_disconnect(stream->mp4DemuxDecodebinElem, stream->mp4DemuxDecodebinLinkedSig);
+						}
+						stream->mp4DemuxDecodebinElem = (GstElement*)element; // store element ptr for signal disconnect
+						stream->mp4DemuxDecodebinLinkedSig = g_signal_connect(element,
+							"pad-added", G_CALLBACK(Mp4DemuxDecodebinPadAddedCb), pInterfacePlayerRDK);
+						MW_LOG_WARN("Mp4Demux link-wait: connected pad-added on %s for track %d (sigId=%lu)",
+							elemName, i, stream->mp4DemuxDecodebinLinkedSig);
+						break;
+					}
+				}
+				parent = GST_ELEMENT_PARENT(parent);
+			}
+		}
 	}
 	g_free(elemName);
 }
@@ -2422,9 +2548,12 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		   m_gstConfigParam->seamlessAudioSwitch))
 		||
 		(mediaFormat == eGST_MEDIAFORMAT_DASH && eGST_MEDIATYPE_VIDEO == streamId &&
-		 m_gstConfigParam->enablePTSReStamp))
+		 m_gstConfigParam->enablePTSReStamp)
+		||
+		m_gstConfigParam->useMp4Demux)
 	{
-		// Send the media_stream object so that qtdemux can be instantly mapped to media type without caps/parent check
+		// element_setup_cb handles: qtdemux pad-added (seamlessAudioSwitch / enablePTSReStamp)
+		// and decodebin pad-added for the AampMp4Demuxer link-wait probe (useMp4Demux).
 		g_signal_connect(stream->sinkbin, "element_setup", G_CALLBACK(element_setup_cb), pInterfacePlayerRDK);
 	}
 	if (eGST_MEDIATYPE_VIDEO == streamId && (mediaFormat==eGST_MEDIAFORMAT_DASH || mediaFormat==eGST_MEDIAFORMAT_HLS_MP4))
@@ -5500,6 +5629,32 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
 		g_free(capsStr);
 		gst_app_src_set_caps(GST_APP_SRC(stream->source), caps);
 		gst_caps_unref(caps);
+
+		// After changing appsrc caps from ISO_BMFF to the decoded ES format
+		// (H264/HEVC/AAC), decodebin inside the sinkbin (playbin) must re-autoplug
+		// asynchronously before it is ready to accept data.  Install a blocking
+		// probe on the appsrc "src" pad so that any subsequent gst_app_src_push_buffer
+		// call blocks the injection thread until Mp4DemuxDecodebinPadAddedCb
+		// removes the probe (i.e. decodebin has completed pad-linking).
+		if (stream->source && !stream->mp4DemuxLinkProbeId)
+		{
+			GstPad *srcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+			if (srcPad)
+			{
+				stream->mp4DemuxLinkPad = srcPad; // probe holds a reference (see unref in Mp4DemuxDecodebinPadAddedCb / RemoveProbe)
+				stream->mp4DemuxLinkProbeId = gst_pad_add_probe(srcPad,
+					GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM,
+					Mp4DemuxAppsrcLinkWaitProbe,
+					nullptr,
+					nullptr);
+				MW_LOG_WARN("Mp4Demux link-wait: installed blocking probe on appsrc src pad (track %d, probeId=%lu)",
+					(int)type, stream->mp4DemuxLinkProbeId);
+			}
+			else
+			{
+				MW_LOG_ERR("Mp4Demux link-wait: could not get appsrc src pad for track %d — not-linked race possible", (int)type);
+			}
+		}
 	}
 	else
 	{

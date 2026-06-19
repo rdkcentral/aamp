@@ -130,6 +130,7 @@ struct Configs
 	bool seiTimeCode;
 	bool useWesterosSink;
 	bool useRialtoSink;
+	bool useMp4Demux;  /**< True when AampMp4Demuxer is active; enables the decodebin pad link-wait probe */
 	bool gstLogging;
 	bool progressLogging;
 	bool monitorAV;
