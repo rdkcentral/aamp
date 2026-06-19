@@ -1682,7 +1682,7 @@ public:
 	 * @brief Stop UnderflowMonitor Thread.
 	 * @return void
 	 */
-	void StopUnderflowMonitor();
+	virtual void StopUnderflowMonitor();
 
 	/**
 	 * @fn IsUnderflowMonitorRunning
