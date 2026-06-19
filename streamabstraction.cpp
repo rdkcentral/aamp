@@ -1445,13 +1445,6 @@ bool MediaTrack::InjectFragment()
 					{
 						aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
 					}
-					// Stop underflow monitor — all VOD fragments are injected;
-					// the GStreamer EOS bubble is now in flight and no further
-					// fragment arrivals are expected, so underflow detection is invalid.
-					if (!aamp->IsLive() && type == eTRACK_VIDEO)
-					{
-						pContext->StopUnderflowMonitor();
-					}
 				}
 				else
 				{
@@ -1499,6 +1492,13 @@ bool MediaTrack::SignalIfEOSReached()
 			if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
+			}
+			// Stop underflow monitor when video EOS is reached on VOD.
+			// EOS can be signalled from both normal sentinel and aborted-wait
+			// paths, so centralize monitor shutdown here.
+			if (!aamp->IsLive() && type == eTRACK_VIDEO)
+			{
+				pContext->StopUnderflowMonitor();
 			}
 			ret = true;
 		}
