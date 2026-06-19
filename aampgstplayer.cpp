@@ -100,7 +100,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->useWesterosSink = config->IsConfigSet(eAAMPConfig_UseWesterosSink);
 	interfacePlayer->m_gstConfigParam->enableRectPropertyCfg = config->IsConfigSet(eAAMPConfig_EnableRectPropertyCfg);
 	interfacePlayer->m_gstConfigParam->useRialtoSink = config->IsConfigSet(eAAMPConfig_useRialtoSink);
-	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
 	interfacePlayer->m_gstConfigParam->monitorAV = config->IsConfigSet(eAAMPConfig_MonitorAV);
 	interfacePlayer->m_gstConfigParam->disableUnderflow = config->IsConfigSet(eAAMPConfig_DisableUnderflow);
 	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdPositiveMs = config->GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdPositive);

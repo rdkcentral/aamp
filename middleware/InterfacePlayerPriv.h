@@ -136,15 +136,10 @@ struct gst_media_stream
 	bool firstBufferProcessed; /**< Indicates if the first buffer is processed in this stream */
 	GstPad *demuxPad;                  /**< Demux src pad >*/
 	gulong demuxProbeId;       /**< Demux pad probe ID >*/
-	GstPad *mp4DemuxLinkPad;          /**< appsrc src pad carrying the link-wait blocking probe (nullptr = inactive) */
-	gulong mp4DemuxLinkProbeId;       /**< ID of the blocking probe on mp4DemuxLinkPad; 0 = inactive */
-	GstElement *mp4DemuxDecodebinElem;/**< decodebin element to which the "pad-added" signal handler is connected */
-	gulong mp4DemuxDecodebinLinkedSig;/**< GLib signal-handler ID for the "pad-added" signal on mp4DemuxDecodebinElem */
 
 	gst_media_stream() : sinkbin(NULL), source(NULL), format(GST_FORMAT_INVALID),
 	pendingSeek(false), resetPosition(false),
-	bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER), timeScale(1), trackId(-1), firstBufferProcessed(false), demuxPad(NULL), demuxProbeId(0),
-	mp4DemuxLinkPad(nullptr), mp4DemuxLinkProbeId(0), mp4DemuxDecodebinElem(nullptr), mp4DemuxDecodebinLinkedSig(0)
+	bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER), timeScale(1), trackId(-1), firstBufferProcessed(false), demuxPad(NULL), demuxProbeId(0)
 	{
 	}
 
