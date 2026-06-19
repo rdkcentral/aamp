@@ -773,17 +773,20 @@ gboolean gst_init_check(int *argc, char **argv[], GError **error)
 
 GstCaps *gst_caps_new_simple(const char *media_type, const char *fieldname, ...)
 {
-	GstCaps *return_ptr = NULL;
 	TRACE_FUNC();
+	GstCaps *return_ptr = NULL;
+
+	// gst_caps_new_simple() is variadic and the argument types depend on the
+ 	// provided GType values. Parsing a fixed set of va_args here is undefined
+ 	// behaviour (e.g. call sites commonly pass G_TYPE_STRING followed by a
+ 	// const char*).
+ 	//
+ 	// Unit tests typically only need a canned return value, so delegate to the
+ 	// mock without inspecting the varargs.
 	if (g_mockGStreamer != nullptr)
 	{
-		va_list ap;
-		va_start(ap, fieldname);
-		GType var1 = va_arg(ap, GType);
-		int var2 = va_arg(ap, int);
-		void *ptr = va_arg(ap, void *);
-		return_ptr = g_mockGStreamer->gst_caps_new_simple(media_type, fieldname, var1, var2, ptr);
-		va_end(ap);
+		return_ptr = g_mockGStreamer->gst_caps_new_simple(
+ 			media_type, fieldname, static_cast<GType>(0), 0, nullptr);
 	}
 
 	return return_ptr;
