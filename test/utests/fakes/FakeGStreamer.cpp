@@ -446,7 +446,7 @@ GstEvent *gst_event_new_step (GstFormat format,
 gboolean gst_pad_push_event(GstPad *pad, GstEvent *event)
 {
 	TRACE_FUNC();
-	bool rtn = FALSE;
+	gboolean rtn = FALSE;
 	if (g_mockGStreamer != nullptr)
 	{
 		rtn = g_mockGStreamer->gst_pad_push_event(pad, event);
@@ -472,7 +472,7 @@ const gchar *gst_flow_get_name(GstFlowReturn ret)
 gboolean gst_element_query_position(GstElement *element, GstFormat format, gint64 *cur)
 {
 	TRACE_FUNC();
-	bool rtn = FALSE;
+	gboolean rtn = FALSE;
 	if (g_mockGStreamer != nullptr)
 	{
 		rtn = g_mockGStreamer->gst_element_query_position(element, format, cur );
@@ -777,16 +777,16 @@ GstCaps *gst_caps_new_simple(const char *media_type, const char *fieldname, ...)
 	GstCaps *return_ptr = NULL;
 
 	// gst_caps_new_simple() is variadic and the argument types depend on the
- 	// provided GType values. Parsing a fixed set of va_args here is undefined
- 	// behaviour (e.g. call sites commonly pass G_TYPE_STRING followed by a
- 	// const char*).
- 	//
- 	// Unit tests typically only need a canned return value, so delegate to the
- 	// mock without inspecting the varargs.
+	// provided GType values. Parsing a fixed set of va_args here is undefined
+	// behaviour (e.g. call sites commonly pass G_TYPE_STRING followed by a
+	// const char*).
+	//
+	// Unit tests typically only need a canned return value, so delegate to the
+	// mock without inspecting the varargs.
 	if (g_mockGStreamer != nullptr)
 	{
 		return_ptr = g_mockGStreamer->gst_caps_new_simple(
- 			media_type, fieldname, static_cast<GType>(0), 0, nullptr);
+			media_type, fieldname, static_cast<GType>(0), 0, nullptr);
 	}
 
 	return return_ptr;
