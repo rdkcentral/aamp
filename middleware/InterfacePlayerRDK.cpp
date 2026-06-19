@@ -126,7 +126,7 @@ firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPen
 using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
-lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
+seekPausedState(false), lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
 numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL),
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
@@ -505,11 +505,12 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				                   buffering_timeout, this, NULL);
 								   
 
-
+			
 			if (!interfacePlayerPriv->gstPrivateContext->seekPausedState)
 			{
 				interfacePlayerPriv->gstPrivateContext->paused = false;
 			}
+			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 		}
 	}
 	else
@@ -1499,6 +1500,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	interfacePlayerPriv->gstPrivateContext->segmentStart = 0;
 	interfacePlayerPriv->gstPrivateContext->paused = false;
 	interfacePlayerPriv->gstPrivateContext->pipelineState = GST_STATE_NULL;
+	interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 	// Reset mute and volume params
 	interfacePlayerPriv->gstPrivateContext->audioMuted = false;
 	interfacePlayerPriv->gstPrivateContext->videoMuted = false;
@@ -1606,8 +1608,15 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 
 	}
 
+
 	// If the pipeline is not setup, we will cache the value for later
 	SetSeekPosition(position);
+
+	/**If the user has deliberately paused (paused==true) before issuing
+	 * this seek, record that so ConfigurePipeline() can preserve the paused state
+	 * instead of clearing the paused flag after arming the buffering timer.
+	 */
+	interfacePlayerPriv->gstPrivateContext->seekPausedState = interfacePlayerPriv->gstPrivateContext->paused;
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
 	{
@@ -3489,6 +3498,11 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 		
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = nextState;
 		interfacePlayerPriv->gstPrivateContext->paused = pause;
+		
+		if (!pause)
+		{
+			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+		}
 		/* RDKEMW-19484: On resume (pause=false), if the pipeline couldn't immediately transition to
 		 * PLAYING (GST_STATE_CHANGE_ASYNC) due to buffering_in_progress being true (set at live point
 		 * during ConfigurePipeline), the only path to drive PAUSED->PLAYING is via
