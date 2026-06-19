@@ -42,6 +42,16 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		return;
 	}
 
+	// For the mp4demux path, ES samples must not be pushed until decodebin has
+	// finished async pad-linking (signalled by GST_MESSAGE_ASYNC_DONE).
+	// Init segments are exempt: their sendSegment() call is what sets appsrc caps,
+	// which triggers the async pad-linking that ASYNC_DONE then confirms.
+	// Gating the init segment would deadlock — caps never set, ASYNC_DONE never fires.
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && !cachedFragment->initFragment)
+	{
+		aamp->BlockUntilMp4DemuxPipelineReady(type);
+	}
+
 	if(playContext)
 	{
 		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)

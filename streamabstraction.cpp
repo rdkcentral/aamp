@@ -1429,14 +1429,6 @@ bool MediaTrack::InjectFragment()
 	if(!isChunkMode)
 	{
 		aamp->BlockUntilGstreamerWantsData(NULL, 0, type);
-		// For the mp4demux path, data is injected as raw elementary-stream samples
-		// at download speed, which can arrive before decodebin finishes async
-		// pad-linking.  Block until GST_MESSAGE_ASYNC_DONE has been received so
-		// the first data buffer is never pushed into an unlinked pad.
-		if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
-		{
-			aamp->BlockUntilMp4DemuxPipelineReady(type);
-		}
 	}
 	bool notAborted = WaitForCachedFragmentAvailable();
 	if (notAborted)
