@@ -110,8 +110,10 @@ bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
 /**
  * @brief initilaize IARM
  */
-void PlayerExternalsInterface::IARMInit(const char* processName)
+void PlayerExternalsInterface::IARMInit(const char* processName, bool powerEvt)
 {
+    (void)processName;
+    (void)powerEvt;
 }
 
 /**

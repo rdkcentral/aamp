@@ -29,7 +29,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 }
 
 
-	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames) {  }
+	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames, bool powerEvt) { (void)streamSink; (void)exportFrames; (void)powerEvt; }
 	PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }
 
 	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
