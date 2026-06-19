@@ -4126,7 +4126,8 @@ void PrivateInstanceAAMP::ResetMp4DemuxPipelineReady()
 	std::lock_guard<std::mutex> lock(mMp4DemuxReadyMtx);
 	mMp4DemuxPipelineReady = false;
 	mMp4DemuxInitSegmentSent = false;
-	AAMPLOG_INFO("Mp4Demux pipeline ready gate: RESET (waiting for init segment then ASYNC_DONE)");
+	mPrematureAsyncDoneSeen = false;
+	AAMPLOG_INFO("Mp4Demux pipeline ready gate: RESET");
 }
 
 /**
@@ -4135,9 +4136,30 @@ void PrivateInstanceAAMP::ResetMp4DemuxPipelineReady()
  */
 void PrivateInstanceAAMP::NotifyMp4DemuxInitSegmentSent()
 {
-	std::lock_guard<std::mutex> lock(mMp4DemuxReadyMtx);
-	mMp4DemuxInitSegmentSent = true;
-	AAMPLOG_INFO("Mp4Demux gate: init segment sent, next ASYNC_DONE will open gate");
+	bool doNotify = false;
+	{
+		std::lock_guard<std::mutex> lock(mMp4DemuxReadyMtx);
+		mMp4DemuxInitSegmentSent = true;
+		if (mPrematureAsyncDoneSeen)
+		{
+			// A premature ASYNC_DONE fired before the init segment was sent (PLAYING-startup
+			// path).  Now that the init segment is in flight decodebin will begin linking
+			// immediately; treat the deferred ASYNC_DONE as the real readiness signal.
+			mMp4DemuxPipelineReady = true;
+			mMp4DemuxInitSegmentSent = false;
+			mPrematureAsyncDoneSeen = false;
+			doNotify = true;
+			AAMPLOG_INFO("Mp4Demux gate: SET via deferred ASYNC_DONE (PLAYING-startup path)");
+		}
+		else
+		{
+			AAMPLOG_INFO("Mp4Demux gate: init segment sent, waiting for ASYNC_DONE to open gate");
+		}
+	}
+	if (doNotify)
+	{
+		mMp4DemuxReadyCV.notify_all();
+	}
 }
 
 /**
@@ -4152,9 +4174,11 @@ void PrivateInstanceAAMP::NotifyMp4DemuxPipelineReady()
 		if (!mMp4DemuxInitSegmentSent)
 		{
 			// Premature ASYNC_DONE: the pipeline completed its initial state-change
-			// before any init segment was pushed.  Decodebin has not started linking
-			// yet — opening the gate now would race with pad creation.  Ignore.
-			AAMPLOG_INFO("Mp4Demux gate: ASYNC_DONE ignored (init segment not yet sent)");
+			// before any init segment was pushed (PLAYING-startup path).  Decodebin
+			// has not started linking yet.  Record that we saw it; the gate will be
+			// opened by NotifyMp4DemuxInitSegmentSent() when the init segment arrives.
+			mPrematureAsyncDoneSeen = true;
+			AAMPLOG_INFO("Mp4Demux gate: ASYNC_DONE deferred (init segment not yet sent)");
 			return;
 		}
 		mMp4DemuxPipelineReady = true;

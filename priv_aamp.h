@@ -4297,13 +4297,22 @@ protected:
 	// mp4demux ASYNC_DONE gate: cleared by ResetMp4DemuxPipelineReady() at the start of
 	// each Configure and set by NotifyMp4DemuxPipelineReady() when GST_MESSAGE_ASYNC_DONE
 	// fires.  Starts true so non-mp4demux paths are never blocked.
-	// mMp4DemuxInitSegmentSent is set to true by NotifyMp4DemuxInitSegmentSent() once the
-	// init segment has been successfully pushed to the appsrc.  NotifyMp4DemuxPipelineReady
-	// ignores any ASYNC_DONE that arrives before the init segment has been sent, preventing
-	// the premature ASYNC_DONE (from the initial pipeline state-change to PLAYING) from
-	// opening the gate before decodebin has actually linked its pad chain.
+	//
+	// On PLAYING-startup paths (gstBufferAndPlay=false) the pipeline fires a premature
+	// ASYNC_DONE immediately on reaching PLAYING, before any init segment is pushed and
+	// before decodebin has done any pad-linking work.  The gate handles this via two flags:
+	//   mMp4DemuxInitSegmentSent  -- set by NotifyMp4DemuxInitSegmentSent() after the init
+	//                                 segment is successfully pushed to appsrc.
+	//   mPrematureAsyncDoneSeen   -- set by NotifyMp4DemuxPipelineReady() when it silently
+	//                                 discards an ASYNC_DONE that arrived before the init
+	//                                 segment was sent.
+	// When NotifyMp4DemuxInitSegmentSent() sees mPrematureAsyncDoneSeen==true, it opens the
+	// gate immediately (the deferred ASYNC_DONE is treated as the real readiness signal).
+	// On PAUSED-startup paths the premature ASYNC_DONE never fires; the gate opens normally
+	// when the post-preroll ASYNC_DONE arrives after mMp4DemuxInitSegmentSent is true.
 	bool mMp4DemuxPipelineReady {true};
 	bool mMp4DemuxInitSegmentSent {false};
+	bool mPrematureAsyncDoneSeen {false};
 	std::mutex mMp4DemuxReadyMtx;
 	std::condition_variable mMp4DemuxReadyCV;
 	DrmHelperPtr mCurrentDrm;
