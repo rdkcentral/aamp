@@ -5500,6 +5500,19 @@ void InterfacePlayerRDK::SetStreamCaps(GstMediaType type, MediaCodecInfo&& codec
 		g_free(capsStr);
 		gst_app_src_set_caps(GST_APP_SRC(stream->source), caps);
 		gst_caps_unref(caps);
+
+		// On PAUSED-startup (gstreamerBufferingBeforePlay=true) the ASYNC_DONE gate
+		// is disabled to avoid preroll deadlock.  After changing the appsrc caps from
+		// ISO_BMFF to the demuxed ES format, decodebin needs a short time to re-autoplug
+		// before it is ready to accept data.  Without this delay the injection thread
+		// hits an unlinked downstream pad and the pipeline dies with not-linked (-1).
+		// Race window measured at 61-157ms across observed failures; 300ms provides
+		// comfortable margin.  This only fires once per tune on the PAUSED path.
+		if (m_gstConfigParam->gstreamerBufferingBeforePlay)
+		{
+			MW_LOG_WARN("Mp4Demux: sleeping 300ms for decodebin re-autoplug (PAUSED-startup, type=%d)", (int)type);
+			usleep(300 * 1000);
+		}
 	}
 	else
 	{
