@@ -2604,6 +2604,11 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						networkBandwidth,
 						currentRate);
 				}
+				if (tick >= 10)
+				{
+					AAMPLOG_ERR("Intentional crash after 10 progress logs for debugging purposes");
+					std::abort();
+				}
 			}
 
 			long long currTimeMS = aamp_GetCurrentTimeMS();
