@@ -44,6 +44,7 @@ Remove the entire folder externals/rdk/IARM
 #include "tr181api.h"
 #include "_base64.h"
 #ifdef USE_PREINIT_DECODING
+fsdkfsdfskdfjsd
 #include "power_controller.h"
 #include <system_error> // for std::system_error 
 #include <exception> // for std::exception base class
