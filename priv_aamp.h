@@ -4298,9 +4298,14 @@ protected:
 	// each Configure and set by NotifyMp4DemuxPipelineReady() when GST_MESSAGE_ASYNC_DONE
 	// fires.  Starts true so non-mp4demux paths are never blocked.
 	//
-	// On PLAYING-startup paths (gstBufferAndPlay=false) the pipeline fires a premature
-	// ASYNC_DONE immediately on reaching PLAYING, before any init segment is pushed and
-	// before decodebin has done any pad-linking work.  The gate handles this via two flags:
+	// The gate is only activated on PLAYING-startup paths (gstBufferAndPlay=false).  On
+	// PAUSED-startup (gstBufferAndPlay=true) the gate is left open (ResetMp4DemuxPipelineReady
+	// is skipped): standard GStreamer preroll requires at least one buffer to flow before sinks
+	// can signal ASYNC_DONE, so activating the gate on that path creates a deadlock.
+	//
+	// On PLAYING-startup the pipeline fires a premature ASYNC_DONE immediately on reaching
+	// PLAYING, before any init segment is pushed and before decodebin has done pad-linking.
+	// The gate handles this via two flags:
 	//   mMp4DemuxInitSegmentSent  -- set by NotifyMp4DemuxInitSegmentSent() after the init
 	//                                 segment is successfully pushed to appsrc.
 	//   mPrematureAsyncDoneSeen   -- set by NotifyMp4DemuxPipelineReady() when it silently
@@ -4308,8 +4313,6 @@ protected:
 	//                                 segment was sent.
 	// When NotifyMp4DemuxInitSegmentSent() sees mPrematureAsyncDoneSeen==true, it opens the
 	// gate immediately (the deferred ASYNC_DONE is treated as the real readiness signal).
-	// On PAUSED-startup paths the premature ASYNC_DONE never fires; the gate opens normally
-	// when the post-preroll ASYNC_DONE arrives after mMp4DemuxInitSegmentSent is true.
 	bool mMp4DemuxPipelineReady {true};
 	bool mMp4DemuxInitSegmentSent {false};
 	bool mPrematureAsyncDoneSeen {false};

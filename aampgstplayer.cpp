@@ -893,7 +893,14 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	// Only reset when a fresh pipeline is about to be created (pipeline == NULL). On seeks
 	// and retunes the existing pipeline is reused; pads are already linked so ASYNC_DONE
 	// will not fire again, and resetting the gate would cause a spurious 5-second stall.
-	if (aamp->mConfig->IsConfigSet(eAAMPConfig_UseMp4Demux) && playerInstance->IsPipelineNull())
+	//
+	// The gate is only needed on PLAYING-startup paths (gstBufferAndPlay=false). On
+	// PAUSED-startup (gstBufferAndPlay=true) GStreamer preroll drives the state machine:
+	// sinks must receive a buffer before they signal ASYNC_DONE. Blocking injection until
+	// ASYNC_DONE fires on that path creates a deadlock — no buffers flow, no preroll, no
+	// ASYNC_DONE, 5-second timeout, and PLAYING is delayed beyond the test's window.
+	if (aamp->mConfig->IsConfigSet(eAAMPConfig_UseMp4Demux) && playerInstance->IsPipelineNull()
+	    && !aamp->mConfig->IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay))
 	{
 		aamp->ResetMp4DemuxPipelineReady();
 	}
