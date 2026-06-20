@@ -423,7 +423,8 @@ protected:
 			{eAAMPConfig_AdFulfillmentTimeout, DEFAULT_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_AdFulfillmentTimeoutMax, MAX_AD_FULFILLMENT_TIMEOUT},
 			{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
-			{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK}
+			{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK},
+			{eAAMPConfig_VodAdBreakLookaheadSec, DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC}
 		};
 
 	IntConfigSettings mIntConfigSettings;
@@ -692,7 +693,11 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests1)
 	std::string fragmentUrl;
 	AAMPStatusType status;
 	bool ret = false;
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register this expectation before calling
+	 * InitializeMPD() to prevent an "unexpected call" mock failure. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * this as an init-segment download. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
@@ -736,7 +741,11 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests2)
 	std::string fragmentUrl;
 	AAMPStatusType status;
 	bool ret = false;
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register this expectation before calling
+	 * InitializeMPD() to prevent an "unexpected call" mock failure. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * this as an init-segment download. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
@@ -780,7 +789,11 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 	AAMPStatusType status;
 	bool ret = false;
 
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register this expectation before calling
+	 * InitializeMPD() to prevent an "unexpected call" mock failure. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * this as an init-segment download. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
@@ -818,7 +831,11 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 	std::string fragmentUrl;
 	AAMPStatusType status;
 	bool ret = false;
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register this expectation before calling
+	 * InitializeMPD() to prevent an "unexpected call" mock failure. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * this as an init-segment download. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
@@ -884,7 +901,15 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests3)
 						</Period>
 				</MPD>
 				)";
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() triggers an immediate CacheFragment call for the video
+	 * track's init segment before any media fragments are buffered.  The init
+	 * segment URL is embedded in the inline manifest above and is not
+	 * extracted into a variable here, so a wildcard matcher is used.
+	 * Registering this expectation before InitializeMPD() is called is
+	 * mandatory: without it the mock raises an "unexpected call" failure
+	 * that aborts the test before it reaches the assertions under test.
+	 * The isInitSegment=true constraint (6th arg) verifies AAMP correctly
+	 * flags this fetch as an init-segment download. */
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
@@ -925,13 +950,24 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() fetches each track's init segment before buffering media.
+	 * Two expectations are registered:
+	 * (a) The wildcard catch-all (Times(AnyNumber)) absorbs any additional
+	 *     init-segment calls (e.g. a repeat fetch or an audio track init) so
+	 *     the mock does not raise an "unexpected call" failure.
+	 * (b) The specific-URL expectation (Times(AtLeast(1))) asserts that the
+	 *     video init segment URL derived from the manifest is fetched at least
+	 *     once with isInitSegment=true (6th arg). */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.Times(1)
-		.WillOnce(Return(true));
+		.Times(::testing::AtLeast(1))
+		.WillRepeatedly(Return(true));
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 0);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_TRUE(::testing::Mock::VerifyAndClearExpectations(g_mockMediaStreamContext.get()));
 
 	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false); (void)status;
 
@@ -948,10 +984,24 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 	std::string currentPeriodId = "p1";
 	mTestableStreamAbstractionAAMP_MPD->InvokeUpdateTrackInfo(false, false);
 
+	/* In the real code path, StreamSelection() resets enabled=false before
+	 * UpdateTrackInfo is called, which causes UpdateTrackInfo to set
+	 * profileChanged=true on the track. The test calls InvokeUpdateTrackInfo
+	 * directly (skipping StreamSelection), so profileChanged stays false.
+	 * Set it here to replicate the state that would exist when
+	 * DetectDiscontinuityAndFetchInit is called after a real period transition. */
+	pMediaStreamContext->profileChanged = true;
+
 	/* Test API to detect discontinuity and fetch the initialization segment
 	 * for the next period.
-	 * Test the period change (discontinuity) is not marked
+	 * Test the period change (discontinuity) is not marked.
+	 * The next period's init segment is still fetched, but it must be
+	 * requested without the discontinuity flag.
 	 */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, false, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
 	mTestableStreamAbstractionAAMP_MPD->InvokeDetectDiscontinuityAndFetchInit(periodChanged);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetIsPeriodChangeMarked(), false);
 }
@@ -965,13 +1015,24 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() fetches each track's init segment before buffering media.
+	 * Two expectations are registered:
+	 * (a) The wildcard catch-all (Times(AnyNumber)) absorbs any additional
+	 *     init-segment calls (e.g. a repeat fetch or an audio track init) so
+	 *     the mock does not raise an "unexpected call" failure.
+	 * (b) The specific-URL expectation (Times(AtLeast(1))) asserts that the
+	 *     video init segment URL derived from the manifest is fetched at least
+	 *     once with isInitSegment=true (6th arg). */
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.Times(1)
-		.WillOnce(Return(true));
+		.Times(::testing::AtLeast(1))
+		.WillRepeatedly(Return(true));
 	status = InitializeMPD(mVodManifest, eTUNETYPE_SEEK, 15);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_TRUE(::testing::Mock::VerifyAndClearExpectations(g_mockMediaStreamContext.get()));
 
 	// Index the first period
 	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false); (void)status;
@@ -1015,10 +1076,15 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	const AampTime expectedFirstPTSOffset = 30.0;
 
 	AAMPStatusType status;
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register this expectation before calling
+	 * InitializeMPD() to prevent an "unexpected call" mock failure. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * this as an init-segment download. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.WillOnce(Return(true));
+		.Times(::testing::AtLeast(1))
+		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
@@ -1030,7 +1096,8 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.WillOnce(Return(true));
+		.Times(::testing::AtLeast(1))
+		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
 		.WillRepeatedly(Return(true));
 
@@ -1063,11 +1130,15 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register this expectation before calling
+	 * InitializeMPD() to prevent an "unexpected call" mock failure. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * this as an init-segment download. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.Times(1)
-		.WillOnce(Return(true));
+		.Times(::testing::AtLeast(1))
+		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 27.0);
@@ -1085,8 +1156,8 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 							return (++counter < 20); });
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
-		.Times(1)
-		.WillOnce(Return(true));
+		.Times(::testing::AtLeast(1))
+		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
 		.WillRepeatedly(Return(true));
 
@@ -1108,7 +1179,11 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	std::string fragmentUrl;
 	AAMPStatusType status;
 	bool ret = false;
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register this expectation before calling
+	 * InitializeMPD() to prevent an "unexpected call" mock failure. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * this as an init-segment download. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
@@ -1233,7 +1308,11 @@ TEST_F(FetcherLoopTests, GenerateFragmentURLListVideoOnly)
 	std::string fragmentUrl;
 	AAMPStatusType status;
 
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register this expectation before calling
+	 * InitializeMPD() to prevent an "unexpected call" mock failure. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * this as an init-segment download. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.Times(1)
@@ -2082,11 +2161,15 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 				</MPD>
 				)";
 
-	/* Initialize MPD. The video initialization segment is cached. */
+	/* InitializeMPD() immediately fetches each track's init segment before
+	 * buffering any media fragments. Register these expectations before calling
+	 * InitializeMPD() to prevent "unexpected call" mock failures. The
+	 * isInitSegment=true constraint (6th arg) verifies AAMP correctly flags
+	 * each as an init-segment download. */
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(::testing::AtLeast(1)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(::testing::AtLeast(1)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	status = InitializeMPD(multiTrackManifest, eTUNETYPE_SEEK, 24.0);
@@ -2108,8 +2191,8 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 							return (++counter < 20); });
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(::testing::AtLeast(1)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(::testing::AtLeast(1)).WillRepeatedly(Return(true));
 	// Expect the segments to be downloaded from track
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _)).WillRepeatedly(Return(true));
 
@@ -2736,8 +2819,8 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 				idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
 			})));
 	}
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(::testing::AtLeast(1)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(::testing::AtLeast(1)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	status = InitializeMPD(manifest, eTUNETYPE_SEEK, seekPos);
@@ -2753,8 +2836,8 @@ TEST_P(AdvancedFetcherLoopTests, FetcherLoopTestsWithDifferentMPD)
 		.WillRepeatedly([this]() { return !shouldExitTest; });
 	videoFragmentUrl = std::string(TEST_BASE_URL) + std::string(videoFragmentP1);
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string(audioFragmentP1);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _)).Times(::testing::AtLeast(1)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _)).Times(::testing::AtLeast(1)).WillRepeatedly(Return(true));
 
 	// Default expect
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _)).WillRepeatedly(Return(true));

@@ -311,6 +311,19 @@ This file defines:
 - review comment quality requirements;
 - restrictions on speculative or overly large suggestions.
 
+## ABR compliance
+
+When generating, editing, or reviewing code under `abr/`, apply the normative rules in `instructions/abr.instructions.md`. That file is the authoritative spec for buffer semantics, profile selection, bail behavior, latency control, and targetLatency adjustment.
+
+For structured reviews, use the reusable prompt files:
+- `/abr-compliance-review` — full spec-driven audit
+- `/abr-pr-review` — focused diff review
+- `/abr-log-validate` — runtime log/trace validation
+- `/abr-function-check` — single-function compliance check
+- `/abr-instrumentation-plan` — design assertions and log events for auditability
+
+---
+
 ## AAMP log debugging
 
 - For AAMP run-log analysis, use the reusable prompt file `/aamp-log-debug`.

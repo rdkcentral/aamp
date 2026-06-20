@@ -720,8 +720,6 @@ protected:
 
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
-	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
-
 private:
 	
 	/**
@@ -1684,7 +1682,7 @@ public:
 	 * @brief Stop UnderflowMonitor Thread.
 	 * @return void
 	 */
-	void StopUnderflowMonitor();
+	virtual void StopUnderflowMonitor();
 
 	/**
 	 * @fn IsUnderflowMonitorRunning

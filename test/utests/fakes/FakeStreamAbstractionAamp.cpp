@@ -47,6 +47,11 @@ void StreamAbstractionAAMP::StartUnderflowMonitor()
 
 void StreamAbstractionAAMP::StopUnderflowMonitor()
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->StopUnderflowMonitor();
+	}
+
 }
 
 bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const
