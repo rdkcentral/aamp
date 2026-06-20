@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<!--
+  AAMP IPA Launcher — WebSocket JSON-RPC 2.0 Test Client
+
+  Open this file in any browser while aamp-ipa-launcher is running:
+    python3 -m http.server 8080   (then browse to http://localhost:8080/test_client.html)
+  or just open it as file:// (most browsers allow WebSocket from file://)
+
+  Make sure the launcher is running:
+    ./aamp-ipa-launcher --port 9999
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AAMP IPA Launcher — JSON-RPC Test Client</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      background: #16213e;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    header h1 { font-size: 1.1rem; color: #e94560; }
+
+    #status-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #e94560;
+      flex-shrink: 0;
+    }
+    #status-dot.connected { background: #4caf50; }
+
+    #status-text { font-size: 0.85rem; color: #888; }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Left panel: controls ─────────────────────────────────────────── */
+    .controls {
+      width: 340px;
+      flex-shrink: 0;
+      background: #16213e;
+      padding: 16px;
+      overflow-y: auto;
+      border-right: 1px solid #0f3460;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section {
+      background: #0f3460;
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    .section h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #e94560;
+      margin-bottom: 8px;
+    }
+
+    label { font-size: 0.82rem; color: #aaa; display: block; margin-bottom: 2px; }
+
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      background: #1a1a2e;
+      border: 1px solid #0f3460;
+      color: #e0e0e0;
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+
+    input:focus, select:focus { outline: none; border-color: #e94560; }
+
+    button {
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      margin: 2px 3px 2px 0;
+    }
+
+    button:hover { background: #c73652; }
+    button.secondary {
+      background: #0f3460;
+      border: 1px solid #e94560;
+      color: #e94560;
+    }
+    button.secondary:hover { background: #1a4a8a; }
+
+    /* ── Right panel: event log ────────────────────────────────────────── */
+    .log-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .log-toolbar {
+      background: #16213e;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .log-toolbar span { font-size: 0.8rem; color: #888; }
+
+    #log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      line-height: 1.6;
+    }
+
+    .log-entry { margin-bottom: 2px; }
+    .ts   { color: #555; }
+    .sent { color: #64b5f6; }
+    .recv { color: #81c784; }
+    .evt  { color: #ffb74d; }
+    .err  { color: #e57373; }
+    .info { color: #90a4ae; }
+
+    /* ── Raw JSON panel ─────────────────────────────────────────────────── */
+    .raw-section {
+      border-top: 1px solid #0f3460;
+      padding: 12px;
+      background: #16213e;
+    }
+
+    .raw-section label { display: block; margin-bottom: 4px; }
+
+    #raw-input {
+      width: 100%;
+      height: 70px;
+      background: #1a1a2e;
+      border: 1px solid #0f3460;
+      color: #e0e0e0;
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div id="status-dot"></div>
+  <h1>AAMP IPA Launcher · JSON-RPC Test Client</h1>
+  <span id="status-text">Disconnected</span>
+  <span style="margin-left:auto; font-size:0.8rem; color:#555;" id="server-url"></span>
+</header>
+
+<div class="main">
+
+  <!-- ── Controls panel ─────────────────────────────────────────────────── -->
+  <div class="controls">
+
+    <!-- Connection -->
+    <div class="section">
+      <h3>Connection</h3>
+      <label>WebSocket URL</label>
+      <input type="text" id="ws-url" value="ws://localhost:9999" />
+      <button id="btn-connect">Connect</button>
+      <button id="btn-disconnect" class="secondary">Disconnect</button>
+    </div>
+
+    <!-- Playback -->
+    <div class="section">
+      <h3>Playback</h3>
+      <label>Stream URL</label>
+      <input type="text" id="tune-url"
+             value="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd"
+             placeholder="https://..." />
+      <label>Content Type (optional)</label>
+      <input type="text" id="content-type" value="" placeholder="VOD / LIVE / LINEAR_TV" />
+      <button onclick="tune()">Tune</button>
+      <button onclick="stop()">Stop</button>
+      <hr style="border-color:#0f3460; margin: 6px 0;" />
+      <button onclick="seekToLive()">Seek to Live</button>
+      <button onclick="getState()">Get State</button>
+      <button onclick="getPosition()">Get Position</button>
+    </div>
+
+    <!-- Seek / Rate -->
+    <div class="section">
+      <h3>Seek / Rate</h3>
+      <label>Position (seconds)</label>
+      <input type="number" id="seek-pos" value="60" min="0" />
+      <button onclick="seek()">Seek</button>
+      <button onclick="seekKeepPaused()">Seek (keep paused)</button>
+      <label>Rate</label>
+      <input type="number" id="rate-val" value="2" step="0.5" />
+      <button onclick="setRate()">Set Rate</button>
+      <button onclick="sendRpc('Player.SetRate',{rate:1})">Rate 1x</button>
+      <button onclick="sendRpc('Player.SetRate',{rate:0})">Pause</button>
+    </div>
+
+    <!-- Video -->
+    <div class="section">
+      <h3>Video</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+        <div><label>X</label><input type="number" id="rect-x" value="0"/></div>
+        <div><label>Y</label><input type="number" id="rect-y" value="0"/></div>
+        <div><label>W</label><input type="number" id="rect-w" value="1280"/></div>
+        <div><label>H</label><input type="number" id="rect-h" value="720"/></div>
+      </div>
+      <button onclick="setRect()">Set Rectangle</button>
+      <button onclick="sendRpc('Player.SetVideoMute',{muted:true})">Mute Video</button>
+      <button onclick="sendRpc('Player.SetVideoMute',{muted:false})">Unmute Video</button>
+    </div>
+
+    <!-- Audio -->
+    <div class="section">
+      <h3>Audio</h3>
+      <label>Volume (0-100)</label>
+      <input type="number" id="volume" value="80" min="0" max="100" />
+      <button onclick="setVolume()">Set Volume</button>
+      <button onclick="sendRpc('Player.GetAudioLanguage',{})">Get Language</button>
+      <button onclick="sendRpc('Player.GetAvailableAudioTracks',{})">List Audio Tracks</button>
+    </div>
+
+    <!-- Bitrate -->
+    <div class="section">
+      <h3>Bitrate / ABR</h3>
+      <button onclick="sendRpc('Player.GetVideoBitrate',{})">Get Bitrate</button>
+      <button onclick="sendRpc('Player.GetVideoBitrates',{})">List Bitrates</button>
+      <label>Set Bitrate (bps)</label>
+      <input type="number" id="bitrate-val" value="4000000" />
+      <button onclick="setBitrate()">Set Bitrate</button>
+    </div>
+
+    <!-- DRM -->
+    <div class="section">
+      <h3>DRM</h3>
+      <button onclick="sendRpc('Player.GetDRM',{})">Get DRM</button>
+      <label>License Server URL</label>
+      <input type="text" id="license-url" placeholder="https://..." />
+      <button onclick="setLicenseUrl()">Set License URL</button>
+    </div>
+
+    <!-- Raw JSON-RPC -->
+    <div class="raw-section">
+      <label style="color:#e94560; font-weight:600; font-size:0.82rem;">Raw JSON-RPC</label>
+      <textarea id="raw-input"
+        placeholder='{"jsonrpc":"2.0","id":99,"method":"Player.GetState","params":{}}'
+      ></textarea>
+      <button onclick="sendRaw()" style="margin-top:4px;">Send</button>
+    </div>
+
+  </div>
+
+  <!-- ── Event log panel ─────────────────────────────────────────────────── -->
+  <div class="log-panel">
+    <div class="log-toolbar">
+      <span>Event &amp; Response Log</span>
+      <button class="secondary" onclick="clearLog()">Clear</button>
+      <label style="margin-left:auto; font-size:0.8rem;">
+        <input type="checkbox" id="chk-progress" /> Show progress events
+      </label>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script>
+/* ── State ─────────────────────────────────────────────────────────────────── */
+let ws      = null;
+let msgId   = 1;
+const pending = {};  // id → {resolve, reject}
+
+/* ── Connection ────────────────────────────────────────────────────────────── */
+document.getElementById('btn-connect').onclick = connect;
+document.getElementById('btn-disconnect').onclick = disconnect;
+
+function connect() {
+  const url = document.getElementById('ws-url').value.trim();
+  if (ws && ws.readyState < 2) { log('info', 'Already connected'); return; }
+
+  log('info', `Connecting to ${url} …`);
+  ws = new WebSocket(url, 'aamp-rpc');
+
+  ws.onopen = () => {
+    setStatus(true, url);
+    log('info', `Connected to ${url}`);
+  };
+
+  ws.onclose = (ev) => {
+    setStatus(false);
+    log('info', `Disconnected (code ${ev.code})`);
+  };
+
+  ws.onerror = () => log('err', 'WebSocket error');
+
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+
+      /* Notification (no 'id') */
+      if (msg.id === undefined || msg.id === null) {
+        const method = msg.method || '(unknown)';
+
+        /* Suppress noisy progress events unless checkbox is checked */
+        if (method === 'Player.onProgress' &&
+            !document.getElementById('chk-progress').checked) return;
+
+        const params = JSON.stringify(msg.params || {}, null, 0);
+        log('evt', `⚡ ${method}  ${params}`);
+        return;
+      }
+
+      /* Response */
+      const id = msg.id;
+      log('recv', `← [${id}] ${JSON.stringify(msg)}`);
+
+      if (pending[id]) {
+        if (msg.error) pending[id].reject(msg.error);
+        else           pending[id].resolve(msg.result);
+        delete pending[id];
+      }
+    } catch (e) {
+      log('err', `Parse error: ${e}`);
+    }
+  };
+}
+
+function disconnect() {
+  if (ws) ws.close();
+}
+
+/* ── RPC helpers ────────────────────────────────────────────────────────────── */
+
+/**
+ * Send a JSON-RPC 2.0 request and return a Promise that resolves with
+ * the 'result' field or rejects with the 'error' field.
+ */
+function sendRpc(method, params = {}) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    log('err', 'Not connected');
+    return Promise.reject('Not connected');
+  }
+  const id  = msgId++;
+  const req = { jsonrpc: '2.0', id, method, params };
+  const raw = JSON.stringify(req);
+  log('sent', `→ [${id}] ${raw}`);
+  ws.send(raw);
+
+  return new Promise((resolve, reject) => {
+    pending[id] = { resolve, reject };
+    /* Auto-reject after 10 s to avoid silent leaks */
+    setTimeout(() => {
+      if (pending[id]) {
+        delete pending[id];
+        reject('Request timed out');
+      }
+    }, 10000);
+  });
+}
+
+function sendRaw() {
+  const raw = document.getElementById('raw-input').value.trim();
+  if (!raw) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) { log('err', 'Not connected'); return; }
+  try {
+    const msg = JSON.parse(raw);
+    const id  = msg.id;
+    log('sent', `→ [${id ?? '?'}] ${raw}`);
+    ws.send(raw);
+    if (id !== undefined && id !== null) {
+      pending[id] = {
+        resolve: r => {},  // already logged by onmessage
+        reject:  e => {}
+      };
+    }
+  } catch (e) { log('err', `Invalid JSON: ${e}`); }
+}
+
+/* ── Control bindings ───────────────────────────────────────────────────────── */
+
+async function tune() {
+  const url  = document.getElementById('tune-url').value.trim();
+  const ct   = document.getElementById('content-type').value.trim();
+  const params = { url, autoPlay: true };
+  if (ct) params.contentType = ct;
+  try { await sendRpc('Player.Tune', params); }
+  catch (e) { log('err', `Tune failed: ${JSON.stringify(e)}`); }
+}
+
+function stop()          { sendRpc('Player.Stop', {}); }
+function seekToLive()    { sendRpc('Player.SeekToLive', {}); }
+function getState()      { sendRpc('Player.GetState', {}); }
+function getPosition()   { sendRpc('Player.GetPlaybackPosition', {}); }
+
+function seek() {
+  const pos = parseFloat(document.getElementById('seek-pos').value);
+  sendRpc('Player.Seek', { position: pos, keepPaused: false });
+}
+function seekKeepPaused() {
+  const pos = parseFloat(document.getElementById('seek-pos').value);
+  sendRpc('Player.Seek', { position: pos, keepPaused: true });
+}
+
+function setRate() {
+  const rate = parseFloat(document.getElementById('rate-val').value);
+  sendRpc('Player.SetRate', { rate });
+}
+
+function setRect() {
+  sendRpc('Player.SetVideoRectangle', {
+    x: +document.getElementById('rect-x').value,
+    y: +document.getElementById('rect-y').value,
+    w: +document.getElementById('rect-w').value,
+    h: +document.getElementById('rect-h').value
+  });
+}
+
+function setVolume() {
+  const vol = parseInt(document.getElementById('volume').value, 10);
+  sendRpc('Player.SetAudioVolume', { volume: vol });
+}
+
+function setBitrate() {
+  const br = parseInt(document.getElementById('bitrate-val').value, 10);
+  sendRpc('Player.SetVideoBitrate', { bitrate: br });
+}
+
+function setLicenseUrl() {
+  const url = document.getElementById('license-url').value.trim();
+  if (!url) { log('err', 'License URL is empty'); return; }
+  sendRpc('Player.SetLicenseServerURL', { url });
+}
+
+/* ── Log helpers ────────────────────────────────────────────────────────────── */
+
+function log(cls, text) {
+  const el  = document.getElementById('log');
+  const ts  = new Date().toLocaleTimeString('en-GB', { hour12: false,
+    hour:'2-digit', minute:'2-digit', second:'2-digit',
+    fractionalSecondDigits: 3 });
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML =
+    `<span class="ts">[${ts}]</span> <span class="${cls}">${escHtml(text)}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setStatus(connected, url) {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  const srv  = document.getElementById('server-url');
+  dot.className  = connected ? 'connected' : '';
+  text.textContent = connected ? 'Connected' : 'Disconnected';
+  srv.textContent  = connected && url ? url : '';
+}
+</script>
+</body>
+</html>

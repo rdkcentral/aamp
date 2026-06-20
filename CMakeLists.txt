@@ -649,6 +649,11 @@ if ((CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin) AND CMAKE_BUILD
 	xcode_define_schema(aampKotlin)
 endif()
 
+if(CMAKE_BUILD_AAMP_IPA_LAUNCHER)
+	add_subdirectory(test/aamp-ipa-launcher)
+endif()
+
+
 set(GSTTESTHARNESS_DEPENDS
 	${OS_LD_FLAGS}
 	${CMAKE_THREAD_LIBS_INIT}
