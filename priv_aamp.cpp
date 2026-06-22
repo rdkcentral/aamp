@@ -1261,7 +1261,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mVideoRect{}
 	, mData()
 	, mIsInbandCC(true)
-	, mAppSelectedInbandCC(false)
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
@@ -5869,12 +5868,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	// Reset current audio/text track index
 	mCurrentAudioTrackIndex = -1;
 	mCurrentTextTrackIndex = -1;
-	// A new asset is being tuned: forget any previously app-selected in-band
-	// CC choice so the new manifest's text tracks are configured from scratch.
-	// Mid-session retunes (TuneHelper without going through Tune()) leave
-	// this flag intact so the user's CC choice persists across trickplay /
-	// seek-induced retunes.
-	mAppSelectedInbandCC = false;
 	SetPauseOnStartPlayback(false);
 
 	mSchemeIdUriDai = GETCONFIGVALUE_PRIV(eAAMPConfig_SchemeIdUriDaiStream);
@@ -8019,17 +8012,7 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
 void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 {
 	PlayerCCManager::GetInstance()->Init((void *)decoderHandle);
-	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-	{
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg == 0)
-		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
-			PlayerCCManager::GetInstance()->SetTrack("CC1");
-		}
-	}
 }
-
 /**
  *  @brief Notify first frame is displayed. Sends CC handle event to listeners.
  */
@@ -10848,9 +10831,6 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 		// Passing in -1 as the track ID mutes subs
 		if (MUTE_SUBTITLES_TRACKID == trackId)
 		{
-			// User is muting all text rendering; clear the in-band CC
-			// preference so a subsequent retune does not auto-restore CC.
-			mAppSelectedInbandCC = false;
 			SetCCStatus(false);
 			if (data != NULL)
 			{
@@ -10870,11 +10850,8 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
-					// Remember that the application explicitly chose an in-band
-					// CC track so MPD SelectSubtitleTrack can skip its
-					// "auto-pick first subtitle adaptation" path on the next
-					// retune and avoid clobbering mIsInbandCC back to false.
-					mAppSelectedInbandCC = true;
+					SetPreferredTextTrack(track);
+					SetCCStatusInternal();
 					if (!track.instreamId.empty())
 					{
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
@@ -10892,13 +10869,6 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 							}
 						}
 
-						// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-						int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-						if (overrideCfg != -1)
-						{
-							format = (CCFormat)(overrideCfg & 1);
-							AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
-						}
 						PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 					}
 					else
@@ -10909,7 +10879,6 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				else
 				{
 					mIsInbandCC = false;
-					mAppSelectedInbandCC = false;
 					//Unmute subtitles
 					SetCCStatus(true);
 
@@ -11022,8 +10991,16 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-	AcquireStreamLock();
-	subtitles_muted = !enabled;
+	{
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		// Set subtitles_muted flag to the value requested by the app
+		subtitles_muted = !enabled;
+		SetCCStatusInternal();
+	}
+}
+
+void PrivateInstanceAAMP::SetCCStatusInternal(void)
+{
 	// Mute subtitles if either video is muted or subtitles are muted
 	bool mute_subtitles_applied = video_muted || subtitles_muted;
 	bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
@@ -11047,7 +11024,6 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 		}
 	}
 	SetSubtitleMute(mute_subtitles_applied);
-	ReleaseStreamLock();
 }
 
 /**
