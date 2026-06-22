@@ -38,6 +38,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <memory>
+#include <thread>
 #include "GstUtils.h"
 #include <any>
 #include "SocUtils.h"
@@ -51,9 +52,13 @@ struct ProgressCallbackContext
 	InterfacePlayerRDK *player;
 	bool cancelled;
 	size_t activeCallbacks;
+	// Tracks the thread currently executing the progress callback so that
+	// WaitForProgressCallbackCompletion() can detect re-entrant Stop() calls
+	// from within the callback and avoid a self-deadlock.
+	std::thread::id callbackThreadId;
 
 	explicit ProgressCallbackContext(InterfacePlayerRDK *playerInstance)
-		: player(playerInstance), cancelled(false), activeCallbacks(0)
+		: player(playerInstance), cancelled(false), activeCallbacks(0), callbackThreadId()
 	{
 	}
 };
@@ -377,12 +382,17 @@ class InterfacePlayerRDK
 private:
 	bool trickTeardown;
 	std::mutex mMutex;
+	// Prevents double teardown when Stop() is called concurrently or
+	// re-entrantly from the progress callback. Protected by mMutex.
+	bool mStopInProgress;
 	std::map<std::string, int> configMap;
 	PlayerScheduler mScheduler;
 	std::shared_ptr<ProgressCallbackContext> mProgressCallbackContext;
 
 	std::shared_ptr<ProgressCallbackContext> GetOrCreateProgressCallbackContext();
 	void CancelProgressCallbackContext();
+	std::shared_ptr<ProgressCallbackContext> SignalCancelProgressCallback();
+	void WaitForProgressCallbackCompletion(std::shared_ptr<ProgressCallbackContext> callbackContext);
 	static void DestroyProgressCallbackUserData(gpointer user_data);
 
 public:
