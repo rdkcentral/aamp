@@ -156,7 +156,7 @@ decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 progressiveBufferingEnabled(false), progressiveBufferingStatus(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
 filterAudioDemuxBuffers(false), isMp4DemuxPlayback(false),
-aSyncControl(), syncControl(), callbackControl(), seekPosition(0)
+aSyncControl(), syncControl(), callbackControl(), seekPosition(0), setSubtitlePending(false)
 {
 	memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
 	/* default video scaling should take into account actual graphics
@@ -2293,6 +2293,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				gst_element_sync_state_with_parent(stream->source);
 				gst_element_sync_state_with_parent(stream->sinkbin);
 				interfacePlayerPriv->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref(stream->sinkbin));
+				interfacePlayerPriv->gstPrivateContext->setSubtitlePending = true;
 				g_object_set(stream->sinkbin, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
 				return 0;
 			}
@@ -4375,10 +4376,11 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 
 				// Subtitle unmute lost in SetupStream() because gstreamer not ready
 				// So, set subtitle mute state when first frame is received
-				if (privatePlayer->gstPrivateContext->subtitle_sink && !privatePlayer->gstPrivateContext->subtitleMuted)
+				if (privatePlayer->gstPrivateContext->subtitle_sink && privatePlayer->gstPrivateContext->setSubtitlePending && !privatePlayer->gstPrivateContext->subtitleMuted)
 				{
 					MW_LOG_INFO("patrick");
 					pInterfacePlayerRDK->SetSubtitleMute(false);
+					privatePlayer->gstPrivateContext->setSubtitlePending = false;
 				}
 			}
 			//this code should be handled as part of IARM modification
