@@ -276,10 +276,15 @@ public:
 
 	/**
 	 * @fn SetRialto
+	 * @brief Configure which CC manager subclass GetInstance() will create.
 	 *
+	 * @param[in] bIsRialto       true when using the Rialto GStreamer sink
+	 *                            (PlayerRialtoCCManager).
+	 * @param[in] bIsDirectRialto true when using the direct-Rialto path
+	 *                            (PlayerDirectRialtoCCManager).
 	 * @return void
 	 */
-	static void SetRialto(bool bIsRialto);
+	static void SetRialto(bool bIsRialto, bool bIsDirectRialto = false);
 
 	/**
 	 * @fn DestroyInstance
@@ -289,8 +294,19 @@ public:
 	static void DestroyInstance();
 
 private:
-	static PlayerCCManagerBase *mInstance; /**< Singleton instance */
-	static bool mIsRialto;	/**< Determines which class to instantiate */
+	/**
+	 * @enum CCManagerType
+	 * @brief Identifies which PlayerCCManagerBase subclass to instantiate.
+	 */
+	enum class CCManagerType
+	{
+		SubtecCCManager,      ///< Use PlayerSubtecCCManager (default)
+		RialtoCCManager,      ///< Use PlayerRialtoCCManager
+		DirectRialtoCCManager ///< Use PlayerDirectRialtoCCManager
+	};
+
+	static PlayerCCManagerBase *mInstance;          /**< Singleton instance */
+	static CCManagerType        mCCManagerType;     /**< Determines which class to instantiate */
 };
 
 class PlayerFakeCCManager : public PlayerCCManagerBase

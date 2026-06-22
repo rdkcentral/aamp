@@ -34,6 +34,7 @@
 #include "PlayerCCManager.h"
 #include "PlayerSubtecCCManager.h"
 #include "PlayerRialtoCCManager.h"
+#include "PlayerDirectRialtoCCManager.h"
 
 
 #define CHAR_CODE_1 49
@@ -824,9 +825,10 @@ bool PlayerCCManagerBase::IsOOBCCRenderingSupported()
 PlayerCCManagerBase *PlayerCCManager::mInstance = NULL;
 
 /**
- * @brief Indicates whether mInstance should be a Rialto or a Subtec class.
+ * @brief Determines which CC manager subclass to instantiate.
  */
-bool PlayerCCManager::mIsRialto = false;
+PlayerCCManager::CCManagerType PlayerCCManager::mCCManagerType =
+	PlayerCCManager::CCManagerType::SubtecCCManager;
 
 /**
  *  @brief Get the singleton instance
@@ -836,7 +838,12 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
 	if (mInstance == NULL)
 	{
 #if defined(SUBTITLE_SUPPORTED)
-		if (mIsRialto)
+		if (mCCManagerType == CCManagerType::DirectRialtoCCManager)
+		{
+			MW_LOG_INFO("PlayerCCManager::Creating DirectRialto CC manager");
+			mInstance = new PlayerDirectRialtoCCManager();
+		}
+		else if (mCCManagerType == CCManagerType::RialtoCCManager)
 		{
 			MW_LOG_INFO("PlayerCCManager::Creating Rialto CC manager");
 			mInstance = new PlayerRialtoCCManager();
@@ -872,18 +879,30 @@ void PlayerCCManagerBase::ResetState()
 }
 
 /**
- *  @brief Set the variant required
+ *  @brief Set the CC manager variant
  */
-void PlayerCCManager::SetRialto(bool bIsRialto)
+void PlayerCCManager::SetRialto(bool bIsRialto, bool bIsDirectRialto)
 {
+	CCManagerType newType = CCManagerType::SubtecCCManager;
+
+	if (bIsDirectRialto)
+	{
+		newType = CCManagerType::DirectRialtoCCManager;
+	}
+	else if (bIsRialto)
+	{
+		newType = CCManagerType::RialtoCCManager;
+	}
+
 	if (mInstance == NULL)
 	{
-		MW_LOG_INFO("PlayerCCManager::IsRialto:%d", bIsRialto);
-		mIsRialto = bIsRialto;
+		MW_LOG_INFO("PlayerCCManager::CCManagerType:%d", static_cast<int>(newType));
+		mCCManagerType = newType;
 	}
-	else if (mIsRialto != bIsRialto)
+	else if (mCCManagerType != newType)
 	{
-		MW_LOG_ERR("PlayerCCManager::IsRialto:%d while incompatible singleton instance exists", bIsRialto);
+		MW_LOG_ERR("PlayerCCManager::CCManagerType:%d while incompatible singleton instance exists",
+			static_cast<int>(newType));
 	}
 }
 

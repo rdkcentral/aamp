@@ -672,7 +672,11 @@ std::optional<MediaCodecInfo> AampRialtoMediaSource::processInitFragment(
 
 bool AampRialtoMediaSource::processDataFragment(
 	firebolt::rialto::IMediaPipeline &pipeline,
-	std::shared_ptr<std::vector<uint8_t>> buffer)
+	std::shared_ptr<std::vector<uint8_t>> buffer,
+	double /*fpts*/,
+	double /*fdts*/,
+	double /*fDuration*/,
+	double /*fragmentPTSoffset*/)
 {
 	if (!m_demuxer)
 	{

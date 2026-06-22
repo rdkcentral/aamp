@@ -98,6 +98,9 @@ void AampRialtoPlayer::SeekStreamSink(double, double) {}
 
 std::string AampRialtoPlayer::GetVideoRectangle() { return {}; }
 
+bool AampRialtoPlayer::setTextTrackIdentifier(const std::string &) { return false; }
+bool AampRialtoPlayer::setCCMute(bool) { return false; }
+
 void AampRialtoPlayer::StopBuffering(bool) {}
 bool AampRialtoPlayer::SetTextStyle(const std::string &) { return false; }
 PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality() { return nullptr; }

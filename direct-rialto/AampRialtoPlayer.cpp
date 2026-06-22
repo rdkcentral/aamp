@@ -310,6 +310,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 
 	const auto *videoSrc = m_sources[eMEDIATYPE_VIDEO].get();
 	const auto *audioSrc = m_sources[eMEDIATYPE_AUDIO].get();
+	const auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
 
 	// Video track: any change  add, remove, or codec change - needs rebuild.
 	if (videoSrc == nullptr)
@@ -344,9 +345,21 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		return true;  // Audio codec changed to a different valid format.
 	}
 
-	// subFormat is intentionally not checked: subtitle source creation is
-	// disabled (guarded by `if (false && ...)`) until AampRialtoSubtitleSource
-	// is fully implemented.
+	if (subtitleSrc == nullptr)
+	{
+		if (subFormat != FORMAT_INVALID)
+		{
+			return true;  
+		}
+		if (videoFormat != FORMAT_INVALID)
+		{
+			return true;
+		}
+	}
+	else if (subtitleSrc->format() != subFormat)
+	{
+		return true;
+	}
 
 	return false;
 }
@@ -571,6 +584,7 @@ void AampRialtoPlayer::Configure(
 	// FORMAT_ISO_BMFF: AampRialtoPlayer demuxes via SendTransfer; the demuxer
 	//                  is created lazily on the first SendTransfer call.
 	// FORMAT_UNKNOWN:  streamabstraction demuxes externally (SetStreamCaps path).
+
 	if (videoFormat != FORMAT_INVALID)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_VIDEO);
@@ -593,18 +607,46 @@ void AampRialtoPlayer::Configure(
 			AAMPLOG_INFO("Created audio source (format=%d)", static_cast<int>(audioFormat));
 		}
 	}
-	// Subtitle source creation is disabled until AampRialtoSubtitleSource
-	// fully implements mapCodecToMime/createRialtoSource.  Until then,
-	// creating a source here blocks allSourcesAttached() because the
-	// subtitle can never be attached to the Rialto pipeline.
-	if (false && subFormat != FORMAT_INVALID)
+
+	if (subFormat == FORMAT_SUBTITLE_TTML || subFormat == FORMAT_SUBTITLE_MP4 || subFormat == FORMAT_SUBTITLE_WEBVTT)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
 		if (src)
 		{
+			src->setFormat(subFormat);
 			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
 			AAMPLOG_INFO("Created subtitle source (format=%d)", static_cast<int>(subFormat));
+
+			// For raw subtitle formats (TTML/WebVTT) there is no MP4 init
+			// segment, so no AampMp4Demuxer is created and SetStreamCaps
+			// is never called for subtitle.  Queue the source attachment
+			// here so it fires once video attaches (same deferred path as
+			// audio).  FORMAT_SUBTITLE_MP4 is also handled via the demuxer
+			// updateCachedMetadata → SetStreamCaps path.
+			MediaCodecInfo ci{};
+			ci.mCodecFormat = (subFormat == FORMAT_SUBTITLE_WEBVTT)
+						? GST_FORMAT_SUBTITLE_WEBVTT
+						: GST_FORMAT_SUBTITLE_TTML;
+			AAMPLOG_INFO("Queueing subtitle attachment for format=%d",
+				static_cast<int>(subFormat));
+			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
+		}
+	}
+	else if (videoFormat != FORMAT_INVALID)
+	{
+		// No sidecar subtitle track — create an inband CC source that uses
+		// the "application/x-subtitle-cc" MIME type so the Rialto pipeline
+		// can deliver closed-caption data from the video stream.
+		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
+		if (src)
+		{
+			src->setFormat(FORMAT_INVALID);
+			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
+			MediaCodecInfo ci{};
+			ci.mCodecFormat = GST_FORMAT_UNKNOWN;
+			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
+			AAMPLOG_INFO("Created inband CC subtitle source");
 		}
 	}
 
@@ -682,7 +724,9 @@ bool AampRialtoPlayer::SendTransfer(
 	}
 	else if (m_pipeline)
 	{
-		if (!source->processDataFragment(*m_pipeline, std::move(sharedBuffer)))
+		if (!source->processDataFragment(
+				*m_pipeline, std::move(sharedBuffer),
+				fpts, fdts, fDuration, fragmentPTSoffset))
 		{
 			result = false;
 		}
@@ -790,6 +834,18 @@ void AampRialtoPlayer::AttachSource(
 				}
 			}
 		}
+
+		// Re-apply cached subtitle mute state when the subtitle source first
+		// attaches.  SetSubtitleMute() may have been called before the source
+		// was ready (e.g. user muted before playback started, or between period
+		// transitions when the source is detached and re-attached).
+		if (type == eMEDIATYPE_SUBTITLE && m_subtitleMuted)
+		{
+			AAMPLOG_INFO("Applying cached subtitle mute on attach sourceId=%d",
+				source.sourceId());
+			m_pipeline->setMute(source.sourceId(), true);
+		}
+
 		CheckAllSourcesAttached();
 	}
 }
@@ -1186,7 +1242,44 @@ void AampRialtoPlayer::SetVideoMute(bool muted)
 void AampRialtoPlayer::SetSubtitleMute(bool muted)
 {
 	AAMPLOG_INFO("ENTRY muted=%d", muted);
+	std::lock_guard<std::mutex> lock(m_attachMutex);
+	m_subtitleMuted = muted;
+	auto *subtitleSource = m_sources[eMEDIATYPE_SUBTITLE].get();
+	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
+	{
+		m_pipeline->setMute(subtitleSource->sourceId(), muted);
+	}
 	AAMPLOG_INFO("EXIT");
+}
+
+// ---------------------------------------------------------------------------
+// IDirectRialtoCC
+// ---------------------------------------------------------------------------
+
+bool AampRialtoPlayer::setTextTrackIdentifier(const std::string &id)
+{
+	AAMPLOG_INFO("ENTRY id=%s", id.c_str());
+	bool result = false;
+	if (m_pipeline)
+	{
+		result = m_pipeline->setTextTrackIdentifier(id);
+	}
+	AAMPLOG_INFO("EXIT result=%d", result);
+	return result;
+}
+
+bool AampRialtoPlayer::setCCMute(bool muted)
+{
+	AAMPLOG_INFO("ENTRY muted=%d", muted);
+	bool result = false;
+	std::lock_guard<std::mutex> lock(m_attachMutex);
+	auto *sub = m_sources[eMEDIATYPE_SUBTITLE].get();
+	if (m_pipeline && sub && sub->isAttached())
+	{
+		result = m_pipeline->setMute(sub->sourceId(), muted);
+	}
+	AAMPLOG_INFO("EXIT result=%d", result);
+	return result;
 }
 
 void AampRialtoPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
@@ -1364,8 +1457,21 @@ PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality()
 bool AampRialtoPlayer::SignalSubtitleClock()
 {
 	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return false;
+	bool result = false;
+	auto *subtitleSource = m_sources[eMEDIATYPE_SUBTITLE].get();
+	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
+	{
+		int64_t position = 0;
+		if (m_pipeline->getPosition(position))
+		{
+			result = m_pipeline->setSourcePosition(
+				subtitleSource->sourceId(),
+				position,
+				/*resetTime=*/false);
+		}
+	}
+	AAMPLOG_INFO("EXIT result=%d", result);
+	return result;
 }
 
 void AampRialtoPlayer::SetPauseOnStartPlayback(bool enable)
@@ -1409,6 +1515,19 @@ void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecI
 		if (source)
 		{
 			AttachSource(*source, codecInfo);
+
+			// SelectSubtitleTrack() calls StopTrackDownloads(SUBTITLE) during
+			// period transitions, setting mbTrackDownloadsBlocked[SUBTITLE]=true.
+			// InjectFragment() calls BlockUntilGstreamerWantsData() which spins
+			// while that flag is true.  For Rialto, subtitle backpressure is
+			// managed via injectionGated (not via NeedData/EnoughData), so
+			// ResumeTrackDownloads is never triggered by a Rialto NeedData
+			// callback after a caps update.  Clear the flag here so that the
+			// inject loop is unblocked once the new period init has been accepted.
+			if (type == eMEDIATYPE_SUBTITLE && m_aamp)
+			{
+				m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+			}
 		}
 		else
 		{
@@ -1494,6 +1613,21 @@ void AampRialtoPlayer::OnCancelNeedMediaData(int32_t sourceId)
 	}
 }
 
+unsigned long AampRialtoPlayer::GetCCHandle() const
+{
+	auto *mediaSource = m_sources[eMEDIATYPE_SUBTITLE].get();
+	// Build the CC decoder handle. In inband-CC mode pass the
+	// IDirectRialtoCC pointer (as unsigned long) so that
+	// priv_aamp::InitializeCC() initialises the CC manager with the
+	// correct control interface.
+	const unsigned long ccHandle = (mediaSource && mediaSource->isInbandCC())
+		? reinterpret_cast<unsigned long>(
+			static_cast<const IDirectRialtoCC *>(this))
+		: 0UL;
+
+	return ccHandle;
+}
+
 void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 {
 	AAMPLOG_INFO("state=%d", static_cast<int>(state));
@@ -1517,19 +1651,20 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 
 			const bool firstFrame =
 				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
+			const unsigned long ccHandle = GetCCHandle();
 
 			if (firstFrame)
 			{
 				m_notifiable->LogFirstFrame();
 				m_notifiable->LogTuneComplete();
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(/*ccDecoderHandle=*/0);
+				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifyFirstVideoFrameDisplayed();
 			}
 			else if (m_notifiable->GetState() == eSTATE_SEEKING)
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(/*ccDecoderHandle=*/0);
+				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifyFirstVideoFrameDisplayed();
 			}
 			else

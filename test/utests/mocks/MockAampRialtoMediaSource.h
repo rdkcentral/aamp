@@ -60,5 +60,20 @@ public:
 		(const AampMediaSample &sample),
 		(const, override));
 
+	MOCK_METHOD(bool, injectSingleSample,
+		(firebolt::rialto::IMediaPipeline &pipeline,
+		 AampMediaSample &&sample,
+		 bool morePending),
+		(override));
+
+	MOCK_METHOD(bool, processDataFragment,
+		(firebolt::rialto::IMediaPipeline &pipeline,
+		 std::shared_ptr<std::vector<uint8_t>> buffer,
+		 double fpts, double fdts, double fDuration,
+		 double fragmentPTSoffset),
+		(override));
+
 	MOCK_METHOD(int64_t, firstPtsMs, (), (const, override));
+
+	MOCK_METHOD(bool, isInbandCC, (), (const, override));
 };
