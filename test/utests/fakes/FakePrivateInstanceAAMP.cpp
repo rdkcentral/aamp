@@ -292,6 +292,15 @@ void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservati
 
 }
 
+void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                             double breakDurationSec, const std::string &breakType)
+{
+}
+
+void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
@@ -1652,12 +1661,12 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
 }
 
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopPreBuffering)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		return g_mockPrivateInstanceAAMP->PausePipeline(
-			pause, forceStopGstreamerPreBuffering);
+			pause, forceStopPreBuffering);
 	}
 
 	return false;
@@ -1755,14 +1764,14 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 	return false;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	if(!mProvidedManifestFile.empty())
 	{
 		bRetManifestData = std::move(mProvidedManifestFile);
 	}
-	return bRetManifestData;
+	return { bRetManifestData, CURLE_OPERATION_TIMEDOUT };
 }
 
 void PrivateInstanceAAMP::updateManifest(const char *manifestData)

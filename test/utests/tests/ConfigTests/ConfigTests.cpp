@@ -1433,3 +1433,53 @@ TEST_F(AampConfigTests, TLSVersionAppliesGlobally)
 	EXPECT_EQ(mAampConfig->GetConfigOwner(eAAMPConfig_TLSVersion), AAMP_OPERATOR_SETTING)
 		<< "Config owner should be OPERATOR_SETTING";
 }
+/**
+ * @brief VOD ad-break lookahead: default value is positive (> 0).
+ */
+TEST_F(AampConfigTests, VodAdBreakLookahead_DefaultIsPositive)
+{
+        mAampConfig->Initialize();
+        int val = mAampConfig->GetConfigValue(eAAMPConfig_VodAdBreakLookaheadSec);
+        EXPECT_GT(val, 0) << "Default vodAdBreakLookaheadSec should be > 0 (DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC = "
+                          << DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC << ")";
+        EXPECT_EQ(val, DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC)
+                << "Default vodAdBreakLookaheadSec should match the compile-time constant";
+}
+
+/**
+ * @brief VOD ad-break lookahead: JSON key "vodAdBreakLookaheadSec" round-trips
+ *        through ProcessConfigJson at APPLICATION priority.
+ */
+TEST_F(AampConfigTests, VodAdBreakLookahead_JsonRoundTrip)
+{
+        const std::string json = R"({"vodAdBreakLookaheadSec":10})";
+        cJSON *cfgdata = cJSON_Parse(json.c_str());
+        ASSERT_NE(cfgdata, nullptr) << "cJSON_Parse failed";
+        mAampConfig->ProcessConfigJson(cfgdata, AAMP_APPLICATION_SETTING);
+        cJSON_Delete(cfgdata);
+
+        int val = mAampConfig->GetConfigValue(eAAMPConfig_VodAdBreakLookaheadSec);
+        EXPECT_EQ(val, 10) << "vodAdBreakLookaheadSec should round-trip to 10 via JSON";
+}
+
+/**
+ * @brief VOD ad-break lookahead: a negative value set via JSON is stored as-is
+ *        by AampConfig.  Clamping to 0 is the responsibility of the call site
+ *        (fragmentcollector_mpd.cpp FetcherLoop), not the config layer.
+ */
+TEST_F(AampConfigTests, VodAdBreakLookahead_NegativeRejected)
+{
+        // AampConfig enforces the configured range and rejects out-of-range values.
+        // A negative lookahead is outside the valid range, so the value must remain
+        // at the default after the rejected set attempt.
+        mAampConfig->Initialize();
+        const std::string json = R"({"vodAdBreakLookaheadSec":-3})";
+        cJSON *cfgdata = cJSON_Parse(json.c_str());
+        ASSERT_NE(cfgdata, nullptr) << "cJSON_Parse failed";
+        mAampConfig->ProcessConfigJson(cfgdata, AAMP_APPLICATION_SETTING);
+        cJSON_Delete(cfgdata);
+
+        int val = mAampConfig->GetConfigValue(eAAMPConfig_VodAdBreakLookaheadSec);
+        EXPECT_EQ(val, DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC)
+                << "AampConfig rejects out-of-range negative values; default should be preserved";
+}

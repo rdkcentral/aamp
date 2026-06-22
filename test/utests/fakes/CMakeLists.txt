@@ -23,6 +23,7 @@ set(UTESTS_ROOT "..")
 
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
@@ -44,7 +45,6 @@ include_directories(${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/drm)
 include_directories(${AAMP_ROOT}/middleware/drm/aes)
-include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)

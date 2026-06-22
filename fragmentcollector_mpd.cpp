@@ -1727,11 +1727,16 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{
 						pMediaStreamContext->fragmentTime += fragmentDuration;
 						pMediaStreamContext->fragmentOffset += referenced_size;
+						pMediaStreamContext->fragmentDescriptor.Time +=
+							static_cast<uint64_t>(std::llround(
+ 								static_cast<double>(fragmentDuration) *
+ 								static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale)));
 						retval = true;
 					}
 				}
 				else
 				{ // done with index
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
 					aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
 					pMediaStreamContext->eos = true;
 				}
@@ -2649,7 +2654,13 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 		{ // single-segment
 			//SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_DashParallelFragDownload, false);
 			std::string range = segmentBase->GetIndexRange();
-			if (pMediaStreamContext->IDX.empty())
+			bool shouldLoadIdx = false;
+			{
+				std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+				shouldLoadIdx = pMediaStreamContext->IDX.empty();
+			}
+
+			if (shouldLoadIdx)
 			{ // lazily load index
 				std::string fragmentUrl;
 				ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
@@ -2664,19 +2675,22 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				int iFogError = -1;
 				AampCurlInstance curlInstance = aamp->GetPlaylistCurlInstance(actualType, false);
 				aamp->CurlInit(curlInstance, 1, aamp->GetNetworkProxy());
+				std::vector<uint8_t> loadedIdx;
+				aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, loadedIdx, curlInstance, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				aamp->CurlTerm(curlInstance);
+				if (!loadedIdx.empty())
 				{
 					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-					aamp->LoadIDX(bucketType, std::move(fragmentUrl), effectiveUrl, pMediaStreamContext->IDX, curlInstance, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+					if (pMediaStreamContext->IDX.empty())
+					{
+						pMediaStreamContext->IDX = std::move(loadedIdx);
+					}
 				}
-				aamp->CurlTerm(curlInstance);
 			}
 			if (!pMediaStreamContext->IDX.empty())
 			{
 				unsigned int referenced_size = 0;
 				float fragmentDuration = 0.00;
-				float fragmentTime = 0.00;
-				int fragmentIndex =0;
-
 				unsigned int lastReferencedSize = 0;
 				float lastFragmentDuration = 0.00;
 				double presentationTimeOffsetSec = segmentBase->GetPresentationTimeOffset();
@@ -2688,46 +2702,253 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 				AAMPLOG_INFO("SegmentBase: Presentation time offset present:%lf", presentationTimeOffsetSec);
 
+				// Start the skip from the current stream position, mirroring the SegmentList
+				// incremental (delta-based) approach.  fragmentOffset is unconditionally
+				// recomputed below from the sidx index range + walk to fragmentIndex so
+				// that it is always correct regardless of external resets.
+				int fragmentIndex = pMediaStreamContext->fragmentIndex;
+				float fragmentTime = (float)(pMediaStreamContext->fragmentTime - mPeriodStartTime)
+				                     + (float)presentationTimeOffsetSec;
 
-				while ((fragmentTime < skipTime + presentationTimeOffsetSec ) || skipToEnd)
+				// Always (re)compute fragmentOffset from the sidx index range so
+				// that it is correct even if external code (e.g.
+				// FetchAndInjectInitialization) reset fragmentOffset / cleared IDX
+				// after the initial SeekInPeriod.
 				{
-					if (ParseSegmentIndexBox(
-											 pMediaStreamContext->IDX.data(),
-											 pMediaStreamContext->IDX.size(),
-											 fragmentIndex++,
-											 &referenced_size,
-											 &fragmentDuration,
-											 NULL))
+					uint64_t idxRangeStart = 0, idxRangeEnd = 0;
+					if (sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd) != 2)
 					{
-						lastFragmentDuration = fragmentDuration;
-						lastReferencedSize = referenced_size;
-
-						fragmentTime += fragmentDuration;
-						pMediaStreamContext->fragmentOffset += referenced_size;
-					}
-					else if (skipToEnd)
-					{
-						fragmentTime -= lastFragmentDuration;
-						pMediaStreamContext->fragmentOffset -= lastReferencedSize;
-						fragmentIndex--;
-						break;
-					}
-					else
-					{
-						// done with index
-						{
-							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
-						}
+						AAMPLOG_WARN("Type[%d] SegmentBase: malformed index range '%s', cannot compute fragmentOffset",
+						             pMediaStreamContext->type, range.c_str());
 						pMediaStreamContext->eos = true;
-						break;
+						return false;
+					}
+					pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
+					unsigned int firstOffset = 0;
+					if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+					                         pMediaStreamContext->IDX.size(),
+					                         0, NULL, NULL, &firstOffset))
+					{
+						pMediaStreamContext->fragmentOffset += firstOffset;
+					}
+					// Walk forward through sidx entries to reach the current fragmentIndex.
+					for (int idx = 0; idx < fragmentIndex; idx++)
+					{
+						unsigned int refSize = 0;
+						float refDur = 0.0f;
+						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+						                         pMediaStreamContext->IDX.size(),
+						                         idx, &refSize, &refDur, NULL))
+						{
+							pMediaStreamContext->fragmentOffset += refSize;
+						}
+						else
+						{
+							AAMPLOG_WARN("Type[%d] SegmentBase: sidx entry %d missing while recomputing fragmentOffset",
+							             pMediaStreamContext->type, idx);
+							break;
+						}
 					}
 				}
 
-				mFirstPTS = fragmentTime;
-				//updated seeked position
-				pMediaStreamContext->fragmentIndex = fragmentIndex;
-				pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime -  presentationTimeOffsetSec);
+			if (fragmentIndex == 0)
+				{
+					// UpdateTrackInfo resets fragmentIndex to 0 for rate changes within the
+					// same period, but does NOT reset fragmentTime (it only does so on a period
+					// change).  If fragmentTime still carries the stale playback position (e.g.
+					// 6s) and skipTime is the absolute seek target (also 6s from SeekInPeriod),
+					// the forward skip below would treat skipTime as a delta and overshoot to
+					// 12s.  Reset local fragmentTime to PTO so that skipTime is always
+					// interpreted as an absolute position from the period start.
+					fragmentTime = (float)presentationTimeOffsetSec;
+
+					// Already at the first fragment and trying to rewind further —
+					// signal beginning-of-stream so the player can bounce back to
+					// normal playback instead of re-fetching fragment 0 forever.
+					if (skipTime < 0)
+					{
+						AAMPLOG_INFO("Type[%d] SegmentBase rewind at fragmentIndex 0, signalling BOS",
+						             pMediaStreamContext->type);
+						mFirstPTS = presentationTimeOffsetSec;
+						pMediaStreamContext->fragmentTime = mPeriodStartTime;
+						pMediaStreamContext->mReachedFirstFragOnRewind = true;
+						pMediaStreamContext->eos = true;
+						skipTime = 0;
+					}
+				}
+				else if (skipTime < 0)
+				{
+					// Rewind: compute the absolute sidx target and initialise fragmentOffset
+					// from the beginning (same as the original code's rewind path).
+					double targetTime = (pMediaStreamContext->fragmentTime - mPeriodStartTime
+					                     + presentationTimeOffsetSec) + skipTime;
+					if (targetTime <= presentationTimeOffsetSec)
+					{
+						// Rewound past the beginning of the period.
+						AAMPLOG_INFO("Type[%d] SegmentBase rewind reached beginning of period, targetTime=%f",
+						        pMediaStreamContext->type, targetTime);
+						mFirstPTS = presentationTimeOffsetSec;
+						pMediaStreamContext->fragmentIndex = 0;
+						pMediaStreamContext->fragmentTime = mPeriodStartTime;
+						pMediaStreamContext->mReachedFirstFragOnRewind = true;
+						skipTime = 0;
+					}
+					else
+					{
+						// Re-initialise fragmentOffset from the beginning and walk to targetTime.
+						uint64_t idxRangeStart = 0, idxRangeEnd = 0;
+						if (sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd) != 2)
+						{
+							AAMPLOG_WARN("Type[%d] SegmentBase rewind: malformed index range '%s', cannot compute fragmentOffset",
+							             pMediaStreamContext->type, range.c_str());
+							pMediaStreamContext->eos = true;
+							return false;
+						}
+						pMediaStreamContext->fragmentOffset = idxRangeEnd + 1;
+						unsigned int firstOffset = 0;
+						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+						                         pMediaStreamContext->IDX.size(),
+						                         0, NULL, NULL, &firstOffset))
+						{
+							pMediaStreamContext->fragmentOffset += firstOffset;
+						}
+						fragmentIndex = 0;
+						fragmentTime = (float)presentationTimeOffsetSec;
+						while (fragmentTime < targetTime)
+						{
+							if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+							                         pMediaStreamContext->IDX.size(),
+							                         fragmentIndex++,
+							                         &referenced_size,
+							                         &fragmentDuration,
+							                         NULL))
+							{
+								lastFragmentDuration = fragmentDuration;
+								lastReferencedSize = referenced_size;
+								fragmentTime += fragmentDuration;
+								pMediaStreamContext->fragmentOffset += referenced_size;
+							}
+							else
+							{
+								std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+								aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+								pMediaStreamContext->eos = true;
+								break;
+							}
+						}
+						if (!pMediaStreamContext->eos)
+						{
+							// The walk exits when fragmentTime >= targetTime, meaning we
+							// overshot: fragmentIndex and fragmentOffset already point to
+							// the fragment AFTER the one containing targetTime.  Back off
+							// one step so PushNextFragment fetches the correct fragment.
+							if (fragmentTime > targetTime && fragmentIndex > 0)
+							{
+								fragmentIndex--;
+								fragmentTime -= lastFragmentDuration;
+								pMediaStreamContext->fragmentOffset -= lastReferencedSize;
+							}
+							mFirstPTS = fragmentTime;
+							pMediaStreamContext->fragmentIndex = fragmentIndex;
+							pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime - presentationTimeOffsetSec);
+
+							// Track when the rewind walk lands on fragment 0.
+							// First landing: mark the flag so PushNextFragment can
+							// still show the first frame.
+							// Second landing: we already showed it — signal BOS.
+							if (fragmentIndex == 0)
+							{
+								if (pMediaStreamContext->mReachedFirstFragOnRewind)
+								{
+									AAMPLOG_INFO("Type[%d] SegmentBase rewind walk returned to fragmentIndex 0 again, signalling BOS",
+									             pMediaStreamContext->type);
+									pMediaStreamContext->eos = true;
+								}
+								else
+								{
+									AAMPLOG_INFO("Type[%d] SegmentBase rewind walk reached fragmentIndex 0",
+									             pMediaStreamContext->type);
+									pMediaStreamContext->mReachedFirstFragOnRewind = true;
+								}
+							}
+						}
+						skipTime = 0;  // consumed by the rewind walk above
+					}
+				}
+
+				if (skipTime != 0 || skipToEnd)
+				{
+					// Forward skip: advance one fragment at a time, consuming skipTime (delta).
+					// This matches SegmentList: if skipTime < fragmentDuration no fragment
+					// boundary is crossed and PushNextFragment handles sequential advancement.
+					while ((skipTime != 0) || skipToEnd)
+					{
+						if (ParseSegmentIndexBox(
+						                         pMediaStreamContext->IDX.data(),
+						                         pMediaStreamContext->IDX.size(),
+						                         fragmentIndex,
+						                         &referenced_size,
+						                         &fragmentDuration,
+						                         NULL))
+						{
+							lastFragmentDuration = fragmentDuration;
+							lastReferencedSize = referenced_size;
+
+							if (skipToEnd)
+							{
+								// Advance until there is no next entry (this IS the last fragment).
+								unsigned int nextSize; float nextDur;
+								if (!ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+								                          pMediaStreamContext->IDX.size(),
+								                          fragmentIndex + 1, &nextSize, &nextDur, NULL))
+								{
+									break;
+								}
+								fragmentIndex++;
+								fragmentTime += fragmentDuration;
+								pMediaStreamContext->fragmentOffset += referenced_size;
+							}
+							else if (skipTime >= fragmentDuration - FLOATING_POINT_EPSILON)
+							{
+								fragmentIndex++;
+								skipTime -= fragmentDuration;
+								fragmentTime += fragmentDuration;
+								pMediaStreamContext->fragmentOffset += referenced_size;
+							}
+							else
+							{
+								// skipTime < fragmentDuration: cannot cross this fragment boundary;
+								// stop here, same as SegmentList behaviour.
+								skipTime = 0;
+								break;
+							}
+						}
+						else if (skipToEnd)
+						{
+							// ParseSegmentIndexBox returned false: back up to the last valid entry.
+							fragmentTime -= lastFragmentDuration;
+							pMediaStreamContext->fragmentOffset -= lastReferencedSize;
+							fragmentIndex--;
+							break;
+						}
+						else
+						{
+							// done with index
+							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+							pMediaStreamContext->eos = true;
+							break;
+						}
+					}
+
+					mFirstPTS = fragmentTime;
+					if (!pMediaStreamContext->eos)
+					{
+						//updated seeked position
+						pMediaStreamContext->fragmentIndex = fragmentIndex;
+						pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime - presentationTimeOffsetSec);
+					}
+				}
 			}
 			else
 			{
@@ -7332,7 +7553,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	// set to 1 at trick-play only when an iframe track is found, which also sets
 	// mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled=true, making !enabled false.
 	// At normal play rate all contexts are allocated, so the dereference is safe.
-	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+	if(1 == mNumberOfTracks && mMediaStreamContext[eMEDIATYPE_VIDEO] && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
 		if(newTune)
 		{
@@ -7340,13 +7561,16 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			// set audio only playback flag to true
 			aamp->mAudioOnlyPb = true;
 		}
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->mediaType = eMEDIATYPE_VIDEO;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->type = eTRACK_VIDEO;
-		mMediaStreamContext[eMEDIATYPE_VIDEO]->profileChanged = true;
-		mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = false;
+		if(mMediaStreamContext[eMEDIATYPE_AUDIO])
+		{
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSetIdx = mMediaStreamContext[eMEDIATYPE_AUDIO]->adaptationSetIdx;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->representationIndex = mMediaStreamContext[eMEDIATYPE_AUDIO]->representationIndex;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->mediaType = eMEDIATYPE_VIDEO;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->type = eTRACK_VIDEO;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->profileChanged = true;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = false;
+		}
 	}
 	// Set audio/text track related structures
 	SetAudioTrackInfo(aTracks, aTrackIdx);
@@ -8684,11 +8908,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 							}
 						}
-						// Clear profileChanged regardless of whether the ring buffer had space.
-						// This prevents FetcherLoop from re-triggering this init-fetch path on
-						// every subsequent OnFragmentDownloadComplete callback.  If the buffer
-						// was full the init will be re-fetched on the next profileChanged cycle
-						// once space is available.
+						// Consume profile change once SegmentBase init handling has run,
+						// even when the free-fragment wait fails, to avoid re-trigger loops.
 						pMediaStreamContext->profileChanged = false;
 					}
 					else
@@ -8790,11 +9011,8 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
 									}
-									// Clear profileChanged regardless of whether the ring buffer had space.
-									// This prevents FetcherLoop from re-triggering this init-fetch path on
-									// every subsequent OnFragmentDownloadComplete callback.  If the buffer
-									// was full the init will be re-fetched on the next profileChanged cycle
-									// once space is available.
+									// Consume profile change once SegmentList init handling has run,
+									// even when the free-fragment wait fails, to avoid re-trigger loops.
 									pMediaStreamContext->profileChanged = false;
 								}
 								else
@@ -8900,13 +9118,38 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 		bool temp = false;
 		try
 		{
-			DownloadInfoPtr info = std::make_shared<DownloadInfo>();
-			info->absolutePosition = 0;
-			info->ptsOffset = 0;
-			info->isInitSegment = true;
-			info->mediaType = (AampMediaType)trackIdx;
-			mMediaStreamContext[trackIdx]->mActiveDownloadInfo = std::move(info);
-			temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0);
+			DownloadInfoPtr downloadInfo = std::make_shared<DownloadInfo>();
+			downloadInfo->absolutePosition = 0;
+			downloadInfo->isInitSegment = true;
+			downloadInfo->ptsOffset = 0;
+			/* Stamp the download descriptor with the originating track type so that
+			 * downstream consumers (DRM context, segment parser) can associate the
+			 * fetched buffer with the correct media type.
+			 * When UseMp4Demux is active the encrypted init segment must be fetched
+			 * through DownloadFragment rather than CacheFragment: DownloadFragment
+			 * owns its own curl connection slot (identified by curlInstance, which is
+			 * offset from eCURLINSTANCE_VIDEO by the track's media-type ordinal so
+			 * each track uses a dedicated slot), and it delivers the raw MP4 init box
+			 * directly to the demuxer.  OnFragmentDownloadComplete is then called to
+			 * drive any post-download bookkeeping (profile/discontinuity reset, etc.).
+			 * Without UseMp4Demux the legacy CacheFragment path is taken instead. */
+			downloadInfo->mediaType = static_cast<AampMediaType>(trackIdx);
+			if(ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+			{
+				if (!mMediaStreamContext[trackIdx]->discontinuity)
+				{
+					mMediaStreamContext[trackIdx]->profileChanged = true;
+				}
+				downloadInfo->curlInstance = static_cast<AampCurlInstance>(eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType);
+				downloadInfo->uriList[0] = URIInfo(headerUrl);
+				temp = mMediaStreamContext[trackIdx]->DownloadFragment(downloadInfo);
+				this->OnFragmentDownloadComplete(temp, downloadInfo);
+			}
+			else
+			{
+				mMediaStreamContext[trackIdx]->mActiveDownloadInfo = std::move(downloadInfo);
+				temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0);
+			}
 		}
 		catch(const std::regex_error& e)
 		{
@@ -9476,11 +9719,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				periodChanged = false;
 			}
 			// Calling the function to play ads from first ad break(existing logic).
-			adStateChanged = onAdEvent(AdEvent::DEFAULT);
+			adStateChanged = onAdEvent(AdEvent::PERIOD_CHANGE);
 			if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 			{
 				// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
-				adStateChanged = onAdEvent(AdEvent::DEFAULT);
+				adStateChanged = onAdEvent(AdEvent::PERIOD_CHANGE);
 			}
 			// endPeriod for the ad break is not available, so wait for the ad break to complete
 			if (AdState::IN_ADBREAK_WAIT2CATCHUP == mCdaiObject->mAdState)
@@ -9521,11 +9764,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					}
 				}
 				// Check if the new period is having ads
-				adStateChanged = onAdEvent(AdEvent::DEFAULT);
+				adStateChanged = onAdEvent(AdEvent::PERIOD_CHANGE);
 				if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 				{
 					// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
-					adStateChanged = onAdEvent(AdEvent::DEFAULT);
+					adStateChanged = onAdEvent(AdEvent::PERIOD_CHANGE);
 				}
 			}
 
@@ -9975,6 +10218,19 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			}
 
 			/*
+			 * VOD CDAI: fire vodAdBreakOpportunity events for upcoming insertion points.
+			 * Only runs when CDAI is enabled and content is VOD.
+			 * Use the rendered playback position (not the downloader offset) so the
+			 * lookahead window is measured against what the viewer has actually seen.
+			 */
+			if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
+			{
+				double lookahead = (double)GETCONFIGVALUE(eAAMPConfig_VodAdBreakLookaheadSec);
+				if (lookahead < 0.0) lookahead = 0.0;
+				mCdaiObject->CheckVodAdBreakLookahead(aamp->GetPositionSeconds(), lookahead);
+			}
+
+			/*
 			 * Appropriate error handling if period selection fails
 			 */
 			if (!SelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId))
@@ -10136,6 +10392,18 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									aamp->mAbsoluteEndPosition);
 						}
 					}
+				}
+
+				// VOD CDAI: check for upcoming insertion points on every segment-loop iteration
+				// using the rendered playback position so the opportunity event fires as soon
+				// as the playhead enters the lookahead window.  mBasePeriodOffset is the
+				// downloader position and plateaus at the buffer limit well before the
+				// insertion point; aamp->GetPositionSeconds() tracks actual render progress.
+				if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
+				{
+					double lookahead = (double)GETCONFIGVALUE(eAAMPConfig_VodAdBreakLookaheadSec);
+					if (lookahead < 0.0) lookahead = 0.0;
+					mCdaiObject->CheckVodAdBreakLookahead(aamp->GetPositionSeconds(), lookahead);
 				}
 
 				// If download status is disabled then need to exit from fetcher loop
@@ -11346,6 +11614,14 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 			ptsOffset = mPTSOffset;
 		}
 	}
+	// AampMp4Demuxer restamps ALL trickplay PTS starting from 0.0 — applies to both TSB and
+	// non-TSB paths. Override firstPTS (and clear any PTS offset) after both paths above.
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) && (aamp->rate != AAMP_NORMAL_PLAY_RATE))
+	{
+		firstPTS = 0.0;
+		ptsOffset = {};
+		AAMPLOG_INFO("Mp4demux trickplay: overriding firstPTS to 0.0 (restamped by AampMp4Demuxer, rate=%.2f)", aamp->rate);
+	}
 
 	restampedPTS = firstPTS + ptsOffset.inSeconds();
 	AAMPLOG_INFO("Restamped first pts:%lf, firstPTS:%lf, ptsOffsetSec:%lf", restampedPTS, firstPTS, ptsOffset.inSeconds());
@@ -12180,7 +12456,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 		case AdState::OUTSIDE_ADBREAK:
 		case AdState::OUTSIDE_ADBREAK_WAIT4ADS:
 			// Default event state or Idle event state is OUTSIDE_ADBREAK
-			if(AdEvent::DEFAULT == evt || AdEvent::INIT == evt)
+			if(AdEvent::PERIOD_CHANGE == evt || AdEvent::INIT == evt)
 			{
 				// Getting called from StreamAbstractionAAMP_MPD::Init or from FetcherLoop
 				std::string brkId = "";
@@ -12238,15 +12514,15 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					else
 					{
 						// On rewind, if the ad is not found at the offset, it could also be a partial ads
-						if (mPlayRate < AAMP_RATE_PAUSE)
+						if (mPlayRate < AAMP_RATE_PAUSE && mCdaiObject->mAdBreaks[brkId].ads)
 						{
 							// This will ensure that we play the ads once the offset reaches a position where ad is available
 							mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
 							stateChanged = true;
 						}
-						// If an adbreak exists for this basePeriodId, then ads might be available.
+						// If an adbreak exists for this basePeriodId, then ads might become available.
 						// Only for scenarios where mBasePeriodOffset is zero, we have to wait for the ads to be added by application.
-						// Otherwise for partial ad fill, once the ads are played, we will wait as adIdx will be -1 from CheckForAdStart().
+						// Otherwise for partial ad fill, once the ads are played, we will get adIdx as -1 from CheckForAdStart().
 						else if (mBasePeriodOffset == 0)
 						{
 							// If the adbreak is not invalidated, wait for ads to be added and resolved
@@ -12261,6 +12537,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 									if (mCdaiObject->mAdBreaks[brkId].ads->at(0).invalid)
 									{
 										mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
+										mCdaiObject->ClearCurrentAdBreak();
 									}
 								}
 								else
@@ -12275,6 +12552,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 							{
 								// Ads are not added or ads failed to resolve, invalidate the adbreak
 								AAMPLOG_WARN("[CDAI] AdBreak[%s] is invalidated. Skipping.", mBasePeriodId.c_str());
+								mCdaiObject->ClearCurrentAdBreak();
 								if(AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 								{
 									stateChanged = true;
@@ -12287,6 +12565,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				else
 				{
 					AAMPLOG_INFO("[CDAI] No AdBreak found for period[%s] at offset:%lf", mBasePeriodId.c_str(), mBasePeriodOffset);
+					mCdaiObject->ClearCurrentAdBreak();
 					if (AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 					{
 						stateChanged = true;
@@ -12300,8 +12579,9 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			{
 				std::string brkId = "";
 				int adIdx = mCdaiObject->CheckForAdStart(mPlayRate, false, mBasePeriodId, mBasePeriodOffset, brkId, adOffset);
-				if(-1 != adIdx && mCdaiObject->mAdBreaks[brkId].ads)
+				if(!brkId.empty() && (adIdx != -1) && mCdaiObject->mAdBreaks[brkId].ads)
 				{
+					mCdaiObject->mCurPlayingBreakId = brkId;
 					if (mPlayRate >= AAMP_NORMAL_PLAY_RATE)
 					{
 						// Wait for some time if the ad is not ready yet.
@@ -12333,13 +12613,15 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				{
 					AAMPLOG_WARN("[CDAI]: ADBREAK[%s] ENDED. Playing the basePeriod[%s].", mCdaiObject->mCurPlayingBreakId.c_str(), mBasePeriodId.c_str());
 					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
-					mCdaiObject->mCurPlayingBreakId = "";
-					mCdaiObject->mCurAds = nullptr;
-					mCdaiObject->mCurAdIdx = -1;
+					mCdaiObject->ClearCurrentAdBreak();
 					//Base content playing already. No need to jump to offset again.
 					mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
 					stateChanged = true;
 				}
+			}
+			else
+			{
+				AAMPLOG_WARN("[CDAI]: Unsupported event[%d] in IN_ADBREAK_AD_NOT_PLAYING state. Ignoring.", static_cast<int>(evt));
 			}
 			break;
 		case AdState::IN_ADBREAK_AD_PLAYING:
@@ -12387,16 +12669,14 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			{
 				AAMPLOG_WARN("[CDAI]: BUG! BUG!! BUG!!! We should not come here.AdIdx[-1].");
 				mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
-				mCdaiObject->mCurPlayingBreakId = "";
-				mCdaiObject->mCurAds = nullptr;
-				mCdaiObject->mCurAdIdx = -1;
+				mCdaiObject->ClearCurrentAdBreak();
 				mCdaiObject->mContentSeekOffset = mBasePeriodOffset;
 				mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
 				stateChanged = true;
 				break;
 			}
 			//In every event, we need to check this.But do it only on the beginning of the fetcher loop. Hence it is the default event
-			if(AdEvent::DEFAULT == evt)
+			if(AdEvent::PERIOD_CHANGE == evt)
 			{
 				// For rewind cases, we don't need to wait for the ad to get placed. The below TODO says otherwise,
 				// but not seeing any use of base period offset for rewind in the below logic
@@ -12410,10 +12690,11 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_READY2PLAY;
 			}
 		case AdState::IN_ADBREAK_AD_READY2PLAY:
-			if(AdEvent::DEFAULT == evt)
+			if(AdEvent::PERIOD_CHANGE == evt)
 			{
 				bool curAdFailed = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).invalid;	//TODO: Vinod, may need to check boundary.
 				bool curAdCancelled = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).cancelled;
+				int prevAdIdx = mCdaiObject->mCurAdIdx;
 
 				GetNextAdInBreak((mPlayRate >= AAMP_NORMAL_PLAY_RATE) ? 1 : -1);
 
@@ -12452,7 +12733,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 							if (mCdaiObject->mCurAdIdx >= mCdaiObject->mCurAds->size())
 							{
 								// Change to index back to valid range
-								mCdaiObject->mCurAdIdx--;
+								mCdaiObject->mCurAdIdx = prevAdIdx;
 							}
 							stateChanged = false;
 							break;
@@ -12486,9 +12767,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_END;
 					reservationEndReason = GetAdReservationEndReason(curAdFailed, curAdCancelled);
 					sendImmediate = curAdFailed;	//Current Ad failed. Hence may not get discontinuity from gstreamer.
-					mCdaiObject->mCurPlayingBreakId = "";
-					mCdaiObject->mCurAds = nullptr;
-					mCdaiObject->mCurAdIdx = -1;
+					mCdaiObject->ClearCurrentAdBreak();
 					mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;	//No more offset check needed. Hence, changing to OUTSIDE_ADBREAK
 					stateChanged = true;
 				}
@@ -14551,7 +14830,8 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 	bool enablePTSReStamp = ISCONFIGSET(eAAMPConfig_EnablePTSReStamp);
 	bool doFlush = ((!enableMediaProcessor || mIsSegmentTimelineEnabled) &&
 					(!enablePTSReStamp || rate == AAMP_NORMAL_PLAY_RATE));
-	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
+	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f, enablePTSReStamp=%d",
+				 doFlush, newTune, rate, enablePTSReStamp);
 	return doFlush;
 }
 
