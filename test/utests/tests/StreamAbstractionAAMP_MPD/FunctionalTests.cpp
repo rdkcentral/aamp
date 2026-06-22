@@ -714,8 +714,6 @@ protected:
 		g_MockPrivateCDAIObjectMPD = std::make_shared<NiceMock<MockPrivateCDAIObjectMPD>>();
 		g_mockTSBSessionManager = std::make_shared<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
 		g_mockABRManager = std::make_shared<NiceMock<MockABRManager>>();
-		g_mockAampLicenseManager = std::make_shared<NiceMock<MockAampLicenseManager>>();
-		g_mockDrmHelper = std::make_shared<NiceMock<MockDrmHelper>>();
 	}
 
 	void TearDown() override
@@ -739,10 +737,6 @@ protected:
 		g_mockAampUtils.reset();
 
 		g_mockABRManager.reset();
-
-		g_mockAampLicenseManager.reset();
-
-		g_mockDrmHelper.reset();
 
 		g_mockAampConfig.reset();
 	}
