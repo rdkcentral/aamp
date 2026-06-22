@@ -185,16 +185,43 @@ void WidevineDrmHelper::setDrmMetaData(const std::string& metaData)
 void WidevineDrmHelper::setDefaultKeyID(const std::string& cencData)
 {
 	std::vector<uint8_t> defaultKeyID(cencData.begin(), cencData.end());
+
+	// Also convert UUID string (e.g. "f3dff538-b8c9-58e4-e8cd-96cf811d32dc") to 16-byte binary
+	// for comparison against binary keyIDs parsed from PSSH
+	std::vector<uint8_t> defaultKeyIDBinary;
+	std::string uuidHex;
+	for (char c : cencData)
+	{
+		if (c != '-')
+		{
+			uuidHex += c;
+		}
+	}
+	if (uuidHex.size() == 32)
+	{
+		for (size_t i = 0; i < uuidHex.size(); i += 2)
+		{
+			uint8_t byte = (uint8_t)strtoul(uuidHex.substr(i, 2).c_str(), nullptr, 16);
+			defaultKeyIDBinary.push_back(byte);
+		}
+	}
+
 	if(!mKeyIDs.empty())
 	{
 		for(auto& it : mKeyIDs)
 		{
-			if(defaultKeyID == it.second)
+			if(defaultKeyID == it.second || defaultKeyIDBinary == it.second)
 			{
 				mDefaultKeySlot = it.first;
-				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", PlayerLogManager::getHexDebugStr(defaultKeyID).c_str(), mDefaultKeySlot);
+				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", PlayerLogManager::getHexDebugStr(it.second).c_str(), mDefaultKeySlot);
+				break;
 			}
 		}
+	}
+	if (mDefaultKeySlot < 0 && !mKeyIDs.empty())
+	{
+		MW_LOG_WARN("setDefaultKeyID: no match found for cencData, defaulting to slot 0");
+		mDefaultKeySlot = 0;
 	}
 }
 
@@ -217,17 +244,18 @@ void WidevineDrmHelper::getKey(std::vector<uint8_t>& keyID) const
 		std::string keyStr = PlayerLogManager::getHexDebugStr(keyPair.second);
 		MW_LOG_DEBUG("Key ID [%d]: %s", keyPair.first, keyStr.c_str());
 	}
-	if ((mDefaultKeySlot >= 0) && (mDefaultKeySlot < mKeyIDs.size()))
+	if ((mDefaultKeySlot >= 0) && ((size_t)mDefaultKeySlot < mKeyIDs.size()))
 	{
 		keyID = this->mKeyIDs.at(mDefaultKeySlot);
 	}
 	else if (mKeyIDs.size() > 0)
 	{
+		MW_LOG_WARN("mDefaultKeySlot(%d) invalid, falling back to slot 0", mDefaultKeySlot);
 		keyID = this->mKeyIDs.at(0);
 	}
 	else
 	{
-		MW_LOG_ERR("No key");
+		MW_LOG_ERR("No key available - mKeyIDs is empty");
 	}
 }
 
