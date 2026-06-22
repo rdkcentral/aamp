@@ -29,10 +29,6 @@ DrmHelperEngine& DrmHelperEngine::getInstance()
 
 DrmHelperPtr DrmHelperEngine::createHelper(const struct DrmInfo& drmInfo) const
 {
-	if (g_mockDrmHelper)
-	{
-		return g_mockDrmHelper;
-	}
 	return nullptr;
 }
 
