@@ -735,10 +735,10 @@ public:
 	 * @fn PausePipeline
 	 *
 	 * @param[in] pause - true for pause and false for play
-	 * @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
+	 * @param[in] forceStopPreBuffering - true for disabling buffer-in-progress
 	 * @return true on success
 	 */
-	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
+	bool PausePipeline(bool pause, bool forceStopPreBuffering);
 
 	/**
 	 * @fn SetBufferingState
@@ -871,7 +871,7 @@ public:
 	*
 	* @return modified manifest data
 	*/
-	std::string SendManifestPreProcessEvent();
+	std::pair<std::string,int> SendManifestPreProcessEvent();
 
 	/**
 	 * @brief This function is invoked by application with the available preprocessed manifest information
@@ -887,6 +887,17 @@ public:
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
+
+	/** Pre-tune VOD ad-break registrations buffered before mCdaiObject is created */
+	struct PendingVodAdBreak
+	{
+		std::string breakId;
+		double      insertionPointSec;
+		double      breakDurationSec;
+		std::string breakType;
+	};
+	std::vector<PendingVodAdBreak> mPendingVodAdBreaks; /**< Breaks queued before mCdaiObject exists */
+
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */
@@ -1560,11 +1571,10 @@ public:
 
 	/**
 	 * @fn SendTuneMetricsEvent
-	 *
-	 * @param[in] timeMetricData- Providing the Tune Timemetric info as an event
+	 * @brief Send tune metrics event to registered listeners
 	 * @return void
 	 */
-	void SendTuneMetricsEvent(std::string &timeMetricData);
+	void SendTuneMetricsEvent();
 
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
 	std::atomic<bool> mBufUnderFlowStatus{false};
@@ -1633,6 +1643,22 @@ public:
 	 * @return void
 	 */
 	void CancelReservation(const std::string& cancelAtReservationId);
+
+	/**
+	 * @brief Register a VOD ad-break insertion point.
+	 * @param[in] breakId           Unique break identifier
+	 * @param[in] insertionPointSec Position in VOD timeline in seconds
+	 * @param[in] breakDurationSec  Advisory break duration in seconds
+	 * @param[in] breakType         "preroll", "midroll", or "postroll"
+	 */
+	void RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+	                        double breakDurationSec, const std::string &breakType);
+
+	/**
+	 * @brief Cancel a registered VOD ad-break that has not yet started.
+	 * @param[in] breakId Break identifier previously passed to RegisterVodAdBreak()
+	 */
+	void CancelVodAdBreak(const std::string &breakId);
 
 	/**
 	 * @fn getLastInjectedPosition
@@ -4316,6 +4342,8 @@ protected:
 	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 	std::unique_ptr<AampLatencyMonitor> mLatencyMonitor; /**< Unified live latency monitor */
+	std::atomic<bool> mTuneMetricDataPending{false}; /**< True when mTuneTimeMetricData has been populated and not yet consumed */
+	std::string mTuneTimeMetricData{}; /**< JSON string containing data for tune time metrics */
 
 private:
 	/**

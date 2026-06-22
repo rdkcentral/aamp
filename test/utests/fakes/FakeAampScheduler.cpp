@@ -20,7 +20,7 @@
 #include "MockAampScheduler.h"
 #include "AampScheduler.h"
 
-MockAampScheduler *g_mockAampScheduler = nullptr;
+std::shared_ptr<MockAampScheduler> g_mockAampScheduler{};
 
 AampScheduler::AampScheduler()
 {

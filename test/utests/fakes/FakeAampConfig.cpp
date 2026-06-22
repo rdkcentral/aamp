@@ -20,7 +20,7 @@
 #include "AampConfig.h"
 #include "MockAampConfig.h"
 
-MockAampConfig *g_mockAampConfig = nullptr;
+std::shared_ptr<MockAampConfig> g_mockAampConfig{};
 
 AampConfig::AampConfig()
 {

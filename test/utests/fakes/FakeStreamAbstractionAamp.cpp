@@ -24,8 +24,8 @@
 #include <functional>
 #include <memory>
 
-MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
-MockMediaTrack *g_mockMediaTrack = nullptr;
+std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP{};
+std::shared_ptr<MockMediaTrack> g_mockMediaTrack{};
 
 // Optional callback invoked inside NotifyVideoFragmentToUnderflowMonitor.
 // Tests that need to simulate the underflow-recovery race (mBufUnderFlowStatus
@@ -47,6 +47,11 @@ void StreamAbstractionAAMP::StartUnderflowMonitor()
 
 void StreamAbstractionAAMP::StopUnderflowMonitor()
 {
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->StopUnderflowMonitor();
+	}
+
 }
 
 bool StreamAbstractionAAMP::IsUnderflowMonitorRunning() const

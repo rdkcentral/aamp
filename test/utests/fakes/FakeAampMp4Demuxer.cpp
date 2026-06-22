@@ -29,7 +29,7 @@
 #include "AampLogManager.h"
 #include "MockAampMp4Demuxer.h"
 
-MockAampMp4Demuxer *g_mockAampMp4Demuxer = nullptr;
+std::shared_ptr<MockAampMp4Demuxer> g_mockAampMp4Demuxer{};
 
 /**
  * @brief Fake MP4 Demuxer constructor
@@ -62,4 +62,20 @@ bool AampMp4Demuxer::getPTSRestampStatus() const
 		return g_mockAampMp4Demuxer->getPTSRestampStatus();
 	}
 	return false;
+}
+
+void AampMp4Demuxer::setRate(double rate, PlayMode mode)
+{
+}
+
+void AampMp4Demuxer::setFrameRateForTM(int frameRate)
+{
+}
+
+void AampMp4Demuxer::abort()
+{
+}
+
+void AampMp4Demuxer::reset()
+{
 }

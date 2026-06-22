@@ -20,7 +20,7 @@
 #include "isobmffprocessor.h"
 #include "MockIsoBmffProcessor.h"
 
-MockIsoBmffProcessor* g_mockIsoBmffProcessor = nullptr;
+std::shared_ptr<MockIsoBmffProcessor> g_mockIsoBmffProcessor{};
 
 IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, bool passThrough, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
         : p_aamp(aamp), timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),

@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_STREAMSINK_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampStreamSinkManager.h"
 
 class MockAampStreamSinkManager : public AampStreamSinkManager
@@ -47,6 +48,6 @@ public:
 	MOCK_METHOD(std::shared_ptr<AampStreamSinkManager::AampStreamSinkManager::MediaHeader>, GetMediaHeader, (int));
 };
 
-extern MockAampStreamSinkManager *g_mockAampStreamSinkManager;
+extern std::shared_ptr<MockAampStreamSinkManager> g_mockAampStreamSinkManager;
 
 #endif /* AAMP_MOCK_AAMP_STREAMSINK_MANAGER_H */

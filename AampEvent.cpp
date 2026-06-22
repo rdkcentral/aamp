@@ -1663,8 +1663,8 @@ uint32_t ManifestRefreshEvent::getManifestPublishedTime() const
 /**
  * @brief TuneTimeMetricsEvent Constructor
  */
-TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData, std::string sid):
-		AAMPEventObject(AAMP_EVENT_TUNE_TIME_METRICS, std::move(sid)), mTuneMetricsData(timeMetricData)
+TuneTimeMetricsEvent::TuneTimeMetricsEvent(std::string &&tuneMetricData, std::string sid):
+		AAMPEventObject(AAMP_EVENT_TUNE_TIME_METRICS, std::move(sid)), mTuneMetricsData(std::move(tuneMetricData))
 {
 
 }
@@ -1737,4 +1737,36 @@ uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
 uint64_t MonitorAVStatusEvent::getDroppedFrames() const
 {
 	return mDroppedFrames;
+}
+/**
+ * @brief VodAdBreakOpportunityEvent Constructor
+ */
+VodAdBreakOpportunityEvent::VodAdBreakOpportunityEvent(const std::string &breakId,
+		double insertionPointSec, double breakDurationSec,
+		const std::string &breakType, std::string sid):
+		AAMPEventObject(AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY, std::move(sid)),
+		mBreakId(breakId), mInsertionPointSec(insertionPointSec),
+		mBreakDurationSec(breakDurationSec), mBreakType(breakType)
+{
+}
+
+
+const std::string &VodAdBreakOpportunityEvent::getBreakId() const
+{
+	return mBreakId;
+}
+
+double VodAdBreakOpportunityEvent::getInsertionPointSec() const
+{
+	return mInsertionPointSec;
+}
+
+double VodAdBreakOpportunityEvent::getBreakDurationSec() const
+{
+	return mBreakDurationSec;
+}
+
+const std::string &VodAdBreakOpportunityEvent::getBreakType() const
+{
+	return mBreakType;
 }

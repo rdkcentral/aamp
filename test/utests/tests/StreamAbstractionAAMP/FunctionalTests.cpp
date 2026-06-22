@@ -112,11 +112,11 @@ protected:
 		{
 			gpGlobalConfig =  new AampConfig();
 		}
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
 		if (g_mockPrivateInstanceAAMP == nullptr)
 		{
-			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+			g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		}
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(mConfig);
@@ -148,8 +148,7 @@ protected:
 		delete mStreamAbstractionAAMP;
 		mStreamAbstractionAAMP = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
@@ -157,8 +156,7 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		mMockMediaProcessor.reset();
 	}
@@ -210,11 +208,12 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeEnabled)
 {
 	const double test_rate = 2.0;
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(true));
+	// GetLLDashChunkMode() guard removed — setRate is now always called so that
+	// AampMp4Demuxer::setRate can set mIsTrickMode/mRate for PTS restamping.
 	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
-	EXPECT_CALL(*mMockMediaProcessor, setRate(_, _)).Times(0);
+	EXPECT_CALL(*mMockMediaProcessor, setRate(test_rate, PlayMode_normal)).Times(1);
 	EXPECT_EQ(mStreamAbstractionAAMP->trickplayMode, false);
 
 	mStreamAbstractionAAMP->ReinitializeInjection(test_rate);
@@ -224,7 +223,6 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeDisabled
 {
 	const double test_rate = 2.0;
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(false));
 	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
@@ -282,4 +280,60 @@ TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_DoesNotRestoreLatency
         mStreamAbstractionAAMP->mMockAudioTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
 
         EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorState);
+}
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() reports audio track buffer
+ *        duration when the audio track is enabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsAudioBuffer_WhenAudioTrackEnabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = true;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.WillOnce(Return(12.5));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(0);
+
+	EXPECT_DOUBLE_EQ(12.5, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+}
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() falls back to video buffer
+ *        duration when audio is muxed and the audio track is disabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsVideoBuffer_WhenAudioTrackDisabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = false;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.Times(0);
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillOnce(Return(8.75));
+
+	EXPECT_DOUBLE_EQ(8.75, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+}
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() does not fall back to video
+ *        when AudioOnlyPlayback is enabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsSentinel_WhenAudioOnlyPlaybackEnabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = false;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.Times(0);
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(0);
+
+	EXPECT_DOUBLE_EQ(-1.0, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
 }

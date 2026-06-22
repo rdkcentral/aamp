@@ -106,6 +106,38 @@ bool Demuxer::CheckForSteadyState()
 SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 {
 	SegmentInfo_t ret {position, 0, duration};
+	const double max_pts_s = 95443.71768889; // 2^33/90000
+
+	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
+	{
+		// In restamp mode base_pts may be stale, from the first tune: the
+		// discontinuity is suppressed in the playlist so Demuxer::init()
+		// is never called at the ad boundary. Use raw encoder ticks only;
+		// ptsOffset already encodes (totalDuration - firstPts) so that
+		// the output timeline is continuous across ad insertions.
+		double raw_pts_s = static_cast<double>(current_pts.value) / 90000.;
+		double raw_dts_s = static_cast<double>(current_dts.value) / 90000.;
+		if( rollover_pts )
+		{
+			// Encoder 33-bit PTS/DTS wrap-around correction: when a rollover occurs within this encoder epoch
+			// the raw timestamps will appear near zero. If raw_* is in the lower half of the 33-bit range,
+			// add one full 33-bit cycle (max_pts_s) to restore a monotonic timeline.
+			if( raw_pts_s < max_pts_s/2 )
+			{
+				raw_pts_s += max_pts_s;
+			}
+			if( raw_dts_s < max_pts_s/2 )
+			{
+				raw_dts_s += max_pts_s;
+			}
+		}
+		ret.pts_s = ptsOffset + raw_pts_s;
+		ret.dts_s = ptsOffset + raw_dts_s;
+		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
+			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s);
+		return ret;
+	}
+
 	if (!trickmode)
 	{
 		ret.pts_s += static_cast<double>(current_pts.value - base_pts.value) / 90000.;
@@ -116,7 +148,6 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	}
 	if( rollover_pts )
 	{
-		const double max_pts_s =95443.71768889; // 2^33/90000 = 95443.71768889s
 		if( ret.pts_s < max_pts_s/2 )
 		{ // avoid applying to already huge pts while rollover in progress
 			ret.pts_s += max_pts_s;
@@ -125,11 +156,6 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 		{ // and same for dts
 			ret.dts_s += max_pts_s;
 		}
-	}
-	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
-	{
-		ret.pts_s += ptsOffset; // non-zero when pts restamping in use
-		ret.dts_s += ptsOffset; // non-zero when pts restamping in use
 	}
 	return ret;
 }
@@ -185,6 +211,8 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	first_pts = 0;
 	update_first_pts = false;
 	finalized_base_pts = false;
+	rollover_pts = false;
+	suppress_rollover_detection = false;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
 	
@@ -272,12 +300,21 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					{
 						const uint33_t timeStamp = Extract33BitTimestamp(&pesStart[9]);
 						auto prev_pts = exchange(current_pts, timeStamp);
-						if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
-						{//pts may come out of order so prev>current is not sufficient to detect the rollover
-							AAMPLOG_WARN("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
-							rollover_pts = true;
+						if (suppress_rollover_detection)
+						{
+							// First PTS after a discontinuity / ptsOffset change: do not treat
+							// the large backward jump as a 33-bit rollover. Clear the
+							// suppression flag and skip the rollover decision once.
+							suppress_rollover_detection = false;
 						}
-						current_pts = timeStamp;
+						else
+						{
+							if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
+							{//pts may come out of order so prev>current is not sufficient to detect the rollover
+								AAMPLOG_WARN("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
+								rollover_pts = true;
+							}
+						}
 						AAMPLOG_DEBUG("PTS updated %" PRIu64 , current_pts.value);
 						if(!finalized_base_pts)
 						{

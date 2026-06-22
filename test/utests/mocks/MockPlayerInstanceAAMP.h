@@ -21,6 +21,7 @@
 #define AAMP_MOCK_PLAYER_INSTANCE_AAMP_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "main_aamp.h"
 
 class MockPlayerInstanceAAMP : public PlayerInstanceAAMP
@@ -30,6 +31,6 @@ public:
     MOCK_METHOD(void, SetTextStyle, (const std::string &options));
 };
 
-extern MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP;
+extern std::shared_ptr<MockPlayerInstanceAAMP> g_mockPlayerInstanceAAMP;
 
 #endif /* AAMP_MOCK_PLAYER_INSTANCE_AAMP_H */

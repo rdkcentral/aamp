@@ -19,7 +19,7 @@
 
 #include "MockDrmHelper.h"
 
-MockDrmHelper *g_mockDrmHelper = nullptr;
+std::shared_ptr<MockDrmHelper> g_mockDrmHelper{};
 
 DrmHelperEngine& DrmHelperEngine::getInstance()
 {
@@ -31,7 +31,7 @@ DrmHelperPtr DrmHelperEngine::createHelper(const struct DrmInfo& drmInfo) const
 {
 	if (g_mockDrmHelper)
 	{
-		return DrmHelperPtr(g_mockDrmHelper, [](DrmHelper*) {});
+		return g_mockDrmHelper;
 	}
 	return nullptr;
 }
