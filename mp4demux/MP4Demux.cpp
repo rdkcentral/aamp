@@ -1219,7 +1219,7 @@ void Mp4Demux::ParseMetaBox(const uint8_t *next)
 	else
 	{
 		// Unknown encoding; consume silently rather than aborting the parse.
-		MP4_LOG_WARN("meta: unknown variant (firstWord=0x%08x secondWord=0x%08x), skipping",
+		MP4_LOG_WARN("meta: unknown variant (firstWord=0x%08" PRIx32 " secondWord=0x%08" PRIx32 "), skipping",
 		             firstWord, secondWord);
 		ptr = next;
 	}
