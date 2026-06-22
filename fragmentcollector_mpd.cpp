@@ -2752,6 +2752,20 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					// 12s.  Reset local fragmentTime to PTO so that skipTime is always
 					// interpreted as an absolute position from the period start.
 					fragmentTime = (float)presentationTimeOffsetSec;
+
+					// Already at the first fragment and trying to rewind further —
+					// signal beginning-of-stream so the player can bounce back to
+					// normal playback instead of re-fetching fragment 0 forever.
+					if (skipTime < 0)
+					{
+						AAMPLOG_INFO("Type[%d] SegmentBase rewind at fragmentIndex 0, signalling BOS",
+						             pMediaStreamContext->type);
+						mFirstPTS = presentationTimeOffsetSec;
+						pMediaStreamContext->fragmentTime = mPeriodStartTime;
+						pMediaStreamContext->mReachedFirstFragOnRewind = true;
+						pMediaStreamContext->eos = true;
+						skipTime = 0;
+					}
 				}
 				else if (skipTime < 0)
 				{
@@ -2828,6 +2842,26 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							mFirstPTS = fragmentTime;
 							pMediaStreamContext->fragmentIndex = fragmentIndex;
 							pMediaStreamContext->fragmentTime = mPeriodStartTime + (fragmentTime - presentationTimeOffsetSec);
+
+							// Track when the rewind walk lands on fragment 0.
+							// First landing: mark the flag so PushNextFragment can
+							// still show the first frame.
+							// Second landing: we already showed it — signal BOS.
+							if (fragmentIndex == 0)
+							{
+								if (pMediaStreamContext->mReachedFirstFragOnRewind)
+								{
+									AAMPLOG_INFO("Type[%d] SegmentBase rewind walk returned to fragmentIndex 0 again, signalling BOS",
+									             pMediaStreamContext->type);
+									pMediaStreamContext->eos = true;
+								}
+								else
+								{
+									AAMPLOG_INFO("Type[%d] SegmentBase rewind walk reached fragmentIndex 0",
+									             pMediaStreamContext->type);
+									pMediaStreamContext->mReachedFirstFragOnRewind = true;
+								}
+							}
 						}
 						skipTime = 0;  // consumed by the rewind walk above
 					}
