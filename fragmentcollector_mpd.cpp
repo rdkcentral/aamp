@@ -1691,59 +1691,72 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					}
 				}
 			}
-			if (!pMediaStreamContext->IDX.empty())
 			{
-				unsigned int referenced_size;
-				float fragmentDuration;
-				if (ParseSegmentIndexBox(
-										 pMediaStreamContext->IDX.data(),
-										 pMediaStreamContext->IDX.size(),
-										 pMediaStreamContext->fragmentIndex++,
-										 &referenced_size,
-										 &fragmentDuration,
-										 NULL) )
+				// Take a snapshot of IDX under the mutex to guard against
+				// FetchAndInjectInitialization (worker thread) calling
+				// ClearAndRelease(IDX) concurrently between the empty() check
+				// and the data() dereference (check-then-act race / use-after-free).
+				// We must not hold the mutex across FetchFragment because that
+				// call blocks on network I/O; parsing from the local copy is safe.
+				std::vector<uint8_t> idxSnapshot;
 				{
-					char range[MAX_RANGE_STRING_CHARS];
-					snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
-					AAMPLOG_INFO("%s [%s]",GetMediaTypeName(pMediaStreamContext->mediaType), range);
-					unsigned int nextReferencedSize;
-					float nextfragmentDuration;
-					uint64_t nextfragmentOffset;
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+					idxSnapshot = pMediaStreamContext->IDX;
+				}
+				if (!idxSnapshot.empty())
+				{
+					unsigned int referenced_size;
+					float fragmentDuration;
 					if (ParseSegmentIndexBox(
-							pMediaStreamContext->IDX.data(),
-							pMediaStreamContext->IDX.size(),
-							pMediaStreamContext->fragmentIndex,
-							&nextReferencedSize,
-							&nextfragmentDuration,
-							NULL))
+											 idxSnapshot.data(),
+											 idxSnapshot.size(),
+											 pMediaStreamContext->fragmentIndex++,
+											 &referenced_size,
+											 &fragmentDuration,
+											 NULL) )
 					{
-						char nextrange[MAX_RANGE_STRING_CHARS];
-						nextfragmentOffset = pMediaStreamContext->fragmentOffset+referenced_size;
-						snprintf(nextrange, sizeof(nextrange), "%" PRIu64 "-%" PRIu64 "",nextfragmentOffset, nextfragmentOffset+nextReferencedSize - 1);
-						setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,AampMediaType(pMediaStreamContext->type));
-					}
+						char range[MAX_RANGE_STRING_CHARS];
+						snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
+						AAMPLOG_INFO("%s [%s]",GetMediaTypeName(pMediaStreamContext->mediaType), range);
+						unsigned int nextReferencedSize;
+						float nextfragmentDuration;
+						uint64_t nextfragmentOffset;
+						if (ParseSegmentIndexBox(
+								idxSnapshot.data(),
+								idxSnapshot.size(),
+								pMediaStreamContext->fragmentIndex,
+								&nextReferencedSize,
+								&nextfragmentDuration,
+								NULL))
+						{
+							char nextrange[MAX_RANGE_STRING_CHARS];
+							nextfragmentOffset = pMediaStreamContext->fragmentOffset+referenced_size;
+							snprintf(nextrange, sizeof(nextrange), "%" PRIu64 "-%" PRIu64 "",nextfragmentOffset, nextfragmentOffset+nextReferencedSize - 1);
+							setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,AampMediaType(pMediaStreamContext->type));
+						}
 
-					if(FetchFragment(pMediaStreamContext, std::move(fragmentUrl), fragmentDuration, false, curlInstance, false, false, 0.0, pMediaStreamContext->fragmentDescriptor.TimeScale, range))
-					{
-						pMediaStreamContext->fragmentTime += fragmentDuration;
-						pMediaStreamContext->fragmentOffset += referenced_size;
-						pMediaStreamContext->fragmentDescriptor.Time +=
-							static_cast<uint64_t>(std::llround(
- 								static_cast<double>(fragmentDuration) *
- 								static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale)));
-						retval = true;
+						if(FetchFragment(pMediaStreamContext, std::move(fragmentUrl), fragmentDuration, false, curlInstance, false, false, 0.0, pMediaStreamContext->fragmentDescriptor.TimeScale, range))
+						{
+							pMediaStreamContext->fragmentTime += fragmentDuration;
+							pMediaStreamContext->fragmentOffset += referenced_size;
+							pMediaStreamContext->fragmentDescriptor.Time +=
+								static_cast<uint64_t>(std::llround(
+									static_cast<double>(fragmentDuration) *
+									static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale)));
+							retval = true;
+						}
+					}
+					else
+					{ // done with index
+						std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						pMediaStreamContext->eos = true;
 					}
 				}
 				else
-				{ // done with index
-					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-					aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+				{
 					pMediaStreamContext->eos = true;
 				}
-			}
-			else
-			{
-				pMediaStreamContext->eos = true;
 			}
 		}
 		else
