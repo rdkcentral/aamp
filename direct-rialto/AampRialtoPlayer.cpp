@@ -37,6 +37,11 @@
 #include <cinttypes>
 #include <algorithm>
 
+// Running with real Rialto on Ubuntu locks up intermittently
+// due to no TextTrack sink on Rialto Server, this disables
+// subtitle support
+//#define RIALTO_PLAYER_DISABLE_SUBTITLES
+
 // ---------------------------------------------------------------------------
 // Rialto -> AAMP log bridge
 // ---------------------------------------------------------------------------
@@ -607,7 +612,7 @@ void AampRialtoPlayer::Configure(
 			AAMPLOG_INFO("Created audio source (format=%d)", static_cast<int>(audioFormat));
 		}
 	}
-
+#if !defined(RIALTO_PLAYER_DISABLE_SUBTITLES)
 	if (subFormat == FORMAT_SUBTITLE_TTML || subFormat == FORMAT_SUBTITLE_MP4 || subFormat == FORMAT_SUBTITLE_WEBVTT)
 	{
 		auto src = m_sourceCreator(eMEDIATYPE_SUBTITLE);
@@ -649,7 +654,7 @@ void AampRialtoPlayer::Configure(
 			AAMPLOG_INFO("Created inband CC subtitle source");
 		}
 	}
-
+#endif
 	AAMPLOG_INFO("EXIT");
 }
 
