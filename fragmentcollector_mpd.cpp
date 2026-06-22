@@ -2694,26 +2694,22 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				AAMPLOG_INFO("SegmentBase: Presentation time offset present:%lf", presentationTimeOffsetSec);
 
 				// Start the skip from the current stream position, mirroring the SegmentList
-				// incremental (delta-based) approach.  On the very first call (fragmentIndex==0,
-				// reset by UpdateTrackInfo before SeekInPeriod), also initialise fragmentOffset
-				// to the absolute byte start of the first fragment so that PushNextFragment
-				// inherits a correct file offset rather than the relative-from-zero value that
-				// the lazy-init path would compute (the lazy-init branch is never re-entered
-				// once the IDX is populated).
+				// incremental (delta-based) approach.  fragmentOffset is unconditionally
+				// recomputed below from the sidx index range + walk to fragmentIndex so
+				// that it is always correct regardless of external resets.
 				int fragmentIndex = pMediaStreamContext->fragmentIndex;
 				float fragmentTime = (float)(pMediaStreamContext->fragmentTime - mPeriodStartTime)
 				                     + (float)presentationTimeOffsetSec;
 
-			if (fragmentIndex == 0)
+				// Always (re)compute fragmentOffset from the sidx index range so
+				// that it is correct even if external code (e.g.
+				// FetchAndInjectInitialization) reset fragmentOffset / cleared IDX
+				// after the initial SeekInPeriod.
 				{
-					// Compute the absolute byte offset of the first fragment.
-					// The sidx index-range is e.g. "3887-4266", so the first fragment data
-					// starts at byte 4267 (one past the end of the sidx box), plus any
-					// first_offset carried in the sidx header.
 					uint64_t idxRangeStart = 0, idxRangeEnd = 0;
 					if (sscanf(range.c_str(), "%" PRIu64 "-%" PRIu64 "", &idxRangeStart, &idxRangeEnd) != 2)
 					{
-						AAMPLOG_WARN("Type[%d] SegmentBase fragmentIndex==0: malformed index range '%s', cannot compute fragmentOffset",
+						AAMPLOG_WARN("Type[%d] SegmentBase: malformed index range '%s', cannot compute fragmentOffset",
 						             pMediaStreamContext->type, range.c_str());
 						pMediaStreamContext->eos = true;
 						return false;
@@ -2726,6 +2722,28 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					{
 						pMediaStreamContext->fragmentOffset += firstOffset;
 					}
+					// Walk forward through sidx entries to reach the current fragmentIndex.
+					for (int idx = 0; idx < fragmentIndex; idx++)
+					{
+						unsigned int refSize = 0;
+						float refDur = 0.0f;
+						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+						                         pMediaStreamContext->IDX.size(),
+						                         idx, &refSize, &refDur, NULL))
+						{
+							pMediaStreamContext->fragmentOffset += refSize;
+						}
+						else
+						{
+							AAMPLOG_WARN("Type[%d] SegmentBase: sidx entry %d missing while recomputing fragmentOffset",
+							             pMediaStreamContext->type, idx);
+							break;
+						}
+					}
+				}
+
+			if (fragmentIndex == 0)
+				{
 					// UpdateTrackInfo resets fragmentIndex to 0 for rate changes within the
 					// same period, but does NOT reset fragmentTime (it only does so on a period
 					// change).  If fragmentTime still carries the stale playback position (e.g.
