@@ -82,8 +82,13 @@ Copilot must still follow these steps:
 ## Prompt Feedback (Compact)
 - Always assess prompt quality for every prompt and emit scores unless the scoring thresholds for suppression are met.
 - When feedback is not suppressed, use the following format:
-- Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10 | Critique: <brief> | Improve: <specific edit>`.
-- Scoring: Completeness and Clarity are higher-is-better; Assumptions is lower-is-better.
+- Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10, CostRisk X/10 | Critique: <brief> | Improve: <specific edit>`.
+- Scoring: Completeness and Clarity are higher-is-better; Assumptions and CostRisk are lower-is-better.
+- **CostRisk** estimates likely token usage and repository traversal behaviour.
+  - Score higher when the prompt involves: large logs, many files, broad repository
+    requests, unrestricted agent instructions, repeated context, or exploratory prompting.
+  - Score lower when the prompt is narrowly scoped, attaches minimal context,
+    and targets a specific outcome.
 - Strict rubric for underspecified prompts:
   - If the prompt is extremely vague (for example: "build something"), score it harshly.
   - For these prompts, use: Completeness 0-3/10, Clarity 0-3/10, Assumptions 7-10/10.
@@ -93,7 +98,7 @@ Copilot must still follow these steps:
 - Never suppress scored feedback for underspecified prompts (including
   prompts that fall under the strict rubric above).
 - Suppress displayed feedback when Completeness >= 8, Assumptions <= 2,
-  and Clarity >= 8,
+  Clarity >= 8, and CostRisk <= 3,
   unless the user explicitly asks to apply feedback to the current prompt.
 - Determine suppression from the current user prompt only; retrospective analysis of earlier prompts should be provided only when explicitly requested.
 - Prefer high-compliance guidance: suggest exact wording that reduces
@@ -292,6 +297,32 @@ The `.github/instructions/` directory contains deeper rules:
 - `js.instructions.md`  
 
 Copilot must reference these files when generating language-specific code.
+
+### Pull Request Review Behaviour
+
+When performing pull request reviews, also apply:
+
+- `.github/instructions/copilot-review-behaviour.instructions.md`
+
+This file defines:
+- review scope;
+- proportionality expectations;
+- false-positive avoidance;
+- review comment quality requirements;
+- restrictions on speculative or overly large suggestions.
+
+## ABR compliance
+
+When generating, editing, or reviewing code under `abr/`, apply the normative rules in `instructions/abr.instructions.md`. That file is the authoritative spec for buffer semantics, profile selection, bail behavior, latency control, and targetLatency adjustment.
+
+For structured reviews, use the reusable prompt files:
+- `/abr-compliance-review` — full spec-driven audit
+- `/abr-pr-review` — focused diff review
+- `/abr-log-validate` — runtime log/trace validation
+- `/abr-function-check` — single-function compliance check
+- `/abr-instrumentation-plan` — design assertions and log events for auditability
+
+---
 
 ## AAMP log debugging
 

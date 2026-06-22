@@ -116,7 +116,7 @@ public:
 	 * @param[in] peerBmffProcessor - peer instance of IsoBmffProcessor
 	 */
 	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, bool passThrough = false,
-		IsoBmffProcessor* peerBmffProcessor = NULL, IsoBmffProcessor* peerSubProcessor = NULL);
+		IsoBmffProcessor* peerBmffProcessor = nullptr, IsoBmffProcessor* peerSubProcessor = nullptr);
 
 	/**
 	 * @fn ~IsoBmffProcessor

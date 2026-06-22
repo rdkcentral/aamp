@@ -652,7 +652,15 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 							}
 							if( !mapped )
 							{
-								AAMPCLI_PRINTF( "[AAMPCLI] unmapped breakId=%s\n", ev->getId().c_str() );
+								AAMPCLI_PRINTF( "[AAMPCLI] unmapped breakId=%s, notifying reservation complete\n", ev->getId().c_str() );
+							}
+							if( !mAampcli.mDeferReservationComplete )
+							{
+								mAampcli.mSingleton->NotifyReservationComplete(ev->getId());
+							}
+							else
+							{
+								AAMPCLI_PRINTF( "[AAMPCLI] [CDAI] deferred NotifyReservationComplete for breakId=%s\n", ev->getId().c_str() );
 							}
 							break;
 						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROGRAM_IMMEDIATE_RESUMPTION:
@@ -746,6 +754,13 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
 			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_PROGRESS\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			break;
+		}
+		case AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY:
+		{
+			VodAdBreakOpportunityEventPtr ev = std::dynamic_pointer_cast<VodAdBreakOpportunityEvent>(e);
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY breakId=%s insertionPt=%.3f dur=%.3f type=%s\n",
+				ev->getBreakId().c_str(), ev->getInsertionPointSec(), ev->getBreakDurationSec(), ev->getBreakType().c_str());
 			break;
 		}
 		case AAMP_EVENT_NEED_MANIFEST_DATA:

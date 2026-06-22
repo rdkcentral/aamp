@@ -33,6 +33,7 @@
 #include <atomic>
 #include "AampMediaType.h"
 #include "BandwidthEstimatorBase.h"
+#include "AampDefine.h"
 #include "AampCurlDefine.h"
 #include "AampSpeedCache.h"
 

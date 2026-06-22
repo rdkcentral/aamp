@@ -110,13 +110,6 @@ if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
 	endif()
 endif()
 
-if(CMAKE_PREINIT_DECODER)
-	message("PLAYER PREINIT_DECODING set")
-	include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../support/aampabr)
-	set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_PREINIT_DECODING=1")
-	list(APPEND LIB_EXT_DEPENDS -lWPEFrameworkPowerController)
-endif()
-
 #IARM/RFC
 if(CMAKE_IARM_MGR)
     message("PLAYER IARM_MGR set")
