@@ -4208,5 +4208,12 @@ private:
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
+
+	/**
+	 *   @fn SetCCStatusInternal
+	 *   @brief Set CC visibility on/off according to the current values of
+	 *          video_muted and subtitle_muted.
+	 */
+	void SetCCStatusInternal(void);
 };
 #endif // PRIVAAMP_H

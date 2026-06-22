@@ -10851,6 +10851,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				{
 					mIsInbandCC = true;
 					SetPreferredTextTrack(track);
+					SetCCStatusInternal();
 					if (!track.instreamId.empty())
 					{
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
@@ -10990,8 +10991,16 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-	AcquireStreamLock();
-	subtitles_muted = !enabled;
+	{
+		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		// Set subtitles_muted flag to the value requested by the app
+		subtitles_muted = !enabled;
+		SetCCStatusInternal();
+	}
+}
+
+void PrivateInstanceAAMP::SetCCStatusInternal(void)
+{
 	// Mute subtitles if either video is muted or subtitles are muted
 	bool mute_subtitles_applied = video_muted || subtitles_muted;
 	bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
@@ -11015,7 +11024,6 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 		}
 	}
 	SetSubtitleMute(mute_subtitles_applied);
-	ReleaseStreamLock();
 }
 
 /**
