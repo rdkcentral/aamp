@@ -2223,6 +2223,7 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 			}
 
 			// Set initial mute state, will be updated by PlayerCCManager
+			MW_LOG_INFO("patrick mute %d",interfacePlayerPriv->gstPrivateContext->subtitleMuted);
 			g_object_set(privatePlayer->gstPrivateContext->subtitle_sink, "mute", TRUE, NULL);
 		}
 	}
@@ -2294,6 +2295,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				gst_element_sync_state_with_parent(stream->sinkbin);
 				interfacePlayerPriv->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref(stream->sinkbin));
 				interfacePlayerPriv->gstPrivateContext->setSubtitlePending = true;
+				MW_LOG_INFO("patrick mute %d",interfacePlayerPriv->gstPrivateContext->subtitleMuted);
 				g_object_set(stream->sinkbin, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
 				return 0;
 			}
