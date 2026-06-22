@@ -89,7 +89,7 @@ static std::int64_t parseFirstBegin(std::stringstream &ss)
 	std::int64_t firstBegin = std::numeric_limits<std::int64_t>::max();
 	std::string line;
 	static const std::regex beginRegex(R"(begin="([0-9]+):([0-9][0-9]?):([0-9][0-9]?)\.?([0-9]+)?")");
-	
+
 	while(std::getline(ss, line))
 	{
 		try {
@@ -114,7 +114,7 @@ static std::int64_t parseFirstBegin(std::stringstream &ss)
 			MW_LOG_WARN("Regex error %s from line %s", std::to_string(e.code()).c_str(), line.c_str());
 		}
 	}
-	
+
 	return firstBegin;
 }
 
@@ -142,7 +142,7 @@ bool TtmlSubtecParser::processData(const char* buffer, size_t bufferLen, double 
 
 		std::vector<uint8_t> data(mdatLen);
 		data.assign(mdat, mdat+mdatLen);
-		
+
 		//necessary because the offset into the TTML
 		//is not available in the linear manifest
 		//Take the first instance of the "begin" tag as the time offset for subtec
@@ -154,11 +154,11 @@ bool TtmlSubtecParser::processData(const char* buffer, size_t bufferLen, double 
 
 		if (!m_sentOffset && m_parsedFirstPacket && m_isLinear)
 		{
-			MW_LOG_TRACE("Linear content - parsing first begin as offset - pos %.3f dur %.3f m_firstBeginOffset %.3f", 
+			MW_LOG_TRACE("Linear content - parsing first begin as offset - pos %.3f dur %.3f m_firstBeginOffset %.3f",
 				 position, duration, m_firstBeginOffset);
 			std::stringstream ss(std::string(data.begin(), data.end()));
 			std::int64_t offset = parseFirstBegin(ss);
-			
+
 			if (offset != std::numeric_limits<std::int64_t>::max())
 			{
 				auto positionDeltaSecs = (position - m_firstBeginOffset);
@@ -198,6 +198,7 @@ void TtmlSubtecParser::mute(bool mute)
 #ifdef TTML_DEBUG
 	printf( "TtmlSubtecParser::mute(mute=%d)\n", mute );
 #endif
+    MW_LOG_WARN("patrick");
 	if (mute)
 	{
 		m_channel->SendMutePacket();

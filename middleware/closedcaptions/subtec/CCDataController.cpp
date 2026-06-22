@@ -81,6 +81,7 @@ void CCDataController::closedCaptionDecodeCb(int decoderIndex, int event)
 
 void CCDataController::sendMute()
 {
+    MW_LOG_WARN("patrick");
     channel.SendMutePacket();
 }
 
