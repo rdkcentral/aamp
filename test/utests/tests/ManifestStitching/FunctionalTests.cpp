@@ -47,12 +47,13 @@ protected:
 		{
 			gpGlobalConfig =  new AampConfig();
 		}
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		mpdDocument = nullptr;
 	}
 
 	void TearDown() override
 	{
+		g_mockAampConfig.reset();
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 		mpdDocument = nullptr;

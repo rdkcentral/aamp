@@ -66,8 +66,8 @@ protected:
 		MockCurlReset();
 		MockOpenCdmReset();
 
-		g_mocksecclient = new NiceMock<MockSecureClient>();
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+		g_mocksecclient = std::make_shared<NiceMock<MockSecureClient>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		mAamp = new PrivateInstanceAAMP(gpGlobalConfig);
 		mUtils = new TestUtilDrm(mAamp);
 	}
@@ -80,11 +80,9 @@ protected:
 		delete mAamp;
 		mAamp = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mocksecclient;
-		g_mocksecclient = nullptr;
+		g_mocksecclient.reset();
 
 		MockAampReset();
 		MockCurlReset();

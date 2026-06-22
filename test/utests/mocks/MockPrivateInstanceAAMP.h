@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_PRIV_AAMP_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "priv_aamp.h"
 
 class MockPrivateInstanceAAMP
@@ -92,7 +93,7 @@ public:
 	MOCK_METHOD(bool, GetLLDashChunkMode, ());
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
-	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopGstreamerPreBuffering));
+	MOCK_METHOD(bool, PausePipeline, (bool pause, bool forceStopPreBuffering));
 	MOCK_METHOD(void, SetVideoMute, (bool muted));
 	MOCK_METHOD(void, SetCCStatusSetByApp, ());
 	MOCK_METHOD(bool, IsAtLivePoint, ());
@@ -110,6 +111,6 @@ public:
 	MOCK_METHOD(void, UpdateUseSinglePipeline, ());
 };
 
-extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
+extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;
 
 #endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */

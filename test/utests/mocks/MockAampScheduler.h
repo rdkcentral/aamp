@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_SCHEDULER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampScheduler.h"
 
 class MockAampScheduler
@@ -33,6 +34,6 @@ public:
 
 };
 
-extern MockAampScheduler *g_mockAampScheduler;
+extern std::shared_ptr<MockAampScheduler> g_mockAampScheduler;
 
 #endif /* AAMP_MOCK_AAMP_SCHEDULER_H */

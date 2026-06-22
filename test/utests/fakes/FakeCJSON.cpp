@@ -26,7 +26,7 @@
 #include <cstdlib>
 #include <cstring>
 
-MockCJsonManager *g_mockCJsonManager = nullptr;
+std::shared_ptr<MockCJsonManager> g_mockCJsonManager{};
 
 CJSON_PUBLIC(cJSON *) cJSON_Parse(const char *value)
 {
