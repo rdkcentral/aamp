@@ -321,6 +321,7 @@ typedef enum
 	eAAMPConfig_TsbLogLevel,					/** Override the TSB log level */
 	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
 	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
+	eAAMPConfig_VodAdBreakLookaheadSec,					/**< Seconds before a VOD insertion point at which vodAdBreakOpportunity event is fired */
 	eAAMPConfig_ShowDiagnosticsOverlay,		       /** configures the diagnostics overlay,accessed by UVE API getConfiguration()*/
 	eAAMPConfig_MonitorAVSyncThresholdPositive,				/**< (positive) milliseconds threshold for video ahead of audio to be considered as unacceptable avsync*/
 	eAAMPConfig_MonitorAVSyncThresholdNegative,				/**< (negative) milliseconds threshold for video behind audio to be considered as unacceptable avsync*/

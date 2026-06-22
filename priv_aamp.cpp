@@ -6024,6 +6024,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (NULL == mCdaiObject)
 			{
 				mCdaiObject = new CDAIObjectMPD(this); // special version for DASH
+				// Replay any RegisterVodAdBreak calls that arrived before mCdaiObject was created.
+				for (auto &brk : mPendingVodAdBreaks)
+				{
+					AAMPLOG_INFO("[AAMP] Replaying pending VOD ad break registration id=%s", brk.breakId.c_str());
+					mCdaiObject->RegisterVodAdBreak(brk.breakId, brk.insertionPointSec,
+					                               brk.breakDurationSec, brk.breakType);
+				}
+				mPendingVodAdBreaks.clear();
 			}
 		}
 		else
@@ -8581,6 +8589,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 
 	SAFE_DELETE(mCdaiObject);
+	mPendingVodAdBreaks.clear();
 
 #if 0
 	/* Clear the session data*/
@@ -9429,6 +9438,50 @@ void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservati
 	else
 	{
 		AAMPLOG_ERR("[AAMP] CDAIObject not set. Cannot cancel reservation for reservationId: %s ", cancelAtReservationId.c_str());
+	}
+}
+
+/**
+ * @brief Register a VOD ad-break insertion point
+ */
+void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                             double breakDurationSec, const std::string &breakType)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->RegisterVodAdBreak(breakId, insertionPointSec, breakDurationSec, breakType);
+	}
+	else
+	{
+		// mCdaiObject is created during TuneHelper; buffer the registration for replay at tune time.
+		AAMPLOG_INFO("[AAMP] CDAIObject not yet created; queuing VOD ad break id=%s for replay at tune", breakId.c_str());
+		mPendingVodAdBreaks.push_back({breakId, insertionPointSec, breakDurationSec, breakType});
+	}
+}
+
+/**
+ * @brief Cancel a registered VOD ad-break that has not yet started
+ */
+void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->CancelVodAdBreak(breakId);
+	}
+	else
+	{
+		// Remove from the pending queue if the break has not yet been forwarded to mCdaiObject.
+		auto it = std::remove_if(mPendingVodAdBreaks.begin(), mPendingVodAdBreaks.end(),
+			[&breakId](const PendingVodAdBreak &b) { return b.breakId == breakId; });
+		if (it != mPendingVodAdBreaks.end())
+		{
+			AAMPLOG_INFO("[AAMP] CancelVodAdBreak id=%s: removed from pending queue", breakId.c_str());
+			mPendingVodAdBreaks.erase(it, mPendingVodAdBreaks.end());
+		}
+		else
+		{
+			AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot cancel VOD ad break id=%s", breakId.c_str());
+		}
 	}
 }
 
@@ -13190,7 +13243,9 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
 
-	if (currentTrackIndex >= 0)
+
+	//Added out of bound check to prevent crash in case of currentTrackIndex is more than available tracks.
+	if (currentTrackIndex >= 0 && (currentTrackIndex < static_cast<int>(trackInfo.size())))
 	{
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
 		char *currentPrefRendition = const_cast<char *>(trackInfo[currentTrackIndex].rendition.c_str());
@@ -13280,6 +13335,8 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	}
 	else
 	{
+			AAMPLOG_INFO("CheckPreferredTextLanguages: currentTrackIndex=%d , trackInfo.size()=%zu either no track is currently selected or currentTrackIndex is out of bounds, so we will check for closed caption track index if there is one",
+						 currentTrackIndex, trackInfo.size());
 		isSelectionChange = true;
 		// no track is currently selected but need to find closedCaptionTrackIdx if there is one
 	}

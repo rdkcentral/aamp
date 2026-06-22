@@ -139,7 +139,8 @@ protected:
 		{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 		{eAAMPConfig_MaxLLDFragmentCached, DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK},
-		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC}
+		{eAAMPConfig_UTCSyncMinIntervalSec, DEFAULT_UTC_SYNC_MIN_INTERVAL_SEC},
+		{eAAMPConfig_VodAdBreakLookaheadSec, DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC}
 	};
 
 	IntConfigSettings mIntConfigSettings;
