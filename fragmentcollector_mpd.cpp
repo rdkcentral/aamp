@@ -1626,11 +1626,17 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
 				AampCurlInstance curlInst = aamp->GetPlaylistCurlInstance(actualType, false);
 				aamp->CurlInit(curlInst, 1, aamp->GetNetworkProxy());
+				std::vector<uint8_t> loadedIdx;
+				aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl, loadedIdx, curlInst, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				aamp->CurlTerm(curlInst);
+				if (!loadedIdx.empty())
 				{
 					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-					aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl, pMediaStreamContext->IDX, curlInst, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+					if (pMediaStreamContext->IDX.empty())
+					{
+						pMediaStreamContext->IDX = std::move(loadedIdx);
+					}
 				}
-				aamp->CurlTerm(curlInst);
 
 
 				if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
@@ -1750,6 +1756,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					{ // done with index
 						std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
 						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						pMediaStreamContext->mIdxBaseOffset = 0;
 						pMediaStreamContext->eos = true;
 					}
 				}
