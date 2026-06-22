@@ -86,7 +86,13 @@ protected:
 
 	void TearDown() override
 	{
-		ReleaseCapturedTimerUserData();
+		// Free timer user_data allocated in IdleCallback via captured destroy notify.
+		if (capturedDestroyNotify && capturedUserData)
+		{
+			capturedDestroyNotify(capturedUserData);
+			capturedUserData = nullptr;
+			capturedDestroyNotify = nullptr;
+		}
 
 		// Clean up player
 		// Note: We delete m_gstConfigParam because we allocated it in SetUp
@@ -120,18 +126,21 @@ protected:
 	 */
 	void SetupTimerMocks()
 {
-    ON_CALL(*g_mockGLib, g_timeout_add(_, _, _))
-        .WillByDefault(Invoke([this](guint interval,
-                                     GSourceFunc function,
-                                     void* userData) -> guint
-        {
-            // Capture the callback and user data
-            capturedTimerFunc = function;
-            capturedUserData = userData;
+	ON_CALL(*g_mockGLib, g_timeout_add_full(_, _, _, _, _))
+		.WillByDefault(Invoke([this](gint,
+		                             guint,
+		                             GSourceFunc function,
+		                             gpointer userData,
+		                             GDestroyNotify notify) -> guint
+		{
+			// Capture timer callback and cleanup hook for explicit test teardown.
+			capturedTimerFunc = function;
+			capturedUserData = userData;
+			capturedDestroyNotify = notify;
 
-            // Return a unique timer ID
-            return ++capturedTimerId;
-        }));
+			// Return a unique timer ID
+			return ++capturedTimerId;
+		}));
 }
 
 
@@ -208,7 +217,11 @@ TEST_F(InterfacePlayerRDKCallbackTest, IdleCallback_ValidProgressCb_SetupsTimer)
 	// Expect that timer is added exactly once
 	EXPECT_CALL(*g_mockGLib, g_timeout_add_full(_, _, _, NotNull(), NotNull()))
 		.Times(1)
-		.WillOnce(Return(123)); // Fake timer ID
+		.WillOnce(DoAll(
+			SaveArg<2>(&capturedTimerFunc),
+			SaveArg<3>(&capturedUserData),
+			SaveArg<4>(&capturedDestroyNotify),
+			Return(123))); // Fake timer ID
 
 	// Act: Call IdleCallback
 	gboolean result = InterfacePlayerRDK::IdleCallback(m_player);
@@ -235,7 +248,11 @@ TEST_F(InterfacePlayerRDKCallbackTest, ProgressCallbackOnTimeout_NullProgressCb_
 	EXPECT_CALL(*g_mockGLib, g_source_remove(_))
 		.WillRepeatedly(Return(FALSE));
 	EXPECT_CALL(*g_mockGLib, g_timeout_add_full(_, _, _, NotNull(), NotNull()))
-		.WillOnce(Return(123));
+		.WillOnce(DoAll(
+			SaveArg<2>(&capturedTimerFunc),
+			SaveArg<3>(&capturedUserData),
+			SaveArg<4>(&capturedDestroyNotify),
+			Return(123)));
 	EXPECT_EQ(InterfacePlayerRDK::IdleCallback(m_player), G_SOURCE_REMOVE);
 	m_player->callbackMap[InterfaceCB::progressCb] = nullptr;
 
@@ -280,7 +297,11 @@ TEST_F(InterfacePlayerRDKCallbackTest, CallbacksUnregistered_ThenTriggered_DoesN
 		.WillRepeatedly(Return(FALSE));
 	SetupTimerMocks();
 	EXPECT_CALL(*g_mockGLib, g_timeout_add_full(_, _, _, NotNull(), NotNull()))
-		.WillOnce(Return(123));
+		.WillOnce(DoAll(
+			SaveArg<2>(&capturedTimerFunc),
+			SaveArg<3>(&capturedUserData),
+			SaveArg<4>(&capturedDestroyNotify),
+			Return(123)));
 
 	// Schedule while callbacks are still registered
 	gboolean idleResult = InterfacePlayerRDK::IdleCallback(m_player);
@@ -337,7 +358,11 @@ TEST_F(InterfacePlayerRDKCallbackTest, ProgressCallbackOnTimeout_AfterStop_Remov
 	EXPECT_CALL(*g_mockGLib, g_source_remove(_))
 		.WillRepeatedly(Return(TRUE));
 	EXPECT_CALL(*g_mockGLib, g_timeout_add_full(_, _, _, NotNull(), NotNull()))
-		.WillOnce(Return(123));
+		.WillOnce(DoAll(
+			SaveArg<2>(&capturedTimerFunc),
+			SaveArg<3>(&capturedUserData),
+			SaveArg<4>(&capturedDestroyNotify),
+			Return(123)));
 
 	EXPECT_EQ(InterfacePlayerRDK::IdleCallback(m_player), G_SOURCE_REMOVE);
 	m_player->Stop(false);

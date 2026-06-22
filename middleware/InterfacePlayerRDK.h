@@ -1083,6 +1083,9 @@ public:
 	 * @param[in] repeatTimeout timeout between calls in ms
 	 * @param[in] user_data data to pass to the timer function
 	 * @param[in] timerName name of the timer being added
+	 * @param[in] destroyNotify cleanup callback for user_data ownership. It is
+	 *            passed to GLib when the timer is created, and is invoked
+	 *            immediately by TimerAdd if the timer cannot be added.
 	 * @param[out] taskId id of the timer to be returned
 	 */
 	void TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint &taskId, gpointer user_data, const char *timerName = nullptr, GDestroyNotify destroyNotify = nullptr);

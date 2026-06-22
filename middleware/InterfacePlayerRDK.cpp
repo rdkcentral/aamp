@@ -69,7 +69,7 @@ static const char* GstPluginNameVMX = "aampverimatrixdecryptor";
 InterfacePlayerRDK::InterfacePlayerRDK() : mPlayerName(),
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
 mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL),
-mProgressCallbackContext(std::make_shared<ProgressCallbackContext>(this)), mStopInProgress(false)
+mStopInProgress(false), mProgressCallbackContext(nullptr)
 {
 	gstPrivateContext = new GstPlayerPriv();
 	m_gstConfigParam = new Configs();
@@ -664,7 +664,8 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 
 /**
  * @brief Timer's callback to notify playback progress event
- * @param[in] user_data pointer to InterfacePlayerRDK instance
+ * @param[in] user_data pointer to std::weak_ptr<ProgressCallbackContext>
+ *            allocated in IdleCallback and released via destroy notify
  * @retval G_SOURCE_CONTINUE, this function to be called periodically
  */
 gboolean InterfacePlayerRDK::ProgressCallbackOnTimeout(gpointer user_data)
@@ -3602,7 +3603,7 @@ std::shared_ptr<ProgressCallbackContext> InterfacePlayerRDK::SignalCancelProgres
 // already owns the active invocation that we would be waiting for, so waiting
 // would deadlock permanently. We detect this with callbackThreadId and return
 // immediately; the RAII guard in ProgressCallbackOnTimeout will decrement
-// activeCallbacks and reset the context once the callback stack unwinds.
+// activeCallbacks and notify waiters once the callback stack unwinds.
 //
 // The caller must pass the shared_ptr returned by SignalCancelProgressCallback()
 // so that both functions operate on the same snapshot and avoid a TOCTOU race.
