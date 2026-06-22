@@ -239,18 +239,6 @@ protected:
 		{
 			return mPeriodEndTime;
 		}
-
-		/**
-		 * @brief Expose FetchAndInjectInitialization for regression testing.
-		 *
-		 * Allows tests to call the per-track init segment fetch entry point
-		 * directly, bypassing the FetcherLoop, so they can observe and assert
-		 * on side-effects such as the profileChanged flag.
-		 */
-		void InvokeFetchAndInjectInitialization(int trackIdx, bool discontinuity = false)
-		{
-			FetchAndInjectInitialization(trackIdx, discontinuity);
-		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -262,28 +250,6 @@ protected:
 	static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
-	/**
-	 * Minimal VOD SegmentBase manifest.  Used by regression tests that must
-	 * exercise the SegmentBase branch of FetchAndInjectInitialization, which
-	 * is the only branch where profileChanged is conditionally cleared (i.e.
-	 * only when WaitForFreeFragmentAvailable succeeds).  The SegmentTemplate
-	 * and SegmentList-with-sourceURL branches always clear profileChanged, so
-	 * they cannot catch the regression.
-	 */
-	static constexpr const char *mSegmentBaseManifest = R"(<?xml version="1.0" encoding="utf-8"?>
-			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" type="static" mediaPresentationDuration="PT30S" minBufferTime="PT4S">
-					<Period id="p0" start="PT0S">
-							<AdaptationSet id="0" contentType="video">
-									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360">
-											<BaseURL>http://host/asset/video.mp4</BaseURL>
-											<SegmentBase indexRange="500-999" timescale="90000">
-													<Initialization range="0-499"/>
-											</SegmentBase>
-									</Representation>
-							</AdaptationSet>
-					</Period>
-			</MPD>
-			)";
 	static constexpr const char *mVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
 					<Period id="p0" start="PT0S">
@@ -473,13 +439,19 @@ protected:
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 		assert( g_mockAampUtils == nullptr );
-		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>(mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = std::make_shared<MockAAMPGstPlayer>(
+			mPrivateInstanceAAMP);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
-		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
-		g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
-		g_mockAampStreamSinkManager = std::make_shared<NiceMock<MockAampStreamSinkManager>>();
-		g_MockPrivateCDAIObjectMPD = std::make_shared<NiceMock<MockPrivateCDAIObjectMPD>>();
+		g_mockPrivateInstanceAAMP =
+			std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockMediaStreamContext =
+			std::make_shared<StrictMock<MockMediaStreamContext>>();
+		g_mockAampMPDDownloader =
+			std::make_shared<StrictMock<MockAampMPDDownloader>>();
+		g_mockAampStreamSinkManager =
+			std::make_shared<NiceMock<MockAampStreamSinkManager>>();
+		g_MockPrivateCDAIObjectMPD =
+			std::make_shared<NiceMock<MockPrivateCDAIObjectMPD>>();
 		mTestableStreamAbstractionAAMP_MPD = nullptr;
 		//assert( mTestableStreamAbstractionAAMP_MPD == nullptr );
 		mManifest = NULL;
@@ -3115,98 +3087,240 @@ TEST_F(FetcherLoopTests, HandleSeekEOS_UpdateTrackInfoFails_PeriodStateRestored)
 	EXPECT_TRUE(videoCtx->eos);
 }
 
-// ---------------------------------------------------------------------------
-// Regression test: RDKAAMP-4072 / PR 114108 — SegmentBase profileChanged bug
+// ===========================================================================
+// VPAAMP-444 — SegmentBase regression tests
+// ===========================================================================
+
+// A minimal static 4-second VOD stream delivered via SegmentBase.
+// The SIDX (sidxBox, defined earlier in this file) declares:
+//   timescale=1000, reference_count=2
+//   ref[0]: reference_size=16384, subsegment_duration=2000  → duration 2.0 s
+//   ref[1]: reference_size=12288, subsegment_duration=2000  → duration 2.0 s
 //
-// In FetchAndInjectInitialization, the SegmentBase branch clears profileChanged
-// ONLY inside the "if (WaitForFreeFragmentAvailable(0))" block.  When the ring
-// buffer is full and WaitForFreeFragmentAvailable returns false, profileChanged
-// is left true.  OnFragmentDownloadComplete then sees profileChanged=true on
-// every subsequent media segment completion and re-calls
-// FetchAndInjectInitialization, which fails again — an infinite silent-skip
-// loop.  The decoder never receives the init segment, AAMP_EVENT_TUNED never
-// fires, and the App observes a ~20-second hang.
+// indexRange="500-999":
+//   init segment range          = "0-499"
+//   first data-fragment offset  = 1000 (idxRangeEnd + 1 + first_offset(0))
+//   ref[0] range = "1000-17383"   (1000 + 16384 - 1)
+//   ref[1] range = "17384-29671"  (17384 + 12288 - 1)
 //
-// The SegmentTemplate and SegmentList-with-sourceURL branches always clear
-// profileChanged unconditionally, so they are not affected.  The bug is
-// exclusive to the SegmentBase path.
-//
-// Fix: add an else-branch to clear profileChanged when WaitForFreeFragmentAvailable(0)
-// returns false so that the FetcherLoop can drain the ring buffer and retry
-// on its own schedule rather than hammering FetchAndInjectInitialization from
-// every OnFragmentDownloadComplete callback.
-// ---------------------------------------------------------------------------
+// timescale="1000" on <SegmentBase> → fragmentDescriptor.TimeScale = 1000.
+static constexpr const char *kSegmentBaseVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+     mediaPresentationDuration="PT4S"
+     profiles="urn:mpeg:dash:profile:isoff-on-demand:2011">
+    <Period id="p0" start="PT0S" duration="PT4S">
+        <AdaptationSet id="0" contentType="video">
+            <Representation id="0" mimeType="video/mp4" codecs="avc1.640028"
+                            bandwidth="800000" width="640" height="360">
+                <BaseURL>http://host/asset/video.m4s</BaseURL>
+                <SegmentBase indexRange="500-999" timescale="1000"/>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>)";
+
+// Base URL for the single SegmentBase video resource.
+static const std::string kSegBaseVideoUrl{"http://host/asset/video.m4s"};
 
 /**
- * @test FetcherLoopTests::SegmentBase_WaitForFreeFragmentFails_ProfileChangedMustBeCleared
- * @brief Deterministic regression test for the SegmentBase init-segment hang.
+ * @brief VPAAMP-444 Fix 1: PushNextFragment advances fragmentDescriptor.Time.
  *
- * Tunes a SegmentBase DASH stream so that tracks are properly initialised,
- * then simulates the post-ABR-change condition: profileChanged=true and a full
- * ring buffer.  Calls FetchAndInjectInitialization directly and asserts that
- * profileChanged is cleared regardless of whether WaitForFreeFragmentAvailable
- * succeeds.
+ * Before the fix, the SegmentBase code path in PushNextFragment never updated
+ * fragmentDescriptor.Time after downloading a data segment.  The fix adds:
+ *   fragmentDescriptor.Time +=
+ *       static_cast<uint64_t>(std::llround(fragmentDuration * TimeScale));
  *
- * Without the fix this test FAILS (profileChanged stays true).
- * With the fix this test PASSES (profileChanged is cleared).
+ * Oracle:
+ *   After each successful fetch fragmentDescriptor.Time must increase by
+ *   round(2.0 s * 1000) = 2000 ticks.
  */
-TEST_F(FetcherLoopTests, SegmentBase_WaitForFreeFragmentFails_ProfileChangedMustBeCleared)
+TEST_F(FetcherLoopTests, SegmentBase_PushNextFragment_AdvancesDescriptorTime)
 {
-	// Use serial download mode so that the Init() call completes synchronously
-	// and there is no worker-thread race when we inspect profileChanged after.
-	mBoolConfigSettings[eAAMPConfig_DashParallelFragDownload] = false;
-
-	// During InitializeMPD the ring buffer is empty so WaitForFreeFragmentAvailable(0)
-	// returns true and CacheFragment is invoked once for the video init segment.
-	// Allow any init-segment CacheFragment call (we don't assert on the exact URL
-	// because SegmentBase uses a byte-range of the representation base URL).
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, /*initSegment=*/true, _, _, _))
-		.WillRepeatedly(Return(true));
-
-	// SegmentBase streams require LoadIDX to fetch and parse the Segment Index box
-	// (SIDX, pointed to by indexRange).  Populate idxBuffer with the shared sidxBox
-	// so that AAMP can compute segment offsets and InitializeMPD completes normally.
+	// LoadIDX is called once during Init (SeekInPeriod lazily loads the IDX).
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
 		{
 			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
 		})));
 
-	AAMPStatusType status = InitializeMPD(mSegmentBaseManifest);
-	ASSERT_EQ(status, eAAMPSTATUS_OK) << "InitializeMPD must succeed for the regression test to be meaningful.";
+	// Init segment (isInit=true, range "0-499" computed from indexRange "500-999").
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
 
-	MediaStreamContext *videoTrack = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContextAt(eTRACK_VIDEO);
-	ASSERT_NE(videoTrack, nullptr);
-	ASSERT_TRUE(videoTrack->enabled) << "Video track must be enabled after a successful tune.";
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
 
-	// Simulate the post-ABR-change state: profileChanged=true signals that the
-	// decoder needs a fresh init segment for the new quality level.
-	videoTrack->profileChanged = true;
+	MediaStreamContext *ctx = static_cast<MediaStreamContext *>(
+		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	ASSERT_NE(ctx, nullptr);
 
-	// Fill the ring buffer so WaitForFreeFragmentAvailable(0) returns false.
-	// GetCachedFragmentSize() returns the active window size the track was
-	// configured with (DEFAULT_CACHED_FRAGMENTS_PER_TRACK in the default test
-	// config).  Setting numberOfFragmentsCached to that value means every slot
-	// is occupied and the inject thread has not yet consumed any of them.
-	videoTrack->numberOfFragmentsCached = static_cast<int>(videoTrack->GetCachedFragmentSize());
+	ASSERT_EQ(ctx->fragmentDescriptor.TimeScale, 1000u);
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 0u);
 
-	// Call FetchAndInjectInitialization directly.  With a full ring buffer,
-	// WaitForFreeFragmentAvailable(0) returns false immediately (timeout=0).
-	// FetchFragment is therefore NOT called and CacheFragment is NOT called.
-	mTestableStreamAbstractionAAMP_MPD->InvokeFetchAndInjectInitialization(eTRACK_VIDEO);
+	// First push: reference 0 (bytes 1000-17383, duration 2.0 s).
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 2000u);
 
-	// --- REGRESSION ASSERTION ---
-	// profileChanged MUST be cleared even when WaitForFreeFragmentAvailable
-	// fails.  If it is not, every subsequent media OnFragmentDownloadComplete
-	// callback will see profileChanged=true and re-invoke
-	// FetchAndInjectInitialization → ring buffer still full → silent skip →
-	// infinite loop → decoder never receives init segment → no TUNED event.
-	//
-	// Without the fix: FAILS  (profileChanged stays true)
-	// With the fix:    PASSES (profileChanged is false)
-	EXPECT_FALSE(videoTrack->profileChanged)
-		<< "profileChanged must be cleared when WaitForFreeFragmentAvailable(0) "
-		   "returns false on the SegmentBase path, otherwise FetchAndInjectInitialization "
-		   "is re-triggered by every subsequent media OnFragmentDownloadComplete callback, "
-		   "creating an infinite silent-skip loop and preventing AAMP_EVENT_TUNED from firing.";
+	// Second push: reference 1 (bytes 17384-29671, duration 2.0 s).
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));
+	EXPECT_EQ(ctx->fragmentDescriptor.Time, 4000u);
+}
+
+/**
+ * @brief VPAAMP-444 Fix 2: SkipFragments resets stale fragmentTime before forward seek.
+ *
+ * After a rate change, UpdateTrackInfo resets fragmentIndex to 0 but leaves
+ * fragmentTime at the current playback position.  SeekInPeriod then calls
+ * SkipFragments with skipTime equal to the absolute seek target.  Without the
+ * fix, fragmentTime starts at the stale position (2.0 s) and the 2.0 s skip
+ * advances it to 4.0 s (overshoot).  The fix resets local fragmentTime to the
+ * presentation-time offset (0 s) so skipTime is always treated as an absolute
+ * distance from the period start.
+ *
+ * Oracle:
+ *   fragmentIndex == 1, fragmentTime ~= 2.0 s.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_ForwardSeek_ResetsStaleFragmentTime)
+{
+	// LoadIDX is called during Init (SeekInPeriod lazily loads the IDX).
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaStreamContext *ctx = static_cast<MediaStreamContext *>(
+		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	ASSERT_NE(ctx, nullptr);
+
+	// Simulate UpdateTrackInfo resetting fragmentIndex to 0 while leaving
+	// fragmentTime at the stale playback position of 2.0 s (e.g. after a
+	// rate change within the same period).
+	ctx->fragmentIndex = 0;
+	ctx->fragmentTime  = 2.0;
+
+	// SkipFragments with the seek target (2.0 s from period start).
+	// With the fix: local fragmentTime is reset to PTO (0), so the skip lands
+	// correctly at 2.0 s.  Without the fix: it would advance to 4.0 s.
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 2.0);
+
+	EXPECT_EQ(ctx->fragmentIndex, 1);
+	EXPECT_NEAR(ctx->fragmentTime, 2.0, 0.001);
+}
+
+/**
+ * @brief VPAAMP-444 Fix 3: SkipFragments backs off to the correct fragment after rewind.
+ *
+ * The SIDX walk exits as soon as fragmentTime >= targetTime, meaning
+ * fragmentIndex already points one entry past the fragment that contains the
+ * target time.  The fix adds a back-off step:
+ *   if (fragmentTime > targetTime && fragmentIndex > 0) {
+ *       fragmentIndex--;
+ *       fragmentTime -= lastFragmentDuration;
+ *       fragmentOffset -= lastReferencedSize;
+ *   }
+ *
+ * Scenario: stream at end (fragmentIndex=2, fragmentTime=4.0 s), rewind by
+ * 3 s → targetTime = 1.0 s, inside ref[0] (spans 0–2 s).  Without the fix
+ * the walk stops at fragmentIndex=1 (overshoot).  With the fix the back-off
+ * step corrects to fragmentIndex=0 (fragmentTime=0.0 s).
+ *
+ * Oracle:
+ *   fragmentIndex == 0, fragmentTime ~= 0.0 s.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_Rewind_BacksOffToCorrectFragment)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaStreamContext *ctx = static_cast<MediaStreamContext *>(
+		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	ASSERT_NE(ctx, nullptr);
+
+	// IDX was lazily loaded during InitializeMPD (via SeekInPeriod(0)).
+	// Manually place the context at the logical end-of-stream position:
+	//   fragmentIndex=2 (past both refs), fragmentTime=4.0 s (total stream
+	//   duration), fragmentOffset=29672 (1000 + 16384 + 12288).
+	// This avoids relying on PushNextFragment's double fragmentTime increment
+	// (once in FetchFragment, once in the SegmentBase PushNextFragment path).
+	ctx->fragmentIndex  = 2;
+	ctx->fragmentTime   = 4.0;
+	ctx->fragmentOffset = 29672;
+
+	// Rewind 3 s → targetTime = 1.0 s, inside ref[0] (spans 0–2 s).
+	// Walk overshoots to fragmentTime=2.0; back-off must correct to 0.0.
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, -3.0);
+
+	EXPECT_EQ(ctx->fragmentIndex, 0);
+	EXPECT_NEAR(ctx->fragmentTime, 0.0, 0.001);
+}
+
+/**
+ * @brief SkipFragments uses FLOATING_POINT_EPSILON for boundary check.
+ *
+ * The forward-skip loop condition was `skipTime >= fragmentDuration`, which
+ * rejects values that are just below fragmentDuration due to floating-point
+ * rounding.  The fix changes it to:
+ *   skipTime >= fragmentDuration - FLOATING_POINT_EPSILON   (EPSILON = 0.1)
+ *
+ * Scenario: skipTime = 1.95 s, fragmentDuration = 2.0 s.
+ *   1.95 <  2.0       → old condition false → would stay at fragmentIndex=0.
+ *   1.95 >= 2.0 - 0.1 → new condition true  → advances to fragmentIndex=1.
+ *
+ * Oracle:
+ *   fragmentIndex == 1, fragmentTime ~= 2.0 s.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_FloatingPointEpsilon_CrossesFragmentBoundary)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t>& idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	MediaStreamContext *ctx = static_cast<MediaStreamContext *>(
+		mTestableStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
+	ASSERT_NE(ctx, nullptr);
+
+	// Ensure we start at the beginning of the stream.
+	ctx->fragmentIndex = 0;
+	ctx->fragmentTime  = 0.0;
+
+	// skipTime = 1.95 s: below 2.0 s but within FLOATING_POINT_EPSILON (0.1).
+	// Without the fix SkipFragments would leave fragmentIndex at 0.
+	mTestableStreamAbstractionAAMP_MPD->SkipFragments(ctx, 1.95);
+
+	EXPECT_EQ(ctx->fragmentIndex, 1);
+	EXPECT_NEAR(ctx->fragmentTime, 2.0, 0.001);
 }
