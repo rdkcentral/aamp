@@ -81,6 +81,15 @@ protected:
 		// in this fixture pass without needing per-test EXPECT_CALL boilerplate.
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetBufferedDurationSecs())
 			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
+		// IsFragmentCacheFull() delegates to the mock after the fake was updated to
+		// support TSB-aware testing.  Default to false so all pre-existing tests
+		// are unaffected; individual tests can override this expectation.
+		EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull())
+			.WillRepeatedly(Return(false));
+		// WaitForFreeFragmentAvailable() delegates to the mock.  Default to true so
+		// the ring-buffer wait resolves immediately in tests that do not override it.
+		EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_))
+			.WillRepeatedly(Return(true));
 		mTsbSessionMgr = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
 		mMockTSBSessionMgr = std::make_unique<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
 		g_mockTSBSessionManager = std::shared_ptr<MockTSBSessionManager>(mMockTSBSessionMgr.get(), [](MockTSBSessionManager*){});
@@ -914,4 +923,78 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 
 	// --- Cleanup ---
 	g_notifyVideoFragmentSideEffect = nullptr;
+}
+
+/**
+ * @brief Regression microtest — VPAAMP-615
+ *
+ * Fix: The IsFragmentCacheFull() guard in DownloadFragment was not TSB-aware.
+ * When the local AAMP TSB is active the live fetcher writes segments directly
+ * to the TSB write queue (EnqueueWrite) and does NOT need a free slot in the
+ * GStreamer inject ring buffer.
+ *
+ * The fix adds !aamp->IsLocalAAMPTsbInjection() to the guard:
+ *   if (IsFragmentCacheFull() && !aamp->IsLocalAAMPTsbInjection())
+ *
+ * This test verifies that WaitForFreeFragmentAvailable() is NEVER called when
+ * the ring buffer is full but TSB injection is active.  It acts as a
+ * regression gate: the Times(0) assertion fails if the fix is reverted.
+ *
+ * Scenario reproduced:
+ *  1. Ring buffer is full  (IsFragmentCacheFull() == true).
+ *  2. The track is in TSB-write mode (IsLocalTSBInjection() == true).
+ *  3. The pipeline is paused — the inject thread is blocked, so the ring
+ *     buffer stays permanently full.
+ *  4. DownloadsAreEnabled() returns true throughout.
+ *
+ * With the fix the IsFragmentCacheFull() block is bypassed entirely, so
+ * WaitForFreeFragmentAvailable() is never called and CacheFragment proceeds.
+ * Without the fix IsFragmentCacheFull() == true causes the while loop to be
+ * entered, WaitForFreeFragmentAvailable() is called once, and Times(0) fails.
+ */
+TEST_F(FragmentDownloadTests, DownloadFragment_CacheFullDuringTSBInjection_DoesNotBlock)
+{
+	// (1) Ring buffer full — override the fixture default (false).
+	EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull())
+		.WillRepeatedly(Return(true));
+
+	// (2) TSB-write mode active.
+	EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection())
+		.WillRepeatedly(Return(true));
+
+	// (3) Pipeline paused — inject thread blocked, ring buffer stays full.
+	mPrivateInstanceAAMP->mSinkPaused.store(true);
+
+	// (4) Fix: IsLocalAAMPTsbInjection() returns true so the guard evaluates
+	//     IsFragmentCacheFull() && !true == false and the wait block is skipped.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(true));
+
+	// (5) Downloads remain enabled throughout — necessary so that
+	//     WaitForFreeFragmentAvailable() WOULD be reached inside the while loop
+	//     if the fix were absent.  Without it, short-circuit evaluation would
+	//     prevent the call even in the buggy path, making Times(0) vacuous.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+
+	// (6) KEY assertion: the ring-buffer wait must never fire during TSB
+	//     injection.  With the fix this expectation is satisfied because the
+	//     block is skipped.  Without the fix the loop is entered and
+	//     WaitForFreeFragmentAvailable() is called once — violating Times(0).
+	EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_))
+		.Times(0);
+
+	// (7) With the fix, DownloadsEnabled() is true when the final
+	//     if (DownloadsEnabled()) check runs, so CacheFragment is called.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+				GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.m4s";
+	dlInfo->url            = "http://example.com/segment.m4s";
+	dlInfo->isInitSegment  = false;
+
+	const bool result = mMediaStreamContext->DownloadFragment(dlInfo);
+	EXPECT_TRUE(result);
 }
