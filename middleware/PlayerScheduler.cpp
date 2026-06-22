@@ -173,23 +173,38 @@ void PlayerScheduler::RemoveAllTasks()
 void PlayerScheduler::StopScheduler()
 {
 	MW_LOG_WARN("Stopping Async Worker Thread");
+	const bool calledFromSchedulerThread =
+		(mSchedulerThread.joinable() && (std::this_thread::get_id() == mSchedulerThread.get_id()));
+	bool suspendedHere = false;
+
+	if (calledFromSchedulerThread)
+	{
+		MW_LOG_WARN("StopScheduler invoked from scheduler thread; skipping SuspendScheduler and join to avoid self-deadlock");
+	}
+
 	// Clean up things in queue
 	mSchedulerRunning = false;
 
 	//allow StopScheduler() to be called without warning from a nonsuspended state and
 	//not cause an error in ResumeScheduler() below due to trying to unlock an unlocked lock
-	if(!mLockOut)
+	if(!calledFromSchedulerThread && !mLockOut)
 	{
 		SuspendScheduler();
+		suspendedHere = true;
 	}
 
 	RemoveAllTasks();
 
 	//prevent possible deadlock where mSchedulerThread is waiting for mExLock/mExMutex
-	ResumeScheduler();
+	if (suspendedHere)
+	{
+		ResumeScheduler();
+	}
 	mQCond.notify_one();
-    if (mSchedulerThread.joinable())
-        mSchedulerThread.join();
+	if (mSchedulerThread.joinable() && !calledFromSchedulerThread)
+	{
+		mSchedulerThread.join();
+	}
 }
 
 /**

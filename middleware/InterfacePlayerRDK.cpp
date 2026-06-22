@@ -740,7 +740,9 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::idleCb);
 		pInterfacePlayerRDK->IdleTaskClearFlags(pInterfacePlayerRDK->gstPrivateContext->firstProgressCallbackIdleTask);
 
-		if ( !(pInterfacePlayerRDK->TimerIsRunning( pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId)) && (pInterfacePlayerRDK->callbackMap[InterfaceCB::progressCb] != nullptr) )
+		auto progressCbIt = pInterfacePlayerRDK->callbackMap.find(InterfaceCB::progressCb);
+		const bool hasProgressCb = (progressCbIt != pInterfacePlayerRDK->callbackMap.end()) && (progressCbIt->second != nullptr);
+		if ( !(pInterfacePlayerRDK->TimerIsRunning( pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId)) && hasProgressCb )
 		{
 			double  reportProgressInterval = pInterfacePlayerRDK->m_gstConfigParam->progressTimer;
 			reportProgressInterval *= 1000; //convert s to ms
@@ -3834,14 +3836,19 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 void InterfacePlayerRDK::TriggerEvent(InterfaceCB event)
 {
 	auto it = callbackMap.find(event);
-	if ((it != callbackMap.end()) && it->second)
+	if (it == callbackMap.end())
 	{
-		it->second();
+		MW_LOG_ERR("Unknown event %d - callback key not registered", static_cast<int>(event));
+		return;
 	}
-	else
+
+	if (!it->second)
 	{
-		MW_LOG_ERR("Unknown event - No callback registered!");
+		MW_LOG_TRACE("Event %d callback intentionally unset; skipping invocation", static_cast<int>(event));
+		return;
 	}
+
+	it->second();
 }
 void InterfacePlayerRDK::TriggerEvent(InterfaceCB event, int data)
 {
