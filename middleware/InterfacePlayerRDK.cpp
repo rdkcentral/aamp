@@ -512,6 +512,18 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			}
 			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 		}
+		else if (pipelineRc == GST_STATE_CHANGE_ASYNC)
+		{
+			/* Normal new-tune or fresh-start path: pipeline is transitioning
+			 * to PAUSED asynchronously. Clear paused so the buffering_timeout
+			 * (armed via ASYNC_DONE in bus_sync_handler) can drive to PLAYING.
+			 */
+			if (!interfacePlayerPriv->gstPrivateContext->seekPausedState)
+			{
+				interfacePlayerPriv->gstPrivateContext->paused = false;
+			}
+			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+		}
 	}
 	else
 	{
