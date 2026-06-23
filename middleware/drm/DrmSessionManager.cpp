@@ -365,7 +365,9 @@ bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &
 int DrmSessionManager::getSlotIdForSession(IDrmSession* session)
 {
 	int slot = -1;
+	MW_LOG_WARN("getSlotIdForSession: attempting to acquire mDrmSessionLock session=%p", (void*)session);
 	std::lock_guard<std::mutex> guard(mDrmSessionLock);
+	MW_LOG_WARN("getSlotIdForSession: mDrmSessionLock acquired");
 
 	if (drmSessionContexts != NULL)
 	{
@@ -451,8 +453,11 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 		return nullptr;
 	}
 
+	MW_LOG_WARN("createDrmSession: attempting to acquire mDrmSessionLock streamType=%d keySystem=%s",
+			streamType, drmHelper->ocdmSystemId().c_str());
 	// protect createDrmSession multi-thread calls; found during PR 4.0 DRM testing
 	std::lock_guard<std::mutex> guard(mDrmSessionLock);
+	MW_LOG_WARN("createDrmSession: mDrmSessionLock acquired streamType=%d", streamType);
 
 	int cdmError = -1;
 	KeyState code = KEY_ERROR;
@@ -482,7 +487,9 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 	std::vector<uint8_t> keyId;
 	drmHelper->getKey(keyId);
 	/* callback to initiate content protection data update */
+	MW_LOG_WARN("createDrmSession: calling ContentUpdateCb streamType=%d isContentProcess=%d", streamType, isContentProcess);
 	mCustomData = ContentUpdateCb(drmHelper, streamType, keyId, isContentProcess);
+	MW_LOG_WARN("createDrmSession: ContentUpdateCb returned");
 	if (code == KEY_READY)
 	{
 		return drmSessionContexts[selectedSlot].drmSession;
@@ -493,7 +500,9 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 		MW_LOG_WARN(" Unable to get IDrmSession : Key State %d ", code);
 		return nullptr;
 	}
+	MW_LOG_WARN("createDrmSession: calling initializeDrmSession slot=%d", selectedSlot);
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);
+	MW_LOG_WARN("createDrmSession: initializeDrmSession returned code=%d err=%d", code, err);
 	if (code != KEY_INIT)
 	{
 		MW_LOG_WARN(" Unable to initialize IDrmSession : Key State %d, err code: %d", code, err);
@@ -524,7 +533,9 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 			cachedKeyIDs[selectedSlot].isFailedKeyEntries = true;
 		return nullptr;
 	}
+	MW_LOG_WARN("createDrmSession: calling AcquireLicenseCb slot=%d streamType=%d", selectedSlot, streamType);
 	code = AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+	MW_LOG_WARN("createDrmSession: AcquireLicenseCb returned code=%d responseCode=%d", code, responseCode);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status IDrmSession : Key State %d ", code);
