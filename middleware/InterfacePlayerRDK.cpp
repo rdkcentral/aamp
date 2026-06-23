@@ -526,15 +526,29 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		}
 	}
 	else
-	{
-		MW_LOG_INFO("Setting state to GST_STATE_PLAYING");
-		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
+ 	{
+ 		MW_LOG_INFO("Setting state to GST_STATE_PLAYING");
+		if (interfacePlayerPriv->gstPrivateContext->seekPausedState)
 		{
-			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
+			MW_LOG_WARN("seekPausedState active - deferring transition to PLAYING, marking pendingPlayState");
+			interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
+			interfacePlayerPriv->gstPrivateContext->pendingPlayState = true;
+			if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
+			{
+				MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PAUSED failed while deferring PLAYING");
+			}
+			interfacePlayerPriv->gstPrivateContext->paused = true;
 		}
-		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
-		interfacePlayerPriv->gstPrivateContext->paused = false;
-	}
+		else
+ 		{
+			if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
+			{
+				MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
+			}
+			interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
+			interfacePlayerPriv->gstPrivateContext->paused = false;
+ 		}
+ 	}
 	interfacePlayerPriv->gstPrivateContext->eosSignalled = false;
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorMsgTimeMS = 0;
@@ -4566,7 +4580,16 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			if(eGST_MEDIAFORMAT_DASH != static_cast<GstMediaFormat>(pInterfacePlayerRDK->m_gstConfigParam->media))
 			{
 				SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PAUSED);
-				SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PLAYING);
+				if (!privatePlayer->gstPrivateContext->seekPausedState)
+				{
+					SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PLAYING);
+				}
+				else
+				{
+					MW_LOG_WARN("GST_MESSAGE_CLOCK_LOST: seekPausedState active - skipping PLAYING");
+					privatePlayer->gstPrivateContext->pendingPlayState = true;
+					privatePlayer->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
+				}
 			}
 			break;
 
@@ -4752,6 +4775,13 @@ static gboolean buffering_timeout (gpointer data)
 			}
 			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || privatePlayer->gstPrivateContext->buffering_timeout_cnt-- == 0)
 			{
+				if (privatePlayer->gstPrivateContext->seekPausedState)
+				{
+					MW_LOG_WARN("buffering_timeout: skipping PLAYING — seekPausedState active");
+					privatePlayer->gstPrivateContext->buffering_in_progress = false;
+					return false;
+				}
+
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
 				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
 				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
@@ -5146,6 +5176,13 @@ void InterfacePlayerRDK::NotifyFragmentCachingComplete()
 {
 	if(interfacePlayerPriv->gstPrivateContext->pendingPlayState)
 	{
+		if (interfacePlayerPriv->gstPrivateContext->seekPausedState)
+		{
+			MW_LOG_WARN("NotifyFragmentCachingComplete: seekPausedState active - deferring PLAYING");
+			interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
+			return;
+		}
+
 		MW_LOG_MIL("InterfacePlayer: Setting pipeline to PLAYING state ");
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
 		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
