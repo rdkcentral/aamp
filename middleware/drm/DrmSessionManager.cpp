@@ -457,8 +457,12 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 
 	MW_LOG_WARN("createDrmSession: attempting to acquire mDrmSessionLock streamType=%d keySystem=%s",
 			streamType, drmHelper->ocdmSystemId().c_str());
-	// protect createDrmSession multi-thread calls; found during PR 4.0 DRM testing
-	std::lock_guard<std::mutex> guard(mDrmSessionLock);
+	// Protect slot selection and session pointer assignment.
+	// Released before blocking Rialto IPC (initializeDrmSession) and network
+	// I/O (AcquireLicenseCb) to prevent deadlock: the Rialto event thread
+	// calls getSlotIdForSession() which also acquires mDrmSessionLock, so
+	// holding it across blocking IPC causes a circular wait.
+	std::unique_lock<std::mutex> guard(mDrmSessionLock);
 	MW_LOG_WARN("createDrmSession: mDrmSessionLock acquired streamType=%d this=%p lock=%p",
 			streamType, (void*)this, (void*)&mDrmSessionLock);
 
@@ -508,6 +512,12 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 		return nullptr;
 	}
 	MW_LOG_WARN("createDrmSession: calling initializeDrmSession slot=%d", selectedSlot);
+	// Release mDrmSessionLock before blocking Rialto IPC. The per-slot
+	// sessionMutex (acquired inside initializeDrmSession) prevents concurrent
+	// reuse of this slot. The Rialto event thread is now free to call
+	// getSlotIdForSession() without deadlocking.
+	guard.unlock();
+	MW_LOG_WARN("createDrmSession: mDrmSessionLock released before initializeDrmSession");
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);
 	MW_LOG_WARN("createDrmSession: initializeDrmSession returned code=%d err=%d", code, err);
 	if (code != KEY_INIT)
