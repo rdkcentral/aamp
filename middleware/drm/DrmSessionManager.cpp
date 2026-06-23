@@ -914,7 +914,9 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	{
 		MW_LOG_INFO("Created new IDrmSession for DrmSystemId %s", systemId.c_str());
 		drmSessionContexts[sessionSlot].data = keyIdArray;
+		MW_LOG_WARN("getDrmSession: calling getState slot=%d", sessionSlot);
 		code = drmSessionContexts[sessionSlot].drmSession->getState();
+		MW_LOG_WARN("getDrmSession: getState returned code=%d", code);
 		// exception : by default for all types of drm , outputprotection is not handled in player
 		// for playready , its configured within player
 		if (systemId == PLAYREADY_KEY_SYSTEM_STRING && m_drmConfigParam->mEnablePROutputProtection)
@@ -922,7 +924,9 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			drmSessionContexts[sessionSlot].drmSession->setOutputProtection(true);
 			drmHelper->setOutputProtectionFlag(true);
 		}
+		MW_LOG_WARN("getDrmSession: calling setKeyId slot=%d", sessionSlot);
 		drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
+		MW_LOG_WARN("getDrmSession: setKeyId returned, about to release sessionMutex slot=%d", sessionSlot);
 	}
 	else
 	{
@@ -930,6 +934,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 		err = MW_DRM_INIT_FAILED ;
 	}
 
+	MW_LOG_WARN("getDrmSession: returning code=%d slot=%d (releasing sessionMutex)", code, sessionSlot);
 	return code;
 }
 
