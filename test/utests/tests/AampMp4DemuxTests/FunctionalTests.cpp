@@ -61,7 +61,7 @@ protected:
 		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
 
 		// Create the demuxer instance with mocked AAMP
-		mDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_VIDEO, true);
+		mDemuxer = new AampMp4Demuxer(mPrivateInstanceAAMP, eMEDIATYPE_VIDEO, false);
 	}
 
 	void TearDown() override

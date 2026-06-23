@@ -250,10 +250,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				{
 					// Trickmode: the demuxer yields exactly one sample — the iframe.
 					auto& iframe = samples.front();
-					if (mEnablePtsRestamp)
-					{
-						TrickmodePtsRestamp(iframe, duration, discontinuous);
-					}
+					TrickmodePtsRestamp(iframe, duration, discontinuous);
 					mAamp->SendStreamTransfer(mMediaType, std::move(iframe));
 				}
 				else
