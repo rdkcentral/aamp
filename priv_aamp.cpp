@@ -2402,6 +2402,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		long latency = 0;
+		long hlsPdtLatencyMs = -1;
+		long hlsEdgeLatencyMs = -1;
 		bool reachedStart = false;
 
 
@@ -2498,11 +2500,33 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 			else
 			{
-				// For HLS Live, calculate latency based on live edge; round to nearest ms
-				latency = static_cast<long>(std::lround(end - reportFormattedCurrPos));
-				if(latency < 0)
-				{ // this should never happen!
-					AAMPLOG_ERR("HLS negative live latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+				bool pdtBasedLatencyCalculated = false;
+				hlsEdgeLatencyMs =
+					static_cast<long>(std::lround(end - reportFormattedCurrPos));
+				if (mProgramDateTime > 0.0)
+				{
+					// Convert current playback position to absolute UTC using the playlist
+					// start PDT, then derive live latency from current wall-clock time.
+					const double playbackUtcMs = (mProgramDateTime * 1000.0) +
+						(reportFormattedCurrPos - start);
+					hlsPdtLatencyMs = static_cast<long>(std::llround(
+						aamp_GetCurrentTimeMS() - playbackUtcMs));
+					latency = hlsPdtLatencyMs;
+					pdtBasedLatencyCalculated = true;
+					if (latency < 0)
+					{
+						AAMPLOG_ERR("HLS negative live latency (PDT) = %ldms, mProgramDateTime = %lf, reportFormattedCurrPos = %lfms, start = %lfms", latency, mProgramDateTime, reportFormattedCurrPos, start);
+					}
+				}
+
+				if (!pdtBasedLatencyCalculated)
+				{
+					// Fallback: calculate HLS live latency based on live edge.
+					latency = hlsEdgeLatencyMs;
+					if(latency < 0)
+					{ // this should never happen!
+						AAMPLOG_ERR("HLS negative live latency = %ldms, end = %lfms, reportFormattedCurrPos = %lfms", latency, end, reportFormattedCurrPos);
+					}
 				}
 			}
 			SetCurrentLatencyMs(latency);
@@ -2591,7 +2615,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
+					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormattedCurrPos / 1000),
 						(long)(end / 1000),
@@ -2599,6 +2623,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						(double)(videoBufferedDuration / 1000.0),
 						(double)(audioBufferedDuration /1000.0),
 						(double)(latency / 1000.0),
+						(double)(hlsPdtLatencyMs / 1000.0),
+						(double)(hlsEdgeLatencyMs / 1000.0),
 						seiTimecode.c_str(),
 						bps,
 						networkBandwidth,
