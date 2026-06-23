@@ -895,7 +895,8 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	auto buf = std::make_shared<std::vector<uint8_t>>(
 		std::vector<uint8_t>{0xFF});
 
-	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf));
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		0.0, 0.0, 0.0, 0.0);
 
 	EXPECT_FALSE(result);
 }
@@ -921,7 +922,8 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	auto buf = std::make_shared<std::vector<uint8_t>>(
 		std::vector<uint8_t>{0x01, 0x02});
 
-	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf));
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		0.0, 0.0, 0.0, 0.0);
 
 	EXPECT_TRUE(result);
 }
@@ -974,7 +976,8 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	auto buf = std::make_shared<std::vector<uint8_t>>(
 		std::vector<uint8_t>{0xAB, 0xCD});
 
-	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf));
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		0.0, 0.0, 0.0, 0.0);
 
 	EXPECT_TRUE(result);
 }

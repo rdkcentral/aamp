@@ -21,12 +21,6 @@ set(UTESTS_ROOT "../../")
 
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-# Rialto public headers
-include_directories(${AAMP_ROOT}/.libs/include/rialto)
-
-# direct-rialto component headers
-include_directories(${AAMP_ROOT}/direct-rialto)
-
 set(TEST_SOURCES
 	AampRialtoSubtitleSourceTests.cpp
 	AampRialtoSubtitleSourceTestCases.cpp
@@ -59,3 +53,7 @@ target_link_libraries(${EXEC_NAME}
 	${GMOCK_LINK_LIBRARIES}
 	${GTEST_LINK_LIBRARIES}
 )
+
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
+aamp_utest_run_add(${EXEC_NAME})

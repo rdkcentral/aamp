@@ -177,3 +177,9 @@ void AampRialtoMediaPipelineClient::notifyPlaybackInfo(
 	AAMPLOG_INFO("ENTRY");
 	AAMPLOG_INFO("EXIT");
 }
+
+void AampRialtoMediaPipelineClient::notifyFirstFrameReceived(int32_t sourceId)
+{
+	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
+	AAMPLOG_INFO("EXIT");
+}

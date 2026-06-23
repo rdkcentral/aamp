@@ -51,6 +51,7 @@ include_directories(${AAMP_ROOT}/middleware
                     ${AAMP_ROOT}/middleware/subtec/libsubtec
                     ${AAMP_ROOT}/middleware/playerjsonobject
                     ${AAMP_ROOT}/middleware/closedcaptions
+                    ${AAMP_ROOT}/middleware/closedcaptions/direct-rialto
                     ${AAMP_ROOT}/middleware/drm
                     ${AAMP_ROOT}/middleware/externals
                     ${AAMP_ROOT}/middleware/externals/contentsecuritymanager
