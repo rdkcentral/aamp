@@ -55,13 +55,14 @@ RialtoMediaKeySessionAdapter::RialtoMediaKeySessionAdapter(
 	, m_keyStatusReceived(false)
 	, m_timeBeforeCallback(0)
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter: created for keySystem=%s",
-	            m_keySystem.c_str());
+	MW_LOG_INFO("RialtoMediaKeySessionAdapter: created for keySystem=%s this=%p",
+	            m_keySystem.c_str(), (void*)this);
 }
 
 RialtoMediaKeySessionAdapter::~RialtoMediaKeySessionAdapter()
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter: destructor keySystem=%s", m_keySystem.c_str());
+	MW_LOG_WARN("RialtoMediaKeySessionAdapter: destroying this=%p keySystem=%s",
+	            (void*)this, m_keySystem.c_str());
 	clearDecryptContext();
 }
 
@@ -70,7 +71,8 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 	uint32_t f_cbInitData,
 	std::string& customData)
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession initDataSize=%u", f_cbInitData);
+	MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession this=%p system=%p initDataSize=%u",
+	            (void*)this, (void*)m_system.get(), f_cbInitData);
 
 	std::lock_guard<std::mutex> guard(m_mutex);
 
@@ -154,7 +156,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 
 	callbacks.onLicenseRenewal = [this](const uint8_t* /*message*/, size_t /*size*/)
 	{
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onLicenseRenewal");
+		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onLicenseRenewal this=%p", (void*)this);
 		if (m_drmCallbacks)
 		{
 			m_drmCallbacks->LicenseRenewal(m_drmHelper, static_cast<IDrmSession*>(this));
@@ -354,7 +356,8 @@ bool RialtoMediaKeySessionAdapter::waitForState(KeyState state, const uint32_t t
 
 void RialtoMediaKeySessionAdapter::clearDecryptContext()
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter::clearDecryptContext");
+	MW_LOG_WARN("RialtoMediaKeySessionAdapter::clearDecryptContext this=%p session=%p",
+	            (void*)this, (void*)m_session.get());
 
 	std::lock_guard<std::mutex> guard(m_mutex);
 

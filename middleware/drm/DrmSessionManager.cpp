@@ -29,6 +29,7 @@
 #include <iostream>
 #include "DrmHelper.h"
 #include <inttypes.h>
+#include <unistd.h>
 #include "PlayerUtils.h"
 #include "ContentSecurityManager.h"
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
@@ -373,6 +374,8 @@ int DrmSessionManager::getSlotIdForSession(IDrmSession* session)
 	{
 		for (int i = 0; i < mMaxDRMSessions; i++)
 		{
+			MW_LOG_WARN("getSlotIdForSession: slot=%d slotSession=%p target=%p",
+				i, (void*)drmSessionContexts[i].drmSession, (void*)session);
 			if (drmSessionContexts[i].drmSession == session)
 			{
 				MW_LOG_INFO("DRM Session found at slot:%d", i);
@@ -457,7 +460,8 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 			streamType, drmHelper->ocdmSystemId().c_str());
 	// protect createDrmSession multi-thread calls; found during PR 4.0 DRM testing
 	std::lock_guard<std::mutex> guard(mDrmSessionLock);
-	MW_LOG_WARN("createDrmSession: mDrmSessionLock acquired streamType=%d", streamType);
+	MW_LOG_WARN("createDrmSession: mDrmSessionLock acquired streamType=%d this=%p lock=%p",
+			streamType, (void*)this, (void*)&mDrmSessionLock);
 
 	int cdmError = -1;
 	KeyState code = KEY_ERROR;
@@ -476,6 +480,10 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 	 * Create drm session without primaryKeyId markup OR retrieve old DRM session.
 	 */
 	code = getDrmSession(err, drmHelper, selectedSlot,  Instance);
+	MW_LOG_WARN("createDrmSession: getDrmSession returned code=%d slot=%d session=%p",
+		(int)code, selectedSlot,
+		(selectedSlot >= 0 && selectedSlot < mMaxDRMSessions)
+			? (void*)drmSessionContexts[selectedSlot].drmSession : nullptr);
 	/**
 	 * KEY_READY code indicates that a previously created session is being reused.
 	 */
@@ -910,6 +918,8 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	{
 		drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance);
 	}
+	MW_LOG_WARN("getDrmSession: session created drmSession=%p slot=%d this=%p",
+		(void*)drmSessionContexts[sessionSlot].drmSession, sessionSlot, (void*)this);
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
 		MW_LOG_INFO("Created new IDrmSession for DrmSystemId %s", systemId.c_str());
@@ -924,9 +934,19 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			drmSessionContexts[sessionSlot].drmSession->setOutputProtection(true);
 			drmHelper->setOutputProtectionFlag(true);
 		}
-		MW_LOG_WARN("getDrmSession: calling setKeyId slot=%d", sessionSlot);
+		MW_LOG_WARN("getDrmSession: calling setKeyId drmSession=%p slot=%d",
+			(void*)drmSessionContexts[sessionSlot].drmSession, sessionSlot);
 		drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
-		MW_LOG_WARN("getDrmSession: setKeyId returned, about to release sessionMutex slot=%d", sessionSlot);
+		{
+			char diagbuf[128];
+			int n = snprintf(diagbuf, sizeof(diagbuf),
+				"AAMP-DIAG setKeyId-done slot=%d session=%p\n",
+				sessionSlot,
+				(void*)drmSessionContexts[sessionSlot].drmSession);
+			(void)::write(STDERR_FILENO, diagbuf, (size_t)n);
+		}
+		MW_LOG_WARN("getDrmSession: setKeyId returned slot=%d drmSession=%p",
+			sessionSlot, (void*)drmSessionContexts[sessionSlot].drmSession);
 	}
 	else
 	{
