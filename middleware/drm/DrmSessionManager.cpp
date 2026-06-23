@@ -29,7 +29,6 @@
 #include <iostream>
 #include "DrmHelper.h"
 #include <inttypes.h>
-#include <unistd.h>
 #include "PlayerUtils.h"
 #include "ContentSecurityManager.h"
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
@@ -937,14 +936,6 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 		MW_LOG_WARN("getDrmSession: calling setKeyId drmSession=%p slot=%d",
 			(void*)drmSessionContexts[sessionSlot].drmSession, sessionSlot);
 		drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
-		{
-			char diagbuf[128];
-			int n = snprintf(diagbuf, sizeof(diagbuf),
-				"AAMP-DIAG setKeyId-done slot=%d session=%p\n",
-				sessionSlot,
-				(void*)drmSessionContexts[sessionSlot].drmSession);
-			(void)::write(STDERR_FILENO, diagbuf, (size_t)n);
-		}
 		MW_LOG_WARN("getDrmSession: setKeyId returned slot=%d drmSession=%p",
 			sessionSlot, (void*)drmSessionContexts[sessionSlot].drmSession);
 	}

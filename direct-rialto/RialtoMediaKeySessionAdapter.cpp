@@ -354,6 +354,17 @@ bool RialtoMediaKeySessionAdapter::waitForState(KeyState state, const uint32_t t
 	return waitResult;
 }
 
+void RialtoMediaKeySessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
+{
+	MW_LOG_WARN("RialtoMediaKeySessionAdapter::setKeyId this=%p keySize=%zu",
+	            (void*)this, keyId.size());
+	// Base class implementation is a no-op; this override exists to confirm
+	// virtual dispatch reaches this point during deadlock diagnosis.
+	(void)keyId;
+	MW_LOG_WARN("RialtoMediaKeySessionAdapter::setKeyId returning this=%p",
+	            (void*)this);
+}
+
 void RialtoMediaKeySessionAdapter::clearDecryptContext()
 {
 	MW_LOG_WARN("RialtoMediaKeySessionAdapter::clearDecryptContext this=%p session=%p",
