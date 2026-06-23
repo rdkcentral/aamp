@@ -1017,7 +1017,6 @@ TEST_F(FragmentDownloadTests, DownloadFragment_SegmentBase_ABRSwitch_UsesIdxBase
 		   "which landed inside the moov/SIDX prefix and produced "
 		   "duration=0, PTS=0, breaking L2 test_8003_0 PTS restamp checks.";
 
-	// Also verify the duration was populated correctly (2000 ticks / 1000 Hz = 2.0s).
-	EXPECT_FLOAT_EQ(dlInfo->fragmentDurationSec, 2.0f)
+	EXPECT_DOUBLE_EQ(dlInfo->fragmentDurationSec, 2.0)
 		<< "fragmentDurationSec must be set from the SIDX reference duration.";
 }
