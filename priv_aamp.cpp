@@ -2511,11 +2511,14 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						(reportFormattedCurrPos - start);
 					hlsPdtLatencyMs = static_cast<long>(std::llround(
 						aamp_GetCurrentTimeMS() - playbackUtcMs));
-					latency = hlsPdtLatencyMs;
-					pdtBasedLatencyCalculated = true;
-					if (latency < 0)
+					if (hlsPdtLatencyMs >= 0)
 					{
-						AAMPLOG_ERR("HLS negative live latency (PDT) = %ldms, mProgramDateTime = %lf, reportFormattedCurrPos = %lfms, start = %lfms", latency, mProgramDateTime, reportFormattedCurrPos, start);
+						latency = hlsPdtLatencyMs;
+						pdtBasedLatencyCalculated = true;
+					}
+					else
+					{
+						AAMPLOG_ERR("HLS negative live latency (PDT) = %ldms, mProgramDateTime = %lf, reportFormattedCurrPos = %lfms, start = %lfms", hlsPdtLatencyMs, mProgramDateTime, reportFormattedCurrPos, start);
 					}
 				}
 
