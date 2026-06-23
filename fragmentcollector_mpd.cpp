@@ -11022,6 +11022,18 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 				subtitleOutputFormat = FORMAT_INVALID;
 			}
 		}
+
+		// XSTLP-999: For non-Rialto path, if subtitle track is not enabled (manifest has
+		// "No valid adaptation set found for Media[text]"), do not report a valid subtitle
+		// format. The PTS restamp hack above may set FORMAT_SUBTITLE_MP4 preemptively, but
+		// on non-Rialto this causes subtecbin creation with no data to preroll, blocking
+		// the pipeline indefinitely. Subtitle sink will be created on-demand if subtitles
+		// are enabled mid-playback via a subsequent ConfigurePipeline call.
+		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && !ISCONFIGSET(eAAMPConfig_useRialtoSink))
+		{
+			AAMPLOG_MIL("Subtitle track not enabled (non-Rialto), setting subtitleOutputFormat to FORMAT_INVALID");
+			subtitleOutputFormat = FORMAT_INVALID;
+		}
 	}
 	else
 	{

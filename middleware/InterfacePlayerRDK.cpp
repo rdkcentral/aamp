@@ -4682,6 +4682,21 @@ static gboolean buffering_timeout (gpointer data)
 			}
 			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || privatePlayer->gstPrivateContext->buffering_timeout_cnt-- == 0)
 			{
+				// XSTLP-999: Gate the PLAYING request on the current pipeline state.
+				// Do not force PLAYING if pipeline has not yet reached PAUSED (e.g. a sink
+				// is still waiting for preroll due to HDCP auth delay or subtitle blocking).
+				GstState currentState = GST_STATE_NULL;
+				GstState pendingState = GST_STATE_NULL;
+				gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &currentState, &pendingState, 0);
+				if (currentState < GST_STATE_PAUSED && privatePlayer->gstPrivateContext->buffering_timeout_cnt > 0)
+				{
+					MW_LOG_MIL("Deferring PLAYING: pipeline current=%s pending=%s, waiting for PAUSED",
+						gst_element_state_get_name(currentState),
+						gst_element_state_get_name(pendingState));
+					// Keep timer running, let pipeline reach PAUSED naturally
+					break;
+				}
+
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
 				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
 				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
