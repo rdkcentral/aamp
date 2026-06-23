@@ -9554,18 +9554,23 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 		{
 			AAMPLOG_INFO("EOS Reached. mPlayRate=%f mIterPeriodIndex=%d", mPlayRate, mIterPeriodIndex);
 			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-				mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 				mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 				AAMPLOG_INFO("Video EOS Marked after checking EOS on manifest");
 			});
 			if(ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 			{
-				aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+				auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
+				if (!future.valid())
+				{
+				    AAMPLOG_WARN("Video EOS (CheckEndOfStream): SubmitJob failed, falling back to synchronous Execute");
+    				dashWorkerJob->Execute();
+				}
 			}
 			else
 			{
 				dashWorkerJob->Execute();
 			}
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 		}
 		ret = true;
 	}
