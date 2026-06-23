@@ -939,6 +939,38 @@ void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 	{
 		source->signalEos(m_pipeline.get());
 	}
+
+	// In direct-Rialto mode every attached source must receive haveData(EOS)
+	// before the server emits END_OF_STREAM.  The AAMP framework deliberately
+	// skips EndOfStreamReached for eMEDIATYPE_SUBTITLE because the non-Rialto
+	// (GStreamer) sink handles subtitle EOS internally.  Here we compensate:
+	// once both video and audio have signalled EOS, auto-signal EOS on the
+	// subtitle source if it is attached but has not yet received its EOS.
+	// This covers two cases:
+	//   1. Content with no subtitle tracks (e.g. an ad): subtitle source was
+	//      created from a saved header but will receive no data.
+	//   2. Content with subtitle tracks that finished before audio/video: the
+	//      subtitle injector set eosReached but SignalIfEOSReached() skipped
+	//      it, so signalEos() was never called.
+	if (type == eMEDIATYPE_VIDEO || type == eMEDIATYPE_AUDIO)
+	{
+		auto *videoSrc    = m_sources[eMEDIATYPE_VIDEO].get();
+		auto *audioSrc    = m_sources[eMEDIATYPE_AUDIO].get();
+		auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
+
+		const bool videoAtEos = videoSrc && videoSrc->state().eos;
+		const bool audioAtEos = audioSrc && audioSrc->state().eos;
+
+		if (videoAtEos && audioAtEos
+		    && subtitleSrc
+		    && subtitleSrc->isAttached()
+		    && !subtitleSrc->state().eos)
+		{
+			AAMPLOG_INFO("auto-signaling subtitle EOS: video and audio both at EOS");
+			subtitleSrc->signalEos(m_pipeline.get());
+		}
+	}
+
 	AAMPLOG_INFO("EXIT");
 }
 
