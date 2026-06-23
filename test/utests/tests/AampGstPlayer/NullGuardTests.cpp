@@ -33,10 +33,8 @@
 #include "MockGStreamer.h"
 #include "MockGLib.h"
 #include "MockAampConfig.h"
-#include "MockGstHandlerControl.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
-#include "MockPlayerUtils.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -63,13 +61,11 @@ protected:
 
 	void SetUp() override
 	{
-		g_mockPlayerUtils          = new MockPlayerUtils();
-		g_mockAampUtils            = new NiceMock<MockAampUtils>();
+		g_mockAampUtils            = std::make_shared<NiceMock<MockAampUtils>>();
 		g_mockGStreamer             = new NiceMock<MockGStreamer>();
-		g_mockGLib                 = new NiceMock<MockGLib>();
-		g_mockAampConfig           = new NiceMock<MockAampConfig>();
-		g_mockGstHandlerControl    = new MockGstHandlerControl();
-		g_mockPrivateInstanceAAMP  = new MockPrivateInstanceAAMP();
+		g_mockGLib                 = std::make_shared<NiceMock<MockGLib>>();
+		g_mockAampConfig           = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockPrivateInstanceAAMP  = std::make_shared<MockPrivateInstanceAAMP>();
 		mAamp                      = new PrivateInstanceAAMP{};
 	}
 
@@ -89,29 +85,19 @@ protected:
 			mPlayer = nullptr;
 		}
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockGstHandlerControl;
-		g_mockGstHandlerControl = nullptr;
+		g_mockAampConfig.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
-
-		delete g_mockGLib;
-		g_mockGLib = nullptr;
+		g_mockGLib.reset();
 
 		delete g_mockGStreamer;
 		g_mockGStreamer = nullptr;
 
-		delete g_mockAampUtils;
-		g_mockAampUtils = nullptr;
+		g_mockAampUtils.reset();
 
 		delete mAamp;
 		mAamp = nullptr;
-
-		delete g_mockPlayerUtils;
-		g_mockPlayerUtils = nullptr;
 	}
 
 	/**
@@ -125,8 +111,6 @@ protected:
 		const std::string debugLevel{"test_level"};
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstDebugLevel))
 			.WillOnce(Return(debugLevel));
-		EXPECT_CALL(*g_mockGStreamer,
-			gst_debug_set_threshold_from_string(StrEq(debugLevel.c_str()), TRUE));
 
 		mPlayer = new AAMPGstPlayer{mAamp, nullptr};
 	}
