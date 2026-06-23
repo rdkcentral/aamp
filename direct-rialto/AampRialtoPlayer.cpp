@@ -396,7 +396,11 @@ void AampRialtoPlayer::Configure(
 			{
 				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
 					"signalling EOS on audio source, no pipeline recreation");
+#if 1
+				EndOfStreamReached(eMEDIATYPE_AUDIO);
+#else
 				m_sources[eMEDIATYPE_AUDIO]->signalEos(m_pipeline.get());
+#endif
 			}
 			else if (m_sources[eMEDIATYPE_AUDIO] &&
 			         audioFormat != FORMAT_INVALID)
@@ -941,32 +945,25 @@ void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 	}
 
 	// In direct-Rialto mode every attached source must receive haveData(EOS)
-	// before the server emits END_OF_STREAM.  The AAMP framework deliberately
-	// skips EndOfStreamReached for eMEDIATYPE_SUBTITLE because the non-Rialto
-	// (GStreamer) sink handles subtitle EOS internally.  Here we compensate:
-	// once both video and audio have signalled EOS, auto-signal EOS on the
-	// subtitle source if it is attached but has not yet received its EOS.
-	// This covers two cases:
-	//   1. Content with no subtitle tracks (e.g. an ad): subtitle source was
-	//      created from a saved header but will receive no data.
-	//   2. Content with subtitle tracks that finished before audio/video: the
-	//      subtitle injector set eosReached but SignalIfEOSReached() skipped
-	//      it, so signalEos() was never called.
-	if (type == eMEDIATYPE_VIDEO || type == eMEDIATYPE_AUDIO)
+	// before the server emits END_OF_STREAM. Here we compensate in two scenarios:
+	//
+	// Audio EOS triggers subtitle EOS.  Covers:
+	//    a. Content with no subtitle tracks (e.g. an ad): subtitle source was
+	//       created from a saved header but will receive no data.
+
+	if (type == eMEDIATYPE_AUDIO)
 	{
-		auto *videoSrc    = m_sources[eMEDIATYPE_VIDEO].get();
 		auto *audioSrc    = m_sources[eMEDIATYPE_AUDIO].get();
 		auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
 
-		const bool videoAtEos = videoSrc && videoSrc->state().eos;
 		const bool audioAtEos = audioSrc && audioSrc->state().eos;
 
-		if (videoAtEos && audioAtEos
+		if (audioAtEos
 		    && subtitleSrc
 		    && subtitleSrc->isAttached()
 		    && !subtitleSrc->state().eos)
 		{
-			AAMPLOG_INFO("auto-signaling subtitle EOS: video and audio both at EOS");
+			AAMPLOG_INFO("auto-signaling subtitle EOS: audio at EOS");
 			subtitleSrc->signalEos(m_pipeline.get());
 		}
 	}
@@ -1064,6 +1061,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// Rialto needs to flush in states like SOURCES_ATTACHED to set up positions.
 	const PlayerStateId state = m_stateMachine.currentState();
 	const bool isPlayingOrPaused = (state == PlayerStateId::PLAYING ||
+					state == PlayerStateId::SOURCES_ATTACHED ||
 	                                state == PlayerStateId::PAUSED);
 
 	if (!isPlayingOrPaused && shouldTearDown)
