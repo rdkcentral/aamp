@@ -9562,7 +9562,7 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 				auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
 				if (!future.valid())
 				{
-				    AAMPLOG_WARN("Video EOS (CheckEndOfStream): SubmitJob failed, falling back to synchronous Execute");
+					AAMPLOG_WARN("Video EOS (CheckEndOfStream): SubmitJob failed, falling back to synchronous Execute");
     				dashWorkerJob->Execute();
 				}
 			}
