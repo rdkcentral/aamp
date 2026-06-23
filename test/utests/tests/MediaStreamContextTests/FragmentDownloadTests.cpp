@@ -307,12 +307,14 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_ValidDownloadInfoLowestPr
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownLimitReached())
 		.WillOnce(Return(true));
 
-	// Test the behavior of OnFragmentDownloadFailed, mCheckForRampdown should be set to false
-	// and mSkipSegmentOnError should be set to true
+	// mCheckForRampdown can remain true from a previous rampdown attempt on the
+	// same context instance; this path should still set mSkipSegmentOnError.
+	mMediaStreamContext->mCheckForRampdown = true;
+	// Test the behavior of OnFragmentDownloadFailed.
 	EXPECT_NO_THROW({
 		mMediaStreamContext->OnFragmentDownloadFailed(dlInfo);
 		EXPECT_EQ(mMediaStreamContext->segDLFailCount, 1);
-		EXPECT_FALSE(mMediaStreamContext->mCheckForRampdown);
+		EXPECT_TRUE(mMediaStreamContext->mCheckForRampdown);
 		EXPECT_TRUE(mMediaStreamContext->mSkipSegmentOnError);
 	});
 }
@@ -380,10 +382,12 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_RetryAttemptThreshold)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, _))
 		.Times(1);
 
-	// Test the behavior of OnFragmentDownloadFailed, mCheckForRampdown should be set to false
+	// mCheckForRampdown is not reset in this threshold path.
+	mMediaStreamContext->mCheckForRampdown = true;
+	// Test the behavior of OnFragmentDownloadFailed.
 	EXPECT_NO_THROW({
 		mMediaStreamContext->OnFragmentDownloadFailed(dlInfo);
-		EXPECT_FALSE(mMediaStreamContext->mCheckForRampdown);
+		EXPECT_TRUE(mMediaStreamContext->mCheckForRampdown);
 	});
 }
 

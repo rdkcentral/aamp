@@ -236,6 +236,7 @@ private:
 		double mDts;            /**< Decode timestamp in seconds */
 		double mPts;            /**< Presentation timestamp in seconds */
 		double mDuration;       /**< Sample duration in seconds */
+		bool mIsKeyFrame{false}; /**< True if this is a sync/key frame (I-frame) */
 	};
 	std::vector<PendingSamplePayload> mSampleInfo; /**< sample payloads awaiting mdat bounds */
 	MediaCodecInfo codecInfo; /**< Codec information */
@@ -369,6 +370,18 @@ private:
 	 * @param next Pointer to next box
 	 */
 	void ParseCodecConfigurationBox(uint32_t type, const uint8_t *next);
+	/** @brief Parse meta box (QTFF or ISO BMFF variant)
+	 * @param next Pointer to end of box payload
+	 */
+	void ParseMetaBox(const uint8_t *next);
+	/** @brief Parse sample group description box (SGPD)
+	 * @param next Pointer to end of box payload
+	 */
+	void ParseSampleGroupDescription(const uint8_t *next);
+	/** @brief Parse sample to group box (SBGP)
+	 * @param next Pointer to end of box payload
+	 */
+	void ParseSampleToGroup(const uint8_t *next);
 	/** @brief Parse movie extends header box */
 	void ParseMovieExtendsHeader();
 	/** @brief Parse track extends box */

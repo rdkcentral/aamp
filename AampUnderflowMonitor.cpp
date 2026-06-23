@@ -298,9 +298,10 @@ void AampUnderflowMonitor::Run()
 
         const AAMPPlayerState state = mAamp->GetState();
         if (state == eSTATE_STOPPED || state == eSTATE_RELEASED ||
-            state == eSTATE_ERROR   || state == eSTATE_IDLE)
+            state == eSTATE_ERROR   || state == eSTATE_IDLE ||
+            state == eSTATE_COMPLETE)
         {
-            AAMPLOG_INFO("[video] AampUnderflowMonitor: player stopped; exiting");
+            AAMPLOG_INFO("[video] AampUnderflowMonitor: exiting (state=%d)", static_cast<int>(state));
             break;
         }
 
@@ -339,6 +340,7 @@ void AampUnderflowMonitor::Run()
                 RearmDeadline(bufLeft, rate);
                 continue;
             }
+
         }
 
         if (!mAamp->GetBufUnderFlowStatus())
