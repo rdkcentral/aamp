@@ -1,0 +1,50 @@
+diff -rupN a/libdash/include/IMPDElement.h b/libdash/include/IMPDElement.h
+--- a/libdash/include/IMPDElement.h	2026-06-08 17:41:23
++++ b/libdash/include/IMPDElement.h	2026-06-08 17:44:56
+@@ -43,6 +43,9 @@
+ #define IMPDELEMENT_H_
+ 
+ #include "config.h"
++#include <string>
++#include <vector>
++#include <map>
+ 
+ #include "INode.h"
+ 
+diff -rupN a/libdash/include/INode.h b/libdash/include/INode.h
+--- a/libdash/include/INode.h	2026-06-08 17:41:23
++++ b/libdash/include/INode.h	2026-06-08 17:43:03
+@@ -19,6 +19,9 @@
+ #define INODE_H_
+ 
+ #include "config.h"
++#include <string>
++#include <vector>
++#include <map>
+ 
+ namespace dash
+ {
+diff -rupN a/libdash/source/helpers/BlockStream.h b/libdash/source/helpers/BlockStream.h
+--- a/libdash/source/helpers/BlockStream.h	2026-06-08 17:41:23
++++ b/libdash/source/helpers/BlockStream.h	2026-06-16 12:00:00
+@@ -14,6 +14,7 @@
+ #define __BLOCKSTREAM_H__
+
+ #include "config.h"
++#include <deque>
+
+ #include "Block.h"
+
+diff -rupN a/libdash/source/helpers/String.h b/libdash/source/helpers/String.h
+--- a/libdash/source/helpers/String.h	2026-06-08 17:41:23
++++ b/libdash/source/helpers/String.h	2026-06-08 17:44:32
+@@ -13,6 +13,9 @@
+ #define STRING_H_
+ 
+ #include "config.h"
++#include <string>
++#include <vector>
++#include <cstdint>
+ 
+ namespace dash
+ {
