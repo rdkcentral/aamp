@@ -218,14 +218,20 @@ void WidevineDrmHelper::setDefaultKeyID(const std::string& cencData)
 			if(defaultKeyID == it.second || defaultKeyIDBinary == it.second)
 			{
 				mDefaultKeySlot = it.first;
-				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", PlayerLogManager::getHexDebugStr(it.second).c_str(), mDefaultKeySlot);
+				MW_LOG_WARN("[RDKEMW-19892][FIX-DRM-KEYID] setDefaultKeyID matched: keyID=%s slot=%d "
+					"matchType=%s cencData='%s' cencDataLen=%zu",
+					PlayerLogManager::getHexDebugStr(it.second).c_str(), mDefaultKeySlot,
+					(defaultKeyID == it.second) ? "RAW_BINARY" : "UUID_HEX_DECODED",
+					cencData.c_str(), cencData.size());
 				break;
 			}
 		}
 	}
 	if (mDefaultKeySlot < 0 && !mKeyIDs.empty())
 	{
-		MW_LOG_WARN("setDefaultKeyID: no match found for cencData, defaulting to slot 0");
+		MW_LOG_WARN("[RDKEMW-19892][FIX-DRM-KEYID] setDefaultKeyID: NO MATCH found. "
+			"cencData='%s' cencDataLen=%zu mKeyIDs.size=%zu. Defaulting to slot 0.",
+			cencData.c_str(), cencData.size(), mKeyIDs.size());
 		mDefaultKeySlot = 0;
 	}
 }
@@ -250,7 +256,8 @@ void WidevineDrmHelper::getKey(std::vector<uint8_t>& keyID) const
 	}
 	else if (mKeyIDs.size() > 0)
 	{
-		MW_LOG_WARN("mDefaultKeySlot(%d) invalid, falling back to slot 0", mDefaultKeySlot);
+		MW_LOG_WARN("[RDKEMW-19892][FIX-DRM-KEYID] getKey: mDefaultKeySlot(%d) invalid (mKeyIDs.size=%zu), falling back to slot 0",
+			mDefaultKeySlot, mKeyIDs.size());
 		keyID = this->mKeyIDs.at(0);
 	}
 	else

@@ -11031,7 +11031,9 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// are enabled mid-playback via a subsequent ConfigurePipeline call.
 		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && !ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
-			AAMPLOG_MIL("Subtitle track not enabled (non-Rialto), setting subtitleOutputFormat to FORMAT_INVALID");
+			AAMPLOG_WARN("[XSTLP-999][FIX-SUBTITLE-PREROLL] Subtitle track not enabled and non-Rialto path. "
+				"Overriding subtitleOutputFormat from FORMAT_SUBTITLE_MP4 to FORMAT_INVALID to prevent "
+				"subtecbin preroll block. PTS restamp was active but no text adaptation set in manifest.");
 			subtitleOutputFormat = FORMAT_INVALID;
 		}
 	}

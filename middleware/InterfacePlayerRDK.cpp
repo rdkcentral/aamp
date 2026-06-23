@@ -4690,13 +4690,16 @@ static gboolean buffering_timeout (gpointer data)
 				gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &currentState, &pendingState, 0);
 				if (currentState < GST_STATE_PAUSED && privatePlayer->gstPrivateContext->buffering_timeout_cnt > 0)
 				{
-					MW_LOG_MIL("Deferring PLAYING: pipeline current=%s pending=%s, waiting for PAUSED",
+					MW_LOG_WARN("[XSTLP-999][FIX-BUFFERING-GATE] Deferring PLAYING transition: "
+						"pipeline currentState=%s pendingState=%s timeout_cnt=%u. "
+						"Pipeline not yet PAUSED, waiting for all sinks to preroll.",
 						gst_element_state_get_name(currentState),
-						gst_element_state_get_name(pendingState));
+						gst_element_state_get_name(pendingState),
+						privatePlayer->gstPrivateContext->buffering_timeout_cnt);
 					// Keep timer running, let pipeline reach PAUSED naturally
-					break;
 				}
-
+				else
+				{
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
 				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
 				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
@@ -4705,6 +4708,7 @@ static gboolean buffering_timeout (gpointer data)
 				
 				privatePlayer->gstPrivateContext->buffering_in_progress = false;
 				isPlayerReady = true;
+				}
 			}
 		}
 		if (!privatePlayer->gstPrivateContext->buffering_in_progress)
