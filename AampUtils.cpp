@@ -385,6 +385,7 @@ void aamp_DecodeUrlParameter( std::string &uriParam )
 double ISO8601DateTimeToUTCSeconds(const char *ptr)
 {
 	double timeSeconds = 0;
+	AAMPLOG_TRACE("ISO8601DateTimeToUTCSeconds: input='%s'", ptr ? ptr : "(null)");
 	if(ptr)
 	{
 		std::tm timeObj = { 0 };
@@ -392,16 +393,28 @@ double ISO8601DateTimeToUTCSeconds(const char *ptr)
 		std::tm baseTimeObj = { 0 };
 		strptime("1970-01-01T00:00:00.", "%Y-%m-%dT%H:%M:%S.", &baseTimeObj);
 		time_t offsetFromUTC = timegm(&baseTimeObj);
+		AAMPLOG_TRACE("ISO8601DateTimeToUTCSeconds: baseTimeObj y=%d m=%d d=%d %02d:%02d:%02d offsetFromUTC=%lld",
+			baseTimeObj.tm_year + 1900, baseTimeObj.tm_mon + 1, baseTimeObj.tm_mday,
+			baseTimeObj.tm_hour, baseTimeObj.tm_min, baseTimeObj.tm_sec,
+			(long long)offsetFromUTC);
 		//Convert input string to time
 		const char *msString = strptime(ptr, "%Y-%m-%dT%H:%M:%S.", &timeObj);
+		AAMPLOG_TRACE("ISO8601DateTimeToUTCSeconds: timeObj y=%d m=%d d=%d %02d:%02d:%02d timegm=%lld msString='%s'",
+			timeObj.tm_year + 1900, timeObj.tm_mon + 1, timeObj.tm_mday,
+			timeObj.tm_hour, timeObj.tm_min, timeObj.tm_sec,
+			(long long)timegm(&timeObj),
+			msString ? msString : "(null)");
 		timeSeconds = timegm(&timeObj) - offsetFromUTC;
-		
+		AAMPLOG_TRACE("ISO8601DateTimeToUTCSeconds: timeSeconds before ms=%.6f", timeSeconds);
+
 		if( msString && *msString )
 		{ // at least one character following decimal point
 			double ms = atof(msString-1); // back up and parse as float
+			AAMPLOG_TRACE("ISO8601DateTimeToUTCSeconds: msString-1='%s' ms=%.6f", msString-1, ms);
 			timeSeconds += ms; // include ms granularity
 		}
 	}
+	AAMPLOG_TRACE("ISO8601DateTimeToUTCSeconds: result=%.6f", timeSeconds);
 	return timeSeconds;
 }
 
