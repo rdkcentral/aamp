@@ -127,6 +127,7 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 
 	EXPECT_TRUE(helper->ConvertToKeyFrame(src_data));
 	EXPECT_EQ(src_data.size(), td.expected_data_len);
+	EXPECT_EQ(src_data.capacity(), td.expected_data_len);
 	auto memcmp_actual_vs_expected = std::memcmp(src_data.data(), td.expected_data,  td.expected_data_len);
 	EXPECT_EQ(0, memcmp_actual_vs_expected);
 	if (memcmp_actual_vs_expected)
