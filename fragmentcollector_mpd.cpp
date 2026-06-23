@@ -1611,7 +1611,12 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		{ // single-segment
 			std::string fragmentUrl;
 			ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
-			if (pMediaStreamContext->IDX.empty())
+				bool shouldLoadIdx = false;
+			{
+				std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+				shouldLoadIdx = pMediaStreamContext->IDX.empty();
+			}
+			if (shouldLoadIdx)
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
 				uint64_t start;
@@ -8822,9 +8827,9 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					ISegmentBase *segmentBase = pMediaStreamContext->representation->GetSegmentBase();
 					if (segmentBase)
 					{
-						pMediaStreamContext->fragmentOffset = 0;
 						{
 							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+							pMediaStreamContext->fragmentOffset = 0;
 							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
 							pMediaStreamContext->mIdxBaseOffset = 0;
 						}
@@ -11205,7 +11210,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			{
 				track->SetLocalTSBInjection(false);
 			}
-			aamp_utils::ClearAndRelease(track->IDX);
+			{
+				std::lock_guard<std::mutex> idxLock(track->mIdxMutex);
+				aamp_utils::ClearAndRelease(track->IDX);
+			}
 		}
 	}
 
