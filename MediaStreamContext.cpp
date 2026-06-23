@@ -1194,8 +1194,7 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		// Wait for a free cache slot before starting the download.
 		// IsFragmentCacheFull() checks the unified fragment chunk cache usage, so
 		// this wait throttles downloads until shared cache capacity is available.
-		// Skip the wait when writing to the local AAMP TSB: the live fetcher
-		// writes via EnqueueWrite and does not need a free ring-buffer slot.
+		// Skip the wait when playing from local TSB
 		if (IsFragmentCacheFull() && !aamp->IsLocalAAMPTsbInjection())
 		{
 			while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
