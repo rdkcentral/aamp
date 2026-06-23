@@ -580,14 +580,14 @@ int PlayerCCManagerBase::Init(void *handle)
 
 	MW_LOG_WARN("PlayerCCManagerBase:: Start CC with video dec handle: %p and mEnabled: %d", handle, mEnabled);
 
-	if (mEnabled)
-	{
-		Start();
-	}
-	else
-	{
-		Stop();
-	}
+//	if (mEnabled)
+//	{
+//		Start();
+//	}
+//	else
+//	{
+//		Stop();
+//	}
 
 	return 0;
 }
@@ -784,6 +784,7 @@ void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 int PlayerCCManagerBase::SetStatus(bool enable)
 {
 	int ret = 0;
+	bool didChange = (mEnabled != enable);
 	mEnabled = enable;
 	MW_LOG_WARN("PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
@@ -792,7 +793,7 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 	else
 		IsCCOnFlag = 0;
 
-	if (!mTrickplayStarted && !mParentalCtrlLocked && CheckCCHandle())
+	if (!mTrickplayStarted && !mParentalCtrlLocked && CheckCCHandle() && didChange)
 	{
 		// Setting CC rendering to true before media_closeCaptionStart is not honoured
 		// by CC module. CC rendering status is saved in mEnabled and Start/Stop is
@@ -810,7 +811,7 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 }
 
 /**
- * @brief To check whether Out of Band Closed caption/subtitle rendering supported or not. 
+ * @brief To check whether Out of Band Closed caption/subtitle rendering supported or not.
  */
 bool PlayerCCManagerBase::IsOOBCCRenderingSupported()
 {
