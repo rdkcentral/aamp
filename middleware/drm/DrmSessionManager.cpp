@@ -920,6 +920,14 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	if (m_sessionCreator)
 	{
 		drmSessionContexts[sessionSlot].drmSession = m_sessionCreator(drmHelper, Instance);
+
+		MW_LOG_WARN("getDrmSession: calling setKeyId drmSession=%p slot=%d",
+			(void*)drmSessionContexts[sessionSlot].drmSession.get(), sessionSlot);
+		drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
+		MW_LOG_WARN("getDrmSession: setKeyId returned slot=%d drmSession=%p",
+			sessionSlot, (void*)drmSessionContexts[sessionSlot].drmSession.get());
+
+
 		MW_LOG_WARN("getDrmSession: calling getState slot=%d %p", sessionSlot, (void*)drmSessionContexts[sessionSlot].drmSession.get());
 		drmSessionContexts[sessionSlot].drmSession->getState();
 		MW_LOG_WARN("getDrmSession: getState returned code=%d %p", code, (void*)drmSessionContexts[sessionSlot].drmSession.get());
