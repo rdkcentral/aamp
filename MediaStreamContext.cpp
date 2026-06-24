@@ -159,7 +159,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		}
 		else
 		{
-			if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
+			if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
 			{
 				//To read track_id from the init fragments to check if there any mismatch.
 				//A mismatch in track_id is not handled in the gstreamer version 1.10.4
@@ -215,17 +215,17 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						aamp->mCurrentVideoTrackId = track_id;
 					}
 				}
-				else if(actualType == eMEDIATYPE_INIT_AUDIO)
+				else if(actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_AUDIO)
 				{
 					bool trackIdUpdated = false;
-					AAMPLOG_INFO("Audio track_id read from init fragment: %d ", track_id);
+					AAMPLOG_INFO("Audio track_id read from  fragment: %d and track id stored in AAMP instance: %d", track_id, aamp->mCurrentAudioTrackId);
 					if(aamp->mCurrentAudioTrackId != -1 && track_id != aamp->mCurrentAudioTrackId)
 					{
 						overWriteTrackId = true;
 						if(overWriteTrackId)
 						{
 							buffer.parseBuffer(false, aamp->mCurrentAudioTrackId);
-							AAMPLOG_WARN("DEBUG-->Audio track_id of the current track is overwritten as init fragment is pushing only for DRM purpose, track id: %d ", track_id);
+							AAMPLOG_WARN("DEBUG-->Audio track_id of the current track is overwritten as track id: %d ", track_id);
 							trackIdUpdated = true;
 						}
 						else
