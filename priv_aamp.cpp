@@ -8155,15 +8155,6 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
 void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 {
 	PlayerCCManager::GetInstance()->Init((void *)decoderHandle);
-	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-	{
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg == 0)
-		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
-			PlayerCCManager::GetInstance()->SetTrack("CC1");
-		}
-	}
 }
 
 /**
@@ -11099,14 +11090,6 @@ void PrivateInstanceAAMP::SetClosedCaptionsFromTextTrack(TextTrackInfo &track)
 			{
 				format = eCLOSEDCAPTION_FORMAT_708;
 			}
-		}
-
-		// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg != -1)
-		{
-			format = (CCFormat)(overrideCfg & 1);
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
 		}
 		AAMPLOG_INFO("instreamId %s format %d", track.instreamId.c_str(), format);
 		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
