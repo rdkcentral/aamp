@@ -186,7 +186,6 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | rebufferLatencyStepSec | Float | 1.0 | Step size (seconds) added to all three latency thresholds (`lowLatencyMinValue`, `lowLatencyTargetValue`, `lowLatencyMaxValue`) each time the buffer drops below `latencyDangerBufferSec`. Allows the player to tolerate higher latency during poor network conditions. Zero disables the adaptive threshold feature entirely. |
 | playreadyOutputProtection | Boolean | false | Enable/disable HDCP output protection for DASH-PlayReady playback. |
 | preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 - No DRM, 1 - Widevine, 2 - PlayReady (Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
-| ceaFormat | Number | -1 | Preferred CEA option for closed captions. Default is stream-based. 0 - CEA 608, 1 - CEA 708 |
 | preFetchIframePlaylist | Boolean | false | Enable/disable prefetching of I-Frame playlist. |
 | preplayBuffercount | Number | 1 | Count of segments to download until reaching play state. |
 | ptsErrorThreshold | Number | 4 | Maximum number of back-to-back PTS errors before triggering a retune. |
