@@ -110,9 +110,9 @@ void DrmSessionManager::clearSessionData()
 	MW_LOG_WARN(" DrmSessionManager:: Clearing session data");
 	for(int i = 0 ; i < mMaxDRMSessions; i++)
 	{
-		if (drmSessionContexts != NULL && drmSessionContexts[i].drmSession != NULL)
+		if (drmSessionContexts != NULL && drmSessionContexts[i].drmSession != nullptr)
 		{
-			MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
+			drmSessionContexts[i].drmSession.reset();
 			drmSessionContexts[i] = DrmSessionContext();
 		}
 
@@ -201,10 +201,10 @@ void DrmSessionManager::clearDrmSession(bool forceClearSession)
 		if((cachedKeyIDs[i].isFailedKeyEntries || forceClearSession) && drmSessionContexts != NULL)
 		{
 			std::lock_guard<std::mutex> guard(drmSessionContexts[i].sessionMutex);
-			if (drmSessionContexts[i].drmSession != NULL)
+			if (drmSessionContexts[i].drmSession != nullptr)
 			{
 				MW_LOG_WARN("DrmSessionManager:: Clearing failed Session Data Slot : %d", i);
-				MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
+				drmSessionContexts[i].drmSession.reset();
 			}
 		}
 	}
@@ -374,8 +374,8 @@ int DrmSessionManager::getSlotIdForSession(IDrmSession* session)
 		for (int i = 0; i < mMaxDRMSessions; i++)
 		{
 			MW_LOG_WARN("getSlotIdForSession: slot=%d slotSession=%p target=%p",
-				i, (void*)drmSessionContexts[i].drmSession, (void*)session);
-			if (drmSessionContexts[i].drmSession == session)
+				i, (void*)drmSessionContexts[i].drmSession.get(), (void*)session);
+			if (drmSessionContexts[i].drmSession.get() == session)
 			{
 				MW_LOG_INFO("DRM Session found at slot:%d", i);
 				slot = i;
@@ -486,7 +486,7 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 	MW_LOG_WARN("createDrmSession: getDrmSession returned code=%d slot=%d session=%p",
 		(int)code, selectedSlot,
 		(selectedSlot >= 0 && selectedSlot < mMaxDRMSessions)
-			? (void*)drmSessionContexts[selectedSlot].drmSession : nullptr);
+			? (void*)drmSessionContexts[selectedSlot].drmSession.get() : nullptr);
 	/**
 	 * KEY_READY code indicates that a previously created session is being reused.
 	 */
@@ -503,7 +503,7 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 	MW_LOG_WARN("createDrmSession: ContentUpdateCb returned");
 	if (code == KEY_READY)
 	{
-		return drmSessionContexts[selectedSlot].drmSession;
+		return drmSessionContexts[selectedSlot].drmSession.get();
 	}
 
 	if ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT))
@@ -590,7 +590,7 @@ IDrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, st
 		drmSessionContexts[selectedSlot].drmSession->setSecManagerSession(localSession);
 	}
 
-	return drmSessionContexts[selectedSlot].drmSession;
+	return drmSessionContexts[selectedSlot].drmSession.get();
 }
 
 /**
@@ -839,7 +839,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	selectedSlot = sessionSlot;
 	const std::string systemId = drmHelper->ocdmSystemId();
 	std::lock_guard<std::mutex> guard(drmSessionContexts[sessionSlot].sessionMutex);
-	if (drmSessionContexts[sessionSlot].drmSession != NULL)
+	if (drmSessionContexts[sessionSlot].drmSession != nullptr)
 	{
 		if (drmHelper->ocdmSystemId() != drmSessionContexts[sessionSlot].drmSession->getKeySystem())
 		{
@@ -913,23 +913,21 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 				MW_LOG_WARN("existing DRM session for %s has different key in slot %d", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), sessionSlot);
 			}
 		}
-		MW_LOG_WARN("deleting existing DRM session for %s ", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
-		MW_SAFE_DELETE(drmSessionContexts[sessionSlot].drmSession);
+		MW_LOG_WARN("deleting existing DRM session for %s in slot %d", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), sessionSlot);
 	}
         this->ProfileUpdateCb();
 
 	if (m_sessionCreator)
 	{
-		auto owned = m_sessionCreator(drmHelper, Instance);
-		drmSessionContexts[sessionSlot].drmSession = owned.release();
+		drmSessionContexts[sessionSlot].drmSession = m_sessionCreator(drmHelper, Instance);
 	}
 	else
 	{
 		drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance);
 	}
 	MW_LOG_WARN("getDrmSession: session created drmSession=%p slot=%d this=%p",
-		(void*)drmSessionContexts[sessionSlot].drmSession, sessionSlot, (void*)this);
-	if (drmSessionContexts[sessionSlot].drmSession != NULL)
+		(void*)drmSessionContexts[sessionSlot].drmSession.get(), sessionSlot, (void*)this);
+	if (drmSessionContexts[sessionSlot].drmSession != nullptr)
 	{
 		MW_LOG_INFO("Created new IDrmSession for DrmSystemId %s", systemId.c_str());
 		drmSessionContexts[sessionSlot].data = keyIdArray;
@@ -944,10 +942,10 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			drmHelper->setOutputProtectionFlag(true);
 		}
 		MW_LOG_WARN("getDrmSession: calling setKeyId drmSession=%p slot=%d",
-			(void*)drmSessionContexts[sessionSlot].drmSession, sessionSlot);
+			(void*)drmSessionContexts[sessionSlot].drmSession.get(), sessionSlot);
 		drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
 		MW_LOG_WARN("getDrmSession: setKeyId returned slot=%d drmSession=%p",
-			sessionSlot, (void*)drmSessionContexts[sessionSlot].drmSession);
+			sessionSlot, (void*)drmSessionContexts[sessionSlot].drmSession.get());
 	}
 	else
 	{

@@ -21,6 +21,7 @@
 #define GST_MOCK_DRM_SESSION_FACTORY_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "DrmSessionFactory.h"
 
 /**

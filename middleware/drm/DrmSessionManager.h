@@ -59,24 +59,24 @@ struct DrmSessionContext
 {
 	std::vector<uint8_t> data;
 	std::mutex sessionMutex;
-	IDrmSession * drmSession;
+	std::unique_ptr<IDrmSession> drmSession;
 
-	DrmSessionContext() : sessionMutex(), drmSession(NULL),data()
+	DrmSessionContext() : sessionMutex(), drmSession(nullptr), data()
 	{
 	}
-	DrmSessionContext(const DrmSessionContext& other) : data(other.data), drmSession(other.drmSession)
+	DrmSessionContext(const DrmSessionContext&) = delete;
+	DrmSessionContext& operator=(const DrmSessionContext&) = delete;
+	DrmSessionContext(DrmSessionContext&& other) noexcept
+		: data(std::move(other.data)), drmSession(std::move(other.drmSession))
 	{
-		// Releases memory allocated after destructing any of these objects
 	}
-	DrmSessionContext& operator=(const DrmSessionContext& other)
+	DrmSessionContext& operator=(DrmSessionContext&& other) noexcept
 	{
-		data = other.data;
-		drmSession = other.drmSession;
+		data = std::move(other.data);
+		drmSession = std::move(other.drmSession);
 		return *this;
 	}
-	~DrmSessionContext()
-	{
-	}
+	~DrmSessionContext() = default;
 };
 
 /**
