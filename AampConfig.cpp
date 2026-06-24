@@ -420,7 +420,6 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{AAMP_HIGH_BUFFER_BEFORE_RAMPUP,"maxABRBufferRampup",eAAMPConfig_MaxABRNWBufferRampUp,false},
 	{DEFAULT_PREBUFFER_COUNT,"preplayBuffercount",eAAMPConfig_PrePlayBufferCount,false},
 	{0,"preCachePlaylistTime",eAAMPConfig_PreCachePlaylistTime,false},
-	{-1, "ceaFormat",eAAMPConfig_CEAPreferred,false, eCONFIG_RANGE_CEA_PREFERRED},
 	{DEFAULT_STALL_ERROR_CODE,"stallErrorCode",eAAMPConfig_StallErrorCode,false},
 	{DEFAULT_STALL_DETECTION_TIMEOUT,"stallTimeout",eAAMPConfig_StallTimeoutMS,false},
 	{DEFAULT_MINIMUM_INIT_CACHE_SECONDS,"initialBuffer",eAAMPConfig_InitialBuffer,false},

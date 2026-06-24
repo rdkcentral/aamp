@@ -3043,16 +3043,6 @@ void PlayerInstanceAAMP::SetInitRampdownLimit(int limit)
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_InitRampDownLimit,limit);
 }
 
-
-/**
- *  @brief Set the CEA format for force setting
- */
-void PlayerInstanceAAMP::SetCEAFormat(int format)
-{
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_CEAPreferred,format);
-}
-
-
 /**
  *   @brief To get the available bitrates for thumbnails.
  */

@@ -150,7 +150,6 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	    }
     }
 	void PlayerInstanceAAMP::SetLanguageFormat(LangCodePreference preferredFormat, bool useRole) {  }
-	void PlayerInstanceAAMP::SetCEAFormat(int format) {  }
 	void PlayerInstanceAAMP::SetSessionToken(std::string sessionToken) {  }
 	void PlayerInstanceAAMP::SetMaxPlaylistCacheSize(int cacheSize) {  }
 	void PlayerInstanceAAMP::EnableSeekableRange(bool enabled) {  }
