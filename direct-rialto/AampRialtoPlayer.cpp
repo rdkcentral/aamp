@@ -310,6 +310,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	    bESChangeStatus ||
 	    setReadyAfterPipelineCreation)
 	{
+		AAMPLOG_INFO("ShouldRecreatePipeline true ");
 		return true;
 	}
 
@@ -322,15 +323,18 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	{
 		if (videoFormat != FORMAT_INVALID)
 		{
+			AAMPLOG_INFO("Video: ShouldRecreatePipeline true");
 			return true;  // Need to add video source.
 		}
 	}
 	else if (videoFormat == FORMAT_INVALID)
 	{
+		AAMPLOG_INFO("Video source going away: ShouldRecreatePipeline true");
 		return true;  // Video source going away.
 	}
 	else if (videoSrc->format() != videoFormat)
 	{
+		AAMPLOG_INFO("Video codec changed: ShouldRecreatePipeline true");
 		return true;  // Video codec changed.
 	}
 
@@ -341,12 +345,14 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	{
 		if (audioFormat != FORMAT_INVALID)
 		{
+			AAMPLOG_INFO("Need to add audio source: ShouldRecreatePipeline true");
 			return true;  // Need to add audio source.
 		}
 	}
 	else if (audioFormat != FORMAT_INVALID &&
 	         audioSrc->format() != audioFormat)
 	{
+		AAMPLOG_INFO("Audio codec changed to a different valid format: ShouldRecreatePipeline true");
 		return true;  // Audio codec changed to a different valid format.
 	}
 
@@ -375,12 +381,14 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		{
 			newSubFormat = subFormat;
 		}
-		else if (videoFormat != FORMAT_INVALID)
+		else if (videoFormat != FORMAT_INVALID)//anj:source->format will be FORMAT_INVALID for cc. So check if this else if should be removed.
 		{
-			newSubFormat = GST_FORMAT_UNKNOWN;
+			newSubFormat = FORMAT_UNKNOWN;
 		}
+		AAMPLOG_INFO("subFormat=%d, newSubFormat=%d", subFormat, newSubFormat);
 		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != newSubFormat))
 		{
+			AAMPLOG_INFO("subFormat=%d, newSubFormat=%d, subtitleSrc->format()=%d. ShouldRecreatePipeline true", subFormat, newSubFormat,subtitleSrc->format());
 			return true;
 		}
 	}
