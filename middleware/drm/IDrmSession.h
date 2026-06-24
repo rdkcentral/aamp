@@ -162,7 +162,7 @@ public:
 	 */
 	virtual int decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 		const uint8_t *payloadData, uint32_t payloadDataSize,
-		uint8_t **ppOpaqueData) = 0;
+		uint8_t **ppOpaqueData)  { return 0; }
 
 	/**
 	 * @brief Decrypt a GStreamer buffer (OCDM/GStreamer path).
@@ -189,13 +189,13 @@ public:
      * @brief Associate a ContentSecurityManager session with this DRM session.
 	 *        No-op for session types that do not use ContentSecurityManager.
 	 */
-	virtual void setSecManagerSession(ContentSecurityManagerSession /*session*/) {}
+	virtual void setSecManagerSession(ContentSecurityManagerSession /*session*/) = 0;
 
 	/**
 	 * @brief Return the associated ContentSecurityManager session.
 	 *        Returns a default (invalid) session for types that do not use it.
 	 */
-	virtual ContentSecurityManagerSession getSecManagerSession() const { return {}; }
+	virtual ContentSecurityManagerSession getSecManagerSession() const = 0;
 
 protected:
 	IDrmSession() = default;

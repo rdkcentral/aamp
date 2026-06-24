@@ -3138,7 +3138,10 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 
 	// First flush transitions SOURCES_ATTACHED -> FLUSHING.
-	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(1);
+	// Configure(FORMAT_ISO_BMFF, FORMAT_INVALID) attaches two sources:
+	// video (sourceId=0) and inband CC subtitle (sourceId=1).  Each
+	// attached source issues one pipeline flush IPC on the first Flush().
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(2);
 	m_player->Flush(/*position=*/10.0, /*rate=*/2, /*shouldTearDown=*/false);
 
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
@@ -3150,12 +3153,16 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
 		<< "Re-entrant Flush() must keep player in FLUSHING";
 
-	// Pending position used by OnSourceFlushed() must reflect latest flush.
+	// Both sources (video=0, subtitle=1) report flushed; setSourcePosition
+	// is called for each with the position from the second (pending) flush.
+	// The rate is committed only after all sources have reported flushed.
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(33'000'000'000LL),
 			/*resetTime=*/true, _, _))
-		.WillOnce(Return(true));
+		.Times(2)
+		.WillRepeatedly(Return(true));
 	PostSourceFlushed(/*sourceId=*/0);
+	PostSourceFlushed(/*sourceId=*/1);  // inband CC subtitle source
 
 	// GetPositionMilliseconds() must use latest rate from second flush.
 	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
@@ -3191,12 +3198,20 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
 		.WillByDefault(Return(0LL));
 
-	// First source flushed -> active rate must remain old value (1x).
+	// Configure() attaches three sources: video (id=0), inband CC subtitle
+	// (id=1), and audio (id=2).  Active rate must not commit until every
+	// source has reported flushed.
+
+	// Video flushed -> rate still uncommitted (subtitle + audio pending).
 	PostSourceFlushed(/*sourceId=*/0);
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
 
-	// Second source flushed -> pending rate commits to active rate.
+	// Inband CC subtitle flushed -> rate still uncommitted (audio pending).
 	PostSourceFlushed(/*sourceId=*/1);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
+
+	// Audio flushed (last source) -> pending rate commits to active rate.
+	PostSourceFlushed(/*sourceId=*/2);
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
 }
 

@@ -45,7 +45,7 @@
 class DrmSession : public IDrmSession
 {
 protected:
-	string m_keySystem;
+	std::string m_keySystem;
 	bool m_OutputProtectionEnabled;
 	ContentSecurityManagerSession mContentSecurityManagerSession;
 public:
@@ -54,7 +54,7 @@ public:
 	 * @param f_pbInitData : pointer to initdata
 	 * @param f_cbInitData : init data size
 	 */
-	virtual void generateDRMSession(const uint8_t *f_pbInitData,uint32_t f_cbInitData, string &customData ) = 0;
+	virtual void generateDRMSession(const uint8_t *f_pbInitData,uint32_t f_cbInitData, std::string &customData ) = 0;
 
 	/**
 	 * @brief Generate key request from DRM session
@@ -123,7 +123,7 @@ public:
 	 *         internal lock where applicable. Callers receive their own
 	 *         independent copy and need not hold any external lock.
 	 */
-	virtual vector<vector<uint8_t>> getUsableKeys() const;
+	virtual std::vector<std::vector<uint8_t>> getUsableKeys() const;
 
 	/**
 	 * @brief Returns the Rialto media key session ID for this DRM session.

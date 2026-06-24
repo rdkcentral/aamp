@@ -177,7 +177,7 @@ DrmMetaDataEventPtr TestUtilDrm::createDrmMetaDataEvent()
 
 void TestUtilDrm::setupCurlPerformResponse(std::string response)
 {
-	static std::string responseStr = response;
+	static string responseStr = response;
 
 	MockCurlSetPerformCallback(
 		[](CURL* curl, MockCurlWriteCallback writeCallback, void* writeData, void* userData)
