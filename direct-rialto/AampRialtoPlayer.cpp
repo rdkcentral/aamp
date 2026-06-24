@@ -1044,6 +1044,27 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	{
 		AAMPLOG_INFO("Flush requested while already FLUSHING - updated pending position/rate only (position=%f rate=%d shouldTearDown=%d)",
 			position, rate, shouldTearDown);
+
+		// If some sources have already reported flushed, they will not emit another
+		// SourceFlushedEvent during this flush cycle. Re-apply the updated pending
+		// position/rate so all sources stay in sync.
+		if (m_pipeline)
+		{
+			for (const auto &s : m_sources)
+			{
+				if (s && s->isAttached() && !s->isFlushing())
+				{
+					if (!m_pipeline->setSourcePosition(
+						s->sourceId(), posNs, /*resetTime=*/true,
+						computeAppliedRate(rate)))
+					{
+						AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
+							s->sourceId());
+					}
+				}
+			}
+		}
+
 		AAMPLOG_INFO("EXIT - already flushing");
 		return;
 	}
