@@ -26,8 +26,6 @@
 #include "DrmSessionManager.h"
 #include "_base64.h"
 #include <iostream>
-#include <chrono>
-#include <atomic>
 #include "DrmHelper.h"
 #include <inttypes.h>
 #include "PlayerUtils.h"
@@ -433,7 +431,7 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		}
 	}
 
-	long long drmElapsedMS = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() - drmStartMS;
+	long long drmElapsedMS = NOW_STEADY_TS_MS - drmStartMS;
 	--activeDrmCreations;
 	MW_LOG_MIL("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] createDrmSession exit: took %lld ms, concurrent=%d, session=%p", drmElapsedMS, activeDrmCreations.load(), drmSession);
 	return drmSession;
