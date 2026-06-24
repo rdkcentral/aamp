@@ -1254,14 +1254,6 @@ public:
 	void SetLanguageFormat(LangCodePreference preferredFormat, bool useRole = false);
 
 	/**
-	 *   @brief Set the CEA format for force setting
-	 *
-	 *   @param[in] format - 0 for 608, 1 for 708
-	 *   @return void
-	 */
-	void SetCEAFormat(int format);
-
-	/**
 	 *   @brief Set the session token for player
 	 *
 	 *   @param[in]string -  sessionToken
