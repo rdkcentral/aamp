@@ -4683,13 +4683,32 @@ static gboolean buffering_timeout (gpointer data)
 			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || privatePlayer->gstPrivateContext->buffering_timeout_cnt-- == 0)
 			{
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
-				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
-				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
-				SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
-				isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
-				
-				privatePlayer->gstPrivateContext->buffering_in_progress = false;
-				isPlayerReady = true;
+
+				/* Defer set_state(PLAYING) until pipeline has reached at least PAUSED.
+				 * Calling set_state(PLAYING) while the pipeline is still in READY
+				 * causes GStreamer to lose the pending PLAYING target during the
+				 * READY->PAUSED async transition, leaving the pipeline stuck in
+				 * PAUSED with no pending state until an external event re-issues
+				 * the request. */
+				GstState currentState = GST_STATE_NULL;
+				gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &currentState, NULL, 0);
+
+				if (currentState < GST_STATE_PAUSED && privatePlayer->gstPrivateContext->buffering_timeout_cnt > 0)
+				{
+					MW_LOG_MIL("Deferring PLAYING — pipeline in %s (not yet PAUSED), cnt %u frames %i",
+						gst_element_state_get_name(currentState), original_buffering_timeout_cnt, frames);
+					/* Keep timer running; do NOT clear buffering_in_progress */
+				}
+				else
+				{
+					MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
+					gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
+					SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
+					isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
+
+					privatePlayer->gstPrivateContext->buffering_in_progress = false;
+					isPlayerReady = true;
+				}
 			}
 		}
 		if (!privatePlayer->gstPrivateContext->buffering_in_progress)
