@@ -99,8 +99,9 @@ bool CDAIObjectMPD::IsAdPlaying()
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV(),
+					mWaitForManifestUpdate(0),
 					mVodAdBreaks(), mNextVodBreakToCheck(std::numeric_limits<double>::max()),
-					mWaitForManifestUpdate(0), mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
+					mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
 {
 	StartFulfillAdLoop();
 	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
@@ -208,16 +209,16 @@ void PrivateCDAIObjectMPD::ClearCurrentAdBreak()
  */
 void PrivateCDAIObjectMPD::ResetState()
 {
-	 //TODO: Vinod, maybe we can move these playback state variables to PrivateStreamAbstractionMPD
-	 mIsFogTSB = false;
-	 ClearCurrentAdBreak();
-	 std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
-	 mContentSeekOffset = 0;
-	 mAdState = AdState::OUTSIDE_ADBREAK;
-	 // NOTE: mVodAdBreaks and mNextVodBreakToCheck are intentionally NOT cleared here.
-	 // They are populated by RegisterVodAdBreak() before Init() is called and must
-	 // survive the ResetState() call that Init() makes at startup.  They are cleared
-	 // in ClearMaps() (called on Stop/retune) instead.
+	//TODO: Vinod, maybe we can move these playback state variables to PrivateStreamAbstractionMPD
+	mIsFogTSB = false;
+	ClearCurrentAdBreak();
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+	mContentSeekOffset = 0;
+	mAdState = AdState::OUTSIDE_ADBREAK;
+	// NOTE: mVodAdBreaks and mNextVodBreakToCheck are intentionally NOT cleared here.
+	// They are populated by RegisterVodAdBreak() before Init() is called and must
+	// survive the ResetState() call that Init() makes at startup.  They are cleared
+	// in ClearMaps() (called on Stop/retune) instead.
 }
 
 /**
@@ -1245,7 +1246,6 @@ void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
 {
 	std::lock_guard<std::mutex> lock(mBaseMPDHelperMtx);
 	mBaseMPDParseHelper = helper;
-	AAMPLOG_INFO("mBaseMPDParseHelper updated: %p", (void*)mBaseMPDParseHelper.get());
 }
 
 /**
@@ -1262,14 +1262,12 @@ void PrivateCDAIObjectMPD::PlaceAdsForStaticManifest(const std::string& reservat
 
 	if (baseMPDHelper)
 	{
-		AAMPLOG_INFO("[CDAI] triggering PlaceAds for reservation [%s]",
-			reservationId.c_str());
+		AAMPLOG_INFO("[CDAI] triggering PlaceAds for reservation [%s]", reservationId.c_str());
 		PlaceAds(baseMPDHelper);
 	}
 	else
 	{
-		AAMPLOG_WARN("[CDAI] deferred placement for reservation [%s] skipped: base MPD helper unavailable",
-			reservationId.c_str());
+		AAMPLOG_WARN("[CDAI] deferred placement for reservation [%s] skipped: base MPD helper unavailable", reservationId.c_str());
 	}
 }
 
@@ -2072,6 +2070,7 @@ void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservat
 	{
 		AdBreakObject& abObj = mAdBreaks[reservationId];
 		abObj.resolved = true;
+		abObj.reservationComplete = true;
 		AAMPLOG_INFO("[CDAI] Marked reservation complete for adBreakId: %s", reservationId.c_str());
 		//We are Aborting the wait when the AdBreakObject is empty. Not for the each ad to be resolved.
 		if (!abObj.ads || abObj.ads->empty())
@@ -2090,8 +2089,7 @@ void PrivateCDAIObjectMPD::NotifyReservationComplete(const std::string& reservat
 			}
 			else
 			{
-				AAMPLOG_INFO("[CDAI] Reservation [%s] marked complete; waiting for all ads to resolve before PlaceAds",
-					reservationId.c_str());
+				AAMPLOG_INFO("[CDAI] Reservation [%s] marked complete; waiting for all ads to resolve before PlaceAds", reservationId.c_str());
 			}
 		}
 	}

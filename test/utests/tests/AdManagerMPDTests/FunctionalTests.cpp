@@ -21,14 +21,10 @@
 #include <gmock/gmock.h>
 #include <atomic>
 #include <chrono>
-<<<<<<< HEAD
 #include <future>
 #include <memory>
 #include <thread>
-=======
-#include <condition_variable>
 #include <mutex>
->>>>>>> a691b582 (VPAAMP-473:[Timeshift DAI] Place CDAI ads for cold CDVR and iVOD)
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampUtils.h"
@@ -4731,7 +4727,6 @@ TEST_F(AdManagerMPDTests, CancelReservation_PlacementBreakMissing_NoChange)
     cancelAtPeriodId.empty());
 }
 
-<<<<<<< HEAD
 /**
  * @brief RegisterVodAdBreak + CheckVodAdBreakLookahead: opportunity fires exactly
  * once when playhead enters the lookahead window, and mNextVodBreakToCheck
@@ -4842,21 +4837,23 @@ TEST_F(AdManagerMPDTests, VodAdBreak_SentinelTracksEarliestActiveBreak)
   mPrivateCDAIObjectMPD->CancelVodAdBreak("b3");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck,
     std::numeric_limits<double>::max());
-=======
-// ============================================================================
-// Integration tests: static-manifest placement synchronization (VPAAMP-473)
-//
-// These tests cover cold CDVR/static-manifest flows where there is no periodic
-// manifest refresh to drive PlaceAds(). Placement is triggered by
-// NotifyReservationComplete once ads are resolved, with a deferred trigger from
-// FulFillAdObject when reservation was completed earlier.
-// ============================================================================
+}
 
-// Source MPD used by all three tests below:
-//   Period 0  : testPeriodId0    - 30 s background content  (start=0)
-//   Period 1  : testPeriodId1    - 30 s ad-break period     (start=30s)
-//   Period 2  : testPeriodId_nxt - 4 s following content    (start=60s)
-// The ad manifest (reused from SetAlternateContentsTests_2) gives a 10 000 ms ad.
+/**
+ * ============================================================================
+ * Integration tests: static-manifest CDAI ad placement synchronization
+ *
+ * These tests cover static-manifest flows where there is no periodic
+ * manifest refresh to drive PlaceAds(). Placement is triggered by
+ * NotifyReservationComplete once ads are resolved, with a deferred trigger from
+ * FulFillAdObject when reservation was completed earlier.
+ * ============================================================================
+ *
+ * Source MPD used by all three tests below:
+ * Period 0  : testPeriodId0    - 30 s background content  (start=0)
+ * Period 1  : testPeriodId1    - 30 s ad-break period     (start=30s)
+ * Period 2  : testPeriodId_nxt - 4 s following content    (start=60s)
+ */
 static const char *kStaticSourceManifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static"
@@ -4898,13 +4895,9 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 
-// Ad manifest: one period, video + audio, total duration ~10 000 ms.
-// Shared with SetAlternateContentsTests_2 to avoid redefining the same content.
-static const char *kStaticAdManifest = kSharedTenSecondAdManifest;
-
 /**
  * @brief Integration test: static-manifest placement is triggered on
- *        NotifyReservationComplete after ad fulfillment resolves the ad.
+ * NotifyReservationComplete after ad fulfillment resolves the ad.
  *
  * Verifies that after ad fulfillment and reservation completion, the
  * period-to-ad map is built (mPeriodMap[periodId].duration > 0, ad marked
@@ -4912,195 +4905,185 @@ static const char *kStaticAdManifest = kSharedTenSecondAdManifest;
  */
 TEST_F(AdManagerMPDTests, StaticManifest_NotifyComplete_TriggersPlacement)
 {
-    const std::string periodId = "testPeriodId1";
-    const std::string adId     = "testAdId";
-    const std::string url      = TEST_AD_MANIFEST_URL;
-    constexpr uint64_t startMS   = 0;
-    constexpr uint32_t breakdur  = 30000; // matches source period duration (30 s)
-    std::mutex adResolvedMtx;
-    std::condition_variable adResolvedCv;
-    bool adResolved = false;
+  const std::string periodId = "testPeriodId1";
+  const std::string adId     = "testAdId";
+  const std::string url      = TEST_AD_MANIFEST_URL;
+  constexpr uint64_t startMS   = 0;
+  constexpr uint32_t breakdur  = 30000; // matches source period duration (30 s)
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
 
-    // Step 1: create the placeholder ad-break entry.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+  // Step 1: create the placeholder ad-break entry.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
-    // Step 2: parse the static source MPD and store it as the base helper so
-    //         NotifyReservationComplete/deferred fulfillment can trigger PlaceAds.
-    // Generate mAdMPDParseHelper here so it can be passed via SetBaseMPDParseHelper.
-    ProcessSourceMPD(kStaticSourceManifest);
-    ASSERT_TRUE(mAdMPDParseHelper != nullptr);
-    mPrivateCDAIObjectMPD->SetBaseMPDParseHelper(mAdMPDParseHelper);
+  // Step 2: parse the static source MPD and store it as the base helper so
+  // NotifyReservationComplete/deferred fulfillment can trigger PlaceAds.
+  // Generate mAdMPDParseHelper here so it can be passed via SetBaseMPDParseHelper.
+  ProcessSourceMPD(kStaticSourceManifest);
+  ASSERT_TRUE(mAdMPDParseHelper != nullptr);
+  mPrivateCDAIObjectMPD->SetBaseMPDParseHelper(mAdMPDParseHelper);
 
-    // Step 3: set up the mock to serve the ad manifest on download.
-    mManifest = kStaticAdManifest;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-        GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
-        .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-        SendAdResolvedEvent(adId, true, startMS, 10000u, eCDAI_ERROR_NONE))
-      .Times(1)
-      .WillOnce(Invoke([&](const std::string&, bool, uint64_t, uint64_t, AAMPCDAIError)
-      {
-        {
-          std::lock_guard<std::mutex> lock(adResolvedMtx);
-          adResolved = true;
-        }
-        adResolvedCv.notify_one();
-      }));
+  // Step 3: set up the mock to serve the ad manifest on download.
+  mManifest = kSharedTenSecondAdManifest;
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+      SendAdResolvedEvent(adId, true, startMS, 10000u, eCDAI_ERROR_NONE))
+    .Times(1)
+    .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
-    // Step 4: trigger the fulfillment loop.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    // Wait for async FulFillAdObject completion signal from SendAdResolvedEvent.
-    {
-      std::unique_lock<std::mutex> lock(adResolvedMtx);
-      ASSERT_TRUE(adResolvedCv.wait_for(lock, std::chrono::milliseconds(500), [&]() { return adResolved; }))
-        << "Timed out waiting for SendAdResolvedEvent callback";
-    }
+  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+            .WillOnce(Return(true));
+  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+            .WillOnce(Return(true));
 
-    // Step 5: all ads resolved. Now mark reservation complete, which triggers PlaceAds for static manifest.
-    mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
+  // Step 4: trigger the fulfillment loop.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+  // Wait for async FulFillAdObject completion signal from SendAdResolvedEvent.
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::milliseconds(500)), std::future_status::ready)
+      << "Timed out waiting for SendAdResolvedEvent callback";
 
-    // Step 6: assert the period-to-ad map was built by PlaceAds (no refresh needed).
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 1u);
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+  // Step 5: validate that the ad is resolved but placement has not yet occurred.
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
+      << "SetAlternateContents should not have marked the adbreak as placed yet (NotifyReservationComplete not called)";
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 1u);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
+      << "SetAlternateContents should not have marked the ad as placed yet (NotifyReservationComplete not called)";
 
-    // PlaceAds ran → ad is fully placed and the adbreak is marked complete.
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
-        << "PlaceAds should have marked the ad as placed after NotifyReservationComplete";
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
-        << "PlaceAds should have marked the adbreak as placed after NotifyReservationComplete";
+  // Step 6: all ads resolved. Now mark reservation complete, which triggers PlaceAds for static manifest.
+  mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
 
-    // mPeriodMap must be populated: duration is the amount of source-period content
-    // consumed while placing the ad (30 000 ms for the 30 s source period).
-    EXPECT_GT(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 0u)
-        << "PlaceAds should have accumulated period duration into mPeriodMap";
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, periodId);
+  // Step 7: assert the period-to-ad map was built by PlaceAds (no refresh needed).
+  // PlaceAds ran → ad is fully placed and the adbreak is marked complete.
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
+      << "PlaceAds should have marked the ad as placed after NotifyReservationComplete";
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
+      << "PlaceAds should have marked the adbreak as placed after NotifyReservationComplete";
 
-    // Placement is complete: mPlacementObj should be reset/empty.
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.empty());
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId.empty());
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
+  // mPeriodMap must be populated: duration is the amount of source-period content
+  // consumed while placing the ad (30 s for the 30 s source period).
+  EXPECT_GT(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 0u)
+      << "PlaceAds should have accumulated period duration into mPeriodMap";
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, periodId);
+
+  // Step 8: Placement is complete: mPlacementObj should be reset/empty.
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.empty());
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId.empty());
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
 }
 
 /**
  * @brief Integration test: 20s ad break with two 10s ads fulfilled via
- *        SetAlternateContents should complete placement only after
- *        NotifyReservationComplete is called.
+ * SetAlternateContents should complete placement only after
+ * NotifyReservationComplete is called.
  */
 TEST_F(AdManagerMPDTests, StaticManifest_TwoAds_CompleteTwentySecondBreak)
 {
-    const std::string periodId = "testPeriodId1";
-    const std::string adId1    = "testAdId1";
-    const std::string adId2    = "testAdId2";
-    const std::string url      = TEST_AD_MANIFEST_URL;
-    constexpr uint64_t startMS      = 0;
-    constexpr uint32_t breakdur     = 20000;
-    constexpr uint32_t adDurationMS = 10000;
+  const std::string periodId = "testPeriodId1";
+  const std::string adId1    = "testAdId1";
+  const std::string adId2    = "testAdId2";
+  const std::string url      = TEST_AD_MANIFEST_URL;
+  constexpr uint64_t startMS      = 0;
+  constexpr uint32_t breakdur     = 20000;
+  constexpr uint32_t adDurationMS = 10000;
 
-    std::mutex adResolvedMtx;
-    std::condition_variable adResolvedCv;
-    int adResolvedCount = 0;
+  auto adResolvedPromise1 = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture1 = adResolvedPromise1->get_future();
+  auto adResolvedPromise2 = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture2 = adResolvedPromise2->get_future();
 
-    // Step 1: create the 20s placeholder ad-break entry.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+  // Step 1: create the 20s placeholder ad-break entry.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
-    // Step 2: parse source MPD and set base helper so static-manifest
-    //         placement can run when reservation completion is notified.
-    ProcessSourceMPD(kStaticSourceManifest);
-    ASSERT_TRUE(mAdMPDParseHelper != nullptr);
-    mPrivateCDAIObjectMPD->SetBaseMPDParseHelper(mAdMPDParseHelper);
+  // Step 2: parse source MPD and set base helper so static-manifest
+  // placement can run when reservation completion is notified.
+  ProcessSourceMPD(kStaticSourceManifest);
+  ASSERT_TRUE(mAdMPDParseHelper != nullptr);
+  mPrivateCDAIObjectMPD->SetBaseMPDParseHelper(mAdMPDParseHelper);
 
-    // Step 3: each ad fulfillment downloads the same 10s ad manifest.
-    mManifest = kStaticAdManifest;
+  // Step 3: each ad fulfillment downloads the same 10s ad manifest.
+  mManifest = kSharedTenSecondAdManifest;
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .Times(2)
+      .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
+
+  {
+    ::testing::InSequence seq;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-        GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
-        .Times(2)
-        .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
+        SendAdResolvedEvent(adId1, true, startMS, adDurationMS, eCDAI_ERROR_NONE))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise1]{ adResolvedPromise1->set_value(); }));
 
-    {
-      ::testing::InSequence seq;
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-          SendAdResolvedEvent(adId1, true, startMS, adDurationMS, eCDAI_ERROR_NONE))
-        .Times(1)
-        .WillOnce(Invoke([&](const std::string&, bool, uint64_t, uint64_t, AAMPCDAIError)
-        {
-          {
-            std::lock_guard<std::mutex> lock(adResolvedMtx);
-            ++adResolvedCount;
-          }
-          adResolvedCv.notify_one();
-        }));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SendAdResolvedEvent(adId2, true, startMS + adDurationMS, adDurationMS, eCDAI_ERROR_NONE))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([adResolvedPromise2]{ adResolvedPromise2->set_value(); }));
+  }
 
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-          SendAdResolvedEvent(adId2, true, startMS + adDurationMS, adDurationMS, eCDAI_ERROR_NONE))
-        .Times(1)
-        .WillOnce(Invoke([&](const std::string&, bool, uint64_t, uint64_t, AAMPCDAIError)
-        {
-          {
-            std::lock_guard<std::mutex> lock(adResolvedMtx);
-            ++adResolvedCount;
-          }
-          adResolvedCv.notify_one();
-        }));
-    }
+  // Expecting the ad init fragment to be downloaded twice (once for each ad fulfillment).
+  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+            .WillRepeatedly(Return(true));
+  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+            .WillRepeatedly(Return(true));
 
-    // Step 4: fulfill ad1 and validate partial placement state.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDurationMS);
-    {
-      std::unique_lock<std::mutex> lock(adResolvedMtx);
-      ASSERT_TRUE(adResolvedCv.wait_for(lock, std::chrono::milliseconds(500), [&]() { return adResolvedCount >= 1; }))
-        << "Timed out waiting for first SendAdResolvedEvent callback";
-    }
+  // Step 4: fulfill ad1 and validate partial placement state.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDurationMS);
+  ASSERT_EQ(adResolvedFuture1.wait_for(std::chrono::milliseconds(500)), std::future_status::ready)
+      << "Timed out waiting for first SendAdResolvedEvent callback";
 
-    ASSERT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
-    ASSERT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 1u);
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
-        << "Ad1 should not be marked placed until PlaceAds runs (after NotifyReservationComplete)";
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
-        << "Ad break should remain incomplete until PlaceAds runs";
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].adsDuration, adDurationMS);
+  ASSERT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
+  ASSERT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 1u);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
+      << "Ad1 should not be marked placed until PlaceAds runs (after NotifyReservationComplete)";
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
+      << "Ad break should remain incomplete until PlaceAds runs";
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].adsDuration, adDurationMS);
 
-    // Step 5: fulfill ad2 and validate that ad-break placement is complete.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDurationMS);
-    {
-      std::unique_lock<std::mutex> lock(adResolvedMtx);
-      ASSERT_TRUE(adResolvedCv.wait_for(lock, std::chrono::milliseconds(500), [&]() { return adResolvedCount >= 2; }))
-        << "Timed out waiting for second SendAdResolvedEvent callback";
-    }
+  // Step 5: fulfill ad2 and validate that ad-break placement is complete.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDurationMS);
+  ASSERT_EQ(adResolvedFuture2.wait_for(std::chrono::milliseconds(500)), std::future_status::ready)
+      << "Timed out waiting for second SendAdResolvedEvent callback";
 
-    ASSERT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 2u);
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).resolved);
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).invalid);
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).placed)
-        << "Ad2 should not be marked placed until PlaceAds runs (after NotifyReservationComplete)";
-    // Ad break placement should still be incomplete until NotifyReservationComplete is called
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
-        << "Ad break should remain incomplete after second ad is fulfilled but before reservation is marked complete";
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].adsDuration, breakdur)
-        << "Ad break should be completely filled with both 10s ads (total 20s)";
+  ASSERT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 2u);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).resolved);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).invalid);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).placed)
+      << "Ad2 should not be marked placed until PlaceAds runs (after NotifyReservationComplete)";
+  // Ad break placement should still be incomplete until NotifyReservationComplete is called
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
+      << "Ad break should remain incomplete after second ad is fulfilled but before reservation is marked complete";
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].adsDuration, breakdur)
+      << "Ad break should be completely filled with both 10s ads (total 20s)";
 
-    // Step 6: all ads resolved. Now mark reservation complete, which triggers PlaceAds for static manifest.
-    mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
+  // Step 6: all ads resolved. Now mark reservation complete, which triggers PlaceAds for static manifest.
+  mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
 
-    // After PlaceAds runs, both ads should be marked as placed
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
-        << "Ad1 should be marked placed after PlaceAds runs";
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).placed)
-        << "Ad2 should be marked placed after PlaceAds runs";
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
-        << "Ad break should be marked placed after NotifyReservationComplete triggers PlaceAds";
+  // After PlaceAds runs, both ads should be marked as placed
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
+      << "Ad1 should be marked placed after PlaceAds runs";
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).placed)
+      << "Ad2 should be marked placed after PlaceAds runs";
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
+      << "Ad break should be marked placed after NotifyReservationComplete triggers PlaceAds";
 
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, periodId);
-    EXPECT_GT(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 0u);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].adBreakId, periodId);
+  EXPECT_GT(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 0u);
 
-    // Placement should be complete and pending placement queue should be clear.
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.empty());
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId.empty());
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
+  // Placement should be complete and pending placement queue should be clear.
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId.empty());
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId.empty());
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
 }
 
 /**
@@ -5112,64 +5095,60 @@ TEST_F(AdManagerMPDTests, StaticManifest_TwoAds_CompleteTwentySecondBreak)
  */
 TEST_F(AdManagerMPDTests, StaticManifest_NoBaseHelper_NotifyComplete_DoesNotPlaceAds)
 {
-    const std::string periodId = "testPeriodId1";
-    const std::string adId     = "testAdId";
-    const std::string url      = TEST_AD_MANIFEST_URL;
-    constexpr uint64_t startMS  = 0;
-    constexpr uint32_t breakdur = 30000;
-    std::mutex adResolvedMtx;
-    std::condition_variable adResolvedCv;
-    bool adResolved = false;
+  const std::string periodId = "testPeriodId1";
+  const std::string adId     = "testAdId";
+  const std::string url      = TEST_AD_MANIFEST_URL;
+  constexpr uint64_t startMS  = 0;
+  constexpr uint32_t breakdur = 30000;
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
 
-    // Step 1: placeholder entry — mBaseMPDParseHelper intentionally NOT set.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+  // Step 1: placeholder entry — mBaseMPDParseHelper intentionally NOT set.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
-    // Step 2: mock ad manifest download.
-    mManifest = kStaticAdManifest;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-        GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
-        .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-        SendAdResolvedEvent(adId, true, startMS, 10000u, eCDAI_ERROR_NONE))
-      .Times(1)
-      .WillOnce(Invoke([&](const std::string&, bool, uint64_t, uint64_t, AAMPCDAIError)
-      {
-        {
-          std::lock_guard<std::mutex> lock(adResolvedMtx);
-          adResolved = true;
-        }
-        adResolvedCv.notify_one();
-      }));
+  // Step 2: mock ad manifest download.
+  mManifest = kSharedTenSecondAdManifest;
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+      SendAdResolvedEvent(adId, true, startMS, 10000u, eCDAI_ERROR_NONE))
+    .Times(1)
+    .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
-    // Step 3: trigger fulfillment.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    {
-      std::unique_lock<std::mutex> lock(adResolvedMtx);
-      ASSERT_TRUE(adResolvedCv.wait_for(lock, std::chrono::milliseconds(500), [&]() { return adResolved; }))
-        << "Timed out waiting for SendAdResolvedEvent callback";
-    }
+  std::string adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest/track-video-repid-LE5-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+            .WillOnce(Return(true));
+  adInitUrl = GetFullURI(TEST_AD_MANIFEST_HOST, "manifest-eac3/track-audio-repid-DDen-tc--header.mp4");
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adInitUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+            .WillOnce(Return(true));
 
-    // Step 4: ad resolved. Now call NotifyReservationComplete to trigger PlaceAds (which should be skipped).
-    mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
+  // Step 3: trigger fulfillment.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::milliseconds(500)), std::future_status::ready)
+      << "Timed out waiting for SendAdResolvedEvent callback";
 
-    // Step 5: verify reservation was marked complete/resolved, but PlaceAds was
-    //         NOT called because mBaseMPDParseHelper is null.
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].reservationComplete);
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].resolved);
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
-        << "PlaceAds should NOT have been called when mBaseMPDParseHelper is null";
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
-        << "adbreak should not be marked placed when PlaceAds was not triggered";
+  // Step 4: ad resolved. Now call NotifyReservationComplete to trigger PlaceAds (which should be skipped).
+  mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
 
-    // mPeriodMap duration must still be zero — PlaceAds never ran.
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 0u)
-        << "mPeriodMap should not be populated when PlaceAds was skipped";
+  // Step 5: verify reservation was marked complete/resolved, but PlaceAds was
+  // NOT called because mBaseMPDParseHelper is null.
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].reservationComplete);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].resolved);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
+      << "PlaceAds should NOT have been called when mBaseMPDParseHelper is null";
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced)
+      << "adbreak should not be marked placed when PlaceAds was not triggered";
 
-    // curAdIdx stays at 0 (placement queued but not yet executed by PlaceAds).
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0);
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  // mPeriodMap duration must still be zero — PlaceAds never ran.
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 0u)
+      << "mPeriodMap should not be populated when PlaceAds was skipped";
+
+  // curAdIdx stays at 0 (placement queued but not yet executed by PlaceAds).
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
 }
 
 /**
@@ -5181,63 +5160,51 @@ TEST_F(AdManagerMPDTests, StaticManifest_NoBaseHelper_NotifyComplete_DoesNotPlac
  */
 TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotPlaceAds)
 {
-    const std::string periodId = "testPeriodId1";
-    const std::string adId     = "testAdId";
-    const std::string url      = TEST_AD_MANIFEST_URL;
-    constexpr uint64_t startMS  = 0;
-    constexpr uint32_t breakdur = 30000;
-    std::mutex adResolvedMtx;
-    std::condition_variable adResolvedCv;
-    bool adResolved = false;
+  const std::string periodId = "testPeriodId1";
+  const std::string adId     = "testAdId";
+  const std::string url      = TEST_AD_MANIFEST_URL;
+  constexpr uint64_t startMS  = 0;
+  constexpr uint32_t breakdur = 30000;
+  auto adResolvedPromise = std::make_shared<std::promise<void>>();
+  auto adResolvedFuture = adResolvedPromise->get_future();
 
-    // Step 1: placeholder entry.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+  // Step 1: placeholder entry.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
-    // Step 2: parse and register the base-stream helper (static manifest gate is open).
-    ProcessSourceMPD(kStaticSourceManifest);
-    ASSERT_TRUE(mAdMPDParseHelper != nullptr);
-    mPrivateCDAIObjectMPD->SetBaseMPDParseHelper(mAdMPDParseHelper);
+  // Step 2: parse and register the base-stream helper (static manifest gate is open).
+  ProcessSourceMPD(kStaticSourceManifest);
+  ASSERT_TRUE(mAdMPDParseHelper != nullptr);
+  mPrivateCDAIObjectMPD->SetBaseMPDParseHelper(mAdMPDParseHelper);
 
-    // Step 3: make the ad manifest download fail with HTTP 404.
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-        GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
-        .WillOnce(WithArgs<4>(Invoke([](int* err){ *err = 404; return false; })));
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
-        SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR))
-      .Times(1)
-      .WillOnce(Invoke([&](const std::string&, bool, uint64_t, uint64_t, AAMPCDAIError)
-      {
-        {
-          std::lock_guard<std::mutex> lock(adResolvedMtx);
-          adResolved = true;
-        }
-        adResolvedCv.notify_one();
-      }));
+  // Step 3: make the ad manifest download fail with HTTP 404.
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+      GetFile(std::string(TEST_AD_MANIFEST_URL), _, _, _, _, _, _, _, _, _, _, _, _, _))
+      .WillOnce(WithArgs<4>(Invoke([](int& err){ err = 404; return false; })));
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+      SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_DELIVERY_HTTP_ERROR))
+    .Times(1)
+    .WillOnce(InvokeWithoutArgs([adResolvedPromise]{ adResolvedPromise->set_value(); }));
 
-    // Step 4: trigger fulfillment.
-    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
-    {
-      std::unique_lock<std::mutex> lock(adResolvedMtx);
-      ASSERT_TRUE(adResolvedCv.wait_for(lock, std::chrono::milliseconds(500), [&]() { return adResolved; }))
-        << "Timed out waiting for SendAdResolvedEvent callback";
-    }
+  // Step 4: trigger fulfillment.
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+  ASSERT_EQ(adResolvedFuture.wait_for(std::chrono::milliseconds(500)), std::future_status::ready)
+      << "Timed out waiting for SendAdResolvedEvent callback";
 
-    // Step 5: ad resolved (but marked invalid). Now call NotifyReservationComplete to trigger PlaceAds (which should be skipped due to ad failure).
-    mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
+  // Step 5: ad resolved (but marked invalid). Now call NotifyReservationComplete to trigger PlaceAds (which should be skipped due to ad failure).
+  mPrivateCDAIObjectMPD->NotifyReservationComplete(periodId);
 
-    // Step 6: verify ad marked invalid; PlaceAds must NOT have been called.
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
-        << "PlaceAds must not be called when ad download failed";
-    EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced);
+  // Step 6: verify ad marked invalid; PlaceAds must NOT have been called.
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).placed)
+      << "PlaceAds must not be called when ad download failed";
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced);
 
-    // mPeriodMap duration must be zero — PlaceAds never ran.
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 0u)
-        << "mPeriodMap should not be populated when ad download failed";
+  // mPeriodMap duration must be zero — PlaceAds never ran.
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 0u)
+      << "mPeriodMap should not be populated when ad download failed";
 
-    // No placement queued (adStatus was false).
-    EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
-    EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
->>>>>>> a691b582 (VPAAMP-473:[Timeshift DAI] Place CDAI ads for cold CDVR and iVOD)
+  // No placement queued (adStatus was false).
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
 }

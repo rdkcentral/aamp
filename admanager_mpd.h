@@ -27,6 +27,7 @@
 
 #include "AdManagerBase.h"
 #include <string>
+#include <mutex>
 #include <condition_variable>
 #include "libdash/INode.h"
 #include "libdash/IDASHManager.h"
@@ -729,6 +730,7 @@ public:
 	 * This is used when exiting an ad break or when ad playback is invalidated.
 	 */
 	void ClearCurrentAdBreak();
+
 	/**
 	 * @brief Check if all ads in an adbreak are resolved.
 	 * @param[in] periodId Ad break ID
