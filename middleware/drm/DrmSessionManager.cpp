@@ -390,6 +390,13 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		DrmCallbacks* player, void *metaDataPtr, const unsigned char* contentMetadataPtr,
 		 bool isPrimarySession)
 {
+	/* SERXIONE-8666 debug: track concurrent DRM session creation to detect
+	 * GLib main loop starvation from parallel createHelper/getKey calls */
+	static std::atomic<int> activeDrmCreations{0};
+	int concurrent = ++activeDrmCreations;
+	long long drmStartMS = NOW_STEADY_TS_MS;
+	MW_LOG_MIL("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] createDrmSession entry: concurrent=%d streamType=%d systemId=%s", concurrent, streamType, systemId ? systemId : "null");
+
 	DrmInfo drmInfo;
 	std::shared_ptr<DrmHelper> drmHelper;
 	DrmSession *drmSession = NULL;
@@ -424,6 +431,9 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		}
 	}
 
+	long long drmElapsedMS = NOW_STEADY_TS_MS - drmStartMS;
+	--activeDrmCreations;
+	MW_LOG_MIL("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] createDrmSession exit: took %lld ms, concurrent=%d, session=%p", drmElapsedMS, activeDrmCreations.load(), drmSession);
 	return drmSession;
 }
 /**

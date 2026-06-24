@@ -128,7 +128,7 @@ numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL), durationQuery
 paused(false), pipelineState(GST_STATE_NULL),
 firstVideoFrameDisplayedCallbackTask("FirstVideoFrameDisplayedCallback"),
 firstTuneWithWesterosSinkOff(false),
-decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
+decodeErrorMsgTimeMS(0), decodeErrorCBCount(0), playingRequestTimeMS(0), pipelineConfigureTimeMS(0),
 progressiveBufferingEnabled(false), progressiveBufferingStatus(false), forwardAudioBuffers(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
 filterAudioDemuxBuffers(false),
@@ -258,6 +258,20 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 										   int subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation,
 										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
 {
+	/* SERXIONE-8666 debug: detect rapid/repeated tunes (channel surfing pattern).
+	 * If ConfigurePipeline is called again within 10s of the last call, it indicates
+	 * quick successive tunes that compound main-loop starvation. */
+	{
+		static long long lastConfigureTimeMS = 0;
+		static int tuneCount = 0;
+		long long nowMS = NOW_STEADY_TS_MS;
+		long long gapMS = (lastConfigureTimeMS > 0) ? (nowMS - lastConfigureTimeMS) : -1;
+		tuneCount++;
+		MW_LOG_MIL("[XSTLP-999-DBG][RACE-CONDITION] ConfigurePipeline entry: tune#%d, gap=%lld ms from previous configure, pipeline=%s",
+			tuneCount, gapMS, pipelineName ? pipelineName : "null");
+		lastConfigureTimeMS = nowMS;
+	}
+
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
@@ -272,7 +286,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 
 	if(isSubEnable)
 	{
-		MW_LOG_MIL("Gstreamer subs enabled");
+		MW_LOG_MIL("[XSTLP-999-DBG][SUBTITLE-PREROLL] Gstreamer subs enabled, subFormat=%d (%s)", subFormat,
+			(gstSubFormat == GST_FORMAT_INVALID) ? "FORMAT_INVALID/no-text-track" : "valid-format");
 		newFormat[eGST_MEDIATYPE_SUBTITLE] = gstSubFormat;
 	}
 	else
@@ -424,9 +439,16 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				 newClosedCaptionsControl &&
 				 !interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl)
 		{
+			MW_LOG_MIL("[XSTLP-999-DBG][SUBTITLE-PREROLL] Setting up ClosedCaptionControlStream (Rialto path, no text track)");
 			TearDownStream(eGST_MEDIATYPE_SUBTITLE);
 			interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = true;
 			SetupClosedCaptionControlStream();
+		}
+		else if ((eGST_MEDIATYPE_SUBTITLE == i) && configureStream[i] && (newFormat[i] == GST_FORMAT_INVALID))
+		{
+			MW_LOG_MIL("[XSTLP-999-DBG][SUBTITLE-PREROLL] Subtitle track[%d] format=INVALID, isSubEnable=%d, usingRialto=%d, usingCC=%d — subtitle sink NOT created",
+				i, isSubEnable, interfacePlayerPriv->gstPrivateContext->usingRialtoSink,
+				interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl);
 		}
 	}
 	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && (m_gstConfigParam->media != eGST_MEDIAFORMAT_PROGRESSIVE))
@@ -498,6 +520,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorMsgTimeMS = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorCBCount = 0;
+	interfacePlayerPriv->gstPrivateContext->playingRequestTimeMS = 0;
+	interfacePlayerPriv->gstPrivateContext->pipelineConfigureTimeMS = NOW_STEADY_TS_MS;
 	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{
 		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",interfacePlayerPriv->gstPrivateContext->subtitle_sink);
@@ -1301,6 +1325,15 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		else
 		{
 			MW_LOG_DEBUG(" InterfacePlayerRDK: %s state set to %s, rc:%d",  SafeName(element).c_str(), gst_element_state_get_name(targetState), rc);
+			/* [XSTLP-999-DBG] Always log PAUSED/PLAYING state-change return code at MIL level.
+			 * GST_STATE_CHANGE_ASYNC(1) means request accepted but async — if pipeline is
+			 * mid-transition, GStreamer may silently drop the target. FAILURE(0) = rejected. */
+			MW_LOG_MIL("[XSTLP-999-DBG][RACE-CONDITION] SetStateWithWarnings(%s, %s) rc=%d (%s)",
+				SafeName(element).c_str(), gst_element_state_get_name(targetState), rc,
+				(rc == GST_STATE_CHANGE_FAILURE) ? "FAILURE" :
+				(rc == GST_STATE_CHANGE_SUCCESS) ? "SUCCESS" :
+				(rc == GST_STATE_CHANGE_ASYNC) ? "ASYNC" :
+				(rc == GST_STATE_CHANGE_NO_PREROLL) ? "NO_PREROLL" : "UNKNOWN");
 		}
 	}
 	else
@@ -2208,6 +2241,7 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 			MW_LOG_INFO("Added subtitle bin with %s %p to pipeline", 
 						GST_ELEMENT_NAME(privatePlayer->gstPrivateContext->subtitle_sink), 
 						privatePlayer->gstPrivateContext->subtitle_sink);
+			MW_LOG_MIL("[XSTLP-999-DBG][SUBTITLE-PREROLL] ClosedCaptionControl subtitle sink CREATED (Rialto CC path) — sink will receive CC control data");
 
 			privatePlayer->SignalConnect(stream->sinkbin, "deep-notify::source", G_CALLBACK(gst_found_source), this);
 			if (!gst_element_sync_state_with_parent(stream->sinkbin))
@@ -2265,6 +2299,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			else
 			{
 				MW_LOG_INFO("subs using subtecbin");
+				MW_LOG_MIL("[XSTLP-999-DBG][SUBTITLE-PREROLL] Subtitle sink CREATED (westerossink/subtecbin path) — no CC control stream, sink depends on text track data");
 				stream->sinkbin = gst_element_factory_make("subtecbin", NULL);			/* Creates a new element of "subtecbin" type and returns a new GstElement */
 				if (!stream->sinkbin)													/* When a new element can not be created a NULL is returned */
 				{
@@ -4302,6 +4337,32 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						   gst_element_state_get_name(new_state),
 						   gst_element_state_get_name(pending_state));
 
+				/* SERXIONE-8666 debug: log time from ConfigurePipeline to each
+				 * pipeline state transition. Helps distinguish subtitle-sink-blocking
+				 * (PAUSED reached early, PLAYING delayed) from main-loop-starvation
+				 * (all bus messages delayed equally). */
+				if (isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pipelineConfigureTimeMS > 0)
+				{
+					long long sinceConfigureMS = NOW_STEADY_TS_MS - privatePlayer->gstPrivateContext->pipelineConfigureTimeMS;
+						MW_LOG_MIL("[XSTLP-999-DBG][RACE-CONDITION] Pipeline %s -> %s at +%lld ms from ConfigurePipeline",
+							gst_element_state_get_name(old_state), gst_element_state_get_name(new_state), sinceConfigureMS);
+				}
+
+					/* [XSTLP-999-DBG] Detect when pipeline reaches PAUSED with no pending PLAYING state.
+				 * This is the exact moment the PLAYING target is "lost" — pipeline will sit in
+				 * PAUSED indefinitely unless something re-requests PLAYING. */
+				if (isPlaybinStateChangeEvent && new_state == GST_STATE_PAUSED && pending_state == GST_STATE_VOID_PENDING)
+				{
+					if (privatePlayer->gstPrivateContext->buffering_in_progress)
+					{
+						MW_LOG_MIL("[XSTLP-999-DBG][RACE-CONDITION] Pipeline reached PAUSED with VOID_PENDING — PLAYING target lost, but buffering_timeout timer still active (will re-request)");
+					}
+					else
+					{
+						MW_LOG_MIL("[XSTLP-999-DBG][RACE-CONDITION] WARNING: Pipeline reached PAUSED with VOID_PENDING — PLAYING target lost AND buffering_timeout timer NOT active! Pipeline may stall");
+					}
+				}
+
 				if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
 				{
 					GstElement *video_sink = privatePlayer->gstPrivateContext->video_sink;
@@ -4335,6 +4396,16 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				if(isPlaybinStateChangeEvent && new_state == GST_STATE_PLAYING)
 				{
 					privatePlayer->gstPrivateContext->pauseOnStartPlayback = false;
+
+					/* SERXIONE-8666 debug: measure delay between set_state(PLAYING) call
+					 * and bus_message dispatch of PLAYING state. This captures GLib main
+					 * loop thread starvation. */
+					if (privatePlayer->gstPrivateContext->playingRequestTimeMS > 0)
+					{
+						long long delayMS = NOW_STEADY_TS_MS - privatePlayer->gstPrivateContext->playingRequestTimeMS;
+						MW_LOG_MIL("[XSTLP-999-DBG][RACE-CONDITION] PLAYING bus_message dispatch delay: %lld ms (from set_state request)", delayMS);
+						privatePlayer->gstPrivateContext->playingRequestTimeMS = 0;
+					}
 
 					busEvent.setPlaybackRate = privatePlayer->socInterface->SetPlatformPlaybackRate();
 					if(pInterfacePlayerRDK->m_gstConfigParam->audioOnlyMode && !privatePlayer->gstPrivateContext->firstAudioFrameReceived && privatePlayer->gstPrivateContext->NumberOfTracks==1)
@@ -4703,6 +4774,7 @@ static gboolean buffering_timeout (gpointer data)
 				{
 					MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
 					gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
+					privatePlayer->gstPrivateContext->playingRequestTimeMS = NOW_STEADY_TS_MS;
 					SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
 					isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
 
@@ -4715,6 +4787,7 @@ static gboolean buffering_timeout (gpointer data)
 		{
 			//reset timer id after buffering operation is completed
 			privatePlayer->gstPrivateContext->bufferingTimeoutTimerId = GST_TASK_ID_INVALID;
+			MW_LOG_MIL("[XSTLP-999-DBG][RACE-CONDITION] buffering_timeout timer STOPPED (buffering_in_progress=false), isPlayerReady=%d", isPlayerReady);
 		}
 
 		if(pInterfacePlayerRDK->OnBuffering_timeoutCb)

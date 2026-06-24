@@ -361,9 +361,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
-#ifdef EVENT_DEBUGGING
 	long long startTime = NOW_STEADY_TS_MS;
-#endif
 	// Check if already player in release state , then no need to send any events
 	// Its checked again here ,as async events can come to sync mode after playback is stopped 
 	if(mPlayerState == eSTATE_RELEASED)
@@ -421,6 +419,13 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 #ifdef EVENT_DEBUGGING
 	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));
 #endif
+	/* SERXIONE-8666 debug: always log state-change event dispatch duration
+	 * to detect GLib main loop starvation from synchronous JS processing */
+	long long elapsed = NOW_STEADY_TS_MS - startTime;
+	if (eventType == AAMP_EVENT_STATE_CHANGED || elapsed > 100)
+	{
+		AAMPLOG_MIL("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] SendEventSync type=%d took %lld ms", eventType, elapsed);
+	}
 
 }
 
