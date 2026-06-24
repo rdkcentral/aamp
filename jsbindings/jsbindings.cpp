@@ -1005,7 +1005,7 @@ public:
 		const char* networkMetric = evt->getNetworkMetricData().c_str();
 
 		LOG_WARN_EX("AAMP_JSListener_DRMMetadata code %d Description %s", code, description);
-		LOG_TRACE("AAMP_JSListener_DRMMetadata NetworkMetric %s", networkMetric);
+		LOG_WARN_EX("AAMP_JSListener_DRMMetadata NetworkMetric %s", networkMetric);
 
 		name = JSStringCreateWithUTF8CString("code");
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, code), kJSPropertyAttributeReadOnly, NULL);

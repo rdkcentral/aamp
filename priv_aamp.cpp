@@ -3445,6 +3445,53 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
  */
 void PrivateInstanceAAMP::SendDRMMetaData(DrmMetaDataEventPtr e)
 {
+	const std::string& networkMetrics = e->getNetworkMetricData();
+	if (!networkMetrics.empty())
+	{
+		cJSON *metricsObj = cJSON_Parse(networkMetrics.c_str());
+		if (nullptr != metricsObj)
+		{
+			const cJSON *req = cJSON_GetObjectItemCaseSensitive(metricsObj, "req");
+			const cJSON *res = cJSON_GetObjectItemCaseSensitive(metricsObj, "res");
+			const cJSON *tot = cJSON_GetObjectItemCaseSensitive(metricsObj, "tot");
+			const cJSON *dns = cJSON_GetObjectItemCaseSensitive(metricsObj, "dns");
+
+			if (cJSON_IsNumber(req) && cJSON_IsNumber(res) && cJSON_IsNumber(tot))
+			{
+				if (cJSON_IsNumber(dns))
+				{
+					AAMPLOG_MIL("DRMMetadata UVE req:%d res:%d tot:%.2f dns:%.2f",
+							(int)req->valuedouble,
+							(int)res->valuedouble,
+							tot->valuedouble,
+							dns->valuedouble);
+				}
+				else
+				{
+					AAMPLOG_MIL("DRMMetadata UVE req:%d res:%d tot:%.2f dns:NA",
+							(int)req->valuedouble,
+							(int)res->valuedouble,
+							tot->valuedouble);
+				}
+			}
+			else
+			{
+				AAMPLOG_MIL("DRMMetadata UVE metrics missing req/res/tot: %s",
+							networkMetrics.c_str());
+			}
+			cJSON_Delete(metricsObj);
+		}
+		else
+		{
+			AAMPLOG_MIL("DRMMetadata UVE metrics parse failure: %s",
+						networkMetrics.c_str());
+		}
+	}
+	else
+	{
+		AAMPLOG_MIL("DRMMetadata UVE metrics unavailable");
+	}
+
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 	AAMPLOG_WARN("SendDRMMetaData name = %s value = %x", e->getAccessStatus().c_str(), e->getAccessStatusValue());
 }
