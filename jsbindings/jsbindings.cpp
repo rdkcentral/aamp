@@ -498,7 +498,6 @@ static bool AAMP_setProperty_preferredCEAFormat(JSContextRef context, JSObjectRe
 		return false;
 	}
 	preferredCEAFormat = (int)JSValueToNumber(context, value, exception);
-		LOG_WARN(pAAMP, "preferredCEAFormat is deprecated; ignoring (context=%p value=%d exception=%p)", context, preferredCEAFormat, exception);
 	return true;
 }
 
