@@ -555,20 +555,20 @@ TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
 TEST_F(SubtitleTrackTests, SelectSubtitleTrack_CCGuard_SkipsOOBSelection)
 {
 	static const char *manifest =
-    R"(<?xml version="1.0" encoding="utf-8"?>
+	R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
-    <Period id="0" start="PT0.0S">
-        <AdaptationSet id="16" contentType="text" segmentAlignment="true" lang="eng">
-            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
-            <Representation id="TTMLenCC" mimeType="application/mp4" codecs="stpp.ttml.im1t" bandwidth="1434">
-                <SegmentTemplate timescale="48000" media="dash/ttml_en_$Number%03d$.mp4" startNumber="1">
-                    <SegmentTimeline>
-                        <S t="0" d="96000" r="449"/>
-                    </SegmentTimeline>
-                </SegmentTemplate>
-            </Representation>
-        </AdaptationSet>
-    </Period>
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="16" contentType="text" segmentAlignment="true" lang="eng">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+			<Representation id="TTMLenCC" mimeType="application/mp4" codecs="stpp.ttml.im1t" bandwidth="1434">
+				<SegmentTemplate timescale="48000" media="dash/ttml_en_$Number%03d$.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="449"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
 </MPD>
 )";
 	AAMPStatusType status = InitializeMPD(manifest);

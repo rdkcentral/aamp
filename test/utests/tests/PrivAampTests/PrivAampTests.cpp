@@ -4174,9 +4174,14 @@ TEST_F(PrivAampTests, SetTextTrack_CCTrack_ArmsGuardAndEnablesCCManager)
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(false))
 		.WillOnce(ReturnRef(tracks));
-	// SetCCStatusInternal must route through PlayerCCManager now that mIsInbandCC is true.
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
-	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1", _)).WillOnce(Return(0));
+	// SetCCStatusInternal must enable PlayerCCManager before SetTrack is called
+	// (mEnabled must be true when SetTrack runs). InSequence is scoped to these
+	// two expectations only.
+	{
+		::testing::InSequence seq;
+		EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+		EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1", _)).WillOnce(Return(0));
+	}
 
 	p_aamp->SetTextTrack(0, nullptr);
 
