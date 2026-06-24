@@ -26,9 +26,11 @@
 #include "DrmSessionManager.h"
 #include "_base64.h"
 #include <iostream>
+#include <atomic>
 #include "DrmHelper.h"
 #include <inttypes.h>
 #include "PlayerUtils.h"
+#include "AampUtils.h"
 #include "ContentSecurityManager.h"
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
 #define DRM_METADATA_TAG_END "</ckm:policy>"
