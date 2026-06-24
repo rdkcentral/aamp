@@ -1004,9 +1004,22 @@ TEST_F(PrivAampTests,UpdateCullingStateTest)
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
 }
 
+/**
+ * @class TestEventListener
+ * @brief Test implementation of EventListener for unit tests
+ */
+class TestEventListener : public EventListener
+{
+public:
+	void SendEvent(const AAMPEventPtr &event) override
+	{
+		// Empty implementation for testing
+	}
+};
+
 TEST_F(PrivAampTests,AddEventListenerTest)
 {
-	EventListener* eventListener;
+	std::shared_ptr<EventListener> eventListener = std::make_shared<TestEventListener>();
 	p_aamp->AddEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE,eventListener);
 	p_aamp->RemoveEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE,eventListener);
 

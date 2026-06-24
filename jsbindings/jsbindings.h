@@ -48,7 +48,7 @@ struct PrivAAMPStruct_JS {
 	JSGlobalContextRef _ctx;
 	PlayerInstanceAAMP* _aamp;
 
-	std::multimap<AAMPEventType, void*> _listeners;
+	std::multimap<AAMPEventType, std::shared_ptr<void>> _listeners;
 };
 
 /**

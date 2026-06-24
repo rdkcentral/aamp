@@ -111,7 +111,6 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |
 | playreadyOutputProtection | Boolean | False | Configuration to enable/disable HDCP output protection for DASH-PlayReady playback. |
 | preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 -No DRM  , 1 - Widevine, 2 - PlayReady ( Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
-| ceaFormat | Number | -1 | Preferred CEA option for CC. Default stream based. 0 - CEA 608, 1 - CEA 708  |
 | preFetchIframePlaylist | Boolean | False | Configuration to enable/disable prefetching of I-Frame playlist. |
 | preplayBuffercount | Number | 1 | Count of segments to be downloaded until play state. |
 | ptsErrorThreshold | Number | 4 | Maximum number of back-to-back pts errors to be considered for triggering a retune. |

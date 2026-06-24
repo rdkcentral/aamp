@@ -50,11 +50,11 @@ void AampEventManager::FlushPendingEvents()
 {
 }
 
-void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void AampEventManager::AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 
-void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void AampEventManager::RemoveEventListener(AAMPEventType eventType, std::shared_ptr<EventListener>& eventListener)
 {
 }
 

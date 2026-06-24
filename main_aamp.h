@@ -354,6 +354,15 @@ public:
 	 *   @param[in]  eventListener - listener for the eventType.
 	 *   @return void
 	 */
+	void AddEventListener(AAMPEventType eventType, std::shared_ptr<EventListener> eventListener);
+
+	/**
+	 *   @fn AddEventListener
+	 *
+	 *   @param[in]  eventType - type of event.
+	 *   @param[in]  eventListener - listener for the eventType - raw pointer.
+	 *   @return void
+	 */
 	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
 
 	/**
@@ -363,8 +372,16 @@ public:
 	 *   @param[in]  eventListener - listener to be removed for the eventType.
 	 *   @return void
 	 */
-	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
+	void RemoveEventListener(AAMPEventType eventType,std::shared_ptr<EventListener> eventListener);
 
+	/**
+	 *   @fn RemoveEventListener
+	 *
+	 *   @param[in]  eventType - type of event.
+	 *   @param[in]  eventListener - listener to be removed for the eventType - raw pointer.
+	 *   @return void
+	 */
+	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
 	/**
 	 *   @fn IsLive
 	 *
@@ -1195,14 +1212,6 @@ public:
 	 * @return void
 	 */
 	void SetLanguageFormat(LangCodePreference preferredFormat, bool useRole = false);
-
-	/**
-	 *   @brief Set the CEA format for force setting
-	 *
-	 *   @param[in] format - 0 for 608, 1 for 708
-	 *   @return void
-	 */
-	void SetCEAFormat(int format);
 
 	/**
 	 *   @brief Set the session token for player
