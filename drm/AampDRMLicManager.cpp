@@ -39,6 +39,8 @@
 #include "AAMPAnomalyMessageType.h"
 #include "AuthTokenErrors.h"
 
+using namespace std;
+
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
 
 #define LICENCE_REQUEST_HEADER_ACCEPT "Accept:"

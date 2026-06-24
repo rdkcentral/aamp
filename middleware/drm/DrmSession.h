@@ -33,6 +33,8 @@
 #include "ContentSecurityManagerSession.h"
 #include "IDrmSession.h"
 
+using namespace std;
+
 /**
  * @class DrmSession
  * @brief Concrete base for middleware DRM sessions.

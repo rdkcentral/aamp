@@ -36,8 +36,6 @@
 #include "DrmUtils.h"
 #include "ContentSecurityManagerSession.h"
 
-using namespace std;
-
 // Forward declarations for GStreamer types used in the GstBuffer decrypt overload.
 // Including gst headers here would add a GStreamer dependency to the interface;
 // forward declarations are sufficient for pointer/reference parameters.
@@ -100,13 +98,13 @@ public:
 	 */
 	virtual void generateDRMSession(const uint8_t* f_pbInitData,
 	                                uint32_t f_cbInitData,
-	                                string& customData) = 0;
+	                                std::string& customData) = 0;
 
 	/**
 	 * @brief Generate key request from DRM session.
 	 *        Caller is responsible for freeing the returned DrmData.
 	 */
-	virtual DrmData* generateKeyRequest(string& destinationURL,
+	virtual DrmData* generateKeyRequest(std::string& destinationURL,
 	                                    uint32_t timeout) = 0;
 
 	/**
@@ -123,7 +121,7 @@ public:
 	 * @brief Wait for the session to reach the given state.
 	 * @return true if the state was reached before timeout.
 	 */
-	virtual bool waitForState(KeyState state, uint32_t timeout) { return true; }
+	virtual bool waitForState(KeyState state, uint32_t timeout) = 0;
 
 	/**
 	 * @brief Clear the current session context so new init data can be bound.
@@ -133,7 +131,7 @@ public:
 	/**
 	 * @brief Return a snapshot of the current usable key IDs.
 	 */
-	virtual vector<vector<uint8_t>> getUsableKeys() const { return {}; }
+	virtual std::vector<std::vector<uint8_t>> getUsableKeys() const { return {}; }
 
 	/**
 	 * @brief Return the Rialto media key session ID, or -1 if not applicable.
@@ -143,7 +141,7 @@ public:
 	/**
 	 * @brief Return the DRM system UUID string for this session.
 	 */
-	virtual string getKeySystem() = 0;
+	virtual std::string getKeySystem() = 0;
 
 	/**
 	 * @brief Enable or disable output protection for this session.
@@ -183,7 +181,7 @@ public:
      * @brief Store the DRM key ID for this session.
      *        No-op for session types that do not use key-ID tracking.
      */
-    virtual void setKeyId(const vector<uint8_t>& /*keyId*/) {}
+    virtual void setKeyId(const std::vector<uint8_t>& /*keyId*/) {}
 
     /**
      * @brief Associate a ContentSecurityManager session with this DRM session.

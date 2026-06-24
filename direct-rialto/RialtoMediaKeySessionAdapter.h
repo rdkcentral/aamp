@@ -66,7 +66,7 @@ public:
 	 * @param callbacks   Optional DRM lifecycle callbacks.
 	 */
 	RialtoMediaKeySessionAdapter(DrmHelperPtr drmHelper,
-	                             unique_ptr<RialtoMediaKeySystem> system,
+	                             std::unique_ptr<RialtoMediaKeySystem> system,
 	                             DrmCallbacks* callbacks = nullptr);
 
 	~RialtoMediaKeySessionAdapter() override;
@@ -76,9 +76,9 @@ public:
 
 	void generateDRMSession(const uint8_t* f_pbInitData,
 	                        uint32_t f_cbInitData,
-	                        string& customData) override;
+	                        std::string& customData) override;
 
-	DrmData* generateKeyRequest(string& destinationURL, uint32_t timeout) override;
+	DrmData* generateKeyRequest(std::string& destinationURL, uint32_t timeout) override;
 
 	int processDRMKey(DrmData* key, uint32_t timeout) override;
 
@@ -90,15 +90,15 @@ public:
 
 	int32_t getMediaKeySessionId() const override;
 
-	vector<vector<uint8_t>> getUsableKeys() const override;
+	std::vector<std::vector<uint8_t>> getUsableKeys() const override;
 
-	string getKeySystem() override { return m_keySystem; }
+	std::string getKeySystem() override { return m_keySystem; }
 
 	void setOutputProtection(bool /*bValue*/) override {}
 
 	void setSecManagerSession(ContentSecurityManagerSession session) override
 	{
-		m_secManagerSession = move(session);
+		m_secManagerSession = std::move(session);
 	}
 
 	ContentSecurityManagerSession getSecManagerSession() const override
@@ -107,32 +107,32 @@ public:
 	}
 
 private:
-	string m_keySystem;
+	std::string m_keySystem;
 	/// Owned Rialto key system.
-	unique_ptr<RialtoMediaKeySystem> m_system;
+	std::unique_ptr<RialtoMediaKeySystem> m_system;
 
 	/// Active session — created in generateDRMSession().
-	unique_ptr<RialtoMediaKeySession> m_session;
+	std::unique_ptr<RialtoMediaKeySession> m_session;
 
 	DrmHelperPtr m_drmHelper;
 	DrmCallbacks* m_drmCallbacks;
 
-	atomic<KeyState> m_eKeyState;
-	mutex m_mutex;
+	std::atomic<KeyState> m_eKeyState;
+	std::mutex m_mutex;
 
 	/// Challenge received from Rialto onLicenseRequest callback.
-	string m_challenge;
-	string m_destUrl;
+	std::string m_challenge;
+	std::string m_destUrl;
 
 	/// Usable key IDs.
-	vector<vector<uint8_t>> m_usableKeys;
-	mutable mutex m_usableKeysMutex;
+	std::vector<std::vector<uint8_t>> m_usableKeys;
+	mutable std::mutex m_usableKeysMutex;
 
 	/// Event signalling for challenge/key-ready synchronisation.
-	mutex m_eventMutex;
-	condition_variable m_challengeReady;
-	condition_variable m_keyStatusReady;
-	condition_variable m_stateChanged;
+	std::mutex m_eventMutex;
+	std::condition_variable m_challengeReady;
+	std::condition_variable m_keyStatusReady;
+	std::condition_variable m_stateChanged;
 	bool m_challengeReceived;
 	bool m_keyStatusReceived;
 

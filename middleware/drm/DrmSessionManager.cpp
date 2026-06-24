@@ -31,6 +31,9 @@
 #include <inttypes.h>
 #include "PlayerUtils.h"
 #include "ContentSecurityManager.h"
+
+using namespace std;
+
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
 #define DRM_METADATA_TAG_END "</ckm:policy>"
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
