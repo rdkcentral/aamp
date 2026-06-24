@@ -28,7 +28,6 @@
 #include "IDrmSession.h"
 #include "DrmHelper.h"
 #include "DrmCallbacks.h"
-#include <memory>
 
 /**
  * @class DrmSessionFactory
@@ -47,9 +46,9 @@ public:
 	 *
 	 * @param[in] drmHelper     DrmHelper instance.
 	 * @param[in] drmCallbacks  Callback sink.
-	 * @return Owning pointer to a new IDrmSession, or nullptr on failure.
+	 * @return Pointer to a new IDrmSession, or nullptr on failure.
 	 */
-	static std::unique_ptr<IDrmSession> GetDrmSession(
+	static IDrmSession* GetDrmSession(
 		DrmHelperPtr drmHelper,
 		DrmCallbacks *drmCallbacks);
 };

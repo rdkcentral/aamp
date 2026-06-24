@@ -23,7 +23,6 @@
  */
 
 #include "DrmSessionFactory.h"
-#include <memory>
 #if defined(USE_OPENCDM_ADAPTER)
 #include "OcdmBasicSessionAdapter.h"
 #include "OcdmGstSessionAdapter.h"
@@ -36,7 +35,7 @@
  *
  * Delegates to OCDM / ClearKey.
  */
-std::unique_ptr<IDrmSession> DrmSessionFactory::GetDrmSession(
+IDrmSession* DrmSessionFactory::GetDrmSession(
 	DrmHelperPtr drmHelper,
 	DrmCallbacks *drmCallbacks)
 {
@@ -48,25 +47,25 @@ std::unique_ptr<IDrmSession> DrmSessionFactory::GetDrmSession(
 #if defined(USE_CLEARKEY)
 		if (systemId == CLEAR_KEY_SYSTEM_STRING)
 		{
-			return std::make_unique<ClearKeySession>();
+			return new ClearKeySession();
 		}
 		else
 #endif
 		{
-			return std::make_unique<OCDMBasicSessionAdapter>(drmHelper, drmCallbacks);
+			return new OCDMBasicSessionAdapter(drmHelper, drmCallbacks);
 		}
 	}
 	else
 	{
-		return std::make_unique<OCDMGSTSessionAdapter>(drmHelper, drmCallbacks);
+		return new OCDMGSTSessionAdapter(drmHelper, drmCallbacks);
 	}
 #else // No form of OCDM support. Attempt to fallback to hardcoded session classes
     if (systemId == CLEAR_KEY_SYSTEM_STRING)
 	{
 #if defined(USE_CLEARKEY)
-		return std::make_unique<ClearKeySession>();
+		return new ClearKeySession();
 #endif // USE_CLEARKEY
 	}
 #endif // Not USE_OPENCDM_ADAPTER
-	return nullptr;
+	return NULL;
 }

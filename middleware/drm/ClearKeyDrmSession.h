@@ -148,8 +148,6 @@ public:
 	 * @fn clearDecryptContext
 	 */
 	void clearDecryptContext();
-
-    void setKeyId(const vector<uint8_t>& /*keyId*/) override { };
 };
 
 #endif

@@ -23,7 +23,7 @@
  */
 
 #include "RialtoMediaKeySystem.h"
-#include "AampLogManager.h"
+#include "PlayerLogManager.h"
 
 // ---------------------------------------------------------------------------
 // RialtoMediaKeySystem::MediaKeysClient
@@ -34,7 +34,7 @@ void RialtoMediaKeySystem::MediaKeysClient::deregisterSession(int32_t keySession
 	std::lock_guard<std::mutex> lock(mutex);
 	callbacks.erase(keySessionId);
 	sessions.erase(keySessionId);
-	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: deregistered session %d", keySessionId);
+	MW_LOG_INFO("RialtoMediaKeySystem::MediaKeysClient: deregistered session %d", keySessionId);
 }
 
 void RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest(
@@ -42,7 +42,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest(
 	const std::vector<unsigned char>& licenseRequestMessage,
 	const std::string& url)
 {
-	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRequest session=%d url=%s size=%zu",
+	MW_LOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRequest session=%d url=%s size=%zu",
 	            keySessionId, url.c_str(), licenseRequestMessage.size());
 
 	std::function<void(const char*, const uint8_t*, uint16_t)> onChallenge;
@@ -62,7 +62,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRequest(
 	}
 	else
 	{
-		AAMPLOG_WARN("RialtoMediaKeySystem::MediaKeysClient: onLicenseRequest for session %d has no handler",
+		MW_LOG_WARN("RialtoMediaKeySystem::MediaKeysClient: onLicenseRequest for session %d has no handler",
 		            keySessionId);
 	}
 }
@@ -71,7 +71,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRenewal(
 	int32_t keySessionId,
 	const std::vector<unsigned char>& licenseRenewalMessage)
 {
-	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRenewal session=%d size=%zu",
+	MW_LOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onLicenseRenewal session=%d size=%zu",
 	            keySessionId, licenseRenewalMessage.size());
 	std::function<void(const uint8_t*, size_t)> onLicenseRenewal;
 	{
@@ -89,7 +89,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onLicenseRenewal(
 	}
 	else
 	{
-		AAMPLOG_WARN("RialtoMediaKeySystem::MediaKeysClient: onLicenseRenewal for session %d has no handler",
+		MW_LOG_WARN("RialtoMediaKeySystem::MediaKeysClient: onLicenseRenewal for session %d has no handler",
 		            keySessionId);
 	}
 }
@@ -98,7 +98,7 @@ void RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged(
 	int32_t keySessionId,
 	const firebolt::rialto::KeyStatusVector& keyStatuses)
 {
-	AAMPLOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onKeyStatusesChanged session=%d count=%zu",
+	MW_LOG_INFO("RialtoMediaKeySystem::MediaKeysClient: onKeyStatusesChanged session=%d count=%zu",
 	            keySessionId, keyStatuses.size());
 
 	std::lock_guard<std::mutex> lock(mutex);
@@ -108,12 +108,12 @@ void RialtoMediaKeySystem::MediaKeysClient::onKeyStatusesChanged(
 
 	for (const auto& [keyId, status] : keyStatuses)
 	{
-		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+		if (PlayerLogManager::isLogLevelAllowed(mLOGLEVEL_TRACE))
 		{
-			AAMPLOG_TRACE("RialtoMediaKeySystem::MediaKeysClient: "
+			MW_LOG_TRACE("RialtoMediaKeySystem::MediaKeysClient: "
 			             "key status=%d keyIdSize=%zu",
 			             static_cast<int>(status), keyId.size());
-			DumpBlob(keyId.data(), keyId.size());
+			DumpBinaryBlob(keyId.data(), keyId.size());
 		}
 
 		// Update the session's own key status cache.
@@ -147,22 +147,22 @@ RialtoMediaKeySystem::RialtoMediaKeySystem(
 	: m_mediaKeys(nullptr)
 	, m_client(std::make_shared<MediaKeysClient>())
 {
-	AAMPLOG_INFO("RialtoMediaKeySystem: creating for keySystem=%s", keySystem.c_str());
+	MW_LOG_INFO("RialtoMediaKeySystem: creating for keySystem=%s", keySystem.c_str());
 
 	if (!factory)
 	{
-		AAMPLOG_ERR("RialtoMediaKeySystem: null IMediaKeysFactory");
+		MW_LOG_ERR("RialtoMediaKeySystem: null IMediaKeysFactory");
 		return;
 	}
 
 	m_mediaKeys = factory->createMediaKeys(keySystem);
 	if (!m_mediaKeys)
 	{
-		AAMPLOG_ERR("RialtoMediaKeySystem: createMediaKeys(%s) failed", keySystem.c_str());
+		MW_LOG_ERR("RialtoMediaKeySystem: createMediaKeys(%s) failed", keySystem.c_str());
 	}
 	else
 	{
-		AAMPLOG_INFO("RialtoMediaKeySystem: IMediaKeys created successfully for %s", keySystem.c_str());
+		MW_LOG_INFO("RialtoMediaKeySystem: IMediaKeys created successfully for %s", keySystem.c_str());
 	}
 }
 
@@ -174,11 +174,11 @@ std::unique_ptr<RialtoMediaKeySession> RialtoMediaKeySystem::createSession(
 {
 	if (!m_mediaKeys)
 	{
-		AAMPLOG_ERR("RialtoMediaKeySystem::createSession: no IMediaKeys instance");
+		MW_LOG_ERR("RialtoMediaKeySystem::createSession: no IMediaKeys instance");
 		return nullptr;
 	}
 
-	AAMPLOG_INFO("RialtoMediaKeySystem::createSession: initDataType=%s initDataSize=%u",
+	MW_LOG_INFO("RialtoMediaKeySystem::createSession: initDataType=%s initDataSize=%u",
 	            initDataType.c_str(), initDataSize);
 
 	int32_t keySessionId = firebolt::rialto::kInvalidSessionId;
@@ -190,12 +190,12 @@ std::unique_ptr<RialtoMediaKeySession> RialtoMediaKeySystem::createSession(
 	if (status != firebolt::rialto::MediaKeyErrorStatus::OK ||
 	    keySessionId == firebolt::rialto::kInvalidSessionId)
 	{
-		AAMPLOG_ERR("RialtoMediaKeySystem::createSession: createKeySession failed, status=%d",
+		MW_LOG_ERR("RialtoMediaKeySystem::createSession: createKeySession failed, status=%d",
 		           static_cast<int>(status));
 		return nullptr;
 	}
 
-	AAMPLOG_INFO("RialtoMediaKeySystem::createSession: keySessionId=%d", keySessionId);
+	MW_LOG_INFO("RialtoMediaKeySystem::createSession: keySessionId=%d", keySessionId);
 
 	// Create session object with a deregister lambda that safely removes
 	// it from the client maps. Using weak_ptr ensures safety if the system
@@ -233,7 +233,7 @@ std::unique_ptr<RialtoMediaKeySession> RialtoMediaKeySystem::createSession(
 	status = m_mediaKeys->generateRequest(keySessionId, rialtoInitDataType, initDataVec);
 	if (status != firebolt::rialto::MediaKeyErrorStatus::OK)
 	{
-		AAMPLOG_ERR("RialtoMediaKeySystem::createSession: generateRequest failed, status=%d keySessionId=%d",
+		MW_LOG_ERR("RialtoMediaKeySystem::createSession: generateRequest failed, status=%d keySessionId=%d",
 		           static_cast<int>(status), keySessionId);
 		// Clean up the session since generateRequest failed.
 		m_client->deregisterSession(keySessionId);
@@ -241,7 +241,7 @@ std::unique_ptr<RialtoMediaKeySession> RialtoMediaKeySystem::createSession(
 		return nullptr;
 	}
 
-	AAMPLOG_INFO("RialtoMediaKeySystem::createSession: generateRequest succeeded, keySessionId=%d",
+	MW_LOG_INFO("RialtoMediaKeySystem::createSession: generateRequest succeeded, keySessionId=%d",
 	            keySessionId);
 	return session;
 }

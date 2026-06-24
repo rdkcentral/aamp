@@ -38,11 +38,13 @@
 
 using namespace std;
 
+#if defined(USE_OPENCDM_ADAPTER)
 // Forward declarations for GStreamer types used in the GstBuffer decrypt overload.
-// These are always declared so that the vtable layout of IDrmSession is
-// consistent across all translation units, regardless of USE_OPENCDM_ADAPTER.
+// Including gst headers here would add a GStreamer dependency to the interface;
+// forward declarations are sufficient for pointer/reference parameters.
 typedef struct _GstBuffer GstBuffer;
 typedef struct _GstCaps   GstCaps;
+#endif
 
 /**
  * @brief HDCP compliance check failure error code.
@@ -164,6 +166,7 @@ public:
 		const uint8_t *payloadData, uint32_t payloadDataSize,
 		uint8_t **ppOpaqueData) = 0;
 
+#if defined(USE_OPENCDM_ADAPTER)
 	/**
 	 * @brief Decrypt a GStreamer buffer (OCDM/GStreamer path).
 	 *
@@ -178,12 +181,13 @@ public:
 	virtual int decrypt(GstBuffer* /*keyIDBuffer*/, GstBuffer* /*ivBuffer*/,
 		GstBuffer* /*buffer*/, unsigned /*subSampleCount*/,
 		GstBuffer* /*subSamplesBuffer*/, GstCaps* /*caps*/ = nullptr) { return 0; }
+#endif
 
     /**
      * @brief Store the DRM key ID for this session.
      *        No-op for session types that do not use key-ID tracking.
      */
-    virtual void setKeyId(const vector<uint8_t>& /*keyId*/) = 0;
+    virtual void setKeyId(const vector<uint8_t>& /*keyId*/) {}
 
     /**
      * @brief Associate a ContentSecurityManager session with this DRM session.

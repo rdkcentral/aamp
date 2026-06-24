@@ -96,8 +96,6 @@ public:
 
 	void setOutputProtection(bool /*bValue*/) override {}
 
-	void setKeyId(const std::vector<uint8_t>& keyId) override;
-
 	void setSecManagerSession(ContentSecurityManagerSession session) override
 	{
 		m_secManagerSession = std::move(session);
