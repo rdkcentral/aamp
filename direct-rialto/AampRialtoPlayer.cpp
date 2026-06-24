@@ -1052,6 +1052,29 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 
+	// Forward posNs to the Rialto server via setSourcePosition() for every
+	// attached source.  This is required to make the Rialto server emit a
+	// GStreamer segment event before the first buffer; without it
+	// pushSampleIfRequired() is a no-op and frames at large live-stream PTS
+	// values (e.g. 12542 s) are never rendered by the downstream decoder.
+
+	// Stage the new segment-start position unconditionally, BEFORE any
+	// early-return path below.  AttachSource() reads m_pendingFlushPositionNs
+	// to call setSourcePosition() on every new source; if the position is
+	// not updated here, the stale value from the previous session survives
+	// into the next Configure() → AttachSource() flow.
+	// Concrete failure mode without this fix: a live-stream session sets
+	// m_pendingFlushPositionNs to e.g. 46.08 s via Flush().  The session ends
+	// (player goes STOPPED).  The next tune is a VOD asset whose first PTS is
+	// ~80 ms.  Flush(position=0, shouldTearDown=true) is called; because the
+	// player is STOPPED the early-return below fires without updating
+	// m_pendingFlushPositionNs.  AttachSource() then calls
+	// setSourcePosition(46080000000), the GStreamer segment base is 46.08 s,
+	// all VOD frames (~80 ms) are discarded as before-segment, preroll never
+	// completes, and the pipeline is stuck.
+	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
+
 	// shouldTearDown controls recovery behavior when NOT in PLAYING/PAUSED states.
 	// - PLAYING/PAUSED: Always proceed with flush (shouldTearDown ignored)
 	// - Other states + shouldTearDown=true: Call Stop() for recovery/cleanup
@@ -1067,14 +1090,14 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	if (!isPlayingOrPaused && shouldTearDown)
 	{
 		// Not in PLAYING/PAUSED and shouldTearDown=true -> tear down for recovery.
-		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED and shouldTearDown=true - calling Stop(true)",
+		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED/SOURCES_ATTACHED and shouldTearDown=true - calling Stop(true)",
 			m_stateMachine.currentStateName());
 		Stop(true);
 		AAMPLOG_INFO("EXIT - teardown requested");
 		return;
 	}
 
-	// Proceed with flush: either in PLAYING/PAUSED, or in other state with shouldTearDown=false.
+	// Proceed with flush: either in PLAYING/PAUSED/SOURCES_ATTACHED, or in other state with shouldTearDown=false.
 
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
@@ -1091,15 +1114,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			          source.get() == m_sources[eMEDIATYPE_AUDIO].get());
 		}
 	}
-
-	// Store the segment start position so it can be forwarded to the Rialto
-	// server via setSourcePosition() for every attached source.  This is
-	// required to make the Rialto server emit a GStreamer segment event
-	// before the first buffer; without it pushSampleIfRequired() is a no-op
-	// and frames at large live-stream PTS values (e.g. 12542 s) are never
-	// rendered by the downstream decoder.
-	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
-	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
 
 	if (m_pipeline)
 	{
