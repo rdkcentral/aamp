@@ -350,6 +350,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		return true;  // Audio codec changed to a different valid format.
 	}
 
+#if 0
 	if (subtitleSrc == nullptr)
 	{
 		if (subFormat != FORMAT_INVALID)
@@ -365,6 +366,25 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	{
 		return true;
 	}
+#else
+	const int rate = m_rate.load(std::memory_order_relaxed);
+	if(rate == AAMP_NORMAL_PLAY_RATE)
+	{
+		StreamOutputFormat newSubFormat = FORMAT_INVALID;
+		if (subFormat == FORMAT_SUBTITLE_TTML || subFormat == FORMAT_SUBTITLE_MP4 || subFormat == FORMAT_SUBTITLE_WEBVTT)
+		{
+			newSubFormat = subFormat;
+		}
+		else if (videoFormat != FORMAT_INVALID)
+		{
+			newSubFormat = GST_FORMAT_UNKNOWN;
+		}
+		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != newSubFormat))
+		{
+			return true;
+		}
+	}
+#endif
 
 	return false;
 }
