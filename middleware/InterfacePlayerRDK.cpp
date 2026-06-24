@@ -68,7 +68,8 @@ static const char* GstPluginNameVMX = "aampverimatrixdecryptor";
 /*InterfacePlayerRDK constructor*/
 InterfacePlayerRDK::InterfacePlayerRDK() : mPlayerName(),
 mProtectionLock(), mPauseInjector(false), mSourceSetupMutex(), stopCallback(NULL), tearDownCb(NULL), notifyFirstFrameCallback(NULL),
-mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL)
+mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSystem(NULL), mEncrypt(NULL),
+mStopInProgress(false), mProgressCallbackContext(nullptr)
 {
 	gstPrivateContext = new GstPlayerPriv();
 	m_gstConfigParam = new Configs();
@@ -84,6 +85,7 @@ mSourceSetupCV(), mScheduler(), callbackMap(), setupStreamCallbackMap(), mDrmSys
 /* InterfacePlayerRDK destructor*/
 InterfacePlayerRDK::~InterfacePlayerRDK()
 {
+	CancelProgressCallbackContext();
 	DestroyPipeline();
 	if (mDrmSystem)
 	{
@@ -662,22 +664,67 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 
 /**
  * @brief Timer's callback to notify playback progress event
- * @param[in] user_data pointer to InterfacePlayerRDK instance
+ * @param[in] user_data pointer to std::weak_ptr<ProgressCallbackContext>
+ *            allocated in IdleCallback and released via destroy notify
  * @retval G_SOURCE_CONTINUE, this function to be called periodically
  */
 gboolean InterfacePlayerRDK::ProgressCallbackOnTimeout(gpointer user_data)
 {
-	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
-	if (pInterfacePlayerRDK)
+	auto *weakContext = static_cast<std::weak_ptr<ProgressCallbackContext> *>(user_data);
+	if (!weakContext)
 	{
-		if (pInterfacePlayerRDK->m_gstConfigParam->monitorAV)
-		{
-			MonitorAV(pInterfacePlayerRDK);
-		}
-		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::progressCb);
-		MW_LOG_TRACE("current %d, stored %d ", g_source_get_id(g_main_current_source()), pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId);
+		return G_SOURCE_REMOVE;
 	}
-	return G_SOURCE_CONTINUE;
+
+	auto callbackContext = weakContext->lock();
+	if (!callbackContext)
+	{
+		return G_SOURCE_REMOVE;
+	}
+
+	InterfacePlayerRDK *pInterfacePlayerRDK = nullptr;
+	{
+		std::unique_lock<std::mutex> lock(callbackContext->mutex);
+		if (callbackContext->cancelled || !callbackContext->player)
+		{
+			return G_SOURCE_REMOVE;
+		}
+		callbackContext->activeCallbacks++;
+		callbackContext->callbackThreadId = std::this_thread::get_id();
+		pInterfacePlayerRDK = callbackContext->player;
+	}
+
+	// RAII guard: decrements activeCallbacks, clears callbackThreadId, and
+	// notifies waiters on every exit path, including exceptions.
+	struct ActiveCallbackGuard
+	{
+		std::shared_ptr<ProgressCallbackContext> &ctx;
+		~ActiveCallbackGuard()
+		{
+			std::lock_guard<std::mutex> lock(ctx->mutex);
+			ctx->activeCallbacks--;
+			ctx->callbackThreadId = std::thread::id{};
+			// Unconditional: notify any waiter whenever the count reaches zero,
+			// regardless of the cancelled flag, so WaitForProgressCallbackCompletion
+			// always wakes even if it was called without a prior cancel signal.
+			if (0 == ctx->activeCallbacks)
+			{
+				ctx->cv.notify_all();
+			}
+		}
+	} guard{callbackContext};
+
+	if (pInterfacePlayerRDK->m_gstConfigParam->monitorAV)
+	{
+		MonitorAV(pInterfacePlayerRDK);
+	}
+	pInterfacePlayerRDK->TriggerEvent(InterfaceCB::progressCb);
+	MW_LOG_TRACE("current %d, stored %d ", g_source_get_id(g_main_current_source()), pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId);
+
+	// Re-check cancellation: if Stop() ran while we were in MonitorAV/TriggerEvent,
+	// return G_SOURCE_REMOVE so GLib does not attempt to re-arm an already-removed source.
+	std::lock_guard<std::mutex> lock(callbackContext->mutex);
+	return callbackContext->cancelled ? G_SOURCE_REMOVE : G_SOURCE_CONTINUE;
 }
 
 /**
@@ -693,13 +740,22 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::idleCb);
 		pInterfacePlayerRDK->IdleTaskClearFlags(pInterfacePlayerRDK->gstPrivateContext->firstProgressCallbackIdleTask);
 
-		if ( !(pInterfacePlayerRDK->TimerIsRunning( pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId)) && (pInterfacePlayerRDK->callbackMap[InterfaceCB::progressCb] != nullptr) )
+		auto progressCbIt = pInterfacePlayerRDK->callbackMap.find(InterfaceCB::progressCb);
+		const bool hasProgressCb = (progressCbIt != pInterfacePlayerRDK->callbackMap.end()) && (progressCbIt->second != nullptr);
+		if ( !(pInterfacePlayerRDK->TimerIsRunning( pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId)) && hasProgressCb )
 		{
 			double  reportProgressInterval = pInterfacePlayerRDK->m_gstConfigParam->progressTimer;
 			reportProgressInterval *= 1000; //convert s to ms
 
+			auto callbackContext = pInterfacePlayerRDK->GetOrCreateProgressCallbackContext();
+			if (!callbackContext)
+			{
+    			MW_LOG_ERR("Failed to create progress callback context");
+    			return G_SOURCE_REMOVE;
+			}
+			auto *timerUserData = new std::weak_ptr<ProgressCallbackContext>(callbackContext);
 			GSourceFunc timerFunc = ProgressCallbackOnTimeout;
-			pInterfacePlayerRDK->TimerAdd(timerFunc, (int)reportProgressInterval, pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId, user_data, "periodicProgressCallbackIdleTask");
+			pInterfacePlayerRDK->TimerAdd(timerFunc, (int)reportProgressInterval, pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId, timerUserData, "periodicProgressCallbackIdleTask", DestroyProgressCallbackUserData);
 		}
 		else
 		{
@@ -1282,14 +1338,33 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
-	std::lock_guard<std::mutex> lock(mMutex);
+	std::unique_lock<std::mutex> lock(mMutex);
+	// Guard against double teardown: this flag is set while Stop() is executing
+	// teardown under mMutex. A concurrent Stop() on another thread, or a
+	// re-entrant Stop() called from the progress callback, will see this flag
+	// and return immediately rather than running teardown twice.
+	if (mStopInProgress)
+	{
+		MW_LOG_WARN("InterfacePlayerRDK::Stop called re-entrantly or concurrently - teardown already in progress, ignoring.");
+		return;
+	}
+	mStopInProgress = true;
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
 
 	gstPrivateContext->syncControl.disable();
 	gstPrivateContext->aSyncControl.disable();
-	std::unique_lock<std::mutex> sourceSetupLock(mSourceSetupMutex);
-	mSourceSetupCV.notify_all();
+	// Stop async worker before removing idle/timer tasks to prevent
+	// new tasks from being scheduled concurrently during teardown.
+	mScheduler.StopScheduler();
+	{
+		// Scope the sourceSetupLock so it is released immediately after
+		// notify_all. Holding it longer blocks WaitForSourceSetup() callers
+		// from waking if the progress callback itself triggers buffer injection
+		// while we are blocked in WaitForProgressCallbackCompletion.
+		std::unique_lock<std::mutex> sourceSetupLock(mSourceSetupMutex);
+		mSourceSetupCV.notify_all();
+	}
 	if(gstPrivateContext->bus)
 	{
 		gst_bus_remove_watch(gstPrivateContext->bus);           /* Remove the watch from bus so that gstreamer no longer sends messages to it */
@@ -1303,7 +1378,18 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	}
 	this->IdleTaskRemove(gstPrivateContext->firstProgressCallbackIdleTask);
 
-	this->TimerRemove(gstPrivateContext->periodicProgressCallbackIdleTaskId, "periodicProgressCallbackIdleTaskId");
+	// Signal cancellation (fast, non-blocking) while still holding mMutex.
+	// Capture the returned context so that WaitForProgressCallbackCompletion
+	// operates on the exact same snapshot (no TOCTOU race).
+	auto progressCtx = SignalCancelProgressCallback();
+
+	// Release mMutex before blocking on the wait so that any in-flight progress
+	// callback that calls back into InterfacePlayerRDK under mMutex can complete
+	// without deadlocking.
+	lock.unlock();
+	WaitForProgressCallbackCompletion(progressCtx);
+	lock.lock();
+
 	if (gstPrivateContext->bufferingTimeoutTimerId)
 	{
 		MW_LOG_MIL("InterfacePlayerRDK: Remove bufferingTimeoutTimerId %d", gstPrivateContext->bufferingTimeoutTimerId);
@@ -1380,6 +1466,10 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	gstPrivateContext->videoMuted = false;
 	gstPrivateContext->subtitleMuted = false;
 	gstPrivateContext->audioVolume = 1.0;
+
+	// Restart scheduler so the same InterfacePlayerRDK instance can be reused.
+	mScheduler.StartScheduler();
+	mStopInProgress = false;
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
@@ -3446,24 +3536,154 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
 /**
  *  @brief TimerAdd - add a new glib timer in thread safe manner
  */
-void InterfacePlayerRDK::TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint& taskId, gpointer user_data, const char* timerName)
+std::shared_ptr<ProgressCallbackContext> InterfacePlayerRDK::GetOrCreateProgressCallbackContext()
+{
+	std::lock_guard<std::mutex> lock(gstPrivateContext->TaskControlMutex);
+	bool createNewContext = false;
+	if (!mProgressCallbackContext)
+	{
+		createNewContext = true;
+	}
+	else
+	{
+		std::lock_guard<std::mutex> contextLock(mProgressCallbackContext->mutex);
+		if (mProgressCallbackContext->cancelled)
+		{
+			createNewContext = true;
+		}
+	}
+	if (createNewContext)
+	{
+		mProgressCallbackContext = std::make_shared<ProgressCallbackContext>(this);
+	}
+	return mProgressCallbackContext;
+}
+
+void InterfacePlayerRDK::CancelProgressCallbackContext()
+{
+	// Called from the destructor where mMutex is not held, so it is safe
+	// to call both phases in sequence without any unlock/relock dance.
+	auto ctx = SignalCancelProgressCallback();
+	WaitForProgressCallbackCompletion(ctx);
+}
+
+// Marks the current progress callback context as cancelled, removes the
+// GLib timer, and returns the snapshotted shared_ptr so the caller can pass
+// the exact same context to WaitForProgressCallbackCompletion() without a
+// second TaskControlMutex acquisition (eliminates the TOCTOU window).
+// This function is intentionally non-blocking so it can be called while
+// holding mMutex without risking deadlock.
+std::shared_ptr<ProgressCallbackContext> InterfacePlayerRDK::SignalCancelProgressCallback()
+{
+	std::shared_ptr<ProgressCallbackContext> callbackContext;
+	{
+		std::lock_guard<std::mutex> lock(gstPrivateContext->TaskControlMutex);
+		callbackContext = mProgressCallbackContext;
+	}
+
+	if (!callbackContext)
+	{
+		return nullptr;
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(callbackContext->mutex);
+		callbackContext->cancelled = true;
+		callbackContext->player = nullptr;
+	}
+
+	this->TimerRemove(gstPrivateContext->periodicProgressCallbackIdleTaskId, "periodicProgressCallbackIdleTaskId");
+	return callbackContext;
+}
+
+// Blocks until the progress callback context has no active invocations and
+// then resets mProgressCallbackContext.
+//
+// MUST NOT be called while mMutex is held except when called re-entrantly
+// from within the progress callback itself (e.g. the app calls Stop() from
+// inside its progress callback). In that re-entrant case the current thread
+// already owns the active invocation that we would be waiting for, so waiting
+// would deadlock permanently. We detect this with callbackThreadId and return
+// immediately; the RAII guard in ProgressCallbackOnTimeout will decrement
+// activeCallbacks and notify waiters once the callback stack unwinds.
+//
+// The caller must pass the shared_ptr returned by SignalCancelProgressCallback()
+// so that both functions operate on the same snapshot and avoid a TOCTOU race.
+void InterfacePlayerRDK::WaitForProgressCallbackCompletion(std::shared_ptr<ProgressCallbackContext> callbackContext)
+{
+	if (!callbackContext)
+	{
+		return;
+	}
+
+	{
+		std::unique_lock<std::mutex> lock(callbackContext->mutex);
+		// Re-entrancy guard: if the calling thread is the same thread that is
+		// currently executing the progress callback, waiting would deadlock
+		// because the RAII guard that decrements activeCallbacks lives above us
+		// on this very call stack.
+		if (callbackContext->callbackThreadId == std::this_thread::get_id())
+		{
+			MW_LOG_WARN("WaitForProgressCallbackCompletion called re-entrantly from the progress callback thread. "
+				"Stop() must not be called from within a progress callback. Skipping wait; "
+				"cleanup will complete when the callback stack unwinds.");
+			return;
+		}
+		// Indefinite wait: safe because mMutex is NOT held here, so any
+		// re-entrant callbacks that acquire mMutex will complete normally.
+		callbackContext->cv.wait(lock, [&callbackContext]() {
+			return 0 == callbackContext->activeCallbacks;
+		});
+	}
+
+	std::lock_guard<std::mutex> taskLock(gstPrivateContext->TaskControlMutex);
+	if (mProgressCallbackContext == callbackContext)
+	{
+		mProgressCallbackContext.reset();
+	}
+}
+
+void InterfacePlayerRDK::DestroyProgressCallbackUserData(gpointer user_data)
+{
+	delete static_cast<std::weak_ptr<ProgressCallbackContext> *>(user_data);
+}
+
+void InterfacePlayerRDK::TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint& taskId, gpointer user_data, const char* timerName, GDestroyNotify destroyNotify)
 {
 	std::lock_guard<std::mutex> lock(gstPrivateContext->TaskControlMutex);
 	if (funcPtr && user_data)
 	{
 		if (0 == taskId)
 		{
-			/* Sets the function pointed by functPtr to be called at regular intervals of repeatTimeout, supplying user_data to the function */
-			taskId = g_timeout_add(repeatTimeout, funcPtr, user_data);
+			if (destroyNotify)
+			{
+				taskId = g_timeout_add_full(G_PRIORITY_DEFAULT, repeatTimeout, funcPtr, user_data, destroyNotify);
+				if (0 == taskId)
+				{
+					destroyNotify(user_data);
+				}
+			}
+			else
+			{
+				taskId = g_timeout_add(repeatTimeout, funcPtr, user_data);
+			}
 			MW_LOG_INFO("InterfacePlayerRDK: Added timer '%.50s', %d", (nullptr!=timerName) ? timerName : "unknown" , taskId);
 		}
 		else
 		{
+			if (destroyNotify)
+			{
+				destroyNotify(user_data);
+			}
 			MW_LOG_INFO("InterfacePlayerRDK: Timer '%.50s' already added, taskId=%d", (nullptr!=timerName) ? timerName : "unknown", taskId);
 		}
 	}
 	else
 	{
+		if (destroyNotify && user_data)
+		{
+			destroyNotify(user_data);
+		}
 		MW_LOG_ERR("Bad pointer. funcPtr = %p, user_data=%p",funcPtr,user_data);
 	}
 }
@@ -3616,19 +3836,24 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 void InterfacePlayerRDK::TriggerEvent(InterfaceCB event)
 {
 	auto it = callbackMap.find(event);
-	if (it != callbackMap.end())
+	if (it == callbackMap.end())
 	{
-		it->second();
+		MW_LOG_ERR("Unknown event %d - callback key not registered", static_cast<int>(event));
+		return;
 	}
-	else
+
+	if (!it->second)
 	{
-		MW_LOG_ERR("Unknown event - No callback registered!");
+		MW_LOG_TRACE("Event %d callback intentionally unset; skipping invocation", static_cast<int>(event));
+		return;
 	}
+
+	it->second();
 }
 void InterfacePlayerRDK::TriggerEvent(InterfaceCB event, int data)
 {
 	auto it = setupStreamCallbackMap.find(event);
-	if (it != setupStreamCallbackMap.end())
+	if ((it != setupStreamCallbackMap.end()) && it->second)
 	{
 		it->second(data);
 	}

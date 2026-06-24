@@ -37,9 +37,31 @@
 #include <functional>
 #include <condition_variable>
 #include <chrono>
+#include <memory>
+#include <thread>
 #include "GstUtils.h"
 #include <any>
 #include "SocUtils.h"
+
+class InterfacePlayerRDK;
+
+struct ProgressCallbackContext
+{
+	std::mutex mutex;
+	std::condition_variable cv;
+	InterfacePlayerRDK *player;
+	bool cancelled;
+	size_t activeCallbacks;
+	// Tracks the thread currently executing the progress callback so that
+	// WaitForProgressCallbackCompletion() can detect re-entrant Stop() calls
+	// from within the callback and avoid a self-deadlock.
+	std::thread::id callbackThreadId;
+
+	explicit ProgressCallbackContext(InterfacePlayerRDK *playerInstance)
+		: player(playerInstance), cancelled(false), activeCallbacks(0), callbackThreadId()
+	{
+	}
+};
 
 /**
  * @enum eGstPlayFlags
@@ -360,8 +382,18 @@ class InterfacePlayerRDK
 private:
 	bool trickTeardown;
 	std::mutex mMutex;
+	// Prevents double teardown when Stop() is called concurrently or
+	// re-entrantly from the progress callback. Protected by mMutex.
+	bool mStopInProgress;
 	std::map<std::string, int> configMap;
 	PlayerScheduler mScheduler;
+	std::shared_ptr<ProgressCallbackContext> mProgressCallbackContext;
+
+	std::shared_ptr<ProgressCallbackContext> GetOrCreateProgressCallbackContext();
+	void CancelProgressCallbackContext();
+	std::shared_ptr<ProgressCallbackContext> SignalCancelProgressCallback();
+	void WaitForProgressCallbackCompletion(std::shared_ptr<ProgressCallbackContext> callbackContext);
+	static void DestroyProgressCallbackUserData(gpointer user_data);
 
 public:
 	std::shared_ptr<SocInterface> socInterface;
@@ -1051,9 +1083,12 @@ public:
 	 * @param[in] repeatTimeout timeout between calls in ms
 	 * @param[in] user_data data to pass to the timer function
 	 * @param[in] timerName name of the timer being added
+	 * @param[in] destroyNotify cleanup callback for user_data ownership. It is
+	 *            passed to GLib when the timer is created, and is invoked
+	 *            immediately by TimerAdd if the timer cannot be added.
 	 * @param[out] taskId id of the timer to be returned
 	 */
-	void TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint &taskId, gpointer user_data, const char *timerName = nullptr);
+	void TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint &taskId, gpointer user_data, const char *timerName = nullptr, GDestroyNotify destroyNotify = nullptr);
 	/**
 	 * @fn TimerIsRunning
 	 * @param[in] taskId id of the timer to be removed
