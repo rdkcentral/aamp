@@ -23,7 +23,7 @@
  */
 
 #include "RialtoMediaKeySessionAdapter.h"
-#include "PlayerLogManager.h"
+#include "AampLogManager.h"
 #include "PlayerUtils.h"
 
 #include <algorithm>
@@ -55,13 +55,13 @@ RialtoMediaKeySessionAdapter::RialtoMediaKeySessionAdapter(
 	, m_keyStatusReceived(false)
 	, m_timeBeforeCallback(0)
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter: created for keySystem=%s",
+	AAMPLOG_INFO("RialtoMediaKeySessionAdapter: created for keySystem=%s",
 	            m_keySystem.c_str());
 }
 
 RialtoMediaKeySessionAdapter::~RialtoMediaKeySessionAdapter()
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter: destructor keySystem=%s", m_keySystem.c_str());
+	AAMPLOG_INFO("RialtoMediaKeySessionAdapter: destructor keySystem=%s", m_keySystem.c_str());
 	clearDecryptContext();
 }
 
@@ -70,13 +70,13 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 	uint32_t f_cbInitData,
 	std::string& customData)
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession initDataSize=%u", f_cbInitData);
+	AAMPLOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession initDataSize=%u", f_cbInitData);
 
 	std::lock_guard<std::mutex> guard(m_mutex);
 
 	if (!m_system || !m_system->isValid())
 	{
-		MW_LOG_ERR("RialtoMediaKeySessionAdapter::generateDRMSession: no valid RialtoMediaKeySystem");
+		AAMPLOG_ERR("RialtoMediaKeySessionAdapter::generateDRMSession: no valid RialtoMediaKeySystem");
 		m_eKeyState = KEY_ERROR;
 		m_stateChanged.notify_all();
 		return;
@@ -92,7 +92,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 	                               uint16_t challengeSize)
 	{
 		long long elapsed = GetCurrentTimeMS() - m_timeBeforeCallback;
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onChallenge received, elapsed=%lld ms size=%u destUrl=%s",
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onChallenge received, elapsed=%lld ms size=%u destUrl=%s",
 		            elapsed, challengeSize, destUrl);
 
 		const std::string challengeData(reinterpret_cast<const char*>(challenge), challengeSize);
@@ -103,7 +103,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 
 		if ((delimiterPos != std::string::npos) && (individualisationTypes.count(messageType) > 0))
 		{
-			MW_LOG_INFO("RialtoMediaKeySessionAdapter: onChallenge individualisation type=%s",
+			AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onChallenge individualisation type=%s",
 			            messageType.c_str());
 			if (m_drmCallbacks)
 			{
@@ -122,21 +122,21 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 
 	callbacks.onKeyUpdate = [this](const uint8_t* key, uint8_t keySize)
 	{
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onKeyUpdate keySize=%u", keySize);
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onKeyUpdate keySize=%u", keySize);
 
 		if (key != nullptr && keySize > 0)
 		{
-			if (PlayerLogManager::isLogLevelAllowed(mLOGLEVEL_TRACE))
+			if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 			{
-				MW_LOG_TRACE("RialtoMediaKeySessionAdapter: onKeyUpdate keyId:");
-				DumpBinaryBlob(key, keySize);
+				AAMPLOG_TRACE("RialtoMediaKeySessionAdapter: onKeyUpdate keyId:");
+				DumpBlob(key, keySize);
 			}
 			std::vector<uint8_t> keyData(key, key + keySize);
 			{
 				std::lock_guard<std::mutex> lock(m_usableKeysMutex);
 				if (std::find(m_usableKeys.begin(), m_usableKeys.end(), keyData) == m_usableKeys.end())
 				{
-					MW_LOG_TRACE("RialtoMediaKeySessionAdapter: new usable key added");
+					AAMPLOG_TRACE("RialtoMediaKeySessionAdapter: new usable key added");
 					m_usableKeys.push_back(keyData);
 				}
 			}
@@ -145,7 +145,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 
 	callbacks.onKeysUpdated = [this]()
 	{
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onKeysUpdated");
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onKeysUpdated");
 
 		std::lock_guard<std::mutex> lock(m_eventMutex);
 		m_keyStatusReceived = true;
@@ -154,27 +154,27 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 
 	callbacks.onLicenseRenewal = [this](const uint8_t* /*message*/, size_t /*size*/)
 	{
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter: onLicenseRenewal");
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onLicenseRenewal");
 		if (m_drmCallbacks)
 		{
 			m_drmCallbacks->LicenseRenewal(m_drmHelper, static_cast<IDrmSession*>(this));
 		}
 	};
 
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession: calling IMediaKeys::createSession");
+	AAMPLOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession: calling IMediaKeys::createSession");
 	m_session = m_system->createSession("cenc", f_pbInitData, f_cbInitData, callbacks);
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession: IMediaKeys::createSession returned session=%s",
+	AAMPLOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession: IMediaKeys::createSession returned session=%s",
 	            m_session ? "valid" : "null");
 
 	if (!m_session)
 	{
-		MW_LOG_ERR("RialtoMediaKeySessionAdapter::generateDRMSession: createSession failed");
+		AAMPLOG_ERR("RialtoMediaKeySessionAdapter::generateDRMSession: createSession failed");
 		m_eKeyState = KEY_ERROR_SESSION_CREATE_FAILED;
 		m_stateChanged.notify_all();
 	}
 	else
 	{
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession: session created, keySessionId=%d",
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter::generateDRMSession: session created, keySessionId=%d",
 		            m_session->getMediaKeySessionId());
 	}
 }
@@ -182,7 +182,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 DrmData* RialtoMediaKeySessionAdapter::generateKeyRequest(
 	std::string& destinationURL, uint32_t timeout)
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateKeyRequest timeout=%u", timeout);
+	AAMPLOG_INFO("RialtoMediaKeySessionAdapter::generateKeyRequest timeout=%u", timeout);
 
 	DrmData* result = nullptr;
 	m_eKeyState = KEY_ERROR;
@@ -191,16 +191,16 @@ DrmData* RialtoMediaKeySessionAdapter::generateKeyRequest(
 		std::unique_lock<std::mutex> lock(m_eventMutex);
 		if (!m_challengeReceived)
 		{
-			MW_LOG_WARN("RialtoMediaKeySessionAdapter::generateKeyRequest: blocking wait for challenge timeout=%u ms", timeout);
+			AAMPLOG_WARN("RialtoMediaKeySessionAdapter::generateKeyRequest: blocking wait for challenge timeout=%u ms", timeout);
 			auto waitResult = m_challengeReady.wait_for(
 				lock, std::chrono::milliseconds(timeout),
 				[this]() { return m_challengeReceived; });
-			MW_LOG_WARN("RialtoMediaKeySessionAdapter::generateKeyRequest: challenge wait returned result=%s",
+			AAMPLOG_WARN("RialtoMediaKeySessionAdapter::generateKeyRequest: challenge wait returned result=%s",
 			            waitResult ? "received" : "timeout");
 
 			if (!waitResult)
 			{
-				MW_LOG_WARN("RialtoMediaKeySessionAdapter::generateKeyRequest: timed out waiting for challenge");
+				AAMPLOG_WARN("RialtoMediaKeySessionAdapter::generateKeyRequest: timed out waiting for challenge");
 				return nullptr;
 			}
 		}
@@ -227,13 +227,13 @@ DrmData* RialtoMediaKeySessionAdapter::generateKeyRequest(
 
 		result = new DrmData(challengeData.c_str(), challengeData.length());
 		destinationURL.assign(destUrl);
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter::generateKeyRequest: destUrl=%s",
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter::generateKeyRequest: destUrl=%s",
 		            destinationURL.c_str());
 		m_eKeyState = KEY_PENDING;
 	}
 	else
 	{
-		MW_LOG_WARN("RialtoMediaKeySessionAdapter::generateKeyRequest: empty challenge");
+		AAMPLOG_WARN("RialtoMediaKeySessionAdapter::generateKeyRequest: empty challenge");
 	}
 
 	return result;
@@ -241,13 +241,13 @@ DrmData* RialtoMediaKeySessionAdapter::generateKeyRequest(
 
 int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey timeout=%u", timeout);
+	AAMPLOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey timeout=%u", timeout);
 
 	int retValue = -1;
 
 	if (!m_session)
 	{
-		MW_LOG_ERR("RialtoMediaKeySessionAdapter::processDRMKey: no active session");
+		AAMPLOG_ERR("RialtoMediaKeySessionAdapter::processDRMKey: no active session");
 		m_eKeyState = KEY_ERROR;
 		m_stateChanged.notify_all();
 		return retValue;
@@ -258,12 +258,12 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 		const uint8_t* keyMessage = reinterpret_cast<const uint8_t*>(key->getData().c_str());
 		const uint16_t keyMsgLength = static_cast<uint16_t>(key->getDataLength());
 
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: calling update, length=%u",
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: calling update, length=%u",
 		            keyMsgLength);
 
 		if (!m_session->update(keyMessage, keyMsgLength))
 		{
-			MW_LOG_ERR("RialtoMediaKeySessionAdapter::processDRMKey: update failed");
+			AAMPLOG_ERR("RialtoMediaKeySessionAdapter::processDRMKey: update failed");
 			m_eKeyState = KEY_ERROR;
 			m_stateChanged.notify_all();
 			return retValue;
@@ -271,7 +271,7 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 	}
 	else
 	{
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: NULL key, assuming external acquisition");
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: NULL key, assuming external acquisition");
 	}
 
 	// Wait for key status callback
@@ -279,16 +279,16 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 		std::unique_lock<std::mutex> lock(m_eventMutex);
 		if (!m_keyStatusReceived)
 		{
-			MW_LOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: blocking wait for key status timeout=%u ms", timeout);
+			AAMPLOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: blocking wait for key status timeout=%u ms", timeout);
 			auto waitResult = m_keyStatusReady.wait_for(
 				lock, std::chrono::milliseconds(timeout),
 				[this]() { return m_keyStatusReceived; });
-			MW_LOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: key status wait returned result=%s",
+			AAMPLOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: key status wait returned result=%s",
 			            waitResult ? "received" : "timeout");
 
 			if (!waitResult)
 			{
-				MW_LOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: timed out waiting for key status");
+				AAMPLOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: timed out waiting for key status");
 			}
 		}
 	}
@@ -307,7 +307,7 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 			}
 			if (m_session->isKeyOutputRestricted(keyData.data(), static_cast<uint8_t>(keyData.size())))
 			{
-				MW_LOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: output restricted");
+				AAMPLOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: output restricted");
 				m_eKeyState = KEY_ERROR;
 				retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
 				m_stateChanged.notify_all();
@@ -318,13 +318,13 @@ int RialtoMediaKeySessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 
 	if (keyUsable)
 	{
-		MW_LOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: key usable");
+		AAMPLOG_INFO("RialtoMediaKeySessionAdapter::processDRMKey: key usable");
 		m_eKeyState = KEY_READY;
 		retValue = 0;
 	}
 	else
 	{
-		MW_LOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: key not usable");
+		AAMPLOG_WARN("RialtoMediaKeySessionAdapter::processDRMKey: key not usable");
 		m_eKeyState = KEY_ERROR;
 	}
 
@@ -354,7 +354,7 @@ bool RialtoMediaKeySessionAdapter::waitForState(KeyState state, const uint32_t t
 
 void RialtoMediaKeySessionAdapter::clearDecryptContext()
 {
-	MW_LOG_INFO("RialtoMediaKeySessionAdapter::clearDecryptContext");
+	AAMPLOG_INFO("RialtoMediaKeySessionAdapter::clearDecryptContext");
 
 	std::lock_guard<std::mutex> guard(m_mutex);
 

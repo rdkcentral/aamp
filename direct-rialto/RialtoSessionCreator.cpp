@@ -25,19 +25,19 @@
 #include "RialtoSessionCreator.h"
 #include "RialtoMediaKeySystem.h"
 #include "RialtoMediaKeySessionAdapter.h"
-#include "PlayerLogManager.h"
+#include "AampLogManager.h"
 
 DrmSessionCreator makeRialtoSessionCreator()
 {
 	return [](DrmHelperPtr drmHelper, DrmCallbacks* callbacks) -> std::unique_ptr<IDrmSession>
 	{
 		const std::string systemId = drmHelper->ocdmSystemId();
-		MW_LOG_INFO("makeRialtoSessionCreator: building RialtoMediaKeySystem for %s",
+		AAMPLOG_INFO("makeRialtoSessionCreator: building RialtoMediaKeySystem for %s",
 		            systemId.c_str());
 		auto system = std::make_unique<RialtoMediaKeySystem>(systemId);
 		if (!system->isValid())
 		{
-			MW_LOG_ERR("makeRialtoSessionCreator: RialtoMediaKeySystem creation failed for %s",
+			AAMPLOG_ERR("makeRialtoSessionCreator: RialtoMediaKeySystem creation failed for %s",
 			           systemId.c_str());
 			return nullptr;
 		}
