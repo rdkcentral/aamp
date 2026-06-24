@@ -187,7 +187,7 @@ public:
      * @brief Store the DRM key ID for this session.
      *        No-op for session types that do not use key-ID tracking.
      */
-    virtual void setKeyId(const vector<uint8_t>& /*keyId*/) {}
+    virtual void setKeyId(const vector<uint8_t>& /*keyId*/) = 0;
 
     /**
      * @brief Associate a ContentSecurityManager session with this DRM session.
