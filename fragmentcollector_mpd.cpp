@@ -672,7 +672,15 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		timeBasedBufferManager->PopulateBuffer(fragmentDuration);
 	}
 
-	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+	// SegmentBase init segments are byte-range requests against a single file.
+	// The FetcherLoop continues immediately after SubmitJob returns, loads IDX,
+	// and submits media segment[0] to the worker queue.  The worker serializes
+	// jobs per-track, but fragmentOffset is mutated on the FetcherLoop thread
+	// concurrently with the async init download on the worker thread.  Run the
+	// SegmentBase init synchronously so the init bytes reach GStreamer before
+	// the FetcherLoop advances.  (VPAAMP-614)
+	const bool segmentBaseInit = isInitializationSegment && !range.empty();
+	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseInit)
 	{
 		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
 		if (future.valid())
