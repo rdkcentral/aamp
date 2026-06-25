@@ -26,7 +26,6 @@
 #include <gst/base/gstbasetransform.h>
 #include "DrmSessionManager.h"
 #include "DrmCallbacks.h"
-#include "DrmSession.h"
 
 G_BEGIN_DECLS
 
@@ -47,7 +46,7 @@ struct _GstCDMIDecryptor
 {
     GstBaseTransform                base_cdmidecryptor;
     class DrmSessionManager*    sessionManager;
-    DrmSession*                drmSession;
+    class DrmSession*           drmSession;
     class DrmCallbacks *     player;
     gboolean                        streamReceived;
     gboolean                        canWait;

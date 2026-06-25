@@ -18,7 +18,6 @@
 */
 
 #include "DrmSessionManager.h"
-#include "DrmSession.h"
 #include "DrmHelper.h"
 #include "MockAampDRMSessionManager.h"
 std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager{};
@@ -130,4 +129,3 @@ bool DrmSessionManager::getFailedKeyIdStatus(int sessionIndex)
 {
 	return false;
 }
-

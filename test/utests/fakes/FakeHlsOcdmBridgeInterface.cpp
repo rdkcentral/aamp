@@ -27,7 +27,7 @@
 class AampFakeHlsOcdmBridge : public HlsDrmBase
 {
 public:
-AampFakeHlsOcdmBridge(DrmSession * DrmSession){}
+	AampFakeHlsOcdmBridge(DrmSession * DrmSession){}
 
 	virtual ~AampFakeHlsOcdmBridge(){}
 

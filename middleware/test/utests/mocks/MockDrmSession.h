@@ -26,11 +26,14 @@
 /**
  * @class MockDrmSession
  * @brief Mock implementation of DrmSession for unit testing
+ * 
+ * This mock allows testing DRM session behavior without requiring
+ * actual OCDM system interactions.
  */
 class MockDrmSession : public DrmSession
 {
 public:
-	MockDrmSession() {}
+	MockDrmSession() : DrmSession("mock-key-system") {}
 	virtual ~MockDrmSession() = default;
 
 	MOCK_METHOD(void, generateDRMSession, (const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData), (override));
@@ -39,8 +42,6 @@ public:
 	MOCK_METHOD(KeyState, getState, (), (override));
 	MOCK_METHOD(void, clearDecryptContext, (), (override));
 	MOCK_METHOD(std::vector<std::vector<uint8_t>>, getUsableKeys, (), (const, override));
-	MOCK_METHOD(std::string, getKeySystem, (), (override));
-	MOCK_METHOD(void, setOutputProtection, (bool bValue), (override));
 };
 
 #endif /* PLAYER_MOCK_DRM_SESSION_H */

@@ -24,15 +24,12 @@
  */
 
 #include "DrmSessionManager.h"
-#include "DrmSession.h"
 #include "_base64.h"
 #include <iostream>
 #include "DrmHelper.h"
 #include <inttypes.h>
 #include "PlayerUtils.h"
 #include "ContentSecurityManager.h"
-
-using namespace std;
 
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
 #define DRM_METADATA_TAG_END "</ckm:policy>"
@@ -493,6 +490,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 
 	if ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT))
 	{
+		MW_LOG_WARN(" Unable to get DrmSession : Key State %d ", code);
 		return nullptr;
 	}
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);

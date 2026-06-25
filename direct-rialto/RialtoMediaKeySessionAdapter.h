@@ -50,9 +50,7 @@
  * Follows the same lifecycle as OCDMSessionAdapter:
  *   generateDRMSession → generateKeyRequest → processDRMKey
  *
- * Internally delegates to RialtoMediaKeySystem/RialtoMediaKeySession.
- * decrypt() methods are no-ops — decryption is handled server-side
- * by the Rialto pipeline.
+ * Internally delegates to RialtoMediaKeySystem/RialtoMediaKeySession
  */
 class RialtoMediaKeySessionAdapter : public DrmSession
 {
