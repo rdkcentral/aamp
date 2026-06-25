@@ -151,6 +151,19 @@ void PrivateCDAIObjectMPD::InsertToPlacementQueue(const std::string& periodId)
 {
 }
 
+bool PrivateCDAIObjectMPD::AreAllAdsResolved(const std::string& periodId)
+{
+	return false;
+}
+
+void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
+{
+}
+
+void PrivateCDAIObjectMPD::PlaceAdsForStaticManifest(const std::string& reservationId)
+{
+}
+
 void CDAIObjectMPD::NotifyReservationComplete(const std::string& reservationId)
 {
 	if (g_MockPrivateCDAIObjectMPD)
