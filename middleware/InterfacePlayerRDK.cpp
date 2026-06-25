@@ -156,7 +156,7 @@ decodeErrorMsgTimeMS(0), decodeErrorCBCount(0),
 progressiveBufferingEnabled(false), progressiveBufferingStatus(false),
 enableSEITimeCode(true), firstVideoFrameReceived(false), firstAudioFrameReceived(false), NumberOfTracks(0), playbackQuality{},
 filterAudioDemuxBuffers(false), isMp4DemuxPlayback(false),
-aSyncControl(), syncControl(), callbackControl(), seekPosition(0)
+aSyncControl(), syncControl(), callbackControl(), seekPosition(0), setSubtitlePending(false)
 {
 	memset(videoRectangle, '\0', VIDEO_COORDINATES_SIZE);
 	/* default video scaling should take into account actual graphics
@@ -337,7 +337,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		// If no subtitles defined, then create a closed caption control stream
 		newClosedCaptionsControl = (gstSubFormat == GST_FORMAT_INVALID);
 
-		// To avoid out of band subtitles being removed during trickplay, 
+		// To avoid out of band subtitles being removed during trickplay,
 		// check if they were previously configured, and don't enable Closed Caption Control.
 		newClosedCaptionsControl &= (interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].format == GST_FORMAT_INVALID);
 
@@ -557,7 +557,7 @@ gboolean InterfacePlayerRDK::IdleCallbackOnFirstFrame(gpointer user_data)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 	InterfacePlayerPriv* privatePlayer = nullptr;
-      
+
 	if (pInterfacePlayerRDK)
 	{
                 privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
@@ -1691,7 +1691,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		(interfacePlayerPriv->gstPrivateContext->audio_sink) &&
 		(rate != GST_NORMAL_PLAY_RATE))
 	{
-		/* 
+		/*
 		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
 		 */
@@ -2209,8 +2209,8 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 			privatePlayer->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref_sink(textsink));
 			stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(subtitlebin));
 
-			MW_LOG_INFO("Added subtitle bin with %s %p to pipeline", 
-						GST_ELEMENT_NAME(privatePlayer->gstPrivateContext->subtitle_sink), 
+			MW_LOG_INFO("Added subtitle bin with %s %p to pipeline",
+						GST_ELEMENT_NAME(privatePlayer->gstPrivateContext->subtitle_sink),
 						privatePlayer->gstPrivateContext->subtitle_sink);
 
 			privatePlayer->SignalConnect(stream->sinkbin, "deep-notify::source", G_CALLBACK(gst_found_source), this);
@@ -2290,7 +2290,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				gst_element_sync_state_with_parent(stream->source);
 				gst_element_sync_state_with_parent(stream->sinkbin);
 				interfacePlayerPriv->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref(stream->sinkbin));
-				g_object_set(stream->sinkbin, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+				interfacePlayerPriv->gstPrivateContext->setSubtitlePending = true;
 				return 0;
 			}
 		}
@@ -2388,7 +2388,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	bool isSub = (eGST_MEDIATYPE_SUBTITLE == streamId);
 	privatePlayer->socInterface->SetPlaybackFlags(flags, isSub);
 	g_object_set(stream->sinkbin, "flags", flags, NULL); // needed?
-	
+
 	GstMediaFormat mediaFormat = (GstMediaFormat)m_gstConfigParam->media;
 	if((mediaFormat != eGST_MEDIAFORMAT_PROGRESSIVE) || ( m_gstConfigParam->appSrcForProgressivePlayback))
 	{
@@ -2546,7 +2546,7 @@ gboolean InterfacePlayerPriv::SendQtDemuxOverrideEvent(int mediaType, GstClockTi
 		 3) the variable playerName suffixed with 'player' has datatype of G_TYPE_BOOLEAN and a value of TRUE.
 		 */
 		std::string overrideName = mPlayerName + "_override";
-		std::string player = mPlayerName + "player";	
+		std::string player = mPlayerName + "player";
 		GstStructure * eventStruct = gst_structure_new(overrideName.c_str(), "enable", G_TYPE_BOOLEAN, enableOverride, "rate", G_TYPE_FLOAT, (float)gstPrivateContext->rate, player.c_str(), G_TYPE_BOOLEAN, TRUE, "fps", G_TYPE_UINT, (guint)vodTrickModeFPS, NULL);
 		if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
 		{
@@ -3126,7 +3126,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 		{
 
 			GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
-			
+
 			if (ret != GST_FLOW_OK)
 			{
 				MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
@@ -3153,7 +3153,7 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 			{
 				stream->bufferUnderrun = false;
 			}
-			
+
 			// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
 			if (isFirstBuffer == true && ret == GST_FLOW_OK)
 				firstBufferPushed = true;
@@ -3214,7 +3214,7 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 		if(stopPts)
 		{
 			segment.stop = stopPts;
-		} 
+		}
 
 		if( (GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO )
 		{
@@ -3249,7 +3249,7 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 			{
 				MW_LOG_ERR("Failed to push segment event for mediaType[%d]", mediaType);
 			}
-			gst_object_unref(sourceEleSrcPad);			
+			gst_object_unref(sourceEleSrcPad);
 
 		}
 	}
@@ -3378,7 +3378,7 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK_Pause - gst_element_set_state - FAILED rc %d", rc);
 		}
-		
+
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = nextState;
 		interfacePlayerPriv->gstPrivateContext->paused = pause;
 		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
@@ -4275,7 +4275,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			busEvent.msg = srcName ? srcName : "Unknown source";
 			busEvent.dbg_info = "N/A";
 			busEvent.msgType = MESSAGE_STATE_CHANGE;
-			
+
 			if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
 			{
 				GstElement *video_sink = privatePlayer->gstPrivateContext->video_sink;
@@ -4368,7 +4368,13 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				{
 					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask, pInterfacePlayerRDK->IdleCallbackFirstVideoFrameDisplayed);
 				}
-
+				// Subtitle unmute lost in SetupStream() because gstreamer not ready
+				// So, set subtitle mute state when first frame is received
+				if (privatePlayer->gstPrivateContext->subtitle_sink && privatePlayer->gstPrivateContext->setSubtitlePending && !privatePlayer->gstPrivateContext->subtitleMuted)
+				{
+					pInterfacePlayerRDK->SetSubtitleMute(false);
+					privatePlayer->gstPrivateContext->setSubtitlePending = false;
+				}
 			}
 			//this code should be handled as part of IARM modification
 			if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
@@ -4658,7 +4664,7 @@ static gboolean buffering_timeout (gpointer data)
 				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
 				SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
 				isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
-				
+
 				privatePlayer->gstPrivateContext->buffering_in_progress = false;
 				isPlayerReady = true;
 			}
