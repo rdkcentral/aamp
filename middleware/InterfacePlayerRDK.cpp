@@ -521,6 +521,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			if (!interfacePlayerPriv->gstPrivateContext->seekPausedState)
 			{
 				interfacePlayerPriv->gstPrivateContext->paused = false;
+				interfacePlayerPriv->gstPrivateContext->pendingPlayState = true;
+				MW_LOG_INFO("seekPausedState active - deferring transition to PLAYING, marking pendingPlayState");
 			}
 			interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 		}
