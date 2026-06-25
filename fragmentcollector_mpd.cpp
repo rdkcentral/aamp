@@ -10343,6 +10343,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			 * Segment downloader loop
 			 */
 			double lastPrdOffset = mBasePeriodOffset;
+			// Track whether EOS jobs have been submitted for this period to avoid duplicate scheduling.
+			bool videoEosSubmitted{false};
+			bool audioEosSubmitted{false};
 			while (!exitFetchLoop)
 			{
 				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderContext->isPlaylistDownloaderThreadStarted())
@@ -10440,7 +10443,11 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							});
 							if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 							{
-								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+								if (!videoEosSubmitted)
+								{
+									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
+									videoEosSubmitted = true;
+								}
 							}
 							else
 							{
@@ -10459,7 +10466,11 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								});
 								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 								{
-									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+									if (!audioEosSubmitted)
+									{
+										aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+										audioEosSubmitted = true;
+									}
 								}
 								else
 								{
