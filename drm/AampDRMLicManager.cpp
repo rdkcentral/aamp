@@ -25,7 +25,6 @@
 #include "AampDRMLicManager.h"
 #include "priv_aamp.h"   
 #include "DrmHelper.h"
-#include "DrmSession.h"
 #include <pthread.h>
 #include "downloader/AampCurlStore.h"
 #include "_base64.h"
@@ -38,8 +37,6 @@
 
 #include "AAMPAnomalyMessageType.h"
 #include "AuthTokenErrors.h"
-
-using namespace std;
 
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
 

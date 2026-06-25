@@ -111,7 +111,7 @@ public:
 	/*
 	 * @fn getHlsDrmSession 
 	 */
-	void  getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper, DrmSession* &session , int streamType);
+	void  getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper,DrmSession* &session , int streamType);
 
 	/*
 	 * @fn enumeration update mapping wrt aamp enumeration 

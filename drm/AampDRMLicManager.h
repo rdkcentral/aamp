@@ -27,7 +27,6 @@
 
 #include "priv_aamp.h"
 #include "AampDRMLicPreFetcher.h"
-#include "DrmSessionFactory.h"
 #include "DrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
@@ -85,13 +84,13 @@ public:
 	 * @fn handleLicenseResponse
 	 */
 	KeyState handleLicenseResponse(int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
-								   int32_t httpResponseCode, int32_t httpExtResponseCode, std::shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal = false);
+					int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal = false);
 
 	/**
 	 * @fn processLicenseResponse
 	 */
 	KeyState processLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
-				std::shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, bool isLicenseRenewal = false);
+					shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, bool isLicenseRenewal = false);
 	/**
 	 * @fn configureLicenseServerParameters
 	 */
