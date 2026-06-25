@@ -359,21 +359,9 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	const int rate = m_rate.load(std::memory_order_relaxed);
 	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
-		StreamOutputFormat newSubFormat = FORMAT_INVALID;
-		if (subFormat == FORMAT_SUBTITLE_TTML || subFormat == FORMAT_SUBTITLE_MP4 || subFormat == FORMAT_SUBTITLE_WEBVTT)
+		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != subFormat))
 		{
-			newSubFormat = subFormat;
-		}
-#if 1//anj
-		else if (videoFormat != FORMAT_INVALID)//anj:source->format will be FORMAT_INVALID for cc. So check if this else if should be removed.
-		{
-			newSubFormat = FORMAT_UNKNOWN;
-		}
-#endif//anj
-		AAMPLOG_INFO("subFormat=%d, newSubFormat=%d", subFormat, newSubFormat);
-		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != newSubFormat))
-		{
-			AAMPLOG_INFO("subFormat=%d, newSubFormat=%d, subtitleSrc->format()=%d. ShouldRecreatePipeline true", subFormat, newSubFormat,subtitleSrc->format());
+			AAMPLOG_INFO("subFormat=%d, subtitleSrc->format()=%d. ShouldRecreatePipeline true", subFormat, subtitleSrc->format());
 			return true;
 		}
 	}
