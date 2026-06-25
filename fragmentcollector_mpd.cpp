@@ -3203,8 +3203,24 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		}
 
 		mLastPlaylistDownloadTimeMs = mpdDnldResp->mLastPlaylistDownloadTimeMs;
-		if(mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai))
+		if(ISCONFIGSET(eAAMPConfig_EnableClientDai))
 		{
+			// Gate on mIsLiveManifest (refreshed every manifest download) rather than
+			// mIsLiveStream (frozen at init-time) so that a CDVR dynamic→static
+			// transition is detected correctly.
+			if (!mIsLiveManifest)
+			{
+				AAMPLOG_INFO("Setting MPD helper for static manifest content");
+				mCdaiObject->SetBaseMPDParseHelper(mMPDParseHelper);
+			}
+			else
+			{
+				// Manifest is currently live; clear any stale helper that may have
+				// been set during a previous static playback on the same mCdaiObject
+				// so it is not incorrectly used as the static-manifest gate.
+				mCdaiObject->SetBaseMPDParseHelper(nullptr);
+			}
+			AAMPLOG_INFO("Placing ads for %s stream", mIsLiveManifest ? "live" : "static manifest");
 			mCdaiObject->PlaceAds(mMPDParseHelper);
 		}
 
@@ -4130,7 +4146,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			AAMPLOG_WARN("mCurrentPeriod  is null");  //CID:84770 - Null Return
 		}
 		mBasePeriodOffset = offsetFromStart;
-		onAdEvent(AdEvent::INIT, offsetFromStart);
+		//Avoid calling onAdEvent during a new tune to prevent ad processing at tune start.
+		if ((tuneType != eTUNETYPE_NEW_NORMAL) &&
+			(tuneType != eTUNETYPE_NEW_SEEK) &&
+			(tuneType != eTUNETYPE_NEW_END))
+		{
+			onAdEvent(AdEvent::INIT, offsetFromStart);
+		}
 
 		UpdateLanguageList();
 
@@ -5470,7 +5492,6 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 								eventInfo.duration = 0;
 							}
 							eventStartTime = 0;
-
 						}
 					}
 					else
@@ -5479,34 +5500,19 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					}
 					AAMPLOG_INFO("SCTEDBG adjust start time %" PRIu64 " -> %" PRIu64 " (duration %d)", eventInfo.presentationTime, eventStartTime, eventInfo.duration);
 				}
+				// Update event break to AAMP's CDAI object so that ad reservations can be processed later.
+				aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
 
-				//for livestream send the timedMetadata only., because at init, control does not come here
-				if(mIsLiveManifest && ! ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive))
+				// Report the event break info to application as timed metadata. This will be done for both live and recorded content.
+				// Save the event for later reporting. De-duplication happens in ReportTimedMetadata() (non-bulk mode only).
+				if(reportBulkMeta)
 				{
-					// The current process relies on enabling eAAMPConfig_EnableClientDai and that may not be desirable
-					// for our requirements. We'll just skip this and use the VOD process to send events
-					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
-					if (modifySCTEProcessing)
-					{
-						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
-					}
-					else
-					{
-						aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
-					}
+					AAMPLOG_INFO("Saving timedMetadata event %s for the period, %s", eventInfo.name.c_str(), prdId.c_str());
+					aamp->SaveTimedMetadata(eventStartTime, eventInfo.name.c_str() , eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 				}
 				else
 				{
-					//for vod, send TimedMetadata only when bulkmetadata is not enabled
-					if(reportBulkMeta)
-					{
-						AAMPLOG_INFO("Saving timedMetadata for VOD %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
-						aamp->SaveTimedMetadata(eventStartTime, eventInfo.name.c_str() , eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
-					}
-					else
-					{
-						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
-					}
+					aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 				}
 			}
 			ret = true;
@@ -9554,18 +9560,23 @@ bool StreamAbstractionAAMP_MPD::CheckEndOfStream(bool waitForAdBreakCatchup)
 		{
 			AAMPLOG_INFO("EOS Reached. mPlayRate=%f mIterPeriodIndex=%d", mPlayRate, mIterPeriodIndex);
 			auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-				mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 				mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 				AAMPLOG_INFO("Video EOS Marked after checking EOS on manifest");
 			});
 			if(ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 			{
-				aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+				auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
+				if (!future.valid())
+				{
+					AAMPLOG_WARN("Video EOS (CheckEndOfStream): SubmitJob failed, falling back to synchronous Execute");
+    				dashWorkerJob->Execute();
+				}
 			}
 			else
 			{
 				dashWorkerJob->Execute();
 			}
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 		}
 		ret = true;
 	}
@@ -9676,7 +9687,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				mBasePeriodOffset = (mPlayRate > AAMP_RATE_PAUSE) ? 0 : (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) / 1000.00);
 
 				{
-					std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+					std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 					if (mCdaiObject->mContentSeekOffset > 0)
 					{
 						// Set mBasePeriodOffset as mContentSeekOffset to handle cases of partial ads.
@@ -9861,7 +9872,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		// CID:190371 - Data race condition
 		// Get and clear mContentSeekOffset atomically.
 		{
-			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+			std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 			seekPositionSeconds = mCdaiObject->mContentSeekOffset;
 			mCdaiObject->mContentSeekOffset = 0;
 		}
@@ -10358,40 +10369,50 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 											((mPlayRate > AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= aamp->mAbsoluteEndPosition) || (mPlayRate < AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= aamp->culledSeconds && (mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)))); // For rewinding, EOS does not need to be set unless the current period is a lower period.
 					if ((!mIsLiveManifest || (mPlayRate != AAMP_NORMAL_PLAY_RATE)) && (eosOutSideAd || eosAdPlayback))
 					{
-						if (vEos)
+						if (vEos && !mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached)
 						{
 							auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-								mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
 							if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 							{
-								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
+								auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
+								if (!future.valid())
+								{
+									AAMPLOG_WARN("Video EOS: SubmitJob failed, falling back to synchronous Execute");
+									dashWorkerJob->Execute();
+								}
 							}
 							else
 							{
 								dashWorkerJob->Execute();
 							}
+							mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
 							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
 						}
 						if (audioEnabled)
 						{
-							if (mMediaStreamContext[eMEDIATYPE_AUDIO]->eos)
+							if (mMediaStreamContext[eMEDIATYPE_AUDIO]->eos && !mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached)
 							{
 								auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
-									mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
 								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 								{
-									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+									auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+									if (!future.valid())
+									{
+										AAMPLOG_WARN("Audio EOS: SubmitJob failed, falling back to synchronous Execute");
+										dashWorkerJob->Execute();
+									}
 								}
 								else
 								{
 									dashWorkerJob->Execute();
 								}
+								mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
 							}
 						}
 						else
@@ -12321,7 +12342,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			return false;
 		}
 	}
-	std::unique_lock<std::mutex> lock(mCdaiObject->mDaiMtx);
+	std::unique_lock<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;
 	AdState oldState = mCdaiObject->mAdState;
 	AAMPEventType reservationEvt2Send = AAMP_MAX_NUM_EVENTS; //None

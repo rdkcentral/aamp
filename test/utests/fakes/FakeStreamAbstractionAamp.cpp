@@ -308,8 +308,12 @@ void MediaTrack::UpdateTSAfterFetchStats(CachedFragment* cachedFragment, bool is
 {
 }
 
-bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
+bool MediaTrack::WaitForFreeFragmentAvailable(int timeoutMs)
 {
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->WaitForFreeFragmentAvailable(timeoutMs);
+	}
 	return true;
 }
 
@@ -581,6 +585,10 @@ void MediaTrack::NotifyCachedAudioFragmentAvailable()
 
 bool MediaTrack::IsFragmentCacheFull()
 {
+	if (g_mockMediaTrack != nullptr)
+	{
+		return g_mockMediaTrack->IsFragmentCacheFull();
+	}
 	return false;
 }
 
