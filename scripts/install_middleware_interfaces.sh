@@ -48,7 +48,12 @@ function sync_internal_middleware_headers_fn()
         local base
         base=$(basename "${installed}")
         local src
-        src=$(find "${middleware_dir}" -maxdepth 4 -name "${base}" 2>/dev/null | head -1)
+        # Search only the middleware source tree, pruning the .libs build
+        # artifact directory.  .libs holds vendored third-party build outputs
+        # (e.g. glib, protobuf) whose headers share common basenames such as
+        # config.h.  Matching those by basename would overwrite unrelated
+        # installed headers (e.g. libdash/config.h), breaking the build.
+        src=$(find "${middleware_dir}" -maxdepth 4 -name .libs -prune -o -name "${base}" -print 2>/dev/null | head -1)
         if [[ -n "${src}" ]] && ! diff -q "${installed}" "${src}" > /dev/null 2>&1; then
             echo "Refreshing stale header: ${base}"
             cp "${src}" "${installed}" || {
