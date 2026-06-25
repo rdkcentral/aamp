@@ -5125,3 +5125,95 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(bitrates[0], 1000000);
 }
 
+/**
+ * @brief Parameterized test class for CDAI Init tests with different TuneTypes.
+ *
+ * Tests Init() behavior with various TuneType values:
+ * - NEW tune types (NEW_NORMAL, NEW_SEEK, NEW_END) should NOT call CheckForAdStart (CDAI skipped)
+ * - Non-NEW tune types (SEEK, RETUNE, SEEKTOLIVE, SEEKTOEND) SHOULD call CheckForAdStart (CDAI continues)
+ *
+ * Parameter: pair<TuneType, bool> where bool indicates if CheckForAdStart should be called.
+ */
+class CDAIInitTuneTypeTests : public FunctionalTestsBase,
+							  public ::testing::TestWithParam<std::pair<TuneType, bool>>
+{
+protected:
+	void SetUp() override
+	{
+		FunctionalTestsBase::SetUp();
+	}
+
+	void TearDown() override
+	{
+		FunctionalTestsBase::TearDown();
+	}
+};
+
+// Test Init() CDAI behavior based on TuneType
+TEST_P(CDAIInitTuneTypeTests, VerifiesCheckForAdStartBehavior)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static"
+	mediaPresentationDuration="PT1M0S"
+	profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<Period id="p0" duration="PT1M0S">
+		<AdaptationSet contentType="video" mimeType="video/mp4">
+			<SegmentTemplate timescale="2500" initialization="video_init.mp4"
+							media="video_$Number$.m4s" startNumber="1"
+							duration="2500"/>
+			<Representation id="1" bandwidth="1000000" codecs="avc1.640028"
+							width="640" height="360" frameRate="25"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+	auto params = GetParam();
+	TuneType tuneType = params.first;
+	bool shouldCallCheckForAdStart = params.second;
+
+	mBoolConfigSettings[eAAMPConfig_EnableClientDai] = true;
+	g_MockPrivateCDAIObjectMPD = std::make_shared<NiceMock<MockPrivateCDAIObjectMPD>>();
+
+	// Set expectation based on parameter
+	if (shouldCallCheckForAdStart)
+	{
+		// Non-NEW tune types: CheckForAdStart SHOULD be called
+		EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _)).Times(::testing::AtLeast(1));
+	}
+	else
+	{
+		// NEW tune types: CheckForAdStart should NOT be called
+		EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _)).Times(0);
+	}
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+	AAMPStatusType status = InitializeMPD(manifest, tuneType);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	g_MockPrivateCDAIObjectMPD.reset();
+}
+
+/**
+ * @brief Instantiate CDAI Init tests with all TuneType variants.
+ *
+ * Format: pair<TuneType, shouldCallCheckForAdStart>
+ * - NEW tune types have shouldCallCheckForAdStart = false (skip CDAI)
+ * - Non-NEW tune types have shouldCallCheckForAdStart = true (continue CDAI)
+ */
+INSTANTIATE_TEST_SUITE_P(AllTuneTypes,
+						CDAIInitTuneTypeTests,
+						::testing::Values(
+							// NEW tune types - CheckForAdStart should NOT be called
+							std::make_pair(eTUNETYPE_NEW_NORMAL, false),
+							std::make_pair(eTUNETYPE_NEW_SEEK, false),
+							std::make_pair(eTUNETYPE_NEW_END, false),
+							// Non-NEW tune types - CheckForAdStart SHOULD be called
+							std::make_pair(eTUNETYPE_SEEK, true),
+							std::make_pair(eTUNETYPE_SEEKTOLIVE, true),
+							std::make_pair(eTUNETYPE_RETUNE, true),
+							std::make_pair(eTUNETYPE_SEEKTOEND, true)
+						));

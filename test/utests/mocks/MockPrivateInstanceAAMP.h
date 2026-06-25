@@ -65,6 +65,7 @@ public:
 	MOCK_METHOD(void, NotifyFirstVideoFrameDisplayed, ());
 	MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
 	MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
+	MOCK_METHOD(void, SaveTimedMetadata, (long long timeMS, const char* szName, const char* id, double durationMS));
 	MOCK_METHOD(bool, DownloadsAreEnabled, ());
 	MOCK_METHOD(void, SendAdResolvedEvent, (const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode));
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
