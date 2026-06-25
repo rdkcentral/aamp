@@ -2495,7 +2495,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				// Add mEncoderDelay to account for the encoder's contribution to latency.
 				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition()) + mEncoderDelay;
 				if(latency < 0)
-				{ // this should never happen!
+				{
 					AAMPLOG_ERR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms, mEncoderDelay = %ldms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition(), mEncoderDelay);
 				}
 			}

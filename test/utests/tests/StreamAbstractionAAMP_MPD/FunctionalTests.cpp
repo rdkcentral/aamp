@@ -129,7 +129,7 @@ protected:
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_UseMp4Demux, false},
 		{eAAMPConfig_UTCSyncOnStartup, true},
-		{eAAMPConfig_ApplyProducerReferenceDelay, true},
+		{eAAMPConfig_EnableProducerReferenceDelay, true},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -5226,7 +5226,7 @@ INSTANTIATE_TEST_SUITE_P(AllTuneTypes,
 							std::make_pair(eTUNETYPE_RETUNE, true),
 							std::make_pair(eTUNETYPE_SEEKTOEND, true)
 						));
-						
+
 /**
  * @brief CalculateProducerReferenceTimeOffset — positive encoder delay.
  *
