@@ -4784,9 +4784,8 @@ static gboolean buffering_timeout (gpointer data)
 			{
 				if (privatePlayer->gstPrivateContext->seekPausedState)
 				{
-					MW_LOG_WARN("buffering_timeout: skipping PLAYING — seekPausedState active");
-					privatePlayer->gstPrivateContext->buffering_in_progress = false;
-					return false;
+					// Keep timer alive — Pause(false) will clear seekPausedState
+					return true;
 				}
 
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
