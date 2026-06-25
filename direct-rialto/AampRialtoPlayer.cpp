@@ -310,6 +310,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	    bESChangeStatus ||
 	    setReadyAfterPipelineCreation)
 	{
+		AAMPLOG_INFO("ShouldRecreatePipeline true ");
 		return true;
 	}
 
@@ -322,15 +323,18 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	{
 		if (videoFormat != FORMAT_INVALID)
 		{
+			AAMPLOG_INFO("Video: ShouldRecreatePipeline true");
 			return true;  // Need to add video source.
 		}
 	}
 	else if (videoFormat == FORMAT_INVALID)
 	{
+		AAMPLOG_INFO("Video source going away: ShouldRecreatePipeline true");
 		return true;  // Video source going away.
 	}
 	else if (videoSrc->format() != videoFormat)
 	{
+		AAMPLOG_INFO("Video codec changed: ShouldRecreatePipeline true");
 		return true;  // Video codec changed.
 	}
 
@@ -341,31 +345,28 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	{
 		if (audioFormat != FORMAT_INVALID)
 		{
+			AAMPLOG_INFO("Need to add audio source: ShouldRecreatePipeline true");
 			return true;  // Need to add audio source.
 		}
 	}
 	else if (audioFormat != FORMAT_INVALID &&
 	         audioSrc->format() != audioFormat)
 	{
+		AAMPLOG_INFO("Audio codec changed to a different valid format: ShouldRecreatePipeline true");
 		return true;  // Audio codec changed to a different valid format.
 	}
 
-	if (subtitleSrc == nullptr)
+	const int rate = m_rate.load(std::memory_order_relaxed);
+	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
-		if (subFormat != FORMAT_INVALID)
+		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != subFormat))
 		{
-			return true;  
-		}
-		if (videoFormat != FORMAT_INVALID)
-		{
+			AAMPLOG_INFO("subFormat=%d, subtitleSrc->format()=%d. ShouldRecreatePipeline true", subFormat, subtitleSrc->format());
 			return true;
 		}
 	}
-	else if (subtitleSrc->format() != subFormat)
-	{
-		return true;
-	}
 
+	AAMPLOG_INFO("EXIT ShouldRecreatePipeline false");
 	return false;
 }
 
@@ -396,7 +397,7 @@ void AampRialtoPlayer::Configure(
 			{
 				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
 					"signalling EOS on audio source, no pipeline recreation");
-				m_sources[eMEDIATYPE_AUDIO]->signalEos(m_pipeline.get());
+				EndOfStreamReached(eMEDIATYPE_AUDIO);
 			}
 			else if (m_sources[eMEDIATYPE_AUDIO] &&
 			         audioFormat != FORMAT_INVALID)
@@ -940,6 +941,31 @@ void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 	{
 		source->signalEos(m_pipeline.get());
 	}
+
+	// In direct-Rialto mode every attached source must receive haveData(EOS)
+	// before the server emits END_OF_STREAM. Here we compensate in two scenarios:
+	//
+	// Audio EOS triggers subtitle EOS.  Covers:
+	//    a. Content with no subtitle tracks (e.g. an ad): subtitle source was
+	//       created from a saved header but will receive no data.
+
+	if (type == eMEDIATYPE_AUDIO)
+	{
+		auto *audioSrc    = m_sources[eMEDIATYPE_AUDIO].get();
+		auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
+
+		const bool audioAtEos = audioSrc && audioSrc->state().eos;
+
+		if (audioAtEos
+		    && subtitleSrc
+		    && subtitleSrc->isAttached()
+		    && !subtitleSrc->state().eos)
+		{
+			AAMPLOG_INFO("auto-signaling subtitle EOS: audio at EOS");
+			subtitleSrc->signalEos(m_pipeline.get());
+		}
+	}
+
 	AAMPLOG_INFO("EXIT");
 }
 
@@ -1030,16 +1056,29 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
 	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
 
-	// shouldTearDown controls recovery behavior when NOT in PLAYING/PAUSED states.
-	// - PLAYING/PAUSED: Always proceed with flush (shouldTearDown ignored)
+	// shouldTearDown controls recovery behavior when NOT in
+	// PLAYING/PAUSED/SOURCES_ATTACHED states.
+	// - PLAYING/PAUSED/SOURCES_ATTACHED: Always proceed with flush (shouldTearDown ignored)
 	// - Other states + shouldTearDown=true: Call Stop() for recovery/cleanup
 	// - Other states + shouldTearDown=false: Proceed with flush normally
 	//
 	// This differs from GStreamer which skips flush in non-PLAYING/PAUSED states.
 	// Rialto needs to flush in states like SOURCES_ATTACHED to set up positions.
 	const PlayerStateId state = m_stateMachine.currentState();
-	const bool isPlayingOrPaused = (state == PlayerStateId::PLAYING ||
-	                                state == PlayerStateId::PAUSED);
+	const bool isPlayingPausedOrAttached = (state == PlayerStateId::PLAYING ||
+											state == PlayerStateId::SOURCES_ATTACHED ||
+											state == PlayerStateId::PAUSED);
+
+	if (!isPlayingPausedOrAttached && shouldTearDown)
+	{
+		// Not in PLAYING/PAUSED/SOURCES_ATTACHED and shouldTearDown=true -> tear down for recovery.
+		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED/SOURCES_ATTACHED and shouldTearDown=true - calling Stop(true)",
+			m_stateMachine.currentStateName());
+		Stop(true);
+		AAMPLOG_INFO("EXIT - teardown requested");
+		return;
+	}
+
 	if (state == PlayerStateId::FLUSHING)
 	{
 		AAMPLOG_INFO("Flush requested while already FLUSHING - updated pending position/rate only (position=%f rate=%d shouldTearDown=%d)",
@@ -1068,19 +1107,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		AAMPLOG_INFO("EXIT - already flushing");
 		return;
 	}
-
-	if (!isPlayingOrPaused && shouldTearDown)
-	{
-		// Not in PLAYING/PAUSED and shouldTearDown=true -> tear down for recovery.
-		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED and shouldTearDown=true - calling Stop(true)",
-			m_stateMachine.currentStateName());
-		Stop(true);
-		AAMPLOG_INFO("EXIT - teardown requested");
-		return;
-	}
-
-	// Proceed with flush: either in PLAYING/PAUSED, or in other state with shouldTearDown=false.
-
+	
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
 	{

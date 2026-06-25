@@ -45,7 +45,7 @@ source scripts/install_gtest.sh
 # glib install and build
 source scripts/install_glib.sh
 # libdash install and build
-source scripts/install_libdash.sh
+# source scripts/install_libdash.sh
 # gstreamer install
 source scripts/install_gstreamer.sh
 # subtec install and build

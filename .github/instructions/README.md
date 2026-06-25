@@ -7,6 +7,8 @@ its `applyTo` glob; load others manually when relevant.
 ## Files
 
 ### Architecture & language
+- **`abr.instructions.md`** — Normative functional spec for ABR and latency-control logic.
+  Activates on `abr/**`. Use with the `/abr-*` prompt files for structured reviews.
 - **`aamp.instructions.md`** — AAMP architecture and current ("AS-IS")
   conventions. Activates on AAMP C/C++ sources.
 - **`cpp.instructions.md`** — C++17 coding standards, documentation,

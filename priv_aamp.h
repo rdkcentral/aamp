@@ -887,6 +887,17 @@ public:
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
+
+	/** Pre-tune VOD ad-break registrations buffered before mCdaiObject is created */
+	struct PendingVodAdBreak
+	{
+		std::string breakId;
+		double      insertionPointSec;
+		double      breakDurationSec;
+		std::string breakType;
+	};
+	std::vector<PendingVodAdBreak> mPendingVodAdBreaks; /**< Breaks queued before mCdaiObject exists */
+
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */
@@ -1632,6 +1643,22 @@ public:
 	 * @return void
 	 */
 	void CancelReservation(const std::string& cancelAtReservationId);
+
+	/**
+	 * @brief Register a VOD ad-break insertion point.
+	 * @param[in] breakId           Unique break identifier
+	 * @param[in] insertionPointSec Position in VOD timeline in seconds
+	 * @param[in] breakDurationSec  Advisory break duration in seconds
+	 * @param[in] breakType         "preroll", "midroll", or "postroll"
+	 */
+	void RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+	                        double breakDurationSec, const std::string &breakType);
+
+	/**
+	 * @brief Cancel a registered VOD ad-break that has not yet started.
+	 * @param[in] breakId Break identifier previously passed to RegisterVodAdBreak()
+	 */
+	void CancelVodAdBreak(const std::string &breakId);
 
 	/**
 	 * @fn getLastInjectedPosition

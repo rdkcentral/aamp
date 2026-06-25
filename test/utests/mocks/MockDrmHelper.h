@@ -39,6 +39,4 @@ public:
 	MOCK_METHOD(uint32_t, licenseGenerateTimeout, (), (const, override));
 };
 
-extern std::shared_ptr<MockDrmHelper> g_mockDrmHelper;
-
 #endif // MOCK_DRM_HELPER_H

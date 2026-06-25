@@ -170,6 +170,8 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported) {  }
 	void PlayerInstanceAAMP::NotifyReservationComplete(const std::string& reservationId) {  }
 	void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservationId) { }
+	void PlayerInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec, double breakDurationSec, const std::string &breakType) { }
+	void PlayerInstanceAAMP::CancelVodAdBreak(const std::string &breakId) { }
 	bool PlayerInstanceAAMP::IsLive() { return false; }
 	bool PlayerInstanceAAMP::GetVideoMute(void) { return false; }
 	bool PlayerInstanceAAMP::GetCCStatus(void) { return false; }
