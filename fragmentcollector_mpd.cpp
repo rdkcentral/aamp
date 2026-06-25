@@ -13019,12 +13019,13 @@ double StreamAbstractionAAMP_MPD::CalculateProducerReferenceTimeOffset()
 
 		encoderDelayMs = (periodStartTime - actualWallClockAtFirstSegment) * 1000.0;
 
-		AAMPLOG_DEBUG("PRT encoder delay for period %d: %.2f ms (AST: %.2f, PeriodStart: %.2f, PRT@WCT: %.2f, PRT@PTS: %.2f, deltaWCT: %.2f)",
+		AAMPLOG_DEBUG("PRT encoder delay for period %d: %.2f ms (AST: %.2f, PeriodStart: %.2f, WCT@pts0: %.2f, PRT@PTS: %.2f, deltaWCT: %.2f)",
 			mCurrentPeriodIdx, encoderDelayMs, availabilityStartTime, periodStartTime, actualWallClockAtFirstSegment, presentationTime / static_cast<double>(timescale), deltaWallClockTime);
 	}
-	catch (const std::out_of_range &oor)
+	catch (const std::exception &ex)
 	{
-		AAMPLOG_WARN("mCurrentPeriodIdx: %d out of range: %s", mCurrentPeriodIdx, oor.what());
+		AAMPLOG_WARN("CalculateProducerReferenceTimeOffset failed for period %d: %s",
+			mCurrentPeriodIdx, ex.what());
 	}
 
 	return encoderDelayMs;
@@ -13456,7 +13457,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	mLowLatencyMode	=	false;
 
-	if (aamp->IsNewTune() && mMPDParseHelper && ISCONFIGSET(eAAMPConfig_ApplyProducerReferenceDelay))
+	if (aamp->IsNewTune() && mMPDParseHelper && ISCONFIGSET(eAAMPConfig_EnableProducerReferenceDelay))
 	{
 		// Calculate the encoder delay using ProducerReferenceTime and set it in AAMP
 		// This will be used to adjust the live offset for low latency playback, only calculated once per tune.

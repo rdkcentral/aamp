@@ -123,7 +123,7 @@ protected:
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_useRialtoSink, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
-		{eAAMPConfig_ApplyProducerReferenceDelay, true},
+		{eAAMPConfig_EnableProducerReferenceDelay, true},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
