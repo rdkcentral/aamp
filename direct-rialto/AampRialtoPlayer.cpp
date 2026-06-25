@@ -356,23 +356,6 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		return true;  // Audio codec changed to a different valid format.
 	}
 
-#if 0
-	if (subtitleSrc == nullptr)
-	{
-		if (subFormat != FORMAT_INVALID)
-		{
-			return true;  
-		}
-		if (videoFormat != FORMAT_INVALID)
-		{
-			return true;
-		}
-	}
-	else if (subtitleSrc->format() != subFormat)
-	{
-		return true;
-	}
-#else
 	const int rate = m_rate.load(std::memory_order_relaxed);
 	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
@@ -381,10 +364,12 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		{
 			newSubFormat = subFormat;
 		}
+#if 1//anj
 		else if (videoFormat != FORMAT_INVALID)//anj:source->format will be FORMAT_INVALID for cc. So check if this else if should be removed.
 		{
 			newSubFormat = FORMAT_UNKNOWN;
 		}
+#endif//anj
 		AAMPLOG_INFO("subFormat=%d, newSubFormat=%d", subFormat, newSubFormat);
 		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != newSubFormat))
 		{
@@ -392,8 +377,8 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 			return true;
 		}
 	}
-#endif
 
+	AAMPLOG_INFO("EXIT ShouldRecreatePipeline false");
 	return false;
 }
 
@@ -424,11 +409,7 @@ void AampRialtoPlayer::Configure(
 			{
 				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
 					"signalling EOS on audio source, no pipeline recreation");
-#if 1
 				EndOfStreamReached(eMEDIATYPE_AUDIO);
-#else
-				m_sources[eMEDIATYPE_AUDIO]->signalEos(m_pipeline.get());
-#endif
 			}
 			else if (m_sources[eMEDIATYPE_AUDIO] &&
 			         audioFormat != FORMAT_INVALID)
