@@ -27,6 +27,7 @@
 
 #include "AdManagerBase.h"
 #include <string>
+#include <mutex>
 #include <condition_variable>
 #include "libdash/INode.h"
 #include "libdash/IDASHManager.h"
@@ -212,6 +213,7 @@ struct AdBreakObject{
 	bool                                 mSplitPeriod;    /**< To identify whether the ad is split period ad or not */
 	bool                                 invalid;         /**< flag marks if the adbreak is invalid or not */
 	bool                                 resolved;       /**< flag marks if the adbreak is resolved or not */
+	bool                                 reservationComplete; /**< reservation-complete signal received for this adbreak */
 	AampTime                             mAbsoluteAdBreakStartTime; /**< Period start time */
 	std::string                          cancelAtPeriodId; /**< Period at which this adbreak should be cancelled (applies to the whole break) */
 	/**
@@ -219,7 +221,7 @@ struct AdBreakObject{
 	*/
 	AdBreakObject()
 		: brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false),
-		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
+		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), reservationComplete(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
 	{
 	}
 
@@ -235,7 +237,7 @@ struct AdBreakObject{
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 		uint64_t _endPeriodOffset, uint32_t _adsDuration)
 		: brkDuration(_duration), ads(std::move(_ads)), endPeriodId(std::move(_endPeriodId)), endPeriodOffset(_endPeriodOffset),
-		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
+		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), reservationComplete(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
 	{
 	}
 };
@@ -370,7 +372,7 @@ class PrivateCDAIObjectMPD
 {
 public:
 	PrivateInstanceAAMP*                           mAamp;               /**< AAMP player's private instance */
-	std::mutex                                     mDaiMtx;             /**< Mutex protecting DAI critical section */
+	std::recursive_mutex                           mDaiMtx;             /**< Mutex protecting DAI critical section (recursive to allow PlaceAds to lock from within a caller already holding mDaiMtx) */
 	bool                                           mIsFogTSB;           /**< Channel playing from TSB or not */
 	std::unordered_map<std::string, AdBreakObject> mAdBreaks;           /**< Periodid to adbreakobject map*/
 	std::unordered_map<std::string, Period2AdData> mPeriodMap;          /**< periodId to Ad map */
@@ -392,6 +394,8 @@ public:
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
+	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
+	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -663,6 +667,26 @@ public:
 	 * @return true if an ad is playing, false otherwise
 	 */
 	bool IsAdPlaying();
+
+	/**
+	 * @brief Check if all ads in an adbreak are resolved.
+	 * @param[in] periodId Ad break ID
+	 * @return true if all ads in the break are resolved
+	 */
+	bool AreAllAdsResolved(const std::string& periodId);
+
+	/**
+	 * @brief Store the latest base-stream MPD parse helper so that PlaceAds
+	 *        can be called immediately from FulFillAdObject for cold CDVR/IVOD.
+	 * @param[in] helper Shared pointer to the current AampMPDParseHelper
+	 */
+	void SetBaseMPDParseHelper(AampMPDParseHelperPtr helper);
+
+	/**
+	 * @brief Trigger PlaceAds for static-manifest flow using cached base MPD helper.
+	 * @param[in] reservationId Reservation/ad break ID
+	 */
+	void PlaceAdsForStaticManifest(const std::string& reservationId);
 };
 
 #endif /* ADMANAGER_MPD_H_ */
