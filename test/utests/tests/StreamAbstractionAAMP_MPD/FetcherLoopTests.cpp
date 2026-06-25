@@ -260,8 +260,8 @@ protected:
 			{eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 			{eAAMPConfig_SuppressDecode, false},
 			{eAAMPConfig_useRialtoSink, false},
-			{eAAMPConfig_InterruptHandling, false}};
-
+			{eAAMPConfig_InterruptHandling, false}			{eAAMPConfig_ApplyProducerReferenceDelay, true},
+		};
 	BoolConfigSettings mBoolConfigSettings;
 
 	/** @brief Integer AAMP configuration settings. */

@@ -795,6 +795,12 @@ public:
 	void SetLatencyParam(double latency, double buffer, double playbackRate, double bw);
 
 	/**
+	 * @brief Set the PRT-derived clock offset used in live latency calculation
+	 * @param offsetMs offset in milliseconds
+	 */
+	void SetPRTClockOffsetMs(long offsetMs) { mEncoderDelay = offsetMs; }
+
+	/**
 	 * @fn SetLLDLowBufferParam - to mark the lld low buff details
 	 * @param latency - latency value
 	 * @param buff - buffer
@@ -4166,6 +4172,7 @@ protected:
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
 	long mCurrentLatency;
+	long mEncoderDelay;         /**< PRT-derived clock offset (ms) added to live latency */
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectangle */
 	bool mApplyContentRestriction;		/**< Status to apply content restriction */
 	videoRect mVideoRect;

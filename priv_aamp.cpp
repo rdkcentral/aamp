@@ -1233,6 +1233,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, subTimeScale(0)
 	, speedCache {}
 	, mCurrentLatency(0)
+	, mEncoderDelay(0)
 	, mLiveOffsetAppRequest(false)
 	, bLowLatencyStartABR(false)
 	, mEventManager (NULL)
@@ -2203,7 +2204,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		{
 			if(mFirstFragmentTimeOffset > 0)
 			{
-				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition()));
+				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition())) + mEncoderDelay;
 				if(mProgressReportOffset >= 0)
 				{
 					// Correction with progress offset
