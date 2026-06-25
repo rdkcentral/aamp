@@ -1749,6 +1749,11 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	interfacePlayerPriv->gstPrivateContext->eosSignalled = false;
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
+	// Trickplay rates always intend to play — don't inherit stale seekPausedState
+	if (rate != GST_NORMAL_PLAY_RATE)
+	{
+		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+	}
 	return true;
 }
 void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
