@@ -245,10 +245,12 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     // LiveManifest=true and init=false
     ResetCDAIAdObject();
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),27120.0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 
     // Duplicate Periods are not processed
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,_)).Times(0);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }
 
@@ -287,17 +289,22 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     // LiveManifest=false and init=true
     InitializeMPD(manifest);
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(false);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 0))).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, true, false);
 
     // LiveManifest=false and init=false
     ResetCDAIAdObject();
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 0))).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 
     // Duplicate Periods are not processed
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,_)).Times(0);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }
@@ -343,5 +350,46 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),27120.0)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
+}
+
+TEST_F(FindTimedMetadataTests, BulkMetaReporting_CallsSaveTimedMetadata)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" type="dynamic" id="test" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT1S" availabilityStartTime="1970-01-01T00:00:00.000Z" timeShiftBufferDepth="PT30M">
+  <Period id="Period-1" start="PT477586H51M45.467S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="90000" presentationTimeOffset="79441464098">
+      <Event presentationTime="79441464098" duration="2440800">
+        <scte35:Signal><scte35:Binary>/DAsAAAQdSsYAP/wBQb+3zKJFQAWAhRDVUVJAAAkQn/AAABOcUAAACIAAJR2FfM=</scte35:Binary></scte35:Signal>
+      </Event>
+      <Event presentationTime="79455172898" duration="2700000">
+        <scte35:Signal><scte35:Binary>/DAnAAAQdSsYAP/wBQb+34D6VQARAg9DVUVJAAAkQn+AAAAjAAAJmX3z</scte35:Binary></scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="track-1" contentType="video" mimeType="video/mp4">
+      <SegmentTemplate initialization="init.mp4" media="seg-$Time$.mp4" timescale="240000" presentationTimeOffset="79455172898">
+        <SegmentTimeline><S t="79476480098" d="460800" r="10"/></SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="track-2" bandwidth="500000" codecs="avc1.640028" width="640" height="360"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+    std::string adBreakId = "Period-1";
+    EXPECT_CALL(*g_mockAampUtils, parseAndValidateSCTE35(_)).WillRepeatedly(Return(true));
+
+    InitializeMPD(manifest);
+    mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
+
+    // FoundEventBreak must be called for both events regardless of reportBulkMeta.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    // With reportBulkMeta=true, SaveTimedMetadata is called instead of SaveNewTimedMetadata.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveTimedMetadata(_,_,StrEq(adBreakId.c_str()),27120.0)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveTimedMetadata(_,_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
+    mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, true);
 }
