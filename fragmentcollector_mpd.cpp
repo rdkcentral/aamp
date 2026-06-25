@@ -3920,7 +3920,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			AAMPLOG_WARN("mCurrentPeriod  is null");  //CID:84770 - Null Return
 		}
 		mBasePeriodOffset = offsetFromStart;
-		onAdEvent(AdEvent::INIT, offsetFromStart);
+		//Avoid calling onAdEvent during a new tune to prevent ad processing at tune start.
+		if ((tuneType != eTUNETYPE_NEW_NORMAL) &&
+			(tuneType != eTUNETYPE_NEW_SEEK) &&
+			(tuneType != eTUNETYPE_NEW_END))
+		{
+			onAdEvent(AdEvent::INIT, offsetFromStart);
+		}
 
 		UpdateLanguageList();
 
@@ -5260,7 +5266,6 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 								eventInfo.duration = 0;
 							}
 							eventStartTime = 0;
-
 						}
 					}
 					else
@@ -5269,34 +5274,19 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					}
 					AAMPLOG_INFO("SCTEDBG adjust start time %" PRIu64 " -> %" PRIu64 " (duration %d)", eventInfo.presentationTime, eventStartTime, eventInfo.duration);
 				}
+				// Update event break to AAMP's CDAI object so that ad reservations can be processed later.
+				aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
 
-				//for livestream send the timedMetadata only., because at init, control does not come here
-				if(mIsLiveManifest && ! ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive))
+				// Report the event break info to application as timed metadata. This will be done for both live and recorded content.
+				// Save the event for later reporting. De-duplication happens in ReportTimedMetadata() (non-bulk mode only).
+				if(reportBulkMeta)
 				{
-					// The current process relies on enabling eAAMPConfig_EnableClientDai and that may not be desirable
-					// for our requirements. We'll just skip this and use the VOD process to send events
-					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
-					if (modifySCTEProcessing)
-					{
-						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
-					}
-					else
-					{
-						aamp->FoundEventBreak(prdId, eventStartTime, eventInfo);
-					}
+					AAMPLOG_INFO("Saving timedMetadata event %s for the period, %s", eventInfo.name.c_str(), prdId.c_str());
+					aamp->SaveTimedMetadata(eventStartTime, eventInfo.name.c_str() , eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 				}
 				else
 				{
-					//for vod, send TimedMetadata only when bulkmetadata is not enabled
-					if(reportBulkMeta)
-					{
-						AAMPLOG_INFO("Saving timedMetadata for VOD %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
-						aamp->SaveTimedMetadata(eventStartTime, eventInfo.name.c_str() , eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
-					}
-					else
-					{
-						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
-					}
+					aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 				}
 			}
 			ret = true;
