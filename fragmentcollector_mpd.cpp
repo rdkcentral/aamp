@@ -28,6 +28,7 @@
 #include "MediaStreamContext.h"
 #include "priv_aamp.h"
 #include "AampDRMLicManager.h"
+#include "rdk_otlp_instrumentation.h"
 #include "AampConstants.h"
 #include "SubtecFactory.hpp"
 #include "isobmffprocessor.h"
@@ -4524,6 +4525,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	{
 		mManifestDnldRespPtr = MakeSharedManifestDownloadResponsePtr();
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST);
+		rdk_otlp_start_child_span("AAMP_tune", "manifest_download");
 		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 		// Get the Manifest with a wait of Manifest Timeout time
 		mManifestDnldRespPtr = dnldInstance->GetManifest(true, aamp->mManifestTimeoutMs);
@@ -4536,12 +4538,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			manifestUrl = aamp->mManifestUrl = mManifestDnldRespPtr->mMPDDownloadResponse->sEffectiveUrl;
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+			rdk_otlp_finish_child_span();
 			mNetworkDownDetected = false;
 		}
 		else if (aamp->DownloadsAreEnabled())
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+			rdk_otlp_finish_child_span();
 			if (this->mpd != NULL && ( ( IsCurlTimeoutFailure( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request

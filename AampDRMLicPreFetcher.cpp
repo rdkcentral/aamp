@@ -23,6 +23,7 @@
 #include "priv_aamp.h"
 #include "AampDRMLicManager.h"
 #include "PlayerSecInterface.h"
+#include "rdk_otlp_instrumentation.h"
 /**
  * @brief For generating IDs for LicensePreFetchObject
  * 
@@ -490,6 +491,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
+	rdk_otlp_start_child_span("AAMP_tune", "drm_license_acquisition");
 	DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
 
 
@@ -509,6 +511,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		}
 	}
 	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
+	rdk_otlp_finish_child_span();
 	if(mPrivAAMP->mIsFakeTune)
 	{
 		mPrivAAMP->SetState(eSTATE_COMPLETE);

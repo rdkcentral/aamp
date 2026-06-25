@@ -77,6 +77,7 @@
 #include "AampTSBSessionManager.h"
 #include "SocUtils.h"
 #include "AuthTokenErrors.h"
+#include "rdk_otlp_instrumentation.h"
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -3546,6 +3547,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
  */
 void PrivateInstanceAAMP::LogTuneComplete(void)
 {
+	rdk_otlp_finish_distributed_trace();
 	TuneEndMetrics mTuneMetrics = {0, 0, 0,0,0,0,0,0,0,(ContentType)0};
 
 	mTuneMetrics.success 		 	 = true;
@@ -6181,6 +6183,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		mTuneAttempts++;
 	}
 	profiler.TuneBegin();
+	rdk_otlp_start_distributed_trace("AAMP_tune", "channel_change");
 	ResetBufUnderFlowStatus();
 
 	if( !remapUrl )

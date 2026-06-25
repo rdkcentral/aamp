@@ -27,6 +27,7 @@
 #include "AampUtils.h"
 #include "TextStyleAttributes.h"
 #include "AampStreamSinkManager.h"
+#include "rdk_otlp_instrumentation.h"
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -355,6 +356,8 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 	// incase of audio or video only playback NumberofTracks =1, so in that case also LogTuneCompleted needs to captured when either audio/video frame received.
 	if(notifyFirstBuffer && !aamp->mIsFlushOperationInProgress)
 	{
+		rdk_otlp_start_child_span("AAMP_tune", "first_frame_rendered");
+		rdk_otlp_finish_child_span();
 		aamp->LogFirstFrame();
 		aamp->LogTuneComplete();
 		aamp->NotifyFirstBufferProcessed(GetVideoRectangle());

@@ -32,6 +32,7 @@
 #include "fragmentcollector_hls.h"
 #include "_base64.h"
 #include "base16.h"
+#include "rdk_otlp_instrumentation.h"
 #include <algorithm> // for std::min
 #include <stdio.h>
 #include <assert.h>
@@ -3299,6 +3300,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	if (!this->mainManifest.GetLen() )
 	{
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST);
+		rdk_otlp_start_child_span("AAMP_tune", "manifest_download");
 		AAMPLOG_TRACE("StreamAbstractionAAMP_HLS::downloading manifest");
 		// take the original url before its gets changed in GetFile
 		std::string mainManifestOrigUrl = aamp->GetManifestUrl();
@@ -3314,6 +3316,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		if (this->mainManifest.GetLen())
 		{
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+			rdk_otlp_finish_child_span();
 			AAMPLOG_TRACE("StreamAbstractionAAMP_HLS::downloaded manifest");
 			aamp->getAampCacheHandler()->InsertToPlaylistCache(mainManifestOrigUrl, &mainManifest, aamp->GetManifestUrl(),false,eMEDIATYPE_MANIFEST);
 		}
@@ -3336,6 +3339,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	{
 		aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 		aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
+		rdk_otlp_finish_child_span();
 		if(retval == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
 		{
 			aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, http_error);
