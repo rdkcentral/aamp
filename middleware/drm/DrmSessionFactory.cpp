@@ -35,7 +35,7 @@
  *
  * Delegates to OCDM / ClearKey.
  */
-IDrmSession* DrmSessionFactory::GetDrmSession(
+DrmSession* DrmSessionFactory::GetDrmSession(
 	DrmHelperPtr drmHelper,
 	DrmCallbacks *drmCallbacks)
 {

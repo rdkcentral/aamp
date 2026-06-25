@@ -21,13 +21,13 @@
 #define PLAYER_MOCK_DRM_SESSION_H
 
 #include <gmock/gmock.h>
-#include "IDrmSession.h"
+#include "DrmSession.h"
 
 /**
  * @class MockDrmSession
- * @brief Mock implementation of IDrmSession for unit testing
+ * @brief Mock implementation of DrmSession for unit testing
  */
-class MockDrmSession : public IDrmSession
+class MockDrmSession : public DrmSession
 {
 public:
 	MockDrmSession() {}

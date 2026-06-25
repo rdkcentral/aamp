@@ -35,7 +35,7 @@
 #ifdef AAMP_VANILLA_AES_SUPPORT
 #include "Aes.h"
 #endif
-#include "IDrmSession.h"
+#include "DrmSession.h"
 #include "DrmHelper.h"
 #include "PlayerHlsDrmSessionInterface.h"
 /**
@@ -111,7 +111,7 @@ public:
 	/*
 	 * @fn getHlsDrmSession 
 	 */
-	void  getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper, IDrmSession* &session , int streamType);
+	void  getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper, DrmSession* &session , int streamType);
 
 	/*
 	 * @fn enumeration update mapping wrt aamp enumeration 

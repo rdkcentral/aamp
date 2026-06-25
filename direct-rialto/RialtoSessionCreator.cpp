@@ -29,7 +29,7 @@
 
 DrmSessionCreator makeRialtoSessionCreator()
 {
-	return [](DrmHelperPtr drmHelper, DrmCallbacks* callbacks) -> std::unique_ptr<IDrmSession>
+	return [](DrmHelperPtr drmHelper, DrmCallbacks* callbacks) -> std::unique_ptr<DrmSession>
 	{
 		const std::string systemId = drmHelper->ocdmSystemId();
 		AAMPLOG_INFO("makeRialtoSessionCreator: building RialtoMediaKeySystem for %s",

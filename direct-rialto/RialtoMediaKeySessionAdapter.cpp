@@ -19,7 +19,7 @@
 
 /**
  * @file RialtoMediaKeySessionAdapter.cpp
- * @brief IDrmSession adapter implementation for the Rialto Direct path.
+ * @brief DrmSession adapter implementation for the Rialto Direct path.
  */
 
 #include "RialtoMediaKeySessionAdapter.h"
@@ -35,8 +35,8 @@
 RialtoMediaKeySessionAdapter::RialtoMediaKeySessionAdapter(
 	DrmHelperPtr drmHelper,
 	std::unique_ptr<RialtoMediaKeySystem> system,
-	DrmCallbacks* callbacks)
-	: m_keySystem(drmHelper->ocdmSystemId())
+	DrmCallbacks* callbacks) :
+	DrmSession(drmHelper->ocdmSystemId())
 	, m_system(move(system))
 	, m_session(nullptr)
 	, m_drmHelper(drmHelper)
@@ -157,7 +157,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onLicenseRenewal");
 		if (m_drmCallbacks)
 		{
-			m_drmCallbacks->LicenseRenewal(m_drmHelper, static_cast<IDrmSession*>(this));
+			m_drmCallbacks->LicenseRenewal(m_drmHelper, static_cast<DrmSession*>(this));
 		}
 	};
 

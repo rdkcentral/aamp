@@ -25,7 +25,7 @@
 #ifndef DrmSessionFactory_h
 #define DrmSessionFactory_h
 
-#include "IDrmSession.h"
+#include "DrmSession.h"
 #include "DrmHelper.h"
 #include "DrmCallbacks.h"
 
@@ -46,9 +46,9 @@ public:
 	 *
 	 * @param[in] drmHelper     DrmHelper instance.
 	 * @param[in] drmCallbacks  Callback sink.
-	 * @return Pointer to a new IDrmSession, or nullptr on failure.
+	 * @return Pointer to a new DrmSession, or nullptr on failure.
 	 */
-	static IDrmSession* GetDrmSession(
+	static DrmSession* GetDrmSession(
 		DrmHelperPtr drmHelper,
 		DrmCallbacks *drmCallbacks);
 };

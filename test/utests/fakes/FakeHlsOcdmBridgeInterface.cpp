@@ -27,7 +27,7 @@
 class AampFakeHlsOcdmBridge : public HlsDrmBase
 {
 public:
-AampFakeHlsOcdmBridge(IDrmSession * DrmSession){}
+AampFakeHlsOcdmBridge(DrmSession * DrmSession){}
 
 	virtual ~AampFakeHlsOcdmBridge(){}
 
@@ -55,7 +55,7 @@ AampFakeHlsOcdmBridge(IDrmSession * DrmSession){}
 
 };
 
-HlsDrmBase* HlsOcdmBridgeInterface::GetBridge(IDrmSession * playerDrmSession)
+HlsDrmBase* HlsOcdmBridgeInterface::GetBridge(DrmSession * playerDrmSession)
 {
    
     return new AampFakeHlsOcdmBridge(playerDrmSession);

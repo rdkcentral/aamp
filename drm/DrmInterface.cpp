@@ -77,7 +77,7 @@ void DrmInterface::UpdateAamp(PrivateInstanceAAMP* aamp)
 void registerCallbackForHls(DrmInterface* _this, PlayerHlsDrmSessionInterface* instance)
 {
 	
-	instance->RegisterGetHlsDrmSessionCb([_this](std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  IDrmSession* &session , int streamType){
+	instance->RegisterGetHlsDrmSessionCb([_this](std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  DrmSession* &session , int streamType){
 		return _this->getHlsDrmSession(bridge, drmHelper, session ,  streamType);
 	});
 }
@@ -246,7 +246,7 @@ void DrmInterface::GetCurlInit(int &curlInstance)
 /**
  * @brief - Get Drm Session for HLS
  */
-void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  IDrmSession* &session , int streamType)
+void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  DrmSession* &session , int streamType)
 {
 	mpAamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 	

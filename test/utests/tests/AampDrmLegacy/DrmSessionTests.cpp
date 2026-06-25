@@ -110,6 +110,6 @@ TEST_F(AampLegacyDrmSessionTests, TestCreateClearkeySession)
 	const char*systemId = "1077efec-c0b2-4d02-ace3-3c1e52e2fb4b";
 	void *ptr= static_cast<void*>(&aampEvent);
 
-	IDrmSession *drmSession = aampDRMLicManager->createDrmSession(reinterpret_cast<const char *>(systemId), 
+	DrmSession *drmSession = aampDRMLicManager->createDrmSession(reinterpret_cast<const char *>(systemId), 
 															  eMEDIAFORMAT_DASH, reinterpret_cast<const unsigned char *>(initData), static_cast<uint16_t>(sizeof(initData)),(int)eMEDIATYPE_VIDEO, (DrmCallbacks*)mAamp, aampEvent, (const unsigned char*)nullptr,true);
 }

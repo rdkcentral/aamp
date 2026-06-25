@@ -1325,7 +1325,7 @@ public:
 	 * @fn LicenseRenewal
 	 *
 	 * @param[in] drmHelper - Current drm helper
-	 * @param[in] userData - IDrmSession data
+	 * @param[in] userData - DrmSession data
 	 * @return void
 	 */
 	void LicenseRenewal(DrmHelperPtr drmHelper,void* userData) override;

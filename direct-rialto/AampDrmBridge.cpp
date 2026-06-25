@@ -66,7 +66,7 @@ int32_t AampDrmBridge::createSession(
 	AAMPLOG_INFO("AampDrmBridge::createSession systemId=%s len=%zu type=%d",
 		systemId, len, streamType);
 
-	IDrmSession *session = dsm->createDrmSession(
+	DrmSession *session = dsm->createDrmSession(
 		responseCode,
 		err,
 		systemId,

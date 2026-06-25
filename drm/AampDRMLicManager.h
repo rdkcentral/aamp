@@ -28,7 +28,7 @@
 #include "priv_aamp.h"
 #include "AampDRMLicPreFetcher.h"
 #include "DrmSessionFactory.h"
-#include "IDrmSession.h"
+#include "DrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
 
@@ -324,7 +324,7 @@ public:
 	 * @param[in]   event handle for capturing errors
 	 * @param[in]   input stream type
 	 */
-	IDrmSession* createDrmSession(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn);
+	DrmSession* createDrmSession(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn);
 	
 	/**
 	 *  @fn         createDrmSession
@@ -340,7 +340,7 @@ public:
 	 *  @retval     error_code - Gets updated with proper error code, if session creation fails.
 	 *                      No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */
-	IDrmSession * createDrmSession(const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
+	DrmSession * createDrmSession(const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, DrmCallbacks* aamp, DrmMetaDataEventPtr eventHandle,
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 

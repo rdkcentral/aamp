@@ -26,7 +26,7 @@
 #define DrmSessionManager_h
 
 #include "DrmSessionFactory.h"
-#include "IDrmSession.h"
+#include "DrmSession.h"
 #include "DrmUtils.h"
 #include "GstUtils.h"
 #include <string>
@@ -45,7 +45,7 @@
  * (e.g. the direct-Rialto path).
  */
 using DrmSessionCreator =
-	std::function<std::unique_ptr<IDrmSession>(DrmHelperPtr, DrmCallbacks*)>;
+	std::function<std::unique_ptr<DrmSession>(DrmHelperPtr, DrmCallbacks*)>;
 
 
 #define VIDEO_SESSION 0
@@ -59,7 +59,7 @@ struct DrmSessionContext
 {
 	std::vector<uint8_t> data;
 	std::mutex sessionMutex;
-	IDrmSession * drmSession;
+	DrmSession * drmSession;
 
 	DrmSessionContext() : sessionMutex(), drmSession(NULL),data()
 	{
@@ -291,7 +291,7 @@ public:
 	 *  @retval  	error_code - Gets updated with proper error code, if session creation fails.
 	 *  			No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */
-	IDrmSession * createDrmSession(int &responseCode, int &err, const char* systemId, MediaFormat mediaFormat,
+	DrmSession * createDrmSession(int &responseCode, int &err, const char* systemId, MediaFormat mediaFormat,
 			const unsigned char * initDataPtr, uint16_t dataLength, int streamType,
 			DrmCallbacks* player, void *ptr, const unsigned char *contentMetadata = nullptr, 
 	                	bool isPrimarySession = false );
@@ -299,7 +299,7 @@ public:
 	 * @fn createDrmSession
 	 * @return drmSession
 	 */
-	IDrmSession* createDrmSession(int& responseCode, int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
+	DrmSession* createDrmSession(int& responseCode, int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
 
 	/**
 	 *  @fn		IsKeyIdProcessed
@@ -408,7 +408,7 @@ public:
 	 * @fn getSlotIdForSession
 	 * @return index to the session slot for selected drmSessionContext 
 	 */
-	int getSlotIdForSession(IDrmSession* session);
+	int getSlotIdForSession(DrmSession* session);
 	/**
 	 * @fn releaseLicenseRenewalThreads
 	 */

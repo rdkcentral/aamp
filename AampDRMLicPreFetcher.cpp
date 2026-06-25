@@ -18,7 +18,7 @@
 */
 
 #include "AampDRMLicPreFetcher.h"
-#include "IDrmSession.h"
+#include "DrmSession.h"
 #include "AampUtils.h"	// for aamp_GetDeferTimeMs
 #include "priv_aamp.h"
 #include "AampDRMLicManager.h"
@@ -521,7 +521,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	}
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
-	IDrmSession *drmSession = nullptr;
+	DrmSession *drmSession = nullptr;
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
 	{
 		/*

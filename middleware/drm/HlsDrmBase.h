@@ -26,7 +26,7 @@
 #ifndef _DRM_HLSDRMBASE_H_
 #define _DRM_HLSDRMBASE_H_
 #include "PlayerUtils.h"
-#include "IDrmSession.h"
+#include "DrmSession.h"
 
 
 #define DECRYPT_WAIT_TIME_MS 3000

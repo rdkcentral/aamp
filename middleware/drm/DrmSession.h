@@ -31,26 +31,70 @@
 #include <gst/gst.h>
 #include "DrmUtils.h"
 #include "ContentSecurityManagerSession.h"
-#include "IDrmSession.h"
 
 using namespace std;
 
+#define PLAYREADY_KEY_SYSTEM_STRING "com.microsoft.playready"
+#define WIDEVINE_KEY_SYSTEM_STRING "com.widevine.alpha"
+#define CLEAR_KEY_SYSTEM_STRING "org.w3.clearkey"
+#define VERIMATRIX_KEY_SYSTEM_STRING "com.verimatrix.ott"
+
+#define HDCP_COMPLIANCE_CHECK_FAILURE 4327
+#define HDCP_OUTPUT_PROTECTION_FAILURE 4427
+/**
+ * @enum KeyState 
+ * @brief DRM session states
+ */
+typedef	enum
+{
+	KEY_INIT = 0,			/**< Has been initialized */
+	KEY_PENDING = 1,		/**< Has a key message pending to be processed */
+	KEY_READY = 2,			/**< Has a usable key */
+	KEY_ERROR = 3,			/**< Has an error */
+	KEY_CLOSED = 4,			/**< Has been closed */
+	KEY_ERROR_EMPTY_SESSION_ID = 5,	/**< Has Empty DRM session id */
+	KEY_ERROR_SESSION_CREATE_FAILED = 6 /**< Session creation failed (OCDM) */
+	
+} KeyState;
+
 /**
  * @class DrmSession
- * @brief Concrete base for middleware DRM sessions.
- *
- * Implements IDrmSession and provides shared state (key system string,
- * output-protection flag, ContentSecurityManagerSession) plus default
- * no-op implementations of decrypt() for GStreamer-based paths.
- * Rialto sessions inherit IDrmSession directly and do not use this class.
+ * @brief Base class for DRM sessions
  */
-class DrmSession : public IDrmSession
+class DrmSession
 {
 protected:
 	std::string m_keySystem;
 	bool m_OutputProtectionEnabled;
 	ContentSecurityManagerSession mContentSecurityManagerSession;
 public:
+
+	/**
+	 * @fn DrmSession
+	 * @param keySystem : DRM key system uuid
+	 */
+	DrmSession(const string &keySystem) : 
+		m_keySystem(keySystem),
+		m_OutputProtectionEnabled(false),
+		mContentSecurityManagerSession() { };
+
+	/**     
+     	 * @brief Copy constructor disabled
+     	 *
+     	 */
+	DrmSession(const DrmSession&) = delete;
+
+	/**
+	 * @fn ~DrmSession
+	 */
+	virtual ~DrmSession() = default;
+
+	/**
+ 	 * @brief assignment operator disabled
+ 	 *
+ 	 */
+	DrmSession& operator=(const DrmSession&) = delete;
+
 	/**
 	 * @brief Create drm session with given init data
 	 * @param f_pbInitData : pointer to initdata
@@ -85,7 +129,7 @@ public:
 	 * @param caps : Caps of the media that is currently being decrypted
 	 * @retval Returns status of decrypt request.
 	 */
-        virtual int decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuffer* buffer, unsigned subSampleCount, GstBuffer* subSamplesBuffer, GstCaps* caps = NULL);
+	virtual int decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuffer* buffer, unsigned subSampleCount, GstBuffer* subSamplesBuffer, GstCaps* caps = NULL) { return -1; };
 
 	/**
 	 * @fn decrypt
@@ -96,7 +140,7 @@ public:
 	 * @param ppOpaqueData : pointer to opaque buffer in case of SVP.
 	 * @retval Returns status of decrypt request.
 	 */
-	virtual int decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData);
+	virtual int decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData) { return -1; };
 
 	/**
 	 * @brief Get the current state of DRM Session.
@@ -125,50 +169,27 @@ public:
 	 *         internal lock where applicable. Callers receive their own
 	 *         independent copy and need not hold any external lock.
 	 */
-	virtual std::vector<std::vector<uint8_t>> getUsableKeys() const;
+	virtual std::vector<std::vector<uint8_t>> getUsableKeys() const { return {}; }
 
 	/**
-	 * @brief Returns the Rialto media key session ID for this DRM session.
-	 *
-	 * Only meaningful for sessions backed by the Rialto DRM stack.
-	 * Returns -1 for all other session types.
-	 *
-	 * @retval Rialto mks_id (>= 0) or -1 if not applicable.
+	 * @brief Return the Rialto media key session ID, or -1 if not applicable.
 	 */
 	virtual int32_t getMediaKeySessionId() const { return -1; }
 
-	/**
-	 * @fn DrmSession
-	 * @param keySystem : DRM key system uuid
-	 */
-	DrmSession(const string &keySystem);
-	/**     
-     	 * @brief Copy constructor disabled
-     	 *
-     	 */
-	DrmSession(const DrmSession&) = delete;
-	/**
- 	 * @brief assignment operator disabled
- 	 *
- 	 */
-	DrmSession& operator=(const DrmSession&) = delete;
-	/**
-	 * @fn ~DrmSession
-	 */
-	virtual ~DrmSession();
+	virtual void setKeyId(const std::vector<uint8_t>& keyId) {};
 
 	/**
 	 * @fn getKeySystem
 	 * @retval DRM system uuid
 	 */
-	string getKeySystem() override;
+	string getKeySystem() { return m_keySystem; };
 
 	/**
 	 * @brief Set the OutputProtection for DRM Session
 	 * @param bValue : Enable/Disable flag
 	 * @retval void
 	 */
-	void setOutputProtection(bool bValue) override { m_OutputProtectionEnabled = bValue;}
+	void setOutputProtection(bool bValue) { m_OutputProtectionEnabled = bValue;}
 	void setSecManagerSession(ContentSecurityManagerSession session){mContentSecurityManagerSession=session;}
 	ContentSecurityManagerSession getSecManagerSession() const { return mContentSecurityManagerSession;}
 };

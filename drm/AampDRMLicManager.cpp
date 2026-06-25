@@ -25,7 +25,7 @@
 #include "AampDRMLicManager.h"
 #include "priv_aamp.h"   
 #include "DrmHelper.h"
-#include "IDrmSession.h"
+#include "DrmSession.h"
 #include <pthread.h>
 #include "downloader/AampCurlStore.h"
 #include "_base64.h"
@@ -189,7 +189,7 @@ void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmH
 }
 void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, void* userData, PrivateInstanceAAMP* aampInstance)
 {
-	IDrmSession* session = static_cast<IDrmSession*>(userData);
+	DrmSession* session = static_cast<DrmSession*>(userData);
 	int sessionSlot = mDrmSessionManager->getSlotIdForSession(session);
 	if (sessionSlot >= 0)
 	{
@@ -1523,15 +1523,15 @@ void AampDRMLicenseManager::notifyCleanup()
 	mDrmSessionManager->notifyCleanup();
 }
 /**
- *  @brief Create IDrmSession by using the AampDrmHelper object
+ *  @brief Create DrmSession by using the AampDrmHelper object
  */
-IDrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
+DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn)
 {
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
 
-	IDrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
+	DrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
 	// Check if session creation failed
 	if(err != -1)
 	{
@@ -1548,9 +1548,9 @@ IDrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper>
  *              This method will return the existing DRM session pointer if any one of these static
  *              DRM session objects are created against requested keyId. Binds the oldest DRM Session
  *              with new keyId if no matching keyId is found in existing sessions.
- *  @return     Pointer to IDrmSession for the given PSSH data; NULL if session creation/mapping fails.
+ *  @return     Pointer to DrmSession for the given PSSH data; NULL if session creation/mapping fails.
  */
-IDrmSession * AampDRMLicenseManager::createDrmSession(
+DrmSession * AampDRMLicenseManager::createDrmSession(
 		 const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType,
 		DrmCallbacks* aamp, DrmMetaDataEventPtr eventHandle, const unsigned char* contentMetadataPtr,
@@ -1559,7 +1559,7 @@ IDrmSession * AampDRMLicenseManager::createDrmSession(
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	int responseCode =-1;
-    IDrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
+    DrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
 
 	if(err != -1)
 	{

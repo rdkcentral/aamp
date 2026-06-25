@@ -29,7 +29,7 @@
 #endif
 
 
-HlsDrmBase* HlsOcdmBridgeInterface::GetBridge(IDrmSession * playerDrmSession)
+HlsDrmBase* HlsOcdmBridgeInterface::GetBridge(DrmSession * playerDrmSession)
 {
    
 #ifdef USE_OPENCDM_ADAPTER

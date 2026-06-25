@@ -272,7 +272,7 @@ TEST_F(AampDRMLicManagerTests, ValidateOCDMSessionConstructFailure)
 	// The call g_mockDRMSessionManager->createDrmSession
 	// which sets err = MW_DRM_SESSION_CREATE_FAILED
 	// Then the fake maps it using MapDrmToPlayerTuneFailure
-	IDrmSession* result = mTestableDRMLicenseManager->createDrmSession(
+	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
 		drmHelper,
 		mPrivateInstanceAAMP.get(),
 		g_mockDrmMetaDataEvent,
@@ -324,7 +324,7 @@ TEST_F(AampDRMLicManagerTests, ValidateSuccessfulSessionCreation)
 	// Create a mock DrmSession to return on success
 	// NOTE: This pointer is used only for identity/comparison and non-null checks
 	// in this test. It must NEVER be dereferenced or deleted.
-	IDrmSession* mockSession = reinterpret_cast<IDrmSession*>(0xDEADBEEF); // Non-null pointer for test
+	DrmSession* mockSession = reinterpret_cast<DrmSession*>(0xDEADBEEF); // Non-null pointer for test
 
 	// Mock DrmSessionManager::createDrmSession to return a valid session (err = -1 means success)
 	EXPECT_CALL(*g_mockDRMSessionManager, createDrmSession(_, _, _, _, _, _))
@@ -335,7 +335,7 @@ TEST_F(AampDRMLicManagerTests, ValidateSuccessfulSessionCreation)
 		));
 
 	// Call createDrmSession which should succeed
-	IDrmSession* result = mTestableDRMLicenseManager->createDrmSession(
+	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
 		drmHelper,
 		mPrivateInstanceAAMP.get(),
 		g_mockDrmMetaDataEvent,
@@ -403,7 +403,7 @@ TEST_F(AampDRMLicManagerTests, ValidateDRMSessionIdEmpty)
 	// The fake will call g_mockDRMSessionManager->createDrmSession
 	// which sets err = MW_DRM_SESSIONID_EMPTY
 	// Then the fake maps it using MapDrmToPlayerTuneFailure
-	IDrmSession* result = mTestableDRMLicenseManager->createDrmSession(
+	DrmSession* result = mTestableDRMLicenseManager->createDrmSession(
 		drmHelper,
 		mPrivateInstanceAAMP.get(),
 		g_mockDrmMetaDataEvent,

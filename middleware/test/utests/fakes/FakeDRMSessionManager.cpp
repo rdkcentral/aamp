@@ -57,7 +57,7 @@ void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 }
 
 
-IDrmSession * DrmSessionManager::createDrmSession(int& responsecode, int& err,
+DrmSession * DrmSessionManager::createDrmSession(int& responsecode, int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, 
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,

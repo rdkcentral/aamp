@@ -203,7 +203,6 @@ else()
 endif()
 set(LIBPLAYERGSTINTERFACE_DRM_SOURCES drm/PlayerHlsDrmSessionInterface.cpp
 	drm/DrmSessionManager.cpp
-	drm/DrmSession.cpp
 	drm/DrmSessionFactory.cpp
 	drm/helper/DrmHelper.cpp
 	drm/helper/DrmHelperFactory.cpp

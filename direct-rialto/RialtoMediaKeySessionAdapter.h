@@ -22,20 +22,19 @@
 
 /**
  * @file RialtoMediaKeySessionAdapter.h
- * @brief IDrmSession adapter for the Rialto Direct path.
+ * @brief DrmSession adapter for the Rialto Direct path.
  *
  * Integrates RialtoMediaKeySystem/RialtoMediaKeySession with the
- * DrmSessionManager by implementing the IDrmSession interface.
+ * DrmSessionManager by implementing the DrmSession interface.
  * Decryption is server-side (no-op). Key management flows through
  * the Rialto IMediaKeys API.
  */
 
-#include "IDrmSession.h"
+#include "DrmSession.h"
 #include "DrmHelper.h"
 #include "DrmCallbacks.h"
 #include "RialtoMediaKeySystem.h"
 #include "RialtoMediaKeySession.h"
-#include "ContentSecurityManagerSession.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -46,7 +45,7 @@
 
 /**
  * @class RialtoMediaKeySessionAdapter
- * @brief IDrmSession implementation for the Rialto Direct DRM path.
+ * @brief DrmSession implementation for the Rialto Direct DRM path.
  *
  * Follows the same lifecycle as OCDMSessionAdapter:
  *   generateDRMSession → generateKeyRequest → processDRMKey
@@ -55,7 +54,7 @@
  * decrypt() methods are no-ops — decryption is handled server-side
  * by the Rialto pipeline.
  */
-class RialtoMediaKeySessionAdapter : public IDrmSession
+class RialtoMediaKeySessionAdapter : public DrmSession
 {
 public:
 	/**
@@ -92,22 +91,7 @@ public:
 
 	std::vector<std::vector<uint8_t>> getUsableKeys() const override;
 
-	std::string getKeySystem() override { return m_keySystem; }
-
-	void setOutputProtection(bool /*bValue*/) override {}
-
-	void setSecManagerSession(ContentSecurityManagerSession session) override
-	{
-		m_secManagerSession = std::move(session);
-	}
-
-	ContentSecurityManagerSession getSecManagerSession() const override
-	{
-		return m_secManagerSession;
-	}
-
 private:
-	std::string m_keySystem;
 	/// Owned Rialto key system.
 	std::unique_ptr<RialtoMediaKeySystem> m_system;
 
@@ -138,8 +122,6 @@ private:
 
 	/// Timing for diagnostics.
 	long long m_timeBeforeCallback;
-
-	ContentSecurityManagerSession m_secManagerSession;
 };
 
 #endif // RialtoMediaKeySessionAdapter_h
