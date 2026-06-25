@@ -3203,8 +3203,24 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		}
 
 		mLastPlaylistDownloadTimeMs = mpdDnldResp->mLastPlaylistDownloadTimeMs;
-		if(mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai))
+		if(ISCONFIGSET(eAAMPConfig_EnableClientDai))
 		{
+			// Gate on mIsLiveManifest (refreshed every manifest download) rather than
+			// mIsLiveStream (frozen at init-time) so that a CDVR dynamic→static
+			// transition is detected correctly.
+			if (!mIsLiveManifest)
+			{
+				AAMPLOG_INFO("Setting MPD helper for static manifest content");
+				mCdaiObject->SetBaseMPDParseHelper(mMPDParseHelper);
+			}
+			else
+			{
+				// Manifest is currently live; clear any stale helper that may have
+				// been set during a previous static playback on the same mCdaiObject
+				// so it is not incorrectly used as the static-manifest gate.
+				mCdaiObject->SetBaseMPDParseHelper(nullptr);
+			}
+			AAMPLOG_INFO("Placing ads for %s stream", mIsLiveManifest ? "live" : "static manifest");
 			mCdaiObject->PlaceAds(mMPDParseHelper);
 		}
 
@@ -9681,7 +9697,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				mBasePeriodOffset = (mPlayRate > AAMP_RATE_PAUSE) ? 0 : (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, ShouldCheckOnlyIframeAdaptation(), aamp->IsUninterruptedTSB()) / 1000.00);
 
 				{
-					std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+					std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 					if (mCdaiObject->mContentSeekOffset > 0)
 					{
 						// Set mBasePeriodOffset as mContentSeekOffset to handle cases of partial ads.
@@ -9866,7 +9882,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		// CID:190371 - Data race condition
 		// Get and clear mContentSeekOffset atomically.
 		{
-			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+			std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 			seekPositionSeconds = mCdaiObject->mContentSeekOffset;
 			mCdaiObject->mContentSeekOffset = 0;
 		}
@@ -12336,7 +12352,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			return false;
 		}
 	}
-	std::unique_lock<std::mutex> lock(mCdaiObject->mDaiMtx);
+	std::unique_lock<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;
 	AdState oldState = mCdaiObject->mAdState;
 	AAMPEventType reservationEvt2Send = AAMP_MAX_NUM_EVENTS; //None
