@@ -43,7 +43,7 @@ set(TEST_SOURCES FindTimedMetadataTests.cpp
 		fragmentcollector_mpd1.cpp
 		pts_offset.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/admanager_mpd.cpp ${DASH_PARSER_SOURCES})
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/admanager_mpd.cpp ${AAMP_ROOT}/AampVodStitcher.cpp ${DASH_PARSER_SOURCES})
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

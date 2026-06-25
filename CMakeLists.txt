@@ -517,6 +517,7 @@ set(LIBAAMP_SOURCES
 	AampMPDDownloader.cpp AampMPDDownloader.h
 	AampMPDParseHelper.cpp AampMPDParseHelper.h
 	AampMPDUtils.cpp AampMPDUtils.h
+	AampVodStitcher.cpp AampVodStitcher.h
 	ElementaryProcessor.cpp ElementaryProcessor.h
 	AampStreamSinkManager.cpp AampStreamSinkManager.h
 	MetadataProcessor.cpp MetadataProcessor.hpp

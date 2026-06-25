@@ -438,10 +438,11 @@ public:
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
-	std::map<double, VodAdBreakInfo>               mVodAdBreaks;          /**< VOD insertion points keyed by insertionPointSec; populated by RegisterVodAdBreak() */
-	std::unordered_map<std::string, double>        mVodAdBreakIdToPos;    /**< breakId -> insertionPointSec index for O(1) lookup */
+	std::map<std::string, VodAdBreakInfo>          mVodAdBreaks;          /**< VOD breaks keyed by breakId; populated by RegisterVodAdBreak() */
+	std::vector<std::string>                       mVodAdBreakOrder;      /**< breakIds in registration order for deterministic stitching */
 	double                                         mNextVodBreakToCheck;  /**< Smallest insertion point not yet fired; updated when breaks are added or fired */
 	double                                         mVodResumeOffset;      /**< Source-period offset to seek to after a VOD ad pod ends; 0 when not active */
+	bool                                           mVodManifestStitched;  /**< true when BuildStitchedVodManifest succeeded; disables VOD CDAI state machine during playback */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
 	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
 

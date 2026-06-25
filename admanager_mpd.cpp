@@ -99,7 +99,7 @@ bool CDAIObjectMPD::IsAdPlaying()
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp), mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mAdFulfillObj(), mPlacementObj(), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK), currentAdPeriodClosed(false), mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV(),
-					mWaitForManifestUpdate(0), mVodAdBreaks(), mVodAdBreakIdToPos(), mNextVodBreakToCheck(std::numeric_limits<double>::max()), mVodResumeOffset(0.0),
+					mWaitForManifestUpdate(0), mVodAdBreaks(), mVodAdBreakOrder(), mNextVodBreakToCheck(std::numeric_limits<double>::max()), mVodResumeOffset(0.0), mVodManifestStitched(false),
 					mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
 {
 	StartFulfillAdLoop();
@@ -1548,11 +1548,10 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		// placeholder SetAlternateContents("","") call; VOD skips that step).
 		if (!isAdBreakObjectExist(periodId))
 		{
-			auto vodIt = mVodAdBreakIdToPos.find(periodId);
-			if (vodIt != mVodAdBreakIdToPos.end())
+			auto posIt = mVodAdBreaks.find(periodId);
+			if (posIt != mVodAdBreaks.end())
 			{
-				auto posIt = mVodAdBreaks.find(vodIt->second);
-				if (posIt != mVodAdBreaks.end() && !posIt->second.cancelled)
+				if (!posIt->second.cancelled)
 				{
 					uint32_t brkDurMs = (uint32_t)(posIt->second.breakDurationSec * 1000.0);
 					auto adBreakAssets = std::make_shared<std::vector<AdNode>>();
@@ -2202,15 +2201,10 @@ bool PrivateCDAIObjectMPD::IsAdPlaying()
 void PrivateCDAIObjectMPD::RegisterVodAdBreak(const VodAdBreakInfo &info)
 {
 	std::lock_guard<std::mutex> guard(mDaiMtx);
-	// If the same breakId was previously registered at a different position, remove
-	// the old mVodAdBreaks entry to prevent duplicate/stale keys.
-	auto existingIt = mVodAdBreakIdToPos.find(info.breakId);
-	if (existingIt != mVodAdBreakIdToPos.end() && existingIt->second != info.insertionPointSec)
-	{
-		mVodAdBreaks.erase(existingIt->second);
-	}
-	mVodAdBreaks[info.insertionPointSec] = info;
-	mVodAdBreakIdToPos[info.breakId] = info.insertionPointSec;
+	bool isNew = (mVodAdBreaks.find(info.breakId) == mVodAdBreaks.end());
+	mVodAdBreaks[info.breakId] = info;
+	if (isNew)
+		mVodAdBreakOrder.push_back(info.breakId);
 	// Recompute sentinel so it stays accurate even on an update.
 	if (info.insertionPointSec < mNextVodBreakToCheck)
 	{
@@ -2227,26 +2221,23 @@ void PrivateCDAIObjectMPD::RegisterVodAdBreak(const VodAdBreakInfo &info)
  */
 void PrivateCDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
 {
-	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
-	for (auto &kv : mVodAdBreaks)
+	std::lock_guard<std::mutex> guard(mDaiMtx);
+	auto it = mVodAdBreaks.find(breakId);
+	if (it != mVodAdBreaks.end())
 	{
-		if (kv.second.breakId == breakId)
+		it->second.cancelled = true;
+		AAMPLOG_INFO("[CDAI-VOD] CancelVodAdBreak id=%s: cancelled", breakId.c_str());
+		// Recompute fast-path sentinel
+		mNextVodBreakToCheck = std::numeric_limits<double>::max();
+		for (const auto &entry : mVodAdBreaks)
 		{
-			kv.second.cancelled = true;
-			mVodAdBreakIdToPos.erase(breakId);
-			AAMPLOG_INFO("[CDAI-VOD] CancelVodAdBreak id=%s: cancelled", breakId.c_str());
-			// Recompute fast-path sentinel
-			mNextVodBreakToCheck = std::numeric_limits<double>::max();
-			for (const auto &entry : mVodAdBreaks)
+			if (!entry.second.cancelled && !entry.second.opportunityFired)
 			{
-				if (!entry.second.cancelled && !entry.second.opportunityFired)
-				{
-					if (entry.first < mNextVodBreakToCheck)
-						mNextVodBreakToCheck = entry.first;
-				}
+				if (entry.second.insertionPointSec < mNextVodBreakToCheck)
+					mNextVodBreakToCheck = entry.second.insertionPointSec;
 			}
-			return;
 		}
+		return;
 	}
 	AAMPLOG_WARN("[CDAI-VOD] CancelVodAdBreak id=%s: break not found", breakId.c_str());
 }
@@ -2323,7 +2314,7 @@ void CDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
  */
 bool PrivateCDAIObjectMPD::IsVodAdBreak(const std::string &breakId) const
 {
-	return mVodAdBreakIdToPos.find(breakId) != mVodAdBreakIdToPos.end();
+	return mVodAdBreaks.find(breakId) != mVodAdBreaks.end();
 }
 
 /**
@@ -2381,7 +2372,6 @@ bool PrivateCDAIObjectMPD::HasPendingVodBreakAtPosition(double positionSec)
 			continue;
 		if (!info.opportunityFired)
 			continue;
-		// Break is due and opportunity was sent.  Check whether the ad is resolved.
 		auto breakIt = mAdBreaks.find(info.breakId);
 		if (breakIt == mAdBreaks.end())
 			return true;  // SetAlternateContents not yet called
@@ -2398,16 +2388,12 @@ bool PrivateCDAIObjectMPD::HasPendingVodBreakAtPosition(double positionSec)
  */
 void PrivateCDAIObjectMPD::MarkVodAdBreakCompleted(const std::string &breakId)
 {
-	auto vodIt = mVodAdBreakIdToPos.find(breakId);
-	if (vodIt != mVodAdBreakIdToPos.end())
+	auto posIt = mVodAdBreaks.find(breakId);
+	if (posIt != mVodAdBreaks.end())
 	{
-		auto posIt = mVodAdBreaks.find(vodIt->second);
-		if (posIt != mVodAdBreaks.end())
-		{
-			posIt->second.adPodCompleted = true;
-			AAMPLOG_INFO("[CDAI-VOD] MarkVodAdBreakCompleted: break id=%s completed",
-				breakId.c_str());
-		}
+		posIt->second.adPodCompleted = true;
+		AAMPLOG_INFO("[CDAI-VOD] MarkVodAdBreakCompleted: break id=%s completed",
+			breakId.c_str());
 	}
 	mVodResumeOffset = 0.0;
 }
