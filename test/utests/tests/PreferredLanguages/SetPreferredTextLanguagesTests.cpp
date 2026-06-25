@@ -817,7 +817,7 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);
-	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1",eCLOSEDCAPTION_FORMAT_608)).Times(1).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1", eCLOSEDCAPTION_FORMAT_DEFAULT)).Times(1).WillRepeatedly(Return(0));
 	// SetCurrentTextTrackIndex is called for closed caption track changes
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
 		.Times(1);

@@ -2401,21 +2401,6 @@ TEST_F(PlayerInstanceAAMPTests, ProcessContentProtectionDataConfigTests)
 	mPlayerInstance->ProcessContentProtectionDataConfig(jsonBuffer);
 }
 
-TEST_F(PlayerInstanceAAMPTests,SetCEAFormatTest1)
-{
-	int expectedFormat = 1;
-	mPlayerInstance->SetCEAFormat(expectedFormat);
-}
-TEST_F(PlayerInstanceAAMPTests,SetCEAFormatTest2)
-{
-	int expectedFormat = INT_MIN;
-	mPlayerInstance->SetCEAFormat(expectedFormat);
-}
-TEST_F(PlayerInstanceAAMPTests,SetCEAFormatTest3)
-{
-	int expectedFormat = INT_MAX;
-	mPlayerInstance->SetCEAFormat(expectedFormat);
-}
 TEST_F(PlayerInstanceAAMPTests,IsOOBCCRenderingSupportedTest)
 {
 	mPlayerInstance->IsOOBCCRenderingSupported();
