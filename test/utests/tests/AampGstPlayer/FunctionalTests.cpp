@@ -48,9 +48,9 @@ protected:
 	{
 		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
-		g_mockGLib = std::make_shared<MockGLib>();
+		g_mockGLib = std::make_shared<NiceMock<MockGLib>>();
 		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
-		g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
 	}
 
