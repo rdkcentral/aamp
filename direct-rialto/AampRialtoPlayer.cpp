@@ -1072,21 +1072,22 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
 	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
 
-	// shouldTearDown controls recovery behavior when NOT in PLAYING/PAUSED states.
-	// - PLAYING/PAUSED: Always proceed with flush (shouldTearDown ignored)
+	// shouldTearDown controls recovery behavior when NOT in
+	// PLAYING/PAUSED/SOURCES_ATTACHED states.
+	// - PLAYING/PAUSED/SOURCES_ATTACHED: Always proceed with flush (shouldTearDown ignored)
 	// - Other states + shouldTearDown=true: Call Stop() for recovery/cleanup
 	// - Other states + shouldTearDown=false: Proceed with flush normally
 	//
 	// This differs from GStreamer which skips flush in non-PLAYING/PAUSED states.
 	// Rialto needs to flush in states like SOURCES_ATTACHED to set up positions.
 	const PlayerStateId state = m_stateMachine.currentState();
-	const bool isPlayingOrPaused = (state == PlayerStateId::PLAYING ||
+	const bool isPlayingPausedOrAttached = (state == PlayerStateId::PLAYING ||
 					state == PlayerStateId::SOURCES_ATTACHED ||
 	                                state == PlayerStateId::PAUSED);
 
-	if (!isPlayingOrPaused && shouldTearDown)
+	if (!isPlayingPausedOrAttached && shouldTearDown)
 	{
-		// Not in PLAYING/PAUSED and shouldTearDown=true -> tear down for recovery.
+		// Not in PLAYING/PAUSED/SOURCES_ATTACHED and shouldTearDown=true -> tear down for recovery.
 		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED/SOURCES_ATTACHED and shouldTearDown=true - calling Stop(true)",
 			m_stateMachine.currentStateName());
 		Stop(true);
