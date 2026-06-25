@@ -1323,11 +1323,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 							// down into the subtec parser and forward the buffer unchanged. The
 							// subtec channel applies the offset to media_PTS so cue display time
 							// aligns with the restamped video PTS.
-											const std::string_view vttView{ptr, len};
-											const bool mpegtsIsZero = (vttView.find("MPEGTS:0") != std::string_view::npos);
-											mSubtitleParser->setPtsOffset(mpegtsIsZero ? 0.0 : cachedFragment->PTSOffsetSec);
-											mSubtitleParser->processData(
-												ptr, len, cachedFragment->position, cachedFragment->duration);
+							mSubtitleParser->setPtsOffset(cachedFragment->PTSOffsetSec);
+							mSubtitleParser->processData(ptr, len, cachedFragment->position, cachedFragment->duration);
 						}
 						break;
 					}
@@ -1445,13 +1442,6 @@ bool MediaTrack::InjectFragment()
 					{
 						aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
 					}
-					// Stop underflow monitor — all VOD fragments are injected;
-					// the GStreamer EOS bubble is now in flight and no further
-					// fragment arrivals are expected, so underflow detection is invalid.
-					if (!aamp->IsLive() && type == eTRACK_VIDEO)
-					{
-						pContext->StopUnderflowMonitor();
-					}
 				}
 				else
 				{
@@ -1499,6 +1489,13 @@ bool MediaTrack::SignalIfEOSReached()
 			if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
+			}
+			// Stop underflow monitor when video EOS is reached on VOD.
+			// EOS can be signalled from both normal sentinel and aborted-wait
+			// paths, so centralize monitor shutdown here.
+			if (!aamp->IsLive() && type == eTRACK_VIDEO)
+			{
+				pContext->StopUnderflowMonitor();
 			}
 			ret = true;
 		}
@@ -3737,9 +3734,18 @@ double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
 		return bufferValue;
 	}
 	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
-	if(audio)
+	if(audio && audio->enabled)
 	{
 		bufferValue = GetBufferValue(audio);
+	}
+	else if(IsMuxedStream())
+	{
+		// For muxed A/V playback, report video buffer duration as audio buffer duration
+		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+		if(video)
+		{
+			bufferValue = GetBufferValue(video);
+		}
 	}
 	return bufferValue;
 }
@@ -4110,13 +4116,13 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
-					
+
 					// Set playback rate
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
-					
+
 					// Set trickplay FPS for the demuxer
 					int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
-					
+
 					track->playContext->setFrameRateForTM(trickPlayFPS);
 				}
 				else
@@ -4736,3 +4742,4 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 		}
 	}
 }
+

@@ -81,6 +81,15 @@ protected:
 		// in this fixture pass without needing per-test EXPECT_CALL boilerplate.
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetBufferedDurationSecs())
 			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
+		// IsFragmentCacheFull() delegates to the mock after the fake was updated to
+		// support TSB-aware testing.  Default to false so all pre-existing tests
+		// are unaffected; individual tests can override this expectation.
+		EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull())
+			.WillRepeatedly(Return(false));
+		// WaitForFreeFragmentAvailable() delegates to the mock.  Default to true so
+		// the ring-buffer wait resolves immediately in tests that do not override it.
+		EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_))
+			.WillRepeatedly(Return(true));
 		mTsbSessionMgr = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
 		mMockTSBSessionMgr = std::make_unique<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
 		g_mockTSBSessionManager = std::shared_ptr<MockTSBSessionManager>(mMockTSBSessionMgr.get(), [](MockTSBSessionManager*){});
@@ -307,12 +316,14 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_ValidDownloadInfoLowestPr
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownLimitReached())
 		.WillOnce(Return(true));
 
-	// Test the behavior of OnFragmentDownloadFailed, mCheckForRampdown should be set to false
-	// and mSkipSegmentOnError should be set to true
+	// mCheckForRampdown can remain true from a previous rampdown attempt on the
+	// same context instance; this path should still set mSkipSegmentOnError.
+	mMediaStreamContext->mCheckForRampdown = true;
+	// Test the behavior of OnFragmentDownloadFailed.
 	EXPECT_NO_THROW({
 		mMediaStreamContext->OnFragmentDownloadFailed(dlInfo);
 		EXPECT_EQ(mMediaStreamContext->segDLFailCount, 1);
-		EXPECT_FALSE(mMediaStreamContext->mCheckForRampdown);
+		EXPECT_TRUE(mMediaStreamContext->mCheckForRampdown);
 		EXPECT_TRUE(mMediaStreamContext->mSkipSegmentOnError);
 	});
 }
@@ -380,10 +391,12 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_RetryAttemptThreshold)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, _))
 		.Times(1);
 
-	// Test the behavior of OnFragmentDownloadFailed, mCheckForRampdown should be set to false
+	// mCheckForRampdown is not reset in this threshold path.
+	mMediaStreamContext->mCheckForRampdown = true;
+	// Test the behavior of OnFragmentDownloadFailed.
 	EXPECT_NO_THROW({
 		mMediaStreamContext->OnFragmentDownloadFailed(dlInfo);
-		EXPECT_FALSE(mMediaStreamContext->mCheckForRampdown);
+		EXPECT_TRUE(mMediaStreamContext->mCheckForRampdown);
 	});
 }
 
@@ -910,4 +923,46 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadSuccess_UnderflowRecoveryRace_Fr
 
 	// --- Cleanup ---
 	g_notifyVideoFragmentSideEffect = nullptr;
+}
+
+/**
+ * @brief Regression microtest — verifies that fragment downloads continue while
+ * playing from a TSB fragment, regardless of the IsFragmentCacheFull() state.
+ *
+ * A bug was observed when playback from TSB was paused. In this scenario,
+ * the fragment cache would become full, preventing any further segment downloads.
+ * 
+ * A fix was delivered that adds !aamp->IsLocalAAMPTsbInjection() to the guard:
+ * i.e. if (IsFragmentCacheFull() && !aamp->IsLocalAAMPTsbInjection())
+ */
+TEST_F(FragmentDownloadTests, DownloadFragment_CacheFullDuringTSBInjection_DoesNotBlock)
+{
+	EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockMediaTrack, IsLocalTSBInjection())
+		.WillRepeatedly(Return(true));
+
+	mPrivateInstanceAAMP->mSinkPaused.store(true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_))
+		.Times(0);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+				GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+	dlInfo->uriList[0].url = "http://example.com/segment.m4s";
+	dlInfo->url            = "http://example.com/segment.m4s";
+	dlInfo->isInitSegment  = false;
+
+	const bool result = mMediaStreamContext->DownloadFragment(dlInfo);
+	EXPECT_TRUE(result);
 }

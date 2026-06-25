@@ -140,6 +140,11 @@ public:
 		slot->fragment.clear();
 		slot->fragment.shrink_to_fit();
 	}
+
+	void SetAbortInject(bool shouldAbort)
+	{
+		abortInject = shouldAbort;
+	}
 };
 
 class TrackInjectTests : public testing::Test
@@ -411,7 +416,7 @@ TEST_F(TrackInjectTests, InjectFragment_VodEos_StopsUnderflowMonitor)
 	// Mark the video track at EOS and prepare the EOS-sentinel slot.
 	// fillCachedFragment increments numberOfFragmentsCached so that
 	// WaitForCachedFragmentAvailable() returns true (not "aborted").
-	// SetupEosSentinel then clears fragment.capacity() to 0, which is the
+	// then clears fragment.capacity() to 0, which is the
 	// signal InjectFragment uses to trigger the EOS path.
 	mMediaTrack->eosReached = true;
 	mMediaTrack->fillCachedFragment(false, false);
@@ -464,6 +469,41 @@ TEST_F(TrackInjectTests, InjectFragment_LiveEos_DoesNotStopUnderflowMonitor)
 
 	// StopUnderflowMonitor must NOT be called for live streams.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor()).Times(0);
+
+	mMediaTrack->RunInjectLoop();
+
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
+}
+
+/**
+ * Verify that InjectFragment() calls StopUnderflowMonitor() on VOD when EOS is
+ * signalled from the aborted WaitForCachedFragmentAvailable() path.
+ */
+TEST_F(TrackInjectTests, InjectFragment_VodEosAbortedWait_StopsUnderflowMonitor)
+{
+	AampLLDashServiceData llDashData;
+	llDashData.availabilityTimeOffset = 0.0;
+	llDashData.lowLatencyMode = false;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	mPrivateInstanceAAMP->SetIsLive(false); // VOD
+
+	g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	Initialize();
+
+	// Force WaitForCachedFragmentAvailable() to abort and return false.
+	mMediaTrack->eosReached = true;
+	mMediaTrack->SetAbortInject(true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor()).Times(1);
 
 	mMediaTrack->RunInjectLoop();
 

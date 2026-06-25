@@ -122,6 +122,7 @@
 #define DEFAULT_PLAYLIST_DL_TIMEOUT 10L	/**< Curl timeout for playlist download */
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
 #define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
+#define DEFAULT_DNS_CACHE_TIMEOUT (3*60L)	/**< Name resolve results cached for this many seconds (180 s = 3x the libcurl default of 60 s) */
 #define EAS_CURL_TIMEOUT 3L		/**< Curl timeout for EAS manifest downloads */
 #define EAS_CURL_CONNECTTIMEOUT 2L      /**< Curl timeout for EAS connection */
 #define DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS (6*1000)   /**< Interval between playlist refreshes */

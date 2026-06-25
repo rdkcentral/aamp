@@ -68,7 +68,7 @@ int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen)
 /**
  *  @brief Utility function to read 8 bytes from a buffer
  */
-uint64_t ReadUint64(uint8_t *buf)
+uint64_t ReadUint64(const uint8_t *buf)
 {
 	uint64_t val = READ_U32(buf);
 	val = (val<<32) | (uint32_t)READ_U32(buf);
@@ -90,7 +90,7 @@ void WriteUint64(uint8_t *dst, uint64_t val)
  */
 Box::Box(uint32_t sz, const char btype[4]) : offset(0), size(sz), type{}, base(nullptr)
 {
-	memcpy(type,btype,4);
+	std::memcpy(type, btype, BOX_TYPE_LENGTH);
 }
 
 /**
@@ -120,9 +120,9 @@ bool Box::hasChildren() const
 /**
  *  @brief Get children of this box
  */
-const std::vector<Box*> *Box::getChildren() const
+const std::vector<std::unique_ptr<Box>> *Box::getChildren() const
 {
-	return NULL;
+	return nullptr;
 }
 
 /**
@@ -150,114 +150,152 @@ const char *Box::getType() const
  * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
  * @return newly constructed Box object
  */
-Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int newTrackId)
+std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int newTrackId)
 {
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
+	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 
 	uint32_t size = 0;
-	uint8_t type[5];
-	if(maxSz < 4)
+	uint8_t type[BOX_TYPE_BUFFER_SIZE];
+	char safeType[BOX_TYPE_BUFFER_SIZE] = {};
+	bool safeTypeInitialized = false;
+	auto ensureSafeType = [&]()
 	{
-		AAMPLOG_TRACE("Box data < 4 bytes. Can't determine Size & Type");
-		return new Box(maxSz, (const char *)"UKWN");
+		if (safeTypeInitialized)
+		{
+			return;
+		}
+		for (int i = 0; i < BOX_TYPE_LENGTH; i++)
+		{
+			safeType[i] = (type[i] >= 0x20 && type[i] <= 0x7e) ?
+				static_cast<char>(type[i]) : '.';
+		}
+		safeType[BOX_TYPE_LENGTH] = '\0';
+		safeTypeInitialized = true;
+	};
+	if(maxSz < BOX_TYPE_LENGTH)
+	{
+		AAMPLOG_TRACE("Box data < %zu bytes. Can't determine Size & Type", BOX_TYPE_LENGTH);
+		return std::make_unique<Box>(maxSz, (const char *)"UKWN");
 	}
-	else if(maxSz >= 4 && maxSz < 8)
+	else if(maxSz >= BOX_TYPE_LENGTH && maxSz < (BOX_TYPE_LENGTH + sizeof(uint32_t)))
 	{
-		AAMPLOG_TRACE("Box Size between >4 but <8 bytes. Can't determine Type");
+		AAMPLOG_TRACE("Box Size between >%zu but <%zu bytes. Can't determine Type", BOX_TYPE_LENGTH, (BOX_TYPE_LENGTH + sizeof(uint32_t)));
 		//size = READ_U32(hdr);
-		return new Box(maxSz, (const char *)"UKWN");
+		return std::make_unique<Box>(maxSz, (const char *)"UKWN");
 	}
 	else
 	{
 		size = READ_U32(hdr);
-		READ_U8(type, hdr, 4);
-		type[4] = '\0';
+		READ_U8(type, hdr, BOX_TYPE_LENGTH);
+		type[BOX_TYPE_LENGTH] = '\0';
+	}
+
+	if (size < minHeaderSize)
+	{
+		ensureSafeType();
+		AAMPLOG_WARN("Box[%s] has invalid small size[%u]", safeType, size);
+		return std::make_unique<Box>(size, safeType);
 	}
 
 	if (size > maxSz)
 	{
 		if(correctBoxSize)
 		{
+			ensureSafeType();
 			//Fix box size to handle cases like receiving whole file for HTTP range requests
-			AAMPLOG_WARN("Box[%s] fixing size error:size[%u] > maxSz[%u]", type, size, maxSz);
+			AAMPLOG_WARN("Box[%s] fixing size error:size[%u] > maxSz[%u]", safeType, size, maxSz);
 			hdr = hdr_start;
 			WRITE_U32(hdr,maxSz);
 			goto L_RESTART;
 		}
 		else
 		{
-#ifdef AAMP_DEBUG_BOX_CONSTRUCT
-			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",type, size, maxSz);
-#endif
+			ensureSafeType();
+		#ifdef AAMP_DEBUG_BOX_CONSTRUCT
+			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",
+				safeType, size, maxSz);
+		#endif
+			return std::make_unique<Box>(size, safeType);
 		}
 	}
 	else if (IS_TYPE(type, MOOV))
 	{
-		return GenericContainerBox::constructContainer(size, MOOV, hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			GenericContainerBox::constructContainer(size, MOOV, hdr,
+			newTrackId));
 	}
 	else if (IS_TYPE(type, TRAK))
 	{
-		return TrakBox::constructTrakBox(size,hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			TrakBox::constructTrakBox(size,hdr, newTrackId));
 	}
 	else if (IS_TYPE(type, MDIA))
 	{
-		return GenericContainerBox::constructContainer(size, MDIA, hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			GenericContainerBox::constructContainer(size, MDIA, hdr,
+			newTrackId));
 	}
 	else if (IS_TYPE(type, MOOF))
 	{
-		return GenericContainerBox::constructContainer(size, MOOF, hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			GenericContainerBox::constructContainer(size, MOOF, hdr,
+			newTrackId));
 	}
 	else if (IS_TYPE(type, TRAF))
 	{
-		return GenericContainerBox::constructContainer(size, TRAF, hdr, newTrackId);
+		return std::unique_ptr<Box>(
+			GenericContainerBox::constructContainer(size, TRAF, hdr,
+			newTrackId));
 	}
 	else if (IS_TYPE(type, TFHD))
 	{
-		return TfhdBox::constructTfhdBox(size,  hdr);
+		return std::unique_ptr<Box>(TfhdBox::constructTfhdBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, TFDT))
 	{
-		return TfdtBox::constructTfdtBox(size,  hdr);
+		return std::unique_ptr<Box>(TfdtBox::constructTfdtBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, TRUN))
 	{
-		return TrunBox::constructTrunBox(size,  hdr);
+		return std::unique_ptr<Box>(TrunBox::constructTrunBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, MVHD))
 	{
-		return MvhdBox::constructMvhdBox(size,  hdr);
+		return std::unique_ptr<Box>(MvhdBox::constructMvhdBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, MDHD))
 	{
-		return MdhdBox::constructMdhdBox(size,  hdr);
+		return std::unique_ptr<Box>(MdhdBox::constructMdhdBox(size,  hdr));
 	}
 	else if (IS_TYPE(type, EMSG))
 	{
-		return EmsgBox::constructEmsgBox(size, hdr);
+		return std::unique_ptr<Box>(EmsgBox::constructEmsgBox(size, hdr));
 	}
 	else if (IS_TYPE(type, PRFT))
 	{
-		return PrftBox::constructPrftBox(size,  hdr);
+		return std::unique_ptr<Box>(PrftBox::constructPrftBox(size,  hdr));
 	}
 	else if( IS_TYPE(type, SIDX) )
 	{
-		return SidxBox::constructSidxBox(size, hdr);
+		return std::unique_ptr<Box>(SidxBox::constructSidxBox(size, hdr));
 	}
 	else if (IS_TYPE(type, MDAT))
 	{
-		return MdatBox::constructMdatBox(size, hdr);
+		return std::unique_ptr<Box>(MdatBox::constructMdatBox(size, hdr));
 	}
 	else if (IS_TYPE(type, SENC))
 	{
-		return SencBox::constructSencBox(size, hdr);
+		return std::unique_ptr<Box>(SencBox::constructSencBox(size, hdr));
 	}
 	else if (IS_TYPE(type, SAIZ))
 	{
-		return SaizBox::constructSaizBox(size, hdr);
+		return std::unique_ptr<Box>(SaizBox::constructSaizBox(size, hdr));
 	}
 
-	return new Box(size, (const char *)type);
+	ensureSafeType();
+	return std::make_unique<Box>(size, safeType);
 }
 
 /**
@@ -268,9 +306,9 @@ Box* Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int ne
 void Box::rewriteAsSkipBox(void)
 {
 	// buffer
-	memcpy(base + 4, Box::SKIP, 4);
+	std::memcpy(base + BOX_TYPE_LENGTH, Box::SKIP, BOX_TYPE_LENGTH);
 	// internal type
-	memcpy(type, Box::SKIP, 5);
+	std::memcpy(type, Box::SKIP, BOX_TYPE_BUFFER_SIZE);
 }
 
 /**
@@ -284,23 +322,14 @@ GenericContainerBox::GenericContainerBox(uint32_t sz, const char btype[4]) : Box
 /**
  *  @brief GenericContainerBox destructor
  */
-GenericContainerBox::~GenericContainerBox()
-{
-	for (unsigned int i = (unsigned int)children.size(); i>0;)
-	{
-		--i;
-		SAFE_DELETE(children.at(i));
-		children.pop_back();
-	}
-	children.clear();
-}
+GenericContainerBox::~GenericContainerBox() = default;
 
 /**
  *  @brief Add a box as a child box
  */
-void GenericContainerBox::addChildren(Box *box)
+void GenericContainerBox::addChildren(std::unique_ptr<Box> box)
 {
-	children.push_back(box);
+	children.push_back(std::move(box));
 }
 
 /**
@@ -314,7 +343,7 @@ bool GenericContainerBox::hasChildren() const
 /**
  *  @brief Get children of this box
  */
-const std::vector<Box*> *GenericContainerBox::getChildren() const
+const std::vector<std::unique_ptr<Box>> *GenericContainerBox::getChildren() const
 {
 	return &children;
 }
@@ -333,13 +362,29 @@ GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const 
 {
 	GenericContainerBox *cbox = new GenericContainerBox(sz, btype);
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
+	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	while (curOffset < sz)
 	{
-		Box *box = Box::constructBox(ptr, sz-curOffset, false, newTrackId );
+		const uint32_t remaining = sz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Container[%.4s] trailing bytes[%u] smaller than box header",
+				btype, remaining);
+			break;
+		}
+
+		auto box = Box::constructBox(ptr, remaining, false, newTrackId);
 		box->setOffset(curOffset);
-		cbox->addChildren(box);
-		curOffset += box->getSize();
-		ptr += box->getSize();
+		const uint32_t boxSize = box->getSize();
+		if (boxSize < minHeaderSize || boxSize > remaining)
+		{
+			AAMPLOG_WARN("Invalid nested box size[%u] for type[%s], remaining[%u]",
+				boxSize, box->getType(), remaining);
+			break;
+		}
+		cbox->addChildren(std::move(box));
+		curOffset += boxSize;
+		ptr += boxSize;
 	}
 	return cbox;
 }
@@ -774,29 +819,51 @@ uint32_t EmsgBox::getMessageLen()
  */
 EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 {
+	const uint32_t fullBoxAndHeaderSize = sizeof(uint32_t) + sizeof(uint64_t);
+	if (sz < fullBoxAndHeaderSize)
+	{
+		AAMPLOG_WARN("Invalid emsg size[%u]", sz);
+		FullBox invalidFbox(sz, Box::EMSG, 0, 0);
+		return new EmsgBox(invalidFbox, 0, 0, 0, 0, 0);
+	}
+
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
 	// Calculating remaining size,
 	// flags(3bytes)+ version(1byte)+ box_header(type and size)(8bytes)
-	uint32_t remainingSize = sz - ((sizeof(uint32_t))+(sizeof(uint64_t)));
+	uint32_t remainingSize = sz - fullBoxAndHeaderSize;
 
 	uint64_t presTime = 0;
 	uint32_t presTimeDelta = 0;
-	uint32_t tScale;
-	uint32_t evtDur;
-	uint32_t boxId;
+	uint32_t tScale = 0;
+	uint32_t evtDur = 0;
+	uint32_t boxId = 0;
 
 	char * schemeId = nullptr;
 	uint8_t* schemeIdValue = nullptr;
 
 	uint8_t* message = nullptr;
 	FullBox fbox(sz, Box::EMSG, version, flags);
+	auto hasRemaining = [&](uint32_t needed, const char *field) -> bool
+	{
+		if (remainingSize < needed)
+		{
+			AAMPLOG_WARN("Malformed emsg: insufficient bytes for %s", field);
+			return false;
+		}
+		return true;
+	};
 
 	/*
 	 * Extraction is done as per https://aomediacodec.github.io/id3-emsg/
 	 */
 	if (1 == version)
 	{
+		if (!hasRemaining((sizeof(uint32_t) * 3) + sizeof(uint64_t),
+			"version1 fixed fields"))
+		{
+			return new EmsgBox(fbox, 0, 0, 0, 0, 0);
+		}
 		tScale = READ_U32(ptr);
 		// Read 64 bit value
 		presTime = READ_U64(ptr);
@@ -804,35 +871,76 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		boxId = READ_U32(ptr);
 		remainingSize -=  ((sizeof(uint32_t)*3) + sizeof(uint64_t));
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
-		if(schemeIdLen > 0)
+		if(schemeIdLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdLen))
 		{
 			schemeId = (char*) malloc(sizeof(char)*schemeIdLen);
 			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);
-			if (schemeIdValueLen > 0)
+			if (schemeIdValueLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdValueLen))
 			{
 				schemeIdValue = (uint8_t*) malloc(sizeof(uint8_t)*schemeIdValueLen);
 				READ_U8(schemeIdValue, ptr, schemeIdValueLen);
 				remainingSize -= (sizeof(uint8_t) * schemeIdValueLen);
 			}
 		}
+		else
+		{
+			AAMPLOG_WARN("Malformed emsg v1: invalid schemeIdUri field");
+		}
 	}
 	else if(0 == version)
 	{
+		bool malformedValueField{false};
 		int schemeIdLen = ReadCStringLen(ptr, remainingSize);
-		if(schemeIdLen > 0)
+		if(schemeIdLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdLen))
 		{
 			schemeId = (char*) malloc(sizeof(char)*schemeIdLen);
 			READ_U8(schemeId, ptr, schemeIdLen);
 			remainingSize -= (sizeof(uint8_t) * schemeIdLen);
 			int schemeIdValueLen = ReadCStringLen(ptr, remainingSize);
-			if (schemeIdValueLen > 0)
+			if (schemeIdValueLen > 0 && remainingSize >= static_cast<uint32_t>(schemeIdValueLen))
 			{
 				schemeIdValue = (uint8_t*) malloc(sizeof(uint8_t)*schemeIdValueLen);
 				READ_U8(schemeIdValue, ptr, schemeIdValueLen);
 				remainingSize -= (sizeof(uint8_t) * schemeIdValueLen);
 			}
+			else
+			{
+				AAMPLOG_WARN("Malformed emsg v0: invalid value field terminator");
+				malformedValueField = true;
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("Malformed emsg v0: invalid schemeIdUri field");
+			malformedValueField = true;
+		}
+
+		if (malformedValueField)
+		{
+			if (schemeId)
+			{
+				free(schemeId);
+			}
+			if (schemeIdValue)
+			{
+				free(schemeIdValue);
+			}
+			return new EmsgBox(fbox, 0, 0, 0, 0, 0);
+		}
+
+		if (!hasRemaining(sizeof(uint32_t) * 4, "version0 fixed fields"))
+		{
+			if (schemeId)
+			{
+				free(schemeId);
+			}
+			if (schemeIdValue)
+			{
+				free(schemeIdValue);
+			}
+			return new EmsgBox(fbox, 0, 0, 0, 0, 0);
 		}
 		tScale = READ_U32(ptr);
 		presTimeDelta = READ_U32(ptr);
@@ -1272,9 +1380,18 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 {
 	TrakBox *cbox = new TrakBox(sz);
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
+	constexpr uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	while (curOffset < sz)
 	{
-		Box *box = Box::constructBox(ptr, sz-curOffset);
+		const uint32_t remaining = sz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Trak trailing bytes[%u] smaller than box header",
+				remaining);
+			break;
+		}
+
+		auto box = Box::constructBox(ptr, remaining);
 		box->setOffset(curOffset);
 
 		if (IS_TYPE(box->getType(),TKHD))
@@ -1299,9 +1416,16 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 			cbox->track_id = READ_U32(ptr);
 			ptr = tkhd_start;
 		}
-		cbox->addChildren(box);
-		curOffset += box->getSize();
-		ptr += box->getSize();
+		const uint32_t boxSize = box->getSize();
+		if (boxSize < minHeaderSize || boxSize > remaining)
+		{
+			AAMPLOG_WARN("Invalid trak child size[%u] for type[%s], remaining[%u]",
+				boxSize, box->getType(), remaining);
+			break;
+		}
+		cbox->addChildren(std::move(box));
+		curOffset += boxSize;
+		ptr += boxSize;
 	}
 	return cbox;
 }

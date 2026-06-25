@@ -4978,8 +4978,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
-					{
+						if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) ||
+							(isDownloadStalled &&
+								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
+							res == CURLE_SEND_ERROR)
+						{
 
 						if(mpStreamAbstractionAAMP)
 						{
@@ -5042,7 +5045,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								break;
 							}
 						}
-						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
+						AAMPLOG_WARN("Download failed due to curl error %d or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", res, isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
 					}
 
 					/*
@@ -8875,15 +8878,6 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
 void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 {
 	PlayerCCManager::GetInstance()->Init((void *)decoderHandle);
-	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-	{
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg == 0)
-		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
-			PlayerCCManager::GetInstance()->SetTrack("CC1");
-		}
-	}
 }
 
 /**
@@ -10268,17 +10262,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 			std::string url("");
 			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
 		}
-		//Ignoring past SCTE events.
-		//mFogTSBEnabled check is added to ensure the change won't effect IPVOD
-		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mFogTSBEnabled:%d", mTuneCompleted, mFogTSBEnabled);
-		if (mTuneCompleted || !mFogTSBEnabled)
-		{
-			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
-		}
-		else
-		{
-			AAMPLOG_WARN("[CDAI] Discarding SCTE event for period:%s  since tune is not completed",adBreakId.c_str());
-		}
+
 	}
 }
 
@@ -11912,14 +11896,6 @@ void PrivateInstanceAAMP::SetClosedCaptionsFromTextTrack(TextTrackInfo &track)
 				format = eCLOSEDCAPTION_FORMAT_708;
 			}
 		}
-
-		// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg != -1)
-		{
-			format = (CCFormat)(overrideCfg & 1);
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
-		}
 		AAMPLOG_INFO("instreamId %s format %d", track.instreamId.c_str(), format);
 		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 	}
@@ -13245,7 +13221,9 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
 
-	if (currentTrackIndex >= 0)
+
+	//Added out of bound check to prevent crash in case of currentTrackIndex is more than available tracks.
+	if (currentTrackIndex >= 0 && (currentTrackIndex < static_cast<int>(trackInfo.size())))
 	{
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
 		char *currentPrefRendition = const_cast<char *>(trackInfo[currentTrackIndex].rendition.c_str());
@@ -13335,6 +13313,8 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	}
 	else
 	{
+			AAMPLOG_INFO("CheckPreferredTextLanguages: currentTrackIndex=%d , trackInfo.size()=%zu either no track is currently selected or currentTrackIndex is out of bounds, so we will check for closed caption track index if there is one",
+						 currentTrackIndex, trackInfo.size());
 		isSelectionChange = true;
 		// no track is currently selected but need to find closedCaptionTrackIdx if there is one
 	}
