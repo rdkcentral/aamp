@@ -166,6 +166,11 @@ protected:
 		{
 			mBasePeriodOffset = baseperiodoffset;
 		}
+
+		bool GetPostRollAdPlaybackDone() const
+		{
+			return mPostRollAdPlaybackDone;
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -282,6 +287,43 @@ protected:
 						</Period>
 				</MPD>
 				)";
+	static constexpr const char *mCDVRManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+				<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" mediaPresentationDuration="PT90S" type="static">
+					<Period id="p0" start="PT0S" duration="PT30S">
+						<AdaptationSet id="0" contentType="video">
+							<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+								<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+									<SegmentTimeline>
+										<S t="0" d="5000" r="14" />
+									</SegmentTimeline>
+								</SegmentTemplate>
+							</Representation>
+						</AdaptationSet>
+					</Period>
+					<Period id="p1" start="PT30S">
+						<AdaptationSet id="1" contentType="video">
+							<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+								<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+									<SegmentTimeline>
+										<S t="0" d="5000" r="14" />
+									</SegmentTimeline>
+								</SegmentTemplate>
+							</Representation>
+						</AdaptationSet>
+					</Period>
+					<Period id="p2" start="PT60S">
+						<AdaptationSet id="1" contentType="video">
+							<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+								<SegmentTemplate timescale="2500" initialization="video_p2_init.mp4" media="video_p2_$Number$.m4s" startNumber="1">
+									<SegmentTimeline>
+										<S t="0" d="5000" r="14" />
+									</SegmentTimeline>
+								</SegmentTemplate>
+							</Representation>
+						</AdaptationSet>
+					</Period>
+				</MPD>
+				)";
 
 	ManifestDownloadResponsePtr mResponse = MakeSharedManifestDownloadResponsePtr();
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
@@ -324,7 +366,6 @@ protected:
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_useRialtoSink, false},
 			{eAAMPConfig_UseMp4Demux, false},
-			{eAAMPConfig_ProcessLicenseFromEAP, false},
 		};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -641,14 +682,15 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 	EXPECT_TRUE(ret);
 	EXPECT_EQ(cdaiObj->mAdBreaks[periodId].invalid, true);
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT), false);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE), false);
 }
+
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with starting state OUTSIDE_ADBREAK and then moves to a 
  * period having adbreak and starts playing ad, with state changing to IN_ADBREAK_AD_PLAYING
+ * Validates - OUTSIDE_ADBREAK -> IN_ADBREAK_AD_PLAYING for AdEvent::PERIOD_CHANGE.
  */
-
 TEST_F(AdSelectionTests, onAdEventTest_1)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
@@ -701,14 +743,19 @@ TEST_F(AdSelectionTests, onAdEventTest_1)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "p1", _, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, "adId1", _, _, _, _, _, _)).Times(1);
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
-	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	// Validate CDAI object values after starting ad playback
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with starting state OUTSIDE_ADBREAK. Then moves to adbreak,
  * Since ad is not downloaded,it enters the IN_ADBREAK_AD_NOT_PLAYING state
+ * Validates - OUTSIDE_ADBREAK -> IN_ADBREAK_AD_NOT_PLAYING for AdEvent::PERIOD_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_2)
 {
@@ -731,6 +778,7 @@ TEST_F(AdSelectionTests, onAdEventTest_2)
 	cdaiObj->mAdBreaks = {
 	    { adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
+	// Marking resolved false to simulate the scenario where ad is not downloaded yet
 	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(false /*invalid*/, false /*placed*/, false /*resolved*/,
 		"adId1" /*adId*/, "" /*url*/, 30000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, nullptr /*mpd*/);
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
@@ -743,14 +791,18 @@ TEST_F(AdSelectionTests, onAdEventTest_2)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "p1", _, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+	// Validate CDAI object values after starting ad playback
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with adbreak not validated, wait for ads to be added.
- * Remains in OUTSIDE_ADBREAK state
+ * Validates - OUTSIDE_ADBREAK -> OUTSIDE_ADBREAK_WAIT4ADS -> OUTSIDE_ADBREAK for AdEvent::PERIOD_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_3)
 {
@@ -771,6 +823,7 @@ TEST_F(AdSelectionTests, onAdEventTest_3)
 
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData();
 	cdaiObj->mPeriodMap[adPeriodId].adBreakId = adPeriodId;
+	// Empty adBreak to denote that we have not received any ads yet.
 	cdaiObj->mAdBreaks = {
 		{ adPeriodId, AdBreakObject() }
 	};
@@ -778,18 +831,28 @@ TEST_F(AdSelectionTests, onAdEventTest_3)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
-	EXPECT_EQ( cdaiObj->mAdState,  AdState::OUTSIDE_ADBREAK_WAIT4ADS);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK_WAIT4ADS);
 	EXPECT_TRUE(cdaiObj->mAdBreaks[adPeriodId].invalid);
+	// Validate CDAI object values after starting ad playback.
+	// Here, we will set adPeriodId as mCurPlayingBreakId initially.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
-	EXPECT_EQ( cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	// Validate CDAI object values after state transition.
+	EXPECT_TRUE(cdaiObj->mCurPlayingBreakId.empty());
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where the ad is invalid, so switching to
- * source content. State transition happens from OUTSIDE_ADBREAK to IN_ADBREAK_AD_NOT_PLAYING 
+ * source content.
+ * Validates - OUTSIDE_ADBREAK -> IN_ADBREAK_AD_NOT_PLAYING for AdEvent::PERIOD_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_4)
 {
@@ -816,6 +879,7 @@ TEST_F(AdSelectionTests, onAdEventTest_4)
 	};
 
 	cdaiObj->mAdBreaks[adPeriodId].ads = std::make_shared<std::vector<AdNode>>();
+	// Marking invalid true to simulate the scenario.
 	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(true /*invalid*/, false /*placed*/, true /*resolved*/,
 		"adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, nullptr /*mpd*/);
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
@@ -828,14 +892,20 @@ TEST_F(AdSelectionTests, onAdEventTest_4)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adPeriodId, _, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+	// Validate CDAI object values after starting ad playback
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	// Due to invalid, ad details are not populated in the CDAI object
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where ad playback occurs with state IN_ADBREAK_AD_PLAYING.
  * Once ad download finished and waiting to catch up baseperiod, state changes to IN_ADBREAK_WAIT2CATCHUP
+ * Validates - IN_ADBREAK_AD_PLAYING -> IN_ADBREAK_WAIT2CATCHUP for AdEvent::AD_FINISHED.
  */
 TEST_F(AdSelectionTests, onAdEventTest_5)
 {
@@ -884,8 +954,10 @@ TEST_F(AdSelectionTests, onAdEventTest_5)
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 	});
+	// Update CDAI object to reflect the current ad playback details
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
@@ -893,13 +965,18 @@ TEST_F(AdSelectionTests, onAdEventTest_5)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, "adId1", _, _, _, _, _, _)).Times(1);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
-	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	// Validate CDAI object values after starting ad playback
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adbreak and ad starts playing with state
  * IN_ADBREAK_AD_PLAYING. while playing an ad failure happens and state changes to IN_ADBREAK_AD_NOT_PLAYING 
+ * Validates - IN_ADBREAK_AD_PLAYING -> IN_ADBREAK_AD_NOT_PLAYING for AdEvent::AD_FAILED.
  */
 TEST_F(AdSelectionTests, onAdEventTest_6)
 {
@@ -948,8 +1025,10 @@ TEST_F(AdSelectionTests, onAdEventTest_6)
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 	});
+	// Populate CDAI object with current ad details.
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
@@ -959,13 +1038,18 @@ TEST_F(AdSelectionTests, onAdEventTest_6)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, "adId1", _, _, _, _, _, _)).Times(1);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FAILED));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+	// Validate CDAI object values after ad failure
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
+	EXPECT_TRUE(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).invalid);
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where current source period is in adbreak,
- * but no ad opportunities are present. Its a bug case. State transition happens from IN_ADBREAK_WAIT2CATCHUP
- * to OUTSIDE_ADBREAK
+ * but no ad opportunities are present. Its a bug case.
+ * Validates IN_ADBREAK_WAIT2CATCHUP -> OUTSIDE_ADBREAK for AdEvent::PERIOD_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_7)
 {
@@ -1014,14 +1098,20 @@ TEST_F(AdSelectionTests, onAdEventTest_7)
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 	});
+	// Populate CDAI object with current ad details.
 	cdaiObj->mCurAdIdx = -1;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
-	mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT);
+	mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE);
 	EXPECT_EQ( cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	// Validate CDAI object values after state change
+	EXPECT_TRUE(cdaiObj->mCurPlayingBreakId.empty());
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
@@ -1029,6 +1119,7 @@ TEST_F(AdSelectionTests, onAdEventTest_7)
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where all ads in adbreak finished 
  * and waiting for adbreak to place with state IN_ADBREAK_WAIT2CATCHUP. Once adbreak is placed , state moves
  * to OUTSIDE_ADBREAK 
+ * Validates - IN_ADBREAK_WAIT2CATCHUP -> OUTSIDE_ADBREAK for AdEvent::PERIOD_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_8)
 {
@@ -1080,20 +1171,28 @@ TEST_F(AdSelectionTests, onAdEventTest_8)
 
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, adPeriodId, _, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	// Validate CDAI object values are unchanged.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 
 	// Adbreak is now placed
-	cdaiObj->mCurPlayingBreakId = adPeriodId;
 	cdaiObj->mAdBreaks[cdaiObj->mCurPlayingBreakId].mAdBreakPlaced = true;
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, adPeriodId, _, _, _, _)).Times(1);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	// Validate CDAI object values after state change
+	EXPECT_TRUE(cdaiObj->mCurPlayingBreakId.empty());
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
@@ -1101,6 +1200,7 @@ TEST_F(AdSelectionTests, onAdEventTest_8)
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period 
  * is in adbreak with multiple ads and state is IN_ADBREAK_WAIT2CATCHUP
  * and when ad is available and starts playing, state changes to IN_ADBREAK_AD_PLAYING
+ * Validates - IN_ADBREAK_WAIT2CATCHUP -> IN_ADBREAK_AD_PLAYING for AdEvent::PERIOD_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_9)
 {
@@ -1155,21 +1255,28 @@ TEST_F(AdSelectionTests, onAdEventTest_9)
 	});
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, "adId2", _, _, _, _, _, _)).Times(1);
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
-	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	// Validate CDAI object values after starting ad playback
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 1);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId2");
 }
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adbreak and first ad is not able to 
- * download with state IN_ADBREAK_AD_NOT_PLAYING and moving to next ad which is available and able to download and state 
- * changes to IN_ADBREAK_AD_PLAYING 
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adbreak with IN_ADBREAK_AD_NOT_PLAYING
+ * and moving to next adbreak which is having ads.
+ * changes to IN_ADBREAK_AD_PLAYING.
+ * Validates - IN_ADBREAK_AD_NOT_PLAYING -> IN_ADBREAK_AD_PLAYING for AdEvent::PERIOD_CHANGE.
+ * Note - AdEvent::BASE_OFFSET_CHANGE is only applicable in case of REW mode.
  */
 TEST_F(AdSelectionTests, onAdEventTest_10)
 {
@@ -1202,6 +1309,7 @@ TEST_F(AdSelectionTests, onAdEventTest_10)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
+	// CDAI object values are not initialized to confirm the details are updated properly during state transition.
 	std::string adPeriodId = "p1";
 	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
@@ -1226,14 +1334,19 @@ TEST_F(AdSelectionTests, onAdEventTest_10)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, "adId1", _, _, _, _, _, _)).Times(1);
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::BASE_OFFSET_CHANGE));
-	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	// Validate CDAI object values after starting ad playback.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where state transition happens from 
  * IN_ADBREAK_AD_NOT_PLAYING to OUTSIDE_ADBREAK since adbreak ended with ad not playing
+ * Validates - IN_ADBREAK_AD_NOT_PLAYING -> OUTSIDE_ADBREAK for AdEvent::PERIOD_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_11)
 {
@@ -1249,19 +1362,28 @@ TEST_F(AdSelectionTests, onAdEventTest_11)
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	// Populate CDAI object with current adbreak details.
 	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
+	cdaiObj->mCurAdIdx = -1;
+	cdaiObj->mCurPlayingBreakId = "p1";
 
 	std::string basePeriodId = "p2";//After adbreak p1, player moves to baseperiod p2 with period change event
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(basePeriodId);
 
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	// Validate CDAI object values after state change
+	EXPECT_TRUE(cdaiObj->mCurPlayingBreakId.empty());
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where ads are there,
- * but one ad is yet to be placed. So adbreak is not placed. State remains in IN_ADBREAK_WAIT2CATCHUP state. 
+ * but one ad is valid and the other invalid. The adbreak is also not placed. State remains in IN_ADBREAK_WAIT2CATCHUP state.
+ * Validates - IN_ADBREAK_WAIT2CATCHUP -> IN_ADBREAK_WAIT2CATCHUP for AdEvent::PERIOD_CHANGE.
+ * Mostly validates GetNextAdInBreak logic to not select invalid ads.
  */
 TEST_F(AdSelectionTests, onAdEventTest_12)
 {
@@ -1316,13 +1438,26 @@ TEST_F(AdSelectionTests, onAdEventTest_12)
 	});
 	cdaiObj->mCurAdIdx = 0;
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	// Validate CDAI object values after state change.
 	EXPECT_FALSE(cdaiObj->mAdBreaks[adPeriodId].mAdBreakPlaced);
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+
+	// Ad placed now
+	cdaiObj->mAdBreaks[adPeriodId].mAdBreakPlaced = true;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, adPeriodId, _, _, _, _)).Times(1);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	// Validate CDAI object values after state change
+	EXPECT_TRUE(cdaiObj->mCurPlayingBreakId.empty());
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
@@ -1332,6 +1467,7 @@ TEST_F(AdSelectionTests, onAdEventTest_12)
  * IN_ADBREAK_AD_NOT_PLAYING. After reaching the offset,ad is found and starts playing and changing state to IN_ADBREAK_AD_PLAYING.
  * Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP. 
  * All ads in adbreak finished and state moves to OUTSIDE_ADBREAK.
+ * Validates rewind with - OUTSIDE_ADBREAK -> IN_ADBREAK_AD_NOT_PLAYING -> IN_ADBREAK_AD_PLAYING -> IN_ADBREAK_WAIT2CATCHUP -> OUTSIDE_ADBREAK for AdEvent::PERIOD_CHANGE and BASE_OFFSET_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_13)
 {
@@ -1381,28 +1517,46 @@ TEST_F(AdSelectionTests, onAdEventTest_13)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+	// Validate CDAI object values after reaching adbreak without valid ad at offset.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(5);
 
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::BASE_OFFSET_CHANGE));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	// Validate CDAI object values after starting ad playback.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	// Validate CDAI object values after ad finished and waiting for catchup.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 
 	cdaiObj->mCurPlayingBreakId = adPeriodId;
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	// Validate CDAI object values after adbreak finished and moving to content period.
+	EXPECT_EQ(cdaiObj->mContentSeekOffset, 0);
+	EXPECT_TRUE(cdaiObj->mCurPlayingBreakId.empty());
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where p1 is the period where ad is present.At first
- * state is OUTSIDE_ADBREAK.  After rewind, position reaches to adbreak in Period p1 . In that adbreak, ad is valid 
+ * state is OUTSIDE_ADBREAK. After rewind, position reaches to adbreak in Period p1 . In that adbreak, ad is valid 
  * and it gets played and moving to state IN_ADBREAK_AD_PLAYING. Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP.
  * Since its an adbreak with one ad, and when ad finishes playing state moves to OUTSIDE_ADBREAK 
+ * Validates rewind with - OUTSIDE_ADBREAK -> IN_ADBREAK_AD_PLAYING -> IN_ADBREAK_WAIT2CATCHUP -> OUTSIDE_ADBREAK for AdEvent::PERIOD_CHANGE and BASE_OFFSET_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_14)
 {
@@ -1452,16 +1606,28 @@ TEST_F(AdSelectionTests, onAdEventTest_14)
 	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(30);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
-	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	// Validate CDAI object values after starting ad playback.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	// Validate CDAI object values after ad finished and waiting for catchup.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 
 	cdaiObj->mCurPlayingBreakId = adPeriodId;
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 	EXPECT_EQ(cdaiObj->mContentSeekOffset, 0); // Make sure content seek offset is set to adbreak offset
+	// Validate CDAI object values after adbreak finished and moving to content period.
+	EXPECT_TRUE(cdaiObj->mCurPlayingBreakId.empty());
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
@@ -1469,7 +1635,10 @@ TEST_F(AdSelectionTests, onAdEventTest_14)
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where p1 is the period where ad is present.At first
  * state is OUTSIDE_ADBREAK.  After forward, position reaches to adbreak in Period p1 . In that adbreak, ad is valid
  * and it gets played and moving to state IN_ADBREAK_AD_PLAYING. Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP.
- * Since its an adbreak with one ad, adbreak is placed and state moves to OUTSIDE_ADBREAK
+ * Since its an adbreak with one ad, adbreak is placed and state moves to OUTSIDE_ADBREAK.
+ * Here ad occupies only 5s in a 30s adbreak.
+ * Validates forward with - OUTSIDE_ADBREAK -> IN_ADBREAK_AD_PLAYING -> IN_ADBREAK_WAIT2CATCHUP -> OUTSIDE_ADBREAK
+ * for AdEvent::INIT, AdEvent::AD_FINISHED, AdEvent::PERIOD_CHANGE.
  */
 TEST_F(AdSelectionTests, onAdEventTest_15)
 {
@@ -1520,16 +1689,27 @@ TEST_F(AdSelectionTests, onAdEventTest_15)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::INIT));
-	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	// Validate CDAI object values after starting ad playback.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
-	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	// Validate CDAI object values after ad finished and waiting for catchup.
+	EXPECT_EQ(cdaiObj->mCurPlayingBreakId, adPeriodId);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(cdaiObj->mCurAdIdx).adId, "adId1");
 
-	cdaiObj->mCurPlayingBreakId = adPeriodId;
 	cdaiObj->mAdBreaks[cdaiObj->mCurPlayingBreakId].mAdBreakPlaced = true;
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 	EXPECT_EQ(cdaiObj->mContentSeekOffset, 5); // Make sure content seek offset is set to adbreak offset
+	// Validate CDAI object values after adbreak finished and moving to content period.
+	EXPECT_TRUE(cdaiObj->mCurPlayingBreakId.empty());
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1);
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
 }
 
 /**
@@ -1633,6 +1813,106 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 	EXPECT_EQ(currentPeriodId, "p2");
 	EXPECT_EQ(periodChanged, true);
+}
+
+/**
+ * @brief Verifies post-roll EOS short-circuit in SelectSourceOrAdPeriod.
+ *
+ * Scenario:
+ * 1. Move from source period to an ad period.
+ * 2. Simulate ad-finished transition (IN_ADBREAK_WAIT2CATCHUP -> OUTSIDE_ADBREAK).
+ * 3. Mark post-roll playback done and verify SelectSourceOrAdPeriod exits early
+ *    (ret=false, waitForAdBreakCatchup=false) so EOS path can run.
+ */
+TEST_F(AdSelectionTests, SelectSourceOrAdPeriod_PostRollPlaybackDoneTriggersEOSPath)
+{
+	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+			<S t="0" d="180000" r="14"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
+</MPD>
+)";
+	InitializeAdMPDObject(adManifest);
+
+	std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	// Seek to p1
+	AAMPStatusType status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 35);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
+	// Initialize iteratior index to current period index
+	mStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx());
+
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+	std::string periodId = "p2"; // adbreak in p2
+	std::string endPeriodId = "p2"; // post roll ad break, so end period is same as ad period
+	std::string adId = "ad1";
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+
+	cdaiObj->mAdBreaks = {
+		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000)}};
+	cdaiObj->mAdBreaks[periodId].ads->emplace_back(false, true, true, adId, adUrl, 30000, periodId, 0, mAdMPD);
+	cdaiObj->mAdBreaks[periodId].mAdBreakPlaced = true;
+	cdaiObj->mAdBreaks[periodId].mIsPostRollAdBreak = true;
+	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
+	{
+	  std::make_pair (0, AdOnPeriod(0, 0)),
+	});
+
+	bool periodChanged = false;
+	bool adStateChanged = false;
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	bool mpdChanged = false;
+	std::string currentPeriodId = "p1";
+	// Move iterator to ad period
+	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
+
+	bool ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_TRUE(ret);
+	EXPECT_FALSE(adStateChanged);
+	EXPECT_TRUE(periodChanged);
+	EXPECT_FALSE(waitForAdBreakCatchup);
+	EXPECT_TRUE(requireStreamSelection);
+	EXPECT_EQ(currentPeriodId, adId);
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+
+	periodChanged = false;
+	// Ad is finished now
+	adStateChanged = true;
+	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
+	waitForAdBreakCatchup = false;
+	requireStreamSelection = false;
+	mpdChanged = false;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, WaitForDiscontinuityProcessToComplete()).Times(0);
+
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_FALSE(ret);
+	EXPECT_TRUE(adStateChanged);
+	EXPECT_FALSE(waitForAdBreakCatchup);
+	EXPECT_FALSE(periodChanged);
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->GetPostRollAdPlaybackDone());
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 }
 
 /**

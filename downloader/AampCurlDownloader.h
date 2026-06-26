@@ -39,6 +39,7 @@
 #include <curl/curl.h>
 #include <chrono>
 #include <memory>
+#include "AampDefine.h"
 #include "AampCurlDefine.h"
 #include "AampMediaType.h"
 

@@ -254,6 +254,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest2)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -325,6 +326,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest4)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -357,6 +359,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest5)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
@@ -397,6 +400,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest6)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
@@ -436,6 +440,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest7)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -464,6 +469,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
@@ -495,6 +501,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest2)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -527,6 +534,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest3)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -564,6 +572,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest4)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -614,6 +623,7 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest3)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -646,6 +656,7 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest4)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -679,6 +690,7 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -721,6 +733,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 
 	// This test sets IsLocalAAMPTsb=true, so the mock is not deleted by the code-under-test.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor()).WillRepeatedly(Return());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).WillRepeatedly(Return());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
 		.Times(1);
@@ -776,6 +789,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	// This test sets IsLocalAAMPTsb=true, so the mock is not deleted by the code-under-test.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor()).Times(2).WillRepeatedly(Return());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2).WillRepeatedly(Return());
 	// SetCurrentTextTrackIndex is called in TSB scenarios
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
@@ -820,7 +834,7 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);
-	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1",eCLOSEDCAPTION_FORMAT_608)).Times(1).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1", eCLOSEDCAPTION_FORMAT_DEFAULT)).Times(1).WillRepeatedly(Return(0));
 	// SetCurrentTextTrackIndex is called for closed caption track changes
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetCurrentTextTrackIndex(_))
 		.Times(1);
@@ -857,6 +871,7 @@ TEST_F(SetPreferredTextLanguagesTests, Accessibility1)
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, getAccessibilityNode(_))
@@ -955,6 +970,7 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]), Return(true)));
 
 
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -992,4 +1008,39 @@ TEST_F(SetPreferredTextLanguagesTests, CrashWhenTeardownRacesWithSetPreferredTex
 
 
 	EXPECT_TRUE(teardownDone.load());
+}
+
+/**
+ * @brief Reproduce crash when PopulateAudioAndTextTracks races with
+ *        SetPreferredTextLanguages on separate threads.
+ */
+TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPreferredText)
+{
+
+	std::vector<TextTrackInfo> emptyTracks;
+
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "eng";
+	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("eng");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
+	mPrivateInstanceAAMP->mCurrentTextTrackIndex = 0;
+
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(emptyTracks));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+		.Times(::testing::AnyNumber());
+
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"eng\",\"\"],\"sub-type\":\"SUBTITLES\"}");
+
+	/* If we reach here, the bounds check prevented the crash */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "eng,");
 }

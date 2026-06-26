@@ -3750,6 +3750,9 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 
 		if (!isLive && rate > AAMP_RATE_PAUSE)
 		{
+			// Flush any queued CDAI ad events (e.g. post-roll placement/reservation end)
+			// before notifying the application that playback has ended.
+			DeliverAdEvents(true);
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
@@ -5020,7 +5023,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						AAMPLOG_ERR("QUIC connection failed (CURLE_HTTP3=%d) mediaType=%d url=%s", res, mediaType, remoteUrl.c_str());
 					}
 #endif
-					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
+					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) || res == CURLE_SEND_ERROR)
 					{
 
 						if(mpStreamAbstractionAAMP)
@@ -5084,7 +5087,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								break;
 							}
 						}
-						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
+						AAMPLOG_WARN("Download failed due to curl error %d or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", res, isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
 					}
 
 					/*
@@ -6066,6 +6069,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (NULL == mCdaiObject)
 			{
 				mCdaiObject = new CDAIObjectMPD(this); // special version for DASH
+				// Replay any RegisterVodAdBreak calls that arrived before mCdaiObject was created.
+				for (auto &brk : mPendingVodAdBreaks)
+				{
+					AAMPLOG_INFO("[AAMP] Replaying pending VOD ad break registration id=%s", brk.breakId.c_str());
+					mCdaiObject->RegisterVodAdBreak(brk.breakId, brk.insertionPointSec,
+					                               brk.breakDurationSec, brk.breakType);
+				}
+				mPendingVodAdBreaks.clear();
 			}
 		}
 		else
@@ -8623,6 +8634,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	}
 
 	SAFE_DELETE(mCdaiObject);
+	mPendingVodAdBreaks.clear();
 
 #if 0
 	/* Clear the session data*/
@@ -8908,15 +8920,6 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
 void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 {
 	PlayerCCManager::GetInstance()->Init((void *)decoderHandle);
-	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-	{
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg == 0)
-		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
-			PlayerCCManager::GetInstance()->SetTrack("CC1");
-		}
-	}
 }
 
 /**
@@ -9471,6 +9474,50 @@ void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservati
 	else
 	{
 		AAMPLOG_ERR("[AAMP] CDAIObject not set. Cannot cancel reservation for reservationId: %s ", cancelAtReservationId.c_str());
+	}
+}
+
+/**
+ * @brief Register a VOD ad-break insertion point
+ */
+void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                             double breakDurationSec, const std::string &breakType)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->RegisterVodAdBreak(breakId, insertionPointSec, breakDurationSec, breakType);
+	}
+	else
+	{
+		// mCdaiObject is created during TuneHelper; buffer the registration for replay at tune time.
+		AAMPLOG_INFO("[AAMP] CDAIObject not yet created; queuing VOD ad break id=%s for replay at tune", breakId.c_str());
+		mPendingVodAdBreaks.push_back({breakId, insertionPointSec, breakDurationSec, breakType});
+	}
+}
+
+/**
+ * @brief Cancel a registered VOD ad-break that has not yet started
+ */
+void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+	if (mCdaiObject)
+	{
+		mCdaiObject->CancelVodAdBreak(breakId);
+	}
+	else
+	{
+		// Remove from the pending queue if the break has not yet been forwarded to mCdaiObject.
+		auto it = std::remove_if(mPendingVodAdBreaks.begin(), mPendingVodAdBreaks.end(),
+			[&breakId](const PendingVodAdBreak &b) { return b.breakId == breakId; });
+		if (it != mPendingVodAdBreaks.end())
+		{
+			AAMPLOG_INFO("[AAMP] CancelVodAdBreak id=%s: removed from pending queue", breakId.c_str());
+			mPendingVodAdBreaks.erase(it, mPendingVodAdBreaks.end());
+		}
+		else
+		{
+			AAMPLOG_WARN("[AAMP] CDAIObject not set. Cannot cancel VOD ad break id=%s", breakId.c_str());
+		}
 	}
 }
 
@@ -10257,17 +10304,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 			std::string url("");
 			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
 		}
-		//Ignoring past SCTE events.
-		//mFogTSBEnabled check is added to ensure the change won't effect IPVOD
-		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mFogTSBEnabled:%d", mTuneCompleted, mFogTSBEnabled);
-		if (mTuneCompleted || !mFogTSBEnabled)
-		{
-			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
-		}
-		else
-		{
-			AAMPLOG_WARN("[CDAI] Discarding SCTE event for period:%s  since tune is not completed",adBreakId.c_str());
-		}
+
 	}
 }
 
@@ -11899,14 +11936,6 @@ void PrivateInstanceAAMP::SetClosedCaptionsFromTextTrack(TextTrackInfo &track)
 				format = eCLOSEDCAPTION_FORMAT_708;
 			}
 		}
-
-		// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg != -1)
-		{
-			format = (CCFormat)(overrideCfg & 1);
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
-		}
 		AAMPLOG_INFO("instreamId %s format %d", track.instreamId.c_str(), format);
 		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 	}
@@ -13232,7 +13261,9 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
 
-	if (currentTrackIndex >= 0)
+
+	//Added out of bound check to prevent crash in case of currentTrackIndex is more than available tracks.
+	if (currentTrackIndex >= 0 && (currentTrackIndex < static_cast<int>(trackInfo.size())))
 	{
 		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
 		char *currentPrefRendition = const_cast<char *>(trackInfo[currentTrackIndex].rendition.c_str());
@@ -13322,6 +13353,8 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	}
 	else
 	{
+			AAMPLOG_INFO("CheckPreferredTextLanguages: currentTrackIndex=%d , trackInfo.size()=%zu either no track is currently selected or currentTrackIndex is out of bounds, so we will check for closed caption track index if there is one",
+						 currentTrackIndex, trackInfo.size());
 		isSelectionChange = true;
 		// no track is currently selected but need to find closedCaptionTrackIdx if there is one
 	}

@@ -234,7 +234,6 @@ typedef enum
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
 	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
-	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
 	eAAMPConfig_MonitorMp4Integrity,			/**< Parse every downloaded video/audio segment with Mp4Demux; log each segment, write corrupt ones to harvestPath */
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
@@ -275,7 +274,6 @@ typedef enum
 	eAAMPConfig_MaxABRNWBufferRampUp,					/**< Maximum ABR Buffer for Rampup*/
 	eAAMPConfig_PrePlayBufferCount, 					/**< Count of segments to be downloaded until play state */
 	eAAMPConfig_PreCachePlaylistTime,					/**< Max time to complete PreCaching .In Minutes  */
-	eAAMPConfig_CEAPreferred,						/**< To force 608/708 track selection in CC manager */
 	eAAMPConfig_StallErrorCode,
 	eAAMPConfig_StallTimeoutMS,
 	eAAMPConfig_InitialBuffer,
@@ -323,6 +321,7 @@ typedef enum
 	eAAMPConfig_TsbLogLevel,					/** Override the TSB log level */
 	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
 	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
+	eAAMPConfig_VodAdBreakLookaheadSec,					/**< Seconds before a VOD insertion point at which vodAdBreakOpportunity event is fired */
 	eAAMPConfig_ShowDiagnosticsOverlay,		       /** configures the diagnostics overlay,accessed by UVE API getConfiguration()*/
 	eAAMPConfig_MonitorAVSyncThresholdPositive,				/**< (positive) milliseconds threshold for video ahead of audio to be considered as unacceptable avsync*/
 	eAAMPConfig_MonitorAVSyncThresholdNegative,				/**< (negative) milliseconds threshold for video behind audio to be considered as unacceptable avsync*/

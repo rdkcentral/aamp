@@ -167,7 +167,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
-	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false)
+	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT)
 {
 }
 

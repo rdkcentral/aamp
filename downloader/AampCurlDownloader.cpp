@@ -354,7 +354,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 								mDownloadResponse->iHttpRetValue >= 500 ))
 						{
 							AAMPLOG_WARN("Download failed due to Server error http-%d numDownloadAttempts %d numRetriesAllowed %d",mDownloadResponse->iHttpRetValue,numDownloadAttempts,numRetriesAllowed);
-							int retryDelayMs = (mDownloadResponse->iHttpRetValue == 502) ? mDnldCfg->iDownload502RetryWaitMs : mDnldCfg->iDownloadRetryWaitMs;
+							int retryDelayMs = mDnldCfg ? ((mDownloadResponse->iHttpRetValue == 502) ? mDnldCfg->iDownload502RetryWaitMs : mDnldCfg->iDownloadRetryWaitMs) : 0;
 							std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
 							loopAgain = true; //retry on manifest download failure
 							// In the unlikely event that we get http failure status and also a http body then the
@@ -368,8 +368,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
 					{ //Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) )
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR)
 						{
+							AAMPLOG_WARN("Download failed due to curl error %d numDownloadAttempts %d numRetriesAllowed %d", httpRetVal, numDownloadAttempts, numRetriesAllowed);
 							loopAgain = true;
 						}
 					}

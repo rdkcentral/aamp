@@ -216,9 +216,6 @@ preferredDrm			Preferred DRM for playback
 					4 - AdobeAccess
 					5 - Vanilla AES
 					6 - ClearKey
-ceaFormat			Preferred CEA option for CC. Default stream based . Override value 
-					0 - CEA 608
-					1 - CEA 708
 maxPlaylistCacheSize            Max Size of Cache to store the VOD Manifest/playlist . Size in KBytes. Default: 3072.
 initRampdownLimit		Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. Default: 0 (disabled).
 downloadBuffer                  Fragment cache length: Default 3 fragments
@@ -387,6 +384,8 @@ advert <params>
 		note: multiple sequential ads can be mapped to fill a single ad break by calling advert map multiple times with same adBreakId
 	advert clear (clear current advert map)
 	advert list	(display the advert list)
+	advert defer	(toggle deferred NotifyReservationComplete; when ON, the auto-notify on SCTE-35 ad-break start is suppressed)
+	advert rc <breakId>	(manually call NotifyReservationComplete for the given break ID)
 new <name>	create a new player instance with optional name
 select <val|name> move player val or name to foreground. With no option list all players
 detach		move current foreground player to background

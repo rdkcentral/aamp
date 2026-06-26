@@ -292,6 +292,15 @@ void PrivateInstanceAAMP::CancelReservation(const std::string& cancelAtReservati
 
 }
 
+void PrivateInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                             double breakDurationSec, const std::string &breakType)
+{
+}
+
+void PrivateInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+}
+
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
@@ -983,6 +992,10 @@ void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 
 void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
 {
+	if(g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SaveTimedMetadata(timeMilliseconds, szName, id, durationMS);
+	}
 }
 
 void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)

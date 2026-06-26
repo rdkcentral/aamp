@@ -97,19 +97,11 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool)
 
 bool AampDRMLicenseManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
-    if (g_mockAampLicenseManager)
-    {
-        return g_mockAampLicenseManager->queueContentProtection(std::move(drmHelper), std::move(periodId), adapIdx, type, isVssPeriod);
-    }
 	return false;
 }
 
 void AampDRMLicenseManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
 {
-    if (g_mockAampLicenseManager)
-    {
-        g_mockAampLicenseManager->queueProtectionEvent(std::move(drmHelper), std::move(periodId), adapIdx, type);
-    }
 }
 
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)

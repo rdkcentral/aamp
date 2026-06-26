@@ -292,6 +292,29 @@ void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservatio
 }
 
 /**
+ *  @brief Register a VOD ad-break insertion point.
+ */
+void PlayerInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                            double breakDurationSec, const std::string &breakType)
+{
+	if (aamp)
+	{
+		aamp->RegisterVodAdBreak(breakId, insertionPointSec, breakDurationSec, breakType);
+	}
+}
+
+/**
+ *  @brief Cancel a registered VOD ad-break that has not yet started.
+ */
+void PlayerInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+	if (aamp)
+	{
+		aamp->CancelVodAdBreak(breakId);
+	}
+}
+
+/**
  *   @brief API to reset configuration across tunes for single player instance
  */
 void PlayerInstanceAAMP::ResetConfiguration()
@@ -3040,16 +3063,6 @@ void PlayerInstanceAAMP::SetInitRampdownLimit(int limit)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_InitRampDownLimit,limit);
 }
-
-
-/**
- *  @brief Set the CEA format for force setting
- */
-void PlayerInstanceAAMP::SetCEAFormat(int format)
-{
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_CEAPreferred,format);
-}
-
 
 /**
  *   @brief To get the available bitrates for thumbnails.

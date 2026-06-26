@@ -382,7 +382,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
-	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "monitorMp4Integrity", eAAMPConfig_MonitorMp4Integrity, false},
 };
 
@@ -425,7 +424,6 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{AAMP_HIGH_BUFFER_BEFORE_RAMPUP,"maxABRBufferRampup",eAAMPConfig_MaxABRNWBufferRampUp,false},
 	{DEFAULT_PREBUFFER_COUNT,"preplayBuffercount",eAAMPConfig_PrePlayBufferCount,false},
 	{0,"preCachePlaylistTime",eAAMPConfig_PreCachePlaylistTime,false},
-	{-1, "ceaFormat",eAAMPConfig_CEAPreferred,false, eCONFIG_RANGE_CEA_PREFERRED},
 	{DEFAULT_STALL_ERROR_CODE,"stallErrorCode",eAAMPConfig_StallErrorCode,false},
 	{DEFAULT_STALL_DETECTION_TIMEOUT,"stallTimeout",eAAMPConfig_StallTimeoutMS,false},
 	{DEFAULT_MINIMUM_INIT_CACHE_SECONDS,"initialBuffer",eAAMPConfig_InitialBuffer,false},
@@ -473,6 +471,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{static_cast<int>(TSB::LogLevel::WARN),"tsbLog",eAAMPConfig_TsbLogLevel,false},
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
 	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
+	{DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC,"vodAdBreakLookaheadSec",eAAMPConfig_VodAdBreakLookaheadSec,true},
 	{eDIAG_OVERLAY_NONE,"showDiagnosticsOverlay",eAAMPConfig_ShowDiagnosticsOverlay,true, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY },
 	{DEFAULT_MONITOR_AVSYNC_POSITIVE_DELTA_MS, "monitorAVSyncThresholdPositive", eAAMPConfig_MonitorAVSyncThresholdPositive,true, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE },
 	{DEFAULT_MONITOR_AVSYNC_NEGATIVE_DELTA_MS,"monitorAVSyncThresholdNegative",eAAMPConfig_MonitorAVSyncThresholdNegative,true,eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE },
