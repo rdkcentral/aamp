@@ -1610,6 +1610,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	GstState pending;
 
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
+	int previousRate = interfacePlayerPriv->gstPrivateContext->rate;
 	interfacePlayerPriv->gstPrivateContext->rate = rate;
 	interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun = false;
 	interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].bufferUnderrun = false;
@@ -1654,7 +1655,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	
 	// If the pipeline was in trickplay (rate != 1) and we're now going to normal play,
 	// don't treat it as a user-paused seek even if `paused` is stale true
-	if (interfacePlayerPriv->gstPrivateContext->rate != GST_NORMAL_PLAY_RATE && rate == GST_NORMAL_PLAY_RATE)
+	if (previousRate != GST_NORMAL_PLAY_RATE && rate == GST_NORMAL_PLAY_RATE)
 	{
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 		interfacePlayerPriv->gstPrivateContext->paused = false;
