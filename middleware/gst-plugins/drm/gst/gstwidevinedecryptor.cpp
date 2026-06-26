@@ -90,6 +90,7 @@ static void gst_widevinedecryptor_class_init(GstwidevinedecryptorClass * klass)
 static void gst_widevinedecryptor_init(Gstwidevinedecryptor *widevinedecryptor)
 {
     DEBUG_FUNC();
+        GST_CDMI_DECRYPTOR(widevinedecryptor)->selectedProtection = WIDEVINE_PROTECTION_SYSTEM_ID;
 }
 
 static void gst_widevinedecryptor_finalize(GObject * object)

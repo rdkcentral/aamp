@@ -304,6 +304,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 
 	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GstCDMIDecryptor *cdmidecryptor = GST_CDMI_DECRYPTOR(trans);
+	g_return_val_if_fail(caps != NULL, NULL);
 	g_return_val_if_fail(direction != GST_PAD_UNKNOWN, NULL);
 	unsigned size = gst_caps_get_size(caps);
 	GstCaps* transformedCaps = gst_caps_new_empty();
@@ -313,6 +314,10 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 
 	if(!cdmidecryptor->selectedProtection)
 	{
+		if (size == 0)
+		{
+			GST_WARNING_OBJECT(trans, "No caps structures available while selecting protection system");
+		}
 		GstStructure *capstruct = gst_caps_get_structure(caps, 0);
 		const gchar* capsinfo = gst_structure_get_string(capstruct, "protection-system");
 		if(capsinfo != NULL)
@@ -340,6 +345,13 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 			GST_DEBUG_OBJECT(trans, "can't find protection-system field from caps: %" GST_PTR_FORMAT, caps);
 		}
 	}
+
+	GST_INFO_OBJECT(trans, "selectedProtection=%s size=%u direction=%s inputCaps=%" GST_PTR_FORMAT " filter=%" GST_PTR_FORMAT,
+			cdmidecryptor->selectedProtection ? cdmidecryptor->selectedProtection : "(null)",
+			size,
+			(direction == GST_PAD_SRC) ? "src" : "sink",
+			caps,
+			filter);
 
 	for (unsigned i = 0; i < size; ++i)
 	{
@@ -434,11 +446,16 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		}
 
 		gst_cdmicapsappendifnotduplicate(transformedCaps, out);
+		GST_INFO_OBJECT(trans, "caps[%u] transformed to %" GST_PTR_FORMAT, i, transformedCaps);
 
 		if (socInterface && socInterface->IsTransformCapsRequired())
 		{
 			if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
+			{
+				GST_INFO_OBJECT(trans, "Before OCDMGstTransformCaps transformedCaps=%" GST_PTR_FORMAT, transformedCaps);
 				OCDMGstTransformCaps(&transformedCaps);
+				GST_INFO_OBJECT(trans, "After OCDMGstTransformCaps transformedCaps=%" GST_PTR_FORMAT, transformedCaps);
+			}
 		}
 
 	}
@@ -448,10 +465,13 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		GstCaps* intersection;
 
 		GST_LOG_OBJECT(trans, "Using filter caps %" GST_PTR_FORMAT, filter);
+		GST_INFO_OBJECT(trans, "Before intersect transformedCaps=%" GST_PTR_FORMAT " filter=%" GST_PTR_FORMAT,
+				transformedCaps, filter);
 		intersection = gst_caps_intersect_full(transformedCaps, filter,
 				GST_CAPS_INTERSECT_FIRST);
 		gst_caps_unref(transformedCaps);
 		transformedCaps = intersection;
+		GST_INFO_OBJECT(trans, "After intersect transformedCaps=%" GST_PTR_FORMAT, transformedCaps);
 	}
 
 	GST_LOG_OBJECT(trans, "returning %" GST_PTR_FORMAT, transformedCaps);
@@ -1053,6 +1073,8 @@ static gboolean gst_cdmidecryptor_accept_caps(GstBaseTransform * trans,
 {
 	gboolean ret = TRUE;
 	GST_DEBUG_OBJECT (trans, "received accept caps with direction: %s caps: %" GST_PTR_FORMAT, (direction == GST_PAD_SRC) ? "src" : "sink", caps);
+	GST_INFO_OBJECT(trans, "accept_caps direction=%s caps=%" GST_PTR_FORMAT,
+			(direction == GST_PAD_SRC) ? "src" : "sink", caps);
 
 	GstCaps *allowedCaps = NULL;
 
@@ -1073,6 +1095,7 @@ static gboolean gst_cdmidecryptor_accept_caps(GstBaseTransform * trans,
 	else
 	{
 		GST_DEBUG_OBJECT(trans, "Allowed caps: %" GST_PTR_FORMAT, allowedCaps);
+		GST_INFO_OBJECT(trans, "accept_caps allowedCaps=%" GST_PTR_FORMAT, allowedCaps);
 		ret = gst_caps_is_subset(caps, allowedCaps);
 		gst_caps_unref(allowedCaps);
 	}
@@ -1096,6 +1119,7 @@ static gboolean gst_cdmidecryptor_accept_caps(GstBaseTransform * trans,
 			}
 		}
 	}
+	GST_INFO_OBJECT(trans, "accept_caps result=%d", ret);
 	GST_DEBUG_OBJECT(trans, "Return from accept_caps: %d", ret);
 	return ret;
 }
