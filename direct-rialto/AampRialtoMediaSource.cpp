@@ -464,8 +464,12 @@ bool AampRialtoMediaSource::injectOneSample(
 			{
 				const int64_t ptsMs = static_cast<int64_t>(sample.mPts * 1000.0);
 				int64_t expected = kFirstPtsNotSet;
-				m_firstPtsMs.compare_exchange_strong(
-					expected, ptsMs, std::memory_order_relaxed);
+				if (m_firstPtsMs.compare_exchange_strong(
+						expected, ptsMs, std::memory_order_relaxed))
+				{
+					AAMPLOG_INFO("firstPtsMs set to %" PRId64 " for sourceId=%d",
+						ptsMs, m_sourceId);
+				}
 			}
 			else
 			{
