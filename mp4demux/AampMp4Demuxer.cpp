@@ -88,27 +88,35 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 			auto samples = mMp4Demux->GetSamples();
 			if (!samples.empty())
 			{
-				for (auto&& sample : samples)
+				if (mIsTrickMode)
 				{
-					// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
-					if (mEnablePtsRestamp)
+					// Trickmode: the demuxer yields exactly one sample - the iframe.
+					auto& iframe = samples.front();
+					TrickmodePtsRestamp(iframe, duration, discontinuous);
+					mAamp->SendStreamTransfer(mMediaType, std::move(iframe));
+				}
+				else
+				{
+					for (auto& sample : samples)
 					{
-						double beforeDTS = sample.mDts;
-						sample.mPts += fragmentPTSoffset;
-						sample.mDts += fragmentPTSoffset;
-						// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
-						if (mEnablePtsRestampLogging)
+						if (mEnablePtsRestamp)
 						{
-							uint32_t timeScale = mMp4Demux->GetTimeScale();
-							AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
-							GetMediaTypeName(mMediaType),
-							timeScale,
-							beforeDTS * timeScale,
-							sample.mDts * timeScale,
-							sample.mDuration * timeScale);
+							const double beforeDTS = sample.mDts;
+							sample.mPts += fragmentPTSoffset;
+							sample.mDts += fragmentPTSoffset;
+							if (mEnablePtsRestampLogging)
+							{
+								const uint32_t timeScale = mMp4Demux->GetTimeScale();
+								AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
+									GetMediaTypeName(mMediaType),
+									timeScale,
+									beforeDTS * timeScale,
+									sample.mDts * timeScale,
+									sample.mDuration * timeScale);
+							}
 						}
+						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 					}
-					mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 				}
 			}
 			else
