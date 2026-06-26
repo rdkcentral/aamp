@@ -2463,6 +2463,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
 			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
 			bProcessEvent = false;
+			AAMPLOG_WARN("Don't send progress: pipeline running and position %fms has not changed", position);
 		}
 
 		/**mNewSeekInfo is:
