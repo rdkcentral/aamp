@@ -42,7 +42,8 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
 
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp), mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mAdFulfillObj(), mPlacementObj(), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK), currentAdPeriodClosed(false), mAdtoInsertInNextBreakVec(), mAdBrkVecMtx(),
-					mWaitForManifestUpdate(0), mVodAdBreaks(), mVodAdBreakIdToPos(), mNextVodBreakToCheck(std::numeric_limits<double>::max()), mVodResumeOffset(0.0)
+					mWaitForManifestUpdate(0), mVodAdBreaks(), mVodAdBreakOrder(), mNextVodBreakToCheck(std::numeric_limits<double>::max()), mVodResumeOffset(0.0), mVodManifestStitched(false),
+				mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
 {
 }
 

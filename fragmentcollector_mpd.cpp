@@ -4762,12 +4762,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	if (gotManifest)
 	{
 		// VOD CDAI: if ad breaks are registered and resolved, stitch the MPD before parsing.
+		// Skip if already stitched — prevents double-stitching on subsequent GetMPDFromManifest
+		// calls triggered by PlaceAdsForStaticManifest after ad resolution.
 		if (!mManifestDnldRespPtr->mIsLiveManifest &&
 			ISCONFIGSET(eAAMPConfig_EnableClientDai) &&
 			mCdaiObject)
 		{
 			PrivateCDAIObjectMPD *cdaiMpd = dynamic_cast<PrivateCDAIObjectMPD *>(mCdaiObject);
-			if (cdaiMpd)
+			if (cdaiMpd && !cdaiMpd->mVodManifestStitched)
 			{
 				std::string rawMpd = mManifestDnldRespPtr->mMPDDownloadResponse->getString();
 				std::string stitched = BuildStitchedVodManifest(
@@ -9986,7 +9988,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 	{
 		double vodSeekSec = 0.0;
 		{
-			std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+			std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 			vodSeekSec = mCdaiObject->mContentSeekOffset;
 			mCdaiObject->mContentSeekOffset = 0;
 		}
@@ -10323,7 +10325,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					bool outsideAdBreak = false;
 					if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
 					{
-						std::lock_guard<std::mutex> snapLock(mCdaiObject->mDaiMtx);
+						std::lock_guard<std::recursive_mutex> snapLock(mCdaiObject->mDaiMtx);
 						outsideAdBreak = (mCdaiObject->mAdState == AdState::OUTSIDE_ADBREAK);
 					}
 					PrivateCDAIObjectMPD *eosCheckCdai = dynamic_cast<PrivateCDAIObjectMPD *>(mCdaiObject);

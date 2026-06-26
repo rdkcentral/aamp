@@ -394,10 +394,18 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 {
 	std::vector<PeriodSlice> result;
 
+	// Extract mediaPresentationDuration from the <MPD ...> opening tag only,
+	// not from the entire document (avoids false matches in Period/AdaptationSet text).
 	std::string mpdDur;
 	{
-		std::string mpddStr = GetAttr(mpdText, "mediaPresentationDuration");
-		mpdDur = mpddStr;
+		size_t mpdTagStart = mpdText.find("<MPD");
+		size_t mpdTagEnd   = (mpdTagStart != std::string::npos)
+		                     ? mpdText.find('>', mpdTagStart) : std::string::npos;
+		if (mpdTagEnd != std::string::npos)
+		{
+			std::string mpdTag = mpdText.substr(mpdTagStart, mpdTagEnd - mpdTagStart + 1);
+			mpdDur = GetAttr(mpdTag, "mediaPresentationDuration");
+		}
 	}
 
 	size_t pos = 0;
@@ -425,6 +433,46 @@ static std::vector<PeriodSlice> ExtractPeriods(const std::string &mpdText)
 			durStr = mpdDur;
 
 		double dur = ParseIsoDuration(durStr);
+
+		// If duration is still unknown, derive it from the SegmentTimeline
+		// (handles ad MPDs that omit duration on both Period and MPD level).
+		if (dur <= 0.0)
+		{
+			const std::string TL_OPEN  = "<SegmentTimeline>";
+			const std::string TL_CLOSE = "</SegmentTimeline>";
+			size_t tlPos = body.find(TL_OPEN);
+			while (tlPos != std::string::npos)
+			{
+				size_t tlContent = tlPos + TL_OPEN.size();
+				size_t tlEnd = body.find(TL_CLOSE, tlContent);
+				if (tlEnd == std::string::npos) break;
+				std::string tlXml = body.substr(tlContent, tlEnd - tlContent);
+				std::vector<uint64_t> samples = UncompressTimeline(tlXml);
+
+				// Find the timescale for this SegmentTemplate
+				size_t tmplPos = body.rfind("<SegmentTemplate ", tlPos);
+				uint64_t timescale = 1;
+				if (tmplPos != std::string::npos)
+				{
+					size_t tmplEnd = body.find('>', tmplPos);
+					if (tmplEnd != std::string::npos)
+					{
+						std::string tmplTag = body.substr(tmplPos, tmplEnd - tmplPos + 1);
+						std::string tsStr = GetAttr(tmplTag, "timescale");
+						if (!tsStr.empty())
+							timescale = (uint64_t)std::stoull(tsStr);
+					}
+				}
+
+				if (samples.size() >= 2 && timescale > 0)
+				{
+					double tlDur = (double)(samples.back() - samples.front()) / (double)timescale;
+					if (tlDur > dur)
+						dur = tlDur;
+				}
+				tlPos = body.find(TL_OPEN, tlEnd + TL_CLOSE.size());
+			}
+		}
 
 		result.push_back({body, dur});
 		pos = bodyEnd + 9; // strlen("</Period>")
@@ -478,7 +526,7 @@ static std::vector<AdFetchResult> FetchAdMPDsSequential(
 	};
 	std::vector<BreakTodo> todo;
 	{
-		std::lock_guard<std::mutex> lock(cdaiObj->mDaiMtx);
+		std::lock_guard<std::recursive_mutex> lock(cdaiObj->mDaiMtx);
 		for (const std::string &bid : cdaiObj->mVodAdBreakOrder)
 		{
 			auto vodIt = cdaiObj->mVodAdBreaks.find(bid);
@@ -588,7 +636,7 @@ std::string BuildStitchedVodManifest(
 	// Check if there are any registered breaks with resolved ad URLs
 	bool hasBreaks = false;
 	{
-		std::lock_guard<std::mutex> lock(cdaiObj->mDaiMtx);
+		std::lock_guard<std::recursive_mutex> lock(cdaiObj->mDaiMtx);
 		for (const auto &kv : cdaiObj->mVodAdBreaks)
 		{
 			if (kv.second.cancelled) continue;

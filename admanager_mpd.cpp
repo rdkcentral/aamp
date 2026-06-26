@@ -2200,7 +2200,7 @@ bool PrivateCDAIObjectMPD::IsAdPlaying()
  */
 void PrivateCDAIObjectMPD::RegisterVodAdBreak(const VodAdBreakInfo &info)
 {
-	std::lock_guard<std::mutex> guard(mDaiMtx);
+	std::lock_guard<std::recursive_mutex> guard(mDaiMtx);
 	bool isNew = (mVodAdBreaks.find(info.breakId) == mVodAdBreaks.end());
 	mVodAdBreaks[info.breakId] = info;
 	if (isNew)
@@ -2221,7 +2221,7 @@ void PrivateCDAIObjectMPD::RegisterVodAdBreak(const VodAdBreakInfo &info)
  */
 void PrivateCDAIObjectMPD::CancelVodAdBreak(const std::string &breakId)
 {
-	std::lock_guard<std::mutex> guard(mDaiMtx);
+	std::lock_guard<std::recursive_mutex> guard(mDaiMtx);
 	auto it = mVodAdBreaks.find(breakId);
 	if (it != mVodAdBreaks.end())
 	{
@@ -2324,7 +2324,7 @@ bool PrivateCDAIObjectMPD::IsVodAdBreak(const std::string &breakId) const
  */
 bool PrivateCDAIObjectMPD::CheckVodAdBreakCrossing(double positionSec, const std::string &currentPeriodId)
 {
-	std::lock_guard<std::mutex> lock(mDaiMtx);
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 	for (auto &kv : mVodAdBreaks)
 	{
 		VodAdBreakInfo &info = kv.second;
@@ -2362,7 +2362,7 @@ bool PrivateCDAIObjectMPD::CheckVodAdBreakCrossing(double positionSec, const std
  */
 bool PrivateCDAIObjectMPD::HasPendingVodBreakAtPosition(double positionSec)
 {
-	std::lock_guard<std::mutex> guard(mDaiMtx);
+	std::lock_guard<std::recursive_mutex> guard(mDaiMtx);
 	for (const auto &kv : mVodAdBreaks)
 	{
 		const VodAdBreakInfo &info = kv.second;
@@ -2403,7 +2403,7 @@ void PrivateCDAIObjectMPD::MarkVodAdBreakCompleted(const std::string &breakId)
  */
 double PrivateCDAIObjectMPD::GetVirtualPosition(double sourcePositionSec)
 {
-	std::lock_guard<std::mutex> lock(mDaiMtx);
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
 	double virtualPos = sourcePositionSec;
 	for (const auto &kv : mVodAdBreaks)
 	{
