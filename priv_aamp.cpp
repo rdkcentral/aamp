@@ -11799,7 +11799,10 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				{
 					mIsInbandCC = true;
 					SetPreferredTextTrack(track);
-					SetCCStatusInternal();
+					{
+						std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+						SetCCStatusInternal();
+					}
 					SetClosedCaptionsFromTextTrack(track);
 				}
 				else
