@@ -4131,6 +4131,69 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 /**
+ * @brief Verifies static-manifest post-roll handling when endPeriodId is the last period.
+ *
+ * When adjustEndPeriodOffset is pending and the end period is the final period in a
+ * static MPD (no next period), PlaceAds should complete placement immediately and mark
+ * the adbreak as post-roll.
+ */
+TEST_F(AdManagerMPDTests, PlaceAdsTests_24_StaticManifestPostRollLastPeriod)
+{
+  static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT60S" minBufferTime="PT2S">
+  <Period id="testPeriodId0" start="PT0S">
+    <AdaptationSet id="0" contentType="video">
+      <Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <Period id="testPeriodId1" start="PT30S">
+    <AdaptationSet id="1" contentType="video">
+      <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+        <SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="75000" d="5000" r="14" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+  const std::string adBreakId = "testPeriodId1";
+  const std::string endPeriodId = "testPeriodId1";
+
+  ProcessSourceMPD(manifest);
+
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {adBreakId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}
+  };
+  mPrivateCDAIObjectMPD->mAdBreaks[adBreakId].ads->emplace_back(
+    false, false, true, "adId1", "url1", 30000, adBreakId, 0, nullptr);
+
+  mPrivateCDAIObjectMPD->mPeriodMap[adBreakId] = Period2AdData(false, adBreakId, 0 /*duration*/,
+    {std::make_pair(0, AdOnPeriod(0, 0))});
+
+  // Make PlaceAds enter the adbreak processing path.
+  mPrivateCDAIObjectMPD->mPlacementObj = PlacementObj(adBreakId, adBreakId, 0, 0, 0, 0, false);
+
+  mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
+
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[adBreakId].adjustEndPeriodOffset);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[adBreakId].mAdBreakPlaced);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[adBreakId].mIsPostRollAdBreak);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[adBreakId].endPeriodId, endPeriodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[adBreakId].endPeriodOffset, 30000u);
+}
+
+/**
  * @brief Test case for WaitForNextAdResolved with no AdFulfillObj
  */
 TEST_F(AdManagerMPDTests, WaitForNextAdResolved_NoAdFulfillObj)

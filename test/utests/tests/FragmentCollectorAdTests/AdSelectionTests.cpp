@@ -166,6 +166,11 @@ protected:
 		{
 			mBasePeriodOffset = baseperiodoffset;
 		}
+
+		bool GetPostRollAdPlaybackDone() const
+		{
+			return mPostRollAdPlaybackDone;
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -280,6 +285,43 @@ protected:
 										</Representation>
 								</AdaptationSet>
 						</Period>
+				</MPD>
+				)";
+	static constexpr const char *mCDVRManifest = R"(<?xml version="1.0" encoding="utf-8"?>
+				<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" mediaPresentationDuration="PT90S" type="static">
+					<Period id="p0" start="PT0S" duration="PT30S">
+						<AdaptationSet id="0" contentType="video">
+							<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+								<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+									<SegmentTimeline>
+										<S t="0" d="5000" r="14" />
+									</SegmentTimeline>
+								</SegmentTemplate>
+							</Representation>
+						</AdaptationSet>
+					</Period>
+					<Period id="p1" start="PT30S">
+						<AdaptationSet id="1" contentType="video">
+							<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+								<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+									<SegmentTimeline>
+										<S t="0" d="5000" r="14" />
+									</SegmentTimeline>
+								</SegmentTemplate>
+							</Representation>
+						</AdaptationSet>
+					</Period>
+					<Period id="p2" start="PT60S">
+						<AdaptationSet id="1" contentType="video">
+							<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+								<SegmentTemplate timescale="2500" initialization="video_p2_init.mp4" media="video_p2_$Number$.m4s" startNumber="1">
+									<SegmentTimeline>
+										<S t="0" d="5000" r="14" />
+									</SegmentTimeline>
+								</SegmentTemplate>
+							</Representation>
+						</AdaptationSet>
+					</Period>
 				</MPD>
 				)";
 
@@ -1636,6 +1678,106 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 	EXPECT_EQ(currentPeriodId, "p2");
 	EXPECT_EQ(periodChanged, true);
+}
+
+/**
+ * @brief Verifies post-roll EOS short-circuit in SelectSourceOrAdPeriod.
+ *
+ * Scenario:
+ * 1. Move from source period to an ad period.
+ * 2. Simulate ad-finished transition (IN_ADBREAK_WAIT2CATCHUP -> OUTSIDE_ADBREAK).
+ * 3. Mark post-roll playback done and verify SelectSourceOrAdPeriod exits early
+ *    (ret=false, waitForAdBreakCatchup=false) so EOS path can run.
+ */
+TEST_F(AdSelectionTests, SelectSourceOrAdPeriod_PostRollPlaybackDoneTriggersEOSPath)
+{
+	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+			<S t="0" d="180000" r="14"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
+</MPD>
+)";
+	InitializeAdMPDObject(adManifest);
+
+	std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	// Seek to p1
+	AAMPStatusType status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 35);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
+	// Initialize iteratior index to current period index
+	mStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx());
+
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+	std::string periodId = "p2"; // adbreak in p2
+	std::string endPeriodId = "p2"; // post roll ad break, so end period is same as ad period
+	std::string adId = "ad1";
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+
+	cdaiObj->mAdBreaks = {
+		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000)}};
+	cdaiObj->mAdBreaks[periodId].ads->emplace_back(false, true, true, adId, adUrl, 30000, periodId, 0, mAdMPD);
+	cdaiObj->mAdBreaks[periodId].mAdBreakPlaced = true;
+	cdaiObj->mAdBreaks[periodId].mIsPostRollAdBreak = true;
+	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
+	{
+	  std::make_pair (0, AdOnPeriod(0, 0)),
+	});
+
+	bool periodChanged = false;
+	bool adStateChanged = false;
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	bool mpdChanged = false;
+	std::string currentPeriodId = "p1";
+	// Move iterator to ad period
+	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
+
+	bool ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_TRUE(ret);
+	EXPECT_FALSE(adStateChanged);
+	EXPECT_TRUE(periodChanged);
+	EXPECT_FALSE(waitForAdBreakCatchup);
+	EXPECT_TRUE(requireStreamSelection);
+	EXPECT_EQ(currentPeriodId, adId);
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+
+	periodChanged = false;
+	// Ad is finished now
+	adStateChanged = true;
+	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
+	waitForAdBreakCatchup = false;
+	requireStreamSelection = false;
+	mpdChanged = false;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, WaitForDiscontinuityProcessToComplete()).Times(0);
+
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_FALSE(ret);
+	EXPECT_TRUE(adStateChanged);
+	EXPECT_FALSE(waitForAdBreakCatchup);
+	EXPECT_FALSE(periodChanged);
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->GetPostRollAdPlaybackDone());
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 }
 
 /**

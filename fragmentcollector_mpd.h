@@ -1212,6 +1212,7 @@ protected:
 	double mCulledSeconds;      // Culled absolute position
 	double mPrevFirstPeriodStart;
 	bool mAdPlayingFromCDN;   /*Note: TRUE: Ad playing currently & from CDN. FALSE: Ad "maybe playing", but not from CDN.*/
+	bool mPostRollAdPlaybackDone; /**< Set in onAdEvent when the post-roll ad playback has fully completed; triggers EOS path in SelectSourceOrAdPeriod */
 	double mAvailabilityStartTime;
 	std::map<std::string, int> mDrmPrefs;
 	int mMaxTracks; /* Max number of tracks for this session */

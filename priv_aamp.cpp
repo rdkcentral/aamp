@@ -3342,6 +3342,9 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 
 		if (!isLive && rate > AAMP_RATE_PAUSE)
 		{
+			// Flush any queued CDAI ad events (e.g. post-roll placement/reservation end)
+			// before notifying the application that playback has ended.
+			DeliverAdEvents(true);
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 			if (ContentType_EAS == mContentType)
