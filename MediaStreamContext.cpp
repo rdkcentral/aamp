@@ -1067,18 +1067,11 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{
-			dlInfo->fragmentOffset = 0;
-			dlInfo->fragmentOffset++; // first byte following packed index
-			unsigned int firstOffset = 0;
-			if (ParseSegmentIndexBox(IDX.data(),
-									 IDX.size(),
-									 0,
-									 NULL,
-									 NULL,
-									 &firstOffset))
-			{
-				dlInfo->fragmentOffset += firstOffset;
-			}
+			// mIdxBaseOffset is the byte position of segment 0 in the file for the
+			// current IDX profile, captured when IDX was loaded in the FetcherLoop.
+			// Using it here avoids the previous bug of starting from offset 1,
+			// which landed inside the moov+SIDX prefix and fetched wrong byte ranges.
+			dlInfo->fragmentOffset = mIdxBaseOffset;
 			unsigned int referenced_size = 0;
 			float fragmentDuration = 0.0f;
 			AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
