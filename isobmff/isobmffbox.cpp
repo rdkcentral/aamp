@@ -148,7 +148,7 @@ const char *Box::getType() const
  * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
  * @return newly constructed Box object
  */
-std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int newTrackId)
+std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize, int newTrackId, const IsoBmff::Logger& logger)
 {
 	L_RESTART:
 	uint8_t *hdr_start = hdr;
@@ -174,12 +174,12 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	};
 	if(maxSz < BOX_TYPE_LENGTH)
 	{
-		AAMPLOG_TRACE("Box data < %zu bytes. Can't determine Size & Type", BOX_TYPE_LENGTH);
+		ISOBMFF_LOG_TRACE(logger, "Box data < %zu bytes. Can't determine Size & Type", BOX_TYPE_LENGTH);
 		return std::make_unique<Box>(maxSz, (const char *)"UKWN");
 	}
 	else if(maxSz >= BOX_TYPE_LENGTH && maxSz < (BOX_TYPE_LENGTH + sizeof(uint32_t)))
 	{
-		AAMPLOG_TRACE("Box Size between >%zu but <%zu bytes. Can't determine Type", BOX_TYPE_LENGTH, (BOX_TYPE_LENGTH + sizeof(uint32_t)));
+		ISOBMFF_LOG_TRACE(logger, "Box Size between >%zu but <%zu bytes. Can't determine Type", BOX_TYPE_LENGTH, (BOX_TYPE_LENGTH + sizeof(uint32_t)));
 		//size = READ_U32(hdr);
 		return std::make_unique<Box>(maxSz, (const char *)"UKWN");
 	}
@@ -193,7 +193,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	if (size < minHeaderSize)
 	{
 		ensureSafeType();
-		AAMPLOG_WARN("Box[%s] has invalid small size[%u]", safeType, size);
+		ISOBMFF_LOG_WARN(logger, "Box[%s] has invalid small size[%u]", safeType, size);
 		return std::make_unique<Box>(size, safeType);
 	}
 
@@ -203,7 +203,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		{
 			ensureSafeType();
 			//Fix box size to handle cases like receiving whole file for HTTP range requests
-			AAMPLOG_WARN("Box[%s] fixing size error:size[%u] > maxSz[%u]", safeType, size, maxSz);
+			ISOBMFF_LOG_WARN(logger, "Box[%s] fixing size error:size[%u] > maxSz[%u]", safeType, size, maxSz);
 			hdr = hdr_start;
 			WRITE_U32(hdr,maxSz);
 			goto L_RESTART;
@@ -212,7 +212,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 		{
 			ensureSafeType();
 		#ifdef AAMP_DEBUG_BOX_CONSTRUCT
-			AAMPLOG_WARN("Box[%s] Size error:size[%u] > maxSz[%u]",
+			ISOBMFF_LOG_WARN(logger, "Box[%s] Size error:size[%u] > maxSz[%u]",
 				safeType, size, maxSz);
 		#endif
 			return std::make_unique<Box>(size, safeType);
@@ -222,30 +222,30 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	{
 		return std::unique_ptr<Box>(
 			GenericContainerBox::constructContainer(size, MOOV, hdr,
-			newTrackId));
+			newTrackId, logger));
 	}
 	else if (IS_TYPE(type, TRAK))
 	{
 		return std::unique_ptr<Box>(
-			TrakBox::constructTrakBox(size,hdr, newTrackId));
+			TrakBox::constructTrakBox(size,hdr, newTrackId, logger));
 	}
 	else if (IS_TYPE(type, MDIA))
 	{
 		return std::unique_ptr<Box>(
 			GenericContainerBox::constructContainer(size, MDIA, hdr,
-			newTrackId));
+			newTrackId, logger));
 	}
 	else if (IS_TYPE(type, MOOF))
 	{
 		return std::unique_ptr<Box>(
 			GenericContainerBox::constructContainer(size, MOOF, hdr,
-			newTrackId));
+			newTrackId, logger));
 	}
 	else if (IS_TYPE(type, TRAF))
 	{
 		return std::unique_ptr<Box>(
 			GenericContainerBox::constructContainer(size, TRAF, hdr,
-			newTrackId));
+			newTrackId, logger));
 	}
 	else if (IS_TYPE(type, TFHD))
 	{
@@ -269,7 +269,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	}
 	else if (IS_TYPE(type, EMSG))
 	{
-		return std::unique_ptr<Box>(EmsgBox::constructEmsgBox(size, hdr));
+		return std::unique_ptr<Box>(EmsgBox::constructEmsgBox(size, hdr, logger));
 	}
 	else if (IS_TYPE(type, PRFT))
 	{
@@ -356,7 +356,7 @@ const std::vector<std::unique_ptr<Box>> *GenericContainerBox::getChildren() cons
  * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
  * @return newly constructed GenericContainerBox object
  */
-GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const char btype[4], uint8_t *ptr,   int newTrackId)
+GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const char btype[4], uint8_t *ptr, int newTrackId, const IsoBmff::Logger& logger)
 {
 	GenericContainerBox *cbox = new GenericContainerBox(sz, btype);
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
@@ -366,17 +366,17 @@ GenericContainerBox* GenericContainerBox::constructContainer(uint32_t sz, const 
 		const uint32_t remaining = sz - curOffset;
 		if (remaining < minHeaderSize)
 		{
-			AAMPLOG_WARN("Container[%.4s] trailing bytes[%u] smaller than box header",
+			ISOBMFF_LOG_WARN(logger, "Container[%.4s] trailing bytes[%u] smaller than box header",
 				btype, remaining);
 			break;
 		}
 
-		auto box = Box::constructBox(ptr, remaining, false, newTrackId);
+		auto box = Box::constructBox(ptr, remaining, false, newTrackId, logger);
 		box->setOffset(curOffset);
 		const uint32_t boxSize = box->getSize();
 		if (boxSize < minHeaderSize || boxSize > remaining)
 		{
-			AAMPLOG_WARN("Invalid nested box size[%u] for type[%s], remaining[%u]",
+			ISOBMFF_LOG_WARN(logger, "Invalid nested box size[%u] for type[%s], remaining[%u]",
 				boxSize, box->getType(), remaining);
 			break;
 		}
@@ -815,12 +815,12 @@ uint32_t EmsgBox::getMessageLen()
 /**
  *  @brief Static function to construct a EmsgBox object
  */
-EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
+EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr, const IsoBmff::Logger& logger)
 {
 	const uint32_t fullBoxAndHeaderSize = sizeof(uint32_t) + sizeof(uint64_t);
 	if (sz < fullBoxAndHeaderSize)
 	{
-		AAMPLOG_WARN("Invalid emsg size[%u]", sz);
+		ISOBMFF_LOG_WARN(logger, "Invalid emsg size[%u]", sz);
 		FullBox invalidFbox(sz, Box::EMSG, 0, 0);
 		return new EmsgBox(invalidFbox, 0, 0, 0, 0, 0);
 	}
@@ -846,7 +846,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 	{
 		if (remainingSize < needed)
 		{
-			AAMPLOG_WARN("Malformed emsg: insufficient bytes for %s", field);
+			ISOBMFF_LOG_WARN(logger, "Malformed emsg: insufficient bytes for %s", field);
 			return false;
 		}
 		return true;
@@ -884,7 +884,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 		}
 		else
 		{
-			AAMPLOG_WARN("Malformed emsg v1: invalid schemeIdUri field");
+			ISOBMFF_LOG_WARN(logger, "Malformed emsg v1: invalid schemeIdUri field");
 		}
 	}
 	else if(0 == version)
@@ -905,13 +905,13 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 			}
 			else
 			{
-				AAMPLOG_WARN("Malformed emsg v0: invalid value field terminator");
+				ISOBMFF_LOG_WARN(logger, "Malformed emsg v0: invalid value field terminator");
 				malformedValueField = true;
 			}
 		}
 		else
 		{
-			AAMPLOG_WARN("Malformed emsg v0: invalid schemeIdUri field");
+			ISOBMFF_LOG_WARN(logger, "Malformed emsg v0: invalid schemeIdUri field");
 			malformedValueField = true;
 		}
 
@@ -948,7 +948,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 	}
 	else
 	{
-		AAMPLOG_WARN("Unsupported emsg box version");
+		ISOBMFF_LOG_WARN(logger, "Unsupported emsg box version");
 		return new EmsgBox(fbox, 0, 0, 0, 0, 0);
 	}
 
@@ -1165,7 +1165,7 @@ void TrunBox::truncate(void)
 		}
 		else
 		{
-			AAMPLOG_INFO("No room for a skip box");
+			// No room for a skip box
 		}
 	}
 	// Else no need to truncate
@@ -1374,7 +1374,7 @@ PrftBox* PrftBox::constructPrftBox(uint32_t sz, uint8_t *ptr)
  * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
  * @return newly constructed trak object
  */
-TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
+TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId, const IsoBmff::Logger& logger)
 {
 	TrakBox *cbox = new TrakBox(sz);
 	uint32_t curOffset = sizeof(uint32_t) + sizeof(uint32_t); //Sizes of size & type fields
@@ -1384,12 +1384,12 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 		const uint32_t remaining = sz - curOffset;
 		if (remaining < minHeaderSize)
 		{
-			AAMPLOG_WARN("Trak trailing bytes[%u] smaller than box header",
+			ISOBMFF_LOG_WARN(logger, "Trak trailing bytes[%u] smaller than box header",
 				remaining);
 			break;
 		}
 
-		auto box = Box::constructBox(ptr, remaining);
+		auto box = Box::constructBox(ptr, remaining, false, -1, logger);
 		box->setOffset(curOffset);
 
 		if (IS_TYPE(box->getType(),TKHD))
@@ -1417,7 +1417,7 @@ TrakBox* TrakBox::constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 		const uint32_t boxSize = box->getSize();
 		if (boxSize < minHeaderSize || boxSize > remaining)
 		{
-			AAMPLOG_WARN("Invalid trak child size[%u] for type[%s], remaining[%u]",
+			ISOBMFF_LOG_WARN(logger, "Invalid trak child size[%u] for type[%s], remaining[%u]",
 				boxSize, box->getType(), remaining);
 			break;
 		}
@@ -1585,7 +1585,7 @@ void SencBox::truncate(uint32_t firstSampleSize)
 			}
 			else
 			{
-				AAMPLOG_INFO("No room for a skip box");
+				// No room for a skip box
 			}
 		}
 
@@ -1667,8 +1667,7 @@ void SaizBox::truncate(void)
 	}
 	else
 	{
-		AAMPLOG_INFO("No room for a skip box");
-		// Not truncating the table, just setting the sample count to 1
+		// No room for a skip box; not truncating the table, just setting the sample count to 1
 	}
 
 	numSamples = 1;

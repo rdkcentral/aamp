@@ -498,7 +498,7 @@ double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *
 		AAMPLOG_WARN("Invalid media type %d", mediaType);
 		break;
 	}
-	IsoBmffBuffer isobuf;
+	IsoBmffBuffer isobuf(AampLogManager::MakeIsoBmffLogger());
 	isobuf.setBuffer((uint8_t *)ptr, len);
 	bool bParse = false;
 	try
@@ -707,7 +707,7 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, std::vector<uint8_t> &b
 	chunkBoundaryOffset = 0;
 	chunkDurationInTicks = 0;
 
-	IsoBmffBuffer isobmffBuffer;
+	IsoBmffBuffer isobmffBuffer(AampLogManager::MakeIsoBmffLogger());
 	isobmffBuffer.setBuffer(buffer.data() + bufferOffset, buffer.size() - bufferOffset);
 
 	try
@@ -5430,7 +5430,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					buffer.resize(len);
 				}
 				// hack - repair wrong size in box
-				IsoBmffBuffer repair;
+				IsoBmffBuffer repair(AampLogManager::MakeIsoBmffLogger());
 				repair.setBuffer(buffer);
 				repair.parseBuffer(true);  //correctBoxSize=true
 				AAMPLOG_INFO("Stripping the fragment for range request completed");
@@ -13784,7 +13784,7 @@ void PrivateInstanceAAMP::ProcessID3Metadata(const std::vector<uint8_t>& segment
 	const auto early_processing = mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
 	if (!early_processing && mEventManager->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
 	{
-		IsoBmffBuffer buffer;
+		IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 		buffer.setBuffer(segment);
 		buffer.parseBuffer();
 		if(!buffer.isInitSegment())

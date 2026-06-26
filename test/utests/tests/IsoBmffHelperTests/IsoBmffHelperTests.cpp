@@ -22,24 +22,37 @@
 #include <string_view>
 
 #include "MockIsoBmffBuffer.h"
-#include "AampLogManager.h"
+#include "isobmff/IsoBmffLog.h"
 #include "isobmff/isobmffhelper.h"
 
 using ::testing::_;
 using ::testing::Return;
 using namespace std::literals;
 
+static std::vector<std::pair<IsoBmff::LogLevel, std::string>> gCapturedLogs;
 
+static IsoBmff::Logger MakeTestLogger()
+{
+	return {
+		[](IsoBmff::LogLevel level, std::string&& msg) {
+			gCapturedLogs.emplace_back(level, std::move(msg));
+		},
+		IsoBmff::LogLevel::TRACE
+	};
+}
 
 class IsoBmffHelperTests : public ::testing::Test
 {
 	protected:
+		IsoBmff::Logger mLogger;
 		std::shared_ptr<IsoBmffHelper> helper;
 
 		void SetUp() override
 		{
+			gCapturedLogs.clear();
+			mLogger = MakeTestLogger();
 			g_mockIsoBmffBuffer = std::make_shared<MockIsoBmffBuffer>();
-			helper = std::make_shared<IsoBmffHelper>();
+			helper = std::make_shared<IsoBmffHelper>(mLogger);
 		}
 
 		void TearDown() override

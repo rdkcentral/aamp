@@ -46,6 +46,7 @@ private:
 	Box* chunkedBox; //will hold one element only
 	size_t mdatCount;
 	bool readOnlyBuffer;
+	IsoBmff::Logger mLogger;
 
 	/**
 	 * @fn getFirstPTSInternal
@@ -152,9 +153,21 @@ private:
 
 public:
 	/**
-	 * @brief IsoBmffBuffer constructor
+	 * @brief IsoBmffBuffer default constructor (null logger — no logging)
 	 */
-	IsoBmffBuffer(): boxes(), buffer(nullptr), bufSize(0), chunkedBox(nullptr), mdatCount(0), readOnlyBuffer(false), beforePTS(0), afterPTS(0), firstPtsSaved(false)
+	IsoBmffBuffer(): boxes(), buffer(nullptr), bufSize(0), chunkedBox(nullptr), mdatCount(0), readOnlyBuffer(false), beforePTS(0), afterPTS(0), firstPtsSaved(false), mLogger{}
+	{
+	}
+
+	/**
+	 * @brief IsoBmffBuffer constructor with injected logger
+	 *
+	 * @param[in] logger - Logger to use for diagnostic output
+	 */
+	explicit IsoBmffBuffer(IsoBmff::Logger logger)
+		: boxes(), buffer(nullptr), bufSize(0), chunkedBox(nullptr),
+		  mdatCount(0), readOnlyBuffer(false), beforePTS(0), afterPTS(0),
+		  firstPtsSaved(false), mLogger(std::move(logger))
 	{
 	}
 

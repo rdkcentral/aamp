@@ -86,7 +86,7 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, u
 	{
 		return false;
 	}
-	AAMPLOG_TRACE("[%s] MDAT count found: %zu",  name, mdatCount );
+	ISOBMFF_LOG_TRACE(mLogger, "[%s] MDAT count found: %zu",  name, mdatCount );
 	parsedBoxCount = getParsedBoxesSize();
 	uint32_t boxOffset = 0;
 	std::string boxTypeStr = "";
@@ -94,8 +94,8 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, u
 	if(getChunkedfBoxMetaData(boxOffset, boxTypeStr, boxSize))
 	{
 		parsedBoxCount--;
-		AAMPLOG_TRACE("[%s] MDAT Chunk Found - Actual Parsed Box Count: %zu", name,parsedBoxCount);
-		AAMPLOG_TRACE("[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]", name, boxOffset, boxTypeStr.c_str(), boxSize);
+		ISOBMFF_LOG_TRACE(mLogger, "[%s] MDAT Chunk Found - Actual Parsed Box Count: %zu", name,parsedBoxCount);
+		ISOBMFF_LOG_TRACE(mLogger, "[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]", name, boxOffset, boxTypeStr.c_str(), boxSize);
 	}
 	if(mdatCount)
 	{
@@ -108,7 +108,7 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, u
 		bool bParse = getFirstPTS(fPts);
 		if (bParse)
 		{
-			AAMPLOG_TRACE("[%s] fPts %" PRIu64,name, fPts);
+			ISOBMFF_LOG_TRACE(mLogger, "[%s] fPts %" PRIu64,name, fPts);
 		}
 		fpts = (double) fPts/(timeScale*1.0);
 		fduration = (double) totalChunkDuration/(timeScale*1.0);
@@ -128,7 +128,7 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 		(correctBoxSize && !readOnlyBuffer);
 	if (correctBoxSize && readOnlyBuffer)
 	{
-		AAMPLOG_WARN("Read-only buffer: disabling correctBoxSize to avoid mutation");
+		ISOBMFF_LOG_WARN(mLogger, "Read-only buffer: disabling correctBoxSize to avoid mutation");
 	}
 	size_t curOffset = 0;
 	while (curOffset < bufSize)
@@ -136,17 +136,17 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 		const size_t remaining = bufSize - curOffset;
 		if (remaining < minHeaderSize)
 		{
-			AAMPLOG_WARN("Trailing bytes[%zu] smaller than box header at offset %zu",
+			ISOBMFF_LOG_WARN(mLogger, "Trailing bytes[%zu] smaller than box header at offset %zu",
 				remaining, curOffset);
 			break;
 		}
 
 		auto box = Box::constructBox(const_cast<uint8_t *>(buffer + curOffset),
-			(uint32_t)remaining, effectiveCorrectBoxSize, newTrackId);
+			(uint32_t)remaining, effectiveCorrectBoxSize, newTrackId, mLogger);
 		const uint32_t boxSize = box->getSize();
 		if (boxSize > remaining)
 		{
-			AAMPLOG_WARN("Declared box size[%u] exceeds remaining[%zu] at offset %zu; marking as chunked",
+			ISOBMFF_LOG_WARN(mLogger, "Declared box size[%u] exceeds remaining[%zu] at offset %zu; marking as chunked",
 				boxSize, remaining, curOffset);
 			box->setOffset((uint32_t)curOffset);
 			chunkedBox = box.get();
@@ -155,7 +155,7 @@ bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 		}
 		if (boxSize < minHeaderSize)
 		{
-			AAMPLOG_WARN("Invalid box size[%u] at offset %zu (remaining %zu); stopping parse",
+			ISOBMFF_LOG_WARN(mLogger, "Invalid box size[%u] at offset %zu (remaining %zu); stopping parse",
 				boxSize, curOffset, remaining);
 			break;
 		}
@@ -190,12 +190,12 @@ bool IsoBmffBuffer::parseBoxInternal(const std::vector<std::unique_ptr<Box>> *bo
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
 		Box *box = boxes->at(i).get();
-		AAMPLOG_TRACE("Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
+		ISOBMFF_LOG_TRACE(mLogger, "Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
 		if (IS_TYPE(box->getType(), name))
 		{
 			if (box->getSize() < BOX_HEADER_SIZE)
 			{
-				AAMPLOG_WARN("Invalid %s box size[%u] smaller than header",
+				ISOBMFF_LOG_WARN(mLogger, "Invalid %s box size[%u] smaller than header",
 					name, box->getSize());
 				return false;
 			}
@@ -203,7 +203,7 @@ bool IsoBmffBuffer::parseBoxInternal(const std::vector<std::unique_ptr<Box>> *bo
 			size = box->getSize() - BOX_HEADER_SIZE;
 			if (offset > bufSize || size > (bufSize - offset))
 			{
-				AAMPLOG_WARN("Invalid %s box bounds (offset %zu size %zu bufSize %zu)",
+				ISOBMFF_LOG_WARN(mLogger, "Invalid %s box bounds (offset %zu size %zu bufSize %zu)",
 					name, offset, size, bufSize);
 				return false;
 			}
@@ -247,7 +247,7 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 {
 	if (readOnlyBuffer)
 	{
-		AAMPLOG_WARN("restampPTS called with read-only buffer");
+		ISOBMFF_LOG_WARN(mLogger, "restampPTS called with read-only buffer");
 		return;
 	}
 
@@ -258,7 +258,7 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 		const uint32_t remaining = bufSz - curOffset;
 		if (remaining < minHeaderSize)
 		{
-			AAMPLOG_WARN("Trailing bytes[%u] smaller than box header while restamping",
+			ISOBMFF_LOG_WARN(mLogger, "Trailing bytes[%u] smaller than box header while restamping",
 				remaining);
 			break;
 		}
@@ -267,7 +267,7 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 		uint32_t size = READ_U32(buf);
 		if (size < minHeaderSize || size > remaining)
 		{
-			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %u)",
+			ISOBMFF_LOG_WARN(mLogger, "Invalid box size[%u] while restamping PTS (remaining %u)",
 				size, remaining);
 			break;
 		}
@@ -314,7 +314,7 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 		const size_t remaining = bufSz - curOffset;
 		if (remaining < minHeaderSize)
 		{
-			AAMPLOG_WARN("Trailing bytes[%zu] smaller than box header while restamping",
+			ISOBMFF_LOG_WARN(mLogger, "Trailing bytes[%zu] smaller than box header while restamping",
 				remaining);
 			break;
 		}
@@ -323,7 +323,7 @@ void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t 
 		uint32_t size = READ_U32(buf);
 		if (size < minHeaderSize || size > remaining)
 		{
-			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %zu)",
+			ISOBMFF_LOG_WARN(mLogger, "Invalid box size[%u] while restamping PTS (remaining %zu)",
 				size, remaining);
 			break;
 		}
@@ -385,7 +385,7 @@ void IsoBmffBuffer::restampPts(int64_t offset)
 {
 	if (readOnlyBuffer)
 	{
-		AAMPLOG_WARN("restampPts called with read-only buffer");
+		ISOBMFF_LOG_WARN(mLogger, "restampPts called with read-only buffer");
 		return;
 	}
 
@@ -396,7 +396,7 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 {
 	if (readOnlyBuffer)
 	{
-		AAMPLOG_WARN("setPtsAndDuration called with read-only buffer");
+		ISOBMFF_LOG_WARN(mLogger, "setPtsAndDuration called with read-only buffer");
 		return;
 	}
 
@@ -416,7 +416,7 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 			}
 			else
 			{
-				AAMPLOG_WARN("tfdt box unexpectedly missing");
+				ISOBMFF_LOG_WARN(mLogger, "tfdt box unexpectedly missing");
 			}
 
 			auto trun{dynamic_cast<TrunBox *>(findBoxInVector(Box::TRUN, traf->getChildren()))};
@@ -427,22 +427,22 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 			{
 				if (!updateSampleDurationInternal(duration, *trun, *tfhd))
 				{
-					AAMPLOG_WARN("Sample duration not set");
+					ISOBMFF_LOG_WARN(mLogger, "Sample duration not set");
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("trun (%p) or tfhd (%p) box unexpectedly missing", trun, tfhd);
+				ISOBMFF_LOG_WARN(mLogger, "trun (%p) or tfhd (%p) box unexpectedly missing", trun, tfhd);
 			}
 		}
 		else
 		{
-			AAMPLOG_WARN("traf box unexpectedly missing");
+			ISOBMFF_LOG_WARN(mLogger, "traf box unexpectedly missing");
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("moof box unexpectedly missing");
+		ISOBMFF_LOG_WARN(mLogger, "moof box unexpectedly missing");
 	}
 }
 
@@ -593,26 +593,26 @@ void IsoBmffBuffer::printBoxesInternal(
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
 		Box *box = boxes->at(i).get();
-		AAMPLOG_MIL("Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
+		ISOBMFF_LOG_MIL(mLogger, "Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
 		if (IS_TYPE(box->getType(), Box::TFDT))
 		{
 			TfdtBox *tfdtBox = dynamic_cast<TfdtBox *>(box);
 			if(tfdtBox) {
-				AAMPLOG_WARN("****Base Media Decode Time: %" PRIu64, tfdtBox->getBaseMDT());
+				ISOBMFF_LOG_WARN(mLogger, "****Base Media Decode Time: %" PRIu64, tfdtBox->getBaseMDT());
 			}
 		}
 		else if (IS_TYPE(box->getType(), Box::MVHD))
 		{
 			MvhdBox *mvhdBox = dynamic_cast<MvhdBox *>(box);
 			if(mvhdBox) {
-				AAMPLOG_WARN("**** TimeScale from MVHD: %u", mvhdBox->getTimeScale());
+				ISOBMFF_LOG_WARN(mLogger, "**** TimeScale from MVHD: %u", mvhdBox->getTimeScale());
 			}
 		}
 		else if (IS_TYPE(box->getType(), Box::MDHD))
 		{
 			MdhdBox *mdhdBox = dynamic_cast<MdhdBox *>(box);
 			if(mdhdBox) {
-				AAMPLOG_WARN("**** TimeScale from MDHD: %u", mdhdBox->getTimeScale());
+				ISOBMFF_LOG_WARN(mLogger, "**** TimeScale from MDHD: %u", mdhdBox->getTimeScale());
 			}
 		}
 
@@ -738,7 +738,7 @@ void IsoBmffBuffer::printMdatBoxes()
 	(void)getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
 	for (auto box : mdatBoxes)
 	{
-		AAMPLOG_MIL("Offset[%u] Type[%s] Size[%u]", box->getOffset(),
+		ISOBMFF_LOG_MIL(mLogger, "Offset[%u] Type[%s] Size[%u]", box->getOffset(),
 			box->getType(), box->getSize());
 	}
 }
@@ -812,14 +812,14 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuf
 			{
 				lastMDatIndex = i;
 
-				AAMPLOG_TRACE("Last MDAT Index : %d", lastMDatIndex);
+				ISOBMFF_LOG_TRACE(mLogger, "Last MDAT Index : %d", lastMDatIndex);
 
 				//Calculate unparsed buffer based on last MDAT
 				unParsedBuffer += (box->getOffset()+box->getSize()); //increment buffer pointer to chunk offset
 				unParsedBufferSize -= (box->getOffset()+box->getSize()); //decrease by parsed buffer size
 
 				parsedBufferSize -= unParsedBufferSize; //get parsed buf size
-				AAMPLOG_TRACE("parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %zu",parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
+				ISOBMFF_LOG_TRACE(mLogger, "parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %zu",parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
 				break;
 			}
 		}
@@ -839,12 +839,12 @@ uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
 	for(int i=0;i<lastMDatIndex;i++)
 	{
 		Box *box = pBoxes->at(i).get();
-		AAMPLOG_TRACE("Type: %s", box->getType());
+		ISOBMFF_LOG_TRACE(mLogger, "Type: %s", box->getType());
 		if (IS_TYPE(box->getType(), Box::MOOF))
 		{
 			getSampleDuration(box, fDuration);
 			totalChunkDuration += fDuration;
-			AAMPLOG_TRACE("fDuration = %" PRIu64 ", totalChunkDuration = %" PRIu64, fDuration, totalChunkDuration);
+			ISOBMFF_LOG_TRACE(mLogger, "fDuration = %" PRIu64 ", totalChunkDuration = %" PRIu64, fDuration, totalChunkDuration);
 		}
 	}
 	return totalChunkDuration;
@@ -858,7 +858,7 @@ Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 	Box *pBox = nullptr;
 	if (index >= boxes.size())
 	{
-		AAMPLOG_ERR("Index passed is too big (%zu >= %zu)", index, boxes.size());
+		ISOBMFF_LOG_ERR(mLogger, "Index passed is too big (%zu >= %zu)", index, boxes.size());
 	}
 	else
 	{
@@ -926,7 +926,7 @@ void IsoBmffBuffer::printPTSInternal(
 			TfdtBox *tfdtBox = dynamic_cast<TfdtBox *>(box);
 			if(tfdtBox)
 			{
-				AAMPLOG_WARN("****Base Media Decode Time: %" PRIu64, tfdtBox->getBaseMDT());
+				ISOBMFF_LOG_WARN(mLogger, "****Base Media Decode Time: %" PRIu64, tfdtBox->getBaseMDT());
 			}
 		}
 
@@ -1022,7 +1022,7 @@ uint64_t IsoBmffBuffer::getPtsInternal(
 			TfdtBox *tfdtBox =  dynamic_cast<TfdtBox *>(box);
 			if(tfdtBox)
 			{
-				AAMPLOG_WARN("****Base Media Decode Time: %" PRIu64, tfdtBox->getBaseMDT());
+				ISOBMFF_LOG_WARN(mLogger, "****Base Media Decode Time: %" PRIu64, tfdtBox->getBaseMDT());
 				retValue = tfdtBox->getBaseMDT();
 			}
 			break;
@@ -1078,7 +1078,7 @@ void IsoBmffBuffer::truncate(void)
 {
 	if (readOnlyBuffer)
 	{
-		AAMPLOG_WARN("truncate called with read-only buffer");
+		ISOBMFF_LOG_WARN(mLogger, "truncate called with read-only buffer");
 		return;
 	}
 
@@ -1146,7 +1146,7 @@ void IsoBmffBuffer::truncate(void)
 		{
 			if (!updateSampleDurationInternal(duration, *trunList[0], *tfhd))
 			{
-				AAMPLOG_WARN("Sample duration not set");
+				ISOBMFF_LOG_WARN(mLogger, "Sample duration not set");
 			}
 
 			bool setToSkip{false};
@@ -1240,7 +1240,7 @@ bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
 {
 	if (readOnlyBuffer)
 	{
-		AAMPLOG_WARN("setTrickmodeTimescale called with read-only buffer");
+		ISOBMFF_LOG_WARN(mLogger, "setTrickmodeTimescale called with read-only buffer");
 		return false;
 	}
 
@@ -1269,7 +1269,7 @@ bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
 
 				if (mdhd != nullptr && mvhd != nullptr)
 				{
-					AAMPLOG_INFO("Set mdhd & mvhd timescale to %d", timescale);
+					ISOBMFF_LOG_INFO(mLogger, "Set mdhd & mvhd timescale to %d", timescale);
 					mdhd->setTimeScale(timescale);
 					mvhd->setTimeScale(timescale);
 					retval = true;
@@ -1279,27 +1279,27 @@ bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
 					// Both boxes are mandatory, so this should never happen
 					if (mdhd == nullptr)
 					{
-						AAMPLOG_WARN("mdhd box not found in mdia box");
+						ISOBMFF_LOG_WARN(mLogger, "mdhd box not found in mdia box");
 					}
 					if (mvhd == nullptr)
 					{
-						AAMPLOG_WARN("mvhd box not found in moov box");
+						ISOBMFF_LOG_WARN(mLogger, "mvhd box not found in moov box");
 					}
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("mdia box not found in trak box");
+				ISOBMFF_LOG_WARN(mLogger, "mdia box not found in trak box");
 			}
 		}
 		else
 		{
-			AAMPLOG_WARN("trak box not found in moov box");
+			ISOBMFF_LOG_WARN(mLogger, "trak box not found in moov box");
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("No MOOV box within buffer");
+		ISOBMFF_LOG_WARN(mLogger, "No MOOV box within buffer");
 	}
 
 	return retval;
@@ -1314,7 +1314,7 @@ bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
 {
 	if (readOnlyBuffer)
 	{
-		AAMPLOG_WARN("setMediaHeaderDuration called with read-only buffer");
+		ISOBMFF_LOG_WARN(mLogger, "setMediaHeaderDuration called with read-only buffer");
 		return false;
 	}
 
@@ -1339,24 +1339,24 @@ bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
 
 				if (mdhd != nullptr)
 				{
-					AAMPLOG_INFO("Setting mdhd duration from %" PRIu64 " to %" PRIu64, mdhd->getDuration(), duration);
+					ISOBMFF_LOG_INFO(mLogger, "Setting mdhd duration from %" PRIu64 " to %" PRIu64, mdhd->getDuration(), duration);
 					mdhd->setDuration(duration);
 					retval = true;
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("mdia box not found in trak box");
+				ISOBMFF_LOG_WARN(mLogger, "mdia box not found in trak box");
 			}
 		}
 		else
 		{
-			AAMPLOG_WARN("trak box not found in moov box");
+			ISOBMFF_LOG_WARN(mLogger, "trak box not found in moov box");
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("No MOOV box within buffer");
+		ISOBMFF_LOG_WARN(mLogger, "No MOOV box within buffer");
 	}
 	return retval;
 }
@@ -1410,7 +1410,7 @@ bool IsoBmffBuffer::getBoxInfoInternal(const char *name, size_t index, size_t &s
 	}
 	if (!ret)
 	{
-		AAMPLOG_WARN("Box of type %s with index %zu not found, only %zu available", name, index, matchCount);
+		ISOBMFF_LOG_WARN(mLogger, "Box of type %s with index %zu not found, only %zu available", name, index, matchCount);
 	}
 	return ret;
 }

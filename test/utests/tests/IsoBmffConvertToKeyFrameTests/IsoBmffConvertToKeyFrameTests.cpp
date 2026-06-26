@@ -23,6 +23,7 @@
 #include "MockGLib.h"
 #include <functional>
 #include "isobmff/isobmffhelper.h"
+#include "isobmff/IsoBmffLog.h"
 #include "AampConfig.h"
 #include "testdata/testdata.h"
 
@@ -37,17 +38,31 @@ using ::testing::SetArgPointee;
 
 AampConfig *gpGlobalConfig{nullptr};
 
+static std::vector<std::pair<IsoBmff::LogLevel, std::string>> gCapturedLogs;
+
+static IsoBmff::Logger MakeTestLogger()
+{
+	return {
+		[](IsoBmff::LogLevel level, std::string&& msg) {
+			gCapturedLogs.emplace_back(level, std::move(msg));
+		},
+		IsoBmff::LogLevel::TRACE
+	};
+}
+
 class IsoBmffConvertToKeyFrameTests : public ::testing::Test
 {
 	protected:
-
+		IsoBmff::Logger mLogger;
 		std::shared_ptr<IsoBmffHelper> helper;
 
 		void SetUp() override
 		{
+			gCapturedLogs.clear();
+			mLogger = MakeTestLogger();
 			g_mockGLib = std::make_shared<NiceMock<MockGLib>>();
 			gpGlobalConfig = new AampConfig();
-			helper = std::make_shared<IsoBmffHelper>();
+			helper = std::make_shared<IsoBmffHelper>(mLogger);
 		}
 
 		void TearDown() override

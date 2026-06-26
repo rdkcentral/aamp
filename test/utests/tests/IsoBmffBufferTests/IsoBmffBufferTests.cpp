@@ -33,7 +33,7 @@
 #include "isobmff/isobmffbuffer.h"
 #include "AampConfig.h"
 #include "isobmff/isobmffbox.h"
-#include "AampLogManager.h"
+#include "isobmff/IsoBmffLog.h"
 
 #include "testFiles/helperTestData.h"
 
@@ -44,13 +44,28 @@ using ::testing::SetArgPointee;
 
 AampConfig *gpGlobalConfig{nullptr};
 
+static std::vector<std::pair<IsoBmff::LogLevel, std::string>> gCapturedLogs;
+
+static IsoBmff::Logger MakeTestLogger()
+{
+	return {
+		[](IsoBmff::LogLevel level, std::string&& msg) {
+			gCapturedLogs.emplace_back(level, std::move(msg));
+		},
+		IsoBmff::LogLevel::TRACE
+	};
+}
+
 class IsoBmffBufferTests : public ::testing::Test
 {
 	protected:
+		IsoBmff::Logger mLogger;
 		IsoBmffBuffer *mIsoBmffBuffer = nullptr;
 		void SetUp() override
 		{
-			mIsoBmffBuffer = new IsoBmffBuffer();
+			gCapturedLogs.clear();
+			mLogger = MakeTestLogger();
+			mIsoBmffBuffer = new IsoBmffBuffer(mLogger);
 		}
 
 		void TearDown() override
@@ -67,7 +82,7 @@ class IsoBmffBufferTests : public ::testing::Test
 			bool bParse;
 			uint64_t fPts = 0;
 			uint64_t pts = 0;
-			IsoBmffBuffer *isoBmffBuffer = new IsoBmffBuffer();
+			IsoBmffBuffer *isoBmffBuffer = new IsoBmffBuffer(mLogger);
 			isoBmffBuffer->setBuffer(buffer, size);
 			bParse = isoBmffBuffer->parseBuffer();
 			EXPECT_TRUE(bParse);

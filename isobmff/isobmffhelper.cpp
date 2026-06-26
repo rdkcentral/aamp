@@ -17,9 +17,6 @@
  * limitations under the License.
  */
 
-/* AAMP config header file is needed for the log level configuration.
- * It also includes AAMP log manager header file. */
-#include "AampConfig.h"
 #include "isobmffbuffer.h"
 #include "isobmffhelper.h"
 
@@ -31,7 +28,7 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 	isoBmffBuffer.setBuffer(buffer.data(), buffer.size());
 	if (!isoBmffBuffer.parseBuffer())
 	{
-		AAMPLOG_WARN("Failed to parse buffer");
+		ISOBMFF_LOG_WARN(mLogger, "Failed to parse buffer");
 		return false;
 	}
 	return true;
@@ -39,9 +36,9 @@ bool IsoBmffHelper::InitAndParse(IsoBmffBuffer& isoBmffBuffer, std::vector<uint8
 
 bool IsoBmffHelper::ConvertToKeyFrame(std::vector<uint8_t> &buffer)
 {
-	AAMPLOG_TRACE("Function called with len = %zu", buffer.size());
+	ISOBMFF_LOG_TRACE(mLogger, "Function called with len = %zu", buffer.size());
 
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer(mLogger);
 	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
 		return false;
@@ -55,7 +52,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(std::vector<uint8_t> &buffer)
 
 bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, std::string const &fragmentUrl, const char* trackName, uint32_t timeScale)
 {
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer(mLogger);
 	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
 		return false;
@@ -65,7 +62,7 @@ bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, 
 	// NOTE: This log line is used by the pts_restamp_check.py test tool,
 	// and may be used by other tests for validation purposes (e.g. L2 tests).
 	// Please check restamping tests and tools before modifying this log line.
-	AAMPLOG_INFO("[%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
+	ISOBMFF_LOG_INFO(mLogger, "[%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " %s",
 				 trackName, timeScale, isoBmffBuffer.beforePTS, isoBmffBuffer.afterPTS,
 				 isoBmffBuffer.getSegmentDuration(), fragmentUrl.c_str());
 	return true;
@@ -73,7 +70,7 @@ bool IsoBmffHelper::RestampPts(std::vector<uint8_t> &buffer, int64_t ptsOffset, 
 
 bool IsoBmffHelper::SetTimescale(std::vector<uint8_t> &buffer, uint32_t timeScale)
 {
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer(mLogger);
 	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
 		return false;
@@ -84,7 +81,7 @@ bool IsoBmffHelper::SetTimescale(std::vector<uint8_t> &buffer, uint32_t timeScal
 
 bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint64_t duration)
 {
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer(mLogger);
 	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
 		return false;
@@ -96,7 +93,7 @@ bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts
 
 bool IsoBmffHelper::ClearMediaHeaderDuration(std::vector<uint8_t> &buffer)
 {
-	IsoBmffBuffer isoBmffBuffer{};
+	IsoBmffBuffer isoBmffBuffer(mLogger);
 	if (!InitAndParse(isoBmffBuffer, buffer))
 	{
 		return false;
@@ -104,7 +101,7 @@ bool IsoBmffHelper::ClearMediaHeaderDuration(std::vector<uint8_t> &buffer)
 
 	if (!isoBmffBuffer.isInitSegment())
 	{
-		AAMPLOG_DEBUG("Buffer is not an initialization segment");
+		ISOBMFF_LOG_TRACE(mLogger, "Buffer is not an initialization segment");
 		return false;
 	}
 

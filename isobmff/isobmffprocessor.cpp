@@ -139,7 +139,7 @@ bool IsoBmffProcessor::sendSegment(std::vector<uint8_t>&& buffer, double positio
  */
 void IsoBmffProcessor::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, double position)
 {
-	IsoBmffBuffer buffer;
+	IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 	{
 		double pos = 0;
@@ -185,7 +185,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(std::vector<uint8_t>& fragment, 
  */
 void IsoBmffProcessor::resetPTSOnAudioSwitch(std::vector<uint8_t>& fragment, double position, double ptsOffset)
 {
-	IsoBmffBuffer buffer;
+	IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 	if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 	{
 		double pos = 0;
@@ -245,7 +245,7 @@ bool IsoBmffProcessor::setTuneTimePTS(std::vector<uint8_t>& fragBuffer, double p
 	{
 		if (ret && !processPTSComplete)
 		{
-			IsoBmffBuffer buffer;
+			IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 			buffer.setBuffer(fragBuffer);
 			buffer.parseBuffer();
 
@@ -306,7 +306,7 @@ bool IsoBmffProcessor::setTuneTimePTS(std::vector<uint8_t>& fragBuffer, double p
 	if (ret && !processPTSComplete && playRate == AAMP_NORMAL_PLAY_RATE)
 	{
 		// We need to parse PTS from first buffer
-		IsoBmffBuffer buffer;
+		IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 		buffer.setBuffer(fragBuffer);
 		buffer.parseBuffer();
 
@@ -445,7 +445,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(std::vector<uint8_t>& fragBuffer
 {
 	uint32_t tScale = 0;
 	bool ret = true;
-	IsoBmffBuffer buffer;
+	IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 	buffer.setBuffer(fragBuffer);
 	buffer.parseBuffer();
 
@@ -1320,7 +1320,7 @@ bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(std::vector<uint8_t>& fra
 	std::unique_lock<std::mutex> lock(m_mutex);
 	if (!fragBuffer.empty())
 	{
-		IsoBmffBuffer buffer;
+		IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 		buffer.setBuffer(fragBuffer);
 		buffer.parseBuffer();
 		if(buffer.isInitSegment())

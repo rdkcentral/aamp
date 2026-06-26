@@ -19,6 +19,7 @@
 
 #include "TtmlSubtecParser.hpp"
 #include <regex>
+#include "PlayerLogManager.h"
 
 // #define TTML_DEBUG
 
@@ -124,7 +125,21 @@ bool TtmlSubtecParser::processData(const char* buffer, size_t bufferLen, double 
 	printf( "TtmlSubtecParser::processData(bufferLen=%zu,position=%f,duration=%f)\n", bufferLen, position, duration );
 #endif
 
-	IsoBmffBuffer isobuf;
+	IsoBmff::Logger mwLogger{
+		[](IsoBmff::LogLevel level, std::string&& msg) {
+			switch (level)
+			{
+				case IsoBmff::LogLevel::TRACE: MW_LOG_TRACE("%s", msg.c_str()); break;
+				case IsoBmff::LogLevel::INFO:  MW_LOG_INFO("%s",  msg.c_str()); break;
+				case IsoBmff::LogLevel::WARN:  MW_LOG_WARN("%s",  msg.c_str()); break;
+				case IsoBmff::LogLevel::MIL:   MW_LOG_MIL("%s",   msg.c_str()); break;
+				case IsoBmff::LogLevel::ERR:   MW_LOG_ERR("%s",   msg.c_str()); break;
+				default:                       MW_LOG_WARN("%s",  msg.c_str()); break;
+			}
+		},
+		IsoBmff::LogLevel::WARN
+	};
+	IsoBmffBuffer isobuf(std::move(mwLogger));
 
 	isobuf.setBuffer( (uint8_t *)buffer, bufferLen);
 	isobuf.parseBuffer();

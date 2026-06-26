@@ -257,7 +257,7 @@ public:
 	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return newly constructed Box object
 	 */
-	static std::unique_ptr<Box> constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize = false, int newTrackId = -1);
+	static std::unique_ptr<Box> constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize = false, int newTrackId = -1, const IsoBmff::Logger& logger = {});
 
 	uint8_t *getBase(void) const { return base; }
 
@@ -334,7 +334,7 @@ public:
 	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return newly constructed GenericContainerBox object
 	 */
-	static GenericContainerBox* constructContainer(uint32_t sz, const char btype[4], uint8_t *ptr, int newTrackId = -1);
+	static GenericContainerBox* constructContainer(uint32_t sz, const char btype[4], uint8_t *ptr, int newTrackId = -1, const IsoBmff::Logger& logger = {});
 };
 
 /**
@@ -362,7 +362,7 @@ public:
 	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return newly constructed trak object
 	 */
-	static TrakBox* constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId = -1);
+	static TrakBox* constructTrakBox(uint32_t sz, uint8_t *ptr, int newTrackId = -1, const IsoBmff::Logger& logger = {});
 
 	/**
 	 * @brief track_id getter
@@ -811,7 +811,7 @@ public:
 	 * @param[in] ptr - pointer to box
 	 * @return newly constructed EmsgBox object
 	 */
-	static EmsgBox* constructEmsgBox(uint32_t sz, uint8_t *ptr);
+	static EmsgBox* constructEmsgBox(uint32_t sz, uint8_t *ptr, const IsoBmff::Logger& logger = {});
 };
 
 /**

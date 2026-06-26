@@ -24,7 +24,7 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
-#include "AampLogManager.h"
+#include "IsoBmffLog.h"
 
 class IsoBmffBuffer;
 
@@ -32,6 +32,7 @@ class IsoBmffHelper
 {
 	public:
 		IsoBmffHelper(){};
+		explicit IsoBmffHelper(IsoBmff::Logger logger) : mLogger(std::move(logger)) {}
 		~IsoBmffHelper() = default;
 
 		/**
@@ -101,6 +102,8 @@ class IsoBmffHelper
 		bool ClearMediaHeaderDuration(std::vector<uint8_t> &buffer);
 
 	private:
+		IsoBmff::Logger mLogger;
+
 		/**
 		 * @brief Create an IsoBmffBuffer from a data buffer and parse it
 		 *

@@ -382,7 +382,7 @@ uint32_t MediaStreamContext::ProcessInitSegmentIfNeeded(const CachedFragment* ca
 		return 0;
 	}
 
-	IsoBmffBuffer buffer;
+	IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 	buffer.setBuffer(cached->fragment);
 	if (!buffer.parseBuffer())
 	{

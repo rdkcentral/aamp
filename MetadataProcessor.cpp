@@ -117,7 +117,7 @@ void IsoBMFFMetadataProcessor::ProcessID3Metadata(AampMediaType type, const std:
 
 	if (!data.empty())
 	{
-		IsoBmffBuffer buffer;
+		IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 		buffer.setBuffer(data);
 		buffer.parseBuffer();
 		if (!buffer.isInitSegment())

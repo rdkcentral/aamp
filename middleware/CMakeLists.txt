@@ -63,11 +63,6 @@ set(SUBTEC_CLASS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbox.cpp
 	playerJsonObject/PlayerJsonObject.cpp
 	)
 
-set_source_files_properties(
-	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbox.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/../isobmff/isobmffbuffer.cpp
-	PROPERTIES COMPILE_DEFINITIONS ISOBMFF_LOG_BACKEND_MW)
-
 if(CMAKE_RDK_SVP)
 	message("CMAKE_RDK_SVP Set")
 	set(LIBPLAYERGSTINTERFACE_DEFINES "${LIBPLAYERGSTINTERFACE_DEFINES} -DUSE_SVP=1")

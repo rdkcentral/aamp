@@ -33,6 +33,7 @@
 #include <iomanip> // std::setfill
 #include <sstream> // std::ostringstream
 #include <algorithm> // std::foreach
+#include "isobmff/IsoBmffLog.h"
 
 extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtils.h; including that directly brings too many other dependencies
 
@@ -430,6 +431,13 @@ public:
 		std::for_each(data.cbegin(), data.cend(), [&](int c) { hexSs << std::setw(2) << c; });
 		return hexSs.str();
 	}
+
+	/**
+	 * @fn MakeIsoBmffLogger
+	 * @brief Creates an IsoBmff::Logger that routes to the AAMP logging backend.
+	 *        Pass this to IsoBmffBuffer and IsoBmffHelper constructors.
+	 */
+	static IsoBmff::Logger MakeIsoBmffLogger();
 };
 
 /* Context-free utility function */

@@ -19,40 +19,68 @@
 
 /**
  * @file IsoBmffLog.h
- * @brief Logging facade for the isobmff parser sources.
+ * @brief Runtime-injected logging interface for the isobmff static library.
  *
- * These sources are compiled into both libaamp (AAMP core) and
- * libplayergstinterface (middleware). The two libraries use different
- * logging frameworks (AAMPLOG_* vs MW_LOG_*) and must not depend on
- * each other. This header selects the active backend at compile time:
- *
- *   - Define ISOBMFF_LOG_BACKEND_MW   to route through PlayerLogManager.
- *   - Otherwise (default)             the AAMP backend is used.
- *
- * Call sites use the AAMPLOG_* names unchanged; in the MW build they
- * are remapped to MW_LOG_* equivalents.
+ * The library has zero dependency on AampLogManager.h or PlayerLogManager.h.
+ * Callers construct an IsoBmff::Logger and pass it to IsoBmffBuffer /
+ * IsoBmffHelper constructors.  When no logger is provided the default-
+ * constructed Logger has a null func, and all ISOBMFF_LOG_* calls are no-ops.
  */
 
 #ifndef __ISOBMFF_LOG_H__
 #define __ISOBMFF_LOG_H__
 
-#if defined(ISOBMFF_LOG_BACKEND_MW)
+#include <functional>
+#include <string>
+#include <cstdio>
 
-#include "PlayerLogManager.h"
+namespace IsoBmff {
 
-#ifndef AAMPLOG_TRACE
-#define AAMPLOG_TRACE MW_LOG_TRACE
-#define AAMPLOG_DEBUG MW_LOG_DEBUG
-#define AAMPLOG_INFO  MW_LOG_INFO
-#define AAMPLOG_WARN  MW_LOG_WARN
-#define AAMPLOG_MIL   MW_LOG_MIL
-#define AAMPLOG_ERR   MW_LOG_ERR
-#endif
+enum class LogLevel { TRACE = 0, INFO = 1, WARN = 2, MIL = 3, ERR = 4 };
 
-#else
+using LogFunction = std::function<void(LogLevel level, std::string&& msg)>;
 
-#include "AampLogManager.h"
+struct Logger
+{
+    LogFunction func;
+    LogLevel    minLevel{LogLevel::WARN};
 
-#endif
+    bool IsEnabled(LogLevel level) const noexcept
+    {
+        return func && level >= minLevel;
+    }
+};
+
+namespace Log {
+
+// Format a printf-style message into a std::string
+template<typename... Args>
+inline std::string Format(const char* fmt, Args&&... args)
+{
+    char buf[2048];
+    std::snprintf(buf, sizeof(buf), fmt, std::forward<Args>(args)...);
+    return std::string(buf);
+}
+
+inline std::string Format(const char* msg)
+{
+    return std::string(msg);
+}
+
+} // namespace Log
+} // namespace IsoBmff
+
+#define ISOBMFF_LOG(logger, level, ...) \
+    do { \
+        if ((logger).IsEnabled(level)) { \
+            (logger).func(level, IsoBmff::Log::Format(__VA_ARGS__)); \
+        } \
+    } while(0)
+
+#define ISOBMFF_LOG_TRACE(logger, ...) ISOBMFF_LOG((logger), IsoBmff::LogLevel::TRACE, __VA_ARGS__)
+#define ISOBMFF_LOG_INFO(logger, ...)  ISOBMFF_LOG((logger), IsoBmff::LogLevel::INFO,  __VA_ARGS__)
+#define ISOBMFF_LOG_WARN(logger, ...)  ISOBMFF_LOG((logger), IsoBmff::LogLevel::WARN,  __VA_ARGS__)
+#define ISOBMFF_LOG_MIL(logger, ...)   ISOBMFF_LOG((logger), IsoBmff::LogLevel::MIL,   __VA_ARGS__)
+#define ISOBMFF_LOG_ERR(logger, ...)   ISOBMFF_LOG((logger), IsoBmff::LogLevel::ERR,   __VA_ARGS__)
 
 #endif /* __ISOBMFF_LOG_H__ */

@@ -453,7 +453,7 @@ void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, std::vecto
  */
 void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
-	IsoBmffBuffer buffer;
+	IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 	buffer.setBuffer(cachedFragment->fragment);
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
@@ -470,7 +470,7 @@ void MediaTrack::FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cached
  */
 void  MediaTrack::FlushAudioPositionDuringTrackSwitch(  CachedFragment* cachedFragment )
 {
-	IsoBmffBuffer buffer;
+	IsoBmffBuffer buffer(AampLogManager::MakeIsoBmffLogger());
 	buffer.setBuffer(cachedFragment->fragment);
 	buffer.parseBuffer();
 	uint64_t currentPTS = 0;
@@ -999,7 +999,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			cachedFragment->fragment.data() + cachedFragment->fragment.size());
 
 	//Parse Chunk Data
-	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
+	IsoBmffBuffer isobuf(AampLogManager::MakeIsoBmffLogger());                   /**< Fragment Chunk buffer box parser*/
 	uint8_t *unParsedBuffer = unparsedBufferChunk.data();
 	size_t parsedBufferSize = 0, unParsedBufferSize = 0;
 	unParsedBufferSize = parsedBufferSize = unparsedBufferChunk.size();

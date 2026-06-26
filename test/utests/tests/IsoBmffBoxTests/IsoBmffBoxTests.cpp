@@ -22,6 +22,7 @@
 #include <cstring>
 
 #include "isobmff/isobmffbox.h"
+#include "isobmff/IsoBmffLog.h"
 #include "AampConfig.h"
 
 #include "testData/IsoBMFFTestData.h"
@@ -38,11 +39,27 @@ const size_t SIZEOF_TAG{4};
 
 AampConfig *gpGlobalConfig{nullptr};
 
+static std::vector<std::pair<IsoBmff::LogLevel, std::string>> gCapturedLogs;
+
+static IsoBmff::Logger MakeTestLogger()
+{
+	return {
+		[](IsoBmff::LogLevel level, std::string&& msg) {
+			gCapturedLogs.emplace_back(level, std::move(msg));
+		},
+		IsoBmff::LogLevel::TRACE
+	};
+}
+
 class IsoBmffBoxTests : public ::testing::Test
 {
 	protected:
+		IsoBmff::Logger mLogger;
+
 		void SetUp() override
 		{
+			gCapturedLogs.clear();
+			mLogger = MakeTestLogger();
 			buffer = (uint8_t *)malloc(bufferSize);
 			memset(buffer, 0xff, bufferSize);
 		}
@@ -206,7 +223,7 @@ TEST_F(IsoBmffBoxTests, rewriteAsSkipTest)
 {
 	memcpy(buffer, exampleMdatBox, sizeof(exampleMdatBox));
 	auto size{sizeof(exampleMdatBox)};
-	auto testBox = Box::constructBox(buffer, (uint32_t)size, true, -1);
+	auto testBox = Box::constructBox(buffer, (uint32_t)size, true, -1, mLogger);
 	EXPECT_STREQ(testBox->getType(), Box::MDAT);
 	EXPECT_EQ(testBox->getSize(), size);
 	testBox->rewriteAsSkipBox();
@@ -227,7 +244,7 @@ TEST_F(IsoBmffBoxTests, malformedEmsgVersion0MissingFixedFields)
 	};
 
 	auto box = Box::constructBox(malformedEmsg,
-		static_cast<uint32_t>(sizeof(malformedEmsg)), false, -1);
+		static_cast<uint32_t>(sizeof(malformedEmsg)), false, -1, mLogger);
 	auto emsg = dynamic_cast<EmsgBox *>(box.get());
 
 	ASSERT_NE(emsg, nullptr);
@@ -236,6 +253,8 @@ TEST_F(IsoBmffBoxTests, malformedEmsgVersion0MissingFixedFields)
 	EXPECT_EQ(emsg->getId(), 0u);
 	EXPECT_EQ(emsg->getPresentationTime(), 0u);
 	EXPECT_EQ(emsg->getMessageLen(), 0u);
+	EXPECT_TRUE(std::any_of(gCapturedLogs.begin(), gCapturedLogs.end(),
+		[](const auto& log) { return log.first == IsoBmff::LogLevel::WARN; }));
 }
 
 TEST_F(IsoBmffBoxTests, malformedContainerChildSizeTooSmallStopsNestedParse)
@@ -248,12 +267,14 @@ TEST_F(IsoBmffBoxTests, malformedContainerChildSizeTooSmallStopsNestedParse)
 	};
 
 	auto box = Box::constructBox(malformedMoof,
-		static_cast<uint32_t>(sizeof(malformedMoof)), false, -1);
+		static_cast<uint32_t>(sizeof(malformedMoof)), false, -1, mLogger);
 	auto container = dynamic_cast<GenericContainerBox *>(box.get());
 
 	ASSERT_NE(container, nullptr);
 	ASSERT_NE(container->getChildren(), nullptr);
 	EXPECT_TRUE(container->getChildren()->empty());
+	EXPECT_TRUE(std::any_of(gCapturedLogs.begin(), gCapturedLogs.end(),
+		[](const auto& log) { return log.first == IsoBmff::LogLevel::WARN; }));
 }
 
 TEST_F(IsoBmffBoxTests, unknownWellSizedBoxWithNonPrintableTypeIsSanitized)
@@ -264,7 +285,7 @@ TEST_F(IsoBmffBoxTests, unknownWellSizedBoxWithNonPrintableTypeIsSanitized)
 	};
 
 	auto box = Box::constructBox(unknownBox,
-		static_cast<uint32_t>(sizeof(unknownBox)), false, -1);
+		static_cast<uint32_t>(sizeof(unknownBox)), false, -1, mLogger);
 
 	ASSERT_NE(box, nullptr);
 	EXPECT_EQ(box->getSize(), 8u);
