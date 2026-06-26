@@ -1646,6 +1646,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	 */
 	interfacePlayerPriv->gstPrivateContext->seekPausedState = interfacePlayerPriv->gstPrivateContext->paused;
 
+	// If the pipeline was in trickplay (rate != 1) and we're now going to normal play,
+	// don't treat it as a user-paused seek even if `paused` is stale true
+	if (interfacePlayerPriv->gstPrivateContext->rate != GST_NORMAL_PLAY_RATE && rate == GST_NORMAL_PLAY_RATE)
+	{
+		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+		interfacePlayerPriv->gstPrivateContext->paused = false;
+	}
+
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
 	{
 		MW_LOG_WARN("InterfacePlayerRDK: Pipeline is NULL");
@@ -4784,8 +4792,16 @@ static gboolean buffering_timeout (gpointer data)
 			{
 				if (privatePlayer->gstPrivateContext->seekPausedState)
 				{
-					// Keep timer alive — Pause(false) will clear seekPausedState
-					return true;
+					if (privatePlayer->gstPrivateContext->buffering_timeout_cnt == 0)
+    				{
+        				MW_LOG_INFO("buffering_timeout: seekPausedState stuck - forcing clear");
+        				privatePlayer->gstPrivateContext->seekPausedState = false;
+    				}
+					else
+					{
+						// Keep timer alive — Pause(false) will clear seekPausedState
+						return true;
+					}
 				}
 
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
