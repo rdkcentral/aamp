@@ -1640,12 +1640,18 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	// If the pipeline is not setup, we will cache the value for later
 	SetSeekPosition(position);
 
-	/**If the user has deliberately paused (paused==true) before issuing
-	 * this seek, record that so ConfigurePipeline() can preserve the paused state
-	 * instead of clearing the paused flag after arming the buffering timer.
-	 */
-	interfacePlayerPriv->gstPrivateContext->seekPausedState = interfacePlayerPriv->gstPrivateContext->paused;
-
+	// Only capture seekPausedState from user-initiated pause, not internal buffering pauses.
+	// If pendingPlayState is true, the pipeline was paused internally for buffering/caching
+	// and the intent is to resume to PLAYING — don't treat this as a user pause.
+	if (interfacePlayerPriv->gstPrivateContext->paused &&  !interfacePlayerPriv->gstPrivateContext->pendingPlayState)
+	{
+		interfacePlayerPriv->gstPrivateContext->seekPausedState = true;
+	}
+	else
+	{
+		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
+	}
+	
 	// If the pipeline was in trickplay (rate != 1) and we're now going to normal play,
 	// don't treat it as a user-paused seek even if `paused` is stale true
 	if (interfacePlayerPriv->gstPrivateContext->rate != GST_NORMAL_PLAY_RATE && rate == GST_NORMAL_PLAY_RATE)
