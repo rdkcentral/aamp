@@ -673,7 +673,14 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		timeBasedBufferManager->PopulateBuffer(fragmentDuration);
 	}
 
-	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+	// SegmentBase content (both init and media segments) uses byte-range requests
+	// against a single file and requires strict ordering.  The FetcherLoop can
+	// race ahead after SubmitJob returns, loading IDX and submitting subsequent
+	// segments while async downloads are still in flight.  Run all SegmentBase
+	// downloads synchronously to guarantee init bytes reach GStreamer before any
+	// media segments and prevent fragmentOffset races.  (VPAAMP-614)
+	const bool segmentBaseContent = !range.empty();
+	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseContent)
 	{
 		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
 		if (future.valid())
@@ -1612,7 +1619,12 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		{ // single-segment
 			std::string fragmentUrl;
 			ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "", aamp->mConfig);
-			if (pMediaStreamContext->IDX.empty())
+				bool shouldLoadIdx = false;
+			{
+				std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+				shouldLoadIdx = pMediaStreamContext->IDX.empty();
+			}
+			if (shouldLoadIdx)
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
 				uint64_t start;
@@ -1627,8 +1639,17 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
 				AampCurlInstance curlInst = aamp->GetPlaylistCurlInstance(actualType, false);
 				aamp->CurlInit(curlInst, 1, aamp->GetNetworkProxy());
-				aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl, pMediaStreamContext->IDX, curlInst, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
+				std::vector<uint8_t> loadedIdx;
+				aamp->LoadIDX(bucketType, fragmentUrl, effectiveUrl, loadedIdx, curlInst, range.c_str(), http_code, &downloadTime, actualType, &iFogError);
 				aamp->CurlTerm(curlInst);
+				if (!loadedIdx.empty())
+				{
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+					if (pMediaStreamContext->IDX.empty())
+					{
+						pMediaStreamContext->IDX = std::move(loadedIdx);
+					}
+				}
 
 
 				if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
@@ -1649,93 +1670,113 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										pMediaStreamContext->fragmentDescriptor.Bandwidth,
 										(iFogError > 0 ? iFogError : http_code),effectiveUrl,pMediaStreamContext->fragmentDescriptor.Time, downloadTime);
 
-				pMediaStreamContext->fragmentOffset++; // first byte following packed index
-				if (!pMediaStreamContext->IDX.empty())
 				{
-					unsigned int firstOffset = 0;
-					if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-											 pMediaStreamContext->IDX.size(),
-											 0,
-											 NULL,
-											 NULL,
-											 &firstOffset))
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+					pMediaStreamContext->fragmentOffset++; // first byte following packed index
+					if (!pMediaStreamContext->IDX.empty())
 					{
-						pMediaStreamContext->fragmentOffset += firstOffset;
-					}
-					if (pMediaStreamContext->fragmentIndex != 0)
-					{
-						unsigned int referenced_size;
-						float fragmentDuration;
-						AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
-						// Find the offset of previous fragment in new representation
-						for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
+						unsigned int firstOffset = 0;
+						if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+												 pMediaStreamContext->IDX.size(),
+												 0,
+												 NULL,
+												 NULL,
+												 &firstOffset))
 						{
-							if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
-													 pMediaStreamContext->IDX.size(),
-													 i,
-													 &referenced_size,
-													 &fragmentDuration,
-													 NULL))
+							pMediaStreamContext->fragmentOffset += firstOffset;
+						}
+						// Snapshot the base offset (segment 0 start in the file) so that
+						// DownloadFragment can use it on ABR switches without recomputing.
+						pMediaStreamContext->mIdxBaseOffset = pMediaStreamContext->fragmentOffset;
+						if (pMediaStreamContext->fragmentIndex != 0)
+						{
+							unsigned int referenced_size;
+							float fragmentDuration;
+							AAMPLOG_INFO("current fragmentIndex = %d", pMediaStreamContext->fragmentIndex);
+							// Find the offset of previous fragment in new representation
+							for (int i = 0; i < pMediaStreamContext->fragmentIndex; i++)
 							{
-								pMediaStreamContext->fragmentOffset += referenced_size;
+								if (ParseSegmentIndexBox(pMediaStreamContext->IDX.data(),
+														 pMediaStreamContext->IDX.size(),
+														 i,
+														 &referenced_size,
+														 &fragmentDuration,
+														 NULL))
+								{
+									pMediaStreamContext->fragmentOffset += referenced_size;
+								}
 							}
 						}
 					}
 				}
 			}
-			if (!pMediaStreamContext->IDX.empty())
 			{
-				unsigned int referenced_size;
-				float fragmentDuration;
-				if (ParseSegmentIndexBox(
-										 pMediaStreamContext->IDX.data(),
-										 pMediaStreamContext->IDX.size(),
-										 pMediaStreamContext->fragmentIndex++,
-										 &referenced_size,
-										 &fragmentDuration,
-										 NULL) )
+				// Take a snapshot of IDX under the mutex to guard against
+				// FetchAndInjectInitialization (worker thread) calling
+				// ClearAndRelease(IDX) concurrently between the empty() check
+				// and the data() dereference (check-then-act race / use-after-free).
+				// We must not hold the mutex across FetchFragment because that
+				// call blocks on network I/O; parsing from the local copy is safe.
+				std::vector<uint8_t> idxSnapshot;
 				{
-					char range[MAX_RANGE_STRING_CHARS];
-					snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
-					AAMPLOG_INFO("%s [%s]",GetMediaTypeName(pMediaStreamContext->mediaType), range);
-					unsigned int nextReferencedSize;
-					float nextfragmentDuration;
-					uint64_t nextfragmentOffset;
+					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+					idxSnapshot = pMediaStreamContext->IDX;
+				}
+				if (!idxSnapshot.empty())
+				{
+					unsigned int referenced_size;
+					float fragmentDuration;
 					if (ParseSegmentIndexBox(
-							pMediaStreamContext->IDX.data(),
-							pMediaStreamContext->IDX.size(),
-							pMediaStreamContext->fragmentIndex,
-							&nextReferencedSize,
-							&nextfragmentDuration,
-							NULL))
+											 idxSnapshot.data(),
+											 idxSnapshot.size(),
+											 pMediaStreamContext->fragmentIndex++,
+											 &referenced_size,
+											 &fragmentDuration,
+											 NULL) )
 					{
-						char nextrange[MAX_RANGE_STRING_CHARS];
-						nextfragmentOffset = pMediaStreamContext->fragmentOffset+referenced_size;
-						snprintf(nextrange, sizeof(nextrange), "%" PRIu64 "-%" PRIu64 "",nextfragmentOffset, nextfragmentOffset+nextReferencedSize - 1);
-						setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,AampMediaType(pMediaStreamContext->type));
-					}
+						char range[MAX_RANGE_STRING_CHARS];
+						snprintf(range, sizeof(range), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
+						AAMPLOG_INFO("%s [%s]",GetMediaTypeName(pMediaStreamContext->mediaType), range);
+						unsigned int nextReferencedSize;
+						float nextfragmentDuration;
+						uint64_t nextfragmentOffset;
+						if (ParseSegmentIndexBox(
+								idxSnapshot.data(),
+								idxSnapshot.size(),
+								pMediaStreamContext->fragmentIndex,
+								&nextReferencedSize,
+								&nextfragmentDuration,
+								NULL))
+						{
+							char nextrange[MAX_RANGE_STRING_CHARS];
+							nextfragmentOffset = pMediaStreamContext->fragmentOffset+referenced_size;
+							snprintf(nextrange, sizeof(nextrange), "%" PRIu64 "-%" PRIu64 "",nextfragmentOffset, nextfragmentOffset+nextReferencedSize - 1);
+							setNextRangeRequest(fragmentUrl,nextrange,(&pMediaStreamContext->fragmentDescriptor)->Bandwidth,AampMediaType(pMediaStreamContext->type));
+						}
 
-					if(FetchFragment(pMediaStreamContext, std::move(fragmentUrl), fragmentDuration, false, curlInstance, false, false, 0.0, pMediaStreamContext->fragmentDescriptor.TimeScale, range))
-					{
-						pMediaStreamContext->fragmentTime += fragmentDuration;
-						pMediaStreamContext->fragmentOffset += referenced_size;
-						pMediaStreamContext->fragmentDescriptor.Time +=
-							static_cast<uint64_t>(std::llround(
- 								static_cast<double>(fragmentDuration) *
- 								static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale)));
-						retval = true;
+						if(FetchFragment(pMediaStreamContext, std::move(fragmentUrl), fragmentDuration, false, curlInstance, false, false, 0.0, pMediaStreamContext->fragmentDescriptor.TimeScale, range))
+						{
+							pMediaStreamContext->fragmentTime += fragmentDuration;
+							pMediaStreamContext->fragmentOffset += referenced_size;
+							pMediaStreamContext->fragmentDescriptor.Time +=
+								static_cast<uint64_t>(std::llround(
+									static_cast<double>(fragmentDuration) *
+									static_cast<double>(pMediaStreamContext->fragmentDescriptor.TimeScale)));
+							retval = true;
+						}
+					}
+					else
+					{ // done with index
+						std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+						aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+						pMediaStreamContext->mIdxBaseOffset = 0;
+						pMediaStreamContext->eos = true;
 					}
 				}
 				else
-				{ // done with index
-					std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
-					aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+				{
 					pMediaStreamContext->eos = true;
 				}
-			}
-			else
-			{
-				pMediaStreamContext->eos = true;
 			}
 		}
 		else
@@ -8800,10 +8841,11 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					ISegmentBase *segmentBase = pMediaStreamContext->representation->GetSegmentBase();
 					if (segmentBase)
 					{
-						pMediaStreamContext->fragmentOffset = 0;
 						{
 							std::lock_guard<std::mutex> idxLock(pMediaStreamContext->mIdxMutex);
+							pMediaStreamContext->fragmentOffset = 0;
 							aamp_utils::ClearAndRelease(pMediaStreamContext->IDX);
+							pMediaStreamContext->mIdxBaseOffset = 0;
 						}
 						std::string range;
 						std::string nextrange; //CMCD get the next range
@@ -11195,7 +11237,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			{
 				track->SetLocalTSBInjection(false);
 			}
-			aamp_utils::ClearAndRelease(track->IDX);
+			{
+				std::lock_guard<std::mutex> idxLock(track->mIdxMutex);
+				aamp_utils::ClearAndRelease(track->IDX);
+			}
 		}
 	}
 
