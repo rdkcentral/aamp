@@ -248,36 +248,23 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 			{
 				if (mIsTrickMode)
 				{
-					for (auto& sample : samples)
-					{
-						// In trickmode, only I-frames (key frames) should be sent to the sink.
-						// This mirrors the upstream ConvertToKeyFrame filtering done in the TSB path
-						// and the iframe-track selection in the non-TSB path.
-						if (!sample.mIsKeyFrame)
-						{
-							AAMPLOG_TRACE("[%s] Skipping non-key frame sample in trickmode (pts=%.3f)",
-								GetMediaTypeName(mMediaType), sample.mPts);
-							continue;
-						}
-TrickmodePtsRestamp(sample, duration, discontinuous);
-
-						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
-					}
+					// Trickmode: the demuxer yields exactly one sample — the iframe.
+					auto& iframe = samples.front();
+					TrickmodePtsRestamp(iframe, duration, discontinuous);
+					mAamp->SendStreamTransfer(mMediaType, std::move(iframe));
 				}
 				else
 				{
 					for (auto& sample : samples)
 					{
-						// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
 						if (mEnablePtsRestamp)
 						{
-							double beforeDTS = sample.mDts;
+							const double beforeDTS = sample.mDts;
 							sample.mPts += fragmentPTSoffset;
 							sample.mDts += fragmentPTSoffset;
-							// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
 							if (mEnablePtsRestampLogging)
 							{
-								uint32_t timeScale = mMp4Demux->GetTimeScale();
+								const uint32_t timeScale = mMp4Demux->GetTimeScale();
 								AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
 								GetMediaTypeName(mMediaType),
 								timeScale,
