@@ -31,6 +31,7 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
+using ::testing::InSequence;
 using ::testing::NiceMock;
 using ::testing::ReturnRef;
 
@@ -235,6 +236,8 @@ TEST_F(PlayerInstanceAAMPTests, SetRateInternal_NotAtLivePoint_FastForwardRate_A
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, EnableLatencyMonitor(false))
+		.Times(1);
 
 	mPlayerInstance->SetRate(rate, overshootcorrection);
 }
@@ -2683,6 +2686,42 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_Pause) {
 	EXPECT_EQ(mPrivateInstanceAAMP->mSinkPaused.load(), true);
 }
 
+/**
+ * @brief Pause disables latency monitoring before pausing the sink.
+ *
+ * Contract: On pause (rate=0), latency monitoring is disabled immediately
+ * before sink->Pause(true, false) to avoid stale latency-monitor output while
+ * pipeline pause is being applied.
+ */
+TEST_F(PlayerInstanceAAMPTests, SetRateTest_Pause_DisablesLatencyMonitorBeforeSinkPause)
+{
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->mSinkPaused = false;
+	mPrivateInstanceAAMP->mbPlayEnabled = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		.WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads())
+		.Times(1);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(true))
+		.Times(1);
+
+	{
+		InSequence sequence;
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, EnableLatencyMonitor(false))
+			.Times(1);
+		EXPECT_CALL(*g_mockAampGstPlayer, Pause(true, false))
+			.Times(1)
+			.WillOnce(Return(true));
+	}
+
+	mPlayerInstance->SetRate(0);
+
+	EXPECT_TRUE(mPrivateInstanceAAMP->mSinkPaused.load());
+}
+
 // Test pausing with local TSB
 TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_Pause) {
 	mPlayerInstance->aamp = mPrivateInstanceAAMP;
@@ -2977,4 +3016,3 @@ TEST_F(PlayerInstanceAAMPTests, Tune_CallsSetTuned)
 	// Call Tune - this should trigger SetTuned
 	mPlayerInstance->Tune(testUrl, contentType, true, false, nullptr, true);
 }
-
