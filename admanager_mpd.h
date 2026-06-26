@@ -214,6 +214,7 @@ struct AdBreakObject{
 	bool                                 invalid;         /**< flag marks if the adbreak is invalid or not */
 	bool                                 resolved;       /**< flag marks if the adbreak is resolved or not */
 	bool                                 reservationComplete; /**< reservation-complete signal received for this adbreak */
+	bool                                 mIsPostRollAdBreak; /**< Set in PlaceAds when this ad break is a post-roll on a static manifest */
 	AampTime                             mAbsoluteAdBreakStartTime; /**< Period start time */
 	std::string                          cancelAtPeriodId; /**< Period at which this adbreak should be cancelled (applies to the whole break) */
 	/**
@@ -221,7 +222,7 @@ struct AdBreakObject{
 	*/
 	AdBreakObject()
 		: brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false),
-		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), reservationComplete(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
+		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), reservationComplete(false), mIsPostRollAdBreak(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
 	{
 	}
 
@@ -237,7 +238,7 @@ struct AdBreakObject{
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 		uint64_t _endPeriodOffset, uint32_t _adsDuration)
 		: brkDuration(_duration), ads(std::move(_ads)), endPeriodId(std::move(_endPeriodId)), endPeriodOffset(_endPeriodOffset),
-		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), reservationComplete(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
+		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), reservationComplete(false), mIsPostRollAdBreak(false), mAbsoluteAdBreakStartTime(0.0), cancelAtPeriodId()
 	{
 	}
 };
@@ -396,6 +397,7 @@ public:
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
 	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
+
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
