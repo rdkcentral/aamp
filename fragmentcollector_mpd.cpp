@@ -6565,10 +6565,12 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 	}
 
 	// Skip OOB subtitle scoring on seek/trickplay resume when the app
-	// explicitly selected a CC track. mPreferredTextTrack
-	// is reset in Stop(), so this guard is inactive on a new tune.
+	// explicitly selected a CC track. Preserve the current text-track list
+	// and selection so callers don't accidentally clear it.
 	if (aamp->GetPreferredTextTrack().isCC)
 	{
+		tTracks = mTextTracks;
+		tTrackIdx = mTextTrackIndex;
 		AAMPLOG_INFO("SelectSubtitleTrack: CC track explicitly selected, skipping OOB subtitle selection");
 		return;
 	}
