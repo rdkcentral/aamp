@@ -298,7 +298,7 @@ public:
 					if (elapsed < kMinDrainTime)
 					{
 						auto remaining = kMinDrainTime - elapsed;
-						RIALTO_SIM_LOG("draining: waiting %lld ms before END_OF_STREAM",
+						RIALTO_SIM_LOG("draining: waiting %ld ms before END_OF_STREAM",
 							duration_cast<milliseconds>(remaining).count());
 						std::this_thread::sleep_for(remaining);
 					}
