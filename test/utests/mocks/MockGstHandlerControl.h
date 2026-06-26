@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2024 RDK Management
+* Copyright 2026 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,21 +17,19 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_AAMP_LICENSE_MANAGER_H
-#define AAMP_MOCK_AAMP_LICENSE_MANAGER_H
+#ifndef MOCK_GST_HANDLER_CONTROL_H
+#define MOCK_GST_HANDLER_CONTROL_H
 
 #include <gmock/gmock.h>
-#include <memory>
-#include "AampDRMLicManager.h"
+#include "GstHandlerControl.h"
 
-class MockAampLicenseManager
+class MockGstHandlerControl
 {
 public:
-    MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
-    MOCK_METHOD(DrmSession*, createDrmSession, (std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn));
-    MOCK_METHOD(void, setSessionMgrState, (SessionMgrState state));
+
+	MOCK_METHOD(bool, isEnabled, ());
 };
 
-extern std::shared_ptr<MockAampLicenseManager> g_mockAampLicenseManager;
+extern MockGstHandlerControl *g_mockGstHandlerControl;
 
-#endif /* AAMP_MOCK_AAMP_LICENSE_MANAGER_H */
+#endif /* MOCK_GST_HANDLER_CONTROL_H */

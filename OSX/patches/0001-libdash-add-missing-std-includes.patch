@@ -24,6 +24,17 @@ diff -rupN a/libdash/include/INode.h b/libdash/include/INode.h
  
  namespace dash
  {
+diff -rupN a/libdash/source/helpers/BlockStream.h b/libdash/source/helpers/BlockStream.h
+--- a/libdash/source/helpers/BlockStream.h	2026-06-08 17:41:23
++++ b/libdash/source/helpers/BlockStream.h	2026-06-16 12:00:00
+@@ -14,6 +14,7 @@
+ #define __BLOCKSTREAM_H__
+
+ #include "config.h"
++#include <deque>
+
+ #include "Block.h"
+
 diff -rupN a/libdash/source/helpers/String.h b/libdash/source/helpers/String.h
 --- a/libdash/source/helpers/String.h	2026-06-08 17:41:23
 +++ b/libdash/source/helpers/String.h	2026-06-08 17:44:32
