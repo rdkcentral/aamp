@@ -28,15 +28,11 @@ include_directories(${AAMP_ROOT}/test/gstTestHarness)
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
 set(TEST_SOURCES FunctionalTests.cpp
-		 PauseOnPlaybackTests.cpp
-		 AampGstPlayerTests.cpp
-		 DefaultSubtitleMuteTests.cpp
 		 NullGuardTests.cpp
+		 AampGstPlayerMain.cpp
 	)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
-		${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp
-		${AAMP_ROOT}/test/gstTestHarness/mp4demux.hpp
 	)
 
 add_executable(${EXEC_NAME}
@@ -54,6 +50,6 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})
