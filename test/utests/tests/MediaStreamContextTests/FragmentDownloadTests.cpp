@@ -81,6 +81,15 @@ protected:
 		// in this fixture pass without needing per-test EXPECT_CALL boilerplate.
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetBufferedDurationSecs())
 			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
+		// IsFragmentCacheFull() delegates to the mock after the fake was updated to
+		// support TSB-aware testing.  Default to false so all pre-existing tests
+		// are unaffected; individual tests can override this expectation.
+		EXPECT_CALL(*g_mockMediaTrack, IsFragmentCacheFull())
+			.WillRepeatedly(Return(false));
+		// WaitForFreeFragmentAvailable() delegates to the mock.  Default to true so
+		// the ring-buffer wait resolves immediately in tests that do not override it.
+		EXPECT_CALL(*g_mockMediaTrack, WaitForFreeFragmentAvailable(_))
+			.WillRepeatedly(Return(true));
 		mTsbSessionMgr = std::make_unique<AampTSBSessionManager>(mPrivateInstanceAAMP);
 		mMockTSBSessionMgr = std::make_unique<NiceMock<MockTSBSessionManager>>(mPrivateInstanceAAMP);
 		g_mockTSBSessionManager = std::shared_ptr<MockTSBSessionManager>(mMockTSBSessionMgr.get(), [](MockTSBSessionManager*){});
