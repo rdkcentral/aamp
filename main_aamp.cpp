@@ -966,15 +966,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						}
 					}
 
+					AAMPLOG_INFO("Latency correction is disabled due to the Pause operation!!");
+					aamp->EnableLatencyMonitor(false);
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
 						retValue = sink->Pause(true, false);
 					}
 					aamp->mSinkPaused = true;
-
-					AAMPLOG_INFO("Latency correction is disabled due to the Pause operation!!");
-					aamp->EnableLatencyMonitor(false);
 				}
 			}
 			else
@@ -1003,6 +1002,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
+				// Disable latency monitor immediately on trickplay to prevent
+				// stale Run() logs between rate change and TeardownStream.
+				aamp->EnableLatencyMonitor(false);
 				// Notify the underflow monitor of the new rate immediately — before
 				// TuneHelper starts downloading fragments at the new rate.  This
 				// prevents a stale normal-play deadline from firing and declaring a
