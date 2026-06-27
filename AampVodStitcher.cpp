@@ -36,9 +36,11 @@
 #include "AampLogManager.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -567,7 +569,7 @@ static std::vector<AdFetchResult> FetchAdMPDsSequential(
 
 		bool got = aamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, data,
 		                         effectiveUrl, httpErr, &dlTime, nullptr,
-		                         eCURLINSTANCE_DAI);
+		                         eCURLINSTANCE_MANIFEST_MAIN);
 		if (!got || data.empty())
 		{
 			AAMPLOG_WARN("[VodStitcher] Failed to fetch ad MPD for break=%s url=%s http=%d",
@@ -633,27 +635,40 @@ std::string BuildStitchedVodManifest(
 	if (!aamp || !cdaiObj)
 		return {};
 
-	// Check if there are any registered breaks with resolved ad URLs
-	bool hasBreaks = false;
+	// Wait until every non-cancelled registered break is resolved or failed.
+	// This ensures midroll/postroll ads are included in the stitched MPD.
+	// Timeout after 10s to avoid blocking playback indefinitely if DAI is slow.
+	if (!cdaiObj->mVodAdBreaks.empty())
+	{
+		const int kTimeoutMs = 10000;
+		std::unique_lock<std::mutex> lk(cdaiObj->mVodAllAdsResolvedMtx);
+		bool allDone = cdaiObj->mVodAllAdsResolvedCV.wait_for(
+			lk, std::chrono::milliseconds(kTimeoutMs),
+			[cdaiObj]{ return cdaiObj->AreAllVodAdsResolved(); });
+		if (allDone)
+			AAMPLOG_INFO("[VodStitcher] All VOD ads resolved — proceeding with full stitch");
+		else
+			AAMPLOG_WARN("[VodStitcher] Timeout waiting for all VOD ads — stitching with what is resolved");
+	}
+	// Bail out if nothing at all is resolved yet (no breaks registered or all failed before any resolved)
+	if (!cdaiObj->AreAllVodAdsResolved())
 	{
 		std::lock_guard<std::recursive_mutex> lock(cdaiObj->mDaiMtx);
+		bool hasAny = false;
 		for (const auto &kv : cdaiObj->mVodAdBreaks)
 		{
 			if (kv.second.cancelled) continue;
-			auto abIt = cdaiObj->mAdBreaks.find(kv.first); // kv.first == breakId
+			auto abIt = cdaiObj->mAdBreaks.find(kv.first);
 			if (abIt != cdaiObj->mAdBreaks.end() &&
 			    abIt->second.ads && !abIt->second.ads->empty() &&
 			    abIt->second.ads->at(0).resolved)
-			{
-				hasBreaks = true;
-				break;
-			}
+			{ hasAny = true; break; }
 		}
-	}
-	if (!hasBreaks)
-	{
-		AAMPLOG_INFO("[VodStitcher] No resolved VOD ad breaks — skipping stitching");
-		return {};
+		if (!hasAny)
+		{
+			AAMPLOG_INFO("[VodStitcher] No resolved VOD ad breaks — skipping stitching");
+			return {};
+		}
 	}
 
 	// Fetch all ad MPDs sequentially (parallel is unsafe: GetFile registers
@@ -705,13 +720,18 @@ std::string BuildStitchedVodManifest(
 		double periodStart = periodOffset;
 		double periodEnd   = periodOffset + periodDur;
 
-		// Gather insertions within [periodStart, periodEnd)
+		// Gather insertions within [periodStart, periodEnd].
+		// Use <= on the upper bound so postrolls registered exactly at content
+		// end (ipt == periodEnd of the last period) are included.
+		bool isLastPeriod = (pi == mainPeriods.size() - 1);
 		std::vector<std::pair<double, const std::vector<const AdFetchResult *> *>> localInsertions;
 		for (auto &ins : insertionMap)
 		{
 			double ipt = ins.first;
-			if (ipt >= periodStart && ipt < periodEnd)
-				localInsertions.push_back({ipt - periodStart, &ins.second});
+			bool inRange = (ipt >= periodStart) &&
+			               (isLastPeriod ? (ipt <= periodEnd + 0.001) : (ipt < periodEnd));
+			if (inRange)
+				localInsertions.push_back({std::min(ipt - periodStart, periodDur), &ins.second});
 		}
 		std::sort(localInsertions.begin(), localInsertions.end(),
 		          [](const auto &a, const auto &b){ return a.first < b.first; });

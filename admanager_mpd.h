@@ -443,6 +443,8 @@ public:
 	double                                         mNextVodBreakToCheck;  /**< Smallest insertion point not yet fired; updated when breaks are added or fired */
 	double                                         mVodResumeOffset;      /**< Source-period offset to seek to after a VOD ad pod ends; 0 when not active */
 	bool                                           mVodManifestStitched;  /**< true when BuildStitchedVodManifest succeeded; disables VOD CDAI state machine during playback */
+	std::mutex                                     mVodAllAdsResolvedMtx; /**< Mutex for mVodAllAdsResolvedCV */
+	std::condition_variable                        mVodAllAdsResolvedCV;  /**< Signalled when all registered VOD ads are resolved/failed; manifest thread waits on this */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
 	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
 
@@ -805,6 +807,13 @@ public:
 	 * @param[in] reservationId Reservation/ad break ID
 	 */
 	void PlaceAdsForStaticManifest(const std::string& reservationId);
+
+	/**
+	 * @brief Check whether every non-cancelled registered VOD break has a resolved or failed ad.
+	 *        Caller must NOT hold mDaiMtx.
+	 * @return true when all breaks are done (resolved or invalid/failed)
+	 */
+	bool AreAllVodAdsResolved();
 };
 
 #endif /* ADMANAGER_MPD_H_ */

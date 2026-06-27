@@ -26,6 +26,7 @@
 #include "AampUtils.h"
 #include "fragmentcollector_mpd.h"
 #include "AampCacheHandler.h"
+#include "AampVodStitcher.h"
 #include <inttypes.h>
 
 #include <algorithm>
@@ -1265,6 +1266,26 @@ void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
  * @brief Trigger PlaceAds for static-manifest flow using cached base MPD helper.
  * @param[in] reservationId Reservation/ad break ID
  */
+bool PrivateCDAIObjectMPD::AreAllVodAdsResolved()
+{
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+	if (mVodAdBreaks.empty())
+		return false;
+	for (const auto &kv : mVodAdBreaks)
+	{
+		if (kv.second.cancelled) continue;
+		auto abIt = mAdBreaks.find(kv.first);
+		bool done = (abIt != mAdBreaks.end() &&
+		             abIt->second.ads && !abIt->second.ads->empty() &&
+		             (abIt->second.ads->at(0).resolved ||
+		              abIt->second.ads->at(0).invalid ||
+		              abIt->second.invalid));
+		if (!done)
+			return false;
+	}
+	return true;
+}
+
 void PrivateCDAIObjectMPD::PlaceAdsForStaticManifest(const std::string& reservationId)
 {
 	AampMPDParseHelperPtr baseMPDHelper;
@@ -1281,6 +1302,14 @@ void PrivateCDAIObjectMPD::PlaceAdsForStaticManifest(const std::string& reservat
 	else
 	{
 		AAMPLOG_WARN("[CDAI] deferred placement for reservation [%s] skipped: base MPD helper unavailable", reservationId.c_str());
+	}
+
+	// Signal the manifest thread if all registered VOD ads are now resolved/failed.
+	if (AreAllVodAdsResolved())
+	{
+		AAMPLOG_INFO("[CDAI-VOD] All VOD ads resolved after reservation [%s] — signalling manifest thread",
+			reservationId.c_str());
+		mVodAllAdsResolvedCV.notify_all();
 	}
 }
 

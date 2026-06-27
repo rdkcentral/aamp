@@ -4772,8 +4772,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			if (cdaiMpd && !cdaiMpd->mVodManifestStitched)
 			{
 				std::string rawMpd = mManifestDnldRespPtr->mMPDDownloadResponse->getString();
-				std::string stitched = BuildStitchedVodManifest(
-					aamp, rawMpd, manifestUrl, cdaiMpd);
+				std::string stitched = BuildStitchedVodManifest(aamp, rawMpd, manifestUrl, cdaiMpd);
 				if (!stitched.empty())
 				{
 					mManifestDnldRespPtr->mMPDDownloadResponse->replaceDownloadData(stitched);
@@ -12459,6 +12458,13 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 	if(!ISCONFIGSET(eAAMPConfig_EnableClientDai))
 	{
 		return false;
+	}
+	// Stitched VOD manifest: all periods are pre-arranged in the MPD.
+	// The live-CDAI state machine must not interfere — just play through.
+	{
+		PrivateCDAIObjectMPD *cdaiMpd = dynamic_cast<PrivateCDAIObjectMPD *>(mCdaiObject);
+		if (cdaiMpd && cdaiMpd->mVodManifestStitched)
+			return false;
 	}
 	int basePeriodIdx = mMPDParseHelper->getPeriodIdx(mBasePeriodId);
 	if(basePeriodIdx != -1)
