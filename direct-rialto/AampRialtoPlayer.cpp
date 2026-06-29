@@ -357,7 +357,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	}
 
 	//const int rate = m_rate.load(std::memory_order_relaxed);//anj
-	const int new_rate = m_pendingFlushRate.load(std::memory_order_relaxed);
+	const int rate = m_pendingFlushRate.load(std::memory_order_relaxed);
 	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
 		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != subFormat))
