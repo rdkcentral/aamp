@@ -580,14 +580,10 @@ int PlayerCCManagerBase::Init(void *handle)
 
 	MW_LOG_WARN("PlayerCCManagerBase:: Start CC with video dec handle: %p and mEnabled: %d", handle, mEnabled);
 
-//	if (mEnabled)
-//	{
-//		Start();
-//	}
-//	else
-//	{
-//		Stop();
-//	}
+	if (mEnabled)
+	{
+		Start();
+	}
 
 	return 0;
 }
