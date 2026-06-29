@@ -236,26 +236,3 @@ void DumpBlob(const unsigned char *ptr, size_t len)
  * @}
 */
 
-/**
- * @fn AampLogManager::MakeIsoBmffLogger
- * @brief Creates an IsoBmff::Logger that routes to the AAMP logging backend.
- */
-IsoBmff::Logger AampLogManager::MakeIsoBmffLogger()
-{
-    return {
-        [](IsoBmff::LogLevel level, std::string&& msg) {
-            AAMP_LogLevel aampLevel;
-            switch (level)
-            {
-                case IsoBmff::LogLevel::TRACE: aampLevel = eLOGLEVEL_TRACE; break;
-                case IsoBmff::LogLevel::INFO:  aampLevel = eLOGLEVEL_INFO;  break;
-                case IsoBmff::LogLevel::WARN:  aampLevel = eLOGLEVEL_WARN;  break;
-                case IsoBmff::LogLevel::MIL:   aampLevel = eLOGLEVEL_MIL;   break;
-                case IsoBmff::LogLevel::ERR:   aampLevel = eLOGLEVEL_ERROR; break;
-                default:                       aampLevel = eLOGLEVEL_WARN;  break;
-            }
-            logprintf(aampLevel, "isobmff", "isobmff", 0, "%s", msg.c_str());
-        },
-        IsoBmff::LogLevel::TRACE
-    };
-}
