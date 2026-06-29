@@ -779,7 +779,8 @@ gboolean InterfacePlayerRDK::ProgressCallbackOnTimeout(gpointer user_data)
 		MonitorAV(pInterfacePlayerRDK);
 	}
 	pInterfacePlayerRDK->TriggerEvent(InterfaceCB::progressCb);
-	MW_LOG_TRACE("current %d, stored %d ", g_source_get_id(g_main_current_source()), pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId);
+	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	MW_LOG_TRACE("current %d, stored %d ", g_source_get_id(g_main_current_source()), privatePlayer->gstPrivateContext->periodicProgressCallbackIdleTaskId);
 
 	{
 		std::lock_guard<std::mutex> lock(callbackContext->mutex);
@@ -815,7 +816,7 @@ gboolean InterfacePlayerRDK::IdleCallback(gpointer user_data)
 			auto callbackContext = pInterfacePlayerRDK->GetOrCreateProgressCallbackContext();
 			auto *timerUserData = new std::weak_ptr<ProgressCallbackContext>(callbackContext);
 			GSourceFunc timerFunc = ProgressCallbackOnTimeout;
-			pInterfacePlayerRDK->TimerAdd(timerFunc, (int)reportProgressInterval, pInterfacePlayerRDK->gstPrivateContext->periodicProgressCallbackIdleTaskId, timerUserData, "periodicProgressCallbackIdleTask", DestroyProgressCallbackUserData);
+			pInterfacePlayerRDK->TimerAdd(timerFunc, (int)reportProgressInterval, privatePlayer->gstPrivateContext->periodicProgressCallbackIdleTaskId, timerUserData, "periodicProgressCallbackIdleTask", DestroyProgressCallbackUserData);
 		}
 		else
 		{
@@ -1433,7 +1434,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	IdleTaskRemove(interfacePlayerPriv->gstPrivateContext->firstProgressCallbackIdleTask);
 
 	CancelProgressCallbackContext();
-	if (gstPrivateContext->bufferingTimeoutTimerId)
+	if (interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId)
 	{
 		MW_LOG_MIL("InterfacePlayerRDK: Remove bufferingTimeoutTimerId %d", interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId);
 		g_source_remove(interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId);
@@ -3724,7 +3725,7 @@ bool InterfacePlayerRDK::CheckDiscontinuity(int mediaType, int streamFormat , bo
  */
 std::shared_ptr<ProgressCallbackContext> InterfacePlayerRDK::GetOrCreateProgressCallbackContext()
 {
-	std::lock_guard<std::mutex> lock(gstPrivateContext->TaskControlMutex);
+	std::lock_guard<std::mutex> lock(interfacePlayerPriv->gstPrivateContext->TaskControlMutex);
 	bool createNewContext = false;
 	if (!mProgressCallbackContext)
 	{
@@ -3749,7 +3750,7 @@ void InterfacePlayerRDK::CancelProgressCallbackContext()
 {
 	std::shared_ptr<ProgressCallbackContext> callbackContext;
 	{
-		std::lock_guard<std::mutex> lock(gstPrivateContext->TaskControlMutex);
+		std::lock_guard<std::mutex> lock(interfacePlayerPriv->gstPrivateContext->TaskControlMutex);
 		callbackContext = mProgressCallbackContext;
 	}
 
@@ -3764,7 +3765,7 @@ void InterfacePlayerRDK::CancelProgressCallbackContext()
 		callbackContext->player = nullptr;
 	}
 
-	this->TimerRemove(gstPrivateContext->periodicProgressCallbackIdleTaskId, "periodicProgressCallbackIdleTaskId");
+	this->TimerRemove(interfacePlayerPriv->gstPrivateContext->periodicProgressCallbackIdleTaskId, "periodicProgressCallbackIdleTaskId");
 
 	std::unique_lock<std::mutex> lock(callbackContext->mutex);
 	if (!callbackContext->cv.wait_for(lock, std::chrono::seconds(5), [&callbackContext]() {
@@ -3774,7 +3775,7 @@ void InterfacePlayerRDK::CancelProgressCallbackContext()
 	}
 	lock.unlock();
 
-	std::lock_guard<std::mutex> taskLock(gstPrivateContext->TaskControlMutex);
+	std::lock_guard<std::mutex> taskLock(interfacePlayerPriv->gstPrivateContext->TaskControlMutex);
 	if (mProgressCallbackContext == callbackContext)
 	{
 		mProgressCallbackContext.reset();
@@ -3788,7 +3789,7 @@ void InterfacePlayerRDK::DestroyProgressCallbackUserData(gpointer user_data)
 
 void InterfacePlayerRDK::TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint& taskId, gpointer user_data, const char* timerName, GDestroyNotify destroyNotify)
 {
-	std::lock_guard<std::mutex> lock(gstPrivateContext->TaskControlMutex);
+	std::lock_guard<std::mutex> lock(interfacePlayerPriv->gstPrivateContext->TaskControlMutex);
 	if (funcPtr && user_data)
 	{
 		if (0 == taskId)

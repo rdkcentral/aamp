@@ -34,10 +34,11 @@
 #include <condition_variable>
 #include <chrono>
 #include <memory>
-#include "GstUtils.h"
 #include <any>
 #include "SocUtils.h"
+#include "GstUtils.h"
 
+class InterfacePlayerPriv;
 class InterfacePlayerRDK;
 
 struct ProgressCallbackContext
@@ -53,9 +54,6 @@ struct ProgressCallbackContext
 	{
 	}
 };
-#include "GstUtils.h"
-
-class InterfacePlayerPriv;
 
 struct MonitorAVState
 {
