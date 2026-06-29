@@ -4260,6 +4260,20 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 		{
 			MW_LOG_WARN("Mediatype %d underrun, when eosReached is %d", type, privatePlayer->gstPrivateContext->stream[type].eosReached);
 		}
+		// Do NOT forward underflow to AAMP during trickplay.
+		// At non-normal rates, AAMP's ScheduleRetune() is intentionally blocked
+		// ("Not processing reTune for rate = X"). Calling it repeatedly (~260ms
+		// cadence from WesterosSink) floods the log and, critically, creates a
+		// race with TeardownStream: when Watch From Start resets rate to 1.0,
+		// the in-flight underflow callbacks fire against the new session and
+		// corrupt it — causing the blue-screen stuck state.
+		if (privatePlayer->gstPrivateContext->rate != GST_NORMAL_PLAY_RATE)
+		{
+			MW_LOG_WARN("GstPlayer_OnGstBufferUnderflowCb: suppressing underflow "
+					"during trickplay (rate=%d)", privatePlayer->gstPrivateContext->rate);
+			return;
+		}
+
 		if(pInterfacePlayerRDK->OnGstBufferUnderflowCb)
 		{
 			pInterfacePlayerRDK->OnGstBufferUnderflowCb(static_cast<int>(type));
