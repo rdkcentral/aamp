@@ -27,8 +27,8 @@
  * constructed Logger has a null func, and all ISOBMFF_LOG_* calls are no-ops.
  */
 
-#ifndef __ISOBMFF_LOG_H__
-#define __ISOBMFF_LOG_H__
+#ifndef ISOBMFF_LOG_H
+#define ISOBMFF_LOG_H
 
 #include <functional>
 #include <string>
@@ -83,4 +83,4 @@ inline std::string Format(const char* msg)
 #define ISOBMFF_LOG_MIL(logger, ...)   ISOBMFF_LOG((logger), IsoBmff::LogLevel::MIL,   __VA_ARGS__)
 #define ISOBMFF_LOG_ERR(logger, ...)   ISOBMFF_LOG((logger), IsoBmff::LogLevel::ERR,   __VA_ARGS__)
 
-#endif /* __ISOBMFF_LOG_H__ */
+#endif /* ISOBMFF_LOG_H */

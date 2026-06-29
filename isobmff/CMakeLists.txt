@@ -29,4 +29,8 @@ add_library (isobmff STATIC
     isobmffhelper.cpp
 )
 
+set_target_properties(isobmff PROPERTIES PUBLIC_HEADER
+    "${CMAKE_CURRENT_SOURCE_DIR}/isobmffbox.h;${CMAKE_CURRENT_SOURCE_DIR}/isobmffbuffer.h;${CMAKE_CURRENT_SOURCE_DIR}/isobmffhelper.h;${CMAKE_CURRENT_SOURCE_DIR}/IsoBmffLog.h"
+)
+
 set_property(TARGET isobmff PROPERTY POSITION_INDEPENDENT_CODE True)
