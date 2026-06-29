@@ -780,7 +780,6 @@ void PlayerCCManagerBase::RestoreCC(bool shouldRestoreCC)
 int PlayerCCManagerBase::SetStatus(bool enable)
 {
 	int ret = 0;
-	bool didChange = (mEnabled != enable);
 	mEnabled = enable;
 	MW_LOG_WARN("PlayerCCManagerBase::mEnabled: %d, mTrickplayStarted: %d, mParentalCtrlLocked: %d, mCCHandle: %s",
 			mEnabled, mTrickplayStarted, mParentalCtrlLocked, (CheckCCHandle()) ? "set" : "not set");
