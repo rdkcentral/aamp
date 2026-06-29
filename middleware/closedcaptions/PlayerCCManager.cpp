@@ -789,7 +789,7 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 	else
 		IsCCOnFlag = 0;
 
-	if (!mTrickplayStarted && !mParentalCtrlLocked && CheckCCHandle() && didChange)
+	if (!mTrickplayStarted && !mParentalCtrlLocked && CheckCCHandle())
 	{
 		// Setting CC rendering to true before media_closeCaptionStart is not honoured
 		// by CC module. CC rendering status is saved in mEnabled and Start/Stop is
