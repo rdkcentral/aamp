@@ -1645,7 +1645,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	// If pendingPlayState is true, the pipeline was paused internally for buffering/caching
 	// and the intent is to resume to PLAYING — don't treat this as a user pause.
 	if (interfacePlayerPriv->gstPrivateContext->paused &&  !interfacePlayerPriv->gstPrivateContext->pendingPlayState
-		&& buffering_target_state != GST_STATE_PAUSED)
+		&& interfacePlayerPriv->gstPrivateContext->buffering_target_state != GST_STATE_PAUSED)
 	{
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = true;
 	}
@@ -4802,7 +4802,7 @@ static gboolean buffering_timeout (gpointer data)
 				{
 					if (privatePlayer->gstPrivateContext->buffering_timeout_cnt == 0)
     				{
-						buffering_timeout_cnt--;
+						privatePlayer->gstPrivateContext->buffering_timeout_cnt--;
         				MW_LOG_INFO("buffering_timeout: seekPausedState stuck - forcing clear");
         				privatePlayer->gstPrivateContext->seekPausedState = false;
     				}
