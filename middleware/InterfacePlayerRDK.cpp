@@ -3561,7 +3561,17 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 		 */
 		if (!pause && rc == GST_STATE_CHANGE_ASYNC)
 		{
-			interfacePlayerPriv->gstPrivateContext->pendingPlayState = true;
+			if (interfacePlayerPriv->gstPrivateContext->buffering_in_progress)
+			{
+				interfacePlayerPriv->gstPrivateContext->pendingPlayState = true;
+			}
+			else
+			{
+				// Not in a buffering cycle — NotifyFragmentCachingComplete will NOT come.
+				// Let GStreamer complete the ASYNC PAUSED→PLAYING transition on its own.
+				// Do NOT set pendingPlayState = true here.
+				interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
+			}
 		}
 		else
 		{
