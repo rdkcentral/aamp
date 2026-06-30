@@ -3559,7 +3559,7 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 		 * in PAUSED indefinitely. Keep pendingPlayState=true for async resumes so the buffering
 		 * completion path can finish the transition.
 		 */
-		if (!pause && rc == GST_STATE_CHANGE_ASYNC && buffering_in_progress)	
+		if (!pause && rc == GST_STATE_CHANGE_ASYNC && interfacePlayerPriv->gstPrivateContext->buffering_in_progress)	
 		{
 				interfacePlayerPriv->gstPrivateContext->pendingPlayState = true;
 		}
