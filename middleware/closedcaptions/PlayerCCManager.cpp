@@ -584,10 +584,9 @@ int PlayerCCManagerBase::Init(void *handle)
 	{
 		Start();
 	}
-	else
-	{
-		Stop();
-	}
+	// No reason to mute subtitles just because we have been given the handle. We get given the handle
+	// regardless of whether we are using inband captions. A mute at this point is disrupting
+	// out-of-band subtitles
 
 	return 0;
 }
@@ -810,7 +809,7 @@ int PlayerCCManagerBase::SetStatus(bool enable)
 }
 
 /**
- * @brief To check whether Out of Band Closed caption/subtitle rendering supported or not. 
+ * @brief To check whether Out of Band Closed caption/subtitle rendering supported or not.
  */
 bool PlayerCCManagerBase::IsOOBCCRenderingSupported()
 {
