@@ -9065,6 +9065,10 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 				downloadInfo->uriList[0] = URIInfo(headerUrl);
 				temp = mMediaStreamContext[trackIdx]->DownloadFragment(downloadInfo);
 				this->OnFragmentDownloadComplete(temp, downloadInfo);
+
+				// Quick try to see if this allows init fragment from advert to get pushed
+				AAMPLOG_INFO("Forcing mMediaStreamContext[trackIdx]->profileChanged to true (prev= %d)", mMediaStreamContext[trackIdx]->profileChanged);
+				mMediaStreamContext[trackIdx]->profileChanged = true;
 			}
 			else
 			{
