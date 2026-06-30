@@ -69,6 +69,25 @@ namespace firebolt::rialto
 // even if no subtitle data is injected and no subtitle EOS is sent.
 constexpr int64_t kMinPlayDurationNs = 1000000000LL; // 1 second
 
+// High-water mark for buffered (injected-but-not-yet-played) media per
+// non-subtitle track.  A real Rialto/GStreamer pipeline only requests more
+// data (needMediaData) while its internal queues have room; once it holds
+// roughly this much un-rendered data it stops asking until playback drains
+// it, pacing injection to ~real time.  Without this, the simulator would
+// request data greedily and AAMP would over-inject from its local TSB,
+// racing a trickplay reader to the start of the buffer and signalling a
+// premature EOS.  Expressed in the pipeline (restamped) timebase, so it
+// applies equally to normal play and trickplay.
+constexpr int64_t kBufferHighWaterNs = 10000000000LL; // 10 seconds
+
+// Number of frames requested per needMediaData.  A real pipeline only asks
+// for as much data as its buffers can currently accept; modelling that with
+// a small per-request count (combined with kBufferHighWaterNs pacing) keeps
+// AAMP from draining many fragments from its local TSB in a single batch.
+// A large value here would let one needData admit an unbounded burst,
+// defeating the backpressure model.
+constexpr unsigned int kNeedDataFrameCount = 24;
+
 // ===========================================================================
 // SimMediaPipeline - simulates the Rialto media pipeline
 // ===========================================================================
@@ -91,6 +110,7 @@ public:
 		, m_needDataRequestId(1)
 		, m_stopRequested(false)
 		, m_eosSourceCount(0)
+		, m_eosNotified(false)
 		, m_playbackRateEnabled(false)
 	{
 		const char *envRate = std::getenv("RIALTO_SIM_ENABLE_PLAYBACK_RATE");
@@ -284,13 +304,27 @@ public:
 			markSourceReadyForPlay(sourceId);
 			maybeStartPlayback();
 
-			m_eosSourceCount.fetch_add(1, std::memory_order_relaxed);
-			if (m_eosSourceCount.load(std::memory_order_relaxed) >=
-				static_cast<int>(m_attachedSources.size()))
+			bool allNonSubtitleSourcesEos = false;
 			{
-				// All sources EOS'd — delay END_OF_STREAM to model
-				// the real pipeline's drain time (renderer must play
-				// out buffered frames before signalling EOS).
+				std::lock_guard<std::mutex> lock(m_trackMutex);
+				auto typeIt = m_sourceTypes.find(sourceId);
+				if (typeIt != m_sourceTypes.end() &&
+					typeIt->second != MediaSourceType::SUBTITLE)
+				{
+					m_eosSources.insert(sourceId);
+				}
+				allNonSubtitleSourcesEos = allNonSubtitleSourcesEosLocked();
+				m_eosSourceCount.store(
+					static_cast<int>(m_eosSources.size()),
+					std::memory_order_relaxed);
+			}
+
+			if (allNonSubtitleSourcesEos &&
+				!m_eosNotified.exchange(true, std::memory_order_relaxed))
+			{
+				// All non-subtitle sources EOS'd — delay END_OF_STREAM
+				// to model the real pipeline's drain time (renderer must
+				// play out buffered frames before signalling EOS).
 				std::thread([this]() {
 					using namespace std::chrono;
 					constexpr auto kMinDrainTime = seconds(6);
@@ -305,6 +339,21 @@ public:
 					if (m_stopRequested.load(std::memory_order_relaxed))
 					{
 						return;
+					}
+					// Re-validate EOS after draining: new media may have
+					// arrived during the drain window (e.g. trickplay
+					// injection resuming), which clears the EOS tracking.
+					// Firing END_OF_STREAM in that case would signal a
+					// spurious/premature EOS to the player.
+					{
+						std::lock_guard<std::mutex> lock(m_trackMutex);
+						if (!m_eosNotified.load(std::memory_order_relaxed) ||
+							!allNonSubtitleSourcesEosLocked())
+						{
+							RIALTO_SIM_LOG(
+								"END_OF_STREAM cancelled: new media arrived during drain");
+							return;
+						}
 					}
 					if (auto client = m_client.lock())
 					{
@@ -388,6 +437,7 @@ public:
 		// Reset position tracking for the next segment
 		m_basePositionSet.store(false, std::memory_order_relaxed);
 		m_eosSourceCount.store(0, std::memory_order_relaxed);
+		m_eosNotified.store(false, std::memory_order_relaxed);
 
 		// A flushed source must re-buffer before the pipeline returns to
 		// PLAYING, so clear its readiness/injected-duration tracking and
@@ -396,6 +446,7 @@ public:
 			std::lock_guard<std::mutex> lock(m_trackMutex);
 			m_injectedDurationNs[sourceId] = 0;
 			m_readySources.erase(sourceId);
+			m_eosSources.clear();
 		}
 		m_playing = false;
 
@@ -459,6 +510,49 @@ private:
 		return base + static_cast<int64_t>(elapsedNs);
 	}
 
+	// Largest amount of injected-but-not-yet-played media held across the
+	// non-subtitle sources, in the pipeline (restamped) timebase.  Used to
+	// model buffer-fill backpressure: injected duration accumulates as
+	// segments arrive, while playback drains it at 1x wall-clock time.
+	// Backpressure is only meaningful while the pipeline is PLAYING: during
+	// preroll/seek/flush the pipeline buffers freely to (re)reach the play
+	// threshold, so report no backpressure when not playing to avoid
+	// starving the pipeline (and deadlocking, since buffered would never
+	// drain while paused).
+	// Caller must hold m_trackMutex.
+	int64_t maxBufferedAheadNsLocked() const
+	{
+		if (!m_playing || !m_basePositionSet.load(std::memory_order_relaxed))
+		{
+			return 0;
+		}
+		int64_t playedNs = 0;
+		{
+			auto elapsed = std::chrono::steady_clock::now() - m_playStartTime;
+			playedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+				elapsed).count();
+		}
+		int64_t maxBuffered = 0;
+		for (const auto &entry : m_sourceTypes)
+		{
+			if (entry.second == MediaSourceType::SUBTITLE)
+			{
+				continue;
+			}
+			auto it = m_injectedDurationNs.find(entry.first);
+			if (it == m_injectedDurationNs.end())
+			{
+				continue;
+			}
+			int64_t buffered = it->second - playedNs;
+			if (buffered > maxBuffered)
+			{
+				maxBuffered = buffered;
+			}
+		}
+		return maxBuffered;
+	}
+
 	void startNeedDataPump()
 	{
 		auto client = m_client.lock();
@@ -480,17 +574,39 @@ private:
 		{
 			RIALTO_SIM_LOG("notifyNeedMediaData: sourceId=%d requestId=%u",
 				send.first, send.second);
-			client->notifyNeedMediaData(send.first, 24, send.second, nullptr);
+			client->notifyNeedMediaData(send.first, kNeedDataFrameCount, send.second, nullptr);
 		}
 	}
 
 	void scheduleNextNeedData()
 	{
 		std::thread([this]() {
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
-			if (m_stopRequested.load(std::memory_order_relaxed))
+			// Pace data requests to model pipeline buffer backpressure:
+			// wait until the buffered (injected-but-not-played) media drops
+			// below the high-water mark before asking for more.  This keeps
+			// injection at ~real time instead of draining AAMP's local TSB
+			// as fast as fragments can be produced.
+			for (;;)
 			{
-				return;
+				if (m_stopRequested.load(std::memory_order_relaxed))
+				{
+					return;
+				}
+				int64_t buffered = 0;
+				{
+					std::lock_guard<std::mutex> lock(m_trackMutex);
+					buffered = maxBufferedAheadNsLocked();
+				}
+				RIALTO_SIM_LOG("DBG scheduleNextNeedData buffered=%lld high=%lld playing=%d baseSet=%d",
+					static_cast<long long>(buffered),
+					static_cast<long long>(kBufferHighWaterNs),
+					m_playing.load(std::memory_order_relaxed) ? 1 : 0,
+					m_basePositionSet.load(std::memory_order_relaxed) ? 1 : 0);
+				if (buffered < kBufferHighWaterNs)
+				{
+					break;
+				}
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			}
 			auto client = m_client.lock();
 			if (!client)
@@ -513,7 +629,7 @@ private:
 				{
 					break;
 				}
-				client->notifyNeedMediaData(send.first, 24, send.second, nullptr);
+				client->notifyNeedMediaData(send.first, kNeedDataFrameCount, send.second, nullptr);
 			}
 		}).detach();
 	}
@@ -530,7 +646,15 @@ private:
 		if (durationNs > 0)
 		{
 			m_injectedDurationNs[sourceId] += durationNs;
+			m_eosSources.erase(sourceId);
+			m_eosSourceCount.store(
+				static_cast<int>(m_eosSources.size()),
+				std::memory_order_relaxed);
+			m_eosNotified.store(false, std::memory_order_relaxed);
 		}
+		RIALTO_SIM_LOG("DBG accumulate sourceId=%d durationNs=%lld totalNs=%lld",
+			sourceId, static_cast<long long>(durationNs),
+			static_cast<long long>(m_injectedDurationNs[sourceId]));
 		if (m_injectedDurationNs[sourceId] >= kMinPlayDurationNs)
 		{
 			m_readySources.insert(sourceId);
@@ -564,6 +688,25 @@ private:
 			}
 			haveNonSubtitle = true;
 			if (m_readySources.find(entry.first) == m_readySources.end())
+			{
+				return false;
+			}
+		}
+		return haveNonSubtitle;
+	}
+
+	// Caller must hold m_trackMutex.
+	bool allNonSubtitleSourcesEosLocked() const
+	{
+		bool haveNonSubtitle = false;
+		for (const auto &entry : m_sourceTypes)
+		{
+			if (entry.second == MediaSourceType::SUBTITLE)
+			{
+				continue;
+			}
+			haveNonSubtitle = true;
+			if (m_eosSources.find(entry.first) == m_eosSources.end())
 			{
 				return false;
 			}
@@ -652,12 +795,14 @@ private:
 	std::atomic<uint32_t> m_needDataRequestId;
 	std::atomic<bool> m_stopRequested;
 	std::atomic<int> m_eosSourceCount;
+	std::atomic<bool> m_eosNotified;
 	std::thread m_positionThread;
 	bool m_playbackRateEnabled;
 	mutable std::mutex m_trackMutex;
 	std::map<int32_t, MediaSourceType> m_sourceTypes;
 	std::map<int32_t, int64_t> m_injectedDurationNs;
 	std::set<int32_t> m_readySources;
+	std::set<int32_t> m_eosSources;
 	std::map<uint32_t, int32_t> m_requestIdToSource;
 };
 
