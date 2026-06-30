@@ -548,3 +548,50 @@ TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
 	CallSwitchSubtitleTrack(true);
 
 }
+// When an app has explicitly selected a CC track, SelectSubtitleTrack must not
+// overwrite it with an OOB subtitle track on seek/retune.  The guard fires when
+// mPreferredTextTrack.isCC is true, preserving mTextTracks and mTextTrackIndex
+// in the out-params so callers don't accidentally clear the track list via
+// SetTextTrackInfo({}, "").
+TEST_F(SubtitleTrackTests, SelectSubtitleTrack_CCGuard_SkipsOOBSelection)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="16" contentType="text" segmentAlignment="true" lang="eng">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+			<Representation id="TTMLenCC" mimeType="application/mp4" codecs="stpp.ttml.im1t" bandwidth="1434">
+				<SegmentTemplate timescale="48000" media="dash/ttml_en_$Number%03d$.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="449"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+	AAMPStatusType status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Arm the guard: app explicitly selected CC1.
+	TextTrackInfo ccTrack;
+	ccTrack.isCC = true;
+	ccTrack.instreamId = "CC1";
+	ccTrack.language = "eng";
+	mPrivateInstanceAAMP->SetPreferredTextTrack(ccTrack);
+
+	std::vector<TextTrackInfo> tTracks;
+	std::string tTrackIdx;
+
+	CallSelectSubtitleTrack(true, tTracks, tTrackIdx);
+
+	// Guard must have returned early without re-scoring.
+	// tTrackIdx is set to mTextTrackIndex (preserved member state, set to "0-0"
+	// during Init), and tTracks is populated from mTextTracks, so the caller's
+	// subsequent SetTextTrackInfo() call is a no-op rather than clearing the
+	// track list.
+	EXPECT_EQ(tTrackIdx, "0-0");
+	EXPECT_FALSE(tTracks.empty());
+}
