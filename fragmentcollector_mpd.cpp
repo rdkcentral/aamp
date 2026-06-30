@@ -10434,6 +10434,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 											((mPlayRate > AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= aamp->mAbsoluteEndPosition) || (mPlayRate < AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= aamp->culledSeconds && (mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)))); // For rewinding, EOS does not need to be set unless the current period is a lower period.
 					if ((!mIsLiveManifest || (mPlayRate != AAMP_NORMAL_PLAY_RATE)) && (eosOutSideAd || eosAdPlayback))
 					{
+						// Stream has reached the true end of playback for this period.
+						// The EOS worker job sets eosReached on the track, which causes
+						// MediaTrack::SignalIfEOSReached() to call EndOfStreamReached() on the
+						// pipeline. Once both vEos and aEos are set the FetcherLoop exits below.
 						if (vEos)
 						{
 							auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {

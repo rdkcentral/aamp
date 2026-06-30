@@ -1497,6 +1497,8 @@ bool MediaTrack::SignalIfEOSReached()
 			{
 				pContext->StopUnderflowMonitor();
 			}
+			// Reset the EOS flag so that we don't send EOS again if the injector is restarted
+			eosReached = false;
 			ret = true;
 		}
 		else
