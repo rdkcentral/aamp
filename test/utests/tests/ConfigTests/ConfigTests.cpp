@@ -1463,9 +1463,9 @@ TEST_F(AampConfigTests, VodAdBreakLookahead_JsonRoundTrip)
 }
 
 /**
- * @brief VOD ad-break lookahead: a negative value set via JSON is stored as-is
- *        by AampConfig.  Clamping to 0 is the responsibility of the call site
- *        (fragmentcollector_mpd.cpp FetcherLoop), not the config layer.
+ * @brief VOD ad-break lookahead: a negative value set via JSON is rejected by
+ *        AampConfig range validation (eCONFIG_RANGE_ANY), so the default is
+ *        preserved.
  */
 TEST_F(AampConfigTests, VodAdBreakLookahead_NegativeRejected)
 {
