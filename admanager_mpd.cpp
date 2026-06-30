@@ -2354,9 +2354,12 @@ bool PrivateCDAIObjectMPD::IsVodAdBreak(const std::string &breakId) const
 bool PrivateCDAIObjectMPD::CheckVodAdBreakCrossing(double positionSec, const std::string &currentPeriodId)
 {
 	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
-	for (auto &kv : mVodAdBreaks)
+	for (const std::string &bid : mVodAdBreakOrder)
 	{
-		VodAdBreakInfo &info = kv.second;
+		auto it = mVodAdBreaks.find(bid);
+		if (it == mVodAdBreaks.end())
+			continue;
+		VodAdBreakInfo &info = it->second;
 		if (info.cancelled || info.adPodStarted)
 			continue;
 		if (info.insertionPointSec > positionSec)

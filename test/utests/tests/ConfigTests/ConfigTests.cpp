@@ -1452,6 +1452,7 @@ TEST_F(AampConfigTests, VodAdBreakLookahead_DefaultIsPositive)
  */
 TEST_F(AampConfigTests, VodAdBreakLookahead_JsonRoundTrip)
 {
+        mAampConfig->Initialize();
         const std::string json = R"({"vodAdBreakLookaheadSec":10})";
         cJSON *cfgdata = cJSON_Parse(json.c_str());
         ASSERT_NE(cfgdata, nullptr) << "cJSON_Parse failed";
@@ -1463,9 +1464,9 @@ TEST_F(AampConfigTests, VodAdBreakLookahead_JsonRoundTrip)
 }
 
 /**
- * @brief VOD ad-break lookahead: a negative value set via JSON is rejected by
- *        AampConfig range validation (eCONFIG_RANGE_ANY), so the default is
- *        preserved.
+ * @brief VOD ad-break lookahead: a negative value set via JSON is rejected
+ *        by the config layer (valid range is [0, INT_MAX]); the value remains
+ *        at the default after the rejected set attempt.
  */
 TEST_F(AampConfigTests, VodAdBreakLookahead_NegativeRejected)
 {
