@@ -10445,17 +10445,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
-							if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+							if (!videoEosSubmitted)
 							{
-								if (!videoEosSubmitted)
+								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 								{
 									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
-									videoEosSubmitted = true;
 								}
-							}
-							else
-							{
-								dashWorkerJob->Execute();
+								else
+								{
+									dashWorkerJob->Execute();
+								}
+								videoEosSubmitted = true;
 							}
 							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
 						}
@@ -10468,17 +10468,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
-								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+								if (!audioEosSubmitted)
 								{
-									if (!audioEosSubmitted)
+									if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
 									{
 										aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
-										audioEosSubmitted = true;
 									}
-								}
-								else
-								{
-									dashWorkerJob->Execute();
+									else
+									{
+										dashWorkerJob->Execute();
+									}
+									audioEosSubmitted = true;
 								}
 							}
 						}
