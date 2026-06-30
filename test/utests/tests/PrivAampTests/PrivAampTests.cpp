@@ -4215,6 +4215,41 @@ TEST_F(PrivAampTests,SetTextTrackTest_1)
 	EXPECT_EQ(-1,val);
 }
 
+// Verify that selecting a CC track via SetTextTrack:
+//   - stores the track in mPreferredTextTrack (arming the SelectSubtitleTrack guard), and
+//   - enables PlayerCCManager via SetCCStatusInternal before calling SetTrack.
+TEST_F(PrivAampTests, SetTextTrack_CCTrack_ArmsGuardAndEnablesCCManager)
+{
+	TextTrackInfo ccTrack;
+	ccTrack.index      = "0-0";
+	ccTrack.language   = "eng";
+	ccTrack.isCC       = true;
+	ccTrack.instreamId = "CC1";
+
+	std::vector<TextTrackInfo> tracks = { ccTrack };
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mIsInbandCC = false;
+	p_aamp->subtitles_muted = false; // app has already enabled CC display
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(false))
+		.WillOnce(ReturnRef(tracks));
+	// SetCCStatusInternal must enable PlayerCCManager before SetTrack is called
+	// (mEnabled must be true when SetTrack runs). InSequence is scoped to these
+	// two expectations only.
+	{
+		::testing::InSequence seq;
+		EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+		EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1", _)).WillOnce(Return(0));
+	}
+
+	p_aamp->SetTextTrack(0, nullptr);
+
+	EXPECT_TRUE(p_aamp->mIsInbandCC);
+	EXPECT_TRUE(p_aamp->GetPreferredTextTrack().isCC);
+	EXPECT_EQ(p_aamp->GetPreferredTextTrack().instreamId, "CC1");
+}
+
 TEST_F(PrivAampTests,SetCCStatusPreTune)
 {
 	// Test basic CC status functionality

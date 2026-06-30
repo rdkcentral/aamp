@@ -5489,7 +5489,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
  * Parameter: pair<TuneType, bool> where bool indicates if CheckForAdStart should be called.
  */
 class CDAIInitTuneTypeTests : public FunctionalTestsBase,
-							  public ::testing::TestWithParam<std::pair<TuneType, bool>>
+						  public ::testing::TestWithParam<std::pair<TuneType, bool>>
 {
 protected:
 	void SetUp() override
@@ -5571,3 +5571,183 @@ INSTANTIATE_TEST_SUITE_P(AllTuneTypes,
 							std::make_pair(eTUNETYPE_RETUNE, true),
 							std::make_pair(eTUNETYPE_SEEKTOEND, true)
 						));
+
+/**
+ * @brief Verify ParseMPDLLData parses target, min, and max latency from ServiceDescription
+ * and sets them as stream config values.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_SetsLatencyConfigs)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:01.890Z" id="1" maxSegmentDuration="PT2S" minBufferTime="PT2S" minimumUpdatePeriod="P100Y" type="dynamic" profiles="urn:mpeg:dash:profile:full:2011" publishTime="2026-05-21T18:01:14Z" timeShiftBufferDepth="PT30S">
+	<ServiceDescription id="0">
+		<Latency target="3500" min="2000" max="6000"/>
+		<PlaybackRate min="0.9" max="1.1"/>
+	</ServiceDescription>
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="1000" duration="2000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="1280" height="720"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<SegmentTemplate timescale="48000" duration="96000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	AampLLDashServiceData llData;
+	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, 3.5));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, 2.0));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, 6.0));
+
+	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(llData.targetLatency, 3500);
+	EXPECT_EQ(llData.minLatency, 2000);
+	EXPECT_EQ(llData.maxLatency, 6000);
+	EXPECT_DOUBLE_EQ(llData.maxPlaybackRate, 1.1);
+	EXPECT_DOUBLE_EQ(llData.minPlaybackRate, 0.9);
+}
+
+/**
+ * @brief Verify ParseMPDLLData handles manifest with only target latency
+ * (no min/max) and sets only the target config.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_OnlyTargetLatency)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:01.890Z" id="1" maxSegmentDuration="PT2S" minBufferTime="PT2S" minimumUpdatePeriod="P100Y" type="dynamic" profiles="urn:mpeg:dash:profile:full:2011" publishTime="2026-05-21T18:01:14Z" timeShiftBufferDepth="PT30S">
+	<ServiceDescription id="0">
+		<Latency target="4000"/>
+	</ServiceDescription>
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="1000" duration="2000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="1280" height="720"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<SegmentTemplate timescale="48000" duration="96000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	AampLLDashServiceData llData;
+	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, 4.0));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, _)).Times(0);
+
+	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(llData.targetLatency, 4000);
+	EXPECT_EQ(llData.minLatency, 0);
+	EXPECT_EQ(llData.maxLatency, 0);
+}
+
+/**
+ * @brief Verify ParseMPDLLData handles manifest with no ServiceDescription element.
+ * No config values should be set.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_NoServiceDescription)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:01.890Z" id="1" maxSegmentDuration="PT2S" minBufferTime="PT2S" minimumUpdatePeriod="P100Y" type="dynamic" profiles="urn:mpeg:dash:profile:full:2011" publishTime="2026-05-21T18:01:14Z" timeShiftBufferDepth="PT30S">
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="1000" duration="2000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="1280" height="720"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<SegmentTemplate timescale="48000" duration="96000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	AampLLDashServiceData llData;
+	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, _)).Times(0);
+
+	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(llData.targetLatency, 0);
+	EXPECT_EQ(llData.minLatency, 0);
+	EXPECT_EQ(llData.maxLatency, 0);
+}
+
+/**
+ * @brief Verify ParseMPDLLData handles manifest with no Latency element in ServiceDescription.
+ * PlaybackRate values should still be parsed.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_NoLatencyElement)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:01.890Z" id="1" maxSegmentDuration="PT2S" minBufferTime="PT2S" minimumUpdatePeriod="P100Y" type="dynamic" profiles="urn:mpeg:dash:profile:full:2011" publishTime="2026-05-21T18:01:14Z" timeShiftBufferDepth="PT30S">
+	<ServiceDescription id="0">
+		<PlaybackRate min="0.95" max="1.05"/>
+	</ServiceDescription>
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="1000" duration="2000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="1280" height="720"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<SegmentTemplate timescale="48000" duration="96000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	AampLLDashServiceData llData;
+	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, _)).Times(0);
+
+	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(llData.targetLatency, 0);
+	EXPECT_DOUBLE_EQ(llData.maxPlaybackRate, 1.05);
+	EXPECT_DOUBLE_EQ(llData.minPlaybackRate, 0.95);
+}

@@ -6697,6 +6697,17 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		return;
 	}
 
+	// Skip OOB subtitle scoring on seek/trickplay resume when the app
+	// explicitly selected a CC track. Preserve the current text-track list
+	// and selection so callers don't accidentally clear it.
+	if (aamp->GetPreferredTextTrack().isCC)
+	{
+		tTracks = mTextTracks;
+		tTrackIdx = mTextTrackIndex;
+		AAMPLOG_INFO("SelectSubtitleTrack: CC track explicitly selected, skipping OOB subtitle selection");
+		return;
+	}
+
 	size_t numAdaptationSets = period->GetAdaptationSets().size();
 	if (AAMP_NORMAL_PLAY_RATE == mPlayRate)
 	{
@@ -13853,45 +13864,45 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 
 			AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Current Offset(s): %ld",(long)currentOffset);
 
-			if(	stLLServiceData.minLatency <= 0)
+			// Use configured values (which incorporate manifest values via stream settings
+			// and respect config priority). Fall back to defaults if invalid.
+			if (minLatency > 0)
 			{
-				if(minLatency <= 0 || minLatency > targetLatency )
-				{
-					stLLServiceData.minLatency = DEFAULT_MIN_LOW_LATENCY*1000;
-				}
-				else
-				{
-					stLLServiceData.minLatency = minLatency*1000;
-				}
+				stLLServiceData.minLatency = minLatency * 1000;
 			}
-			if(	stLLServiceData.maxLatency <= 0 ||
-				stLLServiceData.maxLatency < stLLServiceData.minLatency )
+			else if (stLLServiceData.minLatency <= 0)
 			{
-				if( maxLatency <=0 || maxLatency < minLatency )
-				{
-					stLLServiceData.maxLatency = DEFAULT_MAX_LOW_LATENCY*1000;
-					stLLServiceData.minLatency = DEFAULT_MIN_LOW_LATENCY*1000;
-				}
-				else
-				{
-					stLLServiceData.maxLatency = maxLatency*1000;
-				}
+				stLLServiceData.minLatency = DEFAULT_MIN_LOW_LATENCY * 1000;
 			}
-			if(	stLLServiceData.targetLatency <= 0 ||
-				stLLServiceData.targetLatency < stLLServiceData.minLatency ||
-				stLLServiceData.targetLatency > stLLServiceData.maxLatency )
 
+			if (targetLatency > 0)
 			{
-				if(targetLatency <=0 || targetLatency < minLatency || targetLatency > maxLatency )
-				{
-					stLLServiceData.targetLatency = DEFAULT_TARGET_LOW_LATENCY*1000;
-					stLLServiceData.maxLatency = DEFAULT_MAX_LOW_LATENCY*1000;
-					stLLServiceData.minLatency = DEFAULT_MIN_LOW_LATENCY*1000;
-				}
-				else
-				{
-					stLLServiceData.targetLatency = targetLatency*1000;
-				}
+				stLLServiceData.targetLatency = targetLatency * 1000;
+			}
+			else if (stLLServiceData.targetLatency <= 0)
+			{
+				stLLServiceData.targetLatency = DEFAULT_TARGET_LOW_LATENCY * 1000;
+			}
+
+			if (maxLatency > 0)
+			{
+				stLLServiceData.maxLatency = maxLatency * 1000;
+			}
+			else if (stLLServiceData.maxLatency <= 0)
+			{
+				stLLServiceData.maxLatency = DEFAULT_MAX_LOW_LATENCY * 1000;
+			}
+
+			// Consistency check: ensure min <= target <= max, otherwise reset to defaults
+			if (stLLServiceData.minLatency > stLLServiceData.targetLatency ||
+				stLLServiceData.targetLatency > stLLServiceData.maxLatency ||
+				stLLServiceData.maxLatency < stLLServiceData.minLatency)
+			{
+				AAMPLOG_WARN("Inconsistent LL-DASH latency values. Resetting to defaults (min: %d, target: %d, max: %d)",
+					stLLServiceData.minLatency, stLLServiceData.targetLatency, stLLServiceData.maxLatency);
+				stLLServiceData.targetLatency = DEFAULT_TARGET_LOW_LATENCY * 1000;
+				stLLServiceData.maxLatency = DEFAULT_MAX_LOW_LATENCY * 1000;
+				stLLServiceData.minLatency = DEFAULT_MIN_LOW_LATENCY * 1000;
 			}
 			double latencyOffsetMin = stLLServiceData.minLatency/(double)1000;
 			double latencyOffsetMax = stLLServiceData.maxLatency/(double)1000;
@@ -14080,6 +14091,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 			{
 				stAampLLDashServiceData.targetLatency = latency->GetTarget();
 				AAMPLOG_INFO("targetLatency: %d", stAampLLDashServiceData.targetLatency);
+				SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_LLTargetLatency, stAampLLDashServiceData.targetLatency / 1000.0);
 			}
 
 			//check if attribute @max or @min is available in <Latency> element->raise info if not
@@ -14091,6 +14103,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 			{
 				stAampLLDashServiceData.maxLatency = latency->GetMax();
 				AAMPLOG_INFO("maxLatency: %d", stAampLLDashServiceData.maxLatency);
+				SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_LLMaxLatency, stAampLLDashServiceData.maxLatency / 1000.0);
 			}
 			if(attributeMap.find("min") == attributeMap.end())
 			{
@@ -14100,6 +14113,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 			{
 				stAampLLDashServiceData.minLatency = latency->GetMin();
 				AAMPLOG_INFO("minLatency: %d", stAampLLDashServiceData.minLatency);
+				SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_LLMinLatency, stAampLLDashServiceData.minLatency / 1000.0);
 			}
 		}
 
