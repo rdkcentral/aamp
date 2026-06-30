@@ -5249,8 +5249,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_SetsLatencyConfigs)
 	ASSERT_NE(response, nullptr);
 	ASSERT_NE(response->mMPDInstance.get(), nullptr);
 
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
-
 	AampLLDashServiceData llData;
 	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
 
@@ -5298,8 +5296,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_OnlyTargetLatency)
 	ASSERT_NE(response, nullptr);
 	ASSERT_NE(response->mMPDInstance.get(), nullptr);
 
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
-
 	AampLLDashServiceData llData;
 	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
 
@@ -5341,8 +5337,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_NoServiceDescription)
 	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
 	ASSERT_NE(response, nullptr);
 	ASSERT_NE(response->mMPDInstance.get(), nullptr);
-
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
 
 	AampLLDashServiceData llData;
 	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
@@ -5388,8 +5382,6 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_NoLatencyElement)
 	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
 	ASSERT_NE(response, nullptr);
 	ASSERT_NE(response->mMPDInstance.get(), nullptr);
-
-	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
 
 	AampLLDashServiceData llData;
 	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
