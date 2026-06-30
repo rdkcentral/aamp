@@ -1403,7 +1403,8 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				// Track the end of buffer from the last downloaded fragment
 				// Use the playlistPosition instead of a rolling count in case segments are dropped
 				playTargetBufferCalc = playlistCulledOffset + playlistPosition + fragmentDurationSeconds;
-				AAMPLOG_INFO("patrick playTargetBufferCalc %f playlistCulledOffset %f playlistPosition %f fragmentDurationSeconds %f", playTargetBufferCalc.inSeconds(), playlistCulledOffset.inSeconds(), playlistPosition.inSeconds(), fragmentDurationSeconds);
+				AAMPLOG_INFO("patrick type %d playTargetBufferCalc %f playlistCulledOffset %f playlistPosition %f fragmentDurationSeconds %f",
+					type, playTargetBufferCalc.inSeconds(), playlistCulledOffset.inSeconds(), playlistPosition.inSeconds(), fragmentDurationSeconds);
 			}
 
 			if((eTRACK_VIDEO == type)  && (aamp->IsFogTSBSupported()))
