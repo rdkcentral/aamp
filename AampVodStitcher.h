@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2025 RDK Management
+ * Copyright 2026 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@
  * @brief Client-side VOD CDAI manifest stitcher.
  *
  * Produces a single multi-period static DASH MPD by splicing ad-break periods
- * into the main content MPD at registered insertion points.  All ad MPDs are
- * fetched in parallel before stitching so that tune latency is minimised.
- *
+ * into the main content MPD at registered insertion points. Ad MPDs are
+ * fetched sequentially before stitching (see implementation notes) so that
+ * tune latency stays bounded without unsafe parallel GetFile() usage.
  * Supported segment addressing: SegmentTemplate + SegmentTimeline only.
  */
 
@@ -43,7 +43,7 @@ class PrivateCDAIObjectMPD;
  * are no registered VOD ad breaks or when stitching is not applicable (live
  * stream, CDAI disabled, etc.).
  *
- * @param aamp        AAMP private instance (used for parallel HTTP downloads).
+ * @param aamp        AAMP private instance (used for HTTP downloads).
  * @param mainMpdText Raw XML text of the downloaded main content MPD.
  * @param mainMpdUrl  Effective URL of the main MPD (used to resolve BaseURLs).
  * @param cdaiObj     CDAI private object carrying registered break metadata and
