@@ -70,6 +70,7 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampDRMLicManager.h"
+#include "RialtoSessionCreator.h"
 
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include <AampTelemetry2.hpp>
@@ -1856,7 +1857,12 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this);
+	DrmSessionCreator rialtoCreator;
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto))
+	{
+		rialtoCreator = makeRialtoSessionCreator();
+	}
+	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this, std::move(rialtoCreator));
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{

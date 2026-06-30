@@ -50,9 +50,7 @@
  * Follows the same lifecycle as OCDMSessionAdapter:
  *   generateDRMSession → generateKeyRequest → processDRMKey
  *
- * Internally delegates to RialtoMediaKeySystem/RialtoMediaKeySession.
- * decrypt() methods are no-ops — decryption is handled server-side
- * by the Rialto pipeline.
+ * Internally delegates to RialtoMediaKeySystem/RialtoMediaKeySession
  */
 class RialtoMediaKeySessionAdapter : public DrmSession
 {
@@ -77,7 +75,7 @@ public:
 	                        uint32_t f_cbInitData,
 	                        std::string& customData) override;
 
-	DrmData* generateKeyRequest(string& destinationURL, uint32_t timeout) override;
+	DrmData* generateKeyRequest(std::string& destinationURL, uint32_t timeout) override;
 
 	int processDRMKey(DrmData* key, uint32_t timeout) override;
 
@@ -86,14 +84,6 @@ public:
 	bool waitForState(KeyState state, const uint32_t timeout) override;
 
 	void clearDecryptContext() override;
-
-	int decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer,
-	            GstBuffer* buffer, unsigned subSampleCount,
-	            GstBuffer* subSamplesBuffer, GstCaps* caps = nullptr) override;
-
-	int decrypt(const uint8_t* f_pbIV, uint32_t f_cbIV,
-	            const uint8_t* payloadData, uint32_t payloadDataSize,
-	            uint8_t** ppOpaqueData) override;
 
 	int32_t getMediaKeySessionId() const override;
 

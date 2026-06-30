@@ -356,8 +356,7 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		return true;  // Audio codec changed to a different valid format.
 	}
 
-	//const int rate = m_rate.load(std::memory_order_relaxed);//anj
-	const int rate = m_pendingFlushRate.load(std::memory_order_relaxed);
+	const int rate = m_rate.load(std::memory_order_relaxed);
 	if(rate == AAMP_NORMAL_PLAY_RATE)
 	{
 		if ((subtitleSrc == nullptr) || (subtitleSrc->format() != subFormat))
@@ -1051,27 +1050,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 
-	// Forward posNs to the Rialto server via setSourcePosition() for every
-	// attached source.  This is required to make the Rialto server emit a
-	// GStreamer segment event before the first buffer; without it
-	// pushSampleIfRequired() is a no-op and frames at large live-stream PTS
-	// values (e.g. 12542 s) are never rendered by the downstream decoder.
-
-	// Stage the new segment-start position unconditionally, BEFORE any
-	// early-return path below.  AttachSource() reads m_pendingFlushPositionNs
-	// to call setSourcePosition() on every new source; if the position is
-	// not updated here, the stale value from the previous session survives
-	// into the next Configure() → AttachSource() flow.
-	// Concrete failure mode without this: a live-stream session sets
-	// m_pendingFlushPositionNs to e.g. 46.08 s via Flush().  The session ends
-	// (player goes STOPPED).  The next tune is a VOD asset whose first PTS is
-	// ~80 ms.  Flush(position=0, shouldTearDown=true) is called; because the
-	// player is STOPPED the early-return below fires without updating
-	// m_pendingFlushPositionNs.  AttachSource() then calls
-	// setSourcePosition(46080000000), the GStreamer segment base is 46.08 s,
-	// all VOD frames (~80 ms) are discarded as before-segment, preroll never
-	// completes, and the pipeline is stuck.
-
 	// Stage latest flush parameters first so re-entrant Flush() calls while
 	// FLUSHING can still retarget the pending segment start and applied rate.
 	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
@@ -1088,15 +1066,8 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// Rialto needs to flush in states like SOURCES_ATTACHED to set up positions.
 	const PlayerStateId state = m_stateMachine.currentState();
 	const bool isPlayingPausedOrAttached = (state == PlayerStateId::PLAYING ||
-					state == PlayerStateId::SOURCES_ATTACHED ||
-	                                state == PlayerStateId::PAUSED);
-	if (state == PlayerStateId::FLUSHING)
-	{
-		AAMPLOG_INFO("Flush requested while already FLUSHING - updated pending position/rate only (position=%f rate=%d shouldTearDown=%d)",
-			position, rate, shouldTearDown);
-		AAMPLOG_INFO("EXIT - already flushing");
-		return;
-	}
+											state == PlayerStateId::SOURCES_ATTACHED ||
+											state == PlayerStateId::PAUSED);
 
 	if (!isPlayingPausedOrAttached && shouldTearDown)
 	{
@@ -1108,8 +1079,35 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		return;
 	}
 
-	// Proceed with flush: either in PLAYING/PAUSED/SOURCES_ATTACHED, or in other state with shouldTearDown=false.
+	if (state == PlayerStateId::FLUSHING)
+	{
+		AAMPLOG_INFO("Flush requested while already FLUSHING - updated pending position/rate only (position=%f rate=%d shouldTearDown=%d)",
+			position, rate, shouldTearDown);
 
+		// If some sources have already reported flushed, they will not emit another
+		// SourceFlushedEvent during this flush cycle. Re-apply the updated pending
+		// position/rate so all sources stay in sync.
+		if (m_pipeline)
+		{
+			for (const auto &s : m_sources)
+			{
+				if (s && s->isAttached() && !s->isFlushing())
+				{
+					if (!m_pipeline->setSourcePosition(
+						s->sourceId(), posNs, /*resetTime=*/true,
+						computeAppliedRate(rate)))
+					{
+						AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
+							s->sourceId());
+					}
+				}
+			}
+		}
+
+		AAMPLOG_INFO("EXIT - already flushing");
+		return;
+	}
+	
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
 	{
@@ -1750,9 +1748,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
 				m_notifiable->NotifySpeedChanged(
-					static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
-					/*changeState=*/true);
-					//AAMP_NORMAL_PLAY_RATE, /*changeState=*/true);//anj
+					AAMP_NORMAL_PLAY_RATE, /*changeState=*/true);
 			}
 			StartProgressTimer();
 

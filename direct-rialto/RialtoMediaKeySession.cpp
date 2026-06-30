@@ -23,7 +23,7 @@
  */
 
 #include "RialtoMediaKeySession.h"
-#include "PlayerLogManager.h"
+#include "AampLogManager.h"
 
 RialtoMediaKeySession::RialtoMediaKeySession(
 	int32_t keySessionId,
@@ -33,12 +33,12 @@ RialtoMediaKeySession::RialtoMediaKeySession(
 	, m_mediaKeys(mediaKeys)
 	, m_deregister(std::move(deregister))
 {
-	MW_LOG_INFO("RialtoMediaKeySession[%d]: created", m_keySessionId);
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: created", m_keySessionId);
 }
 
 bool RialtoMediaKeySession::update(const uint8_t* keyMessage, uint16_t keyMessageLength)
 {
-	MW_LOG_INFO("RialtoMediaKeySession[%d]: update, length=%u", m_keySessionId, keyMessageLength);
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: update, length=%u", m_keySessionId, keyMessageLength);
 
 	const std::vector<uint8_t> responseData(keyMessage, keyMessage + keyMessageLength);
 	firebolt::rialto::MediaKeyErrorStatus status =
@@ -46,43 +46,43 @@ bool RialtoMediaKeySession::update(const uint8_t* keyMessage, uint16_t keyMessag
 
 	if (status != firebolt::rialto::MediaKeyErrorStatus::OK)
 	{
-		MW_LOG_ERR("RialtoMediaKeySession[%d]: updateSession failed, status=%d",
+		AAMPLOG_ERR("RialtoMediaKeySession[%d]: updateSession failed, status=%d",
 		           m_keySessionId, static_cast<int>(status));
 		return false;
 	}
 
-	MW_LOG_INFO("RialtoMediaKeySession[%d]: updateSession succeeded", m_keySessionId);
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: updateSession succeeded", m_keySessionId);
 	return true;
 }
 
 bool RialtoMediaKeySession::close()
 {
-	MW_LOG_INFO("RialtoMediaKeySession[%d]: close", m_keySessionId);
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: close", m_keySessionId);
 
 	firebolt::rialto::MediaKeyErrorStatus status =
 		m_mediaKeys.closeKeySession(m_keySessionId);
 
 	if (status != firebolt::rialto::MediaKeyErrorStatus::OK)
 	{
-		MW_LOG_ERR("RialtoMediaKeySession[%d]: closeKeySession failed, status=%d",
+		AAMPLOG_ERR("RialtoMediaKeySession[%d]: closeKeySession failed, status=%d",
 		           m_keySessionId, static_cast<int>(status));
 		return false;
 	}
 
-	MW_LOG_INFO("RialtoMediaKeySession[%d]: closeKeySession succeeded", m_keySessionId);
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: closeKeySession succeeded", m_keySessionId);
 	return true;
 }
 
 bool RialtoMediaKeySession::destruct()
 {
-	MW_LOG_INFO("RialtoMediaKeySession[%d]: destruct", m_keySessionId);
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: destruct", m_keySessionId);
 
 	firebolt::rialto::MediaKeyErrorStatus status =
 		m_mediaKeys.releaseKeySession(m_keySessionId);
 
 	if (status != firebolt::rialto::MediaKeyErrorStatus::OK)
 	{
-		MW_LOG_ERR("RialtoMediaKeySession[%d]: releaseKeySession failed, status=%d",
+		AAMPLOG_ERR("RialtoMediaKeySession[%d]: releaseKeySession failed, status=%d",
 		           m_keySessionId, static_cast<int>(status));
 	}
 
@@ -91,7 +91,7 @@ bool RialtoMediaKeySession::destruct()
 		m_deregister(m_keySessionId);
 	}
 
-	MW_LOG_INFO("RialtoMediaKeySession[%d]: destruct complete", m_keySessionId);
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: destruct complete", m_keySessionId);
 	return (status == firebolt::rialto::MediaKeyErrorStatus::OK);
 }
 
@@ -104,7 +104,7 @@ bool RialtoMediaKeySession::isKeyUsable(const uint8_t* keyId, uint8_t keyIdSize)
 	{
 		return (it->second == firebolt::rialto::KeyStatus::USABLE);
 	}
-	MW_LOG_WARN("RialtoMediaKeySession[%d]: isKeyUsable - key not found", m_keySessionId);
+	AAMPLOG_WARN("RialtoMediaKeySession[%d]: isKeyUsable - key not found", m_keySessionId);
 	return false;
 }
 
@@ -125,6 +125,6 @@ void RialtoMediaKeySession::updateKeyStatus(const std::vector<uint8_t>& keyId,
 {
 	std::lock_guard<std::mutex> lock(m_keyStatusMutex);
 	m_keyStatuses[keyId] = status;
-	MW_LOG_INFO("RialtoMediaKeySession[%d]: key status updated to %d",
+	AAMPLOG_INFO("RialtoMediaKeySession[%d]: key status updated to %d",
 	            m_keySessionId, static_cast<int>(status));
 }

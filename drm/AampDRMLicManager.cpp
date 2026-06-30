@@ -105,19 +105,19 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
 			aampInstance->mIsFakeTune,
-			aampInstance->mConfig->IsConfigSet(eAAMPConfig_WideVineKIDWorkaround),
-			aampInstance->mConfig->IsConfigSet(eAAMPConfig_useDirectRialto));
+			aampInstance->mConfig->IsConfigSet(eAAMPConfig_WideVineKIDWorkaround));
 			
 }
 /**
  *  @brief AampDRMLicenseManager constructor.
  */
-AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : mMaxDRMSessions(maxDrmSessions),
+AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp,
+                                             DrmSessionCreator creator) : mMaxDRMSessions(maxDrmSessions),
 		aampInstance(aamp), mDrmSessionManager(NULL), accessToken()
 {
     aampInstance = aamp; 
 	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, std::move(waterMarkSessionUpdateCB));
+    mDrmSessionManager = new DrmSessionManager(maxDrmSessions, aampInstance, std::move(waterMarkSessionUpdateCB), std::move(creator));
     registerCb(this, mDrmSessionManager);
     getConfigs(mDrmSessionManager, aampInstance);
     mLicenseDownloader = new AampCurlDownloader[mMaxDRMSessions];

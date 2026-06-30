@@ -26,7 +26,6 @@
 #include "priv_aamp.h"
 #include "AampDRMLicManager.h"
 #include "DrmSessionManager.h"
-#include "DrmSession.h"
 #include "DrmMediaFormat.h"
 #include "AampLogManager.h"
 
