@@ -13468,7 +13468,7 @@ double StreamAbstractionAAMP_MPD::CalculateProducerReferenceTimeOffset()
 
 		encoderDelayMs = (periodStartTime - actualWallClockAtFirstSegment) * 1000.0;
 
-		AAMPLOG_DEBUG("PRT encoder delay for period %d: %.2f ms (AST: %.2f, PeriodStart: %.2f, WCT@pts0: %.2f, PRT@PTS: %.2f, deltaWCT: %.2f)",
+		AAMPLOG_WARN("PRT encoder delay for period %d: %.2f ms (AST: %.2f, PeriodStart: %.2f, WCT@pts0: %.2f, PRT@PTS: %.2f, deltaWCT: %.2f)",
 			mCurrentPeriodIdx, encoderDelayMs, availabilityStartTime, periodStartTime, actualWallClockAtFirstSegment, presentationTime / static_cast<double>(timescale), deltaWallClockTime);
 	}
 	catch (const std::exception &ex)
