@@ -1644,8 +1644,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	// Only capture seekPausedState from user-initiated pause, not internal buffering pauses.
 	// If pendingPlayState is true, the pipeline was paused internally for buffering/caching
 	// and the intent is to resume to PLAYING — don't treat this as a user pause.
-	if (interfacePlayerPriv->gstPrivateContext->paused &&  !interfacePlayerPriv->gstPrivateContext->pendingPlayState
-		&& interfacePlayerPriv->gstPrivateContext->buffering_target_state != GST_STATE_PAUSED)
+	if (interfacePlayerPriv->gstPrivateContext->paused &&  !interfacePlayerPriv->gstPrivateContext->pendingPlayState)
 	{
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = true;
 	}
