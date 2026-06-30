@@ -4368,8 +4368,8 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				{
 					pInterfacePlayerRDK->IdleTaskAdd(privatePlayer->gstPrivateContext->firstVideoFrameDisplayedCallbackTask, pInterfacePlayerRDK->IdleCallbackFirstVideoFrameDisplayed);
 				}
-				// Subtitle unmute lost in SetupStream() because gstreamer not ready
-				// So, set subtitle mute state when first frame is received
+				// Subtitle unmute lost in SetupStream() because gstreamer pipeline not ready
+				// So, set subtitle state now we know pipeline read
 				if (privatePlayer->gstPrivateContext->subtitle_sink && privatePlayer->gstPrivateContext->setSubtitlePending && !privatePlayer->gstPrivateContext->subtitleMuted)
 				{
 					pInterfacePlayerRDK->SetSubtitleMute(false);

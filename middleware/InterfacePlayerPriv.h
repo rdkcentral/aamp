@@ -187,7 +187,7 @@ struct GstPlayerPriv
 	bool audioMuted;                                                                         /**< Audio mute status. */
 	std::mutex volumeMuteMutex;                                                      /**< Mutex to ensure setVolumeOrMuteUnMute is thread-safe. */
 	bool subtitleMuted;                                                                      /**< Subtitle mute status. */
-	bool setSubtitlePending;                                                         /**< true to set subtitle mute status after first frame. */
+	bool setSubtitlePending;                                                         /**< true to delay subtitle setting until gstreamer pipeline ready. */
 	double audioVolume;                                                                      /**< Audio volume. */
 	guint eosCallbackIdleTaskId;                                             /**< ID of idle handler created for notifying EOS event. */
 	std::atomic<bool> eosCallbackIdleTaskPending;            /**< Set if any eos callback is pending. */
