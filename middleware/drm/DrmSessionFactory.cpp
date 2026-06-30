@@ -28,33 +28,18 @@
 #include "OcdmGstSessionAdapter.h"
 #endif
 #include "ClearKeyDrmSession.h"
-#if defined(USE_DIRECT_RIALTO_ADAPTER)
-#include "RialtoMediaKeySessionAdapter.h"
-#include "RialtoMediaKeySystem.h"
-#endif
 #include "PlayerLogManager.h"
 
 /**
- *  @brief Creates an appropriate DRM session based on the given DrmHelper
+ * @brief Creates an appropriate DRM session based on the given DrmHelper.
+ *
+ * Delegates to OCDM / ClearKey.
  */
-DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks, bool useDirectRialto)
+DrmSession* DrmSessionFactory::GetDrmSession(
+	DrmHelperPtr drmHelper,
+	DrmCallbacks *drmCallbacks)
 {
 	const std::string systemId = drmHelper->ocdmSystemId();
-
-#if defined(USE_DIRECT_RIALTO_ADAPTER)
-	if (useDirectRialto)
-	{
-		MW_LOG_INFO("DrmSessionFactory: creating Rialto session for %s", systemId.c_str());
-		auto system = std::make_unique<RialtoMediaKeySystem>(systemId);
-		if (!system->isValid())
-		{
-			MW_LOG_ERR("DrmSessionFactory: RialtoMediaKeySystem creation failed for %s",
-			           systemId.c_str());
-			return nullptr;
-		}
-		return new RialtoMediaKeySessionAdapter(drmHelper, std::move(system), drmCallbacks);
-	}
-#endif
 
 #if defined (USE_OPENCDM_ADAPTER)
 	if (drmHelper->isClearDecrypt())

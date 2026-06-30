@@ -31,7 +31,6 @@ class MockDrmSessionFactory
 {
 public:
 	MOCK_METHOD(DrmSession*, GetDrmSession, (DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks), ());
-	MOCK_METHOD(DrmSession*, GetDrmSession, (DrmHelperPtr drmHelper, DrmCallbacks* drmCallbacks, bool useDirectRialto), ());
 };
 
 extern MockDrmSessionFactory *g_mockDrmSessionFactory;

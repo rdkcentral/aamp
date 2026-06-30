@@ -35,6 +35,8 @@ public:
 	MOCK_METHOD(bool, isClearDecrypt, (), (const, override));
 	MOCK_METHOD(void, getKey, (std::vector<uint8_t>& keyID), (const, override));
 	MOCK_METHOD(void, generateLicenseRequest, (const ChallengeInfo& challengeInfo, LicenseRequest& licenseRequest), (const, override));
+	MOCK_METHOD(uint32_t, keyProcessTimeout, (), (const, override));
+	MOCK_METHOD(uint32_t, licenseGenerateTimeout, (), (const, override));
 };
 
 #endif // MOCK_DRM_HELPER_H

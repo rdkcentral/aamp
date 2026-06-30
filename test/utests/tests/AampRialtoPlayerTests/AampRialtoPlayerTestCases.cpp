@@ -3122,6 +3122,99 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 }
 
+static void SetupCapabilities(
+	std::shared_ptr<NiceMock<MockIMediaPipelineCapabilitiesFactory>> &factory,
+	bool querySucceeds,
+	bool videoMaster);
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_AlreadyFlushing_SkipsSecondPipelineFlushButUpdatesRateAndPosition)
+{
+	/**
+	 * @brief A second Flush() while already in FLUSHING should not re-issue
+	 *        pipeline flush IPC, but must still update staged position/rate.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	// First flush transitions SOURCES_ATTACHED -> FLUSHING.
+	// Configure(FORMAT_ISO_BMFF, FORMAT_INVALID) attaches two sources:
+	// video (sourceId=0) and inband CC subtitle (sourceId=1).  Each
+	// attached source issues one pipeline flush IPC on the first Flush().
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(2);
+	m_player->Flush(/*position=*/10.0, /*rate=*/2, /*shouldTearDown=*/false);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Precondition: first Flush() must put player into FLUSHING";
+
+	// Re-entrant flush while FLUSHING: no second pipeline flush command.
+	m_player->Flush(/*position=*/33.0, /*rate=*/-4, /*shouldTearDown=*/false);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Re-entrant Flush() must keep player in FLUSHING";
+
+	// Both sources (video=0, subtitle=1) report flushed; setSourcePosition
+	// is called for each with the position from the second (pending) flush.
+	// The rate is committed only after all sources have reported flushed.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(33'000'000'000LL),
+			/*resetTime=*/true, _, _))
+		.Times(2)
+		.WillRepeatedly(Return(true));
+	PostSourceFlushed(/*sourceId=*/0);
+	PostSourceFlushed(/*sourceId=*/1);  // inband CC subtitle source
+
+	// GetPositionMilliseconds() must use latest rate from second flush.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_MultiSource_CommitsRateAfterAllSourcesFlushed)
+{
+	/**
+	 * @brief Flush() stages pending rate immediately, but active playback rate
+	 *        must change only after every attached source reports flushed.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/false);
+
+	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
+
+	// Configure() attaches three sources: video (id=0), inband CC subtitle
+	// (id=1), and audio (id=2).  Active rate must not commit until every
+	// source has reported flushed.
+
+	// Video flushed -> rate still uncommitted (subtitle + audio pending).
+	PostSourceFlushed(/*sourceId=*/0);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
+
+	// Inband CC subtitle flushed -> rate still uncommitted (audio pending).
+	PostSourceFlushed(/*sourceId=*/1);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
+
+	// Audio flushed (last source) -> pending rate commits to active rate.
+	PostSourceFlushed(/*sourceId=*/2);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
+}
+
 // ===========================================================================
 // appliedRate selection in setSourcePosition — isVideoMaster integration
 // ===========================================================================

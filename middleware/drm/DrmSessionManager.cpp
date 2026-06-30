@@ -30,6 +30,7 @@
 #include <inttypes.h>
 #include "PlayerUtils.h"
 #include "ContentSecurityManager.h"
+
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
 #define DRM_METADATA_TAG_END "</ckm:policy>"
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
@@ -48,13 +49,14 @@ KeyIdEntries::KeyIdEntries() : creationTime(0), isFailedKeyEntries(false), isPri
 /**
  *  @brief DrmSessionManager constructor.
  */
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) : drmSessionContexts(NULL),
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback, DrmSessionCreator creator) : drmSessionContexts(NULL),
 		cachedKeyIDs(NULL), accessToken(NULL),
 		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(),
 		cachedKeyMutex()
 		,mEnableAccessAttributes(true)
 		,mDrmSessionLock()
 		,mMaxDRMSessions(maxDrmSessions)
+		,m_sessionCreator(std::move(creator))
 		,playerSecInstance(nullptr)
 		,mContentSecurityManagerSession()
 		,mIsVideoOnMute(false)
@@ -90,15 +92,13 @@ void DrmSessionManager::UpdateDRMConfig(
 		bool enablePROutputProtection,
 		bool propagateURIParam,
 		bool isFakeTune,
-		bool wideVineKIDWorkaround,
-		bool useDirectRialto)
+		bool wideVineKIDWorkaround)
 {
         m_drmConfigParam->mUseSecManager = useSecManager;
 	m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
 	m_drmConfigParam->mPropagateURIParam = propagateURIParam;
 	m_drmConfigParam->mIsFakeTune = isFakeTune;
 	m_drmConfigParam->mIsWVKIDWorkaround = wideVineKIDWorkaround;
-	m_drmConfigParam->mUseDirectRialto = useDirectRialto;
 
 }
 
@@ -890,7 +890,15 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	}
         this->ProfileUpdateCb();
 
-	drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance, m_drmConfigParam->mUseDirectRialto);
+	if (m_sessionCreator)
+	{
+		auto owned = m_sessionCreator(drmHelper, Instance);
+		drmSessionContexts[sessionSlot].drmSession = owned.release();
+	}
+	else
+	{
+		drmSessionContexts[sessionSlot].drmSession = DrmSessionFactory::GetDrmSession(drmHelper, Instance);
+	}
 	if (drmSessionContexts[sessionSlot].drmSession != NULL)
 	{
 		MW_LOG_INFO("Created new DrmSession for DrmSystemId %s", systemId.c_str());
@@ -903,16 +911,13 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			drmSessionContexts[sessionSlot].drmSession->setOutputProtection(true);
 			drmHelper->setOutputProtectionFlag(true);
 		}
+		drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
 	}
 	else
 	{
 		MW_LOG_WARN("Unable to Get DrmSession for DrmSystemId %s", systemId.c_str());
 		err = MW_DRM_INIT_FAILED ;
 	}
-
-#if defined(USE_OPENCDM_ADAPTER)
-	drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
-#endif
 
 	return code;
 }

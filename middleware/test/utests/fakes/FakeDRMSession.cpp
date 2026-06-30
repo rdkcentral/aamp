@@ -19,7 +19,3 @@
 
 #include "DrmSession.h"
 
-string DrmSession::getKeySystem()
-{
-	return "";
-}

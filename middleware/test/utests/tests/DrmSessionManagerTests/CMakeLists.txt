@@ -60,7 +60,6 @@ set(UTILITY_SOURCES
 
 set(PLAYER_SOURCES
 	${PLAYER_ROOT}/drm/DrmSessionManager.cpp
-	${PLAYER_ROOT}/drm/DrmSession.cpp
 	${PLAYER_ROOT}/drm/helper/DrmHelper.cpp
 	${PLAYER_ROOT}/drm/helper/DrmHelperFactory.cpp
 	${PLAYER_ROOT}/drm/helper/WidevineDrmHelper.cpp

@@ -511,6 +511,10 @@ set(LIBAAMP_SOURCES
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
 	direct-rialto/AampDrmBridge.cpp
+	direct-rialto/RialtoMediaKeySession.cpp
+	direct-rialto/RialtoMediaKeySystem.cpp
+	direct-rialto/RialtoMediaKeySessionAdapter.cpp
+	direct-rialto/RialtoSessionCreator.cpp
 	direct-rialto/AampPlayerStateMachine.cpp
 	direct-rialto/AampRialtoAudioSource.cpp
 	direct-rialto/AampRialtoMediaPipelineClient.cpp

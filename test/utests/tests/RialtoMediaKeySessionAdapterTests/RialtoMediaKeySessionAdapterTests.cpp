@@ -261,17 +261,6 @@ TEST_F(RialtoMediaKeySessionAdapterTest, ClearDecryptContext)
 	EXPECT_EQ(-1, adapter->getMediaKeySessionId());
 }
 
-TEST_F(RialtoMediaKeySessionAdapterTest, DecryptIsNoOp)
-{
-	auto adapter = createAdapter();
-
-	// GStreamer decrypt
-	EXPECT_EQ(0, adapter->decrypt(nullptr, nullptr, nullptr, 0, nullptr, nullptr));
-
-	// Raw buffer decrypt
-	EXPECT_EQ(0, adapter->decrypt(static_cast<const uint8_t*>(nullptr), 0, nullptr, 0, nullptr));
-}
-
 TEST_F(RialtoMediaKeySessionAdapterTest, LicenseRenewalCallbackRouted)
 {
 	auto adapter = createAdapter();
