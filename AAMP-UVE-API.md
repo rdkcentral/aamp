@@ -146,6 +146,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | abrNwConsistency | Number | 2 | Number of checks before profile increment/decrement. Prevents frequent profile switching with network fluctuations. |
 | abrSkipDuration | Number | 6 | Minimum duration of fragment to download before triggering ABR (in seconds). |
 | audioOnlyPlayback | Boolean | false | Enable/disable audio-only playback. |
+| enableProducerReferenceDelay | Boolean | false | Enable/disable adding the PRT (ProducerReferenceTime)-derived encoder delay to the live latency calculation. When enabled, AAMP reads the `ProducerReferenceTime` element from the DASH manifest to compute the encoding pipeline delay and accounts for it when measuring and correcting live latency. Disable if the stream's PRT data is absent or unreliable. |
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for CDVR. AAMP starts live playback this much time before the live point for in-progress CDVR. |
 | customHeader | String | - | Custom header data to append to HTTP requests. |
 | contentProtectionDataUpdateTimeout | Number | 5000 | Timeout for Content Protection Data Update on Dynamic Key Rotation (milliseconds). Player waits for [setContentProtectionDataConfig](#setcontentprotectiondataconfig_json-string) API update within the timeout interval. On timeout, uses last configured values. Also refer API [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout). |
@@ -186,7 +187,6 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | rebufferLatencyStepSec | Float | 1.0 | Step size (seconds) added to all three latency thresholds (`lowLatencyMinValue`, `lowLatencyTargetValue`, `lowLatencyMaxValue`) each time the buffer drops below `latencyDangerBufferSec`. Allows the player to tolerate higher latency during poor network conditions. Zero disables the adaptive threshold feature entirely. |
 | playreadyOutputProtection | Boolean | false | Enable/disable HDCP output protection for DASH-PlayReady playback. |
 | preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 - No DRM, 1 - Widevine, 2 - PlayReady (Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
-| ceaFormat | Number | -1 | Preferred CEA option for closed captions. Default is stream-based. 0 - CEA 608, 1 - CEA 708 |
 | preFetchIframePlaylist | Boolean | false | Enable/disable prefetching of I-Frame playlist. |
 | preplayBuffercount | Number | 1 | Count of segments to download until reaching play state. |
 | ptsErrorThreshold | Number | 4 | Maximum number of back-to-back PTS errors before triggering a retune. |
