@@ -379,20 +379,23 @@ void AampRialtoPlayer::WaitForFlushToComplete()
 	std::unique_lock<std::mutex> lock(m_flushMutex);
 	m_flushCv.wait(lock, [this]()
 	{
-		// If not in FLUSHING state, no need to wait.
-		if (m_stateMachine.currentState() != PlayerStateId::FLUSHING)
+		// Done immediately if the state machine has already left FLUSHING.
+		bool done = (m_stateMachine.currentState() != PlayerStateId::FLUSHING);
+		if (!done)
 		{
-			return true;
-		}
-		// Check whether any source is still flushing.
-		for (const auto &s : m_sources)
-		{
-			if (s && s->isFlushing())
+			// Still FLUSHING: done once no source reports isFlushing().
+			bool anyFlushing = false;
+			for (const auto &s : m_sources)
 			{
-				return false;
+				if (s && s->isFlushing())
+				{
+					anyFlushing = true;
+					break;
+				}
 			}
+			done = !anyFlushing;
 		}
-		return true;
+		return done;
 	});
 }
 
@@ -1744,6 +1747,10 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		case firebolt::rialto::PlaybackState::PLAYING:
 		{
 			m_stateMachine.onPlaybackStarted();
+			// If PLAYING arrives while a flush is still in progress the state
+			// machine has just left FLUSHING.  Wake any thread blocked in
+			// WaitForFlushToComplete() so it can re-evaluate its predicate.
+			m_flushCv.notify_all();
 
 			// Clear injectionGated so inject threads resume blocking
 			// normally on needData rather than aborting immediately.

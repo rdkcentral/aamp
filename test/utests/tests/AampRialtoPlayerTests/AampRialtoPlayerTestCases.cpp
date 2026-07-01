@@ -3708,8 +3708,15 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		configureFinished.store(true, std::memory_order_release);
 	});
 
-	// Give the thread time to block — Configure should NOT have finished yet.
-	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	// Spin until Configure() finishes or the timeout elapses.
+	// If WaitForFlushToComplete() is working, Configure() must still be blocked.
+	const auto deadline =
+		std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+	while (!configureFinished.load(std::memory_order_acquire) &&
+	       std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::yield();
+	}
 	EXPECT_FALSE(configureFinished.load(std::memory_order_acquire))
 		<< "Configure() must block while sources are still flushing";
 
