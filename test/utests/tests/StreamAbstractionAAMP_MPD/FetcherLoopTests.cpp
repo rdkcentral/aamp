@@ -402,8 +402,8 @@ protected:
 			{eAAMPConfig_useRialtoSink, false},
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_UseMp4Demux, false},
-};
-
+			{eAAMPConfig_EnableProducerReferenceDelay, true},
+		};
 	BoolConfigSettings mBoolConfigSettings;
 
 	/** @brief Integer AAMP configuration settings. */
