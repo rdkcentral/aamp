@@ -783,7 +783,7 @@ protected:
 	 * @param isInit true if its the first playlist download
 	 * @param reportBulkMeta true if bulk metadata is enabled
 	 */
-	void ProcessPeriodSupplementalProperty(Node* node, std::string& AdID, uint64_t startMS, uint64_t durationMS, bool isInit, bool reportBulkMeta=false);
+	void ProcessPeriodSupplementalProperty(Node* node, std::string& AdID, int64_t startMS, int64_t durationMS, bool isInit, bool reportBulkMeta=false);
 	/**
 	 * @fn ProcessPeriodAssetIdentifier
 	 * @param node AssetIdentifier node
@@ -794,7 +794,7 @@ protected:
 	 * @param isInit true if its the first playlist download
 	 * @param reportBulkMeta true if bulk metadata is enabled
 	 */
-	void ProcessPeriodAssetIdentifier(Node* node, uint64_t startMS, uint64_t durationMS, std::string& assetID, std::string& providerID,bool isInit, bool reportBulkMeta=false);
+	void ProcessPeriodAssetIdentifier(Node* node, int64_t startMS, int64_t durationMS, std::string& assetID, std::string& providerID,bool isInit, bool reportBulkMeta=false);
 	/**
 	 * @fn ProcessEventStream
 	 * @param startMS the start time of the event derived from the (previous) period info (ms)
@@ -802,7 +802,7 @@ protected:
 	 * @param[in] period instance.
 	 * @param reportBulkMeta true if bulk metadata is enabled
 	 */
-	bool ProcessEventStream(uint64_t startMS, int64_t startOffsetMS, IPeriod * period, bool reportBulkMeta);
+	bool ProcessEventStream(int64_t startMS, int64_t startOffsetMS, IPeriod * period, bool reportBulkMeta);
 	/**
 	 * @fn ProcessStreamRestrictionList
 	 * @param node StreamRestrictionListType node
@@ -1231,7 +1231,7 @@ protected:
 	 * @param[in] startMS start time in milliseconds.
 	 * @param[in] eventBreakVec vector of EventBreakInfo structure.
 	 */
-	bool isAdbreakStart(IPeriod *period, uint64_t &startMS, std::vector<EventBreakInfo> &eventBreakVec);
+	bool isAdbreakStart(IPeriod *period, int64_t &startMS, std::vector<EventBreakInfo> &eventBreakVec);
 	/**
 	 * @fn onAdEvent
 	 */

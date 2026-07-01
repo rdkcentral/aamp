@@ -4947,8 +4947,8 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 
 	if(!subNodes.empty())
 	{
-		uint64_t periodStartMS = 0;
-		uint64_t periodDurationMS = 0;
+		int64_t periodStartMS = 0;
+		int64_t periodDurationMS = 0;
 		std::vector<std::string> newPeriods;
 		int64_t firstSegmentStartTime = -1;
 
@@ -5017,16 +5017,21 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 				periodStartMS += periodDurationMS;
 				if (node->HasAttribute("start")) {
 					const std::string& value = node->GetAttributeValue("start");
-					uint64_t valueMS = 0;
+					int64_t valueMS = 0;
 					if (!value.empty())
 						valueMS = ParseISO8601Duration(value.c_str() );
 					if (periodStartMS < valueMS)
 						periodStartMS = valueMS;
 				}
+				else if (mMPDParseHelper && mMPDParseHelper->IsEmptyPeriod(periodCnt-1, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+				{
+					AAMPLOG_INFO("EAP encountered for period[%d] with no StartTime", periodCnt-1);
+					periodStartMS = -1;
+				}
 				periodDurationMS = 0;
 				if (node->HasAttribute("duration")) {
 					const std::string& value = node->GetAttributeValue("duration");
-					uint64_t valueMS = 0;
+					int64_t valueMS = 0;
 					if (!value.empty())
 						valueMS = ParseISO8601Duration(value.c_str() );
 					periodDurationMS = valueMS;
@@ -5195,7 +5200,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 /**
  * @brief Process supplemental property of a period
  */
-void StreamAbstractionAAMP_MPD::ProcessPeriodSupplementalProperty(Node* node, std::string& AdID, uint64_t startMS, uint64_t durationMS, bool isInit, bool reportBulkMeta)
+void StreamAbstractionAAMP_MPD::ProcessPeriodSupplementalProperty(Node* node, std::string& AdID, int64_t startMS, int64_t durationMS, bool isInit, bool reportBulkMeta)
 {
 	if (node->HasAttribute("schemeIdUri")) {
 		const std::string& schemeIdUri = node->GetAttributeValue("schemeIdUri");
@@ -5276,7 +5281,7 @@ void StreamAbstractionAAMP_MPD::ProcessPeriodSupplementalProperty(Node* node, st
 /**
  * @brief Process Period AssetIdentifier
  */
-void StreamAbstractionAAMP_MPD::ProcessPeriodAssetIdentifier(Node* node, uint64_t startMS, uint64_t durationMS, std::string& AssetID, std::string& ProviderID, bool isInit, bool reportBulkMeta)
+void StreamAbstractionAAMP_MPD::ProcessPeriodAssetIdentifier(Node* node, int64_t startMS, int64_t durationMS, std::string& AssetID, std::string& ProviderID, bool isInit, bool reportBulkMeta)
 {
 	if (node->HasAttribute("schemeIdUri")) {
 		const std::string& schemeIdUri = node->GetAttributeValue("schemeIdUri");
@@ -5370,14 +5375,14 @@ void StreamAbstractionAAMP_MPD::ProcessPeriodAssetIdentifier(Node* node, uint64_
 /**
  *   @brief Process event stream.
  */
-bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t startOffsetMS, IPeriod * period, bool reportBulkMeta)
+bool StreamAbstractionAAMP_MPD::ProcessEventStream(int64_t startMS, int64_t startOffsetMS, IPeriod * period, bool reportBulkMeta)
 {
 	bool ret = false;
 
 	const std::string &prdId = period->GetId();
 	if(!prdId.empty())
 	{
-		uint64_t startMS1 = 0;
+		int64_t startMS1 = 0;
 		//Vector of pair of scte35 binary data and corresponding duration
 		std::vector<EventBreakInfo> eventBreakVec;
 		if(isAdbreakStart(period, startMS1, eventBreakVec))
@@ -11987,7 +11992,7 @@ void StreamAbstractionAAMP_MPD::SetCDAIObject(CDAIObject *cdaiObj)
  *   @brief Check whether the period has any valid ad.
  *
  */
-bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, uint64_t &startMS, std::vector<EventBreakInfo> &eventBreakVec)
+bool StreamAbstractionAAMP_MPD::isAdbreakStart(IPeriod *period, int64_t &startMS, std::vector<EventBreakInfo> &eventBreakVec)
 {
 	const std::vector<IEventStream *> &eventStreams = period->GetEventStreams();
 	bool ret = false;
