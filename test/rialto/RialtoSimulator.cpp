@@ -35,18 +35,22 @@
  */
 
 #include "IMediaPipeline.h"
+#include "IMediaPipelineCapabilities.h"
+#include "IMediaKeys.h"
 #include "IClientLogControl.h"
 #include "IControl.h"
-#include "IMediaKeys.h"
-#include "IMediaPipelineCapabilities.h"
 
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <thread>
+#include <cstdlib>
+#include <utility>
 #include <vector>
 
 namespace firebolt::rialto
@@ -58,6 +62,31 @@ namespace firebolt::rialto
 
 #define RIALTO_SIM_LOG(fmt, ...) \
 	fprintf(stderr, "[RialtoSim] " fmt "\n", ##__VA_ARGS__)
+
+// Minimum amount of media data (per non-subtitle track) that must be
+// injected — or an EOS received — before the pipeline transitions to
+// PLAYING.  Subtitle tracks are excluded: the pipeline reaches PLAYING
+// even if no subtitle data is injected and no subtitle EOS is sent.
+constexpr int64_t kMinPlayDurationNs = 1000000000LL; // 1 second
+
+// High-water mark for buffered (injected-but-not-yet-played) media per
+// non-subtitle track.  A real Rialto/GStreamer pipeline only requests more
+// data (needMediaData) while its internal queues have room; once it holds
+// roughly this much un-rendered data it stops asking until playback drains
+// it, pacing injection to ~real time.  Without this, the simulator would
+// request data greedily and AAMP would over-inject from its local TSB,
+// racing a trickplay reader to the start of the buffer and signalling a
+// premature EOS.  Expressed in the pipeline (restamped) timebase, so it
+// applies equally to normal play and trickplay.
+constexpr int64_t kBufferHighWaterNs = 10000000000LL; // 10 seconds
+
+// Number of frames requested per needMediaData.  A real pipeline only asks
+// for as much data as its buffers can currently accept; modelling that with
+// a small per-request count (combined with kBufferHighWaterNs pacing) keeps
+// AAMP from draining many fragments from its local TSB in a single batch.
+// A large value here would let one needData admit an unbounded burst,
+// defeating the backpressure model.
+constexpr unsigned int kNeedDataFrameCount = 24;
 
 // ===========================================================================
 // SimMediaPipeline - simulates the Rialto media pipeline
@@ -74,11 +103,21 @@ public:
 		, m_loaded(false)
 		, m_allSourcesAttached(false)
 		, m_playing(false)
+		, m_playRequested(false)
+		, m_rate(1.0)
 		, m_basePositionNs(0)
 		, m_basePositionSet(false)
 		, m_needDataRequestId(1)
 		, m_stopRequested(false)
+		, m_eosSourceCount(0)
+		, m_eosNotified(false)
+		, m_playbackRateEnabled(false)
 	{
+		const char *envRate = std::getenv("RIALTO_SIM_ENABLE_PLAYBACK_RATE");
+		if (envRate && std::string(envRate) == "1")
+		{
+			m_playbackRateEnabled = true;
+		}
 		RIALTO_SIM_LOG("SimMediaPipeline: created (width=%u height=%u)",
 			reqs.maxWidth, reqs.maxHeight);
 	}
@@ -110,9 +149,14 @@ public:
 	{
 		int32_t id = m_nextSourceId++;
 		const_cast<MediaSource &>(*source).setId(id);
-		m_attachedSources.push_back(id);
+		MediaSourceType type = source->getType();
+		{
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			m_attachedSources.push_back(id);
+			m_sourceTypes[id] = type;
+		}
 		RIALTO_SIM_LOG("attachSource: assigned sourceId=%d type=%d",
-			id, static_cast<int>(source->getType()));
+			id, static_cast<int>(type));
 		return true;
 	}
 
@@ -135,21 +179,27 @@ public:
 	{
 		RIALTO_SIM_LOG("play");
 		async = false;
-		m_playing = true;
-		m_playStartTime = std::chrono::steady_clock::now();
+		m_playRequested.store(true, std::memory_order_relaxed);
 
-		if (auto client = m_client.lock())
+		// After resume (flush+play), re-send needMediaData so the
+		// injection pipeline restarts — matching real Rialto server
+		// behavior where play() after a flush triggers new requests.
+		if (m_allSourcesAttached)
 		{
-			client->notifyPlaybackState(PlaybackState::PLAYING);
+			startNeedDataPump();
 		}
 
-		startPositionThread();
+		// Transition to PLAYING is deferred until each non-subtitle
+		// track has buffered at least kMinPlayDurationNs of data or has
+		// reached EOS.  See maybeStartPlayback().
+		maybeStartPlayback();
 		return true;
 	}
 
 	bool pause() override
 	{
 		RIALTO_SIM_LOG("pause");
+		m_playRequested.store(false, std::memory_order_relaxed);
 		m_playing = false;
 		if (auto client = m_client.lock())
 		{
@@ -161,6 +211,7 @@ public:
 	bool stop() override
 	{
 		RIALTO_SIM_LOG("stop");
+		m_playRequested.store(false, std::memory_order_relaxed);
 		m_playing = false;
 		stopThreads();
 		if (auto client = m_client.lock())
@@ -169,10 +220,23 @@ public:
 		}
 		return true;
 	}
-
 	bool setPlaybackRate(double rate) override
 	{
 		RIALTO_SIM_LOG("setPlaybackRate: rate=%f", rate);
+		if (!m_playbackRateEnabled)
+		{
+			RIALTO_SIM_LOG("setPlaybackRate: rate simulation disabled (set RIALTO_SIM_ENABLE_PLAYBACK_RATE=1 to enable)");
+			return false;
+		}
+		// Snapshot the current position before changing rate so that
+		// subsequent elapsed-time calculations use the new rate from
+		// this point onward.
+		if (m_playing && m_basePositionSet.load(std::memory_order_relaxed))
+		{
+			m_basePositionNs.store(getCurrentPositionNs(), std::memory_order_relaxed);
+			m_playStartTime = std::chrono::steady_clock::now();
+		}
+		m_rate.store(rate, std::memory_order_relaxed);
 		return true;
 	}
 
@@ -216,9 +280,97 @@ public:
 		RIALTO_SIM_LOG("haveData: status=%d requestId=%u",
 			static_cast<int>(status), needDataRequestId);
 
-		if (m_playing && status == MediaSourceStatus::OK)
+		// Resolve which source this response belongs to.
+		int32_t sourceId = -1;
+		{
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			auto it = m_requestIdToSource.find(needDataRequestId);
+			if (it != m_requestIdToSource.end())
+			{
+				sourceId = it->second;
+				m_requestIdToSource.erase(it);
+			}
+		}
+
+		// Schedule the next needData even while paused: a real
+		// GStreamer/Rialto pipeline accepts data in PAUSED state (appSrc
+		// queues continue to buffer).  Without this, an inject thread
+		// waiting in injectOneSample() for hasPending can block forever
+		// after a seek arrives shortly after EOS, because StopInjectLoop
+		// (called during TeardownStream) hangs waiting for inject threads
+		// that will never exit, and Flush/invalidateGeneration is never
+		// reached.  Guard only against stop, not against pause.
+		if (status == MediaSourceStatus::OK &&
+			!m_stopRequested.load(std::memory_order_relaxed))
 		{
 			scheduleNextNeedData();
+		}
+		else if (status == MediaSourceStatus::EOS)
+		{
+			// An EOS satisfies the play-readiness requirement for this
+			// (non-subtitle) source.
+			markSourceReadyForPlay(sourceId);
+			maybeStartPlayback();
+
+			bool allNonSubtitleSourcesEos = false;
+			{
+				std::lock_guard<std::mutex> lock(m_trackMutex);
+				auto typeIt = m_sourceTypes.find(sourceId);
+				if (typeIt != m_sourceTypes.end() &&
+					typeIt->second != MediaSourceType::SUBTITLE)
+				{
+					m_eosSources.insert(sourceId);
+				}
+				allNonSubtitleSourcesEos = allNonSubtitleSourcesEosLocked();
+				m_eosSourceCount.store(
+					static_cast<int>(m_eosSources.size()),
+					std::memory_order_relaxed);
+			}
+
+			if (allNonSubtitleSourcesEos &&
+				!m_eosNotified.exchange(true, std::memory_order_relaxed))
+			{
+				// All non-subtitle sources EOS'd — delay END_OF_STREAM
+				// to model the real pipeline's drain time (renderer must
+				// play out buffered frames before signalling EOS).
+				std::thread([this]() {
+					using namespace std::chrono;
+					constexpr auto kMinDrainTime = seconds(6);
+					auto elapsed = steady_clock::now() - m_playStartTime;
+					if (elapsed < kMinDrainTime)
+					{
+						auto remaining = kMinDrainTime - elapsed;
+						RIALTO_SIM_LOG("draining: waiting %ld ms before END_OF_STREAM",
+							duration_cast<milliseconds>(remaining).count());
+						std::this_thread::sleep_for(remaining);
+					}
+					if (m_stopRequested.load(std::memory_order_relaxed))
+					{
+						return;
+					}
+					// Re-validate EOS after draining: new media may have
+					// arrived during the drain window (e.g. trickplay
+					// injection resuming), which clears the EOS tracking.
+					// Firing END_OF_STREAM in that case would signal a
+					// spurious/premature EOS to the player.
+					{
+						std::lock_guard<std::mutex> lock(m_trackMutex);
+						if (!m_eosNotified.load(std::memory_order_relaxed) ||
+							!allNonSubtitleSourcesEosLocked())
+						{
+							RIALTO_SIM_LOG(
+								"END_OF_STREAM cancelled: new media arrived during drain");
+							return;
+						}
+					}
+					if (auto client = m_client.lock())
+					{
+						RIALTO_SIM_LOG("END_OF_STREAM (after drain)");
+						client->notifyPlaybackState(
+							firebolt::rialto::PlaybackState::END_OF_STREAM);
+					}
+				}).detach();
+			}
 		}
 		return true;
 	}
@@ -238,6 +390,15 @@ public:
 				m_basePositionSet.store(true, std::memory_order_relaxed);
 				m_playStartTime = std::chrono::steady_clock::now();
 			}
+		}
+
+		// Accumulate injected duration per source to gate the
+		// transition to PLAYING (subtitle tracks are ignored).
+		if (mediaSegment)
+		{
+			accumulateInjectedDuration(mediaSegment->getId(),
+				mediaSegment->getDuration());
+			maybeStartPlayback();
 		}
 		return AddSegmentStatus::OK;
 	}
@@ -283,6 +444,26 @@ public:
 		async = false;
 		// Reset position tracking for the next segment
 		m_basePositionSet.store(false, std::memory_order_relaxed);
+		m_eosSourceCount.store(0, std::memory_order_relaxed);
+		m_eosNotified.store(false, std::memory_order_relaxed);
+
+		// A flushed source must re-buffer before the pipeline returns to
+		// PLAYING, so clear its readiness/injected-duration tracking and
+		// force the next play() to re-evaluate the transition.
+		{
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			m_injectedDurationNs[sourceId] = 0;
+			m_readySources.erase(sourceId);
+			m_eosSources.clear();
+		}
+		m_playing = false;
+
+		// Notify the client that the flush completed so AampRialtoPlayer
+		// calls setSourcePosition (matching real Rialto server behavior).
+		if (auto client = m_client.lock())
+		{
+			client->notifySourceFlushed(sourceId);
+		}
 		return true;
 	}
 
@@ -292,7 +473,7 @@ public:
 	{
 		RIALTO_SIM_LOG("setSourcePosition: sourceId=%d position=%ld resetTime=%d",
 			sourceId, static_cast<long>(position), resetTime);
-		if (position > 0)
+		if (position >= 0)
 		{
 			m_basePositionNs.store(position, std::memory_order_relaxed);
 			m_basePositionSet.store(true, std::memory_order_relaxed);
@@ -332,44 +513,241 @@ private:
 		}
 		auto elapsed = std::chrono::steady_clock::now() - m_playStartTime;
 		auto elapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
-		return base + elapsedNs;
+		// Position increases at 1x regardless of rate; the Rialto player
+		// applies the rate multiplier in GetPositionMilliseconds().
+		return base + static_cast<int64_t>(elapsedNs);
+	}
+
+	// Largest amount of injected-but-not-yet-played media held across the
+	// non-subtitle sources, in the pipeline (restamped) timebase.  Used to
+	// model buffer-fill backpressure: injected duration accumulates as
+	// segments arrive, while playback drains it at 1x wall-clock time.
+	// Backpressure is only meaningful while the pipeline is PLAYING: during
+	// preroll/seek/flush the pipeline buffers freely to (re)reach the play
+	// threshold, so report no backpressure when not playing to avoid
+	// starving the pipeline (and deadlocking, since buffered would never
+	// drain while paused).
+	// Caller must hold m_trackMutex.
+	int64_t maxBufferedAheadNsLocked() const
+	{
+		if (!m_playing || !m_basePositionSet.load(std::memory_order_relaxed))
+		{
+			return 0;
+		}
+		int64_t playedNs = 0;
+		{
+			auto elapsed = std::chrono::steady_clock::now() - m_playStartTime;
+			playedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+				elapsed).count();
+		}
+		int64_t maxBuffered = 0;
+		for (const auto &entry : m_sourceTypes)
+		{
+			if (entry.second == MediaSourceType::SUBTITLE)
+			{
+				continue;
+			}
+			auto it = m_injectedDurationNs.find(entry.first);
+			if (it == m_injectedDurationNs.end())
+			{
+				continue;
+			}
+			int64_t buffered = it->second - playedNs;
+			if (buffered > maxBuffered)
+			{
+				maxBuffered = buffered;
+			}
+		}
+		return maxBuffered;
 	}
 
 	void startNeedDataPump()
 	{
-		if (auto client = m_client.lock())
+		auto client = m_client.lock();
+		if (!client)
 		{
+			return;
+		}
+		std::vector<std::pair<int32_t, uint32_t>> sends;
+		{
+			std::lock_guard<std::mutex> lock(m_trackMutex);
 			for (int32_t sourceId : m_attachedSources)
 			{
 				uint32_t reqId = m_needDataRequestId++;
-				RIALTO_SIM_LOG("notifyNeedMediaData: sourceId=%d requestId=%u",
-					sourceId, reqId);
-				client->notifyNeedMediaData(sourceId, 24, reqId, nullptr);
+				m_requestIdToSource[reqId] = sourceId;
+				sends.emplace_back(sourceId, reqId);
 			}
+		}
+		for (const auto &send : sends)
+		{
+			RIALTO_SIM_LOG("notifyNeedMediaData: sourceId=%d requestId=%u",
+				send.first, send.second);
+			client->notifyNeedMediaData(send.first, kNeedDataFrameCount, send.second, nullptr);
 		}
 	}
 
 	void scheduleNextNeedData()
 	{
 		std::thread([this]() {
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
-			if (m_stopRequested.load(std::memory_order_relaxed))
+			// Pace data requests to model pipeline buffer backpressure:
+			// wait until the buffered (injected-but-not-played) media drops
+			// below the high-water mark before asking for more.  This keeps
+			// injection at ~real time instead of draining AAMP's local TSB
+			// as fast as fragments can be produced.
+			for (;;)
+			{
+				if (m_stopRequested.load(std::memory_order_relaxed))
+				{
+					return;
+				}
+				int64_t buffered = 0;
+				{
+					std::lock_guard<std::mutex> lock(m_trackMutex);
+					buffered = maxBufferedAheadNsLocked();
+				}
+				RIALTO_SIM_LOG("DBG scheduleNextNeedData buffered=%lld high=%lld playing=%d baseSet=%d",
+					static_cast<long long>(buffered),
+					static_cast<long long>(kBufferHighWaterNs),
+					m_playing.load(std::memory_order_relaxed) ? 1 : 0,
+					m_basePositionSet.load(std::memory_order_relaxed) ? 1 : 0);
+				if (buffered < kBufferHighWaterNs)
+				{
+					break;
+				}
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			}
+			auto client = m_client.lock();
+			if (!client)
 			{
 				return;
 			}
-			if (auto client = m_client.lock())
+			std::vector<std::pair<int32_t, uint32_t>> sends;
 			{
+				std::lock_guard<std::mutex> lock(m_trackMutex);
 				for (int32_t sourceId : m_attachedSources)
 				{
-					if (m_stopRequested.load(std::memory_order_relaxed))
-					{
-						break;
-					}
 					uint32_t reqId = m_needDataRequestId++;
-					client->notifyNeedMediaData(sourceId, 24, reqId, nullptr);
+					m_requestIdToSource[reqId] = sourceId;
+					sends.emplace_back(sourceId, reqId);
 				}
 			}
+			for (const auto &send : sends)
+			{
+				if (m_stopRequested.load(std::memory_order_relaxed))
+				{
+					break;
+				}
+				client->notifyNeedMediaData(send.first, kNeedDataFrameCount, send.second, nullptr);
+			}
 		}).detach();
+	}
+
+	void accumulateInjectedDuration(int32_t sourceId, int64_t durationNs)
+	{
+		std::lock_guard<std::mutex> lock(m_trackMutex);
+		auto typeIt = m_sourceTypes.find(sourceId);
+		if (typeIt == m_sourceTypes.end() ||
+			typeIt->second == MediaSourceType::SUBTITLE)
+		{
+			return;
+		}
+		if (durationNs > 0)
+		{
+			m_injectedDurationNs[sourceId] += durationNs;
+			m_eosSources.erase(sourceId);
+			m_eosSourceCount.store(
+				static_cast<int>(m_eosSources.size()),
+				std::memory_order_relaxed);
+			m_eosNotified.store(false, std::memory_order_relaxed);
+		}
+		RIALTO_SIM_LOG("DBG accumulate sourceId=%d durationNs=%lld totalNs=%lld",
+			sourceId, static_cast<long long>(durationNs),
+			static_cast<long long>(m_injectedDurationNs[sourceId]));
+		if (m_injectedDurationNs[sourceId] >= kMinPlayDurationNs)
+		{
+			m_readySources.insert(sourceId);
+		}
+	}
+
+	void markSourceReadyForPlay(int32_t sourceId)
+	{
+		std::lock_guard<std::mutex> lock(m_trackMutex);
+		auto typeIt = m_sourceTypes.find(sourceId);
+		if (typeIt != m_sourceTypes.end() &&
+			typeIt->second != MediaSourceType::SUBTITLE)
+		{
+			m_readySources.insert(sourceId);
+		}
+	}
+
+	// Caller must hold m_trackMutex.
+	bool allNonSubtitleSourcesReadyLocked() const
+	{
+		if (!m_allSourcesAttached)
+		{
+			return false;
+		}
+		bool haveNonSubtitle = false;
+		for (const auto &entry : m_sourceTypes)
+		{
+			if (entry.second == MediaSourceType::SUBTITLE)
+			{
+				continue;
+			}
+			haveNonSubtitle = true;
+			if (m_readySources.find(entry.first) == m_readySources.end())
+			{
+				return false;
+			}
+		}
+		return haveNonSubtitle;
+	}
+
+	// Caller must hold m_trackMutex.
+	bool allNonSubtitleSourcesEosLocked() const
+	{
+		bool haveNonSubtitle = false;
+		for (const auto &entry : m_sourceTypes)
+		{
+			if (entry.second == MediaSourceType::SUBTITLE)
+			{
+				continue;
+			}
+			haveNonSubtitle = true;
+			if (m_eosSources.find(entry.first) == m_eosSources.end())
+			{
+				return false;
+			}
+		}
+		return haveNonSubtitle;
+	}
+
+	void maybeStartPlayback()
+	{
+		bool startPlaying = false;
+		{
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			if (m_playRequested.load(std::memory_order_relaxed) &&
+				!m_playing.load(std::memory_order_relaxed) &&
+				allNonSubtitleSourcesReadyLocked())
+			{
+				// Mark playing under the lock to prevent another
+				// callback thread from also transitioning.
+				m_playing.store(true, std::memory_order_relaxed);
+				startPlaying = true;
+			}
+		}
+		if (startPlaying)
+		{
+			m_playStartTime = std::chrono::steady_clock::now();
+			if (auto client = m_client.lock())
+			{
+				RIALTO_SIM_LOG("transition to PLAYING "
+					"(per-track inject threshold reached)");
+				client->notifyPlaybackState(PlaybackState::PLAYING);
+			}
+			startPositionThread();
+		}
 	}
 
 	void startPositionThread()
@@ -417,12 +795,23 @@ private:
 	bool m_loaded;
 	bool m_allSourcesAttached;
 	std::atomic<bool> m_playing;
+	std::atomic<bool> m_playRequested;
+	std::atomic<double> m_rate;
 	std::atomic<int64_t> m_basePositionNs;
 	std::atomic<bool> m_basePositionSet;
 	std::chrono::steady_clock::time_point m_playStartTime;
 	std::atomic<uint32_t> m_needDataRequestId;
 	std::atomic<bool> m_stopRequested;
+	std::atomic<int> m_eosSourceCount;
+	std::atomic<bool> m_eosNotified;
 	std::thread m_positionThread;
+	bool m_playbackRateEnabled;
+	mutable std::mutex m_trackMutex;
+	std::map<int32_t, MediaSourceType> m_sourceTypes;
+	std::map<int32_t, int64_t> m_injectedDurationNs;
+	std::set<int32_t> m_readySources;
+	std::set<int32_t> m_eosSources;
+	std::map<uint32_t, int32_t> m_requestIdToSource;
 };
 
 // ===========================================================================
@@ -516,6 +905,58 @@ std::shared_ptr<IControlFactory> IControlFactory::createFactory()
 }
 
 // ===========================================================================
+// SimMediaPipelineCapabilitiesFactory - minimal factory returning null
+// ===========================================================================
+
+class SimMediaPipelineCapabilitiesFactory : public IMediaPipelineCapabilitiesFactory
+{
+public:
+	std::unique_ptr<IMediaPipelineCapabilities>
+	createMediaPipelineCapabilities() const override
+	{
+		// Return nullptr - capabilities queries are optional for simulator
+		return nullptr;
+	}
+};
+
+// ===========================================================================
+// SimMediaKeysFactory - minimal factory returning null
+// ===========================================================================
+
+class SimMediaKeysFactory : public IMediaKeysFactory
+{
+public:
+	std::unique_ptr<IMediaKeys> createMediaKeys(
+		const std::string &keySystem) const override
+	{
+		// Return nullptr - full DRM support not needed in simulator
+		// Production code already handles null IMediaKeys gracefully
+		RIALTO_SIM_LOG("createMediaKeys: keySystem=%s (returning null)", 
+			keySystem.c_str());
+		return nullptr;
+	}
+};
+
+// ===========================================================================
+// Additional factory functions
+// ===========================================================================
+
+std::shared_ptr<IMediaPipelineCapabilitiesFactory>
+IMediaPipelineCapabilitiesFactory::createFactory()
+{
+	RIALTO_SIM_LOG("IMediaPipelineCapabilitiesFactory::createFactory");
+	static auto factory = std::make_shared<SimMediaPipelineCapabilitiesFactory>();
+	return factory;
+}
+
+std::shared_ptr<IMediaKeysFactory> IMediaKeysFactory::createFactory()
+{
+	RIALTO_SIM_LOG("IMediaKeysFactory::createFactory");
+	static auto factory = std::make_shared<SimMediaKeysFactory>();
+	return factory;
+}
+
+// ===========================================================================
 // MediaSegment::copy - non-inline members declared in IMediaPipeline.h
 // ===========================================================================
 
@@ -561,65 +1002,3 @@ void IMediaPipeline::MediaSegmentVideo::copy(const MediaSegmentVideo &other)
 }
 
 } // namespace firebolt::rialto
-
-namespace firebolt::rialto
-{
-
-// Stub IMediaKeysFactory for builds that link RialtoSimulator instead of
-// the real libRialtoClient.  The Rialto DRM path is not exercised in these
-// builds, so returning nullptr is sufficient to satisfy the linker.
-std::shared_ptr<IMediaKeysFactory> IMediaKeysFactory::createFactory()
-{
-    return nullptr;
-}
-
-} // namespace firebolt::rialto
-
-namespace firebolt::rialto
-{
-
-// Stub IMediaPipelineCapabilitiesFactory for builds that link RialtoSimulator
-// instead of the real libRialtoClient.  Returns a capabilities object whose
-// isVideoMaster() reports false (audio-master), which is the safe default for
-// simulator/test builds.
-class SimMediaPipelineCapabilities : public IMediaPipelineCapabilities
-{
-public:
-	std::vector<std::string> getSupportedMimeTypes(MediaSourceType) override
-	{
-		return {};
-	}
-	bool isMimeTypeSupported(const std::string &) override { return true; }
-	std::vector<std::string> getSupportedProperties(
-		MediaSourceType, const std::vector<std::string> &) override
-	{
-		return {};
-	}
-	bool isVideoMaster(bool &videoMaster) override
-	{
-		videoMaster = false;
-		return true;
-	}
-};
-
-class SimMediaPipelineCapabilitiesFactory
-	: public IMediaPipelineCapabilitiesFactory
-{
-public:
-	std::unique_ptr<IMediaPipelineCapabilities>
-	createMediaPipelineCapabilities() const override
-	{
-		return std::make_unique<SimMediaPipelineCapabilities>();
-	}
-};
-
-std::shared_ptr<IMediaPipelineCapabilitiesFactory>
-IMediaPipelineCapabilitiesFactory::createFactory()
-{
-	static auto factory =
-		std::make_shared<SimMediaPipelineCapabilitiesFactory>();
-	return factory;
-}
-
-} // namespace firebolt::rialto
-
