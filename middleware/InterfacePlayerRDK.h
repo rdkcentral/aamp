@@ -128,6 +128,7 @@ struct Configs
 	int monitorAvsyncThresholdNegativeMs;
 	int monitorAvJumpThresholdMs;
 	bool useMp4Demux;
+	bool isNewTune;
 };
 
 
