@@ -128,15 +128,15 @@ public:
 	 */
 	virtual bool IsAdPlaying() override;
 
-        /**
-         * @brief Return the virtual-timeline position for a VOD asset with
-         *        inserted ad pods.  Accounts for all completed breaks and
-         *        the partially-elapsed current pod.
-         * @param[in] sourcePositionSec Playhead position in the source VOD
-         *        asset (seconds).
-         * @return Virtual position in the full assembled timeline (seconds).
-         */
-        virtual double GetVirtualPosition(double sourcePositionSec) override;
+	/**
+	 * @brief Return the virtual-timeline position for a VOD asset with
+	 *        inserted ad pods.  Accounts for all completed breaks and
+	 *        the partially-elapsed current pod.
+	 * @param[in] sourcePositionSec Playhead position in the source VOD
+	 *        asset (seconds).
+	 * @return Virtual position in the full assembled timeline (seconds).
+	 */
+	virtual double GetVirtualPosition(double sourcePositionSec) override;
 };
 
 #define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
