@@ -37,7 +37,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include <map>
 #include <mutex>
 #include <sstream>
