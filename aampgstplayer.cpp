@@ -784,6 +784,7 @@ void AAMPGstPlayer::Stream()
 {
 }
 
+
 /**
  * @brief Configure pipeline based on A/V formats
  */

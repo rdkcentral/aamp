@@ -4309,7 +4309,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 					std::string newState(gst_element_state_get_name(new_state));
 					if(oldState == "PAUSED" && newState == "PLAYING")
 					{
-						long long playingStartTimeInMS = NOW_SYSTEM_TS_MS - pInterfacePlayerRDK->mFirstFrameTimeInMS;
+						long long playingStartTimeInMS = NOW_STEADY_TS_MS  - pInterfacePlayerRDK->mFirstFrameTimeInMS;
 						MW_LOG_WARN("Time taken from First Frame to PLAYING state %.3f seconds", (double)playingStartTimeInMS / 1000.00f);
 						pInterfacePlayerRDK->mFirstFrameTimeInMS = 0;
 						pInterfacePlayerRDK->m_gstConfigParam->isNewTune = false;
