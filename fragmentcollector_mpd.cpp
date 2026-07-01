@@ -13428,219 +13428,150 @@ bool StreamAbstractionAAMP_MPD::IsMatchingLanguageAndMimeType(AampMediaType type
 	   return ret;
 }
 
-double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
+/**
+ * @fn CalculateProducerReferenceTimeOffset
+ * @brief Computes the encoder delay in milliseconds using
+ *        ProducerReferenceTime (PRT) data from the current period's
+ *        video AdaptationSet.
+ *
+ * The encoder delay is the difference (ms) between the ideal
+ * DASH-timeline wall-clock time at which the first segment PTS
+ * (firstSegmentPTS) should play and the actual wall-clock time at which the
+ * encoder captured that PTS:
+ *
+ *   encoderDelayMs = (periodStartTime - actualWallClockAtFirstSegment) * 1000
+ *
+ * where:
+ *   actualWallClockAtFirstSegment = ISO8601(PRT@wallClockTime)
+ *                                + ((firstSegmentPTS - PRT@presentationTime) / timescale)
+ *   periodStartTime       = GetPeriodStartTime() [absolute epoch seconds for first Segment]
+ *
+ * Returns 0.0 when PRT data is absent or the manifest is malformed.
+ *
+ * @retval Encoder delay in milliseconds (double).
+ */
+double StreamAbstractionAAMP_MPD::CalculateProducerReferenceTimeOffset()
 {
-	/*
-	a. If the ProducerReferenceTime _element_ is present as defined in clause 4.X.3.2, then the
-	i. WCA is the value of the @wallClockTime
-	ii. PTA is the value of the @presentationTime
-	iii. If the @inband attribute is set to TRUE, then it should parse the segments to continuously
-	update PTA and WCA accordingly
-	b. Else
-	i. WCA is the value of the PeriodStart
-	ii. PTA is the value of the @presentationTimeOffset
-	c. Then the presentation latency PL of a presentation time PT presented at wall clock time WC is
-	determined as PL => (WC – WCA) - (PT – PTA)
+	double encoderDelayMs = 0;
 
-	A segment has a presentation time PT => @t / @timescale (BEST: @PTS/@timescale)
-	*/
-
-	double encoderDisplayLatency  = 0;
-	double WCA = 0;
-	double PTA = 0;
-	//double WC = 0;
-	double PT = 0;
-
-	struct tm *gmt = NULL;
-	time_t tt = 0;
-	time_t tt_utc = 0;
-
-	tt       = NOW_SYSTEM_TS_MS/1000;//WC - Need display clock position
-	gmt      = gmtime(&tt);
-	gmt->tm_isdst = 0;
-	tt_utc   = mktime(gmt);
-
-	IProducerReferenceTime *producerReferenceTime = NULL;
-#if 0 //FIX-ME - Handle when ProducerReferenceTime _element_ is not available
-	double presentationOffset = 0;
-#endif
-	uint32_t timeScale = 0;
-	int numPeriods	=	mMPDParseHelper->GetNumberOfPeriods();
-	AAMPLOG_INFO("Current Index: %d Total Period: %d",mCurrentPeriodIdx, numPeriods);
-
-	if(numPeriods)
+	if (!mMPDParseHelper || !mpd)
 	{
-		IPeriod* tempPeriod = NULL;
-		try {
-			tempPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
-
-			if(tempPeriod && tempPeriod->GetAdaptationSets().size())
-			{
-				const std::vector<IAdaptationSet *>& adaptationSets = tempPeriod->GetAdaptationSets();
-
-				for(int j = 0; j < adaptationSets.size(); j++)
-				{
-					if( mMPDParseHelper->IsContentType(adaptationSets.at(j), eMEDIATYPE_VIDEO) )
-					{
-						producerReferenceTime = GetProducerReferenceTimeForAdaptationSet(adaptationSets.at(j));
-						break;
-					}
-				}
-
-				const ISegmentTemplate *representation = NULL;
-				const ISegmentTemplate *adaptationSet = NULL;
-
-				IAdaptationSet * firstAdaptation = adaptationSets.at(0);
-				if(firstAdaptation != NULL)
-				{
-					adaptationSet = firstAdaptation->GetSegmentTemplate();
-					const std::vector<IRepresentation *>& representations = firstAdaptation->GetRepresentation();
-					if (representations.size() > 0)
-					{
-						representation = representations.at(0)->GetSegmentTemplate();
-					}
-				}
-
-				SegmentTemplates segmentTemplates(representation,adaptationSet);
-
-				if( segmentTemplates.HasSegmentTemplate() )
-				{
-					std::string media = segmentTemplates.Getmedia();
-					timeScale = segmentTemplates.GetTimescale();
-					if(!timeScale)
-					{
-						timeScale = aamp->GetVidTimeScale();
-					}
-					AAMPLOG_TRACE("timeScale: %" PRIu32 "", timeScale);
-
-#if 0 //FIX-ME - Handle when ProducerReferenceTime _element_ is not available
-					presentationOffset = (double) segmentTemplates.GetPresentationTimeOffset();
-#endif
-					const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
-					if (segmentTimeline)
-					{
-						std::vector<ITimeline*> vec  = segmentTimeline->GetTimelines();
-						if (!vec.empty())
-						{
-							ITimeline* timeline = vec.back();
-							uint64_t startTime = 0;
-							uint32_t duration = 0;
-							uint32_t repeatCount = 0;
-
-							startTime = timeline->GetStartTime();
-							duration = timeline->GetDuration();
-							repeatCount = timeline->GetRepeatCount();
-
-							AAMPLOG_TRACE("startTime: %" PRIu32 " duration: %" PRIu32 " repeatCount: %" PRIu32, timeScale, duration, repeatCount);
-
-							if(timeScale)
-								PT = (double)(startTime+((uint64_t)repeatCount*duration))/timeScale ;
-							else
-								AAMPLOG_WARN("Empty timeScale !!!");
-						}
-					}
-				}
-
-				if(producerReferenceTime)
-				{
-					std::string id = "";
-					std::string type = "";
-					std::string wallClockTime = "";
-					std::string presentationTimeOffset = "";
-					std::string inband = "";
-					long wTime = 0;
-
-					map<string, string> attributeMap = producerReferenceTime->GetRawAttributes();
-					map<string, string>::iterator pos = attributeMap.begin();
-					pos = attributeMap.find("id");
-					if(pos != attributeMap.end())
-					{
-						id = pos->second;
-						if(!id.empty())
-						{
-							AAMPLOG_TRACE("ProducerReferenceTime@id [%s]", id.c_str());
-						}
-					}
-					pos = attributeMap.find("type");
-					if(pos != attributeMap.end())
-					{
-						type = pos->second;
-						if(!type.empty())
-						{
-							AAMPLOG_TRACE("ProducerReferenceTime@type [%s]", type.c_str());
-						}
-					}
-					pos = attributeMap.find("wallClockTime");
-					if(pos != attributeMap.end())
-					{
-						wallClockTime = pos->second;
-						if(!wallClockTime.empty())
-						{
-							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%s]", wallClockTime.c_str());
-
-							std::tm tmTime{};
-							const char* format = "%Y-%m-%dT%H:%M:%S.%f%Z";
-							char out_buffer[ 80 ];
-							strptime(wallClockTime.c_str(), format, &tmTime);
-							wTime = mktime(&tmTime);
-
-							AAMPLOG_TRACE("ProducerReferenceTime@wallClockTime [%ld] UTCTime [%f]",wTime, mTimeSyncClient.GetServerUtcTime());
-
-							/* Convert the time back to a string. */
-							strftime( out_buffer, 80, "That's %D (a %A), at %T",localtime (&wTime) );
-							AAMPLOG_TRACE( "%s", out_buffer );
-							WCA = (double)wTime ;
-						}
-					}
-					pos = attributeMap.find("presentationTime");
-					if(pos != attributeMap.end())
-					{
-						presentationTimeOffset = pos->second;
-						if(!presentationTimeOffset.empty())
-						{
-							if(timeScale != 0)
-							{
-								PTA = ((double) std::stoll(presentationTimeOffset))/timeScale;
-								AAMPLOG_TRACE("ProducerReferenceTime@presentationTime [%s] PTA [%lf]", presentationTimeOffset.c_str(), PTA);
-							}
-						}
-					}
-					pos = attributeMap.find("inband");
-					if(pos != attributeMap.end())
-					{
-						inband = pos->second;
-						if(!inband.empty())
-						{
-							AAMPLOG_TRACE("ProducerReferenceTime@inband [%d]", atoi(inband.c_str()));
-						}
-					}
-				}
-				else
-				{
-					AAMPLOG_WARN("ProducerReferenceTime Not Found for mCurrentPeriodIdx = [%d]", mCurrentPeriodIdx);
-#if 0 //FIX-ME - Handle when ProducerReferenceTime _element_ is not available
-
-					//Check more for behavior here
-					double periodStartTime = 0;
-					periodStartTime =  GetPeriodStartTime(mpd, mCurrentPeriodIdx);
-					AAMPLOG_TRACE("mCurrentPeriodIdx=%d periodStartTime=%lf",mCurrentPeriodIdx,periodStartTime);
-					WCA =  periodStartTime;
-					PTA = presentationOffset;
-#endif
-				}
-
-				double wc_diff = tt_utc-WCA;
-				double pt_diff  = PT-PTA;
-				encoderDisplayLatency = (wc_diff - pt_diff);
-
-				AAMPLOG_INFO("tt_utc [%lf] WCA [%lf] PT [%lf] PTA [%lf] tt_utc-WCA [%lf] PT-PTA [%lf] encoderDisplayLatency [%lf]", (double)tt_utc, WCA, PT, PTA, wc_diff, pt_diff, encoderDisplayLatency);
-			}
-		} catch (const std::out_of_range& oor) {
-			AAMPLOG_WARN("mCurrentPeriodIdx: %d mpd->GetPeriods().size(): %d Out of Range error: %s", mCurrentPeriodIdx, numPeriods, oor.what() );
-		}
+		AAMPLOG_WARN("MPD or parse helper not available");
+		return encoderDelayMs;
 	}
 
-	return encoderDisplayLatency;
+	int numPeriods = mMPDParseHelper->GetNumberOfPeriods();
+	if (!numPeriods)
+	{
+		return encoderDelayMs;
+	}
+
+	try
+	{
+		IPeriod *tempPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
+		if (!tempPeriod || tempPeriod->GetAdaptationSets().empty())
+		{
+			return encoderDelayMs;
+		}
+
+		IProducerReferenceTime *producerReferenceTime = nullptr;
+		IAdaptationSet *videoAdaptationSet = nullptr;
+		for (auto *adaptationSet : tempPeriod->GetAdaptationSets())
+		{
+			if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+			{
+				producerReferenceTime = GetProducerReferenceTimeForAdaptationSet(adaptationSet);
+				videoAdaptationSet = adaptationSet;
+				break;
+			}
+		}
+
+		if (!producerReferenceTime || !videoAdaptationSet)
+		{
+			AAMPLOG_WARN("ProducerReferenceTime not found for period %d", mCurrentPeriodIdx);
+			return encoderDelayMs;
+		}
+
+		const auto &attributeMap = producerReferenceTime->GetRawAttributes();
+
+		const auto wctPos = attributeMap.find("wallClockTime");
+		if (wctPos == attributeMap.end() || wctPos->second.empty())
+		{
+			AAMPLOG_WARN("ProducerReferenceTime@wallClockTime not found for period %d", mCurrentPeriodIdx);
+			return encoderDelayMs;
+		}
+
+		const auto ptaPos = attributeMap.find("presentationTime");
+		if (ptaPos == attributeMap.end() || ptaPos->second.empty())
+		{
+			AAMPLOG_WARN("ProducerReferenceTime@presentationTime not found for period %d", mCurrentPeriodIdx);
+			return encoderDelayMs;
+		}
+
+		const double presentationTime = static_cast<double>(std::stoll(ptaPos->second));
+
+		// Resolve timescale and first segment PTS (pts0) from the SegmentTimeline.
+		// SegmentTemplates merges representation-level and adaptation-set-level templates,
+		// matching the pattern used throughout this file.
+		const ISegmentTemplate *repTemplate = nullptr;
+		const auto &representations = videoAdaptationSet->GetRepresentation();
+		if (!representations.empty())
+		{
+			repTemplate = representations.front()->GetSegmentTemplate();
+		}
+		SegmentTemplates segmentTemplates(repTemplate, videoAdaptationSet->GetSegmentTemplate());
+
+		uint32_t timescale = segmentTemplates.HasSegmentTemplate() ? segmentTemplates.GetTimescale() : 0;
+		if (!timescale)
+		{
+			timescale = aamp->GetVidTimeScale();
+		}
+		if (!timescale)
+		{
+			AAMPLOG_WARN("timescale is zero for period %d", mCurrentPeriodIdx);
+			return encoderDelayMs;
+		}
+
+		double firstSegmentPTS = 0;
+		if (segmentTemplates.HasSegmentTemplate())
+		{
+			const ISegmentTimeline *segTimeline = segmentTemplates.GetSegmentTimeline();
+			if (segTimeline)
+			{
+				const auto &timelines = segTimeline->GetTimelines();
+				if (!timelines.empty())
+				{
+					firstSegmentPTS = static_cast<double>(timelines.front()->GetStartTime());
+				}
+			}
+		}
+
+		// deltaWallClockTime is the offset (seconds) from the PRT anchor to the
+		// first available segment: (firstSegmentPTS - PRT@presentationTime) / timescale
+		const double deltaWallClockTime = (firstSegmentPTS - presentationTime) / static_cast<double>(timescale);
+
+		// Actual wall-clock time at which firstSegmentPTS was captured by the encoder.
+		const std::string &wallClockTime = wctPos->second;
+		const double actualWallClockAtFirstSegment = ISO8601DateTimeToUTCSeconds(wallClockTime.c_str()) + deltaWallClockTime;
+
+		// Ideal wall-clock time at which firstSegmentPTS should play according to the DASH timeline:
+		//   AST + periodStartTime + (firstSegmentPTS - presentationTimeOffset) / timescale
+		// where periodStartTime is the Period@start duration relative to AST.
+		const double availabilityStartTime = mMPDParseHelper->GetAvailabilityStartTime();
+		const double periodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs);
+
+		encoderDelayMs = (periodStartTime - actualWallClockAtFirstSegment) * 1000.0;
+
+		AAMPLOG_WARN("PRT encoder delay for period %d: %.2f ms (AST: %.2f, PeriodStart: %.2f, WCT@pts0: %.2f, PRT@PTS: %.2f, deltaWCT: %.2f)",
+			mCurrentPeriodIdx, encoderDelayMs, availabilityStartTime, periodStartTime, actualWallClockAtFirstSegment, presentationTime / static_cast<double>(timescale), deltaWallClockTime);
+	}
+	catch (const std::exception &ex)
+	{
+		AAMPLOG_WARN("CalculateProducerReferenceTimeOffset failed for period %d: %s",
+			mCurrentPeriodIdx, ex.what());
+	}
+
+	return encoderDelayMs;
 }
 
 /**
@@ -13765,6 +13696,15 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	mLowLatencyMode	=	false;
+
+	if (aamp->IsNewTune() && mMPDParseHelper && ISCONFIGSET(eAAMPConfig_EnableProducerReferenceDelay))
+	{
+		// Calculate the encoder delay using ProducerReferenceTime and set it in AAMP
+		// This will be used to adjust the live offset for low latency playback, only calculated once per tune.
+		double latencyMs = CalculateProducerReferenceTimeOffset();
+		aamp->SetPRTClockOffsetMs(static_cast<long>(std::lround(latencyMs)));
+	}
+
 	/*LL DASH VERIFICATION START*/
 	//Check if LLD requested
 	if (ISCONFIGSET(eAAMPConfig_EnableLowLatencyDash))
