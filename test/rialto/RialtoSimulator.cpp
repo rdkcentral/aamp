@@ -292,8 +292,16 @@ public:
 			}
 		}
 
-		if (m_playRequested.load(std::memory_order_relaxed) &&
-			status == MediaSourceStatus::OK)
+		// Schedule the next needData even while paused: a real
+		// GStreamer/Rialto pipeline accepts data in PAUSED state (appSrc
+		// queues continue to buffer).  Without this, an inject thread
+		// waiting in injectOneSample() for hasPending can block forever
+		// after a seek arrives shortly after EOS, because StopInjectLoop
+		// (called during TeardownStream) hangs waiting for inject threads
+		// that will never exit, and Flush/invalidateGeneration is never
+		// reached.  Guard only against stop, not against pause.
+		if (status == MediaSourceStatus::OK &&
+			!m_stopRequested.load(std::memory_order_relaxed))
 		{
 			scheduleNextNeedData();
 		}
