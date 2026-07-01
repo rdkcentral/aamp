@@ -980,7 +980,13 @@ protected:
 	 */
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 
-	double GetEncoderDisplayLatency();
+	/**
+	 * @fn CalculateProducerReferenceTimeOffset
+	 * @brief Computes the encoder delay in milliseconds using
+	 *        ProducerReferenceTime (PRT) data from the current period's
+	 *        video AdaptationSet.
+	 */
+	double CalculateProducerReferenceTimeOffset();
 
 	/**
 	 * @fn GetPreferredCodecIndex
