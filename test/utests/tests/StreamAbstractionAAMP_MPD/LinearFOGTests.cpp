@@ -117,6 +117,7 @@ protected:
 				{eAAMPConfig_EnableIFrameTrackExtract, false},
 				{eAAMPConfig_useRialtoSink, false},
 				{eAAMPConfig_UseMp4Demux, false},
+				{eAAMPConfig_EnableProducerReferenceDelay, true},
 		};
 
 		BoolConfigSettings mBoolConfigSettings;
