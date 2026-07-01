@@ -153,6 +153,14 @@ private:
 	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous);
 
 	/**
+	 * @brief Handle trickmode discontinuity by pre-advancing state machine
+	 * @note Called when a discontinuous init segment arrives to prevent large PTS
+	 *       deltas from being computed when the next data segment is processed.
+	 *       Transitions state from STEADY → DISCONTINUITY if discontinuous=true.
+	 */
+	void HandleTrickModeDiscontinuity();
+
+	/**
 	 * @brief Reset only trickmode state variables.
 	 * Called internally whenever trickmode state must be cleared (e.g. on
 	 * transition back to normal play). Intentionally separate from the public
