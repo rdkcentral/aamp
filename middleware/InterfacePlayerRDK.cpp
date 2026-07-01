@@ -3805,9 +3805,8 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 
 	if (eGST_MEDIATYPE_VIDEO == mediaType)
 	{
-		
 		mFirstFrameTimeInMS = NOW_STEADY_TS_MS;
-		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame at %lld seconds", mFirstFrameTimeInMS / 1000);
+		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame");
 
 		if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
 		{
@@ -4304,6 +4303,18 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						   gst_element_state_get_name(new_state),
 						   gst_element_state_get_name(pending_state));
 
+				if(pInterfacePlayerRDK->mFirstFrameTimeInMS > 0)
+				{
+					std::string oldState(gst_element_state_get_name(old_state));
+					std::string newState(gst_element_state_get_name(new_state));
+					if(oldState == "PAUSED" && newState == "PLAYING")
+					{
+						long long playingStartTimeInMS = NOW_SYSTEM_TS_MS - pInterfacePlayerRDK->mFirstFrameTimeInMS;
+						MW_LOG_WARN("Time taken from first frame to PLAYING state %.3f seconds", (double)playingStartTimeInMS / 1000.00f);
+						pInterfacePlayerRDK->mFirstFrameTimeInMS = 0;
+					}
+				}
+				
 				if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
 				{
 					GstElement *video_sink = privatePlayer->gstPrivateContext->video_sink;
@@ -4692,11 +4703,6 @@ static gboolean buffering_timeout (gpointer data)
 				
 				privatePlayer->gstPrivateContext->buffering_in_progress = false;
 				isPlayerReady = true;
-
-				long long currentTimeInMS = NOW_SYSTEM_TS_MS;
-				long long playingStartTimeInMS = currentTimeInMS - pInterfacePlayerRDK->mFirstFrameTimeInMS;
-				MW_LOG_WARN("time taken from first frame to PLAYING state %.5f seconds",(double)playingStartTimeInMS / 1000.00f);
-				pInterfacePlayerRDK->mFirstFrameTimeInMS = 0;	
 			}
 		}
 		if (!privatePlayer->gstPrivateContext->buffering_in_progress)
