@@ -7882,6 +7882,11 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 						{
 							sink->SetVideoRectangle(x, y, w, h);
 						}
+						if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
+						{
+							AAMPLOG_WARN("calling setVideoWindowSize from cached rect w:%d x h:%d", mVideoRect.width, mVideoRect.height);
+							mDRMLicenseManager->setVideoWindowSize(mVideoRect.width, mVideoRect.height);
+						}
 					}
 					else
 					{
