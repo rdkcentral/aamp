@@ -38,7 +38,7 @@
 #define MW_SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
 //Delete Array object
 #define MW_SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
-
+#define NOW_SYSTEM_TS_MS std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in milliseconds */
 
 #define WRITE_HASCII( DST, BYTE ) \
 { \

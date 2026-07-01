@@ -162,6 +162,7 @@ class InterfacePlayerRDK
 		void *mDRMSessionManager;
 		std::map<InterfaceCB, std::function<void()>> callbackMap;
 		std::map<InterfaceCB, std::function<void(int)>> setupStreamCallbackMap;
+		long long mFirstFrameTimeInMS;
         
 		PlayerScheduler mScheduler;
 		InterfacePlayerRDK(bool isRialto = false);

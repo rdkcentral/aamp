@@ -3805,7 +3805,9 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 
 	if (eGST_MEDIATYPE_VIDEO == mediaType)
 	{
-		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame");
+		
+		mFirstFrameTimeInMS = NOW_STEADY_TS_MS;
+		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame at %lld seconds", mFirstFrameTimeInMS / 1000);
 
 		if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
 		{
@@ -4690,6 +4692,11 @@ static gboolean buffering_timeout (gpointer data)
 				
 				privatePlayer->gstPrivateContext->buffering_in_progress = false;
 				isPlayerReady = true;
+
+				long long currentTimeInMS = NOW_SYSTEM_TS_MS;
+				long long playingStartTimeInMS = currentTimeInMS - pInterfacePlayerRDK->mFirstFrameTimeInMS;
+				MW_LOG_WARN("time taken from first frame to PLAYING state %.5f seconds",(double)playingStartTimeInMS / 1000.00f);
+				pInterfacePlayerRDK->mFirstFrameTimeInMS = 0;	
 			}
 		}
 		if (!privatePlayer->gstPrivateContext->buffering_in_progress)
