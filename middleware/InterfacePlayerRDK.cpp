@@ -1655,7 +1655,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	
 	// If the pipeline was in trickplay (rate != 1) and we're now going to normal play,
 	// don't treat it as a user-paused seek even if `paused` is stale true
-	if (previousRate != GST_NORMAL_PLAY_RATE && rate == GST_NORMAL_PLAY_RATE && !seekPausedState)
+	if (previousRate != GST_NORMAL_PLAY_RATE && rate == GST_NORMAL_PLAY_RATE && !interfacePlayerPriv->gstPrivateContext->seekPausedState)
 	{
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 		interfacePlayerPriv->gstPrivateContext->paused = false;
