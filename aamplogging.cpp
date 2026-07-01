@@ -74,7 +74,7 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
 
 bool AampLogManager::disableLogRedirection = false;
 bool AampLogManager::enableEthanLogRedirection = false;
-AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
+AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_INFO;
 bool AampLogManager::locked = false;
 
 thread_local int gPlayerId = -1;

@@ -24,8 +24,9 @@
 
 #include "AampEventManager.h"
 
-
-//#define EVENT_DEBUGGING 1
+/* [XSTLP-999-DBG][LOG-POINT-4] Enable EVENT_DEBUGGING to log time each JS event listener
+ * blocks the calling thread. Measures SendEventSync blocking duration per event type. */
+#define EVENT_DEBUGGING 1
 
 
 /**
@@ -417,15 +418,8 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		SAFE_DELETE(pCurrent);
 	}
 #ifdef EVENT_DEBUGGING
-	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));
+	AAMPLOG_WARN("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] SendEventSync type=%d took %lld ms",eventType, (int)(NOW_STEADY_TS_MS - startTime));
 #endif
-	/* SERXIONE-8666 debug: always log state-change event dispatch duration
-	 * to detect GLib main loop starvation from synchronous JS processing */
-	long long elapsed = NOW_STEADY_TS_MS - startTime;
-	if (eventType == AAMP_EVENT_STATE_CHANGED || elapsed > 100)
-	{
-		AAMPLOG_MIL("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] SendEventSync type=%d took %lld ms", eventType, elapsed);
-	}
 
 }
 

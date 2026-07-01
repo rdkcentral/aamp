@@ -4045,6 +4045,26 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 			interfacePlayerPriv->gstPrivateContext->aSyncControl.enable();
 			guint busWatchId = gst_bus_add_watch(interfacePlayerPriv->gstPrivateContext->bus, (GstBusFunc) bus_message, this);
 			(void)busWatchId;
+
+			/* [XSTLP-999-DBG][LOG-POINT-5] Main loop health monitor: 1-second heartbeat timer.
+			 * Any drift > 200ms indicates the GLib main loop couldn't iterate in time,
+			 * correlating with TLP-999 events. Provides always-on starvation detection. */
+			static long long s_lastMainLoopTickMs = 0;
+			g_timeout_add(1000, [](gpointer data) -> gboolean {
+				long long now = NOW_STEADY_TS_MS;
+				if (s_lastMainLoopTickMs != 0)
+				{
+					long long drift = now - s_lastMainLoopTickMs - 1000;
+					if (drift > 200) // Expected every 1000ms; flag if >200ms late
+					{
+						MW_LOG_WARN("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] GLIB_MAINLOOP_HEARTBEAT: 1s timer fired %lld ms late "
+							"(expected 1000ms, actual %lld ms)", drift, now - s_lastMainLoopTickMs);
+					}
+				}
+				s_lastMainLoopTickMs = now;
+				return G_SOURCE_CONTINUE;
+			}, nullptr);
+
 			interfacePlayerPriv->gstPrivateContext->syncControl.enable();
 			gst_bus_set_sync_handler(interfacePlayerPriv->gstPrivateContext->bus, (GstBusSyncHandler) bus_sync_handler, this, NULL);
 			interfacePlayerPriv->gstPrivateContext->buffering_enabled = m_gstConfigParam->gstreamerBufferingBeforePlay;
@@ -4271,6 +4291,22 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 {
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	HANDLER_CONTROL_HELPER( privatePlayer->gstPrivateContext->aSyncControl, FALSE);
+
+	/* [XSTLP-999-DBG][LOG-POINT-1] Measure bus message dispatch delay using GStreamer message timestamp.
+	 * This quantifies how long each message sat in the bus queue before GLib main loop dispatched it. */
+	GstClockTime msgTimestamp = GST_MESSAGE_TIMESTAMP(msg);
+	if (GST_CLOCK_TIME_IS_VALID(msgTimestamp))
+	{
+		GstClockTime now = gst_util_get_timestamp();
+		gint64 delayMs = (gint64)(now - msgTimestamp) / GST_MSECOND;
+		if (delayMs > 100) // Only log if dispatch delay exceeds 100ms
+		{
+			MW_LOG_WARN("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] bus_message DISPATCH_DELAY: %lld ms for msg_type=%s src=%s",
+				(long long)delayMs, GST_MESSAGE_TYPE_NAME(msg),
+				msg->src ? GST_OBJECT_NAME(msg->src) : "NULL");
+		}
+	}
+
 	GError *error;
 	gchar *dbg_info;
 	bool isPlaybinStateChangeEvent;
@@ -4331,11 +4367,14 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 
 			if(isPlaybinStateChangeEvent || pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
 			{
-				MW_LOG_MIL("%s %s -> %s (pending %s)",
+				/* [XSTLP-999-DBG][LOG-POINT-2B] Include async_dispatch_ts for comparison with
+				 * bus_sync_handler sync_ts. Delta = exact main loop blockage time. */
+				MW_LOG_MIL("%s %s -> %s (pending %s) [async_dispatch_ts=%lld]",
 						   GST_OBJECT_NAME(msg->src),
 						   gst_element_state_get_name(old_state),
 						   gst_element_state_get_name(new_state),
-						   gst_element_state_get_name(pending_state));
+						   gst_element_state_get_name(pending_state),
+						   (long long)NOW_STEADY_TS_MS);
 
 				/* SERXIONE-8666 debug: log time from ConfigurePipeline to each
 				 * pipeline state transition. Helps distinguish subtitle-sink-blocking
@@ -4772,8 +4811,11 @@ static gboolean buffering_timeout (gpointer data)
 				}
 				else
 				{
-					MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
-					gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
+					/* [XSTLP-999-DBG][LOG-POINT-3] Include set_state_ts for end-to-end
+					 * correlation: set_state_ts -> sync_ts -> async_dispatch_ts */
+					MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i [set_state_ts=%lld]",
+					gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames,
+					(long long)NOW_STEADY_TS_MS);
 					privatePlayer->gstPrivateContext->playingRequestTimeMS = NOW_STEADY_TS_MS;
 					SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
 					isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
@@ -4923,6 +4965,13 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(privatePlayer->gstPrivateContext->pipeline))
 			{
 				privatePlayer->gstPrivateContext->pipelineState = new_state;
+				/* [XSTLP-999-DBG][LOG-POINT-2A] Log sync handler timestamp for delay measurement.
+				 * Compare this sync_ts with async_dispatch_ts in bus_message() to calculate
+				 * the exact GLib main loop blockage duration for each state transition. */
+				MW_LOG_MIL("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] bus_sync_handler: pipeline %s -> %s [sync_ts=%lld]",
+					gst_element_state_get_name(old_state),
+					gst_element_state_get_name(new_state),
+					(long long)NOW_STEADY_TS_MS);
 			}
 			/* Moved the below code block from bus_message() async handler to bus_sync_handler()
 			 * to avoid a timing case crash when accessing wrong video_sink element after it got deleted during pipeline reconfigure on codec change in mid of playback.
