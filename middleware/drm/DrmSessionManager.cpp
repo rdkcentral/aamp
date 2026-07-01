@@ -412,7 +412,7 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 	}
 	else
 	{
-		MW_LOG_INFO("[XSTLP-999-DBG] createDrmSession called on worker thread [tid=%zx]",
+		MW_LOG_MIL("[XSTLP-999-DBG] createDrmSession called on worker thread [tid=%zx]",
 			std::hash<std::thread::id>{}(std::this_thread::get_id()));
 	}
 	long long drmStartMS = NOW_STEADY_TS_MS;

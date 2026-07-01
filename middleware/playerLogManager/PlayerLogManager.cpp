@@ -75,7 +75,7 @@ static const char *mLogLevelStr[mLOGLEVEL_ERROR+1] =
         "ERROR", // mLOGLEVEL_ERROR
 };
 
-MW_LogLevel PlayerLogManager::mwLoglevel = mLOGLEVEL_INFO;
+MW_LogLevel PlayerLogManager::mwLoglevel = mLOGLEVEL_WARN;
 bool PlayerLogManager::locked = false;
 bool PlayerLogManager::disableLogRedirection = false;
 bool PlayerLogManager::enableEthanLogRedirection = false;

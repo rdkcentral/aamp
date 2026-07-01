@@ -418,7 +418,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		SAFE_DELETE(pCurrent);
 	}
 #ifdef EVENT_DEBUGGING
-	AAMPLOG_WARN("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] SendEventSync type=%d took %lld ms",eventType, (int)(NOW_STEADY_TS_MS - startTime));
+	AAMPLOG_WARN("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] SendEventSync type=%d took %lld ms",eventType, (long long)(NOW_STEADY_TS_MS - startTime));
 #endif
 
 }
