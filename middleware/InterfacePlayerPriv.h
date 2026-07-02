@@ -227,6 +227,7 @@ struct GstPlayerPriv
 	bool firstAudioFrameReceived;                     /**< flag that denotes if first audio frame was notified */
 	int NumberOfTracks;                                               /**< Indicates the number of tracks */
 	GstPlaybackQualityStruct playbackQuality; /**< video playback quality info */
+	long long mFirstFrameTimeInMS;
 	struct CallbackData
 	{
 		gpointer instance;
