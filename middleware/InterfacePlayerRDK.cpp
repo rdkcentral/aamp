@@ -499,6 +499,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorMsgTimeMS = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorCBCount = 0;
+	interfacePlayerPriv->gstPrivateContext->mFirstFrameTimeInMS = 0;
 	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{
 		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",interfacePlayerPriv->gstPrivateContext->subtitle_sink);
