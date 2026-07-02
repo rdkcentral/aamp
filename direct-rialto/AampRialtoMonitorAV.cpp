@@ -120,10 +120,8 @@ void AampRialtoMonitorAV::start()
 	}
 	if (started)
 	{
-		AAMPLOG_MIL(
-			"MonitorAvTimer started sample=%d ms report=%d ms",
-			m_config.sampleIntervalMs,
-			m_config.reportIntervalMs);
+		AAMPLOG_MIL("MonitorAvTimer started with interval %d ms", 
+					m_config.reportIntervalMs);
 	}
 }
 
