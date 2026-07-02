@@ -66,3 +66,13 @@ AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
 
 void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(
 	AampMediaType /*type*/) {}
+
+void PrivateInstanceAAMPNotifiable::ChangeAamp(
+	PrivateInstanceAAMP * /*newAamp*/) noexcept {}
+
+void PrivateInstanceAAMPNotifiable::SendMonitorAvEvent(
+	const std::string & /*status*/,
+	int64_t /*videoPositionMs*/,
+	int64_t /*audioPositionMs*/,
+	uint64_t /*timeInStateMs*/,
+	uint64_t /*droppedFrames*/) {}

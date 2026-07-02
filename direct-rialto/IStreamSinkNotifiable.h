@@ -178,6 +178,33 @@ public:
 	 * @param[in] type  The media track that underflowed.
 	 */
 	virtual void NotifyBufferUnderflow(AampMediaType type) = 0;
+
+	// -----------------------------------------------------------------------
+	// AV monitoring
+	// -----------------------------------------------------------------------
+
+	/**
+	 * @brief Fire a MonitorAV telemetry event.
+	 *
+	 * Called by AampRialtoMonitorAV on the report timer tick to report
+	 * current AV health status.
+	 *
+	 * @param[in] status           AV health classification string
+	 *                             ("ok", "video freeze", "audio drop",
+	 *                              "stall", "avsync", "jump", "eos",
+	 *                              "trickplay").
+	 * @param[in] videoPositionMs  Most recent video position in milliseconds.
+	 * @param[in] audioPositionMs  Most recent audio position in milliseconds.
+	 * @param[in] timeInStateMs    Milliseconds spent in the current state.
+	 * @param[in] droppedFrames    Cumulative dropped frame count from
+	 *                             IMediaPipeline::getStats().
+	 */
+	virtual void SendMonitorAvEvent(
+		const std::string &status,
+		int64_t videoPositionMs,
+		int64_t audioPositionMs,
+		uint64_t timeInStateMs,
+		uint64_t droppedFrames) = 0;
 };
 
 #endif // ISTREAM_SINK_NOTIFIABLE_H

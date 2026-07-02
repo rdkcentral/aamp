@@ -82,6 +82,12 @@ public:
 	void NotifySpeedChanged(float rate, bool changeState) override;
 	AAMPPlayerState GetState() override;
 	void NotifyBufferUnderflow(AampMediaType type) override;
+	void SendMonitorAvEvent(
+		const std::string &status,
+		int64_t videoPositionMs,
+		int64_t audioPositionMs,
+		uint64_t timeInStateMs,
+		uint64_t droppedFrames) override;
 
 private:
 	PrivateInstanceAAMP *m_aamp{nullptr};
