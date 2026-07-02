@@ -687,6 +687,55 @@ TEST_F(InterfacePlayerTests, GstFlush_SeekFailed)
 
 }
 
+// VPAAMP-610: When gst_element_seek() fails during RialtoSink trickplay, Flush() must NOT
+// signal EOS to the audio sink.  Doing so while the pipeline is in an inconsistent flush state
+// drives Rialto's FlushOnPrerollController into an unresolvable wait that causes RialtoServer
+// to be killed by its watchdog, cascading into a WebProcess crash.
+TEST_F(InterfacePlayerTests, GstFlush_RialtoSinkTrickplay_SeekFailed_NoEOS)
+{
+	double position = 10.0;
+	int rate = 2; // trickplay
+	bool shouldTearDown = false;
+	bool isAppSeek = false;
+
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_audio_dec = {.object = {.name = (gchar *)"testaudiodec"}};
+	GstElement gst_element_audio_sink = {.object = {.name = (gchar *)"testaudiosink"}};
+	GstElement gst_element_audio_source = {.object = {.name = (gchar *)"testaudiosource"}};
+
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->audio_dec = &gst_element_audio_dec;
+	mPlayerContext->audio_sink = &gst_element_audio_sink;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].format = GST_FORMAT_ISO_BMFF;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUDIO].source = &gst_element_audio_source;
+	mPlayerContext->usingRialtoSink = true;
+	mPlayerContext->rate = rate;
+	mPlayerConfigParams->media = eGST_MEDIAFORMAT_DASH;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_PAUSED),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+
+	// seek to position=0 (RialtoSink trickplay resets position to zero) but FAILS
+	EXPECT_CALL(*g_mockGStreamer, gst_element_seek(&gst_element_pipeline, 1.0, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, 0 * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
+		.WillOnce(Return(FALSE));
+
+	// gst_app_src_end_of_stream must NOT be called after a failed seek (VPAAMP-610).
+	// The fake implementation always returns GST_FLOW_OK; if EOS is signalled it would
+	// silently corrupt Rialto's FlushOnPrerollController on the device.  The absence of
+	// an audio_source mock expectation here documents this requirement; any future
+	// refactor that mocks gst_app_src_end_of_stream should assert Times(0) here.
+	EXPECT_TRUE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek));
+
+	// pendingSeek must be set so the seek is retried when the first buffer arrives
+	EXPECT_TRUE(mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].pendingSeek);
+	EXPECT_TRUE(mPlayerContext->stream[eGST_MEDIATYPE_AUDIO].pendingSeek);
+	// seekPosition must have been saved (as 0 for RialtoSink trickplay)
+	EXPECT_EQ(mPlayerContext->seekPosition, 0.0);
+}
+
 TEST_F(InterfacePlayerTests, GstFlush_ProgressiveMediaFormat)
 {
 	double position = 10.0;

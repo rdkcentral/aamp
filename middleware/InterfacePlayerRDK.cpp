@@ -1657,6 +1657,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			position = 0;
 		}
 	}
+	bool seekSucceeded = true;
 	if (!gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
@@ -1664,15 +1665,20 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		SetPendingSeek(true);
 		//Save the updated seek position
 		SetSeekPosition(position);
+		seekSucceeded = false;
 	}
 
 	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) &&
 		(interfacePlayerPriv->gstPrivateContext->audio_sink) &&
-		(rate != GST_NORMAL_PLAY_RATE))
+		(rate != GST_NORMAL_PLAY_RATE) &&
+		seekSucceeded)
 	{
 		/* 
 		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
+		 * Only signal EOS if the flush seek succeeded; signalling EOS after a failed seek
+		 * leaves Rialto's FlushOnPrerollController in an unresolvable wait state which
+		 * causes RialtoServer to be killed by its watchdog (VPAAMP-610).
 		 */
 		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
 		GstPlayer_SignalEOS(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
