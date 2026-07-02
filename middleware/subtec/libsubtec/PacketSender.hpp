@@ -74,12 +74,15 @@ private:
     void closeSenderTask();
     void flushPacketQueue();
     void sendPacket(PacketPtr && pkt);
+    bool isSelectionPacket(const std::string& typeString) const;
+    void resendStoredSelectionPacket();
     bool initSenderTask();
     bool initSocket(const char *socket_path);
 
     std::thread mSendThread;
     int mSubtecSocketHandle;
     std::atomic_bool running;
+    std::vector<uint8_t> mSelectionPacketBytes;
     std::queue<PacketPtr> mPacketQueue;
     std::mutex mPktMutex;
     std::condition_variable mCv;
@@ -92,6 +95,7 @@ protected:
         mSendThread(), 
         mSubtecSocketHandle(-1), 
         running(false), 
+        mSelectionPacketBytes(),
         mPacketQueue(), 
         mPktMutex(), 
         mCv(),
