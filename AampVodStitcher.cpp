@@ -536,9 +536,10 @@ static AdFetchResult FetchOneAdMPD(
 	res.ok                = false;
 
 	auto dnldCfg = std::make_shared<DownloadConfig>();
-	dnldCfg->proxyName       = proxyName;
-	dnldCfg->userAgentString = userAgent;
-	dnldCfg->iDownloadTimeout = DEFAULT_CURL_TIMEOUT;
+	dnldCfg->proxyName            = proxyName;
+	dnldCfg->userAgentString      = userAgent;
+	dnldCfg->iDownloadTimeout     = DEFAULT_CURL_TIMEOUT;
+	dnldCfg->bNeedDownloadMetrics = true;
 
 	auto dnldResp = std::make_shared<DownloadResponse>();
 
@@ -546,14 +547,25 @@ static AdFetchResult FetchOneAdMPD(
 	downloader.Initialize(dnldCfg);
 
 	std::string fetchUrl = url;
+	auto fetchStart = std::chrono::steady_clock::now();
 	int rc = downloader.Download(fetchUrl, dnldResp);
+	double totalPerformRequest = std::chrono::duration<double>(
+		std::chrono::steady_clock::now() - fetchStart).count();
 
 	downloader.CleanupCurlHeaderResources();
 
+	const auto &m = dnldResp->downloadCompleteMetrics;
+	AAMPLOG_MIL("HttpRequestEnd: 3,%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%g,%ld,%" BITSPERSECOND_FORMAT ",0,%.500s",
+		eMEDIATYPE_MANIFEST, rc,
+		totalPerformRequest, m.total, m.connect, m.startTransfer,
+		m.resolve, m.appConnect, m.preTransfer, m.redirect,
+		m.dlSize, m.reqSize, m.downloadbps,
+		(dnldResp->sEffectiveUrl.empty() ? url : dnldResp->sEffectiveUrl).c_str());
+
 	if (rc < 200 || rc >= 300 || dnldResp->mDownloadData.empty())
 	{
-		AAMPLOG_WARN("[VodStitcher] Failed to fetch ad MPD break=%s url=%s http=%d rc=%d",
-		             breakId.c_str(), url.c_str(), dnldResp->iHttpRetValue, rc);
+		AAMPLOG_WARN("[VodStitcher] Failed to fetch ad MPD break=%s url=%s http=%d",
+		             breakId.c_str(), url.c_str(), rc);
 	}
 	else
 	{
@@ -595,18 +607,14 @@ static std::vector<AdFetchResult> FetchAdMPDsParallel(
 			const VodAdBreakInfo &info = vodIt->second;
 			if (info.cancelled)
 				continue;
-			auto abIt = cdaiObj->mAdBreaks.find(info.breakId);
-			if (abIt == cdaiObj->mAdBreaks.end())
-				continue;
-			const AdBreakObject &abObj = abIt->second;
-			if (!abObj.ads || abObj.ads->empty() || !abObj.ads->at(0).resolved)
+			if (info.adUrl.empty())
 			{
-				AAMPLOG_WARN("[VodStitcher] Break %s has no resolved ad URL — skipping",
+				AAMPLOG_WARN("[VodStitcher] Break %s has no ad URL — skipping",
 				             info.breakId.c_str());
 				continue;
 			}
 			todo.push_back({info.breakId, info.insertionPointSec,
-			                info.breakDurationSec, abObj.ads->at(0).url});
+			                info.breakDurationSec, info.adUrl});
 		}
 	}
 

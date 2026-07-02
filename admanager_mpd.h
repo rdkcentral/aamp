@@ -398,6 +398,8 @@ struct VodAdBreakInfo {
 	bool        cancelled;          /**< true if cancelVodAdBreak() was called for this break */
 	bool        adPodStarted;       /**< true once the ad pod begins playing; prevents re-entry */
 	bool        adPodCompleted;     /**< true once all ads in the pod have finished */
+	std::string adId;               /**< Ad identifier supplied via SetAlternateContents() */
+	std::string adUrl;              /**< Ad manifest URL supplied via SetAlternateContents(); used directly by the VOD stitcher */
 
 	VodAdBreakInfo() : insertionPointSec(0.0), breakDurationSec(0.0), opportunityFired(false), cancelled(false),
 				   adPodStarted(false), adPodCompleted(false) {}
