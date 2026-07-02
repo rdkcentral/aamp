@@ -416,6 +416,23 @@ private:
 	/// init-fragment delivery from multiple download threads cannot race.
 	std::mutex m_attachMutex;
 
+	/// Mutex guarding the flush-complete condition variable.
+	std::mutex m_flushMutex;
+
+	/// Signalled by OnSourceFlushed() when all sources have finished
+	/// flushing, allowing Configure() to proceed safely.
+	std::condition_variable m_flushCv;
+
+	/**
+	 * @brief Block if the player is currently in the FLUSHING state.
+	 *
+	 * Waits on m_flushCv until all sources have completed flushing
+	 * (no source reports isFlushing()==true).  This ensures that
+	 * m_rate has been committed from m_pendingFlushRate before
+	 * Configure() evaluates ShouldRecreatePipeline().
+	 */
+	void WaitForFlushToComplete();
+
 	/// Position (ns) stored by Flush(); used to set the initial GStreamer
 	/// segment via setSourcePosition() once each source is attached.
 	/// -1 means no flush position has been set yet.

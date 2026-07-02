@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "AampUtils.h"
 #include "AampMediaType.h"
 #include "AampFragmentDescriptor.hpp"
 

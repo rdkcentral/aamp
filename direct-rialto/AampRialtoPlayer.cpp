@@ -370,6 +370,35 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	return false;
 }
 
+// ---------------------------------------------------------------------------
+// WaitForFlushToComplete
+// ---------------------------------------------------------------------------
+
+void AampRialtoPlayer::WaitForFlushToComplete()
+{
+	std::unique_lock<std::mutex> lock(m_flushMutex);
+	m_flushCv.wait(lock, [this]()
+	{
+		// Done immediately if the state machine has already left FLUSHING.
+		bool done = (m_stateMachine.currentState() != PlayerStateId::FLUSHING);
+		if (!done)
+		{
+			// Still FLUSHING: done once no source reports isFlushing().
+			bool anyFlushing = false;
+			for (const auto &s : m_sources)
+			{
+				if (s && s->isFlushing())
+				{
+					anyFlushing = true;
+					break;
+				}
+			}
+			done = !anyFlushing;
+		}
+		return done;
+	});
+}
+
 void AampRialtoPlayer::Configure(
 	StreamOutputFormat videoFormat,
 	StreamOutputFormat audioFormat,
@@ -379,6 +408,10 @@ void AampRialtoPlayer::Configure(
 {
 	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
 		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation);
+
+	// If a flush cycle is in progress, block until all sources finish
+	// flushing so m_rate is committed before ShouldRecreatePipeline reads it.
+	WaitForFlushToComplete();
 
 	// Guard: skip teardown and recreation when the pipeline can be reused.
 	// Rialto does not support dynamic source management, so any change to
@@ -1714,6 +1747,10 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		case firebolt::rialto::PlaybackState::PLAYING:
 		{
 			m_stateMachine.onPlaybackStarted();
+			// If PLAYING arrives while a flush is still in progress the state
+			// machine has just left FLUSHING.  Wake any thread blocked in
+			// WaitForFlushToComplete() so it can re-evaluate its predicate.
+			m_flushCv.notify_all();
 
 			// Clear injectionGated so inject threads resume blocking
 			// normally on needData rather than aborting immediately.
@@ -1748,7 +1785,8 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
 				m_notifiable->NotifySpeedChanged(
-					AAMP_NORMAL_PLAY_RATE, /*changeState=*/true);
+					static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
+					/*changeState=*/true);
 			}
 			StartProgressTimer();
 
@@ -1856,6 +1894,7 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 			m_rate.store(pendingRate, std::memory_order_relaxed);
 			AAMPLOG_INFO("All sources flushed - committed playback rate=%d",
 				pendingRate);
+			m_flushCv.notify_all();
 		}
 
 		// If Stream() was called while this source was still flushing,

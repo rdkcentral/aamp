@@ -2905,6 +2905,17 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
 		<< "Precondition: Flush(shouldTearDown=false) must move state to FLUSHING";
 
+	// Simulate Rialto confirming the flush for all attached sources.
+	// OnSourceFlushed commits m_pendingFlushRate → m_rate and unblocks
+	// WaitForFlushToComplete() so the subsequent Configure() can proceed.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, _, /*resetTime=*/true, _, _))
+		.Times(3)
+		.WillRepeatedly(Return(true));
+	PostSourceFlushed(/*sourceId=*/0);  // video
+	PostSourceFlushed(/*sourceId=*/1);  // inband CC subtitle
+	PostSourceFlushed(/*sourceId=*/2);  // audio
+
 	// Trickplay Configure: audio → FORMAT_INVALID, no pipeline recreation.
 	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
 		/*bESChangeStatus=*/false,
@@ -3654,6 +3665,96 @@ TEST_F(AampRialtoPlayerTest,
 
 	EXPECT_TRUE(cc->setTextTrackIdentifier("CC1"));
 }
+
+// ===========================================================================
+// WaitForFlushToComplete — Configure blocks until flush cycle finishes
+// ===========================================================================
+
+/**
+ * @test When Configure() is called while the player is FLUSHING, it must block
+ *       until all sources have finished flushing so that m_rate reflects the
+ *       pending flush rate before ShouldRecreatePipeline checks it.
+ *
+ * Scenario: Flush at rate=4 → state=FLUSHING → Configure() on another thread
+ * → OnSourceFlushed() completes the flush cycle → Configure() unblocks with
+ * the correct m_rate.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_WhileFlushing_BlocksUntilFlushComplete)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Enter PLAYING so Flush() transitions to FLUSHING.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Flush at trickplay rate — moves to FLUSHING and sets m_pendingFlushRate.
+	m_player->Flush(10.0, 4, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// At this point m_rate has NOT been committed yet (sources are flushing).
+	// Launch Configure() on a background thread; it should block in
+	// WaitForFlushToComplete().
+	std::atomic<bool> configureFinished{false};
+	std::thread configureThread([&]() {
+		// Force pipeline recreation via bESChangeStatus=true so we always
+		// hit ShouldRecreatePipeline() path.
+		ResetMockPipeline();
+		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+			/*bESChangeStatus=*/true,
+			/*setReadyAfterPipelineCreation=*/false);
+		configureFinished.store(true, std::memory_order_release);
+	});
+
+	// Spin until Configure() finishes or the timeout elapses.
+	// If WaitForFlushToComplete() is working, Configure() must still be blocked.
+	const auto deadline =
+		std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+	while (!configureFinished.load(std::memory_order_acquire) &&
+	       std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::yield();
+	}
+	EXPECT_FALSE(configureFinished.load(std::memory_order_acquire))
+		<< "Configure() must block while sources are still flushing";
+
+	// Complete the flush cycle by posting SourceFlushed for all sources.
+	// Video source has sourceId=0, CC subtitle=1, audio=2.
+	PostSourceFlushed(0);
+	PostSourceFlushed(1);
+	PostSourceFlushed(2);
+
+	// Configure() should now unblock.
+	configureThread.join();
+	EXPECT_TRUE(configureFinished.load(std::memory_order_acquire));
+}
+
+/**
+ * @test When Configure() is called and the player is NOT flushing,
+ *       WaitForFlushToComplete() returns immediately without blocking.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_NotFlushing_DoesNotBlock)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// No flush in progress — Configure must complete immediately.
+	ResetMockPipeline();
+	EXPECT_NO_THROW(
+		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+			/*bESChangeStatus=*/true, /*setReadyAfterPipelineCreation=*/false));
+}
+
+// ===========================================================================
+// Closed-caption / setTextTrackIdentifier / setCCMute
+// ===========================================================================
 
 /**
  * @test AampRialtoPlayer::setCCMute(true) must call IMediaPipeline::setMute()
