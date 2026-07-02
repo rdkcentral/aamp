@@ -53,6 +53,13 @@ public:
 
 	MOCK_METHOD(void, NotifyBufferUnderflow,
 		(AampMediaType type), (override));
+
+	MOCK_METHOD(void, SendMonitorAvEvent,
+		(const std::string &status,
+		 int64_t videoPositionMs,
+		 int64_t audioPositionMs,
+		 uint64_t timeInStateMs,
+		 uint64_t droppedFrames), (override));
 };
 
 #endif // MOCK_ISTREAM_SINK_NOTIFIABLE_H

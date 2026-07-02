@@ -32,6 +32,7 @@
 #include "priv_aamp.h"
 #include "IControl.h"
 #include "AampRialtoControlBackend.h"
+#include "AampRialtoMonitorAV.h"
 #include <glib.h>
 #include <chrono>
 #include <cinttypes>
@@ -615,6 +616,47 @@ void AampRialtoPlayer::Configure(
 
 				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();
+
+				// Create the AV health monitor when the feature is enabled.
+				if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV))
+				{
+					const double progressSec =
+						m_aamp->mConfig->GetConfigValue(
+							eAAMPConfig_ReportProgressInterval);
+					AampRialtoMonitorAV::Config monCfg{};
+					monCfg.sampleIntervalMs =
+						static_cast<int>(progressSec * 1000.0);
+					monCfg.reportIntervalMs =
+						m_aamp->mConfig->GetConfigValue(
+							eAAMPConfig_MonitorAVReportingInterval);
+					monCfg.syncThresholdPositiveMs =
+						m_aamp->mConfig->GetConfigValue(
+							eAAMPConfig_MonitorAVSyncThresholdPositive);
+					monCfg.syncThresholdNegativeMs =
+						m_aamp->mConfig->GetConfigValue(
+							eAAMPConfig_MonitorAVSyncThresholdNegative);
+					monCfg.jumpThresholdMs =
+						m_aamp->mConfig->GetConfigValue(
+							eAAMPConfig_MonitorAVJumpThreshold);
+
+					m_monitorAV = std::make_unique<AampRialtoMonitorAV>(
+						m_pipeline,
+						m_notifiable,
+						[this]() -> int32_t
+						{
+							auto &src = m_sources[eMEDIATYPE_VIDEO];
+							return src ? src->sourceId() : -1;
+						},
+						[this]() -> int { return m_rate.load(); },
+						[this]() -> bool
+						{
+							return m_stateMachine.currentState()
+								== PlayerStateId::PLAYING;
+						},
+						monCfg);
+
+					AAMPLOG_MIL("AampRialtoMonitorAV created");
+				}
 			}
 		}
 	}
@@ -1055,6 +1097,11 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_INFO("ENTRY keepLastFrame=%d", keepLastFrame);
 	StopProgressTimer();
+	if (m_monitorAV)
+	{
+		m_monitorAV->stop();
+		m_monitorAV.reset();
+	}
 	
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
@@ -1611,8 +1658,14 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 
 void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo)
 {
-	AAMPLOG_INFO("ENTRY type=%d codecFormat=%d", static_cast<int>(type),
-		static_cast<int>(codecInfo.mCodecFormat));
+	AAMPLOG_INFO("ENTRY type=%d codecFormat=%d codecDataLen=%zu",
+		static_cast<int>(type),
+		static_cast<int>(codecInfo.mCodecFormat),
+		codecInfo.mCodecData.size());
+	if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+	{
+		DumpBlob(codecInfo.mCodecData.data(), codecInfo.mCodecData.size());
+	}
 
 	std::lock_guard<std::mutex> lock(m_attachMutex);
 	if (!m_pipeline)
@@ -1789,6 +1842,11 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 					/*changeState=*/true);
 			}
 			StartProgressTimer();
+
+			if (m_monitorAV)
+			{
+				m_monitorAV->start();
+			}
 
 			break;
 		}

@@ -25,6 +25,7 @@
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
 #include "AampLogManager.h"
+#include <cinttypes>
 
 PrivateInstanceAAMPNotifiable::PrivateInstanceAAMPNotifiable(
 	PrivateInstanceAAMP *aamp) noexcept
@@ -128,4 +129,19 @@ void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
 	{
 		m_aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type);
 	}
+}
+
+void PrivateInstanceAAMPNotifiable::SendMonitorAvEvent(
+	const std::string &status,
+	int64_t videoPositionMs,
+	int64_t audioPositionMs,
+	uint64_t timeInStateMs,
+	uint64_t droppedFrames)
+{
+	AAMPLOG_TRACE("status=%s videoMs=%" PRId64 " audioMs=%" PRId64
+		" timeInStateMs=%" PRIu64 " dropped=%" PRIu64,
+		status.c_str(), videoPositionMs, audioPositionMs,
+		timeInStateMs, droppedFrames);
+	m_aamp->SendMonitorAvEvent(
+		status, videoPositionMs, audioPositionMs, timeInStateMs, droppedFrames);
 }

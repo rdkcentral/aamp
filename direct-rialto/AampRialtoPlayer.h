@@ -40,6 +40,7 @@
 #include "IStreamSinkNotifiable.h"
 #include "AampRialtoMediaSource.h"
 #include "IDirectRialtoCC.h"
+#include "AampRialtoMonitorAV.h"
 
 #include <array>
 #include <atomic>
@@ -495,6 +496,10 @@ private:
 
 	/// Progress timer instance.
 	std::unique_ptr<ProgressTimer> m_progressTimer;
+
+	/// AV health monitor.  Non-null only when eAAMPConfig_MonitorAV is true
+	/// and a pipeline has been successfully created.
+	std::unique_ptr<AampRialtoMonitorAV> m_monitorAV;
 
 	/// GoF State-pattern state machine tracking the player lifecycle.
 	PlayerStateMachine m_stateMachine;

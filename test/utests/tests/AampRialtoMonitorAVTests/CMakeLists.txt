@@ -15,30 +15,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(EXEC_NAME AampRialtoPlayerTests)
+include(GoogleTest)
+
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
+set(EXEC_NAME AampRialtoMonitorAVTests)
 
+# Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES
-	AampRialtoPlayerTests.cpp
-	AampRialtoPlayerTestCases.cpp
-)
+	AampRialtoMonitorAVTests.cpp
+	AampRialtoMonitorAVTestCases.cpp)
 
 set(AAMP_SOURCES
-	${AAMP_ROOT}/direct-rialto/AampRialtoPlayer.cpp
-	${AAMP_ROOT}/direct-rialto/AampRialtoMediaSource.cpp
-	${AAMP_ROOT}/direct-rialto/AampRialtoSubtitleSource.cpp
-	${AAMP_ROOT}/direct-rialto/AampPlayerStateMachine.cpp
-	${AAMP_ROOT}/direct-rialto/PrivateInstanceAAMPNotifiable.cpp
-	${AAMP_ROOT}/direct-rialto/AampRialtoMonitorAV.cpp
-)
+	${AAMP_ROOT}/direct-rialto/AampRialtoMonitorAV.cpp)
 
 add_executable(${EXEC_NAME}
 	${TEST_SOURCES}
-	${AAMP_SOURCES}
-)
+	${AAMP_SOURCES})
+
+set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
 if(CMAKE_XCODE_BUILD_SYSTEM)
 	xcode_define_schema(${EXEC_NAME})
 endif()
@@ -49,14 +47,11 @@ if(COVERAGE_ENABLED)
 endif()
 
 target_link_libraries(${EXEC_NAME}
-	${GLIB_LINK_LIBRARIES}
 	fakes
 	-pthread
+	${GLIB_LINK_LIBRARIES}
 	${OS_LD_FLAGS}
 	${GMOCK_LINK_LIBRARIES}
-	${GTEST_LINK_LIBRARIES}
-)
-
-set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+	${GTEST_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})
