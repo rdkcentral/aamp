@@ -268,6 +268,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	GstStreamOutputFormat newFormat[GST_TRACK_COUNT];
 	newFormat[eGST_MEDIATYPE_VIDEO] = gstFormat;
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
+	interfacePlayerPriv->gstPrivateContext->mFirstFrameTimeInMS = 0;
 
 	bool newClosedCaptionsControl = false;
 
@@ -499,7 +500,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorMsgTimeMS = 0;
 	interfacePlayerPriv->gstPrivateContext->decodeErrorCBCount = 0;
-	interfacePlayerPriv->gstPrivateContext->mFirstFrameTimeInMS = 0;
 	if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
 	{
 		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",interfacePlayerPriv->gstPrivateContext->subtitle_sink);
@@ -4306,11 +4306,13 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						   gst_element_state_get_name(new_state),
 						   gst_element_state_get_name(pending_state));
 				MW_LOG_WARN("Time taken debug firstframe time:%lld isNewTune:%d",privatePlayer->gstPrivateContext->mFirstFrameTimeInMS,pInterfacePlayerRDK->m_gstConfigParam->isNewTune);
-				if(privatePlayer->gstPrivateContext->mFirstFrameTimeInMS > 0 && pInterfacePlayerRDK->m_gstConfigParam->isNewTune )
+				
+				std::string oldState(gst_element_state_get_name(old_state));
+				std::string newState(gst_element_state_get_name(new_state));
+				if(oldState == "PAUSED" && newState == "PLAYING")
 				{
-					std::string oldState(gst_element_state_get_name(old_state));
-					std::string newState(gst_element_state_get_name(new_state));
-					if(oldState == "PAUSED" && newState == "PLAYING")
+						
+					if(privatePlayer->gstPrivateContext->mFirstFrameTimeInMS > 0 && pInterfacePlayerRDK->m_gstConfigParam->isNewTune )
 					{
 						long long playingStartTimeInMS = NOW_STEADY_TS_MS;
 						MW_LOG_WARN("steady time %lld ",playingStartTimeInMS);
@@ -4318,11 +4320,14 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						playingStartTimeInMS = NOW_STEADY_TS_MS  - privatePlayer->gstPrivateContext->mFirstFrameTimeInMS;
 						MW_LOG_WARN("playingStartTimeInMS %lld ",playingStartTimeInMS);
 						MW_LOG_WARN("Time taken from First Frame to PLAYING state %.3f seconds", (double)playingStartTimeInMS / 1000.00f);
-						privatePlayer->gstPrivateContext->mFirstFrameTimeInMS = 0;
-						pInterfacePlayerRDK->m_gstConfigParam->isNewTune = false;
-						MW_LOG_WARN("Time taken debug after firstframe time:%lld isNewTune:%d",privatePlayer->gstPrivateContext->mFirstFrameTimeInMS,pInterfacePlayerRDK->m_gstConfigParam->isNewTune);
+						
 					}
+					MW_LOG_WARN("Time taken debug 1 firstframe time:%lld isNewTune:%d",privatePlayer->gstPrivateContext->mFirstFrameTimeInMS,pInterfacePlayerRDK->m_gstConfigParam->isNewTune);
+					privatePlayer->gstPrivateContext->mFirstFrameTimeInMS = 0;
+					pInterfacePlayerRDK->m_gstConfigParam->isNewTune = false;
+					MW_LOG_WARN("Time taken debug 2 firstframe time:%lld isNewTune:%d",privatePlayer->gstPrivateContext->mFirstFrameTimeInMS,pInterfacePlayerRDK->m_gstConfigParam->isNewTune);
 				}
+				
 				
 				if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
 				{
