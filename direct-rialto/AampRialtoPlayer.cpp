@@ -1089,6 +1089,8 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
 	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
 
+	WaitForFlushToComplete();
+
 	// shouldTearDown controls recovery behavior when NOT in
 	// PLAYING/PAUSED/SOURCES_ATTACHED states.
 	// - PLAYING/PAUSED/SOURCES_ATTACHED: Always proceed with flush (shouldTearDown ignored)

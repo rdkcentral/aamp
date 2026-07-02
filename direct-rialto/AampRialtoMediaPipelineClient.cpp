@@ -174,7 +174,9 @@ void AampRialtoMediaPipelineClient::notifySourceFlushed(int32_t sourceId)
 void AampRialtoMediaPipelineClient::notifyPlaybackInfo(
 	const PlaybackInfo &playbackInfo)
 {
-	AAMPLOG_INFO("ENTRY");
+	AAMPLOG_INFO("ENTRY currentPosition=%" PRId64 "ms volume=%.2f",
+		playbackInfo.currentPosition / 1000000LL,
+		playbackInfo.volume);
 	AAMPLOG_INFO("EXIT");
 }
 
