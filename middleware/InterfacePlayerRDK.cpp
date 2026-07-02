@@ -4813,11 +4813,14 @@ static gboolean buffering_timeout (gpointer data)
 			{
 				if (privatePlayer->gstPrivateContext->seekPausedState)
 				{
-					if (privatePlayer->gstPrivateContext->buffering_timeout_cnt == 0)
+					if (privatePlayer->gstPrivateContext->buffering_timeout_cnt == G_MAXUINT)
     				{
-						privatePlayer->gstPrivateContext->buffering_timeout_cnt--;
+						/* Safety escape: seekPausedState is stuck (Pause(false) never came).
+						 * Reset the wrapped counter and force-clear to stop the timer looping.
+						 */
         				MW_LOG_INFO("buffering_timeout: seekPausedState stuck - forcing clear");
         				privatePlayer->gstPrivateContext->seekPausedState = false;
+						privatePlayer->gstPrivateContext->buffering_timeout_cnt = 0;
     				}
 					else
 					{
