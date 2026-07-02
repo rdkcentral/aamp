@@ -87,30 +87,44 @@ AampRialtoMonitorAV::~AampRialtoMonitorAV()
 
 void AampRialtoMonitorAV::start()
 {
-	if (m_sampleTimerId != 0 || m_reportTimerId != 0)
-	{
-		return;
-	}
-
-	m_sampleTimerId = g_timeout_add(
-		static_cast<guint>(m_config.sampleIntervalMs),
-		sampleTimerCb,
-		this);
+	bool started = false;
 	if (m_sampleTimerId == 0)
 	{
-		AAMPLOG_WARN("MonitorAvTimer failed to start sample timer");
+		m_sampleTimerId = g_timeout_add(
+			static_cast<guint>(m_config.sampleIntervalMs),
+			sampleTimerCb,
+			this);
+		if (m_sampleTimerId == 0)
+		{
+			AAMPLOG_WARN("MonitorAvTimer failed to start sample timer");
+		}
+		else
+		{
+			started = true;
+		}
 	}
-
-	m_reportTimerId = g_timeout_add(
-		static_cast<guint>(m_config.reportIntervalMs),
-		reportTimerCb,
-		this);
 	if (m_reportTimerId == 0)
 	{
-		AAMPLOG_WARN("MonitorAvTimer failed to start report timer");
+		m_reportTimerId = g_timeout_add(
+			static_cast<guint>(m_config.reportIntervalMs),
+			reportTimerCb,
+			this);
+		if (m_reportTimerId == 0)
+		{
+			AAMPLOG_WARN("MonitorAvTimer failed to start report timer");
+		}
+		else
+		{
+			started = true;
+		}
 	}
-
-	AAMPLOG_MIL("MonitorAvTimer started with interval %d ms", m_config.reportIntervalMs);
+	if (started)
+	{
+		AAMPLOG_MIL(
+			"MonitorAvTimer started sample=%d ms report=%d ms",
+			m_config.sampleIntervalMs,
+			m_config.reportIntervalMs);
+	}
 }
 
 void AampRialtoMonitorAV::stop()

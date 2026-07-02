@@ -37,8 +37,6 @@
 #include <chrono>
 #include <cinttypes>
 #include <algorithm>
-#include <iomanip>
-#include <sstream>
 
 // Running with real Rialto on Ubuntu locks up intermittently
 // due to no TextTrack sink on Rialto Server, this disables
@@ -1660,17 +1658,13 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 
 void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo)
 {
+	AAMPLOG_INFO("ENTRY type=%d codecFormat=%d codecDataLen=%zu",
+		static_cast<int>(type),
+		static_cast<int>(codecInfo.mCodecFormat),
+		codecInfo.mCodecData.size());
+	if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 	{
-		std::ostringstream oss;
-		oss << std::hex << std::setfill('0');
-		for (uint8_t b : codecInfo.mCodecData)
-		{
-			oss << std::setw(2) << static_cast<unsigned>(b);
-		}
-		AAMPLOG_INFO("ENTRY type=%d codecFormat=%d codecData=%s",
-			static_cast<int>(type),
-			static_cast<int>(codecInfo.mCodecFormat),
-			oss.str().c_str());
+		DumpBlob(codecInfo.mCodecData.data(), codecInfo.mCodecData.size());
 	}
 
 	std::lock_guard<std::mutex> lock(m_attachMutex);
