@@ -3807,7 +3807,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	if (eGST_MEDIATYPE_VIDEO == mediaType)
 	{
 		mFirstFrameTimeInMS = NOW_STEADY_TS_MS;
-		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame %ld",mFirstFrameTimeInMS);
+		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame %lld",mFirstFrameTimeInMS);
 		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame");
 
 		if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
@@ -4304,20 +4304,22 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						   gst_element_state_get_name(old_state),
 						   gst_element_state_get_name(new_state),
 						   gst_element_state_get_name(pending_state));
-				MW_LOG_WARN("Time taken debug firstframe time:%ld isNewTune:%d",pInterfacePlayerRDK->mFirstFrameTimeInMS,pInterfacePlayerRDK->m_gstConfigParam->isNewTune);	
+				MW_LOG_WARN("Time taken debug firstframe time:%lld isNewTune:%d",pInterfacePlayerRDK->mFirstFrameTimeInMS,pInterfacePlayerRDK->m_gstConfigParam->isNewTune);	
 				if(pInterfacePlayerRDK->mFirstFrameTimeInMS > 0 && pInterfacePlayerRDK->m_gstConfigParam->isNewTune )
 				{
 					std::string oldState(gst_element_state_get_name(old_state));
 					std::string newState(gst_element_state_get_name(new_state));
 					if(oldState == "PAUSED" && newState == "PLAYING")
 					{
-						MW_LOG_WARN("steady time %ld ",NOW_STEADY_TS_MS);
-						long playingStartTimeInMS = NOW_STEADY_TS_MS  - pInterfacePlayerRDK->mFirstFrameTimeInMS;
-						MW_LOG_WARN("playingStartTimeInMS %ld ",playingStartTimeInMS);
+						long long playingStartTimeInMS = NOW_STEADY_TS_MS;
+						MW_LOG_WARN("steady time %lld ",playingStartTimeInMS);
+						playingStartTimeInMS = 0;
+						playingStartTimeInMS = NOW_STEADY_TS_MS  - pInterfacePlayerRDK->mFirstFrameTimeInMS;
+						MW_LOG_WARN("playingStartTimeInMS %lld ",playingStartTimeInMS);
 						MW_LOG_WARN("Time taken from First Frame to PLAYING state %.3f seconds", (double)playingStartTimeInMS / 1000.00f);
 						pInterfacePlayerRDK->mFirstFrameTimeInMS = 0;
 						pInterfacePlayerRDK->m_gstConfigParam->isNewTune = false;
-						MW_LOG_WARN("Time taken debug after firstframe time:%ld isNewTune:%d",pInterfacePlayerRDK->mFirstFrameTimeInMS,pInterfacePlayerRDK->m_gstConfigParam->isNewTune);
+						MW_LOG_WARN("Time taken debug after firstframe time:%lld isNewTune:%d",pInterfacePlayerRDK->mFirstFrameTimeInMS,pInterfacePlayerRDK->m_gstConfigParam->isNewTune);
 					}
 				}
 				
