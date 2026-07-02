@@ -60,6 +60,31 @@ void PacketSender::Flush()
     flushPacketQueue();
 }
 
+bool PacketSender::isSelectionPacket(const std::string& typeString) const
+{
+    return typeString == "SUBTITLE_SELECTION" ||
+           typeString == "TELETEXT_SELECTION" ||
+           typeString == "TTML_SELECTION" ||
+           typeString == "WEBVTT_SELECTION";
+}
+
+void PacketSender::resendStoredSelectionPacket()
+{
+    if (mSelectionPacketBytes.empty())
+    {
+        MW_LOG_WARN("PacketSender: No stored selection packet available for replay");
+        return;
+    }
+
+    auto written = ::write(mSubtecSocketHandle, &mSelectionPacketBytes[0], mSelectionPacketBytes.size());
+    if (written == -1)
+    {
+        MW_LOG_WARN("PacketSender: Failed to replay stored selection packet after reconnect: %s", strerror(errno));
+        return;
+    }
+    MW_LOG_INFO("PacketSender: Replayed stored selection packet after reconnect");
+}
+
 bool PacketSender::Init()
 {
     return Init(SOCKET_PATH);
@@ -96,6 +121,13 @@ void PacketSender::SendPacket(PacketPtr && packet)
     MW_LOG_TRACE("PacketSender:  queue size %zu type %s:%d counter:%d",
         mPacketQueue.size(), typeString.c_str(), type, packet->getCounter());
 
+	if (isSelectionPacket(typeString))
+    {
+        mSelectionPacketBytes = packet->getBytes();
+        MW_LOG_WARN("PacketSender: Stored selection packet type %s:%d counter:%d",
+            typeString.c_str(), type, packet->getCounter());
+    }
+	
     mPacketQueue.push(std::move(packet));
     mCv.notify_all();
 }
@@ -176,7 +208,8 @@ void PacketSender::sendPacket(PacketPtr && pkt)
         if (::connect(mSubtecSocketHandle, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) != 0) {
             MW_LOG_WARN("PacketSender: cannot reconnect to address \'%s\'", mSocketPath.c_str());
         } else {
-            MW_LOG_INFO("PacketSender: successful reconnect to address \'%s\'", mSocketPath.c_str());
+            MW_LOG_WARN("PacketSender: successful reconnect to address, resending selection packet \'%s\'", mSocketPath.c_str());
+			resendStoredSelectionPacket();
         }
         mPktWriteFailCtr = 0;
 	}
