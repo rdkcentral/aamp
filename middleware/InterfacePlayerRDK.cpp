@@ -1636,7 +1636,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		interfacePlayerPriv->gstPrivateContext->bufferingTimeoutTimerId = PLAYER_TASK_ID_INVALID;
 
 	}
-
+	
 
 	// If the pipeline is not setup, we will cache the value for later
 	SetSeekPosition(position);
@@ -1655,7 +1655,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	
 	// If the pipeline was in trickplay (rate != 1) and we're now going to normal play,
 	// don't treat it as a user-paused seek even if `paused` is stale true
-	if (previousRate != GST_NORMAL_PLAY_RATE && rate == GST_NORMAL_PLAY_RATE && !interfacePlayerPriv->gstPrivateContext->seekPausedState)
+	if (previousRate != GST_NORMAL_PLAY_RATE && rate == GST_NORMAL_PLAY_RATE)
 	{
 		interfacePlayerPriv->gstPrivateContext->seekPausedState = false;
 		interfacePlayerPriv->gstPrivateContext->paused = false;
