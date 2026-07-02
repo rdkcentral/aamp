@@ -97,9 +97,10 @@ public:
      *   @fn Flush
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true)
+	virtual bool Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
+		return true;
 	}
 	/**
      *   @fn SetPlayBackRate

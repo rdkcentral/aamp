@@ -683,7 +683,9 @@ TEST_F(InterfacePlayerTests, GstFlush_SeekFailed)
 	EXPECT_CALL(*g_mockGStreamer, gst_element_seek(&gst_element_pipeline, 1.0, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 		.WillOnce(Return(FALSE));
 
-	EXPECT_TRUE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek)); //FLUSH is true even if seek is failed , needs to be confirmed TODO.
+	// Fix 2 (VPAAMP-610): Flush() now returns false when gst_element_seek() fails, so
+	// callers (AAMPGstPlayer::Flush) can log and skip buffer-control/rate-correction resets.
+	EXPECT_FALSE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek));
 
 }
 
@@ -727,7 +729,9 @@ TEST_F(InterfacePlayerTests, GstFlush_RialtoSinkTrickplay_SeekFailed_NoEOS)
 	// silently corrupt Rialto's FlushOnPrerollController on the device.  The absence of
 	// an audio_source mock expectation here documents this requirement; any future
 	// refactor that mocks gst_app_src_end_of_stream should assert Times(0) here.
-	EXPECT_TRUE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek));
+	// Fix 2: Flush() returns false on seek failure so AAMPGstPlayer can log and skip
+	// buffer-control/rate-correction resets that only make sense after a successful flush.
+	EXPECT_FALSE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek));
 
 	// pendingSeek must be set so the seek is retried when the first buffer arrives
 	EXPECT_TRUE(mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].pendingSeek);

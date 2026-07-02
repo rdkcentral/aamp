@@ -461,8 +461,19 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position
 
 	mGstPlayer->ChangeAamp(aamp, mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
 	aamp->mIsFlushOperationInProgress = true;
-	mGstPlayer->Flush(position, aamp->rate, true);
+	bool flushOk = mGstPlayer->Flush(position, aamp->rate, true);
 	aamp->mIsFlushOperationInProgress = false;
+	if (!flushOk)
+	{
+		// The pipeline handoff seek failed. Unlike other callsites, the pendingSeek retry
+		// may not fire if seekPosition==0 (RialtoSink clamping), leaving the new player
+		// at the wrong position. Schedule a retune to ensure the incoming player starts
+		// from the correct position.
+		AAMPLOG_WARN("AampStreamSinkManager::SetActive - handoff flush seek failed for "
+			"PLAYER[%d] at position=%f. Scheduling retune for position recovery.",
+			aamp->mPlayerId, position);
+		aamp->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+	}
 	mGstPlayer->SetSubtitleMute(aamp->subtitles_muted);
 	if(!aamp->IsTuneCompleted() && aamp->IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))
 	{
