@@ -1736,6 +1736,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, subTimeScale(0)
 	, speedCache {}
 	, mCurrentLatencyMs(0)
+	, mEncoderDelay(0)
 	, mLiveOffsetAppRequest(false)
 	, bLowLatencyStartABR(false)
 	, mEventManager (NULL)
@@ -2509,10 +2510,11 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				// the seek info was last updated, and getPosition() is the playback
 				// position in milliseconds at that same update. Their difference
 				// yields how far (in ms) the player is behind the live edge.
-				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition());
+				// Add mEncoderDelay to account for the encoder's contribution to latency.
+				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - mNewSeekInfo.GetInfo().getPosition()) + mEncoderDelay;
 				if(latency < 0)
-				{ // this should never happen!
-					AAMPLOG_ERR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition());
+				{
+					AAMPLOG_ERR("DASH negative live latency = %ldms, getUpdateTime() = %lldms, getPosition() = %lfms, mEncoderDelay = %ldms", latency, mNewSeekInfo.GetInfo().getUpdateTime(), mNewSeekInfo.GetInfo().getPosition(), mEncoderDelay);
 				}
 			}
 			else
@@ -3765,6 +3767,9 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 
 		if (!isLive && rate > AAMP_RATE_PAUSE)
 		{
+			// Flush any queued CDAI ad events (e.g. post-roll placement/reservation end)
+			// before notifying the application that playback has ended.
+			DeliverAdEvents(true);
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
@@ -4997,8 +5002,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
-					{
+						if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) ||
+							(isDownloadStalled &&
+								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
+							res == CURLE_SEND_ERROR)
+						{
 
 						if(mpStreamAbstractionAAMP)
 						{
@@ -5061,7 +5069,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								break;
 							}
 						}
-						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
+						AAMPLOG_WARN("Download failed due to curl error %d or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", res, isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
 					}
 
 					/*
@@ -8894,15 +8902,6 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
 void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 {
 	PlayerCCManager::GetInstance()->Init((void *)decoderHandle);
-	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-	{
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg == 0)
-		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
-			PlayerCCManager::GetInstance()->SetTrack("CC1");
-		}
-	}
 }
 
 /**
@@ -10287,17 +10286,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 			std::string url("");
 			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
 		}
-		//Ignoring past SCTE events.
-		//mFogTSBEnabled check is added to ensure the change won't effect IPVOD
-		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mFogTSBEnabled:%d", mTuneCompleted, mFogTSBEnabled);
-		if (mTuneCompleted || !mFogTSBEnabled)
-		{
-			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
-		}
-		else
-		{
-			AAMPLOG_WARN("[CDAI] Discarding SCTE event for period:%s  since tune is not completed",adBreakId.c_str());
-		}
+
 	}
 }
 
@@ -11833,6 +11822,11 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
+					SetPreferredTextTrack(track);
+					{
+						std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+						SetCCStatusInternal();
+					}
 					SetClosedCaptionsFromTextTrack(track);
 				}
 				else
@@ -11928,14 +11922,6 @@ void PrivateInstanceAAMP::SetClosedCaptionsFromTextTrack(TextTrackInfo &track)
 			{
 				format = eCLOSEDCAPTION_FORMAT_708;
 			}
-		}
-
-		// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg != -1)
-		{
-			format = (CCFormat)(overrideCfg & 1);
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
 		}
 		AAMPLOG_INFO("instreamId %s format %d", track.instreamId.c_str(), format);
 		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
