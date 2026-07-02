@@ -90,6 +90,10 @@ bool AampMPDParseHelper::IsPeriodEncrypted(int iPeriodIndex)
  */
 bool AampMPDParseHelper::IsEmptyPeriod(int iPeriodIndex, bool checkIframe)
 {
+	if (g_mockAampMPDParseHelper)
+	{
+		return g_mockAampMPDParseHelper->IsEmptyPeriod(iPeriodIndex, checkIframe);
+	}
 	return false;
 }
 

@@ -4947,7 +4947,8 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 
 	if(!subNodes.empty())
 	{
-		uint64_t periodStartMS = 0;
+		uint64_t availStartMS = mIsLiveManifest ? (uint64_t)(mAvailabilityStartTime * 1000) : 0;
+		uint64_t periodStartMS = availStartMS;
 		uint64_t periodDurationMS = 0;
 		std::vector<std::string> newPeriods;
 		int64_t firstSegmentStartTime = -1;
@@ -5019,9 +5020,14 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 					const std::string& value = node->GetAttributeValue("start");
 					uint64_t valueMS = 0;
 					if (!value.empty())
-						valueMS = ParseISO8601Duration(value.c_str() );
-					if (periodStartMS < valueMS)
-						periodStartMS = valueMS;
+						valueMS = ParseISO8601Duration(value.c_str());
+					if ((periodStartMS - availStartMS) < valueMS)
+						periodStartMS = valueMS + availStartMS;
+				}
+				else if (periodCnt > 1 && mMPDParseHelper && mMPDParseHelper->IsEmptyPeriod(periodCnt-1, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+				{
+					periodStartMS += mMPDParseHelper->GetPeriodDuration(periodCnt-2, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+					AAMPLOG_WARN("Empty period found, id=%s periodStartMS adjusted to %" PRIu64 " ms", node->GetAttributeValue("id").c_str(), periodStartMS);
 				}
 				periodDurationMS = 0;
 				if (node->HasAttribute("duration")) {

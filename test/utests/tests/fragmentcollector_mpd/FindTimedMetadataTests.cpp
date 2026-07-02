@@ -28,6 +28,7 @@
 #include "fragmentcollector_mpd.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
+#include "MockAampMPDParseHelper.h"
 
 #include "libdash/IMPD.h"
 #include "libdash/INode.h"
@@ -75,6 +76,16 @@ protected:
         {
             mIsLiveManifest = isLive;
         }
+
+        void SetMPDParseHelper(AampMPDParseHelperPtr helper)
+        {
+            mMPDParseHelper = helper;
+        }
+
+        void SetAvailabilityStartTime(double availabilityStartTime)
+        {
+            mAvailabilityStartTime = availabilityStartTime;
+        }
     };
 
     PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -98,6 +109,8 @@ protected:
         g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
 
         g_mockAampUtils = new NiceMock<MockAampUtils>();
+
+        g_mockAampMPDParseHelper = new NiceMock<MockAampMPDParseHelper>();
 
         mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -129,6 +142,9 @@ protected:
 
         delete g_mockAampUtils;
         g_mockAampUtils = nullptr;
+
+        delete g_mockAampMPDParseHelper;
+        g_mockAampMPDParseHelper = nullptr;
 
         mManifest = nullptr;
         if (mMPD)
@@ -392,4 +408,163 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveTimedMetadata(_,_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, true);
+}
+
+TEST_F(FindTimedMetadataTests, Validate_StartPeriodMS_for_EAP_EventStream)
+{
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     xmlns:scte35="urn:scte:scte35:2014:xml+bin"
+     type="dynamic"
+     id="hot-cdvr-eap-test"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011"
+     minBufferTime="PT4S"
+     minimumUpdatePeriod="PT4S"
+     availabilityStartTime="1970-07-01T10:00:00.000Z"
+     timeShiftBufferDepth="PT3H"
+     suggestedPresentationDelay="PT10S">
+  <!-- Period-1: 10:00 – 10:30, main video, no EventStream -->
+  <Period id="Period-1" start="PT0S" duration="PT1800S">
+    <AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true">
+      <SegmentTemplate timescale="90000" initialization="video-init.mp4"
+                       media="video-$Number$.m4s" startNumber="1">
+        <SegmentTimeline>
+          <S t="0" d="360000" r="24"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="r1" mimeType="video/mp4" codecs="avc1.640028"
+                      bandwidth="2000000" width="1280" height="720"/>
+    </AdaptationSet>
+  </Period>
+  <!-- Period-2: 10:30 – 11:00, main video + EventStream (SCTE-35 ad cue) -->
+  <Period id="Period-2" start="PT1800S" duration="PT1800S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="1000">
+      <Event presentationTime="0" duration="30000">
+        <scte35:Signal>
+          <scte35:Binary>/DAsAAAQdSsYAP/wBQb+3zKJFQAWAhRDVUVJAAAkQn/AAABOcUAAACIAAJR2FfM=</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true">
+      <SegmentTemplate timescale="90000" initialization="video-init.mp4"
+                       media="video-$Number$.m4s" startNumber="451">
+        <SegmentTimeline>
+          <S t="162000000" d="360000" r="24"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="r2" mimeType="video/mp4" codecs="avc1.640028"
+                      bandwidth="2000000" width="1280" height="720"/>
+    </AdaptationSet>
+  </Period>
+  <!-- Period-3: 11:00 – live edge, main video, NO @duration (EAP follows) -->
+  <Period id="Period-3" start="PT3600S">
+    <AdaptationSet id="3" contentType="video" mimeType="video/mp4" segmentAlignment="true">
+      <SegmentTemplate timescale="90000" initialization="video-init.mp4"
+                       media="video-$Number$.m4s" startNumber="901">
+        <!-- 5 × 4 s = 20 s = 20000 ms; GetPeriodDuration(index 2) mocked to 20000.0 -->
+        <SegmentTimeline>
+          <S t="324000000" d="360000" r="4"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="r3" mimeType="video/mp4" codecs="avc1.640028"
+                      bandwidth="2000000" width="1280" height="720"/>
+    </AdaptationSet>
+  </Period>
+  <!-- Period-4: EAP — no @start, no @duration, no AdaptationSet -->
+  <Period id="Period-4">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="1000">
+      <Event presentationTime="0" duration="30000">
+        <scte35:Signal>
+          <scte35:Binary>/DAsAAAQdSsYAP/wBQb+3zKJFQAWAhRDVUVJAAAkQn/AAABOcUAAACIAAJR2FfM=</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+  </Period>
+</MPD>
+)";
+
+    EXPECT_CALL(*g_mockAampUtils, parseAndValidateSCTE35(_)).WillRepeatedly(Return(true));
+
+    InitializeMPD(manifest);
+    mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
+    // availabilityStartTime="1970-07-01T10:00:00.000Z" = 181 days * 86400 + 10 * 3600 = 15674400 seconds
+    mStreamAbstractionAAMP_MPD->SetAvailabilityStartTime(15674400.0);
+    gpGlobalConfig->SetConfigValue(AAMP_APPLICATION_SETTING,
+                                   eAAMPConfig_EnableSCTE35PresentationTime, false);
+
+    auto mpdHelper = std::make_shared<AampMPDParseHelper>();
+    mStreamAbstractionAAMP_MPD->SetMPDParseHelper(mpdHelper);
+
+    // Period-4 has no AdaptationSets → EarlyAvailablePeriod returns true.
+    EXPECT_CALL(*g_mockAampMPDParseHelper, IsEmptyPeriod(3, _))
+        .WillOnce(Return(true));
+
+    EXPECT_CALL(*g_mockAampMPDParseHelper, GetPeriodDuration(2, _, _, _))
+        .WillOnce(Return(20000.0));
+
+    // Period-2: effectivePeriodStartMS = 1800000 (period@start) + 15674400000 (availabilityStartTime) = 15676200000 ms.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        FoundEventBreak(std::string("Period-2"), 15676200000ULL, _)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SaveNewTimedMetadata(15676200000LL, StrEq("Period-2"), 30000.0)).Times(1);
+
+    // Period-4 (EAP): effectivePeriodStartMS = (3600000 + 20000) + 15674400000 = 15678020000 ms.
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        FoundEventBreak(std::string("Period-4"), 15678020000ULL, _)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SaveNewTimedMetadata(15678020000LL, StrEq("Period-4"), 30000.0)).Times(1);
+
+    mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
+}
+
+TEST_F(FindTimedMetadataTests, LiveManifest_PeriodStartMS_IncludesAvailabilityStartTime)
+{
+    // availabilityStartTime = 1970-01-01T01:00:00Z = 3600 seconds from epoch.
+    // Period-1: start="PT1800S" -> periodStartMS = 1800000 ms (relative offset).
+    // SetAvailabilityStartTime(3600.0) simulates what Init() sets from the manifest.
+    // effectivePeriodStartMS = 1800000 + (3600 * 1000) = 5400000 ms.
+    static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     xmlns:scte35="urn:scte:scte35:2014:xml+bin"
+     type="dynamic"
+     profiles="urn:mpeg:dash:profile:isoff-live:2011"
+     minBufferTime="PT4S"
+     minimumUpdatePeriod="PT4S"
+     availabilityStartTime="1970-01-01T01:00:00.000Z"
+     timeShiftBufferDepth="PT3H">
+  <Period id="Period-1" start="PT1800S" duration="PT1800S">
+    <EventStream schemeIdUri="urn:scte:scte35:2014:xml+bin" timescale="1000">
+      <Event presentationTime="0" duration="30000">
+        <scte35:Signal>
+          <scte35:Binary>/DAsAAAQdSsYAP/wBQb+3zKJFQAWAhRDVUVJAAAkQn/AAABOcUAAACIAAJR2FfM=</scte35:Binary>
+        </scte35:Signal>
+      </Event>
+    </EventStream>
+    <AdaptationSet id="1" contentType="video" mimeType="video/mp4">
+      <Representation id="r1" mimeType="video/mp4" codecs="avc1.640028" bandwidth="2000000" width="1280" height="720"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+    EXPECT_CALL(*g_mockAampUtils, parseAndValidateSCTE35(_)).WillRepeatedly(Return(true));
+
+    InitializeMPD(manifest);
+    mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
+    // Simulate what Init() would populate: availabilityStartTime = 3600 seconds
+    mStreamAbstractionAAMP_MPD->SetAvailabilityStartTime(3600.0);
+
+    gpGlobalConfig->SetConfigValue(AAMP_APPLICATION_SETTING,
+                                   eAAMPConfig_EnableSCTE35PresentationTime, false);
+
+    // effectivePeriodStartMS = 1800000 (period@start) + 3600000 (availabilityStartTime) = 5400000
+    const uint64_t expectedStartMS = 1800000ULL + 3600000ULL;
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        FoundEventBreak(std::string("Period-1"), expectedStartMS, _)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+        SaveNewTimedMetadata(static_cast<long long>(expectedStartMS), StrEq("Period-1"), 30000.0)).Times(1);
+
+    mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }
