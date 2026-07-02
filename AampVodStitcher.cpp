@@ -578,8 +578,7 @@ static AdFetchResult FetchOneAdMPD(
 
 	downloader.CleanupCurlHeaderResources();
 
-	if (rc != 0 || dnldResp->iHttpRetValue < 200 || dnldResp->iHttpRetValue >= 300
-	    || dnldResp->mDownloadData.empty())
+	if (rc < 200 || rc >= 300 || dnldResp->mDownloadData.empty())
 	{
 		AAMPLOG_WARN("[VodStitcher] Failed to fetch ad MPD break=%s url=%s http=%d rc=%d",
 		             breakId.c_str(), url.c_str(), dnldResp->iHttpRetValue, rc);
