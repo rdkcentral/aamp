@@ -2366,24 +2366,21 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 	if (track)
 	{
 		bufferValue = track->GetBufferedDuration();
-		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
+		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value for LOCAL TSB LLD playback*/
 		{
-			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
-			if(tsbSessionManager)
+			/**< Buffer depth is the gap between the live downloader's leading edge
+			 *   (last downloaded fragment end position) and the pseudo live play
+			 *   position (mLiveOffset behind the live edge). This will shrink if the 
+			 *   downloader can't keep up with with the live edge at the current bitrate, 
+			 *   driving rampdown to recover.*/
+			double livePlayPosition = aamp->GetLivePlayPosition();
+			double lastFetchedEndPosition = track->GetLastDownloadedPosition();
+			bufferValue = lastFetchedEndPosition - livePlayPosition;
+			AAMPLOG_INFO("Buffer (%.02lf)sec based on last downloaded end position (%.02lf)sec and live play position (%.02lf)sec !!",
+						 bufferValue, lastFetchedEndPosition, livePlayPosition);
+			if(bufferValue < 0) /** Correct the buffer; it may become -ve*/
 			{
-				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
-				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
-				bufferValue += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
-				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
-							 bufferValue, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
-				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
-				{
-					bufferValue = 0;
-				}
-			}
-			else
-			{
-				AAMPLOG_ERR("tsbSessionManager is NULL for LocalTSB!! Returning buffer value as %.02lf !!",bufferValue);
+				bufferValue = 0;
 			}
 		}
 	}
