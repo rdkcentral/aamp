@@ -40,11 +40,15 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
+#include <future>
 #include <map>
 #include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include "downloader/AampCurlDownloader.h"
+#include "AampConfig.h"
 
 /* -------------------------------------------------------------------------
  * Internal string helpers  (mirrors manifest-genie GetAttr / SetAttr)
@@ -509,18 +513,72 @@ struct AdFetchResult
 	bool        ok;
 };
 
+/** Maximum number of ad MPDs to fetch concurrently. */
+static constexpr int kMaxParallelAdFetches = 6;
+
 /**
- * @brief Fetch all resolved VOD ad MPDs sequentially and return results.
- *        Sequential (not parallel) to avoid stack-use-after-return in
- *        GetFile's curl xferinfo_callback when sharing the AAMP instance.
+ * @brief Fetch one VOD ad MPD using a private AampCurlDownloader instance.
+ *        Called from std::async threads — each call owns its own CURL* handle
+ *        so there is no shared-handle data race and no stack-use-after-return.
  */
-static std::vector<AdFetchResult> FetchAdMPDsSequential(
+static AdFetchResult FetchOneAdMPD(
+	const std::string &breakId,
+	double             insertionPointSec,
+	double             durationSec,
+	const std::string &url,
+	const std::string &proxyName,
+	const std::string &userAgent)
+{
+	AdFetchResult res;
+	res.breakId           = breakId;
+	res.insertionPointSec = insertionPointSec;
+	res.durationSec       = durationSec;
+	res.ok                = false;
+
+	auto dnldCfg = std::make_shared<DownloadConfig>();
+	dnldCfg->proxyName       = proxyName;
+	dnldCfg->userAgentString = userAgent;
+	dnldCfg->iDownloadTimeout = DEFAULT_CURL_TIMEOUT;
+
+	auto dnldResp = std::make_shared<DownloadResponse>();
+
+	AampCurlDownloader downloader;
+	downloader.Initialize(dnldCfg);
+
+	std::string fetchUrl = url;
+	int rc = downloader.Download(fetchUrl, dnldResp);
+
+	downloader.CleanupCurlHeaderResources();
+
+	if (rc != 0 || dnldResp->iHttpRetValue < 200 || dnldResp->iHttpRetValue >= 300
+	    || dnldResp->mDownloadData.empty())
+	{
+		AAMPLOG_WARN("[VodStitcher] Failed to fetch ad MPD break=%s url=%s http=%d rc=%d",
+		             breakId.c_str(), url.c_str(), dnldResp->iHttpRetValue, rc);
+	}
+	else
+	{
+		res.mpdText      = dnldResp->getString();
+		res.effectiveUrl = dnldResp->sEffectiveUrl.empty() ? url : dnldResp->sEffectiveUrl;
+		res.ok           = true;
+		AAMPLOG_INFO("[VodStitcher] Fetched ad MPD break=%s url=%s size=%zu",
+		             breakId.c_str(), res.effectiveUrl.c_str(), res.mpdText.size());
+	}
+	return res;
+}
+
+/**
+ * @brief Fetch all resolved VOD ad MPDs in parallel (up to kMaxParallelAdFetches
+ *        concurrent downloads) and return results in registration order.
+ *
+ * Each download uses its own AampCurlDownloader instance (and therefore its
+ * own CURL* handle), so there is no shared-handle data race and no
+ * stack-use-after-return hazard from GetFile's curl progress callbacks.
+ */
+static std::vector<AdFetchResult> FetchAdMPDsParallel(
 	PrivateInstanceAAMP  *aamp,
 	PrivateCDAIObjectMPD *cdaiObj)
 {
-	// Collect break metadata in registration order under lock, then fetch without lock.
-	// mVodAdBreakOrder preserves the order breaks were registered, giving deterministic
-	// ad playout sequence regardless of breakId string ordering.
 	struct BreakTodo {
 		std::string breakId;
 		double      insertionPointSec;
@@ -553,39 +611,42 @@ static std::vector<AdFetchResult> FetchAdMPDsSequential(
 		}
 	}
 
+	if (todo.empty())
+		return {};
+
+	// Snapshot proxy and user-agent once; safe to read outside mDaiMtx.
+	std::string proxyName  = aamp->GetNetworkProxy();
+	std::string userAgent  = aamp->mConfig->GetUserAgentString();
+
+	// Launch up to kMaxParallelAdFetches downloads at a time using a sliding
+	// window so we never exceed the concurrency cap.
+	const int n = (int)todo.size();
+	std::vector<std::future<AdFetchResult>> futures(n);
+
+	auto launchFrom = [&](int idx) {
+		const BreakTodo &t = todo[idx];
+		futures[idx] = std::async(std::launch::async,
+			FetchOneAdMPD,
+			t.breakId, t.insertionPointSec, t.durationSec,
+			t.url, proxyName, userAgent);
+	};
+
+	// Seed initial wave
+	int launched = 0;
+	while (launched < n && launched < kMaxParallelAdFetches)
+		launchFrom(launched++);
+
 	std::vector<AdFetchResult> results;
-	results.reserve(todo.size());
-	for (const auto &t : todo)
+	results.reserve(n);
+
+	// Collect results in order; launch next as each slot frees.
+	for (int collected = 0; collected < n; collected++)
 	{
-		AdFetchResult res;
-		res.breakId           = t.breakId;
-		res.insertionPointSec = t.insertionPointSec;
-		res.durationSec       = t.durationSec;
-		res.ok                = false;
-
-		std::vector<uint8_t> data;
-		std::string effectiveUrl = t.url;
-		int httpErr = 0;
-		double dlTime = 0.0;
-
-		bool got = aamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, data,
-		                         effectiveUrl, httpErr, &dlTime, nullptr,
-		                         eCURLINSTANCE_MANIFEST_MAIN);
-		if (!got || data.empty())
-		{
-			AAMPLOG_WARN("[VodStitcher] Failed to fetch ad MPD for break=%s url=%s http=%d",
-			             t.breakId.c_str(), t.url.c_str(), httpErr);
-		}
-		else
-		{
-			res.mpdText      = std::string(reinterpret_cast<const char *>(data.data()), data.size());
-			res.effectiveUrl = effectiveUrl;
-			res.ok           = true;
-			AAMPLOG_INFO("[VodStitcher] Fetched ad MPD break=%s url=%s size=%zu",
-			             t.breakId.c_str(), effectiveUrl.c_str(), data.size());
-		}
-		results.push_back(std::move(res));
+		results.push_back(futures[collected].get());
+		if (launched < n)
+			launchFrom(launched++);
 	}
+
 	return results;
 }
 
@@ -672,9 +733,9 @@ std::string BuildStitchedVodManifest(
 		}
 	}
 
-	// Fetch all ad MPDs sequentially (parallel is unsafe: GetFile registers
-	// a stack-local curl progress context that would be accessed after return)
-	std::vector<AdFetchResult> adResults = FetchAdMPDsSequential(aamp, cdaiObj);
+	// Fetch all ad MPDs in parallel — each download uses its own
+	// AampCurlDownloader (and therefore its own CURL* handle).
+	std::vector<AdFetchResult> adResults = FetchAdMPDsParallel(aamp, cdaiObj);
 
 	// Build insertion map: insertionPointSec -> [AdFetchResult*, ...]
 	// Ordered by insertion point; multiple ads at the same point are chained.
