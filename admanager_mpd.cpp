@@ -1568,7 +1568,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 			pData.adBreakId = periodId;
 		}
 	}
-	else
+	else if (IsVodAdBreak(periodId))
 	{
 		// VOD CDAI stitching path: store the ad URL directly on VodAdBreakInfo and
 		// mark the AdNode resolved immediately.  The stitcher (BuildStitchedVodManifest /
@@ -1614,6 +1614,54 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		{
 			AAMPLOG_INFO("[CDAI-VOD] All VOD ads queued — signalling stitcher");
 			mVodAllAdsResolvedCV.notify_all();
+		}
+	}
+	else
+	{
+		bool adCached = false;
+		AAMPCDAIError adErrorCode = eCDAI_ERROR_UNKNOWN;
+		// VOD CDAI: create the AdBreakObject on the first SetAlternateContents
+		// call for a registered VOD break (live CDAI creates it via a prior
+		// placeholder SetAlternateContents("","") call; VOD skips that step).
+		if (!isAdBreakObjectExist(periodId))
+		{
+			auto posIt = mVodAdBreaks.find(periodId);
+			if (posIt != mVodAdBreaks.end())
+			{
+				if (!posIt->second.cancelled)
+				{
+					uint32_t brkDurMs = (uint32_t)(posIt->second.breakDurationSec * 1000.0);
+					auto adBreakAssets = std::make_shared<std::vector<AdNode>>();
+					mAdBreaks.emplace(periodId,
+						AdBreakObject{brkDurMs, std::move(adBreakAssets), "", 0, 0});
+					AAMPLOG_INFO("[CDAI-VOD] Created AdBreakObject for VOD break id=%s (durMs=%u)",
+						periodId.c_str(), brkDurMs);
+				}
+			}
+		}
+		if(isAdBreakObjectExist(periodId))
+		{
+			auto &adbreakObj = mAdBreaks[periodId];
+			if (adbreakObj.invalid)
+			{
+				adErrorCode = eCDAI_ERROR_DECISIONING_TIMEOUT;
+			}
+			else if (adbreakObj.brkDuration <= adbreakObj.adsDuration)
+			{
+				AAMPLOG_WARN("No more space left in the Adbreak. Rejecting the promise.");
+				adErrorCode = eCDAI_ERROR_INVALID_SPECIFICATION;
+			}
+			else
+			{
+				//Cache the Ad to be placed later
+				CacheAdData(periodId, adId, url);
+				adCached = true;
+			}
+		}
+		// Reject the promise as ad couldn't be resolved
+		if(!adCached)
+		{
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0, adErrorCode);
 		}
 	}
 }
