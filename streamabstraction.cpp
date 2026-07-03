@@ -2366,19 +2366,24 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 	if (track)
 	{
 		bufferValue = track->GetBufferedDuration();
-		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value for LOCAL TSB LLD playback*/
+		/**< When playing live at the edge in local TSB mode, IsLocalTSBInjection() is false.
+		 *   If the user pauses at that point, the GStreamer render position freezes while the
+		 *   live downloader continues, so GetBufferedDuration() grows unboundedly, masking
+		 *   real drift. Include the paused state so the live-edge formula is used whether
+		 *   playing back from the TSB store or paused at the live edge.*/
+		if (aamp->IsLocalAAMPTsb() && (track->IsLocalTSBInjection() || aamp->mSinkPaused.load()))
 		{
 			/**< Buffer depth is the gap between the live downloader's leading edge
 			 *   (last downloaded fragment end position) and the pseudo live play
-			 *   position (mLiveOffset behind the live edge). This will shrink if the 
-			 *   downloader can't keep up with with the live edge at the current bitrate, 
+			 *   position (mLiveOffset behind the live edge). This will shrink if the
+			 *   downloader can't keep up with with the live edge at the current bitrate,
 			 *   driving rampdown to recover.*/
 			double livePlayPosition = aamp->GetLivePlayPosition();
 			double lastFetchedEndPosition = track->GetLastDownloadedPosition();
 			bufferValue = lastFetchedEndPosition - livePlayPosition;
 			AAMPLOG_INFO("Buffer (%.02lf)sec based on last downloaded end position (%.02lf)sec and live play position (%.02lf)sec !!",
 						 bufferValue, lastFetchedEndPosition, livePlayPosition);
-			if(bufferValue < 0) /** Correct the buffer; it may become -ve*/
+			if (bufferValue < 0)
 			{
 				bufferValue = 0;
 			}
