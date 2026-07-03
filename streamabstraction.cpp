@@ -2358,7 +2358,11 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 
 
 /**
- *  @brief Update rampdown profile on network failure
+ *  @brief Return the effective buffer depth for ABR decisions.
+ *
+ *  Returns GetBufferedDuration() except during local TSB playback or when
+ *  paused at the live edge, where it returns
+ *  lastDownloadedPosition - GetLivePlayPosition(), clamped to >= 0.
  */
 double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
@@ -2366,11 +2370,8 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 	if (track)
 	{
 		bufferValue = track->GetBufferedDuration();
-		/**< When playing live at the edge in local TSB mode, IsLocalTSBInjection() is false.
-		 *   If the user pauses at that point, the GStreamer render position freezes while the
-		 *   live downloader continues, so GetBufferedDuration() grows unboundedly, masking
-		 *   real drift. Include the paused state so the live-edge formula is used whether
-		 *   playing back from the TSB store or paused at the live edge.*/
+		/**< Also apply when paused: a frozen GStreamer position inflates GetBufferedDuration(),
+		 *   masking real drift from the live edge.*/
 		if (aamp->IsLocalAAMPTsb() && (track->IsLocalTSBInjection() || aamp->mSinkPaused.load()))
 		{
 			/**< Buffer depth is the gap between the live downloader's leading edge

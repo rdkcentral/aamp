@@ -148,11 +148,6 @@ BitsPerSecond AampTSBSessionManager::GetVideoBitrate()
 	return 0;
 }
 
-double AampTSBSessionManager::GetManifestEndDelta()
-{
-	return 0;
-}
-
 double AampTSBSessionManager::GetTotalStoreDuration(AampMediaType mediaType)
 {
 	double ret = 0.0;
