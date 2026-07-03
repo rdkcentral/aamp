@@ -5367,11 +5367,18 @@ TEST_F(AdManagerMPDTests, VodCdai_AllAdsResolvedCV_SignalledAfterLastSetAlternat
 
 /**
  * @brief SetAlternateContents for an unknown break (not registered via
- *        RegisterVodAdBreak) must be silently dropped — no crash, no
- *        mAdBreaks entry created.
+ *        RegisterVodAdBreak and no prior placeholder call) falls into the
+ *        linear CDAI else branch, finds no mAdBreaks entry, and rejects the
+ *        ad via SendAdResolvedEvent(false). No mAdBreaks entry is created.
  */
 TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_DropsUnknownBreak)
 {
+  // No RegisterVodAdBreak and no prior placeholder call — the linear else branch
+  // finds no mAdBreaks entry and rejects the ad via SendAdResolvedEvent(false).
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+              SendAdResolvedEvent(std::string("ad-X"), false, 0, 0, _))
+      .Times(1);
+
   mPrivateCDAIObjectMPD->SetAlternateContents("non-existent-break", "ad-X",
                                                "https://cdn.example.com/adX.mpd", 0, 0);
 
