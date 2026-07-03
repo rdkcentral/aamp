@@ -35,8 +35,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff
 	closedcaptions
 	closedcaptions/subtec
 	drm drm/helper
-	drm/ocdm
-	drm/rialto)
+	drm/ocdm)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/rdk)
@@ -272,7 +271,7 @@ endif()
 if(CMAKE_USE_OPENCDM_ADAPTER)
     message("Using OPEN CDM ADAPTER")
     # Include OpenCDM-related source files
-    set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES}
+    set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} 
         drm/ocdm/opencdmsessionadapter.cpp
         drm/ocdm/OcdmBasicSessionAdapter.cpp
         drm/ocdm/OcdmGstSessionAdapter.cpp
@@ -310,9 +309,7 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
     # Find GStreamer headers and include them
     find_path(STAGING_INCDIR gstreamer-1.0)
     include_directories(${STAGING_INCDIR}/gstreamer-1.0)
-
 endif()
-
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES}  ${LIBPLAYERGSTINTERFACE_DRM_SOURCES} ${LIBPLAYERGSTINTERFACE_HELP_SOURCES} )
 
 add_library(subtec SHARED subtec/libsubtec/PacketSender.cpp subtec/libsubtec/SubtecChannel.cpp)

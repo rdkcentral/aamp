@@ -30,7 +30,6 @@
 #include <inttypes.h>
 #include "PlayerUtils.h"
 #include "ContentSecurityManager.h"
-
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
 #define DRM_METADATA_TAG_END "</ckm:policy>"
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
@@ -911,13 +910,16 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			drmSessionContexts[sessionSlot].drmSession->setOutputProtection(true);
 			drmHelper->setOutputProtectionFlag(true);
 		}
-		drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
 	}
 	else
 	{
 		MW_LOG_WARN("Unable to Get DrmSession for DrmSystemId %s", systemId.c_str());
 		err = MW_DRM_INIT_FAILED ;
 	}
+
+#if defined(USE_OPENCDM_ADAPTER)
+	drmSessionContexts[sessionSlot].drmSession->setKeyId(keyIdArray);
+#endif
 
 	return code;
 }
