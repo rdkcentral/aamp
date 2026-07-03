@@ -28,16 +28,11 @@
 #include "OcdmGstSessionAdapter.h"
 #endif
 #include "ClearKeyDrmSession.h"
-#include "PlayerLogManager.h"
 
 /**
- * @brief Creates an appropriate DRM session based on the given DrmHelper.
- *
- * Delegates to OCDM / ClearKey.
+ *  @brief Creates an appropriate DRM session based on the given DrmHelper
  */
-DrmSession* DrmSessionFactory::GetDrmSession(
-	DrmHelperPtr drmHelper,
-	DrmCallbacks *drmCallbacks)
+DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
 {
 	const std::string systemId = drmHelper->ocdmSystemId();
 

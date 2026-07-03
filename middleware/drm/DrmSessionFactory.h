@@ -28,7 +28,6 @@
 #include "DrmSession.h"
 #include "DrmHelper.h"
 #include "DrmCallbacks.h"
-
 /**
  * @class DrmSessionFactory
  * @brief Factory class to create DRM sessions based on
@@ -37,19 +36,12 @@
 class DrmSessionFactory
 {
 public:
-
 	/**
-	 * @fn GetDrmSession
-	 * @brief Create a DRM session for the given helper.
+	 *  @fn  	GetDrmSession
 	 *
-	 * Delegates to the OCDM / ClearKey path.
-	 *
-	 * @param[in] drmHelper     DrmHelper instance.
-	 * @param[in] drmCallbacks  Callback sink.
-	 * @return Pointer to a new DrmSession, or nullptr on failure.
+	 *  @param[in]	drmHelper - DrmHelper instance
+	 *  @return		Pointer to DrmSession.
 	 */
-	static DrmSession* GetDrmSession(
-		DrmHelperPtr drmHelper,
-		DrmCallbacks *drmCallbacks);
+	static DrmSession* GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks);
 };
 #endif
