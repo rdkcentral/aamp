@@ -5296,7 +5296,7 @@ TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_StoresUrlOnVodBreakInfo)
   const std::string adUrl   = "https://cdn.example.com/ads/ad1/manifest.mpd";
 
   mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{breakId, 0.0, 30.0, "preroll"});
-  mPrivateCDAIObjectMPD->SetAlternateContents(breakId, adId, adUrl);
+  mPrivateCDAIObjectMPD->SetAlternateContents(breakId, adId, adUrl, 0, 0);
 
   // adId and adUrl stored directly on VodAdBreakInfo
   const auto &info = mPrivateCDAIObjectMPD->mVodAdBreaks.at(breakId);
@@ -5330,12 +5330,12 @@ TEST_F(AdManagerMPDTests, VodCdai_AreAllVodAdsResolved_SignalsAfterAllBreaks)
   EXPECT_FALSE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
       << "Should be false before any SetAlternateContents";
 
-  mPrivateCDAIObjectMPD->SetAlternateContents("brk-1", "ad-1", "https://cdn.example.com/ad1.mpd");
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-1", "ad-1", "https://cdn.example.com/ad1.mpd", 0, 0);
 
   EXPECT_FALSE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
       << "Should be false while one break still has no URL";
 
-  mPrivateCDAIObjectMPD->SetAlternateContents("brk-2", "ad-2", "https://cdn.example.com/ad2.mpd");
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-2", "ad-2", "https://cdn.example.com/ad2.mpd", 0, 0);
 
   EXPECT_TRUE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
       << "Should be true once every break has a URL";
@@ -5358,7 +5358,7 @@ TEST_F(AdManagerMPDTests, VodCdai_AllAdsResolvedCV_SignalledAfterLastSetAlternat
         [&]{ return mPrivateCDAIObjectMPD->AreAllVodAdsResolved(); });
   });
 
-  mPrivateCDAIObjectMPD->SetAlternateContents("brk-alpha", "ad-alpha", "https://cdn.example.com/ad-alpha.mpd");
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-alpha", "ad-alpha", "https://cdn.example.com/ad-alpha.mpd", 0, 0);
 
   fut.get();
   EXPECT_TRUE(signalled)
@@ -5373,7 +5373,7 @@ TEST_F(AdManagerMPDTests, VodCdai_AllAdsResolvedCV_SignalledAfterLastSetAlternat
 TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_DropsUnknownBreak)
 {
   mPrivateCDAIObjectMPD->SetAlternateContents("non-existent-break", "ad-X",
-                                               "https://cdn.example.com/adX.mpd");
+                                               "https://cdn.example.com/adX.mpd", 0, 0);
 
   EXPECT_FALSE(mPrivateCDAIObjectMPD->isAdBreakObjectExist("non-existent-break"));
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.empty());
@@ -5392,7 +5392,7 @@ TEST_F(AdManagerMPDTests, VodCdai_CancelledBreak_DoesNotBlockResolution)
   mPrivateCDAIObjectMPD->CancelVodAdBreak("brk-cancel");
 
   // Satisfy only the non-cancelled break
-  mPrivateCDAIObjectMPD->SetAlternateContents("brk-ok", "ad-ok", "https://cdn.example.com/ad-ok.mpd");
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-ok", "ad-ok", "https://cdn.example.com/ad-ok.mpd", 0, 0);
 
   EXPECT_TRUE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
       << "Cancelled breaks must not block AreAllVodAdsResolved";
