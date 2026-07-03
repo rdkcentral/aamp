@@ -376,6 +376,9 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 
 void AampRialtoPlayer::WaitForFlushToComplete()
 {
+	AAMPLOG_INFO("ENTRY - state=%d",
+		static_cast<int>(m_stateMachine.currentState()));
+
 	std::unique_lock<std::mutex> lock(m_flushMutex);
 	m_flushCv.wait(lock, [this]()
 	{
@@ -397,6 +400,8 @@ void AampRialtoPlayer::WaitForFlushToComplete()
 		}
 		return done;
 	});
+	AAMPLOG_INFO("WaitForFlushToComplete done - state=%d",
+		static_cast<int>(m_stateMachine.currentState()));
 }
 
 void AampRialtoPlayer::Configure(
@@ -1128,6 +1133,8 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			{
 				if (s && s->isAttached() && !s->isFlushing())
 				{
+					AAMPLOG_INFO("setSourcePosition sourceId=%d posNs=%" PRId64 " resetTime=true appliedRate=%f",
+						s->sourceId(), posNs, computeAppliedRate(rate));
 					if (!m_pipeline->setSourcePosition(
 						s->sourceId(), posNs, /*resetTime=*/true,
 						computeAppliedRate(rate)))
@@ -1139,8 +1146,10 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			}
 		}
 
+#if 0
 		AAMPLOG_INFO("EXIT - already flushing");
 		return;
+#endif//anj
 	}
 	
 	// Wake any in-flight data so it abandons the current batch.
@@ -1576,6 +1585,8 @@ bool AampRialtoPlayer::SignalSubtitleClock()
 		int64_t position = 0;
 		if (m_pipeline->getPosition(position))
 		{
+			AAMPLOG_INFO("setSourcePosition sourceId=%d posNs=%" PRId64 " resetTime=false",
+				subtitleSource->sourceId(), position);
 			result = m_pipeline->setSourcePosition(
 				subtitleSource->sourceId(),
 				position,
@@ -1872,6 +1883,8 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 			m_pendingFlushPositionNs.load(std::memory_order_relaxed);
 		const int pendingRate =
 			m_pendingFlushRate.load(std::memory_order_relaxed);
+		AAMPLOG_INFO("setSourcePosition sourceId=%d posNs=%" PRId64 " resetTime=true appliedRate=%f",
+			sourceId, posNs, computeAppliedRate(pendingRate));
 		if (m_pipeline &&
 			!m_pipeline->setSourcePosition(
 				sourceId, posNs, /*resetTime=*/true,
