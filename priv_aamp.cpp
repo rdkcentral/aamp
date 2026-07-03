@@ -4317,6 +4317,27 @@ static inline bool HasDownloadTimedOutWithData(CURLcode curlCode, CurlAbortReaso
 }
 
 /**
+ * @brief Check if curl failure is retryable based on transient transport errors
+ */
+static inline bool IsRetryableCurlFailure(CURLcode curlCode)
+{
+	switch (curlCode)
+	{
+		case CURLE_OPERATION_TIMEDOUT:
+		case CURLE_PARTIAL_FILE:
+		case CURLE_COULDNT_RESOLVE_PROXY:
+		case CURLE_COULDNT_RESOLVE_HOST:
+		case CURLE_COULDNT_CONNECT:
+		case CURLE_RECV_ERROR:
+		case CURLE_SEND_ERROR:
+		case CURLE_GOT_NOTHING:
+			return true;
+		default:
+			return false;
+	}
+}
+
+/**
  * @brief Parse a downloaded segment with a persistent per-track Mp4Demux to detect
  *        structural corruption (any condition that triggers Mp4Demux::setParseError).
  *        Every video/audio segment is logged at INFO level regardless of validity.
@@ -4984,10 +5005,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-						if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) ||
+						const bool isRetryableCurlError = IsRetryableCurlFailure(res);
+						const bool isRetryableTimeout =
+							(!isRetryableCurlError && IsCurlTimeoutFailure(res));
+						const bool isRetryableStall =
 							(isDownloadStalled &&
-								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
-							res == CURLE_SEND_ERROR)
+								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason));
+
+						if (isRetryableCurlError || isRetryableTimeout ||
+							isRetryableStall)
 						{
 
 						if(mpStreamAbstractionAAMP)
