@@ -8023,7 +8023,7 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 
 		if (ISCONFIGSET_PRIV(eAAMPConfig_MetadataLogging))
 		{
-			AAMPLOG_WARN("aamp timedMetadata: [%ld] '%s'", (long)(timeMilliseconds), content.c_str());
+			AAMPLOG_WARN("aamp timedMetadata: [%lld] '%s'", timeMilliseconds, content.c_str());
 		}
 
 		if (!bSyncCall)

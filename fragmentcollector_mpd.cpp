@@ -5106,6 +5106,12 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 					if (periodStartMS < valueMS)
 						periodStartMS = valueMS;
 				}
+				// Calculate startTime for Early Available Period (EAP) with no explicit start attribute.
+				else if ((periodCnt > 1) && mpd && (periodCnt == (int)mpd->GetPeriods().size()) && mMPDParseHelper && mMPDParseHelper->IsEmptyPeriod(periodCnt-1, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+				{
+					periodStartMS += mMPDParseHelper->GetPeriodDuration(periodCnt-2, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+					AAMPLOG_WARN("EAP: Early available period found, id=%s periodStartMS adjusted to %" PRIu64 " ms", node->GetAttributeValue("id").c_str(), periodStartMS);
+				}
 				periodDurationMS = 0;
 				if (node->HasAttribute("duration")) {
 					const std::string& value = node->GetAttributeValue("duration");
