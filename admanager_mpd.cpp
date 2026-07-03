@@ -1569,6 +1569,57 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		}
 	}
 	else if (IsVodAdBreak(periodId))
+<<<<<<< HEAD
+	{
+		// VOD CDAI stitching path: store the ad URL directly on VodAdBreakInfo and
+		// mark the AdNode resolved immediately.  The stitcher (BuildStitchedVodManifest /
+		// FetchAdMPDsParallel) will download all ad manifests in parallel at tune time —
+		// FulfillAdLoop is not involved for VOD breaks.
+		{
+			std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+			auto vodIt = mVodAdBreaks.find(periodId);
+			if (vodIt != mVodAdBreaks.end() && !vodIt->second.cancelled)
+			{
+				VodAdBreakInfo &info = vodIt->second;
+				info.adId  = adId;
+				info.adUrl = url;
+
+				// Ensure mAdBreaks entry exists so AreAllVodAdsResolved() can inspect it.
+				if (!isAdBreakObjectExist(periodId))
+				{
+					uint32_t brkDurMs = (uint32_t)(info.breakDurationSec * 1000.0);
+					auto adBreakAssets = std::make_shared<std::vector<AdNode>>();
+					mAdBreaks.emplace(periodId,
+						AdBreakObject{brkDurMs, std::move(adBreakAssets), "", 0, 0});
+					AAMPLOG_INFO("[CDAI-VOD] Created AdBreakObject for VOD break id=%s (durMs=%u)",
+						periodId.c_str(), brkDurMs);
+				}
+
+				auto &adbreakObj = mAdBreaks[periodId];
+				// Add a pre-resolved AdNode so AreAllVodAdsResolved() sees it as done.
+				// Duration is 0 here; the stitcher will determine real duration from the manifest.
+				adbreakObj.ads->emplace_back(AdNode{false, false, true, adId, url, 0, "", 0, nullptr});
+				adbreakObj.resolved = true;
+				AAMPLOG_INFO("[CDAI-VOD] Queued ad id=%s url=%s for break=%s — stitcher will fetch at tune time",
+					adId.c_str(), url.c_str(), periodId.c_str());
+			}
+			else
+			{
+				AAMPLOG_WARN("[CDAI-VOD] SetAlternateContents: no registered (or cancelled) VOD break for id=%s — dropping ad id=%s",
+					periodId.c_str(), adId.c_str());
+			}
+		}
+
+		// Signal the manifest thread if every registered VOD break now has a URL.
+		if (AreAllVodAdsResolved())
+		{
+			AAMPLOG_INFO("[CDAI-VOD] All VOD ads queued — signalling stitcher");
+			mVodAllAdsResolvedCV.notify_all();
+		}
+	}
+	else
+=======
+>>>>>>> 7dae6f7d (VPAAMP-657: fix SetAlternateContents — restore linear CDAI CacheAdData path)
 	{
 		// VOD CDAI stitching path: store the ad URL directly on VodAdBreakInfo and
 		// mark the AdNode resolved immediately.  The stitcher (BuildStitchedVodManifest /
@@ -1618,50 +1669,50 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 	}
 	else
 	{
-		// VOD CDAI stitching path: store the ad URL directly on VodAdBreakInfo and
-		// mark the AdNode resolved immediately.  The stitcher (BuildStitchedVodManifest /
-		// FetchAdMPDsParallel) will download all ad manifests in parallel at tune time —
-		// FulfillAdLoop is not involved for VOD breaks.
+		bool adCached = false;
+		AAMPCDAIError adErrorCode = eCDAI_ERROR_UNKNOWN;
+		// VOD CDAI: create the AdBreakObject on the first SetAlternateContents
+		// call for a registered VOD break (live CDAI creates it via a prior
+		// placeholder SetAlternateContents("","") call; VOD skips that step).
+		if (!isAdBreakObjectExist(periodId))
 		{
-			std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
-			auto vodIt = mVodAdBreaks.find(periodId);
-			if (vodIt != mVodAdBreaks.end() && !vodIt->second.cancelled)
+			auto posIt = mVodAdBreaks.find(periodId);
+			if (posIt != mVodAdBreaks.end())
 			{
-				VodAdBreakInfo &info = vodIt->second;
-				info.adId  = adId;
-				info.adUrl = url;
-
-				// Ensure mAdBreaks entry exists so AreAllVodAdsResolved() can inspect it.
-				if (!isAdBreakObjectExist(periodId))
+				if (!posIt->second.cancelled)
 				{
-					uint32_t brkDurMs = (uint32_t)(info.breakDurationSec * 1000.0);
+					uint32_t brkDurMs = (uint32_t)(posIt->second.breakDurationSec * 1000.0);
 					auto adBreakAssets = std::make_shared<std::vector<AdNode>>();
 					mAdBreaks.emplace(periodId,
 						AdBreakObject{brkDurMs, std::move(adBreakAssets), "", 0, 0});
 					AAMPLOG_INFO("[CDAI-VOD] Created AdBreakObject for VOD break id=%s (durMs=%u)",
 						periodId.c_str(), brkDurMs);
 				}
-
-				auto &adbreakObj = mAdBreaks[periodId];
-				// Add a pre-resolved AdNode so AreAllVodAdsResolved() sees it as done.
-				// Duration is 0 here; the stitcher will determine real duration from the manifest.
-				adbreakObj.ads->emplace_back(AdNode{false, false, true, adId, url, 0, "", 0, nullptr});
-				adbreakObj.resolved = true;
-				AAMPLOG_INFO("[CDAI-VOD] Queued ad id=%s url=%s for break=%s — stitcher will fetch at tune time",
-					adId.c_str(), url.c_str(), periodId.c_str());
+			}
+		}
+		if(isAdBreakObjectExist(periodId))
+		{
+			auto &adbreakObj = mAdBreaks[periodId];
+			if (adbreakObj.invalid)
+			{
+				adErrorCode = eCDAI_ERROR_DECISIONING_TIMEOUT;
+			}
+			else if (adbreakObj.brkDuration <= adbreakObj.adsDuration)
+			{
+				AAMPLOG_WARN("No more space left in the Adbreak. Rejecting the promise.");
+				adErrorCode = eCDAI_ERROR_INVALID_SPECIFICATION;
 			}
 			else
 			{
-				AAMPLOG_WARN("[CDAI-VOD] SetAlternateContents: no registered (or cancelled) VOD break for id=%s — dropping ad id=%s",
-					periodId.c_str(), adId.c_str());
+				//Cache the Ad to be placed later
+				CacheAdData(periodId, adId, url);
+				adCached = true;
 			}
 		}
-
-		// Signal the manifest thread if every registered VOD break now has a URL.
-		if (AreAllVodAdsResolved())
+		// Reject the promise as ad couldn't be resolved
+		if(!adCached)
 		{
-			AAMPLOG_INFO("[CDAI-VOD] All VOD ads queued — signalling stitcher");
-			mVodAllAdsResolvedCV.notify_all();
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0, adErrorCode);
 		}
 	}
 }
