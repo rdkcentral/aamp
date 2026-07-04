@@ -490,6 +490,7 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position
 	if(!aamp->IsTuneCompleted() && aamp->IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))
 	{
 		mGstPlayer->ResetFirstFrame();
+		mGstPlayer->ArmBufferingBeforePlay(aamp->rate);
 	}
 }
 

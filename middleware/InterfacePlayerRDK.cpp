@@ -5373,3 +5373,24 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 
 	return rate;
 }
+/**
+ * @brief Arm buffering before play
+ * @param[in] rate - playback rate
+ */
+void InterfacePlayerRDK::ArmBufferingBeforePlay(int rate)
+{
+    auto *ctx = interfacePlayerPriv->gstPrivateContext;
+    if (ctx->buffering_enabled && (GST_NORMAL_PLAY_RATE == rate) && !ctx->paused && ctx->pipeline)
+    {
+        ctx->buffering_target_state = GST_STATE_PLAYING;
+        ctx->buffering_in_progress  = true;
+        ctx->buffering_timeout_cnt  = DEFAULT_BUFFERING_MAX_CNT;
+        ctx->pendingPlayState       = false;
+        if (ctx->bufferingTimeoutTimerId == 0)
+        {
+            ctx->bufferingTimeoutTimerId =
+                g_timeout_add(DEFAULT_BUFFERING_TO_MS, buffering_timeout, this);
+        }
+        MW_LOG_MIL("Re-armed buffering-before-play on reactivation");
+    }
+}
