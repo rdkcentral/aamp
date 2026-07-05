@@ -171,6 +171,11 @@ bool PrivateCDAIObjectMPD::AreAllAdsResolved(const std::string& periodId)
 	return false;
 }
 
+bool PrivateCDAIObjectMPD::AreAllVodAdsResolved()
+{
+	return true;
+}
+
 void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
 {
 }
