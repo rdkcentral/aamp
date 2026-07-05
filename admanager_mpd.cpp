@@ -2575,3 +2575,133 @@ double CDAIObjectMPD::GetVirtualPosition(double sourcePositionSec)
 		return mPrivObj->GetVirtualPosition(sourcePositionSec);
 	return sourcePositionSec;
 }
+
+/**
+ * @brief Reset all fired-flags in mVodAdEventTracker.
+ *        Called on seek so that events re-fire as the playhead crosses
+ *        ad boundaries again, mirroring live-CDAI TSB behaviour.
+ */
+void PrivateCDAIObjectMPD::ResetVodAdEventTracker()
+{
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+	for (VodAdEventEntry &entry : mVodAdEventTracker)
+	{
+		entry.reservationStartFired = false;
+		entry.reservationEndFired   = false;
+		entry.placementStartFired   = false;
+		entry.placementEndFired     = false;
+	}
+	AAMPLOG_INFO("[CDAI-VOD] VodAdEventTracker reset (%zu entries)", mVodAdEventTracker.size());
+}
+
+/**
+ * @brief Fire position-triggered ad events for stitched-VOD CDAI.
+ *        Called on every MonitorProgress tick when mVodManifestStitched is true.
+ *
+ * Event sequence per ad break (mirrors linear CDAI):
+ *   AD_RESERVATION_START  -- first time positionMs >= breakStartSec * 1000
+ *   AD_PLACEMENT_START    -- first time positionMs >= adStartSec * 1000
+ *   AD_PLACEMENT_PROGRESS -- driven by existing ReportAdProgress() once mAdProgressId is armed
+ *   AD_PLACEMENT_END      -- once positionMs >= (adStartSec + adDurationSec) * 1000
+ *   AD_RESERVATION_END    -- once all placement ends for a breakId have fired
+ */
+void PrivateCDAIObjectMPD::CheckVodStitchedAdEvents(double positionMs)
+{
+	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+
+	if (mVodAdEventTracker.empty())
+		return;
+
+	for (VodAdEventEntry &entry : mVodAdEventTracker)
+	{
+		double breakStartMs  = entry.breakStartSec  * 1000.0;
+		double adStartMs     = entry.adStartSec     * 1000.0;
+		double adEndMs       = (entry.adStartSec + entry.adDurationSec) * 1000.0;
+
+		// AD_RESERVATION_START: fire once per breakId when the playhead enters
+		// the reservation window.  Mark all entries for the same breakId to
+		// prevent duplicate events in multi-ad-per-break configurations.
+		if (!entry.reservationStartFired && positionMs >= breakStartMs)
+		{
+			for (VodAdEventEntry &sibling : mVodAdEventTracker)
+			{
+				if (sibling.breakId == entry.breakId)
+					sibling.reservationStartFired = true;
+			}
+			AAMPLOG_MIL("[CDAI-VOD] Sending AD_RESERVATION_START breakId=%s pos=%.3fs",
+			            entry.breakId.c_str(), positionMs / 1000.0);
+			mAamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START,
+			                             entry.breakId,
+			                             static_cast<uint64_t>(breakStartMs),
+			                             static_cast<uint64_t>(breakStartMs),
+			                             /*immediate=*/false);
+		}
+
+		// AD_PLACEMENT_START: arm progress tracking and enqueue event.
+		if (!entry.placementStartFired && positionMs >= adStartMs)
+		{
+			entry.placementStartFired = true;
+			uint32_t posSec   = static_cast<uint32_t>(entry.adStartSec);
+			uint32_t durMs    = static_cast<uint32_t>(entry.adDurationSec * 1000.0);
+			AAMPLOG_MIL("[CDAI-VOD] Sending AD_PLACEMENT_START adId=%s pos=%.3fs dur=%.3fs",
+			            entry.adId.c_str(), entry.adStartSec, entry.adDurationSec);
+			mAamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,
+			                            entry.adId,
+			                            posSec,
+			                            static_cast<uint64_t>(adStartMs),
+			                            /*adOffset=*/0,
+			                            durMs,
+			                            /*immediate=*/false);
+		}
+
+		// AD_PLACEMENT_END: fire once playhead has passed the ad.
+		if (!entry.placementEndFired && entry.placementStartFired && positionMs >= adEndMs)
+		{
+			entry.placementEndFired = true;
+			uint32_t posSec = static_cast<uint32_t>(entry.adStartSec + entry.adDurationSec);
+			uint32_t durMs  = static_cast<uint32_t>(entry.adDurationSec * 1000.0);
+			AAMPLOG_MIL("[CDAI-VOD] Sending AD_PLACEMENT_END adId=%s pos=%.3fs",
+			            entry.adId.c_str(), positionMs / 1000.0);
+			mAamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END,
+			                            entry.adId,
+			                            posSec,
+			                            static_cast<uint64_t>(adEndMs),
+			                            /*adOffset=*/0,
+			                            durMs,
+			                            /*immediate=*/false);
+		}
+
+		// AD_RESERVATION_END: fire once every ad in this break has had its
+		// placement end fired.  Walk all entries for the same breakId.
+		if (!entry.reservationEndFired && entry.placementEndFired)
+		{
+			bool allEnded = true;
+			for (const VodAdEventEntry &other : mVodAdEventTracker)
+			{
+				if (other.breakId == entry.breakId && !other.placementEndFired)
+				{
+					allEnded = false;
+					break;
+				}
+			}
+			if (allEnded)
+			{
+				// Mark all entries for this break as reservation-end-fired to
+				// prevent duplicate RESERVATION_END events.
+				double breakEndMs = (entry.breakStartSec + entry.breakDurationSec) * 1000.0;
+				for (VodAdEventEntry &sibling : mVodAdEventTracker)
+				{
+					if (sibling.breakId == entry.breakId)
+						sibling.reservationEndFired = true;
+				}
+				AAMPLOG_MIL("[CDAI-VOD] Sending AD_RESERVATION_END breakId=%s pos=%.3fs",
+				            entry.breakId.c_str(), positionMs / 1000.0);
+				mAamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END,
+				                             entry.breakId,
+				                             static_cast<uint64_t>(breakEndMs),
+				                             static_cast<uint64_t>(breakEndMs),
+				                             /*immediate=*/false);
+			}
+		}
+	}
+}

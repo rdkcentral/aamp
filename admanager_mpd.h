@@ -29,6 +29,7 @@
 #include <string>
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 #include "libdash/INode.h"
 #include "libdash/IDASHManager.h"
 #include "libdash/xml/Node.h"
@@ -410,6 +411,31 @@ struct VodAdBreakInfo {
 };
 
 /**
+ * @struct VodAdEventEntry
+ * @brief Describes one ad-break insertion for stitched-VOD ad event tracking.
+ *        Populated once by BuildStitchedVodManifest and consumed by
+ *        PrivateCDAIObjectMPD::CheckVodStitchedAdEvents() on every progress tick.
+ */
+struct VodAdEventEntry {
+	std::string breakId;              /**< Reservation ID — maps to VodAdBreakInfo::breakId */
+	std::string adId;                 /**< Ad identifier — maps to VodAdBreakInfo::adId */
+	double      breakStartSec;        /**< Absolute stitched-timeline start of the reservation */
+	double      breakDurationSec;     /**< Total duration of the insertion (sum of all ad periods) */
+	double      adStartSec;           /**< Absolute stitched-timeline start of this specific ad */
+	double      adDurationSec;        /**< Duration of this specific ad period */
+	bool        reservationStartFired;/**< true once AD_RESERVATION_START has been sent */
+	bool        reservationEndFired;  /**< true once AD_RESERVATION_END has been sent */
+	bool        placementStartFired;  /**< true once AD_PLACEMENT_START has been sent */
+	bool        placementEndFired;    /**< true once AD_PLACEMENT_END has been sent */
+
+	VodAdEventEntry()
+		: breakStartSec(0.0), breakDurationSec(0.0)
+		, adStartSec(0.0), adDurationSec(0.0)
+		, reservationStartFired(false), reservationEndFired(false)
+		, placementStartFired(false), placementEndFired(false) {}
+};
+
+/**
  * @class PrivateCDAIObjectMPD
  *
  * @brief Private Client Side DAI object for DASH
@@ -445,6 +471,7 @@ public:
 	double                                         mNextVodBreakToCheck;  /**< Smallest insertion point not yet fired; updated when breaks are added or fired */
 	double                                         mVodResumeOffset;      /**< Source-period offset to seek to after a VOD ad pod ends; 0 when not active */
 	bool                                           mVodManifestStitched;  /**< true when BuildStitchedVodManifest succeeded; disables VOD CDAI state machine during playback */
+	std::vector<VodAdEventEntry>                   mVodAdEventTracker;    /**< Per-ad event tracking table for stitched-VOD; populated at stitch time, consumed by CheckVodStitchedAdEvents() */
 	std::mutex                                     mVodAllAdsResolvedMtx; /**< Mutex for mVodAllAdsResolvedCV */
 	std::condition_variable                        mVodAllAdsResolvedCV;  /**< Signalled when all registered VOD ads are resolved/failed; manifest thread waits on this */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
@@ -816,6 +843,24 @@ public:
 	 * @return true when all breaks are done (resolved or invalid/failed)
 	 */
 	bool AreAllVodAdsResolved();
+
+	/**
+	 * @brief Fire position-triggered ad events for stitched-VOD CDAI.
+	 *        Called on every MonitorProgress tick when mVodManifestStitched is true.
+	 *        Fires AD_RESERVATION_START/END and AD_PLACEMENT_START/END events as the
+	 *        playhead crosses the corresponding stitched-timeline boundaries.
+	 *        Also arms mAdProgressId/mAdDuration/mAdAbsoluteStartTime so that the
+	 *        existing ReportAdProgress() path delivers PLACEMENT_PROGRESS unchanged.
+	 * @param[in] positionMs Current playhead position in the stitched timeline (milliseconds)
+	 */
+	void CheckVodStitchedAdEvents(double positionMs);
+
+	/**
+	 * @brief Reset all fired-flags in mVodAdEventTracker.
+	 *        Called on seek so that events re-fire as the playhead crosses
+	 *        ad boundaries again (mirrors live-CDAI TSB behaviour).
+	 */
+	void ResetVodAdEventTracker();
 };
 
 #endif /* ADMANAGER_MPD_H_ */
