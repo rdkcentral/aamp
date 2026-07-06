@@ -2377,7 +2377,7 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 			/**< Buffer depth is the gap between the live downloader's leading edge
 			 *   (last downloaded fragment end position) and the pseudo live play
 			 *   position (mLiveOffset behind the live edge). This will shrink if the
-			 *   downloader can't keep up with with the live edge at the current bitrate,
+			 *   downloader can't keep up with the live edge at the current bitrate,
 			 *   driving rampdown to recover.*/
 			double livePlayPosition = aamp->GetLivePlayPosition();
 			double lastFetchedEndPosition = track->GetLastDownloadedPosition();
