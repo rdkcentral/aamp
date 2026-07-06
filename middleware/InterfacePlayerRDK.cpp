@@ -299,6 +299,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 	GstStreamOutputFormat newFormat[GST_TRACK_COUNT];
 	newFormat[eGST_MEDIATYPE_VIDEO] = gstFormat;
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
+	interfacePlayerPriv->gstPrivateContext->mFirstFrameTimeInMS = 0;
 
 	bool newClosedCaptionsControl = false;
 
@@ -3726,6 +3727,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 
 	if (eGST_MEDIATYPE_VIDEO == mediaType)
 	{
+		interfacePlayerPriv->gstPrivateContext->mFirstFrameTimeInMS = NOW_STEADY_TS_MS;
 		MW_LOG_MIL("OnFirstVideoFrame. got First Video Frame");
 
 		if (!interfacePlayerPriv->gstPrivateContext->decoderHandleNotified)
@@ -4275,7 +4277,20 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			busEvent.msg = srcName ? srcName : "Unknown source";
 			busEvent.dbg_info = "N/A";
 			busEvent.msgType = MESSAGE_STATE_CHANGE;
-			
+
+			std::string oldState(gst_element_state_get_name(old_state));
+			std::string newState(gst_element_state_get_name(new_state));
+			if(oldState == "PAUSED" && newState == "PLAYING")
+			{
+				if(privatePlayer->gstPrivateContext->mFirstFrameTimeInMS > 0 && pInterfacePlayerRDK->m_gstConfigParam->isNewTune )
+				{
+					long long playingStartTimeInMS = NOW_STEADY_TS_MS  - privatePlayer->gstPrivateContext->mFirstFrameTimeInMS;
+					MW_LOG_WARN("Time taken from First Frame to PLAYING state %.3f seconds", (double)playingStartTimeInMS / 1000.00f);
+				}
+				privatePlayer->gstPrivateContext->mFirstFrameTimeInMS = 0;
+				pInterfacePlayerRDK->m_gstConfigParam->isNewTune = false;
+			}
+
 			if(isPlaybinStateChangeEvent && privatePlayer->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
 			{
 				GstElement *video_sink = privatePlayer->gstPrivateContext->video_sink;
