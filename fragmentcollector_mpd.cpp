@@ -10449,7 +10449,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					// For live stream in ad break, avoid fetching next segment if current fragment time is exceeding the live edge
 					// This is to avoid unnecessary fetch and also to avoid fetching segments which are not expected to be played
 					const bool exceedsLiveEdge = mCdaiObject &&
-							aamp->mIsLiveStream &&
+							aamp->IsLiveStream() &&
 							(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState) &&
 							(mMediaStreamContext[trackIdx]->fragmentTime >= aamp->mAbsoluteEndPosition);
 
