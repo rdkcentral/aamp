@@ -24,6 +24,8 @@
 #include <vector>
 #include <numeric>
 #include <cmath>
+#include "AampLogManager.h"
+
 /**
  * @brief Get current time in milliseconds.
  * @return Current time in milliseconds.
@@ -171,6 +173,7 @@ BitsPerSecond RollingMedianOutlierEstimator::UpdateABRBitrateDataBasedOnCacheOut
 	}
 	// Use std::accumulate for clarity
 	auto sum = std::accumulate(tmpData.begin(), tmpData.end(), 0LL);
+	AAMPLOG_INFO("patrick medianbps=%" BITSPERSECOND_FORMAT " tmpData.size()=%zu sum=%lld", medianbps, tmpData.size(), sum);
 	return static_cast<BitsPerSecond>(sum / tmpData.size());
 }
 

@@ -4558,7 +4558,9 @@ double StreamAbstractionAAMP_HLS::GetBufferedDuration()
  */
 double TrackState::GetBufferedDuration()
 {
-	return (playTargetBufferCalc.inSeconds() - (aamp->GetPositionMs() / 1000));
+	double p = aamp->GetPositionMs() / 1000;
+	AAMPLOG_INFO("patrick playTargetBufferCalc %f, position %f", playTargetBufferCalc.inSeconds(), p);
+	return (playTargetBufferCalc.inSeconds() - p);
 }
 
 
