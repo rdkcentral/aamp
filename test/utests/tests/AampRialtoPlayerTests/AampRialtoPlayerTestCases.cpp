@@ -973,6 +973,81 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stream_CallsPlay)
 	m_player->Stream();
 }
 
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_DeferredDuringFlush_OnSourceFlushedIssuesPlay)
+{
+	/**
+	 * @brief Regression: when Stream() is called while a flush is in
+	 *        progress, m_playRequested is set but play() is deferred.
+	 *        OnSourceFlushed() completing the flush cycle must issue
+	 *        play() because m_playRequested is true, even though the
+	 *        restored pre-flush state is SOURCES_ATTACHED (not PLAYING).
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+
+	// Flush: state → FLUSHING, pre-flush state = SOURCES_ATTACHED.
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Precondition: Flush() must move state to FLUSHING";
+
+	// Stream() while FLUSHING sets m_playRequested=true and returns early
+	// without calling play().  play() must be issued exactly once —
+	// by OnSourceFlushed() once all sources confirm the flush.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+
+	// Simulate Rialto confirming the flush for all attached sources.
+	// PostSourceFlushed for the last source detects allSourcesFlushed,
+	// calls onFlushComplete() (restoring SOURCES_ATTACHED), then checks
+	// m_playRequested=true and issues play().
+	PostSourceFlushed(/*sourceId=*/0);  // video
+	PostSourceFlushed(/*sourceId=*/1);  // inband CC subtitle
+	PostSourceFlushed(/*sourceId=*/2);  // audio — triggers play() via m_playRequested
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_PlayRequestReset_SubsequentFlushWhilePausedNoPlay)
+{
+	/**
+	 * @brief After Stream() successfully issues play(), m_playRequested is
+	 *        reset to false.  A subsequent seek-while-paused flush must not
+	 *        spuriously re-issue play() when OnSourceFlushed restores PAUSED.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Stream(): sources already attached, play() issued immediately and
+	// m_playRequested reset to false.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// Rialto confirms PLAYING, then user pauses.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	// Seek-while-paused: Flush() → FLUSHING, pre-flush state = PAUSED.
+	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// play() must NOT be called: m_playRequested was reset when Stream()
+	// issued play(), and the restored post-flush state is PAUSED.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	PostSourceFlushed(/*sourceId=*/0);  // video
+	PostSourceFlushed(/*sourceId=*/1);  // inband CC subtitle
+	PostSourceFlushed(/*sourceId=*/2);  // audio — triggers onFlushComplete() → PAUSED
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED)
+		<< "Seek-while-paused flush must restore PAUSED, not resume play";
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_CallsPipelineStop)
 {
 	Configure();

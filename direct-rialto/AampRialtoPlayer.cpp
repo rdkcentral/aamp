@@ -963,6 +963,7 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 		if (m_playRequested.load(std::memory_order_seq_cst))
 		{
 			AAMPLOG_INFO("play() deferred by Stream() - issuing now");
+			m_playRequested.store(false, std::memory_order_relaxed);
 			bool async = false;
 			if (!m_pipeline->play(async))
 			{
@@ -1068,6 +1069,7 @@ void AampRialtoPlayer::Stream()
 		{
 			// allSourcesAttached() already completed before this call -
 			// promote to PLAYING immediately.
+			m_playRequested.store(false, std::memory_order_relaxed);
 			bool async = false;
 			if (!m_pipeline->play(async))
 			{
@@ -1980,12 +1982,21 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 			m_stateMachine.onFlushComplete();
 			m_flushCv.notify_all();
 
-			// Issue play() only if the restored state is PLAYING.
-			// This correctly handles seek-while-paused: the pre-flush state was
-			// PAUSED so the pipeline stays paused after the flush.
-			if (m_stateMachine.currentState() == PlayerStateId::PLAYING)
+			// Issue play() if the restored state is PLAYING (seek-while-playing)
+			// or if Stream() was called while the flush was in progress
+			// (e.g. Stream() deferred from SOURCES_ATTACHED or a flush that
+			// preceded allSourcesAttached()).  m_playRequested is reset here so
+			// it is not treated as stale on a subsequent flush cycle.
+			// seek-while-paused is correctly handled: Stream() is not called in
+			// that path so m_playRequested remains false and play() is not issued.
+			if (m_stateMachine.currentState() == PlayerStateId::PLAYING ||
+			    m_playRequested.load(std::memory_order_seq_cst))
 			{
-				AAMPLOG_INFO("All sources flushed - issuing play() (pre-flush state was PLAYING)");
+				AAMPLOG_INFO("All sources flushed - issuing play() "
+					"(state=%s playRequested=%d)",
+					m_stateMachine.currentStateName(),
+					m_playRequested.load(std::memory_order_relaxed));
+				m_playRequested.store(false, std::memory_order_relaxed);
 				bool async = false;
 				if (!m_pipeline->play(async))
 				{
