@@ -35,7 +35,7 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
                 ${AAMP_ROOT}/dash/utils/Path.cpp)
 set(TEST_SOURCES FragmentCollectorAdTests.cpp 
         AdSelectionTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/admanager_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${DASH_PARSER_SOURCES})
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/admanager_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampVodStitcher.cpp ${DASH_PARSER_SOURCES})
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
