@@ -1096,7 +1096,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 
 	WaitForFlushToComplete();
 #if 1//anj
-	current_rate = m_rate.load(std::memory_order_relaxed);
+	int current_rate = m_rate.load(std::memory_order_relaxed);
 	AAMPLOG_INFO("ANJ: new rate=%d current rate=%d", rate, current_rate);
 	//AAMPLOG_INFO("ANJ: new rate=%d current rate=%d", rate, m_rate.load(std::memory_order_relaxed));
 	if(( (current_rate == AAMP_NORMAL_PLAY_RATE) || (current_rate == AAMP_RATE_PAUSE)) && ((rate < AAMP_RATE_PAUSE) || (rate > AAMP_NORMAL_PLAY_RATE)) )
