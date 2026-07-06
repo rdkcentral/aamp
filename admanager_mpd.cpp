@@ -1568,6 +1568,54 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 			pData.adBreakId = periodId;
 		}
 	}
+	else if (IsVodAdBreak(periodId))
+	{
+		// VOD CDAI stitching path: store the ad URL directly on VodAdBreakInfo and
+		// mark the AdNode resolved immediately.  The stitcher (BuildStitchedVodManifest /
+		// FetchAdMPDsParallel) will download all ad manifests in parallel at tune time —
+		// FulfillAdLoop is not involved for VOD breaks.
+		{
+			std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
+			auto vodIt = mVodAdBreaks.find(periodId);
+			if (vodIt != mVodAdBreaks.end() && !vodIt->second.cancelled)
+			{
+				VodAdBreakInfo &info = vodIt->second;
+				info.adId  = adId;
+				info.adUrl = url;
+
+				// Ensure mAdBreaks entry exists so AreAllVodAdsResolved() can inspect it.
+				if (!isAdBreakObjectExist(periodId))
+				{
+					uint32_t brkDurMs = (uint32_t)(info.breakDurationSec * 1000.0);
+					auto adBreakAssets = std::make_shared<std::vector<AdNode>>();
+					mAdBreaks.emplace(periodId,
+						AdBreakObject{brkDurMs, std::move(adBreakAssets), "", 0, 0});
+					AAMPLOG_INFO("[CDAI-VOD] Created AdBreakObject for VOD break id=%s (durMs=%u)",
+						periodId.c_str(), brkDurMs);
+				}
+
+				auto &adbreakObj = mAdBreaks[periodId];
+				// Add a pre-resolved AdNode so AreAllVodAdsResolved() sees it as done.
+				// Duration is 0 here; the stitcher will determine real duration from the manifest.
+				adbreakObj.ads->emplace_back(AdNode{false, false, true, adId, url, 0, "", 0, nullptr});
+				adbreakObj.resolved = true;
+				AAMPLOG_INFO("[CDAI-VOD] Queued ad id=%s url=%s for break=%s — stitcher will fetch at tune time",
+					adId.c_str(), url.c_str(), periodId.c_str());
+			}
+			else
+			{
+				AAMPLOG_WARN("[CDAI-VOD] SetAlternateContents: no registered (or cancelled) VOD break for id=%s — dropping ad id=%s",
+					periodId.c_str(), adId.c_str());
+			}
+		}
+
+		// Signal the manifest thread if every registered VOD break now has a URL.
+		if (AreAllVodAdsResolved())
+		{
+			AAMPLOG_INFO("[CDAI-VOD] All VOD ads queued — signalling stitcher");
+			mVodAllAdsResolvedCV.notify_all();
+		}
+	}
 	else
 	{
 		bool adCached = false;

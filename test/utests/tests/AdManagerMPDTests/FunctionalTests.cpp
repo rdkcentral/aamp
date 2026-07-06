@@ -5272,3 +5272,178 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
 }
+
+// ---------------------------------------------------------------------------
+// VOD CDAI stitching path tests (VPAAMP-657)
+// These tests exercise PrivateCDAIObjectMPD state changes driven by
+// RegisterVodAdBreak + SetAlternateContents without any network access.
+// They verify that:
+//   (a) ad URLs are stored on VodAdBreakInfo (not pushed to FulfillAdLoop)
+//   (b) AreAllVodAdsResolved / mVodAllAdsResolvedCV behave correctly
+//   (c) failed / cancelled breaks are handled gracefully
+//   (d) linear CDAI (no RegisterVodAdBreak calls) is completely unaffected
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief RegisterVodAdBreak then SetAlternateContents stores adId/adUrl on
+ *        VodAdBreakInfo and creates a pre-resolved AdNode — FulfillAdLoop
+ *        queue must remain empty.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_StoresUrlOnVodBreakInfo)
+{
+  const std::string breakId = "preroll-1";
+  const std::string adId    = "ad-001";
+  const std::string adUrl   = "https://cdn.example.com/ads/ad1/manifest.mpd";
+
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{breakId, 0.0, 30.0, "preroll"});
+  mPrivateCDAIObjectMPD->SetAlternateContents(breakId, adId, adUrl, 0, 0);
+
+  // adId and adUrl stored directly on VodAdBreakInfo
+  const auto &info = mPrivateCDAIObjectMPD->mVodAdBreaks.at(breakId);
+  EXPECT_EQ(info.adId,  adId);
+  EXPECT_EQ(info.adUrl, adUrl);
+
+  // mAdBreaks entry created with one pre-resolved AdNode
+  ASSERT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(breakId));
+  const auto &abObj = mPrivateCDAIObjectMPD->mAdBreaks.at(breakId);
+  ASSERT_EQ(abObj.ads->size(), 1u);
+  EXPECT_TRUE(abObj.ads->at(0).resolved);
+  EXPECT_EQ(abObj.ads->at(0).adId,  adId);
+  EXPECT_EQ(abObj.ads->at(0).url,   adUrl);
+  EXPECT_EQ(abObj.ads->at(0).mpd,   nullptr);
+
+  // FulfillAdLoop queue must be untouched
+  std::lock_guard<std::mutex> lk(mPrivateCDAIObjectMPD->mAdFulfillMtx);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdFulfillQ.empty())
+      << "VOD ad URLs must NOT be pushed to the FulfillAdLoop queue";
+}
+
+/**
+ * @brief AreAllVodAdsResolved returns false until every registered break has
+ *        received a SetAlternateContents call, then returns true.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_AreAllVodAdsResolved_SignalsAfterAllBreaks)
+{
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-1", 0.0,  15.0, "preroll"});
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-2", 30.0, 15.0, "midroll"});
+
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "Should be false before any SetAlternateContents";
+
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-1", "ad-1", "https://cdn.example.com/ad1.mpd", 0, 0);
+
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "Should be false while one break still has no URL";
+
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-2", "ad-2", "https://cdn.example.com/ad2.mpd", 0, 0);
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "Should be true once every break has a URL";
+}
+
+/**
+ * @brief mVodAllAdsResolvedCV is signalled after the last SetAlternateContents
+ *        so that BuildStitchedVodManifest's wait_for returns immediately.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_AllAdsResolvedCV_SignalledAfterLastSetAlternateContents)
+{
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-alpha", 0.0, 10.0, "preroll"});
+
+  // Arm a background thread waiting on the CV before SetAlternateContents.
+  std::atomic<bool> signalled{false};
+  auto fut = std::async(std::launch::async, [&]() {
+    std::unique_lock<std::mutex> lk(mPrivateCDAIObjectMPD->mVodAllAdsResolvedMtx);
+    signalled = mPrivateCDAIObjectMPD->mVodAllAdsResolvedCV.wait_for(
+        lk, std::chrono::seconds(2),
+        [&]{ return mPrivateCDAIObjectMPD->AreAllVodAdsResolved(); });
+  });
+
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-alpha", "ad-alpha", "https://cdn.example.com/ad-alpha.mpd", 0, 0);
+
+  fut.get();
+  EXPECT_TRUE(signalled)
+      << "mVodAllAdsResolvedCV must be signalled by SetAlternateContents";
+}
+
+/**
+ * @brief SetAlternateContents for an unknown break (not registered via
+ *        RegisterVodAdBreak and no prior placeholder call) falls into the
+ *        linear CDAI else branch, finds no mAdBreaks entry, and rejects the
+ *        ad via SendAdResolvedEvent(false). No mAdBreaks entry is created.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_DropsUnknownBreak)
+{
+  // No RegisterVodAdBreak and no prior placeholder call — the linear else branch
+  // finds no mAdBreaks entry and rejects the ad via SendAdResolvedEvent(false).
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+              SendAdResolvedEvent(std::string("ad-X"), false, 0, 0, _))
+      .Times(1);
+
+  mPrivateCDAIObjectMPD->SetAlternateContents("non-existent-break", "ad-X",
+                                               "https://cdn.example.com/adX.mpd", 0, 0);
+
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->isAdBreakObjectExist("non-existent-break"));
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.empty());
+}
+
+/**
+ * @brief A cancelled VOD break is skipped by AreAllVodAdsResolved — it must
+ *        not block the stitcher even if no SetAlternateContents is received.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_CancelledBreak_DoesNotBlockResolution)
+{
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-ok",     0.0,  10.0, "preroll"});
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-cancel", 30.0, 10.0, "midroll"});
+
+  // Cancel the second break before any SetAlternateContents
+  mPrivateCDAIObjectMPD->CancelVodAdBreak("brk-cancel");
+
+  // Satisfy only the non-cancelled break
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-ok", "ad-ok", "https://cdn.example.com/ad-ok.mpd", 0, 0);
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "Cancelled breaks must not block AreAllVodAdsResolved";
+}
+
+/**
+ * @brief Linear CDAI (no RegisterVodAdBreak calls) must not be affected by
+ *        the new VOD path.  SetAlternateContents with an empty adId/url
+ *        (linear placeholder) still creates the mAdBreaks entry as before.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_LinearCdai_UnaffectedByVodPath)
+{
+  const std::string periodId = "linear-period-1";
+
+  // Linear CDAI placeholder call (empty adId/url) — must still work
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", 0, 30000);
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId))
+      << "Linear CDAI placeholder must still create mAdBreaks entry";
+
+  // mVodAdBreaks must remain empty — no VOD registration happened
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.empty())
+      << "Linear CDAI must not touch mVodAdBreaks";
+
+  // AreAllVodAdsResolved must be false (no VOD breaks registered)
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "AreAllVodAdsResolved must return false when no VOD breaks registered";
+}
+
+/**
+ * @brief Registration order recorded in mVodAdBreakOrder is preserved
+ *        regardless of map key ordering, ensuring FetchAdMPDsParallel
+ *        iterates breaks in insertion order.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_BreakRegistrationOrder_Preserved)
+{
+  // Register in a non-lexicographic order
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"zzz-post",  120.0, 10.0, "postroll"});
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"aaa-pre",     0.0, 10.0, "preroll"});
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"mmm-mid",    60.0, 10.0, "midroll"});
+
+  const auto &order = mPrivateCDAIObjectMPD->mVodAdBreakOrder;
+  ASSERT_EQ(order.size(), 3u);
+  EXPECT_EQ(order[0], "zzz-post");
+  EXPECT_EQ(order[1], "aaa-pre");
+  EXPECT_EQ(order[2], "mmm-mid");
+}
