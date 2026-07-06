@@ -73,8 +73,13 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	mStagingFragment.Clear();
 	CachedFragment *cachedFragment = &mStagingFragment;
 	BitsPerSecond bitrate = 0;
+	BitsPerSecond expectedBandwidth = fragmentDescriptor.Bandwidth;
 	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment ? (eMEDIATYPE_INIT_VIDEO + mediaType) : mediaType); // Need to revisit the logic
+	if (mActiveDownloadInfo && mActiveDownloadInfo->bandwidth > 0)
+	{
+		expectedBandwidth = mActiveDownloadInfo->bandwidth;
+	}
 
 	PopulateCommonMetadata(cachedFragment, fragmentUrl, actualType, 0, initSegment, discontinuity);
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
@@ -109,7 +114,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		bool bReadfromcache = false;
 		if (initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,cachedFragment->fragment,effectiveUrl);
+			auto *cacheHandler = aamp->getAampCacheHandler();
+			if (cacheHandler)
+			{
+				ret = bReadfromcache = cacheHandler->RetrieveFromInitFragmentCache(fragmentUrl, cachedFragment->fragment, effectiveUrl);
+			}
 		}
 		if (!bReadfromcache)
 		{
@@ -131,7 +140,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment, effectiveUrl, httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
-				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment, effectiveUrl, actualType);
+				auto *cacheHandler = aamp->getAampCacheHandler();
+				if (cacheHandler)
+				{
+					cacheHandler->InsertToInitFragCache(fragmentUrl, mTempFragment, effectiveUrl, actualType);
+				}
 			}
 			if (ret)
 			{
@@ -181,10 +194,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	}
 
 	mCheckForRampdown = false;
-	if (ret && (bitrate > 0 && bitrate != fragmentDescriptor.Bandwidth))
+	if (ret && (bitrate > 0 && bitrate != expectedBandwidth))
 	{
 		AAMPLOG_INFO("Bitrate changed from %" BITSPERSECOND_FORMAT " to %" BITSPERSECOND_FORMAT "",
-					 fragmentDescriptor.Bandwidth, bitrate);
+					 expectedBandwidth, bitrate);
 		fragmentDescriptor.Bandwidth = (uint32_t)bitrate;
 		context->SetTsbBandwidth(bitrate);
 		context->mUpdateReason = true;
@@ -1047,10 +1060,21 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	URIInfo uriInfo;
 	if (dlInfo->uriList.size() > 0)
 	{
-		// Asses the current bandwidth and get the appropriate URIInfo from the map with resolved URLs
+		// Assess the current bandwidth and get the appropriate URIInfo from the map with resolved URLs.
 		if (dlInfo->uriList.find(fragmentDescriptor.Bandwidth) != dlInfo->uriList.end())
 		{
 			uriInfo = dlInfo->uriList[fragmentDescriptor.Bandwidth];
+			// Sync dlInfo->bandwidth to the selected bandwidth to avoid mismatch in downstream comparisons
+			// (e.g. bitrate check in CacheFragment) when a period/ad-state change updated fragmentDescriptor.Bandwidth.
+			if (dlInfo->bandwidth != fragmentDescriptor.Bandwidth)
+			{
+				dlInfo->bandwidth = fragmentDescriptor.Bandwidth;
+			}
+		}
+		// Fallback to job submission bandwidth if descriptor bandwidth is not present in the map.
+		else if ((dlInfo->bandwidth > 0) && (dlInfo->uriList.find(dlInfo->bandwidth) != dlInfo->uriList.end()))
+		{
+			uriInfo = dlInfo->uriList[dlInfo->bandwidth];
 		}
 		if (uriInfo.url.empty() && dlInfo->uriList.size() > 0)
 		{
@@ -1206,6 +1230,5 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 			retval = CacheFragment(dlInfo->url, dlInfo->curlInstance, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->range.c_str(), dlInfo->isInitSegment, dlInfo->isDiscontinuity, dlInfo->isPlayingAd, dlInfo->timeScale);
 		}
 	}
-
 	return retval;
 }

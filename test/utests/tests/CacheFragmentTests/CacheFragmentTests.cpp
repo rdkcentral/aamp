@@ -43,6 +43,7 @@ using ::testing::StrictMock;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
 using ::testing::DoAll;
+using ::testing::SetArgPointee;
 
 AampConfig *gpGlobalConfig{nullptr};
 struct TestParams
@@ -387,5 +388,172 @@ INSTANTIATE_TEST_SUITE_P(
 		MediaStreamContextTest,
 		::testing::ValuesIn(testCases)
 		);
+
+/**
+ * @brief Verifies that an init segment download succeeds when fragmentDescriptor.Bandwidth
+ *        has advanced to the ad period's bandwidth while a source-content init segment job
+ *        is still in-flight.
+ *
+ * The fix introduces expectedBandwidth, overridden with mActiveDownloadInfo->bandwidth
+ * (captured at job-submission time). When FOG returns the correct content bitrate, it
+ * matches expectedBandwidth and no false rampdown fires.
+ */
+TEST_F(MediaStreamContextTest, CacheFragment_InitSegment_FogBitrateMismatch_ReturnsSuccess)
+{
+	// --- Arrange ---
+	static constexpr BitsPerSecond kJobBandwidth          = 2000000; // BW at job-submission (source content)
+	static constexpr BitsPerSecond kAdPeriodBandwidth  = 5000000; // ad period's bandwidth — fragmentDescriptor advances to this during the period transition
+
+	// Create the MediaStreamContext (TEST_F does not call Initialize())
+	mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
+
+	// Simulate the race: period transitioned to the ad, updating fragmentDescriptor.Bandwidth to the ad period's BW
+	mMediaStreamContext->fragmentDescriptor.Bandwidth = kAdPeriodBandwidth;
+
+	URIInfo uriInfo;
+	uriInfo.url = "http://example.com/init.mp4";
+	URLBitrateMap urlList = { { kJobBandwidth, uriInfo } };
+
+	// dlInfo->bandwidth = job-submission BW (2Mbps) — this overrides expectedBandwidth
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>(
+		eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO,
+		10.0, 0.0, "", -1, 0,
+		/*isInitSegment=*/true, false, false, false,
+		0.0, 0, 1, kJobBandwidth, AampTime{}, urlList);
+
+	// FOG serves and reports the correct 2Mbps content bandwidth
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgPointee<9>(kJobBandwidth), Return(true)));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode())
+		.WillRepeatedly(Return(false));
+
+	// --- Act ---
+	bool result = mMediaStreamContext->CacheFragment(
+		uriInfo.url, 0, 10.0, 0.0, nullptr, /*initSegment=*/true, false, false, 0);
+
+	// --- Assert ---
+	// Init segment must succeed.
+	// expectedBandwidth = dlInfo->bandwidth (2Mbps) == bitrate from FOG (2Mbps) → no rampdown.
+	EXPECT_TRUE(result) << "Init segment must succeed when expectedBandwidth fix prevents false rampdown";
+
+	// fragmentDescriptor.Bandwidth must not be touched — rampdown never fired.
+	EXPECT_EQ(mMediaStreamContext->fragmentDescriptor.Bandwidth, static_cast<uint32_t>(kAdPeriodBandwidth))
+		<< "fragmentDescriptor.Bandwidth must not be updated when rampdown does not fire";
+
+	// No bytes stashed for reschedule (download succeeded).
+	EXPECT_TRUE(mMediaStreamContext->mDownloadedFragment.empty())
+		<< "mDownloadedFragment must be empty when init segment succeeds";
+}
+
+/**
+ * @brief Verifies that rampdown still fires for media segments when FOG reports a
+ *        genuinely different bitrate — ensuring the expectedBandwidth fix does not
+ *        suppress legitimate ABR rampdown for media fragments.
+ */
+TEST_F(MediaStreamContextTest, CacheFragment_MediaSegment_FogBitrateMismatch_RampdownTriggered)
+{
+	// --- Arrange ---
+	static constexpr BitsPerSecond kJobBandwidth       = 2000000;
+	static constexpr BitsPerSecond kFogReportedBitrate = 5000000;
+
+	// Create the MediaStreamContext (TEST_F does not call Initialize())
+	mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
+
+	mMediaStreamContext->fragmentDescriptor.Bandwidth = kJobBandwidth;
+
+	URIInfo uriInfo;
+	uriInfo.url = "http://example.com/segment.mp4";
+	URLBitrateMap urlList = { { kJobBandwidth, uriInfo } };
+
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>(
+		eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO,
+		10.0, 2.0, "", -1, 0,
+		/*isInitSegment=*/false, false, false, false,
+		0.0, 0, 1, kJobBandwidth, AampTime{}, urlList);
+
+	// FOG reports mismatched bitrate for a media segment → rampdown must fire.
+	static const std::vector<uint8_t> kSegmentBytes{0xAA, 0xBB, 0xCC, 0xDD};
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<2>(kSegmentBytes), SetArgPointee<9>(kFogReportedBitrate), Return(true)));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode())
+		.WillRepeatedly(Return(false));
+
+	// --- Act ---
+	bool result = mMediaStreamContext->CacheFragment(
+		uriInfo.url, 0, 10.0, 2.0, nullptr, /*initSegment=*/false, false, false, 0);
+
+	// --- Assert ---
+	// Rampdown must still trigger for media segments (existing behavior preserved).
+	EXPECT_FALSE(result) << "Media segment rampdown must trigger on FOG bitrate mismatch";
+
+	// Descriptor updated to FOG-reported bitrate for the next download attempt.
+	EXPECT_EQ(mMediaStreamContext->fragmentDescriptor.Bandwidth, static_cast<uint32_t>(kFogReportedBitrate))
+		<< "fragmentDescriptor.Bandwidth must be updated to FOG-reported bitrate on rampdown";
+
+	// Downloaded bytes saved in mDownloadedFragment for the reschedule/reuse path.
+	EXPECT_FALSE(mMediaStreamContext->mDownloadedFragment.empty())
+		<< "mDownloadedFragment must hold the downloaded bytes for reschedule reuse";
+}
+
+/**
+ * @brief Verifies that rampdown fires for init segments when FOG reports a genuinely
+ *        different bitrate — confirming the rampdown check applies equally to init
+ *        segments, not only media segments.
+ *
+ * Unlike the period-transition race scenario, here fragmentDescriptor.Bandwidth equals
+ * the job-submission bandwidth. FOG returning a different bitrate is a genuine mismatch
+ * and rampdown must trigger.
+ */
+TEST_F(MediaStreamContextTest, CacheFragment_InitSegment_GenuineFogBitrateMismatch_RampdownTriggered)
+{
+	// --- Arrange ---
+	static constexpr BitsPerSecond kJobBandwidth       = 2000000;
+	static constexpr BitsPerSecond kFogReportedBitrate = 5000000;
+
+	// Create the MediaStreamContext (TEST_F does not call Initialize())
+	mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
+
+	// No period transition: descriptor BW matches the job-submission BW
+	mMediaStreamContext->fragmentDescriptor.Bandwidth = kJobBandwidth;
+
+	URIInfo uriInfo;
+	uriInfo.url = "http://example.com/init.mp4";
+	URLBitrateMap urlList = { { kJobBandwidth, uriInfo } };
+
+	mMediaStreamContext->mActiveDownloadInfo = std::make_shared<DownloadInfo>(
+		eMEDIATYPE_VIDEO, eCURLINSTANCE_VIDEO,
+		10.0, 0.0, "", -1, 0,
+		/*isInitSegment=*/true, false, false, false,
+		0.0, 0, 1, kJobBandwidth, AampTime{}, urlList);
+
+	// FOG reports a genuinely different bitrate for the init segment → rampdown must fire.
+	static const std::vector<uint8_t> kInitSegmentBytes{0x00, 0x00, 0x00, 0x20};
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _))
+		.WillOnce(DoAll(SetArgReferee<2>(kInitSegmentBytes), SetArgPointee<9>(kFogReportedBitrate), Return(true)));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode())
+		.WillRepeatedly(Return(false));
+
+	// --- Act ---
+	bool result = mMediaStreamContext->CacheFragment(
+		uriInfo.url, 0, 10.0, 0.0, nullptr, /*initSegment=*/true, false, false, 0);
+
+	// --- Assert ---
+	// Rampdown must trigger for init segments on genuine FOG bitrate mismatch.
+	EXPECT_FALSE(result) << "Init segment rampdown must trigger on genuine FOG bitrate mismatch";
+
+	// Descriptor updated to FOG-reported bitrate for the next download attempt.
+	EXPECT_EQ(mMediaStreamContext->fragmentDescriptor.Bandwidth, static_cast<uint32_t>(kFogReportedBitrate))
+		<< "fragmentDescriptor.Bandwidth must be updated to FOG-reported bitrate on rampdown";
+
+	// Downloaded bytes saved in mDownloadedFragment for the reschedule/reuse path.
+	EXPECT_FALSE(mMediaStreamContext->mDownloadedFragment.empty())
+		<< "mDownloadedFragment must hold the downloaded bytes for reschedule reuse";
+}
 
 
