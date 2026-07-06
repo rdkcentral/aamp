@@ -1,5 +1,6 @@
 /*
  * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
  *
  * Copyright 2026 RDK Management
  *
@@ -120,7 +121,7 @@ static double ParseIsoDuration(const std::string &s)
 	while (i < s.size())
 	{
 		size_t j = i;
-		while (j < s.size() && (std::isdigit(s[j]) || s[j] == '.'))
+		while (j < s.size() && (std::isdigit(static_cast<unsigned char>(s[j])) || s[j] == '.'))
 			j++;
 		if (j == i || j >= s.size())
 			break;
@@ -707,7 +708,12 @@ std::string BuildStitchedVodManifest(
 	// Wait until every non-cancelled registered break is resolved or failed.
 	// This ensures midroll/postroll ads are included in the stitched MPD.
 	// Timeout after 10s to avoid blocking playback indefinitely if DAI is slow.
-	if (!cdaiObj->mVodAdBreaks.empty())
+	bool hasBreaks = false;
+	{
+		std::lock_guard<std::recursive_mutex> snapLk(cdaiObj->mDaiMtx);
+		hasBreaks = !cdaiObj->mVodAdBreaks.empty();
+	}
+	if (hasBreaks)
 	{
 		const int kTimeoutMs = 10000;
 		std::unique_lock<std::mutex> lk(cdaiObj->mVodAllAdsResolvedMtx);
