@@ -537,16 +537,10 @@ static AdFetchResult FetchOneAdMPD(
 	res.ok                = false;
 
 	auto dnldCfg = std::make_shared<DownloadConfig>();
-<<<<<<< HEAD
 	dnldCfg->proxyName            = proxyName;
 	dnldCfg->userAgentString      = userAgent;
 	dnldCfg->iDownloadTimeout     = DEFAULT_CURL_TIMEOUT;
 	dnldCfg->bNeedDownloadMetrics = true;
-=======
-	dnldCfg->proxyName       = proxyName;
-	dnldCfg->userAgentString = userAgent;
-	dnldCfg->iDownloadTimeout = DEFAULT_CURL_TIMEOUT;
->>>>>>> 81429f35 (VPAAMP-657: parallel ad manifest downloads pre-stitching)
 
 	auto dnldResp = std::make_shared<DownloadResponse>();
 
@@ -554,7 +548,6 @@ static AdFetchResult FetchOneAdMPD(
 	downloader.Initialize(dnldCfg);
 
 	std::string fetchUrl = url;
-<<<<<<< HEAD
 	auto fetchStart = std::chrono::steady_clock::now();
 	int rc = downloader.Download(fetchUrl, dnldResp);
 	double totalPerformRequest = std::chrono::duration<double>(
@@ -574,16 +567,6 @@ static AdFetchResult FetchOneAdMPD(
 	{
 		AAMPLOG_WARN("[VodStitcher] Failed to fetch ad MPD break=%s url=%s http=%d",
 		             breakId.c_str(), url.c_str(), rc);
-=======
-	int rc = downloader.Download(fetchUrl, dnldResp);
-
-	downloader.CleanupCurlHeaderResources();
-
-	if (rc < 200 || rc >= 300 || dnldResp->mDownloadData.empty())
-	{
-		AAMPLOG_WARN("[VodStitcher] Failed to fetch ad MPD break=%s url=%s http=%d rc=%d",
-		             breakId.c_str(), url.c_str(), dnldResp->iHttpRetValue, rc);
->>>>>>> 81429f35 (VPAAMP-657: parallel ad manifest downloads pre-stitching)
 	}
 	else
 	{
