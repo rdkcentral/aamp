@@ -1095,16 +1095,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
 
 	WaitForFlushToComplete();
-#if 1//anj
-	int current_rate = m_rate.load(std::memory_order_relaxed);
-	AAMPLOG_INFO("ANJ: new rate=%d current rate=%d", rate, current_rate);
-	//AAMPLOG_INFO("ANJ: new rate=%d current rate=%d", rate, m_rate.load(std::memory_order_relaxed));
-	if(( (current_rate == AAMP_NORMAL_PLAY_RATE) || (current_rate == AAMP_RATE_PAUSE)) && ((rate < AAMP_RATE_PAUSE) || (rate > AAMP_NORMAL_PLAY_RATE)) )
-	{
-		AAMPLOG_INFO("Play to TRICK play transition. Send EOS to audio and subtitle before Flush");
-		EndOfStreamReached(eMEDIATYPE_AUDIO);
-	}
-#endif//anj
 
 	// shouldTearDown controls recovery behavior when NOT in
 	// PLAYING/PAUSED/SOURCES_ATTACHED states.
@@ -1156,10 +1146,10 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			}
 		}
 
-#if 1//anj
+#if 0
 		AAMPLOG_INFO("EXIT - already flushing");
 		return;
-#endif//anj
+#endif
 	}
 	
 	// Wake any in-flight data so it abandons the current batch.
