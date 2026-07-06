@@ -127,27 +127,33 @@ public:
 	 * @return true if an ad is playing, false otherwise
 	 */
 	virtual bool IsAdPlaying() override;
+
+	/**
+	 * @brief Return the virtual-timeline position for a VOD asset with
+	 *        inserted ad pods.  Accounts for all completed breaks and
+	 *        the partially-elapsed current pod.
+	 * @param[in] sourcePositionSec Playhead position in the source VOD
+	 *        asset (seconds).
+	 * @return Virtual position in the full assembled timeline (seconds).
+	 */
+	virtual double GetVirtualPosition(double sourcePositionSec) override;
 };
 
+#define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
 
-/**
- * @brief Events to the Ad manager's state machine
- */
 enum class AdEvent
 {
 	INIT,                       /**< Playback initialization */
 	BASE_OFFSET_CHANGE,         /**< Base period's offset change */
 	AD_FINISHED,                /**< Ad playback finished */
 	AD_FAILED,                  /**< Ad playback failed */
-	PERIOD_CHANGE,              /**< Period changed, Default event */
+	PERIOD_CHANGE,              /**< Period changed */
+        DEFAULT = PERIOD_CHANGE,    /**< Default event */
+        VOD_BREAK_START             /**< VOD insertion-point crossing detected;
+                                     *   mCurAds/mCurAdIdx/mCurPlayingBreakId
+                                     *   are pre-populated by CheckVodAdBreakCrossing() */
 };
 
-#define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
-
-/**
- * @struct AdNode
- * @brief Individual Ad's meta info
- */
 struct AdNode {
 	bool         invalid;          /**< Failed to playback failed once, no need to attempt later */
 	bool         placed;           /**< Ad completely placed on the period */
@@ -390,11 +396,15 @@ struct VodAdBreakInfo {
 	std::string breakType;          /**< "preroll", "midroll", or "postroll" */
 	bool        opportunityFired;   /**< true once the vodAdBreakOpportunity event has been sent */
 	bool        cancelled;          /**< true if cancelVodAdBreak() was called for this break */
+	bool        adPodStarted;       /**< true once the ad pod begins playing; prevents re-entry */
+	bool        adPodCompleted;     /**< true once all ads in the pod have finished */
 
-	VodAdBreakInfo() : insertionPointSec(0.0), breakDurationSec(0.0), opportunityFired(false), cancelled(false) {}
+	VodAdBreakInfo() : insertionPointSec(0.0), breakDurationSec(0.0), opportunityFired(false), cancelled(false),
+				   adPodStarted(false), adPodCompleted(false) {}
 	VodAdBreakInfo(const std::string &id, double ptSec, double durSec, const std::string &type)
 		: breakId(id), insertionPointSec(ptSec), breakDurationSec(durSec), breakType(type),
-		  opportunityFired(false), cancelled(false) {}
+		  opportunityFired(false), cancelled(false),
+		  adPodStarted(false), adPodCompleted(false) {}
 };
 
 /**
@@ -428,10 +438,15 @@ public:
 	std::mutex                                     mAdPlacementMtx;       /**< Mutex protecting Ad placement */
 	std::condition_variable                        mAdPlacementCV;        /**< Condition variable for Ad placement */
 	uint64_t                                       mWaitForManifestUpdate;/**< segment position in manifest at end of Ad */
+	std::map<std::string, VodAdBreakInfo>          mVodAdBreaks;          /**< VOD breaks keyed by breakId; populated by RegisterVodAdBreak() */
+	std::vector<std::string>                       mVodAdBreakOrder;      /**< breakIds in registration order for deterministic stitching */
+	double                                         mNextVodBreakToCheck;  /**< Smallest insertion point not yet fired; updated when breaks are added or fired */
+	double                                         mVodResumeOffset;      /**< Source-period offset to seek to after a VOD ad pod ends; 0 when not active */
+	bool                                           mVodManifestStitched;  /**< true when BuildStitchedVodManifest succeeded; disables VOD CDAI state machine during playback */
+	std::mutex                                     mVodAllAdsResolvedMtx; /**< Mutex for mVodAllAdsResolvedCV */
+	std::condition_variable                        mVodAllAdsResolvedCV;  /**< Signalled when all registered VOD ads are resolved/failed; manifest thread waits on this */
 	AampMPDParseHelperPtr                          mBaseMPDParseHelper;   /**< Latest base-stream MPD parse helper; used by FulFillAdObject to call PlaceAds immediately for static manifest */
 	std::mutex                                     mBaseMPDHelperMtx;     /**< Mutex protecting mBaseMPDParseHelper */
-	std::map<double, VodAdBreakInfo>               mVodAdBreaks;          /**< VOD insertion points keyed by insertionPointSec; populated by RegisterVodAdBreak() */
-	double                                         mNextVodBreakToCheck;  /**< Smallest insertion point not yet fired; updated when breaks are added or fired */
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
@@ -496,6 +511,46 @@ public:
 	 * @param[in] lookaheadSec Lookahead window in seconds (from config)
 	 */
 	void CheckVodAdBreakLookahead(double positionSec, double lookaheadSec);
+
+	/**
+	 * @brief Check whether the playhead has crossed a VOD insertion point
+	 *        that has a resolved ad pod waiting.  If so, sets up mCurAds,
+	 *        mCurAdIdx, mCurPlayingBreakId and marks the break as started.
+	 *        Caller must follow this with onAdEvent(VOD_BREAK_START).
+	 * @param[in] positionSec     Current VOD playhead position (seconds)
+	 * @param[in] currentPeriodId mBasePeriodId at the call site; stored in
+	 *        mAdBreaks[breakId].endPeriodId for post-pod restoration.
+	 * @return true if a crossing was detected and state was set up.
+	 */
+	bool CheckVodAdBreakCrossing(double positionSec, const std::string &currentPeriodId);
+
+	/**
+	 * @brief Return true if positionSec has crossed a registered VOD
+	 *        insertion point whose opportunity has fired but whose ad has
+	 *        not yet been resolved (preroll stall guard).
+	 */
+	bool HasPendingVodBreakAtPosition(double positionSec);
+
+	/**
+	 * @brief Mark a VOD ad-break pod as fully completed.  Caller must hold mDaiMtx.
+	 * @param[in] breakId The break identifier
+	 */
+	void MarkVodAdBreakCompleted(const std::string &breakId);
+
+	/**
+	 * @brief Return true if breakId was registered via RegisterVodAdBreak().
+	 */
+	bool IsVodAdBreak(const std::string &breakId) const;
+
+	/**
+	 * @brief Compute the virtual-timeline position for the VOD asset.
+	 *        Sums durations of all completed breaks with insertionPointSec <=
+	 *        sourcePositionSec, then adds partial elapsed time for the current pod.
+	 * @param[in] sourcePositionSec Playhead position in the source VOD asset
+	 * @return Virtual position (seconds) in the full assembled timeline
+	 */
+	double GetVirtualPosition(double sourcePositionSec);
+
 	/**
 	 * @fn FulFillAdObject
 	 *
@@ -751,6 +806,13 @@ public:
 	 * @param[in] reservationId Reservation/ad break ID
 	 */
 	void PlaceAdsForStaticManifest(const std::string& reservationId);
+
+	/**
+	 * @brief Check whether every non-cancelled registered VOD break has a resolved or failed ad.
+	 *        Caller must NOT hold mDaiMtx.
+	 * @return true when all breaks are done (resolved or invalid/failed)
+	 */
+	bool AreAllVodAdsResolved();
 };
 
 #endif /* ADMANAGER_MPD_H_ */

@@ -22,6 +22,7 @@
 #include <atomic>
 #include <chrono>
 #include <future>
+#include <limits>
 #include <memory>
 #include <thread>
 #include <mutex>
@@ -5158,6 +5159,7 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
   // No placement queued (adStatus was false).
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
+}
 
 /**
  * @brief RegisterVodAdBreak + CheckVodAdBreakLookahead: opportunity fires exactly
@@ -5177,11 +5179,11 @@ TEST_F(AdManagerMPDTests, VodAdBreak_OpportunityFiresOnceInWindow)
 
   // Position outside lookahead window — should not fire.
   mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(20.0, 5.0);
-  EXPECT_FALSE(mPrivateCDAIObjectMPD->mVodAdBreaks.at(30.0).opportunityFired);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mVodAdBreaks.at("brk1").opportunityFired);
 
   // Position inside lookahead window (30 - 5 = 25, pos 25 >= 25) — should fire.
   mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(25.0, 5.0);
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.at(30.0).opportunityFired);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.at("brk1").opportunityFired);
 
   // Sentinel should now be max() — no remaining unfired breaks.
   EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck,
@@ -5189,7 +5191,7 @@ TEST_F(AdManagerMPDTests, VodAdBreak_OpportunityFiresOnceInWindow)
 
   // Second call at same position — must not re-fire (opportunityFired stays true).
   mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(25.0, 5.0);
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.at(30.0).opportunityFired);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.at("brk1").opportunityFired);
 }
 
 /**
@@ -5226,7 +5228,7 @@ TEST_F(AdManagerMPDTests, VodAdBreak_CancelledBreakNeverFires)
 
   // Passing through the cancelled break's window — should not fire.
   mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(19.0, 5.0);
-  EXPECT_FALSE(mPrivateCDAIObjectMPD->mVodAdBreaks.at(20.0).opportunityFired);
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->mVodAdBreaks.at("brkA").opportunityFired);
 }
 
 /**

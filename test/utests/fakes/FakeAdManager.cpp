@@ -40,9 +40,10 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
     }
 }
 
-PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx(),
-					mVodAdBreaks(), mNextVodBreakToCheck(std::numeric_limits<double>::max())
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp), mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
+					mCurAdIdx(-1), mAdFulfillObj(), mPlacementObj(), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK), currentAdPeriodClosed(false), mAdtoInsertInNextBreakVec(), mAdBrkVecMtx(),
+					mWaitForManifestUpdate(0), mVodAdBreaks(), mVodAdBreakOrder(), mNextVodBreakToCheck(std::numeric_limits<double>::max()), mVodResumeOffset(0.0), mVodManifestStitched(false),
+				mBaseMPDParseHelper(nullptr), mBaseMPDHelperMtx()
 {
 }
 
@@ -166,6 +167,11 @@ bool PrivateCDAIObjectMPD::AreAllAdsResolved(const std::string& periodId)
 	return false;
 }
 
+bool PrivateCDAIObjectMPD::AreAllVodAdsResolved()
+{
+	return true;
+}
+
 void PrivateCDAIObjectMPD::SetBaseMPDParseHelper(AampMPDParseHelperPtr helper)
 {
 }
@@ -213,4 +219,22 @@ void PrivateCDAIObjectMPD::CheckVodAdBreakLookahead(double positionSec, double l
 bool CDAIObjectMPD::IsAdPlaying()
 {
 	return false;
+}
+bool PrivateCDAIObjectMPD::CheckVodAdBreakCrossing(double positionSec, const std::string &currentPeriodId)
+{
+	return false;
+}
+
+void PrivateCDAIObjectMPD::MarkVodAdBreakCompleted(const std::string &breakId)
+{
+}
+
+bool PrivateCDAIObjectMPD::IsVodAdBreak(const std::string &breakId) const
+{
+	return false;
+}
+
+double CDAIObjectMPD::GetVirtualPosition(double sourcePositionSec)
+{
+	return sourcePositionSec;
 }

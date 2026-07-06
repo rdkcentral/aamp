@@ -2660,6 +2660,118 @@ adPlayer2.stop();
 
 When a player instance is no longer needed, recommend to call explicit release() method rather than rely only on eventual garbage collection.  However, player instances can be recycled and reused throughout an app's lifecycle.
 
+
+### CDAI Mechanism #3 – VOD CDAI (Reservation API)
+
+Supported for DASH VOD.  Uses the same `setAlternateContent` / `notifyReservationCompletion` reservation API as Mechanism #1 (Engine Managed CDAI), with ad pods inserted at registered time positions in the VOD source asset rather than at period boundaries.  Preroll, midroll, and postroll positions are all supported.  If an ad pod has not yet been resolved when the playhead crosses an insertion point, the player stalls the fetch loop until resolution completes or the break is cancelled.
+
+#### Workflow
+
+1. Application registers VOD insertion points via `registerVodAdBreak`.
+2. As the playhead approaches each insertion point (within the lookahead window, default 5 seconds), AAMP fires a `vodAdBreakOpportunity` event.
+3. Application calls `setAlternateContent` + `notifyReservationCompletion` using the `breakId` from the event as the `reservationId`.
+4. AAMP substitutes the ad pod at the insertion point, then automatically resumes the source VOD at the correct offset.
+5. Application may call `cancelVodAdBreak` at any point before the pod starts to skip it.
+
+---
+
+#### registerVodAdBreak( breakInfo )
+
+Register a VOD ad-break insertion point.  Must be called before the playhead reaches the insertion point (typically at or shortly after `load()`).
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| breakInfo | Object | Insertion point descriptor |
+| breakInfo.breakId | String | Unique identifier for this break; used as `reservationId` in `setAlternateContent` |
+| breakInfo.insertionPointSec | Number | Position in the source VOD timeline (seconds) at which the ad pod will be inserted.  Use the source duration for a postroll. |
+| breakInfo.breakDurationSec | Number | Advisory break duration in seconds.  Forwarded as metadata in the `vodAdBreakOpportunity` event for the application's accounting purposes; not used by the player's lookahead-window calculation (which is driven by the global `vodAdBreakLookaheadSec` configuration value). |
+| breakInfo.breakType | String | `"preroll"`, `"midroll"`, or `"postroll"` (informational only) |
+
+```javascript
+player.registerVodAdBreak({
+    breakId: "break-preroll",
+    insertionPointSec: 0,
+    breakDurationSec: 60,
+    breakType: "preroll"
+});
+player.registerVodAdBreak({
+    breakId: "break-mid1",
+    insertionPointSec: 300,
+    breakDurationSec: 30,
+    breakType: "midroll"
+});
+```
+
+---
+
+#### cancelVodAdBreak( breakId )
+
+Cancel a registered VOD ad-break before it has started.  Has no effect after the pod has begun playing.
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| breakId | String | Identifier previously passed to `registerVodAdBreak` |
+
+```javascript
+player.cancelVodAdBreak("break-mid1");
+```
+
+---
+
+#### vodAdBreakOpportunity event
+
+Fired when the playhead is within the lookahead window of a registered insertion point and the break has not yet been resolved.  The application should call `setAlternateContent` followed by `notifyReservationCompletion` in response.
+
+| Property | Type | Description |
+| -------- | ---- | ----------- |
+| breakId | String | Matches the `breakId` passed to `registerVodAdBreak`; use as `reservationId` |
+| insertionPointSec | Number | Insertion position in the source VOD timeline (seconds) |
+| breakDurationSec | Number | Advisory break duration (seconds) |
+| breakType | String | `"preroll"`, `"midroll"`, or `"postroll"` |
+
+```javascript
+player.addEventListener("vodAdBreakOpportunity", function(event) {
+    var breakId = event.breakId;
+    player.setAlternateContent({
+        reservationId: breakId,
+        reservationBehavior: 0,
+        placementRequest: {
+            id: "ad-001",
+            pts: 0,
+            url: "https://ad.example.com/ad.mpd"
+        }
+    }, function(id, result) { /* placement callback */ });
+    player.notifyReservationCompletion(breakId, 0);
+});
+```
+
+---
+
+#### Complete VOD CDAI Example
+
+```javascript
+var player = new AAMPMediaPlayer();
+
+// Register insertion points before (or just after) load
+player.registerVodAdBreak({ breakId:"pre",  insertionPointSec:0,   breakDurationSec:30, breakType:"preroll"  });
+player.registerVodAdBreak({ breakId:"mid1", insertionPointSec:180, breakDurationSec:30, breakType:"midroll"  });
+player.registerVodAdBreak({ breakId:"post", insertionPointSec:600, breakDurationSec:30, breakType:"postroll" });
+
+player.addEventListener("vodAdBreakOpportunity", function(e) {
+    player.setAlternateContent({
+        reservationId: e.breakId,
+        reservationBehavior: 0,
+        placementRequest: { id: "ad-"+e.breakId, pts: 0, url: resolveAdUrl(e.breakId) }
+    }, function(id, ok) {});
+    player.notifyReservationCompletion(e.breakId, 0);
+});
+
+player.load("https://content.example.com/movie.mpd");
+```
+
+---
+
+<div style="page-break-after: always;"></div>
 ---
 
 <div style="page-break-after: always;"></div>
