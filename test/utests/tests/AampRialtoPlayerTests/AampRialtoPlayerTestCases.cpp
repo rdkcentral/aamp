@@ -2994,9 +2994,9 @@ TEST_F(AampRialtoPlayerTest,
 	// Flush() with shouldTearDown=true should call Stop() even in IDLE state.
 	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
 
-	// Verify player transitions to STOPPED state.
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::STOPPED)
-		<< "Player must transition to STOPPED after Flush(shouldTearDown=true)";
+	// Stop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Player remains in IDLE after Flush(shouldTearDown=true) with no pipeline";
 }
 
 TEST_F(AampRialtoPlayerTest,
@@ -3031,9 +3031,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure();
 	m_player->Stop(false);
 
-	// Verify player is in STOPPED state.
-	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::STOPPED)
-		<< "Precondition: player must be in STOPPED state after Stop()";
+	// onStop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Precondition: player must be in IDLE state after Stop()";
 
 	// Expect Stop() to be called again when shouldTearDown=true.
 	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(1);
@@ -3051,7 +3051,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure();
 	m_player->Stop(false);
 
-	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::STOPPED);
+	// onStop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
 
 	// Expect NO additional stop() call.
 	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);

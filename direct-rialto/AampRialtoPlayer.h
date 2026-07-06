@@ -432,12 +432,23 @@ private:
 	 * m_rate has been committed from m_pendingFlushRate before
 	 * Configure() evaluates ShouldRecreatePipeline().
 	 */
+	/**
+	 * @brief Block until any in-progress flush cycle completes.
+	 *
+	 * Acquires m_flushMutex and waits on m_flushCv until the state machine
+	 * is no longer FLUSHING.
+	 *
+	 * Used by Configure(), Stop(), and (via a separate claim step) Flush().
+	 * The claim-FLUSHING step in Flush() is done in a separate locked section
+	 * after the teardown check so that Stop() — which also calls this — never
+	 * deadlocks on a FLUSHING state claimed by the same Flush() call.
+	 */
 	void WaitForFlushToComplete();
 
 	/// Position (ns) stored by Flush(); used to set the initial GStreamer
 	/// segment via setSourcePosition() once each source is attached.
 	/// -1 means no flush position has been set yet.
-	std::atomic<int64_t> m_pendingFlushPositionNs{-1};
+	std::atomic<int64_t> m_pendingPositionNs{-1};
 
 	/// Set by Stream(); cleared once play() is issued.  Lets us defer the
 	/// play() call until after allSourcesAttached() so the Rialto server

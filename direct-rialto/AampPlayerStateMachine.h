@@ -121,17 +121,14 @@ public:
 	/// onFlushComplete) cannot cause a double-transition.
 	virtual std::unique_ptr<IPlayerState> onFlushComplete()      { return nullptr; }
 
-	/// Valid from any state — transitions to STOPPED.
-	/// Non-inline: body defined in .cpp after StoppedState is complete.
-	virtual std::unique_ptr<IPlayerState> onStop();
+	/// Override in concrete states where Stop is a valid transition.
+	virtual std::unique_ptr<IPlayerState> onStop()        { return nullptr; }
 
-	/// Valid from any state — transitions to ERROR.
-	/// Non-inline: body defined in .cpp after ErrorState is complete.
-	virtual std::unique_ptr<IPlayerState> onError();
+	/// Override in concrete states where a fatal Error is a valid transition.
+	virtual std::unique_ptr<IPlayerState> onError()       { return nullptr; }
 
-	/// Valid from any state — transitions back to IDLE for a re-tune.
-	/// Non-inline: body defined in .cpp after IdleState is complete.
-	virtual std::unique_ptr<IPlayerState> onReconfigure();
+	/// Override in concrete states where a re-tune (Reconfigure) is valid.
+	virtual std::unique_ptr<IPlayerState> onReconfigure() { return nullptr; }
 };
 
 // ---------------------------------------------------------------------------
@@ -210,7 +207,11 @@ public:
 
 private:
 	/// Execute a handler, apply the returned transition, and log MIL.
-	void dispatch(std::unique_ptr<IPlayerState> (IPlayerState::*handler)());
+	/// Logs a WARN when the handler returns nullptr (no transition defined
+	/// for this event from the current state) so unexpected events are visible
+	/// in production logs.
+	void dispatch(std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
+	              const char *eventName);
 
 	mutable std::mutex            m_mutex;
 	std::unique_ptr<IPlayerState> m_state;

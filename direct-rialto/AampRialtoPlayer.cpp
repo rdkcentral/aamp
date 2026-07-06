@@ -378,10 +378,10 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 void AampRialtoPlayer::WaitForFlushToComplete()
 {
 	std::unique_lock<std::mutex> lock(m_flushMutex);
-	// Block until the state machine leaves FLUSHING.  onFlushComplete() (called
-	// from OnSourceFlushed when all sources confirm flushed) transitions the
-	// state and then notifies m_flushCv, so this predicate will always become
-	// true once the flush cycle ends.
+	// Block until the state machine leaves FLUSHING.  Holds m_flushMutex
+	// while the predicate is evaluated so that the optional claim below is
+	// atomic with the check: no concurrent caller can pass the predicate
+	// and also claim FLUSHING before us.
 	m_flushCv.wait(lock, [this]()
 	{
 		return m_stateMachine.currentState() != PlayerStateId::FLUSHING;
@@ -484,7 +484,7 @@ void AampRialtoPlayer::Configure(
 	// normal playback flow; clearing the stored protection params here would
 	// discard them before AttachVideoSource / AttachAudioSource can use them
 	// to call createSession().  ClearProtectionEvent() handles teardown.
-	// NOTE: m_pendingFlushPositionNs is intentionally NOT reset here.
+	// NOTE: m_pendingPositionNs is intentionally NOT reset here.
 	// Flush() may be called before Configure() to pre-stage the seek position;
 	// clearing it here would discard that staged value before sources attach.
 	m_playRequested.store(false, std::memory_order_relaxed);
@@ -861,7 +861,7 @@ void AampRialtoPlayer::AttachSource(
 
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
-		m_pendingFlushPositionNs.load(std::memory_order_relaxed),
+		m_pendingPositionNs.load(std::memory_order_relaxed),
 		m_pendingProtection[static_cast<size_t>(type)],
 		computeAppliedRate(
 			m_pendingFlushRate.load(std::memory_order_relaxed)));
@@ -1053,10 +1053,8 @@ void AampRialtoPlayer::Stream()
 
 		// If a flush is in progress, play() will be issued by OnSourceFlushed()
 		// once all sources confirm flushed and onFlushComplete() restores state.
-		// Checking state is safe because FLUSHING is only set by Flush() (AAMP
-		// thread) and only cleared by onFlushComplete() or the edge-case
-		// onPlaybackStarted/Paused path (both protected by the state machine
-		// mutex).
+		// FLUSHING is set inside m_flushMutex in Flush() and cleared by
+		// onFlushComplete() (both protected by the state machine mutex).
 		if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
 		{
 			AAMPLOG_INFO("deferring play() - flush in progress");
@@ -1089,6 +1087,14 @@ void AampRialtoPlayer::Stream()
 void AampRialtoPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_INFO("ENTRY keepLastFrame=%d", keepLastFrame);
+
+	// Wait for any in-progress flush cycle to complete before stopping.
+	// This ensures the state machine has already exited FLUSHING so that
+	// onStop() transitions from a well-defined state (PLAYING, PAUSED,
+	// SOURCES_ATTACHED, etc.) and the FLUSHING → STOPPED arc is never
+	// reached.
+	WaitForFlushToComplete();
+
 	StopProgressTimer();
 	if (m_monitorAV)
 	{
@@ -1123,41 +1129,86 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 
-	// If a previous flush is still in progress, block until it completes
-	// before starting a new one.  This keeps the flush cycle atomic: each
-	// Flush() call owns a single FLUSHING → <pre-flush-state> cycle and
-	// removes the complexity of updating parameters mid-flush.
-	// Configure() follows the same pattern.
+	// Step 1: Wait for any previous flush cycle to complete (no claim yet).
+	// The teardown check below reads the current state AFTER any in-flight
+	// flush has restored it (e.g. a seek from PLAYING restores to PLAYING).
 	WaitForFlushToComplete();
 
-	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
-	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
-	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
-
-	// shouldTearDown controls recovery behavior when NOT in
-	// PLAYING/PAUSED/SOURCES_ATTACHED states.
-	// - PLAYING/PAUSED/SOURCES_ATTACHED: Always proceed with flush (shouldTearDown ignored)
-	// - Other states + shouldTearDown=true: Call Stop() for recovery/cleanup
-	// - Other states + shouldTearDown=false: Proceed with flush normally
-	//
-	// This differs from GStreamer which skips flush in non-PLAYING/PAUSED states.
-	// Rialto needs to flush in states like SOURCES_ATTACHED to set up positions.
-	// WaitForFlushToComplete() above guarantees we are never in FLUSHING here.
-	const PlayerStateId state = m_stateMachine.currentState();
-	const bool isPlayingPausedOrAttached = (state == PlayerStateId::PLAYING ||
-											state == PlayerStateId::SOURCES_ATTACHED ||
-											state == PlayerStateId::PAUSED);
+	// Step 2: Decide whether to tear down or flush based on current state.
+	// This check happens BEFORE claiming FLUSHING so that Stop() — which
+	// also calls WaitForFlushToComplete() at its start — does not deadlock
+	// on a FLUSHING state we have already claimed.
+	const PlayerStateId preFlushState = m_stateMachine.currentState();
+	const bool isPlayingPausedOrAttached =
+		(preFlushState == PlayerStateId::PLAYING ||
+		 preFlushState == PlayerStateId::SOURCES_ATTACHED ||
+		 preFlushState == PlayerStateId::PAUSED);
 
 	if (!isPlayingPausedOrAttached && shouldTearDown)
 	{
-		// Not in PLAYING/PAUSED/SOURCES_ATTACHED and shouldTearDown=true -> tear down for recovery.
-		AAMPLOG_WARN("Player state %s is not PLAYING/PAUSED/SOURCES_ATTACHED and shouldTearDown=true - calling Stop(true)",
-			m_stateMachine.currentStateName());
+		// Player is not in a flushable state; recover by stopping.
+		// Stop() will call WaitForFlushToComplete() which returns immediately
+		// since we have not claimed FLUSHING.
+		AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED "
+			"(pre-flush state=%d) and shouldTearDown=true - calling Stop(true)",
+			static_cast<int>(preFlushState));
 		Stop(true);
 		AAMPLOG_INFO("EXIT - teardown requested");
 		return;
 	}
-	
+
+	if (!isPlayingPausedOrAttached)
+	{
+		// Not in a flushable state and no teardown requested.
+		// Stage the parameters (covers the pre-Configure() seek-position
+		// pre-staging path) and commit the rate, but do not attempt a full
+		// flush cycle — onFlush() would be a no-op on the state machine.
+		//
+		// Still wake any blocked inject threads (sources may exist but not
+		// yet be Rialto-attached in the deferred-attachment path) and, on
+		// trickplay exit (rate == 1), clear any audio EOS set during trickplay
+		// entry so injection can resume once the pipeline is ready.
+		const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+		m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
+		m_pendingFlushRate.store(rate, std::memory_order_relaxed);
+		m_rate.store(rate, std::memory_order_relaxed);
+
+		for (auto &source : m_sources)
+		{
+			if (source)
+			{
+				source->invalidateGeneration();
+				if (rate == AAMP_NORMAL_PLAY_RATE)
+				{
+					auto &st = source->state();
+					std::lock_guard<std::mutex> lock(st.mu);
+					st.eos = false;
+				}
+			}
+		}
+
+		AAMPLOG_INFO("Flush() in non-flushable state %d (shouldTearDown=false): "
+			"parameters staged, rate=%d committed, no flush cycle started",
+			static_cast<int>(preFlushState), rate);
+		AAMPLOG_INFO("EXIT");
+		return;
+	}
+
+	// Step 3: Claim FLUSHING atomically while holding m_flushMutex so that
+	// any concurrent WaitForFlushToComplete() caller (e.g. Configure()) sees
+	// FLUSHING and blocks until onFlushComplete() signals completion.
+	// Flush() and Stop()/Configure() are always on the AAMP control thread,
+	// so no TOCTOU risk exists between step 2 and step 3.
+	{
+		std::lock_guard<std::mutex> lock(m_flushMutex);
+		m_stateMachine.onFlush();
+	}
+
+	// Stage flush parameters now that FLUSHING is claimed.
+	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
+	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
+
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)
 	{
@@ -1216,8 +1267,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// m_firstPtsMs is reset automatically on each source by
 	// invalidateGeneration() (called above), so the next injection into
 	// the video source establishes the fresh segment-start baseline.
-
-	m_stateMachine.onFlush();
 
 	AAMPLOG_INFO("EXIT");
 }
@@ -1897,7 +1946,7 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 		// the SEGMENT event - leaving the pipeline's EOS state intact
 		// and causing an immediate END_OF_STREAM on the next play().
 		const int64_t posNs =
-			m_pendingFlushPositionNs.load(std::memory_order_relaxed);
+			m_pendingPositionNs.load(std::memory_order_relaxed);
 		const int pendingRate =
 			m_pendingFlushRate.load(std::memory_order_relaxed);
 		if (m_pipeline &&

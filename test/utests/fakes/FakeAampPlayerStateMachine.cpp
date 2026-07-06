@@ -30,16 +30,6 @@
 #include "AampPlayerStateMachine.h"
 
 // ---------------------------------------------------------------------------
-// IPlayerState — non-inline virtual methods declared in the header
-// (The fake does not use IPlayerState objects, but the vtable symbols must
-// be present to satisfy the linker.)
-// ---------------------------------------------------------------------------
-
-std::unique_ptr<IPlayerState> IPlayerState::onStop()        { return nullptr; }
-std::unique_ptr<IPlayerState> IPlayerState::onError()       { return nullptr; }
-std::unique_ptr<IPlayerState> IPlayerState::onReconfigure() { return nullptr; }
-
-// ---------------------------------------------------------------------------
 // PlayerStateMachine — enum-driven transition table
 // ---------------------------------------------------------------------------
 
@@ -147,5 +137,8 @@ void PlayerStateMachine::onReconfigure()
 }
 
 void PlayerStateMachine::dispatch(
-	std::unique_ptr<IPlayerState> (IPlayerState::* /*handler*/)()) {}
+	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
+	const char *eventName)
+{
+}
 
