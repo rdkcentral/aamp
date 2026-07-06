@@ -6113,6 +6113,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mIsTrackIdMismatch = false;
 	mCurrentAudioTrackId = -1;
 	mCurrentVideoTrackId = -1;
+	AAMPLOG_WARN("DEBUG--> TuneHelper reset mCurrentDrm=%p mCurrentDrm.use_count=%ld", static_cast<void*>(mCurrentDrm.get()), (long)mCurrentDrm.use_count());
 	mCurrentDrm = nullptr;
 
 
@@ -6911,6 +6912,7 @@ double PrivateInstanceAAMP::GetSeekBase(void)
  */
 DrmHelperPtr PrivateInstanceAAMP::GetCurrentDRM(void)
 {
+	AAMPLOG_WARN("DEBUG--> GetCurrentDRM read mCurrentDrm=%p mCurrentDrm.use_count=%ld", static_cast<void*>(mCurrentDrm.get()), (long)mCurrentDrm.use_count());
 	return mCurrentDrm;
 }
 

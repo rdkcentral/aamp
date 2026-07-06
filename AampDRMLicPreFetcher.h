@@ -68,6 +68,7 @@ struct LicensePreFetchObject
 															mIsVssPeriod(isVssPeriod)
 	{
 		AAMPLOG_TRACE("Creating new LicensePreFetchObject, id:%d", mId);
+		AAMPLOG_WARN("DEBUG--> Creating LicensePreFetchObject id:%d this=%p mHelper=%p mHelper.use_count=%ld type:%d periodId:%s adaptationIdx:%u isVss:%d", mId, static_cast<void*>(this), static_cast<void*>(mHelper.get()), (long)mHelper.use_count(), mType, mPeriodId.c_str(), mAdaptationIdx, mIsVssPeriod);
 	}
 
 	/**
@@ -77,6 +78,7 @@ struct LicensePreFetchObject
 	~LicensePreFetchObject()
 	{
 		AAMPLOG_TRACE("Deleting LicensePreFetchObject, id:%d", mId);
+		AAMPLOG_WARN("DEBUG--> Deleting LicensePreFetchObject id:%d this=%p mHelper=%p mHelper.use_count=%ld type:%d", mId, static_cast<void*>(this), static_cast<void*>(mHelper.get()), (long)mHelper.use_count(), mType);
 	}
 
 	/**

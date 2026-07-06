@@ -138,6 +138,11 @@ bool AampLicensePreFetcher::KeyIsQueued(LicensePreFetchObjectPtr &fetchObject)
 bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
 	bool ret = true;
+	AAMPLOG_WARN("DEBUG--> QueueContentProtection entry drmHelper=%p use_count=%ld type:%d periodId:%s adapIdx:%u isVss:%d mExitLoop:%d", static_cast<void*>(drmHelper.get()), (long)drmHelper.use_count(), type, periodId.c_str(), adapIdx, isVssPeriod, (int)mExitLoop);
+	if(drmHelper == nullptr)
+	{
+		AAMPLOG_WARN("DEBUG--> QueueContentProtection called with NULL drmHelper for type:%d periodId:%s", type, periodId.c_str());
+	}
 	if(!mExitLoop)
 	{
 		LicensePreFetchObjectPtr fetchObject = std::make_shared<LicensePreFetchObject>(drmHelper, periodId, adapIdx, type, isVssPeriod);
@@ -146,6 +151,7 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 			if(isVssPeriod)
 			{
 				std::lock_guard<std::mutex>lock(mQVssMutex);
+				AAMPLOG_WARN("DEBUG--> QueueContentProtection queuing VSS fetchObject=%p mHelper=%p mHelper.use_count=%ld mVssFetchQueue.size(before)=%zu", static_cast<void*>(fetchObject.get()), static_cast<void*>((fetchObject != nullptr) ? fetchObject->mHelper.get() : nullptr), (long)((fetchObject != nullptr) ? fetchObject->mHelper.use_count() : -1), mVssFetchQueue.size());
 				mVssFetchQueue.push_back(std::move(fetchObject));
 				if (!mVssPreFetchThread.joinable())
 				{
@@ -170,6 +176,7 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 					return true;
 				}
 
+				AAMPLOG_WARN("DEBUG--> QueueContentProtection queuing fetchObject=%p mHelper=%p mHelper.use_count=%ld mFetchQueue.size(before)=%zu", static_cast<void*>(fetchObject.get()), static_cast<void*>((fetchObject != nullptr) ? fetchObject->mHelper.get() : nullptr), (long)((fetchObject != nullptr) ? fetchObject->mHelper.use_count() : -1), mFetchQueue.size());
 				mFetchQueue.push_back(std::move(fetchObject));
 				if (!mPreFetchThread.joinable())
 				{
@@ -204,13 +211,18 @@ bool AampLicensePreFetcher::Term()
 	/** Clear the queue **/
 	{
 		std::lock_guard<std::mutex>lock(mQMutex);
+		AAMPLOG_WARN("DEBUG--> Term clearing queues mFetchQueue.size=%zu mVssFetchQueue.size=%zu mExitLoop:%d", mFetchQueue.size(), mVssFetchQueue.size(), (int)mExitLoop);
 
 		while (!mFetchQueue.empty())
 		{
+			LicensePreFetchObjectPtr obj = mFetchQueue.front();
+			AAMPLOG_WARN("DEBUG--> Term releasing mFetchQueue obj=%p obj.use_count=%ld mHelper=%p mHelper.use_count=%ld", static_cast<void*>(obj.get()), (long)obj.use_count(), static_cast<void*>((obj != nullptr) ? obj->mHelper.get() : nullptr), (long)((obj != nullptr) ? obj->mHelper.use_count() : -1));
 			mFetchQueue.pop_front();
 		}
 		while (!mVssFetchQueue.empty())
 		{
+			LicensePreFetchObjectPtr obj = mVssFetchQueue.front();
+			AAMPLOG_WARN("DEBUG--> Term releasing mVssFetchQueue obj=%p obj.use_count=%ld mHelper=%p mHelper.use_count=%ld", static_cast<void*>(obj.get()), (long)obj.use_count(), static_cast<void*>((obj != nullptr) ? obj->mHelper.get() : nullptr), (long)((obj != nullptr) ? obj->mHelper.use_count() : -1));
 			mVssFetchQueue.pop_front();
 		}
 	}
@@ -258,13 +270,16 @@ void AampLicensePreFetcher::PreFetchThread()
 		{
 			LicensePreFetchObjectPtr obj = mFetchQueue.front(); // Leave the request on the queue
 			queueLock.unlock();
+			AAMPLOG_WARN("DEBUG--> PreFetchThread dequeued obj=%p obj.use_count=%ld mExitLoop:%d", static_cast<void*>(obj.get()), (long)obj.use_count(), (int)mExitLoop);
 
 			if (!mExitLoop)
 			{
 				bool skip = false;
 				bool keyStatus = false;
 				std::vector<uint8_t> keyIdArray;
+				AAMPLOG_WARN("DEBUG--> PreFetchThread before getKey obj=%p mHelper=%p mHelper.use_count=%ld mPrivAAMP=%p mDRMLicenseManager=%p", static_cast<void*>(obj.get()), static_cast<void*>((obj != nullptr) ? obj->mHelper.get() : nullptr), (long)((obj != nullptr) ? obj->mHelper.use_count() : -1), static_cast<void*>(mPrivAAMP), static_cast<void*>((mPrivAAMP != nullptr) ? mPrivAAMP->mDRMLicenseManager : nullptr));
 				obj->mHelper->getKey(keyIdArray);
+				AAMPLOG_WARN("DEBUG--> PreFetchThread after getKey obj=%p mHelper=%p keyIdArray.size=%zu", static_cast<void*>(obj.get()), static_cast<void*>((obj != nullptr) ? obj->mHelper.get() : nullptr), keyIdArray.size());
 				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDrmSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
@@ -279,6 +294,7 @@ void AampLicensePreFetcher::PreFetchThread()
 						 */
 						NotifyDrmFailure(obj, std::move(e));
 					}
+					AAMPLOG_WARN("DEBUG--> PreFetchThread before setCurrentDrm obj=%p mHelper=%p mHelper.use_count=%ld", static_cast<void*>(obj.get()), static_cast<void*>((obj != nullptr) ? obj->mHelper.get() : nullptr), (long)((obj != nullptr) ? obj->mHelper.use_count() : -1));
 					mPrivAAMP->setCurrentDrm(obj->mHelper);
 					skip = true;
 				}
@@ -312,6 +328,7 @@ void AampLicensePreFetcher::PreFetchThread()
 			// Remove the request now we have processed it
 			if (!mFetchQueue.empty())
 			{
+				AAMPLOG_WARN("DEBUG--> PreFetchThread pop_front obj=%p obj.use_count=%ld mHelper=%p mHelper.use_count=%ld", static_cast<void*>(obj.get()), (long)obj.use_count(), static_cast<void*>((obj != nullptr) ? obj->mHelper.get() : nullptr), (long)((obj != nullptr) ? obj->mHelper.use_count() : -1));
 				mFetchQueue.pop_front();
 			}
 		}
@@ -339,13 +356,16 @@ void AampLicensePreFetcher::VssPreFetchThread()
 			LicensePreFetchObjectPtr obj = mVssFetchQueue.front();
 			mVssFetchQueue.pop_front();
 			queueLock.unlock();
+			AAMPLOG_WARN("DEBUG--> VssPreFetchThread dequeued obj=%p obj.use_count=%ld mExitLoop:%d", static_cast<void*>(obj.get()), (long)obj.use_count(), (int)mExitLoop);
 
 			if (!mExitLoop)
 			{
 				bool skip = false;
 				bool keyStatus = false;
 				std::vector<uint8_t> keyIdArray;
+				AAMPLOG_WARN("DEBUG--> VssPreFetchThread before getKey obj=%p mHelper=%p mHelper.use_count=%ld mPrivAAMP=%p mDRMLicenseManager=%p", static_cast<void*>(obj.get()), static_cast<void*>((obj != nullptr) ? obj->mHelper.get() : nullptr), (long)((obj != nullptr) ? obj->mHelper.use_count() : -1), static_cast<void*>(mPrivAAMP), static_cast<void*>((mPrivAAMP != nullptr) ? mPrivAAMP->mDRMLicenseManager : nullptr));
 				obj->mHelper->getKey(keyIdArray);
+				AAMPLOG_WARN("DEBUG--> VssPreFetchThread after getKey obj=%p mHelper=%p keyIdArray.size=%zu", static_cast<void*>(obj.get()), static_cast<void*>((obj != nullptr) ? obj->mHelper.get() : nullptr), keyIdArray.size());
 				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDrmSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
@@ -398,6 +418,7 @@ void AampLicensePreFetcher::VssPreFetchThread()
  */
 void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, DrmMetaDataEventPtr event)
 {
+	AAMPLOG_WARN("DEBUG--> NotifyDrmFailure entry fetchObj=%p mHelper=%p mHelper.use_count=%ld", static_cast<void*>(fetchObj.get()), static_cast<void*>((fetchObj != nullptr) ? fetchObj->mHelper.get() : nullptr), (long)((fetchObj != nullptr) ? fetchObj->mHelper.use_count() : -1));
 	AAMPTuneFailure failure = event->getFailure();
 	bool isRetryEnabled = false;
 	bool selfAbort = (failure == AAMP_TUNE_DRM_SELF_ABORT);
@@ -491,6 +512,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	bool isSecClientError = isSecFeatureEnabled();
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
 
+	AAMPLOG_WARN("DEBUG--> CreateDRMSession entry fetchObj=%p mHelper=%p mHelper.use_count=%ld mPrivAAMP=%p", static_cast<void*>(fetchObj.get()), static_cast<void*>((fetchObj != nullptr) ? fetchObj->mHelper.get() : nullptr), (long)((fetchObj != nullptr) ? fetchObj->mHelper.use_count() : -1), static_cast<void*>(mPrivAAMP));
 	if (mPrivAAMP == nullptr)
 	{
 		AAMPLOG_ERR("no PrivateInstanceAAMP instance available");
@@ -539,6 +561,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		 * locking and potential deadlocks.
 		 */
 		std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
+		AAMPLOG_WARN("DEBUG--> CreateDRMSession before createDrmSession fetchObj=%p mHelper=%p mHelper.use_count=%ld licenseManager=%p", static_cast<void*>(fetchObj.get()), static_cast<void*>((fetchObj != nullptr) ? fetchObj->mHelper.get() : nullptr), (long)((fetchObj != nullptr) ? fetchObj->mHelper.use_count() : -1), static_cast<void*>(licenseManger));
 		drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
 	}
 

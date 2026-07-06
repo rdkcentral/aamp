@@ -27,6 +27,16 @@
 #include "PlayerLogManager.h"
 #include "DrmHelper.h"
 
+void DrmHelper::logConstruction() const
+{
+	MW_LOG_WARN("DEBUG--> DrmHelper ctor this=%p systemUUID=%s", static_cast<const void*>(this), mDrmInfo.systemUUID.c_str());
+}
+
+DrmHelper::~DrmHelper()
+{
+	MW_LOG_WARN("DEBUG--> ~DrmHelper this=%p systemUUID=%s", static_cast<void*>(this), mDrmInfo.systemUUID.c_str());
+}
+
 bool DrmHelper::compare(DrmHelperPtr other)
 {
 	if (other == nullptr) return false;

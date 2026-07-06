@@ -92,7 +92,8 @@ public:
 	const std::string EMPTY_DRM_METADATA;
 	
 	const std::string EMPTY_STRING;
-	DrmHelper(const struct DrmInfo drmInfo) : mDrmInfo(drmInfo), TIMEOUT_SECONDS(5000U), EMPTY_DRM_METADATA(), EMPTY_STRING() ,bOutputProtectionEnabled(false), protectionScheme() {}
+	DrmHelper(const struct DrmInfo drmInfo) : mDrmInfo(drmInfo), TIMEOUT_SECONDS(5000U), EMPTY_DRM_METADATA(), EMPTY_STRING() ,bOutputProtectionEnabled(false), protectionScheme() { logConstruction(); }
+	void logConstruction() const;
 	DrmHelper(const DrmHelper&) = delete;
 	DrmHelper& operator=(const DrmHelper&) = delete;
 	
@@ -262,7 +263,7 @@ public:
 	virtual bool getPropagateUriParam() const { return mDrmInfo.bPropagateUriParams; }
 
 public:
-	virtual ~DrmHelper() {}
+	virtual ~DrmHelper();
 
 protected:
 	uint32_t protectionScheme;

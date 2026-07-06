@@ -2584,7 +2584,11 @@ public:
 	 * @param[in] drm - DRM helper instance
 	 * @return void
 	 */
-	void setCurrentDrm(const DrmHelperPtr& drm) { mCurrentDrm = drm; }
+	void setCurrentDrm(const DrmHelperPtr& drm)
+	{
+		AAMPLOG_WARN("DEBUG--> setCurrentDrm oldDrm=%p oldDrm.use_count=%ld newDrm=%p newDrm.use_count=%ld", static_cast<void*>(mCurrentDrm.get()), (long)mCurrentDrm.use_count(), static_cast<void*>(drm.get()), (long)drm.use_count());
+		mCurrentDrm = drm;
+	}
 
 	/**
 	 * @fn GetMoneyTraceString
