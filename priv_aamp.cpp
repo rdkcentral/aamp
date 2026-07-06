@@ -3913,6 +3913,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 		// Send the tune time metrics event as the progress event will not fire here.
 		SendTuneMetricsEvent();
 	}
+	mIsNewTune = false;
 	AdditionalTuneFailLogEntries();
 }
 
@@ -3921,6 +3922,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
  */
 void PrivateInstanceAAMP::LogTuneComplete(void)
 {
+	mIsNewTune = false;
 	TuneEndMetrics mTuneMetrics = {0, 0, 0,0,0,0,0,0,0,(ContentType)0};
 
 	mTuneMetrics.success 		 	 = true;
@@ -6929,6 +6931,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		char tuneStrPrefix[64] = {};
 		mTsbSessionRequestUrl.clear();
+		mIsNewTune = true;
 		if (!mAppName.empty())
 		{
 			snprintf(tuneStrPrefix, sizeof(tuneStrPrefix), "%s PLAYER[%d] APP: %s",(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mAppName.c_str());
