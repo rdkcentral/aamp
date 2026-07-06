@@ -103,7 +103,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
 	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
-	interfacePlayer->m_gstConfigParam->isNewTune = _this->aamp->isNewTune;
+	interfacePlayer->m_gstConfigParam->isNewTune = _this->aamp->mIsNewTune;
 }
 
 /*

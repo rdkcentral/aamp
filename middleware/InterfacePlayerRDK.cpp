@@ -4311,8 +4311,8 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				{
 					if(privatePlayer->gstPrivateContext->mFirstFrameTimeInMS > 0 && pInterfacePlayerRDK->m_gstConfigParam->isNewTune )
 					{
-						long long playingStartTimeInMS = NOW_STEADY_TS_MS  - privatePlayer->gstPrivateContext->mFirstFrameTimeInMS;
-						MW_LOG_WARN("Time taken from First Frame to PLAYING state %.3f seconds", (double)playingStartTimeInMS / 1000.00f);
+						const long long timeToPlayingMs = NOW_STEADY_TS_MS - privatePlayer->gstPrivateContext->mFirstFrameTimeInMS;
+ 						MW_LOG_WARN("Time taken from First Frame to PLAYING state %.3f seconds", (static_cast<double>(timeToPlayingMs) / 1000.0));
 					}
 					privatePlayer->gstPrivateContext->mFirstFrameTimeInMS = 0;
 					pInterfacePlayerRDK->m_gstConfigParam->isNewTune = false;
