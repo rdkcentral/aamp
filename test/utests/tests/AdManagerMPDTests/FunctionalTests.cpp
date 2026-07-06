@@ -5161,114 +5161,177 @@ TEST_F(AdManagerMPDTests, StaticManifest_AdDownloadFails_NotifyComplete_DoesNotP
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
 }
 
+// ---------------------------------------------------------------------------
+// VOD CDAI stitching path tests (VPAAMP-657)
+// These tests exercise PrivateCDAIObjectMPD state changes driven by
+// RegisterVodAdBreak + SetAlternateContents without any network access.
+// They verify that:
+//   (a) ad URLs are stored on VodAdBreakInfo (not pushed to FulfillAdLoop)
+//   (b) AreAllVodAdsResolved / mVodAllAdsResolvedCV behave correctly
+//   (c) failed / cancelled breaks are handled gracefully
+//   (d) linear CDAI (no RegisterVodAdBreak calls) is completely unaffected
+// ---------------------------------------------------------------------------
+
 /**
- * @brief RegisterVodAdBreak + CheckVodAdBreakLookahead: opportunity fires exactly
- * once when playhead enters the lookahead window, and mNextVodBreakToCheck
- * advances to max() after the only break is consumed.
+ * @brief RegisterVodAdBreak then SetAlternateContents stores adId/adUrl on
+ *        VodAdBreakInfo and creates a pre-resolved AdNode — FulfillAdLoop
+ *        queue must remain empty.
  */
-TEST_F(AdManagerMPDTests, VodAdBreak_OpportunityFiresOnceInWindow)
+TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_StoresUrlOnVodBreakInfo)
 {
-  VodAdBreakInfo info;
-  info.breakId = "brk1";
-  info.insertionPointSec = 30.0;
-  info.breakDurationSec = 15.0;
-  info.breakType = "midroll";
-  info.opportunityFired = false;
-  info.cancelled = false;
-  mPrivateCDAIObjectMPD->RegisterVodAdBreak(info);
+  const std::string breakId = "preroll-1";
+  const std::string adId    = "ad-001";
+  const std::string adUrl   = "https://cdn.example.com/ads/ad1/manifest.mpd";
 
-  // Position outside lookahead window — should not fire.
-  mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(20.0, 5.0);
-  EXPECT_FALSE(mPrivateCDAIObjectMPD->mVodAdBreaks.at("brk1").opportunityFired);
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{breakId, 0.0, 30.0, "preroll"});
+  mPrivateCDAIObjectMPD->SetAlternateContents(breakId, adId, adUrl, 0, 0);
 
-  // Position inside lookahead window (30 - 5 = 25, pos 25 >= 25) — should fire.
-  mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(25.0, 5.0);
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.at("brk1").opportunityFired);
+  // adId and adUrl stored directly on VodAdBreakInfo
+  const auto &info = mPrivateCDAIObjectMPD->mVodAdBreaks.at(breakId);
+  EXPECT_EQ(info.adId,  adId);
+  EXPECT_EQ(info.adUrl, adUrl);
 
-  // Sentinel should now be max() — no remaining unfired breaks.
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck,
-    std::numeric_limits<double>::max());
+  // mAdBreaks entry created with one pre-resolved AdNode
+  ASSERT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(breakId));
+  const auto &abObj = mPrivateCDAIObjectMPD->mAdBreaks.at(breakId);
+  ASSERT_EQ(abObj.ads->size(), 1u);
+  EXPECT_TRUE(abObj.ads->at(0).resolved);
+  EXPECT_EQ(abObj.ads->at(0).adId,  adId);
+  EXPECT_EQ(abObj.ads->at(0).url,   adUrl);
+  EXPECT_EQ(abObj.ads->at(0).mpd,   nullptr);
 
-  // Second call at same position — must not re-fire (opportunityFired stays true).
-  mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(25.0, 5.0);
-  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.at("brk1").opportunityFired);
+  // FulfillAdLoop queue must be untouched
+  std::lock_guard<std::mutex> lk(mPrivateCDAIObjectMPD->mAdFulfillMtx);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdFulfillQ.empty())
+      << "VOD ad URLs must NOT be pushed to the FulfillAdLoop queue";
 }
 
 /**
- * @brief CancelVodAdBreak: cancelled breaks never cause an opportunity event and
- * mNextVodBreakToCheck skips over them to the next active break.
+ * @brief AreAllVodAdsResolved returns false until every registered break has
+ *        received a SetAlternateContents call, then returns true.
  */
-TEST_F(AdManagerMPDTests, VodAdBreak_CancelledBreakNeverFires)
+TEST_F(AdManagerMPDTests, VodCdai_AreAllVodAdsResolved_SignalsAfterAllBreaks)
 {
-  VodAdBreakInfo brk1;
-  brk1.breakId = "brkA";
-  brk1.insertionPointSec = 20.0;
-  brk1.breakDurationSec = 10.0;
-  brk1.breakType = "midroll";
-  brk1.opportunityFired = false;
-  brk1.cancelled = false;
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-1", 0.0,  15.0, "preroll"});
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-2", 30.0, 15.0, "midroll"});
 
-  VodAdBreakInfo brk2;
-  brk2.breakId = "brkB";
-  brk2.insertionPointSec = 50.0;
-  brk2.breakDurationSec = 10.0;
-  brk2.breakType = "midroll";
-  brk2.opportunityFired = false;
-  brk2.cancelled = false;
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "Should be false before any SetAlternateContents";
 
-  mPrivateCDAIObjectMPD->RegisterVodAdBreak(brk1);
-  mPrivateCDAIObjectMPD->RegisterVodAdBreak(brk2);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 20.0);
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-1", "ad-1", "https://cdn.example.com/ad1.mpd", 0, 0);
 
-  // Cancel the earlier break.
-  mPrivateCDAIObjectMPD->CancelVodAdBreak("brkA");
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "Should be false while one break still has no URL";
 
-  // Sentinel should advance to the next active break (brkB at 50).
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 50.0);
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-2", "ad-2", "https://cdn.example.com/ad2.mpd", 0, 0);
 
-  // Passing through the cancelled break's window — should not fire.
-  mPrivateCDAIObjectMPD->CheckVodAdBreakLookahead(19.0, 5.0);
-  EXPECT_FALSE(mPrivateCDAIObjectMPD->mVodAdBreaks.at("brkA").opportunityFired);
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "Should be true once every break has a URL";
 }
 
 /**
- * @brief mNextVodBreakToCheck sentinel: adding multiple breaks sets it to the
- * earliest; cancelling the earliest recomputes it to the next one; cancelling
- * all breaks sets it to max().
+ * @brief mVodAllAdsResolvedCV is signalled after the last SetAlternateContents
+ *        so that BuildStitchedVodManifest's wait_for returns immediately.
  */
-TEST_F(AdManagerMPDTests, VodAdBreak_SentinelTracksEarliestActiveBreak)
+TEST_F(AdManagerMPDTests, VodCdai_AllAdsResolvedCV_SignalledAfterLastSetAlternateContents)
 {
-  VodAdBreakInfo b1;
-  b1.breakId = "b1"; b1.insertionPointSec = 60.0;
-  b1.breakDurationSec = 5.0; b1.breakType = "midroll";
-  b1.opportunityFired = false; b1.cancelled = false;
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-alpha", 0.0, 10.0, "preroll"});
 
-  VodAdBreakInfo b2;
-  b2.breakId = "b2"; b2.insertionPointSec = 30.0;
-  b2.breakDurationSec = 5.0; b2.breakType = "midroll";
-  b2.opportunityFired = false; b2.cancelled = false;
+  // Arm a background thread waiting on the CV before SetAlternateContents.
+  std::atomic<bool> signalled{false};
+  auto fut = std::async(std::launch::async, [&]() {
+    std::unique_lock<std::mutex> lk(mPrivateCDAIObjectMPD->mVodAllAdsResolvedMtx);
+    signalled = mPrivateCDAIObjectMPD->mVodAllAdsResolvedCV.wait_for(
+        lk, std::chrono::seconds(2),
+        [&]{ return mPrivateCDAIObjectMPD->AreAllVodAdsResolved(); });
+  });
 
-  VodAdBreakInfo b3;
-  b3.breakId = "b3"; b3.insertionPointSec = 90.0;
-  b3.breakDurationSec = 5.0; b3.breakType = "midroll";
-  b3.opportunityFired = false; b3.cancelled = false;
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-alpha", "ad-alpha", "https://cdn.example.com/ad-alpha.mpd", 0, 0);
 
-  mPrivateCDAIObjectMPD->RegisterVodAdBreak(b1);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 60.0);
+  fut.get();
+  EXPECT_TRUE(signalled)
+      << "mVodAllAdsResolvedCV must be signalled by SetAlternateContents";
+}
 
-  mPrivateCDAIObjectMPD->RegisterVodAdBreak(b2);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 30.0);  // earlier
+/**
+ * @brief SetAlternateContents for an unknown break (not registered via
+ *        RegisterVodAdBreak and no prior placeholder call) falls into the
+ *        linear CDAI else branch, finds no mAdBreaks entry, and rejects the
+ *        ad via SendAdResolvedEvent(false). No mAdBreaks entry is created.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_SetAlternateContents_DropsUnknownBreak)
+{
+  // No RegisterVodAdBreak and no prior placeholder call — the linear else branch
+  // finds no mAdBreaks entry and rejects the ad via SendAdResolvedEvent(false).
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+              SendAdResolvedEvent(std::string("ad-X"), false, 0, 0, _))
+      .Times(1);
 
-  mPrivateCDAIObjectMPD->RegisterVodAdBreak(b3);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 30.0);  // unchanged
+  mPrivateCDAIObjectMPD->SetAlternateContents("non-existent-break", "ad-X",
+                                               "https://cdn.example.com/adX.mpd", 0, 0);
 
-  mPrivateCDAIObjectMPD->CancelVodAdBreak("b2");
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 60.0);  // next earliest
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->isAdBreakObjectExist("non-existent-break"));
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.empty());
+}
 
-  mPrivateCDAIObjectMPD->CancelVodAdBreak("b1");
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck, 90.0);
+/**
+ * @brief A cancelled VOD break is skipped by AreAllVodAdsResolved — it must
+ *        not block the stitcher even if no SetAlternateContents is received.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_CancelledBreak_DoesNotBlockResolution)
+{
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-ok",     0.0,  10.0, "preroll"});
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"brk-cancel", 30.0, 10.0, "midroll"});
 
-  mPrivateCDAIObjectMPD->CancelVodAdBreak("b3");
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mNextVodBreakToCheck,
-    std::numeric_limits<double>::max());
+  // Cancel the second break before any SetAlternateContents
+  mPrivateCDAIObjectMPD->CancelVodAdBreak("brk-cancel");
+
+  // Satisfy only the non-cancelled break
+  mPrivateCDAIObjectMPD->SetAlternateContents("brk-ok", "ad-ok", "https://cdn.example.com/ad-ok.mpd", 0, 0);
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "Cancelled breaks must not block AreAllVodAdsResolved";
+}
+
+/**
+ * @brief Linear CDAI (no RegisterVodAdBreak calls) must not be affected by
+ *        the new VOD path.  SetAlternateContents with an empty adId/url
+ *        (linear placeholder) still creates the mAdBreaks entry as before.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_LinearCdai_UnaffectedByVodPath)
+{
+  const std::string periodId = "linear-period-1";
+
+  // Linear CDAI placeholder call (empty adId/url) — must still work
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", 0, 30000);
+
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId))
+      << "Linear CDAI placeholder must still create mAdBreaks entry";
+
+  // mVodAdBreaks must remain empty — no VOD registration happened
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->mVodAdBreaks.empty())
+      << "Linear CDAI must not touch mVodAdBreaks";
+
+  // AreAllVodAdsResolved must be false (no VOD breaks registered)
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->AreAllVodAdsResolved())
+      << "AreAllVodAdsResolved must return false when no VOD breaks registered";
+}
+
+/**
+ * @brief Registration order recorded in mVodAdBreakOrder is preserved
+ *        regardless of map key ordering, ensuring FetchAdMPDsParallel
+ *        iterates breaks in insertion order.
+ */
+TEST_F(AdManagerMPDTests, VodCdai_BreakRegistrationOrder_Preserved)
+{
+  // Register in a non-lexicographic order
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"zzz-post",  120.0, 10.0, "postroll"});
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"aaa-pre",     0.0, 10.0, "preroll"});
+  mPrivateCDAIObjectMPD->RegisterVodAdBreak(VodAdBreakInfo{"mmm-mid",    60.0, 10.0, "midroll"});
+
+  const auto &order = mPrivateCDAIObjectMPD->mVodAdBreakOrder;
+  ASSERT_EQ(order.size(), 3u);
+  EXPECT_EQ(order[0], "zzz-post");
+  EXPECT_EQ(order[1], "aaa-pre");
+  EXPECT_EQ(order[2], "mmm-mid");
 }

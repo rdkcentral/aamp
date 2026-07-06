@@ -23,9 +23,9 @@
  *
  * Produces a single multi-period static DASH MPD by splicing ad-break periods
  * into the main content MPD at registered insertion points. Ad MPDs are
- * fetched sequentially before stitching (see implementation notes) so that
- * tune latency stays bounded without unsafe parallel GetFile() usage.
- * Supported segment addressing: SegmentTemplate + SegmentTimeline only.
+ * fetched in parallel using per-break threads (each with a dedicated curl
+ * handle) so that tune latency is minimised when multiple breaks are
+ * registered. Supported segment addressing: SegmentTemplate + SegmentTimeline only.
  */
 
 #pragma once
