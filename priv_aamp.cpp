@@ -1824,6 +1824,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mLastSleThumbnailInfo()
 	, mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 	, mTuneTimeMetricData()
+	, mIsNewTune(false)
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);

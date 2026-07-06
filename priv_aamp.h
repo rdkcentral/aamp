@@ -1236,6 +1236,7 @@ public:
 
 	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
 	bool mIsFlushOperationInProgress;		/**< Flag to indicate pipeline flush operation is going on */
+	bool mIsNewTune;		/**< Flag to indicate it is new tune */
 
 	/**
 	 * @fn ProcessID3Metadata

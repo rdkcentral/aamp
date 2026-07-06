@@ -226,6 +226,7 @@ struct GstPlayerPriv
 	int NumberOfTracks;                                               /**< Indicates the number of tracks */
 	GstPlaybackQualityStruct playbackQuality; /**< video playback quality info */
 	bool isMp4DemuxPlayback; /**< flag to denote mp4demux path needs BMFF-like semantics */
+	long long mFirstFrameTimeInMS;                /**< Steady-clock timestamp (ms) when first video frame was received; 0 if unset */
 	struct CallbackData
 	{
 		gpointer instance;
