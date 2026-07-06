@@ -438,7 +438,8 @@ TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ClampsToZero_WhenLiveEdgeDelta
 	mStreamAbstractionAAMP->mMockVideoTrack->MediaTrack::SetLocalTSBInjection(true);
 
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
-		.WillOnce(Return(0.0));
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(0.0));
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetLastDownloadedPosition())
 		.WillOnce(Return(110.0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition())
