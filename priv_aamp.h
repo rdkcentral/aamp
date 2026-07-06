@@ -3432,21 +3432,21 @@ public:
 	 *
 	 *   @return void
 	 */
-	void AcquireStreamLock();
+	void AcquireStreamLock(const char *callerFn = __builtin_FUNCTION(), int callerLine = __builtin_LINE());
 
 	/**
 	 *   @fn TryStreamLock
 	 *
 	 *   @return True if it could I acquire it successfully else false
 	 */
-	bool TryStreamLock();
+	bool TryStreamLock(const char *callerFn = __builtin_FUNCTION(), int callerLine = __builtin_LINE());
 
 	/**
 	 *   @fn ReleaseStreamLock
 	 *
 	 *   @return void
 	 */
-	void ReleaseStreamLock();
+	void ReleaseStreamLock(const char *callerFn = __builtin_FUNCTION(), int callerLine = __builtin_LINE());
 
 	/**
 	 *  @fn UpdateLiveOffset
@@ -4204,6 +4204,10 @@ protected:
 	std::recursive_mutex mEventLock; 		/**< lock for operation on mPendingAsyncEvents */
 	int mEventPriority; 			/**< priority for async events */
 	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
+	std::size_t mStreamLockOwnerThreadID {0};	/**< Debug: hashed thread id of current mStreamLock owner (0 if free) */
+	const char *mStreamLockOwnerFn {""};		/**< Debug: function that last acquired mStreamLock */
+	int mStreamLockOwnerLine {0};			/**< Debug: line that last acquired mStreamLock */
+	int mStreamLockRecursionCount {0};		/**< Debug: recursion depth of mStreamLock (recursive_mutex) */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
 	std::string mAuxAudioLanguage; 		/**< auxiliary audio language */

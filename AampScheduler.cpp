@@ -92,6 +92,7 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
 				}
 			}
 			mTaskQueue.push_back(obj);
+			AAMPLOG_INFO("Queued task:%s taskId:%d, pending queue size:%d", obj.mTaskName.c_str(), id, (int)mTaskQueue.size());
 			mQCond.notify_one();
 		}
 		else
@@ -113,12 +114,15 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
 void AampScheduler::ExecuteAsyncTask()
 {
 	UsingPlayerId playerId( mPlayerId );
+	AAMPLOG_WARN("ExecuteAsyncTask worker thread STARTED [%zx]", GetPrintableThreadID(mSchedulerThread));
 	std::unique_lock<std::mutex>queueLock(mQMutex);
 	while (mSchedulerRunning)
 	{
 		if (mTaskQueue.empty())
 		{
+			AAMPLOG_INFO("ExecuteAsyncTask queue empty, waiting on condition variable");
 			mQCond.wait(queueLock);
+			AAMPLOG_INFO("ExecuteAsyncTask woke up from condition wait, queue size:%d schedulerRunning:%d", (int)mTaskQueue.size(), mSchedulerRunning);
 		}
 		else
 		{
@@ -128,7 +132,9 @@ void AampScheduler::ExecuteAsyncTask()
 			that cannot be deleted by RemoveAllTasks()!
 			Allow the queue to be modified while waiting.*/
 			queueLock.unlock();
+			AAMPLOG_INFO("ExecuteAsyncTask waiting to acquire execution lock (mExMutex)");
 			std::lock_guard<std::mutex>executionLock(mExMutex);
+			AAMPLOG_INFO("ExecuteAsyncTask acquired execution lock (mExMutex)");
 			queueLock.lock();
 
 			//mTaskQueue could have been modified while waiting for execute permission
@@ -148,14 +154,23 @@ void AampScheduler::ExecuteAsyncTask()
 						AAMPLOG_WARN("SchedulerTask Execution:%s taskId:%d",obj.mTaskName.c_str(),obj.mId);
 						//Execute function
 						obj.mTask(obj.mData);
+						AAMPLOG_WARN("SchedulerTask Execution COMPLETED:%s taskId:%d",obj.mTaskName.c_str(),obj.mId);
 						//May be used in a wait() in future loops, it needs to be locked
 						queueLock.lock();
+					}
+					else
+					{
+						AAMPLOG_WARN("SchedulerTask NOT executed, registered task skipped! task:%s taskId:%d state:%d (ERROR/RELEASED)",obj.mTaskName.c_str(),obj.mId,mState);
 					}
 				}
 				else
 				{
 					AAMPLOG_ERR("Scheduler found a task with invalid ID, skip task!");
 				}
+			}
+			else
+			{
+				AAMPLOG_INFO("Scheduler woke up but task queue is empty; task may have been removed while waiting for execution lock");
 			}
 		}
 	}

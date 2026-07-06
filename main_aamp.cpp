@@ -1101,8 +1101,10 @@ void PlayerInstanceAAMP::Seek(double secondsRelativeToTuneTime, bool keepPaused)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPPlayerState state = aamp->GetState();
+		AAMPLOG_WARN("Seek requested secondsRelativeToTuneTime:%f keepPaused:%d state:%d asyncTune:%d", secondsRelativeToTuneTime, keepPaused, state, mAsyncTuneEnabled);
 		if(mAsyncTuneEnabled && state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
+			AAMPLOG_WARN("Seek scheduling SeekInternal as async task");
 			mScheduler.ScheduleTask(AsyncTaskObj([secondsRelativeToTuneTime,keepPaused](void *data)
 					{
 						PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
@@ -1111,8 +1113,13 @@ void PlayerInstanceAAMP::Seek(double secondsRelativeToTuneTime, bool keepPaused)
 		}
 		else
 		{
+			AAMPLOG_WARN("Seek executing SeekInternal synchronously");
 			SeekInternal(secondsRelativeToTuneTime,keepPaused);
 		}
+	}
+	else
+	{
+		AAMPLOG_ERR("Seek alled but aamp instance is NULL");
 	}
 }
 
@@ -1125,6 +1132,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 	bool sentSpeedChangedEv = false;
 	bool isSeekToLiveOrEnd = false;
 	TuneType tuneType = eTUNETYPE_SEEK;
+	AAMPLOG_WARN("SeekInternal ENTRY secondsRelativeToTuneTime:%f keepPaused:%d", secondsRelativeToTuneTime, keepPaused);
 	if( aamp )
 	{
 		AAMPPlayerState state = GetState();
@@ -1183,6 +1191,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 					else
 					{
 						AAMPLOG_WARN("Not live, skipping seekToLive for MediaFormat %d", aamp->mMediaFormat);
+						AAMPLOG_WARN("SeekInternal EXIT (not live, skip seekToLive)");
 						return;
 					}
 				}
@@ -1218,6 +1227,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 					{
 						AAMPLOG_WARN("Skipping SeektoLive as already at livepoint and latency(%f)!!",currentLatency);
 						aamp->NotifyOnEnteringLive();
+						AAMPLOG_WARN("SeekInternal EXIT (already at livepoint, skip seektolive)");
 						return;		//skip seektolive
 					}
 					else		//live latency is greater thus continue seektolive
@@ -1235,6 +1245,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				{
 					AAMPLOG_WARN("Already at live point, skipping operation since requested position(%f) >= currPosition(%f) or seekToLive(%d)", secondsRelativeToTuneTime, currPositionSecs, isSeekToLiveOrEnd);
 					aamp->NotifyOnEnteringLive();
+					AAMPLOG_WARN("SeekInternal EXIT (already at live point)");
 					return;
 				}
 			}
@@ -1272,6 +1283,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				(aamp->GetPositionSeconds() == secondsRelativeToTuneTime))
 			{
 				AAMPLOG_WARN("Ignoring seek to same position as start position(%lf) for BG player", aamp->GetPositionSeconds());
+				AAMPLOG_WARN("SeekInternal EXIT (ignored seek to same position for BG player)");
 				return;
 			}
 			/*
@@ -1327,6 +1339,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 		}
 	}
+	AAMPLOG_WARN("SeekInternal EXIT (normal completion)");
 }
 
 /**

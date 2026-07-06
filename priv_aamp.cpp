@@ -11554,26 +11554,60 @@ bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
 /**
  *  @brief acquire streamsink lock
  */
-void PrivateInstanceAAMP::AcquireStreamLock()
+void PrivateInstanceAAMP::AcquireStreamLock(const char *callerFn, int callerLine)
 {
-	mStreamLock.lock();
+	std::size_t callerTid = GetPrintableThreadID();
+	if (!mStreamLock.try_lock())
+	{
+		AAMPLOG_WARN("AcquireStreamLock: thread[%zx] BLOCKED on mStreamLock at %s:%d, current owner thread[%zx] holding since %s:%d (depth=%d)",
+			callerTid, callerFn, callerLine, mStreamLockOwnerThreadID, mStreamLockOwnerFn, mStreamLockOwnerLine, mStreamLockRecursionCount);
+		auto start = std::chrono::steady_clock::now();
+		mStreamLock.lock();
+		long long waitMs = (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+		AAMPLOG_WARN("AcquireStreamLock: thread[%zx] ACQUIRED mStreamLock at %s:%d after waiting %lldms",
+			callerTid, callerFn, callerLine, waitMs);
+	}
+	mStreamLockOwnerThreadID = callerTid;
+	mStreamLockOwnerFn = callerFn;
+	mStreamLockOwnerLine = callerLine;
+	mStreamLockRecursionCount++;
 }
 
 /**
  * @brief try to acquire streamsink lock
  *
  */
-bool PrivateInstanceAAMP::TryStreamLock()
+bool PrivateInstanceAAMP::TryStreamLock(const char *callerFn, int callerLine)
 {
-	return mStreamLock.try_lock();
+	bool acquired = mStreamLock.try_lock();
+	if (acquired)
+	{
+		mStreamLockOwnerThreadID = GetPrintableThreadID();
+		mStreamLockOwnerFn = callerFn;
+		mStreamLockOwnerLine = callerLine;
+		mStreamLockRecursionCount++;
+	}
+	else
+	{
+		AAMPLOG_WARN("TryStreamLock: thread[%zx] FAILED to acquire mStreamLock at %s:%d, current owner thread[%zx] holding since %s:%d (depth=%d)",
+			GetPrintableThreadID(), callerFn, callerLine, mStreamLockOwnerThreadID, mStreamLockOwnerFn, mStreamLockOwnerLine, mStreamLockRecursionCount);
+	}
+	return acquired;
 }
 
 /**
  * @brief release streamsink lock
  *
  */
-void PrivateInstanceAAMP::ReleaseStreamLock()
+void PrivateInstanceAAMP::ReleaseStreamLock(const char *callerFn, int callerLine)
 {
+	if (--mStreamLockRecursionCount <= 0)
+	{
+		mStreamLockRecursionCount = 0;
+		mStreamLockOwnerThreadID = 0;
+		mStreamLockOwnerFn = "";
+		mStreamLockOwnerLine = 0;
+	}
 	mStreamLock.unlock();
 }
 
