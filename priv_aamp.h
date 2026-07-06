@@ -904,6 +904,15 @@ public:
 	};
 	std::vector<PendingVodAdBreak> mPendingVodAdBreaks; /**< Breaks queued before mCdaiObject exists */
 
+	/** Pre-tune SetAlternateContents calls buffered before mCdaiObject is created */
+	struct PendingAlternateContents
+	{
+		std::string adBreakId;
+		std::string adId;
+		std::string url;
+	};
+	std::vector<PendingAlternateContents> mPendingAlternateContents; /**< SetAlternateContents calls queued before mCdaiObject exists */
+
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */
