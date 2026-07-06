@@ -390,10 +390,10 @@ TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsLiveEdgeDelta_WhenLocal
 
 /**
  * @brief Verify GetBufferValue() returns lastDownloadedPosition minus
- *        GetLivePlayPosition() when paused at the live edge (pipeline frozen,
- *        GetBufferedDuration() would otherwise inflate).
+ *        GetLivePlayPosition() when local TSB is enabled and the pipeline is
+ *        paused (injection not yet active).
  */
-TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsLiveEdgeDelta_WhenPausedAtLiveEdge)
+TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsLiveEdgeDelta_WhenPipelinePaused)
 {
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
 	mPrivateInstanceAAMP->mSinkPaused = true;
