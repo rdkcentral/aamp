@@ -2384,9 +2384,9 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 			bufferValue = lastFetchedEndPosition - livePlayPosition;
 			AAMPLOG_INFO("Buffer (%.02lf)sec based on last downloaded end position (%.02lf)sec and live play position (%.02lf)sec !!",
 						 bufferValue, lastFetchedEndPosition, livePlayPosition);
-			if (bufferValue < 0)
+			if (bufferValue < 0.0)
 			{
-				bufferValue = 0;
+				bufferValue = 0.0;
 			}
 		}
 	}
