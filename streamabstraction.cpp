@@ -2361,8 +2361,8 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
  *  @brief Return the effective buffer depth for ABR decisions.
  *
  *  Returns GetBufferedDuration() except during local TSB playback or when
- *  paused at the live edge, where it returns
- *  lastDownloadedPosition - GetLivePlayPosition(), clamped to >= 0.
+ *  paused, where it returns lastDownloadedPosition - GetLivePlayPosition(),
+ *  clamped to >= 0.
  */
 double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
