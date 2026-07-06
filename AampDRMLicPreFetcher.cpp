@@ -553,6 +553,37 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if(drmSession == nullptr)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
+
+		// Retry once on AAMP_TUNE_DRM_CHALLENGE_FAILED — this can occur transiently
+		// when the OCDM CDM is in a residual state from a previous player instance and
+		// delivers a spurious zero-length challenge (Key State 3 / error) on the first
+		// opencdm_construct_session call.  A single retry forces DrmSessionManager to
+		// tear down the bad OCDMSessionAdapter and construct a fresh one, which is
+		// exactly the recovery that succeeds on a subsequent player creation.
+		if (!mExitLoop && e->getFailure() == AAMP_TUNE_DRM_CHALLENGE_FAILED)
+		{
+			AAMPLOG_WARN("Transient DRM challenge failure detected — retrying DRM session creation once");
+			bool isSecClientErrorRetry = isSecFeatureEnabled();
+			DrmMetaDataEventPtr eRetry = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientErrorRetry, mPrivAAMP->GetSessionId());
+			{
+				std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
+				drmSession = licenseManger->createDrmSession(fetchObj->mHelper, mPrivAAMP, eRetry, (int)fetchObj->mType);
+			}
+			if (drmSession != nullptr)
+			{
+				AAMPLOG_MIL("DRM session retry succeeded");
+				e = std::move(eRetry);
+			}
+			else
+			{
+				AAMPLOG_ERR("DRM session retry also failed for systemId = %s", fetchObj->mHelper->getUuid().c_str());
+				// fall through — NotifyDrmFailure called below with original event
+			}
+		}
+	}
+
+	if(drmSession == nullptr)
+	{
 		/*
 		 * mLicenseAcquisitionMutex shouldn't be locked before calling
 		 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
