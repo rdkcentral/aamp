@@ -86,14 +86,21 @@ TRANSITIONS = [
     ("PLAYING",           "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
     ("PAUSED",            "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
 
+    # Normal flush exit: all sources confirm SourceFlushedEvent.
+    # onFlushComplete() restores the state that was active when onFlush() was
+    # called.  play() is issued only when the restored state is PLAYING.
+    ("FLUSHING",          "onFlushComplete [pre=PLAYING]",         "play()",    "PLAYING"),
+    ("FLUSHING",          "onFlushComplete [pre=PAUSED]",          "",          "PAUSED"),
+    ("FLUSHING",          "onFlushComplete [pre=SOURCES_ATTACHED]","",          "SOURCES_ATTACHED"),
+
     # After flush + re-configure, new init fragments re-drive attachment.
     ("FLUSHING",          "onSourceAttaching",    "attachSource()",        "SOURCES_ATTACHING"),
 
-    # FlushingState responds to Rialto playback state notifications.
-    # This prevents the state machine from staying stuck in FLUSHING when
-    # Rialto sends PLAYING or PAUSED during a flush/seek operation.
-    ("FLUSHING",          "onPlaybackStarted",    "Rialto sends PLAYING",  "PLAYING"),
-    ("FLUSHING",          "onPlaybackPaused",     "Rialto sends PAUSED",   "PAUSED"),
+    # Note: onPlaybackStarted/Paused during FLUSHING (delayed ack for a
+    # play() that was in-flight when Flush() started) update m_preFlushStateId
+    # but do NOT transition state.  The machine stays in FLUSHING until
+    # onFlushComplete() fires, keeping WaitForFlushToComplete() correctly
+    # blocked until all sources confirm flushed.
 
     # ── Stop — valid from any non-terminal state ───────────────────────────
     ("PIPELINE_CREATED",  "onStop",               "stop()",                "STOPPED"),

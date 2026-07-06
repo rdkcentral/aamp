@@ -116,11 +116,14 @@ public:
 	/// After a flush new init fragments arrive, restarting source attachment.
 	std::unique_ptr<IPlayerState> onSourceAttaching() override;
 
-	/// Rialto sends PLAYING while flushing (e.g. after seek completes).
-	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
-
-	/// Rialto sends PAUSED while flushing (e.g. seek with keepPaused=1).
-	std::unique_ptr<IPlayerState> onPlaybackPaused() override;
+	// onPlaybackStarted() and onPlaybackPaused() are intentionally NOT
+	// overridden here.  When Rialto sends PLAYING or PAUSED during a flush
+	// (delayed ack for a play() that was in-flight when Flush() started),
+	// PlayerStateMachine::onPlaybackStarted/Paused() intercepts the call,
+	// updates m_preFlushStateId, and returns without transitioning.  The
+	// machine stays in FLUSHING until onFlushComplete() fires — keeping
+	// WaitForFlushToComplete() correctly blocked until all sources confirm
+	// flushed.  See PlayerStateMachine::onPlaybackStarted/Paused() below.
 };
 
 class StoppedState final : public IPlayerState
@@ -212,16 +215,6 @@ std::unique_ptr<IPlayerState> FlushingState::onSourceAttaching()
 	return std::make_unique<SourcesAttachingState>();
 }
 
-std::unique_ptr<IPlayerState> FlushingState::onPlaybackStarted()
-{
-	return std::make_unique<PlayingState>();
-}
-
-std::unique_ptr<IPlayerState> FlushingState::onPlaybackPaused()
-{
-	return std::make_unique<PausedState>();
-}
-
 // ============================================================================
 // PlayerStateMachine
 // ============================================================================
@@ -275,17 +268,100 @@ void PlayerStateMachine::onAllSourcesAttached()
 
 void PlayerStateMachine::onPlaybackStarted()
 {
+	{
+		// Edge-case race: a delayed PLAYING ack for a play() that was in-flight
+		// when Flush() started.  Update m_preFlushStateId so onFlushComplete()
+		// will restore to PLAYING, but keep the machine in FLUSHING — this is
+		// the key advantage over immediately transitioning: WaitForFlushToComplete()
+		// (predicate: state != FLUSHING) stays blocked until all sources confirm
+		// flushed, preventing Configure() or a new Flush() from racing with
+		// in-flight OnSourceFlushed callbacks.
+		std::lock_guard<std::mutex> lock(m_mutex);
+		if (m_state->id() == PlayerStateId::FLUSHING)
+		{
+			AAMPLOG_INFO("PlayerState: onPlaybackStarted during FLUSHING - "
+				"updating pre-flush state to PLAYING, "
+				"state remains FLUSHING until all sources flush");
+			m_preFlushStateId = PlayerStateId::PLAYING;
+			return;
+		}
+	}
 	dispatch(&IPlayerState::onPlaybackStarted);
 }
 
 void PlayerStateMachine::onPlaybackPaused()
 {
+	{
+		// Edge-case race: same reasoning as onPlaybackStarted above.
+		std::lock_guard<std::mutex> lock(m_mutex);
+		if (m_state->id() == PlayerStateId::FLUSHING)
+		{
+			AAMPLOG_INFO("PlayerState: onPlaybackPaused during FLUSHING - "
+				"updating pre-flush state to PAUSED, "
+				"state remains FLUSHING until all sources flush");
+			m_preFlushStateId = PlayerStateId::PAUSED;
+			return;
+		}
+	}
 	dispatch(&IPlayerState::onPlaybackPaused);
 }
 
 void PlayerStateMachine::onFlush()
 {
-	dispatch(&IPlayerState::onFlush);
+	// Save the current state before entering FLUSHING so that
+	// onFlushComplete() can restore it when all sources report flushed.
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_preFlushStateId = m_state->id();
+	AAMPLOG_INFO("PlayerState: saving pre-flush state '%s' (id=%d)",
+		m_state->name(), static_cast<int>(m_preFlushStateId));
+	auto next = m_state->onFlush();
+	if (next)
+	{
+		AAMPLOG_MIL("PlayerState: %s -> %s",
+			m_state->name(), next->name());
+		m_state = std::move(next);
+	}
+}
+
+void PlayerStateMachine::onFlushComplete()
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+
+	if (m_state->id() != PlayerStateId::FLUSHING)
+	{
+		// The edge-case race: onPlaybackStarted/Paused already exited
+		// FLUSHING before all sources confirmed flushed.  This call is a
+		// no-op — the correct post-flush state was already applied.
+		AAMPLOG_INFO("PlayerState: onFlushComplete ignored - current state is '"
+			"%s', not FLUSHING (edge-case race already resolved)",
+			m_state->name());
+		return;
+	}
+
+	std::unique_ptr<IPlayerState> restored;
+	switch (m_preFlushStateId)
+	{
+	case PlayerStateId::PLAYING:
+		restored = std::make_unique<PlayingState>();
+		break;
+	case PlayerStateId::PAUSED:
+		restored = std::make_unique<PausedState>();
+		break;
+	case PlayerStateId::SOURCES_ATTACHED:
+		restored = std::make_unique<SourcesAttachedState>();
+		break;
+	default:
+		AAMPLOG_WARN(
+			"PlayerState: onFlushComplete - unexpected pre-flush state %d,"
+			" restoring SOURCES_ATTACHED as safe fallback",
+			static_cast<int>(m_preFlushStateId));
+		restored = std::make_unique<SourcesAttachedState>();
+		break;
+	}
+
+	AAMPLOG_MIL("PlayerState: %s -> %s (flush complete; pre-flush state restored)",
+		m_state->name(), restored->name());
+	m_state = std::move(restored);
 }
 
 void PlayerStateMachine::onStop()

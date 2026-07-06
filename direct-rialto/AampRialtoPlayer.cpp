@@ -378,25 +378,13 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 void AampRialtoPlayer::WaitForFlushToComplete()
 {
 	std::unique_lock<std::mutex> lock(m_flushMutex);
+	// Block until the state machine leaves FLUSHING.  onFlushComplete() (called
+	// from OnSourceFlushed when all sources confirm flushed) transitions the
+	// state and then notifies m_flushCv, so this predicate will always become
+	// true once the flush cycle ends.
 	m_flushCv.wait(lock, [this]()
 	{
-		// Done immediately if the state machine has already left FLUSHING.
-		bool done = (m_stateMachine.currentState() != PlayerStateId::FLUSHING);
-		if (!done)
-		{
-			// Still FLUSHING: done once no source reports isFlushing().
-			bool anyFlushing = false;
-			for (const auto &s : m_sources)
-			{
-				if (s && s->isFlushing())
-				{
-					anyFlushing = true;
-					break;
-				}
-			}
-			done = !anyFlushing;
-		}
-		return done;
+		return m_stateMachine.currentState() != PlayerStateId::FLUSHING;
 	});
 }
 
@@ -939,7 +927,11 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 		return;
 	}
 
-	if (m_allSourcesAttachedFlag.load(std::memory_order_relaxed))
+	// Guard: allSourcesAttached() must be called exactly once per pipeline
+	// session.  The machine is in SOURCES_ATTACHING only while waiting for
+	// all sources to register; once it advances past that state the call
+	// has already been issued.
+	if (m_stateMachine.currentState() != PlayerStateId::SOURCES_ATTACHING)
 	{
 		return;
 	}
@@ -961,6 +953,11 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 	else
 	{
 		m_stateMachine.onAllSourcesAttached();
+		// seq_cst store: pairs with the seq_cst load in Stream() so that
+		// either Stream() sees the flag and calls play() itself, or this
+		// function sees m_playRequested=true and calls it here.  The state
+		// machine transition above uses a mutex (not seq_cst) so it cannot
+		// substitute for this atomic rendezvous.
 		m_allSourcesAttachedFlag.store(true, std::memory_order_seq_cst);
 
 		if (m_playRequested.load(std::memory_order_seq_cst))
@@ -1054,27 +1051,23 @@ void AampRialtoPlayer::Stream()
 		// store before it reads m_playRequested (and vice-versa).
 		m_playRequested.store(true, std::memory_order_seq_cst);
 
+		// If a flush is in progress, play() will be issued by OnSourceFlushed()
+		// once all sources confirm flushed and onFlushComplete() restores state.
+		// Checking state is safe because FLUSHING is only set by Flush() (AAMP
+		// thread) and only cleared by onFlushComplete() or the edge-case
+		// onPlaybackStarted/Paused path (both protected by the state machine
+		// mutex).
+		if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
+		{
+			AAMPLOG_INFO("deferring play() - flush in progress");
+			AAMPLOG_INFO("EXIT");
+			return;
+		}
+
+		// seq_cst load: pairs with the seq_cst store in CheckAllSourcesAttached()
+		// to guarantee one side always calls play().
 		if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
 		{
-			// Guard: if any source is still flushing, do not call play()
-			// yet.  setSourcePosition() (which emits the GStreamer SEGMENT
-			// event) is called from OnSourceFlushed(), which fires after
-			// the server confirms the flush.  Issuing play() before that
-			// point leaves the pipeline without a SEGMENT event and causes
-			// frames at large live-stream PTS values to be silently dropped.
-			// OnSourceFlushed() will issue the deferred play() once all
-			// sources report flushing complete.
-			for (const auto &source : m_sources)
-			{
-				if (source && source->isFlushing())
-				{
-					AAMPLOG_INFO("deferring play() - source %d still flushing",
-						source->sourceId());
-					AAMPLOG_INFO("EXIT");
-					return;
-				}
-			}
-
 			// allSourcesAttached() already completed before this call -
 			// promote to PLAYING immediately.
 			bool async = false;
@@ -1130,8 +1123,13 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
 
-	// Stage latest flush parameters first so re-entrant Flush() calls while
-	// FLUSHING can still retarget the pending segment start and applied rate.
+	// If a previous flush is still in progress, block until it completes
+	// before starting a new one.  This keeps the flush cycle atomic: each
+	// Flush() call owns a single FLUSHING → <pre-flush-state> cycle and
+	// removes the complexity of updating parameters mid-flush.
+	// Configure() follows the same pattern.
+	WaitForFlushToComplete();
+
 	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
 	m_pendingFlushPositionNs.store(posNs, std::memory_order_relaxed);
 	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
@@ -1144,6 +1142,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	//
 	// This differs from GStreamer which skips flush in non-PLAYING/PAUSED states.
 	// Rialto needs to flush in states like SOURCES_ATTACHED to set up positions.
+	// WaitForFlushToComplete() above guarantees we are never in FLUSHING here.
 	const PlayerStateId state = m_stateMachine.currentState();
 	const bool isPlayingPausedOrAttached = (state == PlayerStateId::PLAYING ||
 											state == PlayerStateId::SOURCES_ATTACHED ||
@@ -1156,35 +1155,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			m_stateMachine.currentStateName());
 		Stop(true);
 		AAMPLOG_INFO("EXIT - teardown requested");
-		return;
-	}
-
-	if (state == PlayerStateId::FLUSHING)
-	{
-		AAMPLOG_INFO("Flush requested while already FLUSHING - updated pending position/rate only (position=%f rate=%d shouldTearDown=%d)",
-			position, rate, shouldTearDown);
-
-		// If some sources have already reported flushed, they will not emit another
-		// SourceFlushedEvent during this flush cycle. Re-apply the updated pending
-		// position/rate so all sources stay in sync.
-		if (m_pipeline)
-		{
-			for (const auto &s : m_sources)
-			{
-				if (s && s->isAttached() && !s->isFlushing())
-				{
-					if (!m_pipeline->setSourcePosition(
-						s->sourceId(), posNs, /*resetTime=*/true,
-						computeAppliedRate(rate)))
-					{
-						AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
-							s->sourceId());
-					}
-				}
-			}
-		}
-
-		AAMPLOG_INFO("EXIT - already flushing");
 		return;
 	}
 	
@@ -1800,9 +1770,11 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		case firebolt::rialto::PlaybackState::PLAYING:
 		{
 			m_stateMachine.onPlaybackStarted();
-			// If PLAYING arrives while a flush is still in progress the state
-			// machine has just left FLUSHING.  Wake any thread blocked in
-			// WaitForFlushToComplete() so it can re-evaluate its predicate.
+			// Edge-case race: if PLAYING arrives before onFlushComplete() fires
+			// (a delayed ack for a play() that was in-flight when Flush() was
+			// called), the state machine has just transitioned out of FLUSHING.
+			// Wake any thread blocked in WaitForFlushToComplete() so it can
+			// re-evaluate its predicate.
 			m_flushCv.notify_all();
 
 			// Clear injectionGated so inject threads resume blocking
@@ -1952,29 +1924,30 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 			m_rate.store(pendingRate, std::memory_order_relaxed);
 			AAMPLOG_INFO("All sources flushed - committed playback rate=%d",
 				pendingRate);
-			m_flushCv.notify_all();
-		}
 
-		// If Stream() was called while this source was still flushing,
-		// play() was deferred to avoid issuing it before setSourcePosition()
-		// sends the GStreamer SEGMENT event.  Now that this source's
-		// setSourcePosition() has been sent, check whether all sources have
-		// finished flushing and, if so, issue the deferred play().
-		if (allSourcesFlushed &&
-		    m_playRequested.load(std::memory_order_seq_cst) &&
-		    m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
-		{
-			AAMPLOG_INFO("All sources flushed - issuing deferred play()");
-			bool async = false;
-			if (!m_pipeline->play(async))
+			// Restore the pre-flush state (PLAYING, PAUSED, or SOURCES_ATTACHED)
+			// before notifying WaitForFlushToComplete(), which unblocks as soon
+			// as the state leaves FLUSHING.
+			m_stateMachine.onFlushComplete();
+			m_flushCv.notify_all();
+
+			// Issue play() only if the restored state is PLAYING.
+			// This correctly handles seek-while-paused: the pre-flush state was
+			// PAUSED so the pipeline stays paused after the flush.
+			if (m_stateMachine.currentState() == PlayerStateId::PLAYING)
 			{
-				AAMPLOG_ERR("play() failed after flush");
+				AAMPLOG_INFO("All sources flushed - issuing play() (pre-flush state was PLAYING)");
+				bool async = false;
+				if (!m_pipeline->play(async))
+				{
+					AAMPLOG_ERR("play() failed after flush");
+				}
 			}
-		}
-		else if (!allSourcesFlushed)
-		{
-			AAMPLOG_INFO("source %d still flushing - play() still deferred",
-				sourceId);
+			else
+			{
+				AAMPLOG_INFO("All sources flushed - not issuing play() (restored state=%s)",
+					m_stateMachine.currentStateName());
+			}
 		}
 	}
 	else

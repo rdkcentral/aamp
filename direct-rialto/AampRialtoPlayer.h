@@ -444,8 +444,16 @@ private:
 	/// transitions PAUSED→PLAYING only after all sources are registered.
 	std::atomic<bool> m_playRequested{false};
 
-	/// Set by CheckAllSourcesAttached() after allSourcesAttached() succeeds.
-	/// Stream() reads this to decide whether it can call play() immediately.
+	/// Tracks whether allSourcesAttached() was successfully sent for the
+	/// current pipeline session.  Reset to false on pipeline rebuild.
+	///
+	/// IMPORTANT — seq_cst rendezvous with m_playRequested:
+	///   Stream() stores m_playRequested=true (seq_cst) THEN loads this flag
+	///   (seq_cst).  CheckAllSourcesAttached() stores this flag=true (seq_cst)
+	///   THEN loads m_playRequested (seq_cst).  The seq_cst total order
+	///   guarantees one side always observes the other's write and calls
+	///   play().  A mutex-based state read does NOT participate in that total
+	///   order and cannot substitute for this atomic.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied

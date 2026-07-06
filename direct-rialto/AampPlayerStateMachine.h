@@ -115,6 +115,12 @@ public:
 	/// Fired when Flush() is called.
 	virtual std::unique_ptr<IPlayerState> onFlush()              { return nullptr; }
 
+	/// Fired when all sources confirm SourceFlushedEvent, completing the
+	/// flush cycle.  Only meaningful from FLUSHING; ignored from all other
+	/// states so the edge-case race (Rialto PLAYING arriving before
+	/// onFlushComplete) cannot cause a double-transition.
+	virtual std::unique_ptr<IPlayerState> onFlushComplete()      { return nullptr; }
+
 	/// Valid from any state — transitions to STOPPED.
 	/// Non-inline: body defined in .cpp after StoppedState is complete.
 	virtual std::unique_ptr<IPlayerState> onStop();
@@ -185,6 +191,14 @@ public:
 	/// @see IPlayerState::onFlush
 	void onFlush();
 
+	/// Fired when all sources report SourceFlushedEvent.
+	///
+	/// Restores the state that was current when onFlush() was called
+	/// (PLAYING → PLAYING, PAUSED → PAUSED, SOURCES_ATTACHED →
+	/// SOURCES_ATTACHED).  If the machine has already left FLUSHING
+	/// via the edge-case onPlaybackStarted/Paused path, this is a no-op.
+	void onFlushComplete();
+
 	/// @see IPlayerState::onStop
 	void onStop();
 
@@ -198,8 +212,12 @@ private:
 	/// Execute a handler, apply the returned transition, and log MIL.
 	void dispatch(std::unique_ptr<IPlayerState> (IPlayerState::*handler)());
 
-	mutable std::mutex          m_mutex;
+	mutable std::mutex            m_mutex;
 	std::unique_ptr<IPlayerState> m_state;
+
+	/// State saved by onFlush() so that onFlushComplete() can restore it.
+	/// Only meaningful while the machine is in FLUSHING; undefined otherwise.
+	PlayerStateId m_preFlushStateId{PlayerStateId::IDLE};
 };
 
 #endif // AAMP_PLAYER_STATE_MACHINE_H
