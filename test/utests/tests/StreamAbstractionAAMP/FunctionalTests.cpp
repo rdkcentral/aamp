@@ -399,7 +399,8 @@ TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsLiveEdgeDelta_WhenPause
 	// mIsLocalTSBInjection defaults to false — injection not yet active
 
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
-		.WillOnce(Return(0.0));
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(0.0));
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetLastDownloadedPosition())
 		.WillOnce(Return(120.0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition())
