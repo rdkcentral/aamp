@@ -6364,6 +6364,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				if (mbPlayEnabled)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus());
+					if ((eAAMPConfig_useDirectRialto) && (mMediaFormat == eMEDIAFORMAT_HLS))
+					{
+						AAMPLOG_INFO("Setting stream caps for HLS-TS");
+						MediaCodecInfo ci_video{};
+						ci_video.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+						sink->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci_video));
+						MediaCodecInfo ci_audio{};
+						ci_audio.mCodecFormat = GST_FORMAT_AUDIO_ES_AAC;
+						sink->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(ci_audio));
+					}
 				}
 			}
 			else
@@ -12158,7 +12168,7 @@ bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
 void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat)
 {
 	bool reconfigure = false;
-	//AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
+	AAMPLOG_MIL("Got format - videoFormat %d and audioFormat %d", videoFormat, audioFormat);
 
 	// 1. Modified Configure() not to recreate all playbins if there is a change in track's format.
 	// 2. For a demuxed scenario, this function will be called twice for each audio and video, so double the trouble.
@@ -12211,6 +12221,16 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		if (sink)
 		{
 			sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
+			if ((eAAMPConfig_useDirectRialto) && (mMediaFormat == eMEDIAFORMAT_HLS))
+			{
+				AAMPLOG_INFO("Setting stream caps for HLS-TS");
+				MediaCodecInfo ci_video{};
+				ci_video.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+				sink->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci_video));
+				MediaCodecInfo ci_audio{};
+				ci_audio.mCodecFormat = GST_FORMAT_AUDIO_ES_AAC;
+				sink->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(ci_audio));
+			}
 		}
 	}
 }
@@ -14938,6 +14958,13 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
 	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
+	if (ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) && (mMediaFormat != eMEDIAFORMAT_HLS))
+	{
+		// Mp4Demuxer will set the format later once the init fragment is parsed
+		// format is only used for video and audio formats. Subtitle should be unaffected
+		primaryOutputFormat = FORMAT_UNKNOWN;
+		audioOutputFormat = FORMAT_UNKNOWN;
+	}
 
 	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
 	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&

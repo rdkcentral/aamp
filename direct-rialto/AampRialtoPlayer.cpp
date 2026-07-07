@@ -335,7 +335,8 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	}
 	else if (videoSrc->format() != videoFormat)
 	{
-		AAMPLOG_INFO("Video codec changed: ShouldRecreatePipeline true");
+		AAMPLOG_INFO("Video codec changed (old=%d, new=%d): ShouldRecreatePipeline true",
+			videoSrc->format(), videoFormat);
 		return true;  // Video codec changed.
 	}
 
@@ -353,7 +354,8 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	else if (audioFormat != FORMAT_INVALID &&
 	         audioSrc->format() != audioFormat)
 	{
-		AAMPLOG_INFO("Audio codec changed to a different valid format: ShouldRecreatePipeline true");
+		AAMPLOG_INFO("Audio codec changed to a different valid format (old=%d, new=%d): ShouldRecreatePipeline true",
+			audioSrc->format(), audioFormat);
 		return true;  // Audio codec changed to a different valid format.
 	}
 
@@ -742,6 +744,7 @@ bool AampRialtoPlayer::SendCopy(
 	double fDuration)
 {
 	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
+	SendTransfer(mediaType, std::move(buffer), fpts, fdts, fDuration, /*fragmentPTSoffset=*/0.0, /*initFragment=*/false, /*discontinuity=*/false);
 	AAMPLOG_INFO("EXIT");
 	return false;
 }
