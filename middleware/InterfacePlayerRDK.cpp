@@ -1661,11 +1661,42 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	if (!gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
-		MW_LOG_ERR("Seek failed");
-		SetPendingSeek(true);
-		//Save the updated seek position
-		SetSeekPosition(position);
-		seekSucceeded = false;
+		if (interfacePlayerPriv->gstPrivateContext->usingRialtoSink)
+		{
+			/*
+			 * Seek may fail if a Rialto-internal flush (triggered by TeardownStream's
+			 * pipeline state changes) is still propagating through the audio decoder
+			 * when this seek is dispatched. The flush typically completes within ~35ms.
+			 * Wait for the pipeline to settle (gst_element_get_state unblocks as soon
+			 * as ASYNC_DONE is received, so the wait is bounded by the flush duration,
+			 * not the full 50ms timeout) and retry the seek once. See VPAAMP-610.
+			 */
+			MW_LOG_WARN("Rialto seek failed on first attempt - waiting for in-flight flush to complete before retry");
+			GstState cur, pend;
+			gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline,
+								  &cur, &pend, 50 * GST_MSECOND);
+			if (!gst_element_seek(interfacePlayerPriv->gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
+								  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
+			{
+				MW_LOG_ERR("Seek failed on retry");
+				SetPendingSeek(true);
+				//Save the updated seek position
+				SetSeekPosition(position);
+				seekSucceeded = false;
+			}
+			else
+			{
+				MW_LOG_INFO("Seek succeeded on retry after waiting for Rialto flush");
+			}
+		}
+		else
+		{
+			MW_LOG_ERR("Seek failed");
+			SetPendingSeek(true);
+			//Save the updated seek position
+			SetSeekPosition(position);
+			seekSucceeded = false;
+		}
 	}
 
 	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) &&
