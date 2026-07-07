@@ -1242,6 +1242,14 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		{
 			if (source && source->isAttached())
 			{
+				int32_t sourceId = source->sourceId();
+				if (!m_pipeline->setSourcePosition(
+					sourceId, posNs, /*resetTime=*/true,
+					computeAppliedRate(rate)))
+				{
+					AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
+								sourceId);
+				}
 				anyAttachedSource = true;
 				source->setFlushing(true);
 				source->flushSource(*m_pipeline, posNs);
