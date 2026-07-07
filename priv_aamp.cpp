@@ -6364,7 +6364,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				if (mbPlayEnabled)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus());
-					if ((eAAMPConfig_useDirectRialto) && (mMediaFormat == eMEDIAFORMAT_HLS))
+					if ((GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto)) && (mMediaFormat == eMEDIAFORMAT_HLS))
 					{
 						AAMPLOG_INFO("Setting stream caps for HLS-TS");
 						MediaCodecInfo ci_video{};
@@ -12221,7 +12221,7 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		if (sink)
 		{
 			sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
-			if ((eAAMPConfig_useDirectRialto) && (mMediaFormat == eMEDIAFORMAT_HLS))
+			if ((GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto)) && (mMediaFormat == eMEDIAFORMAT_HLS))
 			{
 				AAMPLOG_INFO("Setting stream caps for HLS-TS");
 				MediaCodecInfo ci_video{};

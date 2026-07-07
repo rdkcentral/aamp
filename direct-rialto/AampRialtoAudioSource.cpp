@@ -48,6 +48,10 @@ bool AampRialtoAudioSource::mapCodecToMime(
 			mimeType     = "audio/x-ac4";
 			streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
 			return true;
+		case GST_FORMAT_AUDIO_ES_AAC:
+			mimeType     = "audio/mpeg";
+			streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
+			return true;
 		default:
 			return false;
 	}
