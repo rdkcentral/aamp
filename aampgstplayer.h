@@ -167,7 +167,7 @@ public:
 		 * @param[in] rate playback rate
 		 * @param[in] shouldTearDown flag indicates if pipeline should be destroyed if in invalid state
 		 */
-	bool Flush(double position, int rate, bool shouldTearDown) override;
+	void Flush(double position, int rate, bool shouldTearDown) override;
 	/**
 		 * @fn Pause
 		 * @param[in] pause flag to pause/play the pipeline

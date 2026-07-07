@@ -1003,7 +1003,7 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
-bool AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
+void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -1026,20 +1026,6 @@ bool AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 
 		aamp->mCorrectionRate = (double)AAMP_NORMAL_PLAY_RATE;
 	}
-	else
-	{
-		// The GStreamer flush seek failed — the pipeline was not flushed and remains in its
-		// pre-flush state. Buffer control and rate correction are intentionally left unchanged
-		// because no position change has occurred. A pendingSeek retry is queued in
-		// InterfacePlayerRDK and will fire on the next injected buffer via SendGstEvents().
-		// For the SetActive() pipeline-handoff path (shouldTearDown=true) this means the
-		// incoming player may start from the wrong position until the next rate change or
-		// retune corrects it.
-		AAMPLOG_WARN("AAMPGstPlayer::Flush - pipeline flush seek failed (position=%f rate=%d "
-			"shouldTearDown=%d). Pending seek retry queued in middleware.",
-			position, rate, (int)shouldTearDown);
-	}
-	return ret;
 }
 
 /**

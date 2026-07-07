@@ -333,7 +333,7 @@ TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs()).WillOnce(Return(positionMs));
     double positionSec = (positionMs / 1000.0);
     EXPECT_CALL(*g_mockAampGstPlayer, ChangeAamp(mPrivateInstanceAAMP2, _)).Times(1);
-    EXPECT_CALL(*g_mockAampGstPlayer, Flush(positionSec, _, true)).Times(1).WillOnce(Return(true));
+    EXPECT_CALL(*g_mockAampGstPlayer, Flush(positionSec, _, true)).Times(1);
     AampStreamSinkManager::GetInstance().ActivatePlayer(mPrivateInstanceAAMP2);
 }
 

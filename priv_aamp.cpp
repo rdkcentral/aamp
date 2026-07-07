@@ -3222,13 +3222,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 					{
 						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
 					}
-					if (!sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate, false))
-					{
-						// Seek failed; pendingSeek retry is queued in middleware and fires on the
-						// next injected buffer. The underflow watchdog provides the safety net if
-						// the pipeline stalls. No retune here to avoid a retune loop.
-						AAMPLOG_WARN("Discontinuity flush seek failed - relying on pendingSeek retry");
-					}
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate, false);
 					if(mDiscontinuityFound)
 					{
 						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
@@ -4945,11 +4939,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
 				{
-					if (!sink->Flush(0, rate))
-					{
-						// Pipeline is being torn down immediately after this; failure is irrelevant.
-						AAMPLOG_WARN("Pre-teardown flush seek failed - pipeline teardown will proceed");
-					}
+					sink->Flush(0, rate);
 				}
 			}
 		}

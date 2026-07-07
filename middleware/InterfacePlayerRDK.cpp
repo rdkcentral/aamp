@@ -1690,7 +1690,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	interfacePlayerPriv->gstPrivateContext->eosSignalled = false;
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
-	return seekSucceeded;
+	return true;
 }
 void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
 {

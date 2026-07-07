@@ -69,13 +69,12 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 }
 
-bool AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
+void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{
-		return g_mockAampGstPlayer->Flush(position, rate, shouldTearDown);
+		g_mockAampGstPlayer->Flush(position, rate, shouldTearDown);
 	}
-	return true;
 }
 
 bool AAMPGstPlayer::SetPlayBackRate ( double rate )

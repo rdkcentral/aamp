@@ -347,7 +347,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest5)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
-		.Times(AtLeast(1)).WillRepeatedly(Return(true));
+		.Times(AtLeast(1));
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"lang0\",\"lang1\"]}");
 
@@ -454,7 +454,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
-		.Times(1).WillOnce(Return(true));
+		.Times(1);
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend0\"}");
 
 	/* Verify the preferred rendition list. */
