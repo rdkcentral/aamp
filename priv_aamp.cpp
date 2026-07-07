@@ -10583,6 +10583,15 @@ void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
 	{
 		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		// Direct Rialto blocks the injector thread(s) whilst waiting for NeedData,
+		// this call releases the thread
+		// TODO: Is this the correct approach, does Resume now need to be called
+		// or is a new API needed on StreamSink
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			sink->NotifyInjectorToPause();
+		}
 		mTrackInjectionBlocked[type] = true;
 	}
 	AAMPLOG_TRACE ("PrivateInstanceAAMP::Exit. type = %d", (int) type);
