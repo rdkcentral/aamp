@@ -37,8 +37,12 @@ bool AampRialtoVideoSource::mapCodecToMime(
 	switch (codecFormat)
 	{
 		case GST_FORMAT_VIDEO_ES_H264:
-			mimeType     = "video/h264";
-			streamFormat = firebolt::rialto::StreamFormat::AVC;
+			mimeType = "video/h264";
+			// HLS-TS ES path: TSProcessor outputs Annex B (byte-stream).
+			// fMP4 path: AampMp4Demuxer outputs AVCC (length-prefixed).
+			streamFormat = hasDemuxer()
+				? firebolt::rialto::StreamFormat::AVC
+				: firebolt::rialto::StreamFormat::BYTE_STREAM;
 			return true;
 		case GST_FORMAT_VIDEO_ES_HEVC:
 			mimeType     = "video/h265";

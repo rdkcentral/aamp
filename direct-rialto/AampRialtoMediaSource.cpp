@@ -677,16 +677,36 @@ std::optional<MediaCodecInfo> AampRialtoMediaSource::processInitFragment(
 bool AampRialtoMediaSource::processDataFragment(
 	firebolt::rialto::IMediaPipeline &pipeline,
 	std::shared_ptr<std::vector<uint8_t>> buffer,
-	double /*fpts*/,
-	double /*fdts*/,
-	double /*fDuration*/,
+	double fpts,
+	double fdts,
+	double fDuration,
 	double /*fragmentPTSoffset*/)
 {
 	if (!m_demuxer)
 	{
-		AAMPLOG_WARN("processDataFragment: no demuxer for mediaType=%d",
-			static_cast<int>(mediaType()));
-		return false;
+		// HLS-TS ES path: the TSProcessor has already demuxed the TS into
+		// individual ES frames and calls SendCopy() once per frame with
+		// correct PTS/DTS/duration.  Construct a single AampMediaSample
+		// from the raw ES buffer and inject it directly, bypassing the
+		// fMP4 demuxer path which requires a boxed MP4 fragment.
+		if (!waitForAttach())
+		{
+			return true;
+		}
+		AampMediaSample sample;
+		sample.mDataSize = buffer->size();
+		// Aliasing constructor: mData points into the buffer while buffer's
+		// ref-count keeps the storage alive.
+		sample.mData = std::shared_ptr<const uint8_t>(
+			buffer, buffer->data());
+		sample.mPts      = fpts;
+		sample.mDts      = fdts;
+		sample.mDuration = fDuration;
+		uint64_t capturedGen     = captureGeneration();
+		auto     pendingCodecData = takePendingCodecData();
+		injectOneSample(pipeline, capturedGen,
+			std::move(sample), pendingCodecData, /*morePending=*/false);
+		return true;
 	}
 	if (!m_demuxer->Parse(std::move(buffer)))
 	{
