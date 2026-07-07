@@ -703,6 +703,40 @@ protected:
 		*/
 		void SetIsFogTSB(bool value) { mIsFogTSB = value; }
 		void SetAdPlayingFromCDN(bool value) { mAdPlayingFromCDN = value; }
+
+		/**
+		 * @brief Test-only helpers for FetchAndInjectInitFragments tests.
+		 *
+		 * Creates real MediaStreamContext objects for the requested track
+		 * count, sets mNumberOfTracks and mMaxTracks so the destructor
+		 * cleans them up, and marks every track disabled so that
+		 * FetchAndInjectInitialization does no real work.
+		 */
+		void SetupMediaStreamContexts(int numTracks)
+		{
+			for (int i = 0; i < numTracks; i++)
+			{
+				if (!mMediaStreamContext[i])
+				{
+					mMediaStreamContext[i] = new MediaStreamContext(
+						(TrackType)i, this, aamp,
+						GetMediaTypeName(AampMediaType(i)));
+					mMediaStreamContext[i]->enabled = false;
+				}
+			}
+			mNumberOfTracks = numTracks;
+			mMaxTracks = numTracks;
+		}
+
+		bool GetProfileChanged(int trackIdx) const
+		{
+			return mMediaStreamContext[trackIdx]->profileChanged;
+		}
+
+		void SetProfileChanged(int trackIdx, bool value)
+		{
+			mMediaStreamContext[trackIdx]->profileChanged = value;
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -2391,6 +2425,52 @@ TEST_F(StreamAbstractionAAMP_MPDTest, FetchAndInjectInitFragmentsTest)
 {
 	bool discontinuity = true;
 	mStreamAbstractionAAMP_MPD->CallFetchAndInjectInitFragments(discontinuity);
+}
+
+/**
+ * @brief Verify that FetchAndInjectInitFragments sets profileChanged=true
+ * for every track when discontinuity is false.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, FetchAndInjectInitFragments_NoDiscontinuity_SetsProfileChanged)
+{
+	const int numTracks = 2;
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(numTracks);
+
+	for (int i = 0; i < numTracks; i++)
+	{
+		mStreamAbstractionAAMP_MPD->SetProfileChanged(i, false);
+	}
+
+	mStreamAbstractionAAMP_MPD->CallFetchAndInjectInitFragments(false);
+
+	for (int i = 0; i < numTracks; i++)
+	{
+		EXPECT_TRUE(mStreamAbstractionAAMP_MPD->GetProfileChanged(i))
+			<< "Track " << i << ": profileChanged must be true when discontinuity=false";
+	}
+}
+
+/**
+ * @brief Verify that FetchAndInjectInitFragments does NOT set profileChanged
+ * when discontinuity is true.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, FetchAndInjectInitFragments_Discontinuity_ProfileChangedUnmodified)
+{
+	const int numTracks = 2;
+	mStreamAbstractionAAMP_MPD->SetupMediaStreamContexts(numTracks);
+
+	for (int i = 0; i < numTracks; i++)
+	{
+		mStreamAbstractionAAMP_MPD->SetProfileChanged(i, false);
+	}
+
+	mStreamAbstractionAAMP_MPD->CallFetchAndInjectInitFragments(true);
+
+	for (int i = 0; i < numTracks; i++)
+	{
+		EXPECT_FALSE(mStreamAbstractionAAMP_MPD->GetProfileChanged(i))
+			<< "Track " << i << ": profileChanged must not be set when discontinuity=true";
+	}
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, StreamSelectionTest)
