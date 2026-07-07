@@ -2755,7 +2755,7 @@ As the playhead plays through the stitched timeline, AAMP fires the standard CDA
 | `reservationEnd` | All ads in the pod have completed |
 
 **Notes:**
-- For a pod containing multiple chained ads, one `placementStart`/`placementEnd` pair fires per ad; `reservationStart`/`reservationEnd` fire exactly once for the whole pod.
+- Each `breakId` maps to exactly one ad MPD URL. To chain multiple ads at the same timeline position, register each ad under its own unique `breakId` with the same `insertionPointSec` — the stitcher sequences them in registration order. One `placementStart`/`placementEnd` pair fires per `breakId`; `reservationStart`/`reservationEnd` fire once per `breakId`.
 - After a seek that lands before a previously-seen ad break, all events for that break re-fire as the playhead crosses it again.
 - `reservationEnd` and `placementEnd` **are** sent for VOD CDAI after normal playback to end of break.
 
@@ -2766,12 +2766,15 @@ As the playhead plays through the stitched timeline, AAMP fires the standard CDA
 ```javascript
 var player = new AAMPMediaPlayer();
 
-// 1. Register all insertion points
-player.registerVodAdBreak({ breakId:"pre",  insertionPointSec:0,   breakDurationSec:30, breakType:"preroll"  });
-player.registerVodAdBreak({ breakId:"mid1", insertionPointSec:180, breakDurationSec:30, breakType:"midroll"  });
-player.registerVodAdBreak({ breakId:"post", insertionPointSec:600, breakDurationSec:30, breakType:"postroll" });
+// 1. Register all insertion points.
+//    Each breakId maps to exactly one ad MPD.
+//    To chain two ads at the same position, use two breakIds with the same insertionPointSec.
+player.registerVodAdBreak({ breakId:"pre",   insertionPointSec:0,   breakDurationSec:30, breakType:"preroll"  });
+player.registerVodAdBreak({ breakId:"mid1a", insertionPointSec:180, breakDurationSec:15, breakType:"midroll"  });
+player.registerVodAdBreak({ breakId:"mid1b", insertionPointSec:180, breakDurationSec:15, breakType:"midroll"  });
+player.registerVodAdBreak({ breakId:"post",  insertionPointSec:600, breakDurationSec:30, breakType:"postroll" });
 
-// 2. Resolve all ads pre-tune (one setAlternateContent per ad per break)
+// 2. Resolve all ads pre-tune (one setAlternateContent per breakId)
 player.setAlternateContent({
     reservationId: "pre",
     reservationBehavior: 0,
@@ -2780,16 +2783,18 @@ player.setAlternateContent({
 player.notifyReservationCompletion("pre", 0);
 
 player.setAlternateContent({
-    reservationId: "mid1",
+    reservationId: "mid1a",
     reservationBehavior: 0,
     placementRequest: { id: "ad-mid1-001", pts: 0, url: "https://ad.example.com/mid1a.mpd" }
 }, function(id, ok) {});
+player.notifyReservationCompletion("mid1a", 0);
+
 player.setAlternateContent({
-    reservationId: "mid1",
+    reservationId: "mid1b",
     reservationBehavior: 0,
     placementRequest: { id: "ad-mid1-002", pts: 0, url: "https://ad.example.com/mid1b.mpd" }
 }, function(id, ok) {});
-player.notifyReservationCompletion("mid1", 0);
+player.notifyReservationCompletion("mid1b", 0);
 
 player.setAlternateContent({
     reservationId: "post",
