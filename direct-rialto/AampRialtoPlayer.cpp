@@ -422,6 +422,10 @@ void AampRialtoPlayer::Configure(
 				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
 					"signalling EOS on audio source, no pipeline recreation");
 				EndOfStreamReached(eMEDIATYPE_AUDIO);
+
+				double position = m_pendingPositionNs.load(std::memory_order_relaxed);
+				int rate = m_rate.load(std::memory_order_relaxed);
+				Flush(position, rate, false);
 			}
 			else if (m_sources[eMEDIATYPE_AUDIO] &&
 			         audioFormat != FORMAT_INVALID)
