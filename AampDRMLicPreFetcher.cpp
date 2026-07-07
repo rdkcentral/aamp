@@ -552,6 +552,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	//set failures here 
 	if(drmSession == nullptr)
 	{
+        /*
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
 
 		// Retry once on AAMP_TUNE_DRM_CHALLENGE_FAILED — this can occur transiently
@@ -579,11 +580,41 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 				AAMPLOG_ERR("DRM session retry also failed for systemId = %s", fetchObj->mHelper->getUuid().c_str());
 				// fall through — NotifyDrmFailure called below with original event
 			}
+            */
+        // Retry once when the CDM produced an empty challenge.
+		// This can happen when the OCDM Widevine CDM fires a stale or
+		// zero-length process_challenge_callback (Key State 3) due to
+		// residual state from a previously destroyed player instance.
+		// A single retry forces a fresh opencdm_construct_session call
+		// which reliably recovers from this transient CDM state.
+		if (!mExitLoop && e->getFailure() == AAMP_TUNE_DRM_CHALLENGE_FAILED)
+		{
+			AAMPLOG_WARN("DRM challenge generation failed (empty OCDM challenge), retrying DRM session creation once");
+			// The first failure sets cachedKeyIDs[slot].isFailedKeyEntries = true and leaves
+			// a KEY_ERROR OCDMSessionAdapter in the slot. getDrmSession() short-circuits on
+			// isFailedKeyEntries before creating any new session, so the retry would fail
+			// instantly without touching the CDM at all.
+			// Fix: clear both the failed session object and the failed-key flag so
+			// getDrmSession proceeds to create a fresh OCDMSessionAdapter on the retry.
+			licenseManger->mDrmSessionManager->clearDrmSession(true);
+			licenseManger->mDrmSessionManager->clearFailedKeyIds();
+			AAMPLOG_WARN("Cleared failed DRM session and key cache before retry");
+			auto retryEvent = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
+			{
+				std::lock_guard<std::mutex> lock(mLicenseAcquisitionMutex);
+				drmSession = licenseManger->createDrmSession(fetchObj->mHelper, mPrivAAMP, retryEvent, (int)fetchObj->mType);
+			}
+			if (drmSession != nullptr)
+			{
+				AAMPLOG_WARN("DRM session creation succeeded on retry");
+				e = retryEvent;
+			}
 		}
 	}
 
 	if(drmSession == nullptr)
 	{
+        AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
 		/*
 		 * mLicenseAcquisitionMutex shouldn't be locked before calling
 		 * NotifyDrmFailure, as it is used inside NotifyDrmFailure.
