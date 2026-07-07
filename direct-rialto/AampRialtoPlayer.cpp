@@ -402,6 +402,8 @@ void AampRialtoPlayer::Configure(
 	// flushing so m_rate is committed before ShouldRecreatePipeline reads it.
 	WaitForFlushToComplete();
 
+	StopProgressTimer();
+
 	// Guard: skip teardown and recreation when the pipeline can be reused.
 	// Rialto does not support dynamic source management, so any change to
 	// the source set requires a full rebuild.  The exception is audio going
@@ -459,7 +461,6 @@ void AampRialtoPlayer::Configure(
 	// (re-tune or first tune).  This resets to IDLE from whatever previous
 	// state the player was in.
 	m_stateMachine.onReconfigure();
-	StopProgressTimer();
 
 	// Reset first-frame flag so the new tune session forwards the initial
 	// PLAYING notification correctly.
@@ -2055,6 +2056,7 @@ void AampRialtoPlayer::StartProgressTimer()
 		return;
 	}
 
+	AAMPLOG_INFO("Starting progress timer %dms", intervalMs);
 	m_progressTimer->start(intervalMs, [this]() {
 		this->OnProgressTimerTick();
 	});
@@ -2064,6 +2066,7 @@ void AampRialtoPlayer::StopProgressTimer()
 {
 	if (m_progressTimer)
 	{
+		AAMPLOG_INFO("Stopping progress timer");
 		m_progressTimer->stop();
 	}
 }
