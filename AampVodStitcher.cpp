@@ -1,6 +1,5 @@
 /*
  * If not stated otherwise in this file or this component's license file the
- * following copyright and licenses apply:
  *
  * Copyright 2026 RDK Management
  *
@@ -33,6 +32,7 @@
 #include "AampVodStitcher.h"
 #include "admanager_mpd.h"
 #include "priv_aamp.h"
+#include "AampEvent.h"
 #include "AampLogManager.h"
 
 #include <algorithm>
@@ -778,6 +778,12 @@ std::string BuildStitchedVodManifest(
 
 	std::string mainBaseUrl = BaseUrlFromLocator(mainMpdUrl);
 
+	// Reset the event tracker — we are about to re-populate it for this stitch pass.
+	{
+		std::lock_guard<std::recursive_mutex> lock(cdaiObj->mDaiMtx);
+		cdaiObj->mVodAdEventTracker.clear();
+	}
+
 	// Walk main periods and splice ad periods at insertion points.
 	// insertionPoints are period-relative: we track periodOffset as we go.
 	std::ostringstream output;
@@ -832,6 +838,17 @@ std::string BuildStitchedVodManifest(
 				totalDur += sliceDur;
 			}
 
+			// Pre-pass: compute total reservation duration across all chained ads
+			// at this splice point so reservation events can span the whole insertion.
+			double reservationStartSec = totalDur;
+			double reservationTotalDur = 0.0;
+			for (const AdFetchResult *ad : ads)
+			{
+				std::vector<PeriodSlice> prePeriods = ExtractPeriods(ad->mpdText);
+				for (const PeriodSlice &ap : prePeriods)
+					reservationTotalDur += ap.duration;
+			}
+
 			// Emit all chained ad periods at this splice point
 			for (const AdFetchResult *ad : ads)
 			{
@@ -840,10 +857,28 @@ std::string BuildStitchedVodManifest(
 
 				if (adPeriods.empty())
 				{
-					AAMPLOG_WARN("[VodStitcher] No periods in ad MPD for break=%s — skipping ad",
+					AAMPLOG_WARN("[VodStitcher] No periods in ad MPD for break=%s - skipping ad",
 					             ad->breakId.c_str());
 					continue;
 				}
+
+				// Snapshot stitched-timeline start of this specific ad.
+				double adTimelineStart = totalDur;
+
+				// Compute this ad's total duration (sum of its sub-periods).
+				double adTotalDur = 0.0;
+				for (const PeriodSlice &ap : adPeriods)
+					adTotalDur += ap.duration;
+
+				// Retrieve adId from the VOD break registry for event tracking.
+				std::string trackedAdId;
+				{
+					std::lock_guard<std::recursive_mutex> lock(cdaiObj->mDaiMtx);
+					auto vodIt = cdaiObj->mVodAdBreaks.find(ad->breakId);
+					if (vodIt != cdaiObj->mVodAdBreaks.end())
+						trackedAdId = vodIt->second.adId;
+				}
+
 				double adConsumed = 0.0;
 				for (size_t ai = 0; ai < adPeriods.size(); ai++)
 				{
@@ -863,6 +898,24 @@ std::string BuildStitchedVodManifest(
 				}
 				AAMPLOG_INFO("[VodStitcher] Inserted ad break=%s dur=%.3fs at timeline=%.3fs",
 				             ad->breakId.c_str(), adConsumed, totalDur - adConsumed);
+
+				// Record one tracker entry per logical ad.
+				// breakStartSec/breakDurationSec span the whole reservation (all
+				// chained ads at this splice point); adStartSec/adDurationSec are
+				// specific to this individual ad.  CheckVodStitchedAdEvents fires
+				// RESERVATION_START on the first entry for a breakId and
+				// RESERVATION_END after the last placement end for that breakId.
+				VodAdEventEntry entry;
+				entry.breakId          = ad->breakId;
+				entry.adId             = trackedAdId;
+				entry.breakStartSec    = reservationStartSec;
+				entry.breakDurationSec = reservationTotalDur;
+				entry.adStartSec       = adTimelineStart;
+				entry.adDurationSec    = adTotalDur;
+				{
+					std::lock_guard<std::recursive_mutex> lock(cdaiObj->mDaiMtx);
+					cdaiObj->mVodAdEventTracker.push_back(entry);
+				}
 			}
 
 			cursor = spliceAt; // continue main content from splice point
