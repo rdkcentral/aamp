@@ -238,3 +238,11 @@ double CDAIObjectMPD::GetVirtualPosition(double sourcePositionSec)
 {
 	return sourcePositionSec;
 }
+
+void PrivateCDAIObjectMPD::CheckVodStitchedAdEvents(double positionMs)
+{
+}
+
+void PrivateCDAIObjectMPD::ResetVodAdEventTracker()
+{
+}

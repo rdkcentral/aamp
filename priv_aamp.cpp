@@ -2436,6 +2436,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
+		{
+			CDAIObjectMPD *cdaiMpd = dynamic_cast<CDAIObjectMPD *>(mCdaiObject);
+			PrivateCDAIObjectMPD *cdaiPriv = cdaiMpd ? cdaiMpd->GetPrivateCDAIObjectMPD() : nullptr;
+			if (cdaiPriv && cdaiPriv->mVodManifestStitched)
+				cdaiPriv->CheckVodStitchedAdEvents(position);
+		}
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 		{
@@ -5669,6 +5675,12 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	{
 		std::lock_guard<std::mutex> lock(mAdEventQMtx);
 		std::swap( mAdEventsQ, emptyEvQ );
+	}
+	{
+		CDAIObjectMPD *cdaiMpd = dynamic_cast<CDAIObjectMPD *>(mCdaiObject);
+		PrivateCDAIObjectMPD *cdaiPriv = cdaiMpd ? cdaiMpd->GetPrivateCDAIObjectMPD() : nullptr;
+		if (cdaiPriv && cdaiPriv->mVodManifestStitched)
+			cdaiPriv->ResetVodAdEventTracker();
 	}
 }
 
