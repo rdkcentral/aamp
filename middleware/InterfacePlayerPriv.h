@@ -180,6 +180,7 @@ struct GstPlayerPriv
 	GstElement *audio_sink;                                   /**< Audio sink used by pipeline. */
 	GstElement *subtitle_sink;                                /**< Subtitle sink used by pipeline. */
 	GstTaskPool *task_pool;                                   /**< Task pool in case RT priority is needed. */
+	GstElement *video_queue;
 
 	int rate;                                                                                        /**< Current playback rate. */
 	GstVideoZoomMode zoom;                                                           /**< Video-zoom setting. */
