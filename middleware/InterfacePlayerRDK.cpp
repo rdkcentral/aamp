@@ -246,40 +246,36 @@ GstElement* find_video_queue(GstElement *pipeline)
 
     it = gst_bin_iterate_elements(GST_BIN(pipeline));
 
-    while (gst_iterator_next(it, &item) == GST_ITERATOR_OK) {
-
+    while (gst_iterator_next(it, &item) == GST_ITERATOR_OK) 
+	{
         // C++ requires explicit cast
         elem = (GstElement*) g_value_get_object(&item);
-
-        if (elem && GST_IS_ELEMENT(elem)) {
-
+        if (elem && GST_IS_ELEMENT(elem)) 
+		{
             GstElementFactory *factory = gst_element_get_factory(elem);
-
             // C++-safe name retrieval
             const gchar *factory_name =
                 gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory));
-
             // Only check queue elements
-            if (factory && g_strcmp0(factory_name, "queue") == 0) {
-
+            if (factory && g_strcmp0(factory_name, "queue") == 0) 
+			{
                 GstPad *sinkpad = gst_element_get_static_pad(elem, "sink");
-                if (!sinkpad) {
+                if (!sinkpad) 
+				{
                     g_value_reset(&item);
                     continue;
                 }
-
                 GstCaps *caps = gst_pad_get_current_caps(sinkpad);
                 gst_object_unref(sinkpad);
-
-                if (!caps) {
+                if (!caps) 
+				{
                     g_value_reset(&item);
                     continue;
                 }
-
                 gchar *caps_str = gst_caps_to_string(caps);
-
                 // VIDEO queue detection
-                if (g_strrstr(caps_str, "video/x-raw")) {
+                if (g_strrstr(caps_str, "video/x-raw")) 
+				{
 
                     MW_LOG_WARN("VIDEO-QUEUE: name=%s, factory=%s, caps=%s", gst_element_get_name(elem), factory_name,caps_str);
                     gst_caps_unref(caps);
@@ -287,15 +283,12 @@ GstElement* find_video_queue(GstElement *pipeline)
                     gst_iterator_free(it);
                     return elem;   // Found VIDEO queue
                 }
-
                 gst_caps_unref(caps);
                 g_free(caps_str);
             }
         }
-
         g_value_reset(&item);
     }
-
     gst_iterator_free(it);
 	MW_LOG_ERR("No video queue found in the pipeline");
     return nullptr;   // No video queue found
@@ -2803,7 +2796,8 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
- 	if(interfacePlayerPriv->gstPrivateContext->video_queue == NULL && interfacePlayerPriv->gstPrivateContext->pipeline != NULL)
+
+	if(interfacePlayerPriv->gstPrivateContext->video_queue == NULL && interfacePlayerPriv->gstPrivateContext->pipeline != NULL)
  	{
 		interfacePlayerPriv->gstPrivateContext->video_queue = find_video_queue(interfacePlayerPriv->gstPrivateContext->pipeline);
 	}
@@ -2827,11 +2821,9 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
                  "current-level-buffers", &current_buffers,
                  "current-level-bytes", &current_bytes,
                  NULL);
-
-    	
+   	
     	MW_LOG_WARN(" GST video queue levels: time = %.3f ms buffers = %.6f MB = %.6f MB frames = %d", (double)current_time_ns / 1000000.0, (double)current_buffers / (1024.0 * 1024.0), (double)current_bytes / (1024.0 * 1024.0), frames);
 	}
-
 	return rc;
 }
 
