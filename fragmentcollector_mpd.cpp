@@ -8832,6 +8832,11 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 {
 	for( int i = 0; i < mNumberOfTracks; i++)
 	{
+		if (!discontinuity)
+		{
+			mMediaStreamContext[i]->profileChanged = true;
+		}
+
 		FetchAndInjectInitialization(i,discontinuity);
 	}
 }
@@ -9146,10 +9151,6 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 			downloadInfo->mediaType = static_cast<AampMediaType>(trackIdx);
 			if(ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 			{
-				if (!mMediaStreamContext[trackIdx]->discontinuity)
-				{
-					mMediaStreamContext[trackIdx]->profileChanged = true;
-				}
 				downloadInfo->curlInstance = static_cast<AampCurlInstance>(eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType);
 				downloadInfo->uriList[0] = URIInfo(headerUrl);
 				temp = mMediaStreamContext[trackIdx]->DownloadFragment(downloadInfo);
