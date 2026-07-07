@@ -2728,7 +2728,7 @@ player.cancelVodAdBreak("break-mid1");
 
 #### getVirtualPosition()
 
-Returns the current playback position mapped back to the **source VOD timeline** (seconds), excluding ad pod durations.  Because the stitched MPD has a continuous 0-based timeline that includes ad periods, `getCurrentPosition()` advances through ad time.  Use `getVirtualPosition()` when the application needs the equivalent source-content offset (e.g. for resume-point bookmarking).
+Returns the current playback position mapped back to the **source VOD timeline** (seconds), excluding ad pod durations.  Because the stitched MPD has a continuous 0-based timeline that includes ad periods, `getCurrentPosition()` advances through ad time.  Use `getVirtualPosition()` when the application needs the equivalent source-content offset (e.g. for resume-point tracking).
 
 ```javascript
 var sourceOffsetSec = player.getVirtualPosition();
