@@ -1639,7 +1639,11 @@ SaizBox* SaizBox::constructSaizBox(uint32_t sz, uint8_t *ptr)
 	uint32_t sample_count = READ_U32(ptr);
 	bool has_per_sample_info_table{0 == default_sample_info_size};
 
-	uint8_t sample_info_size = (0 == default_sample_info_size) ? *ptr : default_sample_info_size;
+	uint8_t sample_info_size = default_sample_info_size;
+	if (has_per_sample_info_table && (sample_count > 0))
+	{
+		sample_info_size = *ptr;
+	}
 
 	FullBox fbox(sz, Box::SAIZ, version, flags);
 	fbox.setBase(start);

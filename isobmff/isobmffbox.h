@@ -1129,6 +1129,7 @@ public:
 	 * @param[in] sampleCountLoc - location of the sample count
 	 * @param[in] numSamples - number of samples
 	 * @param[in] sample_info_size - Size for the first auxiliary sample information entry
+	 * @param[in] hasPerSampleInfoTable - True when sample_info_size entries are present per sample
 	 */
 	SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t sample_info_size, bool hasPerSampleInfoTable);
 

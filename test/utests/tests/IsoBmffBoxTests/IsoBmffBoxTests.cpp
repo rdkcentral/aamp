@@ -189,6 +189,22 @@ TEST_F(IsoBmffBoxTests, saizTests)
 	saiz->truncate();
 	EXPECT_EQ(0, memcmp(buffer, saizDefaultInfoZeroSamples, sizeof(saizDefaultInfoZeroSamples)));
 
+	// Empty per-sample table must not read past the box when default_sample_info_size is zero.
+	const uint8_t saizEmptyTableZeroSamples[] = {
+		0x00, 0x00, 0x00, 0x19,  's',  'a',  'i',  'z', 0x00, 0x00, 0x00, 0x01,
+		0x63, 0x65, 0x6e, 0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00};
+	memcpy(buffer, saizEmptyTableZeroSamples, sizeof(saizEmptyTableZeroSamples));
+	ptr = buffer;
+	seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	delete saiz;
+	saiz = SaizBox::constructSaizBox(seizSize, ptr);
+	EXPECT_EQ(saiz->getFirstSampleInfoSize(), 0u);
+	saiz->truncate();
+	EXPECT_EQ(0, memcmp(buffer, saizEmptyTableZeroSamples, sizeof(saizEmptyTableZeroSamples)));
+
 	delete saiz;
 }
 
