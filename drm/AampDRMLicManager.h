@@ -39,14 +39,15 @@ enum ProfilerAction
 };
 
 /**
- * @struct FutureKeyEntry
- * @brief Holds a future key ID (binary) and the license response that contains it,
- *        enabling re-use when a new PSSH references a key already delivered in a
- *        prior multi-key license response.
+ * @struct CachedLicenseResponse
+ * @brief Holds a raw license response (deep copy) and the key system it belongs
+ *        to.  The key IDs contained in the response are not parsed at cache
+ *        time; instead the response is inspected on lookup so a new PSSH whose
+ *        key ID is already present in a stored response can reuse it without a
+ *        fresh license server round-trip.
  */
-struct FutureKeyEntry
+struct CachedLicenseResponse
 {
-	std::vector<uint8_t> keyId;          /**< Future key ID in normalised binary form */
 	std::shared_ptr<DrmData> licenseData; /**< Deep copy of the license response */
 	std::string keySystem;               /**< OCDM system ID the license belongs to */
 };
@@ -368,9 +369,10 @@ public:
 
 protected:
 	/**
-	 * @brief After a successful multi-key license acquisition, inspect the CDM's
-	 *        usable key set and cache any keys that were not in the originating PSSH.
-	 *        Those keys are "future keys" delivered pre-emptively by the server.
+	 * @brief After a successful license acquisition, store the raw license
+	 *        response so its keys can be reused for a future PSSH that references
+	 *        a key already delivered in this response.  No parsing is done here;
+	 *        the response is kept as-is and inspected on lookup.
 	 *
 	 * @param[in] drmHelper  Helper for the session whose license was just processed.
 	 * @param[in] sessionSlot Session slot that was just made KEY_READY.
@@ -381,15 +383,17 @@ protected:
 	                     const std::shared_ptr<DrmData>& licenseData);
 
 	/**
-	 * @brief Look up the future key cache for a given key ID and key system.
+	 * @brief Look up the cached license responses for one that contains the
+	 *        given key ID.  Each stored response is parsed on demand and its key
+	 *        IDs are compared against the requested key ID.
 	 *
 	 * @param[in] keyId     Key ID in binary form (as returned by DrmHelper::getKey).
 	 * @param[in] keySystem OCDM system ID string.
-	 * @return  A copy of the cached license data if found, nullptr otherwise.
+	 * @return  The cached license data containing the key ID if found, nullptr otherwise.
 	 */
 	std::shared_ptr<DrmData> findCachedFutureKey(const std::vector<uint8_t>& keyId,
 	                                              const std::string& keySystem) const;
 
-	std::vector<FutureKeyEntry> mFutureKeyCache;   /**< Cache of pre-delivered future keys */
-	mutable std::mutex          mFutureKeyCacheMutex; /**< Guards mFutureKeyCache */
+	std::vector<CachedLicenseResponse> mLicenseResponseCache;   /**< Cache of raw license responses */
+	mutable std::mutex                 mLicenseResponseCacheMutex; /**< Guards mLicenseResponseCache */
 };

@@ -418,10 +418,11 @@ static std::vector<std::vector<uint8_t>> wvSignedMessageKeyIds(
 }
 
 /**
- * @brief After a successful license acquisition, parse the license response
- *        bytes to discover all delivered key IDs.  Any that were not in the
- *        originating PSSH are stored as "future keys" so subsequent PSSH
- *        arrivals can be served from cache without a new server round-trip.
+ * @brief After a successful license acquisition, store the raw license response
+ *        bytes.  The key IDs it contains are not parsed here; instead the stored
+ *        response is inspected on lookup so a subsequent PSSH whose key ID is
+ *        already present in this response can be served without a new server
+ *        round-trip.
  */
 void AampDRMLicenseManager::cacheFutureKeys(const std::shared_ptr<DrmHelper>& drmHelper,
                                              int sessionSlot,
@@ -439,146 +440,46 @@ void AampDRMLicenseManager::cacheFutureKeys(const std::shared_ptr<DrmHelper>& dr
 
 	const std::string keySystem = drmHelper->ocdmSystemId();
 
-	// Parse key IDs directly from the license response bytes.
-	// For Widevine the response is a SignedMessage protobuf; the helper
-	// descends SignedMessage.msg → License.key → KeyContainer.id and
-	// returns one binary key ID per KeyContainer.
-	AAMPLOG_WARN("vk:: cacheFutureKeys: parsing license response for key IDs "
-	             "system=%s dataLen=%zu",
-	             keySystem.c_str(), licenseData->getDataLength());
+	// Store the raw license response as-is.  Parsing is deferred to lookup
+	// time (findCachedFutureKey), where the requested key ID is matched against
+	// the key IDs contained in the stored responses.
+	std::lock_guard<std::mutex> guard(mLicenseResponseCacheMutex);
 
-	std::vector<std::vector<uint8_t>> licenseKeys =
-	    wvSignedMessageKeyIds(licenseData->getData().c_str(),
-	                          licenseData->getDataLength());
-
-	AAMPLOG_WARN("vk:: cacheFutureKeys: parsed %zu key ID(s) from license response",
-	             licenseKeys.size());
-	for (size_t i = 0; i < licenseKeys.size(); ++i)
+	// Skip if an identical response for the same key system is already cached
+	auto it = std::find_if(
+	    mLicenseResponseCache.begin(), mLicenseResponseCache.end(),
+	    [&](const CachedLicenseResponse& e)
+	    {
+		    return e.keySystem == keySystem && e.licenseData &&
+		           e.licenseData->getDataLength() == licenseData->getDataLength() &&
+		           e.licenseData->getData() == licenseData->getData();
+	    });
+	if (it != mLicenseResponseCache.end())
 	{
-		AAMPLOG_INFO("vk:: cacheFutureKeys: licenseKey[%zu]=%s",
-		             i,
-		             PlayerLogManager::getHexDebugStr(licenseKeys[i]).c_str());
-	}
-
-	if (licenseKeys.size() <= 1)
-	{
-		AAMPLOG_WARN("vk:: cacheFutureKeys: only %zu key(s) in response, "
-		             "no future keys to cache", licenseKeys.size());
-		return;
-	}
-
-	// Collect PSSH key IDs (binary) from the helper
-	std::map<int, std::vector<uint8_t>> psshKeyMap;
-	drmHelper->getKeys(psshKeyMap);
-	if (psshKeyMap.empty())
-	{
-		AAMPLOG_INFO("vk:: cacheFutureKeys: getKeys() returned empty, falling back to getKey()");
-		std::vector<uint8_t> singleKey;
-		drmHelper->getKey(singleKey);
-		if (!singleKey.empty())
-		{
-			AAMPLOG_INFO("vk:: cacheFutureKeys: PSSH single key=%s",
-			             PlayerLogManager::getHexDebugStr(singleKey).c_str());
-			psshKeyMap[0] = singleKey;
-		}
-	}
-	else
-	{
-		AAMPLOG_WARN("vk:: cacheFutureKeys: PSSH declared %zu key(s)", psshKeyMap.size());
-		for (const auto& p : psshKeyMap)
-		{
-			AAMPLOG_INFO("vk:: cacheFutureKeys: psshKey[%d]=%s",
-			             p.first,
-			             PlayerLogManager::getHexDebugStr(p.second).c_str());
-		}
-	}
-
-	if (licenseKeys.size() <= psshKeyMap.size())
-	{
-		AAMPLOG_WARN("vk:: cacheFutureKeys: licenseKeys(%zu) <= pssh(%zu), "
-		             "no extra keys to cache",
-		             licenseKeys.size(), psshKeyMap.size());
-		return;
-	}
-
-	AAMPLOG_WARN("vk:: cacheFutureKeys: %zu license keys vs %zu PSSH keys for system %s – "
-	             "expecting %zu future key(s)",
-	             licenseKeys.size(), psshKeyMap.size(), keySystem.c_str(),
-	             licenseKeys.size() - psshKeyMap.size());
-
-	std::lock_guard<std::mutex> guard(mFutureKeyCacheMutex);
-	for (const auto& licKey : licenseKeys)
-	{
-		// Keys from the protobuf parser are already binary; normalizeToBinary
-		// will pass them through unchanged.
-		const std::vector<uint8_t> normKey = normalizeToBinary(licKey);
-		AAMPLOG_INFO("vk:: cacheFutureKeys: processing licenseKey=%s",
-		             PlayerLogManager::getHexDebugStr(normKey).c_str());
-
-		// Check if this key was already in the PSSH
-		bool inPssh = false;
-		for (const auto& psshEntry : psshKeyMap)
-		{
-			const std::vector<uint8_t> normPssh = normalizeToBinary(psshEntry.second);
-			AAMPLOG_TRACE("vk:: cacheFutureKeys: comparing with psshKey[%d]=%s",
-			              psshEntry.first,
-			              PlayerLogManager::getHexDebugStr(normPssh).c_str());
-			if (normKey == normPssh)
-			{
-				AAMPLOG_INFO("vk:: cacheFutureKeys: key %s matches PSSH entry[%d], skipping",
-				             PlayerLogManager::getHexDebugStr(normKey).c_str(),
-				             psshEntry.first);
-				inPssh = true;
-				break;
-			}
-		}
-		if (inPssh)
-		{
-			continue;
-		}
-
-		// Skip if already cached
-		auto it = std::find_if(
-		    mFutureKeyCache.begin(), mFutureKeyCache.end(),
-		    [&](const FutureKeyEntry& e)
-		    {
-			    return e.keySystem == keySystem && e.keyId == normKey;
-		    });
-		if (it != mFutureKeyCache.end())
-		{
-			AAMPLOG_INFO("vk:: cacheFutureKeys: key %s already in future cache, skipping duplicate",
-			             PlayerLogManager::getHexDebugStr(normKey).c_str());
-			continue;
-		}
-
-		// Deep-copy the license data so each cache entry owns its bytes
-		auto dataCopy = std::make_shared<DrmData>(
-		    licenseData->getData().c_str(),
-		    licenseData->getDataLength());
-
-		AAMPLOG_WARN("vk:: cacheFutureKeys: STORING future key %s system=%s licenseDataLen=%zu "
-		             "(cache size will be %zu)",
-		             PlayerLogManager::getHexDebugStr(normKey).c_str(),
-		             keySystem.c_str(),
-		             dataCopy->getDataLength(),
-		             mFutureKeyCache.size() + 1);
-
-		AAMPLOG_INFO("Caching future key %s for DRM system %s",
-		             PlayerLogManager::getHexDebugStr(normKey).c_str(),
+		AAMPLOG_INFO("vk:: cacheFutureKeys: identical response already cached for system %s, skipping",
 		             keySystem.c_str());
-
-		mFutureKeyCache.push_back({normKey, std::move(dataCopy), keySystem});
+		return;
 	}
 
-	AAMPLOG_WARN("vk:: cacheFutureKeys exit: future cache now holds %zu entry(s)",
-	             mFutureKeyCache.size());
+	AAMPLOG_WARN("vk:: cacheFutureKeys: STORING license response system=%s licenseDataLen=%zu "
+	             "(cache size will be %zu)",
+	             keySystem.c_str(),
+	             licenseData->getDataLength(),
+	             mLicenseResponseCache.size() + 1);
+
+	// Store the entire license response object (shared ownership) instead of
+	// copying its bytes into a new buffer.
+	mLicenseResponseCache.push_back({licenseData, keySystem});
+
+	AAMPLOG_WARN("vk:: cacheFutureKeys exit: response cache now holds %zu entry(s)",
+	             mLicenseResponseCache.size());
 }
 
 /**
- * @brief Check whether a key ID is already covered by a previously cached
- *        multi-key license response.
+ * @brief Check whether the given key ID is present in any previously cached
+ *        license response for the same key system.
  *
- * @return The cached DrmData if found, nullptr otherwise.
+ * @return The cached DrmData containing the key ID if found, nullptr otherwise.
  */
 std::shared_ptr<DrmData> AampDRMLicenseManager::findCachedFutureKey(
     const std::vector<uint8_t>& keyId,
@@ -588,55 +489,60 @@ std::shared_ptr<DrmData> AampDRMLicenseManager::findCachedFutureKey(
 	AAMPLOG_WARN("vk:: findCachedFutureKey enter: lookup keyId=%s system=%s",
 	             PlayerLogManager::getHexDebugStr(normInput).c_str(),
 	             keySystem.c_str());
-	std::lock_guard<std::mutex> guard(mFutureKeyCacheMutex);
-	AAMPLOG_INFO("vk:: findCachedFutureKey: scanning %zu cache entry(s)",
-	             mFutureKeyCache.size());
-	for (size_t i = 0; i < mFutureKeyCache.size(); ++i)
+	std::lock_guard<std::mutex> guard(mLicenseResponseCacheMutex);
+	AAMPLOG_INFO("vk:: findCachedFutureKey: scanning %zu cached response(s)",
+	             mLicenseResponseCache.size());
+	for (size_t i = 0; i < mLicenseResponseCache.size(); ++i)
 	{
-		const auto& entry = mFutureKeyCache[i];
-		AAMPLOG_TRACE("vk:: findCachedFutureKey: entry[%zu] keyId=%s system=%s",
-		              i,
-		              PlayerLogManager::getHexDebugStr(entry.keyId).c_str(),
-		              entry.keySystem.c_str());
-		if (entry.keySystem == keySystem && entry.keyId == normInput)
+		const auto& entry = mLicenseResponseCache[i];
+		if (entry.keySystem != keySystem || !entry.licenseData)
 		{
-			AAMPLOG_WARN("vk:: findCachedFutureKey: HIT at entry[%zu] keyId=%s system=%s "
-			             "licenseDataLen=%zu – license server request will be SKIPPED",
-			             i,
-			             PlayerLogManager::getHexDebugStr(normInput).c_str(),
-			             keySystem.c_str(),
-			             entry.licenseData ? entry.licenseData->getDataLength() : 0);
-			AAMPLOG_INFO("Future key cache hit for keyId %s system %s",
-			             PlayerLogManager::getHexDebugStr(normInput).c_str(),
-			             keySystem.c_str());
-			return entry.licenseData;
+			continue;
+		}
+
+		// Parse the key IDs contained in this stored license response and
+		// check whether the requested key ID is one of them.
+		std::vector<std::vector<uint8_t>> responseKeys =
+		    wvSignedMessageKeyIds(entry.licenseData->getData().c_str(),
+		                          entry.licenseData->getDataLength());
+		AAMPLOG_INFO("vk:: findCachedFutureKey: response[%zu] contains %zu key ID(s)",
+		             i, responseKeys.size());
+		for (const auto& respKey : responseKeys)
+		{
+			const std::vector<uint8_t> normResp = normalizeToBinary(respKey);
+			if (normResp == normInput)
+			{
+				AAMPLOG_WARN("vk:: findCachedFutureKey: HIT in response[%zu] keyId=%s system=%s "
+				             "licenseDataLen=%zu – license server request will be SKIPPED",
+				             i,
+				             PlayerLogManager::getHexDebugStr(normInput).c_str(),
+				             keySystem.c_str(),
+				             entry.licenseData->getDataLength());
+				AAMPLOG_INFO("Future key cache hit for keyId %s system %s",
+				             PlayerLogManager::getHexDebugStr(normInput).c_str(),
+				             keySystem.c_str());
+				return entry.licenseData;
+			}
 		}
 	}
-	AAMPLOG_WARN("vk:: findCachedFutureKey: MISS – keyId=%s not found in future cache, "
+	AAMPLOG_WARN("vk:: findCachedFutureKey: MISS – keyId=%s not found in cached responses, "
 	             "will proceed with license server request",
 	             PlayerLogManager::getHexDebugStr(normInput).c_str());
 	return nullptr;
 }
 
 /**
- * @brief Discard all cached future keys.
+ * @brief Discard all cached license responses.
  */
 void AampDRMLicenseManager::clearFutureKeyCache()
 {
-	std::lock_guard<std::mutex> guard(mFutureKeyCacheMutex);
-	if (!mFutureKeyCache.empty())
+	std::lock_guard<std::mutex> guard(mLicenseResponseCacheMutex);
+	if (!mLicenseResponseCache.empty())
 	{
-		AAMPLOG_WARN("vk:: clearFutureKeyCache: discarding %zu entry(s):",
-		             mFutureKeyCache.size());
-		for (size_t i = 0; i < mFutureKeyCache.size(); ++i)
-		{
-			AAMPLOG_INFO("vk:: clearFutureKeyCache: entry[%zu] keyId=%s system=%s",
-			             i,
-			             PlayerLogManager::getHexDebugStr(mFutureKeyCache[i].keyId).c_str(),
-			             mFutureKeyCache[i].keySystem.c_str());
-		}
-		AAMPLOG_INFO("Clearing %zu future key cache entries", mFutureKeyCache.size());
-		mFutureKeyCache.clear();
+		AAMPLOG_WARN("vk:: clearFutureKeyCache: discarding %zu cached response(s)",
+		             mLicenseResponseCache.size());
+		AAMPLOG_INFO("Clearing %zu cached license response entries", mLicenseResponseCache.size());
+		mLicenseResponseCache.clear();
 	}
 	else
 	{
@@ -871,7 +777,19 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 
 	if (code == KEY_PENDING)
 	{
+		// Hold on to the raw license response object (exactly as returned by
+		// the server, before any JSON-unwrap or transformLicenseResponse) so
+		// that a future cache hit replays the identical single-pass processing
+		// performed by a normal server fetch.
+		std::shared_ptr<DrmData> rawLicenseResponse = licenseResponse;
 		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, std::move(licenseResponse), eventHandle,  isLicenseRenewal);
+		if ((code == KEY_READY) && rawLicenseResponse &&
+		    (rawLicenseResponse->getDataLength() != 0))
+		{
+			// Cache the raw response so extra keys it carries can satisfy a
+			// future PSSH without a new server round-trip.
+			cacheFutureKeys(drmHelper, sessionSlot, rawLicenseResponse);
+		}
 	}
 	return code;
 }
@@ -989,6 +907,14 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 	 * for processing and the DRM session should await the key from the DRM implementation
 	 */
 	AAMPLOG_INFO("Updating the license response to the aampDRMSession(CDM)");
+	// Dump the full license response being handed to the CDM/OCDM.  DumpBlob
+	// emits the data in 64-char chunks so it is not truncated by the journal
+	// log line limit (~2040 chars).
+	if (licenseResponse)
+	{
+		AAMPLOG_WARN("vk::License response sent to OCDM (len=%zu):", licenseResponse->getDataLength());
+		DumpBlob(reinterpret_cast<const unsigned char*>(licenseResponse->getData().c_str()), licenseResponse->getDataLength());
+	}
 	if(!isLicenseRenewal)
 	{
 		aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_POSTPROC);
@@ -1025,17 +951,6 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 		{
 			eventHandle->setFailure(AAMP_TUNE_INVALID_DRM_KEY);
 		}
-	}
-	else if (code == KEY_READY)
-	{
-		// License delivered multiple keys.  Cache any extras for future PSSH
-		// arrivals so a new server round-trip can be skipped.
-		AAMPLOG_WARN("vk:: processLicenseResponse: KEY_READY at slot=%d, "
-		             "invoking cacheFutureKeys (licenseDataLen=%zu)",
-		             sessionSlot,
-		             licenseResponse ? licenseResponse->getDataLength() : 0);
-		cacheFutureKeys(drmHelper, sessionSlot, licenseResponse);
-		AAMPLOG_WARN("vk:: processLicenseResponse: cacheFutureKeys returned");
 	}
 
 	return code;
@@ -1438,6 +1353,11 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	pLicenseDownloader->Initialize(inpData);
 	
 	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
+	// Dump the full license request body sent to the server.  DumpBlob emits
+	// the data in 64-char chunks so it is not truncated by the journal log
+	// line limit (~2040 chars).
+	AAMPLOG_WARN("License request payload sent to server (len=%zu):", inpData->postData.length());
+	DumpBlob(reinterpret_cast<const unsigned char*>(inpData->postData.c_str()), inpData->postData.length());
 
 	unsigned int attemptCount = 0;
 	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
@@ -1509,6 +1429,9 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 				std::string keyData;
 				auto keyLen = pLicenseDownloader->GetDataString(keyData);
 				keyInfo->setData(keyData.c_str(), keyLen);
+				// Dump the full license response received from the server.
+				AAMPLOG_WARN("License response received from server (len=%zu):", keyData.length());
+				DumpBlob(reinterpret_cast<const unsigned char*>(keyData.c_str()), keyData.length());
 			}
 		}
 		
