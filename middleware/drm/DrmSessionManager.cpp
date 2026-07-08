@@ -106,7 +106,8 @@ void DrmSessionManager::clearSessionData()
 	{
 		if (drmSessionContexts != NULL && drmSessionContexts[i].drmSession != NULL)
 		{
-			MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
+			
+			drmSessionContexts[i].drmSession.reset();
 			drmSessionContexts[i] = DrmSessionContext();
 		}
 
@@ -198,7 +199,8 @@ void DrmSessionManager::clearDrmSession(bool forceClearSession)
 			if (drmSessionContexts[i].drmSession != NULL)
 			{
 				MW_LOG_WARN("DrmSessionManager:: Clearing failed Session Data Slot : %d", i);
-				MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
+
+				drmSessionContexts[i].drmSession.reset();
 			}
 		}
 	}
@@ -703,7 +705,8 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			MW_LOG_WARN("existing DRM session for %s has different key in slot %d", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), sessionSlot);
 		}
 		MW_LOG_WARN("deleting existing DRM session for %s ", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
-		MW_SAFE_DELETE(drmSessionContexts[sessionSlot].drmSession);
+		
+		drmSessionContexts[i].drmSession.reset();
 	}
         this->ProfileUpdateCb();
 
