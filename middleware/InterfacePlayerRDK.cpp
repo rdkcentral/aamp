@@ -238,26 +238,147 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 	}
 }
 
+GstElement* find_video_multiqueue(GstElement *pipeline)
+{
+    GstIterator *it;
+    GValue item = G_VALUE_INIT;
+    GstElement *elem = nullptr;
+
+    it = gst_bin_iterate_recurse(GST_BIN(pipeline));
+
+    while (gst_iterator_next(it, &item) == GST_ITERATOR_OK)
+    {
+        elem = (GstElement*) g_value_get_object(&item);
+        if (!elem || !GST_IS_ELEMENT(elem)) {
+            g_value_reset(&item);
+            continue;
+        }
+
+        GstElementFactory *factory = gst_element_get_factory(elem);
+        if (!factory) {
+            g_value_reset(&item);
+            continue;
+        }
+
+        const gchar *factory_name =
+            gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory));
+
+        // We only care about multiqueue
+        if (g_strcmp0(factory_name, "multiqueue") != 0) {
+            g_value_reset(&item);
+            continue;
+        }
+
+        // Iterate all sink pads: sink_0, sink_1, sink_2...
+        GstIterator *pad_it = gst_element_iterate_sink_pads(elem);
+        GValue pad_item = G_VALUE_INIT;
+
+        while (gst_iterator_next(pad_it, &pad_item) == GST_ITERATOR_OK)
+        {
+            GstPad *pad = (GstPad*) g_value_get_object(&pad_item);
+            if (!pad) {
+                g_value_reset(&pad_item);
+                continue;
+            }
+
+            GstCaps *caps = gst_pad_get_current_caps(pad);
+            if (!caps) {
+                g_value_reset(&pad_item);
+                continue;
+            }
+
+            gchar *caps_str = gst_caps_to_string(caps);
+
+            // Detect video for both TS (HLS) and MP4 (DASH)
+            gboolean is_video =
+                g_strrstr(caps_str, "video/x-h264") ||
+                g_strrstr(caps_str, "video/x-h265") ||
+                g_strrstr(caps_str, "video/mp4")    ||
+                g_strrstr(caps_str, "video/x-raw");
+
+            if (is_video)
+            {
+                MW_LOG_WARN("VIDEO MULTIQUEUE FOUND: %s caps=%s",
+                            gst_element_get_name(elem), caps_str);
+
+                g_free(caps_str);
+                gst_caps_unref(caps);
+                gst_iterator_free(pad_it);
+                gst_iterator_free(it);
+                return elem;
+            }
+
+            g_free(caps_str);
+            gst_caps_unref(caps);
+            g_value_reset(&pad_item);
+        }
+
+        gst_iterator_free(pad_it);
+        g_value_reset(&item);
+    }
+
+    gst_iterator_free(it);
+    MW_LOG_ERR("No video multiqueue found");
+    return nullptr;
+}
+
+// Get buffer stats from multiqueue via "get-stats" (HLS/DASH)
+/*void log_video_multiqueue_buffer(GstElement *pipeline)
+{
+    GstElement *video_mq = find_video_multiqueue(pipeline);
+    if (!video_mq) {
+        MW_LOG_ERR("Cannot log MQ buffer: video multiqueue not found");
+        return;
+    }
+
+    GstStructure *stats = NULL;
+    g_signal_emit_by_name(video_mq, "get-stats", &stats);
+
+    if (!stats) {
+        MW_LOG_ERR("MQ get-stats returned NULL");
+        return;
+    }
+
+    gint64 current_time_ns = 0;
+    gint64 current_bytes   = 0;
+    gint64 current_buffers = 0;
+
+    gst_structure_get_int64(stats, "current-level-time",   &current_time_ns);
+    gst_structure_get_int64(stats, "current-level-bytes",  &current_bytes);
+    gst_structure_get_int64(stats, "current-level-buffers",&current_buffers);
+
+    MW_LOG_WARN("VIDEO MQ BUFFER: time=%" G_GINT64_FORMAT
+                " ns bytes=%" G_GINT64_FORMAT
+                " buffers=%" G_GINT64_FORMAT,
+                current_time_ns, current_bytes, current_buffers);
+
+    gst_structure_free(stats);
+}*/
+
+
+#if 0
 GstElement* find_video_queue(GstElement *pipeline)
 {
     GstIterator *it;
     GValue item = G_VALUE_INIT;
     GstElement *elem = nullptr;
 
-    it = gst_bin_iterate_elements(GST_BIN(pipeline));
+    it = gst_bin_iterate_recurse(GST_BIN(pipeline));
 
     while (gst_iterator_next(it, &item) == GST_ITERATOR_OK) 
 	{
         // C++ requires explicit cast
         elem = (GstElement*) g_value_get_object(&item);
+		MW_LOG_WARN("Element: %s (%s)", gst_element_get_name(elem), G_OBJECT_TYPE_NAME(elem));
         if (elem && GST_IS_ELEMENT(elem)) 
 		{
             GstElementFactory *factory = gst_element_get_factory(elem);
             // C++-safe name retrieval
             const gchar *factory_name =
                 gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory));
+			MW_LOG_WARN("Factory name: %s", gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)));
             // Only check queue elements
-            if (factory && g_strcmp0(factory_name, "queue") == 0) 
+            if (factory && g_strcmp0(factory_name, "multiqueue") == 0) 
 			{
                 GstPad *sinkpad = gst_element_get_static_pad(elem, "sink");
                 if (!sinkpad) 
@@ -273,6 +394,7 @@ GstElement* find_video_queue(GstElement *pipeline)
                     continue;
                 }
                 gchar *caps_str = gst_caps_to_string(caps);
+				MW_LOG_WARN("Caps: %s", caps_str);
                 // VIDEO queue detection
                 if (g_strrstr(caps_str, "video/x-raw")) 
 				{
@@ -293,7 +415,7 @@ GstElement* find_video_queue(GstElement *pipeline)
 	MW_LOG_ERR("No video queue found in the pipeline");
     return nullptr;   // No video queue found
 }
-
+#endif
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
 /**
  * @brief Configures the GStreamer pipeline.
@@ -2799,7 +2921,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 
 	if(interfacePlayerPriv->gstPrivateContext->video_queue == NULL && interfacePlayerPriv->gstPrivateContext->pipeline != NULL)
  	{
-		interfacePlayerPriv->gstPrivateContext->video_queue = find_video_queue(interfacePlayerPriv->gstPrivateContext->pipeline);
+		interfacePlayerPriv->gstPrivateContext->video_queue = find_video_multiqueue(interfacePlayerPriv->gstPrivateContext->pipeline);
 	}
 	if(interfacePlayerPriv->gstPrivateContext->video_queue == NULL)
 	{
@@ -2807,20 +2929,43 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 	}
 	else
 	{
-		guint64 current_time_ns = 0;
-    	guint current_buffers = 0;
-    	guint current_bytes = 0;
+		gint64 current_time_ns = 0;
+		gint64 current_bytes   = 0;
+		gint64 current_buffers = 0;
 		int frames = -1;
 		if (interfacePlayerPriv->gstPrivateContext->video_dec)
 		{
 			g_object_get(interfacePlayerPriv->gstPrivateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
 		}
     	
-		g_object_get(interfacePlayerPriv->gstPrivateContext->video_queue,
+		GstStructure *stats = NULL;
+    	g_signal_emit_by_name(interfacePlayerPriv->gstPrivateContext->video_queue, "get-stats", &stats);
+
+    	if (!stats) 
+		{
+        	MW_LOG_ERR("MQ get-stats returned NULL");
+        	//return;
+    	}
+		else
+		{
+
+			gst_structure_get_int64(stats, "current-level-time",   &current_time_ns);
+			gst_structure_get_int64(stats, "current-level-bytes",  &current_bytes);
+			gst_structure_get_int64(stats, "current-level-buffers",&current_buffers);
+
+			MW_LOG_WARN("VIDEO MQ BUFFER: time=%" G_GINT64_FORMAT
+					" ns bytes=%" G_GINT64_FORMAT
+					" buffers=%" G_GINT64_FORMAT,
+					current_time_ns, current_bytes, current_buffers);
+
+			gst_structure_free(stats);
+		}	
+
+		/*g_object_get(interfacePlayerPriv->gstPrivateContext->video_queue,
                  "current-level-time", &current_time_ns,
                  "current-level-buffers", &current_buffers,
                  "current-level-bytes", &current_bytes,
-                 NULL);
+                 NULL);*/
    	
     	MW_LOG_WARN(" GST video queue levels: time = %.3f ms buffers = %.6f MB = %.6f MB frames = %d", (double)current_time_ns / 1000000.0, (double)current_buffers / (1024.0 * 1024.0), (double)current_bytes / (1024.0 * 1024.0), frames);
 	}
