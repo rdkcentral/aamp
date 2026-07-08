@@ -744,7 +744,7 @@ bool AampRialtoPlayer::SendCopy(
 	double fDuration)
 {
 	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
-	SendTransfer(mediaType, std::move(buffer), fpts, fdts, fDuration, /*fragmentPTSoffset=*/0.0, /*initFragment=*/false, /*discontinuity=*/false);
+	SendHelper(mediaType, std::move(buffer), fpts, fdts, fDuration);
 	AAMPLOG_INFO("EXIT");
 	return false;
 }
@@ -763,6 +763,22 @@ bool AampRialtoPlayer::SendTransfer(
 				static_cast<int>(mediaType), buffer.size(),
 				fpts, fdts, fDuration, fragmentPTSoffset,
 				initFragment, discontinuity);
+	return SendHelper(mediaType, std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset, initFragment);
+}
+
+bool AampRialtoPlayer::SendHelper(
+	AampMediaType mediaType,
+	std::vector<uint8_t> &&buffer,
+	double fpts,
+	double fdts,
+	double fDuration,
+	double fragmentPTSoffset,
+	bool initFragment)
+{
+	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f fragmentPTSoffset=%f initFragment=%d",
+				static_cast<int>(mediaType), buffer.size(),
+				fpts, fdts, fDuration, fragmentPTSoffset,
+				initFragment);
 
 	auto *source = getSource(mediaType);
 	if (!source)

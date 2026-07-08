@@ -49,12 +49,9 @@ bool AampRialtoAudioSource::mapCodecToMime(
 			streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
 			return true;
 		case GST_FORMAT_AUDIO_ES_AAC:
-			// HLS-TS ES path: the Rialto GStreamer sink translates ADTS AAC
-			// (audio/mpeg mpegversion=2 stream-format=adts) to "audio/mp4"
-			// when calling attachSource.  Use the same MIME type so the Rialto
-			// server pipeline is set up identically to the GStreamer-sink path.
-			// fMP4 AAC (hasDemuxer) uses audio/aac (RAW), not this branch.
-			mimeType     = hasDemuxer() ? "audio/mpeg" : "audio/mp4";
+			// HLS-TS ES path: ADTS AAC (audio/mpeg mpegversion=2
+			// stream-format=adts).
+			mimeType     = "audio/mp4";
 			streamFormat = firebolt::rialto::StreamFormat::UNDEFINED;
 			return true;
 		default:

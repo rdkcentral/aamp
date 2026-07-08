@@ -6368,10 +6368,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					{
 						AAMPLOG_INFO("Setting stream caps for HLS-TS");
 						MediaCodecInfo ci_video{};
-						ci_video.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+						ci_video.mCodecFormat = static_cast<GstStreamOutputFormat>(mVideoFormat);
 						sink->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci_video));
 						MediaCodecInfo ci_audio{};
-						ci_audio.mCodecFormat = GST_FORMAT_AUDIO_ES_AAC;
+						ci_audio.mCodecFormat = static_cast<GstStreamOutputFormat>(mAudioFormat);
 						sink->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(ci_audio));
 					}
 				}
@@ -12225,10 +12225,10 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 			{
 				AAMPLOG_INFO("Setting stream caps for HLS-TS");
 				MediaCodecInfo ci_video{};
-				ci_video.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+				ci_video.mCodecFormat = static_cast<GstStreamOutputFormat>(mVideoFormat);
 				sink->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci_video));
 				MediaCodecInfo ci_audio{};
-				ci_audio.mCodecFormat = GST_FORMAT_AUDIO_ES_AAC;
+				ci_audio.mCodecFormat = static_cast<GstStreamOutputFormat>(mAudioFormat);
 				sink->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(ci_audio));
 			}
 		}

@@ -49,6 +49,17 @@ static MediaCodecInfo MakeAacCodecInfo(
 	return ci;
 }
 
+static MediaCodecInfo MakeAdtsAacCodecInfo(
+	uint16_t channels = 2, uint16_t sampleRate = 48000)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat              = GST_FORMAT_AUDIO_ES_AAC;
+	ci.mInfo.audio.mChannelCount = channels;
+	ci.mInfo.audio.mSampleRate   = sampleRate;
+	// ADTS frames carry codec info in-band; no out-of-band codecData.
+	return ci;
+}
+
 static MediaCodecInfo MakeEc3CodecInfo(
 	uint16_t channels = 6, uint16_t sampleRate = 48000)
 {
@@ -159,6 +170,58 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_AttachAac_Success)
 	EXPECT_EQ(m_source.sourceId(), 20);
 	EXPECT_EQ(m_source.sampleRate(), 48000);
 	EXPECT_EQ(m_source.channels(), 2);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — ADTS AAC (GST_FORMAT_AUDIO_ES_AAC)
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoAudioSource_AttachAdtsAac_UsesMp4MimeType
+ * @brief Verify GST_FORMAT_AUDIO_ES_AAC maps to MIME "audio/mp4" with
+ *        StreamFormat::UNDEFINED.
+ *
+ * GST_FORMAT_AUDIO_ES_AAC is the HLS-TS ADTS path.  The Rialto GStreamer
+ * sink maps audio/mpeg mpegversion=2 (ADTS) to "audio/mp4" when calling
+ * attachSource; direct-Rialto must use the same MIME for parity.
+ * hasDemuxer() is always false for this codec format (fMP4 AAC always
+ * arrives as GST_FORMAT_AUDIO_ES_AAC_RAW), so the mapping must be
+ * unconditional.
+ */
+TEST_F(AampRialtoAudioSourceTest,
+	AampRialtoAudioSource_AttachAdtsAac_UsesMp4MimeType)
+{
+	std::string capturedMime;
+	firebolt::rialto::StreamFormat capturedFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this, &capturedMime, &capturedFormat](
+				const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				capturedMime = src->getMimeType();
+				const auto *av = dynamic_cast<
+					const firebolt::rialto::IMediaPipeline::MediaSourceAV *>(
+					src.get());
+				if (av)
+				{
+					capturedFormat = av->getStreamFormat();
+				}
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+
+	auto codecInfo = MakeAdtsAacCodecInfo(2, 48000);
+	auto result    = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(capturedMime,   "audio/mp4");
+	EXPECT_EQ(capturedFormat, firebolt::rialto::StreamFormat::UNDEFINED);
 }
 
 // ---------------------------------------------------------------------------
