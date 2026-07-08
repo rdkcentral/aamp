@@ -1603,11 +1603,13 @@ void SencBox::truncate(uint32_t firstSampleSize)
  * @param[in] sampleCountLoc - location of the sample count
  * @param[in] numSamples - number of samples
  * @param[in] firstSampleInfoSize - Size of the first sample
+ * @param[in] hasPerSampleInfoTable - True when per-sample info size table is present
  */
-SaizBox::SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t firstSampleInfoSize)
+SaizBox::SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t firstSampleInfoSize, bool hasPerSampleInfoTable)
 		: sampleCountLoc(sampleCountLoc),
 		numSamples(numSamples),
 		firstSampleInfoSize(firstSampleInfoSize),
+		hasPerSampleInfoTable(hasPerSampleInfoTable),
 		FullBox(fbox)
 {
 }
@@ -1635,13 +1637,14 @@ SaizBox* SaizBox::constructSaizBox(uint32_t sz, uint8_t *ptr)
 
 	uint8_t *sample_count_loc{ptr};
 	uint32_t sample_count = READ_U32(ptr);
+	bool has_per_sample_info_table{0 == default_sample_info_size};
 
 	uint8_t sample_info_size = (0 == default_sample_info_size) ? *ptr : default_sample_info_size;
 
 	FullBox fbox(sz, Box::SAIZ, version, flags);
 	fbox.setBase(start);
 
-	return new SaizBox(fbox, sample_count_loc, sample_count, sample_info_size);
+	return new SaizBox(fbox, sample_count_loc, sample_count, sample_info_size, has_per_sample_info_table);
 }
 
 /**
@@ -1658,8 +1661,17 @@ uint32_t SaizBox::getFirstSampleInfoSize(void)
 */
 void SaizBox::truncate(void)
 {
+	if (numSamples <= 1)
+	{
+		return;
+	}
+
 	auto oldSize{getSize()};
-	auto newSize{oldSize - (numSamples - 1)};
+	auto newSize{oldSize};
+	if (hasPerSampleInfoTable)
+	{
+		newSize = oldSize - (numSamples - 1);
+	}
 
 	// Need min 8 bytes to insert a skip box
 	if ((oldSize - newSize) >= SIZEOF_SIZE_AND_TAG)

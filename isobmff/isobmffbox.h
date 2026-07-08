@@ -1119,6 +1119,7 @@ private:
 	uint8_t *sampleCountLoc;
 	uint32_t numSamples;
 	uint32_t firstSampleInfoSize;
+	bool hasPerSampleInfoTable;
 
 public:
 	/**
@@ -1129,7 +1130,7 @@ public:
 	 * @param[in] numSamples - number of samples
 	 * @param[in] sample_info_size - Size for the first auxiliary sample information entry
 	 */
-	SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t sample_info_size);
+	SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t sample_info_size, bool hasPerSampleInfoTable);
 
 	/**
 	 * @fn constructSaizBox
