@@ -361,7 +361,7 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* session)
 	{
 		for (int i = 0; i < mMaxDRMSessions; i++)
 		{
-			if (drmSessionContexts[i].drmSession == session)
+			if (drmSessionContexts[i].drmSession.get() == session)
 			{
 				MW_LOG_INFO("DRM Session found at slot:%d", i);
 				slot = i;
