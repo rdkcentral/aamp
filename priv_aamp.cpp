@@ -5314,7 +5314,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 			// don't generate anomaly reports for write and aborted errors
 			// these are generated after trick play options,
-			if( !(http_code == CURLE_ABORTED_BY_CALLBACK || http_code == CURLE_WRITE_ERROR || http_code == 204))
+			// Also suppress anomaly when the failure was caused by AAMP's own
+			// low-bandwidth stall watchdog (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT).
+			// In that case, the ABR rampdown logic already handles recovery silently
+			// by selecting a lower profile and retrying the segment. Firing a CDN
+			// anomaly on the first stall-watchdog abort causes the Peacock JS app
+			// to call player.stop() prematurely (~30s mark), before AAMP has had a
+			// chance to recover. The anomaly is still sent for genuine CDN HTTP
+			// errors (4xx/5xx) and persistent network failures.
+			const bool isStallWatchdogAbort = (abortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT);
+			if( !isStallWatchdogAbort && !(http_code == CURLE_ABORTED_BY_CALLBACK || http_code == CURLE_WRITE_ERROR || http_code == 204))
 			{
 				if(failureReason != nullptr)
 				{
