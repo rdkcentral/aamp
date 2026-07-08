@@ -1670,23 +1670,25 @@ void SaizBox::truncate(void)
 		return;
 	}
 
-	auto oldSize{getSize()};
-	auto newSize{oldSize};
+	// Only per-sample info tables shrink with the sample count. For a
+	// default_sample_info_size layout there is no table to reclaim, so the box
+	// size is unchanged and no skip box is involved.
 	if (hasPerSampleInfoTable)
 	{
-		newSize = oldSize - (numSamples - 1);
-	}
+		auto oldSize{getSize()};
+		auto newSize{oldSize - (numSamples - 1)};
 
-	// Need min 8 bytes to insert a skip box
-	if ((oldSize - newSize) >= SIZEOF_SIZE_AND_TAG)
-	{
-		WRITE_U32(getBase(), newSize);
-		SkipBox skip{oldSize - newSize, getBase() + newSize};
-	}
-	else
-	{
-		AAMPLOG_INFO("No room for a skip box");
-		// Not truncating the table, just setting the sample count to 1
+		// Need min 8 bytes to insert a skip box
+		if ((oldSize - newSize) >= SIZEOF_SIZE_AND_TAG)
+		{
+			WRITE_U32(getBase(), newSize);
+			SkipBox skip{oldSize - newSize, getBase() + newSize};
+		}
+		else
+		{
+			AAMPLOG_INFO("No room for a skip box");
+			// Not truncating the table, just setting the sample count to 1
+		}
 	}
 
 	numSamples = 1;
