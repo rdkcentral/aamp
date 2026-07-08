@@ -706,7 +706,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 		}
 		MW_LOG_WARN("deleting existing DRM session for %s ", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 		
-		drmSessionContexts[i].drmSession.reset();
+		drmSessionContexts[sessionSlot].drmSession.reset();
 	}
         this->ProfileUpdateCb();
 
