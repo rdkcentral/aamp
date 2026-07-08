@@ -55,6 +55,7 @@ pkg_check_modules(UUID REQUIRED uuid)
 # option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
 # components should be sourced from external repositories or built from the local aamp repository.
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+	message("CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES set")
 	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
 	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
 	pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
@@ -253,7 +254,7 @@ endif()
 
 add_subdirectory(test/rialtoPOC)
 
-if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+#if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	include_directories(support/aampmetrics)
 
@@ -261,7 +262,7 @@ if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} metrics)
-endif()
+#endif()
 
 message("Adding tsb folder")
 add_subdirectory(tsb)
