@@ -49,6 +49,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(std::vector<uint8_t> &buffer)
 
 	isoBmffBuffer.truncate();
 	buffer.resize(isoBmffBuffer.getSize());
+	buffer.shrink_to_fit(); // GCC (libstdc++), Clang (libc++), and MSVC (STL) all reallocate to fit.
 	return true;
 }
 
