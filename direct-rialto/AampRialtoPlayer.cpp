@@ -1952,8 +1952,10 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 			m_pendingPositionNs.load(std::memory_order_relaxed);
 		const int pendingRate =
 			m_pendingFlushRate.load(std::memory_order_relaxed);
+		const bool setPosition = (pendingRate == 1) || 
+								 (sourceId == m_sources[eMEDIATYPE_VIDEO]->sourceId());
 		if (m_pipeline &&
-			!source->state().eos &&
+			setPosition &&
 			!m_pipeline->setSourcePosition(
 				sourceId, posNs, /*resetTime=*/true,
 				computeAppliedRate(pendingRate)))
