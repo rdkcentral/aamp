@@ -32,7 +32,7 @@
 /**
  *  @brief Creates an appropriate DRM session based on the given DrmHelper
  */
-DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
+std::shared_ptr<DrmSession> DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
 {
 	const std::string systemId = drmHelper->ocdmSystemId();
 
