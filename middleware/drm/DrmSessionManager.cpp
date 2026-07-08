@@ -475,7 +475,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	mCustomData = ContentUpdateCb(drmHelper, streamType, std::move(keyId), isContentProcess);
 	if (code == KEY_READY)
 	{
-		return drmSessionContexts[selectedSlot].drmSession;
+		return drmSessionContexts[selectedSlot].drmSession.get();
 	}
 
 	if ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT))
@@ -525,7 +525,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 		drmSessionContexts[selectedSlot].drmSession->setSecManagerSession(localSession);
 	}
 
-	return drmSessionContexts[selectedSlot].drmSession;
+	return drmSessionContexts[selectedSlot].drmSession.get();
 }
 
 /**
