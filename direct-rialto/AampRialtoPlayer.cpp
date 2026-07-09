@@ -1993,7 +1993,7 @@ void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 			// it is not treated as stale on a subsequent flush cycle.
 			// seek-while-paused is correctly handled: Stream() is not called in
 			// that path so m_playRequested remains false and play() is not issued.
-			if (m_stateMachine.currentState() == PlayerStateId::PLAYING ||
+			if (m_stateMachine.currentState() != PlayerStateId::PLAYING &&
 			    m_playRequested.load(std::memory_order_seq_cst))
 			{
 				AAMPLOG_INFO("All sources flushed - issuing play() "
