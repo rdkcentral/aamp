@@ -175,6 +175,9 @@ struct GstPlayerPriv
 	guint periodicProgressCallbackIdleTaskId; /**< ID of timed handler created for notifying progress events. */
 	guint bufferingTimeoutTimerId;                    /**< ID of timer handler created for buffering timeout. */
 	GstElement *video_dec;                                    /**< Video decoder used by pipeline. */
+	GstElement *multiqueue0;                                    /**< multiqueue element in pipeline 0. */
+	GstElement *multiqueue1;                                    /**< multiqueue element in pipeline 1. */
+
 	GstElement *audio_dec;                                    /**< Audio decoder used by pipeline. */
 	GstElement *video_sink;                                   /**< Video sink used by pipeline. */
 	GstElement *audio_sink;                                   /**< Audio sink used by pipeline. */

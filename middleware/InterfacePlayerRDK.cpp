@@ -114,7 +114,7 @@ InterfacePlayerPriv::~InterfacePlayerPriv()
 GstPlayerPriv::GstPlayerPriv() : monitorAVstate(), pipeline(NULL), bus(NULL),
 total_bytes(0), n_audio(0), current_audio(0),
 periodicProgressCallbackIdleTaskId(GST_TASK_ID_INVALID),
-bufferingTimeoutTimerId(GST_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL), TaskControlMutex(), firstProgressCallbackIdleTask("FirstProgressCallback"),
+bufferingTimeoutTimerId(GST_TASK_ID_INVALID), video_dec(NULL), multiqueue0(NULL), multiqueue1(NULL), audio_dec(NULL), TaskControlMutex(), firstProgressCallbackIdleTask("FirstProgressCallback"),
 video_sink(NULL), audio_sink(NULL), subtitle_sink(NULL), task_pool(NULL),
 rate(GST_NORMAL_PLAY_RATE), zoom(GST_VIDEO_ZOOM_NONE), videoMuted(false), audioMuted(false), volumeMuteMutex(), subtitleMuted(true),
 audioVolume(1.0), eosCallbackIdleTaskId(GST_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
@@ -155,6 +155,8 @@ GstPlayerPriv::~GstPlayerPriv()
 	g_clear_object(&pipeline);
 	g_clear_object(&bus);
 	g_clear_object(&video_dec);
+	g_clear_object(&multiqueue0);
+	g_clear_object(&multiqueue1);
 	g_clear_object(&audio_dec);
 	g_clear_object(&video_sink);
 	g_clear_object(&audio_sink);
@@ -2740,6 +2742,52 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
+	if ((interfacePlayerPriv->gstPrivateContext->multiqueue0) && (interfacePlayerPriv->gstPrivateContext->multiqueue1))
+	{		
+		GstPad *padMultiqueueSrc = NULL;
+		guint64 current_time_ns = -1;
+		guint current_bytes   = -1;
+		guint current_buffers = -1;
+		int frames = -1;
+		if (interfacePlayerPriv->gstPrivateContext->video_dec)
+		{
+			g_object_get(interfacePlayerPriv->gstPrivateContext->video_dec,"queued_frames",(uint*)&frames,NULL);
+		}
+
+		padMultiqueueSrc = gst_element_get_static_pad (interfacePlayerPriv->gstPrivateContext->multiqueue0, "src_0");
+		
+		g_object_get(G_OBJECT(padMultiqueueSrc),
+                 "current-level-time", &current_time_ns,
+                 "current-level-buffers", &current_buffers,
+                 "current-level-bytes", &current_bytes,
+                 NULL);	
+		gst_object_unref(padMultiqueueSrc);
+
+		MW_LOG_WARN(" [DBGX] GST multiqueue levels for video : time = %.3f ms, buffers = %d, bytes = %.6f MB; video frames = %d",
+			 (double)current_time_ns / 1000000.0,
+			 current_buffers,
+			 (double)current_bytes / (1024.0 * 1024.0),
+			 frames);
+
+		current_time_ns = -1;
+		current_bytes   = -1;
+		current_buffers = -1;
+
+		padMultiqueueSrc = gst_element_get_static_pad (interfacePlayerPriv->gstPrivateContext->multiqueue1, "src_0");
+		
+		g_object_get(G_OBJECT(padMultiqueueSrc),
+                 "current-level-time", &current_time_ns,
+                 "current-level-buffers", &current_buffers,
+                 "current-level-bytes", &current_bytes,
+                 NULL);	
+		gst_object_unref(padMultiqueueSrc);
+
+
+		MW_LOG_WARN(" [DBGX] GST multiqueue levels for audio : time = %.3f ms, buffers = %d, bytes = %.6f MB",
+			 (double)current_time_ns / 1000000.0,
+			 current_buffers,
+			 (double)current_bytes / (1024.0 * 1024.0) );
+	}
 	return rc;
 }
 
@@ -4382,7 +4430,8 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 					}
 					if (pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
 					{
-						GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)privatePlayer->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer");
+						//MW_LOG_WARN("DBGX - setting dot file");
+						GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)privatePlayer->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer"); 
 						// output graph to .dot format which can be visualized with Graphviz tool if:
 						// gstreamer is configured with --gst-enable-gst-debug
 						// and "gst" is enabled in player cfg
@@ -4895,6 +4944,49 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 				}
 
 			}
+			// store multiqueue element pointers
+			if ( 
+				 (old_state == GST_STATE_PAUSED && new_state == GST_STATE_PLAYING) &&
+				 (NULL != msg->src) &&
+			     ( strstr( gst_object_get_name(msg->src), "multiqueue" ))
+			   )
+			{
+				// get the bin it's in
+				auto parent1 = gst_object_get_parent(msg->src);
+				auto parent1Name=gst_object_get_name(parent1);
+
+				// traverse it's bin to find if it's video or audio
+				GstIterator *it;
+    			GValue item = G_VALUE_INIT;
+    			GstElement *elem = nullptr;
+				bool foundType=false;
+			    it = gst_bin_iterate_elements(GST_BIN(parent1));
+				while (gst_iterator_next(it, &item) == GST_ITERATOR_OK) {
+					elem = (GstElement*) g_value_get_object(&item);
+					if (elem && GST_IS_ELEMENT(elem)) {
+						//MW_LOG_MIL("[DBGX] InterfacePlayerRDK contains %.80s", gst_object_get_name(GST_OBJECT(elem)));
+						if ( strstr(gst_object_get_name(GST_OBJECT(elem)),"omxeac3dec-omxeac3dec") )
+						{
+							MW_LOG_MIL("[DBGX] InterfacePlayerRDK found audio multiqueue from (%.80s)", parent1Name? parent1Name:"");
+							gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->multiqueue1, msg->src);
+							foundType=true;
+						}
+						else if (strstr(gst_object_get_name(GST_OBJECT(elem)),"omxh265dec-omxh265dec"))
+						{
+							MW_LOG_MIL("[DBGX] InterfacePlayerRDK found video multiqueue from (%.80s)", parent1Name? parent1Name:"");
+							gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->multiqueue0, msg->src);
+							foundType=true;
+						}
+					}
+				}
+				g_value_unset (&item);                                                                                                                                                                                      
+				gst_iterator_free (it);
+
+				if (!foundType)
+				{
+					MW_LOG_MIL("[DBGX] InterfacePlayerRDK multiqueue of unknown bin type");
+				}
+			}
 			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 			{
 				if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
@@ -4925,6 +5017,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 
 					}
 				}
+				//MW_LOG_MIL("[DBGX] InterfacePlayerRDK found %.20s", gst_object_get_name(msg->src));
 				if ((NULL != msg->src) && GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK) && (!privatePlayer->gstPrivateContext->usingRialtoSink))
 				{
 					if(privatePlayer->gstPrivateContext->enableSEITimeCode)
@@ -5241,6 +5334,8 @@ bool InterfacePlayerRDK::SignalSubtitleClock(gint64 vPTS, bool state)
  */
 void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 {
+	//MW_LOG_WARN("DBGX - setting dot path in InitializePlayerGstreamerPlugins");
+	//setenv("GST_DEBUG_DUMP_DOT_DIR","/tmp",true);
 	// Ensure GST is initialized
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
