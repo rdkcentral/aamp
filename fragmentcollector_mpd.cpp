@@ -10744,18 +10744,34 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				if (AdState::OUTSIDE_ADBREAK != mCdaiObject->mAdState)
 				{
 					Period2AdData &curPeriod = mCdaiObject->mPeriodMap[mBasePeriodId];
+					bool breakDownloaderLoop = false;
 					if ((mPlayRate < AAMP_RATE_PAUSE && mBasePeriodOffset <= 0) ||
 						(mPlayRate > AAMP_RATE_PAUSE && curPeriod.filled && curPeriod.duration <= (uint64_t)(mBasePeriodOffset * 1000)))
 					{
 						AAMPLOG_INFO("[CDAI]: BasePeriod[%s] completed @%lf. Changing to next ", mBasePeriodId.c_str(), mBasePeriodOffset);
-						break;
+						breakDownloaderLoop = true;
 					}
 					else if (lastPrdOffset != mBasePeriodOffset && AdState::IN_ADBREAK_AD_NOT_PLAYING == mCdaiObject->mAdState)
 					{
 						// In adbreak, but somehow Ad is not playing. Need to check whether the position reached the next Ad start.
 						adStateChanged = onAdEvent(AdEvent::BASE_OFFSET_CHANGE);
 						if (adStateChanged)
-							break;
+							breakDownloaderLoop = true;
+					}
+					// State is not OUTSIDE_ADBREAK, Ad is either ended or not playing
+					// Wait for scheduled fragments to be downloaded and cached before moving to next period.
+					if (breakDownloaderLoop)
+					{
+						aamp->GetAampTrackWorkerManager()->WaitForCompletionWithTimeout(MAX_WAIT_TIMEOUT_MS, [this]() {
+							if (mIsLiveManifest)
+							{
+								if (eAAMPSTATUS_OK != UpdateMPD())
+								{
+									AAMPLOG_DEBUG("Failed to refresh MPD");
+								}
+							}
+						});
+						break;
 					}
 					lastPrdOffset = mBasePeriodOffset;
 				}
