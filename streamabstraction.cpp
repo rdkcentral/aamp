@@ -2271,6 +2271,24 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 				mABRHighBufferCounter = 0;
 			}
 		}
+#ifdef 1
+		else if(mIsAtLivePoint && bufferValue > mABRMinBuffer && bufferValue <= mABRMaxBuffer)
+		{
+			mABRHighBufferCounter++;
+			mABRLowBufferCounter = 0;
+			if(mABRHighBufferCounter > mMaxBufferCountCheck)
+			{
+				int nProfileIdx = aamp->mhAbrManager.getRampedUpProfileIndex(currProfileIndex);
+				long newBandwidth = GetStreamInfo(nProfileIdx)->bandwidthBitsPerSecond;
+				ABRManager::BitrateChangeReason mhBitrateReason;
+				mhBitrateReason = (ABRManager::BitrateChangeReason) mBitrateReason;
+				aamp->mhAbrManager.CheckRampupFromSteadyState(currProfileIndex,newProfileIndex,nwBandwidth,bufferValue,newBandwidth,mhBitrateReason,mMaxBufferCountCheck);
+				mBitrateReason = (BitrateChangeReason) mhBitrateReason;
+				mABRHighBufferCounter = 0;
+				AAMPLOG_WARN("Live-edge ABR bypass: buffer %f in deadlock band [%d,%d], attempting ramp-up from profile %d",bufferValue,mABRMinBuffer,mABRMaxBuffer,currProfileIndex);
+			}
+		}
+#endif
 		// steady state ,with no ABR cache available to determine actual bandwidth
 		// this state can happen due to timeouts
 		// Adding delta check: When bandwidth is higher than currentprofile bandwidth but insufficient to download both audio and video simultaneously, a delta less than 2000 kbps indicates a need for steady state rampdown.
