@@ -138,7 +138,7 @@ public:
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 private:
-	KeyIDEntries *cachedKeyIDs;
+	KeyIdEntries *cachedKeyIDs;
 	char* accessToken;
 	int accessTokenLen;
 	SessionMgrState sessionMgrState;
