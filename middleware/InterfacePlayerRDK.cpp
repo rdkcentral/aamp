@@ -2997,7 +2997,13 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool initFra
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	GstClockTime pts = (GstClockTime)(sample.mPts * GST_SECOND);
 	GstClockTime dts = (GstClockTime)(sample.mDts * GST_SECOND);
-	GstClockTime duration = (GstClockTime)(sample.mDuration * 1000000000LL);
+
+	double dur = sample.mDuration;
+	if (sample.mDuration == 4.0)
+	{
+		dur = sample.mDuration / 100;
+	}
+	GstClockTime duration = (GstClockTime)(dur * 1000000000LL);
 	gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[mediaType];
 
 	if (eGST_MEDIATYPE_SUBTITLE == mediaType && discontinuity)
