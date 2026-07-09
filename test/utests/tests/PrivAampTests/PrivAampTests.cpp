@@ -6014,8 +6014,6 @@ struct GetStreamFormatTestParams {
 	double rate;
 	bool hasTsbInjection;
 	bool useRialtoSink;
-	bool useMp4Demux;
-	MediaFormat mediaFormat;
 	StreamOutputFormat mockPrimary;
 	StreamOutputFormat mockAudio;
 	StreamOutputFormat mockSubtitle;
@@ -6029,9 +6027,7 @@ struct GetStreamFormatTestParams {
 		std::stringstream ss;
 		ss << "Rate" << rate
 		   << "_HasTsbInjection" << hasTsbInjection
-		   << "_UseRialtoSink" << useRialtoSink
-		   << "_UseMp4Demux" << useMp4Demux
-		   << "_MediaFormat" << mediaFormat;
+		   << "_UseRialtoSink" << useRialtoSink;
 		return ss.str();
 	}
 };
@@ -6159,7 +6155,6 @@ TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
 	StreamOutputFormat primaryOutputFormat, audioOutputFormat, subtitleOutputFormat;
 	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 	testp_aamp->rate = params.rate;
-	testp_aamp->mMediaFormat = params.mediaFormat;
 
 	testp_aamp->SetLocalAAMPTsbInjection(params.hasTsbInjection);
 
@@ -6171,7 +6166,6 @@ TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
 			SetArgReferee<2>(params.mockSubtitle)
 		));
 
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillOnce(Return(params.useMp4Demux));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(params.useRialtoSink));
 
 	testp_aamp->CallGetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
@@ -6189,8 +6183,6 @@ INSTANTIATE_TEST_SUITE_P(
 			AAMP_NORMAL_PLAY_RATE,          // rate
 			false,                          // hasTsbInjection
 			false,                          // useRialtoSink
-			false,                          // useMp4Demux
-			eMEDIAFORMAT_DASH,              // mediaFormat
 			FORMAT_VIDEO_ES_H264,           // mockPrimary
 			FORMAT_AUDIO_ES_AC3,            // mockAudio
 			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
@@ -6202,8 +6194,6 @@ INSTANTIATE_TEST_SUITE_P(
 			AAMP_NORMAL_PLAY_RATE,          // rate
 			false,                          // hasTsbInjection
 			true,                           // useRialtoSink
-			false,                          // useMp4Demux
-			eMEDIAFORMAT_DASH,              // mediaFormat
 			FORMAT_VIDEO_ES_H264,           // mockPrimary
 			FORMAT_AUDIO_ES_AC3,            // mockAudio
 			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
@@ -6215,8 +6205,6 @@ INSTANTIATE_TEST_SUITE_P(
 			AAMP_NORMAL_PLAY_RATE,          // rate
 			true,                           // hasTsbInjection
 			true,                           // useRialtoSink
-			false,                          // useMp4Demux
-			eMEDIAFORMAT_DASH,              // mediaFormat
 			FORMAT_VIDEO_ES_H264,           // mockPrimary
 			FORMAT_AUDIO_ES_AC3,            // mockAudio
 			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
@@ -6228,40 +6216,12 @@ INSTANTIATE_TEST_SUITE_P(
 			2.0,                            // rate
 			true,                           // hasTsbInjection
 			true,                           // useRialtoSink
-			false,                          // useMp4Demux
-			eMEDIAFORMAT_DASH,              // mediaFormat
 			FORMAT_VIDEO_ES_H264,           // mockPrimary
 			FORMAT_AUDIO_ES_AC3,            // mockAudio
 			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
 			FORMAT_VIDEO_ES_H264,           // expectedPrimary
 			FORMAT_INVALID,                 // expectedAudio
 			FORMAT_INVALID                  // expectedSubtitle
-		},
-		GetStreamFormatTestParams{
-			AAMP_NORMAL_PLAY_RATE,          // rate
-			false,                          // hasTsbInjection
-			false,                          // useRialtoSink
-			true,                           // useMp4Demux
-			eMEDIAFORMAT_HLS,               // mediaFormat (HLS-TS)
-			FORMAT_VIDEO_ES_H264,           // mockPrimary
-			FORMAT_AUDIO_ES_AC3,            // mockAudio
-			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
-			FORMAT_VIDEO_ES_H264,           // expectedPrimary
-			FORMAT_AUDIO_ES_AC3,            // expectedAudio
-			FORMAT_SUBTITLE_WEBVTT          // expectedSubtitle
-		},
-		GetStreamFormatTestParams{
-			AAMP_NORMAL_PLAY_RATE,          // rate
-			false,                          // hasTsbInjection
-			false,                          // useRialtoSink
-			true,                           // useMp4Demux
-			eMEDIAFORMAT_HLS_MP4,           // mediaFormat (non-HLS-TS)
-			FORMAT_VIDEO_ES_H264,           // mockPrimary
-			FORMAT_AUDIO_ES_AC3,            // mockAudio
-			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
-			FORMAT_UNKNOWN,                 // expectedPrimary
-			FORMAT_UNKNOWN,                 // expectedAudio
-			FORMAT_SUBTITLE_WEBVTT          // expectedSubtitle
 		}
 	)
 );
