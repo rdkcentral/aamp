@@ -1023,19 +1023,15 @@ void AampRialtoPlayer::EndOfStreamReached(AampMediaType type)
 	//    a. Content with no subtitle tracks (e.g. an ad): subtitle source was
 	//       created from a saved header but will receive no data.
 
-	if (type == eMEDIATYPE_AUDIO)
+	if (type == eMEDIATYPE_VIDEO)
 	{
-		auto *audioSrc    = m_sources[eMEDIATYPE_AUDIO].get();
 		auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
 
-		const bool audioAtEos = audioSrc && audioSrc->state().eos;
-
-		if (audioAtEos
-		    && subtitleSrc
+		if (subtitleSrc
 		    && subtitleSrc->isAttached()
 		    && !subtitleSrc->state().eos)
 		{
-			AAMPLOG_INFO("auto-signaling subtitle EOS: audio at EOS");
+			AAMPLOG_INFO("auto-signaling subtitle EOS: video at EOS");
 			subtitleSrc->signalEos(m_pipeline.get());
 		}
 	}
