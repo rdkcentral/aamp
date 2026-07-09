@@ -2271,7 +2271,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 				mABRHighBufferCounter = 0;
 			}
 		}
-#ifdef 1
+#if 1
 		else if(mIsAtLivePoint && bufferValue > mABRMinBuffer && bufferValue <= mABRMaxBuffer)
 		{
 			mABRHighBufferCounter++;
