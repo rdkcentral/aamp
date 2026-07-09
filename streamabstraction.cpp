@@ -2253,6 +2253,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	double bufferValue = GetBufferValue(video);
 	//long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
+	AAMPLOG_INFO("patrick mABRHighBufferCounter=%d bufferValue=%f mIsAtLivePoint=%d mMaxBufferCountCheck=%d",
+		mABRHighBufferCounter, bufferValue, mIsAtLivePoint, mMaxBufferCountCheck);
 	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
 		AAMPLOG_DEBUG("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
@@ -2274,6 +2276,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 #if 1
 		else if(mIsAtLivePoint && bufferValue > mABRMinBuffer && bufferValue <= mABRMaxBuffer)
 		{
+			AAMPLOG_INFO("patrick");
 			mABRHighBufferCounter++;
 			mABRLowBufferCounter = 0;
 			if(mABRHighBufferCounter > mMaxBufferCountCheck)
