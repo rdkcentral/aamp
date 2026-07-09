@@ -1068,13 +1068,16 @@ void AampRialtoPlayer::Stream()
 		// to guarantee one side always calls play().
 		if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
 		{
-			// allSourcesAttached() already completed before this call -
-			// promote to PLAYING immediately.
 			m_playRequested.store(false, std::memory_order_relaxed);
-			bool async = false;
-			if (!m_pipeline->play(async))
+			if (m_stateMachine.currentState() != PlayerStateId::PLAYING)
 			{
-				AAMPLOG_ERR("play() failed");
+				// allSourcesAttached() already completed before this call -
+				// promote to PLAYING immediately.
+				bool async = false;
+				if (!m_pipeline->play(async))
+				{
+					AAMPLOG_ERR("play() failed");
+				}
 			}
 		}
 		else
