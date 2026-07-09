@@ -70,19 +70,24 @@ struct DrmSessionContext
 	}
 };
 
-/**
- *  @struct	KeyID
- *  @brief	Structure to hold, keyId and session creation time for
- *  		keyId
- */
-struct KeyID
+struct KeyIdEntry
 {
-	std::vector<std::vector<uint8_t>> data;
-	long long creationTime;
+	std::vector<uint8_t> keyId;
 	bool isFailedKeyId;
-	bool isPrimaryKeyId;
 
-	KeyID();
+	KeyIdEntry() : keyId(), isFailedKeyId(false)
+	{
+	}
+};
+
+struct KeyIdEntries
+{
+	std::vector<KeyIdEntry> data;
+	long long creationTime;
+	bool isPrimaryKeyId;
+	bool isFailedKeyEntries;
+
+	KeyIdEntries();
 };
 
 /**
