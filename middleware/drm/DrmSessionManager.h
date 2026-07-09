@@ -379,6 +379,14 @@ public:
 	 * @return index to the session slot for selected drmSessionContext 
 	 */
 	int getSlotIdForSession(DrmSession* session);
+     /**
+	 * @fn ValidateMultiKeySlot
+	 * @brief Validate multiple key IDs for a given DRM session slot
+	 * @param[in] keyId The key ID to validate
+	 * @param[in] selectedSlot The DRM session slot to validate
+	 * @return true if validation is successful, false otherwise
+	 */
+	bool ValidateMultiKeySlot(const std::vector<uint8_t> &keyId, int selectedSlot);
 	/**
 	 * @fn releaseLicenseRenewalThreads
 	 */
