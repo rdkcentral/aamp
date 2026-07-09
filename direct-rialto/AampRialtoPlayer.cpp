@@ -766,6 +766,70 @@ bool AampRialtoPlayer::SendTransfer(
 	return SendHelper(mediaType, std::move(buffer), fpts, fdts, fDuration, fragmentPTSoffset, initFragment);
 }
 
+static GstStreamOutputFormat toGstStreamOutputFormat(StreamOutputFormat fmt)
+{
+	GstStreamOutputFormat gstFmt = GST_FORMAT_UNKNOWN;
+
+	switch (fmt)
+	{
+		case FORMAT_INVALID:
+			gstFmt = GST_FORMAT_INVALID;
+			break;
+		case FORMAT_MPEGTS:
+			gstFmt = GST_FORMAT_MPEGTS;
+			break;
+		case FORMAT_ISO_BMFF:
+			gstFmt = GST_FORMAT_ISO_BMFF;
+			break;
+		case FORMAT_AUDIO_ES_MP3:
+			gstFmt = GST_FORMAT_AUDIO_ES_MP3;
+			break;
+		case FORMAT_AUDIO_ES_AAC:
+			gstFmt = GST_FORMAT_AUDIO_ES_AAC;
+			break;
+		case FORMAT_AUDIO_ES_AAC_RAW:
+			gstFmt = GST_FORMAT_AUDIO_ES_AAC_RAW;
+			break;
+		case FORMAT_AUDIO_ES_AC3:
+			gstFmt = GST_FORMAT_AUDIO_ES_AC3;
+			break;
+		case FORMAT_AUDIO_ES_EC3:
+			gstFmt = GST_FORMAT_AUDIO_ES_EC3;
+			break;
+		case FORMAT_AUDIO_ES_ATMOS:
+			gstFmt = GST_FORMAT_AUDIO_ES_ATMOS;
+			break;
+		case FORMAT_AUDIO_ES_AC4:
+			gstFmt = GST_FORMAT_AUDIO_ES_AC4;
+			break;
+		case FORMAT_VIDEO_ES_H264:
+			gstFmt = GST_FORMAT_VIDEO_ES_H264;
+			break;
+		case FORMAT_VIDEO_ES_HEVC:
+			gstFmt = GST_FORMAT_VIDEO_ES_HEVC;
+			break;
+		case FORMAT_VIDEO_ES_MPEG2:
+			gstFmt = GST_FORMAT_VIDEO_ES_MPEG2;
+			break;
+		case FORMAT_SUBTITLE_WEBVTT:
+			gstFmt = GST_FORMAT_SUBTITLE_WEBVTT;
+			break;
+		case FORMAT_SUBTITLE_TTML:
+			gstFmt = GST_FORMAT_SUBTITLE_TTML;
+			break;
+		case FORMAT_SUBTITLE_MP4:
+			gstFmt = GST_FORMAT_SUBTITLE_MP4;
+			break;
+		case FORMAT_UNKNOWN:
+			gstFmt = GST_FORMAT_UNKNOWN;
+			break;
+		default:
+			gstFmt = GST_FORMAT_UNKNOWN;
+			break;
+	}
+	return gstFmt;
+}
+
 bool AampRialtoPlayer::SendHelper(
 	AampMediaType mediaType,
 	std::vector<uint8_t> &&buffer,
@@ -824,6 +888,13 @@ bool AampRialtoPlayer::SendHelper(
 	}
 	else if (m_pipeline)
 	{
+		if (!source->isAttached())
+		{
+			AAMPLOG_INFO("Setting stream caps for mediaType=%d", static_cast<int>(mediaType));
+			MediaCodecInfo ci{};
+			ci.mCodecFormat = toGstStreamOutputFormat(source->format());
+			SetStreamCaps(mediaType, std::move(ci));
+		}
 		if (!source->processDataFragment(
 				*m_pipeline, std::move(sharedBuffer),
 				fpts, fdts, fDuration, fragmentPTSoffset))

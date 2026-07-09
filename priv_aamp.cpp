@@ -6364,16 +6364,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				if (mbPlayEnabled)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus());
-					if ((GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto)) && (mMediaFormat == eMEDIAFORMAT_HLS))
-					{
-						AAMPLOG_INFO("Setting stream caps for HLS-TS");
-						MediaCodecInfo ci_video{};
-						ci_video.mCodecFormat = static_cast<GstStreamOutputFormat>(mVideoFormat);
-						sink->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci_video));
-						MediaCodecInfo ci_audio{};
-						ci_audio.mCodecFormat = static_cast<GstStreamOutputFormat>(mAudioFormat);
-						sink->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(ci_audio));
-					}
 				}
 			}
 			else
@@ -12221,16 +12211,6 @@ void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, Stream
 		if (sink)
 		{
 			sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, false);
-			if ((GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto)) && (mMediaFormat == eMEDIAFORMAT_HLS))
-			{
-				AAMPLOG_INFO("Setting stream caps for HLS-TS");
-				MediaCodecInfo ci_video{};
-				ci_video.mCodecFormat = static_cast<GstStreamOutputFormat>(mVideoFormat);
-				sink->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci_video));
-				MediaCodecInfo ci_audio{};
-				ci_audio.mCodecFormat = static_cast<GstStreamOutputFormat>(mAudioFormat);
-				sink->SetStreamCaps(eMEDIATYPE_AUDIO, std::move(ci_audio));
-			}
 		}
 	}
 }
