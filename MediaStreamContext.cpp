@@ -1047,37 +1047,10 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	URIInfo uriInfo;
 	if (dlInfo->uriList.size() > 0)
 	{
-		// For SegmentBase content the byte range in dlInfo was computed against the
-		// profile active at job-submission time (dlInfo->bandwidth).  An ABR switch
-		// clears IDX before reloading it for the new profile.  If an async media-
-		// segment job runs inside that window, fragmentDescriptor.Bandwidth already
-		// reflects the new profile but IDX is still empty, so the bandwidth-change
-		// recompute below is skipped.  Using the new-profile URL with the old-
-		// profile byte range then fetches data at the wrong offset and GStreamer
-		// sees a bogus box size (VPAAMP-614).
-		//
-		// Guard: when bandwidth has changed AND the IDX has been cleared (not yet
-		// reloaded for the new profile), fall back to the submission-time bandwidth
-		// for the URL lookup so that URL and range stay paired.  When IDX is
-		// present the recompute block below will derive the correct new-profile
-		// range and the new-profile URL is safe to use.
-		BitsPerSecond urlLookupBw = fragmentDescriptor.Bandwidth;
-		if (!dlInfo->range.empty() &&
-		    dlInfo->bandwidth > 0 &&
-		    dlInfo->bandwidth != fragmentDescriptor.Bandwidth)
+		// Asses the current bandwidth and get the appropriate URIInfo from the map with resolved URLs
+		if (dlInfo->uriList.find(fragmentDescriptor.Bandwidth) != dlInfo->uriList.end())
 		{
-			std::lock_guard<std::mutex> idxLock(mIdxMutex);
-			if (IDX.empty())
-			{
-				// IDX cleared for ABR switch but not yet reloaded — cannot
-				// recompute the range; keep the submission-time URL so the
-				// existing range remains valid.
-				urlLookupBw = dlInfo->bandwidth;
-			}
-		}
-		if (dlInfo->uriList.find(urlLookupBw) != dlInfo->uriList.end())
-		{
-			uriInfo = dlInfo->uriList[urlLookupBw];
+			uriInfo = dlInfo->uriList[fragmentDescriptor.Bandwidth];
 		}
 		if (uriInfo.url.empty() && dlInfo->uriList.size() > 0)
 		{
