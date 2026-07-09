@@ -687,20 +687,24 @@ private:
 		{
 			return false;
 		}
-		bool haveNonSubtitle = false;
-		for (const auto &entry : m_sourceTypes)
+
+		// Check if there are any non-subtitle sources ready.
+		// When multiple non-subtitle sources are present (video + audio),
+		// transition to PLAYING once at least the primary source (usually video)
+		// has accumulated sufficient data. Audio may not be present in some
+		// streams (e.g., HLS TS) or may be disabled. Once playback has begun
+		// and the primary source is ready, Rialto starts playback immediately
+		// rather than waiting for all possible sources.
+		for (const auto &source : m_readySources)
 		{
-			if (entry.second == MediaSourceType::SUBTITLE)
+			auto typeIt = m_sourceTypes.find(source);
+			if (typeIt != m_sourceTypes.end() &&
+				typeIt->second != MediaSourceType::SUBTITLE)
 			{
-				continue;
-			}
-			haveNonSubtitle = true;
-			if (m_readySources.find(entry.first) == m_readySources.end())
-			{
-				return false;
+				return true;
 			}
 		}
-		return haveNonSubtitle;
+		return false;
 	}
 
 	// Caller must hold m_trackMutex.
@@ -727,9 +731,14 @@ private:
 		bool startPlaying = false;
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
-			if (m_playRequested.load(std::memory_order_relaxed) &&
-				!m_playing.load(std::memory_order_relaxed) &&
-				allNonSubtitleSourcesReadyLocked())
+			bool playRequested = m_playRequested.load(std::memory_order_relaxed);
+			bool alreadyPlaying = m_playing.load(std::memory_order_relaxed);
+			bool sourcesReady = allNonSubtitleSourcesReadyLocked();
+			fprintf(stderr, "[RialtoSim] maybeStartPlayback: playRequested=%d playing=%d ready=%d #readySources=%zu\n",
+			  playRequested, alreadyPlaying, sourcesReady, (size_t)m_readySources.size());
+			RIALTO_SIM_LOG("maybeStartPlayback: playRequested=%d playing=%d ready=%d #readySources=%zu",
+				playRequested, alreadyPlaying, sourcesReady, m_readySources.size());
+			if (playRequested && !alreadyPlaying && sourcesReady)
 			{
 				// Mark playing under the lock to prevent another
 				// callback thread from also transitioning.
