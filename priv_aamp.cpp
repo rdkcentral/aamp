@@ -14938,13 +14938,6 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
 	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, subtitleOutputFormat);
-	if (ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) && (mMediaFormat != eMEDIAFORMAT_HLS))
-	{
-		// Mp4Demuxer will set the format later once the init fragment is parsed
-		// format is only used for video and audio formats. Subtitle should be unaffected
-		primaryOutputFormat = FORMAT_UNKNOWN;
-		audioOutputFormat = FORMAT_UNKNOWN;
-	}
 
 	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
 	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
