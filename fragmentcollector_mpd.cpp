@@ -682,6 +682,8 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	// init download completion on the worker thread (fragmentOffset is mutated on
 	// both threads simultaneously).  Run SegmentBase init synchronously to guarantee
 	// the init bytes are injected before the FetcherLoop advances.
+	// SegmentBase media segments are safe to download in parallel; the ABR-switch
+	// URL/range consistency race is addressed in DownloadFragment (VPAAMP-614).
 	const bool segmentBaseInit = isInitializationSegment && !range.empty();
 	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseInit)
 	{
