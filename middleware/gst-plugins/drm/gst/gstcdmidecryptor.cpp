@@ -459,6 +459,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 	GST_LOG_OBJECT(trans, "returning %" GST_PTR_FORMAT, transformedCaps);
 	if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps))
 	{
+		GstCaps* sinkCapsCopy = NULL;
 		g_mutex_lock(&cdmidecryptor->mutex);
 		// clean up previous caps
 		if (cdmidecryptor->sinkCaps)
