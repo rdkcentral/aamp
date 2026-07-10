@@ -407,6 +407,14 @@ void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
 
 bool OCDMSessionAdapter::verifyOutputProtection()
 {
+	// Guard against NULL pointers as a last-resort safety net. In normal
+	// operation these are always set in the constructor, but this protects
+	// against use-after-free or partial construction scenarios.
+	if (!m_drmHelper || !m_pOutputProtection)
+	{
+		MW_LOG_WARN("verifyOutputProtection: NULL drmHelper or outputProtection, skipping HDCP check");
+		return true;
+	}
 	if (m_drmHelper->isHdcp22Required() && m_pOutputProtection->IsSourceUHD())
 	{
 		// Source material is UHD

@@ -262,11 +262,20 @@ void gst_cdmidecryptor_dispose(GObject * object)
 		gst_event_unref(cdmidecryptor->protectionEvent);
 		cdmidecryptor->protectionEvent = NULL;
 	}
+
+	/* Lock mutex before clearing shared state.
+	 * GStreamer guarantees the streaming task is stopped before dispose() is called,
+	 * so this lock should not be contended in normal operation. It ensures that any
+	 * in-flight transform_ip call holding the mutex has completed and released it,
+	 * and that a subsequent entry into transform_ip will see drmSession==NULL. */
+	g_mutex_lock(&cdmidecryptor->mutex);
 	if (cdmidecryptor->sinkCaps)
 	{
 		gst_caps_unref(cdmidecryptor->sinkCaps);
 		cdmidecryptor->sinkCaps = NULL;
 	}
+	cdmidecryptor->drmSession = NULL;
+	g_mutex_unlock(&cdmidecryptor->mutex);
 
 	g_mutex_clear(&cdmidecryptor->mutex);
 	g_cond_clear(&cdmidecryptor->condition);

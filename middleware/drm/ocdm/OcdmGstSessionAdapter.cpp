@@ -295,6 +295,11 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 {
 	int retValue = -1;
 
+	// Acquire decryptMutex before checking m_pOpenCDMSession to prevent use-after-free.
+	// clearDecryptContext() also holds decryptMutex and sets m_pOpenCDMSession=NULL under
+	// that lock. If teardown wins the race, the NULL check below will safely abort.
+	std::lock_guard<std::mutex> guard(decryptMutex);
+
 	if (m_pOpenCDMSession)
 	{
 		if (!verifyOutputProtection())
@@ -317,7 +322,6 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 		}
 		else
 		{
-			std::lock_guard<std::mutex> guard(decryptMutex);
 			uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
 			/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
@@ -387,6 +391,9 @@ int OCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const
 {
 	int retValue = -1;
 
+	// Acquire decryptMutex before checking m_pOpenCDMSession to prevent use-after-free.
+	std::lock_guard<std::mutex> guard(decryptMutex);
+
 	if (m_pOpenCDMSession)
 	{
 		if (!verifyOutputProtection())
@@ -395,7 +402,6 @@ int OCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const
 		}
 		else
 		{
-			std::lock_guard<std::mutex> guard(decryptMutex);
 			EncryptionScheme encScheme = AesCtr_Cenc;
 			EncryptionPattern pattern = {0};
 			/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
