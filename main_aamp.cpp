@@ -2928,7 +2928,6 @@ int PlayerInstanceAAMP::GetTextTrack()
 void PlayerInstanceAAMP::SetCCStatus(bool enabled)
 {
 	aamp->SetCCStatus(enabled);
-	auto setCCDuration = (unsigned)(NOW_STEADY_TS_MS - setCCStartTime);
 }
 
 /**
