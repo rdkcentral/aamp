@@ -887,6 +887,65 @@ TEST_F(AampRialtoVideoSourceTest,
 // ---------------------------------------------------------------------------
 
 /**
+ * @test AampRialtoVideoSource_ProcessDataFragment_NoDemuxerNotAttached_ReturnsTrue
+ * @brief Verify processDataFragment returns true and performs no injection
+ *        in no-demuxer mode when the source is not attached.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessDataFragment_NoDemuxerNotAttached_ReturnsTrue)
+{
+	ASSERT_FALSE(m_source.hasDemuxer());
+	ASSERT_FALSE(m_source.isAttached());
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xAA, 0xBB, 0xCC});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		1.25, 1.25, 0.04, 0.0);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(m_source.firstPtsMs(), AampRialtoMediaSource::kFirstPtsNotSet);
+}
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_NoDemuxerAttached_InjectsSingleSample
+ * @brief Verify processDataFragment injects one ES sample directly in
+ *        no-demuxer mode when attached and a needData slot is available.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessDataFragment_NoDemuxerAttached_InjectsSingleSample)
+{
+	ASSERT_FALSE(m_source.hasDemuxer());
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 66;
+		st.pendingFrameCount     = 1;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(66, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x10, 0x20, 0x30, 0x40});
+
+	const double pts = 7.5;
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		pts, 7.4, 0.033, 0.0);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(m_source.firstPtsMs(), static_cast<int64_t>(pts * 1000.0));
+}
+
+/**
  * @test AampRialtoVideoSource_ProcessDataFragment_ParseFails_ReturnsFalse
  * @brief Verify processDataFragment returns false when Parse fails.
  */
