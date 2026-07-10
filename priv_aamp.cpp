@@ -9347,7 +9347,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 		// To send an event to app we convert the URL scheme to "https" by replacing the prefix which is the CDN url sent from app
 		url.replace(0,4,"http");
 	}
-	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url);
+	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url, mEncoderDelay / 1000.0);
 
 	for (auto iter = langList.begin(); iter != langList.end(); iter++)
 	{

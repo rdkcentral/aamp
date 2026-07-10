@@ -324,10 +324,11 @@ unsigned long CCHandleEvent::getCCHandle() const
 /**
  * @brief MediaMetadataEvent Constructor
  */
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid,const std::string &url):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid,const std::string &url, double producerReferenceClockOffset):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid)), mDuration(duration),
 		mLanguages(), mBitrates(), mWidth(width), mHeight(height),
 		mHasDrm(hasDrm), mSupportedSpeeds(), mIsLive(isLive), mDrmType(DrmType), mProgramStartTime(programStartTime),
+		mProducerReferenceClockOffset(producerReferenceClockOffset),
 		mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
 		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs), mUrl(url)
 {
@@ -362,6 +363,16 @@ double MediaMetadataEvent::getProgramStartTime() const
 int MediaMetadataEvent::getTsbDepth() const
 {
 	return mTsbDepthMs;
+}
+
+/**
+ * @brief Get Producer Reference Time clock offset in seconds.
+ *
+ * @return Producer Reference Time clock offset in seconds.
+ */
+double MediaMetadataEvent::getProducerReferenceClockOffset() const
+{
+	return mProducerReferenceClockOffset;
 }
 
 /**
