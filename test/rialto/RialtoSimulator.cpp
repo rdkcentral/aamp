@@ -734,8 +734,7 @@ private:
 			bool playRequested = m_playRequested.load(std::memory_order_relaxed);
 			bool alreadyPlaying = m_playing.load(std::memory_order_relaxed);
 			bool sourcesReady = allNonSubtitleSourcesReadyLocked();
-			fprintf(stderr, "[RialtoSim] maybeStartPlayback: playRequested=%d playing=%d ready=%d #readySources=%zu\n",
-			  playRequested, alreadyPlaying, sourcesReady, (size_t)m_readySources.size());
+			// Use RIALTO_SIM_LOG below to avoid noisy/unconditional stderr output.
 			RIALTO_SIM_LOG("maybeStartPlayback: playRequested=%d playing=%d ready=%d #readySources=%zu",
 				playRequested, alreadyPlaying, sourcesReady, m_readySources.size());
 			if (playRequested && !alreadyPlaying && sourcesReady)
