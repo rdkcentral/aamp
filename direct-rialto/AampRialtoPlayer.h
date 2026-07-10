@@ -583,29 +583,6 @@ private:
 		StreamOutputFormat subFormat,
 		bool bESChangeStatus,
 		bool setReadyAfterPipelineCreation) const;
-
-	/**
-	 *  @brief Inject stream buffer to Rialto pipeline
-	 *
-	 *  Sends a media buffer to the Rialto pipeline with timing and format information.
-	 *
-	 *  @param mediaType Type of media (video, audio, or subtitle).
-	 *  @param buffer Stream buffer to be sent. Move semantics is used to avoid unnecessary copy.
-	 *  @param fpts Presentation timestamp (PTS) of the buffer in seconds.
-	 *  @param fdts Decoding timestamp (DTS) of the buffer in seconds.
-	 *  @param fDuration Duration of the buffer in seconds.
-	 *  @param fragmentPTSoffset Optional PTS offset for the fragment in seconds (default: 0.0).
-	 *  @param initFragment Indicates if the fragment is an initialization fragment (default: false).
-	 *  @return true if the buffer was successfully sent to the pipeline; false otherwise.
-	 */
-	bool SendHelper(
-		AampMediaType mediaType,
-		std::vector<uint8_t> &&buffer,
-		double fpts,
-		double fdts,
-		double fDuration,
-		double fragmentPTSoffset = 0.0,
-		bool initFragment = false);
 };
 
 #endif // AAMP_RIALTO_PLAYER_H
