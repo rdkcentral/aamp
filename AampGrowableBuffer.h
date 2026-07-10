@@ -83,6 +83,7 @@ public:
 	void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
 	void MoveBytes( const void *ptr, size_t len );
 	void Clear( void ); // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
+	void ShrinkToFit( void ); // release excess allocated capacity so avail matches len; equivalent to std::vector::shrink_to_fit()
 	void Replace( AampGrowableBuffer *src );
 	void Transfer( void );
 	

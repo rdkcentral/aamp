@@ -39,6 +39,7 @@ bool IsoBmffHelper::ConvertToKeyFrame(AampGrowableBuffer &buffer)
 	{
 		isoBmffBuffer.truncate();
 		buffer.SetLen(isoBmffBuffer.getSize());
+		buffer.ShrinkToFit(); // GCC (libstdc++), Clang (libc++), and MSVC (STL) all reallocate to fit.
 	}
 	else
 	{
