@@ -784,49 +784,52 @@ bool AampRialtoPlayer::SendCopy(
 	double fDuration)
 {
 	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
+	bool success = false;
+
 	auto *source = getSource(mediaType);
 	if (!source)
 	{
 		// No source for this track (e.g. subtitle not yet supported).
-		AAMPLOG_INFO("No source for mediaType=%d",
+		AAMPLOG_WARN("No source for mediaType=%d",
 			static_cast<int>(mediaType));
-		AAMPLOG_INFO("EXIT, result=false");
-		return false;
 	}
-
-	if (buffer.empty())
+	else if (buffer.empty())
 	{
-		AAMPLOG_INFO("EXIT, result=false");
-		return false;
+		AAMPLOG_WARN("Buffer is empty for mediaType=%d",
+			static_cast<int>(mediaType));
 	}
-
-	if (!source->isAttached())
-	{
-		AAMPLOG_INFO("Setting stream caps for mediaType=%d", static_cast<int>(mediaType));
-		// For HLS-TS the codec format is all that Rialto requires to set the stream caps.
-		MediaCodecInfo codecInfo{};
-		codecInfo.mCodecFormat = toGstStreamOutputFormat(source->format());
-		SetStreamCaps(mediaType, std::move(codecInfo));
-	}
-
-	if (!m_pipeline)
+	else if (!m_pipeline)
 	{
 		AAMPLOG_WARN("No pipeline - cannot process data fragment");
-		return false;
 	}
-
-	auto sharedBuffer =
-	std::make_shared<std::vector<uint8_t>>(std::move(buffer));
-	if (!source->processDataFragment(
-				*m_pipeline, std::move(sharedBuffer),
-				fpts, fdts, fDuration, 0.0))
+	else
 	{
-		AAMPLOG_INFO("EXIT, result=false");
-		return false;
+		if (!source->isAttached())
+		{
+			AAMPLOG_INFO("Setting stream caps for mediaType=%d", static_cast<int>(mediaType));
+			// For HLS-TS the codec format is all that Rialto requires to set the stream caps.
+			MediaCodecInfo codecInfo{};
+			codecInfo.mCodecFormat = toGstStreamOutputFormat(source->format());
+			SetStreamCaps(mediaType, std::move(codecInfo));
+		}
+
+		auto sharedBuffer =
+			std::make_shared<std::vector<uint8_t>>(std::move(buffer));
+		if (!source->processDataFragment(
+					*m_pipeline, std::move(sharedBuffer),
+					fpts, fdts, fDuration, 0.0))
+		{
+			AAMPLOG_WARN("processDataFragment failed for mediaType=%d",
+				static_cast<int>(mediaType));
+		}
+		else
+		{
+			success = true;
+		}
 	}
 
-	AAMPLOG_INFO("EXIT, result=true");
-	return true;
+	AAMPLOG_INFO("EXIT, success=%d", success);
+	return success;
 }
 
 bool AampRialtoPlayer::SendTransfer(
@@ -843,6 +846,7 @@ bool AampRialtoPlayer::SendTransfer(
 				static_cast<int>(mediaType), buffer.size(),
 				fpts, fdts, fDuration, fragmentPTSoffset,
 				initFragment, discontinuity);
+
 	auto *source = getSource(mediaType);
 	if (!source)
 	{

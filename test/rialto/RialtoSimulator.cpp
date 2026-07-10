@@ -690,10 +690,10 @@ private:
 
 		// Check if there are any non-subtitle sources ready.
 		// When multiple non-subtitle sources are present (video + audio),
-		// transition to PLAYING once at least the primary source (usually video)
-		// has accumulated sufficient data. Audio may not be present in some
+		// transition to PLAYING once at least one of these sources has
+		// accumulated sufficient data. Audio may not be present in some
 		// streams (e.g., HLS TS) or may be disabled. Once playback has begun
-		// and the primary source is ready, Rialto starts playback immediately
+		// and one source is ready, Rialto starts playback immediately
 		// rather than waiting for all possible sources.
 		for (const auto &source : m_readySources)
 		{
