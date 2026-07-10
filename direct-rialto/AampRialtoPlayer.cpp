@@ -744,9 +744,7 @@ bool AampRialtoPlayer::SendCopy(
 	double fDuration)
 {
 	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
-	SendHelper(mediaType, std::move(buffer), fpts, fdts, fDuration);
-	AAMPLOG_INFO("EXIT");
-	return false;
+	return SendHelper(mediaType, std::move(buffer), fpts, fdts, fDuration);
 }
 
 bool AampRialtoPlayer::SendTransfer(
@@ -840,10 +838,14 @@ bool AampRialtoPlayer::SendHelper(
 		std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 	bool result = true;
 
+	MediaCodecInfo codecInfo{};
+	codecInfo.mCodecFormat = toGstStreamOutputFormat(source->format());
+
 	if (initFragment)
 	{
-		auto codecInfo = source->processInitFragment(std::move(sharedBuffer));
-		if (!codecInfo)
+		auto parsedCodecInfo =
+			source->processInitFragment(std::move(sharedBuffer));
+		if (!parsedCodecInfo)
 		{
 			AAMPLOG_ERR("processInitFragment failed mediaType=%d",
 				static_cast<int>(mediaType));
@@ -851,35 +853,37 @@ bool AampRialtoPlayer::SendHelper(
 		}
 		else
 		{
-			std::lock_guard<std::mutex> lock(m_attachMutex);
-			if (m_pipeline)
-			{
-				AttachSource(*source, *codecInfo);
-			}
-			else
-			{
-				AAMPLOG_ERR("pipeline not created");
-			}
-		}
-	}
-	else if (m_pipeline)
-	{
-		if (!source->isAttached())
-		{
-			AAMPLOG_INFO("Setting stream caps for mediaType=%d", static_cast<int>(mediaType));
-			MediaCodecInfo ci{};
-			ci.mCodecFormat = toGstStreamOutputFormat(source->format());
-			SetStreamCaps(mediaType, std::move(ci));
-		}
-		if (!source->processDataFragment(
-				*m_pipeline, std::move(sharedBuffer),
-				fpts, fdts, fDuration, fragmentPTSoffset))
-		{
-			result = false;
+			codecInfo = std::move(*parsedCodecInfo);
 		}
 	}
 
-	AAMPLOG_INFO("EXIT");
+	if ((initFragment || !source->isAttached()))
+	{
+		AAMPLOG_INFO("Setting stream caps for mediaType=%d", static_cast<int>(mediaType));
+		SetStreamCaps(mediaType, std::move(codecInfo));
+	}
+
+	if (!initFragment)
+	{
+		if (!m_pipeline)
+		{
+			AAMPLOG_WARN("No pipeline - cannot process data fragment");
+			result = false;
+		}
+
+		// If no previous error...
+		if (result)
+		{
+			if (!source->processDataFragment(
+						*m_pipeline, std::move(sharedBuffer),
+						fpts, fdts, fDuration, fragmentPTSoffset))
+			{
+				result = false;
+			}
+		}
+	}
+
+	AAMPLOG_INFO("EXIT, result=%d", result);
 	return result;
 }
 
