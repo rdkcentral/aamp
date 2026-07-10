@@ -1302,6 +1302,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsFlushOperationInProgress(false)
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
+	, mTuneTimeMetricData()
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -2090,6 +2091,11 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		(state != eSTATE_COMPLETE) &&
 		(state != eSTATE_SEEKING))
 	{
+		// mTuneMetricDataPending is checked inside SendTuneMetricsEvent()
+		if (state == eSTATE_PLAYING)
+		{
+			SendTuneMetricsEvent();
+		}
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = beginningOfStream? 0: GetPositionMilliseconds();
 		double duration = durationSeconds * 1000.0;
@@ -2101,6 +2107,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		double latency = 0;
+		bool reachedStart = false;
 
 
 		//Report Progress report position based on Availability Start Time
@@ -2124,15 +2131,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		// If beginningOfStream is true or position < start, it means rewind has reached BoS
 		// Note: position could be = start immediately after tuning
 		else if (position < start || beginningOfStream)
-		{ // clamp start or handle BOS during rewind
-			AAMPLOG_TRACE("Reached start of TSB, position %fms < start %fms, beginningOfStream %d, rate %f",
+		{
+			// Reached the start of the stream (start of AAMP TSB, beginning of VoD asset...)
+			AAMPLOG_INFO("Reached start, position %fms < start %fms, beginningOfStream %d, rate %f",
 				position, start, beginningOfStream, rate);
 			position = start;
-			// Check the rate so that PlayFromTsbStart() is not called repeatedly
-			if (rate < AAMP_RATE_PAUSE)
-			{
-				PlayFromTsbStart();
-			}
+			reachedStart = true;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
@@ -2321,6 +2325,15 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			}
 
 			mReportProgressPosn = position;
+		}
+
+		if (reachedStart)
+		{
+			// Check the rate so that PlayFromTsbStart() is not called more than once
+			if (rate < AAMP_RATE_PAUSE)
+			{
+				PlayFromTsbStart();
+			}
 		}
 	}
 }
@@ -2754,13 +2767,16 @@ bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBu
 /**
  * @brief providing the Tune Timemetric info
  */
-void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
+void PrivateInstanceAAMP::SendTuneMetricsEvent()
 {
-	// Providing the Tune Timemetric info as an event
-	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData, GetSessionId());
+	if (!mTuneTimeMetricData.empty() && mTuneMetricDataPending.load())
+	{
+		TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(std::move(mTuneTimeMetricData), GetSessionId());
 
-	AAMPLOG_TRACE("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
-	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+		AAMPLOG_TRACE("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
+		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+	}
+	mTuneMetricDataPending.store(false);
 }
 
 /**
@@ -3347,14 +3363,6 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			DeliverAdEvents(true);
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
-			if (ContentType_EAS == mContentType)
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Stop(false);
-				}
-			}
 			SendAnomalyEvent(ANOMALY_TRACE, "Generating EOS event");
 			trickStartUTCMS = -1;
 			return;
@@ -3502,14 +3510,13 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	{
 		LogPlayerPreBuffered();        //Need to calculate prebuffered time when tune interruption happens with player prebuffer
 	}
+
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
-	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
-	if(eventAvailStatus)
-	{
-		SendTuneMetricsEvent(tuneData);
-	}
+	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &mTuneTimeMetricData : NULL);
+	mTuneMetricDataPending.store(eventAvailStatus);
+	// Send the tune time metrics event as the progress event will not fire here.
+	SendTuneMetricsEvent();
 	AdditionalTuneFailLogEntries();
 }
 
@@ -3531,13 +3538,13 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mFogTSBEnabled              = mFogTSBEnabled;
 	mTuneMetrics.mFirstTune                  = mFirstTune;
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
-	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
-	if(eventAvailStatus)
-	{
-		SendTuneMetricsEvent(tuneData);
-	}
+
+	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &mTuneTimeMetricData : NULL);
+	mTuneMetricDataPending.store(eventAvailStatus);
+	// Tune Metrics event will be sent as part of progress event, as this guarantees the event
+	// is sent after state=PLAYING whose timing is critical for upstream components.
+
 	//update tunedManifestUrl if FOG was NOT used as manifestUrl might be updated with redirected url.
 	if(!IsFogTSBSupported())
 	{
@@ -8143,6 +8150,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	// If mFirstVideoFrameDisplayedEnabled, state will be changed in NotifyFirstVideoDisplayed()
 	if(!mFirstVideoFrameDisplayedEnabled)
 	{
+		AAMPLOG_MIL("Player changing state to PLAYING on first frame received");
 		SetState(eSTATE_PLAYING);
 	}
 	{
@@ -8427,7 +8435,20 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 		return;
 	}
 
-	if ( (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
+	static const char* const kStateNames[] = {
+		"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
+		"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
+		"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
+	};
+	auto stateName = [](AAMPPlayerState s) -> const char* {
+		return (s >= 0 && s < (int)(sizeof(kStateNames)/sizeof(kStateNames[0])))
+			? kStateNames[s] : "UNKNOWN";
+	};
+	AAMPLOG_MIL("Player state changed: %s -> %s", stateName(mState), stateName(state));
+
+	// Handle SEEKED event based on the actual previous state
+	// Only the thread that performed this specific transition will send the event
+	if ((state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
 		&& mState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
 	{
 		SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds(), GetSessionId());
@@ -10657,6 +10678,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 		AAMPPlayerState state = GetState();
 		if(state != eSTATE_BUFFERING)
 		{
+			AAMPLOG_MIL("Player changing state to BUFFERING as fragment caching is required");
 			if(mpStreamAbstractionAAMP)
 			{
 				mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
@@ -12594,6 +12616,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
+		AcquireStreamLock();
 		if (mpStreamAbstractionAAMP)
 		{
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -12610,7 +12633,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				discardEnteringLiveEvt = true;
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
-				AcquireStreamLock();
 
 				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
 				{
@@ -12673,7 +12695,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 
 					discardEnteringLiveEvt = false;
 				}
-				ReleaseStreamLock();
 			}
 			if (closedCaptionTrackId >= 0)
 			{
@@ -12683,6 +12704,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				SetClosedCaptionsFromTextTrack(track);
 			}
 		}
+		ReleaseStreamLock();
 	}
 }
 

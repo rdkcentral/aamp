@@ -923,6 +923,14 @@ protected:
 	void SkipToEnd( class MediaStreamContext *pMediaStreamContext); //Added to support rewind in multiperiod assets
 
 	/**
+	 * @fn HandleSeekEOSAndPeriodTransition
+	 * @param remainingSeek remaining seek time after skipping fragments
+	 * @param skipToEnd true when seek operation is a seek-to-end
+	 * @return true if period switched; false otherwise
+	 */
+	bool HandleSeekEOSAndPeriodTransition(double remainingSeek, bool skipToEnd);
+
+	/**
 	 * @fn SeekInPeriod
 	 * @param seekPositionSeconds seek position in seconds
 	 */
