@@ -162,6 +162,16 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 	int CachedFragmentsOrChunks = 0;
 	double thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD;
 	class StreamAbstractionAAMP* pContext = GetContext();
+
+	// Guard: before NotifyFirstFragmentInjected(), mStartTimeStamp is -1
+	// which causes GetElapsedTime() to return epoch-scale values, producing
+	// a massive negative bufferedTime.  Buffer monitoring is meaningless
+	// before first fragment injection, so return GREEN immediately.
+	if (pContext && pContext->mStartTimeStamp < 0)
+	{
+		return BUFFER_STATUS_GREEN;
+	}
+
 	double injectedDuration = GetTotalInjectedDuration();
 	if(aamp->GetLLDashServiceData()->lowLatencyMode && pContext)
 	{
