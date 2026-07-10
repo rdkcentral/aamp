@@ -708,7 +708,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	}
 	else
 	{
-		AAMPLOG_WARN("interrupted for type %d", context->mediaType);
+		AAMPLOG_WARN("interrupted");
 	}
 	return ret;
 }
@@ -6244,7 +6244,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		SetCCStatusInternal();
 		mApplyCachedCCStatus=false;
 	}
-	AAMPLOG_WARN("GNP - release stream lock !!!!");
 	ReleaseStreamLock();
 
 	// To check and apply stored video rectangle properties
@@ -7658,7 +7657,6 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
-	//AAMPLOG_WARN(" + PrivateInstanceAAMP: GNP");
 	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
@@ -7727,7 +7725,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	auto streamLockStartTime = NOW_STEADY_TS_MS;
 	auto streamLockStopTime = NOW_STEADY_TS_MS;
 	auto licenseAquisitionLockStartTime = NOW_STEADY_TS_MS;
-	auto licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;	// Stopping the playback, release all DRM context
+	auto licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;
+	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
 		AcquireStreamLock();
@@ -7882,7 +7881,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
 		(unsigned int)(licenseAquisitionLockStopTime- licenseAquisitionLockStartTime),
 		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
-	//AAMPLOG_WARN(" - PrivateInstanceAAMP: GNP");
 }
 
 const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
