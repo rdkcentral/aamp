@@ -769,63 +769,31 @@ bool AampRialtoPlayer::SendTransfer(
 static GstStreamOutputFormat toGstStreamOutputFormat(StreamOutputFormat fmt)
 {
 	GstStreamOutputFormat gstFmt = GST_FORMAT_UNKNOWN;
+	static const GstStreamOutputFormat kFormatLut[] = {
+		GST_FORMAT_INVALID,
+		GST_FORMAT_MPEGTS,
+		GST_FORMAT_ISO_BMFF,
+		GST_FORMAT_AUDIO_ES_MP3,
+		GST_FORMAT_AUDIO_ES_AAC,
+		GST_FORMAT_AUDIO_ES_AAC_RAW,
+		GST_FORMAT_AUDIO_ES_AC3,
+		GST_FORMAT_AUDIO_ES_EC3,
+		GST_FORMAT_AUDIO_ES_ATMOS,
+		GST_FORMAT_AUDIO_ES_AC4,
+		GST_FORMAT_VIDEO_ES_H264,
+		GST_FORMAT_VIDEO_ES_HEVC,
+		GST_FORMAT_VIDEO_ES_MPEG2,
+		GST_FORMAT_SUBTITLE_WEBVTT,
+		GST_FORMAT_SUBTITLE_TTML,
+		GST_FORMAT_SUBTITLE_MP4,
+		GST_FORMAT_UNKNOWN
+	};
 
-	switch (fmt)
+	const int fmtIndex = static_cast<int>(fmt);
+	if (fmtIndex >= 0 &&
+		fmtIndex < static_cast<int>(sizeof(kFormatLut) / sizeof(kFormatLut[0])))
 	{
-		case FORMAT_INVALID:
-			gstFmt = GST_FORMAT_INVALID;
-			break;
-		case FORMAT_MPEGTS:
-			gstFmt = GST_FORMAT_MPEGTS;
-			break;
-		case FORMAT_ISO_BMFF:
-			gstFmt = GST_FORMAT_ISO_BMFF;
-			break;
-		case FORMAT_AUDIO_ES_MP3:
-			gstFmt = GST_FORMAT_AUDIO_ES_MP3;
-			break;
-		case FORMAT_AUDIO_ES_AAC:
-			gstFmt = GST_FORMAT_AUDIO_ES_AAC;
-			break;
-		case FORMAT_AUDIO_ES_AAC_RAW:
-			gstFmt = GST_FORMAT_AUDIO_ES_AAC_RAW;
-			break;
-		case FORMAT_AUDIO_ES_AC3:
-			gstFmt = GST_FORMAT_AUDIO_ES_AC3;
-			break;
-		case FORMAT_AUDIO_ES_EC3:
-			gstFmt = GST_FORMAT_AUDIO_ES_EC3;
-			break;
-		case FORMAT_AUDIO_ES_ATMOS:
-			gstFmt = GST_FORMAT_AUDIO_ES_ATMOS;
-			break;
-		case FORMAT_AUDIO_ES_AC4:
-			gstFmt = GST_FORMAT_AUDIO_ES_AC4;
-			break;
-		case FORMAT_VIDEO_ES_H264:
-			gstFmt = GST_FORMAT_VIDEO_ES_H264;
-			break;
-		case FORMAT_VIDEO_ES_HEVC:
-			gstFmt = GST_FORMAT_VIDEO_ES_HEVC;
-			break;
-		case FORMAT_VIDEO_ES_MPEG2:
-			gstFmt = GST_FORMAT_VIDEO_ES_MPEG2;
-			break;
-		case FORMAT_SUBTITLE_WEBVTT:
-			gstFmt = GST_FORMAT_SUBTITLE_WEBVTT;
-			break;
-		case FORMAT_SUBTITLE_TTML:
-			gstFmt = GST_FORMAT_SUBTITLE_TTML;
-			break;
-		case FORMAT_SUBTITLE_MP4:
-			gstFmt = GST_FORMAT_SUBTITLE_MP4;
-			break;
-		case FORMAT_UNKNOWN:
-			gstFmt = GST_FORMAT_UNKNOWN;
-			break;
-		default:
-			gstFmt = GST_FORMAT_UNKNOWN;
-			break;
+		gstFmt = kFormatLut[fmtIndex];
 	}
 	return gstFmt;
 }
