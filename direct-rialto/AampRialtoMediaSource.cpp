@@ -691,6 +691,8 @@ bool AampRialtoMediaSource::processDataFragment(
 		// fMP4 demuxer path which requires a boxed MP4 fragment.
 		if (!waitForAttach())
 		{
+			AAMPLOG_INFO("Source not attached; dropping ES sample mediaType=%d",
+				static_cast<int>(mediaType()));
 			return true;
 		}
 		AampMediaSample sample;
