@@ -838,6 +838,9 @@ bool AampRialtoPlayer::SendHelper(
 		std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 	bool result = true;
 
+	// For HLS-TS there are no init fragments, and the codec format is all that
+	// Rialto requires to set the stream caps.  For ISO-BMFF, the codec format
+	// is derived from the init fragment.
 	MediaCodecInfo codecInfo{};
 	codecInfo.mCodecFormat = toGstStreamOutputFormat(source->format());
 
