@@ -140,6 +140,11 @@ void AampGrowableBuffer::Clear( void )
 	}
 }
 
+void AampGrowableBuffer::ShrinkToFit( void )
+{
+	// no-op in fake: capacity tracking is not required for non-capacity tests
+}
+
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
 }
