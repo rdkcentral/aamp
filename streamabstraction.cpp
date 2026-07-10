@@ -167,20 +167,23 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 	// which causes GetElapsedTime() to return epoch-scale values, producing
 	// a massive negative bufferedTime.  Buffer monitoring is meaningless
 	// before first fragment injection, so return GREEN immediately.
-	if (pContext && pContext->mStartTimeStamp < 0)
+	if (pContext && !pContext->IsFirstFragmentInjected())
 	{
 		return BUFFER_STATUS_GREEN;
 	}
 
 	double injectedDuration = GetTotalInjectedDuration();
+	double elapsedTime = 0.0;
 	if(aamp->GetLLDashServiceData()->lowLatencyMode && pContext)
 	{
 		bufferedTime 	    = pContext->GetBufferedDuration(); /** To align with latency monitor use same API*/
 		thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
+		elapsedTime = pContext->GetElapsedTime();
 	}
 	else if (pContext)
 	{
-		bufferedTime 	    = injectedDuration - pContext->GetElapsedTime();
+		elapsedTime = pContext->GetElapsedTime();
+		bufferedTime 	    = injectedDuration - elapsedTime;
 		CachedFragmentsOrChunks = numberOfFragmentsCached;
 	}
 
@@ -189,7 +192,7 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 		double underflowDetectThreshold = GETCONFIGVALUE(eAAMPConfig_UnderflowDetectThresholdSec);
 		AAMPLOG_MIL("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f threshold %f",
 					name, bufferedTime, injectedDuration,
-					pContext->GetElapsedTime(), underflowDetectThreshold);
+					elapsedTime, underflowDetectThreshold);
 		if (bufferedTime <= underflowDetectThreshold)
 		{
 			bStatus = BUFFER_STATUS_RED;
@@ -3040,6 +3043,15 @@ void StreamAbstractionAAMP::NotifyFirstFragmentInjected()
 	mLastPausedTimeStamp = -1;
 	mTotalPausedDurationMS = 0;
 	mStartTimeStamp = aamp_GetCurrentTimeMS();
+}
+
+/**
+ *  @brief Thread-safe check whether the first fragment has been injected.
+ */
+bool StreamAbstractionAAMP::IsFirstFragmentInjected()
+{
+	std::lock_guard<std::mutex> guard(mLock);
+	return (mStartTimeStamp >= 0);
 }
 
 /**

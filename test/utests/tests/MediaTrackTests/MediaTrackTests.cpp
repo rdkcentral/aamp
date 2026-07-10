@@ -1063,6 +1063,8 @@ TEST_F(MediaTrackTests, WaitForManifestUpdateSnapshotRacePreventionTest)
 TEST_F(MediaTrackTests, GetBufferStatus_ReturnsGreen_WhenBufferIsSufficient)
 {
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Simulate first fragment injection so the pre-injection guard is not triggered
+	mStreamAbstractionAAMP_MPD->NotifyFirstFragmentInjected();
 	// Low Latency mode enabled, which doesn't check for cached fragments
 	SetLowLatencyMode(true);
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
@@ -1080,6 +1082,8 @@ TEST_F(MediaTrackTests, GetBufferStatus_ReturnsGreen_WhenBufferIsSufficient)
 TEST_F(MediaTrackTests, GetBufferStatus_ReturnsYellow_WhenBufferIsBelowThreshold)
 {
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Simulate first fragment injection so the pre-injection guard is not triggered
+	mStreamAbstractionAAMP_MPD->NotifyFirstFragmentInjected();
 	// Low Latency mode enabled, which doesn't check for cached fragments
 	SetLowLatencyMode(true);
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
@@ -1097,6 +1101,8 @@ TEST_F(MediaTrackTests, GetBufferStatus_ReturnsYellow_WhenBufferIsBelowThreshold
 TEST_F(MediaTrackTests, GetBufferStatus_ReturnsRed_WhenBufferIsBelowUnderflowThreshold)
 {
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	// Simulate first fragment injection so the pre-injection guard is not triggered
+	mStreamAbstractionAAMP_MPD->NotifyFirstFragmentInjected();
 	// Low Latency mode enabled, which doesn't check for cached fragments
 	SetLowLatencyMode(true);
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec))
@@ -1338,4 +1344,42 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_FallsThrough_WhenPtsRestampDisable
 
 	// Else branch: isDiscontinuity was not modified, remains true.
 	EXPECT_TRUE(isDiscontinuity);
+}
+
+/**
+ * @brief Before NotifyFirstFragmentInjected() is called, GetBufferStatus() must
+ *        return BUFFER_STATUS_GREEN regardless of other state, because elapsed
+ *        time is undefined and would produce a bogus negative bufferedTime.
+ */
+TEST_F(MediaTrackTests, GetBufferStatus_ReturnsGreen_BeforeFirstFragmentInjected)
+{
+	SetLowLatencyMode(false);
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video",
+								  mStreamAbstractionAAMP_MPD};
+
+	// mStartTimeStamp defaults to -1, NotifyFirstFragmentInjected() has not been called.
+	EXPECT_EQ(videoTrack.GetBufferStatus(), BUFFER_STATUS_GREEN);
+}
+
+/**
+ * @brief After NotifyFirstFragmentInjected(), GetBufferStatus() must proceed
+ *        with normal buffer health evaluation (not short-circuit to GREEN).
+ */
+TEST_F(MediaTrackTests, GetBufferStatus_EvaluatesNormally_AfterFirstFragmentInjected)
+{
+	SetLowLatencyMode(false);
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video",
+								  mStreamAbstractionAAMP_MPD};
+
+	// Simulate first fragment injection — sets mStartTimeStamp to now.
+	mStreamAbstractionAAMP_MPD->NotifyFirstFragmentInjected();
+
+	// With zero injected duration and a valid (positive) elapsed time,
+	// bufferedTime will be negative, triggering YELLOW or RED depending
+	// on config thresholds.  The key assertion is that the pre-injection
+	// guard does NOT fire — i.e. the result is not GREEN.
+	BufferHealthStatus status = videoTrack.GetBufferStatus();
+	EXPECT_NE(status, BUFFER_STATUS_GREEN);
 }

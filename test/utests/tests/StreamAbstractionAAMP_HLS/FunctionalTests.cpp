@@ -1985,6 +1985,8 @@ TEST_F(TrackStateTests, EnterTimedWaitForPlaylistRefreshTests)
 
 TEST_F(TrackStateTests, GetBufferStatusTest)
 {
+	// Simulate first fragment injection so the pre-injection guard is not triggered
+	mStreamAbstractionAAMP_HLS->NotifyFirstFragmentInjected();
 	// Call the function under test
 	BufferHealthStatus bufferStatus = TrackStateobj->GetBufferStatus();
 	ASSERT_EQ(bufferStatus, BUFFER_STATUS_RED);

@@ -1321,6 +1321,13 @@ public:
 	void NotifyFirstFragmentInjected(void);
 
 	/**
+	 *   @fn IsFirstFragmentInjected
+	 *   @brief Thread-safe check whether NotifyFirstFragmentInjected() has been called.
+	 *   @return true if the first fragment has been injected (mStartTimeStamp >= 0).
+	 */
+	bool IsFirstFragmentInjected();
+
+	/**
 	 *   @fn GetElapsedTime
 	 *
 	 *   @return elapsed time.
