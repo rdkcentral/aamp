@@ -768,32 +768,40 @@ bool AampRialtoPlayer::SendTransfer(
 
 static GstStreamOutputFormat toGstStreamOutputFormat(StreamOutputFormat fmt)
 {
-	GstStreamOutputFormat gstFmt = GST_FORMAT_UNKNOWN;
-	static const GstStreamOutputFormat kFormatLut[] = {
-		GST_FORMAT_INVALID,
-		GST_FORMAT_MPEGTS,
-		GST_FORMAT_ISO_BMFF,
-		GST_FORMAT_AUDIO_ES_MP3,
-		GST_FORMAT_AUDIO_ES_AAC,
-		GST_FORMAT_AUDIO_ES_AAC_RAW,
-		GST_FORMAT_AUDIO_ES_AC3,
-		GST_FORMAT_AUDIO_ES_EC3,
-		GST_FORMAT_AUDIO_ES_ATMOS,
-		GST_FORMAT_AUDIO_ES_AC4,
-		GST_FORMAT_VIDEO_ES_H264,
-		GST_FORMAT_VIDEO_ES_HEVC,
-		GST_FORMAT_VIDEO_ES_MPEG2,
-		GST_FORMAT_SUBTITLE_WEBVTT,
-		GST_FORMAT_SUBTITLE_TTML,
-		GST_FORMAT_SUBTITLE_MP4,
-		GST_FORMAT_UNKNOWN
+	struct FormatMapEntry
+	{
+		StreamOutputFormat source;
+		GstStreamOutputFormat target;
 	};
 
-	const int fmtIndex = static_cast<int>(fmt);
-	if (fmtIndex >= 0 &&
-		fmtIndex < static_cast<int>(sizeof(kFormatLut) / sizeof(kFormatLut[0])))
+	GstStreamOutputFormat gstFmt = GST_FORMAT_UNKNOWN;
+	static const FormatMapEntry kFormatMap[] = {
+		{ FORMAT_INVALID, GST_FORMAT_INVALID },
+		{ FORMAT_MPEGTS, GST_FORMAT_MPEGTS },
+		{ FORMAT_ISO_BMFF, GST_FORMAT_ISO_BMFF },
+		{ FORMAT_AUDIO_ES_MP3, GST_FORMAT_AUDIO_ES_MP3 },
+		{ FORMAT_AUDIO_ES_AAC, GST_FORMAT_AUDIO_ES_AAC },
+		{ FORMAT_AUDIO_ES_AAC_RAW, GST_FORMAT_AUDIO_ES_AAC_RAW },
+		{ FORMAT_AUDIO_ES_AC3, GST_FORMAT_AUDIO_ES_AC3 },
+		{ FORMAT_AUDIO_ES_EC3, GST_FORMAT_AUDIO_ES_EC3 },
+		{ FORMAT_AUDIO_ES_ATMOS, GST_FORMAT_AUDIO_ES_ATMOS },
+		{ FORMAT_AUDIO_ES_AC4, GST_FORMAT_AUDIO_ES_AC4 },
+		{ FORMAT_VIDEO_ES_H264, GST_FORMAT_VIDEO_ES_H264 },
+		{ FORMAT_VIDEO_ES_HEVC, GST_FORMAT_VIDEO_ES_HEVC },
+		{ FORMAT_VIDEO_ES_MPEG2, GST_FORMAT_VIDEO_ES_MPEG2 },
+		{ FORMAT_SUBTITLE_WEBVTT, GST_FORMAT_SUBTITLE_WEBVTT },
+		{ FORMAT_SUBTITLE_TTML, GST_FORMAT_SUBTITLE_TTML },
+		{ FORMAT_SUBTITLE_MP4, GST_FORMAT_SUBTITLE_MP4 },
+		{ FORMAT_UNKNOWN, GST_FORMAT_UNKNOWN }
+	};
+
+	for (size_t i = 0; i < (sizeof(kFormatMap) / sizeof(kFormatMap[0])); ++i)
 	{
-		gstFmt = kFormatLut[fmtIndex];
+		if (kFormatMap[i].source == fmt)
+		{
+			gstFmt = kFormatMap[i].target;
+			break;
+		}
 	}
 	return gstFmt;
 }
