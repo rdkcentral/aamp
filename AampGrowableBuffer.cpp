@@ -133,6 +133,42 @@ void AampGrowableBuffer::Clear( void )
 }
 
 /**
+ * @brief release excess allocated capacity so avail matches len
+ * Equivalent to std::vector::shrink_to_fit(): attempts to reallocate backing store to exactly len bytes.
+ * If len is zero, releases all allocated memory.
+ */
+void AampGrowableBuffer::ShrinkToFit( void )
+{
+	if( !ptr || avail == len )
+	{
+		return;
+	}
+
+	if( len == 0 )
+	{
+		NETMEMORY_MINUS();
+		if( gbEnableLogging )
+		{
+			printf("AampGrowableBuffer::%s(%s:%d)\n", "ShrinkToFit", name, gNetMemoryCount);
+		}
+		g_free( ptr );
+		ptr = NULL;
+		avail = 0;
+		return;
+	}
+
+	if( avail > len )
+	{
+		gpointer mem = g_realloc( ptr, len );
+		if( mem )
+		{
+			ptr = mem;
+			avail = len;
+		}
+	}
+}
+
+/**
  * @brief transfer content of one AampGrowableBuffer into another
  * @param src AampGrowableBuffer to transfer
  */
