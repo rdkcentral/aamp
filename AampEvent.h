@@ -883,6 +883,7 @@ class MediaMetadataEvent: public AAMPEventObject
 	bool mIsLive;			    /**< Is Live */
 	std::string mDrmType;		    /**< DRM type */
 	double mProgramStartTime;	    /**< Program/Availability start time */
+	double mProducerReferenceClockOffset; /**< PRT-derived clock offset in seconds */
 
 	/* Additional data from ATSC playback  */
 	std::string mPCRating; 		/**< Parental control rating json string object  */
@@ -920,8 +921,9 @@ public:
 	 * @param[in] DrmType  - DRM Type
 	 * @param[in] Url    - EffectiveUrl
 	 * @param[in] programStartTime  - Program/Availability start time
+	 * @param[in] producerReferenceClockOffset - PRT-derived clock offset in seconds
 	 */
-	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url);
+	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url, double producerReferenceClockOffset = 0.0);
 
 	/**
 	 * @brief MediaMetadataEvent Destructor
@@ -942,6 +944,11 @@ public:
 	 * @fn getTsbDepth
 	 */
 	int getTsbDepth() const;
+
+	/**
+	 * @fn getProducerReferenceClockOffset
+	 */
+	double getProducerReferenceClockOffset() const;
 
 	/**
 	 * @fn addLanguage
