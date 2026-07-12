@@ -917,6 +917,15 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							{
 								retValue = sink->Pause(false, false);
 							}
+				           //If pipeline failed to reach PLAYING state, do not
+				           // mark mSinkPaused=false and trigger a re-tune to recover
+				           if (!retValue)
+				           {
+				               AAMPLOG_ERR("SetRateInternal: Pipeline resume FAILED Triggering re-tune for recovery.");
+				               aamp->ScheduleRetune(eGSTREAMER_PIPELINE_PAUSED_TIMEOUT,
+				                                    eMEDIATYPE_VIDEO);
+				               return;
+				           }
 							// required since buffers are already cached in paused state
 							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 						}
