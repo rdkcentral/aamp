@@ -922,7 +922,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				           if (!retValue)
 				           {
 				               AAMPLOG_ERR("SetRateInternal: Pipeline resume FAILED Triggering re-tune for recovery.");
-				               aamp->ScheduleRetune(eGSTREAMER_PIPELINE_PAUSED_TIMEOUT,
+				               aamp->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL,
 				                                    eMEDIATYPE_VIDEO);
 				               return;
 				           }
