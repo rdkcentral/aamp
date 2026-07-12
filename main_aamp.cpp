@@ -932,6 +932,11 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					aamp->mSinkPaused = false;
 					aamp->ResumeDownloads();
+					if (retValue)
+					{
+						aamp->mSinkPaused = false;
+						aamp->ResumeDownloads();
+					}
 				}
 			}
 			else if (rate == 0)
