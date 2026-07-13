@@ -17,7 +17,10 @@
 * limitations under the License.
 */
 
+#include <cstring>
+#include "AampUtils.h"
 #include "fragmentcollector_mpd.h"
+#include "MediaStreamContext.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 
 MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
@@ -25,10 +28,15 @@ MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
 	: StreamAbstractionAAMP(aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
 {
+	memset(mMediaStreamContext, 0, sizeof(mMediaStreamContext));
 }
 
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
+	for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
+	{
+		SAFE_DELETE(mMediaStreamContext[iTrack]);
+	}
 }
 
 Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(AampJsonObject &accessNode)
@@ -90,7 +98,7 @@ double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() {
 
 double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS() { return 0; }
 
-MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type) { return nullptr; }
+MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type) { return mMediaStreamContext[type]; }
 
 double StreamAbstractionAAMP_MPD::GetBufferedDuration (void) { return 0; }
 
@@ -316,4 +324,32 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 {
 	return false;
+}
+
+
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate()
+{
+}
+
+void StreamAbstractionAAMP_MPD::WaitForManifestUpdate(uint32_t counter)
+{
+}
+
+void StreamAbstractionAAMP_MPD::AbortWaitForManifestUpdate()
+{
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+	if (video)
+	{
+		video->AbortWaitForManifestUpdate();
+	}
+}
+
+uint32_t StreamAbstractionAAMP_MPD::GetManifestUpdateCounter()
+{
+	return 0;
+}
+
+AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex, bool isInit)
+{
+	return eAAMPSTATUS_OK;
 }
