@@ -1433,6 +1433,8 @@ TEST_F(MediaTrackTests, MPDCallback_Teardown_RaceConditionTest)
 	ASSERT_EQ(callbackCount.load(), countAfterUnregistering);
 
 	delete testMPD;
+	
+}
 
 // ---------------------------------------------------------------------------
 // RestampSubtitle tests
