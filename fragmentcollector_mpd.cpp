@@ -11119,7 +11119,8 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
-		SAFE_DELETE(mMediaStreamContext[iTrack]);  // Delete the MediaStreamContext objects for each track
+		// Delete the MediaStreamContext object for this track.
+		SAFE_DELETE(mMediaStreamContext[iTrack]);
 	}
 
 	{
