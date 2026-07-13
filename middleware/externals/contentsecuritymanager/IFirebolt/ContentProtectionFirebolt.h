@@ -33,6 +33,7 @@
 #include <cassert>
 #include <string>
 #include <memory>
+#include <set>
 
 class FireboltInterface; //forward declaration
 
@@ -185,6 +186,12 @@ public:
 	void ShowWatermark(bool show, int64_t sessionId);
 
 	void HandleWatermarkEvent(const std::string& sessionId, const std::string& statusStr, const std::string& appId);
+	/**
+	 * @brief Check if a DRM session belongs to this ContentProtectionFirebolt instance
+	 * @param sessionId DRM session ID to validate
+	 * @return true when the session is owned by this instance
+	 */
+	bool isOwnedSession(int64_t sessionId);
 private:
 	/**
 	 * @brief Subscribes to Firebolt events (currently stub)
@@ -199,6 +206,8 @@ private:
 	std::mutex mFireboltInitMutex;
 	std::mutex mContentProtectionMutex;
 	std::mutex mSpeedStateMutex;
+	std::mutex mOwnedSessionsMutex;
+	std::set<int64_t> mOwnedSessions;
 	bool mInitialized;
 	static uint64_t mSubscriptionId;
 	std::shared_ptr<FireboltInterface> m_pFireboltInterface;

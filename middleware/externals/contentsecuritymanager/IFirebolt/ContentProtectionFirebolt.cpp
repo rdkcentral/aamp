@@ -84,7 +84,7 @@ bool getContentProtectionAsVerboseErrorCode(int32_t httpCode, int32_t &secManage
 	return false;
 }
 
-ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mSpeedStateMutex(), mContentProtectionMutex(), mFireboltInitMutex()
+ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mSpeedStateMutex(), mContentProtectionMutex(), mFireboltInitMutex(), mOwnedSessionsMutex(), mOwnedSessions()
 {
 	Initialize();	
 }
@@ -128,6 +128,23 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 {
 	MW_LOG_INFO("ContentSecurityManager HanldeWatermarkEvent invoked  | sessionId=%s status=%s appId=%s",
             sessionId.c_str(), statusStr.c_str(), appId.c_str());
+    int64_t sessionIdNum = 0;
+    try
+    {
+        sessionIdNum = std::stoll(sessionId);
+    }
+    catch(...)
+    {
+        MW_LOG_WARN("ContentProtection::%s:%d Ignoring event with invalid sessionId: %s", __FUNCTION__, __LINE__, sessionId.c_str());
+        return;
+    }
+    
+    if (!isOwnedSession(sessionIdNum))
+    {
+        MW_LOG_WARN("ContentProtection::%s:%d Ignoring event for unowned session ID: %" PRId64, __FUNCTION__, __LINE__, sessionIdNum);
+        return;
+    }
+
 	if(mInitialized)
 	{
    		MW_LOG_INFO("HandleWaterMarkEvent Triggered");
@@ -146,7 +163,8 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 		{
 			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s reasonCode =%d appId=%s",
             sessionId.c_str(), reasonCode, appId.c_str());
-			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), reasonCode, appId);
+			// ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), reasonCode, appId);
+			ContentSecurityManager::SendWatermarkSessionEvent_CB(sessionIdNum, reasonCode, appId);
 		}
 	}
 }
@@ -170,9 +188,24 @@ void ContentProtectionFirebolt::DeInitialize()
 	   However Native SDK requires it to be sent. Keeping it dummy*/
 	ShowWatermark(false, 0);
 	UnSubscribeEvents();
+    {
+        std::lock_guard<std::mutex> lock(mOwnedSessionsMutex);
+        mOwnedSessions.clear();
+    }
 	mInitialized = false;
 	m_pFireboltInterface = nullptr;
 	MW_LOG_INFO("Firebolt Core de-initialized");
+}
+
+bool ContentProtectionFirebolt::isOwnedSession(int64_t sessionId)
+{
+   if (sessionId <= 0)
+   {
+       return false;
+   }
+
+   std::lock_guard<std::mutex> lock(mOwnedSessionsMutex);
+   return mOwnedSessions.find(sessionId) != mOwnedSessions.end();
 }
 
 bool ContentProtectionFirebolt::IsActive(bool /*force*/)
@@ -342,9 +375,21 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 						}
 					}
 
-					if (newSession.isSessionValid() && !session.isSessionValid())
+					// if (newSession.isSessionValid() && !session.isSessionValid())
+					if (newSession.isSessionValid())
 					{
-						session = newSession;
+						// session = newSession;
+                        int64_t newSessionId = newSession.getSessionID();
+                        if (newSessionId > 0)
+                        {
+                            std::lock_guard<std::mutex> lock(mOwnedSessionsMutex);
+                            mOwnedSessions.insert(newSessionId);
+                        }
+                        
+                        if (!session.isSessionValid())
+                        {
+                            session = newSession;
+                        }
 					}
 
 				}
@@ -441,6 +486,10 @@ void ContentProtectionFirebolt::CloseDrmSession(int64_t sessionId)
 	if (result.error() == Firebolt::Error::None)
 	{
 		// No error, session was closed successfully
+		{
+			std::lock_guard<std::mutex> ownedSessionsLock(mOwnedSessionsMutex);
+			mOwnedSessions.erase(sessionId);
+		}
 		MW_LOG_INFO("Drm session closed successfully for sessionId: %" PRId64 "", sessionId);
 	}
 	else

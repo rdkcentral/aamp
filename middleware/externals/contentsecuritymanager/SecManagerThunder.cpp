@@ -37,7 +37,8 @@
  * @brief SecManagerThunder Constructor
  */
 SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMutex(), mSchedulerStarted(false),
-	mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex()
+	mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex(),
+	mOwnedSessionsMutex(), mOwnedSessions()
 {
 	std::lock_guard<std::mutex> lock(mSecMutex);
 	mSecManagerObj.ActivatePlugin();	
@@ -92,6 +93,10 @@ SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN), m
 SecManagerThunder::~SecManagerThunder()
 {
 	std::lock_guard<std::mutex> lock(mSecMutex);
+	{
+		std::lock_guard<std::mutex> ownedSessionsLock(mOwnedSessionsMutex);
+		mOwnedSessions.clear();
+	}
 	/* hide watermarking before secmanager shutdown */
 	ShowWatermark(false);
 
@@ -266,10 +271,20 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 						}
 					}
 
-					// Save session ID
-					if (newSession.isSessionValid() && !session.isSessionValid())
+					// Save and track session ID
+					if (newSession.isSessionValid())
 					{
-						session = newSession;
+						int64_t newSessionId = newSession.getSessionID();
+						if (newSessionId > 0)
+						{
+							std::lock_guard<std::mutex> lock(mOwnedSessionsMutex);
+							mOwnedSessions.insert(newSessionId);
+						}
+						if(!session.isSessionValid())
+						{
+							session = newSession;
+						}
+						
 					}
 
 				}
@@ -392,6 +407,11 @@ void SecManagerThunder::CloseDrmSession(int64_t sessionId)
 
 	if (rpcResult)
 	{
+		if (result["success"].Boolean())
+		{
+			std::lock_guard<std::mutex> lock(mOwnedSessionsMutex);
+			mOwnedSessions.erase(sessionId);
+		}
 		if (!result["success"].Boolean())
 		{
 			std::string responseStr;
@@ -578,6 +598,17 @@ bool SecManagerThunder::getSchedulerStatus ()
 	return mSchedulerStarted;
 }
 
+bool SecManagerThunder::isOwnedSession(int64_t sessionId)
+{
+	if (sessionId <= 0)
+	{
+		return false;
+	}
+
+	std::lock_guard<std::mutex> lock(mOwnedSessionsMutex);
+	return mOwnedSessions.find(sessionId) != mOwnedSessions.end();
+}
+
 /**
  * @brief  Detects watermarking session conditions
  */
@@ -585,11 +616,23 @@ void SecManagerThunder::watermarkSessionHandler(const JsonObject& parameters)
 {
 	std::string param;
 	parameters.ToString(param);
+	if (!parameters.HasLabel("sessionId"))
+	{
+		MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event with missing sessionId", __FUNCTION__, __LINE__);
+		return;
+	}
+
+	int64_t sessionId = parameters["sessionId"].Number();
+	if (!isOwnedSession(sessionId))
+	{
+		MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event for unowned session ID: %" PRId64, __FUNCTION__, __LINE__, sessionId);
+		return;
+	}
 	MW_LOG_WARN("ContentSecurityManager::%s:%d i/p params: %s", __FUNCTION__, __LINE__, param.c_str());
 	std::function<void(uint32_t, uint32_t, const std::string&)> sendWatermarkEvent_CB = ContentSecurityManager::getWatermarkSessionEvent_CB();
 	if (nullptr != sendWatermarkEvent_CB)
 	{
-		sendWatermarkEvent_CB( parameters["sessionId"].Number(),parameters["conditionContext"].Number(),parameters["watermarkingSystem"].String());
+		sendWatermarkEvent_CB( sessionId, parameters["conditionContext"].Number(),parameters["watermarkingSystem"].String());
 	}
 }
 
@@ -600,6 +643,18 @@ void SecManagerThunder::addWatermarkHandler(const JsonObject& parameters)
 {
 	std::string param;
 	parameters.ToString(param);
+	if (!parameters.HasLabel("sessionId"))
+	{
+		MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event with missing sessionId", __FUNCTION__, __LINE__);
+		return;
+	}
+
+	int64_t sessionId = parameters["sessionId"].Number();
+	if (!isOwnedSession(sessionId))
+	{
+		MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event for unowned session ID: %" PRId64, __FUNCTION__, __LINE__, sessionId);
+		return;
+	}
 
 	MW_LOG_WARN("ContentSecurityManager::%s:%d i/p params: %s", __FUNCTION__, __LINE__, param.c_str());
 	if(getSchedulerStatus())
@@ -624,7 +679,7 @@ void SecManagerThunder::addWatermarkHandler(const JsonObject& parameters)
 
 		if (parameters["adjustVisibilityRequired"].Boolean())
 		{
-			int sessionId = parameters["sessionId"].Number();
+			// int sessionId = parameters["sessionId"].Number();
 			MW_LOG_WARN("ContentSecurityManager::%s:%d adjustVisibilityRequired is true, invoking GetWaterMarkPalette. graphicId : %d", __FUNCTION__, __LINE__, graphicId);
 			ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([sessionId, graphicId](void *data)
 						{
@@ -654,8 +709,21 @@ void SecManagerThunder::addWatermarkHandler(const JsonObject& parameters)
  */
 void SecManagerThunder::updateWatermarkHandler(const JsonObject& parameters)
 {
-	if(getSchedulerStatus())
+	if (getSchedulerStatus())
 	{
+		if (!parameters.HasLabel("sessionId"))
+		{
+			MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event with missing sessionId", __FUNCTION__, __LINE__);
+			return;
+		}
+
+		int64_t sessionId = parameters["sessionId"].Number();
+		if (!isOwnedSession(sessionId))
+		{
+			MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event for unowned session ID: %" PRId64, __FUNCTION__, __LINE__, sessionId);
+			return;
+		}
+
 		int graphicId = parameters["graphicId"].Number();
 		int clutKey = parameters["watermarkClutBufferKey"].Number();
 		int imageKey = parameters["watermarkImageBufferKey"].Number();
@@ -681,6 +749,19 @@ void SecManagerThunder::removeWatermarkHandler(const JsonObject& parameters)
 #endif
 	if(getSchedulerStatus())
 	{
+		if (!parameters.HasLabel("sessionId"))
+		{
+			MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event with missing sessionId", __FUNCTION__, __LINE__);
+			return;
+		}
+
+		int64_t sessionId = parameters["sessionId"].Number();
+		if (!isOwnedSession(sessionId))
+		{
+			MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event for unowned session ID: %" PRId64, __FUNCTION__, __LINE__, sessionId);
+			return;
+		}
+
 		int graphicId = parameters["graphicId"].Number();
 		MW_LOG_WARN("ContentSecurityManager::%s:%d graphicId : %d ", __FUNCTION__, __LINE__, graphicId);
 		ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([graphicId](void *data)
@@ -705,6 +786,16 @@ void SecManagerThunder::removeWatermarkHandler(const JsonObject& parameters)
  */
 void SecManagerThunder::showWatermarkHandler(const JsonObject& parameters)
 {
+	if (parameters.HasLabel("sessionId"))
+	{
+		int64_t sessionId = parameters["sessionId"].Number();
+		if (!isOwnedSession(sessionId))
+		{
+			MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring event for unowned session ID: %" PRId64, __FUNCTION__, __LINE__, sessionId);
+			return;
+		}
+	}
+
 	bool show = true;
 	if(parameters["hideWatermark"].Boolean())
 	{

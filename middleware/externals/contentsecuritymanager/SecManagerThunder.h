@@ -35,6 +35,7 @@
 #include <memory>
 #include <list>
 #include <map>
+#include <set>
 #include <vector>
 
 #define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"
@@ -195,14 +196,22 @@ protected:
 	 *   @fn UnRegisterAllEvents
 	 */
 	void UnRegisterAllEvents ();
+	/**
+	 * @brief Check if a session ID is owned by this SecManagerThunder instance
+	 * @param sessionId Session ID to check
+	 * @return true if this instance owns the session, false otherwise
+	 */
+	bool isOwnedSession(int64_t sessionId);
 
 	ThunderAccessPlayer mSecManagerObj;       /**< ThunderAccessPlayer object for communicating with SecManager*/
 	ThunderAccessPlayer mWatermarkPluginObj;  /**< ThunderAccessPlayer object for communicating with Watermark Plugin Obj*/
 	std::mutex mSecMutex;    	        /**< Lock for accessing mSecManagerObj*/
 	std::mutex mWatMutex;		        /**< Lock for accessing mWatermarkPluginObj*/
 	std::mutex mSpeedStateMutex;		/**< mutex for setPlaybackSpeedState()*/
+	std::mutex mOwnedSessionsMutex;     /**< mutex for mOwnedSessions*/
 	std::list<std::string> mRegisteredEvents;
 	bool mSchedulerStarted;
+	std::set<int64_t> mOwnedSessions;   /**< Set of session IDs owned by this instance*/
 };
 
 #endif /* __SECMANAGER_THUNDER_H__ */
