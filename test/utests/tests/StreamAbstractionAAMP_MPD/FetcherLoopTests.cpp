@@ -402,8 +402,8 @@ protected:
 			{eAAMPConfig_useRialtoSink, false},
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_UseMp4Demux, false},
-};
-
+			{eAAMPConfig_EnableProducerReferenceDelay, true},
+		};
 	BoolConfigSettings mBoolConfigSettings;
 
 	/** @brief Integer AAMP configuration settings. */
@@ -2081,6 +2081,11 @@ TEST_F(FetcherLoopTests, FetcherLoopSkipsAdvanceTrackWhenExceedsLiveEdge)
 
 	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 0.0);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Override: this test exercises the live-edge suppression path, so IsLiveStream() must return true.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLiveStream())
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(true));
 
 	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
 

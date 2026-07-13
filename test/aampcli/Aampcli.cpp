@@ -759,8 +759,26 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY:
 		{
 			VodAdBreakOpportunityEventPtr ev = std::dynamic_pointer_cast<VodAdBreakOpportunityEvent>(e);
+			const std::string &breakId = ev->getBreakId();
 			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY breakId=%s insertionPt=%.3f dur=%.3f type=%s\n",
-				ev->getBreakId().c_str(), ev->getInsertionPointSec(), ev->getBreakDurationSec(), ev->getBreakType().c_str());
+				breakId.c_str(), ev->getInsertionPointSec(), ev->getBreakDurationSec(), ev->getBreakType().c_str());
+			bool mapped = false;
+			for( const AdvertInfo &advertInfo : mAdvertList )
+			{
+				if( advertInfo.adBreakId == breakId )
+				{
+					std::string adId = "adId" + std::to_string(++mAdReservationIndex);
+					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY place advert breakId=%s adId=%s url=%s\n",
+						breakId.c_str(), adId.c_str(), advertInfo.url.c_str());
+					mAampcli.mSingleton->SetAlternateContents(breakId, adId, advertInfo.url);
+					mapped = true;
+				}
+			}
+			if( !mapped )
+			{
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY unmapped breakId=%s, notifying reservation complete\n", breakId.c_str());
+			}
+			mAampcli.mSingleton->NotifyReservationComplete(breakId);
 			break;
 		}
 		case AAMP_EVENT_NEED_MANIFEST_DATA:

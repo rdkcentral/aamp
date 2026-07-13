@@ -138,6 +138,19 @@ public:
 	{
 		return false;
 	}
+
+	/**
+	 * @brief Return the virtual-timeline position accounting for all
+	 *        completed and in-progress VOD ad pods inserted before
+	 *        sourcePositionSec.  Default returns sourcePositionSec unchanged.
+	 * @param[in] sourcePositionSec Current playhead position in the source
+	 *        VOD asset (seconds).
+	 * @return Virtual position in the fully-assembled timeline (seconds).
+	 */
+	virtual double GetVirtualPosition(double sourcePositionSec)
+	{
+		return sourcePositionSec;
+	}
 };
 
 
