@@ -1136,7 +1136,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown, bool k
 	{
 		isAppSeek = true;
 	}
-	bool ret = playerInstance->Flush(position, rate, shouldTearDown, isAppSeek /*, keepPausedSeek */);
+	bool ret = playerInstance->Flush(position, rate, shouldTearDown, isAppSeek, keepPausedSeek);
 	if(ret)
 	{
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
