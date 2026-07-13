@@ -7913,6 +7913,8 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
 		(unsigned int)(licenseAquisitionLockStopTime- licenseAquisitionLockStartTime),
 		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
+	profiler.mStopDurationMs = mLastStopDurationMs;
+
 }
 
 const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
