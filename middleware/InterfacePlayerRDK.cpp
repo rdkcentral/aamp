@@ -4309,10 +4309,17 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				std::string newState(gst_element_state_get_name(new_state));
 				if(oldState == "PAUSED" && newState == "PLAYING")
 				{
-					if(privatePlayer->gstPrivateContext->mFirstFrameTimeInMS > 0 && pInterfacePlayerRDK->m_gstConfigParam->isNewTune )
+					if(pInterfacePlayerRDK->m_gstConfigParam->isNewTune )
 					{
-						const long long timeToPlayingMs = NOW_STEADY_TS_MS - privatePlayer->gstPrivateContext->mFirstFrameTimeInMS;
- 						MW_LOG_WARN("Time taken from First Frame to PLAYING state %.3f seconds", (static_cast<double>(timeToPlayingMs) / 1000.0));
+						if(privatePlayer->gstPrivateContext->mFirstFrameTimeInMS > 0)
+						{
+							const long long timeToPlayingMs = NOW_STEADY_TS_MS - privatePlayer->gstPrivateContext->mFirstFrameTimeInMS;
+ 							MW_LOG_WARN("Time taken from First Frame to PLAYING state %.3f seconds", (static_cast<double>(timeToPlayingMs) / 1000.0));
+						}
+						else
+						{
+							MW_LOG_WARN("Time taken from First Frame to PLAYING state 0 seconds");
+						}
 					}
 					privatePlayer->gstPrivateContext->mFirstFrameTimeInMS = 0;
 					pInterfacePlayerRDK->m_gstConfigParam->isNewTune = false;
