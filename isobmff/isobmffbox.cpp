@@ -1030,12 +1030,12 @@ TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, ui
 /**
  *  @brief Set SampleDuration value
  */
-void TrunBox::setFirstSampleDuration(uint64_t sampleDuration)
+void TrunBox::setFirstSampleDuration(uint32_t sampleDuration)
 {
 	duration = sampleDuration;
 	if (nullptr != first_sample_duration_loc)
 	{
-		WRITE_U32(first_sample_duration_loc, static_cast<uint32_t>(sampleDuration) );
+		WRITE_U32(first_sample_duration_loc, sampleDuration );
 	}
 }
 
@@ -1229,12 +1229,12 @@ uint64_t TfhdBox::getDefaultSampleDuration()
 	return mDefaultSampleDuration;
 }
 
-void TfhdBox::setDefaultSampleDuration(uint64_t default_duration)
+void TfhdBox::setDefaultSampleDuration(uint32_t default_duration)
 {
 	mDefaultSampleDuration = default_duration;
 	if (nullptr != default_sample_duration_location)
 	{
-		WRITE_U32(default_sample_duration_location, static_cast<uint32_t>(default_duration) );
+		WRITE_U32(default_sample_duration_location, default_duration );
 	}
 }
 
