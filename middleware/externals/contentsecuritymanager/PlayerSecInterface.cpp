@@ -24,6 +24,7 @@
 
 
 #include "PlayerSecInterface.h"
+#include "rdk_otlp_instrumentation.h"
 #ifdef USE_SECCLIENT
 #include "sec_client.h"
 #endif
@@ -154,6 +155,7 @@ int32_t PlayerSecInterface::PlayerSec_AcquireLicense(const char *serviceHostUrl,
 #ifdef USE_SECCLIENT
 	int32_t sec_client_result = SEC_CLIENT_RESULT_FAILURE;
 	SecClient_ExtendedStatus statusExtInfo = {};
+	rdk_otlp_start_child_span("AAMP_tune", "sec_client_acquire_license");
 	sec_client_result = SecClient_AcquireLicense(serviceHostUrl, numberOfRequestMetadataKeys,
 													requestMetadata, numberOfAccessAttributes,
 													accessAttributes,
@@ -162,6 +164,7 @@ int32_t PlayerSecInterface::PlayerSec_AcquireLicense(const char *serviceHostUrl,
 													licenseRequest, licenseRequestLength, keySystemId, mediaUsage,
 													accessToken,
 													licenseResponse, licenseResponseLength, refreshDurationSeconds, &statusExtInfo);
+	rdk_otlp_finish_child_span();
 	if (statusInfo != nullptr) {
 		statusInfo->accessAttributeStatus = statusExtInfo.accessAttributeStatus;
 		statusInfo->statusCode = statusExtInfo.statusCode;
