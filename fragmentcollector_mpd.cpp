@@ -10744,23 +10744,25 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				if (AdState::OUTSIDE_ADBREAK != mCdaiObject->mAdState)
 				{
 					Period2AdData &curPeriod = mCdaiObject->mPeriodMap[mBasePeriodId];
-					bool breakDownloaderLoop = false;
+					bool breakInnerFetcherLoop = false;
 					if ((mPlayRate < AAMP_RATE_PAUSE && mBasePeriodOffset <= 0) ||
 						(mPlayRate > AAMP_RATE_PAUSE && curPeriod.filled && curPeriod.duration <= (uint64_t)(mBasePeriodOffset * 1000)))
 					{
 						AAMPLOG_INFO("[CDAI]: BasePeriod[%s] completed @%lf. Changing to next ", mBasePeriodId.c_str(), mBasePeriodOffset);
-						breakDownloaderLoop = true;
+						breakInnerFetcherLoop = true;
 					}
 					else if (lastPrdOffset != mBasePeriodOffset && AdState::IN_ADBREAK_AD_NOT_PLAYING == mCdaiObject->mAdState)
 					{
 						// In adbreak, but somehow Ad is not playing. Need to check whether the position reached the next Ad start.
 						adStateChanged = onAdEvent(AdEvent::BASE_OFFSET_CHANGE);
 						if (adStateChanged)
-							breakDownloaderLoop = true;
+							breakInnerFetcherLoop = true;
 					}
-					// State is not OUTSIDE_ADBREAK, Ad is either ended or not playing
-					// Wait for scheduled fragments to be downloaded and cached before moving to next period.
-					if (breakDownloaderLoop)
+					// We are in any ad-related state (IN_ADBREAK_AD_PLAYING, IN_ADBREAK_AD_NOT_PLAYING,
+					// IN_ADBREAK_AD_READY2PLAY, IN_ADBREAK_WAIT2CATCHUP, or OUTSIDE_ADBREAK_WAIT4ADS).
+					// Before transitioning to the next ad or base period, wait for any in-flight
+					// fragment downloads to complete.
+					if (breakInnerFetcherLoop)
 					{
 						aamp->GetAampTrackWorkerManager()->WaitForCompletionWithTimeout(MAX_WAIT_TIMEOUT_MS, [this]() {
 							if (mIsLiveManifest)
@@ -10771,6 +10773,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								}
 							}
 						});
+						AAMPLOG_INFO("[CDAI]: In-flight downloads for period[%s] drained. Transitioning to next period.", mBasePeriodId.c_str());
 						break;
 					}
 					lastPrdOffset = mBasePeriodOffset;
