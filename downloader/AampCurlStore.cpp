@@ -256,6 +256,7 @@ CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname 
 	CurlSock->mCurlStoreUserCount += 1;
 
 	CurlSock->mCurlShared = curl_share_init();
+	AAMPLOG_WARN("DEBUG--> CreateCurlStore host:%s NEW CurlSock:%p mCurlShared:%p locks:%p storeSize:%zu", hostname.c_str(), (void*)CurlSock, (void*)CurlSock->mCurlShared, (void*)locks, umCurlSockDataStore.size());
 	CURL_SHARE_SETOPT(CurlSock->mCurlShared, CURLSHOPT_USERDATA, (void*)locks);
 	CURL_SHARE_SETOPT(CurlSock->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
 	CURL_SHARE_SETOPT(CurlSock->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
@@ -328,7 +329,9 @@ CURL* CurlStore::CurlEasyInitWithOpt ( PrivateInstanceAAMP *aamp, const std::str
 	std::string UserAgentString;
 	UserAgentString=aamp->mConfig->GetUserAgentString();
 	uint32_t CurlConnectTimeout =  GETCONFIGVALUE(eAAMPConfig_Curl_ConnectTimeout);
+	AAMPLOG_WARN("DEBUG--> CurlEasyInitWithOpt before curl_easy_init instId:%d aamp:%p mCurlShared:%p", instId, (void*)aamp, (void*)aamp->mCurlShared);
 	CURL *curlEasyhdl = curl_easy_init();
+	AAMPLOG_WARN("DEBUG--> CurlEasyInitWithOpt after curl_easy_init instId:%d curlEasyhdl:%p", instId, (void*)curlEasyhdl);
 	if (ISCONFIGSET(eAAMPConfig_CurlLogging))
 	{
 		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_VERBOSE, 1 );
@@ -355,6 +358,7 @@ CURL* CurlStore::CurlEasyInitWithOpt ( PrivateInstanceAAMP *aamp, const std::str
 	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SSL_CTX_DATA, aamp);
 	long dns_cache_timeout = 3*60;
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
+	AAMPLOG_WARN("DEBUG--> CurlEasyInitWithOpt binding CURLOPT_SHARE curlEasyhdl:%p mCurlShared:%p instId:%d", (void*)curlEasyhdl, (void*)aamp->mCurlShared, instId);
 	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SHARE, aamp->mCurlShared);
 
 	aamp->curlDLTimeout[instId] = DEFAULT_CURL_TIMEOUT * 1000;
@@ -405,6 +409,7 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 	std::string HostName;
 	bool IsRemotehost = true, CurlFdHost=false;
 	AampCurlStoreErrorCode CurlStoreErrCode=eCURL_STORE_HOST_NOT_AVAILABLE;
+	AAMPLOG_WARN("DEBUG--> CurlInit ENTER aamp:%p startIdx:%d instanceCount:%u instanceEnd:%d RemoteHost:'%s' proxy:'%s' curlStoreEnabled:%d", (void*)aamp, startIdx, instanceCount, instanceEnd, RemoteHost.c_str(), proxyName.c_str(), ISCONFIGSET(eAAMPConfig_EnableCurlStore));
 
 	if(RemoteHost.size())
 	{
@@ -416,19 +421,23 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 		HostName = aamp->mOrigManifestUrl.hostname;
 		IsRemotehost = aamp->mOrigManifestUrl.isRemotehost;
 	}
+	AAMPLOG_WARN("DEBUG--> CurlInit resolved HostName:'%s' IsRemotehost:%d CurlFdHost:%d", HostName.c_str(), IsRemotehost, CurlFdHost);
 
 	if ( IsRemotehost )
 	{
 		if (ISCONFIGSET(eAAMPConfig_EnableCurlStore))
 		{
 			AAMPLOG_INFO("Check curl store for host:%s inst:%d-%d Fds[%p:%p]", HostName.c_str(), startIdx, instanceEnd, aamp->curl[startIdx], aamp->curlhost[startIdx]->curl );
+			AAMPLOG_WARN("DEBUG--> CurlInit calling GetFromCurlStoreBulk host:%s inst:%d-%d aamp:%p mCurlShared(before):%p", HostName.c_str(), startIdx, instanceEnd, (void*)aamp, (void*)aamp->mCurlShared);
 			CurlStoreErrCode = GetFromCurlStoreBulk(HostName, startIdx, instanceEnd, aamp, CurlFdHost );
+			AAMPLOG_WARN("DEBUG--> CurlInit GetFromCurlStoreBulk returned errCode:%d aamp:%p mCurlShared(after):%p", CurlStoreErrCode, (void*)aamp, (void*)aamp->mCurlShared);
 			AAMPLOG_TRACE("From curl store for inst:%d-%d Fds[%p:%p] ShHdl:%p", startIdx, instanceEnd, aamp->curl[startIdx], aamp->curlhost[startIdx]->curl, aamp->mCurlShared );
 		}
 		else
 		{
 			if(NULL==aamp->mCurlShared)
 			{
+				AAMPLOG_WARN("DEBUG--> CurlInit store DISABLED, creating per-aamp mCurlShared aamp:%p sharedSSL:%d", (void*)aamp, ISCONFIGSET(eAAMPConfig_EnableSharedSSLSession));
 				aamp->mCurlShared = curl_share_init();
 				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_USERDATA, (void*)NULL);
 				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
@@ -448,6 +457,7 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 		// When store is enabled, it is reusing from the store instance.
 		if (ISCONFIGSET(eAAMPConfig_EnableCurlStore))
 		{
+			AAMPLOG_WARN("DEBUG--> CurlInit non-remotehost with store enabled, resetting aamp->mCurlShared to NULL aamp:%p", (void*)aamp);
 			aamp->mCurlShared = NULL;
 		}
 	}
@@ -455,6 +465,7 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 	if(eCURL_STORE_HOST_SOCK_AVAILABLE != CurlStoreErrCode)
 	{
 		CURL **CurlFd = NULL;
+		AAMPLOG_WARN("DEBUG--> CurlInit UNLOCKED handle-creation loop ENTER host:%s inst:%d-%d aamp:%p mCurlShared:%p errCode:%d", HostName.c_str(), startIdx, instanceEnd, (void*)aamp, (void*)aamp->mCurlShared, CurlStoreErrCode);
 		for (unsigned int i = startIdx; i < instanceEnd; i++)
 		{
 			if(CurlFdHost)
@@ -468,10 +479,16 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 
 			if (NULL == *CurlFd )
 			{
+				AAMPLOG_WARN("DEBUG--> CurlInit creating NEW handle inst:%d aamp:%p mCurlShared:%p CurlFdHost:%d", i, (void*)aamp, (void*)aamp->mCurlShared, CurlFdHost);
 				*CurlFd = CurlEasyInitWithOpt(aamp, proxyName, i);
 				AAMPLOG_INFO("Created new curl handle:%p for inst:%d", *CurlFd, i );
 			}
+			else
+			{
+				AAMPLOG_WARN("DEBUG--> CurlInit REUSING existing handle:%p inst:%d aamp:%p", (void*)*CurlFd, i, (void*)aamp);
+			}
 		}
+		AAMPLOG_WARN("DEBUG--> CurlInit UNLOCKED handle-creation loop EXIT host:%s inst:%d-%d", HostName.c_str(), startIdx, instanceEnd);
 	}
 }
 
@@ -636,6 +653,7 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &host
 		CurlSock->mCurlStoreUserCount += 1;
 		CurlSock->timestamp = aamp_GetCurrentTimeMS();
 		aamp->mCurlShared = CurlSock->mCurlShared;
+		AAMPLOG_WARN("DEBUG--> GetFromCurlStoreBulk EXISTING store host:%s CurlSock:%p mCurlShared:%p userCount:%d aamp:%p freeQ:%zu", hostname.c_str(), (void*)CurlSock, (void*)CurlSock->mCurlShared, CurlSock->mCurlStoreUserCount, (void*)aamp, CurlSock->mFreeQ.size());
 
 		for( loop = (int)CurlIndex; loop < count; )
 		{
@@ -688,6 +706,7 @@ AampCurlStoreErrorCode CurlStore::GetFromCurlStoreBulk ( const std::string &host
 		if(NULL != CurlSock)
 		{
 			aamp->mCurlShared = CurlSock->mCurlShared;
+			AAMPLOG_WARN("DEBUG--> GetFromCurlStoreBulk NEW store assigned host:%s CurlSock:%p mCurlShared:%p aamp:%p", hostname.c_str(), (void*)CurlSock, (void*)CurlSock->mCurlShared, (void*)aamp);
 		}
 	}
 
@@ -869,6 +888,7 @@ void CurlStore::RemoveCurlSock ( void )
 
 		if(RmCurlSock->mCurlShared)
 		{
+			AAMPLOG_WARN("DEBUG--> RemoveCurlSock CLEANUP CurlSock:%p mCurlShared:%p userCount:%d", (void*)RmCurlSock, (void*)RmCurlSock->mCurlShared, RmCurlSock->mCurlStoreUserCount);
 			curl_share_cleanup(RmCurlSock->mCurlShared);
 			SAFE_DELETE(RmCurlSock->pstShareLocks);
 		}
@@ -916,6 +936,7 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 		{
 			if(RmCurlSock->mCurlShared)
 			{
+				AAMPLOG_WARN("DEBUG--> FlushCurlSockForHost CLEANUP host:%s CurlSock:%p mCurlShared:%p userCount:%d", hostname.c_str(), (void*)RmCurlSock, (void*)RmCurlSock->mCurlShared, RmCurlSock->mCurlStoreUserCount);
 				AAMPLOG_INFO("cleaning up curl shared context %p",RmCurlSock->mCurlShared);
 				curl_share_cleanup(RmCurlSock->mCurlShared);
 				SAFE_DELETE(RmCurlSock->pstShareLocks);

@@ -5084,6 +5084,7 @@ CURL * PrivateInstanceAAMP::GetCurlInstanceForURL(std::string &remoteUrl,unsigne
 
 			if( curlhost[curlInstance]->isRemotehost && (std::string::npos == mOrigManifestUrl.hostname.find(curlhost[curlInstance]->hostname)) )
 			{
+				AAMPLOG_WARN("DEBUG--> GetCurlInstanceForURL REDIRECT CurlInit curlInstance:%u newHost:%s aamp:%p mCurlShared:%p", curlInstance, curlhost[curlInstance]->hostname.c_str(), (void*)this, (void*)mCurlShared);
 				CurlStore::GetCurlStoreInstance(this).CurlInit(this, (AampCurlInstance)curlInstance, 1, GetNetworkProxy(), curlhost[curlInstance]->hostname);
 				CURL_EASY_SETOPT_LONG(curlhost[curlInstance]->curl, CURLOPT_TIMEOUT_MS, curlDLTimeout[curlInstance]);
 			}

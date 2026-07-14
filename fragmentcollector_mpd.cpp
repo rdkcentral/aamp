@@ -8794,17 +8794,20 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
  */
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 {
+	AAMPLOG_WARN("DEBUG--> FetchAndInjectInitFragments ENTER numTracks:%d parallelDnld:%d workers:%zu discontinuity:%d", mNumberOfTracks, ISCONFIGSET(eAAMPConfig_DashParallelFragDownload), mTrackWorkers.size(), discontinuity);
 	for( int i = 0; i < mNumberOfTracks; i++)
 	{
 		if (i < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[i])
 		{
 			// Download the video, audio & subtitle init fragments in a separate parallel thread.
 			AAMPLOG_DEBUG("Submitting init job for track %d", i);
+			AAMPLOG_WARN("DEBUG--> Submitting PARALLEL init job for track %d worker:%p", i, (void*)mTrackWorkers[i].get());
 			mTrackWorkers[i]->SubmitJob([this, i, discontinuity]() { FetchAndInjectInitialization(i,discontinuity); });
 		}
 		else
 		{
 			AAMPLOG_INFO("Track %d worker not available, downloading init fragment sequentially", i);
+			AAMPLOG_WARN("DEBUG--> Track %d worker not available, downloading init fragment SEQUENTIALLY", i);
 			FetchAndInjectInitialization(i,discontinuity);
 		}
 	}
@@ -8813,9 +8816,12 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 	{
 		if(trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
 		{
+			AAMPLOG_WARN("DEBUG--> Waiting for completion of PARALLEL init job for track %d", trackIdx);
 			mTrackWorkers[trackIdx]->WaitForCompletion();
+			AAMPLOG_WARN("DEBUG--> Completed PARALLEL init job for track %d", trackIdx);
 		}
 	}
+	AAMPLOG_WARN("DEBUG--> FetchAndInjectInitFragments EXIT");
 }
 
 /**
@@ -8824,6 +8830,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool discontinuity)
 {
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
+		AAMPLOG_WARN("DEBUG--> FetchAndInjectInitialization ENTER trackIdx:%d mediaType:%s enabled:%d profileChanged:%d discontinuity:%d aamp:%p mCurlShared:%p", trackIdx, GetMediaTypeName(pMediaStreamContext->mediaType), pMediaStreamContext->enabled, pMediaStreamContext->profileChanged, discontinuity, (void*)aamp, (void*)aamp->mCurlShared);
 
 		if(discontinuity && pMediaStreamContext->enabled)
 		{
