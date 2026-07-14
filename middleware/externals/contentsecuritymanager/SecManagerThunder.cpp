@@ -32,6 +32,7 @@
 #include <sstream>
 #include <string>
 #include "ThunderAccessPlayer.h"
+#include "rdk_otlp_instrumentation.h"
 
 /**
  * @brief SecManagerThunder Constructor
@@ -211,7 +212,9 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 			//invoke "openPlaybackSession" or "updatePlaybackSession" with retries for specific error cases
 			do
 			{
+				rdk_otlp_start_child_span("AAMP_tune", "secmanager_open_playback_session");
 				rpcResult = mSecManagerObj.InvokeJSONRPC(apiName, param, response, 10000);
+				rdk_otlp_finish_child_span();
 				if (rpcResult)
 				{
 					ContentSecurityManagerSession newSession;
