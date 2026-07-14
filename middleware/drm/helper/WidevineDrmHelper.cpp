@@ -24,6 +24,7 @@
 
 #include <memory>
 #include <iostream>
+#include <cstdlib>
 
 #include "WidevineDrmHelper.h"
 #include "DrmUtils.h"
@@ -184,17 +185,54 @@ void WidevineDrmHelper::setDrmMetaData(const std::string& metaData)
 
 void WidevineDrmHelper::setDefaultKeyID(const std::string& cencData)
 {
+	mDefaultKeySlot = -1;
 	std::vector<uint8_t> defaultKeyID(cencData.begin(), cencData.end());
+	// Also convert UUID string (e.g. "f3dff538-b8c9-58e4-e8cd-96cf811d32dc") to 16-byte binary
+	// for comparison against binary keyIDs parsed from PSSH
+	std::vector<uint8_t> defaultKeyIDBinary;
+	std::string uuidHex;
+	uuidHex.reserve(cencData.size());
+	for (char c : cencData)
+	{
+		if (c != '-')
+		{
+			uuidHex += c;
+		}
+	}
+	if (uuidHex.size() == 32)
+	{
+		defaultKeyIDBinary.reserve(16);
+		for (size_t i = 0; i < uuidHex.size(); i += 2)
+		{
+			char hexPair[3] = {uuidHex[i], uuidHex[i + 1], '\0'};
+			char* end = nullptr;
+			unsigned long v = std::strtoul(hexPair, &end, 16);
+			if (end != hexPair + 2 || v > 0xFF)
+			{
+				MW_LOG_WARN("setDefaultKeyID: invalid hex in cencData at offset %zu", i);
+				defaultKeyIDBinary.clear();
+				break;
+			}
+			defaultKeyIDBinary.push_back(static_cast<uint8_t>(v));
+		}
+	}
+
 	if(!mKeyIDs.empty())
 	{
 		for(auto& it : mKeyIDs)
 		{
-			if(defaultKeyID == it.second)
+			if(defaultKeyID == it.second || defaultKeyIDBinary == it.second)
 			{
 				mDefaultKeySlot = it.first;
-				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", PlayerLogManager::getHexDebugStr(defaultKeyID).c_str(), mDefaultKeySlot);
+				MW_LOG_WARN("setDefaultKeyID : %s slot : %d", PlayerLogManager::getHexDebugStr(it.second).c_str(), mDefaultKeySlot);
+				break;
 			}
 		}
+	}
+	if (mDefaultKeySlot < 0 && !mKeyIDs.empty())
+	{
+		mDefaultKeySlot = mKeyIDs.begin()->first;
+		MW_LOG_WARN("setDefaultKeyID: no match found for cencData, defaulting to first slot %d", mDefaultKeySlot);
 	}
 }
 
@@ -212,22 +250,21 @@ void WidevineDrmHelper::createInitData(std::vector<uint8_t>& initData) const
 void WidevineDrmHelper::getKey(std::vector<uint8_t>& keyID) const
 {
 	MW_LOG_WARN("WidevineDrmHelper::getKey defaultkey: %d mKeyIDs.size:%zu", mDefaultKeySlot, mKeyIDs.size());
-	// Print all key IDs for debugging
-	for (const auto& keyPair : mKeyIDs) {
-		std::string keyStr = PlayerLogManager::getHexDebugStr(keyPair.second);
-		MW_LOG_DEBUG("Key ID [%d]: %s", keyPair.first, keyStr.c_str());
-	}
-	if ((mDefaultKeySlot >= 0) && (mDefaultKeySlot < mKeyIDs.size()))
+	if ((mDefaultKeySlot >= 0) && (mKeyIDs.find(mDefaultKeySlot) != mKeyIDs.end()))
 	{
-		keyID = this->mKeyIDs.at(mDefaultKeySlot);
+		keyID = mKeyIDs.at(mDefaultKeySlot);
 	}
-	else if (mKeyIDs.size() > 0)
+	else if (!mKeyIDs.empty())
 	{
-		keyID = this->mKeyIDs.at(0);
+		if (mDefaultKeySlot >= 0)
+		{
+			MW_LOG_WARN("mDefaultKeySlot(%d) not found in mKeyIDs, falling back to first entry", mDefaultKeySlot);
+		}
+		keyID = mKeyIDs.begin()->second;
 	}
 	else
 	{
-		MW_LOG_ERR("No key");
+		MW_LOG_ERR("No key available - mKeyIDs is empty");
 	}
 }
 
