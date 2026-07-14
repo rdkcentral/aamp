@@ -447,13 +447,22 @@ public:
 		m_eosSourceCount.store(0, std::memory_order_relaxed);
 		m_eosNotified.store(false, std::memory_order_relaxed);
 
-		// A flushed source must re-buffer before the pipeline returns to
-		// PLAYING, so clear its readiness/injected-duration tracking and
-		// force the next play() to re-evaluate the transition.
+		// A flush always represents a pipeline-wide restart (seek or
+		// trickplay): every non-subtitle source must re-buffer before the
+		// pipeline returns to PLAYING.  Clearing only the flushed source
+		// would leave stale readiness on other sources, which causes
+		// play() — called by DirectRialto after each individual source
+		// flush — to fire PLAYING immediately via the stale source.  That
+		// triggers MonitorProgress before video has any injected frames,
+		// producing a position-unchanged suppression that prevents the
+		// first trickplay progress event from appearing.
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
-			m_injectedDurationNs[sourceId] = 0;
-			m_readySources.erase(sourceId);
+			for (auto &entry : m_injectedDurationNs)
+			{
+				entry.second = 0;
+			}
+			m_readySources.clear();
 			m_eosSources.clear();
 		}
 		m_playing = false;
@@ -673,11 +682,23 @@ private:
 	{
 		std::lock_guard<std::mutex> lock(m_trackMutex);
 		auto typeIt = m_sourceTypes.find(sourceId);
-		if (typeIt != m_sourceTypes.end() &&
-			typeIt->second != MediaSourceType::SUBTITLE)
+		if (typeIt == m_sourceTypes.end() ||
+			typeIt->second == MediaSourceType::SUBTITLE)
 		{
-			m_readySources.insert(sourceId);
+			return;
 		}
+		// A source that EOS-es with zero injected duration (e.g. audio
+		// during video-only trickplay) must not be counted as ready for
+		// playback.  Adding it would fire PLAYING before the video source
+		// has primed its firstPtsMs, causing MonitorProgress to see an
+		// unchanged position and suppress the first trickplay progress
+		// event, which blocks callback-driven test steps.
+		auto durIt = m_injectedDurationNs.find(sourceId);
+		if (durIt == m_injectedDurationNs.end() || durIt->second == 0)
+		{
+			return;
+		}
+		m_readySources.insert(sourceId);
 	}
 
 	// Caller must hold m_trackMutex.
