@@ -1502,6 +1502,47 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 	}
 	AAMPLOG_INFO("demuxAndSend : len  %d videoPid %d audioPid %d m_pcrPid %d videoComponentCount %d m_demuxInitialized = %d", (int)len, videoPid, audioPid, m_pcrPid, videoComponentCount, m_demuxInitialized);
 
+	// In eStreamOp_DEMUX_ALL (muxed TS), video and audio are injected from a single
+	// thread.  Audio PES packets often complete before the first video frame;
+	// sending audio first causes audio's waitForAttach() to block the thread
+	// indefinitely in Direct Rialto mode, since the video frame that would trigger
+	// AttachSource(video) can never be sent from the same blocked thread.
+	// Wrap the processor to buffer audio frames until the first video frame of
+	// each demuxAndSend call is dispatched, guaranteeing video-first ordering.
+	struct MuxedAudioFrame
+	{
+		AampMediaType        type;
+		SegmentInfo_t        info;
+		std::vector<uint8_t> buf;
+	};
+	std::vector<MuxedAudioFrame> muxedAudioQueue;
+	bool muxedVideoDispatched = false;
+	MediaProcessor::process_fcn_t origProcessor;
+	if (m_streamOperation == eStreamOp_DEMUX_ALL && processor)
+	{
+		origProcessor = processor;
+		processor = [&muxedAudioQueue, &muxedVideoDispatched, &origProcessor]
+		            (AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+		{
+			if (type == eMEDIATYPE_VIDEO && !muxedVideoDispatched)
+			{
+				muxedVideoDispatched = true;
+				origProcessor(type, info, std::move(buf));
+				for (auto& f : muxedAudioQueue)
+					origProcessor(f.type, f.info, std::move(f.buf));
+				muxedAudioQueue.clear();
+			}
+			else if (type == eMEDIATYPE_AUDIO && !muxedVideoDispatched)
+			{
+				muxedAudioQueue.push_back({type, info, std::move(buf)});
+			}
+			else
+			{
+				origProcessor(type, info, std::move(buf));
+			}
+		};
+	}
+
 	std::unordered_set<Demuxer*> updated_demuxers{};
 	const unsigned char * packetStart = (const unsigned char *)ptr;
 	while (len >= PACKET_SIZE)
@@ -1649,6 +1690,19 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 		{
 			demuxer->ConsumeCachedData(processor);
 		}
+	}
+
+	// Flush any audio that was buffered by the muxed reorder wrapper but had no
+	// corresponding video frame in this batch (e.g. trailing audio data after the
+	// last video PES in the segment).  Calling origProcessor directly avoids
+	// re-entering the wrapper's buffer path.
+	if (!muxedAudioQueue.empty())
+	{
+		AAMPLOG_WARN("demuxAndSend: flushing %zu buffered audio frame(s) with no prior video frame in this batch",
+		             muxedAudioQueue.size());
+		for (auto& f : muxedAudioQueue)
+			origProcessor(f.type, f.info, std::move(f.buf));
+		muxedAudioQueue.clear();
 	}
 
 	return ret;
