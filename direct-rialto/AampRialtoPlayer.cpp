@@ -817,7 +817,7 @@ bool AampRialtoPlayer::SendCopy(
 		if (!source->isAttached())
 		{
 			// For HLS-TS the codec format is all that Rialto requires to set the stream caps.
-			for (auto source2: m_sources)
+			for (const auto& source2: m_sources)
 			{
 				if (source2 && !source2->isAttached())
 				{
