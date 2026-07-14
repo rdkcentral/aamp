@@ -21,7 +21,7 @@
 function jsbindings_install_build_darwin_fn()
 {   
     echo "Build aamp-jsbindings"
-    cd $AAMP_DIR/build
+    cd "${AAMP_DIR}/build" || { echo "Failed to change to build directory: ${AAMP_DIR}/build"; return 1; }
 
     xcodebuild -scheme aampjsbindings build
     # Override SYMROOT so uveExecuter lands in build/Debug/ where aamp-uve.sh expects it.
