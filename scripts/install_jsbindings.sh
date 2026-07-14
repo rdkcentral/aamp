@@ -24,9 +24,9 @@ function jsbindings_install_build_darwin_fn()
     cd "${AAMP_DIR}/build" || { echo "Failed to change to build directory: ${AAMP_DIR}/build"; return 1; }
 
     xcodebuild -scheme aampjsbindings build
-    # Override SYMROOT so uveExecuter lands in build/Debug/ where aamp-uve.sh expects it.
-    # The cmake configure step sets SYMROOT=XcodeDerivedData which would redirect the binary
-    # to XcodeDerivedData/Debug/uveExecuter instead.
+    # Override SYMROOT so uveExecuter lands in build/Debug/uveExecuter.
+    # CMake config sets SYMROOT to "${AAMP_DIR}/build/XcodeDerivedData", which would
+    # otherwise place the binary in build/XcodeDerivedData/Debug/uveExecuter.
     xcodebuild -scheme uveExecuter SYMROOT="$AAMP_DIR/build" build
 }
 
