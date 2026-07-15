@@ -674,16 +674,23 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		timeBasedBufferManager->PopulateBuffer(fragmentDuration);
 	}
 
-	// SegmentBase init segments are byte-range requests against a single file.
-	// The FetcherLoop continues immediately after SubmitJob returns and will call
-	// LoadIDX then submit media segment[0] to the same worker queue.  Although the
-	// worker processes jobs in order, GStreamer still sees an invalid stream because
-	// the IDX-load + media-segment path in FetchNextFragment races with the async
-	// init download completion on the worker thread (fragmentOffset is mutated on
-	// both threads simultaneously).  Run SegmentBase init synchronously to guarantee
-	// the init bytes are injected before the FetcherLoop advances.
-	const bool segmentBaseInit = isInitializationSegment && !range.empty();
-	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseInit)
+	// SegmentBase content (both init and media segments) uses byte-range requests
+	// against a single file and requires strict ordering.  The FetcherLoop can
+	// race ahead after SubmitJob returns, loading IDX and submitting subsequent
+	// segments while async downloads are still in flight.  During ABR switches
+	// the IDX is cleared and reloaded for the new profile; if a stale async job
+	// then runs with the new profile's IDX it gets a start offset that matches
+	// the new profile but an end offset from the old profile's range, producing
+	// a partial fragment download that confuses the IsoBmff parser with a
+	// declared box size exceeding the available bytes (VPAAMP-614).  Run ALL
+	// SegmentBase downloads synchronously so that each (URL, IDX, range) triple
+	// is consistent at execution time.
+	const auto* representation = pMediaStreamContext->representation;
+	const bool segmentBaseContent =
+		(representation != nullptr) &&
+		(representation->GetSegmentBase() != nullptr) &&
+		!range.empty();
+	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseContent)
 	{
 		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
 		if (future.valid())
@@ -10004,6 +10011,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		  dynamic_cast<PrivateCDAIObjectMPD*>(mCdaiObject)->mVodManifestStitched))
 	{
 		double vodSeekSec = 0.0;
+		if( mCdaiObject )
 		{
 			std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 			vodSeekSec = mCdaiObject->mContentSeekOffset;
@@ -12511,6 +12519,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			AAMPLOG_WARN("[CDAI] period [%s] is empty not processing adevents if any",mBasePeriodId.c_str());
 			return false;
 		}
+	}
+	if (!mCdaiObject)
+	{
+		return false;
 	}
 	std::unique_lock<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;

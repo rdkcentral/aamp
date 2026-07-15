@@ -3328,3 +3328,105 @@ TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_FloatingPointEpsilon_CrossesF
 	EXPECT_EQ(ctx->fragmentIndex, 1);
 	EXPECT_NEAR(ctx->fragmentTime, 2.0, 0.001);
 }
+
+// Declared in FakeAampTrackWorkerManager.cpp — incremented each time
+// AampTrackWorkerManager::SubmitJob is called.
+extern int g_submitJobCallCount;
+
+/**
+ * @brief VPAAMP-614: SegmentBase init fragment must NOT be submitted via
+ * AampTrackWorkerManager::SubmitJob when DashParallelFragDownload is enabled.
+ *
+ * The SegmentBase init segment is a byte-range request.  Submitting it
+ * asynchronously with highPriority=true causes it to jump ahead of already-
+ * queued old-profile media jobs on the worker queue.  The decoder then
+ * receives old-profile media after the new moov, producing macroblocking.
+ * The fix gates on segmentBaseFirstInit so the init executes inline
+ * (Execute()) regardless of eAAMPConfig_DashParallelFragDownload.
+ *
+ * Oracle: g_submitJobCallCount == 0 after InitializeMPD with a SegmentBase
+ * manifest and DashParallelFragDownload=true (default fixture setting),
+ * because the init segment's non-empty byte range forces Execute().
+ */
+TEST_F(FetcherLoopTests, SegmentBase_InitFragment_NotSubmittedViaSubmitJob)
+{
+	// eAAMPConfig_DashParallelFragDownload=true is already the default.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t> &idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	// Reset immediately before the window under test.
+	g_submitJobCallCount = 0;
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	// The init segment range is derived from indexRange="500-999" (init = "0-499").
+	// segmentBaseFirstInit=true -> Execute() path -> SubmitJob not called.
+	// If the guard is accidentally removed, this count becomes >= 1.
+	EXPECT_EQ(g_submitJobCallCount, 0)
+		<< "SegmentBase init must execute inline via Execute(), not SubmitJob. "
+		   "Submitting with highPriority=true jumps the worker queue and delivers "
+		   "old-profile media after the new moov, causing macroblocking.";
+}
+
+/**
+ * @brief VPAAMP-614: SegmentBase media fragments must NOT be submitted via
+ * AampTrackWorkerManager::SubmitJob when DashParallelFragDownload is enabled.
+ *
+ * All SegmentBase downloads (init and media) use byte-range requests against a
+ * single file.  Submitting media segments asynchronously allows the FetcherLoop
+ * to race ahead: it loads IDX and submits the next segment before the previous
+ * download has completed.  During ABR switches this produces a stale (URL, IDX,
+ * range) triple that confuses the IsoBmff parser with a bogus box-size error
+ * (VPAAMP-614).  The segmentBaseContent guard forces all SegmentBase downloads
+ * through the synchronous Execute() path regardless of
+ * eAAMPConfig_DashParallelFragDownload.
+ *
+ * Oracle: g_submitJobCallCount == 0 after one PushNextFragment for a SegmentBase
+ * media segment, confirming the synchronous Execute() path is taken.
+ * If the guard is narrowed to init-only (segmentBaseInit), this count becomes 1,
+ * re-exposing the race.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_MediaFragment_ExecutesSynchronously)
+{
+	// eAAMPConfig_DashParallelFragDownload=true is already the default.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t> &idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	// Reset after init (init took Execute(), not SubmitJob) so the counter
+	// reflects only the media-segment download that follows.
+	g_submitJobCallCount = 0;
+
+	// First media segment: ref[0] bytes "1000-17383", duration 2.0 s.
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+
+	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));
+
+	// A SegmentBase media fragment must go through Execute(), not SubmitJob, so
+	// the FetcherLoop cannot race ahead and produce a stale (URL, IDX, range)
+	// triple during ABR switches.  Narrowing the guard to init-only would leave
+	// this at 1, re-exposing the VPAAMP-614 parse error.
+	EXPECT_EQ(g_submitJobCallCount, 0)
+		<< "SegmentBase media fragment must execute via Execute(), not SubmitJob. "
+		   "Async submission allows the FetcherLoop to race ahead of IDX loading "
+		   "during ABR switches, producing a stale byte-range and a bogus box-size error.";
+}
