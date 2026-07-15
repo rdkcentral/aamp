@@ -10026,6 +10026,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		  dynamic_cast<PrivateCDAIObjectMPD*>(mCdaiObject)->mVodManifestStitched))
 	{
 		double vodSeekSec = 0.0;
+		if( mCdaiObject )
 		{
 			std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 			vodSeekSec = mCdaiObject->mContentSeekOffset;
@@ -12532,6 +12533,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			AAMPLOG_WARN("[CDAI] period [%s] is empty not processing adevents if any",mBasePeriodId.c_str());
 			return false;
 		}
+	}
+	if (!mCdaiObject)
+	{
+		return false;
 	}
 	std::unique_lock<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;
