@@ -115,25 +115,6 @@ long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
 	}
 	return rc;
 }
-
-static inline bool IsRetryableCurlFailure(CURLcode curlCode)
-{
-	switch (curlCode)
-	{
-		case CURLE_OPERATION_TIMEDOUT:
-		case CURLE_PARTIAL_FILE:
-		case CURLE_COULDNT_RESOLVE_PROXY:
-		case CURLE_COULDNT_RESOLVE_HOST:
-		case CURLE_COULDNT_CONNECT:
-		case CURLE_RECV_ERROR:
-		case CURLE_SEND_ERROR:
-		case CURLE_GOT_NOTHING:
-			return true;
-		default:
-			return false;
-	}
-}
-
 char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
 {
 	char *rc = NULL;
