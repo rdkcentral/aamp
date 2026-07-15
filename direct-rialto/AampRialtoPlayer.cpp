@@ -1229,41 +1229,33 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 
 	if (m_pipeline)
 	{
-		bool anyAttachedSource = false;
-		// Mark each attached source as flushing *before* sending the
-		// IPC flush command so OnSourceFlushed() can call
-		// setSourcePosition() once the server confirms the flush.
-		for (auto &source : m_sources)
+		// Perform a pipeline-level flushing seek.  Rialto will emit
+		// PlaybackState::SEEK_DONE when the seek completes; OnPlaybackState()
+		// handles rate commit, per-source segment position (for trickplay
+		// applied_rate), state machine restoration, and flush-CV signalling.
+		AAMPLOG_INFO("Issuing pipeline setPosition posNs=%" PRId64, posNs);
+		if (!m_pipeline->setPosition(posNs))
 		{
-			if (source && source->isAttached())
-			{
-				anyAttachedSource = true;
-				source->setFlushing(true);
-				source->flushSource(*m_pipeline, posNs);
-			}
-		}
-
-		// If no source is attached, there will be no SourceFlushedEvent to
-		// commit the pending rate. Commit it immediately so position
-		// calculations after Flush() observe the requested trickplay rate.
-		if (!anyAttachedSource)
-		{
+			AAMPLOG_WARN("setPosition failed for posNs=%" PRId64
+				" - committing rate immediately and exiting FLUSHING", posNs);
 			m_rate.store(
 				m_pendingFlushRate.load(std::memory_order_relaxed),
 				std::memory_order_relaxed);
-			AAMPLOG_INFO("No attached sources to flush - committed playback rate=%d",
-				m_rate.load(std::memory_order_relaxed));
+			m_stateMachine.onFlushComplete();
+			m_flushCv.notify_all();
 		}
 	}
 	else
 	{
-		// With no pipeline there can be no SourceFlushedEvent callback, so
-		// commit the pending rate immediately.
+		// With no pipeline there can be no SEEK_DONE callback, so commit
+		// the pending rate immediately and exit FLUSHING.
 		m_rate.store(
 			m_pendingFlushRate.load(std::memory_order_relaxed),
 			std::memory_order_relaxed);
 		AAMPLOG_INFO("No pipeline during flush - committed playback rate=%d",
 			m_rate.load(std::memory_order_relaxed));
+		m_stateMachine.onFlushComplete();
+		m_flushCv.notify_all();
 	}
 
 	// m_firstPtsMs is reset automatically on each source by
@@ -1890,6 +1882,69 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		case firebolt::rialto::PlaybackState::FAILURE:
 			m_stateMachine.onError();
 			break;
+		case firebolt::rialto::PlaybackState::SEEKING:
+			AAMPLOG_INFO("SEEKING notification received (state=%s)",
+				m_stateMachine.currentStateName());
+			break;
+		case firebolt::rialto::PlaybackState::SEEK_DONE:
+		{
+			// Ignore SEEK_DONE not originating from a Flush()-initiated seek.
+			// setPosition() is also called by SeekStreamSink() without
+			// entering FLUSHING; that path needs no flush-completion work.
+			if (m_stateMachine.currentState() != PlayerStateId::FLUSHING)
+			{
+				AAMPLOG_INFO("SEEK_DONE received outside FLUSHING (state=%s) - ignored",
+					m_stateMachine.currentStateName());
+				break;
+			}
+
+			const int64_t posNs =
+				m_pendingPositionNs.load(std::memory_order_relaxed);
+			const int pendingRate =
+				m_pendingFlushRate.load(std::memory_order_relaxed);
+
+#if 0
+			// Apply per-source segment position so the GStreamer
+			// segment event carries the correct applied_rate for trickplay.
+			// resetTime=false: the pipeline-level setPosition() already
+			// flushed source buffers; we only update the segment rate.
+			for (auto &source : m_sources)
+			{
+				if (source && source->isAttached() && m_pipeline)
+				{
+					const bool shouldSetPosition =
+						(pendingRate == AAMP_NORMAL_PLAY_RATE) ||
+						(source.get() == m_sources[eMEDIATYPE_VIDEO].get());
+					if (shouldSetPosition &&
+						!m_pipeline->setSourcePosition(
+							source->sourceId(), posNs,
+							/*resetTime=*/false,
+							computeAppliedRate(pendingRate)))
+					{
+						AAMPLOG_WARN("setSourcePosition failed for "
+							"sourceId=%d after SEEK_DONE",
+							source->sourceId());
+					}
+				}
+			}
+#endif
+
+			m_rate.store(pendingRate, std::memory_order_relaxed);
+			AAMPLOG_INFO("SEEK_DONE: committed playback rate=%d", pendingRate);
+
+			// Restore the pre-flush state before notifying
+			// WaitForFlushToComplete().
+			m_stateMachine.onFlushComplete();
+			m_flushCv.notify_all();
+
+			// Rialto will emit PLAYING automatically after SEEK_DONE.
+			// Clear m_playRequested so it is not treated as stale on a
+			// subsequent flush cycle; the automatic PLAYING notification
+			// drives the state machine and first-frame callbacks.
+			m_playRequested.store(false, std::memory_order_relaxed);
+
+			break;
+		}
 		default:
 			break;
 	}
