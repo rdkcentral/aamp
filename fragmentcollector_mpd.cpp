@@ -685,7 +685,11 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	// declared box size exceeding the available bytes (VPAAMP-614).  Run ALL
 	// SegmentBase downloads synchronously so that each (URL, IDX, range) triple
 	// is consistent at execution time.
-	const bool segmentBaseContent = (pMediaStreamContext->representation != nullptr) && (pMediaStreamContext->representation->GetSegmentBase() != nullptr) && !range.empty();
+	const auto* representation = pMediaStreamContext->representation;
+	const bool segmentBaseContent =
+		(representation != nullptr) &&
+		(representation->GetSegmentBase() != nullptr) &&
+		!range.empty();
 	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseContent)
 	{
 		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
