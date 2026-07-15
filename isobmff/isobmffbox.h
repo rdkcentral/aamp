@@ -872,7 +872,7 @@ public:
 	 * @param[in] sampleDuration - Sample Duration value
 	 * @return void
 	 */
-	void setFirstSampleDuration(uint64_t sampleDuration);
+	void setFirstSampleDuration(uint32_t sampleDuration);
 
 	/**
 	 * @fn getSampleDuration
@@ -974,7 +974,7 @@ public:
 	 *
 	 * @param[in] sample_duration - Default sample duration value to set
 	 */
-	void setDefaultSampleDuration(uint64_t sample_duration);
+	void setDefaultSampleDuration(uint32_t sample_duration);
 
 	/**
 	 * @fn getDefaultSampleSize

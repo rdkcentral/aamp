@@ -82,7 +82,7 @@ void WriteUint64(uint8_t *dst, uint64_t val)
 {
 	uint32_t msw = (uint32_t)(val>>32);
 	WRITE_U32(dst, msw); dst+=4;
-	WRITE_U32(dst, val);
+	WRITE_U32(dst, static_cast<uint32_t>(val) );
 }
 
 /**
@@ -1030,12 +1030,12 @@ TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, ui
 /**
  *  @brief Set SampleDuration value
  */
-void TrunBox::setFirstSampleDuration(uint64_t sampleDuration)
+void TrunBox::setFirstSampleDuration(uint32_t sampleDuration)
 {
 	duration = sampleDuration;
 	if (nullptr != first_sample_duration_loc)
 	{
-		WRITE_U32(first_sample_duration_loc, sampleDuration);
+		WRITE_U32(first_sample_duration_loc, sampleDuration );
 	}
 }
 
@@ -1229,12 +1229,12 @@ uint64_t TfhdBox::getDefaultSampleDuration()
 	return mDefaultSampleDuration;
 }
 
-void TfhdBox::setDefaultSampleDuration(uint64_t default_duration)
+void TfhdBox::setDefaultSampleDuration(uint32_t default_duration)
 {
 	mDefaultSampleDuration = default_duration;
 	if (nullptr != default_sample_duration_location)
 	{
-		WRITE_U32(default_sample_duration_location, default_duration);
+		WRITE_U32(default_sample_duration_location, default_duration );
 	}
 }
 
