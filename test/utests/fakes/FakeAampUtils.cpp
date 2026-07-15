@@ -652,5 +652,9 @@ bool IsCurlTimeoutFailure( int httpResponseCode )
 {
 	return true;
 }
+bool IsRetryableCurlFailure( CURLcode curlCode )
+{
+	return true;
+}
 // aamp_ApplyPageHttpHeaders not actually part of AampUtils.cpp, but fake declared here for convenience
 extern "C" void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp){}
