@@ -335,6 +335,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 {
 	if (aamp)
 	{
+		auto playerStopStartTime=NOW_STEADY_TS_MS;
 		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPPlayerState state = aamp->GetState();
 
@@ -342,7 +343,9 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
 		// 3. Restart the scheduler , needed if same instance is used for tune again
 
+		auto suspendSchedulerStartTime=NOW_STEADY_TS_MS;
 		mScheduler.SuspendScheduler();
+		auto suspendSchedulerEndTime=NOW_STEADY_TS_MS;
 		mScheduler.RemoveAllTasks();
 
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
@@ -361,6 +364,11 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		}
 		//Release lock
 		mScheduler.ResumeScheduler();
+		auto resumeSchedulerEndTime=NOW_STEADY_TS_MS;
+		AAMPLOG_WARN("-Stop (player) ; SuspendScheduler took %u ms, Total %u ms",
+				(unsigned)(suspendSchedulerEndTime-suspendSchedulerStartTime),
+				(unsigned)(resumeSchedulerEndTime-playerStopStartTime)
+			);
 	}
 }
 
