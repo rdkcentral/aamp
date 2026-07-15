@@ -18,6 +18,13 @@
 
 function install_build_libdash_fn()
 {
+    # Resolve the AAMP source root from this script's location so the OSX
+    # patches directory can be referenced with an absolute path regardless
+    # of where LOCAL_DEPS_BUILD_DIR is placed (e.g. /opt/local_deps in Docker).
+    local AAMP_SRC_DIR
+    AAMP_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    AAMP_SRC_DIR="$(dirname "$AAMP_SRC_DIR")"
+
     cd "$LOCAL_DEPS_BUILD_DIR" || { echo "Failed to change to LOCAL_DEPS_BUILD_DIR: ${LOCAL_DEPS_BUILD_DIR}"; return 1; }
 
     # $OPTION_CLEAN == true
@@ -68,7 +75,7 @@ function install_build_libdash_fn()
         # Apply compilation fix for missing standard library includes
         # Required on macOS (Clang) and newer GCC versions that no longer
         # implicitly include <vector>/<string>/<map> via other headers.
-        patch -p1 < ../../../OSX/patches/0001-libdash-add-missing-std-includes.patch || { echo "ERROR: Failed to apply compilation fix patch"; return 1; }
+        patch -p1 < "${AAMP_SRC_DIR}/OSX/patches/0001-libdash-add-missing-std-includes.patch" || { echo "ERROR: Failed to apply compilation fix patch"; return 1; }
         mkdir -p build
         cd build || { echo "ERROR: Failed to change to build directory"; return 1; }
         
