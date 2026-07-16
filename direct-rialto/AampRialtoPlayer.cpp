@@ -806,11 +806,18 @@ bool AampRialtoPlayer::SendCopy(
 	{
 		if (!source->isAttached())
 		{
-			AAMPLOG_INFO("Setting stream caps for mediaType=%d", static_cast<int>(mediaType));
-			// For HLS-TS the codec format is all that Rialto requires to set the stream caps.
-			MediaCodecInfo codecInfo{};
-			codecInfo.mCodecFormat = toGstStreamOutputFormat(source->format());
-			SetStreamCaps(mediaType, std::move(codecInfo));
+			// Attaching all sources to avoid deadlock with muxed HLS-TS which uses only one injection thread
+			// For HLS-TS, the codec format is all that Rialto requires to set the stream caps.
+			for (const auto& source2: m_sources)
+			{
+				if (source2 && !source2->isAttached())
+				{
+					AAMPLOG_INFO("Setting stream caps for mediaType=%d", static_cast<int>(source2->mediaType()));
+					MediaCodecInfo codecInfo{};
+					codecInfo.mCodecFormat = toGstStreamOutputFormat(source2->format());
+					SetStreamCaps(source2->mediaType(), std::move(codecInfo));
+				}
+			}
 		}
 
 		auto sharedBuffer =
