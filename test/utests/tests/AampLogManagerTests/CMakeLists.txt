@@ -44,7 +44,8 @@ set(TEST_SOURCES AampLogManagerTests.cpp
         AampLogManagerAampTests.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/aamplogging.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/aamplogging.cpp
+                 ${AAMP_ROOT}/AampFlightDataRecorder.cpp)
 
 add_definitions(-DUSE_SYSTEMD_JOURNAL_PRINT)
 
