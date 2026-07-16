@@ -466,6 +466,7 @@ set(LIBAAMP_SOURCES
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
+	AampFlightDataRecorder.cpp AampFlightDataRecorder.h
 	AampConfig.cpp AampConfig.h
 	AampNetworkPersona.cpp AampNetworkPersona.h
 	lstring.hpp lstring.cpp
