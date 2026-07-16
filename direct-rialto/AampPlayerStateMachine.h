@@ -115,7 +115,7 @@ public:
 	/// Fired when Flush() is called.
 	virtual std::unique_ptr<IPlayerState> onFlush()              { return nullptr; }
 
-	/// Fired when all sources confirm SourceFlushedEvent, completing the
+	/// Fired when PlaybackState::SEEK_DONE is received, completing the
 	/// flush cycle.  Only meaningful from FLUSHING; ignored from all other
 	/// states so the edge-case race (Rialto PLAYING arriving before
 	/// onFlushComplete) cannot cause a double-transition.
@@ -188,7 +188,7 @@ public:
 	/// @see IPlayerState::onFlush
 	void onFlush();
 
-	/// Fired when all sources report SourceFlushedEvent.
+	/// Fired when PlaybackState::SEEK_DONE is received from Rialto.
 	///
 	/// Restores the state that was current when onFlush() was called
 	/// (PLAYING → PLAYING, PAUSED → PAUSED, SOURCES_ATTACHED →

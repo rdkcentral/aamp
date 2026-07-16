@@ -163,12 +163,9 @@ void AampRialtoMediaPipelineClient::notifyPlaybackError(
 
 void AampRialtoMediaPipelineClient::notifySourceFlushed(int32_t sourceId)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
-	if (m_sourceFlushedCallback)
-	{
-		m_sourceFlushedCallback(sourceId);
-	}
-	AAMPLOG_INFO("EXIT");
+	// Flush() now uses pipeline-level setPosition(); completion is signalled
+	// via PlaybackState::SEEK_DONE, not per-source SourceFlushedEvents.
+	AAMPLOG_INFO("sourceId=%d - no-op", sourceId);
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackInfo(

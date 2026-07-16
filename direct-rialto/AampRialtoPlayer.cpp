@@ -598,10 +598,6 @@ void AampRialtoPlayer::Configure(
 					[this](int32_t sid) {
 						OnBufferUnderflow(sid);
 					});
-				m_client->SetSourceFlushedCallback(
-					[this](int32_t sid) {
-						OnSourceFlushed(sid);
-					});
 
 				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();
@@ -1903,31 +1899,24 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			const int pendingRate =
 				m_pendingFlushRate.load(std::memory_order_relaxed);
 
-#if 0
-			// Apply per-source segment position so the GStreamer
+			// Apply video-source segment position so the GStreamer
 			// segment event carries the correct applied_rate for trickplay.
 			// resetTime=false: the pipeline-level setPosition() already
 			// flushed source buffers; we only update the segment rate.
-			for (auto &source : m_sources)
+			auto appliedRate = computeAppliedRate(pendingRate);
+			if (appliedRate != AAMP_NORMAL_PLAY_RATE)
 			{
-				if (source && source->isAttached() && m_pipeline)
-				{
-					const bool shouldSetPosition =
-						(pendingRate == AAMP_NORMAL_PLAY_RATE) ||
-						(source.get() == m_sources[eMEDIATYPE_VIDEO].get());
-					if (shouldSetPosition &&
-						!m_pipeline->setSourcePosition(
-							source->sourceId(), posNs,
+				auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+				if (!m_pipeline->setSourcePosition(
+							videoSource->sourceId(), posNs,
 							/*resetTime=*/false,
 							computeAppliedRate(pendingRate)))
-					{
-						AAMPLOG_WARN("setSourcePosition failed for "
-							"sourceId=%d after SEEK_DONE",
-							source->sourceId());
-					}
+				{
+					AAMPLOG_WARN("setSourcePosition failed for "
+						"sourceId=%d after SEEK_DONE",
+						videoSource->sourceId());
 				}
 			}
-#endif
 
 			m_rate.store(pendingRate, std::memory_order_relaxed);
 			AAMPLOG_INFO("SEEK_DONE: committed playback rate=%d", pendingRate);
@@ -2011,91 +2000,11 @@ double AampRialtoPlayer::computeAppliedRate(int candidateRate) const
 
 void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
-
-	auto *source = findSourceByRialtoId(sourceId);
-	if (source)
-	{
-		source->setFlushing(false);
-		// Send the SEGMENT event now that the flush is confirmed by the
-		// server.  setSourcePosition() was previously called inside
-		// flushSource() before SourceFlushedEvent, but if the server
-		// was still processing the flush at that point it could discard
-		// the SEGMENT event - leaving the pipeline's EOS state intact
-		// and causing an immediate END_OF_STREAM on the next play().
-		const int64_t posNs =
-			m_pendingPositionNs.load(std::memory_order_relaxed);
-		const int pendingRate =
-			m_pendingFlushRate.load(std::memory_order_relaxed);
-		const bool setPosition = (pendingRate == 1) || 
-								 (sourceId == m_sources[eMEDIATYPE_VIDEO]->sourceId());
-		if (m_pipeline &&
-			setPosition &&
-			!m_pipeline->setSourcePosition(
-				sourceId, posNs, /*resetTime=*/true,
-				computeAppliedRate(pendingRate)))
-		{
-			AAMPLOG_WARN("setSourcePosition failed for sourceId=%d",
-				sourceId);
-		}
-
-		bool allSourcesFlushed = true;
-		for (const auto &s : m_sources)
-		{
-			if (s && s->isFlushing())
-			{
-				allSourcesFlushed = false;
-				break;
-			}
-		}
-
-		if (allSourcesFlushed)
-		{
-			m_rate.store(pendingRate, std::memory_order_relaxed);
-			AAMPLOG_INFO("All sources flushed - committed playback rate=%d",
-				pendingRate);
-
-			// Restore the pre-flush state (PLAYING, PAUSED, or SOURCES_ATTACHED)
-			// before notifying WaitForFlushToComplete(), which unblocks as soon
-			// as the state leaves FLUSHING.
-			m_stateMachine.onFlushComplete();
-			m_flushCv.notify_all();
-
-			// Issue play() if the restored state is PLAYING (seek-while-playing)
-			// or if Stream() was called while the flush was in progress
-			// (e.g. Stream() deferred from SOURCES_ATTACHED or a flush that
-			// preceded allSourcesAttached()).  m_playRequested is reset here so
-			// it is not treated as stale on a subsequent flush cycle.
-			// seek-while-paused is correctly handled: Stream() is not called in
-			// that path so m_playRequested remains false and play() is not issued.
-			if (m_stateMachine.currentState() != PlayerStateId::PLAYING &&
-			    m_playRequested.load(std::memory_order_seq_cst))
-			{
-				AAMPLOG_INFO("All sources flushed - issuing play() "
-					"(state=%s playRequested=%d)",
-					m_stateMachine.currentStateName(),
-					m_playRequested.load(std::memory_order_relaxed));
-				m_playRequested.store(false, std::memory_order_relaxed);
-				bool async = false;
-				if (!m_pipeline->play(async))
-				{
-					AAMPLOG_ERR("play() failed after flush");
-				}
-			}
-			else
-			{
-				AAMPLOG_INFO("All sources flushed - not issuing play() (restored state=%s)",
-					m_stateMachine.currentStateName());
-			}
-		}
-	}
-	else
-	{
-		AAMPLOG_WARN("unknown sourceId=%d - ignoring source-flushed notification",
-			sourceId);
-	}
-
-	AAMPLOG_INFO("EXIT");
+	// Flush() now uses pipeline-level setPosition(); flush completion is
+	// driven by PlaybackState::SEEK_DONE, not per-source SourceFlushedEvents.
+	// This callback should not be reached.
+	AAMPLOG_WARN("OnSourceFlushed called unexpectedly for sourceId=%d "
+		"- flush is driven by setPosition/SEEK_DONE", sourceId);
 }
 
 void AampRialtoPlayer::StartProgressTimer()

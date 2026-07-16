@@ -375,8 +375,8 @@ void PlayerStateMachine::onFlushComplete()
 	if (m_state->id() != PlayerStateId::FLUSHING)
 	{
 		// The edge-case race: onPlaybackStarted/Paused already exited
-		// FLUSHING before all sources confirmed flushed.  This call is a
-		// no-op — the correct post-flush state was already applied.
+		// FLUSHING before SEEK_DONE arrived.  This call is a no-op —
+		// the correct post-flush state was already applied.
 		AAMPLOG_INFO("PlayerState: onFlushComplete ignored - current state is '"
 			"%s', not FLUSHING (edge-case race already resolved)",
 			m_state->name());
