@@ -6993,7 +6993,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 		else if (mApplyCachedCCStatus.load())
 		{
-			SetCCStatusInternal();
+			while (mApplyCachedCCStatus.exchange(false))
+			{
+				SetCCStatusInternal();
+			}
 		}
 	}
 
@@ -12049,9 +12052,9 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
 	// Note: Caller MUST hold mStreamLock
-	mApplyCachedCCStatus=false;
 	if (mpStreamAbstractionAAMP)
 	{
+		mApplyCachedCCStatus=false;
 		// Mute subtitles if either video is muted or subtitles are muted
 		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
