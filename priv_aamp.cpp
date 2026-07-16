@@ -12049,6 +12049,7 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
 	// Note: Caller MUST hold mStreamLock
+	mApplyCachedCCStatus=false;
 	if (mpStreamAbstractionAAMP)
 	{
 		// Mute subtitles if either video is muted or subtitles are muted
@@ -12071,7 +12072,6 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 			SetSubtitleMuteInternal(mute_subtitles_applied);
 		}
 	}
-	mApplyCachedCCStatus=false;
 }
 
 /**
