@@ -10698,16 +10698,18 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
-	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
-	{
-		MediaStreamContext *track = mMediaStreamContext[iTrack];
-		SAFE_DELETE(track);
-	}
+	// Unregister the MPD download callback BEFORE deleting tracks.
+	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
 	AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 	mManifestUpdateHandleFlag       =       false;
 	dnldInstance->UnRegisterCallback();
 
+	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
+	{
+		// Delete the MediaStreamContext object for this track.
+		SAFE_DELETE(mMediaStreamContext[iTrack]);
+	}
 	aamp->SyncBegin();
 
 	// mStreamInfo is now a vector and will be automatically destroyed
