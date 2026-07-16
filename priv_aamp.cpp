@@ -6479,8 +6479,19 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				{
 					sink->SetVideoMute(video_muted.load());
 				}
-				SetCCStatusInternal();
-				mApplyCachedCCStatus = false;
+				if (mApplyCachedCCStatus.load())
+				{
+					// clear the flag in a thread safe manner
+					while (mApplyCachedCCStatus.exchange(false))
+					{
+						AAMPLOG_DEBUG("mApplyCachedCCStatus=true, setting CCStatus");
+						SetCCStatusInternal();
+					}
+				}
+				else
+				{
+					SetCCStatusInternal();
+				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -7099,7 +7110,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 				//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
 				SetVideoMuteInternal(video_muted.load());
 				SetCCStatusInternal();
-				mApplyCachedCCStatus=false;
 			}
 			else
 			{
@@ -7108,8 +7118,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 		else if (mApplyCachedCCStatus.load())
 		{
-			SetCCStatusInternal();
-			mApplyCachedCCStatus=false;
+			while (mApplyCachedCCStatus.exchange(false))
+			{
+				SetCCStatusInternal();
+				AAMPLOG_DEBUG("mApplyCachedCCStatus has been applied");
+			}
 		}
 	}
 
@@ -8599,8 +8612,8 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	SetLocalAAMPTsbInjection(false);
 	auto streamLockStartTime = NOW_STEADY_TS_MS;
 	auto streamLockStopTime = NOW_STEADY_TS_MS;
-	auto licenseAquisitionLockStartTime = NOW_STEADY_TS_MS;
-	auto licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
 	// Stopping the playback, release all DRM context
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
@@ -8622,9 +8635,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 				// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
 				// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
 				// of StreamAbstractionAamp.
-				licenseAquisitionLockStartTime = NOW_STEADY_TS_MS;
+				licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
 				mDRMLicenseManager->SetLicenseFetcher(nullptr);
-				licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;
+				licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
 			}
 			if (HasSidecarData())
 			{ // has sidecar data
@@ -8779,10 +8792,10 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
-	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenceFetcher %u, Teardown %u",
+	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenseFetcher %u, Teardown %u",
 		mLastStopDurationMs,
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
-		(unsigned int)(licenseAquisitionLockStopTime- licenseAquisitionLockStartTime),
+		(unsigned int)(licenseAcquisitionLockStopTime - licenseAcquisitionLockStartTime),
 		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
@@ -12113,6 +12126,10 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 	else
 	{			
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		if (mApplyCachedCCStatus.load())
+		{
+			AAMPLOG_DEBUG("mApplyCachedCCStatus=true, setting CCStatus");
+		}
 		SetCCStatusInternal();
 	}
 }
