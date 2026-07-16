@@ -1298,7 +1298,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			// Only for DASH streams
 			ClearMediaHeaderDuration(cachedFragment);
 		}
-		AAMPLOG_INFO("ANJ: mSubtitleParser = %p, aamp->IsGstreamerSubsEnabled=%d, type = %d", mSubtitleParser, aamp->IsGstreamerSubsEnabled(), type);
+		AAMPLOG_INFO("ANJ: aamp->IsGstreamerSubsEnabled=%d, type = %d", aamp->IsGstreamerSubsEnabled(), type);
+		//AAMPLOG_INFO("ANJ: mSubtitleParser = %p, aamp->IsGstreamerSubsEnabled=%d, type = %d", mSubtitleParser, aamp->IsGstreamerSubsEnabled(), type);
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
 		{
 			AAMPLOG_INFO("ANJ:Inside if");
@@ -1323,6 +1324,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 						AAMPLOG_INFO("ANJ:cachedFragment->PTSOffsetSec = %f", cachedFragment->PTSOffsetSec);
 						if(mSubtitleParser)
 						{
+							AAMPLOG_INFO("ANJ:Inside if mSubtitleParser");
 							// DASH-style PTS-offset propagation: rather than rewriting MPEGTS in
 							// the VTT header (RestampSubtitle), push the per-fragment pts offset
 							// down into the subtec parser and forward the buffer unchanged. The
