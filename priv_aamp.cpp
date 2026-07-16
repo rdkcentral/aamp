@@ -6367,7 +6367,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					sink->SetVideoMute(video_muted.load());
 				}
 				SetCCStatusInternal();
-				mApplyCachedCCStatus = false;
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -6986,7 +6985,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 				//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
 				SetVideoMuteInternal(video_muted.load());
 				SetCCStatusInternal();
-				mApplyCachedCCStatus=false;
 			}
 			else
 			{
@@ -6996,7 +6994,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		else if (mApplyCachedCCStatus.load())
 		{
 			SetCCStatusInternal();
-			mApplyCachedCCStatus=false;
 		}
 	}
 
@@ -8667,7 +8664,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
-	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenceFetcher %u, Teardown %u",
+	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenseFetcher %u, Teardown %u",
 		mLastStopDurationMs,
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
 		(unsigned int)(licenseAquisitionLockStopTime- licenseAquisitionLockStartTime),
@@ -12074,6 +12071,7 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 			SetSubtitleMuteInternal(mute_subtitles_applied);
 		}
 	}
+	mApplyCachedCCStatus=false;
 }
 
 /**
