@@ -82,7 +82,6 @@ void WebVTTSubtecParser::setPtsOffset(double ptsOffsetSec)
 	// convention shared with Rialto SetSubtitlePtsOffset). The HLS
 	// restamped video PTS is media_PTS + ptsOffsetSec, so we negate
 	// here to make subtec add the offset on the subtitle path.
-	MW_LOG_INFO("ANJ: WebVTTSubtecParser::setPtsOffset(): ptsOffsetSec=%f", ptsOffsetSec);
 	time_offset_ms_ = -static_cast<std::int64_t>(std::llround(ptsOffsetSec * 1000.0));
 }
 

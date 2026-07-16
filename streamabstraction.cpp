@@ -1298,19 +1298,14 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			// Only for DASH streams
 			ClearMediaHeaderDuration(cachedFragment);
 		}
-		AAMPLOG_INFO("ANJ: aamp->IsGstreamerSubsEnabled=%d, type = %d", aamp->IsGstreamerSubsEnabled(), type);
-		//AAMPLOG_INFO("ANJ: mSubtitleParser = %p, aamp->IsGstreamerSubsEnabled=%d, type = %d", mSubtitleParser, aamp->IsGstreamerSubsEnabled(), type);
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
 		{
-			AAMPLOG_INFO("ANJ:Inside if");
 			auto ptr = reinterpret_cast<const char*>(cachedFragment->fragment.data());
 			auto len = cachedFragment->fragment.size();
 			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 			{
-				AAMPLOG_INFO("ANJ:Inside if ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp)");
 				while( aamp->mDownloadsEnabled )
 				{
-					AAMPLOG_INFO("ANJ:Inside if aamp->mDownloadsEnabled)");
 					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
 					{
 						AAMPLOG_WARN( "blocking subtitle track injection waiting for pts_offset[%" PRIu64 "]", cachedFragment->discontinuityIndex );
@@ -1321,10 +1316,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 						// Video and subtitle segments from the same discontinuity share the same
 						// firstPts (same CDN stream). Apply ptsOffset[N] directly — no normalisation.
 						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex];
-						AAMPLOG_INFO("ANJ:cachedFragment->PTSOffsetSec = %f", cachedFragment->PTSOffsetSec);
 						if(mSubtitleParser)
 						{
-							AAMPLOG_INFO("ANJ:Inside if mSubtitleParser");
 							// DASH-style PTS-offset propagation: rather than rewriting MPEGTS in
 							// the VTT header (RestampSubtitle), push the per-fragment pts offset
 							// down into the subtec parser and forward the buffer unchanged. The
