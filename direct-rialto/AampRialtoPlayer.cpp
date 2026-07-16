@@ -1049,8 +1049,8 @@ void AampRialtoPlayer::Stream()
 		// store before it reads m_playRequested (and vice-versa).
 		m_playRequested.store(true, std::memory_order_seq_cst);
 
-		// If a flush is in progress, play() will be issued by OnSourceFlushed()
-		// once all sources confirm flushed and onFlushComplete() restores state.
+		// If a flush is in progress, play() will be issued by the SEEK_DONE
+		// handler in OnPlaybackState() once onFlushComplete() restores state.
 		// FLUSHING is set inside m_flushMutex in Flush() and cleared by
 		// onFlushComplete() (both protected by the state machine mutex).
 		if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
@@ -1937,11 +1937,32 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			m_stateMachine.onFlushComplete();
 			m_flushCv.notify_all();
 
-			// Rialto will emit PLAYING automatically after SEEK_DONE.
-			// Clear m_playRequested so it is not treated as stale on a
-			// subsequent flush cycle; the automatic PLAYING notification
-			// drives the state machine and first-frame callbacks.
+			// Issue play() if Stream() was called while the flush was in
+			// progress and the restored state is not already PLAYING.
+			// Rialto also emits PLAYING automatically after SEEK_DONE for
+			// seek-while-playing; a redundant play() call is harmless.
+			// seek-while-paused is handled correctly: Stream() is not
+			// called in that path so m_playRequested stays false.
+			const bool shouldPlay =
+				m_stateMachine.currentState() != PlayerStateId::PLAYING &&
+				m_playRequested.load(std::memory_order_seq_cst);
 			m_playRequested.store(false, std::memory_order_relaxed);
+
+			if (shouldPlay)
+			{
+				AAMPLOG_INFO("SEEK_DONE: issuing play() (state=%s)",
+					m_stateMachine.currentStateName());
+				bool async = false;
+				if (!m_pipeline->play(async))
+				{
+					AAMPLOG_ERR("play() failed after SEEK_DONE");
+				}
+			}
+			else
+			{
+				AAMPLOG_INFO("SEEK_DONE: not issuing play() (state=%s)",
+					m_stateMachine.currentStateName());
+			}
 
 			break;
 		}
