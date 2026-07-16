@@ -693,22 +693,19 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 }
 
 /**
- * @brief Identify mp4 chunk boundary in buffer
+ * @brief Identify mp4 chunk boundary in buffer and update context with chunk boundary offset and duration in ticks
  * @param[in] type - media type
- * @param[in] buffer - buffer to scan
- * @param[in] bufferOffset - offset in buffer to start scanning from
- * @param[out] chunkBoundaryOffset - offset of chunk boundary if found
- * @param[out] chunkDurationInTicks - duration of chunk if boundary found
+ * @param[in] context - curl callback context
  * @retval true if chunk boundary found
  */
-static bool IdentifyMp4ChunkBoundary(AampMediaType type, std::vector<uint8_t> &buffer, size_t bufferOffset, size_t &chunkBoundaryOffset, uint64_t &chunkDurationInTicks)
+static bool IdentifyMp4ChunkBoundary(AampMediaType type, CurlCallbackContext *context)
 {
 	bool found = false;
-	chunkBoundaryOffset = 0;
-	chunkDurationInTicks = 0;
+
+	AAMPLOG_DEBUG("[%d] ChunkDetection: Scanning buffer of size=%zu from offset=%zu, inputSize=%zu", type, context->buffer.size(), context->bufferOffset, context->buffer.size() - context->bufferOffset);
 
 	IsoBmffBuffer isobmffBuffer;
-	isobmffBuffer.setBuffer(buffer.data() + bufferOffset, buffer.size() - bufferOffset);
+	isobmffBuffer.setBuffer(context->buffer.data() + context->bufferOffset, context->buffer.size() - context->bufferOffset);
 
 	try
 	{
@@ -726,32 +723,36 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, std::vector<uint8_t> &b
 				// Get the last mdat box info
 				if (isobmffBuffer.getMdatBoxInfo(mdatCount - 1, mdatStart, mdatSize))
 				{
-					AAMPLOG_DEBUG("[%d] MDAT box count=%zu and start=%zu , size=%zu", type, mdatCount, mdatStart, mdatSize);
+					AAMPLOG_DEBUG("[%d] ChunkDetection: MDAT box count=%zu and start=%zu , size=%zu", type, mdatCount, mdatStart, mdatSize);
 				}
 				else
 				{
 					// Not expected
-					AAMPLOG_WARN("[%d] Failed to get MDAT box info for index=%zu (count=%zu)", type, mdatCount - 1, mdatCount);
+					AAMPLOG_WARN("[%d] ChunkDetection: Failed to get MDAT box info for index=%zu (count=%zu)", type, mdatCount - 1, mdatCount);
 				}
 			}
 			else if (isobmffBuffer.getChunkedMdatBoxInfo(mdatStart, mdatSize))
 			{
-				AAMPLOG_DEBUG("[%d] Chunked MDAT box found start=%zu, size=%zu", type, mdatStart, mdatSize);
+				AAMPLOG_DEBUG("[%d] ChunkDetection: Chunked MDAT box found start=%zu, size=%zu", type, mdatStart, mdatSize);
 			}
 			// start could be 0 if mdat is the first box in buffer
 			if (mdatSize > 0)
 			{
-				// Calculate chunk boundary offset
-				chunkBoundaryOffset = bufferOffset + mdatStart + mdatSize;
 				found = true;
+				// Calculate chunk boundary offset
+				context->chunkBoundary = context->bufferOffset + mdatStart + mdatSize;
+				context->chunkDurationInTicks = 0; // reset previous value
 
 				// Get the index of last MDAT box w.r.t to the full mp4 box. MDAT should be preceded by a MOOF.
 				// This is expected by the getTotalChunkDurationInTicks API.
 				int mdatIndex = isobmffBuffer.getLastMdatBoxIndex();
 				if (mdatIndex > 0)
 				{
-					chunkDurationInTicks = isobmffBuffer.getTotalChunkDurationInTicks(mdatIndex);
+					context->chunkDurationInTicks = isobmffBuffer.getTotalChunkDurationInTicks(mdatIndex);
 				}
+				AAMPLOG_INFO("[%d] ChunkDetection: Identified chunk boundary at offset %zu, buffer len %zu duration %" PRIu64,
+								context->mediaType, context->chunkBoundary,
+								context->buffer.size(), context->chunkDurationInTicks);
 			}
 		}
 	}
@@ -1143,13 +1144,12 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 
 		if(mCtx)
 		{
-			bool ischunkMode = context->aamp->GetLLDashServiceData()->lowLatencyMode &&
+			bool isChunkMode = context->aamp->GetLLDashServiceData()->lowLatencyMode &&
 							   context->aamp->GetLLDashChunkMode() &&
 							   !mCtx->IsLocalTSBInjection();
 			// Prevent injection if the user paused the playback, but not if the playback was paused due to underflow
 			bool injectionPaused = (IsLocalAAMPTsb() && mSinkPaused.load() && !context->aamp->GetBufUnderFlowStatus());
-
-			if (ischunkMode && ptr && (numBytesForBlock > 0) && !injectionPaused &&
+			if (isChunkMode && ptr && (numBytesForBlock > 0) && !injectionPaused &&
 				(context->mediaType == eMEDIATYPE_VIDEO ||
 				context->mediaType ==  eMEDIATYPE_AUDIO ||
 				context->mediaType ==  eMEDIATYPE_SUBTITLE))
@@ -1157,31 +1157,23 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				// We are trying to identify a mdat box boundary in the received buffer
 				if (context->chunkBoundary == 0)
 				{
-					size_t chunkBoundaryOffset = 0;
-					// Read the chunk duration in ticks as well, which is needed for accurate buffer management
-					// In case of multiple mdat boxes in the buffer, chunkDurationInTicks will be the total duration of all the chunks in the buffer until the last mdat box
-					uint64_t chunkDurationInTicks = 0;
-					if (IdentifyMp4ChunkBoundary(context->mediaType, context->buffer, context->bufferOffset, chunkBoundaryOffset, chunkDurationInTicks))
-					{
-						context->chunkBoundary = chunkBoundaryOffset;
-						context->chunkDurationInTicks = chunkDurationInTicks;
-						AAMPLOG_INFO("[%d] Identified chunk boundary at offset %zu, buffer len %zu duration %" PRIu64,
-								context->mediaType, context->chunkBoundary,
-								context->buffer.size(), context->chunkDurationInTicks);
-					}
+					(void)IdentifyMp4ChunkBoundary(context->mediaType, context);
 				}
-				if (context->chunkBoundary > 0)
+				// Loop as we might encounter new chunks in the buffer after the caching the chunk at boundary already identified in previous callback.
+				while (context->chunkBoundary > 0)
 				{
 					if (context->buffer.size() >= context->chunkBoundary)
 					{
-						// Check for early abort conditions for video fragments
+						// Check for early abort conditions for video fragments before the first chunk is cached. This is to avoid caching a slow fragment that will cause playback stall.
 						if (context->bufferOffset == 0 && context->mediaType == eMEDIATYPE_VIDEO)
 						{
 							// This is the first chunk being cached, determine if the download can be completed in time
 							if (CheckForChunkEarlyAbort(context))
 							{
-								ret = 0; // abort download
+								// abort download
+								ret = 0;
 								context->abortReason = eCURL_ABORT_REASON_FIRST_CHUNK_SLOW;
+								break;
 							}
 						}
 						if (ret > 0)
@@ -1194,35 +1186,48 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 								lock.unlock();
 								AAMPLOG_DEBUG("[%d] Caching chunk with size %zu", context->mediaType, bufferLen);
 								long long startTime = aamp_GetCurrentTimeMS();
-								mCtx->CacheFragmentChunk(context->mediaType,
+								bool cacheSuccess = mCtx->CacheFragmentChunk(context->mediaType,
 														bufferPtr,
 														bufferLen,
 														context->remoteUrl,
 														context->downloadStartTime,
 														context->chunkDurationInTicks);
-								context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 								lock.lock();
-								// Update buffer offset and reset chunkBoundary
+								context->processDelay += (aamp_GetCurrentTimeMS() - startTime);
+								// Update chunkInjection flag only if chunk was successfully cached.
+								if (cacheSuccess)
+								{
+									context->chunkInjectionUsed = true;
+								}
 								// Note: bufferOffset = chunkBoundary (not +1) because CacheFragmentChunk
 								// processes bytes [bufferOffset, chunkBoundary), so chunkBoundary
 								// is the first byte of the next chunk (not yet processed)
 								context->bufferOffset = context->chunkBoundary;
-								context->chunkBoundary = 0;
-								context->chunkDurationInTicks = 0;
+								// If there is no buffer remaining, reset chunk boundary and duration.
+								// If not, see if we can identify the next chunk boundary in the remaining buffer, otherwise reset so that we can try again in the next callback.
+								if (context->bufferOffset == context->buffer.size() ||
+									!IdentifyMp4ChunkBoundary(context->mediaType, context))
+								{
+									context->chunkBoundary = 0;
+									context->chunkDurationInTicks = 0;
+								}
 							}
 							else
 							{
 								AAMPLOG_ERR("Invalid chunk boundary offset %zu buffer offset %zu", context->chunkBoundary, context->bufferOffset);
-								ret = 0; // abort download
+								// abort download
+								ret = 0;
 								context->abortReason = eCURL_ABORT_REASON_INVALID_CHUNK_BOUNDARY;
+								break;
 							}
 						}
 					}
 					else
 					{
 						AAMPLOG_TRACE("[%d] Waiting for more data to reach chunk boundary at offset %zu (current buffer len %zu)", context->mediaType, context->chunkBoundary, context->buffer.size());
+						break;
 					}
-				}
+				} // end while (context->chunkBoundary > 0)
 			}
 		}
 	}
@@ -4908,27 +4913,25 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						http_code = res;
 					}
 
-					if (mAampLLDashServiceData.lowLatencyMode &&
-						(http_code == 200 || http_code == 204 || http_code == 206) &&
+					if ((http_code == 200 || http_code == 204 || http_code == 206) &&
 						!mSinkPaused.load() &&
-						(context.chunkBoundary > 0) &&
-						(context.chunkBoundary < buffer.size()))
+						context.chunkInjectionUsed &&
+						((context.chunkBoundary != 0) || context.bufferOffset != buffer.size()))
 					{
 						// When pipeline paused, chunk injection will be paused, so the chunkBoundary will not match buffer length
 						// Otherwise, this is not expected.
 						// Buffer is already cached through CURL write callback for low latency and there is no course correction.
 						// Let's log here for awareness, as it's not clear if we should cache the extra data beyond chunk boundary.
-						AAMPLOG_WARN("Discarding excess data for LL-DASH chunked download from chunk boundary %zu to %zu, skipped %zu bytes", context.chunkBoundary, buffer.size(), buffer.size() - context.chunkBoundary);
+						AAMPLOG_WARN("[%d] ChunkCacheStats: Excess data for LL-DASH chunked download from offset %zu to %zu, skipped %zu bytes (chunkBoundary=%zu)", mediaType, context.bufferOffset, buffer.size(), buffer.size() - context.bufferOffset, context.chunkBoundary);
 					}
 				}
-				else if (mAampLLDashServiceData.lowLatencyMode &&
-						res == CURLE_WRITE_ERROR &&
+				else if (res == CURLE_WRITE_ERROR &&
 						context.abortReason == eCURL_ABORT_REASON_FIRST_CHUNK_SLOW)
 				{
 					// This is early chunk abort case in low latency mode
 					// Handling this differently to avoid loopAgain logic for slow first chunk case
 					// Marking as timeout to trigger ABR ramp down and also update bandwidth metrics.
-					AAMPLOG_INFO("Curl download aborted due to slow first chunk detection");
+					AAMPLOG_INFO("[%d] ChunkCacheStats: Curl download aborted due to slow first chunk detection", mediaType);
 					res = CURLE_OPERATION_TIMEDOUT;
 					http_code = res;
 				}
@@ -4941,7 +4944,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					AAMPLOG_ERR("Curl download aborted due to buffer allocation failure (OOM); not retrying");
 					http_code = res; // preserve CURLE_WRITE_ERROR (23) for telemetry
 				}
-				else if (mAampLLDashServiceData.lowLatencyMode &&
+				else if (context.chunkInjectionUsed &&
 						context.bufferOffset > 0 &&
 						HasDownloadTimedOutWithData(res, progressCtx.abortReason))
 				{
@@ -4949,7 +4952,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					// With bufferOffset > 0, we have injected some chunks already, so treat it as success to update bandwidth metrics.
 					// Rampdown in this case, will cause video looping due to duplicate mp4 chunks with same timestamps.
 					// HasDownloadTimedOut check to ensure we are not treating non-timeout errors as success.
-					AAMPLOG_WARN("Curl download timed out in low latency mode after injecting chunks, treating as success to avoid rampdown");
+					AAMPLOG_WARN("[%d] ChunkCacheStats: Curl download timed out in low latency mode after injecting chunks, treating as success to avoid rampdown", mediaType);
 					res = CURLE_OK;
 					http_code = 206; // Partial content
 				}
@@ -5174,9 +5177,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize, downloadbps,
 					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 									range?";":"", range?range:"");
-					if (context.processDelay > 0)
+					// Log external processing delay if it exceeds 100 ms
+					if (context.processDelay > 100)
 					{
-						AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
+						AAMPLOG_INFO("External Processing Delay : %lldms", context.processDelay);
 					}
 					if(ui32CurlTrace < 10 )
 					{
