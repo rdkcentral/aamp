@@ -29,6 +29,7 @@
 #include <atomic>
 #include <cstring>
 #include "priv_aamp.h"
+#include "AampFlightDataRecorder.h"
 using namespace std;
 
 
@@ -111,8 +112,12 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 	}
 	
 	char format_buffer[512];
+	char user_message_buffer[2048];
 	char *format_ptr = NULL;
 	int format_bytes = 0;
+	char *user_message_ptr = NULL;
+	int user_message_bytes = 0;
+	
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		if( AampLogManager::logFilename )
@@ -152,11 +157,23 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 				format_bytes = sizeof(format_buffer);
 			}
 			format_ptr = format_buffer;
+			user_message_bytes = sizeof(user_message_buffer);
+			user_message_ptr = user_message_buffer;
 		}
 		else
 		{
-			va_list args;
+			va_list args, args_copy;
 			va_start(args, format);
+			
+			va_copy(args_copy, args);
+			vsnprintf(user_message_ptr, user_message_bytes, format, args_copy);
+			va_end(args_copy);
+			
+			if (logLevelIndex == eLOGLEVEL_ERROR)
+			{
+				AampFlightDataRecorder::GetInstance().Dump(logLevelIndex, "AAMP-PLAYER");
+			}
+			
 			if( AampLogManager::disableLogRedirection )
 			{ // aampcli
 				vprintf( format_ptr, args );
@@ -193,6 +210,25 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 				sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
 			}
 			va_end(args);
+			
+			if (logLevelIndex >= eLOGLEVEL_INFO)
+			{
+				FDRLogEntry entry;
+				entry.timestamp_us = AampFlightDataRecorder::GetCurrentTimeMicroseconds();
+				entry.log_level = logLevelIndex;
+				entry.thread_id = std::this_thread::get_id();
+				entry.seq_num = logSeqNum;
+				entry.player_id = gPlayerId;
+				entry.source = "AAMP-PLAYER";
+				entry.message = user_message_ptr;
+				
+				AampFlightDataRecorder::GetInstance().AddEntry(entry);
+			}
+			
+			if (logLevelIndex == eLOGLEVEL_ERROR)
+			{
+				AampFlightDataRecorder::GetInstance().Flush();
+			}
 		}
 	}
 }

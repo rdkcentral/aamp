@@ -32,6 +32,7 @@
 #include "PlayerExternalsInterface.h"
 #include "PlayerSecInterface.h"
 #include "abr.h"
+#include "AampFlightDataRecorder.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -386,6 +387,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "synthesizeIframeForVOD", eAAMPConfig_SynthesizeIframeForVOD, false},
 	{false, "enableEventProfiling", eAAMPConfig_EnableEventProfiling, false},
 	{false, "enableNetworkPersonaLogging", eAAMPConfig_EnableNetworkPersonaLogging, false},
+	{true, "enableFlightDataRecorder", eAAMPConfig_EnableFlightDataRecorder, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -489,6 +491,8 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
 	{DEFAULT_EVENT_PROFILING_THRESHOLD_MS, "eventProfilingThresholdMs", eAAMPConfig_EventProfilingThresholdMs, false},
+	{5000, "flightDataRecorderMaxLines", eAAMPConfig_FlightDataRecorderMaxLines, false},
+	{60, "flightDataRecorderMaxSeconds", eAAMPConfig_FlightDataRecorderMaxSeconds, false},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility
@@ -1874,6 +1878,12 @@ void AampConfig::ConfigureLogSettings()
 	}
 
 	AampLogManager::logFilename = configValueBool[eAAMPConfig_LogFilename].value;
+	
+	bool fdrEnabled = configValueBool[eAAMPConfig_EnableFlightDataRecorder].value;
+	size_t fdrMaxLines = (size_t)configValueInt[eAAMPConfig_FlightDataRecorderMaxLines].value;
+	uint64_t fdrMaxSeconds = (uint64_t)configValueInt[eAAMPConfig_FlightDataRecorderMaxSeconds].value;
+	
+	AampFlightDataRecorder::GetInstance().Initialize(fdrEnabled, fdrMaxLines, fdrMaxSeconds);
 }
 
 /**
@@ -2186,5 +2196,4 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 	}
 
 }
-
 
