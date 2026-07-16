@@ -19,6 +19,12 @@
 
 #include "AampTrackWorkerManager.hpp"
 
+// Global counter incremented each time AampTrackWorkerManager::SubmitJob is
+// called.  Tests that need to distinguish the synchronous Execute() path from
+// the async SubmitJob path reset this to 0 before the window under test and
+// inspect it afterwards.
+int g_submitJobCallCount = 0;
+
 namespace aamp
 {
 	/**
@@ -116,6 +122,7 @@ namespace aamp
 	 */
 	std::shared_future<void> AampTrackWorkerManager::SubmitJob(AampMediaType mediaType, std::shared_ptr<AampTrackWorkerJob> job, bool highPriority)
 	{
+		g_submitJobCallCount++;
 		if (job)
 		{
 			job->Run(); // Execute the job immediately for testing purposes
