@@ -6366,7 +6366,19 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				{
 					sink->SetVideoMute(video_muted.load());
 				}
-				SetCCStatusInternal();
+				if (mApplyCachedCCStatus.load())
+				{
+					// clear the flag in a thread safe manner
+					while (mApplyCachedCCStatus.exchange(false))
+					{
+						AAMPLOG_DEBUG("mApplyCachedCCStatus=true, setting CCStatus");
+						SetCCStatusInternal();
+					}
+				}
+				else
+				{
+					SetCCStatusInternal();
+				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -6996,6 +7008,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			while (mApplyCachedCCStatus.exchange(false))
 			{
 				SetCCStatusInternal();
+				AAMPLOG_DEBUG("mApplyCachedCCStatus has been applied");
 			}
 		}
 	}
@@ -12045,6 +12058,10 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 	else
 	{			
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		if (mApplyCachedCCStatus.load())
+		{
+			AAMPLOG_DEBUG("mApplyCachedCCStatus=true, setting CCStatus");
+		}
 		SetCCStatusInternal();
 	}
 }
@@ -12054,12 +12071,6 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	// Note: Caller MUST hold mStreamLock
 	if (mpStreamAbstractionAAMP)
 	{
-		if (mApplyCachedCCStatus.load())
-		{
-			// Unlikely, but ideally this should be under a new mutex incase ..
-			// PrivateInstanceAAMP::setCCStatus(true) is called just before this in another thread.
-			mApplyCachedCCStatus=false;
-		}
 		// Mute subtitles if either video is muted or subtitles are muted
 		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
