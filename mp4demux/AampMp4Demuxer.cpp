@@ -88,35 +88,25 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 			auto samples = mMp4Demux->GetSamples();
 			if (!samples.empty())
 			{
-				if (mIsTrickMode)
+				for (auto& sample : samples)
 				{
-					// Trickmode: the demuxer yields exactly one sample - the iframe.
-					auto& iframe = samples.front();
-					TrickmodePtsRestamp(iframe, duration, discontinuous);
-					mAamp->SendStreamTransfer(mMediaType, std::move(iframe));
-				}
-				else
-				{
-					for (auto& sample : samples)
+					if (mEnablePtsRestamp)
 					{
-						if (mEnablePtsRestamp)
+						const double beforeDTS = sample.mDts;
+						sample.mPts += fragmentPTSoffset;
+						sample.mDts += fragmentPTSoffset;
+						if (mEnablePtsRestampLogging)
 						{
-							const double beforeDTS = sample.mDts;
-							sample.mPts += fragmentPTSoffset;
-							sample.mDts += fragmentPTSoffset;
-							if (mEnablePtsRestampLogging)
-							{
-								const uint32_t timeScale = mMp4Demux->GetTimeScale();
-								AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
-									GetMediaTypeName(mMediaType),
-									timeScale,
-									beforeDTS * timeScale,
-									sample.mDts * timeScale,
-									sample.mDuration * timeScale);
-							}
+							const uint32_t timeScale = mMp4Demux->GetTimeScale();
+							AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
+								GetMediaTypeName(mMediaType),
+								timeScale,
+								beforeDTS * timeScale,
+								sample.mDts * timeScale,
+								sample.mDuration * timeScale);
 						}
-						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 					}
+					mAamp->SendStreamTransfer(mMediaType, std::move(sample));
 				}
 			}
 			else
