@@ -806,7 +806,8 @@ bool AampRialtoPlayer::SendCopy(
 	{
 		if (!source->isAttached())
 		{
-			// For HLS-TS the codec format is all that Rialto requires to set the stream caps.
+			// Attaching all sources to avoid deadlock with muxed HLS-TS which uses only one injection thread
+			// For HLS-TS, the codec format is all that Rialto requires to set the stream caps.
 			for (const auto& source2: m_sources)
 			{
 				if (source2 && !source2->isAttached())
