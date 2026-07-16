@@ -8486,8 +8486,8 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	SetLocalAAMPTsbInjection(false);
 	auto streamLockStartTime = NOW_STEADY_TS_MS;
 	auto streamLockStopTime = NOW_STEADY_TS_MS;
-	auto licenseAquisitionLockStartTime = NOW_STEADY_TS_MS;
-	auto licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
 	// Stopping the playback, release all DRM context
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
@@ -8509,9 +8509,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 				// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
 				// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
 				// of StreamAbstractionAamp.
-				licenseAquisitionLockStartTime = NOW_STEADY_TS_MS;
+				licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
 				mDRMLicenseManager->SetLicenseFetcher(nullptr);
-				licenseAquisitionLockStopTime = NOW_STEADY_TS_MS;
+				licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
 			}
 			if (HasSidecarData())
 			{ // has sidecar data
@@ -8670,7 +8670,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenseFetcher %u, Teardown %u",
 		mLastStopDurationMs,
 		(unsigned int)(streamLockStopTime - streamLockStartTime),
-		(unsigned int)(licenseAquisitionLockStopTime- licenseAquisitionLockStartTime),
+		(unsigned int)(licenseAcquisitionLockStopTime - licenseAcquisitionLockStartTime),
 		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
@@ -12054,7 +12054,12 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	// Note: Caller MUST hold mStreamLock
 	if (mpStreamAbstractionAAMP)
 	{
-		mApplyCachedCCStatus=false;
+		if (mApplyCachedCCStatus.load())
+		{
+			// Unlikely, but ideally this should be under a new mutex incase ..
+			// PrivateInstanceAAMP::setCCStatus(true) is called just before this in another thread.
+			mApplyCachedCCStatus=false;
+		}
 		// Mute subtitles if either video is muted or subtitles are muted
 		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
 		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
