@@ -12126,10 +12126,6 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 	else
 	{			
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-		if (mApplyCachedCCStatus.load())
-		{
-			AAMPLOG_DEBUG("mApplyCachedCCStatus=true, setting CCStatus");
-		}
 		SetCCStatusInternal();
 	}
 }
