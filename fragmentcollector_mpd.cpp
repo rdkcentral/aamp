@@ -52,6 +52,7 @@
 #include "AampMPDUtils.h"
 #include <chrono>
 #include "AampTSBSessionManager.h"
+#include "AampVodStitcher.h"
 #include "AampTelemetry2.hpp"
 #include "MediaSegmentDownloadJob.hpp"
 //#define DEBUG_TIMELINE
@@ -676,10 +677,19 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	// SegmentBase content (both init and media segments) uses byte-range requests
 	// against a single file and requires strict ordering.  The FetcherLoop can
 	// race ahead after SubmitJob returns, loading IDX and submitting subsequent
-	// segments while async downloads are still in flight.  Run all SegmentBase
-	// downloads synchronously to guarantee init bytes reach GStreamer before any
-	// media segments and prevent fragmentOffset races.  (VPAAMP-614)
-	const bool segmentBaseContent = !range.empty();
+	// segments while async downloads are still in flight.  During ABR switches
+	// the IDX is cleared and reloaded for the new profile; if a stale async job
+	// then runs with the new profile's IDX it gets a start offset that matches
+	// the new profile but an end offset from the old profile's range, producing
+	// a partial fragment download that confuses the IsoBmff parser with a
+	// declared box size exceeding the available bytes (VPAAMP-614).  Run ALL
+	// SegmentBase downloads synchronously so that each (URL, IDX, range) triple
+	// is consistent at execution time.
+	const auto* representation = pMediaStreamContext->representation;
+	const bool segmentBaseContent =
+		(representation != nullptr) &&
+		(representation->GetSegmentBase() != nullptr) &&
+		!range.empty();
 	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseContent)
 	{
 		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
@@ -4835,6 +4845,26 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	long parseTimeMs = 0;
 	if (gotManifest)
 	{
+		// VOD CDAI: if ad breaks are registered and resolved, stitch the MPD before parsing.
+		// Skip if already stitched — prevents double-stitching on subsequent GetMPDFromManifest
+		// calls triggered by PlaceAdsForStaticManifest after ad resolution.
+		if (!mManifestDnldRespPtr->mIsLiveManifest &&
+			ISCONFIGSET(eAAMPConfig_EnableClientDai) &&
+			mCdaiObject)
+		{
+			PrivateCDAIObjectMPD *cdaiMpd = dynamic_cast<PrivateCDAIObjectMPD *>(mCdaiObject);
+			if (cdaiMpd && !cdaiMpd->mVodManifestStitched)
+			{
+				std::string rawMpd = mManifestDnldRespPtr->mMPDDownloadResponse->getString();
+				std::string stitched = BuildStitchedVodManifest(aamp, rawMpd, manifestUrl, cdaiMpd);
+				if (!stitched.empty())
+				{
+					mManifestDnldRespPtr->mMPDDownloadResponse->replaceDownloadData(stitched);
+					mManifestDnldRespPtr->parseMPD();
+					cdaiMpd->mVodManifestStitched = true;
+				}
+			}
+		}
 		vector<std::string> locationUrl;
 		long long tStartTime = NOW_STEADY_TS_MS;
 		ret = GetMPDFromManifest(mManifestDnldRespPtr , true);
@@ -5219,6 +5249,12 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 						valueMS = ParseISO8601Duration(value.c_str() );
 					if (periodStartMS < valueMS)
 						periodStartMS = valueMS;
+				}
+				// Calculate startTime for Early Available Period (EAP) with no explicit start attribute.
+				else if ((periodCnt > 1) && mpd && (periodCnt == (int)mpd->GetPeriods().size()) && mMPDParseHelper && mMPDParseHelper->IsEmptyPeriod(periodCnt-1, (mPlayRate != AAMP_NORMAL_PLAY_RATE)))
+				{
+					periodStartMS += mMPDParseHelper->GetPeriodDuration(periodCnt-2, mLastPlaylistDownloadTimeMs, (mPlayRate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+					AAMPLOG_WARN("Early Available Period found, id=%s periodStartMS adjusted to %" PRIu64 " ms", node->GetAttributeValue("id").c_str(), periodStartMS);
 				}
 				periodDurationMS = 0;
 				if (node->HasAttribute("duration")) {
@@ -8894,6 +8930,11 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 {
 	for( int i = 0; i < mNumberOfTracks; i++)
 	{
+		if (!discontinuity)
+		{
+			mMediaStreamContext[i]->profileChanged = true;
+		}
+
 		FetchAndInjectInitialization(i,discontinuity);
 	}
 }
@@ -9208,10 +9249,6 @@ void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string h
 			downloadInfo->mediaType = static_cast<AampMediaType>(trackIdx);
 			if(ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 			{
-				if (!mMediaStreamContext[trackIdx]->discontinuity)
-				{
-					mMediaStreamContext[trackIdx]->profileChanged = true;
-				}
 				downloadInfo->curlInstance = static_cast<AampCurlInstance>(eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType);
 				downloadInfo->uriList[0] = URIInfo(headerUrl);
 				temp = mMediaStreamContext[trackIdx]->DownloadFragment(downloadInfo);
@@ -10055,6 +10092,39 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 			}
 		}
 	}
+	// VOD CDAI: after an ad pod ends, seek back to the source content resume
+	// position (mVodResumeOffset stored by CheckVodAdBreakCrossing).
+	// mContentSeekOffset already holds insertionPointSec (set by onAdEvent);
+	// apply the same startDelta adjustment used for live CDAI.
+	// Skip entirely when manifest stitching was used — periods are already in order.
+	if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && adStateChanged &&
+		!(mCdaiObject && dynamic_cast<PrivateCDAIObjectMPD*>(mCdaiObject) &&
+		  dynamic_cast<PrivateCDAIObjectMPD*>(mCdaiObject)->mVodManifestStitched))
+	{
+		double vodSeekSec = 0.0;
+		if( mCdaiObject )
+		{
+			std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
+			vodSeekSec = mCdaiObject->mContentSeekOffset;
+			mCdaiObject->mContentSeekOffset = 0;
+		}
+		if (vodSeekSec > 0.0)
+		{
+			double startDelta = mMPDParseHelper->aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mCurrentPeriod);
+			if (vodSeekSec > startDelta)
+				vodSeekSec -= startDelta;
+			else
+				vodSeekSec = 0.0;
+			AAMPLOG_INFO("[CDAI-VOD]: Resuming source content at PeriodID[%s] Position[%lf]",
+				currentPeriodId.c_str(), vodSeekSec);
+			if (mPlayRate > AAMP_RATE_PAUSE)
+			{
+				SeekInPeriod(vodSeekSec);
+				mShortAdOffsetCalc = true;
+				mSeekedInPeriod    = true;
+			}
+		}
+	}
 	return true;
 }
 
@@ -10306,12 +10376,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			 * Only runs when CDAI is enabled and content is VOD.
 			 * Use the rendered playback position (not the downloader offset) so the
 			 * lookahead window is measured against what the viewer has actually seen.
+			 * Stalling and crossing logic lives in the inner segment-downloader loop below.
 			 */
 			if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
 			{
-				double lookahead = (double)GETCONFIGVALUE(eAAMPConfig_VodAdBreakLookaheadSec);
-				if (lookahead < 0.0) lookahead = 0.0;
-				mCdaiObject->CheckVodAdBreakLookahead(aamp->GetPositionSeconds(), lookahead);
+				PrivateCDAIObjectMPD *lookaheadCdai = dynamic_cast<PrivateCDAIObjectMPD *>(mCdaiObject);
+				if (!lookaheadCdai || !lookaheadCdai->mVodManifestStitched)
+				{
+					double lookahead = (double)GETCONFIGVALUE(eAAMPConfig_VodAdBreakLookaheadSec);
+					if (lookahead < 0.0) lookahead = 0.0;
+					mCdaiObject->CheckVodAdBreakLookahead(aamp->GetPositionSeconds(), lookahead);
+				}
 			}
 
 			/*
@@ -10355,6 +10430,28 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 				else if(CheckEndOfStream(waitForAdBreakCatchup))
 				{
+					// VOD CDAI postroll intercept: if a resolved postroll break is
+					// registered at insertionPointSec >= VOD duration, play it now
+					// instead of sending EOS.  The break was fired by the lookahead
+					// check above; here we just need to cross it.
+					//
+					// Snapshot mAdState under the mutex to avoid a data race; do NOT
+					// hold the lock across CheckVodAdBreakCrossing, which takes it
+					// internally.
+					bool outsideAdBreak = false;
+					if (!mIsLiveStream && ISCONFIGSET(eAAMPConfig_EnableClientDai) && mCdaiObject)
+					{
+						std::lock_guard<std::recursive_mutex> snapLock(mCdaiObject->mDaiMtx);
+						outsideAdBreak = (mCdaiObject->mAdState == AdState::OUTSIDE_ADBREAK);
+					}
+					PrivateCDAIObjectMPD *eosCheckCdai = dynamic_cast<PrivateCDAIObjectMPD *>(mCdaiObject);
+					if (outsideAdBreak && !(eosCheckCdai && eosCheckCdai->mVodManifestStitched) &&
+						mCdaiObject->CheckVodAdBreakCrossing(mBasePeriodOffset, mBasePeriodId))
+					{
+						AAMPLOG_INFO("[CDAI-VOD] EOS intercepted for postroll at pos=%.3f", mBasePeriodOffset);
+						adStateChanged = onAdEvent(AdEvent::VOD_BREAK_START);
+						continue; // re-enter loop to process the ad pod
+					}
 					break;
 				}
 				else if(mIterPeriodIndex >= mNumberOfPeriods)
@@ -10434,6 +10531,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			 * Segment downloader loop
 			 */
 			double lastPrdOffset = mBasePeriodOffset;
+			// Track whether EOS jobs have been submitted for this period to avoid duplicate scheduling.
+			bool videoEosSubmitted{false};
+			bool audioEosSubmitted{false};
 			while (!exitFetchLoop)
 			{
 				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderContext->isPlaylistDownloaderThreadStarted())
@@ -10457,26 +10557,27 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					auto timeBasedBuffer = mMediaStreamContext[trackIdx]->GetTimeBasedBufferManager();
 					// For live stream in ad break, avoid fetching next segment if current fragment time is exceeding the live edge
 					// This is to avoid unnecessary fetch and also to avoid fetching segments which are not expected to be played
-					const bool exceedsLiveEdge = mIsLiveManifest && mCdaiObject &&
+					const bool exceedsLiveEdge = mCdaiObject &&
+							mIsLiveManifest &&
 							(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState) &&
 							(mMediaStreamContext[trackIdx]->fragmentTime >= aamp->mAbsoluteEndPosition);
 
-					if (!mMediaStreamContext[trackIdx]->eos && timeBasedBuffer && !timeBasedBuffer->IsFull() && !exceedsLiveEdge)
-					{
-						AdvanceTrack(trackIdx, trickPlay, delta);
-					}
-					else
-					{
-						if (exceedsLiveEdge)
+						if (!mMediaStreamContext[trackIdx]->eos && timeBasedBuffer && !timeBasedBuffer->IsFull() && !exceedsLiveEdge)
 						{
-							AAMPLOG_TRACE("Download skipped for trackIdx %d, eos %d, isFull %d, exceedsLiveEdge %d, fragmentTime %f, absoluteEndPos %f",
-									trackIdx, mMediaStreamContext[trackIdx]->eos,
-									timeBasedBuffer ? timeBasedBuffer->IsFull() : -1,
-									exceedsLiveEdge, mMediaStreamContext[trackIdx]->fragmentTime,
-									aamp->mAbsoluteEndPosition);
+							AdvanceTrack(trackIdx, trickPlay, delta);
+						}
+						else
+						{
+							if (exceedsLiveEdge)
+							{
+								AAMPLOG_TRACE("Download skipped for trackIdx %d, eos %d, isFull %d, exceedsLiveEdge %d, fragmentTime %f, absoluteEndPos %f",
+										trackIdx, mMediaStreamContext[trackIdx]->eos,
+										timeBasedBuffer ? timeBasedBuffer->IsFull() : -1,
+										exceedsLiveEdge, mMediaStreamContext[trackIdx]->fragmentTime,
+										aamp->mAbsoluteEndPosition);
+							}
 						}
 					}
-				}
 
 				// VOD CDAI: check for upcoming insertion points on every segment-loop iteration
 				// using the rendered playback position so the opportunity event fires as soon
@@ -10522,6 +10623,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 											((mPlayRate > AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= aamp->mAbsoluteEndPosition) || (mPlayRate < AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= aamp->culledSeconds && (mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)))); // For rewinding, EOS does not need to be set unless the current period is a lower period.
 					if ((!mIsLiveManifest || (mPlayRate != AAMP_NORMAL_PLAY_RATE)) && (eosOutSideAd || eosAdPlayback))
 					{
+						// Stream has reached the true end of playback for this period.
+						// The EOS worker job sets eosReached on the track, which causes
+						// MediaTrack::SignalIfEOSReached() to call EndOfStreamReached() on the
+						// pipeline. Once both vEos and aEos are set the FetcherLoop exits below.
 						if (vEos)
 						{
 							auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
@@ -10529,13 +10634,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
-							if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+							if (!videoEosSubmitted)
 							{
-								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
-							}
-							else
-							{
-								dashWorkerJob->Execute();
+								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+								{
+									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
+								}
+								else
+								{
+									dashWorkerJob->Execute();
+								}
+								videoEosSubmitted = true;
 							}
 							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
 						}
@@ -10548,13 +10657,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
-								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+								if (!audioEosSubmitted)
 								{
-									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
-								}
-								else
-								{
-									dashWorkerJob->Execute();
+									if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+									{
+										aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+									}
+									else
+									{
+										dashWorkerJob->Execute();
+									}
+									audioEosSubmitted = true;
 								}
 							}
 						}
@@ -11151,15 +11264,18 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
-	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
-	{
-		MediaStreamContext *track = mMediaStreamContext[iTrack];
-		SAFE_DELETE(track);
-	}
+	// Unregister the MPD download callback BEFORE deleting tracks.
+	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
 	AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 	mManifestUpdateHandleFlag       =       false;
 	dnldInstance->UnRegisterCallback();
+
+	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
+	{
+		// Delete the MediaStreamContext object for this track.
+		SAFE_DELETE(mMediaStreamContext[iTrack]);
+	}
 
 	{
 		auto syncLock = aamp->SyncLock();
@@ -12519,6 +12635,13 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 	{
 		return false;
 	}
+	// Stitched VOD manifest: all periods are pre-arranged in the MPD.
+	// The live-CDAI state machine must not interfere — just play through.
+	{
+		PrivateCDAIObjectMPD *cdaiMpd = dynamic_cast<PrivateCDAIObjectMPD *>(mCdaiObject);
+		if (cdaiMpd && cdaiMpd->mVodManifestStitched)
+			return false;
+	}
 	int basePeriodIdx = mMPDParseHelper->getPeriodIdx(mBasePeriodId);
 	if(basePeriodIdx != -1)
 	{
@@ -12527,6 +12650,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			AAMPLOG_WARN("[CDAI] period [%s] is empty not processing adevents if any",mBasePeriodId.c_str());
 			return false;
 		}
+	}
+	if (!mCdaiObject)
+	{
+		return false;
 	}
 	std::unique_lock<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;
@@ -12852,6 +12979,11 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					}
 					AAMPLOG_WARN("[CDAI]: All Ads in the ADBREAK[%s] FINISHED. Playing the basePeriod[%s] at Offset[%lf].", mCdaiObject->mCurPlayingBreakId.c_str(), mBasePeriodId.c_str(), mCdaiObject->mContentSeekOffset);
 					mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdFailed = false;
+					// VOD CDAI: mark the break as fully completed for virtual-position accounting.
+					if (mCdaiObject->IsVodAdBreak(mCdaiObject->mCurPlayingBreakId))
+					{
+						mCdaiObject->MarkVodAdBreakCompleted(mCdaiObject->mCurPlayingBreakId);
+					}
 					reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_END;
 					reservationEndReason = GetAdReservationEndReason(curAdFailed, curAdCancelled);
 					sendImmediate = curAdFailed;    //Current Ad failed. Hence may not get discontinuity from gstreamer.

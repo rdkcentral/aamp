@@ -2436,6 +2436,12 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
 		ReportAdProgress(position);
+		{
+			CDAIObjectMPD *cdaiMpd = dynamic_cast<CDAIObjectMPD *>(mCdaiObject);
+			PrivateCDAIObjectMPD *cdaiPriv = cdaiMpd ? cdaiMpd->GetPrivateCDAIObjectMPD() : nullptr;
+			if (cdaiPriv && cdaiPriv->mVodManifestStitched)
+				cdaiPriv->CheckVodStitchedAdEvents(position);
+		}
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 		{
@@ -5670,6 +5676,12 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		std::lock_guard<std::mutex> lock(mAdEventQMtx);
 		std::swap( mAdEventsQ, emptyEvQ );
 	}
+	{
+		CDAIObjectMPD *cdaiMpd = dynamic_cast<CDAIObjectMPD *>(mCdaiObject);
+		PrivateCDAIObjectMPD *cdaiPriv = cdaiMpd ? cdaiMpd->GetPrivateCDAIObjectMPD() : nullptr;
+		if (cdaiPriv && cdaiPriv->mVodManifestStitched)
+			cdaiPriv->ResetVodAdEventTracker();
+	}
 }
 
 /**
@@ -6041,6 +6053,18 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					                               brk.breakDurationSec, brk.breakType);
 				}
 				mPendingVodAdBreaks.clear();
+				// Replay any SetAlternateContents calls that arrived before mCdaiObject was created.
+				std::vector<PendingAlternateContents> pendingAC;
+				{
+					std::lock_guard<std::recursive_mutex> guard(mLock);
+					pendingAC.swap(mPendingAlternateContents);
+				}
+				for (auto &ac : pendingAC)
+				{
+					AAMPLOG_INFO("[AAMP] Replaying pending SetAlternateContents breakId=%s adId=%s",
+					             ac.adBreakId.c_str(), ac.adId.c_str());
+					mCdaiObject->SetAlternateContents(ac.adBreakId, ac.adId, ac.url);
+				}
 			}
 		}
 		else
@@ -8599,6 +8623,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 
 	SAFE_DELETE(mCdaiObject);
 	mPendingVodAdBreaks.clear();
+	mPendingAlternateContents.clear();
 
 #if 0
 	/* Clear the session data*/
@@ -8786,7 +8811,7 @@ void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const 
 
 		if (ISCONFIGSET_PRIV(eAAMPConfig_MetadataLogging))
 		{
-			AAMPLOG_WARN("aamp timedMetadata: [%ld] '%s'", (long)(timeMilliseconds), content.c_str());
+			AAMPLOG_WARN("aamp timedMetadata: [%lld] '%s'", timeMilliseconds, content.c_str());
 		}
 
 		if (!bSyncCall)
@@ -10277,9 +10302,19 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
  */
 void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url)
 {
-	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai) && mCdaiObject)
+	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableClientDai))
 	{
-		mCdaiObject->SetAlternateContents(adBreakId, adId, url);
+		if (mCdaiObject)
+		{
+			mCdaiObject->SetAlternateContents(adBreakId, adId, url);
+		}
+		else
+		{
+			AAMPLOG_INFO("[CDAI] SetAlternateContents queued pre-tune for breakId=%s adId=%s",
+				adBreakId.c_str(), adId.c_str());
+			std::lock_guard<std::recursive_mutex> guard(mLock);
+			mPendingAlternateContents.push_back({adBreakId, adId, url});
+		}
 	}
 	else
 	{
