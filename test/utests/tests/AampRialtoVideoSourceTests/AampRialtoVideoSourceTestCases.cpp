@@ -65,6 +65,9 @@ static MediaCodecInfo MakeHevcCodecInfo(
 	return ci;
 }
 
+
+
+
 // ---------------------------------------------------------------------------
 // Fixture
 // ---------------------------------------------------------------------------
@@ -884,6 +887,65 @@ TEST_F(AampRialtoVideoSourceTest,
 // ---------------------------------------------------------------------------
 
 /**
+ * @test AampRialtoVideoSource_ProcessDataFragment_NoDemuxerNotAttached_ReturnsTrue
+ * @brief Verify processDataFragment returns true and performs no injection
+ *        in no-demuxer mode when the source is not attached.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessDataFragment_NoDemuxerNotAttached_ReturnsTrue)
+{
+	ASSERT_FALSE(m_source.hasDemuxer());
+	ASSERT_FALSE(m_source.isAttached());
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0xAA, 0xBB, 0xCC});
+
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		1.25, 1.25, 0.04, 0.0);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(m_source.firstPtsMs(), AampRialtoMediaSource::kFirstPtsNotSet);
+}
+
+/**
+ * @test AampRialtoVideoSource_ProcessDataFragment_NoDemuxerAttached_InjectsSingleSample
+ * @brief Verify processDataFragment injects one ES sample directly in
+ *        no-demuxer mode when attached and a needData slot is available.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ProcessDataFragment_NoDemuxerAttached_InjectsSingleSample)
+{
+	ASSERT_FALSE(m_source.hasDemuxer());
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending            = true;
+		st.pendingRequestId      = 66;
+		st.pendingFrameCount     = 1;
+		st.segmentsAddedInBatch  = 0;
+		st.injectorActive        = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(66, _))
+		.WillOnce(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+	auto buf = std::make_shared<std::vector<uint8_t>>(
+		std::vector<uint8_t>{0x10, 0x20, 0x30, 0x40});
+
+	const double pts = 7.5;
+	bool result = m_source.processDataFragment(*m_pipelinePtr, std::move(buf),
+		pts, 7.4, 0.033, 0.0);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(m_source.firstPtsMs(), static_cast<int64_t>(pts * 1000.0));
+}
+
+/**
  * @test AampRialtoVideoSource_ProcessDataFragment_ParseFails_ReturnsFalse
  * @brief Verify processDataFragment returns false when Parse fails.
  */
@@ -1075,6 +1137,100 @@ TEST_F(AampRialtoVideoSourceTest,
 	m_source.setFormat(FORMAT_VIDEO_ES_H264);
 	EXPECT_EQ(m_source.format(), FORMAT_VIDEO_ES_H264);
 }
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — codec format handling (mapCodecToMime integration)
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachH264NoDemuxer_SucceedsWithByteStreamFormat
+ * @brief Verify attachOrUpdate succeeds with H.264 and no demuxer.
+ *        Captures the MediaSource passed to attachSource() and validates
+ *        that mapCodecToMime() correctly computed BYTE_STREAM format.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachH264NoDemuxer_SucceedsWithByteStreamFormat)
+{
+	auto codecInfo = MakeH264CodecInfo(1280, 720);
+
+	// Capture the MediaSource to verify its stream format
+	firebolt::rialto::StreamFormat capturedStreamFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([&](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			// Downcast to MediaSourceVideo to access stream format
+			auto videoSource = dynamic_cast<
+				firebolt::rialto::IMediaPipeline::MediaSourceVideo*>(src.get());
+			if (videoSource)
+			{
+				capturedStreamFormat = videoSource->getStreamFormat();
+			}
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	// Verify attachment succeeded
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+	EXPECT_EQ(m_source.sourceId(), 10);
+	EXPECT_EQ(m_source.width(), 1280);
+	EXPECT_EQ(m_source.height(), 720);
+
+	// Verify the stream format was computed correctly by mapCodecToMime
+	// H.264 without demuxer → BYTE_STREAM (Annex B raw ES)
+	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::BYTE_STREAM);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachH264WithDemuxer_SucceedsWithAVCFormat
+ * @brief Verify attachOrUpdate with H.264 and an active demuxer produces AVC
+ *        stream format in the MediaSource passed to attachSource().
+ *
+ *        The fMP4 path uses AampMp4Demuxer, whose output is AVCC
+ *        (length-prefixed), so Rialto must receive AVC format.
+ */
+TEST_F(AampRialtoVideoSourceWithDemuxTest,
+	AampRialtoVideoSource_AttachH264WithDemuxer_SucceedsWithAVCFormat)
+{
+	auto codecInfo = MakeH264CodecInfo(1280, 720);
+
+	// Capture the MediaSource to verify its stream format
+	firebolt::rialto::StreamFormat capturedStreamFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([&](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			auto videoSource = dynamic_cast<
+				firebolt::rialto::IMediaPipeline::MediaSourceVideo*>(src.get());
+			if (videoSource)
+			{
+				capturedStreamFormat = videoSource->getStreamFormat();
+			}
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_TRUE(m_source.isAttached());
+
+	// Verify the stream format was computed correctly by mapCodecToMime
+	// H.264 with demuxer → AVC (AVCC length-prefixed, fMP4 path)
+	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::AVC);
+}
+
 
 TEST_F(AampRialtoVideoSourceTest,
 	AampRialtoVideoSource_reset_PreservesFormat)

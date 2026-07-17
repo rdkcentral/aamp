@@ -2273,6 +2273,68 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // ===========================================================================
+// SendCopy — fragment injection via legacy copy path
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_AudioWhenUnattached_AttachesViaSetStreamCapsAndForwardsFragment)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buffer = {0x01, 0x02, 0x03, 0x04};
+	bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/1.25, /*fdts=*/1.20, /*fDuration=*/0.05);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_AUDIO));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_AudioAlreadyAttached_DoesNotReattach)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buffer = {0x0A, 0x0B, 0x0C, 0x0D};
+	bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/0.1);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_WhenProcessDataFragmentFails_ReturnsFalse)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, _, _, _, _))
+		.WillOnce(Return(false));
+
+	std::vector<uint8_t> buffer = {0xA1, 0xA2, 0xA3, 0xA4};
+	bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/3.0, /*fdts=*/3.0, /*fDuration=*/0.1);
+
+	EXPECT_FALSE(result);
+}
+
+// ===========================================================================
 // SendSample — per-sample injection via external demuxer path
 // ===========================================================================
 

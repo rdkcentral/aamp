@@ -447,13 +447,22 @@ public:
 		m_eosSourceCount.store(0, std::memory_order_relaxed);
 		m_eosNotified.store(false, std::memory_order_relaxed);
 
-		// A flushed source must re-buffer before the pipeline returns to
-		// PLAYING, so clear its readiness/injected-duration tracking and
-		// force the next play() to re-evaluate the transition.
+		// A flush always represents a pipeline-wide restart (seek or
+		// trickplay): every non-subtitle source must re-buffer before the
+		// pipeline returns to PLAYING.  Clearing only the flushed source
+		// would leave stale readiness on other sources, which causes
+		// play() — called by DirectRialto after each individual source
+		// flush — to fire PLAYING immediately via the stale source.  That
+		// triggers MonitorProgress before video has any injected frames,
+		// producing a position-unchanged suppression that prevents the
+		// first trickplay progress event from appearing.
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
-			m_injectedDurationNs[sourceId] = 0;
-			m_readySources.erase(sourceId);
+			for (auto &entry : m_injectedDurationNs)
+			{
+				entry.second = 0;
+			}
+			m_readySources.clear();
 			m_eosSources.clear();
 		}
 		m_playing = false;
@@ -673,11 +682,23 @@ private:
 	{
 		std::lock_guard<std::mutex> lock(m_trackMutex);
 		auto typeIt = m_sourceTypes.find(sourceId);
-		if (typeIt != m_sourceTypes.end() &&
-			typeIt->second != MediaSourceType::SUBTITLE)
+		if (typeIt == m_sourceTypes.end() ||
+			typeIt->second == MediaSourceType::SUBTITLE)
 		{
-			m_readySources.insert(sourceId);
+			return;
 		}
+		// A source that EOS-es with zero injected duration (e.g. audio
+		// during video-only trickplay) must not be counted as ready for
+		// playback.  Adding it would fire PLAYING before the video source
+		// has primed its firstPtsMs, causing MonitorProgress to see an
+		// unchanged position and suppress the first trickplay progress
+		// event, which blocks callback-driven test steps.
+		auto durIt = m_injectedDurationNs.find(sourceId);
+		if (durIt == m_injectedDurationNs.end() || durIt->second == 0)
+		{
+			return;
+		}
+		m_readySources.insert(sourceId);
 	}
 
 	// Caller must hold m_trackMutex.
@@ -687,20 +708,24 @@ private:
 		{
 			return false;
 		}
-		bool haveNonSubtitle = false;
-		for (const auto &entry : m_sourceTypes)
+
+		// Check if there are any non-subtitle sources ready.
+		// When multiple non-subtitle sources are present (video + audio),
+		// transition to PLAYING once at least one of these sources has
+		// accumulated sufficient data. Audio may not be present in some
+		// streams (e.g., HLS TS) or may be disabled. Once playback has begun
+		// and one source is ready, Rialto starts playback immediately
+		// rather than waiting for all possible sources.
+		for (const auto &source : m_readySources)
 		{
-			if (entry.second == MediaSourceType::SUBTITLE)
+			auto typeIt = m_sourceTypes.find(source);
+			if (typeIt != m_sourceTypes.end() &&
+				typeIt->second != MediaSourceType::SUBTITLE)
 			{
-				continue;
-			}
-			haveNonSubtitle = true;
-			if (m_readySources.find(entry.first) == m_readySources.end())
-			{
-				return false;
+				return true;
 			}
 		}
-		return haveNonSubtitle;
+		return false;
 	}
 
 	// Caller must hold m_trackMutex.
@@ -727,9 +752,13 @@ private:
 		bool startPlaying = false;
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
-			if (m_playRequested.load(std::memory_order_relaxed) &&
-				!m_playing.load(std::memory_order_relaxed) &&
-				allNonSubtitleSourcesReadyLocked())
+			bool playRequested = m_playRequested.load(std::memory_order_relaxed);
+			bool alreadyPlaying = m_playing.load(std::memory_order_relaxed);
+			bool sourcesReady = allNonSubtitleSourcesReadyLocked();
+			// Use RIALTO_SIM_LOG below to avoid noisy/unconditional stderr output.
+			RIALTO_SIM_LOG("maybeStartPlayback: playRequested=%d playing=%d ready=%d #readySources=%zu",
+				playRequested, alreadyPlaying, sourcesReady, m_readySources.size());
+			if (playRequested && !alreadyPlaying && sourcesReady)
 			{
 				// Mark playing under the lock to prevent another
 				// callback thread from also transitioning.

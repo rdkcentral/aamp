@@ -335,7 +335,8 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	}
 	else if (videoSrc->format() != videoFormat)
 	{
-		AAMPLOG_INFO("Video codec changed: ShouldRecreatePipeline true");
+		AAMPLOG_INFO("Video codec changed (old=%d, new=%d): ShouldRecreatePipeline true",
+			videoSrc->format(), videoFormat);
 		return true;  // Video codec changed.
 	}
 
@@ -353,7 +354,8 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	else if (audioFormat != FORMAT_INVALID &&
 	         audioSrc->format() != audioFormat)
 	{
-		AAMPLOG_INFO("Audio codec changed to a different valid format: ShouldRecreatePipeline true");
+		AAMPLOG_INFO("Audio codec changed to a different valid format (old=%d, new=%d): ShouldRecreatePipeline true",
+			audioSrc->format(), audioFormat);
 		return true;  // Audio codec changed to a different valid format.
 	}
 
@@ -719,6 +721,46 @@ void AampRialtoPlayer::Configure(
 	AAMPLOG_INFO("EXIT");
 }
 
+static GstStreamOutputFormat toGstStreamOutputFormat(StreamOutputFormat fmt)
+{
+	struct FormatMapEntry
+	{
+		StreamOutputFormat source;
+		GstStreamOutputFormat target;
+	};
+
+	GstStreamOutputFormat gstFmt = GST_FORMAT_UNKNOWN;
+	static const FormatMapEntry kFormatMap[] = {
+		{ FORMAT_INVALID, GST_FORMAT_INVALID },
+		{ FORMAT_MPEGTS, GST_FORMAT_MPEGTS },
+		{ FORMAT_ISO_BMFF, GST_FORMAT_ISO_BMFF },
+		{ FORMAT_AUDIO_ES_MP3, GST_FORMAT_AUDIO_ES_MP3 },
+		{ FORMAT_AUDIO_ES_AAC, GST_FORMAT_AUDIO_ES_AAC },
+		{ FORMAT_AUDIO_ES_AAC_RAW, GST_FORMAT_AUDIO_ES_AAC_RAW },
+		{ FORMAT_AUDIO_ES_AC3, GST_FORMAT_AUDIO_ES_AC3 },
+		{ FORMAT_AUDIO_ES_EC3, GST_FORMAT_AUDIO_ES_EC3 },
+		{ FORMAT_AUDIO_ES_ATMOS, GST_FORMAT_AUDIO_ES_ATMOS },
+		{ FORMAT_AUDIO_ES_AC4, GST_FORMAT_AUDIO_ES_AC4 },
+		{ FORMAT_VIDEO_ES_H264, GST_FORMAT_VIDEO_ES_H264 },
+		{ FORMAT_VIDEO_ES_HEVC, GST_FORMAT_VIDEO_ES_HEVC },
+		{ FORMAT_VIDEO_ES_MPEG2, GST_FORMAT_VIDEO_ES_MPEG2 },
+		{ FORMAT_SUBTITLE_WEBVTT, GST_FORMAT_SUBTITLE_WEBVTT },
+		{ FORMAT_SUBTITLE_TTML, GST_FORMAT_SUBTITLE_TTML },
+		{ FORMAT_SUBTITLE_MP4, GST_FORMAT_SUBTITLE_MP4 },
+		{ FORMAT_UNKNOWN, GST_FORMAT_UNKNOWN }
+	};
+
+	for (size_t i = 0; i < (sizeof(kFormatMap) / sizeof(kFormatMap[0])); ++i)
+	{
+		if (kFormatMap[i].source == fmt)
+		{
+			gstFmt = kFormatMap[i].target;
+			break;
+		}
+	}
+	return gstFmt;
+}
+
 bool AampRialtoPlayer::SendCopy(
 	AampMediaType mediaType,
 	std::vector<uint8_t> &&buffer,
@@ -727,8 +769,59 @@ bool AampRialtoPlayer::SendCopy(
 	double fDuration)
 {
 	AAMPLOG_INFO("ENTRY mediaType=%d bufferSize=%zu fpts=%f fdts=%f fDuration=%f", static_cast<int>(mediaType), buffer.size(), fpts, fdts, fDuration);
-	AAMPLOG_INFO("EXIT");
-	return false;
+	bool success = false;
+
+	auto *source = getSource(mediaType);
+	if (!source)
+	{
+		// No source for this track (e.g. subtitle not yet supported).
+		AAMPLOG_WARN("No source for mediaType=%d",
+			static_cast<int>(mediaType));
+	}
+	else if (buffer.empty())
+	{
+		AAMPLOG_WARN("Buffer is empty for mediaType=%d",
+			static_cast<int>(mediaType));
+	}
+	else if (!m_pipeline)
+	{
+		AAMPLOG_WARN("No pipeline - cannot process data fragment");
+	}
+	else
+	{
+		if (!source->isAttached())
+		{
+			// Attaching all sources to avoid deadlock with muxed HLS-TS which uses only one injection thread
+			// For HLS-TS, the codec format is all that Rialto requires to set the stream caps.
+			for (const auto& source2: m_sources)
+			{
+				if (source2 && !source2->isAttached())
+				{
+					AAMPLOG_INFO("Setting stream caps for mediaType=%d", static_cast<int>(source2->mediaType()));
+					MediaCodecInfo codecInfo{};
+					codecInfo.mCodecFormat = toGstStreamOutputFormat(source2->format());
+					SetStreamCaps(source2->mediaType(), std::move(codecInfo));
+				}
+			}
+		}
+
+		auto sharedBuffer =
+			std::make_shared<std::vector<uint8_t>>(std::move(buffer));
+		if (!source->processDataFragment(
+					*m_pipeline, std::move(sharedBuffer),
+					fpts, fdts, fDuration, 0.0))
+		{
+			AAMPLOG_WARN("processDataFragment failed for mediaType=%d",
+				static_cast<int>(mediaType));
+		}
+		else
+		{
+			success = true;
+		}
+	}
+
+	AAMPLOG_INFO("EXIT, success=%d", success);
+	return success;
 }
 
 bool AampRialtoPlayer::SendTransfer(
