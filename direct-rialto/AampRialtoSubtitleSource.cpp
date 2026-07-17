@@ -183,7 +183,7 @@ AampRialtoSubtitleSource::createSegment(
 	{
 		AAMPLOG_INFO("subtitle setDisplayOffset sourceId=%d displayOffsetMs=%" PRId64,
 			m_sourceId, displayOffsetMs);
-		segment->setDisplayOffset(displayOffsetMs);
+		segment->setDisplayOffset(static_cast<uint64_t>(displayOffsetMs));
 	}
 
 	return segment;
@@ -259,6 +259,28 @@ bool AampRialtoSubtitleSource::processDataFragment(
 		// Raw TTML/WebVTT: wrap the buffer directly into an AampMediaSample
 		// and inject via injectSingleSample.  createSegment() will call
 		// refineDisplayOffset() to apply TTML offset correction.
+		//
+		// For TTML (m_applyTextTransform == true): the buffer PTS is already
+		// pipeline-clock-relative (ISO-BMFF / DASH timeline).  Pass
+		// fragmentPTSoffset as mDisplayOffsetMs for refineDisplayOffset() to
+		// correct absolute wall-clock TTML cue timestamps.
+		//
+		// For WebVTT (m_applyTextTransform == false):
+		//   With HlsTsEnablePTSReStamp (fragmentPTSoffset != 0): video is
+		//   restamped to start at 0 while subtitle fpts is the raw HLS
+		//   position.  Negate fragmentPTSoffset as displayOffset so that
+		//   Rialto's renderer can correct via X-TIMESTAMP-MAP MPEGTS:
+		//     renderTime = cueTime + MPEGTS_s − displayOffset_s ≈ cueTime
+		//   This mirrors the GST_BUFFER_OFFSET = -(ptsOffset×1000) mechanism
+		//   in the non-direct-rialto AAMPGstPlayer subtitle sync path.
+		//   Without restamping (fragmentPTSoffset == 0): AAMP seeks the
+		//   pipeline to the HLS start position, so fpts already matches the
+		//   pipeline clock — displayOffset = 0 and no correction is needed.
+
+		const int64_t displayOffsetMs = m_applyTextTransform
+			? static_cast<int64_t>(fragmentPTSoffset * 1000.0)
+			: -static_cast<int64_t>(fragmentPTSoffset * 1000.0);
+
 		AampMediaSample sample;
 		sample.mData     = std::shared_ptr<const uint8_t>(
 			buffer, buffer->data());
@@ -266,8 +288,7 @@ bool AampRialtoSubtitleSource::processDataFragment(
 		sample.mPts      = fpts;
 		sample.mDts      = fdts;
 		sample.mDuration = fDuration;
-		sample.mDisplayOffsetMs =
-			static_cast<int64_t>(fragmentPTSoffset * 1000.0);
+		sample.mDisplayOffsetMs = displayOffsetMs;
 		return injectSingleSample(pipeline, std::move(sample));
 	}
 	// TTML-in-MP4: use the base-class demuxer path.
