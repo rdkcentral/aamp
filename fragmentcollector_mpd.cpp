@@ -3194,6 +3194,12 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		{
 			FindPeriodGapsAndReport();
 		}
+
+		if (ISCONFIGSET(eAAMPConfig_ProcessLicenseFromEAP) && mIsLiveManifest)
+		{
+			ProcessLicenseFromEAP(mpdDnldResp);
+		}
+
 		// Process VSS stream
 		if(aamp->mIsVSS)
 		{
@@ -3205,6 +3211,78 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		}
 		// Process and send manifest http headers
 		ProcessManifestHeaderResponse(std::move(mpdDnldResp), init);
+	}
+}
+
+/**
+ * @brief Function to process non-VSS early available periods and queue content protection for all adaptation sets
+ */
+void StreamAbstractionAAMP_MPD::ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp)
+{
+	if (!mpdDnldResp)
+	{
+		return;
+	}
+
+	AampMPDParseHelperPtr mpdParseHelper = mpdDnldResp->GetMPDParseHelper();
+	if (!mpdParseHelper)
+	{
+		AAMPLOG_WARN("Skipping early available period processing due to null MPD parse helper");
+		return;
+	}
+
+	std::vector<IPeriod*> earlyPeriods;
+	GetEarlyAvailablePeriods(earlyPeriods, mpdParseHelper);
+
+	if (earlyPeriods.empty())
+	{
+		AAMPLOG_DEBUG("Early available period scan complete. detected=0");
+		return;
+	}
+
+	IPeriod *period = earlyPeriods.front();
+	if (!period)
+	{
+		AAMPLOG_WARN("Null period pointer in early available periods list");
+		return;
+	}
+	const std::string& periodId = period->GetId();
+	if (std::find(mEarlyAvailablePeriodIds.begin(), mEarlyAvailablePeriodIds.end(), periodId) == mEarlyAvailablePeriodIds.end())
+	{
+		mEarlyAvailablePeriodIds.push_back(periodId);
+		AAMPLOG_INFO("Early available period detected: id=%s adaptationSets=%zu", periodId.c_str(), period->GetAdaptationSets().size());
+	}
+	else
+	{
+		AAMPLOG_DEBUG("Early available period scan complete. already detected id=%s", periodId.c_str());
+	}
+	const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
+	for (size_t adaptationSetIdx = 0; adaptationSetIdx < adaptationSets.size(); adaptationSetIdx++)
+	{
+		IAdaptationSet *adaptationSet = adaptationSets.at(adaptationSetIdx);
+		if (!adaptationSet)
+		{
+			continue;
+		}
+		AampMediaType mediaType = eMEDIATYPE_DEFAULT;
+		if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+		{
+			mediaType = eMEDIATYPE_VIDEO;
+		}
+		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO))
+		{
+			mediaType = eMEDIATYPE_AUDIO;
+		}
+		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE))
+		{
+			mediaType = eMEDIATYPE_SUBTITLE;
+		}
+		else
+		{
+			continue;
+		}
+		AAMPLOG_INFO("QueueContentProtection for early period id=%s adaptationSetIdx=%zu mediaType=%d", period->GetId().c_str(), adaptationSetIdx, mediaType);
+		QueueContentProtection(period, static_cast<uint32_t>(adaptationSetIdx), mediaType, false, false);
 	}
 }
 
@@ -3532,7 +3610,6 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 		drmHelper->setDrmMetaData(contentMetadata);
 		drmHelper->setDefaultKeyID(cencDefaultData);
 	}
-
 	return drmHelper;
 }
 
@@ -5780,15 +5857,25 @@ std::string StreamAbstractionAAMP_MPD::GetLanguageForAdaptationSet(IAdaptationSe
 		// set und+id as lang, this is required because sometimes lang is not present and stream has multiple audio track.
 		// this unique lang string will help app to SetAudioTrack by index.
 		// Attempt is made to make lang unique by picking ID of first representation under current adaptation
-		IRepresentation* representation = adaptationSet->GetRepresentation().at(0);
-		if(NULL != representation)
+		// FIX: Guard against empty representation vector before calling .at(0).
+		// Manifests with Early Available Period can contain audio
+		// AdaptationSets that have no lang attribute and no Representation children.
+		// Previously, calling adaptationSet->GetRepresentation().at(0) on such an empty
+		// vector would throw std::out_of_range, causing a crash during tune in
+		// StreamAbstractionAAMP_MPD::Init() -> UpdateLanguageList() -> GetLanguageForAdaptationSet().
+		const std::vector<IRepresentation*>& representations = adaptationSet->GetRepresentation();
+		if(!representations.empty())
 		{
-			lang = "und_" + representation->GetId();
-			if( lang.size() > (MAX_LANGUAGE_TAG_LENGTH-1))
+			IRepresentation* representation = representations.at(0);
+			if(NULL != representation)
 			{
-				// Lang string len  should not be more than "MAX_LANGUAGE_TAG_LENGTH" so trim from end
-				// lang is sent to metadata event where len of char array  is limited to MAX_LANGUAGE_TAG_LENGTH
-				lang = lang.substr(0,(MAX_LANGUAGE_TAG_LENGTH-1));
+				lang = "und_" + representation->GetId();
+				if( lang.size() > (MAX_LANGUAGE_TAG_LENGTH-1))
+				{
+					// Lang string len  should not be more than "MAX_LANGUAGE_TAG_LENGTH" so trim from end
+					// lang is sent to metadata event where len of char array  is limited to MAX_LANGUAGE_TAG_LENGTH
+					lang = lang.substr(0,(MAX_LANGUAGE_TAG_LENGTH-1));
+				}
 			}
 		}
 	}
@@ -5836,7 +5923,11 @@ void StreamAbstractionAAMP_MPD::UpdateLanguageList()
 				{
 					if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO ))
 					{
-						mLangList.insert( GetLanguageForAdaptationSet(adaptationSet) );
+						std::string lang = GetLanguageForAdaptationSet(adaptationSet);
+						if(!lang.empty())
+						{
+							mLangList.insert(lang);
+						}
 					}
 				}
 				else
@@ -10902,6 +10993,46 @@ void StreamAbstractionAAMP_MPD::GetAvailableVSSPeriods(std::vector<IPeriod*>& Pe
 					PeriodIds.push_back(tempPeriod);
 				}
 			}
+		}
+	}
+}
+
+/**
+ * @brief Check new non-VSS early available periods from manifest
+ */
+void StreamAbstractionAAMP_MPD::GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper)
+{
+   if (!mpdParseHelper)
+   {
+	   AAMPLOG_WARN("Skipping early available period detection due to null MPD parse helper");
+	   return;
+   }
+
+	const IMPD *manifestMpd = mpdParseHelper->getMPD();
+	if (!manifestMpd)
+	{
+		AAMPLOG_WARN("Skipping early available period detection due to null MPD");
+		return;
+	}
+
+	const std::vector<IPeriod*> &allPeriods = manifestMpd->GetPeriods();
+	if (allPeriods.empty())
+	{
+		return;
+	}
+
+	int periodIter = static_cast<int>(allPeriods.size()) - 1;
+	IPeriod *tempPeriod = allPeriods.at(periodIter);
+	if (!tempPeriod)
+		return;
+	if (STARTS_WITH_IGNORE_CASE(tempPeriod->GetId().c_str(), VSS_DASH_EARLY_AVAILABLE_PERIOD_PREFIX))
+		return;
+	if (!tempPeriod->GetAdaptationSets().empty() && mpdParseHelper->IsEmptyPeriod(periodIter, false))
+	{
+		if (std::find(mEarlyAvailablePeriodIds.begin(), mEarlyAvailablePeriodIds.end(), tempPeriod->GetId()) == mEarlyAvailablePeriodIds.end())
+		{
+			AAMPLOG_INFO("Found new non-VSS early available period candidate: id=%s index=%d", tempPeriod->GetId().c_str(), periodIter);
+			PeriodIds.push_back(tempPeriod);
 		}
 	}
 }
