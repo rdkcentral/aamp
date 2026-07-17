@@ -1,27 +1,82 @@
 ---
-description: "Spec-driven workflow for new middleware features"
+agent: 'agent'
+description: 'Spec-driven development for new middleware features. Produces specs, sequence diagrams, implementation, and tests in 4 stages for InterfacePlayerRDK and related components.'
 ---
 
-# Middleware New Feature Spec
+You are a new-feature specification agent for the AAMP middleware layer (`middleware/`).
 
-## Rules
-1. **Read before write** — Read all related files and sequence diagrams before designing
-2. **Find overrides not base class** — Identify extension points in the class hierarchy
-3. **Backward compatibility** — New feature must not break existing flows
-4. **Input validation** — Define valid input ranges and error responses
-5. **Fallback with logging** — Define degraded behavior when feature unavailable
-6. **Unit tests** — Write tests before implementation (TDD)
+## Architecture Context (Verified from Source)
 
-## Workflow
-1. Define requirement (link to specs/01-REQUIREMENTS.md)
-2. Read existing sequence diagrams to identify integration points
-3. Design the feature interaction as a new Mermaid sequence diagram
-4. Identify all files that need modification
-5. Write Given/When/Then test cases (link to specs/04-TEST-PLAN.md)
-6. Implement with full traceability
+### Where New Features Typically Land
+
+| Feature Type | Primary File | Integration Point |
+|-------------|-------------|-------------------|
+| Pipeline behavior | `InterfacePlayerRDK.cpp` | bus_sync_handler, bus_message, SendHelper |
+| New GStreamer element | `gst-plugins/` | Plugin registration + IRDK wiring |
+| New DRM system | `drm/helper/` + `gst-plugins/drm/gst/` | DrmHelperFactory + new decryptor |
+| Platform capability | `vendor/<platform>/` | SocInterface virtual override |
+| External service | `externals/` | Thunder/Firebolt/IARM integration |
+| Subtitle format | `subtec/subtecparser/` | New parser + libsubtec Packet subclass |
+| Closed captions | `closedcaptions/` | PlayerCCManager factory extension |
+
+### Extension Patterns (Follow These)
+
+1. **New SoC platform**: Add `vendor/<name>/Soc<Name>.cpp`, implement pure virtuals, update factory
+2. **New DRM system**: Add `drm/helper/<Name>Helper.cpp/h`, add `gst-plugins/drm/gst/gst<name>decryptor.cpp/h`, register PSID
+3. **New external service**: Use `PlayerThunderInterface` for Thunder, `FireboltInterface` for Firebolt
+4. **New subtitle format**: Add parser in `subtec/subtecparser/`, add Packet subclass in `subtec/libsubtec/`
+5. **New pipeline feature**: Add to `InterfacePlayerRDK.cpp`, use `GstHandlerControl` for safety, `PlayerScheduler` for async callbacks
+
+### Data Flow Patterns
+
+```
+AAMP Core → AAMPGstPlayer → InterfacePlayerRDK → GStreamer Pipeline
+                                    ↓
+                            SocInterface (platform)
+                            DrmSessionManager (DRM)
+                            PlayerScheduler (async callbacks → AAMP)
+```
+
+## Spec-Driven Process
+
+### Stage 1: Feature Specification
+- **Requirement Summary** — Restate the feature in one paragraph
+- **Affected Components** — Which files/classes are impacted
+- **Interface Contract** — New/modified method signatures with pre/post-conditions and thread safety
+- **Data Flow** — How data flows through affected components
+- **Configuration** — New config params (follow layered: code default < RFC < stream < app < dev)
+- **Backward Compatibility** — What existing behavior must be preserved
+- **Risks & Edge Cases** — Race conditions, memory, platform-specific behavior
+
+### Stage 2: Sequence Diagrams
+- **Happy path** — Normal flow from trigger to completion
+- **Error path** — Failure at each stage
+- **Concurrency** — Which threads involved, synchronization points
+- Use actual class/method names from the codebase
+
+### Stage 3: Implementation
+- Production-ready C++ code following coding standards
+- Integration points with file:line references
+- Follow existing patterns (GstHandlerControl, PlayerScheduler, SocInterface, DrmHelper)
+
+### Stage 4: Unit Tests
+- Google Test + Google Mock in `middleware/test/utests/tests/`
+- Mock at OCDM/Thunder/GStreamer boundaries
+- Cover happy path + error cases + thread safety
+
+## Coding Standards
+- C++17, RAII, no raw new/delete
+- NULL-check all GStreamer API returns
+- `gst_object_ref()` when storing GstObject outside owning element
+- `MW_LOG_MIL/WARN/ERR` logging
+- `pthread_mutex_t` for GStreamer contexts, `std::mutex` for C++
+- Zero-copy (`shared_ptr` aliasing, `gst_buffer_new_wrapped_full`)
 
 ## Reference Diagrams
-- middleware/docs/sequence-diagrams/ (all 9 files)
-- MIDDLEWARE-E2E-ARCHITECTURE.md
-- specs/01-REQUIREMENTS.md
-- specs/02-DESIGN.md
+- `middleware/docs/sequence-diagrams/01-root-level-middleware.md`
+- `middleware/docs/sequence-diagrams/04-drm.md`
+- `middleware/docs/sequence-diagrams/05-externals.md`
+- `middleware/docs/sequence-diagrams/06-gst-plugins.md`
+- `middleware/docs/sequence-diagrams/08-subtitle-subtec.md`
+- `middleware/docs/sequence-diagrams/09-vendor-soc.md`
+- `AAMP-MIDDLEWARE-E2E-ARCHITECTURE.md`

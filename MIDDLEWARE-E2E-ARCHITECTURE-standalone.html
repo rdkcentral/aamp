@@ -1,4 +1,4 @@
-# Middleware E2E Architecture — 100% Verified
+﻿<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Middleware E2E Architecture - 100% Verified</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:1200px;margin:0 auto;padding:40px 20px;line-height:1.6;color:#24292f;background:#fff}h1{border-bottom:2px solid #d0d7de;padding-bottom:.3em}h2{border-bottom:1px solid #d0d7de;padding-bottom:.3em;margin-top:2em}h3{margin-top:1.5em}code{background:#f6f8fa;padding:2px 6px;border-radius:4px;font-size:.9em}pre{background:#f6f8fa;padding:16px;border-radius:8px;overflow-x:auto}pre code{background:none;padding:0}table{border-collapse:collapse;width:100%;margin:1em 0}th,td{border:1px solid #d0d7de;padding:8px 12px;text-align:left}th{background:#f6f8fa;font-weight:600}tr:nth-child(even){background:#f6f8fa}.mermaid{text-align:center;margin:1.5em 0;background:#f8f9fa;padding:20px;border-radius:8px}.mermaid svg{max-width:100%}a{color:#0969da;text-decoration:none}hr{border:none;border-top:1px solid #d0d7de;margin:2em 0}#md-source{display:none}</style></head><body><div id="content">Loading...</div><textarea id="md-source"># Middleware E2E Architecture — 100% Verified
 
 ## Table of Contents
 1. [System Overview](#1-system-overview)
@@ -9,8 +9,8 @@
 6. [Vendor SoC Abstraction](#6-vendor-soc-abstraction)
 7. [Externals Subsystem](#7-externals-subsystem)
 8. [GStreamer Plugin Architecture](#8-gstreamer-plugin-architecture)
-9. [Subtitle & Closed Captions](#9-subtitle--closed-captions)
-10. [Threading & Synchronization](#10-threading--synchronization)
+9. [Subtitle &amp; Closed Captions](#9-subtitle--closed-captions)
+10. [Threading &amp; Synchronization](#10-threading--synchronization)
 11. [E2E Playback Flow](#11-e2e-playback-flow)
 
 ---
@@ -88,29 +88,29 @@ graph TB
         HW[SoC Hardware - Video/Audio Decoder + Display]
     end
 
-    APP --> AAMP
-    AAMP --> GSP
-    GSP --> IRDK
-    IRDK --> PRIV
-    PRIV --> GPP
-    IRDK --> SCHED
-    IRDK --> HC
-    IRDK --> SI
-    DSM --> CSM
-    IRDK --> GU
-    SI --> BRCM
-    SI --> RTK
-    SI --> MTK
-    SI --> AML
-    SI --> DEF
-    DSM --> DS
-    DS --> DH
-    DS --> OCDM
-    IRDK --> PIPE
-    PIPE --> APPSRC
-    PIPE --> DEC
-    PIPE --> SINK
-    SINK --> HW
+    APP --&gt; AAMP
+    AAMP --&gt; GSP
+    GSP --&gt; IRDK
+    IRDK --&gt; PRIV
+    PRIV --&gt; GPP
+    IRDK --&gt; SCHED
+    IRDK --&gt; HC
+    IRDK --&gt; SI
+    DSM --&gt; CSM
+    IRDK --&gt; GU
+    SI --&gt; BRCM
+    SI --&gt; RTK
+    SI --&gt; MTK
+    SI --&gt; AML
+    SI --&gt; DEF
+    DSM --&gt; DS
+    DS --&gt; DH
+    DS --&gt; OCDM
+    IRDK --&gt; PIPE
+    PIPE --&gt; APPSRC
+    PIPE --&gt; DEC
+    PIPE --&gt; SINK
+    SINK --&gt; HW
 ```
 
 ---
@@ -230,28 +230,28 @@ graph LR
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Constructed : new InterfacePlayerRDK
-    Constructed --> PipelineCreated : CreatePipeline
-    PipelineCreated --> StreamsConfigured : ConfigurePipeline
-    StreamsConfigured --> SourcesDiscovered : deep-notify source fires
-    SourcesDiscovered --> ElementsDiscovered : bus_sync_handler STATE_CHANGED
-    ElementsDiscovered --> Injecting : SendHelper loop begins
-    Injecting --> FirstFrame : first-video-frame-callback
-    FirstFrame --> SteadyState : Progress timer starts
-    SteadyState --> Seeking : Flush
-    Seeking --> Injecting : ResetGstEvents resume inject
-    SteadyState --> EOS : NotifyEOS
-    SteadyState --> Stopped : Stop
-    Seeking --> Stopped : Stop
-    EOS --> Stopped : Stop
-    Stopped --> PipelineCreated : Re-tune
-    Stopped --> Destroyed : Destructor
-    Destroyed --> [*]
+    [*] --&gt; Constructed : new InterfacePlayerRDK
+    Constructed --&gt; PipelineCreated : CreatePipeline
+    PipelineCreated --&gt; StreamsConfigured : ConfigurePipeline
+    StreamsConfigured --&gt; SourcesDiscovered : deep-notify source fires
+    SourcesDiscovered --&gt; ElementsDiscovered : bus_sync_handler STATE_CHANGED
+    ElementsDiscovered --&gt; Injecting : SendHelper loop begins
+    Injecting --&gt; FirstFrame : first-video-frame-callback
+    FirstFrame --&gt; SteadyState : Progress timer starts
+    SteadyState --&gt; Seeking : Flush
+    Seeking --&gt; Injecting : ResetGstEvents resume inject
+    SteadyState --&gt; EOS : NotifyEOS
+    SteadyState --&gt; Stopped : Stop
+    Seeking --&gt; Stopped : Stop
+    EOS --&gt; Stopped : Stop
+    Stopped --&gt; PipelineCreated : Re-tune
+    Stopped --&gt; Destroyed : Destructor
+    Destroyed --&gt; [*]
 
-    SteadyState --> Paused : SetPlayerState PAUSED
-    Paused --> SteadyState : SetPlayerState PLAYING
-    SteadyState --> RateChange : Flush with new rate
-    RateChange --> Injecting : Trickplay inject
+    SteadyState --&gt; Paused : SetPlayerState PAUSED
+    Paused --&gt; SteadyState : SetPlayerState PLAYING
+    SteadyState --&gt; RateChange : Flush with new rate
+    RateChange --&gt; Injecting : Trickplay inject
 ```
 
 ---
@@ -271,69 +271,69 @@ sequenceDiagram
 
     Note over APP,HW: === Fragment Download to Display ===
 
-    APP->>APP: Download fragment from CDN
+    APP-&gt;&gt;APP: Download fragment from CDN
 
     alt HLS TS segments (FORMAT_MPEGTS source, ES output)
-        APP->>APP: TSProcessor::demuxAndSend() parses PAT/PMT, extracts PES
-        APP->>APP: Strips PES headers, outputs raw ES (H264/AAC/AC3/HEVC)
-        APP->>GSP: Send ES samples (FORMAT_VIDEO_ES_H264, FORMAT_AUDIO_ES_AAC, etc)
+        APP-&gt;&gt;APP: TSProcessor::demuxAndSend() parses PAT/PMT, extracts PES
+        APP-&gt;&gt;APP: Strips PES headers, outputs raw ES (H264/AAC/AC3/HEVC)
+        APP-&gt;&gt;GSP: Send ES samples (FORMAT_VIDEO_ES_H264, FORMAT_AUDIO_ES_AAC, etc)
         Note over GSP,SRC: No tsdemux in pipeline - AAMP demuxes TS to ES
     else DASH/HLS fMP4 with UseMp4Demux=false (FORMAT_ISO_BMFF, default)
-        APP->>GSP: Send raw fMP4 segment (moof+mdat)
+        APP-&gt;&gt;GSP: Send raw fMP4 segment (moof+mdat)
         Note over GSP,SRC: GStreamer qtdemux handles demuxing in-pipeline
         Note over GSP,SRC: SendQtDemuxOverrideEvent sent for PTS restamping
     else DASH/HLS fMP4 with UseMp4Demux=true (ES output)
-        APP->>APP: AAMP Mp4Demux parses ISOBMFF boxes
-        APP->>GSP: SetStreamCaps(type, codecInfo) sets isMp4DemuxPlayback=true
-        APP->>GSP: Send individual ES samples (H264/AAC/HEVC NALUs)
+        APP-&gt;&gt;APP: AAMP Mp4Demux parses ISOBMFF boxes
+        APP-&gt;&gt;GSP: SetStreamCaps(type, codecInfo) sets isMp4DemuxPlayback=true
+        APP-&gt;&gt;GSP: Send individual ES samples (H264/AAC/HEVC NALUs)
         Note over GSP,SRC: No qtdemux in pipeline - raw ES to decoder directly
     else Progressive MP4
         Note over GSP,SRC: GStreamer souphttpsrc + qtdemux handle everything
         Note over GSP,SRC: AAMP does not download/inject fragments
     end
 
-    GSP->>IRDK: SendHelper(type, sample, ...)
-    IRDK->>IRDK: pthread_mutex_lock(sourceLock)
-    IRDK->>IRDK: WaitForSourceSetup if !sourceConfigured
+    GSP-&gt;&gt;IRDK: SendHelper(type, sample, ...)
+    IRDK-&gt;&gt;IRDK: pthread_mutex_lock(sourceLock)
+    IRDK-&gt;&gt;IRDK: WaitForSourceSetup if !sourceConfigured
 
     alt First buffer after seek/start
-        IRDK->>IRDK: SendGstEvents(mediaType, pts)
+        IRDK-&gt;&gt;IRDK: SendGstEvents(mediaType, pts)
         Note over IRDK: pendingSeek, protectionEvent, qtdemux override
     end
 
-    IRDK->>IRDK: lifetimeRef = new shared_ptr(move(sample.mData))
-    IRDK->>SRC: gst_buffer_new_wrapped_full(READONLY, rawPtr, size, lifetimeRef)
+    IRDK-&gt;&gt;IRDK: lifetimeRef = new shared_ptr(move(sample.mData))
+    IRDK-&gt;&gt;SRC: gst_buffer_new_wrapped_full(READONLY, rawPtr, size, lifetimeRef)
     Note over IRDK,SRC: ZERO-COPY: GstBuffer aliases sample memory
 
-    IRDK->>SRC: Set PTS, DTS, DURATION on buffer
+    IRDK-&gt;&gt;SRC: Set PTS, DTS, DURATION on buffer
     alt Encrypted content
-        IRDK->>SRC: DecorateGstBufferWithDrmMetadata(buffer, metadata)
+        IRDK-&gt;&gt;SRC: DecorateGstBufferWithDrmMetadata(buffer, metadata)
         Note over SRC: Attaches KID, IV, subsample info as GstProtectionMeta
     end
-    IRDK->>SRC: gst_app_src_push_buffer(source, buffer)
+    IRDK-&gt;&gt;SRC: gst_app_src_push_buffer(source, buffer)
 
-    SRC->>DRM: Buffer flows through pipeline
+    SRC-&gt;&gt;DRM: Buffer flows through pipeline
     alt Has GstProtectionMeta
-        DRM->>DRM: Extract KID, IV, subsamples
-        DRM->>DRM: DrmSessionManager->GetSession(KID)
-        DRM->>DRM: OpenCDMSession->Decrypt(buffer)
-        DRM->>DEC: Clear buffer to decoder
+        DRM-&gt;&gt;DRM: Extract KID, IV, subsamples
+        DRM-&gt;&gt;DRM: DrmSessionManager-&gt;GetSession(KID)
+        DRM-&gt;&gt;DRM: OpenCDMSession-&gt;Decrypt(buffer)
+        DRM-&gt;&gt;DEC: Clear buffer to decoder
     else Clear content
-        SRC->>DEC: Buffer directly to decoder
+        SRC-&gt;&gt;DEC: Buffer directly to decoder
     end
 
-    DEC->>DEC: Decode video/audio frame
-    DEC->>SINK: Decoded frame to sink
-    SINK->>HW: Render to display/speakers
+    DEC-&gt;&gt;DEC: Decode video/audio frame
+    DEC-&gt;&gt;SINK: Decoded frame to sink
+    SINK-&gt;&gt;HW: Render to display/speakers
 
     Note over APP,HW: === Flow Control ===
-    SRC-->>IRDK: "need-data" signal (buffer < 50%)
-    IRDK-->>GSP: NeedDataCb(mediaType)
-    GSP-->>APP: Resume fragment download
+    SRC--&gt;&gt;IRDK: "need-data" signal (buffer &lt; 50%)
+    IRDK--&gt;&gt;GSP: NeedDataCb(mediaType)
+    GSP--&gt;&gt;APP: Resume fragment download
 
-    SRC-->>IRDK: "enough-data" signal (buffer full)
-    IRDK-->>GSP: EnoughDataCb(mediaType)
-    GSP-->>APP: Pause fragment download
+    SRC--&gt;&gt;IRDK: "enough-data" signal (buffer full)
+    IRDK--&gt;&gt;GSP: EnoughDataCb(mediaType)
+    GSP--&gt;&gt;APP: Pause fragment download
 ```
 
 ---
@@ -354,91 +354,91 @@ sequenceDiagram
 
     Note over IRDK,LS: === DRM Initialization (bus_sync_handler) ===
 
-    SYNC->>SYNC: GST_MESSAGE_NEED_CONTEXT("drm-preferred-decryption-system-id")
-    SYNC->>SYNC: gst_context_new("drm-preferred-decryption-system-id")
-    SYNC->>SYNC: gst_structure_set("decryption-system-id", mDrmSystem)
-    SYNC->>PLUGIN: gst_element_set_context(src, context)
+    SYNC-&gt;&gt;SYNC: GST_MESSAGE_NEED_CONTEXT("drm-preferred-decryption-system-id")
+    SYNC-&gt;&gt;SYNC: gst_context_new("drm-preferred-decryption-system-id")
+    SYNC-&gt;&gt;SYNC: gst_structure_set("decryption-system-id", mDrmSystem)
+    SYNC-&gt;&gt;PLUGIN: gst_element_set_context(src, context)
 
-    SYNC->>SYNC: STATE_CHANGED NULL->READY on DRM decryptor
-    SYNC->>PLUGIN: g_object_set_property(src, playerName, mDRMSessionManager)
-    SYNC->>PLUGIN: g_object_set_property(src, "drm-session-manager", mEncrypt)
+    SYNC-&gt;&gt;SYNC: STATE_CHANGED NULL-&gt;READY on DRM decryptor
+    SYNC-&gt;&gt;PLUGIN: g_object_set_property(src, playerName, mDRMSessionManager)
+    SYNC-&gt;&gt;PLUGIN: g_object_set_property(src, "drm-session-manager", mEncrypt)
 
     Note over IRDK,LS: === License Acquisition ===
 
-    PLUGIN->>DSM: GetSession(keyId)
+    PLUGIN-&gt;&gt;DSM: GetSession(keyId)
     alt Session exists for KID
-        DSM-->>PLUGIN: return existing DrmSession
+        DSM--&gt;&gt;PLUGIN: return existing DrmSession
     else New session needed
-        DSM->>DH: DrmHelperEngine::getInstance().createHelper(drmInfo)
-        DH-->>DSM: DrmHelper instance (WV/PR/CK/VMX/Vanilla)
-        DSM->>DS: new DrmSession(helper)
-        DS->>OCDM: generateDRMSession(initData, size, customData)
-        OCDM-->>DS: session handle (OpenCDM)
-        DS->>DS: generateKeyRequest(destinationURL, timeout)
-        DS-->>DSM: challenge data (DrmData*)
+        DSM-&gt;&gt;DH: DrmHelperEngine::getInstance().createHelper(drmInfo)
+        DH--&gt;&gt;DSM: DrmHelper instance (WV/PR/CK/VMX/Vanilla)
+        DSM-&gt;&gt;DS: new DrmSession(helper)
+        DS-&gt;&gt;OCDM: generateDRMSession(initData, size, customData)
+        OCDM--&gt;&gt;DS: session handle (OpenCDM)
+        DS-&gt;&gt;DS: generateKeyRequest(destinationURL, timeout)
+        DS--&gt;&gt;DSM: challenge data (DrmData*)
         alt SecManagerThunder enabled
-            DSM->>CSM: AcquireLicense(challenge, url, accessToken, ...)
-            CSM->>CSM: Route to SecManagerThunder subclass
-            CSM->>LS: AcquireLicenseOpenOrUpdate via Thunder org.rdk.SecManager.1
-            LS-->>CSM: License response + statusCode + reasonCode + businessStatus
-            CSM-->>DSM: License response
-            DSM-->>DS: License applied
+            DSM-&gt;&gt;CSM: AcquireLicense(challenge, url, accessToken, ...)
+            CSM-&gt;&gt;CSM: Route to SecManagerThunder subclass
+            CSM-&gt;&gt;LS: AcquireLicenseOpenOrUpdate via Thunder org.rdk.SecManager.1
+            LS--&gt;&gt;CSM: License response + statusCode + reasonCode + businessStatus
+            CSM--&gt;&gt;DSM: License response
+            DSM--&gt;&gt;DS: License applied
         else ContentProtectionFirebolt enabled
-            DSM->>CSM: AcquireLicense(challenge, url, accessToken, ...)
-            CSM->>CSM: Route to ContentProtectionFirebolt subclass
-            CSM->>LS: Firebolt SDK Content Protection API
-            LS-->>CSM: License response
-            CSM-->>DSM: License response
-            DSM-->>DS: License applied
+            DSM-&gt;&gt;CSM: AcquireLicense(challenge, url, accessToken, ...)
+            CSM-&gt;&gt;CSM: Route to ContentProtectionFirebolt subclass
+            CSM-&gt;&gt;LS: Firebolt SDK Content Protection API
+            LS--&gt;&gt;CSM: License response
+            CSM--&gt;&gt;DSM: License response
+            DSM--&gt;&gt;DS: License applied
         else Direct license fetch (no CSM)
-            DSM->>LS: HTTP POST challenge directly
-            LS-->>DSM: License response
+            DSM-&gt;&gt;LS: HTTP POST challenge directly
+            LS--&gt;&gt;DSM: License response
         end
-        DS->>DS: processDRMKey(licenseResponse, timeout)
-        DS->>OCDM: opencdm_session_update(response) internally
-        OCDM-->>DS: Key ready (KEY_READY state)
-        DSM-->>PLUGIN: return DrmSession
+        DS-&gt;&gt;DS: processDRMKey(licenseResponse, timeout)
+        DS-&gt;&gt;OCDM: opencdm_session_update(response) internally
+        OCDM--&gt;&gt;DS: Key ready (KEY_READY state)
+        DSM--&gt;&gt;PLUGIN: return DrmSession
     end
 
     Note over IRDK,LS: === Decryption (per buffer) ===
 
-    PLUGIN->>PLUGIN: Extract GstProtectionMeta from buffer
-    PLUGIN->>DS: decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subSamplesBuffer, caps)
-    DS->>OCDM: opencdm_gstreamer_session_decrypt via OcdmGstSessionAdapter
-    OCDM-->>DS: Decrypted buffer (in-place)
-    DS-->>PLUGIN: Success (0)
-    PLUGIN->>PLUGIN: Remove GstProtectionMeta
-    PLUGIN->>PLUGIN: Push clear buffer downstream
+    PLUGIN-&gt;&gt;PLUGIN: Extract GstProtectionMeta from buffer
+    PLUGIN-&gt;&gt;DS: decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subSamplesBuffer, caps)
+    DS-&gt;&gt;OCDM: opencdm_gstreamer_session_decrypt via OcdmGstSessionAdapter
+    OCDM--&gt;&gt;DS: Decrypted buffer (in-place)
+    DS--&gt;&gt;PLUGIN: Success (0)
+    PLUGIN-&gt;&gt;PLUGIN: Remove GstProtectionMeta
+    PLUGIN-&gt;&gt;PLUGIN: Push clear buffer downstream
 ```
 
 ```mermaid
 graph TB
     subgraph "DRM Helper Factory - helper/DrmHelperFactory.cpp"
         DHF[DrmHelperEngine::createHelper - singleton factory engine]
-        DHF --> DH_WV2[WidevineDrmHelper]
-        DHF --> DH_PR2[PlayReadyHelper]
-        DHF --> DH_CK2[ClearKeyHelper]
-        DHF --> DH_VMX2[VerimatrixHelper]
-        DHF --> DH_VAN[VanillaDrmHelper]
+        DHF --&gt; DH_WV2[WidevineDrmHelper]
+        DHF --&gt; DH_PR2[PlayReadyHelper]
+        DHF --&gt; DH_CK2[ClearKeyHelper]
+        DHF --&gt; DH_VMX2[VerimatrixHelper]
+        DHF --&gt; DH_VAN[VanillaDrmHelper]
     end
 
     subgraph "DRM Session Manager"
         DSM[DrmSessionManager]
-        DSM --> DS1[DrmSession - KID1]
-        DSM --> DS2[DrmSession - KID2]
-        DSM --> DSN[DrmSession - KIDN]
+        DSM --&gt; DS1[DrmSession - KID1]
+        DSM --&gt; DS2[DrmSession - KID2]
+        DSM --&gt; DSN[DrmSession - KIDN]
     end
 
     subgraph "OCDM Layer - ocdm/"
         OCDM_A[opencdmsessionadapter - Base Adapter]
-        OCDM_A --> OCDM_B[OcdmBasicSessionAdapter - Non-GStreamer]
-        OCDM_A --> OCDM_G[OcdmGstSessionAdapter - GStreamer Decrypt]
+        OCDM_A --&gt; OCDM_B[OcdmBasicSessionAdapter - Non-GStreamer]
+        OCDM_A --&gt; OCDM_G[OcdmGstSessionAdapter - GStreamer Decrypt]
     end
 
     subgraph "HLS-Specific DRM"
         HLS_BASE[HlsDrmBase - Interface]
-        HLS_BASE --> HLS_OCDM[HlsOcdmBridge - SAMPLE-AES/OCDM]
-        HLS_BASE --> AES_DEC[AesDec - AES-128-CBC vanilla]
+        HLS_BASE --&gt; HLS_OCDM[HlsOcdmBridge - SAMPLE-AES/OCDM]
+        HLS_BASE --&gt; AES_DEC[AesDec - AES-128-CBC vanilla]
         HLS_IFACE[PlayerHlsDrmSessionInterface]
     end
 ```
@@ -465,12 +465,12 @@ graph TB
         DEF[SocDefault - Simulator/Generic]
     end
 
-    CREATE --> SI
-    SI --> BRCM
-    SI --> RTK
-    SI --> MTK
-    SI --> AML
-    SI --> DEF
+    CREATE --&gt; SI
+    SI --&gt; BRCM
+    SI --&gt; RTK
+    SI --&gt; MTK
+    SI --&gt; AML
+    SI --&gt; DEF
 ```
 
 ### SocInterface Key Virtual Methods (from vendor/SocInterface.h):
@@ -501,8 +501,8 @@ graph TB
 | `SetHevcCaps()` | virtual | Platform-specific HEVC caps adjustments |
 | `SetDecodeError()` | virtual | Connect decode error callback |
 | `GetVideoPts()` | virtual | Get current video PTS (90kHz ticks) |
-| `DiscoverVideoDecoderProperties()` | virtual | Find decoder signals at NULL->READY |
-| `DiscoverVideoSinkProperties()` | virtual | Find sink properties at READY->PAUSED |
+| `DiscoverVideoDecoderProperties()` | virtual | Find decoder signals at NULL-&gt;READY |
+| `DiscoverVideoSinkProperties()` | virtual | Find sink properties at READY-&gt;PAUSED |
 | `SetAC4Tracks()` | virtual | AC4 audio track selection |
 | `SetPlaybackFlags()` | **pure virtual** | Platform-specific GStreamer playbin flags |
 | `SetPlaybackRate()` | **pure virtual** | Set rate on sources/pipeline/decoders |
@@ -524,45 +524,45 @@ graph TB
 graph TB
     subgraph "PlayerThunderInterface"
         THD[PlayerThunderInterface]
-        THD --> JSONRPC[JSON-RPC via Thunder WPEFramework]
-        JSONRPC --> HDMI[DisplayInfo Plugin]
-        JSONRPC --> SYSTEM[System Plugin]
+        THD --&gt; JSONRPC[JSON-RPC via Thunder WPEFramework]
+        JSONRPC --&gt; HDMI[DisplayInfo Plugin]
+        JSONRPC --&gt; SYSTEM[System Plugin]
     end
 
     subgraph "RFCSettings"
         RFC[RFCSettings::readRFCValue]
-        RFC --> TR181[TR-181 DataModel via tr181api]
+        RFC --&gt; TR181[TR-181 DataModel via tr181api]
     end
 
     subgraph "FireboltInterface"
         FB[FireboltInterface - Singleton]
-        FB --> FBSDK[Firebolt SDK - fireboltaamp.h]
-        FBSDK --> CAPS[Device Capabilities]
+        FB --&gt; FBSDK[Firebolt SDK - fireboltaamp.h]
+        FBSDK --&gt; CAPS[Device Capabilities]
     end
 
     subgraph "PlayerExternalsInterface"
         PEI[PlayerExternalsInterface]
-        PEI --> HDCP[HDCP Status - dsHdcpProtocolVersion]
-        PEI --> DISPLAY[Display Resolution]
+        PEI --&gt; HDCP[HDCP Status - dsHdcpProtocolVersion]
+        PEI --&gt; DISPLAY[Display Resolution]
         subgraph "RDK Implementation"
             RDKEXT[PlayerExternalsRdkInterface]
-            RDKEXT --> DEVFB[DeviceFireboltInterface]
-            RDKEXT --> DEVIARM[DeviceIARMInterface]
+            RDKEXT --&gt; DEVFB[DeviceFireboltInterface]
+            RDKEXT --&gt; DEVIARM[DeviceIARMInterface]
         end
     end
 
     subgraph "ContentSecurityManager - License Acquisition"
-        CSM[ContentSecurityManager - Base Class<br/>ContentSecurityManager.h<br/>Extends PlayerScheduler]
-        SMT[SecManagerThunder - Subclass<br/>SecManagerThunder.h<br/>Thunder Plugin: org.rdk.SecManager.1]
-        CPF[ContentProtectionFirebolt - Subclass<br/>IFirebolt/ContentProtectionFirebolt.h<br/>Firebolt Content Protection SDK]
-        CSMS[ContentSecurityManagerSession<br/>ContentSecurityManagerSession.h<br/>Per-Playback Session State]
-        CSM --> SMT
-        CSM --> CPF
-        CSM --> CSMS
-        SMT --> THUNDER_SM[Thunder SecManager Plugin]
-        SMT --> THUNDER_WM[Thunder Watermark Plugin]
-        SMT --> THUNDER_AUTH[Thunder AuthService Plugin]
-        CPF --> FB_SDK[Firebolt SDK]
+        CSM[ContentSecurityManager - Base Class&lt;br/&gt;ContentSecurityManager.h&lt;br/&gt;Extends PlayerScheduler]
+        SMT[SecManagerThunder - Subclass&lt;br/&gt;SecManagerThunder.h&lt;br/&gt;Thunder Plugin: org.rdk.SecManager.1]
+        CPF[ContentProtectionFirebolt - Subclass&lt;br/&gt;IFirebolt/ContentProtectionFirebolt.h&lt;br/&gt;Firebolt Content Protection SDK]
+        CSMS[ContentSecurityManagerSession&lt;br/&gt;ContentSecurityManagerSession.h&lt;br/&gt;Per-Playback Session State]
+        CSM --&gt; SMT
+        CSM --&gt; CPF
+        CSM --&gt; CSMS
+        SMT --&gt; THUNDER_SM[Thunder SecManager Plugin]
+        SMT --&gt; THUNDER_WM[Thunder Watermark Plugin]
+        SMT --&gt; THUNDER_AUTH[Thunder AuthService Plugin]
+        CPF --&gt; FB_SDK[Firebolt SDK]
     end
 ```
 
@@ -588,29 +588,29 @@ graph LR
 
     subgraph "Common Base"
         GST_BASE[gstcdmidecryptor - Base CDMI Decryptor]
-        PR_DEC --> GST_BASE
-        WV_DEC --> GST_BASE
-        CK_DEC --> GST_BASE
-        VMX_DEC --> GST_BASE
+        PR_DEC --&gt; GST_BASE
+        WV_DEC --&gt; GST_BASE
+        CK_DEC --&gt; GST_BASE
+        VMX_DEC --&gt; GST_BASE
     end
 
     subgraph "Pipeline Integration"
         PIPE[GstPipeline]
-        PIPE --> APPSRC[appsrc]
-        APPSRC --> DEMUX[qtdemux/tsdemux]
-        DEMUX -->|"protection-system-id match"| DRM_SLOT[One DRM Decryptor - GstBaseTransform in-place]
-        DRM_SLOT --> VDEC[Video Decoder]
-        DRM_SLOT --> ADEC[Audio Decoder]
-        VDEC --> VSINK[Video Sink]
-        ADEC --> ASINK[Audio Sink]
+        PIPE --&gt; APPSRC[appsrc]
+        APPSRC --&gt; DEMUX[qtdemux/tsdemux]
+        DEMUX --&gt;|"protection-system-id match"| DRM_SLOT[One DRM Decryptor - GstBaseTransform in-place]
+        DRM_SLOT --&gt; VDEC[Video Decoder]
+        DRM_SLOT --&gt; ADEC[Audio Decoder]
+        VDEC --&gt; VSINK[Video Sink]
+        ADEC --&gt; ASINK[Audio Sink]
     end
 
-    Note_DRM["Only ONE decryptor active per stream.<br/>GStreamer auto-selects based on protection-system-id:<br/>PR: 9a04f079-9840-4286-ab92-e65be0885f95<br/>WV: edef8ba9-79d6-4ace-a3c8-27dcd51d21ed<br/>CK: 1077efec-c0b2-4d02-ace3-3c1e52e2fb4b<br/>VMX: 9a27dd82-fde2-4725-8cbc-4234aa06ec09"]
+    Note_DRM["Only ONE decryptor active per stream.&lt;br/&gt;GStreamer auto-selects based on protection-system-id:&lt;br/&gt;PR: 9a04f079-9840-4286-ab92-e65be0885f95&lt;br/&gt;WV: edef8ba9-79d6-4ace-a3c8-27dcd51d21ed&lt;br/&gt;CK: 1077efec-c0b2-4d02-ace3-3c1e52e2fb4b&lt;br/&gt;VMX: 9a27dd82-fde2-4725-8cbc-4234aa06ec09"]
 ```
 
 ---
 
-## 9. Subtitle & Closed Captions
+## 9. Subtitle &amp; Closed Captions
 
 ```mermaid
 sequenceDiagram
@@ -623,32 +623,32 @@ sequenceDiagram
 
     Note over APP,RENDER: === Embedded Subtitles (GStreamer path) ===
 
-    APP->>IRDK: SendHelper(SUBTITLE, sample)
-    IRDK->>GST: gst_app_src_push_buffer(subtitle_source, buffer)
-    GST->>SUBTEC: Buffer flows to subtecbin
-    SUBTEC->>PARSER: Parse subtitle data
-    PARSER->>RENDER: Rendered subtitle cue
+    APP-&gt;&gt;IRDK: SendHelper(SUBTITLE, sample)
+    IRDK-&gt;&gt;GST: gst_app_src_push_buffer(subtitle_source, buffer)
+    GST-&gt;&gt;SUBTEC: Buffer flows to subtecbin
+    SUBTEC-&gt;&gt;PARSER: Parse subtitle data
+    PARSER-&gt;&gt;RENDER: Rendered subtitle cue
 
     Note over APP,RENDER: === Inband Closed Captions (CEA-608/708) ===
     Note over APP,RENDER: CC data embedded in video ES, extracted by decoder
 
-    APP->>IRDK: Video fragments injected normally
-    IRDK->>GST: Video buffer to pipeline
-    GST->>GST: Decoder extracts CC from video ES (CEA-608/708)
-    GST->>GST: closedCaptionDataCb(decoderIndex, eType, ccData, len, seqNum, localPts)
-    GST->>RENDER: CCDataController -> ClosedCaptionsPacket -> SubtecChannel -> Renderer
+    APP-&gt;&gt;IRDK: Video fragments injected normally
+    IRDK-&gt;&gt;GST: Video buffer to pipeline
+    GST-&gt;&gt;GST: Decoder extracts CC from video ES (CEA-608/708)
+    GST-&gt;&gt;GST: closedCaptionDataCb(decoderIndex, eType, ccData, len, seqNum, localPts)
+    GST-&gt;&gt;RENDER: CCDataController -&gt; ClosedCaptionsPacket -&gt; SubtecChannel -&gt; Renderer
 
     Note over APP,RENDER: === Out-of-Band CC (Rialto CC Control Stream) ===
     Note over APP,RENDER: CC as separate track via dedicated appsrc
 
-    APP->>IRDK: ConfigurePipeline with usingClosedCaptionsControl=true
-    IRDK->>IRDK: SetupClosedCaptionControlStream()
-    IRDK->>GST: gst_element_factory_make("playbin") for CC sinkbin
-    IRDK->>GST: caps = gst_caps_new_simple("application/x-subtitle-cc")
-    IRDK->>GST: gst_app_src_set_caps(source, caps)
-    APP->>IRDK: SendHelper(SUBTITLE, cc_data)
-    IRDK->>GST: gst_app_src_push_buffer(source, cc_buffer)
-    GST->>RENDER: CC data to Rialto subtitle sink for rendering
+    APP-&gt;&gt;IRDK: ConfigurePipeline with usingClosedCaptionsControl=true
+    IRDK-&gt;&gt;IRDK: SetupClosedCaptionControlStream()
+    IRDK-&gt;&gt;GST: gst_element_factory_make("playbin") for CC sinkbin
+    IRDK-&gt;&gt;GST: caps = gst_caps_new_simple("application/x-subtitle-cc")
+    IRDK-&gt;&gt;GST: gst_app_src_set_caps(source, caps)
+    APP-&gt;&gt;IRDK: SendHelper(SUBTITLE, cc_data)
+    IRDK-&gt;&gt;GST: gst_app_src_push_buffer(source, cc_buffer)
+    GST-&gt;&gt;RENDER: CC data to Rialto subtitle sink for rendering
 ```
 
 ### CC Manager Class Hierarchy (from closedcaptions/PlayerCCManager.h):
@@ -657,38 +657,38 @@ sequenceDiagram
 graph TB
     subgraph "CC Manager Factory - PlayerCCManager singleton"
         FACTORY[PlayerCCManager::GetInstance]
-        FACTORY -->|"mIsRialto=false"| SUBTEC_CC[PlayerSubtecCCManager]
-        FACTORY -->|"mIsRialto=true"| RIALTO_CC[PlayerRialtoCCManager]
-        FACTORY -->|"simulator"| FAKE_CC[PlayerFakeCCManager - stub]
+        FACTORY --&gt;|"mIsRialto=false"| SUBTEC_CC[PlayerSubtecCCManager]
+        FACTORY --&gt;|"mIsRialto=true"| RIALTO_CC[PlayerRialtoCCManager]
+        FACTORY --&gt;|"simulator"| FAKE_CC[PlayerFakeCCManager - stub]
     end
 
     subgraph "PlayerCCManagerBase - base class"
         BASE[PlayerCCManagerBase]
-        BASE --> INIT[Init - decoder handle]
-        BASE --> SET_STATUS[SetStatus - enable/disable]
-        BASE --> SET_TRACK[SetTrack - 608/708/default]
-        BASE --> SET_STYLE[SetStyle - rendering options]
-        BASE --> TRICKPLAY[SetTrickplayStatus]
-        BASE --> PARENTAL[SetParentalControlStatus]
-        BASE --> OOB[IsOOBCCRenderingSupported]
+        BASE --&gt; INIT[Init - decoder handle]
+        BASE --&gt; SET_STATUS[SetStatus - enable/disable]
+        BASE --&gt; SET_TRACK[SetTrack - 608/708/default]
+        BASE --&gt; SET_STYLE[SetStyle - rendering options]
+        BASE --&gt; TRICKPLAY[SetTrickplayStatus]
+        BASE --&gt; PARENTAL[SetParentalControlStatus]
+        BASE --&gt; OOB[IsOOBCCRenderingSupported]
     end
 
-    SUBTEC_CC --> BASE
-    RIALTO_CC --> BASE
-    FAKE_CC --> BASE
+    SUBTEC_CC --&gt; BASE
+    RIALTO_CC --&gt; BASE
+    FAKE_CC --&gt; BASE
 
     subgraph "Subtec CC Path - closedcaptions/subtec/"
-        SUBTEC_CC --> CCDC[CCDataController - singleton]
-        CCDC --> CC_DATA_CB[closedCaptionDataCb - inband CC from decoder]
-        CCDC --> CC_DECODE_CB[closedCaptionDecodeCb - decode events]
-        CCDC --> CC_MUTE[sendMute/sendUnmute]
-        CCDC --> CC_PKT[ClosedCaptionsPacket]
-        SUBTEC_CC --> SC[SubtecConnector]
+        SUBTEC_CC --&gt; CCDC[CCDataController - singleton]
+        CCDC --&gt; CC_DATA_CB[closedCaptionDataCb - inband CC from decoder]
+        CCDC --&gt; CC_DECODE_CB[closedCaptionDecodeCb - decode events]
+        CCDC --&gt; CC_MUTE[sendMute/sendUnmute]
+        CCDC --&gt; CC_PKT[ClosedCaptionsPacket]
+        SUBTEC_CC --&gt; SC[SubtecConnector]
     end
 
     subgraph "Rialto CC Path - closedcaptions/rialto/"
-        RIALTO_CC --> RIALTO_IMPL[PlayerRialtoCCManager]
-        RIALTO_IMPL --> RIALTO_RENDER[Rialto CC Rendering]
+        RIALTO_CC --&gt; RIALTO_IMPL[PlayerRialtoCCManager]
+        RIALTO_IMPL --&gt; RIALTO_RENDER[Rialto CC Rendering]
     end
 ```
 
@@ -698,20 +698,20 @@ graph TB
 graph TB
     subgraph "Subtitle Parsers - subtec/subtecparser/"
         SP_BASE[SubtecParser Base]
-        SP_BASE --> WEBVTT[WebVttSubtecParser.cpp/hpp]
-        SP_BASE --> TTML[TtmlSubtecParser.cpp/hpp]
-        SP_BASE --> DEVIF[WebvttSubtecDevInterface.cpp/hpp]
+        SP_BASE --&gt; WEBVTT[WebVttSubtecParser.cpp/hpp]
+        SP_BASE --&gt; TTML[TtmlSubtecParser.cpp/hpp]
+        SP_BASE --&gt; DEVIF[WebvttSubtecDevInterface.cpp/hpp]
     end
 
     subgraph "libsubtec Packets - subtec/libsubtec/"
         PKT[Packet - Base class in SubtecPacket.hpp]
-        PKT --> PKT_CC[ClosedCaptionsPacket.hpp]
-        PKT --> PKT_WV[WebVttPacket.hpp]
-        PKT --> PKT_TT[TtmlPacket.hpp]
+        PKT --&gt; PKT_CC[ClosedCaptionsPacket.hpp]
+        PKT --&gt; PKT_WV[WebVttPacket.hpp]
+        PKT --&gt; PKT_TT[TtmlPacket.hpp]
         SEND[PacketSender.cpp/hpp - Sends packets via Unix socket]
         CHAN[SubtecChannel.cpp/hpp - Channel ID mgmt + sendPacket template]
-        SEND -->|"sends PacketPtr"| PKT
-        CHAN -->|"creates and sends"| PKT
+        SEND --&gt;|"sends PacketPtr"| PKT
+        CHAN --&gt;|"creates and sends"| PKT
     end
 ```
 
@@ -719,28 +719,28 @@ graph TB
 
 | Type | Description | Data Source | Rendering Path |
 |------|-------------|------------|----------------|
-| **Inband CC** | CEA-608/708 embedded in video ES | Decoder extracts from video PES | `closedCaptionDataCb` -> `CCDataController` -> `ClosedCaptionsPacket` -> `SubtecChannel` |
-| **Out-of-Band CC** | Separate subtitle track (WebVTT/TTML) | AAMP downloads and injects via separate appsrc | `SetupClosedCaptionControlStream` -> `application/x-subtitle-cc` caps -> Rialto subtitle sink |
+| **Inband CC** | CEA-608/708 embedded in video ES | Decoder extracts from video PES | `closedCaptionDataCb` -&gt; `CCDataController` -&gt; `ClosedCaptionsPacket` -&gt; `SubtecChannel` |
+| **Out-of-Band CC** | Separate subtitle track (WebVTT/TTML) | AAMP downloads and injects via separate appsrc | `SetupClosedCaptionControlStream` -&gt; `application/x-subtitle-cc` caps -&gt; Rialto subtitle sink |
 | **OOB Check** | `IsOOBCCRenderingSupported()` | `PlayerCCManagerBase` virtual | Returns whether platform supports OOB CC rendering |
 | **CC Formats** | `eCLOSEDCAPTION_FORMAT_608`, `eCLOSEDCAPTION_FORMAT_708`, `eCLOSEDCAPTION_FORMAT_DEFAULT` | `PlayerCCManager.h` enum | Used in `SetTrack(track, format)` |
 
 ---
 
-## 10. Threading & Synchronization
+## 10. Threading &amp; Synchronization
 
 ```mermaid
 graph TB
     subgraph "Thread Pool"
         TP[GstPlayerTaskPool - Custom pthread pool]
-        TP --> T1[GStreamer streaming thread 1]
-        TP --> T2[GStreamer streaming thread 2]
-        TP --> TN[GStreamer streaming thread N]
+        TP --&gt; T1[GStreamer streaming thread 1]
+        TP --&gt; T2[GStreamer streaming thread 2]
+        TP --&gt; TN[GStreamer streaming thread N]
     end
 
     subgraph "Scheduler"
         SCHED[PlayerScheduler]
-        SCHED --> WT[Worker Thread - single]
-        WT --> TQ[Task Queue - deque]
+        SCHED --&gt; WT[Worker Thread - single]
+        WT --&gt; TQ[Task Queue - deque]
     end
 
     subgraph "GStreamer Threads"
@@ -781,31 +781,31 @@ sequenceDiagram
 
     Note over CB,STOP: Normal operation - handler enabled
 
-    CB->>HC: getScopeHelper()
-    HC->>HC: lock(mSync), mInstanceCount++
-    HC-->>CB: ScopeHelper created
+    CB-&gt;&gt;HC: getScopeHelper()
+    HC-&gt;&gt;HC: lock(mSync), mInstanceCount++
+    HC--&gt;&gt;CB: ScopeHelper created
 
-    CB->>HC: returnStraightAway() checks isEnabled()
-    HC-->>CB: false (enabled, proceed)
-    CB->>CB: Execute handler logic
+    CB-&gt;&gt;HC: returnStraightAway() checks isEnabled()
+    HC--&gt;&gt;CB: false (enabled, proceed)
+    CB-&gt;&gt;CB: Execute handler logic
 
     Note over CB: ScopeHelper destructor (RAII)
-    CB->>HC: handlerEnd()
-    HC->>HC: lock(mSync), mInstanceCount--, notify_one
+    CB-&gt;&gt;HC: handlerEnd()
+    HC-&gt;&gt;HC: lock(mSync), mInstanceCount--, notify_one
 
     Note over CB,STOP: Teardown - handler disabled
 
-    STOP->>HC: waitForDone(50ms, "bus_sync_handler")
-    HC->>HC: disable() sets mEnabled=false
-    HC->>HC: wait on mDoneCond until mInstanceCount==0 or timeout
-    HC-->>STOP: true (all handlers exited)
+    STOP-&gt;&gt;HC: waitForDone(50ms, "bus_sync_handler")
+    HC-&gt;&gt;HC: disable() sets mEnabled=false
+    HC-&gt;&gt;HC: wait on mDoneCond until mInstanceCount==0 or timeout
+    HC--&gt;&gt;STOP: true (all handlers exited)
 
     Note over CB: Late callback arrives
-    CB->>HC: getScopeHelper()
-    HC->>HC: lock(mSync), mInstanceCount++
-    CB->>HC: returnStraightAway() checks isEnabled()
-    HC-->>CB: true (disabled, exit immediately)
-    CB->>HC: ~ScopeHelper -> handlerEnd(), mInstanceCount--
+    CB-&gt;&gt;HC: getScopeHelper()
+    HC-&gt;&gt;HC: lock(mSync), mInstanceCount++
+    CB-&gt;&gt;HC: returnStraightAway() checks isEnabled()
+    HC--&gt;&gt;CB: true (disabled, exit immediately)
+    CB-&gt;&gt;HC: ~ScopeHelper -&gt; handlerEnd(), mInstanceCount--
 ```
 
 ---
@@ -830,131 +830,131 @@ sequenceDiagram
 
     Note over APP,HW: ═══ TUNE REQUEST ═══
 
-    APP->>AAMP: Tune(url)
-    AAMP->>GSP: Configure(format, audioFormat, ...)
-    GSP->>IRDK: ConfigurePipeline(format, audioFormat, subFormat, rate, ...)
+    APP-&gt;&gt;AAMP: Tune(url)
+    AAMP-&gt;&gt;GSP: Configure(format, audioFormat, ...)
+    GSP-&gt;&gt;IRDK: ConfigurePipeline(format, audioFormat, subFormat, rate, ...)
 
     Note over IRDK: Create pipeline if needed
-    IRDK->>GST: gst_pipeline_new(name)
-    IRDK->>GST: gst_bus_add_watch + set_sync_handler
+    IRDK-&gt;&gt;GST: gst_pipeline_new(name)
+    IRDK-&gt;&gt;GST: gst_bus_add_watch + set_sync_handler
 
     Note over IRDK: Setup streams
     loop VIDEO, AUDIO, SUBTITLE
-        IRDK->>GST: gst_element_factory_make("playbin") for sinkbin
-        IRDK->>SI: SetPlaybackFlags, GetVideoSink
-        IRDK->>GST: g_object_set(sinkbin, "uri", "appsrc://")
-        IRDK->>GST: gst_bin_add + sync_state_with_parent
+        IRDK-&gt;&gt;GST: gst_element_factory_make("playbin") for sinkbin
+        IRDK-&gt;&gt;SI: SetPlaybackFlags, GetVideoSink
+        IRDK-&gt;&gt;GST: g_object_set(sinkbin, "uri", "appsrc://")
+        IRDK-&gt;&gt;GST: gst_bin_add + sync_state_with_parent
     end
 
-    IRDK->>GST: SetStateWithWarnings(pipeline, PLAYING)
+    IRDK-&gt;&gt;GST: SetStateWithWarnings(pipeline, PLAYING)
 
     Note over APP,HW: ═══ PIPELINE RAMP-UP ═══
 
-    GST-->>IRDK: "deep-notify::source" (VIDEO)
-    IRDK->>GST: Configure appsrc (max-bytes, caps, signals)
-    GST-->>IRDK: "deep-notify::source" (AUDIO)
-    IRDK->>GST: Configure appsrc (max-bytes, caps, signals)
+    GST--&gt;&gt;IRDK: "deep-notify::source" (VIDEO)
+    IRDK-&gt;&gt;GST: Configure appsrc (max-bytes, caps, signals)
+    GST--&gt;&gt;IRDK: "deep-notify::source" (AUDIO)
+    IRDK-&gt;&gt;GST: Configure appsrc (max-bytes, caps, signals)
 
-    GST-->>IRDK: bus_sync: STATE_CHANGED NULL->READY (video_dec)
-    IRDK->>SI: DiscoverVideoDecoderProperties
-    IRDK->>GST: SignalConnect("first-video-frame-callback")
+    GST--&gt;&gt;IRDK: bus_sync: STATE_CHANGED NULL-&gt;READY (video_dec)
+    IRDK-&gt;&gt;SI: DiscoverVideoDecoderProperties
+    IRDK-&gt;&gt;GST: SignalConnect("first-video-frame-callback")
 
-    GST-->>IRDK: bus_sync: STATE_CHANGED NULL->READY (drm_decryptor)
-    IRDK->>DRM: Set mDRMSessionManager + mEncrypt
+    GST--&gt;&gt;IRDK: bus_sync: STATE_CHANGED NULL-&gt;READY (drm_decryptor)
+    IRDK-&gt;&gt;DRM: Set mDRMSessionManager + mEncrypt
 
-    GST-->>IRDK: bus_sync: STATE_CHANGED READY->PAUSED (video_sink)
-    IRDK->>SI: DiscoverVideoSinkProperties
-    IRDK->>GST: Set rectangle, zoom, show-video-window
+    GST--&gt;&gt;IRDK: bus_sync: STATE_CHANGED READY-&gt;PAUSED (video_sink)
+    IRDK-&gt;&gt;SI: DiscoverVideoSinkProperties
+    IRDK-&gt;&gt;GST: Set rectangle, zoom, show-video-window
 
     Note over APP,HW: ═══ DATA INJECTION ═══
 
     loop Fragment download loop
-        AAMP->>AAMP: Download fragment from CDN
-        AAMP->>AAMP: Demux into MediaSample (zero-copy)
-        AAMP->>GSP: Send(mediaType, sample)
-        GSP->>IRDK: SendHelper(type, sample, ...)
+        AAMP-&gt;&gt;AAMP: Download fragment from CDN
+        AAMP-&gt;&gt;AAMP: Demux into MediaSample (zero-copy)
+        AAMP-&gt;&gt;GSP: Send(mediaType, sample)
+        GSP-&gt;&gt;IRDK: SendHelper(type, sample, ...)
 
         alt First buffer
-            IRDK->>PRIV: SendGstEvents(pts, protectionEvent)
+            IRDK-&gt;&gt;PRIV: SendGstEvents(pts, protectionEvent)
         end
 
-        IRDK->>GST: gst_buffer_new_wrapped_full (zero-copy)
-        IRDK->>GST: Set PTS/DTS/Duration
+        IRDK-&gt;&gt;GST: gst_buffer_new_wrapped_full (zero-copy)
+        IRDK-&gt;&gt;GST: Set PTS/DTS/Duration
         alt Encrypted
-            IRDK->>GST: DecorateGstBufferWithDrmMetadata
+            IRDK-&gt;&gt;GST: DecorateGstBufferWithDrmMetadata
         end
-        IRDK->>GST: gst_app_src_push_buffer
+        IRDK-&gt;&gt;GST: gst_app_src_push_buffer
 
-        GST->>DRM: Buffer with GstProtectionMeta
-        DRM->>DRM: Decrypt in-place via OCDM
-        DRM->>DEC: Clear buffer
-        DEC->>SINK: Decoded frame
-        SINK->>HW: Display/Play
+        GST-&gt;&gt;DRM: Buffer with GstProtectionMeta
+        DRM-&gt;&gt;DRM: Decrypt in-place via OCDM
+        DRM-&gt;&gt;DEC: Clear buffer
+        DEC-&gt;&gt;SINK: Decoded frame
+        SINK-&gt;&gt;HW: Display/Play
     end
 
     Note over APP,HW: ═══ FIRST FRAME ═══
 
-    DEC-->>IRDK: "first-video-frame-callback"
-    IRDK->>GPP: firstVideoFrameReceived = true
-    IRDK->>IRDK: NotifyFirstFrame(VIDEO)
-    IRDK->>SCHED: ScheduleTask(IdleCallbackOnFirstFrame)
-    SCHED->>GSP: TriggerEvent(firstVideoFrameReceived)
-    GSP->>AAMP: First frame notification
-    AAMP->>APP: AAMP_EVENT_TUNED
+    DEC--&gt;&gt;IRDK: "first-video-frame-callback"
+    IRDK-&gt;&gt;GPP: firstVideoFrameReceived = true
+    IRDK-&gt;&gt;IRDK: NotifyFirstFrame(VIDEO)
+    IRDK-&gt;&gt;SCHED: ScheduleTask(IdleCallbackOnFirstFrame)
+    SCHED-&gt;&gt;GSP: TriggerEvent(firstVideoFrameReceived)
+    GSP-&gt;&gt;AAMP: First frame notification
+    AAMP-&gt;&gt;APP: AAMP_EVENT_TUNED
 
-    IRDK->>IRDK: IdleTaskAdd(IdleCallback)
-    IRDK->>IRDK: TimerAdd(ProgressCallbackOnTimeout)
+    IRDK-&gt;&gt;IRDK: IdleTaskAdd(IdleCallback)
+    IRDK-&gt;&gt;IRDK: TimerAdd(ProgressCallbackOnTimeout)
 
     Note over APP,HW: ═══ STEADY STATE ═══
 
     loop Every progressInterval ms
-        IRDK->>IRDK: MonitorAV (query positions, detect stall/freeze/avsync)
-        IRDK->>GSP: TriggerEvent(progressCb)
-        GSP->>AAMP: Progress update
+        IRDK-&gt;&gt;IRDK: MonitorAV (query positions, detect stall/freeze/avsync)
+        IRDK-&gt;&gt;GSP: TriggerEvent(progressCb)
+        GSP-&gt;&gt;AAMP: Progress update
     end
 
     Note over APP,HW: ═══ SEEK ═══
 
-    APP->>AAMP: Seek(position)
-    AAMP->>GSP: Flush(position, rate)
-    GSP->>IRDK: Flush(position, rate, shouldTearDown, isAppSeek)
-    IRDK->>SCHED: RemoveTask(eosCallback) if pending
-    IRDK->>IRDK: SetSeekPosition(position)
+    APP-&gt;&gt;AAMP: Seek(position)
+    AAMP-&gt;&gt;GSP: Flush(position, rate)
+    GSP-&gt;&gt;IRDK: Flush(position, rate, shouldTearDown, isAppSeek)
+    IRDK-&gt;&gt;SCHED: RemoveTask(eosCallback) if pending
+    IRDK-&gt;&gt;IRDK: SetSeekPosition(position)
     alt !Rialto
-        IRDK->>SI: DisableAsyncAudio
-        IRDK->>GST: GstPlayer_SignalEOS(AUDIO)
+        IRDK-&gt;&gt;SI: DisableAsyncAudio
+        IRDK-&gt;&gt;GST: GstPlayer_SignalEOS(AUDIO)
     end
-    IRDK->>IRDK: ResetGstEvents() [resetPosition=true]
-    IRDK->>GST: gst_element_seek(pipeline, FLUSH, position)
-    IRDK->>GPP: eosSignalled=false, numberOfVideoBuffersSent=0
+    IRDK-&gt;&gt;IRDK: ResetGstEvents() [resetPosition=true]
+    IRDK-&gt;&gt;GST: gst_element_seek(pipeline, FLUSH, position)
+    IRDK-&gt;&gt;GPP: eosSignalled=false, numberOfVideoBuffersSent=0
 
     Note over APP,HW: ═══ END OF STREAM ═══
 
-    GST-->>IRDK: bus_message(GST_MESSAGE_EOS)
-    IRDK->>IRDK: NotifyEOS()
-    IRDK->>SCHED: ScheduleTask(IdleCallbackOnEOS)
-    SCHED->>GSP: TriggerEvent(notifyEOS)
-    GSP->>AAMP: EOS notification
-    AAMP->>APP: AAMP_EVENT_EOS
+    GST--&gt;&gt;IRDK: bus_message(GST_MESSAGE_EOS)
+    IRDK-&gt;&gt;IRDK: NotifyEOS()
+    IRDK-&gt;&gt;SCHED: ScheduleTask(IdleCallbackOnEOS)
+    SCHED-&gt;&gt;GSP: TriggerEvent(notifyEOS)
+    GSP-&gt;&gt;AAMP: EOS notification
+    AAMP-&gt;&gt;APP: AAMP_EVENT_EOS
 
     Note over APP,HW: ═══ STOP ═══
 
-    APP->>AAMP: Stop()
-    AAMP->>GSP: Stop(keepLastFrame)
-    GSP->>IRDK: Stop(keepLastFrame)
-    IRDK->>GPP: syncControl.disable(), aSyncControl.disable()
-    IRDK->>IRDK: mSourceSetupCV.notify_all()
-    IRDK->>GST: gst_bus_remove_watch
-    IRDK->>IRDK: Remove all timers/idle tasks
-    IRDK->>GPP: waitForDone on all handler controls
-    IRDK->>IRDK: DisconnectSignals()
-    IRDK->>IRDK: RemoveProbes()
-    IRDK->>GST: SetStateWithWarnings(pipeline, NULL)
+    APP-&gt;&gt;AAMP: Stop()
+    AAMP-&gt;&gt;GSP: Stop(keepLastFrame)
+    GSP-&gt;&gt;IRDK: Stop(keepLastFrame)
+    IRDK-&gt;&gt;GPP: syncControl.disable(), aSyncControl.disable()
+    IRDK-&gt;&gt;IRDK: mSourceSetupCV.notify_all()
+    IRDK-&gt;&gt;GST: gst_bus_remove_watch
+    IRDK-&gt;&gt;IRDK: Remove all timers/idle tasks
+    IRDK-&gt;&gt;GPP: waitForDone on all handler controls
+    IRDK-&gt;&gt;IRDK: DisconnectSignals()
+    IRDK-&gt;&gt;IRDK: RemoveProbes()
+    IRDK-&gt;&gt;GST: SetStateWithWarnings(pipeline, NULL)
     loop Each track
-        IRDK->>IRDK: TearDownStream(i)
+        IRDK-&gt;&gt;IRDK: TearDownStream(i)
     end
-    IRDK->>IRDK: DestroyPipeline()
-    IRDK->>GPP: Reset all state
+    IRDK-&gt;&gt;IRDK: DestroyPipeline()
+    IRDK-&gt;&gt;GPP: Reset all state
 ```
 
 ---
@@ -987,3 +987,4 @@ sequenceDiagram
 | **PlayerSubtecCCManager** | closedcaptions/subtec/PlayerSubtecCCManager.cpp/h | Subtec-based CC with CCDataController |
 | **PlayerRialtoCCManager** | closedcaptions/rialto/PlayerRialtoCCManager.cpp/h | Rialto-based CC rendering |
 | **Externals** | externals/ | PlayerThunderInterface, RFCSettings, FireboltInterface, PlayerExternalsInterface, ContentSecurityManager (SecManagerThunder + ContentProtectionFirebolt) |
+</textarea><script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script><script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script><script>document.addEventListener('DOMContentLoaded',function(){mermaid.initialize({startOnLoad:false,theme:'default',securityLevel:'loose',flowchart:{useMaxWidth:true,htmlLabels:true}});var mdText=document.getElementById('md-source').value;var renderer=new marked.Renderer();renderer.code=function(codeObj){var code,lang;if(typeof codeObj==='object'){code=codeObj.text||'';lang=codeObj.lang||'';}else{code=codeObj;lang=arguments[1]||'';}if(lang==='mermaid')return'<div class="mermaid">'+code+'</div>';return'<pre><code>'+code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</code></pre>';};marked.setOptions({renderer:renderer,gfm:true});document.getElementById('content').innerHTML=marked.parse(mdText);mermaid.run({nodes:document.querySelectorAll('.mermaid')});});</script></body></html>
