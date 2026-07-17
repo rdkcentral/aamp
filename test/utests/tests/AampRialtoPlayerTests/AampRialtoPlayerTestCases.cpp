@@ -442,15 +442,6 @@ protected:
 		client->notifyBufferUnderflow(sourceId);
 	}
 
-	/// Post a Rialto source-flushed notification via the captured client.
-	void PostSourceFlushed(int32_t sourceId)
-	{
-		auto client = m_capturedClient.lock();
-		ASSERT_NE(client, nullptr)
-			<< "Configure() must be called before PostSourceFlushed";
-		client->notifySourceFlushed(sourceId);
-	}
-
 	/// Call Configure() with specific formats.
 	/// Recreate m_mockPipeline with fresh default behaviours.
 	/// Must be called before every player Configure() so the factory lambda
@@ -974,12 +965,12 @@ TEST_F(AampRialtoPlayerWithDemuxTest, Stream_CallsPlay)
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Stream_DeferredDuringFlush_OnSourceFlushedIssuesPlay)
+	Stream_DeferredDuringFlush_SeekDoneIssuesPlay)
 {
 	/**
 	 * @brief Regression: when Stream() is called while a flush is in
 	 *        progress, m_playRequested is set but play() is deferred.
-	 *        OnSourceFlushed() completing the flush cycle must issue
+	 *        The SEEK_DONE handler completing the flush cycle must issue
 	 *        play() because m_playRequested is true, even though the
 	 *        restored pre-flush state is SOURCES_ATTACHED (not PLAYING).
 	 */
@@ -990,23 +981,21 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
 
 	// Flush: state → FLUSHING, pre-flush state = SOURCES_ATTACHED.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
 		<< "Precondition: Flush() must move state to FLUSHING";
 
 	// Stream() while FLUSHING sets m_playRequested=true and returns early
 	// without calling play().  play() must be issued exactly once —
-	// by OnSourceFlushed() once all sources confirm the flush.
+	// by the SEEK_DONE handler once the flush cycle completes.
 	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
 	m_player->Stream();
 
-	// Simulate Rialto confirming the flush for all attached sources.
-	// PostSourceFlushed for the last source detects allSourcesFlushed,
-	// calls onFlushComplete() (restoring SOURCES_ATTACHED), then checks
-	// m_playRequested=true and issues play().
-	PostSourceFlushed(/*sourceId=*/0);  // video
-	PostSourceFlushed(/*sourceId=*/1);  // inband CC subtitle
-	PostSourceFlushed(/*sourceId=*/2);  // audio — triggers play() via m_playRequested
+	// Simulate Rialto confirming the pipeline-level flushing seek completed.
+	// OnPlaybackState(SEEK_DONE) calls onFlushComplete() (restoring
+	// SOURCES_ATTACHED), then checks m_playRequested=true and issues play().
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
@@ -1015,7 +1004,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	/**
 	 * @brief After Stream() successfully issues play(), m_playRequested is
 	 *        reset to false.  A subsequent seek-while-paused flush must not
-	 *        spuriously re-issue play() when OnSourceFlushed restores PAUSED.
+	 *        spuriously re-issue play() when SEEK_DONE restores PAUSED.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -1034,15 +1023,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
 
 	// Seek-while-paused: Flush() → FLUSHING, pre-flush state = PAUSED.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
 	// play() must NOT be called: m_playRequested was reset when Stream()
 	// issued play(), and the restored post-flush state is PAUSED.
 	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
-	PostSourceFlushed(/*sourceId=*/0);  // video
-	PostSourceFlushed(/*sourceId=*/1);  // inband CC subtitle
-	PostSourceFlushed(/*sourceId=*/2);  // audio — triggers onFlushComplete() → PAUSED
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);  // triggers onFlushComplete() → PAUSED
 
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED)
 		<< "Seek-while-paused flush must restore PAUSED, not resume play";
@@ -1248,19 +1236,24 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 // ===========================================================================
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Flush_CallsPipelineFlushForEachAttachedSource)
+	Flush_CallsPipelineSetPositionAtFlushPosition)
 {
+	/**
+	 * @brief Flush() now performs a pipeline-level flushing seek via
+	 *        setPosition() instead of the old per-source flush() IPC.
+	 *        position=5.0s -> 5,000,000,000ns.
+	 */
 	Configure();
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	// Source IDs: video=0, inband CC subtitle=1 (deferred, drained with
-	// video in SendVideoInitFragment), audio=2.
-	EXPECT_CALL(*m_mockPipelinePtr, flush(0, true, _)).Times(1);  // video
-	EXPECT_CALL(*m_mockPipelinePtr, flush(1, true, _)).Times(1);  // CC subtitle
-	EXPECT_CALL(*m_mockPipelinePtr, flush(2, true, _)).Times(1);  // audio
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(5'000'000'000LL))
+		.WillOnce(Return(true));
 
 	m_player->Flush(5.0, 1, false);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 }
 
 TEST_F(AampRialtoPlayerTest,
@@ -3014,14 +3007,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	/**
 	 * @brief Regression: Bug A from L2 TESTDATA0 rewind failure.
 	 *
-	 * The sequence Flush(shouldTearDown=false) → OnSourceFlushed (all) →
+	 * The sequence Flush(shouldTearDown=false) → SEEK_DONE →
 	 * Configure(audio=INVALID) → Rialto PLAYING previously left the state
 	 * machine stuck in FLUSHING when the Configure() did not rebuild the
 	 * pipeline.
 	 *
-	 * Fix: onFlushComplete() is now called from OnSourceFlushed() once all
-	 * sources confirm flushed.  It restores the pre-flush state
-	 * (SOURCES_ATTACHED in this case) so the pipeline reuse path in
+	 * Fix: onFlushComplete() is now called from the SEEK_DONE handler once
+	 * the pipeline-level flushing seek completes.  It restores the pre-flush
+	 * state (SOURCES_ATTACHED in this case) so the pipeline reuse path in
 	 * Configure() finds a non-FLUSHING state and, crucially, the subsequent
 	 * Rialto PLAYING notification transitions SOURCES_ATTACHED → PLAYING via
 	 * the normal SourcesAttachedState::onPlaybackStarted() path.
@@ -3042,23 +3035,21 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	// Move state machine to FLUSHING via a flush without teardown.
 	// shouldTearDown=false allows flush to proceed even when not in PLAYING/PAUSED.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(/*position=*/0.0, /*rate=*/-2, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
 		<< "Precondition: Flush(shouldTearDown=false) must move state to FLUSHING";
 
-	// Simulate Rialto confirming the flush for all attached sources.
-	// The last OnSourceFlushed call triggers onFlushComplete(), which
-	// restores the pre-flush state (SOURCES_ATTACHED) and notifies
-	// WaitForFlushToComplete() so Configure() can proceed.
-	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, _, /*resetTime=*/true, _, _))
-		.Times(3)
-		.WillRepeatedly(Return(true));
-	PostSourceFlushed(/*sourceId=*/0);  // video
-	PostSourceFlushed(/*sourceId=*/1);  // inband CC subtitle
-	PostSourceFlushed(/*sourceId=*/2);  // audio — triggers onFlushComplete()
+	// Simulate Rialto confirming the pipeline-level flushing seek completed.
+	// This fixture does not stub isVideoMaster(), so computeAppliedRate()
+	// falls back to 1.0 (normal) and the SEEK_DONE handler does not issue the
+	// extra video-source setSourcePosition() call.  onFlushComplete() still
+	// restores the pre-flush state and notifies WaitForFlushToComplete() so
+	// Configure() can proceed.
+	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
-	// After all sources have flushed, onFlushComplete() restores the
+	// After the flushing seek completes, onFlushComplete() restores the
 	// pre-flush state.  The pre-flush state was SOURCES_ATTACHED.
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED)
 		<< "onFlushComplete() must restore pre-flush state SOURCES_ATTACHED";
@@ -3216,10 +3207,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING)
 		<< "Precondition: player must be in PLAYING state";
 
-	// Player is in PLAYING state; expect normal flush() calls, NOT stop().
+	// Player is in PLAYING state; expect the pipeline-level flushing seek,
+	// NOT stop() and NOT the old per-source flush() IPC.
 	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
-	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _))
-		.Times(::testing::AtLeast(1));
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 
 	m_player->Flush(/*position=*/20.0, /*rate=*/1, /*shouldTearDown=*/true);
 
@@ -3271,10 +3263,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 
-	// Player is in PLAYING state; expect normal flush() calls, NOT stop().
+	// Player is in PLAYING state; expect the pipeline-level flushing seek,
+	// NOT stop() and NOT the old per-source flush() IPC.
 	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
-	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _))
-		.Times(::testing::AtLeast(1));
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 
 	m_player->Flush(/*position=*/15.0, /*rate=*/1, /*shouldTearDown=*/false);
 
@@ -3288,13 +3281,13 @@ static void SetupCapabilities(
 	bool videoMaster);
 
 TEST_F(AampRialtoPlayerTest,
-	Flush_SequentialFlushes_SecondFlushIssuesNewPipelineFlushWithNewPositionAndRate)
+	Flush_SequentialFlushes_SecondFlushIssuesNewPipelineSetPositionWithNewPositionAndRate)
 {
 	/**
 	 * @brief Flush() calls WaitForFlushToComplete() at entry, so a second
-	 *        Flush() issued after all sources confirm flushed from the first
-	 *        cycle issues a fresh pipeline flush IPC with its own position
-	 *        and rate.
+	 *        Flush() issued after SEEK_DONE completes the first cycle issues
+	 *        a fresh pipeline-level setPosition() with its own position and
+	 *        rate.
 	 *
 	 * This replaces the old re-entrant-flush test.  With the blocking design
 	 * there is no re-entrant path: the second Flush() simply waits for the
@@ -3303,33 +3296,27 @@ TEST_F(AampRialtoPlayerTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 
-	// First flush: two sources (video=0, subtitle=1).
-	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(2);
+	// First flush: pipeline-level seek to the requested position.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(10'000'000'000LL))
+		.WillOnce(Return(true));
 	m_player->Flush(/*position=*/10.0, /*rate=*/2, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Complete first flush cycle: both sources report flushed.
-	ON_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _))
-		.WillByDefault(Return(true));
-	PostSourceFlushed(/*sourceId=*/0);
-	PostSourceFlushed(/*sourceId=*/1);  // onFlushComplete() restores pre-flush state
-
+	// Complete first flush cycle via SEEK_DONE.  Capabilities are not
+	// stubbed here, so computeAppliedRate() falls back to 1.0 (normal) and
+	// no extra setSourcePosition() call is issued.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
 		<< "First flush cycle must be complete before second Flush() call";
 
-	// Second flush: fresh IPC to all attached sources with new position.
-	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(2);
+	// Second flush: fresh pipeline-level seek with the new position/rate.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(33'000'000'000LL))
+		.WillOnce(Return(true));
 	m_player->Flush(/*position=*/33.0, /*rate=*/-4, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Complete second flush cycle; setSourcePosition must use the new position.
-	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, testing::Ge(33'000'000'000LL),
-			/*resetTime=*/true, _, _))
-		.Times(2)
-		.WillRepeatedly(Return(true));
-	PostSourceFlushed(/*sourceId=*/0);
-	PostSourceFlushed(/*sourceId=*/1);
+	// Complete second flush cycle.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
 	// GetPositionMilliseconds() must use rate from the second flush (-4).
 	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
@@ -3340,11 +3327,12 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Flush_MultiSource_CommitsRateAfterAllSourcesFlushed)
+	Flush_CommitsRateOnlyAfterSeekDone)
 {
 	/**
-	 * @brief Flush() stages pending rate immediately, but active playback rate
-	 *        must change only after every attached source reports flushed.
+	 * @brief Flush() stages the pending rate immediately, but the active
+	 *        playback rate must change only once SEEK_DONE confirms the
+	 *        pipeline-level flushing seek completed - not while FLUSHING.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -3358,27 +3346,20 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
 		/*videoMaster=*/false);
 
-	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
-
 	ON_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
 	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
 		.WillByDefault(Return(0LL));
 
-	// Configure() attaches three sources: video (id=0), inband CC subtitle
-	// (id=1), and audio (id=2).  Active rate must not commit until every
-	// source has reported flushed.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Video flushed -> rate still uncommitted (subtitle + audio pending).
-	PostSourceFlushed(/*sourceId=*/0);
+	// Still FLUSHING: the pending rate (-4) must not yet be active.
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
 
-	// Inband CC subtitle flushed -> rate still uncommitted (audio pending).
-	PostSourceFlushed(/*sourceId=*/1);
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
-
-	// Audio flushed (last source) -> pending rate commits to active rate.
-	PostSourceFlushed(/*sourceId=*/2);
+	// SEEK_DONE commits the pending rate as a single event.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
 }
 
@@ -3512,53 +3493,62 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnSourceFlushed_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition)
+	SeekDone_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition)
 {
 	/**
-	 * @brief OnSourceFlushed must forward appliedRate == stored rate when the
-	 * platform reports isVideoMaster==false.
+	 * @brief SEEK_DONE must forward appliedRate == stored rate to the video
+	 * source's setSourcePosition() when the platform reports
+	 * isVideoMaster==false.
 	 */
 	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
 		/*videoMaster=*/false);
 
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 
-	// Attach source first so Flush() can mark it flushing.
+	// Attach source first so the video source exists for setSourcePosition().
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
+	// appliedRate=2.0 != normal, so the SEEK_DONE handler issues the extra
+	// video-source setSourcePosition() call (resetTime=false - the
+	// pipeline-level setPosition() already flushed the source buffers).
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/true, 2.0, _))
+			/*resetTime=*/false, 2.0, _))
 		.WillOnce(Return(true));
 
-	PostSourceFlushed(/*sourceId=*/0);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnSourceFlushed_FlushAtRate2_VideoMaster_UsesRate1InSetSourcePosition)
+	SeekDone_FlushAtRate2_VideoMaster_SkipsSetSourcePosition)
 {
 	/**
-	 * @brief OnSourceFlushed must forward appliedRate == 1.0 when the platform
-	 * reports isVideoMaster==true.
+	 * @brief When the platform reports isVideoMaster==true, computeAppliedRate()
+	 * collapses to AAMP_NORMAL_PLAY_RATE (1.0), so the SEEK_DONE handler must
+	 * NOT issue the extra setSourcePosition() call - the pipeline-level
+	 * setPosition() already established the correct (normal-rate) segment.
 	 */
 	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
 		/*videoMaster=*/true);
 
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 
-	// Attach source first so Flush() can mark it flushing.
+	// Attach source first so the video source exists for setSourcePosition().
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/true, 1.0, _))
-		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
 
-	PostSourceFlushed(/*sourceId=*/0);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
 }
 
 // ===========================================================================
@@ -3847,10 +3837,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 
 	// Flush at trickplay rate — moves to FLUSHING and sets m_pendingFlushRate.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(10.0, 4, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// At this point m_rate has NOT been committed yet (sources are flushing).
+	// At this point m_rate has NOT been committed yet (awaiting SEEK_DONE).
 	// Launch Configure() on a background thread; it should block in
 	// WaitForFlushToComplete().
 	std::atomic<bool> configureFinished{false};
@@ -3874,13 +3865,10 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		std::this_thread::yield();
 	}
 	EXPECT_FALSE(configureFinished.load(std::memory_order_acquire))
-		<< "Configure() must block while sources are still flushing";
+		<< "Configure() must block while the flush is still in progress";
 
-	// Complete the flush cycle by posting SourceFlushed for all sources.
-	// Video source has sourceId=0, CC subtitle=1, audio=2.
-	PostSourceFlushed(0);
-	PostSourceFlushed(1);
-	PostSourceFlushed(2);
+	// Complete the flush cycle by posting SEEK_DONE.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
 	// Configure() should now unblock.
 	configureThread.join();

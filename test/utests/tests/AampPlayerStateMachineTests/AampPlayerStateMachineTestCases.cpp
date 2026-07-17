@@ -269,6 +269,18 @@ TEST_F(AampPlayerStateMachineTest, OnStop_FromSourcesAttaching_TransitionsToIdle
 }
 
 /**
+ * @test onStop from SOURCES_ATTACHED → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnStop_FromSourcesAttached_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onStop();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
  * @test onStop from PLAYING → IDLE.
  */
 TEST_F(AampPlayerStateMachineTest, OnStop_FromPlaying_TransitionsToIdle)
@@ -419,6 +431,39 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromIdle_StaysIdle)
 }
 
 /**
+ * @test onReconfigure from PIPELINE_CREATED → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromPipelineCreated_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test onReconfigure from SOURCES_ATTACHING → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromSourcesAttaching_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test onReconfigure from SOURCES_ATTACHED → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromSourcesAttached_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
  * @test onReconfigure from PLAYING → IDLE.
  */
 TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromPlaying_TransitionsToIdle)
@@ -427,6 +472,20 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromPlaying_TransitionsToIdle)
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onPlaybackStarted();
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test onReconfigure from PAUSED → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromPaused_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onPlaybackPaused();
 	m_sm.onReconfigure();
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }
