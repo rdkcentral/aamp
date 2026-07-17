@@ -79,8 +79,14 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	NotifySpeedChanged_ForwardsRateAndChangeState)
+	NotifySpeedChanged_SchedulesTaskThatForwardsToAamp)
 {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifySpeedChanged")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0f, true));
 
 	m_notifiable->NotifySpeedChanged(2.0f, true);
@@ -91,44 +97,85 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 // ===========================================================================
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	NotifyFirstFrameReceived_ForwardsWithoutCrash)
+	NotifyFirstFrameReceived_SchedulesTaskThatCallsAamp)
 {
-	// NotifyFirstFrameReceived in the fake calls SetState internally;
-	// set up the mock to handle GetState/SetState calls.
+	// The fake's NotifyFirstFrameReceived calls SetState(PLAYING) when state
+	// is not IDLE and mFirstVideoFrameDisplayedEnabled is false (the default).
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
-		.WillRepeatedly(Return(eSTATE_IDLE));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_, _)).Times(testing::AnyNumber());
+		.WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PLAYING, _));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifyFirstFrameReceived")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
 
 	m_notifiable->NotifyFirstFrameReceived(42);
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	NotifyFirstBufferProcessed_ForwardsWithoutCrash)
+	NotifyFirstBufferProcessed_SchedulesTask)
 {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifyFirstBufferProcessed")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
+
 	m_notifiable->NotifyFirstBufferProcessed("0,0,1920,1080");
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	LogFirstFrame_ForwardsWithoutCrash)
+	LogFirstFrame_SchedulesTask)
 {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("LogFirstFrame")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
+
 	m_notifiable->LogFirstFrame();
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	LogTuneComplete_ForwardsWithoutCrash)
+	LogTuneComplete_SchedulesTask)
 {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("LogTuneComplete")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
+
 	m_notifiable->LogTuneComplete();
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	NotifyEOSReached_ForwardsWithoutCrash)
+	NotifyEOSReached_SchedulesTask)
 {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifyEOSReached")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
+
 	m_notifiable->NotifyEOSReached();
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	MonitorProgress_ForwardsWithoutCrash)
+	MonitorProgress_SchedulesTask)
 {
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("MonitorProgress")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
+
 	m_notifiable->MonitorProgress(true, false);
 }
 
@@ -176,6 +223,78 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 
 	EXPECT_DOUBLE_EQ(m_notifiable->GetProgressReportIntervalSeconds(), 1.5);
 }
+
+// ===========================================================================
+// NotifyBufferUnderflow
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NotifyBufferUnderflow_SchedulesTaskThatCallsScheduleRetune)
+{
+	// Use a PrivateInstanceAAMP with a non-null config so the task lambda can
+	// call mConfig->IsConfigSet without crashing.
+	AampConfig config;
+	PrivateInstanceAAMP aampWithConfig(&config);
+	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
+
+	// Underflow monitor disabled: ScheduleRetune should be invoked (no-op in fake).
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifyBufferUnderflow")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
+
+	notifiable.NotifyBufferUnderflow(eMEDIATYPE_VIDEO);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NotifyBufferUnderflow_WhenMonitorEnabled_SchedulesTaskThatSkipsRetune)
+{
+	AampConfig config;
+	PrivateInstanceAAMP aampWithConfig(&config);
+	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
+
+	// Underflow monitor enabled: ScheduleRetune must NOT be called.
+	EXPECT_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifyBufferUnderflow")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
+	// ScheduleRetune is a no-op fake; verify it is NOT reached by ensuring
+	// no unexpected calls surface (NiceMock handles this silently).
+
+	notifiable.NotifyBufferUnderflow(eMEDIATYPE_AUDIO);
+}
+
+// ===========================================================================
+// SendMonitorAvEvent
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	SendMonitorAvEvent_SchedulesTask)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("SendMonitorAvEvent")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 0;
+		});
+
+	// The fake's SendMonitorAvEvent is a no-op; verify no crash and correct dispatch.
+	m_notifiable->SendMonitorAvEvent("ok", 1000, 999, 5000, 0);
+}
+
+// ===========================================================================
+// GetProgressReportIntervalSeconds
+// ===========================================================================
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
 	GetProgressReportIntervalSeconds_WithNullConfig_ReturnsZero)

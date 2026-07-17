@@ -27,6 +27,67 @@
 #include "AampLogManager.h"
 #include <cinttypes>
 
+// ---------------------------------------------------------------------------
+// Parameter structs for async task dispatch.
+//
+// Each void IStreamSinkNotifiable method schedules its work on the AAMP
+// scheduler thread via ScheduleAsyncTask rather than calling PrivateInstanceAAMP
+// directly.  This breaks the potential AB/BA deadlock where the Rialto
+// callback thread holds a Rialto lock and tries to acquire an AAMP lock
+// (mLock / mStreamLock) while the AAMP thread holds the same AAMP lock and
+// waits for a Rialto call to return.
+//
+// Methods with extra parameters beyond the AAMP pointer use a heap-allocated
+// struct carried through the void * arg.  Methods with no extra parameters
+// pass m_aamp directly as the arg.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+struct NotifyFirstFrameReceivedArgs
+{
+	PrivateInstanceAAMP *aamp;
+	unsigned long ccDecoderHandle;
+};
+
+struct NotifyFirstBufferProcessedArgs
+{
+	PrivateInstanceAAMP *aamp;
+	std::string videoRectangle;
+};
+
+struct MonitorProgressArgs
+{
+	PrivateInstanceAAMP *aamp;
+	bool sync;
+	bool beginningOfStream;
+};
+
+struct NotifySpeedChangedArgs
+{
+	PrivateInstanceAAMP *aamp;
+	float rate;
+	bool changeState;
+};
+
+struct NotifyBufferUnderflowArgs
+{
+	PrivateInstanceAAMP *aamp;
+	AampMediaType type;
+};
+
+struct SendMonitorAvEventArgs
+{
+	PrivateInstanceAAMP *aamp;
+	std::string status;
+	int64_t videoPositionMs;
+	int64_t audioPositionMs;
+	uint64_t timeInStateMs;
+	uint64_t droppedFrames;
+};
+
+} // namespace
+
 PrivateInstanceAAMPNotifiable::PrivateInstanceAAMPNotifiable(
 	PrivateInstanceAAMP *aamp) noexcept
 	: m_aamp{aamp}
@@ -44,45 +105,75 @@ void PrivateInstanceAAMPNotifiable::NotifyFirstFrameReceived(
 	unsigned long ccDecoderHandle)
 {
 	AAMPLOG_TRACE("ccDecoderHandle=%lu", ccDecoderHandle);
-	m_aamp->NotifyFirstFrameReceived(ccDecoderHandle);
+	auto *args = new NotifyFirstFrameReceivedArgs{m_aamp, ccDecoderHandle};
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *a = static_cast<NotifyFirstFrameReceivedArgs *>(p);
+		a->aamp->NotifyFirstFrameReceived(a->ccDecoderHandle);
+		delete a;
+		return 0;
+	}, args, "NotifyFirstFrameReceived");
 }
 
 void PrivateInstanceAAMPNotifiable::NotifyFirstBufferProcessed(
 	const std::string &videoRectangle)
 {
 	AAMPLOG_TRACE("videoRectangle=%s", videoRectangle.c_str());
-	m_aamp->NotifyFirstBufferProcessed(videoRectangle);
+	auto *args = new NotifyFirstBufferProcessedArgs{m_aamp, videoRectangle};
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *a = static_cast<NotifyFirstBufferProcessedArgs *>(p);
+		a->aamp->NotifyFirstBufferProcessed(a->videoRectangle);
+		delete a;
+		return 0;
+	}, args, "NotifyFirstBufferProcessed");
 }
 
 void PrivateInstanceAAMPNotifiable::NotifyFirstVideoFrameDisplayed()
 {
 	AAMPLOG_TRACE("NotifyFirstVideoFrameDisplayed");
-	m_aamp->NotifyFirstVideoFrameDisplayed();
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		static_cast<PrivateInstanceAAMP *>(p)->NotifyFirstVideoFrameDisplayed();
+		return 0;
+	}, m_aamp, "NotifyFirstVideoFrameDisplayed");
 }
 
 void PrivateInstanceAAMPNotifiable::LogFirstFrame()
 {
 	AAMPLOG_TRACE("LogFirstFrame");
-	m_aamp->LogFirstFrame();
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		static_cast<PrivateInstanceAAMP *>(p)->LogFirstFrame();
+		return 0;
+	}, m_aamp, "LogFirstFrame");
 }
 
 void PrivateInstanceAAMPNotifiable::LogTuneComplete()
 {
 	AAMPLOG_TRACE("LogTuneComplete");
-	m_aamp->LogTuneComplete();
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		static_cast<PrivateInstanceAAMP *>(p)->LogTuneComplete();
+		return 0;
+	}, m_aamp, "LogTuneComplete");
 }
 
 void PrivateInstanceAAMPNotifiable::NotifyEOSReached()
 {
 	AAMPLOG_TRACE("NotifyEOSReached");
-	m_aamp->NotifyEOSReached();
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		static_cast<PrivateInstanceAAMP *>(p)->NotifyEOSReached();
+		return 0;
+	}, m_aamp, "NotifyEOSReached");
 }
 
 void PrivateInstanceAAMPNotifiable::MonitorProgress(
 	bool sync, bool beginningOfStream)
 {
 	AAMPLOG_TRACE("sync=%d beginningOfStream=%d", sync, beginningOfStream);
-	m_aamp->MonitorProgress(sync, beginningOfStream);
+	auto *args = new MonitorProgressArgs{m_aamp, sync, beginningOfStream};
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *a = static_cast<MonitorProgressArgs *>(p);
+		a->aamp->MonitorProgress(a->sync, a->beginningOfStream);
+		delete a;
+		return 0;
+	}, args, "MonitorProgress");
 }
 
 double PrivateInstanceAAMPNotifiable::GetProgressReportIntervalSeconds()
@@ -105,7 +196,13 @@ void PrivateInstanceAAMPNotifiable::NotifySpeedChanged(
 	float rate, bool changeState)
 {
 	AAMPLOG_TRACE("rate=%f changeState=%d", rate, changeState);
-	m_aamp->NotifySpeedChanged(rate, changeState);
+	auto *args = new NotifySpeedChangedArgs{m_aamp, rate, changeState};
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *a = static_cast<NotifySpeedChangedArgs *>(p);
+		a->aamp->NotifySpeedChanged(a->rate, a->changeState);
+		delete a;
+		return 0;
+	}, args, "NotifySpeedChanged");
 }
 
 AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
@@ -118,17 +215,23 @@ AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
 void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
 {
 	AAMPLOG_TRACE("type=%d", static_cast<int>(type));
-	if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
-	{
-		AAMPLOG_INFO(
-			"Underflow will be handled by AampUnderflowMonitor, "
-			"skipping retune for mediaType=%d",
-			static_cast<int>(type));
-	}
-	else
-	{
-		m_aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type);
-	}
+	auto *args = new NotifyBufferUnderflowArgs{m_aamp, type};
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *a = static_cast<NotifyBufferUnderflowArgs *>(p);
+		if (a->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		{
+			AAMPLOG_INFO(
+				"Underflow will be handled by AampUnderflowMonitor, "
+				"skipping retune for mediaType=%d",
+				static_cast<int>(a->type));
+		}
+		else
+		{
+			a->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, a->type);
+		}
+		delete a;
+		return 0;
+	}, args, "NotifyBufferUnderflow");
 }
 
 void PrivateInstanceAAMPNotifiable::SendMonitorAvEvent(
@@ -142,6 +245,15 @@ void PrivateInstanceAAMPNotifiable::SendMonitorAvEvent(
 		" timeInStateMs=%" PRIu64 " dropped=%" PRIu64,
 		status.c_str(), videoPositionMs, audioPositionMs,
 		timeInStateMs, droppedFrames);
-	m_aamp->SendMonitorAvEvent(
-		status, videoPositionMs, audioPositionMs, timeInStateMs, droppedFrames);
+	auto *args = new SendMonitorAvEventArgs{
+		m_aamp, status, videoPositionMs, audioPositionMs,
+		timeInStateMs, droppedFrames};
+	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *a = static_cast<SendMonitorAvEventArgs *>(p);
+		a->aamp->SendMonitorAvEvent(
+			a->status, a->videoPositionMs, a->audioPositionMs,
+			a->timeInStateMs, a->droppedFrames);
+		delete a;
+		return 0;
+	}, args, "SendMonitorAvEvent");
 }
