@@ -2,7 +2,10 @@ name: L1 tests
 
 on:
   pull_request:
-    branches: [ develop, dev_sprint_25_2 ]
+    branches:
+      - develop
+      - dev_sprint_25_2
+      - 'support/**'
 
 jobs:
   execute-unit-tests-on-pr:
