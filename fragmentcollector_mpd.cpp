@@ -4535,9 +4535,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
 		// all segments including the init segments for the GST buffer that goes with the init
-		mPTSOffset = 0.0;
+		// For pre-tune seeks, initialize mPTSOffset to negative seek position to shift media PTS to start from 0
+		mPTSOffset = -seekPosition;
 		mNextPts = 0.0;
 		UpdatePtsOffset(true);
+		AAMPLOG_INFO("Initialized mPTSOffset to %f for seekPosition %f", mPTSOffset.inSeconds(), seekPosition);
 		FetchAndInjectInitFragments();
 	}
 
