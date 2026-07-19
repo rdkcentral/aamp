@@ -4535,11 +4535,50 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
 		// all segments including the init segments for the GST buffer that goes with the init
-		// For pre-tune seeks, initialize mPTSOffset to negative seek position to shift media PTS to start from 0
-		mPTSOffset = -seekPosition;
-		mNextPts = 0.0;
+		// For seeks: set mNextPts to seekPosition so segments get PTS matching pipeline flush position
+		// UpdatePtsOffset will calculate: mPTSOffset = mNextPts - timelineStart
+		// This maps raw media PTS to the seek position for immediate playback
+		mPTSOffset = 0.0;
+		mNextPts = seekPosition;
 		UpdatePtsOffset(true);
-		AAMPLOG_INFO("Initialized mPTSOffset to %f for seekPosition %f", mPTSOffset.inSeconds(), seekPosition);
+		// Adjust offset to account for raw media PTS
+		// mFirstPTS was set by SkipFragments and represents the raw PTS of the first segment
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && mFirstPTS > 0)
+		{
+			double adjustedOffset;
+			// Pre-tune seek: pipeline in READY, no flush seek possible, segments must start at PTS 0
+			// Post-tune seek: pipeline in PAUSED/PLAYING, flush seek to seekPosition, segments match flush position
+			if (aamp->IsTuneTypeNew && seekPosition > 0)
+			{
+				adjustedOffset = 0 - mFirstPTS;  // Shift media to start at 0
+				mNextPts = 0.0;  // Reset mNextPts to 0 for pre-tune seeks
+				AAMPLOG_INFO("Pre-tune seek: Adjusting mPTSOffset from %f to %f, mNextPts to %f (seekPosition=%f, mFirstPTS=%f)", 
+					mPTSOffset.inSeconds(), adjustedOffset, mNextPts.inSeconds(), seekPosition, mFirstPTS);
+			}
+			else if (!aamp->IsTuneTypeNew && seekPosition > 0)
+			{
+				adjustedOffset = seekPosition - mFirstPTS;  // Match pipeline flush position
+				// Set mNextPts to the period end time on the manifest timeline
+				// This ensures UpdatePtsOffset calculates correctly for the next period transition
+				AampTime timelineStart, duration;
+				GetStartAndDurationForPtsRestamping(timelineStart, duration);
+				mNextPts = mPeriodStartTime + duration.inSeconds();
+				AAMPLOG_INFO("Post-tune seek: Adjusting mPTSOffset from %f to %f, mNextPts to %f (seekPosition=%f, mFirstPTS=%f, periodEnd=%f)", 
+					mPTSOffset.inSeconds(), adjustedOffset, mNextPts.inSeconds(), seekPosition, mFirstPTS, mNextPts.inSeconds());
+			}
+			else
+			{
+				adjustedOffset = mPTSOffset.inSeconds();  // No adjustment for play from 0
+				AAMPLOG_INFO("Play from 0: mPTSOffset=%f mNextPts=%f seekPosition=%f mFirstPTS=%f", 
+					mPTSOffset.inSeconds(), mNextPts.inSeconds(), seekPosition, mFirstPTS);
+			}
+			mPTSOffset = adjustedOffset;
+		}
+		else
+		{
+			AAMPLOG_INFO("After UpdatePtsOffset: mPTSOffset=%f mNextPts=%f seekPosition=%f mFirstPTS=%f", 
+				mPTSOffset.inSeconds(), mNextPts.inSeconds(), seekPosition, mFirstPTS);
+		}
 		FetchAndInjectInitFragments();
 	}
 
@@ -9680,10 +9719,19 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 			mNextPts += timelineStart - newStart;
 			AAMPLOG_INFO("newStart %f timelineStart %f", newStart.inSeconds(), timelineStart.inSeconds());
 		}
-		mPTSOffset += mNextPts - timelineStart;
+		// For PTS restamping, the offset should map raw media PTS (starting at timelineStart, usually 0)
+		// to the period's start time on the manifest timeline
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		{
+			mPTSOffset = mPeriodStartTime + timelineStart.inSeconds();
+		}
+		else
+		{
+			mPTSOffset += mNextPts - timelineStart;
+		}
 
-		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f",
-					mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds());
+		AAMPLOG_INFO("Idx %d Id %s mPTSOffsetSec %f mNextPts %f timelineStartSec %f mPeriodStartTime %f",
+					mCurrentPeriodIdx, period->GetId().c_str(), mPTSOffset.inSeconds(), mNextPts.inSeconds(), timelineStart.inSeconds(), mPeriodStartTime);
 	}
 
 	mNextPts = duration + timelineStart;

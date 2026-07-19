@@ -5624,12 +5624,11 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		const bool forceStop = false;
 		if (!forceStop && !newTune)
 		{
-			if ((eMEDIAFORMAT_PROGRESSIVE == mMediaFormat) && (true == mSeekOperationInProgress))
+			if (((eMEDIAFORMAT_PROGRESSIVE == mMediaFormat) || ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp)) && (true == mSeekOperationInProgress))
 			{
-				AAMPLOG_TRACE("Skip mid-seek flushing of progressive pipeline to position 0");
-				// If format is progressive and we're doing a teardown to facilitate a seek operation, avoid a flushing seek to position 0.
-				// With progressive content, playbin will immediately start playback from position 0 and that may not be the desired position.
-				// TuneHelper() will perform a flushing seek to the correct position afterwards.
+				AAMPLOG_TRACE("Skip mid-seek flushing of pipeline to position 0 (progressive or PTS restamp)");
+				// If format is progressive or PTS restamping is enabled, and we're doing a teardown to facilitate a seek operation,
+				// avoid a flushing seek to position 0. TuneHelper() will perform a flushing seek to the correct position afterwards.
 			}
 			else
 			{
@@ -5947,6 +5946,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mEncryptedPeriodFound = false;
 		mPipelineIsClear = false;
 		AAMPLOG_INFO ("Resetting mClearPipeline & mEncryptedPeriodFound");
+	}
+
+	// For post-tune seeks with PTS restamping enabled, treat as new tune to avoid flushing seek issues
+	// This mimics the pre-tune seek flow which works correctly for multi-period content
+	bool treatSeekAsNewTune = false;
+	if (!newTune && tuneType == eTUNETYPE_SEEK && ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
+	{
+		treatSeekAsNewTune = true;
+		newTune = true;
+		mTuneType = eTUNETYPE_NEW_SEEK;  // Update mTuneType so IsNewTune() returns true
+		AAMPLOG_INFO("Post-tune seek with PTS restamping: treating as new tune (mTuneType=%d)", mTuneType);
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
@@ -6386,7 +6396,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
-				double flushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
+				// Use timeline position for progressive or when PTS restamping is enabled
+				// GetFirstPTS() returns restamped PTS which can be negative for multi-period seeks
+				double flushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE || ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp)) 
+					? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
 				// shouldTearDown is set to false, because in case of a new tune pipeline
 				// might not be in a playing/paused state which causes Flush() to destroy
 				// pipeline. This has to be avoided.
