@@ -4535,49 +4535,65 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
 		// all segments including the init segments for the GST buffer that goes with the init
-		// For seeks: set mNextPts to seekPosition so segments get PTS matching pipeline flush position
-		// UpdatePtsOffset will calculate: mPTSOffset = mNextPts - timelineStart
-		// This maps raw media PTS to the seek position for immediate playback
-		mPTSOffset = 0.0;
-		mNextPts = seekPosition;
-		UpdatePtsOffset(true);
-		// Adjust offset to account for raw media PTS
-		// mFirstPTS was set by SkipFragments and represents the raw PTS of the first segment
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && mFirstPTS > 0)
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			double adjustedOffset;
-			// Pre-tune seek: pipeline in READY, no flush seek possible, segments must start at PTS 0
-			// Post-tune seek: pipeline in PAUSED/PLAYING, flush seek to seekPosition, segments match flush position
-			if (aamp->IsTuneTypeNew && seekPosition > 0)
-			{
-				adjustedOffset = 0 - mFirstPTS;  // Shift media to start at 0
-				mNextPts = 0.0;  // Reset mNextPts to 0 for pre-tune seeks
-				AAMPLOG_INFO("Pre-tune seek: Adjusting mPTSOffset from %f to %f, mNextPts to %f (seekPosition=%f, mFirstPTS=%f)", 
-					mPTSOffset.inSeconds(), adjustedOffset, mNextPts.inSeconds(), seekPosition, mFirstPTS);
-			}
-			else if (!aamp->IsTuneTypeNew && seekPosition > 0)
-			{
-				adjustedOffset = seekPosition - mFirstPTS;  // Match pipeline flush position
-				// Set mNextPts to the period end time on the manifest timeline
-				// This ensures UpdatePtsOffset calculates correctly for the next period transition
-				AampTime timelineStart, duration;
-				GetStartAndDurationForPtsRestamping(timelineStart, duration);
-				mNextPts = mPeriodStartTime + duration.inSeconds();
-				AAMPLOG_INFO("Post-tune seek: Adjusting mPTSOffset from %f to %f, mNextPts to %f (seekPosition=%f, mFirstPTS=%f, periodEnd=%f)", 
-					mPTSOffset.inSeconds(), adjustedOffset, mNextPts.inSeconds(), seekPosition, mFirstPTS, mNextPts.inSeconds());
-			}
-			else
-			{
-				adjustedOffset = mPTSOffset.inSeconds();  // No adjustment for play from 0
-				AAMPLOG_INFO("Play from 0: mPTSOffset=%f mNextPts=%f seekPosition=%f mFirstPTS=%f", 
-					mPTSOffset.inSeconds(), mNextPts.inSeconds(), seekPosition, mFirstPTS);
-			}
-			mPTSOffset = adjustedOffset;
+			// For PTS restamping: set mNextPts to seekPosition so segments get PTS matching pipeline flush position
+			// UpdatePtsOffset will calculate: mPTSOffset = mNextPts - timelineStart
+			// This maps raw media PTS to the seek position for immediate playback
+			mPTSOffset = 0.0;
+			mNextPts = seekPosition;
 		}
 		else
 		{
-			AAMPLOG_INFO("After UpdatePtsOffset: mPTSOffset=%f mNextPts=%f seekPosition=%f mFirstPTS=%f", 
-				mPTSOffset.inSeconds(), mNextPts.inSeconds(), seekPosition, mFirstPTS);
+			// Original behavior for non-PTS restamping case
+			mPTSOffset = -seekPosition;
+			mNextPts = 0.0;
+		}
+		UpdatePtsOffset(true);
+		// Adjust offset to account for raw media PTS (only for PTS restamping)
+		// mFirstPTS was set by SkipFragments and represents the raw PTS of the first segment
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		{
+			if (mFirstPTS > 0)
+			{
+				double adjustedOffset;
+				// Pre-tune seek: pipeline in READY, no flush seek possible, segments must start at PTS 0
+				// Post-tune seek: pipeline in PAUSED/PLAYING, flush seek to seekPosition, segments match flush position
+				if (aamp->IsTuneTypeNew && seekPosition > 0)
+				{
+					adjustedOffset = 0 - mFirstPTS;  // Shift media to start at 0
+					mNextPts = 0.0;  // Reset mNextPts to 0 for pre-tune seeks
+					AAMPLOG_INFO("Pre-tune seek: Adjusting mPTSOffset from %f to %f, mNextPts to %f (seekPosition=%f, mFirstPTS=%f)", 
+						mPTSOffset.inSeconds(), adjustedOffset, mNextPts.inSeconds(), seekPosition, mFirstPTS);
+				}
+				else if (!aamp->IsTuneTypeNew && seekPosition > 0)
+				{
+					adjustedOffset = seekPosition - mFirstPTS;  // Match pipeline flush position
+					// Set mNextPts to the period end time on the manifest timeline
+					// This ensures UpdatePtsOffset calculates correctly for the next period transition
+					AampTime timelineStart, duration;
+					GetStartAndDurationForPtsRestamping(timelineStart, duration);
+					mNextPts = mPeriodStartTime + duration.inSeconds();
+					AAMPLOG_INFO("Post-tune seek: Adjusting mPTSOffset from %f to %f, mNextPts to %f (seekPosition=%f, mFirstPTS=%f, periodEnd=%f)", 
+						mPTSOffset.inSeconds(), adjustedOffset, mNextPts.inSeconds(), seekPosition, mFirstPTS, mNextPts.inSeconds());
+				}
+				else
+				{
+					adjustedOffset = mPTSOffset.inSeconds();  // No adjustment for play from 0
+					AAMPLOG_INFO("Play from 0: mPTSOffset=%f mNextPts=%f seekPosition=%f mFirstPTS=%f", 
+						mPTSOffset.inSeconds(), mNextPts.inSeconds(), seekPosition, mFirstPTS);
+				}
+				mPTSOffset = adjustedOffset;
+			}
+			else
+			{
+				AAMPLOG_INFO("After UpdatePtsOffset: mPTSOffset=%f mNextPts=%f seekPosition=%f mFirstPTS=%f", 
+					mPTSOffset.inSeconds(), mNextPts.inSeconds(), seekPosition, mFirstPTS);
+			}
+		}
+		else
+		{
+			AAMPLOG_INFO("Initialized mPTSOffset to %f for seekPosition %f", mPTSOffset.inSeconds(), seekPosition);
 		}
 		FetchAndInjectInitFragments();
 	}
