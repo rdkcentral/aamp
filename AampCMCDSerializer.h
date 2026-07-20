@@ -25,6 +25,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace AampCMCD
@@ -49,7 +50,8 @@ enum class HeaderGroup
 enum class ValueKind
 {
 	ePLAIN,    ///< emit key=value with the value verbatim
-	eBOOLEAN   ///< emit the bare key when value is "1"; omit the token otherwise
+	eBOOLEAN,  ///< emit the bare key when value is "1"; omit the token otherwise
+	eQUOTED    ///< emit key="value" with interior '"' and '\\' backslash-escaped (CTA-5004 String type)
 };
 
 /**
@@ -73,14 +75,39 @@ struct Entry
 std::string HeaderName(HeaderGroup group);
 
 /**
+ * @brief Round an integer to the nearest 100 (half-up).
+ *
+ * Implements the CTA-5004 §3 rounding rule for the keys the spec defines in
+ * 100-unit increments: bl and dl (milliseconds), mtp and rtp (kbps). Values
+ * that are zero or negative are treated as "unavailable" and return 0, so
+ * callers can apply the optional-key rule (omit) on a 0 result. Keys without
+ * a rounding clause (br, tb, d) must NOT be passed through this function.
+ *
+ * @param value Value in ms or kbps; <= 0 means unavailable.
+ * @return Value rounded to the nearest 100; 0 for any input < 50.
+ */
+int RoundToNearest100(int value);
+
+/**
+ * @brief Wrap a value in CTA-5004 String syntax.
+ *
+ * Adds enclosing double-quotes and backslash-escapes interior '"' and '\\'
+ * characters, as required for String-typed keys (sid, cid, nor, nrr).
+ *
+ * @param value Raw value.
+ * @return Quoted and escaped string, e.g. "\"seg-01.ts\"".
+ */
+std::string QuoteString(std::string_view value);
+
+/**
  * @brief Serialize entries into complete CMCD header lines.
  *
- * Tokens are joined with ',' within each group in the order given (no
- * reordering), and one "<header-name> <tokens>" line is produced per group
- * that serialized at least one token. Groups are emitted in the fixed order
- * Object, Request, Session, Status.
+ * Tokens within each group are sorted alphabetically by key (CTA-5004 §3.2
+ * requirement 6) and joined with ','; one "<header-name> <tokens>" line is
+ * produced per group that serialized at least one token. Groups are emitted
+ * in the fixed order Object, Request, Session, Status.
  *
- * @param entries Entries to serialize, in emission order.
+ * @param entries Entries to serialize (any order).
  * @return Header lines ready to attach to a request, e.g. "CMCD-Object: br=2500,ot=v".
  */
 std::vector<std::string> SerializeHeaders(const std::vector<Entry> &entries);

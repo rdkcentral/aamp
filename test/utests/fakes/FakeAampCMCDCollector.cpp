@@ -108,3 +108,27 @@ void AampCMCDCollector::SetTrackData(AampMediaType mediaType,bool bufferRedStatu
 
 }
 
+void AampCMCDCollector::CMCDSetSessionParams(MediaFormat mediaFormat, const std::string& rawUrl)
+{
+}
+
+void AampCMCDCollector::CMCDSetLiveStatus(bool isLive)
+{
+}
+
+void AampCMCDCollector::CMCDSetPlaybackRate(float rate)
+{
+}
+
+void AampCMCDCollector::CMCDSetFragmentDuration(AampMediaType mediaType, int durationMs)
+{
+}
+
+void AampCMCDCollector::CMCDSetMeasuredThroughput(AampMediaType mediaType, int kbps)
+{
+}
+
+void AampCMCDCollector::CMCDSetStartupUrgent(AampMediaType mediaType, bool startupUrgent)
+{
+}
+

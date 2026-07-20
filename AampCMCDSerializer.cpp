@@ -24,6 +24,8 @@
 
 #include "AampCMCDSerializer.h"
 
+#include <algorithm>
+
 namespace AampCMCD
 {
 
@@ -43,17 +45,49 @@ std::string HeaderName(HeaderGroup group)
 	return "CMCD-Object:";
 }
 
+int RoundToNearest100(int value)
+{
+	if (value <= 0)
+	{
+		// Negative/zero mean "unavailable"; returning 0 immediately also avoids
+		// the INT_MIN + 50 signed overflow the formula below would produce.
+		return 0;
+	}
+	return ((value + 50) / 100) * 100;
+}
+
+std::string QuoteString(std::string_view value)
+{
+	std::string result;
+	result.reserve(value.size() + 2);
+	result += '"';
+	for (char c : value)
+	{
+		if (c == '"' || c == '\\')
+		{
+			result += '\\';
+		}
+		result += c;
+	}
+	result += '"';
+	return result;
+}
+
 std::vector<std::string> SerializeHeaders(const std::vector<Entry> &entries)
 {
 	static constexpr HeaderGroup kGroupOrder[] =
 	{
 		HeaderGroup::eOBJECT, HeaderGroup::eREQUEST, HeaderGroup::eSESSION, HeaderGroup::eSTATUS
 	};
+	// Alphabetical key order within each group (CTA-5004 §3.2 requirement 6).
+	std::vector<Entry> sorted{entries};
+	std::stable_sort(sorted.begin(), sorted.end(),
+	                 [](const Entry &a, const Entry &b) { return a.key < b.key; });
 	std::vector<std::string> headers;
 	for (HeaderGroup group : kGroupOrder)
 	{
 		std::string joined;
-		for (const Entry &entry : entries)
+		for (const Entry &entry : sorted)
 		{
 			if (entry.group != group)
 			{
@@ -70,6 +104,9 @@ std::vector<std::string> SerializeHeaders(const std::vector<Entry> &entries)
 					{
 						token = entry.key;
 					}
+					break;
+				case ValueKind::eQUOTED:
+					token = entry.key + "=" + QuoteString(entry.value);
 					break;
 			}
 			if (token.empty())

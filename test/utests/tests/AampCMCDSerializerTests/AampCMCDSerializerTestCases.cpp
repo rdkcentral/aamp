@@ -21,9 +21,10 @@
  * @file AampCMCDSerializerTestCases.cpp
  * @brief Tests for the AampCMCD serialization primitives.
  *
- * Pins the serialization contract: token encoding per ValueKind, comma
- * joining in insertion order (current pre-CTA-5004-compliance behaviour),
- * and the fixed Object/Request/Session/Status header emission order.
+ * Pins the CTA-5004 §3 serialization contract: token encoding per ValueKind
+ * (plain, boolean, quoted String), alphabetical key ordering within each
+ * header, nearest-100 rounding, and the fixed Object/Request/Session/Status
+ * header emission order.
  */
 
 #include <string>
@@ -40,6 +41,8 @@ using ::testing::IsEmpty;
 using AampCMCD::Entry;
 using AampCMCD::HeaderGroup;
 using AampCMCD::HeaderName;
+using AampCMCD::QuoteString;
+using AampCMCD::RoundToNearest100;
 using AampCMCD::SerializeHeaders;
 using AampCMCD::ValueKind;
 
@@ -65,17 +68,49 @@ TEST(AampCMCDSerializerTests, PlainEntry_EmitsKeyEqualsValue)
 	EXPECT_THAT(SerializeHeaders(entries), ElementsAre("CMCD-Object: ot=v"));
 }
 
-TEST(AampCMCDSerializerTests, TokensJoinWithCommaInInsertionOrder)
+TEST(AampCMCDSerializerTests, TokensSortAlphabeticallyWithinGroup)
 {
-	// Insertion order is deliberately not alphabetical: the serializer must
-	// not reorder keys (legacy behaviour pinned until CTA-5004 sorting lands).
+	// Entries arrive unsorted; the serializer must order keys alphabetically
+	// within the header (CTA-5004 §3.2 requirement 6).
 	std::vector<Entry> entries{
 		Entry{"tb", "5000", HeaderGroup::eOBJECT, ValueKind::ePLAIN},
 		Entry{"br", "2500", HeaderGroup::eOBJECT, ValueKind::ePLAIN},
 		Entry{"ot", "v", HeaderGroup::eOBJECT, ValueKind::ePLAIN}
 	};
 
-	EXPECT_THAT(SerializeHeaders(entries), ElementsAre("CMCD-Object: tb=5000,br=2500,ot=v"));
+	EXPECT_THAT(SerializeHeaders(entries), ElementsAre("CMCD-Object: br=2500,ot=v,tb=5000"));
+}
+
+TEST(AampCMCDSerializerTests, QuotedValue_IsWrappedAndEscaped)
+{
+	std::vector<Entry> entries{
+		Entry{"sid", "abc-123", HeaderGroup::eSESSION, ValueKind::eQUOTED},
+		Entry{"nor", "seg\"2\\a.ts", HeaderGroup::eREQUEST, ValueKind::eQUOTED}
+	};
+
+	EXPECT_THAT(SerializeHeaders(entries),
+	            ElementsAre("CMCD-Request: nor=\"seg\\\"2\\\\a.ts\"",
+	                        "CMCD-Session: sid=\"abc-123\""));
+}
+
+TEST(AampCMCDSerializerTests, QuoteString_EscapesQuotesAndBackslashes)
+{
+	EXPECT_EQ(QuoteString("abc"), "\"abc\"");
+	EXPECT_EQ(QuoteString(""), "\"\"");
+	EXPECT_EQ(QuoteString("a\"b"), "\"a\\\"b\"");
+	EXPECT_EQ(QuoteString("a\\b"), "\"a\\\\b\"");
+}
+
+TEST(AampCMCDSerializerTests, RoundToNearest100_HalfUpAndUnavailable)
+{
+	EXPECT_EQ(RoundToNearest100(0), 0);
+	EXPECT_EQ(RoundToNearest100(-100), 0);
+	EXPECT_EQ(RoundToNearest100(49), 0);    // rounds to 0 -> caller omits as unavailable
+	EXPECT_EQ(RoundToNearest100(50), 100);  // half rounds up
+	EXPECT_EQ(RoundToNearest100(149), 100);
+	EXPECT_EQ(RoundToNearest100(150), 200);
+	EXPECT_EQ(RoundToNearest100(3049), 3000);
+	EXPECT_EQ(RoundToNearest100(3050), 3100);
 }
 
 TEST(AampCMCDSerializerTests, GroupsEmitSeparateHeadersInFixedOrder)

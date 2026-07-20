@@ -3438,6 +3438,11 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatencyMs(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
 	}
+	// Report the new playback rate for CMCD (pr).
+	if (mCMCDCollector)
+	{
+		mCMCDCollector->CMCDSetPlaybackRate(rate);
+	}
 }
 
 /**
@@ -4274,6 +4279,13 @@ AampCurlInstance PrivateInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type
  */
 void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 {
+	// Refresh the CMCD playback rate (pr) on every request: NotifySpeedChanged is
+	// edge-triggered and does not reliably fire on the initial tune, so a per-request
+	// refresh keeps pr current. rate is sink-independent, so this tracks rialto too.
+	if (mCMCDCollector)
+	{
+		mCMCDCollector->CMCDSetPlaybackRate(rate);
+	}
 	MediaTrack *mediaTrack = NULL;
 	BitsPerSecond currentBitrate;
 	switch( mediaType )
@@ -4286,6 +4298,22 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 			currentBitrate = mpStreamAbstractionAAMP->GetAudioBitrate();
 			mediaTrack = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO);
 			break;
+		case eMEDIATYPE_INIT_VIDEO:
+		case eMEDIATYPE_INIT_AUDIO:
+		{
+			// Init objects are fetched at startup, seek, profile switch and rebuffer
+			// recovery, so they carry the CMCD startup-urgent flag (su). Buffer state
+			// comes from the parent media track; no other segment metrics are pushed
+			// to the INIT_* instances.
+			MediaTrack *parentTrack = mpStreamAbstractionAAMP ? mpStreamAbstractionAAMP->GetMediaTrack(
+					(mediaType == eMEDIATYPE_INIT_VIDEO) ? eTRACK_VIDEO : eTRACK_AUDIO) : NULL;
+			bool bufferRedStatus = parentTrack && (parentTrack->GetBufferStatus() == BUFFER_STATUS_RED);
+			if (mCMCDCollector)
+			{
+				mCMCDCollector->CMCDSetStartupUrgent(mediaType, bufferRedStatus || IsTuneTypeNew);
+			}
+			break;
+		}
 		default:
 			break;
 	}
@@ -4295,6 +4323,15 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 		bool bufferRedStatus = (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED);
 		int kBitsPerSecond = (int)(currentBitrate/1000);
 		mCMCDCollector->SetTrackData( mediaType, bufferRedStatus, bufferedDurationMs, kBitsPerSecond, IsMuxedStream() );
+		// CMCD measured throughput (mtp) from the ABR manager's bandwidth estimate;
+		// -1 (no data) maps to 0 (unavailable).
+		BitsPerSecond mtpBps = mhAbrManager.GetCurrentlyAvailableBandwidth();
+		int mtpKbps = (mtpBps > 0) ? (int)(mtpBps / 1000) : 0;
+		mCMCDCollector->CMCDSetMeasuredThroughput(mediaType, mtpKbps);
+		// CMCD startup-urgent (su): initial tune or active rebuffer, recomputed per
+		// request so it clears once IsTuneTypeNew goes false.
+		bool suFlag = bufferRedStatus || IsTuneTypeNew;
+		mCMCDCollector->CMCDSetStartupUrgent(mediaType, suFlag);
 	}
 }
 
@@ -4624,9 +4661,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 
 			std::vector<std::string> cmcdCustomHeader;
-			AampMediaType mmediaT;
-			mmediaT = (mediaType == eMEDIATYPE_INIT_VIDEO) ? eMEDIATYPE_VIDEO : (mediaType == eMEDIATYPE_INIT_AUDIO) ? eMEDIATYPE_AUDIO :mediaType;
-			mCMCDCollector->CMCDGetHeaders(mmediaT,cmcdCustomHeader);
+			// CMCD object duration (d) from the caller-supplied segment duration;
+			// only the media-segment instances receive it.
+			if (mCMCDCollector && (mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_AUDIO))
+			{
+				mCMCDCollector->CMCDSetFragmentDuration(mediaType, (int)(fragmentDurationS * 1000));
+			}
+			mCMCDCollector->CMCDGetHeaders(mediaType,cmcdCustomHeader);
 
 			if (cmcdCustomHeader.size() > 0)
 			{
@@ -6643,6 +6684,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
 	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mFogTSBEnabled),sTraceId);
+	// Push the CMCD session params (sf, cid) and the initial playback rate.
+	mCMCDCollector->CMCDSetSessionParams(mMediaFormat, mManifestUrl);
+	mCMCDCollector->CMCDSetPlaybackRate(rate);
 // This feature is causing trickplay issues for client dai
 // hence removing code which reads this config from tune url , Ideally it should be fixed by app and not to enable this feature
 //	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mFogTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));

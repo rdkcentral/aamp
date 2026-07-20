@@ -3035,6 +3035,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 		}
 		mIsLiveManifest		=	mMPDParseHelper->IsLiveManifest();
 		aamp->SetIsLive(mIsLiveManifest);
+		// Feed the CMCD stream type (st).
+		if (aamp->mCMCDCollector)
+		{
+			aamp->mCMCDCollector->CMCDSetLiveStatus(mIsLiveManifest);
+		}
 
 		if(init)
 		{
