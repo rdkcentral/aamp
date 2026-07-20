@@ -382,7 +382,7 @@ public:
 	 * @brief Return encrypted player id
    	 * @return ID of encrypted player else -1
 	 */
-	const int GetEncryptedAampId(void) const override;
+	const int GetEncryptedAampId(void) const;
 
 	/**
 	 * @fn SetEncryptedAamp
