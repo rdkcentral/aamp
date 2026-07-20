@@ -2450,7 +2450,7 @@ void InterfacePlayerPriv::SendGstEvents(int mediaType, GstClockTime pts, int ena
 	{
 		// Skip appsrc seek when using mp4demux with PTS restamp - segments already have correct PTS
 		// Post-tune seeks use pipeline-level seek in Flush() which works correctly
-		if(gstPrivateContext->seekPosition > 0 && 
+		if(gstPrivateContext->seekPosition > 0 &&
 		   !(gstPrivateContext->isMp4DemuxPlayback && enablePTSReStamp))
 		{
 			MW_LOG_MIL("gst_element_seek_simple! mediaType:%d pts:%" GST_TIME_FORMAT " seekPosition:%" GST_TIME_FORMAT,
