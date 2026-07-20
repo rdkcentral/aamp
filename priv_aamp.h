@@ -3487,6 +3487,14 @@ public:
 	int ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName="");
 
 	/**
+	 *   @fn GetStreamLock
+	 *   @brief Get reference to stream lock for RAII usage
+	 *   @note Prefer: std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock())
+	 *   @return Reference to mStreamLock
+	 */
+	std::recursive_mutex& GetStreamLock() { return mStreamLock; }
+
+	/**
 	 *   @fn RemoveAsyncTask
 	 *
 	 *   @param[in] taskId - task id
