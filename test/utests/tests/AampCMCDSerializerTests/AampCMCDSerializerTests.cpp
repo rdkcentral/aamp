@@ -18,14 +18,11 @@
 */
 
 /**
- * @file AampCMCDCollectorTests.cpp
- * @brief Test runner for the AampCMCDCollector L1 test suite
+ * @file AampCMCDSerializerTests.cpp
+ * @brief Test runner for the AampCMCDSerializer L1 test suite
  */
 
 #include <gtest/gtest.h>
-#include "AampConfig.h"
-
-AampConfig *gpGlobalConfig{nullptr};
 
 int main(int argc, char** argv)
 {

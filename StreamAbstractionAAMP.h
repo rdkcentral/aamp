@@ -37,11 +37,6 @@
 
 #include <glib.h>
 #include "subtitleParser.h"
-#include <CMCDHeaders.h>
-#include <AudioCMCDHeaders.h>
-#include <VideoCMCDHeaders.h>
-#include <ManifestCMCDHeaders.h>
-#include <SubtitleCMCDHeaders.h>
 
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampTime.h"

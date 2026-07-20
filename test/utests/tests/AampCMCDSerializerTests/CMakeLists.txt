@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2022 RDK Management
+# Copyright 2026 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +17,17 @@
 
 include(GoogleTest)
 
-pkg_check_modules(UUID REQUIRED uuid)
-
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampCMCDCollectorTests)
+set(EXEC_NAME AampCMCDSerializerTests)
 
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-set(TEST_SOURCES AampCMCDCollectorTests.cpp
-	         AampCMCDCollectorTestCases.cpp)
+set(TEST_SOURCES AampCMCDSerializerTests.cpp
+	         AampCMCDSerializerTestCases.cpp)
 
-
-set(AAMP_SOURCES ${AAMP_ROOT}/AampCMCDCollector.cpp
-	         ${AAMP_ROOT}/AampCMCDSerializer.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampCMCDSerializer.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
@@ -49,6 +45,6 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -pthread ${UUID_LINK_LIBRARIES} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})

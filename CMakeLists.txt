@@ -504,6 +504,7 @@ set(LIBAAMP_SOURCES
 	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h
 	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
 	AampCMCDCollector.cpp AampCMCDCollector.h
+	AampCMCDSerializer.cpp AampCMCDSerializer.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
 	ID3Metadata.cpp ID3Metadata.hpp
 	abr/abr.cpp abr/abr.h

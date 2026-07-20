@@ -18,7 +18,7 @@
  */
 
 /**
- * @file AampCMCDCollector.cpp
+ * @file AampCMCDCollector.h
  * @brief Class to collect the CMCD Data
  */
 
@@ -26,21 +26,20 @@
 #ifndef __AAMP_CMCD_COLLECTOR_H__
 #define __AAMP_CMCD_COLLECTOR_H__
 
-#include <iostream>
-#include <memory>
 #include <map>
-#include <exception>
+#include <mutex>
+#include <string>
+#include <vector>
 
-#include <CMCDHeaders.h>
-#include <AudioCMCDHeaders.h>
-#include <VideoCMCDHeaders.h>
-#include <ManifestCMCDHeaders.h>
-#include <SubtitleCMCDHeaders.h>
-#include <uuid/uuid.h>
 #include "AampDefine.h"
 #include "AampLogManager.h"
-#include <algorithm>
+#include "AampMediaType.h"
 #include "abr.h"
+
+namespace AampCMCD
+{
+	struct Entry;
+}
 
 /**
  * @class AampCMCDCollector
@@ -80,8 +79,8 @@ public:
 	 * @return None
 	 */
 	void CMCDSetNextObjectRequest(std::string url,BitsPerSecond CMCDBandwidth,AampMediaType mediaT=eMEDIATYPE_VIDEO);
-    
-    	/**
+
+	/**
 	* @brief CMCDSetNextRangeRequest Store the next range relative to the current url
 	*
 	* @param[in] nextrange - the next byte range to be requested
@@ -103,7 +102,7 @@ public:
 	 * @brief CMCDSetNetworkMetrics Store Network Metrics for the mediaType
 	 *
 	 * @param[in] mediaType - File Type for storing the data
-	 * @param[in] NetworkMetrics - Network Metrics to store 
+	 * @param[in] NetworkMetrics - Network Metrics to store
 	 * @return None
 	 */
 	void CMCDSetNetworkMetrics(AampMediaType mediaType, int startTransferTime, int totalTime, int dnsLookUpTime);
@@ -116,19 +115,51 @@ public:
 	void SetBitrates(AampMediaType mediaType,const std::vector<BitsPerSecond> bitrates);
 	void SetTrackData(AampMediaType mediaType,bool bufferRedStatus,int bufferedDuration,int currentBitrate, bool IsMuxed=false);
 private:
+	/**
+	 * @enum StreamCategory
+	 * @brief Family of CMCD keys emitted for a media type (mirrors the legacy per-type CMCDHeaders subclasses).
+	 */
+	enum class StreamCategory
+	{
+		eMANIFEST,  ///< Manifest/playlist requests: sid and ot=m only
+		eVIDEO,     ///< Video segment requests: full object/request/status key set
+		eAUDIO,     ///< Audio segment requests: full object/request/status key set
+		eSUBTITLE   ///< Subtitle requests: sid and ot=s only
+	};
+
+	/**
+	 * @struct CMCDState
+	 * @brief Per-media-type CMCD reporting state.
+	 */
+	struct CMCDState
+	{
+		StreamCategory category{StreamCategory::eMANIFEST}; ///< Key family emitted for this media type
+		std::string mediaTypeLabel{};  ///< Legacy media type name ("VIDEO", "INIT_AUDIO", "MUXED", ...); selects the ot value
+		int firstByte{0};              ///< Time to first byte of the last download (ms)
+		int lastByte{0};               ///< Time to last byte of the last download (ms)
+		int dnsLookUpTime{0};          ///< DNS lookup time of the last download (ms)
+		int bitrate{0};                ///< Encoded bitrate of the requested object (kbps)
+		int topBitrate{0};             ///< Highest bitrate available for this track (kbps)
+		int bufferLength{0};           ///< Buffered media ahead of the playhead (ms)
+		bool bufferStarvation{false};  ///< True when the track buffer has run dry
+		std::string nextUrl{};         ///< URL of the next expected object request (nor)
+		std::string nextRange{};       ///< Byte range of the next request (nrr); SegmentList/SegmentBase MPDs
+	};
+
+	/**
+	 * @brief Build the CMCD entries for one media type's current state.
+	 *
+	 * @param[in] state Per-media-type CMCD state.
+	 * @return Entries in emission order, ready for serialization.
+	 */
+	std::vector<AampCMCD::Entry> BuildEntries(const CMCDState &state) const;
+
 	bool bCMCDEnabled;			/**< CMCD enable/disable flag  */
-	typedef std::map<int, CMCDHeaders *> StreamTypeCMCD;
-	typedef std::map<int, CMCDHeaders *>::iterator StreamTypeCMCDIter;
+	typedef std::map<int, CMCDState> StreamTypeCMCD;
+	typedef StreamTypeCMCD::iterator StreamTypeCMCDIter;
 	StreamTypeCMCD mCMCDStreamData;
 	std::string mTraceId;
 	std::mutex myMutex;
-	/**
-	 * @brief convertHexa Convert decimal to hexadecimal
-	 *
-	 * @param[in] number - decimal number
-	 * @return hexadecimal number
-	 */
-	std::string convertHexa(long long number);
 };
 
 
