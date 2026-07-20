@@ -433,6 +433,15 @@ public:
 	virtual double GetBufferedDuration (void) = 0;
 
 	/**
+	 *   @brief Get the absolute end position of the last downloaded fragment
+	 *          (position + duration). Overridden by tracks that track download
+	 *          progress; base implementation returns 0.
+	 *
+	 *   @return last downloaded fragment end position in seconds
+	 */
+	virtual double GetLastDownloadedPosition (void) { return 0.0; }
+
+	/**
 	 * @fn GetFetchBuffer
 	 * @param[in] initialize true to initialize the fragment slot
 	 * @retval Pointer to the next fragment fetch slot.

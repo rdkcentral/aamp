@@ -82,7 +82,7 @@ void WriteUint64(uint8_t *dst, uint64_t val)
 {
 	uint32_t msw = (uint32_t)(val>>32);
 	WRITE_U32(dst, msw); dst+=4;
-	WRITE_U32(dst, val);
+	WRITE_U32(dst, static_cast<uint32_t>(val) );
 }
 
 /**
@@ -1030,12 +1030,12 @@ TrunBox::TrunBox(FullBox &fbox, uint64_t sampleDuration,uint32_t sampleCount, ui
 /**
  *  @brief Set SampleDuration value
  */
-void TrunBox::setFirstSampleDuration(uint64_t sampleDuration)
+void TrunBox::setFirstSampleDuration(uint32_t sampleDuration)
 {
 	duration = sampleDuration;
 	if (nullptr != first_sample_duration_loc)
 	{
-		WRITE_U32(first_sample_duration_loc, sampleDuration);
+		WRITE_U32(first_sample_duration_loc, sampleDuration );
 	}
 }
 
@@ -1229,12 +1229,12 @@ uint64_t TfhdBox::getDefaultSampleDuration()
 	return mDefaultSampleDuration;
 }
 
-void TfhdBox::setDefaultSampleDuration(uint64_t default_duration)
+void TfhdBox::setDefaultSampleDuration(uint32_t default_duration)
 {
 	mDefaultSampleDuration = default_duration;
 	if (nullptr != default_sample_duration_location)
 	{
-		WRITE_U32(default_sample_duration_location, default_duration);
+		WRITE_U32(default_sample_duration_location, default_duration );
 	}
 }
 
@@ -1603,11 +1603,13 @@ void SencBox::truncate(uint32_t firstSampleSize)
  * @param[in] sampleCountLoc - location of the sample count
  * @param[in] numSamples - number of samples
  * @param[in] firstSampleInfoSize - Size of the first sample
+ * @param[in] hasPerSampleInfoTable - True when per-sample info size table is present
  */
-SaizBox::SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t firstSampleInfoSize)
+SaizBox::SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t firstSampleInfoSize, bool hasPerSampleInfoTable)
 		: sampleCountLoc(sampleCountLoc),
 		numSamples(numSamples),
 		firstSampleInfoSize(firstSampleInfoSize),
+		hasPerSampleInfoTable(hasPerSampleInfoTable),
 		FullBox(fbox)
 {
 }
@@ -1635,13 +1637,18 @@ SaizBox* SaizBox::constructSaizBox(uint32_t sz, uint8_t *ptr)
 
 	uint8_t *sample_count_loc{ptr};
 	uint32_t sample_count = READ_U32(ptr);
+	bool has_per_sample_info_table{0 == default_sample_info_size};
 
-	uint8_t sample_info_size = (0 == default_sample_info_size) ? *ptr : default_sample_info_size;
+	uint8_t sample_info_size = default_sample_info_size;
+	if (has_per_sample_info_table && (sample_count > 0))
+	{
+		sample_info_size = *ptr;
+	}
 
 	FullBox fbox(sz, Box::SAIZ, version, flags);
 	fbox.setBase(start);
 
-	return new SaizBox(fbox, sample_count_loc, sample_count, sample_info_size);
+	return new SaizBox(fbox, sample_count_loc, sample_count, sample_info_size, has_per_sample_info_table);
 }
 
 /**
@@ -1658,19 +1665,30 @@ uint32_t SaizBox::getFirstSampleInfoSize(void)
 */
 void SaizBox::truncate(void)
 {
-	auto oldSize{getSize()};
-	auto newSize{oldSize - (numSamples - 1)};
-
-	// Need min 8 bytes to insert a skip box
-	if ((oldSize - newSize) >= SIZEOF_SIZE_AND_TAG)
+	if (numSamples <= 1)
 	{
-		WRITE_U32(getBase(), newSize);
-		SkipBox skip{oldSize - newSize, getBase() + newSize};
+		return;
 	}
-	else
+
+	// Only per-sample info tables shrink with the sample count. For a
+	// default_sample_info_size layout there is no table to reclaim, so the box
+	// size is unchanged and no skip box is involved.
+	if (hasPerSampleInfoTable)
 	{
-		AAMPLOG_INFO("No room for a skip box");
-		// Not truncating the table, just setting the sample count to 1
+		auto oldSize{getSize()};
+		auto newSize{oldSize - (numSamples - 1)};
+
+		// Need min 8 bytes to insert a skip box
+		if ((oldSize - newSize) >= SIZEOF_SIZE_AND_TAG)
+		{
+			WRITE_U32(getBase(), newSize);
+			SkipBox skip{oldSize - newSize, getBase() + newSize};
+		}
+		else
+		{
+			AAMPLOG_INFO("No room for a skip box");
+			// Not truncating the table, just setting the sample count to 1
+		}
 	}
 
 	numSamples = 1;

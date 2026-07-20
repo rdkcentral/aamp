@@ -840,6 +840,12 @@ public:
 	void SetLatencyParam(double latency, double buffer, double playbackRate, double bw);
 
 	/**
+	 * @brief Set the PRT-derived clock offset used in live latency calculation
+	 * @param offsetMs offset in milliseconds
+	 */
+	void SetPRTClockOffsetMs(long offsetMs) { mEncoderDelay = offsetMs; }
+
+	/**
 	 * @fn SetLLDLowBufferParam - to mark the lld low buff details
 	 * @param latency - latency value
 	 * @param buff - buffer
@@ -897,6 +903,15 @@ public:
 		std::string breakType;
 	};
 	std::vector<PendingVodAdBreak> mPendingVodAdBreaks; /**< Breaks queued before mCdaiObject exists */
+
+	/** Pre-tune SetAlternateContents calls buffered before mCdaiObject is created */
+	struct PendingAlternateContents
+	{
+		std::string adBreakId;
+		std::string adId;
+		std::string url;
+	};
+	std::vector<PendingAlternateContents> mPendingAlternateContents; /**< SetAlternateContents calls queued before mCdaiObject exists */
 
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
@@ -4315,6 +4330,7 @@ protected:
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
 	long mCurrentLatencyMs;         /**< Current latency in milliseconds */
+	long mEncoderDelay;         /**< PRT-derived clock offset (ms) added to live latency */
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectangle */
 	bool mApplyContentRestriction;		/**< Status to apply content restriction */
 	videoRect mVideoRect;
