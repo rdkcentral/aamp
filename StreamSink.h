@@ -118,9 +118,14 @@ public:
      *   @param[in]  position - playback position
      *   @param[in]  rate - Speed
      *   @param[in]  shouldTearDown - if pipeline is not in a valid state, tear down pipeline
+     *   @param[in]  keepPausedSeek - true only when this Flush is part of an explicit seek-with-keepPaused
+     *                                request. Must NOT be inferred from the pipeline's incidental paused
+     *                                state (which can be true for unrelated reasons such as buffering or
+     *                                fragment caching), since that conflation can permanently block later
+     *                                PLAYING transitions when no explicit resume ever arrives.
      *   @return void
      */
-    virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true){}
+    virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true, bool keepPausedSeek = false){}
 
     /**
      *   @brief Flush the audio playbin
