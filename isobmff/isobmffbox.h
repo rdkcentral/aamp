@@ -867,6 +867,8 @@ public:
 class TfhdBox : public FullBox
 {
 private:
+	uint32_t mTrackId;
+	uint8_t *mTrackIdLocation;
 	uint64_t mDefaultSampleDuration;
 	uint8_t *default_sample_duration_location;
 	uint32_t mDefaultSampleSize;
@@ -877,23 +879,42 @@ public:
 	 * @fn TfhdBox
 	 *
 	 * @param[in] sz - box size
+	 * @param[in] track_id - Track Id value
+	 * @param[in] track_id_location - Track Id location
 	 * @param[in] sample_duration - Sample Duration value
 	 * @param[in] first_sample_duration_loc - Default sample duration location
 	 * @param[in] default_sample_size - Default sample size
 	 * @param[in] flags - flags set on this box
 	 */
-	TfhdBox(uint32_t sz, uint64_t sample_duration, uint8_t* first_sample_duration_loc, uint32_t default_sample_size, uint32_t flags);
+	TfhdBox(uint32_t sz, uint32_t track_id, uint8_t* track_id_location, uint64_t sample_duration, uint8_t* first_sample_duration_loc, uint32_t default_sample_size, uint32_t flags);
 
 	/**
 	 * @fn TfhdBox
 	 *
 	 * @param[in] fbox - box object
+	 * @param[in] track_id - Track Id value
+	 * @param[in] track_id_location - Track Id location
 	 * @param[in] sample_duration - Sample Duration value
 	 * @param[in] first_sample_duration_loc - Default sample duration location
 	 * @param[in] default_sample_size - Default sample size
 	 * @param[in] flags - flags set on this box
 	 */
-	TfhdBox(FullBox &fbox, uint64_t default_duration, uint8_t * default_duration_location, uint32_t default_sample_size, uint32_t flags);
+	TfhdBox(FullBox &fbox, uint32_t track_id, uint8_t *track_id_location, uint64_t default_duration, uint8_t * default_duration_location, uint32_t default_sample_size, uint32_t flags);
+
+	/**
+	 * @fn setTrackId
+	 *
+	 * @param[in] track_id - Track Id value
+	 * @return void
+	 */
+	void setTrackId(uint32_t track_id);
+
+	/**
+	 * @fn getTrackId
+	 *
+	 * @return Track Id value
+	 */
+	uint32_t getTrackId(void);
 
 	/**
 	 * @fn defaultSampleDurationPresent
@@ -931,9 +952,10 @@ public:
 	 *
 	 * @param[in] sz - box size
 	 * @param[in] ptr - pointer to box
+	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return newly constructed TfhdBox object
 	 */
-	static TfhdBox* constructTfhdBox(uint32_t sz, uint8_t *ptr);
+	static TfhdBox* constructTfhdBox(uint32_t sz, uint8_t *ptr, int newTrackId = -1);
 };
 
 /**
