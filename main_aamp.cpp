@@ -891,10 +891,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 								aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 								aamp->rate = AAMP_NORMAL_PLAY_RATE;
 								aamp->mSinkPaused = false;
-									{
-										std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-										aamp->TuneHelper(eTUNETYPE_SEEK, false);
-									}
+								{
+									std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+									aamp->TuneHelper(eTUNETYPE_SEEK, false);
+								}
 
 								// Skip common notification (like local-TSB path): state -> PLAYING
 								// via NotifyFirstBufferProcessed once fragments arrive.
