@@ -1257,10 +1257,22 @@ protected:
 	*/
 	void ProcessVssLicenseRequest();
 	/**
+	* @fn ProcessLicenseFromEAP
+	* @brief Process DRM license for early available periods found in the given manifest response
+	* @param[in] mpdDnldResp Manifest download response containing the MPD parse helper used
+	*                        to identify and process early available periods
+	*/
+	void ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp);
+	/**
 	* @fn GetAvailableVSSPeriods
 	* @param PeriodIds VSS Periods
 	*/
 	void GetAvailableVSSPeriods(std::vector<IPeriod*>& PeriodIds);
+	/**
+	* @fn GetEarlyAvailablePeriods
+	* @param PeriodIds Non-VSS early available periods
+	*/
+	void GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper);
 	/**
 	* @fn GetVssVirtualStreamID
 	*/
