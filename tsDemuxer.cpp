@@ -168,7 +168,29 @@ void Demuxer::send()
 
 		if (aamp)
 		{
-			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, duration);
+			// send() emits a single extracted access unit (sample), not the
+			// whole segment, so the sink must receive this sample's duration
+			// rather than the segment duration. Estimate it from the DTS delta
+			// since the previously sent sample (constant frame rate). For the
+			// first sample of a segment, or when the delta is not usable, fall
+			// back to the last known sample duration, then the segment duration.
+			double sampleDuration = duration;
+			if (prev_sent_dts_s >= 0.0)
+			{
+				double delta = info.dts_s - prev_sent_dts_s;
+				if (delta > 0.0)
+				{
+					sampleDuration = delta;
+					last_sample_duration_s = delta;
+				}
+				else if (last_sample_duration_s > 0.0)
+				{
+					sampleDuration = last_sample_duration_s;
+				}
+			}
+			prev_sent_dts_s = info.dts_s;
+
+			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, sampleDuration);
 		}
 		es.clear();
 	}
@@ -209,13 +231,15 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	current_dts = 0;
 	current_pts = 0;
 	first_pts = 0;
+	prev_sent_dts_s = -1.0;
+	last_sample_duration_s = 0.0;
 	update_first_pts = false;
 	finalized_base_pts = false;
 	rollover_pts = false;
 	suppress_rollover_detection = false;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
-	
+
 	if( optimizeMuxed )
 	{ // when hls/ts in use, restamp starting from zero to avoid jitter at playback start
 		base_pts = 0;

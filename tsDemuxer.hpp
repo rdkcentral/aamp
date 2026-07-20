@@ -71,7 +71,7 @@ private:
 	int pes_header_ext_len = 0;
 	int pes_header_ext_read = 0;
 	std::vector<uint8_t> pes_header{};
-	
+
 	/* All public methods should be locked using this mutex as
 	 * member data is highly coupled (especially in processdata()).
 	 * Concurrent access to member data is highly likely to corrupt or return corrupt data.
@@ -82,6 +82,13 @@ private:
 	std::vector<uint8_t> es{};
 	double position = 0.0;
 	double duration = 0.0;
+	/* DTS (in seconds) of the previously sent sample, used to derive the
+	 * per-sample duration from the delta between successive access units.
+	 * Negative means no sample has been sent yet in the current segment. */
+	double prev_sent_dts_s = -1.0;
+	/* Last non-zero per-sample duration (in seconds), reused as a fallback
+	 * when the DTS delta is not usable (e.g. duplicate/out-of-order DTS). */
+	double last_sample_duration_s = 0.0;
 	uint33_t base_pts{};
 	bool rollover_pts = false;
 	uint33_t current_pts{};
@@ -142,7 +149,7 @@ public:
 		// caused by the discontinuity / restamp boundary.
 		suppress_rollover_detection = true;
 	}
-	
+
 	/**
 	 * @brief Demuxer Constructor
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with demux
@@ -227,9 +234,9 @@ public:
 	void processPacket(const unsigned char * packetStart, bool &basePtsUpdated, bool &ptsError, bool &isPacketIgnored, bool applyOffset, MediaProcessor::process_fcn_t processor);
 
 	/**
-	 * @brief 
-	 * 
-	 * @param processor 
+	 * @brief
+	 *
+	 * @param processor
 	 */
 	void send(MediaProcessor::process_fcn_t processor)
 	{
