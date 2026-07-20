@@ -41,7 +41,7 @@
 #include "InterfacePlayerRDK.h"
 #include "GstUtils.h"
 
-#define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 10
+#define GST_ELEMENT_GET_STATE_RETRY_CNT_MAX 5
 #define GST_TRACK_COUNT 3 /**< internal use - audio+video+sub track */
 #define VIDEO_COORDINATES_SIZE 32
 #define GST_TASK_ID_INVALID 0
