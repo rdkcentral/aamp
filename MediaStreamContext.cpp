@@ -26,6 +26,11 @@
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
+#include <cstdio>
+#include <cerrno>
+#include <fstream>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 /**
  *  @brief Receives cached fragment and injects to sink.
@@ -225,7 +230,38 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						if(overWriteTrackId)
 						{
 							buffer.parseBuffer(false, aamp->mCurrentAudioTrackId);
-							AAMPLOG_WARN("DEBUG-->Audio track_id of the current track is overwritten as track id: %d ", track_id);
+							AAMPLOG_WARN("DEBUG-->Audio track_id of the current track is overwritten as track id: %d ", aamp->mCurrentAudioTrackId);
+							
+							// Dump raw overwritten audio fragment bytes to a separate file
+							uint8_t *bufPtr = (uint8_t *)cachedFragment->fragment.GetPtr();
+							size_t bufLen = cachedFragment->fragment.GetLen();
+							
+							// Static counter for unique filenames
+							static int audioFragmentCounter = 0;
+
+							const char *dumpDir = "/opt/dumpAudio";
+							if ((mkdir(dumpDir, 0777) == 0) || (errno == EEXIST))
+							{
+								std::string filename = std::string(dumpDir) + "/frag_" + std::to_string(audioFragmentCounter) + ".m4s";
+
+								std::ofstream fragmentFile(filename.c_str(), std::ios::binary);
+								if (fragmentFile.good())
+								{
+									fragmentFile.write(reinterpret_cast<const char*>(bufPtr), bufLen);
+									fragmentFile.close();
+									AAMPLOG_WARN("Saved overwritten audio fragment to %s (%zu bytes)", filename.c_str(), bufLen);
+									audioFragmentCounter++;
+								}
+								else
+								{
+									AAMPLOG_ERR("Failed to open %s for writing overwritten audio fragment", filename.c_str());
+								}
+							}
+							else
+							{
+								AAMPLOG_ERR("Failed to create dump directory %s for overwritten audio fragments", dumpDir);
+							}
+							
 							trackIdUpdated = true;
 						}
 						else
