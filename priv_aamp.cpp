@@ -6208,7 +6208,20 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if(retVal == eAAMPSTATUS_SEEK_RANGE_ERROR)
 		{
 			AAMPLOG_ERR("mpStreamAbstractionAAMP Init Failed.Seek Position(%f) out of range(%lld)",mpStreamAbstractionAAMP->GetStreamPosition(),(GetDurationMs()/1000));
-			NotifyEOSReached();
+			if (ISCONFIGSET_PRIV(eAAMPConfig_InfoLogging) && DownloadsAreEnabled())
+			{
+				SendErrorEvent(AAMP_TUNE_INIT_FAILED,
+					"Seek position out of range");
+			}
+			else if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
+			{
+				SetState(eSTATE_PLAYING);
+				NotifyEOSReached();
+			}
+			else
+			{
+				NotifyEOSReached();
+			}
 		}
 		else if(mIsFakeTune)
 		{
