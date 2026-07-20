@@ -1196,8 +1196,10 @@ bool TrunBox::sampleDurationPresent()
 /**
  *  @brief TfhdBox constructor
  */
-TfhdBox::TfhdBox(uint32_t sz, uint64_t default_duration, uint8_t* default_duration_location, uint32_t default_sample_size, uint32_t flags)
+TfhdBox::TfhdBox(uint32_t sz, uint32_t track_id, uint8_t* track_id_location, uint64_t default_duration, uint8_t* default_duration_location, uint32_t default_sample_size, uint32_t flags)
 	: FullBox(sz, Box::TFHD, 0, 0),
+	mTrackId(track_id),
+	mTrackIdLocation(track_id_location),
 	mDefaultSampleDuration(default_duration),
 	default_sample_duration_location(default_duration_location),
 	mDefaultSampleSize(default_sample_size),
@@ -1209,14 +1211,30 @@ TfhdBox::TfhdBox(uint32_t sz, uint64_t default_duration, uint8_t* default_durati
 /**
  *  @brief TfhdBox constructor
  */
-TfhdBox::TfhdBox(FullBox &fbox, uint64_t default_duration, uint8_t* default_duration_location, uint32_t default_sample_size, uint32_t flags)
+TfhdBox::TfhdBox(FullBox &fbox, uint32_t track_id, uint8_t* track_id_location, uint64_t default_duration, uint8_t* default_duration_location, uint32_t default_sample_size, uint32_t flags)
 	: FullBox(fbox),
+	mTrackId(track_id),
+	mTrackIdLocation(track_id_location),
 	mDefaultSampleDuration(default_duration),
 	default_sample_duration_location(default_duration_location),
 	mDefaultSampleSize(default_sample_size),
 	mFlags(flags)
 {
 
+}
+
+void TfhdBox::setTrackId(uint32_t track_id)
+{
+	mTrackId = track_id;
+	if (nullptr != mTrackIdLocation)
+	{
+		WRITE_U32(mTrackIdLocation, track_id);
+	}
+}
+
+uint32_t TfhdBox::getTrackId(void)
+{
+	return mTrackId;
 }
 
 bool TfhdBox::defaultSampleDurationPresent(void)
@@ -1246,17 +1264,23 @@ uint32_t TfhdBox::getDefaultSampleSize(void)
 /**
  *  @brief Static function to construct a TfdtBox object
  */
-TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
+TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr, int newTrackId)
 {
 	auto start = ptr;
 	uint8_t version = READ_VERSION(ptr); // 8
 	uint32_t flags  = READ_FLAGS(ptr); //24
 
+	uint8_t* trackId_loc{ptr};
+	uint32_t trackId = READ_U32(ptr);
+	if(-1 != newTrackId)
+	{
+		WRITE_U32(trackId_loc, static_cast<uint32_t>(newTrackId));
+		trackId = static_cast<uint32_t>(newTrackId);
+	}
+
 	uint32_t DefaultSampleDuration{0};
 	uint32_t DefaultSampleSize{0};
 	uint8_t* DefaultSampleDuration_loc{nullptr};
-
-	ptr += sizeof(uint32_t);       // skip track id
 
 	if (flags & TFHD_FLAG_BASE_DATA_OFFSET_PRESENT)
 	{
@@ -1282,7 +1306,7 @@ TfhdBox* TfhdBox::constructTfhdBox(uint32_t sz, uint8_t *ptr)
 	FullBox fbox(sz, Box::TFHD, version, flags);
 	fbox.setBase(start);
 
-	return new TfhdBox(fbox, DefaultSampleDuration, DefaultSampleDuration_loc, DefaultSampleSize, flags);
+	return new TfhdBox(fbox, trackId, trackId_loc, DefaultSampleDuration, DefaultSampleDuration_loc, DefaultSampleSize, flags);
 }
 
 /**
