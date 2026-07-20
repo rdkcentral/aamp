@@ -912,8 +912,34 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							{
 								retValue = sink->Pause(false, false);
 							}
-							// required since buffers are already cached in paused state
-							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
+							
+							if (sink && !retValue)
+							{
+								// Pipeline resume did not complete (async PAUSED->PLAYING wedged by a
+								// rapid trickplay->seek->resume race - seen on both VOD and FOG-TSB linear).
+								// Recover by re-seeking to the current position: the same mechanism theExpand commentComment on lines R920 to R924Resolved
+								// local-TSB resume path uses. Works uniformly for VOD, FOG-TSB & local TSB.
+								AAMPLOG_WARN("SetRateInternal: pipeline resume failed (GstState timeout); recovering via re-seek");
+								aamp->SetState(eSTATE_SEEKING);
+								aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+								aamp->rate = AAMP_NORMAL_PLAY_RATE;
+								aamp->mSinkPaused = false;
+								{
+									std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+									aamp->TuneHelper(eTUNETYPE_SEEK, false);
+								}
+
+								// Skip common notification (like local-TSB path): state -> PLAYING
+								// via NotifyFirstBufferProcessed once fragments arrive.
+								retValue = false;
+								aamp->NotifySpeedChanged(aamp->rate, false);
+							}
+							else
+							{
+								// required since buffers are already cached in paused state
+								aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
+							}							
+							
 						}
 					}
 					aamp->mSinkPaused = false;
