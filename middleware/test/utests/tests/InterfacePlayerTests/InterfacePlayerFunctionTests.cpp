@@ -876,6 +876,31 @@ TEST_F(InterfacePlayerTests, SendGstEvents_PendingSeek)
 	EXPECT_FALSE(stream->pendingSeek);
 }
 
+TEST_F(InterfacePlayerTests, SendGstEvents_PendingSeek_Mp4DemuxPTSReStamp)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime pts = 1000;
+
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->pendingSeek = true;
+	stream->source = &gst_element_pipeline;
+	mPlayerConfigParams->enableGstPosQuery = TRUE;
+	mPlayerConfigParams->enablePTSReStamp = TRUE;
+	mPlayerConfigParams->vodTrickModeFPS = 24;
+
+	mPlayerContext->seekPosition = 10;
+	mPlayerContext->isMp4DemuxPlayback = true;
+
+	// When mp4demux + PTS restamping are both enabled, gst_element_seek_simple should NOT be called
+	EXPECT_CALL(*g_mockGStreamer, gst_element_seek_simple(_, _, _, _))
+		.Times(0);
+
+	mInterfacePrivatePlayer->SendGstEvents(mediaType, pts,mPlayerConfigParams->enableGstPosQuery , mPlayerConfigParams->enablePTSReStamp, mPlayerConfigParams->vodTrickModeFPS);
+
+	// pendingSeek should still be cleared
+	EXPECT_FALSE(stream->pendingSeek);
+}
+
 TEST_F(InterfacePlayerTests, SendGstEvents_NoPendingSeek)
 {
 	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
