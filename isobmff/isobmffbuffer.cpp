@@ -387,6 +387,8 @@ bool IsoBmffBuffer::getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t
 bool IsoBmffBuffer::getTrackIdInternal(const std::vector<Box*> *boxes, uint32_t &track_id)
 {
 	bool ret = false;
+	bool tfhdTrackFound = false;
+	uint32_t tfhdTrackId = 0;
 	for (size_t i = 0; (false == ret) && i < boxes->size(); i++)
 	{
 		Box *box = boxes->at(i);
@@ -404,10 +406,28 @@ bool IsoBmffBuffer::getTrackIdInternal(const std::vector<Box*> *boxes, uint32_t 
 				//do nothing
 			}
 		}
+		else if (IS_TYPE(box->getType(), Box::TFHD))
+		{
+			try {
+				TfhdBox *tfhdBox = dynamic_cast<TfhdBox *>(box);
+				if(tfhdBox)
+				{
+					tfhdTrackId = tfhdBox->getTrackId();
+					tfhdTrackFound = true;
+				}
+			} catch (std::bad_cast& bc){
+				//do nothing
+			}
+		}
 		if (box->hasChildren())
 		{
 			ret = getTrackIdInternal(box->getChildren(), track_id);
 		}
+	}
+	if (!ret && tfhdTrackFound)
+	{
+		track_id = tfhdTrackId;
+		ret = true;
 	}
 	return ret;
 }
