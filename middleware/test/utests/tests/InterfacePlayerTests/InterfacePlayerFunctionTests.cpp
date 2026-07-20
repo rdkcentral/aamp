@@ -547,7 +547,7 @@ TEST_F(InterfacePlayerTests, GstFlush_PipelineNull)
 	bool shouldTearDown = false;
 	bool isAppSeek = false;
 
-	EXPECT_FALSE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek));
+	EXPECT_FALSE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek, false));
 }
 
 TEST_F(InterfacePlayerTests, GstFlush_PipelineNotPlayingOrPaused)
