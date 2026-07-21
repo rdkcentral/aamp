@@ -1373,6 +1373,18 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	else if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 	{
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->subtitle_sink);
+		pthread_mutex_lock(&stream->sourceLock);
+		if (stream->sinkbin)
+		{
+			MW_LOG_WARN("InterfacePlayerRDK::TearDownStream: CC sinkbin still assigned, clearing");
+			g_clear_object(&stream->sinkbin);
+		}
+		if (stream->source)
+		{
+			MW_LOG_WARN("InterfacePlayerRDK::TearDownStream: CC source still assigned, clearing");
+			g_clear_object(&stream->source);
+		}
+		pthread_mutex_unlock(&stream->sourceLock);
 	}
 	tearDownCb(false, mediaType);
 	MW_LOG_MIL("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
@@ -2260,7 +2272,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
 
 				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
-				interfacePlayerPriv->gstPrivateContext->subtitle_sink = textsink;
+				interfacePlayerPriv->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref(textsink));
 				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", interfacePlayerPriv->gstPrivateContext->subtitleMuted, interfacePlayerPriv->gstPrivateContext->subtitle_sink);
 				g_object_set(textsink, "mute", interfacePlayerPriv->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
 			}
@@ -2329,7 +2341,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 					MW_LOG_INFO("setting has-drm=false for clear HLS/TS playback");
 					g_object_set(vidsink, "has-drm", FALSE, NULL);
 				}
-				interfacePlayerPriv->gstPrivateContext->video_sink = vidsink;
+				interfacePlayerPriv->gstPrivateContext->video_sink = GST_ELEMENT(gst_object_ref(vidsink));
 
                                 // RDKEMW-18286: Set show-video-window=FALSE at sink creation time.
                                 // This is the EARLIEST possible point. The Rialto delegate will queue
@@ -2359,7 +2371,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			{
 				MW_LOG_INFO("Created rialtomseaudiosink : %s",GST_ELEMENT_NAME(audSink));
 				g_object_set(stream->sinkbin, "audio-sink", audSink, NULL);
-				interfacePlayerPriv->gstPrivateContext->audio_sink = audSink;
+				interfacePlayerPriv->gstPrivateContext->audio_sink = GST_ELEMENT(gst_object_ref(audSink));
 			}
 			else
 			{
@@ -3312,16 +3324,30 @@ void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,G
 		if (gstPrivateContext->usingRialtoSink)
 		{
 			GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
-			GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
-
-			MW_LOG_INFO("Pushing sample with segment for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-			if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
+			if (currentCaps != NULL)
 			{
-				MW_LOG_ERR("Failed to push sample with segment for mediaType[%d]", mediaType);
+				GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
+				if (sample != NULL)
+				{
+					MW_LOG_INFO("Pushing sample with segment for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+					if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
+					{
+						MW_LOG_ERR("Failed to push sample with segment for mediaType[%d]", mediaType);
+					}
+					gst_sample_unref(sample);
+				}
+				else
+				{
+					MW_LOG_ERR("Failed to create sample for mediaType[%d]", mediaType);
+				}
+				gst_caps_unref(currentCaps);
 			}
-			gst_sample_unref(sample);
-			gst_caps_unref(currentCaps);
+			else
+			{
+				MW_LOG_WARN("Cannot push segment for mediaType[%d] - caps not yet set on appsrc", mediaType);
+			}
 		}
+
 		else
 		{
 			MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
