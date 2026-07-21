@@ -168,29 +168,7 @@ void Demuxer::send()
 
 		if (aamp)
 		{
-			// send() emits a single extracted access unit (sample), not the
-			// whole segment, so the sink must receive this sample's duration
-			// rather than the segment duration. Estimate it from the DTS delta
-			// since the previously sent sample (constant frame rate). For the
-			// first sample of a segment, or when the delta is not usable, fall
-			// back to the last known sample duration, then the segment duration.
-			double sampleDuration = duration;
-			if (prev_sent_dts_s >= 0.0)
-			{
-				double delta = info.dts_s - prev_sent_dts_s;
-				if (delta > 0.0)
-				{
-					sampleDuration = delta;
-					last_sample_duration_s = delta;
-				}
-				else if (last_sample_duration_s > 0.0)
-				{
-					sampleDuration = last_sample_duration_s;
-				}
-			}
-			prev_sent_dts_s = info.dts_s;
-
-			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, sampleDuration);
+			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, duration);
 		}
 		es.clear();
 	}
@@ -231,8 +209,6 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	current_dts = 0;
 	current_pts = 0;
 	first_pts = 0;
-	prev_sent_dts_s = -1.0;
-	last_sample_duration_s = 0.0;
 	update_first_pts = false;
 	finalized_base_pts = false;
 	rollover_pts = false;

@@ -82,13 +82,6 @@ private:
 	std::vector<uint8_t> es{};
 	double position = 0.0;
 	double duration = 0.0;
-	/* DTS (in seconds) of the previously sent sample, used to derive the
-	 * per-sample duration from the delta between successive access units.
-	 * Negative means no sample has been sent yet in the current segment. */
-	double prev_sent_dts_s = -1.0;
-	/* Last non-zero per-sample duration (in seconds), reused as a fallback
-	 * when the DTS delta is not usable (e.g. duplicate/out-of-order DTS). */
-	double last_sample_duration_s = 0.0;
 	uint33_t base_pts{};
 	bool rollover_pts = false;
 	uint33_t current_pts{};
