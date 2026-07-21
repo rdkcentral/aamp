@@ -8739,6 +8739,18 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 									 prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
 					}
 				}
+
+				// VPAAMP-768: When a period is culled during live playback, the video
+				// inject thread may be blocked in BlockUntilGstreamerWantsData due to a
+				// prior enoughData signal.  Unblock it so it can transition to the new
+				// period; the normal need-data / enough-data cycle resumes once fresh
+				// video frames reach GStreamer.
+				if (culled > 0 && !aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
+				{
+					AAMPLOG_WARN("Period culled while video downloads blocked; forcing video track resume to prevent freeze");
+					aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
+				}
+
 				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
 			}
 			else
@@ -8801,6 +8813,14 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 						mPrevStartTimeSeconds = newStartSegment;
 					}
 				}
+
+				// VPAAMP-768: Same guard as the segmentTimeline path above.
+				if (culled > 0 && !aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
+				{
+					AAMPLOG_WARN("Period culled while video downloads blocked; forcing video track resume to prevent freeze");
+					aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
+				}
+
 				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
 			}
 		}
