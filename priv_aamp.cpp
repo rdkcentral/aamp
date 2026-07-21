@@ -15091,6 +15091,26 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 }
 
 /**
+ * @brief Get the minimum of audio and video buffered durations for the latency monitor.
+ *
+ * Returns min(video_buffer, audio_buffer) when audio is enabled so that
+ * audio-side depletion (SoC clock correction, audio underflow) is visible to
+ * the latency monitor and drives adaptive target-latency increases.
+ * Falls back to video-only when audio is disabled (trickplay, forward seek).
+ * Returns -1.0 sentinel on mStreamLock contention.
+ */
+double PrivateInstanceAAMP::GetMinAVBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return std::min(mpStreamAbstractionAAMP->GetBufferedVideoDurationSec(),
+		                mpStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+	}
+	return -1.0;
+}
+
+/**
  * @brief Build the latency configuration for the latency monitor
  * The configuration will be built based on the current stream and player state.
  */

@@ -279,9 +279,9 @@ void AampLatencyMonitor::Run()
 
 		// Collect measurements.
 		const long   latencyMs   = mAamp->GetCurrentLatencyMs();
-		const double bufferMs   = mAamp->GetBufferedDurationSecs() * 1000.0;
+		const double bufferMs   = mAamp->GetMinAVBufferedDurationSecs() * 1000.0;
 
-		// A negative bufferMs is the sentinel returned by GetBufferedDurationSecs()
+		// A negative bufferMs is the sentinel returned by GetMinAVBufferedDurationSecs()
 		// when mStreamLock could not be acquired (std::try_to_lock contention).
 		// Skip the entire poll so a transient read failure cannot masquerade as
 		// an empty buffer and trigger spurious threshold shifts or rate resets.
@@ -572,7 +572,7 @@ void AampLatencyMonitor::OnBufferLevelUpdate(double bufferMs)
 	}
 
 	// Ignore the invalid sentinel (-1.0 * 1000 = -1000 ms) that
-	// GetBufferedDurationSecs() returns on lock-contention so a transient
+	// GetMinAVBufferedDurationSecs() returns on lock-contention so a transient
 	// read failure cannot trigger a spurious wakeup and episode shift.
 	if (bufferMs < 0.0)
 	{

@@ -4079,6 +4079,20 @@ public:
 	double GetBufferedDurationSecs();
 
 	/**
+	 * @fn GetMinAVBufferedDurationSecs
+	 * @brief Get min(video_buffer, audio_buffer) for use by the latency monitor.
+	 *
+	 * Unlike GetBufferedDurationSecs() (video-only), this returns the minimum
+	 * of audio and video buffers so that audio-side depletion (SoC clock
+	 * correction, audio underflow) is visible to the latency monitor and drives
+	 * adaptive target-latency increases.  Falls back to video-only when audio
+	 * is disabled (trickplay, forward seek, etc.).
+	 *
+	 * @return Buffered duration in seconds considering both audio and video buffers.
+	 */
+	double GetMinAVBufferedDurationSecs();
+
+	/**
 	 * @brief Enable or disable rate correction in latency monitor
 	 * @param enabled - true to enable rate correction, false to disable
 	 */
