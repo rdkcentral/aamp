@@ -1136,6 +1136,15 @@ public:
 	 *   @return True, if ramp down successful. Else false
 	 */
 	bool RampDownProfile(int http_error);
+
+	/**
+	 *   @fn ApplyRampDownProfileIndex
+	 *
+	 *   @param[in] desiredProfileIndex - profile to switch to
+	 *   @param[in] http_error - Http error code
+	 *   @return True, if profile switch successful. Else false
+	 */
+	bool ApplyRampDownProfileIndex(int desiredProfileIndex, int http_error);
 	/**
 	 *   @fn GetDesiredProfileOnBuffer
 	 *
@@ -1183,6 +1192,14 @@ public:
 	 *   @return error code
 	 */
 	int getOriginalCurlError(int http_error);
+
+	/**
+	 *   @fn IsRampDownEligibleError
+	 *
+	 *   @param[in] http_error - Error code
+	 *   @return true if error should trigger rampdown logic
+	 */
+	bool IsRampDownEligibleError(int http_error) const;
 
 	/**
 	 *   @fn CheckForRampDownProfile
@@ -1440,6 +1457,9 @@ public:
 	bool mNetworkDownDetected;              /**< Network down status indicator */
 	TuneType mTuneType;                     /**< Tune type of current playback, initialize by derived classes on Init()*/
 	int mRampDownCount;		        /**< Total number of rampdowns */
+	int mConsecutiveSendRecvErrorCount;     /**< Consecutive curl 55/56 failures */
+	int mConsecutiveSendRecvErrorProfileIndex; /**< Profile index for curl 55/56 streak */
+	long long mLastSendRecvErrorTimeMs;     /**< Last timestamp for curl 55/56 streak */
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */

@@ -4670,6 +4670,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 			while(downloadAttempt < maxDownloadAttempt)
 			{
+				constexpr int kRetryBackoffMs = 100;
 				// Reset context values specific to each download attempt
 				context.ResetForNewDownload();
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
@@ -4806,6 +4807,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 				downloadTimeMS = (int)(tEndTime - tStartTime);
 				bool loopAgain = false;
+				bool retryBackoffHandled = false;
 				if (res == CURLE_OK)
 				{ // all data collected
 					if( memcmp(remoteUrl.c_str(), "file:", 5) == 0 )
@@ -4856,6 +4858,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						{
 							int waitTimeBeforeRetryHttp5xxMSValue = GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval);
 							interruptibleMsSleep(waitTimeBeforeRetryHttp5xxMSValue);
+							retryBackoffHandled = true;
 							AAMPLOG_WARN("Download failed due to Server error. Retrying Attempt:%d!", downloadAttempt);
 							loopAgain = true;
 						}
@@ -4991,10 +4994,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-						if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) ||
-							(isDownloadStalled &&
-								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
-							res == CURLE_SEND_ERROR)
+						const bool isRetryableStall =
+						(isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason));
+						if (IsRetryableCurlFailure(res) || IsCurlTimeoutFailure(res) || isRetryableStall)
 						{
 
 						if(mpStreamAbstractionAAMP)
@@ -5205,6 +5207,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 
 				}
+				if (loopAgain && !retryBackoffHandled && (downloadAttempt < maxDownloadAttempt))
+				{
+					interruptibleMsSleep(kRetryBackoffMs);
+				}
+
 				if(!loopAgain)
 					break;
 			}
