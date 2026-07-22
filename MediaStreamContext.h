@@ -72,6 +72,7 @@ public:
 			lastDownloadedPosition(0), // ,mCMCDNetworkMetrics{-1,-1,-1}
 			scaledPTO(0),
 			failAdjacentSegment(false),
+			mInitBitrateChangeTransition(false),
 			httpErrorCode(0),
 			mPlaylistUrl(""),
 			mEffectiveUrl(""),
@@ -375,6 +376,7 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	bool mSkipSegmentOnError;
 	double scaledPTO;
 	bool failAdjacentSegment;
+	bool mInitBitrateChangeTransition;
 	int httpErrorCode;
 	std::string mPlaylistUrl;
 	std::string mEffectiveUrl; 		/**< uri associated with downloaded playlist (takes into account 302 redirect) */
