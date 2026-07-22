@@ -1768,6 +1768,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
+	, mApplyCachedCCStatus(false)
 	, mFirstProgress(false)
 	, mTsbSessionRequestUrl()
 	, mcurrent_keyIdArray()
@@ -6365,7 +6366,19 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				{
 					sink->SetVideoMute(video_muted.load());
 				}
-				SetCCStatusInternal();
+				if (mApplyCachedCCStatus.load())
+				{
+					// clear the flag in a thread safe manner
+					while (mApplyCachedCCStatus.exchange(false))
+					{
+						AAMPLOG_DEBUG("mApplyCachedCCStatus=true, setting CCStatus");
+						SetCCStatusInternal();
+					}
+				}
+				else
+				{
+					SetCCStatusInternal();
+				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -6988,6 +7001,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			else
 			{
 				AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
+			}
+		}
+		else if (mApplyCachedCCStatus.load())
+		{
+			while (mApplyCachedCCStatus.exchange(false))
+			{
+				SetCCStatusInternal();
+				AAMPLOG_DEBUG("mApplyCachedCCStatus has been applied");
 			}
 		}
 	}
@@ -8427,6 +8448,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
+	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	// Set state to STOPPING irrespective of sending state change event or not
@@ -8475,9 +8497,14 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// so downloads are disabled among other things
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
+	auto streamLockStartTime = NOW_STEADY_TS_MS;
+	auto streamLockStopTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
 	// Stopping the playback, release all DRM context
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
+		streamLockStopTime = NOW_STEADY_TS_MS;
 		if (mpStreamAbstractionAAMP)
 		{
 			if(DownloadsAreEnabled())
@@ -8495,7 +8522,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 				// StreamAbstractionAamp object from TeardownStream(). Otherwise it can
 				// lead to crash as PreFetchThread can call UpdateFailedDRMStatus
 				// of StreamAbstractionAamp.
+				licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
 				mDRMLicenseManager->SetLicenseFetcher(nullptr);
+				licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
 			}
 			if (HasSidecarData())
 			{ // has sidecar data
@@ -8504,7 +8533,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		}
 	}
 	SetLLDashChunkMode(false); //Reset ChunkMode before curl handles are torn down
+	auto tearDownStartTime = NOW_STEADY_TS_MS;
 	TeardownStream(true,true); //disable download as well
+	auto tearDownEndTime = NOW_STEADY_TS_MS;
 	
 	// Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 errors
 	// Moved the Fog TSB delete to avoid the delay in MPDDownloaderInstance release which results in HTTP-404
@@ -8649,7 +8680,11 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
-	AAMPLOG_WARN("AAMP Stop took %u ms",mLastStopDurationMs);
+	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, SetLicenseFetcher %u, Teardown %u",
+		mLastStopDurationMs,
+		(unsigned int)(streamLockStopTime - streamLockStartTime),
+		(unsigned int)(licenseAcquisitionLockStopTime - licenseAcquisitionLockStartTime),
+		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
 }
@@ -11990,10 +12025,39 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-	{
+	auto playerState=GetState();
+	// This process will be blocking if we've already entered a playback state.
+	// This is a workaround where SetCCStatus is called whilst Tune is in progress (StreamLock held) from an EPG Stop call.
+	// Note: CC status can be changed at any time during playback and we do not want to ignore this if StreamLock is currently taken.
+	// The alternative would be to allow TryStreamLock() to have a timeout ~1s, but this might be less predictable.
+	bool allowDeferredApplication =	
+					((playerState == eSTATE_IDLE)         ||
+					(playerState == eSTATE_INITIALIZING) ||
+					(playerState == eSTATE_INITIALIZED)  ||
+					(playerState == eSTATE_PREPARING)    ||
+					(playerState == eSTATE_PREPARED)     ||
+					(playerState == eSTATE_STOPPING)     ||
+					(playerState == eSTATE_STOPPED)
+					);
+	// Set subtitles_muted flag to the value requested by the app
+	subtitles_muted = !enabled;
+
+	if(allowDeferredApplication)
+	{		
+		std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+		if( lock.owns_lock() )
+		{
+			SetCCStatusInternal();
+		}
+		else
+		{
+			AAMPLOG_WARN("CC status value has been cached, subtitles_muted = %d, playerState=%d", subtitles_muted.load(), playerState);
+			mApplyCachedCCStatus=true; // can't do it now, but remember that we want to apply this
+		}
+	}
+	else
+	{			
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
-		// Set subtitles_muted flag to the value requested by the app
-		subtitles_muted = !enabled;
 		SetCCStatusInternal();
 	}
 }

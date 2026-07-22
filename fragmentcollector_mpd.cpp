@@ -674,16 +674,23 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		timeBasedBufferManager->PopulateBuffer(fragmentDuration);
 	}
 
-	// SegmentBase init segments are byte-range requests against a single file.
-	// The FetcherLoop continues immediately after SubmitJob returns and will call
-	// LoadIDX then submit media segment[0] to the same worker queue.  Although the
-	// worker processes jobs in order, GStreamer still sees an invalid stream because
-	// the IDX-load + media-segment path in FetchNextFragment races with the async
-	// init download completion on the worker thread (fragmentOffset is mutated on
-	// both threads simultaneously).  Run SegmentBase init synchronously to guarantee
-	// the init bytes are injected before the FetcherLoop advances.
-	const bool segmentBaseInit = isInitializationSegment && !range.empty();
-	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseInit)
+	// SegmentBase content (both init and media segments) uses byte-range requests
+	// against a single file and requires strict ordering.  The FetcherLoop can
+	// race ahead after SubmitJob returns, loading IDX and submitting subsequent
+	// segments while async downloads are still in flight.  During ABR switches
+	// the IDX is cleared and reloaded for the new profile; if a stale async job
+	// then runs with the new profile's IDX it gets a start offset that matches
+	// the new profile but an end offset from the old profile's range, producing
+	// a partial fragment download that confuses the IsoBmff parser with a
+	// declared box size exceeding the available bytes (VPAAMP-614).  Run ALL
+	// SegmentBase downloads synchronously so that each (URL, IDX, range) triple
+	// is consistent at execution time.
+	const auto* representation = pMediaStreamContext->representation;
+	const bool segmentBaseContent =
+		(representation != nullptr) &&
+		(representation->GetSegmentBase() != nullptr) &&
+		!range.empty();
+	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseContent)
 	{
 		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
 		if (future.valid())
@@ -3187,6 +3194,12 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		{
 			FindPeriodGapsAndReport();
 		}
+
+		if (ISCONFIGSET(eAAMPConfig_ProcessLicenseFromEAP) && mIsLiveManifest)
+		{
+			ProcessLicenseFromEAP(mpdDnldResp);
+		}
+
 		// Process VSS stream
 		if(aamp->mIsVSS)
 		{
@@ -3198,6 +3211,78 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		}
 		// Process and send manifest http headers
 		ProcessManifestHeaderResponse(std::move(mpdDnldResp), init);
+	}
+}
+
+/**
+ * @brief Function to process non-VSS early available periods and queue content protection for all adaptation sets
+ */
+void StreamAbstractionAAMP_MPD::ProcessLicenseFromEAP(ManifestDownloadResponsePtr mpdDnldResp)
+{
+	if (!mpdDnldResp)
+	{
+		return;
+	}
+
+	AampMPDParseHelperPtr mpdParseHelper = mpdDnldResp->GetMPDParseHelper();
+	if (!mpdParseHelper)
+	{
+		AAMPLOG_WARN("Skipping early available period processing due to null MPD parse helper");
+		return;
+	}
+
+	std::vector<IPeriod*> earlyPeriods;
+	GetEarlyAvailablePeriods(earlyPeriods, mpdParseHelper);
+
+	if (earlyPeriods.empty())
+	{
+		AAMPLOG_DEBUG("Early available period scan complete. detected=0");
+		return;
+	}
+
+	IPeriod *period = earlyPeriods.front();
+	if (!period)
+	{
+		AAMPLOG_WARN("Null period pointer in early available periods list");
+		return;
+	}
+	const std::string& periodId = period->GetId();
+	if (std::find(mEarlyAvailablePeriodIds.begin(), mEarlyAvailablePeriodIds.end(), periodId) == mEarlyAvailablePeriodIds.end())
+	{
+		mEarlyAvailablePeriodIds.push_back(periodId);
+		AAMPLOG_INFO("Early available period detected: id=%s adaptationSets=%zu", periodId.c_str(), period->GetAdaptationSets().size());
+	}
+	else
+	{
+		AAMPLOG_DEBUG("Early available period scan complete. already detected id=%s", periodId.c_str());
+	}
+	const std::vector<IAdaptationSet *>& adaptationSets = period->GetAdaptationSets();
+	for (size_t adaptationSetIdx = 0; adaptationSetIdx < adaptationSets.size(); adaptationSetIdx++)
+	{
+		IAdaptationSet *adaptationSet = adaptationSets.at(adaptationSetIdx);
+		if (!adaptationSet)
+		{
+			continue;
+		}
+		AampMediaType mediaType = eMEDIATYPE_DEFAULT;
+		if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+		{
+			mediaType = eMEDIATYPE_VIDEO;
+		}
+		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO))
+		{
+			mediaType = eMEDIATYPE_AUDIO;
+		}
+		else if (mpdParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE))
+		{
+			mediaType = eMEDIATYPE_SUBTITLE;
+		}
+		else
+		{
+			continue;
+		}
+		AAMPLOG_INFO("QueueContentProtection for early period id=%s adaptationSetIdx=%zu mediaType=%d", period->GetId().c_str(), adaptationSetIdx, mediaType);
+		QueueContentProtection(period, static_cast<uint32_t>(adaptationSetIdx), mediaType, false, false);
 	}
 }
 
@@ -3525,7 +3610,6 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 		drmHelper->setDrmMetaData(contentMetadata);
 		drmHelper->setDefaultKeyID(cencDefaultData);
 	}
-
 	return drmHelper;
 }
 
@@ -5773,15 +5857,25 @@ std::string StreamAbstractionAAMP_MPD::GetLanguageForAdaptationSet(IAdaptationSe
 		// set und+id as lang, this is required because sometimes lang is not present and stream has multiple audio track.
 		// this unique lang string will help app to SetAudioTrack by index.
 		// Attempt is made to make lang unique by picking ID of first representation under current adaptation
-		IRepresentation* representation = adaptationSet->GetRepresentation().at(0);
-		if(NULL != representation)
+		// FIX: Guard against empty representation vector before calling .at(0).
+		// Manifests with Early Available Period can contain audio
+		// AdaptationSets that have no lang attribute and no Representation children.
+		// Previously, calling adaptationSet->GetRepresentation().at(0) on such an empty
+		// vector would throw std::out_of_range, causing a crash during tune in
+		// StreamAbstractionAAMP_MPD::Init() -> UpdateLanguageList() -> GetLanguageForAdaptationSet().
+		const std::vector<IRepresentation*>& representations = adaptationSet->GetRepresentation();
+		if(!representations.empty())
 		{
-			lang = "und_" + representation->GetId();
-			if( lang.size() > (MAX_LANGUAGE_TAG_LENGTH-1))
+			IRepresentation* representation = representations.at(0);
+			if(NULL != representation)
 			{
-				// Lang string len  should not be more than "MAX_LANGUAGE_TAG_LENGTH" so trim from end
-				// lang is sent to metadata event where len of char array  is limited to MAX_LANGUAGE_TAG_LENGTH
-				lang = lang.substr(0,(MAX_LANGUAGE_TAG_LENGTH-1));
+				lang = "und_" + representation->GetId();
+				if( lang.size() > (MAX_LANGUAGE_TAG_LENGTH-1))
+				{
+					// Lang string len  should not be more than "MAX_LANGUAGE_TAG_LENGTH" so trim from end
+					// lang is sent to metadata event where len of char array  is limited to MAX_LANGUAGE_TAG_LENGTH
+					lang = lang.substr(0,(MAX_LANGUAGE_TAG_LENGTH-1));
+				}
 			}
 		}
 	}
@@ -5829,7 +5923,11 @@ void StreamAbstractionAAMP_MPD::UpdateLanguageList()
 				{
 					if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_AUDIO ))
 					{
-						mLangList.insert( GetLanguageForAdaptationSet(adaptationSet) );
+						std::string lang = GetLanguageForAdaptationSet(adaptationSet);
+						if(!lang.empty())
+						{
+							mLangList.insert(lang);
+						}
 					}
 				}
 				else
@@ -10004,6 +10102,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		  dynamic_cast<PrivateCDAIObjectMPD*>(mCdaiObject)->mVodManifestStitched))
 	{
 		double vodSeekSec = 0.0;
+		if( mCdaiObject )
 		{
 			std::lock_guard<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 			vodSeekSec = mCdaiObject->mContentSeekOffset;
@@ -10432,6 +10531,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			 * Segment downloader loop
 			 */
 			double lastPrdOffset = mBasePeriodOffset;
+			// Track whether EOS jobs have been submitted for this period to avoid duplicate scheduling.
+			bool videoEosSubmitted{false};
+			bool audioEosSubmitted{false};
 			while (!exitFetchLoop)
 			{
 				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderContext->isPlaylistDownloaderThreadStarted())
@@ -10521,6 +10623,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 											((mPlayRate > AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime >= aamp->mAbsoluteEndPosition) || (mPlayRate < AAMP_RATE_PAUSE && mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime <= aamp->culledSeconds && (mMPDParseHelper->mLowerBoundaryPeriod == mCurrentPeriodIdx)))); // For rewinding, EOS does not need to be set unless the current period is a lower period.
 					if ((!mIsLiveManifest || (mPlayRate != AAMP_NORMAL_PLAY_RATE)) && (eosOutSideAd || eosAdPlayback))
 					{
+						// Stream has reached the true end of playback for this period.
+						// The EOS worker job sets eosReached on the track, which causes
+						// MediaTrack::SignalIfEOSReached() to call EndOfStreamReached() on the
+						// pipeline. Once both vEos and aEos are set the FetcherLoop exits below.
 						if (vEos)
 						{
 							auto dashWorkerJob = std::make_shared<AampDashWorkerJob>([this]() {
@@ -10528,13 +10634,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 								mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
 								AAMPLOG_INFO("Video EOS Marked");
 							});
-							if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+							if (!videoEosSubmitted)
 							{
-								aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO , dashWorkerJob);
-							}
-							else
-							{
-								dashWorkerJob->Execute();
+								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+								{
+									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_VIDEO, dashWorkerJob);
+								}
+								else
+								{
+									dashWorkerJob->Execute();
+								}
+								videoEosSubmitted = true;
 							}
 							AAMPLOG_INFO("EOS Reached.eosOutSideAd:%d eosAdPlayback:%d", eosOutSideAd, eosAdPlayback);
 						}
@@ -10547,13 +10657,17 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 									mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
 									AAMPLOG_INFO("Audio EOS Marked");
 								});
-								if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+								if (!audioEosSubmitted)
 								{
-									aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
-								}
-								else
-								{
-									dashWorkerJob->Execute();
+									if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload))
+									{
+										aamp->GetAampTrackWorkerManager()->SubmitJob(eMEDIATYPE_AUDIO, dashWorkerJob);
+									}
+									else
+									{
+										dashWorkerJob->Execute();
+									}
+									audioEosSubmitted = true;
 								}
 							}
 						}
@@ -10884,6 +10998,46 @@ void StreamAbstractionAAMP_MPD::GetAvailableVSSPeriods(std::vector<IPeriod*>& Pe
 }
 
 /**
+ * @brief Check new non-VSS early available periods from manifest
+ */
+void StreamAbstractionAAMP_MPD::GetEarlyAvailablePeriods(std::vector<IPeriod*>& PeriodIds, AampMPDParseHelperPtr mpdParseHelper)
+{
+   if (!mpdParseHelper)
+   {
+	   AAMPLOG_WARN("Skipping early available period detection due to null MPD parse helper");
+	   return;
+   }
+
+	const IMPD *manifestMpd = mpdParseHelper->getMPD();
+	if (!manifestMpd)
+	{
+		AAMPLOG_WARN("Skipping early available period detection due to null MPD");
+		return;
+	}
+
+	const std::vector<IPeriod*> &allPeriods = manifestMpd->GetPeriods();
+	if (allPeriods.empty())
+	{
+		return;
+	}
+
+	int periodIter = static_cast<int>(allPeriods.size()) - 1;
+	IPeriod *tempPeriod = allPeriods.at(periodIter);
+	if (!tempPeriod)
+		return;
+	if (STARTS_WITH_IGNORE_CASE(tempPeriod->GetId().c_str(), VSS_DASH_EARLY_AVAILABLE_PERIOD_PREFIX))
+		return;
+	if (!tempPeriod->GetAdaptationSets().empty() && mpdParseHelper->IsEmptyPeriod(periodIter, false))
+	{
+		if (std::find(mEarlyAvailablePeriodIds.begin(), mEarlyAvailablePeriodIds.end(), tempPeriod->GetId()) == mEarlyAvailablePeriodIds.end())
+		{
+			AAMPLOG_INFO("Found new non-VSS early available period candidate: id=%s index=%d", tempPeriod->GetId().c_str(), periodIter);
+			PeriodIds.push_back(tempPeriod);
+		}
+	}
+}
+
+/**
  * @fn UpdateMPD
  * @param init flag to indicate whether call is from init\
  * @return AAMPStatusType
@@ -11110,15 +11264,18 @@ void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
  */
 StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 {
-	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
-	{
-		MediaStreamContext *track = mMediaStreamContext[iTrack];
-		SAFE_DELETE(track);
-	}
+	// Unregister the MPD download callback BEFORE deleting tracks.
+	// This ensures the notifier thread cannot fire MPDUpdateCallbackExec()
 
 	AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 	mManifestUpdateHandleFlag       =       false;
 	dnldInstance->UnRegisterCallback();
+
+	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
+	{
+		// Delete the MediaStreamContext object for this track.
+		SAFE_DELETE(mMediaStreamContext[iTrack]);
+	}
 
 	{
 		auto syncLock = aamp->SyncLock();
@@ -12493,6 +12650,10 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			AAMPLOG_WARN("[CDAI] period [%s] is empty not processing adevents if any",mBasePeriodId.c_str());
 			return false;
 		}
+	}
+	if (!mCdaiObject)
+	{
+		return false;
 	}
 	std::unique_lock<std::recursive_mutex> lock(mCdaiObject->mDaiMtx);
 	bool stateChanged = false;

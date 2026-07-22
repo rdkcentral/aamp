@@ -366,6 +366,7 @@ protected:
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_useRialtoSink, false},
 			{eAAMPConfig_UseMp4Demux, false},
+			{eAAMPConfig_ProcessLicenseFromEAP, false},
 			{eAAMPConfig_EnableProducerReferenceDelay, false},
 		};
 
