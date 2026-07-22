@@ -58,10 +58,15 @@ bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
 SocPlatformType InferPlatformFromPluginScan()
 {
 	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
+	const char *savedScanner = getenv("GST_PLUGIN_SCANNER");
+	setenv("GST_PLUGIN_SCANNER", "", 1);
 	// Ensure GST is initialized
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
 	}
+	// Restore original env var so we do not affect the rest of the process
+	if (savedScanner) { setenv("GST_PLUGIN_SCANNER", savedScanner, 1); }
+	else              { unsetenv("GST_PLUGIN_SCANNER"); }
 	static const std::pair<const char*, SocPlatformType> plugins[] = {
 		{"amlhalasink", SOC_PLATFORM_AMLOGIC},
 		{"omxeac3dec", SOC_PLATFORM_REALTEK},
