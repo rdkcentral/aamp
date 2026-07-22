@@ -4192,6 +4192,25 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 }
 
 /**
+ * @brief Force-resume buffer control and track downloads for a media type.
+ *
+ * VPAAMP-768: Called when a live period is culled while the track's inject
+ * thread is blocked in eBUFFER_NEEDS_DATA_SIGNAL.  This resets the buffer
+ * control state machine (via the same needData path GStreamer would use)
+ * AND unblocks the download flag, preventing immediate re-blocking.
+ */
+void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType type)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->ForceResumeBufferControl(type);
+	}
+	// Also ensure the download-blocked flag is cleared
+	ResumeTrackDownloads(type);
+}
+
+/**
  *  @brief Block the injector thread until gstreamer needs buffer/more data.
  */
 void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
@@ -4202,7 +4221,7 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 	{
 		if (!mDownloadsEnabled || mTrackInjectionBlocked[track])
 		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: track:%d interrupted. mDownloadsEnabled:%d mTrackInjectionBlocked:%d", track, mDownloadsEnabled, mTrackInjectionBlocked[track]);
+			AAMPLOG_WARN("PrivateInstanceAAMP: track:%d interrupted after %dms. mDownloadsEnabled:%d mTrackInjectionBlocked:%d", track, elapsedMs, mDownloadsEnabled, mTrackInjectionBlocked[track]);
 			break;
 		}
 		if (cb && periodMs)
@@ -4214,7 +4233,16 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 			}
 			elapsedMs += 10;
 		}
+		else
+		{
+			elapsedMs += 10;
+		}
 		interruptibleMsSleep(10);
+	}
+	if (elapsedMs > 1000)
+	{
+		AAMPLOG_WARN("track:%d was blocked for %dms before resuming (mbDownloadsBlocked:%d mbTrackDownloadsBlocked:%d)",
+			track, elapsedMs, (int)mbDownloadsBlocked, (int)mbTrackDownloadsBlocked[track]);
 	}
 	AAMPLOG_DEBUG("PrivateInstanceAAMP::Exit. type = %d",  track);
 }

@@ -1194,6 +1194,10 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
 {
 }
 
+void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType)
+{
+}
+
 void PrivateInstanceAAMP::SetDiscontinuityParam()
 {
 }

@@ -2078,6 +2078,13 @@ public:
 	void ResumeTrackDownloads(AampMediaType type);
 
 	/**
+	 * @fn ForceResumeTrackBufferControl
+	 *
+	 * @param[in] type Media type to force-resume
+	 */
+	void ForceResumeTrackBufferControl(AampMediaType type);
+
+	/**
 	 *   @fn BlockUntilGstreamerWantsData
 	 *
 	 *   @param[in] cb - Callback helping to perform additional tasks, if gst doesn't need extra data
