@@ -176,8 +176,8 @@ target_link_libraries(playerfbinterface baseconversion)
 target_link_libraries(playerfbinterface playerjsonobject)
 if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER OR CMAKE_USE_FIREBOLT)
    find_package(FireboltTransport CONFIG REQUIRED)
-   find_package(FireboltEntOs CONFIG REQUIRED)
-   target_link_libraries(playerfbinterface FireboltEntOs::FireboltEntOs)
+   find_package(FireboltEntos CONFIG REQUIRED)
+   target_link_libraries(playerfbinterface FireboltEntos::FireboltEntos)
 endif()
 
 # Install the library and its headers
