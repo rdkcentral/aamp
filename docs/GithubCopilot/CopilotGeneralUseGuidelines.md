@@ -469,7 +469,7 @@ The following factors increase CostRisk:
 ### Example Feedback Line
 
 ```text
-Scores: Completeness 7/10, Assumptions 3/10, Clarity 7/10, CostRisk 6/10
+Scores: Completeness 7/10, Assumptions 7/10, Clarity 7/10, CostRisk 6/10
 | Critique: Prompt includes a 1500-line log and asks for broad analysis
   without isolating the failure.
 | Improve: Extract the 30-50 lines around the DRM renewal failure and
