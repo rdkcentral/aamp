@@ -1455,6 +1455,115 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	EXPECT_FALSE(context.chunkInjectionUsed); // Since CacheFragmentChunk is not called
 }
 
+// Test HandleSSLWriteCallback when CacheFragmentChunk fails
+// Validates that bufferOffset, chunkBoundary, and chunkDurationInTicks are not updated when caching fails
+TEST_F(PrivAampTests, HandleSSLWriteCallbackCacheFragmentChunkFailure)
+{
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackCacheFragmentChunkFailure - Setting up");
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(mVideoStreamContext));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	std::vector<uint8_t> buffer;
+	const uint8_t initialData[] = "initial buffer data";
+	constexpr size_t initialDataLen = sizeof(initialData) - 1;
+	buffer.assign(initialData, initialData + initialDataLen);
+	buffer.reserve(1024);
+
+	size_t startBufferOffset = buffer.size();
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+	context.bufferOffset = startBufferOffset;
+	context.chunkBoundary = 0;
+
+	// Simulate receiving chunk data
+	char testData[] = "test data with mdat chunk";
+	size_t mdatStart = 10;
+	size_t mdatSize = 50;
+	size_t expectedChunkBoundary = startBufferOffset + mdatStart + mdatSize;
+	int mdatIndex = 5;
+	uint64_t expectedChunkDuration = 180000; // 2 seconds at 90kHz timescale
+
+	// First callback - identify chunk boundary
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.WillOnce(DoAll(
+			SetArgReferee<0>(static_cast<size_t>(mdatStart)),
+			SetArgReferee<1>(static_cast<size_t>(mdatSize)),
+			Return(true)
+		));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getLastMdatBoxIndex())
+		.WillOnce(Return(mdatIndex));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTotalChunkDurationInTicks(mdatIndex))
+		.WillOnce(Return(expectedChunkDuration));
+
+	size_t result1 = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+	EXPECT_EQ(result1, strlen(testData));
+	EXPECT_EQ(context.bufferOffset, startBufferOffset);
+	EXPECT_EQ(context.chunkBoundary, expectedChunkBoundary);
+	EXPECT_EQ(context.chunkDurationInTicks, expectedChunkDuration);
+	EXPECT_FALSE(context.chunkInjectionUsed);
+
+	// Save the state before the failing CacheFragmentChunk call
+	size_t savedBufferOffset = context.bufferOffset;
+	size_t savedChunkBoundary = context.chunkBoundary;
+	uint64_t savedChunkDuration = context.chunkDurationInTicks;
+
+	// Second callback - enough data to trigger caching, but CacheFragmentChunk will fail
+	char additionalData[] = "additional data to complete the chunk and trigger caching";
+	
+	// Mock CacheFragmentChunk to return false (failure scenario)
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, _, _, _, _, expectedChunkDuration))
+		.WillOnce(Return(false));
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackCacheFragmentChunkFailure - Calling with additional data");
+
+	size_t result2 = p_aamp->HandleSSLWriteCallback(additionalData, strlen(additionalData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackCacheFragmentChunkFailure - Result: %zu", result2);
+
+	// Result should be the bytes written (callback continues despite cache failure)
+	EXPECT_EQ(result2, strlen(additionalData));
+
+	// Critical assertions: When CacheFragmentChunk fails, bufferOffset and chunk state must NOT be updated
+	EXPECT_EQ(context.bufferOffset, savedBufferOffset)
+		<< "bufferOffset should not advance when CacheFragmentChunk fails";
+	EXPECT_EQ(context.chunkBoundary, savedChunkBoundary)
+		<< "chunkBoundary should not be reset when CacheFragmentChunk fails";
+	EXPECT_EQ(context.chunkDurationInTicks, savedChunkDuration)
+		<< "chunkDurationInTicks should not be reset when CacheFragmentChunk fails";
+	EXPECT_FALSE(context.chunkInjectionUsed)
+		<< "chunkInjectionUsed should remain false when CacheFragmentChunk fails";
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackCacheFragmentChunkFailure - Completed successfully");
+}
+
 // Test when a chunk boundary is identified in first iteration and then we receive the full chunk
 // and another full chunk in the next iteration. This tests that CacheFragmentChunk() is called for both chunks.
 // 1. Chunked MDAT with size, chunkBoundary is updated
