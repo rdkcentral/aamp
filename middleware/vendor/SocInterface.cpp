@@ -185,7 +185,6 @@ static std::shared_ptr<SocInterface> CreateForPlatform(SocPlatformType platformT
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 {
-	MW_LOG_MIL("Entering SocInterface::CreateSocInterface");
 	if(isRialto == true)
 	{
 	    MW_LOG_MIL("Rialto is enabled and creating default soc");
@@ -202,10 +201,12 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
+	MW_LOG_MIL("Entering SocInterface::CreateSocInterface");
 	std::lock_guard<std::mutex> lock(g_socMutex);
 	if (!g_socInterface)
 	{
 		// Only use device.properties at this stage — no GStreamer calls
+		MW_LOG_MIL("Reading Device Properties");
 		SocPlatformType platformType = InferPlatformFromDeviceProperties();
 		g_socInterface = CreateForPlatform(platformType);
 	}
