@@ -391,6 +391,14 @@ protected:
 
 private:
 	/**
+	 * @fn DetectMismatchAndOverwriteTrackId
+	 * @param[in] cachedFragment - cached init/audio fragment whose track_id is read
+	 * @retval void
+	 * @brief Detects mismatch in audio track ID and overwrites it if necessary
+	 */
+	void DetectMismatchAndOverwriteTrackId(const CachedFragment *cachedFragment);
+
+	/**
 	 * @fn CacheStagingFragmentForInjection
 	 * @brief Copy the staging fragment into a chunk-cache slot for the inject
 	 *        thread (non-LLD DASH path only).

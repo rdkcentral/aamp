@@ -61,6 +61,46 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 } // InjectFragmentInternal
 
 /**
+* @brief Detects mismatch in audio track ID and overwrites it if necessary
+**/
+void MediaStreamContext::DetectMismatchAndOverwriteTrackId(const CachedFragment *cachedFragment)
+{
+	// To read track_id from the init fragments to check if there any mismatch.
+	// A mismatch in track_id is not handled in the gstreamer version 1.10.4
+	// But is handled in the latest version (1.18.5),
+	// so upon upgrade to it or introduced a patch in qtdemux,
+	// this portion can be reverted
+	if (cachedFragment->fragment.empty())
+	{
+		AAMPLOG_WARN("Empty fragment buffer; skipping track_id mismatch detection");
+		return;
+	}
+	IsoBmffBuffer buffer;
+	buffer.setBuffer(cachedFragment->fragment);
+	if (!buffer.parseBuffer())
+	{
+		AAMPLOG_WARN("Failed to parse audio fragment buffer for track_id detection");
+		return;
+	}
+	uint32_t track_id = 0;
+	buffer.getTrack_id(track_id);
+
+	bool trackIdUpdated = false;
+	AAMPLOG_DEBUG("Audio track_id read from fragment: %d and track id stored in AAMP instance: %d", track_id, aamp->mCurrentAudioTrackId);
+	if (aamp->mCurrentAudioTrackId != -1 && track_id != aamp->mCurrentAudioTrackId)
+	{
+		buffer.parseBuffer(false, aamp->mCurrentAudioTrackId);
+		trackIdUpdated = true;
+		aamp->mIsTrackIdMismatch = true;
+		AAMPLOG_DEBUG("TrackId mismatch detected for audio, current track_id: %d, next period track_id: %d", aamp->mCurrentAudioTrackId, track_id);
+	}
+	if (!trackIdUpdated)
+	{
+		aamp->mCurrentAudioTrackId = track_id;
+	}
+}
+
+/**
  *  @brief Fetch and cache a fragment
  */
 bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int curlInstance, double position, double fragmentDurationS, const char *range, bool initSegment, bool discontinuity, bool playingAd, uint32_t scale)
@@ -171,6 +211,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			{
 				actualType = eMEDIATYPE_INIT_IFRAME;
 			}
+		}
+
+        if ((actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_AUDIO) && ret)
+		{
+			DetectMismatchAndOverwriteTrackId(cachedFragment);
 		}
 
 		if (!bReadfromcache)
