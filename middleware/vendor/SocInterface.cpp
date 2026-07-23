@@ -205,6 +205,19 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 	std::lock_guard<std::mutex> lock(g_socMutex);
 	if (!g_socInterface)
 	{
+		void *callerAddr = __builtin_return_address(0);
+        Dl_info dlInfo;
+        if (dladdr(callerAddr, &dlInfo) && dlInfo.dli_sname)
+        {
+            MW_LOG_MIL("CreateSocInterface: first call from %s+%td (%s)",
+                dlInfo.dli_sname,
+                (ptrdiff_t)((char*)callerAddr - (char*)dlInfo.dli_saddr),
+                dlInfo.dli_fname ? dlInfo.dli_fname : "?");
+        }
+        else
+        {
+            MW_LOG_MIL("CreateSocInterface: first call from %p", callerAddr);
+        }
 		// Only use device.properties at this stage — no GStreamer calls
 		MW_LOG_MIL("Reading Device Properties");
 		SocPlatformType platformType = InferPlatformFromDeviceProperties();
