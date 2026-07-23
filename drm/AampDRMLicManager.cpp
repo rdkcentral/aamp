@@ -907,13 +907,11 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 	 * for processing and the DRM session should await the key from the DRM implementation
 	 */
 	AAMPLOG_INFO("Updating the license response to the aampDRMSession(CDM)");
-	// Dump the full license response being handed to the CDM/OCDM.  DumpBlob
-	// emits the data in 64-char chunks so it is not truncated by the journal
-	// log line limit (~2040 chars).
+	// Log the full license response being handed to the CDM/OCDM as hex.
 	if (licenseResponse)
 	{
 		AAMPLOG_WARN("vk::License response sent to OCDM (len=%zu):", licenseResponse->getDataLength());
-		DumpBlob(reinterpret_cast<const unsigned char*>(licenseResponse->getData().c_str()), licenseResponse->getDataLength());
+		AAMPLOG_WARN("vk::License response payload: %s", licenseResponse->getData().c_str());
 	}
 	if(!isLicenseRenewal)
 	{
@@ -1353,11 +1351,9 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	pLicenseDownloader->Initialize(inpData);
 	
 	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
-	// Dump the full license request body sent to the server.  DumpBlob emits
-	// the data in 64-char chunks so it is not truncated by the journal log
-	// line limit (~2040 chars).
+	// Log the full license request body sent to the server.
 	AAMPLOG_WARN("License request payload sent to server (len=%zu):", inpData->postData.length());
-	DumpBlob(reinterpret_cast<const unsigned char*>(inpData->postData.c_str()), inpData->postData.length());
+	AAMPLOG_WARN("vk:: License request payload: %s", inpData->postData.c_str());
 
 	unsigned int attemptCount = 0;
 	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
@@ -1429,9 +1425,9 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 				std::string keyData;
 				auto keyLen = pLicenseDownloader->GetDataString(keyData);
 				keyInfo->setData(keyData.c_str(), keyLen);
-				// Dump the full license response received from the server.
+				// Log the full license response received from the server.
 				AAMPLOG_WARN("License response received from server (len=%zu):", keyData.length());
-				DumpBlob(reinterpret_cast<const unsigned char*>(keyData.c_str()), keyData.length());
+				AAMPLOG_WARN("License response received from server payload: %s", keyData.c_str());
 			}
 		}
 		
