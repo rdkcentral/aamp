@@ -251,7 +251,7 @@ std::unique_ptr<Box> Box::constructBox(uint8_t *hdr, uint32_t maxSz, bool correc
 	}
 	else if (IS_TYPE(type, TFHD))
 	{
-		return std::unique_ptr<Box>(TfhdBox::constructTfhdBox(size,  hdr));
+		return std::unique_ptr<Box>(TfhdBox::constructTfhdBox(size,  hdr, newTrackId));
 	}
 	else if (IS_TYPE(type, TFDT))
 	{
