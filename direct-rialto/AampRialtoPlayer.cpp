@@ -501,7 +501,13 @@ void AampRialtoPlayer::Configure(
 	// NOTE: m_pendingFlushPositionNs is intentionally NOT reset here.
 	// Flush() may be called before Configure() to pre-stage the seek position;
 	// clearing it here would discard that staged value before sources attach.
-	m_playRequested.store(false, std::memory_order_relaxed);
+	// NOTE: m_playRequested is intentionally NOT reset here.
+	// Configure() may be called mid-session from the injection thread when a
+	// TS demuxer identifies the actual codec (e.g. muxed HLS-TS).  In that
+	// case Stream() has already set m_playRequested=true for this tune
+	// session, and resetting it here would prevent CheckAllSourcesAttached()
+	// from issuing play() after the new pipeline attaches its sources.
+	// m_playRequested is reset by Stop(), which marks the end of a session.
 	m_allSourcesAttachedFlag.store(false, std::memory_order_relaxed);
 	for (auto &pa : m_pendingAttach)
 	{
@@ -1215,6 +1221,11 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	// Mark the pipeline as stopped so the next Configure() always triggers
 	// a full pipeline recreation, even when stream formats are unchanged.
 	m_pipelineStopped.store(true, std::memory_order_relaxed);
+	// Reset play intent so a new tune's Configure() starts clean.
+	// This is the canonical place to reset m_playRequested: Stop() ends the
+	// current session, whereas Configure() may be called mid-session for a
+	// codec change and must not discard a pending Stream() request.
+	m_playRequested.store(false, std::memory_order_relaxed);
 	m_stateMachine.onStop();
 	AAMPLOG_INFO("EXIT");
 }
