@@ -185,6 +185,7 @@ static std::shared_ptr<SocInterface> CreateForPlatform(SocPlatformType platformT
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 {
+	MW_LOG_MIL("Entering SocInterface::CreateSocInterface");
 	if(isRialto == true)
 	{
 	    MW_LOG_MIL("Rialto is enabled and creating default soc");
