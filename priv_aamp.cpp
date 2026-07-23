@@ -4474,7 +4474,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					}
 					else if (netTracerEnabled) {
 						aamptrace::NetTrace::SetPathsWithPid(
-							"/tmp/aamp_net_requests.csv", "/tmp/aamp_net_bursts.csv");
+							"/opt/logs/aamp_net_requests.csv", "/opt/logs/aamp_net_bursts.csv");
 						paths_set.store(true, std::memory_order_release);
 					}
 					// Neither condition: retry next download until config is true

@@ -248,7 +248,7 @@ Network timeout configurations control how long AAMP waits for various network o
 | `useWesterosSink` | Boolean | false | Use Westeros sink for video decoding |
 | `useNewAdBreaker` | Boolean | false | Use new discontinuity processing based on PDT |
 | `useRetuneForUnpairedDiscontinuity` | Boolean | true | Retune on unpaired discontinuity |
-| `netTraceCsvDump` | Boolean | false | Write per-download AAMP network trace CSV files to `/tmp` by default, typically using PID-suffixed filenames such as `/tmp/aamp_net_requests.csv.<pid>` and `/tmp/aamp_net_bursts.csv.<pid>`; environment overrides may change the final paths. |
+| `netTraceCsvDump` | Boolean | false | Write per-download AAMP network trace CSV files to `/opt/logs` by default, typically using PID-suffixed filenames such as `/opt/logs/aamp_net_requests.csv.<pid>` and `/opt/logs/aamp_net_bursts.csv.<pid>`; environment overrides may change the final paths. |
 
 ## Best Practices
 
