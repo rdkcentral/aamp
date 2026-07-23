@@ -872,7 +872,7 @@ public:
 	 * @param[in] sampleDuration - Sample Duration value
 	 * @return void
 	 */
-	void setFirstSampleDuration(uint64_t sampleDuration);
+	void setFirstSampleDuration(uint32_t sampleDuration);
 
 	/**
 	 * @fn getSampleDuration
@@ -974,7 +974,7 @@ public:
 	 *
 	 * @param[in] sample_duration - Default sample duration value to set
 	 */
-	void setDefaultSampleDuration(uint64_t sample_duration);
+	void setDefaultSampleDuration(uint32_t sample_duration);
 
 	/**
 	 * @fn getDefaultSampleSize
@@ -1119,6 +1119,7 @@ private:
 	uint8_t *sampleCountLoc;
 	uint32_t numSamples;
 	uint32_t firstSampleInfoSize;
+	bool hasPerSampleInfoTable;
 
 public:
 	/**
@@ -1128,8 +1129,9 @@ public:
 	 * @param[in] sampleCountLoc - location of the sample count
 	 * @param[in] numSamples - number of samples
 	 * @param[in] sample_info_size - Size for the first auxiliary sample information entry
+	 * @param[in] hasPerSampleInfoTable - True when sample_info_size entries are present per sample
 	 */
-	SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t sample_info_size);
+	SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t sample_info_size, bool hasPerSampleInfoTable);
 
 	/**
 	 * @fn constructSaizBox
