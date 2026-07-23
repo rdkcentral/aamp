@@ -11668,12 +11668,21 @@ MediaTrack* StreamAbstractionAAMP_MPD::GetMediaTrack(TrackType type)
 double StreamAbstractionAAMP_MPD::GetBufferedDuration()
 {
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	double retval = -1.0;
+	double videoBufferDuration = -1.0;
 	if (video && video->enabled)
 	{
-		retval = video->GetBufferedDuration();
+		videoBufferDuration = video->GetBufferedDuration();
 	}
-	return retval;
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	if (audio && audio->enabled)
+	{
+		double audioBufferedDuration = audio->GetBufferedDuration();
+		if (audioBufferedDuration < videoBufferDuration)
+		{
+			return audioBufferedDuration;
+		}
+	}
+	return videoBufferDuration;
 }
 
 
