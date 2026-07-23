@@ -965,12 +965,36 @@ void AampRialtoPlayer::AttachSource(
 		// allowed to block normally waiting for needData rather than
 		// immediately returning false.
 		//
+		// Exception: if a flush cycle (seek) is currently in progress —
+		// i.e. a Flush() caller has set FLUSHING — do NOT clear
+		// injectionGated here.  SetStreamCaps() is called from the init-
+		// segment injection path while the second seek (to the real
+		// playback position) is still in transit.  Unblocking injection at
+		// this point lets stale NeedMediaData responses from the inter-seek
+		// BUFFERING window reach the Rialto server while the seek is
+		// pending.  That prematurely fed data from source corrupts Rialto's
+		// source shared-memory state, causing a subsequent
+		// haveData to see version=0 and fail with
+		// "Metadata version not supported", driving the pipeline to FAILURE
+		// randomly in trick play to play transition scenarios.
+		// injectionGated is re-cleared by handleNeedData() when the genuine
+		// post-seek NeedMediaData arrives after SEEK_DONE.
+		//
 		// Also clear attachPending and wake any inject thread that was
 		// blocking because the source's attachment was deferred.
 		{
 			auto &st = source.state();
 			std::lock_guard<std::mutex> lock(st.mu);
-			st.injectionGated = false;
+			if (m_stateMachine.currentState() != PlayerStateId::FLUSHING)
+			{
+				st.injectionGated = false;
+			}
+			else
+			{
+				AAMPLOG_INFO("Player state FLUSHING — not updating injectionGated=false "
+					"for mediaType=%d to prevent premature injection during seek. st.injectionGated=%d",
+					static_cast<int>(type), st.injectionGated);
+			}
 			st.attachPending = false;
 			st.cv.notify_all();
 		}
