@@ -782,6 +782,11 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 		// that a future cache hit replays the identical single-pass processing
 		// performed by a normal server fetch.
 		std::shared_ptr<DrmData> rawLicenseResponse = licenseResponse;
+		if (licenseResponse)
+		{
+			AAMPLOG_WARN("vk:: licenseResponse before handleLicenseResponse: %s",
+				licenseResponse->getData().c_str());
+		}
 		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, std::move(licenseResponse), eventHandle,  isLicenseRenewal);
 		if ((code == KEY_READY) && rawLicenseResponse &&
 		    (rawLicenseResponse->getDataLength() != 0))
