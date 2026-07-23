@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <mutex>
+#include <dlfcn.h>
 #include "SocInterface.h"
 #include "vendor/amlogic/AmlogicSocInterface.h"
 #include "vendor/brcm/BrcmSocInterface.h"
