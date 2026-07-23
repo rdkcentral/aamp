@@ -57,6 +57,7 @@ bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
  */
 SocPlatformType InferPlatformFromPluginScan()
 {
+	MW_LOG_MIL("Performing InterfacePluginScan");
 	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
 	const char *savedScanner = getenv("GST_PLUGIN_SCANNER");
 	setenv("GST_PLUGIN_SCANNER", "", 1);
