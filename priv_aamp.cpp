@@ -6503,7 +6503,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				// shouldTearDown is set to false, because in case of a new tune pipeline
 				// might not be in a playing/paused state which causes Flush() to destroy
 				// pipeline. This has to be avoided.
-				sink->Flush(flushPosition, rate, false);
+				sink->Flush(flushPosition, rate, false, seekWhilePaused);
 			}
 		}
 
