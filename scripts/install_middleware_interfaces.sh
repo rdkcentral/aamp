@@ -214,6 +214,23 @@ function install_build_middleware_interface_fn()
         return 1
     }
 
+    # Apply OSX build fixes patch if on macOS (see OSX/patches/middleware-build-fixes-summary.md)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        local patch_file="${AAMP_DIR}/OSX/patches/middleware-osx-build-fixes.patch"
+        if [[ -f "${patch_file}" ]]; then
+            echo "Applying OSX build fixes patch for middleware..."
+            cd "${mw_src}" || return 1
+            if ! patch -p1 --forward --dry-run < "${patch_file}" > /dev/null 2>&1; then
+                echo "Patch already applied or not needed, skipping..."
+            else
+                if ! patch -p1 < "${patch_file}"; then
+                    echo "Warning: Failed to apply OSX build fixes patch, continuing anyway..."
+                fi
+            fi
+            cd "${mw_build_dir}" || return 1
+        fi
+    fi
+
     echo "Running cmake configuration for middleware-player-interface..."
     local cmake_platform_flag=""
     if [[ "$OSTYPE" == "linux"* ]]; then
@@ -249,7 +266,7 @@ function install_build_middleware_interface_fn()
         local _OPENSSL_PREFIX
         _OPENSSL_PREFIX=$(brew --prefix openssl@3 2>/dev/null) || true
         if [ -n "${_OPENSSL_PREFIX}" ]; then
-            openssl_root_flag="-DOPENSSL_ROOT_DIR=${_OPENSSL_PREFIX}"
+            openssl_root_flag="-D OPENSSL_ROOT_DIR=${_OPENSSL_PREFIX}"
             if [ -d "${_OPENSSL_PREFIX}/lib/pkgconfig" ]; then
                 pkg_config_path_arg="${_OPENSSL_PREFIX}/lib/pkgconfig:${pkg_config_path_arg}"
             fi
