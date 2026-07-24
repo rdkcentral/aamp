@@ -383,6 +383,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "monitorMp4Integrity", eAAMPConfig_MonitorMp4Integrity, false},
+	{true, "enableFutureKeyCache", eAAMPConfig_EnableFutureKeyCache, true},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

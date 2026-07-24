@@ -616,8 +616,11 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 				             PlayerLogManager::getHexDebugStr(currentKeyId).c_str(),
 				             drmHelper->ocdmSystemId().c_str(),
 				             sessionSlot, isLicenseRenewal);
-				licenseResponse = findCachedFutureKey(currentKeyId,
-				                                      drmHelper->ocdmSystemId());
+				if (aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnableFutureKeyCache))
+				{
+					licenseResponse = findCachedFutureKey(currentKeyId,
+					                                      drmHelper->ocdmSystemId());
+				}
 				if (licenseResponse)
 				{
 					AAMPLOG_WARN("vk:: acquireLicense: future key cache HIT – "
@@ -788,7 +791,8 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 		}
 		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, std::move(licenseResponse), eventHandle,  isLicenseRenewal);
 		if ((code == KEY_READY) && rawLicenseResponse &&
-		    (rawLicenseResponse->getDataLength() != 0))
+		    (rawLicenseResponse->getDataLength() != 0) &&
+		    aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnableFutureKeyCache))
 		{
 			// Cache the raw response so extra keys it carries can satisfy a
 			// future PSSH without a new server round-trip.
