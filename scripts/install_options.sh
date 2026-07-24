@@ -19,7 +19,7 @@
 
 # default values
 OPTION_AAMP_BRANCH="dev_sprint_25_2"
-OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="$(git ls-remote https://github.com/rdkcentral/middleware-player-interface.git refs/heads/develop | awk '{print $1}')"
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="a55c02d"  # feature/VPAAMP-457_MW - proper setPtsOffset implementation
 OPTION_PLAYER_INTERFACE_SOURCE="external"
 OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH=""
 OPTION_BUILD_DIR=""
