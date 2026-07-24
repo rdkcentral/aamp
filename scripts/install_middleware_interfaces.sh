@@ -206,8 +206,25 @@ function install_build_middleware_interface_fn()
         rm -rf "${LOCAL_DEPS_BUILD_DIR}/include/middleware-player-interface" 2>/dev/null || true
     fi
 
-    if [[ -f "${mw_build_marker}" ]] && [[ "${mw_cloned}" == false ]]; then
-        echo "middleware-player-interface headers/libs already installed (use clean to force rebuild)"
+    # Check if we need to rebuild based on commit hash
+    local current_commit=""
+    if [[ -d "${mw_src}/.git" ]]; then
+        current_commit=$(cd "${mw_src}" && git rev-parse HEAD 2>/dev/null || echo "unknown")
+    fi
+    
+    local needs_rebuild=false
+    if [[ ! -f "${mw_build_marker}" ]]; then
+        needs_rebuild=true
+    elif [[ -n "${current_commit}" ]] && [[ "${current_commit}" != "unknown" ]]; then
+        local built_commit=$(cat "${mw_build_marker}" 2>/dev/null || echo "")
+        if [[ "${built_commit}" != "${current_commit}" ]]; then
+            echo "Middleware commit changed from ${built_commit:0:8} to ${current_commit:0:8}, rebuilding..."
+            needs_rebuild=true
+        fi
+    fi
+
+    if [[ "${needs_rebuild}" == false ]] && [[ "${mw_cloned}" == false ]]; then
+        echo "middleware-player-interface headers/libs already installed (commit ${current_commit:0:8})"
         INSTALL_STATUS_ARR+=("middleware-player-interface was already installed.")
         return 0
     fi
@@ -315,7 +332,12 @@ function install_build_middleware_interface_fn()
         return 1
     }
 
-    touch "${mw_build_marker}"
+    # Write commit hash to marker file for future rebuild detection
+    if [[ -n "${current_commit}" ]] && [[ "${current_commit}" != "unknown" ]]; then
+        echo "${current_commit}" > "${mw_build_marker}"
+    else
+        touch "${mw_build_marker}"
+    fi
     echo "middleware-player-interface installation completed successfully"
     INSTALL_STATUS_ARR+=("middleware was successfully installed.")
 }
