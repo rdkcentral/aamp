@@ -784,8 +784,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 		std::shared_ptr<DrmData> rawLicenseResponse = licenseResponse;
 		if (licenseResponse)
 		{
-			AAMPLOG_WARN("vk:: licenseResponse before handleLicenseResponse: %s",
-				licenseResponse->getData().c_str());
+			AAMP_LOG_HEX_DUMP(eLOGLEVEL_WARN, "vk1:: licenseResponse before handleLicenseResponse", licenseResponse->getData());
 		}
 		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, std::move(licenseResponse), eventHandle,  isLicenseRenewal);
 		if ((code == KEY_READY) && rawLicenseResponse &&
@@ -915,8 +914,7 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 	// Log the full license response being handed to the CDM/OCDM as hex.
 	if (licenseResponse)
 	{
-		AAMPLOG_WARN("vk::License response sent to OCDM (len=%zu):", licenseResponse->getDataLength());
-		AAMPLOG_WARN("vk::License response payload: %s", licenseResponse->getData().c_str());
+		AAMP_LOG_HEX_DUMP(eLOGLEVEL_WARN, "vk1::License response to OCDM", licenseResponse->getData());
 	}
 	if(!isLicenseRenewal)
 	{
@@ -1356,9 +1354,8 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	pLicenseDownloader->Initialize(inpData);
 	
 	AAMPLOG_WARN(" Sending license request to server : %s ", licenseRequest.url.c_str());
-	// Log the full license request body sent to the server.
-	AAMPLOG_WARN("License request payload sent to server (len=%zu):", inpData->postData.length());
-	AAMPLOG_WARN("vk:: License request payload: %s", inpData->postData.c_str());
+	AAMP_LOG_HEX_DUMP(eLOGLEVEL_WARN, "vk1::License request URL", licenseRequest.url);
+	AAMP_LOG_HEX_DUMP(eLOGLEVEL_WARN, "vk1::License request payload sent to server", inpData->postData);
 
 	unsigned int attemptCount = 0;
 	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
@@ -1430,9 +1427,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 				std::string keyData;
 				auto keyLen = pLicenseDownloader->GetDataString(keyData);
 				keyInfo->setData(keyData.c_str(), keyLen);
-				// Log the full license response received from the server.
-				AAMPLOG_WARN("License response received from server (len=%zu):", keyData.length());
-				AAMPLOG_WARN("License response received from server payload: %s", keyData.c_str());
+				AAMP_LOG_HEX_DUMP(eLOGLEVEL_WARN, "vk1::License response received from server", keyData);
 			}
 		}
 		

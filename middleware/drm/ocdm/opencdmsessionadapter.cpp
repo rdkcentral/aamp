@@ -39,6 +39,8 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include "PlayerLogManager.h"
+#include "AampUtils.h"
+#include "AampLogManager.h"
 
 #include <sys/time.h>
 #include <set>
@@ -199,6 +201,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 		// Assuming this is a standard challenge callback
 		m_challenge = challengeData;
 		MW_LOG_WARN("processOCDMChallenge challenge = %s", m_challenge.c_str());
+		AAMP_LOG_HEX_DUMP(eLOGLEVEL_WARN, "vk::processOCDMChallenge challenge", m_challenge);
 
 		m_destUrl.assign(destUrl);
 		MW_LOG_WARN("processOCDMChallenge destUrl = %s (default value used as drm server)", m_destUrl.c_str());
