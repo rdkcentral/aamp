@@ -504,6 +504,22 @@ public:
 		if (mediaSegment)
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
+			// Only stage segments for requests that are still outstanding
+			// and belong to the current generation.  After flush()/
+			// setPosition() bumps m_generation and clears
+			// m_requestIdToSource, any addSegment() for an old requestId
+			// is stale: haveData() will never be called for it, so the
+			// pending entry would accumulate without being consumed.
+			auto reqIt = m_requestIdToSource.find(needDataRequestId);
+			if (reqIt == m_requestIdToSource.end() ||
+				reqIt->second.generation !=
+					m_generation.load(std::memory_order_relaxed))
+			{
+				RIALTO_SIM_LOG(
+					"addSegment: discarding stale segment for requestId=%u",
+					needDataRequestId);
+				return AddSegmentStatus::OK;
+			}
 			PendingSegmentData &pending = m_pendingSegments[needDataRequestId];
 			pending.sourceId = mediaSegment->getId();
 			pending.totalDurationNs += mediaSegment->getDuration();
