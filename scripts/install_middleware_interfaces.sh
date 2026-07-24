@@ -126,6 +126,16 @@ function install_build_middleware_interface_fn()
         if [[ -d "${sibling_path}" ]]; then
             mw_src="$(cd "${sibling_path}" && pwd -P)"
             echo "Using sibling middleware-player-interface repo: ${mw_src}"
+            
+            # Checkout the required commit if specified
+            if [[ -n "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID:-}" ]]; then
+                echo "Checking out commit: ${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+                cd "${mw_src}" || return 1
+                if ! git checkout "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}" 2>/dev/null; then
+                    echo "Warning: Failed to checkout commit '${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}' in sibling repo"
+                    echo "Using current HEAD: $(git rev-parse --short HEAD)"
+                fi
+            fi
         fi
     fi
 
