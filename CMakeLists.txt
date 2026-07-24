@@ -83,11 +83,13 @@ if(APPLE)
 	set(CMAKE_SKIP_BUILD_RPATH FALSE)
 
 	list(APPEND CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_BUILD_RPATH "/Library/Frameworks")
 
 	# when building, don't use the install RPATH already
 	# (but later on when installing)
 	set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 	set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_INSTALL_RPATH "/Library/Frameworks")
 
 	# add the automatically determined parts of the RPATH
 	# which point to directories outside the build tree to the install RPATH
