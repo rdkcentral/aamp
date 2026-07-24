@@ -36,6 +36,8 @@
 #include "MockAampStreamSinkManager.h"
 #include "MockTSBSessionManager.h"
 #include "MockAdManager.h"
+#include "MockAampTimeBasedBufferManager.h"
+#include "MockAampTrackWorkerManager.h"
 #include "AampTrackWorker.hpp"
 
 using ::testing::_;
@@ -164,6 +166,21 @@ protected:
 		void SetIsFogTSB(bool value)
 		{
 			mIsFogTSB = value;
+		}
+
+		void SetPlayRate(float rate)
+		{
+			mPlayRate = rate;
+		}
+
+		void SetBasePeriodOffset(double offset)
+		{
+			mBasePeriodOffset = offset;
+		}
+
+		void SetBasePeriodId(const std::string &id)
+		{
+			mBasePeriodId = id;
 		}
 
 		bool InvokeHandleSeekEOSAndPeriodTransition(double remainingSeek, bool skipToEnd)
@@ -402,6 +419,7 @@ protected:
 			{eAAMPConfig_useRialtoSink, false},
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_UseMp4Demux, false},
+			{eAAMPConfig_ProcessLicenseFromEAP, false},
 			{eAAMPConfig_EnableProducerReferenceDelay, true},
 		};
 	BoolConfigSettings mBoolConfigSettings;
@@ -3327,4 +3345,245 @@ TEST_F(FetcherLoopTests, SegmentBase_SkipFragments_FloatingPointEpsilon_CrossesF
 
 	EXPECT_EQ(ctx->fragmentIndex, 1);
 	EXPECT_NEAR(ctx->fragmentTime, 2.0, 0.001);
+}
+
+// Declared in FakeAampTrackWorkerManager.cpp — incremented each time
+// AampTrackWorkerManager::SubmitJob is called.
+extern int g_submitJobCallCount;
+
+/**
+ * @brief VPAAMP-614: SegmentBase init fragment must NOT be submitted via
+ * AampTrackWorkerManager::SubmitJob when DashParallelFragDownload is enabled.
+ *
+ * The SegmentBase init segment is a byte-range request.  Submitting it
+ * asynchronously with highPriority=true causes it to jump ahead of already-
+ * queued old-profile media jobs on the worker queue.  The decoder then
+ * receives old-profile media after the new moov, producing macroblocking.
+ * The fix gates on segmentBaseFirstInit so the init executes inline
+ * (Execute()) regardless of eAAMPConfig_DashParallelFragDownload.
+ *
+ * Oracle: g_submitJobCallCount == 0 after InitializeMPD with a SegmentBase
+ * manifest and DashParallelFragDownload=true (default fixture setting),
+ * because the init segment's non-empty byte range forces Execute().
+ */
+TEST_F(FetcherLoopTests, SegmentBase_InitFragment_NotSubmittedViaSubmitJob)
+{
+	// eAAMPConfig_DashParallelFragDownload=true is already the default.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t> &idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	// Reset immediately before the window under test.
+	g_submitJobCallCount = 0;
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	// The init segment range is derived from indexRange="500-999" (init = "0-499").
+	// segmentBaseFirstInit=true -> Execute() path -> SubmitJob not called.
+	// If the guard is accidentally removed, this count becomes >= 1.
+	EXPECT_EQ(g_submitJobCallCount, 0)
+		<< "SegmentBase init must execute inline via Execute(), not SubmitJob. "
+		   "Submitting with highPriority=true jumps the worker queue and delivers "
+		   "old-profile media after the new moov, causing macroblocking.";
+}
+
+/**
+ * @brief VPAAMP-614: SegmentBase media fragments must NOT be submitted via
+ * AampTrackWorkerManager::SubmitJob when DashParallelFragDownload is enabled.
+ *
+ * All SegmentBase downloads (init and media) use byte-range requests against a
+ * single file.  Submitting media segments asynchronously allows the FetcherLoop
+ * to race ahead: it loads IDX and submits the next segment before the previous
+ * download has completed.  During ABR switches this produces a stale (URL, IDX,
+ * range) triple that confuses the IsoBmff parser with a bogus box-size error
+ * (VPAAMP-614).  The segmentBaseContent guard forces all SegmentBase downloads
+ * through the synchronous Execute() path regardless of
+ * eAAMPConfig_DashParallelFragDownload.
+ *
+ * Oracle: g_submitJobCallCount == 0 after one PushNextFragment for a SegmentBase
+ * media segment, confirming the synchronous Execute() path is taken.
+ * If the guard is narrowed to init-only (segmentBaseInit), this count becomes 1,
+ * re-exposing the race.
+ */
+TEST_F(FetcherLoopTests, SegmentBase_MediaFragment_ExecutesSynchronously)
+{
+	// eAAMPConfig_DashParallelFragDownload=true is already the default.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, LoadIDX(_, _, _, _, _, _, _, _, _, _))
+		.WillRepeatedly(WithArg<3>(Invoke([](std::vector<uint8_t> &idxBuffer)
+		{
+			idxBuffer.insert(idxBuffer.end(), std::cbegin(sidxBox), std::cend(sidxBox));
+		})));
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(kSegmentBaseVodManifest);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	// Reset after init (init took Execute(), not SubmitJob) so the counter
+	// reflects only the media-segment download that follows.
+	g_submitJobCallCount = 0;
+
+	// First media segment: ref[0] bytes "1000-17383", duration 2.0 s.
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(kSegBaseVideoUrl, _, _, _, _, false, _, _, _))
+		.WillOnce(Return(true));
+
+	ASSERT_TRUE(PushNextFragment(eTRACK_VIDEO));
+
+	// A SegmentBase media fragment must go through Execute(), not SubmitJob, so
+	// the FetcherLoop cannot race ahead and produce a stale (URL, IDX, range)
+	// triple during ABR switches.  Narrowing the guard to init-only would leave
+	// this at 1, re-exposing the VPAAMP-614 parse error.
+	EXPECT_EQ(g_submitJobCallCount, 0)
+		<< "SegmentBase media fragment must execute via Execute(), not SubmitJob. "
+		   "Async submission allows the FetcherLoop to race ahead of IDX loading "
+		   "during ABR switches, producing a stale byte-range and a bogus box-size error.";
+
+}
+// Verify that FetcherLoop calls WaitForCompletionWithTimeout() before breaking
+// out of the inner loop on a CDAI ad-period completion (live manifest).
+
+/**
+ * @brief Verifies that FetcherLoop calls WaitForCompletionWithTimeout() before
+ *        breaking out of the inner loop on a live rewind (rate < 0,
+ *        mBasePeriodOffset ≤ 0) with CDAI state IN_ADBREAK_AD_PLAYING.
+ */
+TEST_F(FetcherLoopTests, CDAI_LiveRewindPeriodComplete_WaitsForWorkers)
+{
+	// mLiveManifest is type="dynamic" — sets mIsLiveManifest=true inside Init().
+	// Seek to 10 s so Init places the playhead inside p0 (0–30 s), ensuring
+	// mBasePeriodId="p0" and mCurrentPeriodIdx=0.  Without this, NEW_NORMAL on a
+	// live manifest seeks to the live edge (p1), which would cause
+	// SelectSourceOrAdPeriod to detect a period change and reset mBasePeriodOffset.
+	std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 10.0, AAMP_NORMAL_PLAY_RATE);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	// Prevent AdvanceTrack from being called: reporting IsFull()=true makes the
+	// inner loop skip the per-track download branch and jump straight to the CDAI
+	// period check, avoiding an infinite spin calling PushNextFragment.
+	g_mockAampTimeBasedBufferManager =
+		std::make_shared<NiceMock<aamp::MockAampTimeBasedBufferManager>>();
+	ON_CALL(*g_mockAampTimeBasedBufferManager, IsFull()).WillByDefault(Return(true));
+
+	// Set CDAI state: inside an ad break, the ad is actively playing.
+	auto cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+	// Provide a Period2AdData entry so the mPeriodMap lookup inside FetcherLoop
+	// does not insert a default entry with undefined content.
+	cdaiObj->mPeriodMap["p0"] = Period2AdData();
+
+	// Switch to rewind; place the downloader position at ≤ 0 so the condition
+	//   (mPlayRate < AAMP_RATE_PAUSE && mBasePeriodOffset <= 0)
+	// is satisfied on the very first inner-loop iteration.
+	mTestableStreamAbstractionAAMP_MPD->SetPlayRate(-2.0f);
+	mTestableStreamAbstractionAAMP_MPD->SetBasePeriodOffset(-0.1);
+	mTestableStreamAbstractionAAMP_MPD->SetBasePeriodId("p0");
+
+	// DownloadsAreEnabled() call sequence:
+	//   Call 1 – outer loop guard (iteration 1)    → true  (run inner loop)
+	//   Call 2 – inner loop guard                  → true  (reach CDAI check,
+	//                                                        WaitForCompletion fires,
+	//                                                        break inner loop)
+	//   After break: mIterPeriodIndex-- → -1 (rewind)
+	//   Call 3 – outer loop guard (iteration 2)    → true  (SelectSourceOrAdPeriod
+	//                                                        returns false immediately
+	//                                                        because mIterPeriodIndex<0,
+	//                                                        then CheckEndOfStream exits)
+	int downloadsCounter = 0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly([&downloadsCounter]() {
+			return ++downloadsCounter <= 3;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+
+	g_mockAampTrackWorkerManager = std::make_shared<StrictMock<aamp::MockAampTrackWorkerManager>>();
+	EXPECT_CALL(*g_mockAampTrackWorkerManager, WaitForCompletionWithTimeout(_, _))
+		.Times(testing::AtLeast(1));
+
+	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
+	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+
+	g_mockAampTrackWorkerManager.reset();
+	g_mockAampTimeBasedBufferManager.reset();
+}
+
+/**
+ * @brief Verifies that FetcherLoop calls WaitForCompletionWithTimeout() before
+ *        breaking out of the inner loop when the ad period duration is exhausted
+ *        (filled=true, mBasePeriodOffset > period duration) with CDAI state
+ *        IN_ADBREAK_AD_PLAYING during live forward play.
+ */
+TEST_F(FetcherLoopTests, CDAI_LiveForwardPlayPeriodComplete_WaitsForWorkers)
+{
+	// mLiveManifest is type="dynamic" — two periods p0 (0–30 s) and p1 (30 s+).
+	// Seek to 10 s to land inside p0, so mBasePeriodId="p0" and
+	// mCurrentPeriodIdx=0 after Init.  A eTUNETYPE_NEW_NORMAL on a live manifest
+	// would jump to the live edge (p1) instead, conflicting with the "p0" state
+	// we configure below and causing SelectSourceOrAdPeriod to reset the offset.
+	std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 10.0, AAMP_NORMAL_PLAY_RATE);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	// Prevent AdvanceTrack from being called by making the time-based buffer
+	// report full, so the inner loop reaches the CDAI check without downloading.
+	g_mockAampTimeBasedBufferManager =
+		std::make_shared<NiceMock<aamp::MockAampTimeBasedBufferManager>>();
+	ON_CALL(*g_mockAampTimeBasedBufferManager, IsFull()).WillByDefault(Return(true));
+
+	// Set CDAI state: inside an ad break, the ad is actively playing.
+	auto cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
+
+	// Mark period p0 as fully filled with a 30-second ad (30 000 ms).
+	// Condition fired:
+	//   curPeriod.filled (true) && curPeriod.duration (30000) <= 30.1*1000 (30100)
+	cdaiObj->mPeriodMap["p0"] = Period2AdData(true /*filled*/, "p0", 30000 /*ms*/, {});
+
+	// Downloader position is 100 ms past the end of the ad period.
+	mTestableStreamAbstractionAAMP_MPD->SetBasePeriodOffset(30.1);
+	mTestableStreamAbstractionAAMP_MPD->SetBasePeriodId("p0");
+
+	// DownloadsAreEnabled() call sequence:
+	//   Call 1 – outer loop guard (iteration 1)         → true  (run inner loop)
+	//   Call 2 – inner loop guard                       → true  (reach CDAI check)
+	//   Call 3 – outer loop guard (iteration 2, after   → false (exit cleanly before
+	//             mIterPeriodIndex++ makes it 1 and           SelectSourceOrAdPeriod
+	//             SelectSourceOrAdPeriod would try a          attempts a period change)
+	//             live period change with IN_ADBREAK state)
+	int downloadCallCount = 0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly([&downloadCallCount]() {
+			return ++downloadCallCount <= 2;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+
+	g_mockAampTrackWorkerManager = std::make_shared<StrictMock<aamp::MockAampTrackWorkerManager>>();
+	EXPECT_CALL(*g_mockAampTrackWorkerManager, WaitForCompletionWithTimeout(_, _))
+		.Times(testing::AtLeast(1));
+
+	mTestableStreamAbstractionAAMP_MPD->InvokeInitializeWorkers();
+	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+
+	g_mockAampTrackWorkerManager.reset();
+	g_mockAampTimeBasedBufferManager.reset();
 }
