@@ -731,6 +731,9 @@ static bool IdentifyMp4ChunkBoundary(AampMediaType type, CurlCallbackContext *co
 					AAMPLOG_WARN("[%d] ChunkDetection: Failed to get MDAT box info for index=%zu (count=%zu)", type, mdatCount - 1, mdatCount);
 				}
 			}
+			// Fallback: if no complete MDAT boxes were found (getMdatBoxCount returned false or count == 0),
+			// check for a chunked (incomplete) MDAT box. A chunked MDAT has a declared size that exceeds
+			// the available buffer, meaning we've received a partial box that will be completed in future callbacks.
 			else if (isobmffBuffer.getChunkedMdatBoxInfo(mdatStart, mdatSize))
 			{
 				AAMPLOG_DEBUG("[%d] ChunkDetection: Chunked MDAT box found start=%zu, size=%zu", type, mdatStart, mdatSize);
@@ -1195,21 +1198,34 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 								lock.lock();
 								context->processDelay += (aamp_GetCurrentTimeMS() - startTime);
 								// Update chunkInjection flag only if chunk was successfully cached.
+									// If chunk caching fails, let's try again in the next iteration. Failing here would have an adverse effect on playback.
+									// If this is the final callback, the missing chunks will be logged in GetFile.
 								if (cacheSuccess)
 								{
 									context->chunkInjectionUsed = true;
+									// Note: bufferOffset = chunkBoundary (not +1) because CacheFragmentChunk
+									// processes bytes [bufferOffset, chunkBoundary), so chunkBoundary
+									// is the first byte of the next chunk (not yet processed)
+									context->bufferOffset = context->chunkBoundary;
+									// If there is no buffer remaining, reset chunk boundary and duration.
+									// If not, lets see if we can identify the next chunk boundary in the remaining buffer
+									if (context->bufferOffset == context->buffer.size() ||
+										!IdentifyMp4ChunkBoundary(context->mediaType, context))
+									{
+										context->chunkBoundary = 0;
+										context->chunkDurationInTicks = 0;
+									}
 								}
-								// Note: bufferOffset = chunkBoundary (not +1) because CacheFragmentChunk
-								// processes bytes [bufferOffset, chunkBoundary), so chunkBoundary
-								// is the first byte of the next chunk (not yet processed)
-								context->bufferOffset = context->chunkBoundary;
-								// If there is no buffer remaining, reset chunk boundary and duration.
-								// If not, see if we can identify the next chunk boundary in the remaining buffer, otherwise reset so that we can try again in the next callback.
-								if (context->bufferOffset == context->buffer.size() ||
-									!IdentifyMp4ChunkBoundary(context->mediaType, context))
+								else
 								{
-									context->chunkBoundary = 0;
-									context->chunkDurationInTicks = 0;
+									// TODO: Should we wait and try again? It already waits indefinitely for
+									// cached fragment chunk to free up. Could also return false due to abort
+									// Lets try again in next callback for now
+									AAMPLOG_DEBUG("[%d] Failed to cache chunk at offset %zu, size %zu, duration %" PRIu64,
+										context->mediaType, context->bufferOffset,
+										context->chunkBoundary - context->bufferOffset,
+										context->chunkDurationInTicks);
+									break;
 								}
 							}
 							else
