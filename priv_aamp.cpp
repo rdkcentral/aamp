@@ -1198,8 +1198,8 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 								lock.lock();
 								context->processDelay += (aamp_GetCurrentTimeMS() - startTime);
 								// Update chunkInjection flag only if chunk was successfully cached.
-								// If chunk caching fails, lets try again in the next iteration. Failing here would have adverse effect on playback.
-								// If this is the final callback, then the missing chunks will be logged in GetFile
+									// If chunk caching fails, let's try again in the next iteration. Failing here would have an adverse effect on playback.
+									// If this is the final callback, the missing chunks will be logged in GetFile.
 								if (cacheSuccess)
 								{
 									context->chunkInjectionUsed = true;
