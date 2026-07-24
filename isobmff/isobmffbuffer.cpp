@@ -387,8 +387,6 @@ bool IsoBmffBuffer::getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t
 bool IsoBmffBuffer::getTrackIdInternal(const std::vector<Box*> *boxes, uint32_t &track_id)
 {
 	bool ret = false;
-	bool tfhdTrackFound = false;
-	uint32_t tfhdTrackId = 0;
 	for (size_t i = 0; (false == ret) && i < boxes->size(); i++)
 	{
 		Box *box = boxes->at(i);
@@ -406,14 +404,16 @@ bool IsoBmffBuffer::getTrackIdInternal(const std::vector<Box*> *boxes, uint32_t 
 				//do nothing
 			}
 		}
+		//For non-init audio fragments , the track_id is present in the tfhd box, so we need to check for that as well
 		else if (IS_TYPE(box->getType(), Box::TFHD))
 		{
 			try {
 				TfhdBox *tfhdBox = dynamic_cast<TfhdBox *>(box);
 				if(tfhdBox)
 				{
-					tfhdTrackId = tfhdBox->getTrackId();
-					tfhdTrackFound = true;
+					track_id = tfhdBox->getTrackId();
+					ret = true;
+					break;
 				}
 			} catch (std::bad_cast& bc){
 				//do nothing
@@ -423,11 +423,6 @@ bool IsoBmffBuffer::getTrackIdInternal(const std::vector<Box*> *boxes, uint32_t 
 		{
 			ret = getTrackIdInternal(box->getChildren(), track_id);
 		}
-	}
-	if (!ret && tfhdTrackFound)
-	{
-		track_id = tfhdTrackId;
-		ret = true;
 	}
 	return ret;
 }

@@ -26,11 +26,6 @@
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
-#include <cstdio>
-#include <cerrno>
-#include <fstream>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 /**
  *  @brief Receives cached fragment and injects to sink.
