@@ -200,8 +200,7 @@ public:
 	bool pause() override
 	{
 		RIALTO_SIM_LOG("pause");
-		m_playRequested.store(false, std::memory_order_relaxed);
-		m_playing = false;
+		pausePlayback();
 		if (auto client = m_client.lock())
 		{
 			client->notifyPlaybackState(PlaybackState::PAUSED);
@@ -212,8 +211,7 @@ public:
 	bool stop() override
 	{
 		RIALTO_SIM_LOG("stop");
-		m_playRequested.store(false, std::memory_order_relaxed);
-		m_playing = false;
+		pausePlayback();
 		stopThreads();
 		if (auto client = m_client.lock())
 		{
@@ -694,6 +692,19 @@ private:
 		// Position increases at 1x regardless of rate; the Rialto player
 		// applies the rate multiplier in GetPositionMilliseconds().
 		return base + static_cast<int64_t>(elapsedNs);
+	}
+
+	// Pause playback: snapshot the current position (to freeze it for
+	// subsequent queries) and clear the play/playRequested state.
+	void pausePlayback()
+	{
+		if (m_playing && m_basePositionSet.load(std::memory_order_relaxed))
+		{
+			int64_t currentPos = getCurrentPositionNs();
+			m_basePositionNs.store(currentPos, std::memory_order_relaxed);
+		}
+		m_playRequested.store(false, std::memory_order_relaxed);
+		m_playing = false;
 	}
 
 	// Amount of injected-but-not-yet-played media held for a single
