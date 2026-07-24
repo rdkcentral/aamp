@@ -37,6 +37,21 @@ enum ProfilerAction
     PROFILE_ACTION_END,
     PROFILE_ACTION_ERROR
 };
+
+/**
+ * @struct CachedLicenseResponse
+ * @brief Holds a raw license response (deep copy) and the key system it belongs
+ *        to.  The key IDs contained in the response are not parsed at cache
+ *        time; instead the response is inspected on lookup so a new PSSH whose
+ *        key ID is already present in a stored response can reuse it without a
+ *        fresh license server round-trip.
+ */
+struct CachedLicenseResponse
+{
+	std::shared_ptr<DrmData> licenseData; /**< Deep copy of the license response */
+	std::string keySystem;               /**< OCDM system ID the license belongs to */
+};
+
 class AampDRMLicenseManager
 {
 public:
@@ -343,4 +358,42 @@ public:
 		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 
 	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
+
+	/**
+	 * @brief Clear the future key cache.
+	 *
+	 * Should be called on a forced session clear (e.g. tune/stop) to ensure
+	 * stale future keys are not reused across content boundaries.
+	 */
+	void clearFutureKeyCache();
+
+protected:
+	/**
+	 * @brief After a successful license acquisition, store the raw license
+	 *        response so its keys can be reused for a future PSSH that references
+	 *        a key already delivered in this response.  No parsing is done here;
+	 *        the response is kept as-is and inspected on lookup.
+	 *
+	 * @param[in] drmHelper  Helper for the session whose license was just processed.
+	 * @param[in] sessionSlot Session slot that was just made KEY_READY.
+	 * @param[in] licenseData The license response that was processed by the CDM.
+	 */
+	void cacheFutureKeys(const std::shared_ptr<DrmHelper>& drmHelper,
+	                     int sessionSlot,
+	                     const std::shared_ptr<DrmData>& licenseData);
+
+	/**
+	 * @brief Look up the cached license responses for one that contains the
+	 *        given key ID.  Each stored response is parsed on demand and its key
+	 *        IDs are compared against the requested key ID.
+	 *
+	 * @param[in] keyId     Key ID in binary form (as returned by DrmHelper::getKey).
+	 * @param[in] keySystem OCDM system ID string.
+	 * @return  The cached license data containing the key ID if found, nullptr otherwise.
+	 */
+	std::shared_ptr<DrmData> findCachedFutureKey(const std::vector<uint8_t>& keyId,
+	                                              const std::string& keySystem) const;
+
+	std::vector<CachedLicenseResponse> mLicenseResponseCache;   /**< Cache of raw license responses */
+	mutable std::mutex                 mLicenseResponseCacheMutex; /**< Guards mLicenseResponseCache */
 };

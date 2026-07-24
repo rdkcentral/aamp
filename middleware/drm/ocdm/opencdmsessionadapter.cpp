@@ -39,6 +39,8 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include "PlayerLogManager.h"
+#include "AampUtils.h"
+#include "AampLogManager.h"
 
 #include <sys/time.h>
 #include <set>
@@ -199,6 +201,7 @@ void OCDMSessionAdapter::processOCDMChallenge(const char destUrl[], const uint8_
 		// Assuming this is a standard challenge callback
 		m_challenge = challengeData;
 		MW_LOG_WARN("processOCDMChallenge challenge = %s", m_challenge.c_str());
+		AAMP_LOG_HEX_DUMP(eLOGLEVEL_WARN, "vk::processOCDMChallenge challenge", m_challenge);
 
 		m_destUrl.assign(destUrl);
 		MW_LOG_WARN("processOCDMChallenge destUrl = %s (default value used as drm server)", m_destUrl.c_str());
@@ -284,6 +287,7 @@ DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_
 int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 {
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
+	MW_LOG_WARN("processDRMKey: enter key=%p timeout=%u", key, timeout);
 	int retValue = -1;
 	const uint8_t* keyMessage = NULL;
 	uint16_t keyMessageLength = 0;
@@ -294,12 +298,18 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 	{
 		keyMessage = (const uint8_t *)key->getData().c_str();
 		keyMessageLength = key->getDataLength();
+		MW_LOG_WARN("processDRMKey: key payload length=%u", keyMessageLength);
+	}
+	else
+	{
+		MW_LOG_WARN("processDRMKey: NULL key object received");
 	}
 
 	if (keyMessage)
 	{
 		MW_LOG_INFO("Calling opencdm_session_update, key length=%u", keyMessageLength);
 		status = opencdm_session_update(m_pOpenCDMSession, keyMessage, keyMessageLength);
+		MW_LOG_WARN("processDRMKey: opencdm_session_update status=%d", (int)status);
 	}
 	else
 	{
@@ -312,6 +322,9 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 	if (status == OpenCDMError::ERROR_NONE) {
 		if (m_keyStatusReady.wait(timeout) == true) {
 			MW_LOG_WARN("Key Status updated");
+		}
+		else {
+			MW_LOG_WARN("processDRMKey: timed out waiting for key status update (timeout=%u)", timeout);
 		}
 		// The key could be signalled ready before the session is even created, so we need to check we didn't miss it
 		if (m_keyStateIndeterminate) {
@@ -383,7 +396,12 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 			m_eKeyState = KEY_ERROR;
 		}
 	}
+	else
+	{
+		MW_LOG_WARN("processDRMKey: opencdm_session_update failed status=%d", (int)status);
+	}
 	m_keyStatusWait.signal();
+	MW_LOG_WARN("processDRMKey: exit retValue=%d keyState=%d keyStatus=%d", retValue, (int)m_eKeyState, (int)m_keyStatus);
 	return retValue;
 }
 

@@ -30,6 +30,7 @@ include_directories(${AAMP_ROOT}/.libs/include)
 
 set(TEST_SOURCES
 	AampDRMLicManagerTestCases.cpp
+	AampDRMLicManagerFutureKeyCacheTests.cpp
 	AampDRMLicManagerTests.cpp
 )
 set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp)

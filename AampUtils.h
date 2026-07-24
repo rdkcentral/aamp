@@ -280,6 +280,48 @@ void getDefaultHarvestPath(std::string &value);
 void stream2hex(const std::string str, std::string& hexstr, bool capital = false);
 
 /**
+ * @fn AampGetHexChunks
+ * @brief Converts binary data to hex and splits it into chunks to avoid
+ *        logger line-length truncation.
+ * @param[in] data       binary data to convert
+ * @param[in] chunkChars maximum hex characters per chunk (default 950)
+ * @return vector of hex strings, each no longer than chunkChars characters
+ */
+std::vector<std::string> AampGetHexChunks(const std::string& data, size_t chunkChars = 950);
+
+/**
+ * @brief Log binary data as a hex dump, splitting into multiple log lines
+ *        when the hex representation exceeds chunkChars characters.
+ *        Log attribution (file / function / line) is preserved at the call site.
+ *
+ * Usage:
+ *   AAMP_LOG_HEX_DUMP(eLOGLEVEL_WARN, "License response", licenseResponse->getData());
+ *
+ * @param LEVEL  AAMP log level enum value (e.g. eLOGLEVEL_WARN, eLOGLEVEL_INFO)
+ * @param LABEL  Descriptive C-string label shown before the hex data
+ * @param DATA   std::string containing the binary data to dump
+ */
+#define AAMP_LOG_HEX_DUMP(LEVEL, LABEL, DATA) \
+do { \
+	const std::vector<std::string> _hexChunks = AampGetHexChunks(DATA); \
+	if (_hexChunks.size() == 1) \
+	{ \
+		AAMPLOG(LEVEL, "%s [%zu bytes]: %s", \
+			(LABEL), (DATA).size(), _hexChunks[0].c_str()); \
+	} \
+	else \
+	{ \
+		AAMPLOG(LEVEL, "%s [%zu bytes, %zu parts]:", \
+			(LABEL), (DATA).size(), _hexChunks.size()); \
+		for (size_t _ci = 0; _ci < _hexChunks.size(); ++_ci) \
+		{ \
+			AAMPLOG(LEVEL, "  [%zu/%zu] %s", \
+				_ci + 1, _hexChunks.size(), _hexChunks[_ci].c_str()); \
+		} \
+	} \
+} while(0)
+
+/**
  * @fn mssleep
  * @param milliseconds Time to sleep
  */

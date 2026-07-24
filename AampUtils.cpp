@@ -875,6 +875,25 @@ void stream2hex(const std::string str, std::string& hexstr, bool capital)
 	}
 }
 
+std::vector<std::string> AampGetHexChunks(const std::string& data, size_t chunkChars)
+{
+	std::string hexstr;
+	stream2hex(data, hexstr);
+
+	std::vector<std::string> chunks;
+	if (hexstr.empty())
+	{
+		chunks.emplace_back();
+		return chunks;
+	}
+	for (size_t offset = 0; offset < hexstr.size(); offset += chunkChars)
+	{
+		chunks.emplace_back(hexstr, offset,
+			std::min(chunkChars, hexstr.size() - offset));
+	}
+	return chunks;
+}
+
 /**
  * @brief Sleep for given milliseconds
  */
