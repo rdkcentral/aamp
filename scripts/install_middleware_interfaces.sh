@@ -241,21 +241,20 @@ function install_build_middleware_interface_fn()
         return 1
     }
 
-    # Apply OSX build fixes patch if on macOS (see OSX/patches/middleware-build-fixes-summary.md)
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        local patch_file="${AAMP_DIR}/OSX/patches/middleware-osx-build-fixes.patch"
-        if [[ -f "${patch_file}" ]]; then
-            echo "Applying OSX build fixes patch for middleware..."
-            cd "${mw_src}" || return 1
-            if ! patch -p1 --forward --dry-run < "${patch_file}" > /dev/null 2>&1; then
-                echo "Patch already applied or not needed, skipping..."
-            else
-                if ! patch -p1 < "${patch_file}"; then
-                    echo "Warning: Failed to apply OSX build fixes patch, continuing anyway..."
-                fi
+    # Apply middleware build fixes patch (see OSX/patches/middleware-build-fixes-summary.md)
+    # This patch fixes gstreamer-base-1.0 dependency issues that affect all platforms
+    local patch_file="${AAMP_DIR}/OSX/patches/middleware-osx-build-fixes.patch"
+    if [[ -f "${patch_file}" ]]; then
+        echo "Applying middleware build fixes patch..."
+        cd "${mw_src}" || return 1
+        if ! patch -p1 --forward --dry-run < "${patch_file}" > /dev/null 2>&1; then
+            echo "Patch already applied or not needed, skipping..."
+        else
+            if ! patch -p1 < "${patch_file}"; then
+                echo "Warning: Failed to apply middleware build fixes patch, continuing anyway..."
             fi
-            cd "${mw_build_dir}" || return 1
         fi
+        cd "${mw_build_dir}" || return 1
     fi
 
     echo "Running cmake configuration for middleware-player-interface..."
