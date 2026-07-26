@@ -72,7 +72,11 @@ clang++: error: linker command failed with exit code 1
 
 ## Patch Details
 
-The attached patch `middleware-osx-build-fixes.patch` contains all four fixes:
+**Patch file**: `middleware-fixes-4c1d90a.patch`
+
+**Target commit**: bd2b3b1 (June 1, 2026) - latest commit before seekPausedState regression
+
+This patch contains all four build fixes PLUS the setPtsOffset implementation:
 
 1. **gst_subtec/CMakeLists.txt**: 
    - Separate gstreamer-app-1.0 and gstreamer-base-1.0 pkg-config variables
@@ -91,15 +95,20 @@ The attached patch `middleware-osx-build-fixes.patch` contains all four fixes:
    - Add pkg-config check for UUID on macOS
    - Add `link_directories()` for UUID library
 
+5. **subtitle/subtitleParser.h** & **subtec/subtecparser/WebVttSubtecParser.{cpp,hpp}**:
+   - Add setPtsOffset() virtual method and implementation
+   - Required for HLS PTS restamping with subtitles
+
 ## Testing
 
 After applying the patch, macOS builds complete successfully with:
 ```bash
 cd /path/to/middleware-player-interface
-patch -p1 < middleware-osx-build-fixes.patch
+git checkout bd2b3b1
+patch -p1 < middleware-fixes-4c1d90a.patch
 mkdir build && cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/install \
-         -D OPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl@3 \
+         -DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl@3 \
          -DCMAKE_BUILD_TYPE=Debug
 make
 make install

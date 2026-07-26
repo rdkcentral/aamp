@@ -129,11 +129,17 @@ function install_build_middleware_interface_fn()
             
             # Checkout the required commit if specified
             if [[ -n "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID:-}" ]]; then
-                echo "Checking out commit: ${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
-                cd "${mw_src}" || return 1
-                if ! git checkout "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}" 2>/dev/null; then
-                    echo "Warning: Failed to checkout commit '${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}' in sibling repo"
-                    echo "Using current HEAD: $(git rev-parse --short HEAD)"
+                if ! command -v git &> /dev/null; then
+                    echo "Warning: git not found, cannot checkout commit '${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}'"
+                    echo "Using whatever is currently checked out in sibling repo"
+                else
+                    echo "Checking out commit: ${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+                    cd "${mw_src}" || return 1
+                    if ! git checkout "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}" 2>/dev/null; then
+                        echo "Warning: Failed to checkout commit '${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}' in sibling repo"
+                        current_head=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+                        echo "Using current HEAD: ${current_head}"
+                    fi
                 fi
             fi
         fi
@@ -245,13 +251,31 @@ function install_build_middleware_interface_fn()
     # This patch fixes gstreamer-base-1.0 dependency issues AND adds setPtsOffset for commit bd2b3b1
     local patch_file="${AAMP_DIR}/OSX/patches/middleware-fixes-4c1d90a.patch"
     if [[ -f "${patch_file}" ]]; then
-        echo "Applying middleware build fixes patch..."
-        cd "${mw_src}" || return 1
-        if ! patch -p1 --forward --dry-run < "${patch_file}" > /dev/null 2>&1; then
-            echo "Patch already applied or not needed, skipping..."
+        if ! command -v patch &> /dev/null; then
+            echo "Warning: 'patch' command not found, cannot apply middleware fixes"
+            echo "Build may fail if using unpatched middleware commit bd2b3b1"
         else
-            if ! patch -p1 < "${patch_file}"; then
-                echo "Warning: Failed to apply middleware build fixes patch, continuing anyway..."
+            echo "Applying middleware build fixes patch..."
+            cd "${mw_src}" || return 1
+            local dry_run_output
+            dry_run_output=$(patch -p1 --forward --dry-run < "${patch_file}" 2>&1)
+            local dry_run_status=$?
+            
+            if [[ ${dry_run_status} -eq 0 ]]; then
+                # Patch can be applied
+                if ! patch -p1 < "${patch_file}"; then
+                    echo "Error: Failed to apply middleware build fixes patch"
+                    echo "Build will likely fail. Check that middleware commit is bd2b3b1"
+                    return 1
+                fi
+                echo "Middleware patch applied successfully"
+            elif echo "${dry_run_output}" | grep -q "Reversed (or previously applied) patch detected"; then
+                echo "Patch already applied, skipping..."
+            else
+                echo "Warning: Patch does not apply cleanly to current middleware source"
+                echo "This may indicate wrong middleware commit (expected bd2b3b1)"
+                echo "Dry-run output: ${dry_run_output}"
+                echo "Continuing anyway, but build may fail..."
             fi
         fi
         cd "${mw_build_dir}" || return 1
@@ -292,7 +316,7 @@ function install_build_middleware_interface_fn()
         local _OPENSSL_PREFIX
         _OPENSSL_PREFIX=$(brew --prefix openssl@3 2>/dev/null) || true
         if [ -n "${_OPENSSL_PREFIX}" ]; then
-            openssl_root_flag="-D OPENSSL_ROOT_DIR=${_OPENSSL_PREFIX}"
+            openssl_root_flag="-DOPENSSL_ROOT_DIR=${_OPENSSL_PREFIX}"
             if [ -d "${_OPENSSL_PREFIX}/lib/pkgconfig" ]; then
                 pkg_config_path_arg="${_OPENSSL_PREFIX}/lib/pkgconfig:${pkg_config_path_arg}"
             fi
