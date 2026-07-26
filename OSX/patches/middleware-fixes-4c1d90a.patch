@@ -1,5 +1,6 @@
-This patch applies to middleware commit 8a0af75 (May 6, 2026)
+This patch applies to middleware commit bd2b3b1 (June 1, 2026)
 Fixes: gstreamer-base-1.0 dependency + adds setPtsOffset
+This is the latest commit before seekPausedState was added (June 4)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 4162075..2f8972f 100644

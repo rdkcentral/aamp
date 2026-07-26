@@ -19,7 +19,7 @@
 
 # default values
 OPTION_AAMP_BRANCH="dev_sprint_25_2"
-OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="8a0af75"  # May 6 - has Rialto constructor, no seekPausedState
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="bd2b3b1"  # June 1 - latest before seekPausedState (June 4)
 OPTION_PLAYER_INTERFACE_SOURCE="external"
 OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH=""
 OPTION_BUILD_DIR=""
