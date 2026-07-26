@@ -1,3 +1,6 @@
+This patch applies to middleware commit 8a0af75 (May 6, 2026)
+Fixes: gstreamer-base-1.0 dependency + adds setPtsOffset
+
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 4162075..2f8972f 100644
 --- a/CMakeLists.txt
