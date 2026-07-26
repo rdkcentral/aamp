@@ -241,9 +241,9 @@ function install_build_middleware_interface_fn()
         return 1
     }
 
-    # Apply middleware build fixes patch (see OSX/patches/middleware-build-fixes-summary.md)
-    # This patch fixes gstreamer-base-1.0 dependency issues that affect all platforms
-    local patch_file="${AAMP_DIR}/OSX/patches/middleware-osx-build-fixes.patch"
+    # Apply middleware fixes patch (see OSX/patches/middleware-build-fixes-summary.md)
+    # This patch fixes gstreamer-base-1.0 dependency issues AND adds setPtsOffset for commit 4c1d90a
+    local patch_file="${AAMP_DIR}/OSX/patches/middleware-fixes-4c1d90a.patch"
     if [[ -f "${patch_file}" ]]; then
         echo "Applying middleware build fixes patch..."
         cd "${mw_src}" || return 1
