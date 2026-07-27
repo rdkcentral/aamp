@@ -29,13 +29,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/closedcaptions)
-include_directories(${AAMP_ROOT}/middleware/drm)
-include_directories(${AAMP_ROOT}/middleware/drm/helper)
-include_directories(${AAMP_ROOT}/middleware/drm/ocdm)
-include_directories(${AAMP_ROOT}/middleware/playerJsonObject)
-include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
+# Use installed external middleware headers
+include_directories(${AAMP_ROOT}/.libs/include)
 
 find_package(PkgConfig REQUIRED)
 
