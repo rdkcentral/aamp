@@ -83,7 +83,9 @@ Copilot must still follow these steps:
 - Always assess prompt quality for every prompt and emit scores unless the scoring thresholds for suppression are met.
 - When feedback is not suppressed, use the following format:
 - Format: `Scores: Completeness X/10, Assumptions X/10, Clarity X/10, CostRisk X/10 | Critique: <brief> | Improve: <specific edit>`.
-- Scoring: Completeness and Clarity are higher-is-better; Assumptions and CostRisk are lower-is-better.
+- Scoring: Completeness, Clarity, and Assumptions are higher-is-better; CostRisk is lower-is-better.
+- **Assumptions** is higher-is-better: a high score means little or no
+  inference is required, and a low score means many assumptions are needed.
 - **CostRisk** estimates likely token usage and repository traversal behaviour.
   - Score higher when the prompt involves: large logs, many files, broad repository
     requests, unrestricted agent instructions, repeated context, or exploratory prompting.
@@ -91,13 +93,13 @@ Copilot must still follow these steps:
     and targets a specific outcome.
 - Strict rubric for underspecified prompts:
   - If the prompt is extremely vague (for example: "build something"), score it harshly.
-  - For these prompts, use: Completeness 0-3/10, Clarity 0-3/10, Assumptions 7-10/10.
+  - For these prompts, use: Completeness 0-3/10, Clarity 0-3/10, Assumptions 0-3/10.
   - If target, scope, constraints, or success criteria are omitted,
-    cap Completeness and Clarity at 7/10 and set Assumptions to at least 3/10.
+    cap Completeness, Clarity, and Assumptions at 7/10.
 - Keep it short and specific; avoid generic advice.
 - Never suppress scored feedback for underspecified prompts (including
   prompts that fall under the strict rubric above).
-- Suppress displayed feedback when Completeness >= 8, Assumptions <= 2,
+- Suppress displayed feedback when Completeness >= 8, Assumptions >= 8,
   Clarity >= 8, and CostRisk <= 3,
   unless the user explicitly asks to apply feedback to the current prompt.
 - Determine suppression from the current user prompt only; retrospective analysis of earlier prompts should be provided only when explicitly requested.
@@ -310,6 +312,19 @@ This file defines:
 - false-positive avoidance;
 - review comment quality requirements;
 - restrictions on speculative or overly large suggestions.
+
+## ABR compliance
+
+When generating, editing, or reviewing code under `abr/`, apply the normative rules in `instructions/abr.instructions.md`. That file is the authoritative spec for buffer semantics, profile selection, bail behavior, latency control, and targetLatency adjustment.
+
+For structured reviews, use the reusable prompt files:
+- `/abr-compliance-review` — full spec-driven audit
+- `/abr-pr-review` — focused diff review
+- `/abr-log-validate` — runtime log/trace validation
+- `/abr-function-check` — single-function compliance check
+- `/abr-instrumentation-plan` — design assertions and log events for auditability
+
+---
 
 ## AAMP log debugging
 

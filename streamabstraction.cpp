@@ -1323,11 +1323,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 							// down into the subtec parser and forward the buffer unchanged. The
 							// subtec channel applies the offset to media_PTS so cue display time
 							// aligns with the restamped video PTS.
-											const std::string_view vttView{ptr, len};
-											const bool mpegtsIsZero = (vttView.find("MPEGTS:0") != std::string_view::npos);
-											mSubtitleParser->setPtsOffset(mpegtsIsZero ? 0.0 : cachedFragment->PTSOffsetSec);
-											mSubtitleParser->processData(
-												ptr, len, cachedFragment->position, cachedFragment->duration);
+							mSubtitleParser->setPtsOffset(cachedFragment->PTSOffsetSec);
+							mSubtitleParser->processData(ptr, len, cachedFragment->position, cachedFragment->duration);
 						}
 						break;
 					}
@@ -1445,13 +1442,6 @@ bool MediaTrack::InjectFragment()
 					{
 						aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
 					}
-					// Stop underflow monitor — all VOD fragments are injected;
-					// the GStreamer EOS bubble is now in flight and no further
-					// fragment arrivals are expected, so underflow detection is invalid.
-					if (!aamp->IsLive() && type == eTRACK_VIDEO)
-					{
-						pContext->StopUnderflowMonitor();
-					}
 				}
 				else
 				{
@@ -1499,6 +1489,13 @@ bool MediaTrack::SignalIfEOSReached()
 			if (audio && !audio->enabled && rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				aamp->EndOfStreamReached(eMEDIATYPE_AUDIO);
+			}
+			// Stop underflow monitor when video EOS is reached on VOD.
+			// EOS can be signalled from both normal sentinel and aborted-wait
+			// paths, so centralize monitor shutdown here.
+			if (!aamp->IsLive() && type == eTRACK_VIDEO)
+			{
+				pContext->StopUnderflowMonitor();
 			}
 			ret = true;
 		}
@@ -2361,7 +2358,11 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 
 
 /**
- *  @brief Update rampdown profile on network failure
+ *  @brief Return the effective buffer depth for ABR decisions.
+ *
+ *  Returns GetBufferedDuration() except during local TSB playback or when
+ *  paused, where it returns lastDownloadedPosition - GetLivePlayPosition(),
+ *  clamped to >= 0.
  */
 double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
@@ -2369,24 +2370,23 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 	if (track)
 	{
 		bufferValue = track->GetBufferedDuration();
-		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
+		/**< Also apply when paused: a frozen GStreamer position inflates GetBufferedDuration(),
+		 *   masking real drift from the live edge.*/
+		if (aamp->IsLocalAAMPTsb() && (track->IsLocalTSBInjection() || aamp->mSinkPaused.load()))
 		{
-			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
-			if(tsbSessionManager)
+			/**< Buffer depth is the gap between the live downloader's leading edge
+			 *   (last downloaded fragment end position) and the pseudo live play
+			 *   position (mLiveOffset behind the live edge). This will shrink if the
+			 *   downloader can't keep up with the live edge at the current bitrate,
+			 *   driving rampdown to recover.*/
+			double livePlayPosition = aamp->GetLivePlayPosition();
+			double lastFetchedEndPosition = track->GetLastDownloadedPosition();
+			bufferValue = lastFetchedEndPosition - livePlayPosition;
+			AAMPLOG_INFO("Buffer (%.02lf)sec based on last downloaded end position (%.02lf)sec and live play position (%.02lf)sec !!",
+						 bufferValue, lastFetchedEndPosition, livePlayPosition);
+			if (bufferValue < 0.0)
 			{
-				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
-				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
-				bufferValue += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
-				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
-							 bufferValue, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
-				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
-				{
-					bufferValue = 0;
-				}
-			}
-			else
-			{
-				AAMPLOG_ERR("tsbSessionManager is NULL for LocalTSB!! Returning buffer value as %.02lf !!",bufferValue);
+				bufferValue = 0.0;
 			}
 		}
 	}
@@ -3737,9 +3737,18 @@ double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
 		return bufferValue;
 	}
 	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
-	if(audio)
+	if(audio && audio->enabled)
 	{
 		bufferValue = GetBufferValue(audio);
+	}
+	else if(IsMuxedStream())
+	{
+		// For muxed A/V playback, report video buffer duration as audio buffer duration
+		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+		if(video)
+		{
+			bufferValue = GetBufferValue(video);
+		}
 	}
 	return bufferValue;
 }
@@ -4110,13 +4119,13 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				if (i != eMEDIATYPE_SUBTITLE)
 				{
 					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
-					
+
 					// Set playback rate
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
-					
+
 					// Set trickplay FPS for the demuxer
 					int trickPlayFPS = aamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
-					
+
 					track->playContext->setFrameRateForTM(trickPlayFPS);
 				}
 				else
@@ -4736,3 +4745,4 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 		}
 	}
 }
+

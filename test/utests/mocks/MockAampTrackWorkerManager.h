@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2024 RDK Management
+ * Copyright 2026 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,22 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#ifndef AAMP_MOCK_TRACK_WORKER_MANAGER_H
+#define AAMP_MOCK_TRACK_WORKER_MANAGER_H
 
-int main(int argc, char** argv)
+#include <gmock/gmock.h>
+#include <functional>
+#include <memory>
+
+namespace aamp
 {
-	testing::InitGoogleTest(&argc, argv);
-	return RUN_ALL_TESTS();
+	class MockAampTrackWorkerManager
+	{
+	public:
+		MOCK_METHOD(void, WaitForCompletionWithTimeout, (int timeout, std::function<void()> onTimeout));
+	};
 }
+
+extern std::shared_ptr<aamp::MockAampTrackWorkerManager> g_mockAampTrackWorkerManager;
+
+#endif /* AAMP_MOCK_TRACK_WORKER_MANAGER_H */

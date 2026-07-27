@@ -127,6 +127,20 @@ AampMp4Demuxer::~AampMp4Demuxer()
 }
 
 /**
+ * @brief Advance trickmode restamp timeline on discontinuity boundary.
+ */
+void AampMp4Demuxer::HandleTrickModeDiscontinuity()
+{
+	if (mTrickPhase == Mp4TrickPhase::STEADY)
+	{
+		mRestampedPts += mRestampedDuration;
+		mTrickPhase = Mp4TrickPhase::DISCONTINUITY;
+		AAMPLOG_WARN("[%s] Trickmode discontinuity: advancing restampedPts by %.6f to %.6f",
+			GetMediaTypeName(mMediaType), mRestampedDuration, mRestampedPts);
+	}
+}
+
+/**
  * @brief Apply trickmode PTS restamping to a sample, dynamically adjusting duration based on rate and frame rate
  * Similar to qtdemux approach but with dynamic duration calculation for smoother trickmode playback
  * @param[in,out] sample - Sample to restamp
@@ -141,18 +155,6 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	double originalDuration = sample.mDuration;
 	double fragmentPtsDelta = 0.0;
 	double restampedDuration = 0.0;
-
-	// On the first keyframe of a discontinuous segment (while in STEADY state), advance
-	// the output PTS by the last known duration so the stream stays gapless, then switch
-	// to DISCONTINUITY so the switch below reuses that duration instead of computing a
-	// (potentially huge) cross-discontinuity PTS delta.
-	if (discontinuous && mTrickPhase == Mp4TrickPhase::STEADY)
-	{
-		mRestampedPts += mRestampedDuration;
-		mTrickPhase = Mp4TrickPhase::DISCONTINUITY;
-		AAMPLOG_WARN("[%s] Trickmode discontinuity: advancing restampedPts by %.6f to %.6f",
-			GetMediaTypeName(mMediaType), mRestampedDuration, mRestampedPts);
-	}
 
 	// All phase transitions are owned here.
 	switch (mTrickPhase)
@@ -248,36 +250,23 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 			{
 				if (mIsTrickMode)
 				{
-					for (auto& sample : samples)
-					{
-						// In trickmode, only I-frames (key frames) should be sent to the sink.
-						// This mirrors the upstream ConvertToKeyFrame filtering done in the TSB path
-						// and the iframe-track selection in the non-TSB path.
-						if (!sample.mIsKeyFrame)
-						{
-							AAMPLOG_TRACE("[%s] Skipping non-key frame sample in trickmode (pts=%.3f)",
-								GetMediaTypeName(mMediaType), sample.mPts);
-							continue;
-						}
-TrickmodePtsRestamp(sample, duration, discontinuous);
-
-						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
-					}
+					// Trickmode: the demuxer yields exactly one sample — the iframe.
+					auto& iframe = samples.front();
+					TrickmodePtsRestamp(iframe, duration, discontinuous);
+					mAamp->SendStreamTransfer(mMediaType, std::move(iframe));
 				}
 				else
 				{
 					for (auto& sample : samples)
 					{
-						// Apply PTS offset if restamping is enabled. This modifies the sample timestamps before sending them to AAMP, which will use the adjusted values for playback timing.
 						if (mEnablePtsRestamp)
 						{
-							double beforeDTS = sample.mDts;
+							const double beforeDTS = sample.mDts;
 							sample.mPts += fragmentPTSoffset;
 							sample.mDts += fragmentPTSoffset;
-							// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
 							if (mEnablePtsRestampLogging)
 							{
-								uint32_t timeScale = mMp4Demux->GetTimeScale();
+								const uint32_t timeScale = mMp4Demux->GetTimeScale();
 								AAMPLOG_INFO("[RestampPts][%s] timeScale %u beforeDTS %.3f afterDTS %.3f duration %.3f",
 								GetMediaTypeName(mMediaType),
 								timeScale,
@@ -304,6 +293,12 @@ TrickmodePtsRestamp(sample, duration, discontinuous);
 				{
 					AAMPLOG_ERR("No samples for type:%d and invalid codec format:%d", mMediaType, codecInfo.mCodecFormat);
 					ret = false;
+				}
+				// Init segments can carry discontinuity without samples.
+				// Pre-mark discontinuity so next data sample avoids cross-period PTS delta spikes.
+				if (ret && mIsTrickMode && isInit && discontinuous)
+				{
+					HandleTrickModeDiscontinuity();
 				}
 			}
 		}

@@ -36,6 +36,7 @@
 #include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
+#include "MediaStreamContext.h"
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
@@ -89,6 +90,7 @@ public:
 	PrivateInstanceAAMP *p_aamp{nullptr};
 	AampConfig *config{nullptr};
 	CURL *mCurlEasyHandle{nullptr};
+	MediaStreamContext *mVideoStreamContext{nullptr};
 
 protected:
 	void SetUp() override
@@ -116,6 +118,9 @@ protected:
 		g_mockIsoBmffBuffer = std::make_shared<NiceMock<MockIsoBmffBuffer>>();
 		g_mockAampUtils = std::make_shared<NiceMock<MockAampUtils>>();
 		g_mockAampLatencyMonitor = std::make_shared<NiceMock<MockAampLatencyMonitor>>();
+		// Create real MediaStreamContext for tests that need chunk injection
+		// FakeMediaStreamContext.cpp forwards CacheFragmentChunk() to g_mockMediaStreamContext
+		mVideoStreamContext = new MediaStreamContext(eTRACK_VIDEO, g_mockStreamAbstractionAAMP_MPD.get(), p_aamp, "video");
 	}
 
 	void TearDown() override
@@ -148,6 +153,9 @@ protected:
 		g_mockAampUtils.reset();
 
 		g_mockAampLatencyMonitor.reset();
+
+		delete mVideoStreamContext;
+		mVideoStreamContext = nullptr;
 
 		delete (int*)mCurlEasyHandle;
 		mCurlEasyHandle = nullptr;
@@ -963,10 +971,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedNoUnderflow)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->SetLLDashChunkMode(true);
 
-	// Set up stream abstraction to return our mock MediaStreamContext
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
+		.WillRepeatedly(Return(mVideoStreamContext));
 
 	p_aamp->mSinkPaused = true;
 	p_aamp->mBufUnderFlowStatus = false;
@@ -1024,10 +1033,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackPipelinePausedWithUnderflow)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->SetLLDashChunkMode(true);
 
-	// Set up stream abstraction to return our mock MediaStreamContext
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
+		.WillRepeatedly(Return(mVideoStreamContext));
 
 	p_aamp->mSinkPaused = true;
 	p_aamp->mBufUnderFlowStatus = true;
@@ -1080,10 +1090,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->SetLLDashChunkMode(true);
 
-	// Set up stream abstraction to return our mock MediaStreamContext
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
+		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, parseBuffer() fails, so no mdat box is detected and CacheFragmentChunk() should not be called
@@ -1122,6 +1133,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithParseBufferFailure)
 	// Verify that bufferOffset and chunkBoundary remain unchanged
 	EXPECT_EQ(context.bufferOffset, 0);
 	EXPECT_EQ(context.chunkBoundary, 0);
+	EXPECT_FALSE(context.chunkInjectionUsed); // Since CacheFragmentChunk is not called
 }
 
 // Test HandleSSLWriteCallback when no mdat detected in chunkInjection mode
@@ -1135,10 +1147,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->SetLLDashChunkMode(true);
 
-	// Set up stream abstraction to return our mock MediaStreamContext
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
+		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, complete mdat is not detected, so CacheFragmentChunk() should not be called
@@ -1177,6 +1190,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithoutMdat)
 	// Verify that bufferOffset and chunkBoundary remain unchanged
 	EXPECT_EQ(context.bufferOffset, 0);
 	EXPECT_EQ(context.chunkBoundary, 0);
+	EXPECT_FALSE(context.chunkInjectionUsed); // Since CacheFragmentChunk is not called
 }
 
 // Test HandleSSLWriteCallback when a chunked (incomplete) MDAT box is received
@@ -1193,10 +1207,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->SetLLDashChunkMode(true);
 
-	// Set up stream abstraction to return our mock MediaStreamContext
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
+		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 
@@ -1257,13 +1272,14 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// chunkBoundary should be updated to mdat start + mdat size
 	EXPECT_EQ(context.chunkBoundary, chunkBoundary);
 	EXPECT_EQ(buffer.size(), startBufferOffset + strlen(testDataPart1));
+	EXPECT_FALSE(context.chunkInjectionUsed); // Since CacheFragmentChunk is not called
 
 	// In this test, CacheFragmentChunk() should be called exactly once when buffer reaches chunk boundary.
 	// This happens in the second call to HandleSSLWriteCallback when the complete chunked mdat is received in the buffer. The first call should not trigger CacheFragmentChunk() as the chunk is not complete yet.
 	// Lets make this a strict check using expected values
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.data() + startBufferOffset, chunkBoundary - startBufferOffset, _, _, mdatDuration))
-		.Times(1);
+		.WillOnce(Return(true));
 
 	size_t result = p_aamp->HandleSSLWriteCallback(testDataPart2, strlen(testDataPart2), 1, &context);
 	// Result should be size*nmemb
@@ -1273,6 +1289,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithPartialMp4Chunk)
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
 	EXPECT_EQ(buffer.size(), startBufferOffset + totalBufSize);
+	EXPECT_TRUE(context.chunkInjectionUsed); // Since CacheFragmentChunk is invoked now
 }
 
 // Test HandleSSLWriteCallback when multiple mdat boxes are received
@@ -1286,10 +1303,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->SetLLDashChunkMode(true);
 
-	// Set up stream abstraction to return our mock MediaStreamContext
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
+		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 
@@ -1314,17 +1332,17 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	// Second mdat: offset 150, size 120 (boundary at 270)
 	// Third mdat: offset 300, size 150 (boundary at 450)
 	char testData[] = "test data with multiple mdat boxes in fragmented MP4 format";
-	size_t firstMdatStart = 10;
-	size_t firstMdatSize = 100;
-	size_t secondMdatStart = 150;
-	size_t secondMdatSize = 120;
 	size_t thirdMdatStart = 300;
 	size_t thirdMdatSize = 150;
 	size_t lastMdatBoundary = thirdMdatStart + thirdMdatSize; // Should use the last mdat
 	uint64_t totalChunkDuration = 90000; // 1 second duration at 90kHz timescale
 
+	// First return true, so that boundary detection logic in HandleSSLWriteCallback can proceed
+	// Second return false, as its not the scope of this test. This call will be made to check if a new
+	// boundary can be detected in the remaining buffer.
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillOnce(Return(true));
+		.WillOnce(Return(true))
+		.WillOnce(Return(false));
 
 	// Return mdat count as 3 (multiple fragments in buffer)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
@@ -1359,7 +1377,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	// CacheFragmentChunk should be called once with data up to the last mdat boundary
 	EXPECT_CALL(*g_mockMediaStreamContext,
 		CacheFragmentChunk(eMEDIATYPE_VIDEO, _, lastMdatBoundary, _, _, totalChunkDuration))
-		.Times(1);
+		.WillOnce(Return(true));
 
 	size_t result2 = p_aamp->HandleSSLWriteCallback(additionalData.data(), additionalData.size(), 1, &context);
 	EXPECT_EQ(result2, additionalData.size());
@@ -1369,6 +1387,7 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleMdatBoxes)
 	// chunkBoundary should be reset
 	EXPECT_EQ(context.chunkBoundary, 0);
 	EXPECT_EQ(buffer.size(), strlen(testData) + additionalData.size());
+	EXPECT_TRUE(context.chunkInjectionUsed); // Since CacheFragmentChunk is invoked
 }
 
 // Test HandleSSLWriteCallback when CheckForChunkEarlyAbort returns true
@@ -1384,10 +1403,11 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->SetLLDashChunkMode(true);
 
-	// Set up stream abstraction to return our mock MediaStreamContext
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
-		.WillRepeatedly(Return(reinterpret_cast<MediaTrack*>(g_mockMediaStreamContext.get())));
+		.WillRepeatedly(Return(mVideoStreamContext));
 	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
 		.WillRepeatedly(Return(false));
 	// In this test, CheckForChunkEarlyAbort() returns true, so CacheFragmentChunk() should not be called
@@ -1432,6 +1452,244 @@ TEST_F(PrivAampTests, HandleSSLWriteCallbackWithChunkEarlyAbort)
 	// Verify that bufferOffset remain unchanged and abortReason updated
 	EXPECT_EQ(context.bufferOffset, 0);
 	EXPECT_EQ(context.abortReason, eCURL_ABORT_REASON_FIRST_CHUNK_SLOW);
+	EXPECT_FALSE(context.chunkInjectionUsed); // Since CacheFragmentChunk is not called
+}
+
+// Test HandleSSLWriteCallback when CacheFragmentChunk fails
+// Validates that bufferOffset, chunkBoundary, and chunkDurationInTicks are not updated when caching fails
+TEST_F(PrivAampTests, HandleSSLWriteCallbackCacheFragmentChunkFailure)
+{
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackCacheFragmentChunkFailure - Setting up");
+
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(mVideoStreamContext));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	std::vector<uint8_t> buffer;
+	const uint8_t initialData[] = "initial buffer data";
+	constexpr size_t initialDataLen = sizeof(initialData) - 1;
+	buffer.assign(initialData, initialData + initialDataLen);
+	buffer.reserve(1024);
+
+	size_t startBufferOffset = buffer.size();
+
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+	context.bufferOffset = startBufferOffset;
+	context.chunkBoundary = 0;
+
+	// Simulate receiving chunk data
+	char testData[] = "test data with mdat chunk";
+	size_t mdatStart = 10;
+	size_t mdatSize = 50;
+	size_t expectedChunkBoundary = startBufferOffset + mdatStart + mdatSize;
+	int mdatIndex = 5;
+	uint64_t expectedChunkDuration = 180000; // 2 seconds at 90kHz timescale
+
+	// First callback - identify chunk boundary
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.WillOnce(DoAll(
+			SetArgReferee<0>(static_cast<size_t>(mdatStart)),
+			SetArgReferee<1>(static_cast<size_t>(mdatSize)),
+			Return(true)
+		));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getLastMdatBoxIndex())
+		.WillOnce(Return(mdatIndex));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTotalChunkDurationInTicks(mdatIndex))
+		.WillOnce(Return(expectedChunkDuration));
+
+	size_t result1 = p_aamp->HandleSSLWriteCallback(testData, strlen(testData), 1, &context);
+	EXPECT_EQ(result1, strlen(testData));
+	EXPECT_EQ(context.bufferOffset, startBufferOffset);
+	EXPECT_EQ(context.chunkBoundary, expectedChunkBoundary);
+	EXPECT_EQ(context.chunkDurationInTicks, expectedChunkDuration);
+	EXPECT_FALSE(context.chunkInjectionUsed);
+
+	// Save the state before the failing CacheFragmentChunk call
+	size_t savedBufferOffset = context.bufferOffset;
+	size_t savedChunkBoundary = context.chunkBoundary;
+	uint64_t savedChunkDuration = context.chunkDurationInTicks;
+
+	// Second callback - enough data to trigger caching, but CacheFragmentChunk will fail
+	char additionalData[] = "additional data to complete the chunk and trigger caching";
+	
+	// Mock CacheFragmentChunk to return false (failure scenario)
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, _, _, _, _, expectedChunkDuration))
+		.WillOnce(Return(false));
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackCacheFragmentChunkFailure - Calling with additional data");
+
+	size_t result2 = p_aamp->HandleSSLWriteCallback(additionalData, strlen(additionalData), 1, &context);
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackCacheFragmentChunkFailure - Result: %zu", result2);
+
+	// Result should be the bytes written (callback continues despite cache failure)
+	EXPECT_EQ(result2, strlen(additionalData));
+
+	// Critical assertions: When CacheFragmentChunk fails, bufferOffset and chunk state must NOT be updated
+	EXPECT_EQ(context.bufferOffset, savedBufferOffset)
+		<< "bufferOffset should not advance when CacheFragmentChunk fails";
+	EXPECT_EQ(context.chunkBoundary, savedChunkBoundary)
+		<< "chunkBoundary should not be reset when CacheFragmentChunk fails";
+	EXPECT_EQ(context.chunkDurationInTicks, savedChunkDuration)
+		<< "chunkDurationInTicks should not be reset when CacheFragmentChunk fails";
+	EXPECT_FALSE(context.chunkInjectionUsed)
+		<< "chunkInjectionUsed should remain false when CacheFragmentChunk fails";
+
+	AAMPLOG_INFO("Test: HandleSSLWriteCallbackCacheFragmentChunkFailure - Completed successfully");
+}
+
+// Test when a chunk boundary is identified in first iteration and then we receive the full chunk
+// and another full chunk in the next iteration. This tests that CacheFragmentChunk() is called for both chunks.
+// 1. Chunked MDAT with size, chunkBoundary is updated
+// 2. Full MDAT + Another Full MDAT, CacheFragmentChunk() should be called for both chunks.
+TEST_F(PrivAampTests, HandleSSLWriteCallbackWithMultipleChunks)
+{
+	// Enable LL DASH chunk mode to trigger CacheFragmentChunk calls
+	AampLLDashServiceData llData;
+	llData.lowLatencyMode = true;
+	p_aamp->SetLLDashServiceData(llData);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
+	p_aamp->SetLLDashChunkMode(true);
+
+	// Set up stream abstraction to return our real MediaStreamContext
+	// which forwards CacheFragmentChunk() to g_mockMediaStreamContext
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetMediaTrack(eTRACK_VIDEO))
+		.WillRepeatedly(Return(mVideoStreamContext));
+	EXPECT_CALL(*g_mockMediaStreamContext, IsLocalTSBInjection())
+		.WillRepeatedly(Return(false));
+
+	p_aamp->mDownloadsEnabled = true;
+	p_aamp->mMediaDownloadsEnabled[eMEDIATYPE_VIDEO] = true;
+
+	// Create a buffer for the context
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1024);
+	const uint8_t initialData[] = "dummy data";
+	constexpr size_t initialDataLen = sizeof(initialData) - 1; // Exclude null terminator
+	buffer.assign(initialData, initialData + initialDataLen);
+
+	size_t startBufferOffset = buffer.size();
+	// Create a valid curl context
+	CurlCallbackContext context(p_aamp, buffer);
+	context.mediaType = eMEDIATYPE_VIDEO;
+	context.contentLength = 1024;
+	context.remoteUrl = "http://example.com/video.m3u8";
+	context.downloadStartTime = 0;
+	// Lets also simulate existing buffer data scenario
+	context.bufferOffset = startBufferOffset;
+	context.chunkBoundary = 0;
+
+	// Call HandleSSLWriteCallback twice with incremental data to simulate partial (chunked) mdat reception
+	char testDataPart1[] = "test data with partial mdat chunk 1 part 1";
+	char testDataPart2[] = "test data with partial mdat chunk 1 part 2 + full mdat chunk 2";
+	size_t totalBufSize = strlen(testDataPart1) + strlen(testDataPart2);
+	size_t chunk1OffsetInBuffer2 = 10;
+	size_t chunk1Size = strlen(testDataPart1) + chunk1OffsetInBuffer2; // second buffer includes remaining chunk 1 and full chunk 2
+	// Lets assume mdat starts from offset 20 to end of buffer
+	size_t chunk1MdatStart = 20;
+	size_t chunk1MdatSize = chunk1Size - chunk1MdatStart;
+	size_t chunk1Boundary = startBufferOffset + chunk1MdatStart + chunk1MdatSize;
+	size_t chunk2MdatStart = 20;
+	// Lets assume chunk2 occupies the full testDataPart2 after chunk1
+	size_t chunk2MdatSize = strlen(testDataPart2) - (chunk2MdatStart + chunk1OffsetInBuffer2);
+	size_t chunk2Boundary = startBufferOffset + chunk1Size + chunk2MdatStart + chunk2MdatSize;
+	int mdatIndex = 1;
+	uint64_t mdatDuration = 90000; // 1 second duration at 90kHz timescale
+
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillOnce(Return(true));
+	// Return mdat parse as false, since its chunked mdat
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillOnce(Return(false));
+	// Return chunked mdat info
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.WillOnce(DoAll(
+			SetArgReferee<0>(static_cast<size_t>(chunk1MdatStart)), // mdat start
+			SetArgReferee<1>(static_cast<size_t>(chunk1MdatSize)), // mdat size
+			Return(true)
+		));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getLastMdatBoxIndex())
+		.WillOnce(Return(mdatIndex));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTotalChunkDurationInTicks(mdatIndex))
+		.WillOnce(Return(mdatDuration)); // 1 second duration at 90kHz timescale
+
+	size_t result1 = p_aamp->HandleSSLWriteCallback(testDataPart1, strlen(testDataPart1), 1, &context);
+	// Result should be size*nmemb
+	EXPECT_EQ(result1, strlen(testDataPart1));
+	// bufferOffset should still be startBufferOffset
+	EXPECT_EQ(context.bufferOffset, startBufferOffset);
+	// chunkBoundary should be updated to chunk 1 mdat start + chunk 1 mdat size
+	EXPECT_EQ(context.chunkBoundary, chunk1Boundary);
+	EXPECT_EQ(buffer.size(), startBufferOffset + strlen(testDataPart1));
+	EXPECT_FALSE(context.chunkInjectionUsed); // Since CacheFragmentChunk is not called
+
+	// ==================================== Second call to HandleSSLWriteCallback with testDataPart2 =======================
+	// Expecting IdentifyMp4ChunkBoundary call for detecting chunk2 in the remaining buffer after chunk1 is cached
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
+		.WillOnce(Return(true));
+	// Return mdat parse as false, since its chunked mdat
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getMdatBoxCount(_))
+		.WillOnce(Return(false));
+	// Return chunked mdat info
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getChunkedMdatBoxInfo(_, _))
+		.WillOnce(DoAll(
+			SetArgReferee<0>(static_cast<size_t>(chunk2MdatStart)), // mdat start
+			SetArgReferee<1>(static_cast<size_t>(chunk2MdatSize)), // mdat size
+			Return(true)
+		));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getLastMdatBoxIndex())
+		.WillOnce(Return(mdatIndex));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, getTotalChunkDurationInTicks(mdatIndex))
+		.WillOnce(Return(mdatDuration)); // 1 second duration at 90kHz timescale
+
+	// In this test, CacheFragmentChunk() should be called twice. Once when buffer reaches chunk boundary and second for the new chunk 2.
+	// This happens in the second call to HandleSSLWriteCallback when the complete chunked mdat is received in the buffer. The first call should not trigger CacheFragmentChunk() as the chunk is not complete yet.
+	// Lets make this a strict check using expected values
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.data() + startBufferOffset, chunk1Boundary - startBufferOffset, _, _, mdatDuration))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragmentChunk(eMEDIATYPE_VIDEO, buffer.data() + chunk1Boundary, chunk2Boundary - chunk1Boundary, _, _, mdatDuration))
+		.WillOnce(Return(true));
+
+	size_t result = p_aamp->HandleSSLWriteCallback(testDataPart2, strlen(testDataPart2), 1, &context);
+	// Result should be size*nmemb
+	EXPECT_EQ(result, strlen(testDataPart2));
+	// Verify that bufferOffset is updated to total mdat size
+	EXPECT_EQ(context.bufferOffset, chunk2Boundary);
+	EXPECT_EQ(context.bufferOffset, buffer.size());
+	// chunkBoundary should be reset
+	EXPECT_EQ(context.chunkBoundary, 0);
+	EXPECT_EQ(buffer.size(), startBufferOffset + totalBufSize);
+	EXPECT_TRUE(context.chunkInjectionUsed); // Since CacheFragmentChunk is called
 }
 
 TEST_F(PrivAampTests, RunPausePositionMonitoringTest)
@@ -3866,6 +4124,66 @@ TEST_F(PrivAampTests,FoundEventBreakTest)
 	EXPECT_FALSE(p_aamp->mFogTSBEnabled);
 }
 
+// FoundEventBreak with CDAI enabled and isDAIEvent=true must call SetAlternateContents to register the ad break.
+TEST_F(PrivAampTests, FoundEventBreak_CdaiEnabled_IsDAIEvent_CallsSetAlternateContents)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai))
+		.WillRepeatedly(Return(true));
+
+	CDAIObjectMPD *cdaiObj = new CDAIObjectMPD(p_aamp);
+	p_aamp->mCdaiObject = cdaiObj;
+
+	EventBreakInfo info;
+	info.payload = "payload";
+	info.name = "sampleTest";
+	info.duration = 15000;
+	info.presentationTime = 0;
+	info.isDAIEvent = true;
+
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(1);
+	p_aamp->FoundEventBreak("Period-1", 0, info);
+
+	// mCdaiObject ownership transferred to p_aamp; cleaned up in destructor.
+}
+ 
+// FoundEventBreak with CDAI enabled but isDAIEvent=false must not register an ad break — SetAlternateContents not called.
+TEST_F(PrivAampTests, FoundEventBreak_CdaiEnabled_NotDAIEvent_NoSetAlternateContents)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai))
+		.WillRepeatedly(Return(true));
+
+	CDAIObjectMPD *cdaiObj = new CDAIObjectMPD(p_aamp);
+	p_aamp->mCdaiObject = cdaiObj;
+
+	EventBreakInfo info;
+	info.payload = "payload";
+	info.name = "sampleTest";
+	info.duration = 15000;
+	info.presentationTime = 0;
+	info.isDAIEvent = false;
+
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(0);
+	p_aamp->FoundEventBreak("Period-1", 0, info);
+
+	// mCdaiObject ownership transferred to p_aamp; cleaned up in destructor.
+}
+ 
+// FoundEventBreak with CDAI disabled must take no action — SetAlternateContents must not be called.
+TEST_F(PrivAampTests, FoundEventBreak_CdaiDisabled_NoSetAlternateContents)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableClientDai))
+		.WillRepeatedly(Return(false));
+	EventBreakInfo info;
+	info.payload = "payload";
+	info.name = "sampleTest";
+	info.duration = 15000;
+	info.presentationTime = 0;
+	info.isDAIEvent = true;
+
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(0);
+	p_aamp->FoundEventBreak("Period-1", 0, info);
+}
+
 TEST_F(PrivAampTests,SetAlternateContentsTest)
 {
 	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(0);
@@ -4153,6 +4471,41 @@ TEST_F(PrivAampTests,SetTextTrackTest_1)
 	p_aamp->SetTextTrack(0,NULL);
 	val = p_aamp->GetTextTrack();
 	EXPECT_EQ(-1,val);
+}
+
+// Verify that selecting a CC track via SetTextTrack:
+//   - stores the track in mPreferredTextTrack (arming the SelectSubtitleTrack guard), and
+//   - enables PlayerCCManager via SetCCStatusInternal before calling SetTrack.
+TEST_F(PrivAampTests, SetTextTrack_CCTrack_ArmsGuardAndEnablesCCManager)
+{
+	TextTrackInfo ccTrack;
+	ccTrack.index      = "0-0";
+	ccTrack.language   = "eng";
+	ccTrack.isCC       = true;
+	ccTrack.instreamId = "CC1";
+
+	std::vector<TextTrackInfo> tracks = { ccTrack };
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->mIsInbandCC = false;
+	p_aamp->subtitles_muted = false; // app has already enabled CC display
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(false))
+		.WillOnce(ReturnRef(tracks));
+	// SetCCStatusInternal must enable PlayerCCManager before SetTrack is called
+	// (mEnabled must be true when SetTrack runs). InSequence is scoped to these
+	// two expectations only.
+	{
+		::testing::InSequence seq;
+		EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true)).WillOnce(Return(0));
+		EXPECT_CALL(*g_mockPlayerCCManager, SetTrack("CC1", _)).WillOnce(Return(0));
+	}
+
+	p_aamp->SetTextTrack(0, nullptr);
+
+	EXPECT_TRUE(p_aamp->mIsInbandCC);
+	EXPECT_TRUE(p_aamp->GetPreferredTextTrack().isCC);
+	EXPECT_EQ(p_aamp->GetPreferredTextTrack().instreamId, "CC1");
 }
 
 TEST_F(PrivAampTests,SetCCStatusPreTune)
@@ -6194,7 +6547,7 @@ TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsTrue_WhenAbove
  */
 TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrection_StartsMonitor)
 {
-	// Make the stream appear live.
+	// We are dealing with live manifest, so set the appropriate flags.
 	testp_aamp->SetIsLive(true);
 	testp_aamp->SetIsLiveStream(true);
 

@@ -97,6 +97,11 @@ protected:
 			mTrackState = state;
 		}
 
+		double testGetBufferValue(MediaTrack *track)
+		{
+			return GetBufferValue(track);
+		}
+
 		MOCK_METHOD(void, clearFirstPTS, (), (override));
 
 	};
@@ -280,4 +285,168 @@ TEST_F(StreamAbstractionAAMP_Test, UpdateTSAfterFetchStats_DoesNotRestoreLatency
         mStreamAbstractionAAMP->mMockAudioTrack->UpdateTSAfterFetchStats(&cachedFragment, false);
 
         EXPECT_FALSE(mStreamAbstractionAAMP->mSavedLatencyMonitorState);
+}
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() reports audio track buffer
+ *        duration when the audio track is enabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsAudioBuffer_WhenAudioTrackEnabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = true;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.WillOnce(Return(12.5));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(0);
+
+	EXPECT_DOUBLE_EQ(12.5, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+}
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() falls back to video buffer
+ *        duration when audio is muxed and the audio track is disabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsVideoBuffer_WhenAudioTrackDisabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = false;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.Times(0);
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillOnce(Return(8.75));
+
+	EXPECT_DOUBLE_EQ(8.75, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+}
+
+/**
+ * @brief Verify GetBufferedAudioDurationSec() does not fall back to video
+ *        when AudioOnlyPlayback is enabled.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferedAudioDurationSec_ReturnsSentinel_WhenAudioOnlyPlaybackEnabled)
+{
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mStreamAbstractionAAMP->mMockAudioTrack->enabled = false;
+	mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, GetBufferedDuration())
+		.Times(0);
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(0);
+
+	EXPECT_DOUBLE_EQ(-1.0, mStreamAbstractionAAMP->GetBufferedAudioDurationSec());
+}
+
+/**
+ * @brief Verify GetBufferValue() returns 0 when the track pointer is null.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsZero_WhenTrackIsNull)
+{
+	EXPECT_DOUBLE_EQ(0.0, mStreamAbstractionAAMP->testGetBufferValue(nullptr));
+}
+
+/**
+ * @brief Verify GetBufferValue() returns GetBufferedDuration() for
+ *        standard (non-local-TSB) playback.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsBufferedDuration_WhenLocalTSBDisabled)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(false);
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillOnce(Return(8.0));
+
+	EXPECT_DOUBLE_EQ(8.0, mStreamAbstractionAAMP->testGetBufferValue(
+		mStreamAbstractionAAMP->mMockVideoTrack));
+}
+
+/**
+ * @brief Verify GetBufferValue() returns lastDownloadedPosition minus
+ *        GetLivePlayPosition() during active local TSB injection.
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsLiveEdgeDelta_WhenLocalTSBInjectionActive)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPrivateInstanceAAMP->mSinkPaused = false;
+	mStreamAbstractionAAMP->mMockVideoTrack->MediaTrack::SetLocalTSBInjection(true);
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetLastDownloadedPosition())
+		.WillOnce(Return(120.0));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition())
+		.WillOnce(Return(114.0));
+
+	EXPECT_DOUBLE_EQ(6.0, mStreamAbstractionAAMP->testGetBufferValue(
+		mStreamAbstractionAAMP->mMockVideoTrack));
+}
+
+/**
+ * @brief Verify GetBufferValue() returns lastDownloadedPosition minus
+ *        GetLivePlayPosition() when local TSB is enabled and the pipeline is
+ *        paused (injection not yet active).
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsLiveEdgeDelta_WhenPipelinePaused)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPrivateInstanceAAMP->mSinkPaused = true;
+	// mIsLocalTSBInjection defaults to false — injection not yet active
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetLastDownloadedPosition())
+		.WillOnce(Return(120.0));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition())
+		.WillOnce(Return(114.0));
+
+	EXPECT_DOUBLE_EQ(6.0, mStreamAbstractionAAMP->testGetBufferValue(
+		mStreamAbstractionAAMP->mMockVideoTrack));
+}
+
+/**
+ * @brief Verify GetBufferValue() falls back to GetBufferedDuration() when
+ *        playing at the live edge and not paused (TSB enabled but injection
+ *        not yet active).
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ReturnsBufferedDuration_WhenAtLiveEdgeAndNotPaused)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPrivateInstanceAAMP->mSinkPaused = false;
+	// mIsLocalTSBInjection defaults to false — injection not yet active
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.WillOnce(Return(4.5));
+
+	EXPECT_DOUBLE_EQ(4.5, mStreamAbstractionAAMP->testGetBufferValue(
+		mStreamAbstractionAAMP->mMockVideoTrack));
+}
+
+/**
+ * @brief Verify GetBufferValue() clamps to 0 when the live downloader has
+ *        fallen behind the live play position (negative delta).
+ */
+TEST_F(StreamAbstractionAAMP_Test, GetBufferValue_ClampsToZero_WhenLiveEdgeDeltaNegative)
+{
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+	mPrivateInstanceAAMP->mSinkPaused = false;
+	mStreamAbstractionAAMP->mMockVideoTrack->MediaTrack::SetLocalTSBInjection(true);
+
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetBufferedDuration())
+		.Times(AnyNumber())
+		.WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, GetLastDownloadedPosition())
+		.WillOnce(Return(110.0));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition())
+		.WillOnce(Return(114.0));
+
+	EXPECT_DOUBLE_EQ(0.0, mStreamAbstractionAAMP->testGetBufferValue(
+		mStreamAbstractionAAMP->mMockVideoTrack));
 }

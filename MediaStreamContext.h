@@ -234,6 +234,14 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	double GetBufferedDuration() override;
 
 	/**
+	 * @brief Get the absolute end position of the last downloaded fragment
+	 *        (position + duration). This tracks the live downloader's leading
+	 *        edge and is independent of GStreamer injection state.
+	 * @return last downloaded fragment end position in seconds
+	 */
+	double GetLastDownloadedPosition() override { return lastDownloadedPosition.load(); }
+
+	/**
 	 * @fn SignalTrickModeDiscontinuity
 	 * @return void
 	 */
@@ -355,6 +363,7 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	double periodStartOffset;
 	uint64_t timeStampOffset;
 	std::vector<uint8_t> IDX{};		/**< Index data buffer for DASH byte-range segments */
+	uint64_t mIdxBaseOffset{0};		/**< Byte offset of segment 0 in the file for the current IDX profile; set when IDX is loaded, cleared with IDX */
 	uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
 	uint64_t lastSegmentNumber;
 	uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
