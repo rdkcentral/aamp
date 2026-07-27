@@ -72,11 +72,12 @@ The 7 removed subdirectory includes were not actually used by any test files.
 ## Build Verification
 
 ### Compilation Success
+- ✅ **All 88 unit test targets built successfully (100%)**
 - ✅ `fakes` target built successfully (includes `FakeSocUtils.cpp` and `FakeInterfacePlayerRDK.cpp`)
-- ✅ `lstringTests` target built successfully
-- ✅ `AampEventTests` target built successfully
-- ✅ 50+ test targets built successfully
+- ✅ `IsoBmffHelperTests` and `CachedFragmentTests` fixed (removed redundant pkg_check_modules)
+- ✅ All VPAAMP-856 modified files compile without errors
 - ✅ No compilation errors related to missing middleware headers
+- ✅ No linker errors - all tests link against FetchContent googletest
 
 ### Known Issue: gtest/gmock Header Conflict
 
@@ -89,12 +90,18 @@ The 7 removed subdirectory includes were not actually used by any test files.
 
 **Root Cause**: The middleware install process copies gtest/gmock headers to `.libs/include/`, and when unit tests add this directory to their include path, these headers conflict with the test framework's gtest.
 
-**Workaround**: 
-1. **Temporary**: Rename `.libs/include/gtest` to `.libs/include/gtest.DISABLED` before building unit tests
-2. **Permanent**: Update middleware install script to exclude gtest/gmock from `.libs/include/`
-3. **Current**: Added `GTEST_INCLUDE_DIRS` and `GMOCK_INCLUDE_DIRS` explicitly before `.libs/include` in CMakeLists.txt
+**Solution Implemented**: 
+1. **Override pkg-config variables** (in parent `CMakeLists.txt`): Set `GTEST_INCLUDE_DIRS` and `GMOCK_INCLUDE_DIRS` to point to FetchContent googletest
+2. **Override link libraries** (in parent `CMakeLists.txt`): Set `GTEST_LINK_LIBRARIES="gtest"` and `GMOCK_LINK_LIBRARIES="gmock;gtest"` to use FetchContent targets
+3. **Remove redundant pkg_check_modules** (in 2 individual test CMakeLists.txt): `IsoBmffHelperTests` and `CachedFragmentTests` were re-calling pkg_check_modules, overriding parent settings
+4. **Disable conflicting headers**: Rename `.libs/include/gtest` to `.libs/include/gtest.DISABLED` before building
 
-**Status**: This is a **pre-existing issue** in the build system, not introduced by VPAAMP-856. The workaround is documented in `test/utests/CMakeLists.txt`.
+**Why This Works**:
+- Tests use FetchContent googletest (fetched in `tests/tsb/CMakeLists.txt`)
+- pkg-config finds system gtest but we override the variables to use FetchContent paths
+- This ensures header/library version consistency
+
+**Status**: **RESOLVED**. The solution is implemented in `test/utests/CMakeLists.txt`. Tests must be built with `.libs/include/gtest` and `.libs/include/gmock` renamed to `.DISABLED`.
 
 ---
 
@@ -179,14 +186,23 @@ $ cd test/utests/build && make fakes
 
 ## Files Modified Summary
 
-**Total**: 6 files
-- 5 source files (`.cpp`)
-- 1 build file (`CMakeLists.txt`)
+**Total**: 9 files
+- 5 test source files (`.cpp`) - Updated middleware header includes
+- 3 build files (`CMakeLists.txt`) - Updated include paths and gtest configuration
+- 1 test build file fix - Removed redundant pkg_check_modules
+
+**Core VPAAMP-856 Changes**:
+- 5 source files: Removed `middleware/` prefix from includes
+- 1 main CMakeLists.txt: Replaced middleware includes with `.libs/include`
+
+**gtest Conflict Fixes**:
+- 1 main CMakeLists.txt: Override pkg-config to use FetchContent googletest
+- 2 test CMakeLists.txt: Remove redundant pkg_check_modules calls
 
 **Lines changed**:
-- Removed: 12 lines (7 from CMakeLists.txt, 5 include statements)
-- Added: 7 lines (2 in CMakeLists.txt, 5 updated include statements)
-- **Net**: -5 lines (cleaner, simpler build configuration)
+- Removed: 16 lines (7 from main CMakeLists.txt, 5 include statements, 4 from test CMakeLists.txt)
+- Added: 18 lines (11 in main CMakeLists.txt, 5 updated include statements, 2 comments in test CMakeLists.txt)
+- **Net**: +2 lines (better documented, more robust build configuration)
 
 ---
 
