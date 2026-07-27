@@ -75,10 +75,26 @@ The 7 removed subdirectory includes were not actually used by any test files.
 - ✅ `fakes` target built successfully (includes `FakeSocUtils.cpp` and `FakeInterfacePlayerRDK.cpp`)
 - ✅ `lstringTests` target built successfully
 - ✅ `AampEventTests` target built successfully
+- ✅ 50+ test targets built successfully
 - ✅ No compilation errors related to missing middleware headers
 
-### Note on GoogleTest Errors
-The build encountered pre-existing errors in the googletest library itself (unrelated to our changes). These errors exist on the current `dev_sprint_25_2` branch and are not introduced by this ticket.
+### Known Issue: gtest/gmock Header Conflict
+
+**Problem**: `.libs/include/` contains `gtest/` and `gmock/` subdirectories from the middleware build, which conflict with the unit test framework's own gtest/gmock headers.
+
+**Symptoms**: When building unit tests, googletest source files may fail to compile with errors like:
+- `error: redefinition of 'AssertionResult'`
+- `error: use of undeclared identifier 'GTEST_FLAG_GET'`
+- `error: out-of-line definition does not match any declaration`
+
+**Root Cause**: The middleware install process copies gtest/gmock headers to `.libs/include/`, and when unit tests add this directory to their include path, these headers conflict with the test framework's gtest.
+
+**Workaround**: 
+1. **Temporary**: Rename `.libs/include/gtest` to `.libs/include/gtest.DISABLED` before building unit tests
+2. **Permanent**: Update middleware install script to exclude gtest/gmock from `.libs/include/`
+3. **Current**: Added `GTEST_INCLUDE_DIRS` and `GMOCK_INCLUDE_DIRS` explicitly before `.libs/include` in CMakeLists.txt
+
+**Status**: This is a **pre-existing issue** in the build system, not introduced by VPAAMP-856. The workaround is documented in `test/utests/CMakeLists.txt`.
 
 ---
 

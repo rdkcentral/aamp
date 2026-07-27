@@ -29,8 +29,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
-# Use installed external middleware headers
-include_directories(${AAMP_ROOT}/.libs/include)
 
 find_package(PkgConfig REQUIRED)
 
@@ -39,6 +37,14 @@ include_directories(${OPENSSL_INCLUDE_DIRS})
 
 pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(GMOCK REQUIRED gmock)
+# Add gtest/gmock include dirs first to avoid conflicts with .libs/include/gtest
+include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GMOCK_INCLUDE_DIRS})
+# Use installed external middleware headers as SYSTEM includes (lower priority)
+# NOTE: .libs/include contains gtest/gmock subdirs from middleware build which conflict
+# with the test framework's gtest. Workaround: ensure GTEST_INCLUDE_DIRS is first,
+# or temporarily rename .libs/include/gtest to .libs/include/gtest.DISABLED during test builds
+include_directories(SYSTEM ${AAMP_ROOT}/.libs/include)
 # GMOCK_LINK_LIBRARIES already contains libgtest (gmock depends on gtest).
 # Strip any items from GTEST_LINK_LIBRARIES that are already covered by
 # GMOCK_LINK_LIBRARIES so that tests linking both variables don't put
