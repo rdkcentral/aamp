@@ -108,6 +108,7 @@ public:
 		, m_basePositionNs(0)
 		, m_basePositionSet(false)
 		, m_needDataRequestId(1)
+		, m_generation(0)
 		, m_stopRequested(false)
 		, m_eosSourceCount(0)
 		, m_eosNotified(false)
@@ -199,8 +200,7 @@ public:
 	bool pause() override
 	{
 		RIALTO_SIM_LOG("pause");
-		m_playRequested.store(false, std::memory_order_relaxed);
-		m_playing = false;
+		pausePlayback();
 		if (auto client = m_client.lock())
 		{
 			client->notifyPlaybackState(PlaybackState::PAUSED);
@@ -211,8 +211,7 @@ public:
 	bool stop() override
 	{
 		RIALTO_SIM_LOG("stop");
-		m_playRequested.store(false, std::memory_order_relaxed);
-		m_playing = false;
+		pausePlayback();
 		stopThreads();
 		if (auto client = m_client.lock())
 		{
@@ -243,9 +242,68 @@ public:
 	bool setPosition(int64_t position) override
 	{
 		RIALTO_SIM_LOG("setPosition: position=%ld", static_cast<long>(position));
+
+		// Real Rialto reports SEEKING as soon as the seek is accepted, i.e.
+		// before the flush/reposition work below has happened, then does
+		// that work, then reports SEEK_DONE once it has completed.  Send
+		// SEEKING first so observers see the same ordering.
+		auto client = m_client.lock();
+		if (client)
+		{
+			RIALTO_SIM_LOG("setPosition: notifying SEEKING");
+			client->notifyPlaybackState(PlaybackState::SEEKING);
+		}
+
+		// setPosition() models a pipeline-wide flushing seek: a real Rialto
+		// server treats it as an implicit Flush() of every source followed
+		// by setSourcePosition() to the new position.  Reset the same
+		// play-readiness/EOS/backpressure state that flush() resets (see
+		// flush() above for why every source, not just one, must
+		// re-buffer), so a stale ready/EOS source from before the seek
+		// can't make maybeStartPlayback() fire PLAYING before the
+		// post-seek data has actually arrived.
+		m_eosSourceCount.store(0, std::memory_order_relaxed);
+		m_eosNotified.store(false, std::memory_order_relaxed);
+		m_playing = false;
+		{
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			for (auto &entry : m_injectedDurationNs)
+			{
+				entry.second = 0;
+			}
+			m_readySources.clear();
+			m_eosSources.clear();
+			m_pendingSegments.clear();
+
+			// As with flush(), any needData request issued before this seek
+			// is now stale.  Bump the generation and drop the outstanding
+			// request bookkeeping so a late haveData() for one of them is
+			// ignored instead of being applied to the post-seek state.
+			m_generation.fetch_add(1, std::memory_order_relaxed);
+			m_requestIdToSource.clear();
+		}
+
+		// Restart the needData pump immediately, as flush() does, instead of
+		// waiting on requests that have just been invalidated above.
+		if (m_allSourcesAttached)
+		{
+			startNeedDataPump();
+		}
+
+		// Apply the new position, as setSourcePosition() would after a flush.
 		m_basePositionNs.store(position, std::memory_order_relaxed);
 		m_basePositionSet.store(true, std::memory_order_relaxed);
 		m_playStartTime = std::chrono::steady_clock::now();
+
+		// AampRialtoPlayer's Flush() blocks on SEEK_DONE (via its state
+		// machine) to restore state and commit the pending rate/position,
+		// so this notification must be sent for every setPosition() call —
+		// not just flush-initiated ones — or that wait never completes.
+		if (client)
+		{
+			RIALTO_SIM_LOG("setPosition: notifying SEEK_DONE");
+			client->notifyPlaybackState(PlaybackState::SEEK_DONE);
+		}
 		return true;
 	}
 
@@ -280,22 +338,77 @@ public:
 		RIALTO_SIM_LOG("haveData: status=%d requestId=%u",
 			static_cast<int>(status), needDataRequestId);
 
-		// Resolve which source this response belongs to.
+		// Resolve which source this response belongs to, and pick up any
+		// segment data staged by addSegment() for this request.
 		int32_t sourceId = -1;
+		bool requestKnown = false;
+		uint64_t requestGeneration = 0;
+		PendingSegmentData pending;
+		bool havePending = false;
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
 			auto it = m_requestIdToSource.find(needDataRequestId);
 			if (it != m_requestIdToSource.end())
 			{
-				sourceId = it->second;
+				sourceId = it->second.sourceId;
+				requestGeneration = it->second.generation;
+				requestKnown = true;
 				m_requestIdToSource.erase(it);
+			}
+			auto pendingIt = m_pendingSegments.find(needDataRequestId);
+			if (pendingIt != m_pendingSegments.end())
+			{
+				pending = pendingIt->second;
+				havePending = true;
+				m_pendingSegments.erase(pendingIt);
 			}
 		}
 
-		// Schedule the next needData even while paused: a real
-		// GStreamer/Rialto pipeline accepts data in PAUSED state (appSrc
-		// queues continue to buffer).  Without this, an inject thread
-		// waiting in injectOneSample() for hasPending can block forever
+		// A flush()/setPosition() that happened after this request was issued
+		// bumps the generation and abandons every outstanding requestId: such
+		// a fresh pump has already been sent, so a (possibly late-arriving)
+		// response for the old requestId must not be applied to playback
+		// state or trigger another round of needData.  Any segments staged
+		// against it were already discarded above.
+		if (!requestKnown || requestGeneration != m_generation.load(std::memory_order_relaxed))
+		{
+			RIALTO_SIM_LOG("haveData: ignoring stale/unknown requestId=%u",
+				needDataRequestId);
+			return true;
+		}
+
+		// Apply the effect of the segments addSegment() staged for this
+		// request now that the client has confirmed the request is
+		// complete.  Real Rialto only considers a request's data delivered
+		// once haveData() is called for it, so the base-position update and
+		// the duration accounting that gates PLAYING must happen here, not
+		// eagerly in addSegment().
+		if (havePending)
+		{
+			if (sourceId < 0)
+			{
+				sourceId = pending.sourceId;
+			}
+			if (pending.firstTimeStampNs >= 0 &&
+				!m_basePositionSet.load(std::memory_order_relaxed))
+			{
+				m_basePositionNs.store(pending.firstTimeStampNs,
+					std::memory_order_relaxed);
+				m_basePositionSet.store(true, std::memory_order_relaxed);
+				m_playStartTime = std::chrono::steady_clock::now();
+			}
+			if (pending.sourceId >= 0 && pending.totalDurationNs > 0)
+			{
+				accumulateInjectedDuration(pending.sourceId,
+					pending.totalDurationNs);
+			}
+			maybeStartPlayback();
+		}
+
+		// Schedule the next needData for this specific source even while
+		// paused: a real GStreamer/Rialto pipeline accepts data in PAUSED
+		// state (appSrc queues continue to buffer).  Without this, an inject
+		// thread waiting in injectOneSample() for hasPending can block forever
 		// after a seek arrives shortly after EOS, because StopInjectLoop
 		// (called during TeardownStream) hangs waiting for inject threads
 		// that will never exit, and Flush/invalidateGeneration is never
@@ -303,7 +416,7 @@ public:
 		if (status == MediaSourceStatus::OK &&
 			!m_stopRequested.load(std::memory_order_relaxed))
 		{
-			scheduleNextNeedData();
+			scheduleNextNeedData(sourceId);
 		}
 		else if (status == MediaSourceStatus::EOS)
 		{
@@ -378,27 +491,44 @@ public:
 	AddSegmentStatus addSegment(uint32_t needDataRequestId,
 		const std::unique_ptr<MediaSegment> &mediaSegment) override
 	{
-		// Capture the first segment PTS as the base position for
-		// simulated playback.  Subsequent segments do NOT override —
-		// position advances by elapsed wall-clock time from this base.
-		if (mediaSegment && !m_basePositionSet.load(std::memory_order_relaxed))
-		{
-			int64_t pts = mediaSegment->getTimeStamp();
-			if (pts > 0)
-			{
-				m_basePositionNs.store(pts, std::memory_order_relaxed);
-				m_basePositionSet.store(true, std::memory_order_relaxed);
-				m_playStartTime = std::chrono::steady_clock::now();
-			}
-		}
-
-		// Accumulate injected duration per source to gate the
-		// transition to PLAYING (subtitle tracks are ignored).
+		// Real Rialto does not consider a needData request's data delivered
+		// until the client calls haveData() for that requestId — addSegment()
+		// only stages the segment into the pipeline's shared buffer.  Mirror
+		// that here: record the derived fields we need (source, accumulated
+		// duration, first PTS) against the requestId, and apply their effect
+		// on playback state in haveData() instead of immediately.  The
+		// sample payload itself is never used by the simulator, so it is not
+		// stored.
 		if (mediaSegment)
 		{
-			accumulateInjectedDuration(mediaSegment->getId(),
-				mediaSegment->getDuration());
-			maybeStartPlayback();
+			std::lock_guard<std::mutex> lock(m_trackMutex);
+			// Only stage segments for requests that are still outstanding
+			// and belong to the current generation.  After flush()/
+			// setPosition() bumps m_generation and clears
+			// m_requestIdToSource, any addSegment() for an old requestId
+			// is stale: haveData() will never be called for it, so the
+			// pending entry would accumulate without being consumed.
+			auto reqIt = m_requestIdToSource.find(needDataRequestId);
+			if (reqIt == m_requestIdToSource.end() ||
+				reqIt->second.generation !=
+					m_generation.load(std::memory_order_relaxed))
+			{
+				RIALTO_SIM_LOG(
+					"addSegment: discarding stale segment for requestId=%u",
+					needDataRequestId);
+				return AddSegmentStatus::OK;
+			}
+			PendingSegmentData &pending = m_pendingSegments[needDataRequestId];
+			pending.sourceId = mediaSegment->getId();
+			pending.totalDurationNs += mediaSegment->getDuration();
+			if (pending.firstTimeStampNs < 0)
+			{
+				int64_t pts = mediaSegment->getTimeStamp();
+				if (pts > 0)
+				{
+					pending.firstTimeStampNs = pts;
+				}
+			}
 		}
 		return AddSegmentStatus::OK;
 	}
@@ -464,8 +594,26 @@ public:
 			}
 			m_readySources.clear();
 			m_eosSources.clear();
+			m_pendingSegments.clear();
+
+			// Any needData request issued before this flush is now stale: a
+			// real Rialto server abandons in-flight requests on a flushing
+			// seek and issues fresh ones.  Bump the generation and drop the
+			// bookkeeping for outstanding requests so a late haveData() for
+			// one of them is ignored rather than applied to (or triggering
+			// another data pump for) the post-flush state.
+			m_generation.fetch_add(1, std::memory_order_relaxed);
+			m_requestIdToSource.clear();
 		}
 		m_playing = false;
+
+		// Restart the needData pump immediately so the client gets fresh
+		// requests rather than waiting on ones that have just been
+		// invalidated above.
+		if (m_allSourcesAttached)
+		{
+			startNeedDataPump();
+		}
 
 		// Notify the client that the flush completed so AampRialtoPlayer
 		// calls setSourcePosition (matching real Rialto server behavior).
@@ -513,6 +661,25 @@ public:
 	}
 
 private:
+	// Segment data staged by addSegment() for a given needDataRequestId,
+	// consumed by haveData() once the client confirms that request is
+	// complete.  Only the derived fields needed to update playback state
+	// are kept — the sample payload itself is never used by the simulator.
+	struct PendingSegmentData
+	{
+		int32_t sourceId = -1;
+		int64_t totalDurationNs = 0;
+		int64_t firstTimeStampNs = -1;
+	};
+
+	// Bookkeeping for an outstanding notifyNeedMediaData() request, tagged
+	// with the pump generation it was issued under (see m_generation).
+	struct RequestInfo
+	{
+		int32_t sourceId = -1;
+		uint64_t generation = 0;
+	};
+
 	int64_t getCurrentPositionNs() const
 	{
 		int64_t base = m_basePositionNs.load(std::memory_order_relaxed);
@@ -527,47 +694,52 @@ private:
 		return base + static_cast<int64_t>(elapsedNs);
 	}
 
-	// Largest amount of injected-but-not-yet-played media held across the
-	// non-subtitle sources, in the pipeline (restamped) timebase.  Used to
-	// model buffer-fill backpressure: injected duration accumulates as
-	// segments arrive, while playback drains it at 1x wall-clock time.
-	// Backpressure is only meaningful while the pipeline is PLAYING: during
-	// preroll/seek/flush the pipeline buffers freely to (re)reach the play
-	// threshold, so report no backpressure when not playing to avoid
-	// starving the pipeline (and deadlocking, since buffered would never
-	// drain while paused).
+	// Pause playback: snapshot the current position (to freeze it for
+	// subsequent queries) and clear the play/playRequested state.
+	void pausePlayback()
+	{
+		if (m_playing && m_basePositionSet.load(std::memory_order_relaxed))
+		{
+			int64_t currentPos = getCurrentPositionNs();
+			m_basePositionNs.store(currentPos, std::memory_order_relaxed);
+		}
+		m_playRequested.store(false, std::memory_order_relaxed);
+		m_playing = false;
+	}
+
+	// Amount of injected-but-not-yet-played media held for a single
+	// non-subtitle source, in the pipeline (restamped) timebase.  Used to
+	// model per-track buffer-fill backpressure: injected duration
+	// accumulates as segments arrive, while playback drains it at 1x
+	// wall-clock time.  Backpressure is only meaningful while the pipeline
+	// is PLAYING: during preroll/seek/flush the pipeline buffers freely to
+	// (re)reach the play threshold, so report no backpressure when not
+	// playing to avoid starving the pipeline (and deadlocking, since
+	// buffered would never drain while paused).  Subtitle sources are never
+	// gated (see kMinPlayDurationNs).
 	// Caller must hold m_trackMutex.
-	int64_t maxBufferedAheadNsLocked() const
+	int64_t bufferedAheadNsLocked(int32_t sourceId) const
 	{
 		if (!m_playing || !m_basePositionSet.load(std::memory_order_relaxed))
 		{
 			return 0;
 		}
-		int64_t playedNs = 0;
+		auto typeIt = m_sourceTypes.find(sourceId);
+		if (typeIt == m_sourceTypes.end() ||
+			typeIt->second == MediaSourceType::SUBTITLE)
 		{
-			auto elapsed = std::chrono::steady_clock::now() - m_playStartTime;
-			playedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
-				elapsed).count();
+			return 0;
 		}
-		int64_t maxBuffered = 0;
-		for (const auto &entry : m_sourceTypes)
+		auto it = m_injectedDurationNs.find(sourceId);
+		if (it == m_injectedDurationNs.end())
 		{
-			if (entry.second == MediaSourceType::SUBTITLE)
-			{
-				continue;
-			}
-			auto it = m_injectedDurationNs.find(entry.first);
-			if (it == m_injectedDurationNs.end())
-			{
-				continue;
-			}
-			int64_t buffered = it->second - playedNs;
-			if (buffered > maxBuffered)
-			{
-				maxBuffered = buffered;
-			}
+			return 0;
 		}
-		return maxBuffered;
+		auto elapsed = std::chrono::steady_clock::now() - m_playStartTime;
+		int64_t playedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+			elapsed).count();
+		int64_t buffered = it->second - playedNs;
+		return buffered > 0 ? buffered : 0;
 	}
 
 	void startNeedDataPump()
@@ -580,10 +752,11 @@ private:
 		std::vector<std::pair<int32_t, uint32_t>> sends;
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
+			uint64_t generation = m_generation.load(std::memory_order_relaxed);
 			for (int32_t sourceId : m_attachedSources)
 			{
 				uint32_t reqId = m_needDataRequestId++;
-				m_requestIdToSource[reqId] = sourceId;
+				m_requestIdToSource[reqId] = RequestInfo{sourceId, generation};
 				sends.emplace_back(sourceId, reqId);
 			}
 		}
@@ -595,26 +768,41 @@ private:
 		}
 	}
 
-	void scheduleNextNeedData()
+	void scheduleNextNeedData(int32_t sourceId)
 	{
-		std::thread([this]() {
-			// Pace data requests to model pipeline buffer backpressure:
-			// wait until the buffered (injected-but-not-played) media drops
-			// below the high-water mark before asking for more.  This keeps
-			// injection at ~real time instead of draining AAMP's local TSB
-			// as fast as fragments can be produced.
+		const uint64_t expectedGeneration = m_generation.load(std::memory_order_relaxed);
+		std::thread([this, sourceId, expectedGeneration]() {
+			// Pace data requests to model per-track buffer backpressure: wait
+			// until this source's buffered (injected-but-not-played) media
+			// drops below the high-water mark before asking it for more.
+			// This keeps injection at ~real time instead of draining AAMP's
+			// local TSB as fast as fragments can be produced, and — since
+			// each source is paced independently — a fast source can't have
+			// its next request blocked on a slower sibling source.
 			for (;;)
 			{
 				if (m_stopRequested.load(std::memory_order_relaxed))
 				{
 					return;
 				}
+				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
+				{
+					// flush()/setPosition() has already restarted the pump
+					// with a fresh generation since this response was
+					// received; that pump already re-requested data for
+					// every source, so sending another round here would
+					// just create a duplicate outstanding request.
+					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d - generation changed",
+						sourceId);
+					return;
+				}
 				int64_t buffered = 0;
 				{
 					std::lock_guard<std::mutex> lock(m_trackMutex);
-					buffered = maxBufferedAheadNsLocked();
+					buffered = bufferedAheadNsLocked(sourceId);
 				}
-				RIALTO_SIM_LOG("DBG scheduleNextNeedData buffered=%lld high=%lld playing=%d baseSet=%d",
+				RIALTO_SIM_LOG("DBG scheduleNextNeedData sourceId=%d buffered=%lld high=%lld playing=%d baseSet=%d",
+					sourceId,
 					static_cast<long long>(buffered),
 					static_cast<long long>(kBufferHighWaterNs),
 					m_playing.load(std::memory_order_relaxed) ? 1 : 0,
@@ -625,28 +813,30 @@ private:
 				}
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			}
+
 			auto client = m_client.lock();
 			if (!client)
 			{
 				return;
 			}
-			std::vector<std::pair<int32_t, uint32_t>> sends;
+
+			uint32_t reqId = 0;
 			{
 				std::lock_guard<std::mutex> lock(m_trackMutex);
-				for (int32_t sourceId : m_attachedSources)
+				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
 				{
-					uint32_t reqId = m_needDataRequestId++;
-					m_requestIdToSource[reqId] = sourceId;
-					sends.emplace_back(sourceId, reqId);
+					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d"
+						" - generation changed before send", sourceId);
+					return;
 				}
+				reqId = m_needDataRequestId++;
+				m_requestIdToSource[reqId] = RequestInfo{sourceId, expectedGeneration};
 			}
-			for (const auto &send : sends)
+			if (!m_stopRequested.load(std::memory_order_relaxed))
 			{
-				if (m_stopRequested.load(std::memory_order_relaxed))
-				{
-					break;
-				}
-				client->notifyNeedMediaData(send.first, kNeedDataFrameCount, send.second, nullptr);
+				RIALTO_SIM_LOG("notifyNeedMediaData: sourceId=%d requestId=%u (re-request)",
+					sourceId, reqId);
+				client->notifyNeedMediaData(sourceId, kNeedDataFrameCount, reqId, nullptr);
 			}
 		}).detach();
 	}
@@ -830,6 +1020,10 @@ private:
 	std::atomic<bool> m_basePositionSet;
 	std::chrono::steady_clock::time_point m_playStartTime;
 	std::atomic<uint32_t> m_needDataRequestId;
+	// Bumped whenever flush()/setPosition() abandons in-flight needData
+	// requests, so haveData() can recognise and ignore responses for
+	// requests issued under an earlier (now-stale) generation.
+	std::atomic<uint64_t> m_generation;
 	std::atomic<bool> m_stopRequested;
 	std::atomic<int> m_eosSourceCount;
 	std::atomic<bool> m_eosNotified;
@@ -840,7 +1034,8 @@ private:
 	std::map<int32_t, int64_t> m_injectedDurationNs;
 	std::set<int32_t> m_readySources;
 	std::set<int32_t> m_eosSources;
-	std::map<uint32_t, int32_t> m_requestIdToSource;
+	std::map<uint32_t, RequestInfo> m_requestIdToSource;
+	std::map<uint32_t, PendingSegmentData> m_pendingSegments;
 };
 
 // ===========================================================================
