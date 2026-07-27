@@ -37,14 +37,23 @@ include_directories(${OPENSSL_INCLUDE_DIRS})
 
 pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(GMOCK REQUIRED gmock)
-# Add gtest/gmock include dirs first to avoid conflicts with .libs/include/gtest
+# Override pkg-config gtest/gmock variables to use FetchContent googletest
+# This prevents version conflicts between system gtest and FetchContent gtest
+set(GTEST_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps/googletest-src/googletest/include")
+set(GMOCK_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps/googletest-src/googlemock/include")
+# Override link libraries to use FetchContent targets (will be set after FetchContent_MakeAvailable)
+set(GTEST_LINK_LIBRARIES "gtest")
+set(GMOCK_LINK_LIBRARIES "gmock;gtest")
+# Add FetchContent gtest/gmock include dirs globally (gmock needs gtest headers too)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
-# Use installed external middleware headers as SYSTEM includes (lower priority)
+# Use installed external middleware headers
 # NOTE: .libs/include contains gtest/gmock subdirs from middleware build which conflict
-# with the test framework's gtest. Workaround: ensure GTEST_INCLUDE_DIRS is first,
-# or temporarily rename .libs/include/gtest to .libs/include/gtest.DISABLED during test builds
-include_directories(SYSTEM ${AAMP_ROOT}/.libs/include)
+# with the test framework's gtest. WORKAROUND: Temporarily rename .libs/include/gtest
+# and .libs/include/gmock to .DISABLED before building tests:
+#   mv .libs/include/gtest .libs/include/gtest.DISABLED
+#   mv .libs/include/gmock .libs/include/gmock.DISABLED
+include_directories(${AAMP_ROOT}/.libs/include)
 # GMOCK_LINK_LIBRARIES already contains libgtest (gmock depends on gtest).
 # Strip any items from GTEST_LINK_LIBRARIES that are already covered by
 # GMOCK_LINK_LIBRARIES so that tests linking both variables don't put
