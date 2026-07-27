@@ -991,9 +991,10 @@ void AampRialtoPlayer::AttachSource(
 			}
 			else
 			{
-				AAMPLOG_INFO("Player state FLUSHING — not updating injectionGated=false "
-					"for mediaType=%d to prevent premature injection during seek. st.injectionGated=%d",
-					static_cast<int>(type), st.injectionGated);
+				AAMPLOG_INFO("Player state FLUSHING — current st.injectionGated=%d, updating injectionGated=true "
+					"for mediaType=%d to prevent premature injection during seek.",
+					st.injectionGated, static_cast<int>(type));
+				st.injectionGated = true;
 			}
 			st.attachPending = false;
 			st.cv.notify_all();
@@ -1884,6 +1885,25 @@ void AampRialtoPlayer::OnNeedMediaData(
 	auto *source = findSourceByRialtoId(sourceId);
 	if (source)
 	{
+		// Guard: if a flush/seek cycle is in progress (state=FLUSHING), drop
+		// this NeedMediaData entirely.  These requests arrive in the narrow
+		// BUFFERING window between the first SEEK_DONE (position=0) and the
+		// second seek (to the real playback position).  Processing them would
+		// let handleNeedData() clear injectionGated — unlocking the injector
+		// and sending data to Rialto while the second seek is still in
+		// transit.  That prematurely fed data corrupts Rialto's source
+		// shared-memory state, causing subsequent haveData calls to fail
+		// with 'Metadata version not supported' and driving the pipeline
+		// to FAILURE, preventing autoplay when rewind reaches the beginning
+		// of the TSB.  After the real SEEK_DONE, Rialto issues fresh
+		// NeedMediaData requests which are handled normally.
+		if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
+		{
+			AAMPLOG_INFO("Player state FLUSHING — dropping NeedMediaData "
+				"sourceId=%d requestId=%u to prevent premature injection",
+				sourceId, requestId);
+			return;
+		}
 		source->handleNeedData(frameCount, requestId, m_pipeline.get());
 	}
 	else
@@ -1940,6 +1960,9 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				if (source)
 				{
 					std::lock_guard<std::mutex> lock(source->state().mu);
+					AAMPLOG_INFO("Player state PLAYING — current source->state().injectionGated=%d, updating injectionGated=false "
+						"for mediaType=%d",
+						source->state().injectionGated, static_cast<int>(source->mediaType()));
 					source->state().injectionGated = false;
 				}
 			}
