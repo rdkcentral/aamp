@@ -20,7 +20,8 @@ file(GLOB fakes_SRC "*.cpp")
 set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")
 
-
+# External middleware headers - MUST be first so AAMP headers can find middleware dependencies
+include_directories(${AAMP_ROOT}/.libs/include)
 
 # AAMP source directories
 include_directories(${AAMP_ROOT})
@@ -38,9 +39,6 @@ include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/abr)
 include_directories(${AAMP_ROOT}/mp4demux)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-
-# External middleware headers (replaces all aamp/middleware includes)
-include_directories(${AAMP_ROOT}/.libs/include)
 
 # Test framework directories
 include_directories(${UTESTS_ROOT}/ocdm)
