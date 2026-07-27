@@ -709,6 +709,14 @@ protected:
 	AAMPStatusType  EnableAndSetLiveOffsetForLLDashPlayback(const MPD* mpd);
 
 	/**
+	 * @fn IsMPDEncrypted
+	 * @brief Returns true if any adaptation set in the MPD has content protection,
+	 *        indicating encrypted content that requires DRM licence acquisition.
+	 * @retval bool true if MPD contains content protection, false otherwise
+	 */
+	bool IsMPDEncrypted() const;
+
+	/**
 	 * @fn GetLowLatencyParams
 	 * @param[In] const mpd Pointer to FragmentCollector
 	 * @param[Out] LLDashData Reference to LowLatency element parsed data

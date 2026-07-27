@@ -3983,6 +3983,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE);
 				return ret;
 			}
+
 			if (aamp->mIsVSS)
 			{
 				std::string vssVirtualStreamId = GetVssVirtualStreamID();
@@ -4246,6 +4247,32 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						duration = (mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,ShouldCheckOnlyIframeAdaptation(),aamp->IsUninterruptedTSB())) / 1000;
 						currentPeriodStart = ((double)durationMs / 1000) - duration;
 						offsetFromStart = duration - aamp->mLiveOffset;
+
+						// LL-DASH DRM pre-compensation for new encrypted live tune.
+						// Apply exactly at the primary live-adjust offset derivation so
+						// SkipFragments/SeekInPeriod start closer to live edge.
+						if (mLowLatencyMode && newTune)
+						{
+							double drmLatencyEstimate = GETCONFIGVALUE(eAAMPConfig_LLDrmLatencyEstimateSec);
+							if (drmLatencyEstimate > 0.0 && IsMPDEncrypted())
+							{
+								offsetFromStart += drmLatencyEstimate;
+								if (offsetFromStart > duration)
+								{
+									AAMPLOG_WARN("StreamAbstractionAAMP_MPD:[LL-DASH] DRM pre-compensation "
+									             "clamped to period end: offsetFromStart %.2f "
+									             "(period duration %.2f, estimate %.2fs)",
+									             offsetFromStart, duration, drmLatencyEstimate);
+									offsetFromStart = duration;
+								}
+								else
+								{
+									AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-DASH] offsetFromStart "
+									            "advanced to %.2f (+%.2fs DRM pre-compensation)",
+									            offsetFromStart, drmLatencyEstimate);
+								}
+							}
+						}
 						while(offsetFromStart < 0 && mCurrentPeriodIdx > 0)
 						{
 							AAMPLOG_INFO("Adjusting to live offset offsetFromStart %f, mCurrentPeriodIdx %d", offsetFromStart, mCurrentPeriodIdx);
@@ -13995,6 +14022,34 @@ IProducerReferenceTime *StreamAbstractionAAMP_MPD::GetProducerReferenceTimeForAd
 		AAMPLOG_WARN("adaptationSet  is null");  //CID:85233 - Null Returns
 	}
 	return pRT;
+}
+
+/**
+ * @brief Returns true if any adaptation set in the MPD has content protection,
+ *        indicating that DRM licence acquisition will be required.
+ */
+bool StreamAbstractionAAMP_MPD::IsMPDEncrypted() const
+{
+	if (mpd == nullptr || mMPDParseHelper == nullptr)
+	{
+		return false;
+	}
+	for (const auto *period : mpd->GetPeriods())
+	{
+		if (period == nullptr)
+		{
+			continue;
+		}
+		for (const auto *adaptationSet : period->GetAdaptationSets())
+		{
+			if (adaptationSet != nullptr &&
+				!mMPDParseHelper->GetContentProtection(adaptationSet).empty())
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 /**
