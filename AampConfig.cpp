@@ -369,8 +369,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false },
 	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false},
 	{true, "enableChunkInjection", eAAMPConfig_EnableChunkInjection, true},
-	{true, "applyProducerReferenceDelay", eAAMPConfig_ApplyProducerReferenceDelay, true}
-	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
+	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
