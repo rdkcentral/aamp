@@ -544,12 +544,24 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n\nWaiting for key\n");
 	}
-	// The key might not have been received yet. Wait for it.
+	/* The key might not have been received yet. Use a bounded wait instead of an
+	 * indefinite g_cond_wait: a network stall lasting longer than the DRM key
+	 * acquisition window can
+	 * leave this thread blocked forever. A 10-second timeout bounds the worst-case
+	 * blocking and allows teardown to proceed cleanly. */
 	if (!cdmidecryptor->streamReceived)
-		g_cond_wait(&cdmidecryptor->condition,
-				&cdmidecryptor->mutex);
+		{
+		gint64 end_time = g_get_monotonic_time() + (10 * G_TIME_SPAN_SECOND);
+		if (!g_cond_wait_until(&cdmidecryptor->condition, &cdmidecryptor->mutex, end_time))
+		{GST_ERROR_OBJECT(cdmidecryptor,
+				"Aborting decrypt: streamReceived=%d canWait=%d (state change or timeout).",
+				cdmidecryptor->streamReceived, cdmidecryptor->canWait);
+			result = GST_FLOW_NOT_SUPPORTED;
+			goto free_resources;
+		}
+	}
 
-	if (!cdmidecryptor->streamReceived)
+	if (!cdmidecryptor->streamReceived || !cdmidecryptor->canWait)
 	{
 		GST_ERROR_OBJECT(cdmidecryptor,
 				"Condition signaled from state change transition. Aborting.");
@@ -985,6 +997,10 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 	case GST_STATE_CHANGE_PAUSED_TO_READY:
 		GST_DEBUG_OBJECT(cdmidecryptor, "PAUSED->READY");
 		g_mutex_lock(&cdmidecryptor->mutex);
+		/* Reset streamReceived so that each PAUSED session re-waits for a fresh DRM
+		 * protection event. Without this, a reused element (e.g. after a seek or
+		 * replay) skips the key wait and proceeds with a stale/freed drmSession. */
+		cdmidecryptor->streamReceived = FALSE;
 		cdmidecryptor->canWait = false;
 		g_cond_signal(&cdmidecryptor->condition);
 		g_mutex_unlock(&cdmidecryptor->mutex);
