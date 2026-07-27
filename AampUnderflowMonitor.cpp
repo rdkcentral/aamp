@@ -174,7 +174,22 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
 
         const double positionSec = mAamp->GetPositionMs() / 1000.0;
         bufferSec = endPosition - positionSec;
-        if (bufferSec < 0.0) bufferSec = 0.0;
+
+        // A negative bufferSec means the reported position is ahead of the downloaded
+        // end position — physically impossible during normal playback.  This always
+        // indicates a stale GStreamer position (e.g. after a seek while a fragment
+        // download retry is in progress and GStreamer hasn't flushed yet).  Disarm
+        // the deadline rather than clamping to 0, which would trigger an immediate
+        // false underflow.
+        if (bufferSec < 0.0)
+        {
+            AAMPLOG_WARN("[video] negative bufferSec=%.3f (endPos=%.3f positionSec=%.3f) — stale GSTpos; disarming deadline",
+                         bufferSec, endPosition, positionSec);
+            mDeadlineArmed = false;
+            mCurrentEndPosition = endPosition;
+            mCurrentPlayRate    = playRate;
+            return;
+        }
 
         mCurrentEndPosition = endPosition;
         mCurrentPlayRate    = playRate;
@@ -191,7 +206,9 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
         }
         else
         {
-            // Normal playback: rearm the deadline.
+            // Normal playback: rearm the drain deadline.
+            // Call sites pass 0.0f when mSinkPaused so RearmDeadline disarms cleanly
+            // for intentional pause (RearmDeadline guards playRate <= 0).
             RearmDeadline(bufferSec, playRate);
         }
     }
