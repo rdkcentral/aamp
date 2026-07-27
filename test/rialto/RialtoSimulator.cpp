@@ -814,22 +814,21 @@ private:
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			}
 
-			// Re-check right before sending: the pacing loop may have exited
-			// on the very iteration a flush()/setPosition() bumped the
-			// generation.
-			if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
-			{
-				return;
-			}
-
 			auto client = m_client.lock();
 			if (!client)
 			{
 				return;
 			}
-			uint32_t reqId;
+
+			uint32_t reqId = 0;
 			{
 				std::lock_guard<std::mutex> lock(m_trackMutex);
+				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
+				{
+					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d"
+						" - generation changed before send", sourceId);
+					return;
+				}
 				reqId = m_needDataRequestId++;
 				m_requestIdToSource[reqId] = RequestInfo{sourceId, expectedGeneration};
 			}
