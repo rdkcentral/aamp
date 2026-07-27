@@ -31,6 +31,9 @@
 #include "TextStyleAttributes.h"
 #include <memory>
 #include <gst/gst.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 #ifdef USE_EXTERNAL_STATS
 #include "player-xternal-stats.h"
 #endif
@@ -54,6 +57,35 @@
 #define GST_DELAY_BETWEEN_PTS_CHECK_FOR_EOS_ON_UNDERFLOW 500    /**< A timeout interval in milliseconds to check pts in case of underflow */
 #define GST_MIN_DECODE_ERROR_INTERVAL 10000                     /**< Minimum time interval in milliseconds between two decoder error CB to send anomaly error */
 #define BUFFERING_TIMEOUT_PRIORITY -70                           /**< 0 is DEFAULT priority whereas -100 is the HIGH_PRIORITY */
+
+static unsigned long long nowMonoUs()
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (static_cast<unsigned long long>(ts.tv_sec) * 1000000ULL) +
+		(static_cast<unsigned long long>(ts.tv_nsec) / 1000ULL);
+}
+
+static long gettid()
+{
+	return static_cast<long>(syscall(SYS_gettid));
+}
+
+static const char* PipeRaceCorrId(InterfacePlayerRDK* player)
+{
+	if (player && player->GetPrivatePlayer())
+	{
+		return player->GetPrivatePlayer()->mPlayerName.c_str();
+	}
+	return "na";
+}
+
+#define PIPE_RACE_LOG_OBJ(obj, event, fmt, ...) \
+	MW_LOG_WARN("[PIPE-RACE] t=%llu tid=%ld corr=%s player=%p " event " " fmt, \
+		nowMonoUs(), (long)gettid(), PipeRaceCorrId(obj), obj, ##__VA_ARGS__)
+
+#define PIPE_RACE_LOG(event, fmt, ...) \
+	PIPE_RACE_LOG_OBJ(this, event, fmt, ##__VA_ARGS__)
 
 
 // for now name is being kept as aamp should be changed when gst-plugins are migrated
@@ -261,7 +293,7 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 }
 
 
-static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
+static GstStateChangeReturn SetStateWithWarnings(InterfacePlayerRDK *player, GstElement *element, GstState targetState);
 
 /**
  * @brief Decorate a GstBuffer with DRM metadata
@@ -287,6 +319,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 										   bool bESChangeStatus, bool setReadyAfterPipelineCreation,
 										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
 {
+	PIPE_RACE_LOG("TUNE_BEGIN", "url=%s", manifestUrl.c_str());
+	PIPE_RACE_LOG("CONFIG_BEGIN", "pipeline=%p bus=%p", interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->bus);
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
@@ -364,7 +398,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 
 	if(setReadyAfterPipelineCreation)
 	{
-		if(SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_READY) == GST_STATE_CHANGE_FAILURE)
+		if(SetStateWithWarnings(this, interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_READY) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_READY failed on forceful set");
 		}
@@ -437,6 +471,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 				//Don't kill the tune for subtitles
 				if (eGST_MEDIATYPE_SUBTITLE != (GstMediaType)i)
 				{
+					PIPE_RACE_LOG("CONFIG_END", "failedTrack=%d", i);
 					return;
 				}
 			}
@@ -486,7 +521,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		MW_LOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
 		interfacePlayerPriv->gstPrivateContext->paused = true;
 		interfacePlayerPriv->gstPrivateContext->pendingPlayState = false;
-		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
+		if (SetStateWithWarnings(this, interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PAUSED failed");
 		}
@@ -499,7 +534,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = true;
 		interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 
-		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
+		if (SetStateWithWarnings(this, interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_PAUSED failed");
 		}
@@ -509,7 +544,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 	else
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PLAYING");
-		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
+		if (SetStateWithWarnings(this, interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
 		}
@@ -535,6 +570,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int subF
 		gst_element_set_context(GST_ELEMENT(interfacePlayerPriv->gstPrivateContext->pipeline), context);
 		gst_context_unref(context);
 	}
+	PIPE_RACE_LOG("CONFIG_END", "");
 }
 
 /**
@@ -1078,6 +1114,7 @@ void InterfacePlayerRDK::RemoveProbe(int type)
  */
 void InterfacePlayerRDK::DestroyPipeline()
 {
+	PIPE_RACE_LOG("DESTROY_BEGIN", "pipeline=%p bus=%p", interfacePlayerPriv->gstPrivateContext->pipeline, interfacePlayerPriv->gstPrivateContext->bus);
 	if (interfacePlayerPriv->gstPrivateContext->pipeline)
 	{
 		/*"Destroying gstreamer pipeline" should only be logged when there is a pipeline to destroy
@@ -1110,6 +1147,7 @@ void InterfacePlayerRDK::DestroyPipeline()
 	//video decoder handle will change with new pipeline
 	interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = false;
 	interfacePlayerPriv->gstPrivateContext->NumberOfTracks = 0;
+	PIPE_RACE_LOG("DESTROY_END", "");
 }
 
 /**
@@ -1274,7 +1312,7 @@ static void LogStatus(GstElement* pElementOrBin)
  * @param[in] pInterfacePlayerRDK pointer to InterfacePlayerRDK instance
  * @retval Result of the state change (from inner gst_element_set_state())
  */
-static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState)
+static GstStateChangeReturn SetStateWithWarnings(InterfacePlayerRDK *player, GstElement *element, GstState targetState)
 {
 	GstStateChangeReturn rc = GST_STATE_CHANGE_FAILURE;
 	if(element)
@@ -1286,9 +1324,11 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		GstState pending;																	/* Pending state, used in printing the pending state of the element */
 
 		auto stateChangeReturn = gst_element_get_state(element, &current, &pending, 0);		/* Get the current playing state of the element with no blocking timeout,  this function is MT-safe */
+		PIPE_RACE_LOG_OBJ(player, "STATE_REQ", "from=%d to=%d", current, targetState);
 		switch(stateChangeReturn)
 		{
 			case GST_STATE_CHANGE_FAILURE:
+				PIPE_RACE_LOG_OBJ(player, "STATE_FAILURE", "current=%d pending=%d", current, pending);
 				MW_LOG_ERR("InterfacePlayerRDK: %s is in FAILURE state : current %s  pending %s", SafeName(element).c_str(),gst_element_state_get_name(current), gst_element_state_get_name(pending));
 				LogStatus(element);
 				break;
@@ -1315,7 +1355,15 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 		{
 			MW_LOG_DEBUG("InterfacePlayerRDK: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
+		if (targetState == GST_STATE_NULL)
+		{
+			PIPE_RACE_LOG_OBJ(player, "STATE_NULL_BEGIN", "");
+		}
 		rc = gst_element_set_state(element, targetState);					/* Set the state of the element to the targetState, this function is MT-safe*/
+		if (targetState == GST_STATE_NULL)
+		{
+			PIPE_RACE_LOG_OBJ(player, "STATE_NULL_END", "");
+		}
 		if(syncOnlyTransition)
 		{
 			MW_LOG_MIL("InterfacePlayerRDK: %s state set to %s",  SafeName(element).c_str(), gst_element_state_get_name(targetState));
@@ -1353,7 +1401,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			/* set the playbin state to NULL before detach it */
 			if (stream->sinkbin)
 			{
-				if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
+				if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(this, GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
 				{
 					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
 				}
@@ -1401,6 +1449,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
 {
 	std::lock_guard<std::mutex> lock(mMutex);
+	PIPE_RACE_LOG("STOP_ENTER", "keepLastFrame=%d", keepLastFrame);
 	/*  make the execution of this function more deterministic and
 	 *  reduce scope for potential pipeline lockups*/
 
@@ -1456,11 +1505,13 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	 3) confirming that all signal handlers have completed.
 	 * This should complete very quickly and
 	 * should not have a significant performance impact.*/
+	PIPE_RACE_LOG("STOP_WAIT_BEGIN", "");
 	interfacePlayerPriv->gstPrivateContext->syncControl.waitForDone(50, "bus_sync_handler");
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(50, "bus_message");
 	interfacePlayerPriv->gstPrivateContext->callbackControl.disable();
 	DisconnectSignals();
 	interfacePlayerPriv->gstPrivateContext->aSyncControl.waitForDone(100, "callback handler");
+	PIPE_RACE_LOG("STOP_WAIT_END", "");
 
 	// Remove probes before setting the pipeline to NULL
 	RemoveProbes();
@@ -1475,7 +1526,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		}
 
 		interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
-		SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_NULL);
+		SetStateWithWarnings(this, interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_NULL);
 		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
 	}
 	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
@@ -1501,6 +1552,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 
 	// Reset mp4demux playback semantic shim on pipeline event reset
 	interfacePlayerPriv->gstPrivateContext->isMp4DemuxPlayback = false;
+	PIPE_RACE_LOG("STOP_EXIT", "");
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
@@ -1570,6 +1622,7 @@ bool InterfacePlayerRDK::IsUsingRialtoSink()
  */
 bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek, bool keepPausedSeek)
 {
+	PIPE_RACE_LOG("FLUSH_ENTER", "position=%f rate=%d tearDown=%d appSeek=%d keepPausedSeek=%d", position, rate, shouldTearDown, isAppSeek, keepPausedSeek);
 	GstState aud_current;
 	GstState aud_pending;
 	GstState current;
@@ -1607,7 +1660,9 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 
 	if (interfacePlayerPriv->gstPrivateContext->pipeline == NULL)
 	{
+		PIPE_RACE_LOG("FLUSH_PIPELINE_NULL", "");
 		MW_LOG_WARN("InterfacePlayerRDK: Pipeline is NULL");
+		PIPE_RACE_LOG("FLUSH_EXIT", "ret=0");
 		return false;
 	}
 	bool bAsyncModify = false;
@@ -1645,6 +1700,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			// Set the rate back to the original value if it was an recovery Stop() call
 			interfacePlayerPriv->gstPrivateContext->rate = rate;
 		}
+		PIPE_RACE_LOG("FLUSH_EXIT", "ret=0");
 		return false;
 	}
 
@@ -1663,6 +1719,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 					stopCallback(true);
 					// Set the rate back to the original value if it was an recovery Stop() call
 					interfacePlayerPriv->gstPrivateContext->rate = rate;
+					PIPE_RACE_LOG("FLUSH_EXIT", "ret=0");
 					return false;
 				}
 			}
@@ -1716,6 +1773,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	interfacePlayerPriv->gstPrivateContext->eosSignalled = false;
 	interfacePlayerPriv->gstPrivateContext->numberOfVideoBuffersSent = 0;
+	PIPE_RACE_LOG("FLUSH_EXIT", "ret=1");
 	return true;
 }
 void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
@@ -3368,7 +3426,7 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;
 		}
 
-		GstStateChangeReturn rc = SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
+		GstStateChangeReturn rc = SetStateWithWarnings(this, interfacePlayerPriv->gstPrivateContext->pipeline, nextState);
 		if (GST_STATE_CHANGE_ASYNC == rc)
 		{
 			/* CID:330433 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronizing pipeline state.
@@ -4412,8 +4470,8 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			MW_LOG_WARN("GST_MESSAGE_CLOCK_LOST");
 			if(eGST_MEDIAFORMAT_DASH != static_cast<GstMediaFormat>(pInterfacePlayerRDK->m_gstConfigParam->media))
 			{
-				SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PAUSED);
-				SetStateWithWarnings(privatePlayer->gstPrivateContext->pipeline, GST_STATE_PLAYING);
+				SetStateWithWarnings(pInterfacePlayerRDK, privatePlayer->gstPrivateContext->pipeline, GST_STATE_PAUSED);
+				SetStateWithWarnings(pInterfacePlayerRDK, privatePlayer->gstPrivateContext->pipeline, GST_STATE_PLAYING);
 			}
 			break;
 
@@ -5008,7 +5066,7 @@ void InterfacePlayerRDK::NotifyFragmentCachingComplete()
 	{
 		MW_LOG_MIL("InterfacePlayer: Setting pipeline to PLAYING state ");
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
-		if (SetStateWithWarnings(interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
+		if (SetStateWithWarnings(this, interfacePlayerPriv->gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
 		{
 			MW_LOG_ERR("InterfacePlayer_Configure GST_STATE_PLAYING failed");
 		}

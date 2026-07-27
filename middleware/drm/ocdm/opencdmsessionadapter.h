@@ -32,6 +32,7 @@
 #include "open_cdm.h"
 #include "open_cdm_adapter.h"
 #include <condition_variable>
+#include <atomic>
 #include "DrmCallbacks.h"
 
 using namespace std;
@@ -117,8 +118,13 @@ protected:
 
 	DrmHelperPtr m_drmHelper;
 	DrmCallbacks *m_drmCallbacks;
+	std::atomic<bool> m_callbacksValid;
+	int m_sessionSlot;
 
 	bool verifyOutputProtection();
+ 	void processChallengeCallback(const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize, void* userData);
+	void keyUpdateCallback(const uint8_t key[], const uint8_t keySize, void* userData);
+	void keysUpdatedCallback(void* userData);
 public:
 	void processOCDMChallenge(const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize);
 	void keysUpdatedOCDM();

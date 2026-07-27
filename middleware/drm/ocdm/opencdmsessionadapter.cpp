@@ -42,7 +42,28 @@
 
 #include <sys/time.h>
 #include <set>
+#include <atomic>
 #define LICENSE_RENEWAL_MESSAGE_TYPE "1"
+
+static unsigned long long nowMonoUs()
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (static_cast<unsigned long long>(ts.tv_sec) * 1000000ULL) +
+		(static_cast<unsigned long long>(ts.tv_nsec) / 1000ULL);
+}
+
+static long gettid()
+{
+	return static_cast<long>(syscall(SYS_gettid));
+}
+
+static std::atomic<int> gDrmRaceSessionSlot{0};
+
+#define DRM_RACE_LOG(event, fmt, ...) \
+	MW_LOG_WARN("[DRM-RACE] t=%llu tid=%ld obj=%p session=%p slot=%d cbValid=%d " event " " fmt, \
+		nowMonoUs(), (long)gettid(), this, m_pOpenCDMSession, m_sessionSlot, \
+		(int)m_callbacksValid.load(), ##__VA_ARGS__)
 
 /**
  * @fn OCDMSessionAdapter
@@ -67,12 +88,15 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 		m_destUrl(),
 		m_drmHelper(drmHelper),
 		m_drmCallbacks(callbacks),
+		m_callbacksValid(true),
+		m_sessionSlot(gDrmRaceSessionSlot.fetch_add(1)),
 		m_keyStatusWait(),
 		m_keyId(),
 		m_keyStored(),
 		m_usableKeys(),
 		m_usableKeysMutex()
 {
+	DRM_RACE_LOG("CTOR", "");
 	MW_LOG_WARN("OCDMSessionAdapter :: enter ");
 	MW_LOG_WARN("OCDMSessionAdapter :: key process timeout is %d", drmHelper->keyProcessTimeout());
 
@@ -104,6 +128,7 @@ void OCDMSessionAdapter::initDRMSystem()
 
 OCDMSessionAdapter::~OCDMSessionAdapter()
 {
+	DRM_RACE_LOG("DTOR_ENTER", "");
 	MW_LOG_WARN("[HHH]OCDMSessionAdapter destructor called! keySystem %s", m_keySystem.c_str());
 	clearDecryptContext();
 
@@ -113,6 +138,7 @@ OCDMSessionAdapter::~OCDMSessionAdapter()
 #endif
 		m_pOpenCDMSystem = NULL;
 	}
+	DRM_RACE_LOG("DTOR_EXIT", "");
 
 }
 
@@ -120,6 +146,7 @@ OCDMSessionAdapter::~OCDMSessionAdapter()
 void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 		uint32_t f_cbInitData, std::string &customData)
 {
+	DRM_RACE_LOG("GEN_SESSION_BEGIN", "initData=%p initLen=%u customLen=%u", f_pbInitData, f_cbInitData, static_cast<unsigned int>(customData.length()));
 	MW_LOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 
 	std::lock_guard<std::mutex> guard(decryptMutex);
@@ -130,18 +157,23 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 	}
 	else
 	{
+		m_callbacksValid.store(true);
 		memset(&m_OCDMSessionCallbacks, 0, sizeof(m_OCDMSessionCallbacks));
 		timeBeforeCallback = GetCurrentTimeMS();
 		m_OCDMSessionCallbacks.process_challenge_callback = [](OpenCDMSession* session, void* userData, const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize) {
 			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
-			userSession->timeBeforeCallback = ((GetCurrentTimeMS())-(userSession->timeBeforeCallback));
-			MW_LOG_WARN( "Duration for process_challenge_callback %lld",(userSession->timeBeforeCallback));
-			userSession->processOCDMChallenge(destUrl, challenge, challengeSize);
+			if (userSession)
+			{
+				userSession->processChallengeCallback(destUrl, challenge, challengeSize, userData);
+			}
 		};
 
 		m_OCDMSessionCallbacks.key_update_callback = [](OpenCDMSession* session, void* userData, const uint8_t key[], const uint8_t keySize) {
 			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
-			userSession->keyUpdateOCDM(key, keySize);
+			if (userSession)
+			{
+				userSession->keyUpdateCallback(key, keySize, userData);
+			}
 		};
 
 		m_OCDMSessionCallbacks.error_message_callback = [](OpenCDMSession* session, void* userData, const char message[]) {
@@ -149,8 +181,12 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 
 		m_OCDMSessionCallbacks.keys_updated_callback = [](const OpenCDMSession* session, void* userData) {
 			OCDMSessionAdapter* userSession = reinterpret_cast<OCDMSessionAdapter*>(userData);
-			userSession->keysUpdatedOCDM();
+			if (userSession)
+			{
+				userSession->keysUpdatedCallback(userData);
+			}
 		};
+		DRM_RACE_LOG("GEN_SESSION_CB_REGISTERED", "");
 		const unsigned char *customDataMessage = customData.empty() ? nullptr:reinterpret_cast<const unsigned char *>(customData.c_str()) ;
 		const uint16_t customDataMessageLength = customData.length();
 		MW_LOG_INFO("data length : %d: ", customDataMessageLength);
@@ -170,6 +206,50 @@ void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData,
 			m_eKeyState = KEY_ERROR_SESSION_CREATE_FAILED;
 		}
 	}
+}
+
+void OCDMSessionAdapter::processChallengeCallback(const char destUrl[], const uint8_t challenge[], const uint16_t challengeSize, void* userData)
+{
+	timeBeforeCallback = ((GetCurrentTimeMS()) - (timeBeforeCallback));
+	MW_LOG_WARN("Duration for process_challenge_callback %lld", timeBeforeCallback);
+	DRM_RACE_LOG("CB_PROCESS_CHALLENGE_ENTER", "userData=%p", userData);
+	if (!m_callbacksValid.load())
+	{
+		DRM_RACE_LOG("CB_PROCESS_CHALLENGE_IGNORED", "userData=%p", userData);
+		DRM_RACE_LOG("CB_PROCESS_CHALLENGE_EXIT", "userData=%p", userData);
+		return;
+	}
+	DRM_RACE_LOG("CB_PROCESS_CHALLENGE_PROCESS", "userData=%p", userData);
+	processOCDMChallenge(destUrl, challenge, challengeSize);
+	DRM_RACE_LOG("CB_PROCESS_CHALLENGE_EXIT", "userData=%p", userData);
+}
+
+void OCDMSessionAdapter::keyUpdateCallback(const uint8_t key[], const uint8_t keySize, void* userData)
+{
+	DRM_RACE_LOG("CB_KEY_UPDATE_ENTER", "userData=%p", userData);
+	if (!m_callbacksValid.load())
+	{
+		DRM_RACE_LOG("CB_KEY_UPDATE_IGNORED", "userData=%p", userData);
+		DRM_RACE_LOG("CB_KEY_UPDATE_EXIT", "userData=%p", userData);
+		return;
+	}
+	DRM_RACE_LOG("CB_KEY_UPDATE_PROCESS", "userData=%p", userData);
+	keyUpdateOCDM(key, keySize);
+	DRM_RACE_LOG("CB_KEY_UPDATE_EXIT", "userData=%p", userData);
+}
+
+void OCDMSessionAdapter::keysUpdatedCallback(void* userData)
+{
+	DRM_RACE_LOG("CB_KEYS_UPDATED_ENTER", "userData=%p", userData);
+	if (!m_callbacksValid.load())
+	{
+		DRM_RACE_LOG("CB_KEYS_UPDATED_IGNORED", "userData=%p", userData);
+		DRM_RACE_LOG("CB_KEYS_UPDATED_EXIT", "userData=%p", userData);
+		return;
+	}
+	DRM_RACE_LOG("CB_KEYS_UPDATED_PROCESS", "userData=%p", userData);
+	keysUpdatedOCDM();
+	DRM_RACE_LOG("CB_KEYS_UPDATED_EXIT", "userData=%p", userData);
 }
 
 
@@ -408,13 +488,20 @@ KeyState OCDMSessionAdapter::getState()
 
 void OCDMSessionAdapter:: clearDecryptContext()
 {
+	DRM_RACE_LOG("CLEAR_CTX_ENTER", "");
 	MW_LOG_WARN("[HHH] clearDecryptContext.");
 
 	std::lock_guard<std::mutex> guard(decryptMutex);
+	DRM_RACE_LOG("CB_INVALIDATE", "");
+	m_callbacksValid.store(false);
 
 	if (m_pOpenCDMSession) {
+		DRM_RACE_LOG("SESSION_CLOSE_BEGIN", "");
 		opencdm_session_close(m_pOpenCDMSession);
+		DRM_RACE_LOG("SESSION_CLOSE_END", "");
+		DRM_RACE_LOG("SESSION_DESTRUCT_BEGIN", "");
 		opencdm_destruct_session(m_pOpenCDMSession);
+		DRM_RACE_LOG("SESSION_DESTRUCT_END", "");
 		m_pOpenCDMSession = NULL;
 	}
 
@@ -425,6 +512,7 @@ void OCDMSessionAdapter:: clearDecryptContext()
 	}
 
 	m_eKeyState = KEY_INIT;
+	DRM_RACE_LOG("CLEAR_CTX_EXIT", "");
 }
 
 void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
