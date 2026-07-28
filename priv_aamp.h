@@ -1038,6 +1038,10 @@ public:
 	volatile std::atomic <long long> mPausePositionMilliseconds;	/**< Requested pause position, can be 0 or more, or AAMP_PAUSE_POSITION_INVALID_POSITION */
 	MediaFormat mMediaFormat;
 	double seek_pos_seconds; 				/**< indicates the playback position at which most recent playback activity began */
+	int mRecoveryAttemptCount = 0;				/**< RDKEMW-21923: consecutive SetRateInternal re-seek recovery attempts */
+	long long mLastRecoveryTimeMs = 0;			/**< RDKEMW-21923: steady-clock ms of the last recovery attempt */
+	static constexpr int MAX_RECOVERY_ATTEMPTS = 3;		/**< RDKEMW-21923: cap before escalating to full retune */
+	static constexpr long long RECOVERY_COOLDOWN_MS = 5000;	/**< RDKEMW-21923: window (ms) after which the recovery count resets */
 	float rate; 						/**< most recent (non-zero) play rate for non-paused content */
 	float playerrate;
 	bool mSetPlayerRateAfterFirstframe;

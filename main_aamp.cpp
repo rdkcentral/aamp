@@ -923,15 +923,39 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 								// rapid trickplay->seek->resume race - seen on both VOD and FOG-TSB linear).
 								// Recover by re-seeking to the current position: the same mechanism the
 								// local-TSB resume path uses. Works uniformly for VOD, FOG-TSB & local TSB.
-								AAMPLOG_WARN("SetRateInternal: pipeline resume failed (GstState timeout); recovering via re-seek");
+								long long nowMs = NOW_STEADY_TS_MS;
+								if ((nowMs - aamp->mLastRecoveryTimeMs) > PrivateInstanceAAMP::RECOVERY_COOLDOWN_MS)
+								{
+									aamp->mRecoveryAttemptCount = 0; // healthy gap since last recovery -> reset
+								}
+								aamp->mLastRecoveryTimeMs = nowMs;
+
 								aamp->SetState(eSTATE_SEEKING);
 								aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 								aamp->rate = AAMP_NORMAL_PLAY_RATE;
 								aamp->mSinkPaused = false;
+								
+								if (aamp->mRecoveryAttemptCount >= PrivateInstanceAAMP::MAX_RECOVERY_ATTEMPTS)
+								{
+									// Repeated resume-timeouts: stop re-seeking, force a full retune once.
+									AAMPLOG_ERR("SetRateInternal: resume recovery exceeded %d attempts; escalating to full retune",
+														PrivateInstanceAAMP::MAX_RECOVERY_ATTEMPTS);
+									aamp->mRecoveryAttemptCount = 0;
+									{
+										std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+										aamp->TuneHelper(eTUNETYPE_RETUNE, false);
+									}
+								}
+								else
+								{
+									aamp->mRecoveryAttemptCount++;
+									AAMPLOG_WARN("SetRateInternal: pipeline resume failed (GstState timeout); recovering via re-seek (attempt %d/%d)										",aamp->mRecoveryAttemptCount, PrivateInstanceAAMP::MAX_RECOVERY_ATTEMPTS);
+
 									{
 										std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 										aamp->TuneHelper(eTUNETYPE_SEEK, false);
 									}
+								}
 
 								// Skip common notification (like local-TSB path): state -> PLAYING
 								// via NotifyFirstBufferProcessed once fragments arrive.
@@ -940,6 +964,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							}
 							else
 							{
+								// Resume completed normally -> healthy; reset the recovery counter.
+								aamp->mRecoveryAttemptCount = 0;
 								// required since buffers are already cached in paused state
 								aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 							}
