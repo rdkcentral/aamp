@@ -180,8 +180,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		}
 	}
 
+	mBitrateChangeTransition = false;
 	mCheckForRampdown = false;
-	mInitBitrateChangeTransition = false;
 	if (ret && (bitrate > 0 && bitrate != fragmentDescriptor.Bandwidth))
 	{
 		AAMPLOG_INFO("Bitrate changed from %" BITSPERSECOND_FORMAT " to %" BITSPERSECOND_FORMAT "",
@@ -191,11 +191,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		context->mUpdateReason = true;
 		mDownloadedFragment = std::move(cachedFragment->fragment);
 		aamp_utils::ClearAndRelease(cachedFragment->fragment);
+		mBitrateChangeTransition = true;
 		ret = false;
-		if (initSegment)
-		{
-			mInitBitrateChangeTransition = true;
-		}
 	}
 	return ret;
 }
@@ -913,6 +910,13 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 	mActiveDownloadInfo = nullptr;
 	AAMPLOG_INFO("fragment fetch failed - Free cachedFragment for %d", cachedFragment->type);
 	aamp_utils::ClearAndRelease(cachedFragment->fragment);
+ 
+	if (mBitrateChangeTransition)
+	{
+		AAMPLOG_INFO("Profile change, ignoring %d for URL %s", httpErrorCode, dlInfo->url.c_str());
+		return;
+	}
+
 	if (aamp->DownloadsAreEnabled())
 	{
 		AAMPLOG_WARN("%sfragment fetch failed -- fragmentUrl %s", (dlInfo->isInitSegment) ? "Init " : " ", dlInfo->url.c_str());
@@ -945,7 +949,7 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
-				else if (!mInitBitrateChangeTransition)
+				else
 				{
 					// When rampdown limit is not specified, init segment will be ramped down, this will
 					AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event", name);
@@ -980,7 +984,7 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 			}
 			else
 			{
-				if (!dlInfo->isPlayingAd && dlInfo->isInitSegment && httpErrorCode != 502 && !mInitBitrateChangeTransition)
+				if (!dlInfo->isPlayingAd && dlInfo->isInitSegment && httpErrorCode != 502)
 				{
 					// Already at lowest profile, send error event for init fragment.
 					AAMPLOG_ERR("Not able to download init fragments; reached failure threshold sending tune failed event");
@@ -1009,7 +1013,7 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 			if (dlInfo->isInitSegment)
 			{
 				// For init fragment, rampdown limit is reached. Send error event.
-				if (!dlInfo->isPlayingAd && httpErrorCode != 502 && !mInitBitrateChangeTransition)
+				if (!dlInfo->isPlayingAd && httpErrorCode != 502)
 				{
 					abortWaitForVideoPTS();
 					aamp->SetFlushFdsNeededInCurlStore(true);
