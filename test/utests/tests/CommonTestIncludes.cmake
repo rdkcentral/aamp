@@ -48,8 +48,10 @@ if(PLAYERFBINTERFACE_INCLUDE_DIRS)
 	include_directories(${BASECONVERSION_INCLUDE_DIRS})
 	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
 	include_directories(${SUBTEC_INCLUDE_DIRS})
-elseif(EXISTS ${AAMP_ROOT}/middleware)
+else()
 	# Internal middleware paths (deprecated, for legacy builds only)
+	# Note: Always use internal paths if external middleware is not available
+	# The AAMP_ROOT variable is set by the including CMakeLists.txt
 	include_directories(${AAMP_ROOT}/middleware
 	                    ${AAMP_ROOT}/middleware/playerisobmff
 	                    ${AAMP_ROOT}/middleware/subtitle
@@ -63,8 +65,6 @@ elseif(EXISTS ${AAMP_ROOT}/middleware)
 	                    ${AAMP_ROOT}/middleware/baseConversion
 	                    ${AAMP_ROOT}/middleware/playerLogManager
 	                    ${AAMP_ROOT}/middleware/vendor)
-else()
-	message(FATAL_ERROR "Middleware headers not found! Need either external middleware-player-interface via pkg-config or internal aamp/middleware directory.")
 endif()
 
 # std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
