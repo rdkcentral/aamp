@@ -66,7 +66,7 @@ static unsigned long long nowMonoUs()
 		(static_cast<unsigned long long>(ts.tv_nsec) / 1000ULL);
 }
 
-static long gettid()
+static long localGetTid()
 {
 	return static_cast<long>(syscall(SYS_gettid));
 }
@@ -82,7 +82,7 @@ static const char* PipeRaceCorrId(InterfacePlayerRDK* player)
 
 #define PIPE_RACE_LOG_OBJ(obj, event, fmt, ...) \
 	MW_LOG_WARN("[PIPE-RACE] t=%llu tid=%ld corr=%s player=%p " event " " fmt, \
-		nowMonoUs(), (long)gettid(), PipeRaceCorrId(obj), obj, ##__VA_ARGS__)
+		nowMonoUs(), (long)localGetTid(), PipeRaceCorrId(obj), obj, ##__VA_ARGS__)
 
 #define PIPE_RACE_LOG(event, fmt, ...) \
 	PIPE_RACE_LOG_OBJ(this, event, fmt, ##__VA_ARGS__)
@@ -4660,7 +4660,7 @@ static gboolean buffering_timeout (gpointer data)
 				uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
 				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
 				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
-				SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
+				SetStateWithWarnings (pInterfacePlayerRDK, privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
 				isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
 				
 				privatePlayer->gstPrivateContext->buffering_in_progress = false;

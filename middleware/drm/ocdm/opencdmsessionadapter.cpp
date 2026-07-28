@@ -53,7 +53,7 @@ static unsigned long long nowMonoUs()
 		(static_cast<unsigned long long>(ts.tv_nsec) / 1000ULL);
 }
 
-static long gettid()
+static long localGetTid()
 {
 	return static_cast<long>(syscall(SYS_gettid));
 }
@@ -62,7 +62,7 @@ static std::atomic<int> gDrmRaceSessionSlot{0};
 
 #define DRM_RACE_LOG(event, fmt, ...) \
 	MW_LOG_WARN("[DRM-RACE] t=%llu tid=%ld obj=%p session=%p slot=%d cbValid=%d " event " " fmt, \
-		nowMonoUs(), (long)gettid(), this, m_pOpenCDMSession, m_sessionSlot, \
+		nowMonoUs(), (long)localGetTid(), this, m_pOpenCDMSession, m_sessionSlot, \
 		(int)m_callbacksValid.load(), ##__VA_ARGS__)
 
 /**
