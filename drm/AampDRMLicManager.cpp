@@ -592,6 +592,13 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 
 		ChallengeInfo challengeInfo;
 		challengeInfo.data.reset(mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->generateKeyRequest(challengeInfo.url, drmHelper->licenseGenerateTimeout()));
+		if (challengeInfo.data)
+		{
+			AAMPLOG_WARN("vk1::License challenge received from OCDM (len=%zu):",
+			             challengeInfo.data->getDataLength());
+			DumpBlob(reinterpret_cast<const unsigned char*>(challengeInfo.data->getData().c_str()),
+			         challengeInfo.data->getDataLength());
+		}
 		code = mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getState();
 
 		if (code != KEY_PENDING)
