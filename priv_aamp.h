@@ -1030,6 +1030,9 @@ public:
 	VideoZoomMode zoom_mode;
 	bool video_muted; /**< true iff video plane is logically muted */
 	bool subtitles_muted; /**< true iff subtitle plane is logically muted */
+	std::atomic<bool> mCCStatusSetByApp{false}; /**< true once an AAMP CC/subtitle API has been called,
+												 * false while app talks to CCManager directly.*/
+			
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
@@ -2240,6 +2243,13 @@ public:
 	 *   @return void
 	 */
 	void SetVideoMute(bool muted);
+
+	/**
+	 *   @brief Mark that the application has called an external CC/subtitle API.
+	 *
+	 *   Sets mCCStatusSetByApp to true.
+	 */
+	void SetCCStatusSetByApp();
 
 	/**
 	 *   @brief Set subtitle mute state
