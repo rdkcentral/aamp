@@ -25,12 +25,14 @@ set(UTESTS_ROOT "..")
 # Note: .libs/include is NOT used because it contains gtest headers that conflict with FetchContent
 if(PLAYERFBINTERFACE_INCLUDE_DIRS)
 	# External middleware via pkg-config (preferred for CI and modern builds)
+	message(STATUS "Using external middleware-player-interface via pkg-config")
 	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
 	include_directories(${BASECONVERSION_INCLUDE_DIRS})
 	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
 	include_directories(${SUBTEC_INCLUDE_DIRS})
-else()
+elseif(EXISTS ${AAMP_ROOT}/middleware)
 	# Internal middleware paths (for local builds without external middleware)
+	message(STATUS "Using internal aamp/middleware (deprecated)")
 	include_directories(${AAMP_ROOT}/middleware)
 	include_directories(${AAMP_ROOT}/middleware/drm)
 	include_directories(${AAMP_ROOT}/middleware/drm/aes)
@@ -45,6 +47,11 @@ else()
 	include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 	include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 	include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
+else()
+	message(FATAL_ERROR "Middleware headers not found! Need either:\n"
+		"  1. External middleware-player-interface via pkg-config (libplayerfbinterface, etc.), OR\n"
+		"  2. Internal aamp/middleware directory\n"
+		"For CI builds, ensure middleware-player-interface is installed and PKG_CONFIG_PATH is set.")
 endif()
 
 # AAMP source directories
