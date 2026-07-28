@@ -623,8 +623,15 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, const std::sh
 				             PlayerLogManager::getHexDebugStr(currentKeyId).c_str(),
 				             drmHelper->ocdmSystemId().c_str(),
 				             sessionSlot, isLicenseRenewal);
-				licenseResponse = findCachedFutureKey(currentKeyId,
-				                                      drmHelper->ocdmSystemId());
+				if (!aampInstance->mConfig->IsConfigSet(eAAMPConfig_ProgressLogging))
+				{
+					licenseResponse = findCachedFutureKey(currentKeyId,
+					                                      drmHelper->ocdmSystemId());
+				}
+				else
+				{
+					AAMPLOG_INFO("vk1:: acquireLicense: skipping future key cache lookup because eAAMPConfig_ProgressLogging is enabled");
+				}
 				if (licenseResponse)
 				{
 					AAMPLOG_WARN("vk:: acquireLicense: future key cache HIT – "
