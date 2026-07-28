@@ -23,6 +23,7 @@
  */
 
 #include "AampFlightDataRecorder.h"
+#include <cstdio>
 #include <sys/time.h>
 #include <sstream>
 #include <iomanip>
@@ -63,7 +64,7 @@ AampFlightDataRecorder& AampFlightDataRecorder::GetInstance()
 
 void AampFlightDataRecorder::Initialize(bool enabled, size_t maxLines, uint64_t maxSeconds)
 {
-	if (mInitialized)
+	if (mInitialized.load(std::memory_order_acquire))
 	{
 		return;
 	}
@@ -78,7 +79,7 @@ void AampFlightDataRecorder::Initialize(bool enabled, size_t maxLines, uint64_t 
 	mTail.store(0, std::memory_order_relaxed);
 	mCount.store(0, std::memory_order_relaxed);
 	
-	mInitialized = true;
+	mInitialized.store(true, std::memory_order_release);
 }
 
 uint64_t AampFlightDataRecorder::GetCurrentTimeMicroseconds()
@@ -96,7 +97,7 @@ void AampFlightDataRecorder::EvictOldEntries()
 	}
 	
 	uint64_t now = GetCurrentTimeMicroseconds();
-	uint64_t cutoff = now - mMaxAgeUs;
+	uint64_t cutoff = (now > mMaxAgeUs) ? (now - mMaxAgeUs) : 0;
 	
 	while (mCount.load(std::memory_order_acquire) > 0)
 	{
@@ -118,7 +119,7 @@ void AampFlightDataRecorder::EvictOldEntries()
 
 void AampFlightDataRecorder::AddEntry(const FDRLogEntry& entry)
 {
-	if (!mEnabled.load(std::memory_order_relaxed) || !mInitialized)
+	if (!mEnabled.load(std::memory_order_relaxed) || !mInitialized.load(std::memory_order_acquire))
 	{
 		return;
 	}
@@ -135,15 +136,11 @@ void AampFlightDataRecorder::AddEntry(const FDRLogEntry& entry)
 	
 	mBuffer[write_pos] = entry;
 	
-	size_t current_count = mCount.load(std::memory_order_relaxed);
-	if (current_count < mMaxEntries)
+	size_t old_count = mCount.fetch_add(1, std::memory_order_relaxed);
+	if (old_count >= mMaxEntries)
 	{
-		mCount.fetch_add(1, std::memory_order_relaxed);
-	}
-	else
-	{
-		size_t tail_pos = mTail.load(std::memory_order_acquire);
-		mTail.compare_exchange_strong(tail_pos, tail_pos + 1, std::memory_order_release);
+		mCount.fetch_sub(1, std::memory_order_relaxed);
+		mTail.fetch_add(1, std::memory_order_release);
 	}
 }
 
@@ -185,7 +182,7 @@ std::string AampFlightDataRecorder::FormatLogEntry(const FDRLogEntry& entry) con
 
 void AampFlightDataRecorder::Dump(int triggerLevel, const char* triggerSource)
 {
-	if (!mInitialized)
+	if (!mInitialized.load(std::memory_order_acquire))
 	{
 		return;
 	}
@@ -235,7 +232,7 @@ void AampFlightDataRecorder::Dump(int triggerLevel, const char* triggerSource)
 
 void AampFlightDataRecorder::Flush()
 {
-	if (!mInitialized)
+	if (!mInitialized.load(std::memory_order_acquire))
 	{
 		return;
 	}

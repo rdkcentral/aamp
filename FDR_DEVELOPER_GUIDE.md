@@ -227,7 +227,7 @@ fdr.Flush();
 
 If you see undefined reference to `AampFlightDataRecorder`:
 1. Verify `AampFlightDataRecorder.cpp` is in CMakeLists.txt
-2. Clean and rebuild: `rm -rf build && mkdir build && cd build && cmake .. && make`
+2. Clean and rebuild unit tests: `cd test/utests && ./run.sh`
 
 ### Runtime Errors
 

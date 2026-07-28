@@ -80,14 +80,10 @@ If you create a new unit test that includes any of these files, you **must** als
 
 ## Build Command
 
-To rebuild after these changes:
+To rebuild unit tests after these changes:
 ```bash
-cd build
-cmake ..
-make -j4
+cd test/utests
+./run.sh
 ```
 
-Or for specific test:
-```bash
-make ConfigTests
-```
+This will build and run all unit test suites. The L1 workflow handles the CMake configuration and build automatically.

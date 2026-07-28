@@ -143,7 +143,7 @@ private:
 	std::atomic<bool> mDumping;
 	size_t mMaxEntries;
 	uint64_t mMaxAgeUs;
-	bool mInitialized;
+	std::atomic<bool> mInitialized;
 };
 
 #endif // AAMP_FLIGHT_DATA_RECORDER_H
