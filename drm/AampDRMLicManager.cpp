@@ -912,7 +912,7 @@ KeyState AampDRMLicenseManager::processLicenseResponse(std::shared_ptr<DrmHelper
 	// log line limit (~2040 chars).
 	if (licenseResponse)
 	{
-		AAMPLOG_WARN("vk::License response sent to OCDM (len=%zu):", licenseResponse->getDataLength());
+		AAMPLOG_WARN("vk1::License response sent to OCDM (len=%zu):", licenseResponse->getDataLength());
 		DumpBlob(reinterpret_cast<const unsigned char*>(licenseResponse->getData().c_str()), licenseResponse->getDataLength());
 	}
 	if(!isLicenseRenewal)
@@ -1356,7 +1356,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	// Dump the full license request body sent to the server.  DumpBlob emits
 	// the data in 64-char chunks so it is not truncated by the journal log
 	// line limit (~2040 chars).
-	AAMPLOG_WARN("License request payload sent to server (len=%zu):", inpData->postData.length());
+	AAMPLOG_WARN("vk1::License request payload sent to server (len=%zu):", inpData->postData.length());
 	DumpBlob(reinterpret_cast<const unsigned char*>(inpData->postData.c_str()), inpData->postData.length());
 
 	unsigned int attemptCount = 0;
@@ -1430,7 +1430,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 				auto keyLen = pLicenseDownloader->GetDataString(keyData);
 				keyInfo->setData(keyData.c_str(), keyLen);
 				// Dump the full license response received from the server.
-				AAMPLOG_WARN("License response received from server (len=%zu):", keyData.length());
+				AAMPLOG_WARN("vk1::License response received from server (len=%zu):", keyData.length());
 				DumpBlob(reinterpret_cast<const unsigned char*>(keyData.c_str()), keyData.length());
 			}
 		}
