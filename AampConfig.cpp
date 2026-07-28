@@ -1851,8 +1851,14 @@ void AampConfig::ConfigureLogSettings()
 	AampLogManager::logFilename = configValueBool[eAAMPConfig_LogFilename].value;
 	
 	bool fdrEnabled = configValueBool[eAAMPConfig_EnableFlightDataRecorder].value;
-	size_t fdrMaxLines = (size_t)configValueInt[eAAMPConfig_FlightDataRecorderMaxLines].value;
-	uint64_t fdrMaxSeconds = (uint64_t)configValueInt[eAAMPConfig_FlightDataRecorderMaxSeconds].value;
+	int rawMaxLines = configValueInt[eAAMPConfig_FlightDataRecorderMaxLines].value;
+	int rawMaxSeconds = configValueInt[eAAMPConfig_FlightDataRecorderMaxSeconds].value;
+	
+	size_t fdrMaxLines = (rawMaxLines > 0) ? (size_t)rawMaxLines : 5000;
+	if (fdrMaxLines > 100000) fdrMaxLines = 100000;
+	
+	uint64_t fdrMaxSeconds = (rawMaxSeconds > 0) ? (uint64_t)rawMaxSeconds : 60;
+	if (fdrMaxSeconds > 3600) fdrMaxSeconds = 3600;
 	
 	AampFlightDataRecorder::GetInstance().Initialize(fdrEnabled, fdrMaxLines, fdrMaxSeconds);
 }
