@@ -58,6 +58,7 @@ elseif(EXISTS ${AAMP_ROOT}/middleware-player-interface)
 	                    ${AAMP_ROOT}/middleware-player-interface/playerjsonobject
 	                    ${AAMP_ROOT}/middleware-player-interface/closedcaptions
 	                    ${AAMP_ROOT}/middleware-player-interface/drm
+	                    ${AAMP_ROOT}/middleware-player-interface/drm/helper
 	                    ${AAMP_ROOT}/middleware-player-interface/externals
 	                    ${AAMP_ROOT}/middleware-player-interface/externals/contentsecuritymanager
 	                    ${AAMP_ROOT}/middleware-player-interface/baseConversion
@@ -73,6 +74,7 @@ else()
 	                    ${AAMP_ROOT}/middleware/playerjsonobject
 	                    ${AAMP_ROOT}/middleware/closedcaptions
 	                    ${AAMP_ROOT}/middleware/drm
+	                    ${AAMP_ROOT}/middleware/drm/helper
 	                    ${AAMP_ROOT}/middleware/externals
 	                    ${AAMP_ROOT}/middleware/externals/contentsecuritymanager
 	                    ${AAMP_ROOT}/middleware/baseConversion
