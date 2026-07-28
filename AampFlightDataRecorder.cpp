@@ -44,11 +44,11 @@ AampFlightDataRecorder::AampFlightDataRecorder()
 	, mHead(0)
 	, mTail(0)
 	, mCount(0)
-	, mEnabled(false)
-	, mDumping(false)
+	, mEnabled{false}
+	, mDumping{false}
 	, mMaxEntries(5000)
 	, mMaxAgeUs(60000000)
-	, mInitialized(false)
+	, mInitialized{false}
 {
 }
 
