@@ -211,7 +211,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			}
 			va_end(args);
 			
-			if (logLevelIndex >= eLOGLEVEL_INFO)
+			if (logLevelIndex >= eLOGLEVEL_INFO && logLevelIndex < AampLogManager::aampLoglevel)
 			{
 				FDRLogEntry entry;
 				entry.timestamp_us = AampFlightDataRecorder::GetCurrentTimeMicroseconds();
