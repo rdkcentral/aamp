@@ -289,7 +289,7 @@ AampRialtoPlayer::~AampRialtoPlayer()
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get());
+			source->invalidateGeneration(m_pipeline.get(), "~AampRialtoPlayer");
 		}
 	}
 	AAMPLOG_INFO("AampRialtoPlayer: destroyed");
@@ -424,6 +424,7 @@ void AampRialtoPlayer::Configure(
 				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
 					"signalling EOS on audio source, no pipeline recreation");
 				EndOfStreamReached(eMEDIATYPE_AUDIO);
+				EndOfStreamReached(eMEDIATYPE_SUBTITLE);
 			}
 			else if (m_sources[eMEDIATYPE_AUDIO] &&
 			         audioFormat != FORMAT_INVALID)
@@ -959,18 +960,19 @@ void AampRialtoPlayer::AttachSource(
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
 	    result == AampRialtoMediaSource::AttachResult::UPDATED)
 	{
-		// Clear the paused flag that Flush() sets.  Flush's purpose is to
-		// abort in-flight injection threads from the previous generation;
-		// once the source is (re-)attached the injection path must be
-		// allowed to block normally waiting for needData rather than
-		// immediately returning false.
+		// Clear attachPending and wake any inject thread that was blocking
+		// because the source's attachment was deferred.
 		//
-		// Also clear attachPending and wake any inject thread that was
-		// blocking because the source's attachment was deferred.
+		// injectionGated is deliberately NOT cleared here.  AttachSource()
+		// can run mid-Configure(), before a subsequent Flush() completes a
+		// multi-step trickplay sequence (Flush(pos=0) -> Configure() ->
+		// Flush(correctPos) -> Stream()); clearing the gate here would let
+		// an early needData slip through with stale-position data. The gate
+		// is cleared only via UngateAllSources(), called at the points that
+		// actually issue play().
 		{
 			auto &st = source.state();
 			std::lock_guard<std::mutex> lock(st.mu);
-			st.injectionGated = false;
 			st.attachPending = false;
 			st.cv.notify_all();
 		}
@@ -1007,6 +1009,17 @@ void AampRialtoPlayer::AttachSource(
 		}
 
 		CheckAllSourcesAttached();
+	}
+}
+
+void AampRialtoPlayer::UngateAllSources(const char *reason)
+{
+	for (auto &source : m_sources)
+	{
+		if (source)
+		{
+			source->clearInjectionGate(reason);
+		}
 	}
 }
 
@@ -1054,6 +1067,7 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 		{
 			AAMPLOG_INFO("play() deferred by Stream() - issuing now");
 			m_playRequested.store(false, std::memory_order_relaxed);
+			UngateAllSources("CheckAllSourcesAttached");
 			bool async = false;
 			if (!m_pipeline->play(async))
 			{
@@ -1158,6 +1172,7 @@ void AampRialtoPlayer::Stream()
 			{
 				// allSourcesAttached() already completed before this call -
 				// promote to PLAYING immediately.
+				UngateAllSources("Stream");
 				bool async = false;
 				if (!m_pipeline->play(async))
 				{
@@ -1198,7 +1213,7 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get());
+			source->invalidateGeneration(m_pipeline.get(), "Stop");
 			auto &st = source->state();
 			std::lock_guard<std::mutex> lock(st.mu);
 			st.eos = false;
@@ -1268,7 +1283,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		{
 			if (source)
 			{
-				source->invalidateGeneration(m_pipeline.get());
+				source->invalidateGeneration(m_pipeline.get(), "Flush(non-flushable)");
 				if (rate == AAMP_NORMAL_PLAY_RATE)
 				{
 					auto &st = source->state();
@@ -1305,7 +1320,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get());
+			source->invalidateGeneration(m_pipeline.get(), "Flush");
 			auto &st = source->state();
 			std::lock_guard<std::mutex> lock(st.mu);
 			// During trickplay (rate != 1), keep audio EOS'd so the
@@ -1392,6 +1407,7 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 		}
 		else
 		{
+			UngateAllSources("Pause(false)");
 			bool async = false;
 			result = m_pipeline->play(async);
 		}
@@ -1690,6 +1706,7 @@ void AampRialtoPlayer::StopBuffering(bool forceStop)
 	}
 	else
 	{
+		UngateAllSources("StopBuffering");
 		bool async = false;
 		if (!m_pipeline->play(async))
 		{
@@ -1752,7 +1769,7 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get());
+			source->invalidateGeneration(m_pipeline.get(), "NotifyInjectorToPause");
 		}
 	}
 	AAMPLOG_INFO("EXIT");
@@ -1911,14 +1928,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 
 			// Clear injectionGated so inject threads resume blocking
 			// normally on needData rather than aborting immediately.
-			for (auto &source : m_sources)
-			{
-				if (source)
-				{
-					std::lock_guard<std::mutex> lock(source->state().mu);
-					source->state().injectionGated = false;
-				}
-			}
+			UngateAllSources("OnPlaybackState(PLAYING)");
 
 			const bool firstFrame =
 				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
@@ -2034,6 +2044,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			{
 				AAMPLOG_INFO("SEEK_DONE: issuing play() (state=%s)",
 					m_stateMachine.currentStateName());
+				UngateAllSources("OnPlaybackState(SEEK_DONE)");
 				bool async = false;
 				if (!m_pipeline->play(async))
 				{

@@ -98,10 +98,19 @@ public:
 		/// invalidateGeneration(); injectors capture it at entry and
 		/// abort if it changes while they are blocked.
 		uint64_t generation{0};
-		/// Set by invalidateGeneration() (flush/seek) to gate injection
-		/// until the next needData event or PLAYING state callback.
-		/// Cleared by handleNeedData() and by the PLAYING playback-state
-		/// handler.  NOT related to the pipeline PAUSED state — see the
+		/// Set by invalidateGeneration() (flush/stop/seek/pause-notify) to
+		/// gate injection until playback is genuinely about to resume.
+		/// Cleared ONLY by AampRialtoPlayer::clearInjectionGate() /
+		/// UngateAllSources(), which is called at each site that actually
+		/// issues (or confirms) pipeline play() — Stream(),
+		/// CheckAllSourcesAttached(), Pause(false), StopBuffering(), the
+		/// SEEK_DONE play branch, and the PLAYING playback-state handler.
+		/// Deliberately NOT cleared by reset(), AttachSource(), or
+		/// handleNeedData(): clearing it there would reopen the gate before
+		/// a multi-step Configure()/Flush() sequence (e.g. trickplay's
+		/// Flush(pos=0) -> Configure() -> Flush(correctPos) -> Stream()) has
+		/// finished, letting stale-position data slip through on an early
+		/// needData.  NOT related to the pipeline PAUSED state — see the
 		/// comment in waitForAttach() for the important distinction.
 		bool     injectionGated{false};
 		/// True while an injector thread is executing inside
@@ -161,7 +170,23 @@ public:
 	/// @param pipeline  The active Rialto media pipeline, or nullptr if
 	///                  no pipeline exists for this session (e.g. Stop()
 	///                  called before Configure()).
-	void invalidateGeneration(firebolt::rialto::IMediaPipeline *pipeline);
+	/// @param reason    Short human-readable description of the caller
+	///                  (e.g. "Flush", "Stop", "NotifyInjectorToPause"),
+	///                  included in the injectionGated-set log line to
+	///                  aid debugging of gating behaviour.
+	void invalidateGeneration(firebolt::rialto::IMediaPipeline *pipeline,
+		const char *reason = "invalidateGeneration");
+
+	/// Clear injectionGated for this source, logging the transition (only
+	/// when it was actually set) so it is easy to correlate log traces with
+	/// the moment injection resumes.  Must be called only from the specific
+	/// points where playback is genuinely about to resume — see the
+	/// injectionGated field comment above for the authoritative list.
+	///
+	/// @param reason  Short human-readable description of the caller
+	///                (e.g. "Stream", "OnPlaybackState(PLAYING)"),
+	///                included in the log line.
+	void clearInjectionGate(const char *reason);
 
 	// -----------------------------------------------------------------
 	// Source identity

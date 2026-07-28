@@ -574,6 +574,20 @@ private:
 	 */
 	void CheckAllSourcesAttached();
 
+	/**
+	 * @brief Clear injectionGated on every source, logging the reason.
+	 *
+	 * Must be called only from the specific points where pipeline play()
+	 * is actually issued or confirmed \u2014 Stream(), CheckAllSourcesAttached(),
+	 * Pause(false), StopBuffering(), the SEEK_DONE play branch, and the
+	 * PLAYING playback-state handler.  See the injectionGated field
+	 * comment in AampRialtoMediaSource.h for the rationale.
+	 *
+	 * @param reason  Short human-readable description of the caller,
+	 *                included in the per-source log line.
+	 */
+	void UngateAllSources(const char *reason);
+
 	/// Set by Stop() to guarantee the next Configure() always recreates
 	/// the pipeline even when stream formats are unchanged.
 	std::atomic<bool> m_pipelineStopped{false};

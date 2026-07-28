@@ -68,7 +68,13 @@ void AampRialtoMediaSource::reset()
 		m_state.hasPending          = false;
 		m_state.segmentsAddedInBatch = 0;
 		m_state.eos                 = false;
-		m_state.injectionGated      = false;
+		// injectionGated is intentionally left untouched here.  reset() runs
+		// mid-Configure(), which can be followed by a second Flush() (e.g.
+		// trickplay's Flush(pos=0) -> Configure() -> Flush(correctPos) ->
+		// Stream()) before playback is meant to resume.  Clearing the gate
+		// now would let an early needData slip through with stale-position
+		// data.  The gate is cleared only via clearInjectionGate(), called
+		// from AampRialtoPlayer at the points that actually issue play().
 		m_state.injectorActive      = false;
 		m_state.attachPending   = false;
 		m_state.cv.notify_all();
@@ -82,12 +88,14 @@ void AampRialtoMediaSource::reset()
 }
 
 void AampRialtoMediaSource::invalidateGeneration(
-	firebolt::rialto::IMediaPipeline *pipeline)
+	firebolt::rialto::IMediaPipeline *pipeline, const char *reason)
 {
 	bool     fireNoAvailableSamples = false;
 	uint32_t reqId                  = 0;
+	bool     wasGated                = false;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
+		wasGated = m_state.injectionGated;
 		++m_state.generation;
 		m_state.injectionGated = true;
 		if (!m_state.injectorActive)
@@ -103,6 +111,8 @@ void AampRialtoMediaSource::invalidateGeneration(
 		// injectOneSample()).
 		m_state.cv.notify_all();
 	}
+	AAMPLOG_INFO("injectionGated SET (%s->true) sourceId=%d mediaType=%d reason=%s",
+		wasGated ? "true" : "false", m_sourceId, static_cast<int>(mediaType()), reason);
 	if (fireNoAvailableSamples)
 	{
 		respondAbandonedRequest(pipeline, reqId);
@@ -110,6 +120,22 @@ void AampRialtoMediaSource::invalidateGeneration(
 	// Reset segment-start so the next injection establishes a fresh
 	// baseline after the seek.  Written outside the lock (atomic).
 	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
+}
+
+void AampRialtoMediaSource::clearInjectionGate(const char *reason)
+{
+	bool wasGated = false;
+	{
+		std::lock_guard<std::mutex> lock(m_state.mu);
+		wasGated = m_state.injectionGated;
+		m_state.injectionGated = false;
+		m_state.cv.notify_all();
+	}
+	if (wasGated)
+	{
+		AAMPLOG_INFO("injectionGated CLEARED sourceId=%d mediaType=%d reason=%s",
+			m_sourceId, static_cast<int>(mediaType()), reason);
+	}
 }
 
 bool AampRialtoMediaSource::claimPendingRequestLocked(uint32_t &outReqId)
@@ -340,6 +366,8 @@ bool AampRialtoMediaSource::injectOneSample(
 		bool     bailedOut    = false;
 		bool     abortPending = false;
 		uint32_t abortReqId   = 0;
+		bool     bailGenMismatch = false;
+		bool     bailGated       = false;
 		{
 			std::unique_lock<std::mutex> lock(m_state.mu);
 			m_state.cv.wait(lock, [&]{
@@ -354,6 +382,8 @@ bool AampRialtoMediaSource::injectOneSample(
 				// (we were the active injector) — if a request is still
 				// pending, no other path will ever close it out, so we
 				// must respond ourselves once the lock is released.
+				bailGenMismatch = (m_state.generation != capturedGen);
+				bailGated       = m_state.injectionGated;
 				abortPending = claimPendingRequestLocked(abortReqId);
 				m_state.injectorActive = false;
 				bailedOut = true;
@@ -362,6 +392,14 @@ bool AampRialtoMediaSource::injectOneSample(
 			{
 				reqId = m_state.pendingRequestId;
 			}
+		}
+
+		if (bailedOut)
+		{
+			AAMPLOG_INFO("injector bailing out sourceId=%d generationMismatch=%d "
+				"injectionGated=%d abandonedRequestId=%u",
+				m_sourceId, bailGenMismatch, bailGated,
+				abortPending ? abortReqId : 0);
 		}
 
 		if (abortPending)
@@ -674,7 +712,8 @@ void AampRialtoMediaSource::handleNeedData(
 	AAMPLOG_INFO("sourceId=%d frameCount=%zu requestId=%u",
 		m_sourceId, frameCount, requestId);
 
-	bool fireEos = false;
+	bool fireEos      = false;
+	bool stagedGated  = false;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		if (m_state.eos && !m_state.injectorActive)
@@ -687,11 +726,20 @@ void AampRialtoMediaSource::handleNeedData(
 			// Either not EOS, or an injector is active and needs the
 			// slot to deliver its sample (it will send haveData(EOS)
 			// after injection).
-		m_state.hasPending          = true;
-		m_state.pendingRequestId    = requestId;
-		m_state.pendingFrameCount   = std::max<size_t>(frameCount, 1);
-		m_state.segmentsAddedInBatch = 0;
-		m_state.injectionGated      = false;
+			//
+			// injectionGated is intentionally NOT cleared here.  Rialto can
+			// legitimately send needData while a multi-step Configure()/
+			// Flush() sequence is still in progress; clearing the gate on
+			// its arrival would let stale-position data slip through
+			// before the sequence completes.  If the gate is still set when
+			// an injector next runs, this request will be answered with
+			// haveData(NO_AVAILABLE_SAMPLES) — see injectOneSample() — and
+			// Rialto is expected to retry once playback genuinely resumes.
+			m_state.hasPending          = true;
+			m_state.pendingRequestId    = requestId;
+			m_state.pendingFrameCount   = std::max<size_t>(frameCount, 1);
+			m_state.segmentsAddedInBatch = 0;
+			stagedGated = m_state.injectionGated;
 		}
 	}
 	if (fireEos)
@@ -705,6 +753,12 @@ void AampRialtoMediaSource::handleNeedData(
 	}
 	else
 	{
+		if (stagedGated)
+		{
+			AAMPLOG_INFO("sourceId=%d requestId=%u staged while injectionGated=true - "
+				"response will be NO_AVAILABLE_SAMPLES until the gate clears",
+				m_sourceId, requestId);
+		}
 		m_state.cv.notify_all();
 	}
 }

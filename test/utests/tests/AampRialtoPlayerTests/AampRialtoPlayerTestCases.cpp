@@ -1736,6 +1736,190 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // ===========================================================================
+// injectionGated — consolidated ungate-timing design (UngateAllSources())
+// ===========================================================================
+//
+// The gate is set by invalidateGeneration() (Flush()/Stop()/
+// NotifyInjectorToPause()/dtor) and must be cleared ONLY at the points that
+// genuinely issue play(): Stream(), CheckAllSourcesAttached() (deferred
+// play), Pause(false), StopBuffering(), OnPlaybackState(SEEK_DONE)'s
+// shouldPlay branch, and OnPlaybackState(PLAYING) (covered above). It must
+// NOT be cleared by reset(), AttachSource(), or handleNeedData() — see
+// AampRialtoVideoSourceTests for those.
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_SetsInjectionGatedOnAllSources)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_SetsInjectionGatedOnAllSources)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+
+	m_player->Stop(/*keepLastFrame=*/false);
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	AttachSource_DoesNotClearInjectionGated)
+{
+	/**
+	 * @brief AttachSource() runs mid-Configure(), potentially before a
+	 *        subsequent Flush() completes a multi-step trickplay sequence.
+	 *        It must NOT clear injectionGated - only UngateAllSources() at
+	 *        a genuine play()-issuance point may do so.
+	 */
+	Configure();
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
+
+	// Only video attaches; audio remains unattached so
+	// CheckAllSourcesAttached() (called from AttachSource()) cannot fire
+	// and confound the result via its own UngateAllSources() call.
+	SendVideoInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_ClearsInjectionGatedOnAllSources)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated = true;
+
+	m_player->Stream();
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckAllSourcesAttached_DeferredPlay_ClearsInjectionGatedOnAllSources)
+{
+	/**
+	 * @brief When Stream() is called before all sources are attached,
+	 *        play() is deferred to CheckAllSourcesAttached(). That deferred
+	 *        path must also clear the gate immediately before issuing
+	 *        play(), not just the immediate Stream() path.
+	 */
+	Configure();
+	SendVideoInitFragment();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated = true;
+
+	// Sources not all attached yet - Stream() defers play().
+	m_player->Stream();
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	SendAudioInitFragment();  // completes attachment - fires deferred play()
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Pause_False_ClearsInjectionGatedOnAllSources)
+{
+	Configure();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated = true;
+
+	EXPECT_TRUE(m_player->Pause(/*pause=*/false, false));
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Pause_True_DoesNotClearInjectionGated)
+{
+	// Pausing must not clear the gate - only resuming (Pause(false)) does.
+	Configure();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
+
+	EXPECT_TRUE(m_player->Pause(/*pause=*/true, false));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StopBuffering_ClearsInjectionGatedOnAllSources)
+{
+	Configure();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated = true;
+
+	m_player->StopBuffering(/*forceStop=*/true);
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_SeekDone_ShouldPlay_ClearsInjectionGatedOnAllSources)
+{
+	/**
+	 * @brief Regression coverage for the trickplay ungate-timing race:
+	 *        Flush() sets the gate (real invalidateGeneration() call, not a
+	 *        manual override); Stream() while FLUSHING defers play() without
+	 *        touching the gate; only once SEEK_DONE completes the flush
+	 *        cycle and decides to play does the gate finally clear.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated)
+		<< "Flush() must set the gate";
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated)
+		<< "Stream() while FLUSHING must defer without clearing the gate";
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
+// ===========================================================================
 // IStreamSinkNotifiable — position and duration callbacks
 // ===========================================================================
 

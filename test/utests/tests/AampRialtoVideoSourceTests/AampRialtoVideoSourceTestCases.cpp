@@ -1361,3 +1361,95 @@ TEST_F(AampRialtoVideoSourceTest,
 	m_source.reset();
 	EXPECT_EQ(m_source.format(), FORMAT_ISO_BMFF);
 }
+
+// ---------------------------------------------------------------------------
+// injectionGated — consolidated ungate-timing design
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_Reset_DoesNotClearInjectionGated
+ * @brief reset() must NOT clear injectionGated.
+ *
+ * AampRialtoPlayer::Configure() calls reset() mid-flight while a subsequent
+ * Flush() may still be pending in a multi-step trickplay sequence
+ * (Flush(pos=0) -> Configure() -> Flush(correctPos) -> Stream()). Clearing
+ * the gate here would let an early needData slip through with
+ * stale-position data. The gate must only be cleared by
+ * clearInjectionGate()/UngateAllSources() at genuine play()-issuance points.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_Reset_DoesNotClearInjectionGated)
+{
+	m_source.invalidateGeneration(m_pipelinePtr, "test-setup");
+	ASSERT_TRUE(m_source.state().injectionGated);
+
+	m_source.reset();
+
+	EXPECT_TRUE(m_source.state().injectionGated);
+}
+
+/**
+ * @test AampRialtoVideoSource_InvalidateGeneration_SetsInjectionGated
+ * @brief invalidateGeneration() must set injectionGated and bump generation.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InvalidateGeneration_SetsInjectionGated)
+{
+	ASSERT_FALSE(m_source.state().injectionGated);
+
+	uint64_t genBefore = m_source.state().generation;
+	m_source.invalidateGeneration(m_pipelinePtr, "test");
+
+	EXPECT_TRUE(m_source.state().injectionGated);
+	EXPECT_GT(m_source.state().generation, genBefore);
+}
+
+/**
+ * @test AampRialtoVideoSource_ClearInjectionGate_ClearsGateAndNotifies
+ * @brief clearInjectionGate() must clear injectionGated regardless of the
+ *        prior value, and wake any thread waiting on the state cv.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ClearInjectionGate_ClearsGateAndNotifies)
+{
+	m_source.invalidateGeneration(m_pipelinePtr, "test-setup");
+	ASSERT_TRUE(m_source.state().injectionGated);
+
+	m_source.clearInjectionGate("test");
+
+	EXPECT_FALSE(m_source.state().injectionGated);
+}
+
+/**
+ * @test AampRialtoVideoSource_ClearInjectionGate_WhenAlreadyClear_IsNoop
+ * @brief clearInjectionGate() must be safe to call when the gate is already
+ *        clear (no crash, remains false).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ClearInjectionGate_WhenAlreadyClear_IsNoop)
+{
+	ASSERT_FALSE(m_source.state().injectionGated);
+
+	EXPECT_NO_THROW(m_source.clearInjectionGate("test"));
+
+	EXPECT_FALSE(m_source.state().injectionGated);
+}
+
+/**
+ * @test AampRialtoVideoSource_HandleNeedData_DoesNotClearInjectionGated
+ * @brief handleNeedData() must NOT clear injectionGated even though it
+ *        stages a pending request. The staged request is answered with
+ *        NO_AVAILABLE_SAMPLES (never silently dropped) once an injector
+ *        observes the gate, so it is safe for the gate to remain set until
+ *        a genuine play()-issuance point clears it.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_HandleNeedData_DoesNotClearInjectionGated)
+{
+	m_source.invalidateGeneration(m_pipelinePtr, "test-setup");
+	ASSERT_TRUE(m_source.state().injectionGated);
+
+	m_source.handleNeedData(1, /*requestId=*/123, m_pipelinePtr);
+
+	EXPECT_TRUE(m_source.state().injectionGated);
+}
