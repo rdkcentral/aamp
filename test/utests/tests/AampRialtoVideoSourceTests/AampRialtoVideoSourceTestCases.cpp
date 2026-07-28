@@ -371,10 +371,124 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_TakePendingCodecData_Ret
 TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InvalidateGeneration_BumpsGeneration)
 {
 	uint64_t gen1 = m_source.captureGeneration();
-	m_source.invalidateGeneration();
+	m_source.invalidateGeneration(m_pipelinePtr);
 	uint64_t gen2 = m_source.captureGeneration();
 
 	EXPECT_GT(gen2, gen1);
+}
+
+/**
+ * @test AampRialtoVideoSource_InvalidateGeneration_WithPendingRequestNoInjector_SendsNoAvailableSamples
+ * @brief Verify invalidateGeneration() closes out an abandoned needData
+ *        request with haveData(NO_AVAILABLE_SAMPLES) when no injector is
+ *        active to answer it (e.g. Flush()/Stop() racing a needData that
+ *        arrived just before the pipeline-level seek).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InvalidateGeneration_WithPendingRequestNoInjector_SendsNoAvailableSamples)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(1, /*requestId=*/33, m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 33))
+		.WillOnce(Return(true));
+
+	m_source.invalidateGeneration(m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_InvalidateGeneration_WithInjectorActive_DoesNotRespondItself
+ * @brief Verify invalidateGeneration() does NOT send haveData itself when an
+ *        injector is active — the injector owns the request and must close
+ *        it out when it observes the generation change.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InvalidateGeneration_WithInjectorActive_DoesNotRespondItself)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(1, /*requestId=*/44, m_pipelinePtr);
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.injectorActive = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, haveData(_, _)).Times(0);
+
+	m_source.invalidateGeneration(m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.hasPending);
+	EXPECT_EQ(st.pendingRequestId, 44u);
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_GenerationInvalidatedWhileWaiting_ClosesOutRequest
+ * @brief Verify that when invalidateGeneration() defers to an active
+ *        injector (because a needData was staged concurrently), the
+ *        injector itself sends haveData(NO_AVAILABLE_SAMPLES) for the
+ *        abandoned request when it wakes and aborts.  This is the other
+ *        half of the handshake exercised by the "DoesNotRespondItself"
+ *        test above.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_GenerationInvalidatedWhileWaiting_ClosesOutRequest)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x55, 0x66};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 5.0;
+	sample.mDuration = 0.033;
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 66))
+		.WillOnce(Return(true));
+
+	std::atomic<bool> injected{true};
+	std::thread injector([&]{
+		injected = m_source.injectOneSample(
+			*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	// Give the injector time to enter the wait (injectorActive is now true).
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+	// Stage a pending request as if a needData arrived just before the
+	// flush/seek, then invalidate the generation (as Flush()/Stop() would).
+	// Since the injector is active, invalidateGeneration() must defer the
+	// request to it rather than answering itself.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 66;
+		st.pendingFrameCount = 1;
+	}
+	m_source.invalidateGeneration(m_pipelinePtr);
+
+	injector.join();
+	EXPECT_FALSE(injected.load());
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
 }
 
 // ---------------------------------------------------------------------------
@@ -769,7 +883,7 @@ TEST_F(AampRialtoVideoSourceTest,
 	ASSERT_TRUE(addSegmentReturned.load(std::memory_order_acquire));
 	EXPECT_EQ(m_source.firstPtsMs(), AampRialtoMediaSource::kFirstPtsNotSet);
 
-	m_source.invalidateGeneration();
+	m_source.invalidateGeneration(m_pipelinePtr);
 
 	injector.join();
 

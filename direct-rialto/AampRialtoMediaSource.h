@@ -150,7 +150,18 @@ public:
 
 	/// Bump the pacing generation to abort any in-flight injection batch
 	/// and wake the condition variable.
-	void invalidateGeneration();
+	///
+	/// If a needData request is currently pending and no injector is
+	/// active to answer it, this closes it out immediately with
+	/// haveData(NO_AVAILABLE_SAMPLES) so AAMP never abandons a request
+	/// Rialto is still waiting on.  If an injector *is* active, the
+	/// request is left for that injector to close out itself when it
+	/// observes the generation change (see injectOneSample()).
+	///
+	/// @param pipeline  The active Rialto media pipeline, or nullptr if
+	///                  no pipeline exists for this session (e.g. Stop()
+	///                  called before Configure()).
+	void invalidateGeneration(firebolt::rialto::IMediaPipeline *pipeline);
 
 	// -----------------------------------------------------------------
 	// Source identity
@@ -418,7 +429,6 @@ protected:
 	virtual std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 		createSegment(const AampMediaSample &sample) const = 0;
 
-
 	// -----------------------------------------------------------------
 	// Members
 	// -----------------------------------------------------------------
@@ -443,6 +453,79 @@ protected:
 	/// compare-exchange after addSegment(OK) in injectOneSample().
 	/// kFirstPtsNotSet = not set.
 	std::atomic<int64_t> m_firstPtsMs{kFirstPtsNotSet};
+
+private:
+	// -----------------------------------------------------------------
+	// injectOneSample() helpers
+	// -----------------------------------------------------------------
+
+	/**
+	 * @brief Populate DRM/encryption metadata on a segment.
+	 *
+	 * No-op (other than a trace log) when the sample is not encrypted.
+	 * Logs a warning when the sample is encrypted but no DRM session
+	 * exists (m_mksId < 0).
+	 */
+	void annotateEncryption(
+		const AampMediaSample &sample,
+		firebolt::rialto::IMediaPipeline::MediaSegment &segment) const;
+
+	/**
+	 * @brief Handle an AddSegmentStatus::NO_SPACE result from addSegment().
+	 *
+	 * Closes out the current batch with haveData(OK) or
+	 * haveData(NO_AVAILABLE_SAMPLES) depending on whether any segments
+	 * were already delivered, then leaves the injector waiting for the
+	 * next needData event (does not set injectorActive/done).
+	 */
+	void handleAddSegmentNoSpace(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		uint64_t capturedGen,
+		uint32_t reqId);
+
+	/**
+	 * @brief Handle a non-NO_SPACE AddSegmentStatus result from
+	 *        addSegment() (i.e. the sample was consumed one way or
+	 *        another and this injector is done with it).
+	 *
+	 * Updates firstPtsMs() on success, advances the batch counter, and
+	 * sends haveData(OK) or haveData(EOS) when the batch/stream is
+	 * complete.  Always clears injectorActive.
+	 */
+	void handleAddSegmentCompletion(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		firebolt::rialto::AddSegmentStatus addStatus,
+		uint64_t capturedGen,
+		uint32_t reqId,
+		bool morePending,
+		double samplePts);
+
+	// -----------------------------------------------------------------
+	// Pending-request handshake helpers
+	// -----------------------------------------------------------------
+
+	/**
+	 * @brief Claim the current pending request so the caller can close
+	 *        it out.
+	 *
+	 * Caller must hold m_state.mu.  Clears hasPending and
+	 * segmentsAddedInBatch.  Does not itself send any response — the
+	 * caller decides what status to reply with (or whether it is even
+	 * safe to reply, e.g. only when no injector is active).
+	 *
+	 * @return true if there was a pending request to claim.
+	 */
+	bool claimPendingRequestLocked(uint32_t &outReqId);
+
+	/**
+	 * @brief Send haveData(NO_AVAILABLE_SAMPLES) for a request this
+	 *        source is abandoning (Flush()/Stop()/generation change).
+	 *
+	 * Must be called without holding m_state.mu.
+	 */
+	void respondAbandonedRequest(
+		firebolt::rialto::IMediaPipeline *pipeline,
+		uint32_t reqId);
 };
 
 #endif /* AAMP_RIALTO_MEDIA_SOURCE_H */

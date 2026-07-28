@@ -1121,6 +1121,12 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		/*requestId=*/99, /*shmInfo=*/nullptr);
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+	// The stale needData must not reactivate injection. Verify that here,
+	// before teardown destroys the player - the destructor legitimately
+	// closes out the still-pending request via haveData(NO_AVAILABLE_SAMPLES)
+	// so that expectation must not be checked against the destructor's call.
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
@@ -1144,6 +1150,13 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		/*requestId=*/100, /*shmInfo=*/nullptr);
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+	// Stop() must not resurrect the EOS state and re-fire haveData(EOS, ...).
+	// Verify that here, before teardown destroys the player - the destructor
+	// legitimately closes out the still-pending request via
+	// haveData(NO_AVAILABLE_SAMPLES) so that call must not be checked
+	// against this expectation.
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 }
 
 

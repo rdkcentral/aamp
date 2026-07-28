@@ -289,7 +289,7 @@ AampRialtoPlayer::~AampRialtoPlayer()
 	{
 		if (source)
 		{
-			source->invalidateGeneration();
+			source->invalidateGeneration(m_pipeline.get());
 		}
 	}
 	AAMPLOG_INFO("AampRialtoPlayer: destroyed");
@@ -1198,7 +1198,7 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	{
 		if (source)
 		{
-			source->invalidateGeneration();
+			source->invalidateGeneration(m_pipeline.get());
 			auto &st = source->state();
 			std::lock_guard<std::mutex> lock(st.mu);
 			st.eos = false;
@@ -1268,7 +1268,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		{
 			if (source)
 			{
-				source->invalidateGeneration();
+				source->invalidateGeneration(m_pipeline.get());
 				if (rate == AAMP_NORMAL_PLAY_RATE)
 				{
 					auto &st = source->state();
@@ -1305,7 +1305,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	{
 		if (source)
 		{
-			source->invalidateGeneration();
+			source->invalidateGeneration(m_pipeline.get());
 			auto &st = source->state();
 			std::lock_guard<std::mutex> lock(st.mu);
 			// During trickplay (rate != 1), keep audio EOS'd so the
@@ -1752,7 +1752,7 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 	{
 		if (source)
 		{
-			source->invalidateGeneration();
+			source->invalidateGeneration(m_pipeline.get());
 		}
 	}
 	AAMPLOG_INFO("EXIT");
