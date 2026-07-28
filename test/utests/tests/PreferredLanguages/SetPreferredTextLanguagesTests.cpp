@@ -886,3 +886,38 @@ TEST_F(SetPreferredTextLanguagesTests, Accessibility2)
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"accessibility\":{\"scheme\":\"return_from_mock\",\"string_value\":\"return_from_mock\"}}");
 
 }
+
+/**
+ * @brief Reproduce crash when PopulateAudioAndTextTracks races with
+ *        SetPreferredTextLanguages on separate threads.
+ */
+TEST_F(SetPreferredTextLanguagesTests, CrashWhenPopulateTracksRacesWithSetPreferredText)
+{
+
+	std::vector<TextTrackInfo> emptyTracks;
+
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "eng";
+	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("eng");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
+	mPrivateInstanceAAMP->mCurrentTextTrackIndex = 0;
+
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(emptyTracks));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
+		.WillOnce(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor());
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_, _, _))
+		.Times(::testing::AnyNumber());
+
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"eng\",\"\"],\"sub-type\":\"SUBTITLES\"}");
+
+	/* If we reach here, the bounds check prevented the crash */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "eng,");
+}
