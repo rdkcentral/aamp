@@ -364,6 +364,7 @@ protected:
 			{eAAMPConfig_SuppressDecode, false},
 			{eAAMPConfig_InterruptHandling, false},
 			{eAAMPConfig_useRialtoSink, false},
+			{eAAMPConfig_EnableProducerReferenceDelay, true},
 		};
 
 	BoolConfigSettings mBoolConfigSettings;

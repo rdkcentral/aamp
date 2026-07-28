@@ -58,6 +58,28 @@ AampConfig *gpGlobalConfig{nullptr};
 class FunctionalTestsBase
 {
 protected:
+	class TestableFunctionalStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
+	{
+	public:
+		TestableFunctionalStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp, double seekpos, float rate)
+			: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
+		{
+		}
+
+		void CallSeekInPeriod(double seekPositionSeconds, bool skipToEnd = false)
+		{
+			SeekInPeriod(seekPositionSeconds, skipToEnd);
+		}
+
+		/**
+		 * @brief Expose protected CalculateProducerReferenceTimeOffset for L1 testing.
+		 */
+		double CallCalculateProducerReferenceTimeOffset()
+		{
+			return CalculateProducerReferenceTimeOffset();
+		}
+	};
+
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
@@ -101,6 +123,7 @@ protected:
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_useRialtoSink, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
+		{eAAMPConfig_EnableProducerReferenceDelay, true},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -3503,3 +3526,435 @@ TEST_F(StreamAbstractionAAMP_MPDTest, clearFirstPTS)
 	mStreamAbstractionAAMP_MPD->clearFirstPTS();
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetFirstPTSForTest(), 0.0);
 }
+/**
+ * @brief Verify ParseMPDLLData parses target, min, and max latency from ServiceDescription
+ * and sets them as stream config values.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_SetsLatencyConfigs)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:01.890Z" id="1" maxSegmentDuration="PT2S" minBufferTime="PT2S" minimumUpdatePeriod="P100Y" type="dynamic" profiles="urn:mpeg:dash:profile:full:2011" publishTime="2026-05-21T18:01:14Z" timeShiftBufferDepth="PT30S">
+	<ServiceDescription id="0">
+		<Latency target="3500" min="2000" max="6000"/>
+		<PlaybackRate min="0.9" max="1.1"/>
+	</ServiceDescription>
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="1000" duration="2000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="1280" height="720"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<SegmentTemplate timescale="48000" duration="96000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	AampLLDashServiceData llData;
+	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, 3.5));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, 2.0));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, 6.0));
+
+	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(llData.targetLatency, 3500);
+	EXPECT_EQ(llData.minLatency, 2000);
+	EXPECT_EQ(llData.maxLatency, 6000);
+	EXPECT_DOUBLE_EQ(llData.maxPlaybackRate, 1.1);
+	EXPECT_DOUBLE_EQ(llData.minPlaybackRate, 0.9);
+}
+
+/**
+ * @brief Verify ParseMPDLLData handles manifest with only target latency
+ * (no min/max) and sets only the target config.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_OnlyTargetLatency)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:01.890Z" id="1" maxSegmentDuration="PT2S" minBufferTime="PT2S" minimumUpdatePeriod="P100Y" type="dynamic" profiles="urn:mpeg:dash:profile:full:2011" publishTime="2026-05-21T18:01:14Z" timeShiftBufferDepth="PT30S">
+	<ServiceDescription id="0">
+		<Latency target="4000"/>
+	</ServiceDescription>
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="1000" duration="2000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="1280" height="720"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<SegmentTemplate timescale="48000" duration="96000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	AampLLDashServiceData llData;
+	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, 4.0));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, _)).Times(0);
+
+	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(llData.targetLatency, 4000);
+	EXPECT_EQ(llData.minLatency, 0);
+	EXPECT_EQ(llData.maxLatency, 0);
+}
+
+/**
+ * @brief Verify ParseMPDLLData handles manifest with no ServiceDescription element.
+ * No config values should be set.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_NoServiceDescription)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:01.890Z" id="1" maxSegmentDuration="PT2S" minBufferTime="PT2S" minimumUpdatePeriod="P100Y" type="dynamic" profiles="urn:mpeg:dash:profile:full:2011" publishTime="2026-05-21T18:01:14Z" timeShiftBufferDepth="PT30S">
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="1000" duration="2000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="1280" height="720"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<SegmentTemplate timescale="48000" duration="96000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	AampLLDashServiceData llData;
+	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, _)).Times(0);
+
+	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(llData.targetLatency, 0);
+	EXPECT_EQ(llData.minLatency, 0);
+	EXPECT_EQ(llData.maxLatency, 0);
+}
+
+/**
+ * @brief Verify ParseMPDLLData handles manifest with no Latency element in ServiceDescription.
+ * PlaybackRate values should still be parsed.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_NoLatencyElement)
+{
+	static const char *manifest =
+		R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:01.890Z" id="1" maxSegmentDuration="PT2S" minBufferTime="PT2S" minimumUpdatePeriod="P100Y" type="dynamic" profiles="urn:mpeg:dash:profile:full:2011" publishTime="2026-05-21T18:01:14Z" timeShiftBufferDepth="PT30S">
+	<ServiceDescription id="0">
+		<PlaybackRate min="0.95" max="1.05"/>
+	</ServiceDescription>
+	<Period id="1" start="PT0S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="1000" duration="2000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="v1" bandwidth="1000000" codecs="avc1.640028" width="1280" height="720"/>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="audio" mimeType="audio/mp4">
+			<SegmentTemplate timescale="48000" duration="96000" initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/>
+			<Representation id="a1" bandwidth="128000" codecs="mp4a.40.2" audioSamplingRate="48000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mManifest = manifest;
+	ManifestDownloadResponsePtr response = GetManifestForMPDDownloader();
+	ASSERT_NE(response, nullptr);
+	ASSERT_NE(response->mMPDInstance.get(), nullptr);
+
+	ASSERT_EQ(mStreamAbstractionAAMP_MPD->CallGetMPDFromManifest(response, false), eAAMPSTATUS_OK);
+
+	AampLLDashServiceData llData;
+	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
+
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, _)).Times(0);
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, _)).Times(0);
+
+	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(llData.targetLatency, 0);
+	EXPECT_DOUBLE_EQ(llData.maxPlaybackRate, 1.05);
+	EXPECT_DOUBLE_EQ(llData.minPlaybackRate, 0.95);
+}
+
+/**
+ * @brief CalculateProducerReferenceTimeOffset — positive encoder delay.
+ *
+ * The PRT wallClockTime (9.033 s) is slightly before the ideal DASH
+ * timeline position for the first segment (Period@start = PT10S, AST = epoch
+ * zero).  The expected encoder delay is:
+ *
+ *   (periodStartTime - actualWallClockAtPts0) * 1000
+ *   = (10.0 - 9.033) * 1000
+ *   = 967 ms
+ *
+ * A positive delay means the encoder captured the frame slightly before the
+ * ideal live-edge wall-clock position, so the player must add this offset to
+ * the reported live latency.
+ */
+TEST_F(FunctionalTests, CalculateProducerReferenceTimeOffset_PositiveDelay)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     availabilityStartTime="1970-01-01T00:00:00Z"
+     type="static"
+     mediaPresentationDuration="PT20S">
+  <Period start="PT10S">
+    <AdaptationSet contentType="video">
+      <ProducerReferenceTime id="0" type="encoder"
+          wallClockTime="1970-01-01T00:00:09.033Z"
+          presentationTime="0"/>
+      <Representation id="1" mimeType="video/mp4" bandwidth="1000000">
+        <SegmentTemplate timescale="90000"
+            media="video_$Number$.m4s"
+            initialization="video_init.mp4"
+            startNumber="0">
+          <SegmentTimeline>
+            <S t="0" d="360000" r="4"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(std::string(TEST_BASE_URL) + "video_init.mp4", _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+	ASSERT_EQ(InitializeMPD(manifest), eAAMPSTATUS_OK);
+
+	auto *testable = static_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+	double result = testable->CallCalculateProducerReferenceTimeOffset();
+
+	/* Oracle: (10.0 - 9.033) * 1000 = 967 ms */
+	EXPECT_NEAR(result, 967.0, 1.0);
+}
+
+/**
+ * @brief CalculateProducerReferenceTimeOffset — negative encoder delay.
+ *
+ * The PRT wallClockTime (10.5 s) is past the ideal DASH timeline position
+ * for the first segment (Period@start = PT10S, AST = epoch zero), indicating
+ * the encoder's clock is running slightly ahead of the broadcast schedule.
+ * The expected encoder delay is:
+ *
+ *   (10.0 - 10.5) * 1000 = -500 ms
+ *
+ * A negative value is valid; it means live latency should be reduced by
+ * this magnitude.
+ */
+TEST_F(FunctionalTests, CalculateProducerReferenceTimeOffset_NegativeDelay)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     availabilityStartTime="1970-01-01T00:00:00Z"
+     type="static"
+     mediaPresentationDuration="PT20S">
+  <Period start="PT10S">
+    <AdaptationSet contentType="video">
+      <ProducerReferenceTime id="0" type="encoder"
+          wallClockTime="1970-01-01T00:00:10.500Z"
+          presentationTime="0"/>
+      <Representation id="1" mimeType="video/mp4" bandwidth="1000000">
+        <SegmentTemplate timescale="90000"
+            media="video_$Number$.m4s"
+            initialization="video_init.mp4"
+            startNumber="0">
+          <SegmentTimeline>
+            <S t="0" d="360000" r="4"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(std::string(TEST_BASE_URL) + "video_init.mp4", _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+	ASSERT_EQ(InitializeMPD(manifest), eAAMPSTATUS_OK);
+
+	auto *testable = static_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+	double result = testable->CallCalculateProducerReferenceTimeOffset();
+
+	/* Oracle: (10.0 - 10.5) * 1000 = -500 ms */
+	EXPECT_NEAR(result, -500.0, 1.0);
+}
+
+/**
+ * @brief CalculateProducerReferenceTimeOffset — culled sliding-window segments.
+ *
+ * In a live stream, older segments are continuously removed from the timeline
+ * (the sliding window).  Here the first still-available segment starts at
+ * pts0 = 1 800 000 ticks (20 s @ 90 kHz), while the PRT anchor is at
+ * presentationTime = 0.  The function must account for the drift between the
+ * PRT anchor and the first available segment on both sides of the formula:
+ *
+ *   actualWallClockAtPts0 = PRT_WCT + (pts0 - PRT_PT) / ts
+ *                         = 99.033  + 1 800 000 / 90 000
+ *                         = 119.033 s
+ *
+ *   periodStartTime = AST + T0 + (pts0 - PTO) / ts
+ *                   =  0  + 100 + 20 = 120.0 s
+ *
+ *   encoderDelayMs  = (120.0 - 119.033) * 1000 = 967 ms
+ *
+ * Because pts0 enters identically into both terms it cancels out, confirming
+ * that the formula is robust to any degree of timeline culling.
+ */
+TEST_F(FunctionalTests, CalculateProducerReferenceTimeOffset_CulledSegments)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     availabilityStartTime="1970-01-01T00:00:00Z"
+     type="static"
+     mediaPresentationDuration="PT120S">
+  <Period start="PT100S">
+    <AdaptationSet contentType="video">
+      <ProducerReferenceTime id="0" type="encoder"
+          wallClockTime="1970-01-01T00:01:39.033Z"
+          presentationTime="0"/>
+      <Representation id="1" mimeType="video/mp4" bandwidth="1000000">
+        <SegmentTemplate timescale="90000"
+            media="video_$Number$.m4s"
+            initialization="video_init.mp4"
+            startNumber="0">
+          <SegmentTimeline>
+            <S t="1800000" d="360000" r="4"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(std::string(TEST_BASE_URL) + "video_init.mp4", _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+	ASSERT_EQ(InitializeMPD(manifest), eAAMPSTATUS_OK);
+
+	auto *testable = static_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+	double result = testable->CallCalculateProducerReferenceTimeOffset();
+
+	/* Oracle: (120.0 - 119.033) * 1000 = 967 ms */
+	EXPECT_NEAR(result, 967.0, 1.0);
+}
+
+/**
+ * @brief CalculateProducerReferenceTimeOffset — non-zero presentationTimeOffset
+ *        pointing into the middle of a segment.
+ *
+ * The SegmentTemplate carries presentationTimeOffset="90000" (= 1 s at 90 kHz)
+ * which is a mid-segment anchor: segments are 4 s each (360 000 ticks), so
+ * t=0 … 360 000 is the first segment and the PTO falls inside it.
+ *
+ * The first entry still available in the SegmentTimeline starts at
+ * t="450000" (= 5 s), simulating a stream where earlier segments have been
+ * culled.  The PRT anchor is at presentationTime=0.
+ *
+ * Period start correction from aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset:
+ *   delta  = (pts0 − PTO) / ts = (450 000 − 90 000) / 90 000 = 4.0 s
+ *   periodStart = AST + T0 + delta = 0 + 10 + 4 = 14.0 s
+ *
+ * Actual wall-clock at pts0 from CalculateProducerReferenceTimeOffset:
+ *   deltaWCT            = (pts0 − PRT_PT) / ts = 450 000 / 90 000 = 5.0 s
+ *   actualWallClockAtPts0 = PRT_WCT + 5.0 = 8.25 + 5.0 = 13.25 s
+ *
+ *   encoderDelayMs = (14.0 − 13.25) × 1000 = 750 ms
+ *
+ * This exercises the PTO-aware branch of GetPeriodStartTime and confirms that
+ * the asymmetry between (pts0 − PTO) used there and (pts0 − PRT_PT) used in
+ * the encoder-delay formula is correctly preserved.
+ */
+TEST_F(FunctionalTests, CalculateProducerReferenceTimeOffset_PresentationTimeOffset)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"
+     availabilityStartTime="1970-01-01T00:00:00Z"
+     type="static"
+     mediaPresentationDuration="PT25S">
+  <Period start="PT10S">
+    <AdaptationSet contentType="video">
+      <ProducerReferenceTime id="0" type="encoder"
+          wallClockTime="1970-01-01T00:00:08.250Z"
+          presentationTime="0"/>
+      <Representation id="1" mimeType="video/mp4" bandwidth="1000000">
+        <SegmentTemplate timescale="90000"
+            presentationTimeOffset="90000"
+            media="video_$Number$.m4s"
+            initialization="video_init.mp4"
+            startNumber="0">
+          <SegmentTimeline>
+            <S t="450000" d="360000" r="4"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>
+)";
+
+	EXPECT_CALL(*g_mockMediaStreamContext,
+		CacheFragment(std::string(TEST_BASE_URL) + "video_init.mp4", _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+
+	ASSERT_EQ(InitializeMPD(manifest), eAAMPSTATUS_OK);
+
+	auto *testable = static_cast<TestableFunctionalStreamAbstractionAAMP_MPD *>(mStreamAbstractionAAMP_MPD);
+	double result = testable->CallCalculateProducerReferenceTimeOffset();
+
+	/* Oracle: (14.0 - 13.25) * 1000 = 750 ms */
+	EXPECT_NEAR(result, 750.0, 1.0);
+}
+

@@ -1233,6 +1233,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, subTimeScale(0)
 	, speedCache {}
 	, mCurrentLatency(0)
+	, mEncoderDelay(0)
 	, mLiveOffsetAppRequest(false)
 	, bLowLatencyStartABR(false)
 	, mEventManager (NULL)
@@ -2203,7 +2204,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		{
 			if(mFirstFragmentTimeOffset > 0)
 			{
-				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition()));
+				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition())) + mEncoderDelay;
 				if(mProgressReportOffset >= 0)
 				{
 					// Correction with progress offset
@@ -9213,7 +9214,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 		// To send an event to app we convert the URL scheme to "https" by replacing the prefix which is the CDN url sent from app
 		url.replace(0,4,"http");
 	}
-	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url);
+	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url, mEncoderDelay / 1000.0);
 
 	for (auto iter = langList.begin(); iter != langList.end(); iter++)
 	{
@@ -10274,7 +10275,6 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
-
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
