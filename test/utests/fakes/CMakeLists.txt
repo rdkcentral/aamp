@@ -20,8 +20,18 @@ file(GLOB fakes_SRC "*.cpp")
 set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")
 
-# External middleware headers - MUST be first so AAMP headers can find middleware dependencies
-include_directories(${AAMP_ROOT}/.libs/include)
+# Middleware headers - use external middleware-player-interface if available via pkg-config
+# Otherwise fall back to .libs/include (created by install-aamp.sh)
+if(PLAYERFBINTERFACE_INCLUDE_DIRS)
+	# External middleware via pkg-config (preferred for CI and modern builds)
+	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
+	include_directories(${BASECONVERSION_INCLUDE_DIRS})
+	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
+	include_directories(${SUBTEC_INCLUDE_DIRS})
+elseif(EXISTS ${AAMP_ROOT}/.libs/include)
+	# .libs/include created by install-aamp.sh (for local builds)
+	include_directories(${AAMP_ROOT}/.libs/include)
+endif()
 
 # AAMP source directories
 include_directories(${AAMP_ROOT})
@@ -58,7 +68,9 @@ endif()
 
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(${AAMP_ROOT}/.libs/systemd/src)
+    if(EXISTS ${AAMP_ROOT}/.libs/systemd/src)
+        include_directories(${AAMP_ROOT}/.libs/systemd/src)
+    endif()
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 add_library(fakes ${fakes_SRC} ${middleware_fakes_SRC})

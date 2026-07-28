@@ -29,6 +29,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
+# Note: Middleware include paths are now handled conditionally in:
+# - fakes/CMakeLists.txt (for fakes library)
+# - tests/CommonTestIncludes.cmake (for individual test targets)
+# This allows using external middleware-player-interface when available
 
 find_package(PkgConfig REQUIRED)
 
@@ -70,6 +74,13 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
+# External middleware-player-interface libraries (optional for backward compatibility)
+# When available via pkg-config, these are preferred over internal aamp/middleware
+pkg_check_modules(PLAYERFBINTERFACE libplayerfbinterface)
+pkg_check_modules(BASECONVERSION libbaseconversion)
+pkg_check_modules(PLAYERLOGMANAGER libplayerlogmanager)
+pkg_check_modules(SUBTEC libsubtec)
+
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	pkg_search_module(JSCORE REQUIRED javascriptcoregtk-4.1 javascriptcoregtk-4.0)
 	find_path (JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${JSCORE_INCLUDE_DIRS} REQUIRED)
@@ -108,6 +119,18 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../common")
 if (CMAKE_PLATFORM_UBUNTU)
 	link_directories(${GTEST_LIBRARY_DIRS} ${GMOCK_LIBRARY_DIRS})
 endif()
+
+# Fetch googletest via FetchContent to ensure all test targets use the same version
+# This must happen before add_subdirectory(tests) so that gtest/gmock CMake targets
+# are available to all test subdirectories
+include(FetchContent)
+FetchContent_Declare(
+	googletest
+	URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
 
 function(aamp_utest_run_add test_suite)
 	if (CMAKE_RDKE_TEST_RUN)

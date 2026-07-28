@@ -24,7 +24,6 @@ include_directories(${AAMP_ROOT}
                     ${AAMP_ROOT}/drm/helper 
                     ${AAMP_ROOT}/downloader 
                     ${AAMP_ROOT}/subtitle
-                    ${AAMP_ROOT}/middleware
                     ${AAMP_ROOT}/tsb/api
                     ${AAMP_ROOT}/isobmff
                     ${AAMP_ROOT}/subtec/subtecparser
@@ -40,21 +39,31 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
-# Middleware specific includes
-# Pretty print below for better readability
-include_directories(${AAMP_ROOT}/middleware
-                    ${AAMP_ROOT}/middleware/playerisobmff
-                    ${AAMP_ROOT}/middleware/subtitle
-                    ${AAMP_ROOT}/middleware/subtec/subtecparser
-                    ${AAMP_ROOT}/middleware/subtec/libsubtec
-                    ${AAMP_ROOT}/middleware/playerjsonobject
-                    ${AAMP_ROOT}/middleware/closedcaptions
-                    ${AAMP_ROOT}/middleware/drm
-                    ${AAMP_ROOT}/middleware/externals
-                    ${AAMP_ROOT}/middleware/externals/contentsecuritymanager
-                    ${AAMP_ROOT}/middleware/baseConversion
-                    ${AAMP_ROOT}/middleware/playerLogManager
-                    ${AAMP_ROOT}/middleware/vendor)
+# Middleware headers - use external middleware-player-interface via pkg-config
+# These variables are set in parent test/utests/CMakeLists.txt
+# For legacy builds without external middleware, fall back to internal paths
+if(PLAYERFBINTERFACE_INCLUDE_DIRS)
+	# External middleware (preferred)
+	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
+	include_directories(${BASECONVERSION_INCLUDE_DIRS})
+	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
+	include_directories(${SUBTEC_INCLUDE_DIRS})
+else()
+	# Internal middleware paths (deprecated, for legacy builds only)
+	include_directories(${AAMP_ROOT}/middleware
+	                    ${AAMP_ROOT}/middleware/playerisobmff
+	                    ${AAMP_ROOT}/middleware/subtitle
+	                    ${AAMP_ROOT}/middleware/subtec/subtecparser
+	                    ${AAMP_ROOT}/middleware/subtec/libsubtec
+	                    ${AAMP_ROOT}/middleware/playerjsonobject
+	                    ${AAMP_ROOT}/middleware/closedcaptions
+	                    ${AAMP_ROOT}/middleware/drm
+	                    ${AAMP_ROOT}/middleware/externals
+	                    ${AAMP_ROOT}/middleware/externals/contentsecuritymanager
+	                    ${AAMP_ROOT}/middleware/baseConversion
+	                    ${AAMP_ROOT}/middleware/playerLogManager
+	                    ${AAMP_ROOT}/middleware/vendor)
+endif()
 
 # std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
 # GCC emits __atomic_load_16 / __atomic_store_16 requiring the atomic support
