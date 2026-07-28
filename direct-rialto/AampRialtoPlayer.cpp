@@ -1168,11 +1168,16 @@ void AampRialtoPlayer::Stream()
 		if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
 		{
 			m_playRequested.store(false, std::memory_order_relaxed);
+			// Ungate unconditionally - Stream() is the point at which
+			// playback is genuinely about to (re)start, regardless of
+			// whether the state machine already happens to report
+			// PLAYING.  Only the play() IPC call itself is skipped when
+			// already PLAYING, to avoid a redundant call.
+			UngateAllSources("Stream");
 			if (m_stateMachine.currentState() != PlayerStateId::PLAYING)
 			{
 				// allSourcesAttached() already completed before this call -
 				// promote to PLAYING immediately.
-				UngateAllSources("Stream");
 				bool async = false;
 				if (!m_pipeline->play(async))
 				{

@@ -1820,6 +1820,37 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_AlreadyPlaying_ClearsInjectionGatedWithoutRedundantPlay)
+{
+	/**
+	 * @brief Regression: UngateAllSources() must be called unconditionally
+	 *        in Stream() - not only when promoting to PLAYING - so a
+	 *        second Stream() call (e.g. immediately following a Flush()
+	 *        that already restored PLAYING) still clears a gate left set
+	 *        by that flush.  play() itself must still be skipped since the
+	 *        pipeline is already playing.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated = true;
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	m_player->Stream();
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
 	CheckAllSourcesAttached_DeferredPlay_ClearsInjectionGatedOnAllSources)
 {
 	/**
