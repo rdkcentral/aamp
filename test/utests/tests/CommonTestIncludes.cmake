@@ -48,21 +48,21 @@ if(PLAYERFBINTERFACE_INCLUDE_DIRS)
 	include_directories(${BASECONVERSION_INCLUDE_DIRS})
 	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
 	include_directories(${SUBTEC_INCLUDE_DIRS})
-elseif(EXISTS ${AAMP_ROOT}/../middleware-player-interface)
-	# Middleware from sibling directory (GitHub Actions CI)
-	include_directories(${AAMP_ROOT}/../middleware-player-interface
-	                    ${AAMP_ROOT}/../middleware-player-interface/playerisobmff
-	                    ${AAMP_ROOT}/../middleware-player-interface/subtitle
-	                    ${AAMP_ROOT}/../middleware-player-interface/subtec/subtecparser
-	                    ${AAMP_ROOT}/../middleware-player-interface/subtec/libsubtec
-	                    ${AAMP_ROOT}/../middleware-player-interface/playerjsonobject
-	                    ${AAMP_ROOT}/../middleware-player-interface/closedcaptions
-	                    ${AAMP_ROOT}/../middleware-player-interface/drm
-	                    ${AAMP_ROOT}/../middleware-player-interface/externals
-	                    ${AAMP_ROOT}/../middleware-player-interface/externals/contentsecuritymanager
-	                    ${AAMP_ROOT}/../middleware-player-interface/baseConversion
-	                    ${AAMP_ROOT}/../middleware-player-interface/playerLogManager
-	                    ${AAMP_ROOT}/../middleware-player-interface/vendor)
+elseif(EXISTS ${AAMP_ROOT}/middleware-player-interface)
+	# Middleware from aamp/middleware-player-interface (GitHub Actions CI)
+	include_directories(${AAMP_ROOT}/middleware-player-interface
+	                    ${AAMP_ROOT}/middleware-player-interface/playerisobmff
+	                    ${AAMP_ROOT}/middleware-player-interface/subtitle
+	                    ${AAMP_ROOT}/middleware-player-interface/subtec/subtecparser
+	                    ${AAMP_ROOT}/middleware-player-interface/subtec/libsubtec
+	                    ${AAMP_ROOT}/middleware-player-interface/playerjsonobject
+	                    ${AAMP_ROOT}/middleware-player-interface/closedcaptions
+	                    ${AAMP_ROOT}/middleware-player-interface/drm
+	                    ${AAMP_ROOT}/middleware-player-interface/externals
+	                    ${AAMP_ROOT}/middleware-player-interface/externals/contentsecuritymanager
+	                    ${AAMP_ROOT}/middleware-player-interface/baseConversion
+	                    ${AAMP_ROOT}/middleware-player-interface/playerLogManager
+	                    ${AAMP_ROOT}/middleware-player-interface/vendor)
 else()
 	# Internal middleware paths (deprecated, for legacy builds only)
 	include_directories(${AAMP_ROOT}/middleware
