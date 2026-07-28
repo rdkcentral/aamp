@@ -154,6 +154,7 @@ protected:
 	void ExecuteAsyncTask();
 
 	std::deque<PlayerAsyncTaskObj> mTaskQueue;	/**< Queue for storing scheduled tasks */
+	std::mutex mLifecycleMutex;		/**< Serializes StartScheduler/StopScheduler transitions */
 	std::mutex mQMutex;			/**< Mutex for accessing mTaskQueue */
 	std::condition_variable mQCond;		/**< To notify when a task is queued in mTaskQueue */
 	bool mSchedulerRunning;			/**< Flag denotes if scheduler thread is running */

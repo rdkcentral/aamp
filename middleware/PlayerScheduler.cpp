@@ -58,11 +58,57 @@ std::size_t GetPlayerThreadID( const std::thread &t )
  */
 void PlayerScheduler::StartScheduler()
 {
-	//Turn on thread for processing async operations
-	std::lock_guard<std::mutex>lock(mQMutex);
-	mSchedulerThread = std::thread(std::bind(&PlayerScheduler::ExecuteAsyncTask, this));
-	mSchedulerRunning = true;
-	MW_LOG_INFO("Thread created Async Worker [%zx]", GetPlayerThreadID(mSchedulerThread));
+	std::lock_guard<std::mutex> lifecycleLock(mLifecycleMutex);
+	bool shouldJoinPreviousThread = false;
+	{
+		std::lock_guard<std::mutex> lock(mQMutex);
+
+		if (mSchedulerRunning)
+		{
+			MW_LOG_INFO("StartScheduler ignored: scheduler is already running");
+			return;
+		}
+
+		if (mSchedulerThread.joinable())
+		{
+			if (std::this_thread::get_id() == mSchedulerThread.get_id())
+			{
+				// Restart-in-place: StopScheduler() may be called from a scheduler
+				// task. In that path, creating a new std::thread would call
+				// std::terminate because mSchedulerThread is still joinable.
+				mSchedulerRunning = true;
+				mQCond.notify_one();
+				MW_LOG_WARN("StartScheduler called from scheduler thread; reusing existing worker thread");
+				return;
+			}
+
+			// Join the previously stopped worker before assigning a new thread
+			// object to avoid std::terminate on thread reassignment.
+			shouldJoinPreviousThread = true;
+		}
+	}
+
+	if (shouldJoinPreviousThread)
+	{
+		mSchedulerThread.join();
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(mQMutex);
+		if (mSchedulerRunning)
+		{
+			MW_LOG_INFO("StartScheduler ignored after transition: scheduler is already running");
+			return;
+		}
+		if (mSchedulerThread.joinable())
+		{
+			MW_LOG_WARN("StartScheduler aborted: scheduler thread is still joinable after transition");
+			return;
+		}
+		mSchedulerThread = std::thread(std::bind(&PlayerScheduler::ExecuteAsyncTask, this));
+		mSchedulerRunning = true;
+		MW_LOG_INFO("Thread created Async Worker [%zx]", GetPlayerThreadID(mSchedulerThread));
+	}
 }
 
 /**
@@ -71,9 +117,9 @@ void PlayerScheduler::StartScheduler()
 int PlayerScheduler::ScheduleTask(PlayerAsyncTaskObj obj)
 {
 	int id = PLAYER_TASK_ID_INVALID;
+	std::lock_guard<std::mutex>lock(mQMutex);
 	if (mSchedulerRunning)
 	{
-		std::lock_guard<std::mutex>lock(mQMutex);
 		if (!mLockOut)
 		{
 			id = mNextTaskId++;
@@ -172,6 +218,7 @@ void PlayerScheduler::RemoveAllTasks()
  */
 void PlayerScheduler::StopScheduler()
 {
+	std::lock_guard<std::mutex> lifecycleLock(mLifecycleMutex);
 	MW_LOG_WARN("Stopping Async Worker Thread");
 	const bool calledFromSchedulerThread =
 		(mSchedulerThread.joinable() && (std::this_thread::get_id() == mSchedulerThread.get_id()));
@@ -183,7 +230,10 @@ void PlayerScheduler::StopScheduler()
 	}
 
 	// Clean up things in queue
-	mSchedulerRunning = false;
+	{
+		std::lock_guard<std::mutex> lock(mQMutex);
+		mSchedulerRunning = false;
+	}
 
 	//allow StopScheduler() to be called without warning from a nonsuspended state and
 	//not cause an error in ResumeScheduler() below due to trying to unlock an unlocked lock
