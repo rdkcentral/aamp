@@ -22,6 +22,9 @@ jobs:
       - name: Clone Middleware repo
         run: |
           git clone https://github.com/rdkcentral/middleware-player-interface
+          cd middleware-player-interface
+          git checkout bd2b3b1
+          patch -p1 < ../OSX/patches/middleware-fixes-4c1d90a.patch
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
