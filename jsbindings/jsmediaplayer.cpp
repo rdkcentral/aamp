@@ -558,7 +558,6 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			aamp_ApplyPageHttpHeaders(privObj->_aamp);
 
 			{
-				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
 				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
 				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStitchingMode, std::move(sid),manifestbuffer);
 
@@ -576,6 +575,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 
         LOG_TRACE("Exit..");
         SAFE_DELETE_ARRAY(url);
+        SAFE_DELETE_ARRAY(url2);
         SAFE_DELETE_ARRAY(contentType);
         SAFE_DELETE_ARRAY(strTraceId);
 	SAFE_DELETE_ARRAY(manifestbuffer);
@@ -1781,9 +1781,9 @@ JSValueRef AAMPMediaPlayerJS_setTextTrack (JSContextRef ctx, JSObjectRef functio
 		else if (!JSValueIsNumber(ctx, arguments[0]))
 		{
 			// note, here, first parameter is not used, only the passed WebVTT data
-			// note: SetTextTrack() will responsibility for releasing data when no longer needed
 			char *data = aamp_JSValueToCString(ctx, arguments[0], exception);
-			privObj->_aamp->SetTextTrack(0, std::move(data));
+			privObj->_aamp->SetTextTrack(0, data);
+			SAFE_DELETE_ARRAY(data);
 			bRet = true;
 		}
 		else
