@@ -125,9 +125,9 @@ export AAMP_flightDataRecorderMaxSeconds=60
 
 ## Memory Usage
 
-- Fixed allocation: ~5MB (5000 entries × ~1KB per entry)
-- No dynamic allocation during operation
-- Pre-allocated at initialization
+- Fixed ring capacity (number of entries): configured by `flightDataRecorderMaxLines`
+- `std::string` fields may allocate during `AddEntry()` depending on message/source length
+- Entries are created at initialization, but message storage is not fixed-size
 
 ## Thread Safety
 
