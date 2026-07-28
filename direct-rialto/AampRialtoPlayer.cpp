@@ -2029,22 +2029,37 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			m_stateMachine.onFlushComplete();
 			m_flushCv.notify_all();
 
-			// Issue play() if Stream() was called while the flush was in
-			// progress and the restored state is not already PLAYING.
-			// Rialto also emits PLAYING automatically after SEEK_DONE for
-			// seek-while-playing; a redundant play() call is harmless.
-			// seek-while-paused is handled correctly: Stream() is not
-			// called in that path so m_playRequested stays false.
-			const bool shouldPlay =
-				m_stateMachine.currentState() != PlayerStateId::PLAYING &&
+			// Ungate if Stream() was called while the flush was in progress,
+			// regardless of what onFlushComplete() just restored.  For
+			// seek-while-playing, the pre-flush (and thus restored) state is
+			// already PLAYING, so this is the only guaranteed point that
+			// ungates sources — waiting for a subsequent "redundant" Rialto
+			// PLAYING notification is an assumption, not a guarantee, and
+			// must not be relied on to avoid leaving sources gated forever.
+			// seek-while-paused is handled correctly: Stream() is not called
+			// in that path so m_playRequested stays false and the gate is
+			// left for the later Pause(false)/StopBuffering() to clear.
+			const bool playRequested =
 				m_playRequested.load(std::memory_order_seq_cst);
 			m_playRequested.store(false, std::memory_order_relaxed);
+
+			if (playRequested)
+			{
+				UngateAllSources("OnPlaybackState(SEEK_DONE)");
+			}
+
+			// Only actually issue play() if the restored state is not
+			// already PLAYING - Rialto emits PLAYING automatically after
+			// SEEK_DONE for seek-while-playing, so an explicit play() call
+			// here would be redundant (harmless, but unnecessary).
+			const bool shouldPlay =
+				m_stateMachine.currentState() != PlayerStateId::PLAYING &&
+				playRequested;
 
 			if (shouldPlay)
 			{
 				AAMPLOG_INFO("SEEK_DONE: issuing play() (state=%s)",
 					m_stateMachine.currentStateName());
-				UngateAllSources("OnPlaybackState(SEEK_DONE)");
 				bool async = false;
 				if (!m_pipeline->play(async))
 				{

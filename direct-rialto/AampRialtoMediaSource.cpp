@@ -360,30 +360,75 @@ bool AampRialtoMediaSource::injectOneSample(
 	}
 
 	bool done = alreadyAtEos;
+
+	if (!done)
+	{
+		// Block here — rather than dropping the sample — if it was
+		// captured while injectionGated was already set for the current
+		// generation (Stream() was called while a flush was still in
+		// progress, so play() is deferred and the gate has not been
+		// cleared yet: see AampRialtoPlayer::Stream()).  This is
+		// genuinely-wanted playback data, not stale data, so it must not
+		// be discarded merely because it arrived a little early.
+		//
+		// injectionGated can only transition false->true together with a
+		// generation bump (see invalidateGeneration()); clearInjectionGate()
+		// never touches generation.  So once we observe
+		// generation == capturedGen && !injectionGated below, the gate
+		// cannot be re-set again without also invalidating capturedGen —
+		// meaning the generation check in the main loop below is already
+		// sufficient to catch any newer flush that supersedes this sample.
+		bool     bailedOut    = false;
+		bool     abortPending = false;
+		uint32_t abortReqId   = 0;
+		{
+			std::unique_lock<std::mutex> lock(m_state.mu);
+			m_state.cv.wait(lock, [&]{
+				return m_state.generation != capturedGen ||
+				       !m_state.injectionGated;
+			});
+			if (m_state.generation != capturedGen)
+			{
+				// Superseded by a newer flush while waiting for the gate
+				// to clear — now genuinely stale, discard it.
+				abortPending = claimPendingRequestLocked(abortReqId);
+				m_state.injectorActive = false;
+				bailedOut = true;
+			}
+		}
+		if (bailedOut)
+		{
+			AAMPLOG_INFO("injector bailing out while waiting for ungate "
+				"sourceId=%d - superseded by a newer flush, "
+				"abandonedRequestId=%u",
+				m_sourceId, abortPending ? abortReqId : 0);
+			if (abortPending)
+			{
+				respondAbandonedRequest(&pipeline, abortReqId);
+			}
+			done = true;
+		}
+	}
+
 	while (!done)
 	{
 		uint32_t reqId        = 0;
 		bool     bailedOut    = false;
 		bool     abortPending = false;
 		uint32_t abortReqId   = 0;
-		bool     bailGenMismatch = false;
-		bool     bailGated       = false;
 		{
 			std::unique_lock<std::mutex> lock(m_state.mu);
 			m_state.cv.wait(lock, [&]{
 				return m_state.generation != capturedGen ||
-				       m_state.injectionGated ||
 				       m_state.hasPending;
 			});
-			if (m_state.generation != capturedGen || m_state.injectionGated)
+			if (m_state.generation != capturedGen)
 			{
 				// This injector is unconditionally abandoning its slot.
 				// invalidateGeneration() deferred responsibility to us
 				// (we were the active injector) — if a request is still
 				// pending, no other path will ever close it out, so we
 				// must respond ourselves once the lock is released.
-				bailGenMismatch = (m_state.generation != capturedGen);
-				bailGated       = m_state.injectionGated;
 				abortPending = claimPendingRequestLocked(abortReqId);
 				m_state.injectorActive = false;
 				bailedOut = true;
@@ -396,10 +441,9 @@ bool AampRialtoMediaSource::injectOneSample(
 
 		if (bailedOut)
 		{
-			AAMPLOG_INFO("injector bailing out sourceId=%d generationMismatch=%d "
-				"injectionGated=%d abandonedRequestId=%u",
-				m_sourceId, bailGenMismatch, bailGated,
-				abortPending ? abortReqId : 0);
+			AAMPLOG_INFO("injector bailing out sourceId=%d generation changed - "
+				"abandonedRequestId=%u",
+				m_sourceId, abortPending ? abortReqId : 0);
 		}
 
 		if (abortPending)
@@ -731,10 +775,13 @@ void AampRialtoMediaSource::handleNeedData(
 			// legitimately send needData while a multi-step Configure()/
 			// Flush() sequence is still in progress; clearing the gate on
 			// its arrival would let stale-position data slip through
-			// before the sequence completes.  If the gate is still set when
-			// an injector next runs, this request will be answered with
-			// haveData(NO_AVAILABLE_SAMPLES) — see injectOneSample() — and
-			// Rialto is expected to retry once playback genuinely resumes.
+			// before the sequence completes.  If the gate is still set
+			// when an injector next runs, it now blocks (rather than
+			// answering NO_AVAILABLE_SAMPLES immediately) until the gate
+			// clears or a newer flush supersedes it — see the
+			// wait-for-ungate step at the top of injectOneSample() — so
+			// this request is answered once playback genuinely resumes,
+			// without AAMP having to resend the sample.
 			m_state.hasPending          = true;
 			m_state.pendingRequestId    = requestId;
 			m_state.pendingFrameCount   = std::max<size_t>(frameCount, 1);
@@ -756,7 +803,8 @@ void AampRialtoMediaSource::handleNeedData(
 		if (stagedGated)
 		{
 			AAMPLOG_INFO("sourceId=%d requestId=%u staged while injectionGated=true - "
-				"response will be NO_AVAILABLE_SAMPLES until the gate clears",
+				"will be held until the gate clears (or discarded if superseded "
+				"by a newer flush)",
 				m_sourceId, requestId);
 		}
 		m_state.cv.notify_all();

@@ -1919,6 +1919,120 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
 }
 
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_BlockedByFlushGate_InjectsOnceGateClearsAfterStream)
+{
+	/**
+	 * @brief Regression: reproduces AAMP's real Flush()->Stream()->
+	 *        SendSample() sequence where Stream() is called while a flush
+	 *        is still completing (play() deferred, injectionGated not yet
+	 *        cleared).  SendSample() must BLOCK the sample until the gate
+	 *        clears, not drop it - it is genuinely-wanted playback data,
+	 *        not stale data.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+
+	// Stream() while FLUSHING defers play() without clearing the gate.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+
+	// SendSample() called now (matching AAMP's real Flush()->Stream()->
+	// SendSample() sequence) must block rather than drop the sample.
+	std::atomic<bool> sendDone{false};
+	std::atomic<bool> sendResult{false};
+	std::thread sender([this, &sendDone, &sendResult]() {
+		sendResult = m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(5.0, 0.033));
+		sendDone = true;
+	});
+
+	WaitFor([&sendDone]{ return sendDone.load(); }, std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load())
+		<< "SendSample must block while the flush gate is still set, "
+		   "not drop the sample";
+
+	// SEEK_DONE completes the flush; m_playRequested was true so the gate
+	// must clear (and play() is issued, satisfying the EXPECT_CALL above).
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+
+	// The unblocked injector now waits for needData; post it and confirm
+	// the originally-submitted sample is actually delivered (not dropped).
+	std::atomic<bool> haveDataCalled{false};
+	ON_CALL(*m_mockPipelinePtr, addSegment(7, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 7))
+		.WillByDefault(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/7);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	EXPECT_TRUE(sendResult.load());
+	EXPECT_TRUE(haveDataCalled.load());
+
+	sender.join();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_SeekDone_PreFlushStatePlaying_ClearsInjectionGatedWithoutRedundantPlay)
+{
+	/**
+	 * @brief Regression: seek-while-playing.  onFlushComplete() restores the
+	 *        pre-flush state to PLAYING *before* the play()-issuance check
+	 *        runs, so the narrower "should we call play()" condition is
+	 *        false here.  The gate must still be cleared based on
+	 *        m_playRequested alone - it must not depend on a subsequent,
+	 *        unguaranteed "redundant" PLAYING notification from Rialto to
+	 *        eventually clear it via the PLAYING case handler.  play() must
+	 *        NOT be called again since the pipeline is already playing.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Establish PLAYING as the pre-flush state.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// Seek-while-playing: Flush() → FLUSHING, pre-flush state = PLAYING,
+	// setting the gate.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+
+	// Stream() while FLUSHING sets m_playRequested=true and defers play().
+	m_player->Stream();
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated)
+		<< "Stream() while FLUSHING must defer without clearing the gate";
+
+	// SEEK_DONE alone (no subsequent PLAYING notification) restores state
+	// to PLAYING and must clear the gate on both sources.  play() must not
+	// be called again - the restored state is already PLAYING.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated)
+		<< "Gate must clear based on m_playRequested alone, not on the "
+		   "restored state matching PLAYING";
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+}
+
 // ===========================================================================
 // IStreamSinkNotifiable — position and duration callbacks
 // ===========================================================================

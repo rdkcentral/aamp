@@ -112,6 +112,9 @@ public:
 		/// finished, letting stale-position data slip through on an early
 		/// needData.  NOT related to the pipeline PAUSED state — see the
 		/// comment in waitForAttach() for the important distinction.
+		/// While set, injectOneSample() blocks newly-submitted samples
+		/// (rather than dropping them) until the gate clears or a newer
+		/// flush supersedes them — see injectOneSample() for details.
 		bool     injectionGated{false};
 		/// True while an injector thread is executing inside
 		/// injectOneSample().  Prevents signalEos() and handleNeedData()
@@ -280,9 +283,13 @@ public:
 	/**
 	 * @brief Inject one sample into the Rialto pipeline.
 	 *
-	 * Blocks until a needData request arrives for this source, then
-	 * delivers the sample via addSegment.  Returns false if the batch
-	 * was aborted by Flush/Stop.
+	 * If injectionGated is set for the current generation (i.e. capturedGen),
+	 * first blocks until either the gate clears (same generation) or a newer
+	 * flush supersedes this sample (generation changes) — see
+	 * AampRialtoMediaSource::SourceState::injectionGated.  Once past the
+	 * gate, blocks until a needData request arrives for this source, then
+	 * delivers the sample via addSegment.  Returns false if the sample was
+	 * abandoned because it was superseded by a newer flush/stop.
 	 *
 	 * @param pipeline       The Rialto media pipeline.
 	 * @param capturedGen    Generation token captured before blocking.
