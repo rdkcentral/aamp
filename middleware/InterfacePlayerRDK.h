@@ -33,8 +33,26 @@
 #include <functional>
 #include <condition_variable>
 #include <chrono>
+#include <memory>
+#include "GstUtils.h"
 #include <any>
 #include "SocUtils.h"
+
+class InterfacePlayerRDK;
+
+struct ProgressCallbackContext
+{
+	std::mutex mutex;
+	std::condition_variable cv;
+	InterfacePlayerRDK *player;
+	bool cancelled;
+	size_t activeCallbacks;
+
+	explicit ProgressCallbackContext(InterfacePlayerRDK *playerInstance)
+		: player(playerInstance), cancelled(false), activeCallbacks(0)
+	{
+	}
+};
 #include "GstUtils.h"
 #include "DemuxDataTypes.h"
 
@@ -156,6 +174,11 @@ class InterfacePlayerRDK
 		bool trickTeardown;
 		std::mutex mMutex;
 		std::map<std::string, int> configMap;
+	std::shared_ptr<ProgressCallbackContext> mProgressCallbackContext;
+
+	std::shared_ptr<ProgressCallbackContext> GetOrCreateProgressCallbackContext();
+	void CancelProgressCallbackContext();
+	static void DestroyProgressCallbackUserData(gpointer user_data);
 
 	public:
 		Configs *m_gstConfigParam;
@@ -709,7 +732,7 @@ class InterfacePlayerRDK
         	 * @param[in] timerName name of the timer being added
         	 * @param[out] taskId id of the timer to be returned
         	 */
-        	void TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint &taskId, gpointer user_data, const char *timerName = nullptr);
+        	void TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint &taskId, gpointer user_data, const char *timerName = nullptr, GDestroyNotify destroyNotify = nullptr);
         	/**
         	 * @fn TimerIsRunning
         	 * @param[in] taskId id of the timer to be removed
