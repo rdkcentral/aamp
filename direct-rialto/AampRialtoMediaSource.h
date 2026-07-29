@@ -198,18 +198,6 @@ public:
 	int32_t sourceId() const { return m_sourceId; }
 	bool isAttached() const { return m_sourceId >= 0; }
 
-	/// True while an async Rialto flush is in flight for this source.
-	/// Set by flushSource(); cleared by AampRialtoPlayer::OnSourceFlushed()
-	/// when Rialto sends the corresponding SourceFlushedEvent.
-	bool isFlushing() const
-	{
-		return m_flushing.load(std::memory_order_acquire);
-	}
-	void setFlushing(bool value)
-	{
-		m_flushing.store(value, std::memory_order_release);
-	}
-
 	/// Block if this source's Rialto attachment is still deferred (waiting
 	/// for video to attach first).  Returns true when injection may safely
 	/// proceed; returns false when the caller should discard the frame
@@ -474,11 +462,6 @@ protected:
 	/// Never cleared by reset() so Configure() can compare formats across
 	/// sessions without unnecessarily recreating the pipeline.
 	StreamOutputFormat m_streamFormat{FORMAT_INVALID};
-
-	/// Set while an async Rialto flush is in flight for this source.
-	/// Atomic so Flush() (AAMP thread) and OnSourceFlushed() (Rialto IPC
-	/// thread) can access it without holding m_state.mu.
-	std::atomic<bool> m_flushing{false};
 
 	/// PTS of the first sample injected since the last reset or
 	/// invalidateGeneration(), in milliseconds.  Set lazily via

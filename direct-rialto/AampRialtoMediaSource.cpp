@@ -83,7 +83,6 @@ void AampRialtoMediaSource::reset()
 	m_mksId          = -1;
 	m_pendingCodecData = nullptr;
 
-	m_flushing.store(false, std::memory_order_relaxed);
 	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
 }
 

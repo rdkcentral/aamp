@@ -425,14 +425,6 @@ private:
 	std::condition_variable m_flushCv;
 
 	/**
-	 * @brief Block if the player is currently in the FLUSHING state.
-	 *
-	 * Waits on m_flushCv until all sources have completed flushing
-	 * (no source reports isFlushing()==true).  This ensures that
-	 * m_rate has been committed from m_pendingFlushRate before
-	 * Configure() evaluates ShouldRecreatePipeline().
-	 */
-	/**
 	 * @brief Block until any in-progress flush cycle completes.
 	 *
 	 * Acquires m_flushMutex and waits on m_flushCv until the state machine
