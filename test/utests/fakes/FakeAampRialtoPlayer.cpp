@@ -108,6 +108,7 @@ bool AampRialtoPlayer::SignalSubtitleClock() { return false; }
 void AampRialtoPlayer::SetPauseOnStartPlayback(bool) {}
 void AampRialtoPlayer::NotifyInjectorToResume() {}
 void AampRialtoPlayer::NotifyInjectorToPause() {}
+void AampRialtoPlayer::UnblockTrackInjection(AampMediaType type) {}
 
 void AampRialtoPlayer::SetStreamCaps(AampMediaType, MediaCodecInfo &&) {}
 bool AampRialtoPlayer::IsAssociatedAamp(PrivateInstanceAAMP *) { return false; }

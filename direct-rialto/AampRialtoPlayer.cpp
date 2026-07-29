@@ -1780,6 +1780,16 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 	AAMPLOG_INFO("EXIT");
 }
 
+void AampRialtoPlayer::UnblockTrackInjection(AampMediaType type)
+{
+	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
+	if (type < m_sources.size() && m_sources[type])
+	{
+		m_sources[type]->invalidateGeneration(m_pipeline.get(), "UnblockTrackInjection");
+	}
+	AAMPLOG_INFO("EXIT");
+}
+
 void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo)
 {
 	AAMPLOG_INFO("ENTRY type=%d codecFormat=%d codecDataLen=%zu",
