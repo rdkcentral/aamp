@@ -1611,32 +1611,36 @@ TEST_F(AampRialtoVideoSourceTest,
 
 /**
  * @test AampRialtoVideoSource_ClearInjectionGate_ReplaysDeferredEos
- * @brief Regression: signalEos() and handleNeedData() must NOT fire
- *        haveData(EOS) while injectionGated is set - that would bypass the
- *        gate that injectOneSample() otherwise respects, delivering EOS
- *        ahead of samples still blocked behind the gate. Once the gate is
- *        cleared, clearInjectionGate() must replay that deferred
- *        resolution so the request is not left hanging forever.
+ * @brief Regression: clearInjectionGate() must replay a deferred EOS
+ *        resolution for a request that was left pending (with eos already
+ *        set) while injectionGated was set, so the request is not left
+ *        hanging forever.
+ *
+ *        Note: handleNeedData() itself does NOT stage a request while
+ *        gated - it answers such requests immediately with
+ *        NO_AVAILABLE_SAMPLES instead of deferring them (see
+ *        AampRialtoVideoSource_HandleNeedData_DoesNotClearInjectionGated
+ *        and the handleNeedData() rejectGated branch). The pending+eos
+ *        state exercised here instead models the case where an active
+ *        injector owns the request when the gate is set (injectorActive)
+ *        - see the injectionGated field comment - and is prepared
+ *        directly here to isolate clearInjectionGate()'s own
+ *        deferred-EOS replay logic.
  */
 TEST_F(AampRialtoVideoSourceTest,
 	AampRialtoVideoSource_ClearInjectionGate_ReplaysDeferredEos)
 {
-	// Gate injection (no pending request yet, so nothing is claimed here).
+	// Gate injection, then seed a pending, EOS-eligible request as if an
+	// active injector had left it outstanding when the gate was set.
 	m_source.invalidateGeneration(m_pipelinePtr, "test-setup");
 	ASSERT_TRUE(m_source.state().injectionGated);
-
-	// EOS signalled while gated: must not fire immediately.
-	EXPECT_CALL(*m_pipelinePtr, haveData(_, _)).Times(0);
-	m_source.signalEos(m_pipelinePtr);
-
-	// needData staged while gated and already at EOS: must not fire either.
-	m_source.handleNeedData(1, /*requestId=*/321, m_pipelinePtr);
-	::testing::Mock::VerifyAndClearExpectations(m_pipelinePtr);
 
 	{
 		auto &st = m_source.state();
 		std::lock_guard<std::mutex> lock(st.mu);
-		EXPECT_TRUE(st.hasPending);
+		st.hasPending       = true;
+		st.pendingRequestId = 321;
+		st.eos              = true;
 	}
 
 	// Clearing the gate must replay the deferred EOS resolution.

@@ -1165,18 +1165,17 @@ void AampRialtoPlayer::Stream()
 			// Ungate unconditionally - Stream() is the point at which
 			// playback is genuinely about to (re)start, regardless of
 			// whether the state machine already happens to report
-			// PLAYING.  Only the play() IPC call itself is skipped when
-			// already PLAYING, to avoid a redundant call.
+			// PLAYING.  play() itself is also issued unconditionally
+			// below, rather than relying on the state machine's view of
+			// Rialto's state to decide whether a call is "redundant".
 			UngateAllSources("Stream");
-			if (m_stateMachine.currentState() != PlayerStateId::PLAYING)
+
+			// allSourcesAttached() already completed before this call -
+			// promote to PLAYING immediately.
+			bool async = false;
+			if (!m_pipeline->play(async))
 			{
-				// allSourcesAttached() already completed before this call -
-				// promote to PLAYING immediately.
-				bool async = false;
-				if (!m_pipeline->play(async))
-				{
-					AAMPLOG_ERR("play() failed");
-				}
+				AAMPLOG_ERR("play() failed");
 			}
 		}
 		else
@@ -2044,18 +2043,6 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			if (playRequested)
 			{
 				UngateAllSources("OnPlaybackState(SEEK_DONE)");
-			}
-
-			// Only actually issue play() if the restored state is not
-			// already PLAYING - Rialto emits PLAYING automatically after
-			// SEEK_DONE for seek-while-playing, so an explicit play() call
-			// here would be redundant (harmless, but unnecessary).
-			const bool shouldPlay =
-//				m_stateMachine.currentState() != PlayerStateId::PLAYING &&
-				playRequested;
-
-			if (shouldPlay)
-			{
 				AAMPLOG_INFO("SEEK_DONE: issuing play() (state=%s)",
 					m_stateMachine.currentStateName());
 				bool async = false;

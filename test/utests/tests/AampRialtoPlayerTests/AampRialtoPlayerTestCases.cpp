@@ -1112,8 +1112,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	m_player->Stop(false);
 
+	// Stop() leaves the source gated, so the stale needData is answered
+	// immediately with NO_AVAILABLE_SAMPLES (see AampRialtoMediaSource::
+	// handleNeedData's rejectGated branch) rather than reactivating
+	// injection - no real sample data must ever be attached to it.
 	EXPECT_CALL(*m_mockPipelinePtr, addSegment(_, _)).Times(0);
-	EXPECT_CALL(*m_mockPipelinePtr, haveData(_, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 99))
+		.Times(1);
 
 	auto client = m_capturedClient.lock();
 	ASSERT_NE(client, nullptr);
@@ -1122,10 +1128,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(20));
 
-	// The stale needData must not reactivate injection. Verify that here,
-	// before teardown destroys the player - the destructor legitimately
-	// closes out the still-pending request via haveData(NO_AVAILABLE_SAMPLES)
-	// so that expectation must not be checked against the destructor's call.
+	// Verify here, before teardown destroys the player and its own
+	// invalidateGeneration() cleanup runs (which would otherwise be a
+	// second, unrelated call against these same expectations).
 	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 }
 
@@ -1141,8 +1146,15 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	m_player->Stop(false);
 
+	// Stop() must not resurrect the EOS state and re-fire haveData(EOS, ...).
+	// Stop() leaves the source gated, so the stale needData is instead
+	// answered immediately with NO_AVAILABLE_SAMPLES (see
+	// AampRialtoMediaSource::handleNeedData's rejectGated branch).
 	EXPECT_CALL(*m_mockPipelinePtr,
 		haveData(firebolt::rialto::MediaSourceStatus::EOS, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 100))
+		.Times(1);
 
 	auto client = m_capturedClient.lock();
 	ASSERT_NE(client, nullptr);
@@ -1151,11 +1163,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(20));
 
-	// Stop() must not resurrect the EOS state and re-fire haveData(EOS, ...).
-	// Verify that here, before teardown destroys the player - the destructor
-	// legitimately closes out the still-pending request via
-	// haveData(NO_AVAILABLE_SAMPLES) so that call must not be checked
-	// against this expectation.
+	// Verify here, before teardown destroys the player and its own
+	// invalidateGeneration() cleanup runs (which would otherwise be a
+	// second, unrelated call against these same expectations).
 	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 }
 
@@ -1820,15 +1830,18 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Stream_AlreadyPlaying_ClearsInjectionGatedWithoutRedundantPlay)
+	Stream_AlreadyPlaying_ClearsInjectionGatedAndCallsPlay)
 {
 	/**
 	 * @brief Regression: UngateAllSources() must be called unconditionally
 	 *        in Stream() - not only when promoting to PLAYING - so a
 	 *        second Stream() call (e.g. immediately following a Flush()
 	 *        that already restored PLAYING) still clears a gate left set
-	 *        by that flush.  play() itself must still be skipped since the
-	 *        pipeline is already playing.
+	 *        by that flush.  play() is now issued unconditionally on every
+	 *        Stream() call (even when the pipeline already reports PLAYING)
+	 *        so a genuine play()-issuance point does not depend on the
+	 *        state machine's view of Rialto's state being perfectly in
+	 *        sync.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -1843,7 +1856,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated = true;
 	m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated = true;
 
-	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
 	m_player->Stream();
 
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated);
@@ -2015,17 +2028,17 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	OnPlaybackState_SeekDone_PreFlushStatePlaying_ClearsInjectionGatedWithoutRedundantPlay)
+	OnPlaybackState_SeekDone_PreFlushStatePlaying_ClearsInjectionGatedAndCallsPlay)
 {
 	/**
 	 * @brief Regression: seek-while-playing.  onFlushComplete() restores the
 	 *        pre-flush state to PLAYING *before* the play()-issuance check
-	 *        runs, so the narrower "should we call play()" condition is
-	 *        false here.  The gate must still be cleared based on
+	 *        runs.  The gate must still be cleared based on
 	 *        m_playRequested alone - it must not depend on a subsequent,
 	 *        unguaranteed "redundant" PLAYING notification from Rialto to
-	 *        eventually clear it via the PLAYING case handler.  play() must
-	 *        NOT be called again since the pipeline is already playing.
+	 *        eventually clear it via the PLAYING case handler.  play() is
+	 *        now issued unconditionally whenever m_playRequested was set,
+	 *        even though the restored state is already PLAYING.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -2052,9 +2065,10 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		<< "Stream() while FLUSHING must defer without clearing the gate";
 
 	// SEEK_DONE alone (no subsequent PLAYING notification) restores state
-	// to PLAYING and must clear the gate on both sources.  play() must not
-	// be called again - the restored state is already PLAYING.
-	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	// to PLAYING and must clear the gate on both sources, and must issue
+	// play() unconditionally since m_playRequested was set - regardless of
+	// the restored state already being PLAYING.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
