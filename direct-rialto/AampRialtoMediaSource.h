@@ -100,8 +100,8 @@ public:
 		uint64_t generation{0};
 		/// Set by invalidateGeneration() (flush/stop/seek/pause-notify) to
 		/// gate injection until playback is genuinely about to resume.
-		/// Cleared ONLY by AampRialtoPlayer::clearInjectionGate() /
-		/// UngateAllSources(), which is called at each site that actually
+		/// Cleared ONLY by clearInjectionGate(), called via
+		/// AampRialtoPlayer::UngateAllSources() at each site that actually
 		/// issues (or confirms) pipeline play() — Stream(),
 		/// CheckAllSourcesAttached(), Pause(false), StopBuffering(), the
 		/// SEEK_DONE play branch, and the PLAYING playback-state handler.
@@ -170,15 +170,24 @@ public:
 	/// request is left for that injector to close out itself when it
 	/// observes the generation change (see injectOneSample()).
 	///
-	/// @param pipeline  The active Rialto media pipeline, or nullptr if
-	///                  no pipeline exists for this session (e.g. Stop()
-	///                  called before Configure()).
-	/// @param reason    Short human-readable description of the caller
-	///                  (e.g. "Flush", "Stop", "NotifyInjectorToPause"),
-	///                  included in the injectionGated-set log line to
-	///                  aid debugging of gating behaviour.
+	/// @param pipeline     The active Rialto media pipeline, or nullptr if
+	///                     no pipeline exists for this session (e.g. Stop()
+	///                     called before Configure()).
+	/// @param reason       Short human-readable description of the caller
+	///                     (e.g. "Flush", "Stop", "NotifyInjectorToPause"),
+	///                     included in the injectionGated-set log line to
+	///                     aid debugging of gating behaviour.
+	/// @param newEosState  Optional new value for eos, applied atomically
+	///                     with the generation bump/gate-set above.  Callers
+	///                     that need to change eos alongside invalidating the
+	///                     generation (e.g. Stop(), Flush()) must use this
+	///                     parameter rather than locking m_state.mu
+	///                     separately afterwards, which would otherwise open
+	///                     a window where a concurrent needData/signalEos
+	///                     could observe the gate set but the old eos value.
 	void invalidateGeneration(firebolt::rialto::IMediaPipeline *pipeline,
-		const char *reason = "invalidateGeneration");
+		const char *reason = "invalidateGeneration",
+		std::optional<bool> newEosState = std::nullopt);
 
 	/// Clear injectionGated for this source, logging the transition (only
 	/// when it was actually set) so it is easy to correlate log traces with
@@ -186,10 +195,33 @@ public:
 	/// points where playback is genuinely about to resume — see the
 	/// injectionGated field comment above for the authoritative list.
 	///
-	/// @param reason  Short human-readable description of the caller
-	///                (e.g. "Stream", "OnPlaybackState(PLAYING)"),
-	///                included in the log line.
-	void clearInjectionGate(const char *reason);
+	/// If a needData was staged while gated and EOS was signalled in the
+	/// meantime (both intentionally deferred while injectionGated is set —
+	/// see signalEos()/handleNeedData()), this replays that resolution now
+	/// that the gate has cleared, so the request is answered here rather
+	/// than being left pending until a fresh needData or injector run.
+	///
+	/// @param pipeline  The active Rialto media pipeline, or nullptr if none
+	///                  exists for this session.  Only used if a deferred
+	///                  EOS resolution must be replayed.
+	/// @param reason    Short human-readable description of the caller
+	///                  (e.g. "Stream", "OnPlaybackState(PLAYING)"),
+	///                  included in the log line.
+	void clearInjectionGate(firebolt::rialto::IMediaPipeline *pipeline,
+		const char *reason);
+
+	/// @brief Directly set the eos flag, logging the transition.
+	///
+	/// For callers that need to change eos outside the needData/signalEos
+	/// handshake (e.g. AampRialtoPlayer::Configure()'s trickplay-exit path,
+	/// which must clear a previously-forced audio EOS).  Does not attempt to
+	/// resolve any pending request — unlike signalEos(), this is not
+	/// expected to be called while a needData is outstanding.
+	///
+	/// @param eos     The new eos value.
+	/// @param reason  Short human-readable description of the caller,
+	///                included in the log line when the value changes.
+	void setEos(bool eos, const char *reason);
 
 	// -----------------------------------------------------------------
 	// Source identity
@@ -531,6 +563,26 @@ private:
 	 * @return true if there was a pending request to claim.
 	 */
 	bool claimPendingRequestLocked(uint32_t &outReqId);
+
+	/**
+	 * @brief Attempt to resolve a pending request as EOS.
+	 *
+	 * Caller must hold m_state.mu.  Claims the pending request (via
+	 * claimPendingRequestLocked()) only if this source is genuinely ready
+	 * to answer haveData(EOS) right now: eos is set, a request is
+	 * pending, no injector is active to answer it on its own, and
+	 * injection is not gated.  The gate check is what distinguishes this
+	 * from the older behaviour: while injectionGated is set, EOS
+	 * resolution is deliberately deferred (the request is left pending)
+	 * so it is not resolved out of order with samples that are still
+	 * blocked behind the gate.  clearInjectionGate() calls this again
+	 * once the gate clears to replay the resolution.
+	 *
+	 * @param outReqId  Set to the claimed request ID when this returns
+	 *                  true; left unmodified otherwise.
+	 * @return true if a pending request was claimed for EOS.
+	 */
+	bool tryClaimEosLocked(uint32_t &outReqId);
 
 	/**
 	 * @brief Send haveData(NO_AVAILABLE_SAMPLES) for a request this

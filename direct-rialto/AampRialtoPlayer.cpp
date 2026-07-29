@@ -431,14 +431,8 @@ void AampRialtoPlayer::Configure(
 			{
 				// Trickplay exit: if audio was EOS'd (trickplay), clear it
 				// so the injection path can resume.
-				auto &st = m_sources[eMEDIATYPE_AUDIO]->state();
-				std::lock_guard<std::mutex> lock(st.mu);
-				if (st.eos)
-				{
-					AAMPLOG_INFO("Audio returning from FORMAT_INVALID "
-						"(trickplay exit) - clearing EOS on audio source");
-					st.eos = false;
-				}
+				m_sources[eMEDIATYPE_AUDIO]->setEos(false,
+					"Configure trickplay-exit");
 			}
 
 			// Resume downloads for all existing sources so AAMP's track
@@ -1018,7 +1012,7 @@ void AampRialtoPlayer::UngateAllSources(const char *reason)
 	{
 		if (source)
 		{
-			source->clearInjectionGate(reason);
+			source->clearInjectionGate(m_pipeline.get(), reason);
 		}
 	}
 }
@@ -1218,10 +1212,8 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get(), "Stop");
-			auto &st = source->state();
-			std::lock_guard<std::mutex> lock(st.mu);
-			st.eos = false;
+			source->invalidateGeneration(m_pipeline.get(), "Stop",
+				/*newEosState=*/false);
 		}
 	}
 
@@ -1288,13 +1280,14 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		{
 			if (source)
 			{
-				source->invalidateGeneration(m_pipeline.get(), "Flush(non-flushable)");
-				if (rate == AAMP_NORMAL_PLAY_RATE)
-				{
-					auto &st = source->state();
-					std::lock_guard<std::mutex> lock(st.mu);
-					st.eos = false;
-				}
+				// Mirror the flushable-path semantics below: video/subtitle
+				// are always cleared, audio keeps EOS during trickplay so
+				// the pipeline clock is not stalled waiting for audio data
+				// that will never arrive.
+				const bool newEos = (rate != AAMP_NORMAL_PLAY_RATE &&
+				          source.get() == m_sources[eMEDIATYPE_AUDIO].get());
+				source->invalidateGeneration(m_pipeline.get(),
+					"Flush(non-flushable)", newEos);
 			}
 		}
 
@@ -1325,14 +1318,12 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get(), "Flush");
-			auto &st = source->state();
-			std::lock_guard<std::mutex> lock(st.mu);
 			// During trickplay (rate != 1), keep audio EOS'd so the
 			// Rialto/GStreamer pipeline clock is not stalled waiting
 			// for audio data that will never arrive.
-			st.eos = (rate != AAMP_NORMAL_PLAY_RATE &&
+			const bool newEos = (rate != AAMP_NORMAL_PLAY_RATE &&
 			          source.get() == m_sources[eMEDIATYPE_AUDIO].get());
+			source->invalidateGeneration(m_pipeline.get(), "Flush", newEos);
 		}
 	}
 
