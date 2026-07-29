@@ -564,6 +564,32 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_HandleNeedData_WhenEos_S
 }
 
 /**
+ * @test AampRialtoVideoSource_HandleNeedData_SupersededByNewRequest_ClosesOutStaleRequest
+ * @brief Verify a second handleNeedData() call, arriving without an
+ *        intervening handleCancelNeedData(), closes out the previous
+ *        unclaimed request with haveData(NO_AVAILABLE_SAMPLES) instead of
+ *        silently overwriting it.  Silently dropping the old requestId
+ *        leaves Rialto's own bookkeeping for it unanswered, which can
+ *        desync AAMP and Rialto once the newer request is eventually served.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_HandleNeedData_SupersededByNewRequest_ClosesOutStaleRequest)
+{
+	m_source.handleNeedData(1, /*requestId=*/42, m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 42))
+		.WillOnce(Return(true));
+
+	m_source.handleNeedData(1, /*requestId=*/43, m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.hasPending);
+	EXPECT_EQ(st.pendingRequestId, 43u);
+}
+
+/**
  * @test AampRialtoVideoSource_HandleCancelNeedData_ClearsPending
  * @brief Verify handleCancelNeedData clears the pending state.
  */

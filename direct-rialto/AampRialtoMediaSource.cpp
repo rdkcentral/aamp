@@ -755,8 +755,10 @@ void AampRialtoMediaSource::handleNeedData(
 	AAMPLOG_INFO("sourceId=%d frameCount=%zu requestId=%u",
 		m_sourceId, frameCount, requestId);
 
-	bool fireEos      = false;
-	bool stagedGated  = false;
+	bool     fireEos           = false;
+	bool     stagedGated       = false;
+	bool     supersededPending = false;
+	uint32_t supersededReqId   = 0;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		if (m_state.eos && !m_state.injectorActive)
@@ -781,6 +783,19 @@ void AampRialtoMediaSource::handleNeedData(
 			// wait-for-ungate step at the top of injectOneSample() — so
 			// this request is answered once playback genuinely resumes,
 			// without AAMP having to resend the sample.
+			//
+			// If a previous needData was staged but never claimed (e.g.
+			// it was staged while injectionGated and a second needData
+			// arrived before the gate cleared), it must be closed out
+			// here rather than silently overwritten.  Dropping it
+			// silently would leave Rialto's own bookkeeping for that
+			// requestId unanswered, which desyncs AAMP and Rialto once
+			// the newer request is eventually served.
+			if (m_state.hasPending)
+			{
+				supersededPending = true;
+				supersededReqId   = m_state.pendingRequestId;
+			}
 			m_state.hasPending          = true;
 			m_state.pendingRequestId    = requestId;
 			m_state.pendingFrameCount   = std::max<size_t>(frameCount, 1);
@@ -799,6 +814,14 @@ void AampRialtoMediaSource::handleNeedData(
 	}
 	else
 	{
+		if (supersededPending)
+		{
+			AAMPLOG_WARN("sourceId=%d requestId=%u superseded stale unclaimed "
+				"requestId=%u before it was ever answered - closing it out "
+				"with NO_AVAILABLE_SAMPLES",
+				m_sourceId, requestId, supersededReqId);
+			respondAbandonedRequest(pipeline, supersededReqId);
+		}
 		if (stagedGated)
 		{
 			AAMPLOG_INFO("sourceId=%d requestId=%u staged while injectionGated=true - "
