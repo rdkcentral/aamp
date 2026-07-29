@@ -1781,9 +1781,9 @@ JSValueRef AAMPMediaPlayerJS_setTextTrack (JSContextRef ctx, JSObjectRef functio
 		else if (!JSValueIsNumber(ctx, arguments[0]))
 		{
 			// note, here, first parameter is not used, only the passed WebVTT data
+			// note: SetTextTrack() will take responsibility for releasing data when no longer needed
 			char *data = aamp_JSValueToCString(ctx, arguments[0], exception);
-			privObj->_aamp->SetTextTrack(0, data);
-			SAFE_DELETE_ARRAY(data);
+			privObj->_aamp->SetTextTrack(0, std::move(data));
 			bRet = true;
 		}
 		else
