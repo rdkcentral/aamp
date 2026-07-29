@@ -3030,7 +3030,7 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadRes
 		FindTimedMetadata((dash::mpd::MPD *)tmpMPD, root, init, bMetadata);
 		if(!init)
 		{
-			aamp->ReportTimedMetadata(bMetadata);
+			aamp->ReportTimedMetadata(false);
 		}
 		// get Network time
 		mHasServerUtcTime = FindServerUTCTime(root);
@@ -5057,7 +5057,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 								const std::string& tag = aamp->subscribedTags.at(i);
 								if (tag == "#EXT-X-CONTENT-IDENTIFIER") {
 
-									if(reportBulkMeta && init)
+									if(reportBulkMeta)
 									{
 										aamp->SaveTimedMetadata(0, tag.c_str(), content.c_str(), (int)content.size());
 									}
@@ -5087,7 +5087,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 						{
 							const std::string& tag = aamp->subscribedTags.at(i);
 							if (tag == "#EXT-X-IDENTITY-ADS") {
-								if(reportBulkMeta && init)
+								if (reportBulkMeta)
 								{
 									aamp->SaveTimedMetadata(0, tag.c_str(), content.c_str(), (int)content.size());
 								}
@@ -5110,7 +5110,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 						{
 							const std::string& tag = aamp->subscribedTags.at(i);
 							if (tag == "#EXT-X-MESSAGE-REF") {
-								if(reportBulkMeta && init)
+								if(reportBulkMeta)
 								{
 									aamp->SaveTimedMetadata(0, tag.c_str(), content.c_str(), (int)content.size());
 								}
