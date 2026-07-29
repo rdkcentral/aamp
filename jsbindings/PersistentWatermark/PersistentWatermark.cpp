@@ -166,7 +166,9 @@ static JSValueRef PersistentWatermarkJS_addEventListener (JSContextRef ctx, JSOb
 		return JSValueMakeBoolean(ctx, false);
 	}
 
-	std::string eventName = aamp_JSValueToCString(ctx, arguments[0], NULL);
+	char* eventNameCStr = aamp_JSValueToCString(ctx, arguments[0], NULL);
+	std::string eventName(eventNameCStr);
+	SAFE_DELETE_ARRAY(eventNameCStr);
 	bool success = PersistentWatermark::EventHandler::getInstance().addEventHandler(eventName, callback, ctx);
 	if(success)
 	{
@@ -199,7 +201,9 @@ static JSValueRef PersistentWatermarkJS_RemoveEventListener(JSContextRef ctx, JS
 		return JSValueMakeNumber(ctx, 0);
 	}
 
-	std::string eventName = aamp_JSValueToCString(ctx, arguments[0], NULL);
+	char* eventNameCStr = aamp_JSValueToCString(ctx, arguments[0], NULL);
+	std::string eventName(eventNameCStr);
+	SAFE_DELETE_ARRAY(eventNameCStr);
 	int removed =  PersistentWatermark::EventHandler::getInstance().RemoveEventHandler(eventName);
 	LOG_WARN_EX("PersistentWatermark: success Removed %d handlers for %s event.", removed, eventName.c_str());
 	return JSValueMakeNumber(ctx,removed);

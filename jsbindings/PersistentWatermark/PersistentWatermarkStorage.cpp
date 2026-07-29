@@ -192,8 +192,10 @@ static std::tuple<void*, int, std::string> getImageBufferAndMetadata(JSContextRe
 		return errorRtn;
 	}
 
-	const char* localMetaData = aamp_JSValueToCString(ctx, arguments[1], exception);
-	LOG_WARN_EX("PersistentWatermark: supplied metadata: %s", localMetaData);
+	char* localMetaDataCStr = aamp_JSValueToCString(ctx, arguments[1], exception);
+	LOG_WARN_EX("PersistentWatermark: supplied metadata: %s", localMetaDataCStr);
+	std::string localMetaData(localMetaDataCStr);
+	SAFE_DELETE_ARRAY(localMetaDataCStr);
 
 	JSObjectRef ArrayBuffer = JSValueToObject(ctx, arguments[0], NULL);
 	int size = JSObjectGetArrayBufferByteLength(ctx, ArrayBuffer, exception);

@@ -159,6 +159,7 @@ std::string GetBrowserUA(JSContextRef ctx)
 				LOG_WARN_EX("Parsed value for property %s - %s","window.navigator.userAgent", value);
 				// Setting user agent to global variable
 				g_UserAgent = std::string(value);
+			SAFE_DELETE_ARRAY(value);
 			}
 		}
 		else
