@@ -830,36 +830,48 @@ void AampRialtoMediaSource::handleNeedData(
 
 	bool     fireEos           = false;
 	uint32_t eosReqId          = 0;
-	bool     stagedGated       = false;
+	bool     rejectGated       = false;
 	bool     supersededPending = false;
 	uint32_t supersededReqId   = 0;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
-		// Always stage the incoming request first, regardless of eos/gate/
-		// injector state.  If a previous needData was staged but never
-		// claimed (e.g. it was staged while injectionGated and a second
-		// needData arrived before the gate cleared), it must be closed out
-		// here rather than silently overwritten.  Dropping it silently would
-		// leave Rialto's own bookkeeping for that requestId unanswered,
-		// which desyncs AAMP and Rialto once the newer request is eventually
-		// served.
+		// If a previous needData was staged but never claimed, it must be
+		// closed out here rather than silently overwritten.  Dropping it
+		// silently would leave Rialto's own bookkeeping for that requestId
+		// unanswered, which desyncs AAMP and Rialto once the newer request
+		// is eventually served.
 		if (m_state.hasPending)
 		{
 			supersededPending = true;
 			supersededReqId   = m_state.pendingRequestId;
 		}
-		m_state.hasPending           = true;
-		m_state.pendingRequestId     = requestId;
-		m_state.pendingFrameCount    = std::max<size_t>(frameCount, 1);
-		m_state.segmentsAddedInBatch = 0;
-		stagedGated = m_state.injectionGated;
+		rejectGated = m_state.injectionGated;
+		if (rejectGated)
+		{
+			// Rialto treats any needData issued while a flush/seek is
+			// still outstanding (i.e. before its own SEEK_DONE/play() is
+			// confirmed) as stale on its side.  Attaching real sample data
+			// to this requestId would therefore be silently discarded by
+			// Rialto, permanently losing that sample.  Answer it
+			// immediately with NO_AVAILABLE_SAMPLES instead of staging it
+			// as pending; Rialto is expected to issue a fresh needData once
+			// playback is genuinely ready to resume (i.e. once the gate is
+			// cleared via clearInjectionGate()).  injectionGated is
+			// intentionally NOT cleared here — see the injectionGated
+			// field comment for why.
+			m_state.hasPending           = false;
+			m_state.segmentsAddedInBatch = 0;
+		}
+		else
+		{
+			m_state.hasPending           = true;
+			m_state.pendingRequestId     = requestId;
+			m_state.pendingFrameCount    = std::max<size_t>(frameCount, 1);
+			m_state.segmentsAddedInBatch = 0;
 
-		// Then attempt to resolve it immediately as EOS.  This intentionally
-		// defers while injectionGated is set (see tryClaimEosLocked()) —
-		// clearInjectionGate() replays the resolution once the gate clears.
-		// injectionGated is intentionally NOT cleared here — see the
-		// injectionGated field comment for why.
-		fireEos = tryClaimEosLocked(eosReqId);
+			// Attempt to resolve it immediately as EOS.
+			fireEos = tryClaimEosLocked(eosReqId);
+		}
 	}
 	if (supersededPending)
 	{
@@ -869,7 +881,16 @@ void AampRialtoMediaSource::handleNeedData(
 			m_sourceId, requestId, supersededReqId);
 		respondAbandonedRequest(pipeline, supersededReqId);
 	}
-	if (fireEos)
+	if (rejectGated)
+	{
+		AAMPLOG_INFO("sourceId=%d requestId=%u received while "
+			"injectionGated=true - answering NO_AVAILABLE_SAMPLES "
+			"immediately (Rialto would treat data on this request as "
+			"stale pre-SEEK_DONE)",
+			m_sourceId, requestId);
+		respondAbandonedRequest(pipeline, requestId);
+	}
+	else if (fireEos)
 	{
 		if (pipeline &&
 		    !pipeline->haveData(
@@ -877,13 +898,6 @@ void AampRialtoMediaSource::handleNeedData(
 		{
 			AAMPLOG_WARN("haveData(EOS) failed requestId=%u", eosReqId);
 		}
-	}
-	else if (stagedGated)
-	{
-		AAMPLOG_INFO("sourceId=%d requestId=%u staged while injectionGated=true - "
-			"will be held until the gate clears (or discarded if superseded "
-			"by a newer flush)",
-			m_sourceId, requestId);
 	}
 	m_state.cv.notify_all();
 }
