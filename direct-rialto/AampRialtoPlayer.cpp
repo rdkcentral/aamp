@@ -2037,6 +2037,33 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			m_rate.store(pendingRate, std::memory_order_relaxed);
 			AAMPLOG_INFO("SEEK_DONE: committed playback rate=%d", pendingRate);
 
+			// Update the subtitle source position immediately after the
+			// pipeline-level seek so that the Rialto server's text track
+			// sink has the correct render position before the pipeline
+			// transitions PLAYING.  Without this, the subtitle engine
+			// only learns the position when SignalSubtitleClock() next
+			// succeeds, which introduces a visible display delay.
+			{
+				std::lock_guard<std::mutex> lock(m_attachMutex);
+				auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
+				if (subtitleSrc && subtitleSrc->isAttached())
+				{
+					if (!m_pipeline->setSourcePosition(
+								subtitleSrc->sourceId(), posNs,
+								/*resetTime=*/false))
+					{
+						AAMPLOG_WARN("setSourcePosition failed for subtitle "
+							"sourceId=%d after SEEK_DONE",
+							subtitleSrc->sourceId());
+					}
+					else
+					{
+						AAMPLOG_INFO("SEEK_DONE: updated subtitle position to "
+							"%" PRId64 " ns", posNs);
+					}
+				}
+			}
+
 			// Restore the pre-flush state before notifying
 			// WaitForFlushToComplete().
 			m_stateMachine.onFlushComplete();
