@@ -575,7 +575,6 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 
         LOG_TRACE("Exit..");
         SAFE_DELETE_ARRAY(url);
-        SAFE_DELETE_ARRAY(url2);
         SAFE_DELETE_ARRAY(contentType);
         SAFE_DELETE_ARRAY(strTraceId);
 	SAFE_DELETE_ARRAY(manifestbuffer);
