@@ -3028,7 +3028,6 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 						mpStreamAbstractionAAMP->ResumeSubtitleOnPlay(subtitles_muted.load(), mData.get());
 				}
 			}
-			AAMPLOG_WARN("[PEACOCK_DEBUG] SetState(eSTATE_PLAYING)");
 			SetState(eSTATE_PLAYING);
 		}
 		else
@@ -8182,7 +8181,6 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	// If mFirstVideoFrameDisplayedEnabled, state will be changed in NotifyFirstVideoDisplayed()
 	if(!mFirstVideoFrameDisplayedEnabled)
 	{
-		AAMPLOG_WARN("[PEACOCK_DEBUG] SetState(eSTATE_PLAYING)");
 		SetState(eSTATE_PLAYING);
 	}
 	{
@@ -8530,7 +8528,6 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 		{
 			mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
 		}
-		AAMPLOG_WARN("[PEACOCK_DEBUG] SetState(eSTATE_PLAYING)");
 		SetState(eSTATE_PLAYING);
 	}
 }
@@ -9086,7 +9083,6 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	if (!mFirstVideoFrameDisplayedEnabled
 			&& state == eSTATE_SEEKING)
 	{
-		AAMPLOG_WARN("[PEACOCK_DEBUG] SetState(eSTATE_PLAYING)");
 		SetState(eSTATE_PLAYING);
 	}
 	trickStartUTCMS = aamp_GetCurrentTimeMS();
@@ -10624,7 +10620,6 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	else if(!SetStateBufferingIfRequired())
 	{
 		// If Buffering state was not needed, set PLAYING state
-		AAMPLOG_WARN("[PEACOCK_DEBUG] SetState(eSTATE_PLAYING)");
 		SetState(eSTATE_PLAYING);
 	}
 }

@@ -25,7 +25,7 @@
 #include "AampEventManager.h"
 
 
-#define EVENT_DEBUGGING 1
+//#define EVENT_DEBUGGING 1
 
 
 /**
