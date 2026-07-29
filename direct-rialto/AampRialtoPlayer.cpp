@@ -2043,6 +2043,8 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// transitions PLAYING.  Without this, the subtitle engine
 			// only learns the position when SignalSubtitleClock() next
 			// succeeds, which introduces a visible display delay.
+			// This is a suspected Rialto issue; setPosition is called from
+			// Flush, and additionally calling setSourcePosition here.
 			{
 				std::lock_guard<std::mutex> lock(m_attachMutex);
 				auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
