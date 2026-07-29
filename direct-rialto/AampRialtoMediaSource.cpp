@@ -118,8 +118,8 @@ void AampRialtoMediaSource::invalidateGeneration(
 		// injectOneSample()).
 		m_state.cv.notify_all();
 	}
-	AAMPLOG_INFO("injectionGated SET (%s->true) sourceId=%d mediaType=%d reason=%s",
-		wasGated ? "true" : "false", m_sourceId, static_cast<int>(mediaType()), reason);
+	AAMPLOG_INFO("injectionGated SET (%s->true) sourceId=%d mediaType=%d newEosState=%d reason=%s",
+		wasGated ? "true" : "false", m_sourceId, static_cast<int>(mediaType()), newEosState.has_value() ? newEosState : 0, reason);
 	if (fireNoAvailableSamples)
 	{
 		respondAbandonedRequest(pipeline, reqId);

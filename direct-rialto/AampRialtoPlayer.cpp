@@ -1285,7 +1285,8 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 				// the pipeline clock is not stalled waiting for audio data
 				// that will never arrive.
 				const bool newEos = (rate != AAMP_NORMAL_PLAY_RATE &&
-				          source.get() == m_sources[eMEDIATYPE_AUDIO].get());
+				          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
+						   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
 				source->invalidateGeneration(m_pipeline.get(),
 					"Flush(non-flushable)", newEos);
 			}
@@ -2049,7 +2050,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// SEEK_DONE for seek-while-playing, so an explicit play() call
 			// here would be redundant (harmless, but unnecessary).
 			const bool shouldPlay =
-				m_stateMachine.currentState() != PlayerStateId::PLAYING &&
+//				m_stateMachine.currentState() != PlayerStateId::PLAYING &&
 				playRequested;
 
 			if (shouldPlay)
