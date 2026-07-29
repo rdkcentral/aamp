@@ -269,6 +269,14 @@ add_subdirectory(test/rialtoPOC)
 message("Adding tsb folder")
 add_subdirectory(tsb)
 
+message("Adding isobmff folder")
+add_subdirectory(isobmff)
+
+install(TARGETS isobmff
+		DESTINATION lib
+		PUBLIC_HEADER DESTINATION include
+)
+
 install(TARGETS tsb
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
@@ -493,10 +501,7 @@ set(LIBAAMP_SOURCES
 	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
-	isobmff/isobmffbox.cpp isobmff/isobmffbox.h
-	isobmff/isobmffbuffer.cpp isobmff/isobmffbuffer.h
 	isobmff/isobmffprocessor.cpp isobmff/isobmffprocessor.h
-	isobmff/isobmffhelper.cpp isobmff/isobmffhelper.h
 	MediaStreamContext.cpp MediaStreamContext.h
 	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h
 	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
@@ -598,10 +603,11 @@ set(COMMON_COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 
 set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 add_library(aamp SHARED ${LIBAAMP_SOURCES})
+target_compile_definitions(aamp PRIVATE ISOBMFF_LOG_BACKEND_AAMP)
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-	target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+	target_link_libraries(aamp tsb isobmff ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 else()
-	target_link_libraries(aamp tsb playergstinterface playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+	target_link_libraries(aamp tsb isobmff playergstinterface playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 endif()
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")

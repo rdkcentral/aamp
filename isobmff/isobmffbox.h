@@ -31,7 +31,7 @@
 #include <string>
 #include <cstring>
 #include <memory>
-#include "AampLogManager.h"
+#include "IsoBmffLog.h"
 
 // Size of the size and tag fields in IsoBmff
 #define SIZEOF_SIZE_AND_TAG    (8)

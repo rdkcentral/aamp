@@ -31,7 +31,7 @@
 #include <string>
 #include <cstdint>
 #include <memory>
-#include "AampLogManager.h"
+#include "IsoBmffLog.h"
 
 /**
  * @class IsoBmffBuffer

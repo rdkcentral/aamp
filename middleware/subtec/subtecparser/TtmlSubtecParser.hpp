@@ -20,7 +20,7 @@
 #pragma once
 
 #include "subtitleParser.h"
-#include "playerisobmffbuffer.h"
+#include "isobmffbuffer.h"
 #include "SubtecChannel.hpp"
 
 class TtmlSubtecParser : public SubtitleParser
