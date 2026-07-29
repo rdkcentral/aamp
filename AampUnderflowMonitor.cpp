@@ -157,6 +157,9 @@ void AampUnderflowMonitor::RearmDeadline(double bufferSec, float playRate)
         mDeadlineArmed = false;
         return;
     }
+    // Playback is proceeding (or recovering from underflow) — reset the stall timer
+    // so that a future underflow starts with a fresh clock.
+    mUnderflowStartTime = TimePoint{};
     const double sleepSec = bufferSec / static_cast<double>(playRate);
     using Dur = Clock::duration;
     mDeadline      = Clock::now() + std::chrono::duration_cast<Dur>(std::chrono::duration<double>(sleepSec));
@@ -294,6 +297,48 @@ void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playR
     mCV.notify_one();
 }
 
+void AampUnderflowMonitor::CheckForStallDetection(std::unique_lock<std::mutex>& lock)
+{
+    // Check if the pipeline is currently paused (underflow active).
+    // If so, wait only up to the stall timeout rather than indefinitely — if
+    // playback does not recover within that window, the player is considered stalled
+    if (mAamp && mAamp->GetBufUnderFlowStatus())
+    {
+        // Underflow may have been set through an external path, before the monitor
+        // recorded the start of the current underflow episode.
+        // Arm it here if it hasn't been set yet.
+        if (mUnderflowStartTime == TimePoint{})
+        {
+            mUnderflowStartTime = Clock::now();
+        }
+
+        const int stallTimeoutMS = mAamp->mConfig->GetConfigValue(eAAMPConfig_StallTimeoutMS);
+        if (stallTimeoutMS > 0)
+        {
+            const TimePoint stallDeadline = mUnderflowStartTime + std::chrono::milliseconds(stallTimeoutMS);
+            // NotifyVideoFragment() or NotifyPipelineResumed() arms mDeadlineArmed
+            // after enough buffer is available to resume playback.
+            const bool bufferingRecovered = mCV.wait_until(lock, stallDeadline,
+                [this]{ return !mRunning.load() || mDeadlineArmed; });
+
+            if (!mRunning.load())
+            {
+                return;
+            }
+
+            // Stall timeout expired and the pipeline is still in buffering state.
+            if (!bufferingRecovered && mAamp->GetBufUnderFlowStatus())
+            {
+                AAMPLOG_WARN("[video] Stall detected: no playback recovery after %d ms of continuous buffering",
+                             stallTimeoutMS);
+                lock.unlock();
+                mAamp->SendStalledErrorEvent();
+                lock.lock();
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Background thread
 // ---------------------------------------------------------------------------
@@ -308,7 +353,9 @@ void AampUnderflowMonitor::Run()
     {
         if (!mDeadlineArmed)
         {
-            // No active deadline — wait for a fragment notification or Stop().
+            CheckForStallDetection(lock);
+
+            // No active deadline and not in underflow — wait for a fragment notification or Stop().
             mCV.wait(lock, [this]{ return !mRunning.load() || mDeadlineArmed; });
             continue;
         }
@@ -377,6 +424,8 @@ void AampUnderflowMonitor::Run()
         {
             AAMPLOG_INFO("[video] underflow detected (deadline expired, rate=%.2f)", rate);
             mDeadlineArmed = false;  // Disarm — resume path will rearm.
+            // Record the start of the underflow episode.
+            mUnderflowStartTime = Clock::now();
 
             // Release the lock while calling into aamp to avoid priority inversion.
             lock.unlock();
