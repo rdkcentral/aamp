@@ -1915,6 +1915,81 @@ TEST_F(InterfacePlayerTests, SendNewSegmentEvent_VideoMediaType)
 	mInterfacePrivatePlayer->SendNewSegmentEvent(mediaType, startPts, stopPts);	//failure
 }
 
+TEST_F(InterfacePlayerTests, SendNewSegmentEvent_RialtoSink_CapsNull)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime startPts = 1000;
+	GstClockTime stopPts = 2000;
+	mPlayerContext->stream[mediaType].format = GST_FORMAT_ISO_BMFF;
+	mPlayerContext->usingRialtoSink = true;
+
+	// gst_app_src_get_caps returns NULL - segment cannot be pushed
+	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(_, GST_FORMAT_TIME))
+		.Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_get_caps(_))
+		.WillOnce(Return(nullptr));
+
+	// gst_sample_new and gst_app_src_push_sample should NOT be called
+	EXPECT_CALL(*g_mockGStreamer, gst_sample_new(_, _, _, _))
+		.Times(0);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_sample(_, _))
+		.Times(0);
+
+	mInterfacePrivatePlayer->SendNewSegmentEvent(mediaType, startPts, stopPts);
+}
+
+TEST_F(InterfacePlayerTests, SendNewSegmentEvent_RialtoSink_PushSampleSuccess)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime startPts = 1000;
+	GstClockTime stopPts = 2000;
+	mPlayerContext->stream[mediaType].format = GST_FORMAT_ISO_BMFF;
+	mPlayerContext->usingRialtoSink = true;
+
+	GstCaps fakeCaps = {};
+	GstSample fakeSample = {};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(_, GST_FORMAT_TIME))
+		.Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_get_caps(_))
+		.WillOnce(Return(&fakeCaps));
+	EXPECT_CALL(*g_mockGStreamer, gst_sample_new(nullptr, &fakeCaps, _, nullptr))
+		.WillOnce(Return(&fakeSample));
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_sample(_, &fakeSample))
+		.WillOnce(Return(GST_FLOW_OK));
+	// gst_sample_unref and gst_caps_unref expand to gst_mini_object_unref
+	EXPECT_CALL(*g_mockGStreamer, gst_mini_object_unref(_))
+		.Times(2);
+
+	mInterfacePrivatePlayer->SendNewSegmentEvent(mediaType, startPts, stopPts);
+}
+
+TEST_F(InterfacePlayerTests, SendNewSegmentEvent_RialtoSink_PushSampleFailure)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime startPts = 1000;
+	GstClockTime stopPts = 2000;
+	mPlayerContext->stream[mediaType].format = GST_FORMAT_ISO_BMFF;
+	mPlayerContext->usingRialtoSink = true;
+
+	GstCaps fakeCaps = {};
+	GstSample fakeSample = {};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(_, GST_FORMAT_TIME))
+		.Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_get_caps(_))
+		.WillOnce(Return(&fakeCaps));
+	EXPECT_CALL(*g_mockGStreamer, gst_sample_new(nullptr, &fakeCaps, _, nullptr))
+		.WillOnce(Return(&fakeSample));
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_sample(_, &fakeSample))
+		.WillOnce(Return(GST_FLOW_ERROR));
+	// gst_sample_unref and gst_caps_unref still called even on push failure
+	EXPECT_CALL(*g_mockGStreamer, gst_mini_object_unref(_))
+		.Times(2);
+
+	mInterfacePrivatePlayer->SendNewSegmentEvent(mediaType, startPts, stopPts);
+}
+
 TEST_F(InterfacePlayerTests, Queue_and_ClearProtectionEvent)
 {
 	std::string formatType = "cenc";
