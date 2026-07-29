@@ -404,7 +404,7 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 
 	if (duration > UINT32_MAX)
 	{
-		AAMPLOG_WARN("Duration %llu exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
+		AAMPLOG_WARN("Duration %" PRIu64 " exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
 		duration = UINT32_MAX;
 	}
 
@@ -1155,7 +1155,7 @@ void IsoBmffBuffer::truncate(void)
 			uint32_t duration32 = (duration > UINT32_MAX) ? UINT32_MAX : static_cast<uint32_t>(duration);
 			if (duration > UINT32_MAX)
 			{
-				AAMPLOG_WARN("Duration %llu exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
+				AAMPLOG_WARN("Duration %" PRIu64 " exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
 			}
 			if (!updateSampleDurationInternal(duration32, *trunList[0], *tfhd))
 			{
