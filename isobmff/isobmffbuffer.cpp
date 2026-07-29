@@ -402,6 +402,12 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 		return;
 	}
 
+	if (duration > UINT32_MAX)
+	{
+		AAMPLOG_WARN("Duration %llu exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
+		duration = UINT32_MAX;
+	}
+
 	size_t index{0};
 
 	// This is an I-frame media segment, so there will only be one moof with one traf
@@ -427,7 +433,7 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 			// but in that case the code assumes there will be no duration to update.
 			if (trun && tfhd)
 			{
-				if (!updateSampleDurationInternal(duration, *trun, *tfhd))
+				if (!updateSampleDurationInternal(static_cast<uint32_t>(duration), *trun, *tfhd))
 				{
 					AAMPLOG_WARN("Sample duration not set");
 				}
@@ -1050,7 +1056,7 @@ void IsoBmffBuffer::getPts(Box *box, uint64_t &fpts)
 	}
 }
 
-bool IsoBmffBuffer::updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd)
+bool IsoBmffBuffer::updateSampleDurationInternal(uint32_t duration, TrunBox& trun, TfhdBox& tfhd)
 {
 	bool durationPresent{false};
 
@@ -1146,7 +1152,12 @@ void IsoBmffBuffer::truncate(void)
 		auto mdat{dynamic_cast<MdatBox *>(getBox(Box::MDAT, localIndex))};
 		if(mdat)
 		{
-			if (!updateSampleDurationInternal(duration, *trunList[0], *tfhd))
+			uint32_t duration32 = (duration > UINT32_MAX) ? UINT32_MAX : static_cast<uint32_t>(duration);
+			if (duration > UINT32_MAX)
+			{
+				AAMPLOG_WARN("Duration %llu exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
+			}
+			if (!updateSampleDurationInternal(duration32, *trunList[0], *tfhd))
 			{
 				AAMPLOG_WARN("Sample duration not set");
 			}
