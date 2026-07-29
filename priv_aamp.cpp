@@ -6650,7 +6650,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableWebVTT, true);
 		AAMPLOG_INFO("app name:%s disableWebVTT(%d)", mAppName.c_str(), GETCONFIGVALUE_PRIV(eAAMPConfig_DisableWebVTT));
+		
 	}
+	SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_UseWesterosSink, false);
+	AAMPLOG_INFO("app name:%s useWesterosSink(%d)", mAppName.c_str(), GETCONFIGVALUE_PRIV(eAAMPConfig_UseWesterosSink));
 
 	/* Reset counter in new tune */
 	mManifestRefreshCount = 0;
