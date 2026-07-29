@@ -219,6 +219,7 @@ static void gst_cdmidecryptor_init(
 	g_mutex_init(&cdmidecryptor->mutex);
 	//GST_DEBUG_OBJECT(cdmidecryptor, "\n Initialized plugin mutex\n");
 	g_cond_init(&cdmidecryptor->condition);
+	g_cond_init(&cdmidecryptor->sinkCapsCond);
 	cdmidecryptor->streamReceived = false;
 	// Lock access to canWait to keep Coverity happy
 	g_mutex_lock(&cdmidecryptor->mutex);
@@ -267,8 +268,9 @@ void gst_cdmidecryptor_dispose(GObject * object)
 		cdmidecryptor->sinkCaps = NULL;
 	}
 
-	g_mutex_clear(&cdmidecryptor->mutex);
 	g_cond_clear(&cdmidecryptor->condition);
+	g_cond_clear(&cdmidecryptor->sinkCapsCond);
+	g_mutex_clear(&cdmidecryptor->mutex);
 
 	G_OBJECT_CLASS(gst_cdmidecryptor_parent_class)->dispose(object);
 }
@@ -465,6 +467,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 			cdmidecryptor->sinkCaps = NULL;
 		}
 		cdmidecryptor->sinkCaps = gst_caps_copy(transformedCaps);
+		g_cond_signal(&cdmidecryptor->sinkCapsCond);
 		g_mutex_unlock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(trans, "Set sinkCaps to %" GST_PTR_FORMAT, cdmidecryptor->sinkCaps);
 	}
@@ -510,6 +513,19 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 
 	g_mutex_lock(&cdmidecryptor->mutex);
 	mutexLocked = TRUE;
+
+	if (cdmidecryptor->sinkCaps == NULL && cdmidecryptor->streamReceived) {
+		// Caps negotiation hasn't completed yet - wait briefly
+		gint64 end_time = g_get_monotonic_time() + 500 * G_TIME_SPAN_MILLISECOND;
+		while (cdmidecryptor->sinkCaps == NULL) {
+			if (!g_cond_wait_until(&cdmidecryptor->sinkCapsCond, &cdmidecryptor->mutex, end_time)) {
+				GST_WARNING_OBJECT(cdmidecryptor, "Timeout waiting for sinkCaps");
+				result = GST_FLOW_NOT_SUPPORTED;
+				goto free_resources;
+			}
+		}
+	}
+
 	if (!protectionMeta)
 	{
 		GST_DEBUG_OBJECT(cdmidecryptor,
@@ -518,12 +534,12 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		{
 			// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 			// decrypt() call will return without doing anything
-			if (cdmidecryptor->drmSession != NULL)
+			if (cdmidecryptor->drmSession != NULL && cdmidecryptor->sinkCaps != NULL)
 			   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
 			else
 			{ /* If drmSession creation failed, then the call will be aborted here */
 				result = GST_FLOW_NOT_SUPPORTED;
-				GST_ERROR_OBJECT(cdmidecryptor, "drmSession is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
+				GST_ERROR_OBJECT(cdmidecryptor, "drmSession or sinkCaps is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
 			}
 		}
 		goto free_resources;
@@ -635,7 +651,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			goto free_resources;
 		}
 	}
-
+	if (cdmidecryptor->sinkCaps == NULL) {
+	    GST_WARNING_OBJECT(cdmidecryptor, "sinkCaps is NULL, skipping decrypt");
+	    result = GST_FLOW_NOT_SUPPORTED;
+	    goto free_resources;
+	}
 	errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
 
 	cdmidecryptor->streamEncrypted = true;
