@@ -198,14 +198,15 @@ TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromFlushing_IsIgnored)
 }
 
 /**
- * @test FLUSHING + onPlaybackStarted updates pre-flush state to PLAYING but
- *       does NOT exit FLUSHING.  The machine only leaves FLUSHING via
- *       onFlushComplete(), which then restores to PLAYING.  This keeps
- *       WaitForFlushToComplete() correctly blocked until all sources confirm
- *       flushed, preventing Configure() from racing with in-flight callbacks.
+ * @test FLUSHING + onPlaybackStarted is ignored (no transition defined).
+ *
+ * Rialto guarantees SEEK_DONE is always sent before any subsequent
+ * PLAYING/PAUSED notification for the same flush cycle, so a PLAYING
+ * notification cannot legitimately arrive while still FLUSHING.  Should
+ * this assumption ever be violated, dispatch() logs a WARN instead of
+ * silently mishandling the event.
  */
-TEST_F(AampPlayerStateMachineTest,
-	OnPlaybackStarted_FromFlushing_UpdatesPreFlushStateAndStaysFlushing)
+TEST_F(AampPlayerStateMachineTest, OnPlaybackStarted_FromFlushing_IsIgnored)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
@@ -213,19 +214,16 @@ TEST_F(AampPlayerStateMachineTest,
 	m_sm.onFlush();
 	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
 
-	m_sm.onPlaybackStarted();    // delayed ack: updates pre-flush, stays FLUSHING
+	m_sm.onPlaybackStarted();   // no transition defined — dispatch warns
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
-
-	m_sm.onFlushComplete();      // sources all flushed: restores to PLAYING
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
 }
 
 /**
- * @test FLUSHING + onPlaybackPaused updates pre-flush state to PAUSED but
- *       does NOT exit FLUSHING.  onFlushComplete() then restores to PAUSED.
+ * @test FLUSHING + onPlaybackPaused is ignored (no transition defined).
+ *
+ * Same reasoning as OnPlaybackStarted_FromFlushing_IsIgnored above.
  */
-TEST_F(AampPlayerStateMachineTest,
-	OnPlaybackPaused_FromFlushing_UpdatesPreFlushStateAndStaysFlushing)
+TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromFlushing_IsIgnored)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
@@ -235,11 +233,8 @@ TEST_F(AampPlayerStateMachineTest,
 	m_sm.onFlush();
 	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
 
-	m_sm.onPlaybackPaused();     // delayed ack: updates pre-flush, stays FLUSHING
+	m_sm.onPlaybackPaused();    // no transition defined — dispatch warns
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
-
-	m_sm.onFlushComplete();      // sources all flushed: restores to PAUSED
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
 }
 
 // ===========================================================================
@@ -505,9 +500,10 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromError_TransitionsToIdle)
  * @test onReconfigure from FLUSHING is ignored — FlushingState has no
  *       onReconfigure override.
  *
- * Configure() calls Stop() first, which calls WaitForFlushToComplete(),
- * so the machine has already left FLUSHING before onReconfigure is fired.
- * The dispatch layer emits a WARN and the machine stays in FLUSHING.
+ * Configure() calls WaitForFlushToComplete() directly before dispatching
+ * onReconfigure(), so the machine has already left FLUSHING by the time
+ * onReconfigure is fired in production.  The dispatch layer emits a WARN
+ * and the machine stays in FLUSHING.
  */
 TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushing_IsIgnored)
 {
@@ -587,71 +583,34 @@ TEST_F(AampPlayerStateMachineTest, ConcurrentEvents_DoNotCrash)
 }
 
 // ===========================================================================
-// onFlushComplete — pre-flush state restoration
+// onFlushComplete — FLUSHING -> FLUSHED
 // ===========================================================================
 
 /**
- * @test FLUSHING (pre-flush=PLAYING) + onFlushComplete → PLAYING.
+ * @test FLUSHING + onFlushComplete → FLUSHED.
  *
- * When a seek completes and sources report flushed, the state machine
- * must restore the pre-flush PLAYING state, not wait for Rialto PLAYING.
+ * SEEK_DONE always completes the flush cycle by moving to FLUSHED,
+ * regardless of what state was active before the flush started.  Rialto's
+ * subsequent PLAYING/PAUSED notification (guaranteed to arrive after
+ * SEEK_DONE) is what actually drives the machine onward - see the
+ * FromFlushed tests below.
  */
-TEST_F(AampPlayerStateMachineTest, OnFlushComplete_FromFlushing_PreFlushPlaying_RestoresPlaying)
-{
-	m_sm.onPipelineLoaded();
-	m_sm.onSourceAttaching();
-	m_sm.onAllSourcesAttached();
-	m_sm.onPlaybackStarted();      // pre-flush state = PLAYING
-	m_sm.onFlush();
-	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
-
-	m_sm.onFlushComplete();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
-}
-
-/**
- * @test FLUSHING (pre-flush=PAUSED) + onFlushComplete → PAUSED.
- *
- * A seek while paused must restore PAUSED without issuing play().
- */
-TEST_F(AampPlayerStateMachineTest, OnFlushComplete_FromFlushing_PreFlushPaused_RestoresPaused)
+TEST_F(AampPlayerStateMachineTest, OnFlushComplete_FromFlushing_TransitionsToFlushed)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onPlaybackStarted();
-	m_sm.onPlaybackPaused();       // pre-flush state = PAUSED
 	m_sm.onFlush();
 	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
 
 	m_sm.onFlushComplete();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
 }
 
 /**
- * @test FLUSHING (pre-flush=SOURCES_ATTACHED) + onFlushComplete →
- *       SOURCES_ATTACHED.
- *
- * Flush can be called from SOURCES_ATTACHED (e.g. initial position setup).
- */
-TEST_F(AampPlayerStateMachineTest, OnFlushComplete_FromFlushing_PreFlushSourcesAttached_RestoresSourcesAttached)
-{
-	m_sm.onPipelineLoaded();
-	m_sm.onSourceAttaching();
-	m_sm.onAllSourcesAttached();   // pre-flush state = SOURCES_ATTACHED
-	m_sm.onFlush();
-	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
-
-	m_sm.onFlushComplete();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::SOURCES_ATTACHED);
-}
-
-/**
- * @test onFlushComplete while NOT in FLUSHING is silently ignored.
- *
- * The race where Rialto already emitted PLAYING before all sources
- * flushed can leave the machine in PLAYING when onFlushComplete fires.
- * The call must be a no-op.
+ * @test onFlushComplete while NOT in FLUSHING is silently ignored (WARN
+ *       logged, no transition).
  */
 TEST_F(AampPlayerStateMachineTest, OnFlushComplete_WhileNotFlushing_IsIgnored)
 {
@@ -664,77 +623,113 @@ TEST_F(AampPlayerStateMachineTest, OnFlushComplete_WhileNotFlushing_IsIgnored)
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
 }
 
-/**
- * @test Pre-flush state is updated across successive flushes.
- *
- * After PLAYING→FLUSHING→onFlushComplete→PLAYING→PAUSED→FLUSHING→
- * onFlushComplete, the state must be PAUSED (second pre-flush wins).
- */
-TEST_F(AampPlayerStateMachineTest, OnFlushComplete_SuccessiveFlushes_TracksLatestPreFlushState)
-{
-	m_sm.onPipelineLoaded();
-	m_sm.onSourceAttaching();
-	m_sm.onAllSourcesAttached();
-	m_sm.onPlaybackStarted();      // PLAYING
-
-	// First flush cycle: from PLAYING
-	m_sm.onFlush();
-	m_sm.onFlushComplete();
-	ASSERT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
-
-	m_sm.onPlaybackPaused();       // PAUSED
-
-	// Second flush cycle: from PAUSED
-	m_sm.onFlush();
-	m_sm.onFlushComplete();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
-}
+// ===========================================================================
+// FLUSHED — Rialto's post-seek notification drives the machine onward
+// ===========================================================================
 
 /**
- * @test FLUSHING + onPlaybackStarted → stays FLUSHING, pre-flush state
- *       updated to PLAYING (edge-case race handler).
+ * @test FLUSHED + onPlaybackStarted → PLAYING.
  *
- * When a Rialto PLAYING notification arrives during the narrow window
- * between flushSource() sending the IPC command and onFlushComplete()
- * being called, the machine stays in FLUSHING (WaitForFlushToComplete
- * must not unblock prematurely) and updates the pre-flush state so that
- * onFlushComplete() restores to PLAYING.
+ * Covers seek-while-playing: Rialto sends PLAYING after SEEK_DONE.
  */
-TEST_F(AampPlayerStateMachineTest, OnPlaybackStarted_FromFlushing_EdgeCaseRace_StaysFlushing)
+TEST_F(AampPlayerStateMachineTest, OnPlaybackStarted_FromFlushed_TransitionsToPlaying)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onPlaybackStarted();
 	m_sm.onFlush();
-	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
 
-	m_sm.onPlaybackStarted();      // delayed ack: state stays FLUSHING
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
-
-	m_sm.onFlushComplete();        // sources flushed: restores to PLAYING
+	m_sm.onPlaybackStarted();
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
 }
 
 /**
- * @test FLUSHING + onPlaybackPaused → PAUSED (edge-case race handler).
+ * @test FLUSHED + onPlaybackPaused → PAUSED.
+ *
+ * Covers seek-while-paused: Rialto sends PAUSED after SEEK_DONE.
  */
-TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromFlushing_EdgeCaseRace_TransitionsToPaused)
+TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromFlushed_TransitionsToPaused)
 {
-	// This test is subsumed by
-	// OnPlaybackPaused_FromFlushing_UpdatesPreFlushStateAndStaysFlushing.
-	// Kept here to verify that successive flush+PlaybackPaused sequences
-	// are handled correctly when pre-flush state starts as PLAYING.
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
-	m_sm.onPlaybackStarted();      // pre-flush state will be PLAYING
+	m_sm.onPlaybackStarted();
+	m_sm.onPlaybackPaused();
 	m_sm.onFlush();
-	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
 
-	m_sm.onPlaybackPaused();       // overrides pre-flush state to PAUSED
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
-
-	m_sm.onFlushComplete();        // restores to PAUSED (updated pre-flush state)
+	m_sm.onPlaybackPaused();
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
+}
+
+/**
+ * @test FLUSHED + onFlush → FLUSHING.
+ *
+ * Covers a second seek arriving before Rialto's post-seek PLAYING/PAUSED
+ * notification for the first seek has arrived.
+ */
+TEST_F(AampPlayerStateMachineTest, OnFlush_FromFlushed_TransitionsToFlushing)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onFlush();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+}
+
+/**
+ * @test FLUSHED + onStop → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnStop_FromFlushed_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onStop();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test FLUSHED + onError → ERROR.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromFlushed_TransitionsToError)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onError();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
+/**
+ * @test FLUSHED + onReconfigure → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushed_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }

@@ -1004,7 +1004,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	/**
 	 * @brief After Stream() successfully issues play(), m_playRequested is
 	 *        reset to false.  A subsequent seek-while-paused flush must not
-	 *        spuriously re-issue play() when SEEK_DONE restores PAUSED.
+	 *        spuriously re-issue play() once Rialto's post-flush PAUSED
+	 *        notification arrives.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -1028,12 +1029,16 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
 	// play() must NOT be called: m_playRequested was reset when Stream()
-	// issued play(), and the restored post-flush state is PAUSED.
+	// issued play(). SEEK_DONE only lands in FLUSHED; Rialto's own PAUSED
+	// notification (guaranteed to follow SEEK_DONE) drives FLUSHED -> PAUSED.
 	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
-	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);  // triggers onFlushComplete() → PAUSED
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);  // triggers onFlushComplete() → FLUSHED
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);  // FLUSHED -> PAUSED
 
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED)
-		<< "Seek-while-paused flush must restore PAUSED, not resume play";
+		<< "Seek-while-paused flush must settle in PAUSED, not resume play";
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_CallsPipelineStop)
@@ -2031,14 +2036,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	OnPlaybackState_SeekDone_PreFlushStatePlaying_ClearsInjectionGatedAndCallsPlay)
 {
 	/**
-	 * @brief Regression: seek-while-playing.  onFlushComplete() restores the
-	 *        pre-flush state to PLAYING *before* the play()-issuance check
-	 *        runs.  The gate must still be cleared based on
-	 *        m_playRequested alone - it must not depend on a subsequent,
-	 *        unguaranteed "redundant" PLAYING notification from Rialto to
-	 *        eventually clear it via the PLAYING case handler.  play() is
-	 *        now issued unconditionally whenever m_playRequested was set,
-	 *        even though the restored state is already PLAYING.
+	 * @brief Regression: seek-while-playing.  onFlushComplete() only takes
+	 *        the state machine to FLUSHED - it does not restore PLAYING.
+	 *        The gate must still be cleared based on m_playRequested alone -
+	 *        it must not depend on Rialto's subsequent PLAYING notification
+	 *        (guaranteed to follow SEEK_DONE) to eventually clear it via the
+	 *        PLAYING case handler.  play() is issued unconditionally whenever
+	 *        m_playRequested was set, regardless of the state machine still
+	 *        being in FLUSHED at that point.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -2064,18 +2069,23 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated)
 		<< "Stream() while FLUSHING must defer without clearing the gate";
 
-	// SEEK_DONE alone (no subsequent PLAYING notification) restores state
-	// to PLAYING and must clear the gate on both sources, and must issue
-	// play() unconditionally since m_playRequested was set - regardless of
-	// the restored state already being PLAYING.
+	// SEEK_DONE alone lands in FLUSHED (no restore to PLAYING) and must
+	// clear the gate on both sources, and must issue play() unconditionally
+	// since m_playRequested was set - regardless of the state machine still
+	// being in FLUSHED.
 	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().injectionGated)
-		<< "Gate must clear based on m_playRequested alone, not on the "
-		   "restored state matching PLAYING";
+		<< "Gate must clear based on m_playRequested alone, not on a "
+		   "subsequent Rialto PLAYING notification";
 	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->state().injectionGated);
+
+	// Rialto's own PLAYING notification (guaranteed to follow SEEK_DONE)
+	// drives the state machine the rest of the way.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 }
 
 // ===========================================================================
@@ -3369,11 +3379,12 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	 * pipeline.
 	 *
 	 * Fix: onFlushComplete() is now called from the SEEK_DONE handler once
-	 * the pipeline-level flushing seek completes.  It restores the pre-flush
-	 * state (SOURCES_ATTACHED in this case) so the pipeline reuse path in
-	 * Configure() finds a non-FLUSHING state and, crucially, the subsequent
-	 * Rialto PLAYING notification transitions SOURCES_ATTACHED → PLAYING via
-	 * the normal SourcesAttachedState::onPlaybackStarted() path.
+	 * the pipeline-level flushing seek completes, taking the state machine
+	 * to FLUSHED. FLUSHED does not remember or restore the pre-flush state -
+	 * it simply finds a non-FLUSHING state for the pipeline reuse path in
+	 * Configure(), and the subsequent Rialto PLAYING notification (guaranteed
+	 * to follow SEEK_DONE) transitions FLUSHED → PLAYING via
+	 * FlushedState::onPlaybackStarted().
 	 */
 	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
 	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
@@ -3399,31 +3410,32 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Simulate Rialto confirming the pipeline-level flushing seek completed.
 	// This fixture does not stub isVideoMaster(), so computeAppliedRate()
 	// falls back to 1.0 (normal) and the SEEK_DONE handler does not issue the
-	// extra video-source setSourcePosition() call.  onFlushComplete() still
-	// restores the pre-flush state and notifies WaitForFlushToComplete() so
+	// extra video-source setSourcePosition() call.  onFlushComplete() takes
+	// the state machine to FLUSHED and notifies WaitForFlushToComplete() so
 	// Configure() can proceed.
 	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
-	// After the flushing seek completes, onFlushComplete() restores the
-	// pre-flush state.  The pre-flush state was SOURCES_ATTACHED.
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED)
-		<< "onFlushComplete() must restore pre-flush state SOURCES_ATTACHED";
+	// After the flushing seek completes, onFlushComplete() lands in FLUSHED
+	// (it does not restore SOURCES_ATTACHED).
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED)
+		<< "onFlushComplete() must transition FLUSHING -> FLUSHED";
 
 	// Trickplay Configure: audio → FORMAT_INVALID, no pipeline recreation.
 	// The pipeline reuse path does not touch the state machine, so state
-	// remains SOURCES_ATTACHED.
+	// remains FLUSHED.
 	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
 		/*bESChangeStatus=*/false,
 		/*setReadyAfterPipelineCreation=*/false);
 
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED)
-		<< "Pipeline reuse must not change the state from SOURCES_ATTACHED";
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED)
+		<< "Pipeline reuse must not change the state from FLUSHED";
 
-	// Verify the normal transition: SOURCES_ATTACHED responds to Rialto PLAYING.
+	// Verify the normal transition: FLUSHED responds to Rialto PLAYING - this
+	// is the mechanism that used to get stuck in FLUSHING before the fix.
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING)
-		<< "SOURCES_ATTACHED must transition to PLAYING when Rialto sends PLAYING";
+		<< "FLUSHED must transition to PLAYING when Rialto sends PLAYING";
 }
 
 TEST_F(AampRialtoPlayerTest,
@@ -3904,7 +3916,10 @@ TEST_F(AampRialtoPlayerTest,
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+	// SEEK_DONE only drives FLUSHING -> FLUSHED. No Rialto PLAYING/PAUSED
+	// notification has been posted in this test, so the state machine
+	// remains in FLUSHED awaiting one (it does not restore SOURCES_ATTACHED).
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
 }
 
 // ===========================================================================

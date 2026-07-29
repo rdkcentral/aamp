@@ -30,6 +30,10 @@
  *   PLAYING            — server confirmed PLAYING
  *   PAUSED             — server confirmed PAUSED
  *   FLUSHING           — Flush() in progress; new segment arrival expected
+ *   FLUSHED            — SEEK_DONE received; awaiting Rialto's next
+ *                         PLAYING/PAUSED notification to drive the machine
+ *                         onward (Rialto always sends SEEK_DONE before any
+ *                         subsequent PLAYING/PAUSED for the same flush cycle)
  *   STOPPED            — Stop() was called
  *   ERROR              — server reported a fatal error
  *
@@ -61,6 +65,7 @@ enum class PlayerStateId
 	PLAYING,            ///< Server confirmed PLAYING
 	PAUSED,             ///< Server confirmed PAUSED
 	FLUSHING,           ///< Flush in progress; new segment arrival expected
+	FLUSHED,            ///< SEEK_DONE received; awaiting Rialto PLAYING/PAUSED
 	STOPPED,            ///< Stop() was called
 	ERROR               ///< Server reported a fatal error
 };
@@ -116,9 +121,8 @@ public:
 	virtual std::unique_ptr<IPlayerState> onFlush()              { return nullptr; }
 
 	/// Fired when PlaybackState::SEEK_DONE is received, completing the
-	/// flush cycle.  Only meaningful from FLUSHING; ignored from all other
-	/// states so the edge-case race (Rialto PLAYING arriving before
-	/// onFlushComplete) cannot cause a double-transition.
+	/// flush cycle.  Only meaningful from FLUSHING, where it transitions to
+	/// FLUSHED.  Ignored (dispatch() logs a WARN) from all other states.
 	virtual std::unique_ptr<IPlayerState> onFlushComplete()      { return nullptr; }
 
 	/// Override in concrete states where Stop is a valid transition.
@@ -190,10 +194,11 @@ public:
 
 	/// Fired when PlaybackState::SEEK_DONE is received from Rialto.
 	///
-	/// Restores the state that was current when onFlush() was called
-	/// (PLAYING → PLAYING, PAUSED → PAUSED, SOURCES_ATTACHED →
-	/// SOURCES_ATTACHED).  If the machine has already left FLUSHING
-	/// via the edge-case onPlaybackStarted/Paused path, this is a no-op.
+	/// Transitions FLUSHING -> FLUSHED unconditionally.  Rialto always sends
+	/// SEEK_DONE before any subsequent PLAYING/PAUSED notification for the
+	/// same flush cycle, so FLUSHED simply waits for that notification to
+	/// arrive and drive the machine onward via onPlaybackStarted()/
+	/// onPlaybackPaused().  A no-op (WARN logged) if not currently FLUSHING.
 	void onFlushComplete();
 
 	/// @see IPlayerState::onStop
@@ -215,10 +220,6 @@ private:
 
 	mutable std::mutex            m_mutex;
 	std::unique_ptr<IPlayerState> m_state;
-
-	/// State saved by onFlush() so that onFlushComplete() can restore it.
-	/// Only meaningful while the machine is in FLUSHING; undefined otherwise.
-	PlayerStateId m_preFlushStateId{PlayerStateId::IDLE};
 };
 
 #endif // AAMP_PLAYER_STATE_MACHINE_H

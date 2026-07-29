@@ -1240,18 +1240,26 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// This check happens BEFORE claiming FLUSHING so that Stop() — which
 	// also calls WaitForFlushToComplete() at its start — does not deadlock
 	// on a FLUSHING state we have already claimed.
+	//
+	// FLUSHED is included as a flushable pre-state: it is reached when a
+	// prior flush cycle's SEEK_DONE has arrived but Rialto's subsequent
+	// PLAYING/PAUSED notification has not yet been delivered. A second
+	// Flush() call (e.g. rapid trickplay seeks) must still be able to
+	// re-enter FLUSHING from FLUSHED rather than falling through to the
+	// non-flushable path below.
 	const PlayerStateId preFlushState = m_stateMachine.currentState();
-	const bool isPlayingPausedOrAttached =
+	const bool isFlushableState =
 		(preFlushState == PlayerStateId::PLAYING ||
 		 preFlushState == PlayerStateId::SOURCES_ATTACHED ||
-		 preFlushState == PlayerStateId::PAUSED);
+		 preFlushState == PlayerStateId::PAUSED ||
+		 preFlushState == PlayerStateId::FLUSHED);
 
-	if (!isPlayingPausedOrAttached && shouldTearDown)
+	if (!isFlushableState && shouldTearDown)
 	{
 		// Player is not in a flushable state; recover by stopping.
 		// Stop() will call WaitForFlushToComplete() which returns immediately
 		// since we have not claimed FLUSHING.
-		AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED "
+		AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED/FLUSHED "
 			"(pre-flush state=%d) and shouldTearDown=true - calling Stop(true)",
 			static_cast<int>(preFlushState));
 		Stop(true);
@@ -1259,7 +1267,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		return;
 	}
 
-	if (!isPlayingPausedOrAttached)
+	if (!isFlushableState)
 	{
 		// Not in a flushable state and no teardown requested.
 		// Stage the parameters (covers the pre-Configure() seek-position
@@ -1916,12 +1924,11 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		case firebolt::rialto::PlaybackState::PLAYING:
 		{
 			m_stateMachine.onPlaybackStarted();
-			// Edge-case race: if PLAYING arrives before onFlushComplete() fires
-			// (a delayed ack for a play() that was in-flight when Flush() was
-			// called), the state machine has just transitioned out of FLUSHING.
-			// Wake any thread blocked in WaitForFlushToComplete() so it can
-			// re-evaluate its predicate.
-			m_flushCv.notify_all();
+			// No m_flushCv.notify_all() needed here: Rialto is guaranteed to
+			// send SEEK_DONE before PLAYING/PAUSED for the same flush cycle,
+			// so onFlushComplete() (called from the SEEK_DONE handler above)
+			// has already left FLUSHING and woken any waiter in
+			// WaitForFlushToComplete() by the time this case runs.
 
 			// Clear injectionGated so inject threads resume blocking
 			// normally on needData rather than aborting immediately.
@@ -2021,8 +2028,14 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			m_rate.store(pendingRate, std::memory_order_relaxed);
 			AAMPLOG_INFO("SEEK_DONE: committed playback rate=%d", pendingRate);
 
-			// Restore the pre-flush state before notifying
-			// WaitForFlushToComplete().
+			// Transition FLUSHING -> FLUSHED and wake any thread blocked in
+			// WaitForFlushToComplete(). FLUSHED does not restore the
+			// pre-flush PLAYING/PAUSED state: Rialto is guaranteed to send
+			// its own PLAYING/PAUSED notification after this SEEK_DONE for
+			// the same flush cycle, and that notification (handled above by
+			// the PLAYING_TRANSITION / PAUSED cases of this switch) drives
+			// the state machine the rest of the way via onPlaybackStarted()/
+			// onPlaybackPaused().
 			m_stateMachine.onFlushComplete();
 			m_flushCv.notify_all();
 
