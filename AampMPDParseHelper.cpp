@@ -32,7 +32,7 @@
 */
 AampMPDParseHelper::AampMPDParseHelper() : mMPDInstance(NULL),mIsLiveManifest(false),mMinUpdateDurationMs(0),
 				mIsFogMPD(false),
-				mAvailabilityStartTime(0.0),mPublishTime(0.0),mSegmentDurationSeconds(0),mTSBDepth(0.0),
+				mAvailabilityStartTime(0.0),mTimelineAvailabilityStartTime(0.0),mPublishTime(0.0),mSegmentDurationSeconds(0),mTSBDepth(0.0),
 				mPresentationOffsetDelay(0.0),mMediaPresentationDuration(0),
 				mMyObjectMutex(),mPeriodEncryptionMap(),mNumberOfPeriods(0),mPeriodEmptyMap(),mLiveTimeFragmentSync(false),mHasServerUtcTime(false),mUpperBoundaryPeriod(0),mLowerBoundaryPeriod(0),mMPDPeriodDetails(),mDeltaTime(0.0)
 {
@@ -52,7 +52,7 @@ AampMPDParseHelper::~AampMPDParseHelper()
 *  @brief Copy Constructor
 */
 AampMPDParseHelper::AampMPDParseHelper(const AampMPDParseHelper& cachedMPD) : mIsLiveManifest(cachedMPD.mIsLiveManifest), mIsFogMPD(cachedMPD.mIsFogMPD),
-					mMinUpdateDurationMs(cachedMPD.mMinUpdateDurationMs), mAvailabilityStartTime(cachedMPD.mAvailabilityStartTime),
+					mMinUpdateDurationMs(cachedMPD.mMinUpdateDurationMs), mAvailabilityStartTime(cachedMPD.mAvailabilityStartTime), mTimelineAvailabilityStartTime(cachedMPD.mTimelineAvailabilityStartTime),
 					   mSegmentDurationSeconds(cachedMPD.mSegmentDurationSeconds), mTSBDepth(cachedMPD.mTSBDepth),
 					   mPresentationOffsetDelay(cachedMPD.mPresentationOffsetDelay), mMediaPresentationDuration(cachedMPD.mMediaPresentationDuration),
 					   mMyObjectMutex(), mNumberOfPeriods(cachedMPD.mNumberOfPeriods) , mPeriodEncryptionMap(cachedMPD.mPeriodEncryptionMap),
@@ -67,12 +67,18 @@ AampMPDParseHelper::AampMPDParseHelper(const AampMPDParseHelper& cachedMPD) : mI
 */
 void AampMPDParseHelper::Initialize(dash::mpd::IMPD *instance)
 {
+	double timelineAvailabilityStartTime = mTimelineAvailabilityStartTime;
 	Clear();
 	std::unique_lock<std::mutex> lck(mMyObjectMutex);
+	mTimelineAvailabilityStartTime = timelineAvailabilityStartTime;
 	if(instance != NULL)
 	{
 		mMPDInstance    =   instance;
 		parseMPD();
+		if (mAvailabilityStartTime > 0)
+		{
+			mTimelineAvailabilityStartTime = mAvailabilityStartTime;
+		}
 	}
 }
 
@@ -88,6 +94,7 @@ void AampMPDParseHelper::Clear()
 	mIsFogMPD       =   false;
 	mMinUpdateDurationMs    =   0;
 	mAvailabilityStartTime  =   0.0;
+	mTimelineAvailabilityStartTime = 0.0;
 	mPublishTime = 0.0;
 	mSegmentDurationSeconds =   0;
 	mTSBDepth       =   0.0;
@@ -527,7 +534,8 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 	else
 	{
 		double periodStart = 0;
-		double  periodStartMs = 0;
+		double periodStartMs = 0;
+		double timelineAvailabilityStartTime = mAvailabilityStartTime > 0 ? mAvailabilityStartTime : mTimelineAvailabilityStartTime;
 		if( periodIndex<0 )
 		{
 			AAMPLOG_WARN( "periodIndex<0" );
@@ -541,8 +549,8 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 				{
 					double deltaInStartTime = aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(mMPDInstance->GetPeriods().at(periodIndex)) * 1000;
 					periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + deltaInStartTime;
-					periodStart = (periodStartMs / 1000) + mAvailabilityStartTime;
-					if(mNumberOfPeriods == 1 && periodIndex == 0 && mIsLiveManifest && !mIsFogMPD && (periodStart == mAvailabilityStartTime) && deltaInStartTime == 0)
+					periodStart = (periodStartMs / 1000) + timelineAvailabilityStartTime;
+					if(mNumberOfPeriods == 1 && periodIndex == 0 && mIsLiveManifest && !mIsFogMPD && (periodStart == timelineAvailabilityStartTime) && deltaInStartTime == 0)
 					{
 						// Temp hack to avoid running below if condition code for segment timeline , Due to this periodStart is getting changed for Cloud TSB or Hot Cloud DVR with segment timeline, which is not required.
 						bool bHasSegmentTimeline = aamp_HasSegmentTime(mMPDInstance->GetPeriods().at(periodIndex));
@@ -560,7 +568,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 							{
 								liveTime+=mDeltaTime;
 							}
-							if(mAvailabilityStartTime < (liveTime - duration))
+							if(timelineAvailabilityStartTime < (liveTime - duration))
 							{
 								periodStart =  liveTime - duration;
 							}
@@ -586,9 +594,9 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 						durationTotal += aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
 					}
 					periodStart =  ((double)durationTotal / (double)1000);
-					if(mIsLiveManifest && (periodStart >= 0))
+					if(timelineAvailabilityStartTime > 0 && periodStart >= 0)
 					{
-						periodStart += mAvailabilityStartTime;
+						periodStart += timelineAvailabilityStartTime;
 					}
 
 					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d periodId %s periodStart %f", periodIndex, mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), periodStart);
@@ -668,24 +676,9 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 				if(startTimeStr.empty() || mLiveTimeFragmentSync)
 				{
 					AAMPLOG_INFO("Period startTime is not present in MPD, so calculating start time with previous period durations");
-					if(mIsLiveManifest)
-					{
-						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000 - (mAvailabilityStartTime * 1000);
-					}
-					else
-					{
-						periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
-					}
 				}
-				else
-				{
-					periodStartMs = ParseISO8601Duration(startTimeStr.c_str()) + (aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(period)* 1000);
-				}
+				periodStartMs = GetPeriodStartTime(periodIndex,mLastPlaylistDownloadTimeMs) * 1000;
 				periodEndTime = ((double)(periodStartMs + periodDurationMs) /1000);
-				if(mIsLiveManifest)
-				{
-					periodEndTime +=  mAvailabilityStartTime;
-				}
 			}
 			AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d periodId %s periodEndTime %f", periodIndex, period->GetId().c_str(), periodEndTime);
 		}
