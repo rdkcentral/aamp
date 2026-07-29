@@ -1284,7 +1284,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 				// are always cleared, audio keeps EOS during trickplay so
 				// the pipeline clock is not stalled waiting for audio data
 				// that will never arrive.
-				const bool newEos = (rate != AAMP_NORMAL_PLAY_RATE &&
+				const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
 				          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
 						   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
 				source->invalidateGeneration(m_pipeline.get(),
