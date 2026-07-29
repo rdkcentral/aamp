@@ -1322,8 +1322,9 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			// During trickplay (rate != 1), keep audio EOS'd so the
 			// Rialto/GStreamer pipeline clock is not stalled waiting
 			// for audio data that will never arrive.
-			const bool newEos = (rate != AAMP_NORMAL_PLAY_RATE &&
-			          source.get() == m_sources[eMEDIATYPE_AUDIO].get());
+			const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
+					          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
+							   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
 			source->invalidateGeneration(m_pipeline.get(), "Flush", newEos);
 		}
 	}
