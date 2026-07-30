@@ -394,7 +394,7 @@ void IsoBmffBuffer::restampPts(int64_t offset)
 	restampPtsInternal(offset, const_cast<uint8_t *>(buffer), bufSize);
 }
 
-void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
+void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint32_t duration)
 {
 	if (readOnlyBuffer)
 	{
@@ -1050,7 +1050,7 @@ void IsoBmffBuffer::getPts(Box *box, uint64_t &fpts)
 	}
 }
 
-bool IsoBmffBuffer::updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd)
+bool IsoBmffBuffer::updateSampleDurationInternal(uint32_t duration, TrunBox& trun, TfhdBox& tfhd)
 {
 	bool durationPresent{false};
 
@@ -1146,7 +1146,12 @@ void IsoBmffBuffer::truncate(void)
 		auto mdat{dynamic_cast<MdatBox *>(getBox(Box::MDAT, localIndex))};
 		if(mdat)
 		{
-			if (!updateSampleDurationInternal(duration, *trunList[0], *tfhd))
+			uint32_t duration32 = (duration > UINT32_MAX) ? UINT32_MAX : static_cast<uint32_t>(duration);
+			if (duration > UINT32_MAX)
+			{
+				AAMPLOG_WARN("Duration %" PRIu64 " exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
+			}
+			if (!updateSampleDurationInternal(duration32, *trunList[0], *tfhd))
 			{
 				AAMPLOG_WARN("Sample duration not set");
 			}
