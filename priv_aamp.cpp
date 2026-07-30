@@ -8526,9 +8526,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
 	auto streamLockStartTime = NOW_STEADY_TS_MS;
-	auto streamLockStopTime = NOW_STEADY_TS_MS;
+	decltype(NOW_STEADY_TS_MS) streamLockStopTime;
 	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
-	auto licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStopTime = licenseAcquisitionLockStartTime;
 	// Stopping the playback, release all DRM context
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);

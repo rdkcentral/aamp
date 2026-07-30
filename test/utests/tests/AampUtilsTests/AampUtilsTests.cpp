@@ -30,7 +30,7 @@
 // unit under test
 #include <AampUtils.cpp>
 
-#include "middleware/baseConversion/_base64.h"
+#include "_base64.h"
 
 #include "MockCurl.h"
 

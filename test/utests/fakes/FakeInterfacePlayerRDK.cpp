@@ -25,7 +25,7 @@
  * isolation without compiling the real middleware pipeline code.
  */
 
-#include "middleware/InterfacePlayerRDK.h"
+#include "InterfacePlayerRDK.h"
 
 static MonitorAVState sMonitorAVState{};
 static Configs sDefaultConfigs{};
