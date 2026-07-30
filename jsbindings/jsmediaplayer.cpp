@@ -558,7 +558,6 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			aamp_ApplyPageHttpHeaders(privObj->_aamp);
 
 			{
-				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
 				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
 				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStitchingMode, std::move(sid),manifestbuffer);
 
