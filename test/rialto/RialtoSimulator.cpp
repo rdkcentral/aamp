@@ -200,8 +200,7 @@ public:
 	bool pause() override
 	{
 		RIALTO_SIM_LOG("pause");
-		m_playRequested.store(false, std::memory_order_relaxed);
-		m_playing = false;
+		pausePlayback();
 		if (auto client = m_client.lock())
 		{
 			client->notifyPlaybackState(PlaybackState::PAUSED);
@@ -212,8 +211,7 @@ public:
 	bool stop() override
 	{
 		RIALTO_SIM_LOG("stop");
-		m_playRequested.store(false, std::memory_order_relaxed);
-		m_playing = false;
+		pausePlayback();
 		stopThreads();
 		if (auto client = m_client.lock())
 		{
@@ -504,6 +502,22 @@ public:
 		if (mediaSegment)
 		{
 			std::lock_guard<std::mutex> lock(m_trackMutex);
+			// Only stage segments for requests that are still outstanding
+			// and belong to the current generation.  After flush()/
+			// setPosition() bumps m_generation and clears
+			// m_requestIdToSource, any addSegment() for an old requestId
+			// is stale: haveData() will never be called for it, so the
+			// pending entry would accumulate without being consumed.
+			auto reqIt = m_requestIdToSource.find(needDataRequestId);
+			if (reqIt == m_requestIdToSource.end() ||
+				reqIt->second.generation !=
+					m_generation.load(std::memory_order_relaxed))
+			{
+				RIALTO_SIM_LOG(
+					"addSegment: discarding stale segment for requestId=%u",
+					needDataRequestId);
+				return AddSegmentStatus::OK;
+			}
 			PendingSegmentData &pending = m_pendingSegments[needDataRequestId];
 			pending.sourceId = mediaSegment->getId();
 			pending.totalDurationNs += mediaSegment->getDuration();
@@ -680,6 +694,19 @@ private:
 		return base + static_cast<int64_t>(elapsedNs);
 	}
 
+	// Pause playback: snapshot the current position (to freeze it for
+	// subsequent queries) and clear the play/playRequested state.
+	void pausePlayback()
+	{
+		if (m_playing && m_basePositionSet.load(std::memory_order_relaxed))
+		{
+			int64_t currentPos = getCurrentPositionNs();
+			m_basePositionNs.store(currentPos, std::memory_order_relaxed);
+		}
+		m_playRequested.store(false, std::memory_order_relaxed);
+		m_playing = false;
+	}
+
 	// Amount of injected-but-not-yet-played media held for a single
 	// non-subtitle source, in the pipeline (restamped) timebase.  Used to
 	// model per-track buffer-fill backpressure: injected duration
@@ -787,22 +814,21 @@ private:
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			}
 
-			// Re-check right before sending: the pacing loop may have exited
-			// on the very iteration a flush()/setPosition() bumped the
-			// generation.
-			if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
-			{
-				return;
-			}
-
 			auto client = m_client.lock();
 			if (!client)
 			{
 				return;
 			}
-			uint32_t reqId;
+
+			uint32_t reqId = 0;
 			{
 				std::lock_guard<std::mutex> lock(m_trackMutex);
+				if (m_generation.load(std::memory_order_relaxed) != expectedGeneration)
+				{
+					RIALTO_SIM_LOG("scheduleNextNeedData: aborting sourceId=%d"
+						" - generation changed before send", sourceId);
+					return;
+				}
 				reqId = m_needDataRequestId++;
 				m_requestIdToSource[reqId] = RequestInfo{sourceId, expectedGeneration};
 			}
