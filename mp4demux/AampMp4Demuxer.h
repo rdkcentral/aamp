@@ -28,6 +28,7 @@
 #include "mediaprocessor.h"
 #include "MP4Demux.h"
 #include "priv_aamp.h"
+#include <atomic>
 #include <memory>
 
 class AampMp4Demuxer : public MediaProcessor
@@ -173,6 +174,12 @@ private:
 	bool mIsTrickMode {false};				/**< True if in trickmode (rate != 1.0) */
 	double mLastSamplePts {0.0};			/**< PTS of the previous sample, used in trick modes */
 	double mRestampedPts {0.0};				/**< Restamped PTS of the sample, used in trick modes */
+	/// Set by abort() (from a control thread, e.g. Stop()/Flush()) and checked
+	/// between samples in sendSegment()'s injection loop so that a fragment
+	/// already in flight stops sending further samples instead of proceeding
+	/// to block on each remaining sample (e.g. against an injection gate set
+	/// by AampRialtoMediaSource::unblockInjection()).  Cleared by reset().
+	std::atomic<bool> mAborted {false};
 		
 	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */
 	double mLastTrickRate {0.0};     /**< Last used trickplay rate for state reset */

@@ -68,7 +68,7 @@ STATES = [
     ("PLAYING",           "Server confirmed PLAYING"),
     ("PAUSED",            "Server confirmed PAUSED"),
     ("FLUSHING",          "Flush() in progress; awaiting new segments"),
-    ("STOPPED",           "Stop() was called"),
+    ("FLUSHED",           "SEEK_DONE received; awaiting Rialto PLAYING/PAUSED"),
     ("ERROR",             "Server reported a fatal error"),
 ]
 
@@ -86,22 +86,38 @@ TRANSITIONS = [
     ("PLAYING",           "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
     ("PAUSED",            "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
 
+    # Normal flush exit: Rialto's SEEK_DONE notification completes the
+    # pipeline-level flushing seek.  onFlushComplete() takes the machine
+    # unconditionally to FLUSHED - it does NOT remember or restore the
+    # pre-flush state.
+    ("FLUSHING",          "onFlushComplete",      "SEEK_DONE",             "FLUSHED"),
+
+    # FLUSHED — Rialto's own subsequent notification (guaranteed to follow
+    # SEEK_DONE for the same flush cycle) drives the machine the rest of the
+    # way.  If Flush() happened before the first play() (pre-flush state was
+    # SOURCES_ATTACHED), the machine simply waits in FLUSHED until
+    # Stream()/play() eventually triggers Rialto's PLAYING notification -
+    # functionally equivalent to the old SOURCES_ATTACHED-restore path.
+    ("FLUSHED",           "onPlaybackStarted",    "PLAYING notification",  "PLAYING"),
+    ("FLUSHED",           "onPlaybackPaused",     "PAUSED notification",   "PAUSED"),
+    ("FLUSHED",           "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
+
     # After flush + re-configure, new init fragments re-drive attachment.
-    ("FLUSHING",          "onSourceAttaching",    "attachSource()",        "SOURCES_ATTACHING"),
+    # Note: there is NO direct FLUSHING→SOURCES_ATTACHING transition via
+    # onSourceAttaching.  A pipeline rebuild always goes through onReconfigure
+    # (FLUSHING→IDLE) before sources re-attach.  onSourceAttaching from
+    # FLUSHING is unreachable and will produce a WARN log if it ever fires.
 
-    # FlushingState responds to Rialto playback state notifications.
-    # This prevents the state machine from staying stuck in FLUSHING when
-    # Rialto sends PLAYING or PAUSED during a flush/seek operation.
-    ("FLUSHING",          "onPlaybackStarted",    "Rialto sends PLAYING",  "PLAYING"),
-    ("FLUSHING",          "onPlaybackPaused",     "Rialto sends PAUSED",   "PAUSED"),
-
-    # ── Stop — valid from any non-terminal state ───────────────────────────
-    ("PIPELINE_CREATED",  "onStop",               "stop()",                "STOPPED"),
-    ("SOURCES_ATTACHING", "onStop",               "stop()",                "STOPPED"),
-    ("SOURCES_ATTACHED",  "onStop",               "stop()",                "STOPPED"),
-    ("PLAYING",           "onStop",               "stop()",                "STOPPED"),
-    ("PAUSED",            "onStop",               "stop()",                "STOPPED"),
-    ("FLUSHING",          "onStop",               "stop()",                "STOPPED"),
+    # ── Stop — valid from all active states except FLUSHING (Stop() waits for
+    # flush to complete before dispatching onStop, so FLUSHING is never the
+    # current state) and IDLE (nothing to stop).
+    ("PIPELINE_CREATED",  "onStop",               "stop()",                "IDLE"),
+    ("SOURCES_ATTACHING", "onStop",               "stop()",                "IDLE"),
+    ("SOURCES_ATTACHED",  "onStop",               "stop()",                "IDLE"),
+    ("PLAYING",           "onStop",               "stop()",                "IDLE"),
+    ("PAUSED",            "onStop",               "stop()",                "IDLE"),
+    ("FLUSHED",           "onStop",               "stop()",                "IDLE"),
+    ("ERROR",             "onStop",               "stop()",                "IDLE"),
 
     # ── Error — valid from any non-terminal state ──────────────────────────
     ("PIPELINE_CREATED",  "onError",              "FAILURE notification",  "ERROR"),
@@ -110,16 +126,20 @@ TRANSITIONS = [
     ("PLAYING",           "onError",              "FAILURE notification",  "ERROR"),
     ("PAUSED",            "onError",              "FAILURE notification",  "ERROR"),
     ("FLUSHING",          "onError",              "FAILURE notification",  "ERROR"),
+    ("FLUSHED",           "onError",              "FAILURE notification",  "ERROR"),
 
-    # ── Reconfigure (re-tune) — valid from every state ────────────────────
+    # ── Reconfigure (re-tune) — valid from IDLE (first tune) and all active
+    # states except FLUSHING (Configure() calls WaitForFlushToComplete()
+    # directly before dispatching onReconfigure, so FLUSHING is never current
+    # when onReconfigure fires).
     ("IDLE",              "onReconfigure",        "re-tune",               "IDLE"),
     ("PIPELINE_CREATED",  "onReconfigure",        "re-tune",               "IDLE"),
     ("SOURCES_ATTACHING", "onReconfigure",        "re-tune",               "IDLE"),
     ("SOURCES_ATTACHED",  "onReconfigure",        "re-tune",               "IDLE"),
     ("PLAYING",           "onReconfigure",        "re-tune",               "IDLE"),
     ("PAUSED",            "onReconfigure",        "re-tune",               "IDLE"),
-    ("FLUSHING",          "onReconfigure",        "re-tune",               "IDLE"),
-    ("STOPPED",           "onReconfigure",        "re-tune",               "IDLE"),
+    ("FLUSHED",           "onReconfigure",        "re-tune",               "IDLE"),
+
     ("ERROR",             "onReconfigure",        "re-tune",               "IDLE"),
 ]
 
@@ -134,7 +154,7 @@ STATE_COLOURS = {
     "PLAYING":           ("#F3E5F5", "#6A1B9A"),   # purple
     "PAUSED":            ("#FBE9E7", "#BF360C"),   # deep-orange
     "FLUSHING":          ("#EFEBE9", "#4E342E"),   # brown
-    "STOPPED":           ("#FAFAFA", "#616161"),   # grey
+    "FLUSHED":           ("#D7CCC8", "#4E342E"),   # darker brown
     "ERROR":             ("#FFEBEE", "#C62828"),   # red
 }
 
@@ -158,7 +178,7 @@ PUML_STATE_COLOURS = {
     "PLAYING":           "#F3E5F5",
     "PAUSED":            "#FBE9E7",
     "FLUSHING":          "#EFEBE9",
-    "STOPPED":           "#FAFAFA",
+    "FLUSHED":           "#D7CCC8",
     "ERROR":             "#FFEBEE",
 }
 
@@ -171,7 +191,7 @@ PUML_EDGE_COLOURS = {
 PUML_DEFAULT_EDGE_COLOUR = "#333333"
 
 # States that are rendered as end-states (double circle) in PlantUML.
-TERMINAL_STATES = {"STOPPED", "ERROR"}
+TERMINAL_STATES = {"ERROR"}
 
 
 def build_plantuml(show_reconfigure: bool = True) -> str:
@@ -248,7 +268,7 @@ def build_graph(show_reconfigure: bool = True):
     # Nodes
     for state, tooltip in STATES:
         fill, border = STATE_COLOURS.get(state, ("#FFFFFF", "#333333"))
-        shape = "doublecircle" if state in ("STOPPED", "ERROR") else "box"
+        shape = "doublecircle" if state in ("ERROR",) else "box"
         style = "filled,rounded"
         dot.node(
             state,
@@ -272,7 +292,12 @@ def build_graph(show_reconfigure: bool = True):
             continue
         colour = EDGE_COLOURS.get(event, DEFAULT_EDGE_COLOUR)
         label  = f"{event}\\n[{action}]" if action else event
-        is_self = (src == dst)
+        is_self   = (src == dst)
+        is_dashed = event in ("onStop", "onError", "onReconfigure")
+        # Cross-cutting edges (onStop/onError/onReconfigure) must not affect
+        # the rank computation or they pull ERROR/IDLE to extreme
+        # positions, causing long edges to be routed through unrelated nodes
+        # and misplacing their labels.
         dot.edge(
             src, dst,
             label=label,
@@ -281,8 +306,8 @@ def build_graph(show_reconfigure: bool = True):
             fontname="Helvetica",
             fontsize="9",
             penwidth="1.5" if not is_self else "1.0",
-            style="dashed" if event in ("onStop", "onError", "onReconfigure") else "solid",
-            constraint="false" if is_self else "true",
+            style="dashed" if is_dashed else "solid",
+            constraint="false" if (is_self or is_dashed) else "true",
         )
 
     return dot

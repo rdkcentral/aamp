@@ -181,37 +181,49 @@ TEST_F(AampPlayerStateMachineTest, OnFlush_FromPaused_TransitionsToFlushing)
 }
 
 /**
- * @test FLUSHING + onSourceAttaching → SOURCES_ATTACHING (re-attach after seek).
+ * @test onSourceAttaching from FLUSHING is ignored (no valid transition).
+ *
+ * There is no direct FLUSHING→SOURCES_ATTACHING path; a pipeline rebuild
+ * always goes through onReconfigure (→IDLE) first.  The dispatch layer
+ * emits a WARN and leaves the machine in FLUSHING.
  */
-TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromFlushing_TransitionsToSourcesAttaching)
+TEST_F(AampPlayerStateMachineTest, OnSourceAttaching_FromFlushing_IsIgnored)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onFlush();
-	m_sm.onSourceAttaching();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::SOURCES_ATTACHING);
+	m_sm.onSourceAttaching();   // no transition defined — dispatch warns
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
 }
 
 /**
- * @test FLUSHING + onPlaybackStarted → PLAYING.
+ * @test FLUSHING + onPlaybackStarted is ignored (no transition defined).
+ *
+ * Rialto guarantees SEEK_DONE is always sent before any subsequent
+ * PLAYING/PAUSED notification for the same flush cycle, so a PLAYING
+ * notification cannot legitimately arrive while still FLUSHING.  Should
+ * this assumption ever be violated, dispatch() logs a WARN instead of
+ * silently mishandling the event.
  */
-TEST_F(AampPlayerStateMachineTest,
-	OnPlaybackStarted_FromFlushing_TransitionsToPlaying)
+TEST_F(AampPlayerStateMachineTest, OnPlaybackStarted_FromFlushing_IsIgnored)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onFlush();
-	m_sm.onPlaybackStarted();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+
+	m_sm.onPlaybackStarted();   // no transition defined — dispatch warns
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
 }
 
 /**
- * @test FLUSHING + onPlaybackPaused → PAUSED.
+ * @test FLUSHING + onPlaybackPaused is ignored (no transition defined).
+ *
+ * Same reasoning as OnPlaybackStarted_FromFlushing_IsIgnored above.
  */
-TEST_F(AampPlayerStateMachineTest,
-	OnPlaybackPaused_FromFlushing_TransitionsToPaused)
+TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromFlushing_IsIgnored)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
@@ -219,52 +231,67 @@ TEST_F(AampPlayerStateMachineTest,
 	m_sm.onPlaybackStarted();
 	m_sm.onPlaybackPaused();
 	m_sm.onFlush();
-	m_sm.onPlaybackPaused();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+
+	m_sm.onPlaybackPaused();    // no transition defined — dispatch warns
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
 }
 
 // ===========================================================================
-// Cross-state events: onStop (valid from any non-terminal state)
+// Cross-state events: onStop — Stop() waits for FLUSHING before dispatching
+// so FLUSHING is never the source state in production; onStop() goes to IDLE.
 // ===========================================================================
 
 /**
- * @test onStop from PIPELINE_CREATED → STOPPED.
+ * @test onStop from PIPELINE_CREATED → IDLE.
  */
-TEST_F(AampPlayerStateMachineTest, OnStop_FromPipelineCreated_TransitionsToStopped)
+TEST_F(AampPlayerStateMachineTest, OnStop_FromPipelineCreated_TransitionsToIdle)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onStop();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::STOPPED);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }
 
 /**
- * @test onStop from SOURCES_ATTACHING → STOPPED.
+ * @test onStop from SOURCES_ATTACHING → IDLE.
  */
-TEST_F(AampPlayerStateMachineTest, OnStop_FromSourcesAttaching_TransitionsToStopped)
+TEST_F(AampPlayerStateMachineTest, OnStop_FromSourcesAttaching_TransitionsToIdle)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onStop();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::STOPPED);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }
 
 /**
- * @test onStop from PLAYING → STOPPED.
+ * @test onStop from SOURCES_ATTACHED → IDLE.
  */
-TEST_F(AampPlayerStateMachineTest, OnStop_FromPlaying_TransitionsToStopped)
+TEST_F(AampPlayerStateMachineTest, OnStop_FromSourcesAttached_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onStop();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test onStop from PLAYING → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnStop_FromPlaying_TransitionsToIdle)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onPlaybackStarted();
 	m_sm.onStop();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::STOPPED);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }
 
 /**
- * @test onStop from PAUSED → STOPPED.
+ * @test onStop from PAUSED → IDLE.
  */
-TEST_F(AampPlayerStateMachineTest, OnStop_FromPaused_TransitionsToStopped)
+TEST_F(AampPlayerStateMachineTest, OnStop_FromPaused_TransitionsToIdle)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
@@ -272,20 +299,25 @@ TEST_F(AampPlayerStateMachineTest, OnStop_FromPaused_TransitionsToStopped)
 	m_sm.onPlaybackStarted();
 	m_sm.onPlaybackPaused();
 	m_sm.onStop();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::STOPPED);
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }
 
 /**
- * @test onStop from FLUSHING → STOPPED.
+ * @test onStop from FLUSHING is ignored — FlushingState has no onStop override.
+ *
+ * Stop() always calls WaitForFlushToComplete() before dispatching onStop(),
+ * so FLUSHING is never the current state when onStop is dispatched in
+ * production.  The dispatch layer emits a WARN and the machine stays in
+ * FLUSHING; it is not a valid no-arg transition here.
  */
-TEST_F(AampPlayerStateMachineTest, OnStop_FromFlushing_TransitionsToStopped)
+TEST_F(AampPlayerStateMachineTest, OnStop_FromFlushing_IsIgnored)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onFlush();
-	m_sm.onStop();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::STOPPED);
+	m_sm.onStop();              // no transition defined — dispatch warns
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
 }
 
 // ===========================================================================
@@ -332,6 +364,42 @@ TEST_F(AampPlayerStateMachineTest, OnError_FromPaused_TransitionsToError)
 }
 
 /**
+ * @test onError from PIPELINE_CREATED → ERROR.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromPipelineCreated_TransitionsToError)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onError();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
+/**
+ * @test onError from SOURCES_ATTACHING → ERROR.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromSourcesAttaching_TransitionsToError)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onError();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
+/**
+ * @test onStop from ERROR → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnStop_FromError_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onError();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+	m_sm.onStop();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
  * @test onError from FLUSHING → ERROR.
  */
 TEST_F(AampPlayerStateMachineTest, OnError_FromFlushing_TransitionsToError)
@@ -358,6 +426,39 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromIdle_StaysIdle)
 }
 
 /**
+ * @test onReconfigure from PIPELINE_CREATED → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromPipelineCreated_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test onReconfigure from SOURCES_ATTACHING → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromSourcesAttaching_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test onReconfigure from SOURCES_ATTACHED → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromSourcesAttached_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
  * @test onReconfigure from PLAYING → IDLE.
  */
 TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromPlaying_TransitionsToIdle)
@@ -371,12 +472,15 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromPlaying_TransitionsToIdle)
 }
 
 /**
- * @test onReconfigure from STOPPED → IDLE.
+ * @test onReconfigure from PAUSED → IDLE.
  */
-TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromStopped_TransitionsToIdle)
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromPaused_TransitionsToIdle)
 {
 	m_sm.onPipelineLoaded();
-	m_sm.onStop();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onPlaybackPaused();
 	m_sm.onReconfigure();
 	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }
@@ -393,16 +497,22 @@ TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromError_TransitionsToIdle)
 }
 
 /**
- * @test onReconfigure from FLUSHING → IDLE.
+ * @test onReconfigure from FLUSHING is ignored — FlushingState has no
+ *       onReconfigure override.
+ *
+ * Configure() calls WaitForFlushToComplete() directly before dispatching
+ * onReconfigure(), so the machine has already left FLUSHING by the time
+ * onReconfigure is fired in production.  The dispatch layer emits a WARN
+ * and the machine stays in FLUSHING.
  */
-TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushing_TransitionsToIdle)
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushing_IsIgnored)
 {
 	m_sm.onPipelineLoaded();
 	m_sm.onSourceAttaching();
 	m_sm.onAllSourcesAttached();
 	m_sm.onFlush();
-	m_sm.onReconfigure();
-	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+	m_sm.onReconfigure();       // no transition defined — dispatch warns
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
 }
 
 // ===========================================================================
@@ -470,4 +580,156 @@ TEST_F(AampPlayerStateMachineTest, ConcurrentEvents_DoNotCrash)
 	t2.join();
 	// Any valid state is acceptable; the test passes if there is no crash.
 	SUCCEED();
+}
+
+// ===========================================================================
+// onFlushComplete — FLUSHING -> FLUSHED
+// ===========================================================================
+
+/**
+ * @test FLUSHING + onFlushComplete → FLUSHED.
+ *
+ * SEEK_DONE always completes the flush cycle by moving to FLUSHED,
+ * regardless of what state was active before the flush started.  Rialto's
+ * subsequent PLAYING/PAUSED notification (guaranteed to arrive after
+ * SEEK_DONE) is what actually drives the machine onward - see the
+ * FromFlushed tests below.
+ */
+TEST_F(AampPlayerStateMachineTest, OnFlushComplete_FromFlushing_TransitionsToFlushed)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onFlush();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+
+	m_sm.onFlushComplete();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+}
+
+/**
+ * @test onFlushComplete while NOT in FLUSHING is silently ignored (WARN
+ *       logged, no transition).
+ */
+TEST_F(AampPlayerStateMachineTest, OnFlushComplete_WhileNotFlushing_IsIgnored)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();      // state = PLAYING (not FLUSHING)
+
+	m_sm.onFlushComplete();        // must be a no-op
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
+}
+
+// ===========================================================================
+// FLUSHED — Rialto's post-seek notification drives the machine onward
+// ===========================================================================
+
+/**
+ * @test FLUSHED + onPlaybackStarted → PLAYING.
+ *
+ * Covers seek-while-playing: Rialto sends PLAYING after SEEK_DONE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnPlaybackStarted_FromFlushed_TransitionsToPlaying)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onPlaybackStarted();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PLAYING);
+}
+
+/**
+ * @test FLUSHED + onPlaybackPaused → PAUSED.
+ *
+ * Covers seek-while-paused: Rialto sends PAUSED after SEEK_DONE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnPlaybackPaused_FromFlushed_TransitionsToPaused)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onPlaybackPaused();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onPlaybackPaused();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::PAUSED);
+}
+
+/**
+ * @test FLUSHED + onFlush → FLUSHING.
+ *
+ * Covers a second seek arriving before Rialto's post-seek PLAYING/PAUSED
+ * notification for the first seek has arrived.
+ */
+TEST_F(AampPlayerStateMachineTest, OnFlush_FromFlushed_TransitionsToFlushing)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onPlaybackStarted();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onFlush();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::FLUSHING);
+}
+
+/**
+ * @test FLUSHED + onStop → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnStop_FromFlushed_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onStop();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
+}
+
+/**
+ * @test FLUSHED + onError → ERROR.
+ */
+TEST_F(AampPlayerStateMachineTest, OnError_FromFlushed_TransitionsToError)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onError();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::ERROR);
+}
+
+/**
+ * @test FLUSHED + onReconfigure → IDLE.
+ */
+TEST_F(AampPlayerStateMachineTest, OnReconfigure_FromFlushed_TransitionsToIdle)
+{
+	m_sm.onPipelineLoaded();
+	m_sm.onSourceAttaching();
+	m_sm.onAllSourcesAttached();
+	m_sm.onFlush();
+	m_sm.onFlushComplete();
+	ASSERT_EQ(m_sm.currentState(), PlayerStateId::FLUSHED);
+
+	m_sm.onReconfigure();
+	EXPECT_EQ(m_sm.currentState(), PlayerStateId::IDLE);
 }

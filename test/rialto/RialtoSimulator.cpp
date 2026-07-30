@@ -411,7 +411,7 @@ public:
 		// thread waiting in injectOneSample() for hasPending can block forever
 		// after a seek arrives shortly after EOS, because StopInjectLoop
 		// (called during TeardownStream) hangs waiting for inject threads
-		// that will never exit, and Flush/invalidateGeneration is never
+		// that will never exit, and Flush/unblockInjection is never
 		// reached.  Guard only against stop, not against pause.
 		if (status == MediaSourceStatus::OK &&
 			!m_stopRequested.load(std::memory_order_relaxed))

@@ -275,6 +275,12 @@ public:
 	/// @copydoc StreamSink::NotifyInjectorToPause
 	void NotifyInjectorToPause() override;
 
+	/// @copydoc StreamSink::StopTrackInjection
+	void StopTrackInjection(AampMediaType type) override;
+
+	/// @copydoc StreamSink::ResumeTrackInjection
+	void ResumeTrackInjection(AampMediaType type) override;
+
 	/// @copydoc StreamSink::SetStreamCaps
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo) override;
 
@@ -425,27 +431,38 @@ private:
 	std::condition_variable m_flushCv;
 
 	/**
-	 * @brief Block if the player is currently in the FLUSHING state.
+	 * @brief Block until any in-progress flush cycle completes.
 	 *
-	 * Waits on m_flushCv until all sources have completed flushing
-	 * (no source reports isFlushing()==true).  This ensures that
-	 * m_rate has been committed from m_pendingFlushRate before
-	 * Configure() evaluates ShouldRecreatePipeline().
+	 * Acquires m_flushMutex and waits on m_flushCv until the state machine
+	 * is no longer FLUSHING.
+	 *
+	 * Used by Configure(), Stop(), and (via a separate claim step) Flush().
+	 * The claim-FLUSHING step in Flush() is done in a separate locked section
+	 * after the teardown check so that Stop() — which also calls this — never
+	 * deadlocks on a FLUSHING state claimed by the same Flush() call.
 	 */
 	void WaitForFlushToComplete();
 
 	/// Position (ns) stored by Flush(); used to set the initial GStreamer
 	/// segment via setSourcePosition() once each source is attached.
 	/// -1 means no flush position has been set yet.
-	std::atomic<int64_t> m_pendingFlushPositionNs{-1};
+	std::atomic<int64_t> m_pendingPositionNs{-1};
 
 	/// Set by Stream(); cleared once play() is issued.  Lets us defer the
 	/// play() call until after allSourcesAttached() so the Rialto server
 	/// transitions PAUSED→PLAYING only after all sources are registered.
 	std::atomic<bool> m_playRequested{false};
 
-	/// Set by CheckAllSourcesAttached() after allSourcesAttached() succeeds.
-	/// Stream() reads this to decide whether it can call play() immediately.
+	/// Tracks whether allSourcesAttached() was successfully sent for the
+	/// current pipeline session.  Reset to false on pipeline rebuild.
+	///
+	/// IMPORTANT — seq_cst rendezvous with m_playRequested:
+	///   Stream() stores m_playRequested=true (seq_cst) THEN loads this flag
+	///   (seq_cst).  CheckAllSourcesAttached() stores this flag=true (seq_cst)
+	///   THEN loads m_playRequested (seq_cst).  The seq_cst total order
+	///   guarantees one side always observes the other's write and calls
+	///   play().  A mutex-based state read does NOT participate in that total
+	///   order and cannot substitute for this atomic.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
@@ -554,6 +571,20 @@ private:
 	 *        been attached.
 	 */
 	void CheckAllSourcesAttached();
+
+	/**
+	 * @brief Clear (ungate) injection on every source, logging the reason.
+	 *
+	 * Must be called only from the specific points where pipeline play()
+	 * is actually issued or confirmed — Stream(), CheckAllSourcesAttached(),
+	 * Pause(false), StopBuffering(), the SEEK_DONE play branch, and the
+	 * PLAYING playback-state handler.  See the gateMode field
+	 * comment in AampRialtoMediaSource.h for the rationale.
+	 *
+	 * @param reason  Short human-readable description of the caller,
+	 *                included in the per-source log line.
+	 */
+	void UngateAllSources(const char *reason);
 
 	/// Set by Stop() to guarantee the next Configure() always recreates
 	/// the pipeline even when stream formats are unchanged.

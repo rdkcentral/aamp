@@ -466,6 +466,30 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_HandleNeedData_SetsPendi
 }
 
 /**
+ * @test AampRialtoAudioSource_HandleNeedData_SupersededByNewRequest_ClosesOutStaleRequest
+ * @brief Verify a second handleNeedData() call, arriving without an
+ *        intervening handleCancelNeedData(), closes out the previous
+ *        unclaimed request with haveData(NO_AVAILABLE_SAMPLES) instead of
+ *        silently overwriting it.
+ */
+TEST_F(AampRialtoAudioSourceTest,
+	AampRialtoAudioSource_HandleNeedData_SupersededByNewRequest_ClosesOutStaleRequest)
+{
+	m_source.handleNeedData(3, /*requestId=*/88, m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 88))
+		.WillOnce(Return(true));
+
+	m_source.handleNeedData(3, /*requestId=*/89, m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.hasPending);
+	EXPECT_EQ(st.pendingRequestId, 89u);
+}
+
+/**
  * @test AampRialtoAudioSource_HandleCancelNeedData_ClearsPending
  * @brief Verify handleCancelNeedData clears the pending state.
  */
