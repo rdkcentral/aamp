@@ -1675,9 +1675,15 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
 		MW_LOG_ERR("Seek failed");
-		SetPendingSeek(true);
-		//Save the updated seek position
-		SetSeekPosition(position);
+		/* Do not re-arm pendingSeek or signal audio EOS after a failed seek.
+		 * Doing so drives the pipeline into an inconsistent flush/preroll state
+		 * that can stall RialtoServer's FlushOnPrerollController indefinitely.
+		 */
+		if (shouldTearDown)
+		{
+			stopCallback(true);
+		}
+		return false;
 	}
 
 	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) &&
