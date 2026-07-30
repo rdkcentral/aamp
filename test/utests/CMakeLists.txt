@@ -29,13 +29,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/closedcaptions)
-include_directories(${AAMP_ROOT}/middleware/drm)
-include_directories(${AAMP_ROOT}/middleware/drm/helper)
-include_directories(${AAMP_ROOT}/middleware/drm/ocdm)
-include_directories(${AAMP_ROOT}/middleware/playerJsonObject)
-include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
+# Note: Middleware include paths are now handled conditionally in:
+# - fakes/CMakeLists.txt (for fakes library)
+# - tests/CommonTestIncludes.cmake (for individual test targets)
+# This allows using external middleware-player-interface when available
 
 find_package(PkgConfig REQUIRED)
 
@@ -44,21 +41,28 @@ include_directories(${OPENSSL_INCLUDE_DIRS})
 
 pkg_check_modules(GTEST REQUIRED gtest)
 pkg_check_modules(GMOCK REQUIRED gmock)
-# GMOCK_LINK_LIBRARIES already contains libgtest (gmock depends on gtest).
-# Strip any items from GTEST_LINK_LIBRARIES that are already covered by
-# GMOCK_LINK_LIBRARIES so that tests linking both variables don't put
-# libgtest on the link line twice, which triggers the macOS linker warning
-# "ignoring duplicate libraries".  Tests that only link GTEST_LINK_LIBRARIES
-# are unaffected because they don't use gmock and won't see duplication.
-foreach(_lib IN LISTS GMOCK_LINK_LIBRARIES)
-	list(REMOVE_ITEM GTEST_LINK_LIBRARIES ${_lib})
-endforeach()
+# Note: We call pkg_check_modules above to satisfy any legacy checks, but we'll override
+# the variables below after FetchContent provides the actual googletest targets
+
+# Middleware headers are now provided via:
+# - External middleware-player-interface pkg-config (for CI builds)
+# - Internal aamp/middleware paths (for local builds)
+# See fakes/CMakeLists.txt and tests/CommonTestIncludes.cmake
+# NOTE: .libs/include is NOT used because it contains gtest/gmock that conflict with FetchContent
+
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
+
+# External middleware-player-interface libraries (optional for backward compatibility)
+# When available via pkg-config, these are preferred over internal aamp/middleware
+pkg_check_modules(PLAYERFBINTERFACE libplayerfbinterface)
+pkg_check_modules(BASECONVERSION libbaseconversion)
+pkg_check_modules(PLAYERLOGMANAGER libplayerlogmanager)
+pkg_check_modules(SUBTEC libsubtec)
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	pkg_search_module(JSCORE REQUIRED javascriptcoregtk-4.1 javascriptcoregtk-4.0)
@@ -76,6 +80,30 @@ STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) #disabli
 #if (CMAKE_PLATFORM_UBUNTU )
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wsuggest-override")
 #endif()
+
+# Fetch googletest via FetchContent BEFORE any subdirectories that need it
+# This ensures gtest/gmock CMake targets and include dirs are available
+include(FetchContent)
+FetchContent_Declare(
+	googletest
+	URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+# Now that googletest targets exist, set up include dirs and link libraries
+set(GTEST_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps/googletest-src/googletest/include")
+set(GMOCK_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps/googletest-src/googlemock/include")
+set(GTEST_LINK_LIBRARIES gtest)
+set(GMOCK_LINK_LIBRARIES gmock gtest)
+# Add FetchContent gtest/gmock include dirs globally
+include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GMOCK_INCLUDE_DIRS})
+# Strip duplicate gtest from GTEST_LINK_LIBRARIES since GMOCK_LINK_LIBRARIES already includes it
+foreach(_lib IN LISTS GMOCK_LINK_LIBRARIES)
+	list(REMOVE_ITEM GTEST_LINK_LIBRARIES ${_lib})
+endforeach()
 
 add_subdirectory(fakes)
 
@@ -98,6 +126,9 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../common")
 if (CMAKE_PLATFORM_UBUNTU)
 	link_directories(${GTEST_LIBRARY_DIRS} ${GMOCK_LIBRARY_DIRS})
 endif()
+
+# Note: FetchContent for googletest is now handled at the top of this file
+# before add_subdirectory(fakes) to ensure include dirs are available early
 
 function(aamp_utest_run_add test_suite)
 	if (CMAKE_RDKE_TEST_RUN)

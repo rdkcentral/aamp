@@ -31,3 +31,15 @@ middleware/test/utests/build
 # Build artifacts
 abrsim/abrsim
 simnet/simnet/simnet
+
+# Local development and analysis files
+L1_debug_instructions.md
+L1_test_failure_root_cause.md
+seek-ptsrestamp-analysis.md
+seek-fix-summary.md
+scrambled_3period_analysis.md
+VPAAMP-*-SUMMARY.md
+VPAAMP-XXX-*.md
+UNIT_TEST_*.md
+OSX/patches/RDKEMW-*-ticket-summary.md
+TICKET_*.md
