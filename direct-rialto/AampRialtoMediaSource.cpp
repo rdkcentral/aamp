@@ -133,12 +133,14 @@ void AampRialtoMediaSource::gateInjection(
 	firebolt::rialto::IMediaPipeline *pipeline, bool gate, const char *reason)
 {
 	GateMode previousMode = GateMode::NONE;
+	GateMode newMode      = GateMode::NONE;
 	bool     fireEos      = false;
 	uint32_t reqId        = 0;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		previousMode     = m_state.gateMode;
 		m_state.gateMode = gate ? GateMode::BLOCKED : GateMode::NONE;
+		newMode          = m_state.gateMode;
 		if (!gate)
 		{
 			// Replay any EOS resolution that was deliberately deferred
@@ -147,10 +149,10 @@ void AampRialtoMediaSource::gateInjection(
 		}
 		m_state.cv.notify_all();
 	}
-	if (previousMode != m_state.gateMode)
+	if (previousMode != newMode)
 	{
 		AAMPLOG_INFO("gateMode changed (%d->%d) sourceId=%d mediaType=%d reason=%s",
-			static_cast<int>(previousMode), static_cast<int>(m_state.gateMode),
+			static_cast<int>(previousMode), static_cast<int>(newMode),
 			m_sourceId, static_cast<int>(mediaType()), reason);
 	}
 	if (fireEos)

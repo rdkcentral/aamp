@@ -1175,13 +1175,10 @@ void AampRialtoPlayer::Stream()
 		if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
 		{
 			AAMPLOG_INFO("deferring play() - flush in progress");
-			AAMPLOG_INFO("EXIT");
-			return;
 		}
-
 		// seq_cst load: pairs with the seq_cst store in CheckAllSourcesAttached()
 		// to guarantee one side always calls play().
-		if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
+		else if (m_allSourcesAttachedFlag.load(std::memory_order_seq_cst))
 		{
 			m_playRequested.store(false, std::memory_order_relaxed);
 			// Ungate unconditionally - Stream() is the point at which

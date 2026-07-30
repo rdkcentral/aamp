@@ -252,13 +252,15 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 }
 
 TEST_F(PrivateInstanceAAMPNotifiableTest,
-	NotifyBufferUnderflow_WhenMonitorEnabled_SchedulesTaskThatSkipsRetune)
+	NotifyBufferUnderflow_WhenMonitorEnabled_SchedulesTaskThatChecksConfig)
 {
 	AampConfig config;
 	PrivateInstanceAAMP aampWithConfig(&config);
 	PrivateInstanceAAMPNotifiable notifiable(&aampWithConfig);
 
-	// Underflow monitor enabled: ScheduleRetune must NOT be called.
+	// ScheduleRetune is a no-op fake and not mockable, so this only verifies
+	// the task is dispatched and takes the "monitor enabled" config branch,
+	// not that ScheduleRetune itself was skipped.
 	EXPECT_CALL(*g_mockAampConfig,
 		IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
 		.WillOnce(Return(true));
@@ -268,8 +270,6 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 			task(arg);
 			return 1;
 		});
-	// ScheduleRetune is a no-op fake; verify it is NOT reached by ensuring
-	// no unexpected calls surface (NiceMock handles this silently).
 
 	notifiable.NotifyBufferUnderflow(eMEDIATYPE_AUDIO);
 }

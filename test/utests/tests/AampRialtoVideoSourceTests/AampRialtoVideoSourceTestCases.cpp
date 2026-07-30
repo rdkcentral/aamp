@@ -488,8 +488,26 @@ TEST_F(AampRialtoVideoSourceTest,
 			*m_pipelinePtr, gen, std::move(sample), nullptr);
 	});
 
-	// Give the injector time to enter the wait (injectorActive is now true).
-	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	// Poll for the injector to enter its wait (injectorActive is set) rather
+	// than relying on a fixed sleep duration.
+	{
+		auto &st = m_source.state();
+		const auto deadline = std::chrono::steady_clock::now() +
+			std::chrono::milliseconds(200);
+		bool active = false;
+		while (!active && std::chrono::steady_clock::now() < deadline)
+		{
+			{
+				std::lock_guard<std::mutex> lock(st.mu);
+				active = st.injectorActive;
+			}
+			if (!active)
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
+		}
+		ASSERT_TRUE(active);
+	}
 
 	// Stage a pending request as if a needData arrived just before the
 	// flush/seek, then invalidate the generation (as Flush()/Stop() would).
