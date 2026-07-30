@@ -3588,8 +3588,12 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// falls back to 1.0 (normal) and the SEEK_DONE handler does not issue the
 	// extra video-source setSourcePosition() call.  onFlushComplete() takes
 	// the state machine to FLUSHED and notifies WaitForFlushToComplete() so
-	// Configure() can proceed.
-	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+	// Configure() can proceed.  The subtitle source's position is still
+	// updated unconditionally on every SEEK_DONE.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(),
+			/*posNs=*/0, /*resetTime=*/false, _, _))
+		.WillOnce(Return(true));
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
 	// After the flushing seek completes, onFlushComplete() lands in FLUSHED
@@ -4084,8 +4088,17 @@ TEST_F(AampRialtoPlayerTest,
 	// video-source setSourcePosition() call (resetTime=false - the
 	// pipeline-level setPosition() already flushed the source buffers).
 	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+		setSourcePosition(m_mockSources[eMEDIATYPE_VIDEO]->sourceId(),
+			testing::Ge(10'000'000'000LL),
 			/*resetTime=*/false, 2.0, _))
+		.WillOnce(Return(true));
+
+	// The subtitle source's position is also updated unconditionally on
+	// every SEEK_DONE, independent of the applied playback rate.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(),
+			testing::Ge(10'000'000'000LL),
+			/*resetTime=*/false, _, _))
 		.WillOnce(Return(true));
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
@@ -4112,7 +4125,14 @@ TEST_F(AampRialtoPlayerTest,
 	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+	// Video appliedRate collapses to 1.0 (normal), so no extra video-source
+	// setSourcePosition() call is issued.  The subtitle source's position is
+	// still updated unconditionally on every SEEK_DONE.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(),
+			testing::Ge(10'000'000'000LL),
+			/*resetTime=*/false, _, _))
+		.WillOnce(Return(true));
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
@@ -4120,6 +4140,33 @@ TEST_F(AampRialtoPlayerTest,
 	// notification has been posted in this test, so the state machine
 	// remains in FLUSHED awaiting one (it does not restore SOURCES_ATTACHED).
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekDone_SubtitleAttached_UpdatesSubtitlePosition)
+{
+	/**
+	 * @brief SEEK_DONE must forward the flushed position to the subtitle
+	 *        source's setSourcePosition() with resetTime=false, independent
+	 *        of appliedRate, so the Thunder text-track renderer learns the
+	 *        new position without waiting for the next
+	 *        SignalSubtitleClock() call.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/12.5, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(),
+			12'500'000'000LL, /*resetTime=*/false, _, _))
+		.WillOnce(Return(true));
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 }
 
 // ===========================================================================
