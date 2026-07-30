@@ -25,9 +25,9 @@ set(EXEC_NAME Scte35Tests)
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 include_directories(${AAMP_ROOT}/test/aampcli)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-    include_directories(${AAMP_ROOT}/.libs/include)
-endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
+# Note: .libs/include is NOT used because it contains old gtest/gmock headers
+# that conflict with FetchContent googletest. Middleware headers are provided
+# via conditional logic in fakes/CMakeLists.txt and tests/CommonTestIncludes.cmake
 
 set(TEST_SOURCES Scte35Tests.cpp
                  Scte35SectionTests.cpp

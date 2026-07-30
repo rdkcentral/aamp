@@ -37,8 +37,9 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
-# Use external middleware headers instead of deprecated aamp/middleware
-include_directories(${AAMP_ROOT}/.libs/include)
+# Note: .libs/include is NOT used because it contains old gtest/gmock headers
+# that conflict with FetchContent googletest. Middleware headers are provided
+# via conditional logic in fakes/CMakeLists.txt and tests/CommonTestIncludes.cmake
 
 
 set(TEST_SOURCES FragmentCollectorMpdTests.cpp
