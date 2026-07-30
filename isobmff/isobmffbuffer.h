@@ -131,12 +131,12 @@ private:
 	 * @brief Private method to update the sample duration in the relevant boxes,
 	 *        if the sample duration is already present in those boxes.
 	 *
-	 * @param[in] duration - duration to set
+	 * @param[in] duration - duration to set (uint32_t per ISOBMFF spec)
 	 * @param[in] trun - Track fragment run box in which to update the duration, if present
 	 * @param[in] tfhd - Track fragment header box in which to update the duration, if present
 	 * @return true if the sample duration was updated in at least one box; false otherwise
 	 */
-	bool updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd);
+	bool updateSampleDurationInternal(uint32_t duration, TrunBox& trun, TfhdBox& tfhd);
 
 	/**
 	 * @fn getBoxInfoInternal
@@ -285,9 +285,9 @@ public:
 	 *        duration will be set (if flagged as present).
 	 *
 	 * @param[in] pts - Base media decode time to set
-	 * @param[in] duration - Sample duration to set
+	 * @param[in] duration - Sample duration to set (uint32_t per ISOBMFF spec)
 	 */
-	void setPtsAndDuration(uint64_t pts, uint64_t duration);
+	void setPtsAndDuration(uint64_t pts, uint32_t duration);
 
 	/**
 	 * @fn getFirstPTS
