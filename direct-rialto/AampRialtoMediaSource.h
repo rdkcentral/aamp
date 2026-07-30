@@ -66,6 +66,16 @@ public:
 	// -----------------------------------------------------------------
 
 	/**
+	 * @brief Injection gating mode for the needData/haveData handshake.
+	 */
+	enum class GateMode
+	{
+		NONE,     ///< Normal operation — samples flow through as needData arrives.
+		BLOCKED,  ///< New samples block (waiting) until gateInjection(false) or a newer generation.
+		DROPPED   ///< New samples are discarded immediately — never blocks the caller thread.
+	};
+
+	/**
 	 * @brief Per-track pacing state for the Rialto needData/haveData
 	 *        handshake.
 	 */
@@ -73,7 +83,7 @@ public:
 	{
 		/// Protects all fields in this struct.
 		std::mutex              mu;
-		/// Notified whenever hasPending, generation, injectionGated,
+		/// Notified whenever hasPending, generation, gateMode,
 		/// attachPending, or eos changes.
 		std::condition_variable cv;
 
@@ -95,27 +105,33 @@ public:
 		/// of haveData(OK).
 		bool     eos{false};
 		/// Monotonically-increasing abort token.  Bumped by reset() and
-		/// invalidateGeneration(); injectors capture it at entry and
+		/// unblockInjection(); injectors capture it at entry and
 		/// abort if it changes while they are blocked.
 		uint64_t generation{0};
-		/// Set by invalidateGeneration() (flush/stop/seek/pause-notify) to
-		/// gate injection until playback is genuinely about to resume.
-		/// Cleared ONLY by clearInjectionGate(), called via
-		/// AampRialtoPlayer::UngateAllSources() at each site that actually
-		/// issues (or confirms) pipeline play() — Stream(),
-		/// CheckAllSourcesAttached(), Pause(false), StopBuffering(), the
-		/// SEEK_DONE play branch, and the PLAYING playback-state handler.
-		/// Deliberately NOT cleared by reset(), AttachSource(), or
-		/// handleNeedData(): clearing it there would reopen the gate before
-		/// a multi-step Configure()/Flush() sequence (e.g. trickplay's
-		/// Flush(pos=0) -> Configure() -> Flush(correctPos) -> Stream()) has
-		/// finished, letting stale-position data slip through on an early
-		/// needData.  NOT related to the pipeline PAUSED state — see the
-		/// comment in waitForAttach() for the important distinction.
-		/// While set, injectOneSample() blocks newly-submitted samples
-		/// (rather than dropping them) until the gate clears or a newer
-		/// flush supersedes them — see injectOneSample() for details.
-		bool     injectionGated{false};
+		/// Injection gating mode — see GateMode.  Set to DROPPED by
+		/// unblockInjection() (flush/stop/pause-notify: abort now, never
+		/// block a caller thread again) and to BLOCKED or NONE by
+		/// gateInjection(gate), called via AampRialtoPlayer::UngateAllSources()
+		/// (gate=false) at each site that actually issues (or confirms)
+		/// pipeline play() — Stream(), CheckAllSourcesAttached(),
+		/// Pause(false), StopBuffering(), NotifyInjectorToResume(), the
+		/// SEEK_DONE play branch, and the PLAYING playback-state handler —
+		/// or (gate=true) by Configure() and Flush()'s flushable path, which
+		/// expect genuinely-wanted data to arrive shortly and must block it
+		/// rather than drop it.
+		/// Deliberately NOT touched by reset(): clearing it there would
+		/// reopen the gate before a multi-step Configure()/Flush() sequence
+		/// (e.g. trickplay's Flush(pos=0) -> Configure() -> Flush(correctPos)
+		/// -> Stream()) has finished, letting stale-position data slip
+		/// through on an early needData.  NOT related to the pipeline PAUSED
+		/// state — see the comment in waitForAttach() for the important
+		/// distinction.
+		/// While BLOCKED, injectOneSample() blocks newly-submitted samples
+		/// until the gate clears or a newer generation supersedes them.
+		/// While DROPPED, injectOneSample() discards newly-submitted samples
+		/// immediately without ever blocking the caller thread — see
+		/// injectOneSample() for details.
+		GateMode gateMode{GateMode::NONE};
 		/// True while an injector thread is executing inside
 		/// injectOneSample().  Prevents signalEos() and handleNeedData()
 		/// from firing haveData(EOS) immediately when the active injector
@@ -160,7 +176,8 @@ public:
 	/// Reset all per-session state (source ID, mks ID, pacing, codec data).
 	void reset();
 
-	/// Bump the pacing generation to abort any in-flight injection batch
+	/// Bump the pacing generation to abort any in-flight injection batch,
+	/// set gateMode to DROPPED (new samples are discarded, never blocked),
 	/// and wake the condition variable.
 	///
 	/// If a needData request is currently pending and no injector is
@@ -170,13 +187,19 @@ public:
 	/// request is left for that injector to close out itself when it
 	/// observes the generation change (see injectOneSample()).
 	///
+	/// Unlike gateInjection(true), this never leaves the calling
+	/// (fragment-injector) thread blocked waiting for a later ungate —
+	/// callers that need genuinely-wanted data to be held (rather than
+	/// dropped) until playback resumes must follow this with
+	/// gateInjection(pipeline, true, reason).
+	///
 	/// @param pipeline     The active Rialto media pipeline, or nullptr if
 	///                     no pipeline exists for this session (e.g. Stop()
 	///                     called before Configure()).
 	/// @param reason       Short human-readable description of the caller
 	///                     (e.g. "Flush", "Stop", "NotifyInjectorToPause"),
-	///                     included in the injectionGated-set log line to
-	///                     aid debugging of gating behaviour.
+	///                     included in the gateMode-set log line to aid
+	///                     debugging of gating behaviour.
 	/// @param newEosState  Optional new value for eos, applied atomically
 	///                     with the generation bump/gate-set above.  Callers
 	///                     that need to change eos alongside invalidating the
@@ -185,30 +208,36 @@ public:
 	///                     separately afterwards, which would otherwise open
 	///                     a window where a concurrent needData/signalEos
 	///                     could observe the gate set but the old eos value.
-	void invalidateGeneration(firebolt::rialto::IMediaPipeline *pipeline,
-		const char *reason = "invalidateGeneration",
+	void unblockInjection(firebolt::rialto::IMediaPipeline *pipeline,
+		const char *reason = "unblockInjection",
 		std::optional<bool> newEosState = std::nullopt);
 
-	/// Clear injectionGated for this source, logging the transition (only
-	/// when it was actually set) so it is easy to correlate log traces with
-	/// the moment injection resumes.  Must be called only from the specific
-	/// points where playback is genuinely about to resume — see the
-	/// injectionGated field comment above for the authoritative list.
+	/// Set (gate=true) or clear (gate=false) BLOCKED gating for this
+	/// source, logging the transition when it actually changes gateMode.
+	/// gate=true is a plain mode flip only — no generation bump, no
+	/// pending-request abandonment — used by callers (Configure(),
+	/// Flush()'s flushable path) that expect genuinely-wanted data to
+	/// arrive shortly and must hold it rather than drop it.
+	/// gate=false must be called only from the specific points where
+	/// playback is genuinely about to resume — see the gateMode field
+	/// comment above for the authoritative list.
 	///
-	/// If a needData was staged while gated and EOS was signalled in the
-	/// meantime (both intentionally deferred while injectionGated is set —
-	/// see signalEos()/handleNeedData()), this replays that resolution now
-	/// that the gate has cleared, so the request is answered here rather
-	/// than being left pending until a fresh needData or injector run.
+	/// If a needData was staged while BLOCKED and EOS was signalled in the
+	/// meantime (both intentionally deferred while gateMode==BLOCKED — see
+	/// signalEos()/handleNeedData()), gate=false replays that resolution
+	/// now that the gate has cleared, so the request is answered here
+	/// rather than being left pending until a fresh needData or injector
+	/// run.
 	///
 	/// @param pipeline  The active Rialto media pipeline, or nullptr if none
 	///                  exists for this session.  Only used if a deferred
-	///                  EOS resolution must be replayed.
+	///                  EOS resolution must be replayed (gate=false).
+	/// @param gate      true to enter BLOCKED; false to clear to NONE.
 	/// @param reason    Short human-readable description of the caller
 	///                  (e.g. "Stream", "OnPlaybackState(PLAYING)"),
 	///                  included in the log line.
-	void clearInjectionGate(firebolt::rialto::IMediaPipeline *pipeline,
-		const char *reason);
+	void gateInjection(firebolt::rialto::IMediaPipeline *pipeline,
+		bool gate, const char *reason);
 
 	/// @brief Directly set the eos flag, logging the transition.
 	///
@@ -303,13 +332,15 @@ public:
 	/**
 	 * @brief Inject one sample into the Rialto pipeline.
 	 *
-	 * If injectionGated is set for the current generation (i.e. capturedGen),
+	 * If gateMode is BLOCKED for the current generation (i.e. capturedGen),
 	 * first blocks until either the gate clears (same generation) or a newer
 	 * flush supersedes this sample (generation changes) — see
-	 * AampRialtoMediaSource::SourceState::injectionGated.  Once past the
-	 * gate, blocks until a needData request arrives for this source, then
-	 * delivers the sample via addSegment.  Returns false if the sample was
-	 * abandoned because it was superseded by a newer flush/stop.
+	 * AampRialtoMediaSource::SourceState::gateMode.  If gateMode is DROPPED,
+	 * the sample is discarded immediately without ever blocking the caller
+	 * thread.  Once past the gate, blocks until a needData request arrives
+	 * for this source, then delivers the sample via addSegment.  Returns
+	 * false if the sample was abandoned because it was superseded by a
+	 * newer flush/stop or because injection is in DROPPED mode.
 	 *
 	 * @param pipeline       The Rialto media pipeline.
 	 * @param capturedGen    Generation token captured before blocking.
@@ -392,7 +423,7 @@ public:
 
 	/**
 	 * @brief PTS of the first sample injected since the last reset or
-	 *        invalidateGeneration().
+	 *        unblockInjection().
 	 *
 	 * Set when the first addSegment() call succeeds in each session.
 	 * This avoids establishing a segment-start baseline for samples that
@@ -496,7 +527,7 @@ protected:
 	StreamOutputFormat m_streamFormat{FORMAT_INVALID};
 
 	/// PTS of the first sample injected since the last reset or
-	/// invalidateGeneration(), in milliseconds.  Set lazily via
+	/// unblockInjection(), in milliseconds.  Set lazily via
 	/// compare-exchange after addSegment(OK) in injectOneSample().
 	/// kFirstPtsNotSet = not set.
 	std::atomic<int64_t> m_firstPtsMs{kFirstPtsNotSet};
@@ -571,12 +602,14 @@ private:
 	 * claimPendingRequestLocked()) only if this source is genuinely ready
 	 * to answer haveData(EOS) right now: eos is set, a request is
 	 * pending, no injector is active to answer it on its own, and
-	 * injection is not gated.  The gate check is what distinguishes this
-	 * from the older behaviour: while injectionGated is set, EOS
-	 * resolution is deliberately deferred (the request is left pending)
-	 * so it is not resolved out of order with samples that are still
-	 * blocked behind the gate.  clearInjectionGate() calls this again
-	 * once the gate clears to replay the resolution.
+	 * gateMode is not BLOCKED.  The gate check is what distinguishes this
+	 * from the older behaviour: while gateMode==BLOCKED, EOS resolution is
+	 * deliberately deferred (the request is left pending) so it is not
+	 * resolved out of order with samples that are still blocked behind the
+	 * gate.  gateInjection(false) calls this again once the gate clears to
+	 * replay the resolution.  gateMode==DROPPED does not defer EOS —
+	 * dropped injection has no samples left to be resolved out of order
+	 * with, so EOS resolves immediately.
 	 *
 	 * @param outReqId  Set to the claimed request ID when this returns
 	 *                  true; left unmodified otherwise.

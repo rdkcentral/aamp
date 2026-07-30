@@ -289,7 +289,7 @@ AampRialtoPlayer::~AampRialtoPlayer()
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get(), "~AampRialtoPlayer");
+			source->unblockInjection(m_pipeline.get(), "~AampRialtoPlayer");
 		}
 	}
 	AAMPLOG_INFO("AampRialtoPlayer: destroyed");
@@ -485,7 +485,13 @@ void AampRialtoPlayer::Configure(
 	// NOTE: m_pendingPositionNs is intentionally NOT reset here.
 	// Flush() may be called before Configure() to pre-stage the seek position;
 	// clearing it here would discard that staged value before sources attach.
-	m_playRequested.store(false, std::memory_order_relaxed);
+	// NOTE: m_playRequested is intentionally NOT reset here.
+	// Configure() may be called mid-session from the injection thread when a
+	// TS demuxer identifies the actual codec (e.g. muxed HLS-TS).  In that
+	// case Stream() has already set m_playRequested=true for this tune
+	// session, and resetting it here would prevent CheckAllSourcesAttached()
+	// from issuing play() after the new pipeline attaches its sources.
+	// m_playRequested is reset by Stop(), which marks the end of a session.
 	m_allSourcesAttachedFlag.store(false, std::memory_order_relaxed);
 	for (auto &pa : m_pendingAttach)
 	{
@@ -655,6 +661,16 @@ void AampRialtoPlayer::Configure(
 		{
 			src->setFormat(videoFormat);
 			m_sources[eMEDIATYPE_VIDEO] = std::move(src);
+			// Hold (rather than drop) genuinely-wanted data for this new
+			// session until Stream()/CheckAllSourcesAttached() confirms
+			// play() and clears the gate via UngateAllSources() — prevents
+			// an early needData from slipping samples through before the
+			// pipeline is genuinely ready (e.g. before a subsequent Flush()
+			// in a multi-step trickplay sequence has staged the correct
+			// position).  Must be set before AttachSource() is ever called
+			// for this source.
+			m_sources[eMEDIATYPE_VIDEO]->gateInjection(
+				m_pipeline.get(), true, "Configure");
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
 			AAMPLOG_INFO("Created video source (format=%d)", static_cast<int>(videoFormat));
 		}
@@ -666,6 +682,8 @@ void AampRialtoPlayer::Configure(
 		{
 			src->setFormat(audioFormat);
 			m_sources[eMEDIATYPE_AUDIO] = std::move(src);
+			m_sources[eMEDIATYPE_AUDIO]->gateInjection(
+				m_pipeline.get(), true, "Configure");
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_AUDIO);
 			AAMPLOG_INFO("Created audio source (format=%d)", static_cast<int>(audioFormat));
 		}
@@ -678,6 +696,8 @@ void AampRialtoPlayer::Configure(
 		{
 			src->setFormat(subFormat);
 			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
+			m_sources[eMEDIATYPE_SUBTITLE]->gateInjection(
+				m_pipeline.get(), true, "Configure");
 			m_aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
 			AAMPLOG_INFO("Created subtitle source (format=%d)", static_cast<int>(subFormat));
 
@@ -706,6 +726,8 @@ void AampRialtoPlayer::Configure(
 		{
 			src->setFormat(FORMAT_INVALID);
 			m_sources[eMEDIATYPE_SUBTITLE] = std::move(src);
+			m_sources[eMEDIATYPE_SUBTITLE]->gateInjection(
+				m_pipeline.get(), true, "Configure");
 			MediaCodecInfo ci{};
 			ci.mCodecFormat = GST_FORMAT_UNKNOWN;
 			AttachSource(*m_sources[eMEDIATYPE_SUBTITLE], ci);
@@ -957,7 +979,7 @@ void AampRialtoPlayer::AttachSource(
 		// Clear attachPending and wake any inject thread that was blocking
 		// because the source's attachment was deferred.
 		//
-		// injectionGated is deliberately NOT cleared here.  AttachSource()
+		// gateMode is deliberately NOT cleared here.  AttachSource()
 		// can run mid-Configure(), before a subsequent Flush() completes a
 		// multi-step trickplay sequence (Flush(pos=0) -> Configure() ->
 		// Flush(correctPos) -> Stream()); clearing the gate here would let
@@ -1012,7 +1034,7 @@ void AampRialtoPlayer::UngateAllSources(const char *reason)
 	{
 		if (source)
 		{
-			source->clearInjectionGate(m_pipeline.get(), reason);
+			source->gateInjection(m_pipeline.get(), false, reason);
 		}
 	}
 }
@@ -1206,12 +1228,15 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 		m_monitorAV.reset();
 	}
 	
-	// Wake any in-flight data so it abandons the current batch.
+	// Wake any in-flight data so it abandons the current batch.  No
+	// follow-up gateInjection(true) here — Stop() ends the session, so
+	// sources remain DROPPED (never blocking a caller thread) until the
+	// next Configure()/Flush() explicitly re-gates them.
 	for (auto &source : m_sources)
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get(), "Stop",
+			source->unblockInjection(m_pipeline.get(), "Stop",
 				/*newEosState=*/false);
 		}
 	}
@@ -1223,6 +1248,11 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	// Mark the pipeline as stopped so the next Configure() always triggers
 	// a full pipeline recreation, even when stream formats are unchanged.
 	m_pipelineStopped.store(true, std::memory_order_relaxed);
+	// Reset play intent so a new tune's Configure() starts clean.
+	// This is the canonical place to reset m_playRequested: Stop() ends the
+	// current session, whereas Configure() may be called mid-session for a
+	// codec change and must not discard a pending Stream() request.
+	m_playRequested.store(false, std::memory_order_relaxed);
 	m_stateMachine.onStop();
 	AAMPLOG_INFO("EXIT");
 }
@@ -1294,8 +1324,13 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 				const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
 				          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
 						   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
-				source->invalidateGeneration(m_pipeline.get(),
+				source->unblockInjection(m_pipeline.get(),
 					"Flush(non-flushable)", newEos);
+				// Unlike the flushable path below, no Stream() will follow
+				// to ungate — clear the gate immediately so any genuinely
+				// new data is not held indefinitely.
+				source->gateInjection(m_pipeline.get(), false,
+					"Flush(non-flushable)");
 			}
 		}
 
@@ -1332,7 +1367,11 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			const bool newEos = rate != AAMP_NORMAL_PLAY_RATE &&
 					          ((source.get() == m_sources[eMEDIATYPE_AUDIO].get()) ||
 							   (source.get() == m_sources[eMEDIATYPE_SUBTITLE].get()));
-			source->invalidateGeneration(m_pipeline.get(), "Flush", newEos);
+			source->unblockInjection(m_pipeline.get(), "Flush", newEos);
+			// Post-seek data is genuinely wanted once it arrives — hold it
+			// (rather than drop it) until Stream() ungates via
+			// UngateAllSources().
+			source->gateInjection(m_pipeline.get(), true, "Flush");
 		}
 	}
 
@@ -1368,7 +1407,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	}
 
 	// m_firstPtsMs is reset automatically on each source by
-	// invalidateGeneration() (called above), so the next injection into
+	// unblockInjection() (called above), so the next injection into
 	// the video source establishes the fresh segment-start baseline.
 
 	AAMPLOG_INFO("EXIT");
@@ -1764,28 +1803,50 @@ void AampRialtoPlayer::SetPauseOnStartPlayback(bool enable)
 void AampRialtoPlayer::NotifyInjectorToResume()
 {
 	AAMPLOG_INFO("ENTRY");
+	// Mirror of NotifyInjectorToPause()'s unblockInjection(): clears the
+	// gate it set so injectors blocked in injectOneSample() (or newly
+	// submitted samples) may proceed.  Without this, a DisableDownloads() /
+	// EnableDownloads() cycle occurring mid-playback (i.e. not followed by
+	// one of the genuine play()-issuance points - Stream(), Pause(false),
+	// StopBuffering(), etc.) would leave injection gated forever.
+	UngateAllSources("NotifyInjectorToResume");
 	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyInjectorToPause()
 {
 	AAMPLOG_INFO("ENTRY");
+	// Mirrors GStreamer's InterfacePlayerRDK::mPauseInjector: drop new
+	// samples synchronously rather than blocking the caller thread.  No
+	// follow-up gateInjection(true) here — unlike Flush()/Configure(), this
+	// path has no guaranteed later ungate event, so blocking here risks
+	// hanging the injector thread forever (e.g. during teardown).
 	for (auto &source : m_sources)
 	{
 		if (source)
 		{
-			source->invalidateGeneration(m_pipeline.get(), "NotifyInjectorToPause");
+			source->unblockInjection(m_pipeline.get(), "NotifyInjectorToPause");
 		}
 	}
 	AAMPLOG_INFO("EXIT");
 }
 
-void AampRialtoPlayer::UnblockTrackInjection(AampMediaType type)
+void AampRialtoPlayer::StopTrackInjection(AampMediaType type)
 {
 	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
 	if (type < m_sources.size() && m_sources[type])
 	{
-		m_sources[type]->invalidateGeneration(m_pipeline.get(), "UnblockTrackInjection");
+		m_sources[type]->unblockInjection(m_pipeline.get(), "StopTrackInjection");
+	}
+	AAMPLOG_INFO("EXIT");
+}
+
+void AampRialtoPlayer::ResumeTrackInjection(AampMediaType type)
+{
+	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
+	if (type < m_sources.size() && m_sources[type])
+	{
+		m_sources[type]->gateInjection(m_pipeline.get(), false, "ResumeTrackInjection");
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -1817,7 +1878,7 @@ void AampRialtoPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecI
 			// period transitions, setting mbTrackDownloadsBlocked[SUBTITLE]=true.
 			// InjectFragment() calls BlockUntilGstreamerWantsData() which spins
 			// while that flag is true.  For Rialto, subtitle backpressure is
-			// managed via injectionGated (not via NeedData/EnoughData), so
+			// managed via gateMode (not via NeedData/EnoughData), so
 			// ResumeTrackDownloads is never triggered by a Rialto NeedData
 			// callback after a caps update.  Clear the flag here so that the
 			// inject loop is unblocked once the new period init has been accepted.
@@ -1940,7 +2001,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// has already left FLUSHING and woken any waiter in
 			// WaitForFlushToComplete() by the time this case runs.
 
-			// Clear injectionGated so inject threads resume blocking
+			// Clear the gate so inject threads resume blocking
 			// normally on needData rather than aborting immediately.
 			UngateAllSources("OnPlaybackState(PLAYING)");
 
@@ -1986,7 +2047,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// accept data (needData events keep arriving), so injection
 			// threads should remain blocked on needData rather than
 			// aborting and discarding the current batch of samples.
-			// Injection is only aborted by invalidateGeneration() which is
+			// Injection is only aborted by unblockInjection() which is
 			// called on flush / stop / seek - not on every pipeline pause.
 			break;
 		case firebolt::rialto::PlaybackState::END_OF_STREAM:

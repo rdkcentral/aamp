@@ -178,7 +178,7 @@ private:
 	/// between samples in sendSegment()'s injection loop so that a fragment
 	/// already in flight stops sending further samples instead of proceeding
 	/// to block on each remaining sample (e.g. against an injection gate set
-	/// by AampRialtoMediaSource::invalidateGeneration()).  Cleared by reset().
+	/// by AampRialtoMediaSource::unblockInjection()).  Cleared by reset().
 	std::atomic<bool> mAborted {false};
 		
 	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */

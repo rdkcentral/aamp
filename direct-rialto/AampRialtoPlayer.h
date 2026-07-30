@@ -275,8 +275,11 @@ public:
 	/// @copydoc StreamSink::NotifyInjectorToPause
 	void NotifyInjectorToPause() override;
 
-	/// @copydoc StreamSink::UnblockTrackInjection
-	void UnblockTrackInjection(AampMediaType type) override;
+	/// @copydoc StreamSink::StopTrackInjection
+	void StopTrackInjection(AampMediaType type) override;
+
+	/// @copydoc StreamSink::ResumeTrackInjection
+	void ResumeTrackInjection(AampMediaType type) override;
 
 	/// @copydoc StreamSink::SetStreamCaps
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo) override;
@@ -570,12 +573,12 @@ private:
 	void CheckAllSourcesAttached();
 
 	/**
-	 * @brief Clear injectionGated on every source, logging the reason.
+	 * @brief Clear (ungate) injection on every source, logging the reason.
 	 *
 	 * Must be called only from the specific points where pipeline play()
-	 * is actually issued or confirmed \u2014 Stream(), CheckAllSourcesAttached(),
+	 * is actually issued or confirmed — Stream(), CheckAllSourcesAttached(),
 	 * Pause(false), StopBuffering(), the SEEK_DONE play branch, and the
-	 * PLAYING playback-state handler.  See the injectionGated field
+	 * PLAYING playback-state handler.  See the gateMode field
 	 * comment in AampRialtoMediaSource.h for the rationale.
 	 *
 	 * @param reason  Short human-readable description of the caller,
