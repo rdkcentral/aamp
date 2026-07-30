@@ -68,6 +68,7 @@ STATES = [
     ("PLAYING",           "Server confirmed PLAYING"),
     ("PAUSED",            "Server confirmed PAUSED"),
     ("FLUSHING",          "Flush() in progress; awaiting new segments"),
+    ("FLUSHED",           "SEEK_DONE received; awaiting Rialto PLAYING/PAUSED"),
     ("ERROR",             "Server reported a fatal error"),
 ]
 
@@ -85,24 +86,27 @@ TRANSITIONS = [
     ("PLAYING",           "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
     ("PAUSED",            "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
 
-    # Normal flush exit: all sources confirm SourceFlushedEvent.
-    # onFlushComplete() restores the state that was active when onFlush() was
-    # called.  play() is issued only when the restored state is PLAYING.
-    ("FLUSHING",          "onFlushComplete [pre=PLAYING]",         "play()",    "PLAYING"),
-    ("FLUSHING",          "onFlushComplete [pre=PAUSED]",          "",          "PAUSED"),
-    ("FLUSHING",          "onFlushComplete [pre=SOURCES_ATTACHED]","",          "SOURCES_ATTACHED"),
+    # Normal flush exit: Rialto's SEEK_DONE notification completes the
+    # pipeline-level flushing seek.  onFlushComplete() takes the machine
+    # unconditionally to FLUSHED - it does NOT remember or restore the
+    # pre-flush state.
+    ("FLUSHING",          "onFlushComplete",      "SEEK_DONE",             "FLUSHED"),
+
+    # FLUSHED — Rialto's own subsequent notification (guaranteed to follow
+    # SEEK_DONE for the same flush cycle) drives the machine the rest of the
+    # way.  If Flush() happened before the first play() (pre-flush state was
+    # SOURCES_ATTACHED), the machine simply waits in FLUSHED until
+    # Stream()/play() eventually triggers Rialto's PLAYING notification -
+    # functionally equivalent to the old SOURCES_ATTACHED-restore path.
+    ("FLUSHED",           "onPlaybackStarted",    "PLAYING notification",  "PLAYING"),
+    ("FLUSHED",           "onPlaybackPaused",     "PAUSED notification",   "PAUSED"),
+    ("FLUSHED",           "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
 
     # After flush + re-configure, new init fragments re-drive attachment.
     # Note: there is NO direct FLUSHING→SOURCES_ATTACHING transition via
     # onSourceAttaching.  A pipeline rebuild always goes through onReconfigure
     # (FLUSHING→IDLE) before sources re-attach.  onSourceAttaching from
     # FLUSHING is unreachable and will produce a WARN log if it ever fires.
-
-    # Note: onPlaybackStarted/Paused during FLUSHING (delayed ack for a
-    # play() that was in-flight when Flush() started) update m_preFlushStateId
-    # but do NOT transition state.  The machine stays in FLUSHING until
-    # onFlushComplete() fires, keeping WaitForFlushToComplete() correctly
-    # blocked until all sources confirm flushed.
 
     # ── Stop — valid from all active states except FLUSHING (Stop() waits for
     # flush to complete before dispatching onStop, so FLUSHING is never the
@@ -112,6 +116,7 @@ TRANSITIONS = [
     ("SOURCES_ATTACHED",  "onStop",               "stop()",                "IDLE"),
     ("PLAYING",           "onStop",               "stop()",                "IDLE"),
     ("PAUSED",            "onStop",               "stop()",                "IDLE"),
+    ("FLUSHED",           "onStop",               "stop()",                "IDLE"),
     ("ERROR",             "onStop",               "stop()",                "IDLE"),
 
     # ── Error — valid from any non-terminal state ──────────────────────────
@@ -121,16 +126,19 @@ TRANSITIONS = [
     ("PLAYING",           "onError",              "FAILURE notification",  "ERROR"),
     ("PAUSED",            "onError",              "FAILURE notification",  "ERROR"),
     ("FLUSHING",          "onError",              "FAILURE notification",  "ERROR"),
+    ("FLUSHED",           "onError",              "FAILURE notification",  "ERROR"),
 
     # ── Reconfigure (re-tune) — valid from IDLE (first tune) and all active
-    # states except FLUSHING (Configure() calls Stop() first, which waits for
-    # flush to complete, so FLUSHING is never current when onReconfigure fires).
+    # states except FLUSHING (Configure() calls WaitForFlushToComplete()
+    # directly before dispatching onReconfigure, so FLUSHING is never current
+    # when onReconfigure fires).
     ("IDLE",              "onReconfigure",        "re-tune",               "IDLE"),
     ("PIPELINE_CREATED",  "onReconfigure",        "re-tune",               "IDLE"),
     ("SOURCES_ATTACHING", "onReconfigure",        "re-tune",               "IDLE"),
     ("SOURCES_ATTACHED",  "onReconfigure",        "re-tune",               "IDLE"),
     ("PLAYING",           "onReconfigure",        "re-tune",               "IDLE"),
     ("PAUSED",            "onReconfigure",        "re-tune",               "IDLE"),
+    ("FLUSHED",           "onReconfigure",        "re-tune",               "IDLE"),
 
     ("ERROR",             "onReconfigure",        "re-tune",               "IDLE"),
 ]
@@ -146,6 +154,7 @@ STATE_COLOURS = {
     "PLAYING":           ("#F3E5F5", "#6A1B9A"),   # purple
     "PAUSED":            ("#FBE9E7", "#BF360C"),   # deep-orange
     "FLUSHING":          ("#EFEBE9", "#4E342E"),   # brown
+    "FLUSHED":           ("#D7CCC8", "#4E342E"),   # darker brown
     "ERROR":             ("#FFEBEE", "#C62828"),   # red
 }
 
@@ -169,6 +178,7 @@ PUML_STATE_COLOURS = {
     "PLAYING":           "#F3E5F5",
     "PAUSED":            "#FBE9E7",
     "FLUSHING":          "#EFEBE9",
+    "FLUSHED":           "#D7CCC8",
     "ERROR":             "#FFEBEE",
 }
 

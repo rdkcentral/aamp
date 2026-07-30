@@ -4742,8 +4742,17 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 	//      keyframe filtering and PTS restamping in TrickmodePtsRestamp(). Without this,
 	//      the demuxer retains rate=1.0 and sends all frames with incorrect PTS during
 	//      trickplay.
+	//   3. Subtitle (eMEDIATYPE_SUBTITLE) must be included.  When a period
+	//      re-initialisation occurs during trick play (e.g. rewind reaching the TSB
+	//      start boundary), InitializeMediaProcessor updates all three demuxers —
+	//      including subtitle — to the current trick play rate.  Subsequent speed
+	//      changes then arrive exclusively through this loop, so omitting subtitle
+	//      leaves its mIsTrickMode and mRate stale.  When normal playback resumes
+	//      (e.g. TSB-to-live transition), subtitle retains the old trick play rate,
+	//      routes the first live segment through TrickmodePtsRestamp, and stamps its
+	//      PTS to 0, causing subtitles to disappear.
 	//
-	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_AUDIO; i++)
+	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_SUBTITLE; i++)	
 	{
 		MediaTrack *track = GetMediaTrack((TrackType) i);
 		if (track && track->enabled && track->playContext)

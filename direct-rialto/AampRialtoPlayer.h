@@ -275,6 +275,9 @@ public:
 	/// @copydoc StreamSink::NotifyInjectorToPause
 	void NotifyInjectorToPause() override;
 
+	/// @copydoc StreamSink::UnblockTrackInjection
+	void UnblockTrackInjection(AampMediaType type) override;
+
 	/// @copydoc StreamSink::SetStreamCaps
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo) override;
 
@@ -425,14 +428,6 @@ private:
 	std::condition_variable m_flushCv;
 
 	/**
-	 * @brief Block if the player is currently in the FLUSHING state.
-	 *
-	 * Waits on m_flushCv until all sources have completed flushing
-	 * (no source reports isFlushing()==true).  This ensures that
-	 * m_rate has been committed from m_pendingFlushRate before
-	 * Configure() evaluates ShouldRecreatePipeline().
-	 */
-	/**
 	 * @brief Block until any in-progress flush cycle completes.
 	 *
 	 * Acquires m_flushMutex and waits on m_flushCv until the state machine
@@ -573,6 +568,20 @@ private:
 	 *        been attached.
 	 */
 	void CheckAllSourcesAttached();
+
+	/**
+	 * @brief Clear injectionGated on every source, logging the reason.
+	 *
+	 * Must be called only from the specific points where pipeline play()
+	 * is actually issued or confirmed \u2014 Stream(), CheckAllSourcesAttached(),
+	 * Pause(false), StopBuffering(), the SEEK_DONE play branch, and the
+	 * PLAYING playback-state handler.  See the injectionGated field
+	 * comment in AampRialtoMediaSource.h for the rationale.
+	 *
+	 * @param reason  Short human-readable description of the caller,
+	 *                included in the per-source log line.
+	 */
+	void UngateAllSources(const char *reason);
 
 	/// Set by Stop() to guarantee the next Configure() always recreates
 	/// the pipeline even when stream formats are unchanged.

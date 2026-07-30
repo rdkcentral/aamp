@@ -98,11 +98,23 @@ public:
 		/// invalidateGeneration(); injectors capture it at entry and
 		/// abort if it changes while they are blocked.
 		uint64_t generation{0};
-		/// Set by invalidateGeneration() (flush/seek) to gate injection
-		/// until the next needData event or PLAYING state callback.
-		/// Cleared by handleNeedData() and by the PLAYING playback-state
-		/// handler.  NOT related to the pipeline PAUSED state — see the
+		/// Set by invalidateGeneration() (flush/stop/seek/pause-notify) to
+		/// gate injection until playback is genuinely about to resume.
+		/// Cleared ONLY by clearInjectionGate(), called via
+		/// AampRialtoPlayer::UngateAllSources() at each site that actually
+		/// issues (or confirms) pipeline play() — Stream(),
+		/// CheckAllSourcesAttached(), Pause(false), StopBuffering(), the
+		/// SEEK_DONE play branch, and the PLAYING playback-state handler.
+		/// Deliberately NOT cleared by reset(), AttachSource(), or
+		/// handleNeedData(): clearing it there would reopen the gate before
+		/// a multi-step Configure()/Flush() sequence (e.g. trickplay's
+		/// Flush(pos=0) -> Configure() -> Flush(correctPos) -> Stream()) has
+		/// finished, letting stale-position data slip through on an early
+		/// needData.  NOT related to the pipeline PAUSED state — see the
 		/// comment in waitForAttach() for the important distinction.
+		/// While set, injectOneSample() blocks newly-submitted samples
+		/// (rather than dropping them) until the gate clears or a newer
+		/// flush supersedes them — see injectOneSample() for details.
 		bool     injectionGated{false};
 		/// True while an injector thread is executing inside
 		/// injectOneSample().  Prevents signalEos() and handleNeedData()
@@ -150,7 +162,66 @@ public:
 
 	/// Bump the pacing generation to abort any in-flight injection batch
 	/// and wake the condition variable.
-	void invalidateGeneration();
+	///
+	/// If a needData request is currently pending and no injector is
+	/// active to answer it, this closes it out immediately with
+	/// haveData(NO_AVAILABLE_SAMPLES) so AAMP never abandons a request
+	/// Rialto is still waiting on.  If an injector *is* active, the
+	/// request is left for that injector to close out itself when it
+	/// observes the generation change (see injectOneSample()).
+	///
+	/// @param pipeline     The active Rialto media pipeline, or nullptr if
+	///                     no pipeline exists for this session (e.g. Stop()
+	///                     called before Configure()).
+	/// @param reason       Short human-readable description of the caller
+	///                     (e.g. "Flush", "Stop", "NotifyInjectorToPause"),
+	///                     included in the injectionGated-set log line to
+	///                     aid debugging of gating behaviour.
+	/// @param newEosState  Optional new value for eos, applied atomically
+	///                     with the generation bump/gate-set above.  Callers
+	///                     that need to change eos alongside invalidating the
+	///                     generation (e.g. Stop(), Flush()) must use this
+	///                     parameter rather than locking m_state.mu
+	///                     separately afterwards, which would otherwise open
+	///                     a window where a concurrent needData/signalEos
+	///                     could observe the gate set but the old eos value.
+	void invalidateGeneration(firebolt::rialto::IMediaPipeline *pipeline,
+		const char *reason = "invalidateGeneration",
+		std::optional<bool> newEosState = std::nullopt);
+
+	/// Clear injectionGated for this source, logging the transition (only
+	/// when it was actually set) so it is easy to correlate log traces with
+	/// the moment injection resumes.  Must be called only from the specific
+	/// points where playback is genuinely about to resume — see the
+	/// injectionGated field comment above for the authoritative list.
+	///
+	/// If a needData was staged while gated and EOS was signalled in the
+	/// meantime (both intentionally deferred while injectionGated is set —
+	/// see signalEos()/handleNeedData()), this replays that resolution now
+	/// that the gate has cleared, so the request is answered here rather
+	/// than being left pending until a fresh needData or injector run.
+	///
+	/// @param pipeline  The active Rialto media pipeline, or nullptr if none
+	///                  exists for this session.  Only used if a deferred
+	///                  EOS resolution must be replayed.
+	/// @param reason    Short human-readable description of the caller
+	///                  (e.g. "Stream", "OnPlaybackState(PLAYING)"),
+	///                  included in the log line.
+	void clearInjectionGate(firebolt::rialto::IMediaPipeline *pipeline,
+		const char *reason);
+
+	/// @brief Directly set the eos flag, logging the transition.
+	///
+	/// For callers that need to change eos outside the needData/signalEos
+	/// handshake (e.g. AampRialtoPlayer::Configure()'s trickplay-exit path,
+	/// which must clear a previously-forced audio EOS).  Does not attempt to
+	/// resolve any pending request — unlike signalEos(), this is not
+	/// expected to be called while a needData is outstanding.
+	///
+	/// @param eos     The new eos value.
+	/// @param reason  Short human-readable description of the caller,
+	///                included in the log line when the value changes.
+	void setEos(bool eos, const char *reason);
 
 	// -----------------------------------------------------------------
 	// Source identity
@@ -158,18 +229,6 @@ public:
 
 	int32_t sourceId() const { return m_sourceId; }
 	bool isAttached() const { return m_sourceId >= 0; }
-
-	/// True while an async Rialto flush is in flight for this source.
-	/// Set by flushSource(); cleared by AampRialtoPlayer::OnSourceFlushed()
-	/// when Rialto sends the corresponding SourceFlushedEvent.
-	bool isFlushing() const
-	{
-		return m_flushing.load(std::memory_order_acquire);
-	}
-	void setFlushing(bool value)
-	{
-		m_flushing.store(value, std::memory_order_release);
-	}
 
 	/// Block if this source's Rialto attachment is still deferred (waiting
 	/// for video to attach first).  Returns true when injection may safely
@@ -244,9 +303,13 @@ public:
 	/**
 	 * @brief Inject one sample into the Rialto pipeline.
 	 *
-	 * Blocks until a needData request arrives for this source, then
-	 * delivers the sample via addSegment.  Returns false if the batch
-	 * was aborted by Flush/Stop.
+	 * If injectionGated is set for the current generation (i.e. capturedGen),
+	 * first blocks until either the gate clears (same generation) or a newer
+	 * flush supersedes this sample (generation changes) — see
+	 * AampRialtoMediaSource::SourceState::injectionGated.  Once past the
+	 * gate, blocks until a needData request arrives for this source, then
+	 * delivers the sample via addSegment.  Returns false if the sample was
+	 * abandoned because it was superseded by a newer flush/stop.
 	 *
 	 * @param pipeline       The Rialto media pipeline.
 	 * @param capturedGen    Generation token captured before blocking.
@@ -418,7 +481,6 @@ protected:
 	virtual std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
 		createSegment(const AampMediaSample &sample) const = 0;
 
-
 	// -----------------------------------------------------------------
 	// Members
 	// -----------------------------------------------------------------
@@ -433,16 +495,104 @@ protected:
 	/// sessions without unnecessarily recreating the pipeline.
 	StreamOutputFormat m_streamFormat{FORMAT_INVALID};
 
-	/// Set while an async Rialto flush is in flight for this source.
-	/// Atomic so Flush() (AAMP thread) and OnSourceFlushed() (Rialto IPC
-	/// thread) can access it without holding m_state.mu.
-	std::atomic<bool> m_flushing{false};
-
 	/// PTS of the first sample injected since the last reset or
 	/// invalidateGeneration(), in milliseconds.  Set lazily via
 	/// compare-exchange after addSegment(OK) in injectOneSample().
 	/// kFirstPtsNotSet = not set.
 	std::atomic<int64_t> m_firstPtsMs{kFirstPtsNotSet};
+
+private:
+	// -----------------------------------------------------------------
+	// injectOneSample() helpers
+	// -----------------------------------------------------------------
+
+	/**
+	 * @brief Populate DRM/encryption metadata on a segment.
+	 *
+	 * No-op (other than a trace log) when the sample is not encrypted.
+	 * Logs a warning when the sample is encrypted but no DRM session
+	 * exists (m_mksId < 0).
+	 */
+	void annotateEncryption(
+		const AampMediaSample &sample,
+		firebolt::rialto::IMediaPipeline::MediaSegment &segment) const;
+
+	/**
+	 * @brief Handle an AddSegmentStatus::NO_SPACE result from addSegment().
+	 *
+	 * Closes out the current batch with haveData(OK) or
+	 * haveData(NO_AVAILABLE_SAMPLES) depending on whether any segments
+	 * were already delivered, then leaves the injector waiting for the
+	 * next needData event (does not set injectorActive/done).
+	 */
+	void handleAddSegmentNoSpace(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		uint64_t capturedGen,
+		uint32_t reqId);
+
+	/**
+	 * @brief Handle a non-NO_SPACE AddSegmentStatus result from
+	 *        addSegment() (i.e. the sample was consumed one way or
+	 *        another and this injector is done with it).
+	 *
+	 * Updates firstPtsMs() on success, advances the batch counter, and
+	 * sends haveData(OK) or haveData(EOS) when the batch/stream is
+	 * complete.  Always clears injectorActive.
+	 */
+	void handleAddSegmentCompletion(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		firebolt::rialto::AddSegmentStatus addStatus,
+		uint64_t capturedGen,
+		uint32_t reqId,
+		bool morePending,
+		double samplePts);
+
+	// -----------------------------------------------------------------
+	// Pending-request handshake helpers
+	// -----------------------------------------------------------------
+
+	/**
+	 * @brief Claim the current pending request so the caller can close
+	 *        it out.
+	 *
+	 * Caller must hold m_state.mu.  Clears hasPending and
+	 * segmentsAddedInBatch.  Does not itself send any response — the
+	 * caller decides what status to reply with (or whether it is even
+	 * safe to reply, e.g. only when no injector is active).
+	 *
+	 * @return true if there was a pending request to claim.
+	 */
+	bool claimPendingRequestLocked(uint32_t &outReqId);
+
+	/**
+	 * @brief Attempt to resolve a pending request as EOS.
+	 *
+	 * Caller must hold m_state.mu.  Claims the pending request (via
+	 * claimPendingRequestLocked()) only if this source is genuinely ready
+	 * to answer haveData(EOS) right now: eos is set, a request is
+	 * pending, no injector is active to answer it on its own, and
+	 * injection is not gated.  The gate check is what distinguishes this
+	 * from the older behaviour: while injectionGated is set, EOS
+	 * resolution is deliberately deferred (the request is left pending)
+	 * so it is not resolved out of order with samples that are still
+	 * blocked behind the gate.  clearInjectionGate() calls this again
+	 * once the gate clears to replay the resolution.
+	 *
+	 * @param outReqId  Set to the claimed request ID when this returns
+	 *                  true; left unmodified otherwise.
+	 * @return true if a pending request was claimed for EOS.
+	 */
+	bool tryClaimEosLocked(uint32_t &outReqId);
+
+	/**
+	 * @brief Send haveData(NO_AVAILABLE_SAMPLES) for a request this
+	 *        source is abandoning (Flush()/Stop()/generation change).
+	 *
+	 * Must be called without holding m_state.mu.
+	 */
+	void respondAbandonedRequest(
+		firebolt::rialto::IMediaPipeline *pipeline,
+		uint32_t reqId);
 };
 
 #endif /* AAMP_RIALTO_MEDIA_SOURCE_H */

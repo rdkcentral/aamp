@@ -86,6 +86,10 @@ void AampMp4Demuxer::setRate(double rate, PlayMode mode)
  */
 void AampMp4Demuxer::abort()
 {
+	// Set first so any sendSegment() call already looping over samples on
+	// another thread observes it as soon as possible and stops sending
+	// further samples for the in-flight fragment.
+	mAborted.store(true, std::memory_order_relaxed);
 	mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
 	mLastSamplePts = 0.0;
 	mRestampedPts = 0.0;
@@ -99,6 +103,7 @@ void AampMp4Demuxer::abort()
  */
 void AampMp4Demuxer::reset()
 {
+	mAborted.store(false, std::memory_order_relaxed);
 	resetTrickMode();
 }
 
@@ -226,6 +231,12 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 {
 	bool ret = true;
 	(void) processor;
+	if (mAborted.load(std::memory_order_relaxed))
+	{
+		AAMPLOG_WARN("Aborted - not processing segment for type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
+		ptsError = false;
+		return false;
+	}
 	if (mMp4Demux && !buffer.empty())
 	{
 		// Move the caller's buffer into a shared_ptr and pass ownership into
@@ -251,17 +262,38 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				if (mIsTrickMode)
 				{
 					// Trickmode: the demuxer yields exactly one sample — the iframe.
-					auto& iframe = samples.front();
-					TrickmodePtsRestamp(iframe, duration, discontinuous);
+					if (mAborted.load(std::memory_order_relaxed))
+					{
+						AAMPLOG_WARN("Aborted - not injecting trickmode sample for type:%d position: %f", mMediaType, position);
+						ret = false;
+					}
+					else
+					{
+						auto& iframe = samples.front();
+						TrickmodePtsRestamp(iframe, duration, discontinuous);
 
-					++sampleIndex;
-					bool morePending = (sampleIndex < totalSamples);
-					mAamp->SendStreamTransfer(mMediaType, std::move(iframe), morePending);
+						++sampleIndex;
+						bool morePending = (sampleIndex < totalSamples);
+						mAamp->SendStreamTransfer(mMediaType, std::move(iframe), morePending);
+					}
 				}
 				else
 				{
 					for (auto& sample : samples)
 					{
+						// Re-checked on every iteration: abort() can be called from
+						// another thread (e.g. alongside Stop()/Flush() invalidating
+						// the injection generation) while this loop is mid-fragment.
+						// Without this check, a bailed-out sample would simply be
+						// followed by the next sample re-entering the same blocked/
+						// gated injection path.
+						if (mAborted.load(std::memory_order_relaxed))
+						{
+							AAMPLOG_WARN("Aborted mid-segment - stopping sample injection for type:%d position: %f (sent %zu/%zu samples)",
+								mMediaType, position, sampleIndex, totalSamples);
+							ret = false;
+							break;
+						}
 						if (mEnablePtsRestamp)
 						{
 							const double beforeDTS = sample.mDts;

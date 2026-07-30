@@ -65,6 +65,27 @@ static MediaCodecInfo MakeHevcCodecInfo(
 	return ci;
 }
 
+/**
+ * @class TestableAampRialtoVideoSourceNullSegment
+ * @brief Subclass allowing createSegment() to be forced to fail, for
+ *        exercising injectOneSample()'s createSegment()==nullptr path.
+ */
+class TestableAampRialtoVideoSourceNullSegment : public AampRialtoVideoSource
+{
+public:
+	bool mReturnNullSegment{false};
+
+	std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment>
+	createSegment(const AampMediaSample &sample) const override
+	{
+		if (mReturnNullSegment)
+		{
+			return nullptr;
+		}
+		return AampRialtoVideoSource::createSegment(sample);
+	}
+};
+
 
 
 
@@ -371,10 +392,203 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_TakePendingCodecData_Ret
 TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_InvalidateGeneration_BumpsGeneration)
 {
 	uint64_t gen1 = m_source.captureGeneration();
-	m_source.invalidateGeneration();
+	m_source.invalidateGeneration(m_pipelinePtr);
 	uint64_t gen2 = m_source.captureGeneration();
 
 	EXPECT_GT(gen2, gen1);
+}
+
+/**
+ * @test AampRialtoVideoSource_InvalidateGeneration_WithPendingRequestNoInjector_SendsNoAvailableSamples
+ * @brief Verify invalidateGeneration() closes out an abandoned needData
+ *        request with haveData(NO_AVAILABLE_SAMPLES) when no injector is
+ *        active to answer it (e.g. Flush()/Stop() racing a needData that
+ *        arrived just before the pipeline-level seek).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InvalidateGeneration_WithPendingRequestNoInjector_SendsNoAvailableSamples)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(1, /*requestId=*/33, m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 33))
+		.WillOnce(Return(true));
+
+	m_source.invalidateGeneration(m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_InvalidateGeneration_WithInjectorActive_DoesNotRespondItself
+ * @brief Verify invalidateGeneration() does NOT send haveData itself when an
+ *        injector is active — the injector owns the request and must close
+ *        it out when it observes the generation change.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InvalidateGeneration_WithInjectorActive_DoesNotRespondItself)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	m_source.handleNeedData(1, /*requestId=*/44, m_pipelinePtr);
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.injectorActive = true;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, haveData(_, _)).Times(0);
+
+	m_source.invalidateGeneration(m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.hasPending);
+	EXPECT_EQ(st.pendingRequestId, 44u);
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_GenerationInvalidatedWhileWaiting_ClosesOutRequest
+ * @brief Verify that when invalidateGeneration() defers to an active
+ *        injector (because a needData was staged concurrently), the
+ *        injector itself sends haveData(NO_AVAILABLE_SAMPLES) for the
+ *        abandoned request when it wakes and aborts.  This is the other
+ *        half of the handshake exercised by the "DoesNotRespondItself"
+ *        test above.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_GenerationInvalidatedWhileWaiting_ClosesOutRequest)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x55, 0x66};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 5.0;
+	sample.mDuration = 0.033;
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 66))
+		.WillOnce(Return(true));
+
+	std::atomic<bool> injected{true};
+	std::thread injector([&]{
+		injected = m_source.injectOneSample(
+			*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	// Give the injector time to enter the wait (injectorActive is now true).
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+	// Stage a pending request as if a needData arrived just before the
+	// flush/seek, then invalidate the generation (as Flush()/Stop() would).
+	// Since the injector is active, invalidateGeneration() must defer the
+	// request to it rather than answering itself.
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 66;
+		st.pendingFrameCount = 1;
+	}
+	m_source.invalidateGeneration(m_pipelinePtr);
+
+	injector.join();
+	EXPECT_FALSE(injected.load());
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_GenerationChangedDuringAddSegment_RespondsAbandoned
+ * @brief Regression: if invalidateGeneration() runs while an injector is
+ *        blocked inside pipeline.addSegment() (injectorActive=true, so
+ *        invalidateGeneration() defers to the injector rather than
+ *        answering itself), handleAddSegmentCompletion() must still answer
+ *        the request with NO_AVAILABLE_SAMPLES once addSegment() returns -
+ *        previously this generation-mismatch case was silently dropped,
+ *        leaking the request forever since nothing else would ever
+ *        answer it.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_GenerationChangedDuringAddSegment_RespondsAbandoned)
+{
+	auto codecInfo = MakeH264CodecInfo();
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	uint64_t gen = m_source.captureGeneration();
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 55;
+		st.pendingFrameCount = 1;
+	}
+
+	std::atomic<bool> addSegmentEntered{false};
+	std::atomic<bool> releaseAddSegment{false};
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(55, _))
+		.WillOnce(Invoke([&](uint32_t,
+			const std::unique_ptr<firebolt::rialto::IMediaPipeline::MediaSegment> &)
+			{
+				addSegmentEntered.store(true, std::memory_order_release);
+				while (!releaseAddSegment.load(std::memory_order_acquire))
+				{
+					std::this_thread::sleep_for(std::chrono::milliseconds(1));
+				}
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 55))
+		.WillOnce(Return(true));
+
+	AampMediaSample sample;
+	uint8_t data[] = {0x01, 0x02};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 2;
+	sample.mPts = 1.0;
+	sample.mDuration = 0.033;
+
+	std::thread injector([&] {
+		m_source.injectOneSample(*m_pipelinePtr, gen, std::move(sample), nullptr);
+	});
+
+	const auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::milliseconds(200);
+	while (!addSegmentEntered.load(std::memory_order_acquire) &&
+		std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	ASSERT_TRUE(addSegmentEntered.load(std::memory_order_acquire));
+
+	// Simulate Flush()/Stop() happening while addSegment() is in flight.
+	// injectorActive is true, so invalidateGeneration() must defer this
+	// request to the injector rather than answering it itself.
+	m_source.invalidateGeneration(m_pipelinePtr, "test-flush-race");
+
+	releaseAddSegment.store(true, std::memory_order_release);
+	injector.join();
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
 }
 
 // ---------------------------------------------------------------------------
@@ -447,6 +661,32 @@ TEST_F(AampRialtoVideoSourceTest, AampRialtoVideoSource_HandleNeedData_WhenEos_S
 		.WillOnce(Return(true));
 
 	m_source.handleNeedData(1, /*requestId=*/55, m_pipelinePtr);
+}
+
+/**
+ * @test AampRialtoVideoSource_HandleNeedData_SupersededByNewRequest_ClosesOutStaleRequest
+ * @brief Verify a second handleNeedData() call, arriving without an
+ *        intervening handleCancelNeedData(), closes out the previous
+ *        unclaimed request with haveData(NO_AVAILABLE_SAMPLES) instead of
+ *        silently overwriting it.  Silently dropping the old requestId
+ *        leaves Rialto's own bookkeeping for it unanswered, which can
+ *        desync AAMP and Rialto once the newer request is eventually served.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_HandleNeedData_SupersededByNewRequest_ClosesOutStaleRequest)
+{
+	m_source.handleNeedData(1, /*requestId=*/42, m_pipelinePtr);
+
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 42))
+		.WillOnce(Return(true));
+
+	m_source.handleNeedData(1, /*requestId=*/43, m_pipelinePtr);
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_TRUE(st.hasPending);
+	EXPECT_EQ(st.pendingRequestId, 43u);
 }
 
 /**
@@ -769,11 +1009,59 @@ TEST_F(AampRialtoVideoSourceTest,
 	ASSERT_TRUE(addSegmentReturned.load(std::memory_order_acquire));
 	EXPECT_EQ(m_source.firstPtsMs(), AampRialtoMediaSource::kFirstPtsNotSet);
 
-	m_source.invalidateGeneration();
+	m_source.invalidateGeneration(m_pipelinePtr);
 
 	injector.join();
 
 	EXPECT_FALSE(injected.load());
+}
+
+/**
+ * @test AampRialtoVideoSource_InjectOneSample_CreateSegmentNull_RespondsNoAvailableSamples
+ * @brief Regression: when createSegment() returns nullptr for a non-EOS
+ *        request, the request must still be answered (with
+ *        NO_AVAILABLE_SAMPLES) rather than silently dropped - previously
+ *        only the EOS case was handled here, leaking the request in all
+ *        other createSegment() failures.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InjectOneSample_CreateSegmentNull_RespondsNoAvailableSamples)
+{
+	TestableAampRialtoVideoSourceNullSegment source;
+	source.mReturnNullSegment = true;
+
+	auto codecInfo = MakeH264CodecInfo();
+	source.attachOrUpdate(*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	{
+		auto &st = source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending        = true;
+		st.pendingRequestId  = 909;
+		st.pendingFrameCount = 1;
+	}
+
+	EXPECT_CALL(*m_pipelinePtr, addSegment(_, _)).Times(0);
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 909))
+		.WillOnce(Return(true));
+
+	uint64_t gen = source.captureGeneration();
+	AampMediaSample sample;
+	uint8_t data[] = {0x01};
+	sample.mData = std::shared_ptr<const uint8_t>(data, [](const uint8_t *){});
+	sample.mDataSize = 1;
+	sample.mPts = 1.0;
+	sample.mDuration = 0.033;
+
+	bool result = source.injectOneSample(
+		*m_pipelinePtr, gen, std::move(sample), nullptr);
+
+	EXPECT_FALSE(result);
+
+	auto &st = source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
 }
 
 // ===========================================================================
@@ -1246,4 +1534,141 @@ TEST_F(AampRialtoVideoSourceTest,
 	m_source.setFormat(FORMAT_ISO_BMFF);
 	m_source.reset();
 	EXPECT_EQ(m_source.format(), FORMAT_ISO_BMFF);
+}
+
+// ---------------------------------------------------------------------------
+// injectionGated — consolidated ungate-timing design
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_Reset_DoesNotClearInjectionGated
+ * @brief reset() must NOT clear injectionGated.
+ *
+ * AampRialtoPlayer::Configure() calls reset() mid-flight while a subsequent
+ * Flush() may still be pending in a multi-step trickplay sequence
+ * (Flush(pos=0) -> Configure() -> Flush(correctPos) -> Stream()). Clearing
+ * the gate here would let an early needData slip through with
+ * stale-position data. The gate must only be cleared by
+ * clearInjectionGate()/UngateAllSources() at genuine play()-issuance points.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_Reset_DoesNotClearInjectionGated)
+{
+	m_source.invalidateGeneration(m_pipelinePtr, "test-setup");
+	ASSERT_TRUE(m_source.state().injectionGated);
+
+	m_source.reset();
+
+	EXPECT_TRUE(m_source.state().injectionGated);
+}
+
+/**
+ * @test AampRialtoVideoSource_InvalidateGeneration_SetsInjectionGated
+ * @brief invalidateGeneration() must set injectionGated and bump generation.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_InvalidateGeneration_SetsInjectionGated)
+{
+	ASSERT_FALSE(m_source.state().injectionGated);
+
+	uint64_t genBefore = m_source.state().generation;
+	m_source.invalidateGeneration(m_pipelinePtr, "test");
+
+	EXPECT_TRUE(m_source.state().injectionGated);
+	EXPECT_GT(m_source.state().generation, genBefore);
+}
+
+/**
+ * @test AampRialtoVideoSource_ClearInjectionGate_ClearsGateAndNotifies
+ * @brief clearInjectionGate() must clear injectionGated regardless of the
+ *        prior value, and wake any thread waiting on the state cv.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ClearInjectionGate_ClearsGateAndNotifies)
+{
+	m_source.invalidateGeneration(m_pipelinePtr, "test-setup");
+	ASSERT_TRUE(m_source.state().injectionGated);
+
+	m_source.clearInjectionGate(m_pipelinePtr, "test");
+
+	EXPECT_FALSE(m_source.state().injectionGated);
+}
+
+/**
+ * @test AampRialtoVideoSource_ClearInjectionGate_WhenAlreadyClear_IsNoop
+ * @brief clearInjectionGate() must be safe to call when the gate is already
+ *        clear (no crash, remains false).
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ClearInjectionGate_WhenAlreadyClear_IsNoop)
+{
+	ASSERT_FALSE(m_source.state().injectionGated);
+
+	EXPECT_NO_THROW(m_source.clearInjectionGate(m_pipelinePtr, "test"));
+
+	EXPECT_FALSE(m_source.state().injectionGated);
+}
+
+/**
+ * @test AampRialtoVideoSource_ClearInjectionGate_ReplaysDeferredEos
+ * @brief Regression: clearInjectionGate() must replay a deferred EOS
+ *        resolution for a request that was left pending (with eos already
+ *        set) while injectionGated was set, so the request is not left
+ *        hanging forever.
+ *
+ *        Note: handleNeedData() itself does NOT stage a request while
+ *        gated - it answers such requests immediately with
+ *        NO_AVAILABLE_SAMPLES instead of deferring them (see
+ *        AampRialtoVideoSource_HandleNeedData_DoesNotClearInjectionGated
+ *        and the handleNeedData() rejectGated branch). The pending+eos
+ *        state exercised here instead models the case where an active
+ *        injector owns the request when the gate is set (injectorActive)
+ *        - see the injectionGated field comment - and is prepared
+ *        directly here to isolate clearInjectionGate()'s own
+ *        deferred-EOS replay logic.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_ClearInjectionGate_ReplaysDeferredEos)
+{
+	// Gate injection, then seed a pending, EOS-eligible request as if an
+	// active injector had left it outstanding when the gate was set.
+	m_source.invalidateGeneration(m_pipelinePtr, "test-setup");
+	ASSERT_TRUE(m_source.state().injectionGated);
+
+	{
+		auto &st = m_source.state();
+		std::lock_guard<std::mutex> lock(st.mu);
+		st.hasPending       = true;
+		st.pendingRequestId = 321;
+		st.eos              = true;
+	}
+
+	// Clearing the gate must replay the deferred EOS resolution.
+	EXPECT_CALL(*m_pipelinePtr,
+		haveData(firebolt::rialto::MediaSourceStatus::EOS, 321))
+		.WillOnce(Return(true));
+	m_source.clearInjectionGate(m_pipelinePtr, "test");
+
+	auto &st = m_source.state();
+	std::lock_guard<std::mutex> lock(st.mu);
+	EXPECT_FALSE(st.hasPending);
+}
+
+/**
+ * @test AampRialtoVideoSource_HandleNeedData_DoesNotClearInjectionGated
+ * @brief handleNeedData() must NOT clear injectionGated even though it
+ *        stages a pending request. The staged request is answered with
+ *        NO_AVAILABLE_SAMPLES (never silently dropped) once an injector
+ *        observes the gate, so it is safe for the gate to remain set until
+ *        a genuine play()-issuance point clears it.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_HandleNeedData_DoesNotClearInjectionGated)
+{
+	m_source.invalidateGeneration(m_pipelinePtr, "test-setup");
+	ASSERT_TRUE(m_source.state().injectionGated);
+
+	m_source.handleNeedData(1, /*requestId=*/123, m_pipelinePtr);
+
+	EXPECT_TRUE(m_source.state().injectionGated);
 }

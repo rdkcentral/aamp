@@ -136,7 +136,7 @@ TEST_F(AampRialtoSubtitleSourceTest, AampRialtoSubtitleSource_Reset_WorksOnSkele
 TEST_F(AampRialtoSubtitleSourceTest, AampRialtoSubtitleSource_InvalidateGeneration_BumpsGeneration)
 {
 	uint64_t gen1 = m_source.captureGeneration();
-	m_source.invalidateGeneration();
+	m_source.invalidateGeneration(nullptr);
 	uint64_t gen2 = m_source.captureGeneration();
 
 	EXPECT_GT(gen2, gen1);
