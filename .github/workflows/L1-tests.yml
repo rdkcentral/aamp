@@ -19,6 +19,12 @@ jobs:
       - name: Checkout aamp code
         uses: actions/checkout@v3
       
+      - name: Clone Middleware repo
+        run: |
+          git clone https://github.com/rdkcentral/middleware-player-interface
+          cd middleware-player-interface
+          git checkout bd2b3b1e5e76ab370b8010cf6fcf557e30d3fea5
+          patch -p1 < ../OSX/patches/middleware-fixes-4c1d90a.patch
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
@@ -63,7 +69,7 @@ jobs:
         
       # Run Middleware L1 unit tests
       - name: Run Middleware L1 unit tests
-        working-directory: ./middleware/test/utests
+        working-directory: ./middleware-player-interface/test/utests
         shell: bash
         run: |
           set -euo pipefail
@@ -75,18 +81,18 @@ jobs:
         uses: dorny/test-reporter@v1
         with:
           name: Middleware Unit Test Results
-          path: middleware/test/utests/build/ctest-results.xml
+          path: middleware-player-interface/test/utests/build/ctest-results.xml
           reporter: java-junit
           
-      # Upload artifact (middleware/test/utests/build/ctest-results.xml)
-      - name: Upload test result file (middleware/test/utests)
+      # Upload artifact (middleware-player-interface/test/utests/build/ctest-results.xml)
+      - name: Upload test result file (middleware-player-interface/test/utests)
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ctest-results-middleware-utests-${{ github.run_id }}
-          path: middleware/test/utests/build/ctest-results.xml
+          path: middleware-player-interface/test/utests/build/ctest-results.xml
       
       # Show middleware failure details (if any)
       - name: Show failure details (if any)
         if: failure()
-        run: tail -n 50 middleware/test/utests/build/ctest-results.xml || true
+        run: tail -n 50 middleware-player-interface/test/utests/build/ctest-results.xml || true
