@@ -8745,7 +8745,7 @@ void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMilliseconds, const
 void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
 {
 	bool bMetadata = ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReport) || ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReportLive);
-	if(bMetadata && init && IsNewTune())
+	if(bMetadata)
 	{
 		ReportBulkTimedMetadata();
 	}
