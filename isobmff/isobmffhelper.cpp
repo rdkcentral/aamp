@@ -82,7 +82,7 @@ bool IsoBmffHelper::SetTimescale(std::vector<uint8_t> &buffer, uint32_t timeScal
 	return isoBmffBuffer.setTrickmodeTimescale(timeScale);
 }
 
-bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint64_t duration)
+bool IsoBmffHelper::SetPtsAndDuration(std::vector<uint8_t> &buffer, uint64_t pts, uint32_t duration)
 {
 	IsoBmffBuffer isoBmffBuffer{};
 	if (!InitAndParse(isoBmffBuffer, buffer))

@@ -285,9 +285,9 @@ public:
 	 *        duration will be set (if flagged as present).
 	 *
 	 * @param[in] pts - Base media decode time to set
-	 * @param[in] duration - Sample duration to set
+	 * @param[in] duration - Sample duration to set (uint32_t per ISOBMFF spec)
 	 */
-	void setPtsAndDuration(uint64_t pts, uint64_t duration);
+	void setPtsAndDuration(uint64_t pts, uint32_t duration);
 
 	/**
 	 * @fn getFirstPTS

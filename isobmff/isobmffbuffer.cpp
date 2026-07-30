@@ -394,18 +394,12 @@ void IsoBmffBuffer::restampPts(int64_t offset)
 	restampPtsInternal(offset, const_cast<uint8_t *>(buffer), bufSize);
 }
 
-void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
+void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint32_t duration)
 {
 	if (readOnlyBuffer)
 	{
 		AAMPLOG_WARN("setPtsAndDuration called with read-only buffer");
 		return;
-	}
-
-	if (duration > UINT32_MAX)
-	{
-		AAMPLOG_WARN("Duration %" PRIu64 " exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
-		duration = UINT32_MAX;
 	}
 
 	size_t index{0};
@@ -433,7 +427,7 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
 			// but in that case the code assumes there will be no duration to update.
 			if (trun && tfhd)
 			{
-				if (!updateSampleDurationInternal(static_cast<uint32_t>(duration), *trun, *tfhd))
+				if (!updateSampleDurationInternal(duration, *trun, *tfhd))
 				{
 					AAMPLOG_WARN("Sample duration not set");
 				}
