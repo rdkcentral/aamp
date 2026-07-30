@@ -140,5 +140,7 @@ void PlayerStateMachine::dispatch(
 	std::unique_ptr<IPlayerState> (IPlayerState::*handler)(),
 	const char *eventName)
 {
+	(void)handler;
+	(void)eventName;
 }
 

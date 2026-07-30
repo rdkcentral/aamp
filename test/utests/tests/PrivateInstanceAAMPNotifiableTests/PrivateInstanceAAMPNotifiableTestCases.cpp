@@ -85,7 +85,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("NotifySpeedChanged")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1; // non-zero: must not equal AAMP_TASK_ID_INVALID (0)
 		});
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0f, true));
 
@@ -108,7 +108,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("NotifyFirstFrameReceived")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 
 	m_notifiable->NotifyFirstFrameReceived(42);
@@ -121,7 +121,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("NotifyFirstBufferProcessed")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 
 	m_notifiable->NotifyFirstBufferProcessed("0,0,1920,1080");
@@ -134,7 +134,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("LogFirstFrame")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 
 	m_notifiable->LogFirstFrame();
@@ -147,7 +147,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("LogTuneComplete")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 
 	m_notifiable->LogTuneComplete();
@@ -160,7 +160,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("NotifyEOSReached")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 
 	m_notifiable->NotifyEOSReached();
@@ -173,7 +173,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("MonitorProgress")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 
 	m_notifiable->MonitorProgress(true, false);
@@ -245,7 +245,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("NotifyBufferUnderflow")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 
 	notifiable.NotifyBufferUnderflow(eMEDIATYPE_VIDEO);
@@ -266,7 +266,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("NotifyBufferUnderflow")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 	// ScheduleRetune is a no-op fake; verify it is NOT reached by ensuring
 	// no unexpected calls surface (NiceMock handles this silently).
@@ -285,7 +285,7 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 		ScheduleAsyncTask(_, _, std::string("SendMonitorAvEvent")))
 		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
 			task(arg);
-			return 0;
+			return 1;
 		});
 
 	// The fake's SendMonitorAvEvent is a no-op; verify no crash and correct dispatch.

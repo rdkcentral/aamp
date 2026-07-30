@@ -1388,7 +1388,10 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			m_rate.store(
 				m_pendingFlushRate.load(std::memory_order_relaxed),
 				std::memory_order_relaxed);
-			m_stateMachine.onFlushComplete();
+			{
+				std::lock_guard<std::mutex> lock(m_flushMutex);
+				m_stateMachine.onFlushComplete();
+			}
 			m_flushCv.notify_all();
 		}
 	}
@@ -1401,7 +1404,10 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			std::memory_order_relaxed);
 		AAMPLOG_INFO("No pipeline during flush - committed playback rate=%d",
 			m_rate.load(std::memory_order_relaxed));
-		m_stateMachine.onFlushComplete();
+		{
+			std::lock_guard<std::mutex> lock(m_flushMutex);
+			m_stateMachine.onFlushComplete();
+		}
 		m_flushCv.notify_all();
 	}
 
@@ -2053,7 +2059,13 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			m_notifiable->NotifyEOSReached();
 			break;
 		case firebolt::rialto::PlaybackState::FAILURE:
-			m_stateMachine.onError();
+			// A failure can arrive while FLUSHING; wake any thread blocked in
+			// WaitForFlushToComplete() so it does not hang indefinitely.
+			{
+				std::lock_guard<std::mutex> lock(m_flushMutex);
+				m_stateMachine.onError();
+			}
+			m_flushCv.notify_all();
 			break;
 		case firebolt::rialto::PlaybackState::SEEKING:
 			AAMPLOG_INFO("SEEKING notification received (state=%s)",
@@ -2081,9 +2093,9 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// resetTime=false: the pipeline-level setPosition() already
 			// flushed source buffers; we only update the segment rate.
 			auto appliedRate = computeAppliedRate(pendingRate);
-			if (appliedRate != AAMP_NORMAL_PLAY_RATE)
+			auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+			if (appliedRate != AAMP_NORMAL_PLAY_RATE && videoSource)
 			{
-				auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
 				if (!m_pipeline->setSourcePosition(
 							videoSource->sourceId(), posNs,
 							/*resetTime=*/false,
@@ -2135,7 +2147,10 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// the PLAYING_TRANSITION / PAUSED cases of this switch) drives
 			// the state machine the rest of the way via onPlaybackStarted()/
 			// onPlaybackPaused().
-			m_stateMachine.onFlushComplete();
+			{
+				std::lock_guard<std::mutex> lock(m_flushMutex);
+				m_stateMachine.onFlushComplete();
+			}
 			m_flushCv.notify_all();
 
 			// Ungate if Stream() was called while the flush was in progress,

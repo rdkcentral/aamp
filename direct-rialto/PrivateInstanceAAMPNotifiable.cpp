@@ -106,12 +106,15 @@ void PrivateInstanceAAMPNotifiable::NotifyFirstFrameReceived(
 {
 	AAMPLOG_TRACE("ccDecoderHandle=%lu", ccDecoderHandle);
 	auto *args = new NotifyFirstFrameReceivedArgs{m_aamp, ccDecoderHandle};
-	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
 		auto *a = static_cast<NotifyFirstFrameReceivedArgs *>(p);
 		a->aamp->NotifyFirstFrameReceived(a->ccDecoderHandle);
 		delete a;
 		return 0;
-	}, args, "NotifyFirstFrameReceived");
+	}, args, "NotifyFirstFrameReceived") == AAMP_TASK_ID_INVALID)
+	{
+		delete args;
+	}
 }
 
 void PrivateInstanceAAMPNotifiable::NotifyFirstBufferProcessed(
@@ -119,12 +122,15 @@ void PrivateInstanceAAMPNotifiable::NotifyFirstBufferProcessed(
 {
 	AAMPLOG_TRACE("videoRectangle=%s", videoRectangle.c_str());
 	auto *args = new NotifyFirstBufferProcessedArgs{m_aamp, videoRectangle};
-	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
 		auto *a = static_cast<NotifyFirstBufferProcessedArgs *>(p);
 		a->aamp->NotifyFirstBufferProcessed(a->videoRectangle);
 		delete a;
 		return 0;
-	}, args, "NotifyFirstBufferProcessed");
+	}, args, "NotifyFirstBufferProcessed") == AAMP_TASK_ID_INVALID)
+	{
+		delete args;
+	}
 }
 
 void PrivateInstanceAAMPNotifiable::NotifyFirstVideoFrameDisplayed()
@@ -168,12 +174,15 @@ void PrivateInstanceAAMPNotifiable::MonitorProgress(
 {
 	AAMPLOG_TRACE("sync=%d beginningOfStream=%d", sync, beginningOfStream);
 	auto *args = new MonitorProgressArgs{m_aamp, sync, beginningOfStream};
-	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
 		auto *a = static_cast<MonitorProgressArgs *>(p);
 		a->aamp->MonitorProgress(a->sync, a->beginningOfStream);
 		delete a;
 		return 0;
-	}, args, "MonitorProgress");
+	}, args, "MonitorProgress") == AAMP_TASK_ID_INVALID)
+	{
+		delete args;
+	}
 }
 
 double PrivateInstanceAAMPNotifiable::GetProgressReportIntervalSeconds()
@@ -197,12 +206,15 @@ void PrivateInstanceAAMPNotifiable::NotifySpeedChanged(
 {
 	AAMPLOG_TRACE("rate=%f changeState=%d", rate, changeState);
 	auto *args = new NotifySpeedChangedArgs{m_aamp, rate, changeState};
-	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
 		auto *a = static_cast<NotifySpeedChangedArgs *>(p);
 		a->aamp->NotifySpeedChanged(a->rate, a->changeState);
 		delete a;
 		return 0;
-	}, args, "NotifySpeedChanged");
+	}, args, "NotifySpeedChanged") == AAMP_TASK_ID_INVALID)
+	{
+		delete args;
+	}
 }
 
 AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
@@ -216,9 +228,9 @@ void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
 {
 	AAMPLOG_TRACE("type=%d", static_cast<int>(type));
 	auto *args = new NotifyBufferUnderflowArgs{m_aamp, type};
-	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
 		auto *a = static_cast<NotifyBufferUnderflowArgs *>(p);
-		if (a->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		if (a->aamp->mConfig && a->aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
 		{
 			AAMPLOG_INFO(
 				"Underflow will be handled by AampUnderflowMonitor, "
@@ -231,7 +243,10 @@ void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
 		}
 		delete a;
 		return 0;
-	}, args, "NotifyBufferUnderflow");
+	}, args, "NotifyBufferUnderflow") == AAMP_TASK_ID_INVALID)
+	{
+		delete args;
+	}
 }
 
 void PrivateInstanceAAMPNotifiable::SendMonitorAvEvent(
@@ -248,12 +263,15 @@ void PrivateInstanceAAMPNotifiable::SendMonitorAvEvent(
 	auto *args = new SendMonitorAvEventArgs{
 		m_aamp, status, videoPositionMs, audioPositionMs,
 		timeInStateMs, droppedFrames};
-	m_aamp->ScheduleAsyncTask([](void *p) -> int {
+	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
 		auto *a = static_cast<SendMonitorAvEventArgs *>(p);
 		a->aamp->SendMonitorAvEvent(
 			a->status, a->videoPositionMs, a->audioPositionMs,
 			a->timeInStateMs, a->droppedFrames);
 		delete a;
 		return 0;
-	}, args, "SendMonitorAvEvent");
+	}, args, "SendMonitorAvEvent") == AAMP_TASK_ID_INVALID)
+	{
+		delete args;
+	}
 }
