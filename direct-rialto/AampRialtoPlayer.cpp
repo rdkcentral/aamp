@@ -1266,6 +1266,13 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// flush has restored it (e.g. a seek from PLAYING restores to PLAYING).
 	WaitForFlushToComplete();
 
+	// Stage the requested position/rate unconditionally, before the
+	// teardown/flushable branching below, so every exit path (including
+	// the Stop(true) teardown path) records the caller's intent.
+	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
+	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
+
 	// Step 2: Decide whether to tear down or flush based on current state.
 	// This check happens BEFORE claiming FLUSHING so that Stop() — which
 	// also calls WaitForFlushToComplete() at its start — does not deadlock
@@ -1308,9 +1315,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		// yet be Rialto-attached in the deferred-attachment path) and, on
 		// trickplay exit (rate == 1), clear any audio EOS set during trickplay
 		// entry so injection can resume once the pipeline is ready.
-		const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
-		m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
-		m_pendingFlushRate.store(rate, std::memory_order_relaxed);
 		m_rate.store(rate, std::memory_order_relaxed);
 
 		for (auto &source : m_sources)
@@ -1350,11 +1354,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		std::lock_guard<std::mutex> lock(m_flushMutex);
 		m_stateMachine.onFlush();
 	}
-
-	// Stage flush parameters now that FLUSHING is claimed.
-	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
-	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
-	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
 
 	// Wake any in-flight data so it abandons the current batch.
 	for (auto &source : m_sources)

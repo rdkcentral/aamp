@@ -3694,6 +3694,30 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_NullPipeline_ShouldTearDownTrue_StagesPendingPositionAndRate)
+{
+	/**
+	 * @brief Flush() must stage m_pendingPositionNs/m_pendingFlushRate before
+	 *        the shouldTearDown early-return branch, so a subsequent
+	 *        Configure()/attach still observes the requested position and
+	 *        rate even though this Flush() call took the Stop(true) path.
+	 */
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Precondition: player must be in IDLE state";
+
+	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// setSourcePosition fires for both video (id=0) and the inband CC
+	// subtitle source (id=1) created alongside video in Configure().
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, 10000000000LL, true, _, _)).Times(2);
+
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_PipelineStopped_ShouldTearDownTrue_CallsStop)
 {
 	/**
