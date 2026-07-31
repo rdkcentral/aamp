@@ -65,13 +65,13 @@ Scoring is interpreted as follows:
 | Score | Meaning |
 |---|---|
 | Completeness | Higher is better. Measures whether the prompt includes the goal, context, scope, constraints, evidence, and success criteria. |
-| Assumptions  | Lower is better. Measures how much Copilot must infer or guess. |
+| Assumptions  | Higher is better. Measures how few inferences or guesses Copilot must make; a high score means little or no guessing is required. |
 | Clarity      | Higher is better. Measures whether the request is specific, understandable, and actionable. |
 
 Developers should pay particular attention to feedback when:
 
 - Completeness is below 8
-- Assumptions is above 2
+- Assumptions is below 8
 - Clarity is below 8
 - Copilot suggests a more specific prompt wording
 - the critique says the prompt is too broad, underspecified, or likely to require unnecessary context
@@ -97,7 +97,7 @@ or:
 Fix playback.
 ```
 
-should be expected to receive low Completeness and Clarity scores, and a high Assumptions score.
+should be expected to receive low Completeness, Clarity, and Assumptions scores.
 
 Do not ignore this feedback. It is there to prevent common failure modes:
 

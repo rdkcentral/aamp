@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2025 RDK Management
+ * Copyright 2026 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,46 +17,22 @@
  * limitations under the License.
  */
 
-#include "SocUtils.h"
+#ifndef AAMP_MOCK_TRACK_WORKER_MANAGER_H
+#define AAMP_MOCK_TRACK_WORKER_MANAGER_H
 
-namespace SocUtils
+#include <gmock/gmock.h>
+#include <functional>
+#include <memory>
+
+namespace aamp
 {
-	void InitializePlatformConfigs()
+	class MockAampTrackWorkerManager
 	{
-	}
-	bool UseAppSrcForProgressivePlayback( void )
-	{
-		return false;
-	}
-	bool UseWesterosSink( void )
-	{
-		return false;
-	}
-	bool IsAudioFragmentSyncSupported( void )
-	{
-		return false;
-	}
-	bool EnableLiveLatencyCorrection( void )
-	{
-		return false;
-	}
-
-	int RequiredQueuedFrames( void )
-	{
-		return 0;
-	}
-	bool EnablePTSRestamp(void)
-	{
-		return false;
-	}
-
-	bool ResetNewSegmentEvent()
-	{
-		return false;
-	}
-
-	bool isGstSubtecEnabled()
-	{
-		return false;
-	}
+	public:
+		MOCK_METHOD(void, WaitForCompletionWithTimeout, (int timeout, std::function<void()> onTimeout));
+	};
 }
+
+extern std::shared_ptr<aamp::MockAampTrackWorkerManager> g_mockAampTrackWorkerManager;
+
+#endif /* AAMP_MOCK_TRACK_WORKER_MANAGER_H */

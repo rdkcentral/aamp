@@ -127,7 +127,7 @@ TEST_F(IsoBmffBoxTests, sencTests)
 	// Compare against a pre-generated buffer
 }
 
-TEST_F(IsoBmffBoxTests, saizTests)
+TEST_F(IsoBmffBoxTests, Saiz_Truncate_SingleSample_NoChange)
 {
 	memcpy(buffer, saizSingleSample, sizeof(saizSingleSample));
 	auto ptr{buffer};
@@ -138,11 +138,78 @@ TEST_F(IsoBmffBoxTests, saizTests)
 
 	saiz->truncate();
 
-	// First data set has only one sample, so truncate does nothing.
+	// A single sample means there is nothing to truncate.
+	EXPECT_EQ(0, memcmp(buffer, saizSingleSample_expected, sizeof(saizSingleSample_expected)));
 
-	// Need a data set with > 1 samples
+	delete saiz;
+}
 
-	// Compare against a pre-generated buffer
+TEST_F(IsoBmffBoxTests, Saiz_Truncate_TablePresent_InsertsSkipBox)
+{
+	// Table-present layout (default_sample_info_size == 0) with enough room to insert skip.
+	memcpy(buffer, saizTablePresent, sizeof(saizTablePresent));
+	auto ptr{buffer};
+	auto seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
+
+	saiz->truncate();
+
+	EXPECT_EQ(0, memcmp(buffer, saizTablePresent_expected, sizeof(saizTablePresent_expected)));
+
+	delete saiz;
+}
+
+TEST_F(IsoBmffBoxTests, Saiz_Truncate_DefaultSampleInfoSize_SizeUnchanged)
+{
+	// For default sample info size, sample_count should change but box size must remain unchanged.
+	memcpy(buffer, saizDefaultInfo, sizeof(saizDefaultInfo));
+	auto ptr{buffer};
+	auto seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
+
+	saiz->truncate();
+
+	EXPECT_EQ(0, memcmp(buffer, saizDefaultInfo_expected, sizeof(saizDefaultInfo_expected)));
+
+	delete saiz;
+}
+
+TEST_F(IsoBmffBoxTests, Saiz_Truncate_DefaultSampleInfoSizeZeroSamples_NoChange)
+{
+	// Guard against sample_count underflow; sample_count==0 should remain unchanged.
+	memcpy(buffer, saizDefaultInfoZeroSamples, sizeof(saizDefaultInfoZeroSamples));
+	auto ptr{buffer};
+	auto seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
+
+	saiz->truncate();
+
+	EXPECT_EQ(0, memcmp(buffer, saizDefaultInfoZeroSamples, sizeof(saizDefaultInfoZeroSamples)));
+
+	delete saiz;
+}
+
+TEST_F(IsoBmffBoxTests, Saiz_Construct_EmptyTableZeroSamples_NoReadPastBox)
+{
+	// Empty per-sample table must not read past the box when default_sample_info_size is zero.
+	memcpy(buffer, saizEmptyTableZeroSamples, sizeof(saizEmptyTableZeroSamples));
+	auto ptr{buffer};
+	auto seizSize = READ_U32(ptr);
+	EXPECT_TRUE((IS_TYPE(ptr, Box::SAIZ)));
+	ptr += SIZEOF_TAG;
+	auto saiz = SaizBox::constructSaizBox(seizSize, ptr);
+
+	EXPECT_EQ(saiz->getFirstSampleInfoSize(), 0u);
+	saiz->truncate();
+	EXPECT_EQ(0, memcmp(buffer, saizEmptyTableZeroSamples, sizeof(saizEmptyTableZeroSamples)));
+
+	delete saiz;
 }
 
 TEST_F(IsoBmffBoxTests, trunTests)
