@@ -15155,3 +15155,34 @@ bool PrivateInstanceAAMP::IsAdPlaying()
 	}
 	return false;
 }
+
+// In PrivateInstanceAAMP class implementation
+bool PrivateInstanceAAMP::IsPipelineWedged()
+{
+    StreamSink* sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+
+    if (sink)
+    {
+        // Query current pipeline state
+        GstState currentState;
+        GstState pendingState;
+
+        GstStateChangeReturn ret =
+            sink->GetPipelineState(&currentState, &pendingState);
+
+        // Wedged if: async transition to the same state (PAUSED -> PAUSED)
+        if (ret == GST_STATE_CHANGE_ASYNC &&
+            currentState == pendingState)
+        {
+            AAMPLOG_WARN(
+                "IsPipelineWedged: detected wedged pipeline "
+                "state=%d pending=%d",
+                currentState,
+                pendingState);
+
+            return true;
+        }
+    }
+
+    return false;
+}

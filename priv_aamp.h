@@ -877,6 +877,11 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
+	
+	/**
+	 * @brief This function is invoked by checking pipeline is getting into wedged
+	 */
+	bool IsPipelineWedged();
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;

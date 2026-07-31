@@ -143,6 +143,16 @@ public:
     virtual void Flush(double position = 0, int rate = AAMP_NORMAL_PLAY_RATE, bool shouldTearDown = true, bool keepPausedSeek = false){}
 
     /**
+     * @brief RDKEMW-21923: query the underlying pipeline GstState.
+     * @param[out] currentState current pipeline state
+     * @param[out] pendingState pending pipeline state
+     * @return GstStateChangeReturn from gst_element_get_state (default: SUCCESS/no-op)
+     */
+    virtual GstStateChangeReturn GetPipelineState(GstState *currentState, GstState *pendingState) {
+	if (currentState) *currentState = GST_STATE_VOID_PENDING;
+	if (pendingState) *pendingState = GST_STATE_VOID_PENDING;
+	return GST_STATE_CHANGE_SUCCESS; }
+    /**
      *   @brief Flush the audio playbin
      *   @param[in]  position - playback position
      *   @return void

@@ -888,6 +888,23 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				if (aamp->mSinkPaused.load() && rate != 0)
 				{
 					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
+	
+					if (aamp->IsPipelineWedged())
+					{
+						AAMPLOG_WARN("SetRateInternal: pipeline wedged, recovering via re-seek instead of resume");
+						aamp->SetState(eSTATE_SEEKING);
+						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+						aamp->rate = AAMP_NORMAL_PLAY_RATE;
+						aamp->mSinkPaused = false;
+						{
+							std::lock_guard lock(aamp->GetStreamLock());
+							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						}
+						aamp->NotifySpeedChanged(aamp->rate, false);
+						aamp->ResumeDownloads();
+						return;
+					}
+
 					// Resuming payback from pause
 					// If have local TSB, but playing from Live then seek into the TSB
 					// Otherwise unpause the pipeline
@@ -992,12 +1009,32 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						}
 					}
 
+					if (aamp->IsPipelineWedged())
+					{
+						AAMPLOG_WARN("NotifyFirstVideoFrameDisplayed: pipeline wedged, skipping pause on first frame");
+						// Don't attempt pause, just notify completion
+						return;
+					}
+
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
 						retValue = sink->Pause(true, false);
 					}
 					aamp->mSinkPaused = true;
+					
+					if (!retValue)
+					{
+						AAMPLOG_WARN("NotifyFirstVideoFrameDisplayed: pause failed on first frame, pipeline wedged; recovering via re-seek");
+						aamp->SetState(eSTATE_SEEKING);
+						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+						aamp->mSinkPaused = true;
+						{
+							std::lock_guard lock(aamp->GetStreamLock());
+							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						}
+						return;
+					}
 
 					if(aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
