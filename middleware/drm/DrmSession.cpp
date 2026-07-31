@@ -24,12 +24,17 @@
 
 #include "DrmSession.h"
 #include "PlayerLogManager.h"
+#include <chrono>
 
 /**
  * @brief Constructor for DrmSession.
  */
 DrmSession::DrmSession(const string &keySystem) : m_keySystem(keySystem),m_OutputProtectionEnabled(false)
 		, mContentSecurityManagerSession()
+		, mLifecycleMutex()
+		, mLifecycleCV()
+		, mActiveOperations(0)
+		, mMarkedForDestruction(false)
 {
 }
 
@@ -38,6 +43,55 @@ DrmSession::DrmSession(const string &keySystem) : m_keySystem(keySystem),m_Outpu
  */
 DrmSession::~DrmSession()
 {
+}
+
+/**
+ * @brief DELIA-70726 fix: Acquire lifecycle guard before use in decrypt().
+ */
+bool DrmSession::AcquireForUse()
+{
+	std::lock_guard<std::mutex> lock(mLifecycleMutex);
+	if (mMarkedForDestruction)
+	{
+		return false;
+	}
+	mActiveOperations++;
+	return true;
+}
+
+/**
+ * @brief DELIA-70726 fix: Release lifecycle guard after use in decrypt().
+ */
+void DrmSession::ReleaseAfterUse()
+{
+	std::lock_guard<std::mutex> lock(mLifecycleMutex);
+	if (mActiveOperations > 0)
+	{
+		mActiveOperations--;
+	}
+	if (mActiveOperations == 0)
+	{
+		mLifecycleCV.notify_all();
+	}
+}
+
+/**
+ * @brief DELIA-70726 fix: Block deletion of this session until any decrypt()
+ *        call already in progress (having acquired the guard) has finished.
+ */
+void DrmSession::PrepareForDestruction(uint32_t timeoutMs)
+{
+	std::unique_lock<std::mutex> lock(mLifecycleMutex);
+	mMarkedForDestruction = true;
+	if (mActiveOperations > 0)
+	{
+		MW_LOG_WARN("DrmSession::PrepareForDestruction : waiting for %d in-flight decrypt operation(s) to complete before delete", mActiveOperations);
+		mLifecycleCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this]() { return mActiveOperations == 0; });
+		if (mActiveOperations > 0)
+		{
+			MW_LOG_ERR("DrmSession::PrepareForDestruction : timed out waiting for in-flight decrypt operation(s); proceeding with destruction");
+		}
+	}
 }
 
 /**

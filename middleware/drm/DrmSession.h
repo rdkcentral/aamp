@@ -29,6 +29,9 @@
 #include <stdint.h>
 #include <vector>
 #include <gst/gst.h>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 #include "DrmUtils.h"
 #include "ContentSecurityManagerSession.h"
 
@@ -67,7 +70,53 @@ protected:
 	std::string m_keySystem;
 	bool m_OutputProtectionEnabled;
 	ContentSecurityManagerSession mContentSecurityManagerSession;
+
+	/* DELIA-70726 fix:
+	 * Lifecycle guard used to prevent the DrmSession object from being
+	 * deleted (e.g. by DrmSessionManager during DRM session slot
+	 * reuse/eviction on back-to-back channel changes) while a GStreamer
+	 * pipeline thread (multiqueue/decryptor) is concurrently inside
+	 * decrypt()/verifyOutputProtection(). Without this guard, deletion of
+	 * a session that is still referenced by an old, not-yet-fully-torn-down
+	 * pipeline results in a use-after-free SIGSEGV inside
+	 * OCDMSessionAdapter::verifyOutputProtection().
+	 */
+	std::mutex mLifecycleMutex;
+	std::condition_variable mLifecycleCV;
+	int mActiveOperations;
+	bool mMarkedForDestruction;
+
 public:
+	/**
+	 * @fn AcquireForUse
+	 * @brief Must be called by any external caller (e.g. the GStreamer
+	 *        decryptor element) before invoking decrypt() on a DrmSession
+	 *        obtained via a raw/cached pointer. Returns false if the
+	 *        session is already being torn down, in which case decrypt()
+	 *        MUST NOT be called on this object.
+	 * @retval true if it is safe to call decrypt(), false otherwise.
+	 */
+	bool AcquireForUse();
+
+	/**
+	 * @fn ReleaseAfterUse
+	 * @brief Must be called exactly once for every successful AcquireForUse(),
+	 *        after the decrypt() call completes.
+	 */
+	void ReleaseAfterUse();
+
+	/**
+	 * @fn PrepareForDestruction
+	 * @brief Must be called by the owner (DrmSessionManager) before deleting
+	 *        this DrmSession. Marks the session so that any new
+	 *        AcquireForUse() calls fail fast, and blocks (bounded) until all
+	 *        in-flight decrypt() operations that already acquired the guard
+	 *        have completed, making it safe to free the object.
+	 * @param timeoutMs maximum time to wait for in-flight operations to drain.
+	 */
+	void PrepareForDestruction(uint32_t timeoutMs = 3000);
+
+
 	/**
 	 * @brief Create drm session with given init data
 	 * @param f_pbInitData : pointer to initdata
