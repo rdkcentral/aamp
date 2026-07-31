@@ -22,18 +22,17 @@ set(UTESTS_ROOT "..")
 
 # Middleware headers - use external middleware-player-interface if available via pkg-config
 # Otherwise fall back to middleware-player-interface repo (GitHub Actions) or internal aamp/middleware
-# Note: .libs/include is NOT used because it contains gtest headers that conflict with FetchContent
 if(PLAYERFBINTERFACE_INCLUDE_DIRS)
 	# External middleware via pkg-config (preferred for installed middleware)
 	message(STATUS "Using external middleware-player-interface via pkg-config")
-	# Filter out .libs/include from pkg-config results to avoid old gmock headers
-	foreach(_dir IN LISTS PLAYERFBINTERFACE_INCLUDE_DIRS BASECONVERSION_INCLUDE_DIRS PLAYERLOGMANAGER_INCLUDE_DIRS SUBTEC_INCLUDE_DIRS)
-		if(NOT _dir MATCHES "\\.libs/include$")
-			include_directories(${_dir})
-		else()
-			message(STATUS "Skipping .libs/include directory: ${_dir}")
-		endif()
-	endforeach()
+	# Add FetchContent gtest/gmock FIRST with BEFORE SYSTEM to ensure they take precedence
+	# over any gmock/gtest subdirectories in .libs/include
+	include_directories(BEFORE SYSTEM ${GTEST_INCLUDE_DIRS} ${GMOCK_INCLUDE_DIRS})
+	# Now add middleware include dirs (which may include .libs/include with middleware headers)
+	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
+	include_directories(${BASECONVERSION_INCLUDE_DIRS})
+	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
+	include_directories(${SUBTEC_INCLUDE_DIRS})
 elseif(EXISTS ${AAMP_ROOT}/middleware-player-interface)
 	# Middleware from aamp/middleware-player-interface (GitHub Actions CI clones it here)
 	message(STATUS "Using middleware-player-interface from aamp directory (CI build)")
