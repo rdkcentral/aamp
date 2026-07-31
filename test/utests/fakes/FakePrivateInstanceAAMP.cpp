@@ -479,13 +479,13 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	return 0.0;
 }
 
-double PrivateInstanceAAMP::GetMinAVBufferedDurationSecs()
+AampAVBufferDuration PrivateInstanceAAMP::GetMinAVBufferedDurationSecs()
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		return g_mockPrivateInstanceAAMP->GetMinAVBufferedDurationSecs();
 	}
-	return 0.0;
+	return {0.0, 0.0};
 }
 
 bool PrivateInstanceAAMP::IsAdPlaying()

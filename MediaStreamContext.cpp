@@ -247,7 +247,8 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 					// Notify the latency monitor so it can wake its worker early on
 					// danger-buffer onset rather than waiting for the next scheduled poll.
 					{
-						const double bufferMs = aamp->GetMinAVBufferedDurationSecs() * 1000.0;
+						const AampAVBufferDuration avBuf = aamp->GetMinAVBufferedDurationSecs();
+						const double bufferMs = std::min(avBuf.videoDurationSecs, avBuf.audioDurationSecs) * 1000.0;
 						if (bufferMs >= 0.0)
 						{
 							GetContext()->NotifyBufferLevelToLatencyMonitor(bufferMs);
@@ -761,7 +762,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		// Notify the latency monitor so it can wake its worker early on
 		// danger-buffer onset rather than waiting for the next scheduled poll.
 		{
-			const double bufferMs = aamp->GetMinAVBufferedDurationSecs() * 1000.0;
+			const AampAVBufferDuration avBuf = aamp->GetMinAVBufferedDurationSecs();
+			const double bufferMs = std::min(avBuf.videoDurationSecs, avBuf.audioDurationSecs) * 1000.0;
 			if (bufferMs >= 0.0)
 			{
 				context->NotifyBufferLevelToLatencyMonitor(bufferMs);

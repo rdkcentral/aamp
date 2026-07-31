@@ -539,6 +539,15 @@ class AampDRMLicenseManager;
 class SegmentInfo_t;
 
 /**
+ * @brief Buffered duration in seconds for both audio and video tracks.
+ */
+struct AampAVBufferDuration
+{
+	double videoDurationSecs{-1.0}; ///< Video buffered duration in seconds.
+	double audioDurationSecs{-1.0}; ///< Audio buffered duration in seconds.
+};
+
+/**
  * @brief Class representing the AAMP player's private instance, which is not exposed to outside world.
  */
 class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
@@ -4080,17 +4089,10 @@ public:
 
 	/**
 	 * @fn GetMinAVBufferedDurationSecs
-	 * @brief Get min(video_buffer, audio_buffer) for use by the latency monitor.
-	 *
-	 * Unlike GetBufferedDurationSecs() (video-only), this returns the minimum
-	 * of audio and video buffers so that audio-side depletion (SoC clock
-	 * correction, audio underflow) is visible to the latency monitor and drives
-	 * adaptive target-latency increases.  Falls back to video-only when audio
-	 * is disabled (trickplay, forward seek, etc.).
-	 *
-	 * @return Buffered duration in seconds considering both audio and video buffers.
+	 * @brief Get audio and video buffered durations for use by the latency monitor.
+	 * @return AampAVBufferDuration containing both audio and video buffered durations in seconds.
 	 */
-	double GetMinAVBufferedDurationSecs();
+	AampAVBufferDuration GetMinAVBufferedDurationSecs();
 
 	/**
 	 * @brief Enable or disable rate correction in latency monitor

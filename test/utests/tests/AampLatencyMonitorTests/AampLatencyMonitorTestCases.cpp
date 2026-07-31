@@ -116,7 +116,7 @@ protected:
 		ON_CALL(*mMockAamp, GetState()).WillByDefault(Return(eSTATE_PLAYING));
 		ON_CALL(*mMockAamp, IsAdPlaying()).WillByDefault(Return(false));
 		ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
-		ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+		ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 		ON_CALL(*mMockAamp, UpdateVideoEndMetrics(_)).WillByDefault(Return());
 		ON_CALL(*mMockSinkMgr, GetStreamSink(_)).WillByDefault(Return(mMockSink));
 		ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
@@ -295,7 +295,7 @@ TEST_F(AampLatencyMonitorTest, Reset_StopResetsRateToNormal)
 {
 	// Use latency > maxLatencyMs so the worker drives rate to maxRate.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 6000L)); // > 7000 ms max
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
 	mMonitor->Start(MakeFastConfig());
@@ -324,7 +324,7 @@ TEST_F(AampLatencyMonitorTest, Reset_EnableRateCorrectionFalse_ResetsToNormal)
 {
 	// Drive the monitor to maxRate first.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 6000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
     EXPECT_CALL(*mMockSinkMgr, GetStreamSink(_))
 		.WillRepeatedly(Return(mMockSink));
     // Expect the worker to request maxRate from the sink due to high latency.
@@ -354,7 +354,7 @@ TEST_F(AampLatencyMonitorTest, Reset_EnableRateCorrectionFalse_ThenTrue_Resumes)
 {
 	// Latency in-band so rate stays normal once correction re-enabled.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
 	mMonitor->Start(MakeFastConfig());
 	ASSERT_TRUE(WaitForRunning());
@@ -397,7 +397,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_HighLatency_SpeedsUp)
 {
 	// Latency = 10 000 ms > 7 000 ms max; buffer = 5 s >= 4 s target.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
 	EXPECT_CALL(*mMockSink, SetPlayBackRate(DEFAULT_MAX_RATE_CORRECTION_SPEED)).Times(AtLeast(1)).WillRepeatedly(Return(true));
 	// Allow the reset-to-normal call issued by Stop() during TearDown.
@@ -419,7 +419,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_BufferBelowThreshold_SkipsPoll)
 	// Latency is out-of-band-high, but buffer (1.5 s) is below the configured
 	// correction-enable threshold (2000ms) — the poll must be skipped.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(1.5));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{1.5, 1.5}));
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
@@ -441,7 +441,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_LowLatency_SlowsDown)
 {
 	// Latency = 3 000 ms < 5 000 ms min; buffer healthy.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMinLatencyMs - 2000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
 	EXPECT_CALL(*mMockSink, SetPlayBackRate(DEFAULT_MIN_RATE_CORRECTION_SPEED)).Times(AtLeast(1)).WillRepeatedly(Return(true));
 	// Allow the reset-to-normal call issued by Stop() during TearDown.
@@ -461,7 +461,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_InBandLatency_StaysNormal)
 {
 	// Latency at target — squarely in the dead-band [min, max].
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
 	mMonitor->Start(MakeFastConfig());
 	ASSERT_TRUE(WaitForRunning());
@@ -479,7 +479,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_ReturnToNormal_AfterSpeedUp)
 	// Phase 1: high latency — drive to maxRate.
 	std::atomic<long> latency{kMaxLatencyMs + 3000L};
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault([&latency]() { return latency.load(); });
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
 	mMonitor->Start(MakeFastConfig());
@@ -501,7 +501,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_ReturnToNormal_AfterSlowDown)
 	// Phase 1: low latency — drive to minRate.
 	std::atomic<long> latency{kMinLatencyMs - 2000L};
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault([&latency]() { return latency.load(); });
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
 	mMonitor->Start(MakeFastConfig());
@@ -522,7 +522,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_AdPlaying_SkipsCorrection)
 {
 	// Latency would normally trigger speed-up, but ad is playing.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockAamp, IsAdPlaying()).WillByDefault(Return(true));
 
     EXPECT_CALL(*mMockSink, SetPlayBackRate(_)).Times(0); // no rate changes when ad is playing
@@ -541,7 +541,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_NotPlaying_SkipsCorrection)
 {
 	ON_CALL(*mMockAamp, GetState()).WillByDefault(Return(eSTATE_BUFFERING));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
     EXPECT_CALL(*mMockSink, SetPlayBackRate(_)).Times(0); // no rate changes when state != eSTATE_PLAYING
 
@@ -558,7 +558,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_NotPlaying_SkipsCorrection)
 TEST_F(AampLatencyMonitorTest, RateCorrection_SinkReturnsFailure_RateUnchanged)
 {
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	// Sink rejects rate change.
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(false));
 
@@ -577,7 +577,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_SinkReturnsFailure_RateUnchanged)
 TEST_F(AampLatencyMonitorTest, RateCorrection_NoSink_RateUnchanged)
 {
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockSinkMgr, GetStreamSink(_)).WillByDefault(Return(nullptr));
 
 	mMonitor->Start(MakeFastConfig());
@@ -595,7 +595,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_NoSink_RateUnchanged)
 TEST_F(AampLatencyMonitorTest, RateCorrection_NegativeBuffer_SkipsPoll)
 {
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(-1.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{-1.0, -1.0}));
 
 	mMonitor->Start(MakeFastConfig()); // default correctionActivationThresholdSec = 0.0
 	ASSERT_TRUE(WaitForRunning());
@@ -650,7 +650,7 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MultipleRebuffers_ThresholdsAcc
 	constexpr double kStep = 1000.0;
 	// GetBufferedDurationSecs drives Run()'s buffer level; start below danger.
 	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -698,7 +698,7 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MaxIncrementCap_ThresholdsClamp
 	constexpr double kMaxIncr = 3000.0;
 
 	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -745,7 +745,7 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_Stop_ResetsThresholdsToConfigDe
 {
 	constexpr double kStep = 1000.0;
 	// Buffer below danger so Run() shifts on each poll.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -777,7 +777,7 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_Stop_ResetsThresholdsToConfigDe
 TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_DisableRateCorrection_ResetsThresholdsToConfigDefaults)
 {
 	constexpr double kStep = 1000.0;
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -818,7 +818,7 @@ TEST_F(AampLatencyMonitorTest,
 {
 	// Buffer starts BELOW danger so Run() shifts on its first poll after the wakeup.
 	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMinLatencyMs + 200L));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
@@ -870,7 +870,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_ZeroWindowSec_RestorationDisabled)
 {
 	constexpr double kStep = 1000.0;
 	// Buffer below danger so Run() can shift.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	// latencyStableSec = 0 → Run()'s restoration timer block is guarded out.
@@ -886,7 +886,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_ZeroWindowSec_RestorationDisabled)
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// Now buffer becomes healthy; with latencyStableSec=0 no restoration must fire.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // let Run() poll several times
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
@@ -904,7 +904,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_ZeroWindowSec_RestorationDisabled)
 TEST_F(AampLatencyMonitorTest, Restoration_AlreadyAtBase_TryRestoreIsNoOp)
 {
 	// Healthy buffer throughout — no shift, no restoration needed.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(5.0)); // 5000ms >= danger 1000ms
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0})); // 5000ms >= danger 1000ms
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -941,7 +941,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_OneStep_ReducesAccumulatedByStep)
 
 	// Phase 1: buffer below danger → Run() shifts on first poll.
 	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
@@ -976,7 +976,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_StepLargerThanAccumulated_ClampsToBas
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	std::atomic<double> bufSecs{0.5}; // below danger initially
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
@@ -1012,7 +1012,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_MultipleSteps_ThresholdsReturnToBase)
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	std::atomic<double> bufSecs{0.5};
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
@@ -1061,7 +1061,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_UnhealthyBuffer_DoesNotTrigger)
 	constexpr double kStep = 1000.0;
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 	// Buffer stays at 500ms < dangerBufferMs (1000ms) throughout.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
@@ -1105,7 +1105,7 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_SameEpisode_ShiftsOnlyOnce)
 {
 	constexpr double kStep = 1000.0;
 	// Buffer stays below danger throughout — one continuous episode.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.5)); // 500ms < 1000ms danger
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5})); // 500ms < 1000ms danger
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1138,7 +1138,7 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_SameEpisode_ShiftsOnlyOnce)
 TEST_F(AampLatencyMonitorTest, EpisodeGuard_MultipleOnBufferCalls_SameEpisode_WakesOnce)
 {
 	constexpr double kStep = 1000.0;
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1173,7 +1173,7 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_RecoveryThenNewDip_ShiftsTwice)
 {
 	constexpr double kStep = 1000.0;
 	std::atomic<double> bufSecs{0.5};
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1225,7 +1225,7 @@ TEST_F(AampLatencyMonitorTest, DownloadFailure_RunDetectsLowBuffer_ShiftsThresho
 	constexpr double kStep = 1000.0;
 	// Buffer starts healthy, then drops to simulate a download failure draining the buffer.
 	std::atomic<double> bufSecs{5.0};
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1265,7 +1265,7 @@ TEST_F(AampLatencyMonitorTest, DownloadFailure_SustainedLowBuffer_ShiftsOnlyOnce
 {
 	constexpr double kStep = 1000.0;
 	// Buffer stays below danger for the entire test — no OnBufferLevelUpdate called.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1298,7 +1298,7 @@ TEST_F(AampLatencyMonitorTest, DownloadFailure_OnBufferUpdateBeforeRunPolls_Shif
 {
 	constexpr double kStep = 1000.0;
 	// Buffer below danger — both OnBufferLevelUpdate and Run() will observe it.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	// Use a longer poll interval so OnBufferLevelUpdate fires first.
@@ -1334,8 +1334,8 @@ TEST_F(AampLatencyMonitorTest, AudioBuffer_LowerThanVideo_DrivesThresholdShift)
 {
 	constexpr double kStep = 1000.0;
 	// Simulate: video buffer = 5000 ms, audio buffer = 200 ms.
-	// GetMinAVBufferedDurationSecs() returns min(5.0, 0.2) = 0.2s.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.2));
+	// GetMinAVBufferedDurationSecs() returns {video=5.0s, audio=0.2s}; min = 0.2s.
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 0.2}));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1366,7 +1366,7 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_LowAudioBuffer_BlocksSpeedUpOnHigh
 	// High latency would trigger speed-up, but audio buffer (300 ms) is below
 	// correctionActivationThresholdMs (2000 ms) — poll must be skipped entirely.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(0.3));
+	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.3, 0.3}));
 
 	EXPECT_CALL(*mMockSink, SetPlayBackRate(_)).Times(0);
 
