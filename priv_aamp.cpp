@@ -5239,7 +5239,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						mHarvestCountLimit--;
 				} // CID:168113 - forward null
 			}
-			
 			ret = true; // default
 			if( !context.downloadIsEncoded )
 			{
