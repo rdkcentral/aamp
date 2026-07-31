@@ -39,10 +39,12 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 include_directories(${OPENSSL_INCLUDE_DIRS})
 
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(GMOCK REQUIRED gmock)
-# Note: We call pkg_check_modules above to satisfy any legacy checks, but we'll override
-# the variables below after FetchContent provides the actual googletest targets
+# Try to find gtest/gmock via pkg-config (for systems with pre-installed googletest)
+# but don't require it - FetchContent will provide it if not found
+pkg_check_modules(GTEST gtest)
+pkg_check_modules(GMOCK gmock)
+# Note: If pkg-config finds gtest/gmock, we'll still override with FetchContent below
+# to ensure consistent versions and avoid ABI mismatches
 
 # Middleware headers are now provided via:
 # - External middleware-player-interface pkg-config (for CI builds)
@@ -95,6 +97,8 @@ FetchContent_MakeAvailable(googletest)
 # Now that googletest targets exist, set up include dirs and link libraries
 set(GTEST_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps/googletest-src/googletest/include")
 set(GMOCK_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/_deps/googletest-src/googlemock/include")
+# FetchContent creates CMake targets: gtest, gmock
+# These are proper CMake targets that will be resolved during linking
 set(GTEST_LINK_LIBRARIES gtest)
 set(GMOCK_LINK_LIBRARIES gmock gtest)
 # Add FetchContent gtest/gmock include dirs globally
