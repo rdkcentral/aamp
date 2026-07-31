@@ -2927,11 +2927,16 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	}
 }
 
-void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+/**
+ *  @brief Notify buffer level to latency monitor.
+ *  @param mediaType The media type (audio or video).
+ *  @param bufferMs The buffer level in milliseconds.
+ */
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 	if (aamp)
 	{
-		aamp->NotifyBufferLevelToLatencyMonitor(bufferMs);
+		aamp->NotifyBufferLevelToLatencyMonitor(mediaType, bufferMs);
 	}
 }
 

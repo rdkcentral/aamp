@@ -76,11 +76,13 @@ protected:
 		g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
 		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
 		g_mockAampTimeBasedBufferManager = std::make_shared<StrictMock<aamp::MockAampTimeBasedBufferManager>>();
-		// GetMinAVBufferedDurationSecs() is called for every video-track fragment via
+		// GetVideo/AudioBufferedDurationSecs() are called for every fragment via
 		// NotifyBufferLevelToLatencyMonitor.  Allow any number of calls so all tests
 		// in this fixture pass without needing per-test EXPECT_CALL boilerplate.
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMinAVBufferedDurationSecs())
-			.Times(AnyNumber()).WillRepeatedly(Return(AampAVBufferDuration{5.0, 5.0}));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVideoBufferedDurationSecs())
+			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudioBufferedDurationSecs())
+			.Times(AnyNumber()).WillRepeatedly(Return(5.0));
 		// IsFragmentCacheFull() delegates to the mock after the fake was updated to
 		// support TSB-aware testing.  Default to false so all pre-existing tests
 		// are unaffected; individual tests can override this expectation.

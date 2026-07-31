@@ -539,15 +539,6 @@ class AampDRMLicenseManager;
 class SegmentInfo_t;
 
 /**
- * @brief Buffered duration in seconds for both audio and video tracks.
- */
-struct AampAVBufferDuration
-{
-	double videoDurationSecs{-1.0}; ///< Video buffered duration in seconds.
-	double audioDurationSecs{-1.0}; ///< Audio buffered duration in seconds.
-};
-
-/**
  * @brief Class representing the AAMP player's private instance, which is not exposed to outside world.
  */
 class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
@@ -3685,9 +3676,10 @@ public:
 	 * @fn NotifyBufferLevelToLatencyMonitor
 	 * @brief Forward the current buffer level to the latency monitor so it
 	 *        can track buffer health and apply threshold restoration steps.
+	 * @param[in] mediaType  Track type (eMEDIATYPE_VIDEO or eMEDIATYPE_AUDIO).
 	 * @param[in] bufferMs  Current buffered duration in milliseconds.
 	 */
-	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+	void NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs);
 
 	/**
 	 *     @fn SetCurrentLatency
@@ -4088,11 +4080,18 @@ public:
 	double GetBufferedDurationSecs();
 
 	/**
-	 * @fn GetMinAVBufferedDurationSecs
-	 * @brief Get audio and video buffered durations for use by the latency monitor.
-	 * @return AampAVBufferDuration containing both audio and video buffered durations in seconds.
+	 * @fn GetVideoBufferedDurationSecs
+	 * @brief Get video buffered duration in seconds
+	 * @return Video buffered duration in seconds
 	 */
-	AampAVBufferDuration GetMinAVBufferedDurationSecs();
+	double GetVideoBufferedDurationSecs();
+
+	/**
+	 * @fn GetAudioBufferedDurationSecs
+	 * @brief Get audio buffered duration in seconds
+	 * @return Audio buffered duration in seconds
+	 */
+	double GetAudioBufferedDurationSecs();
 
 	/**
 	 * @brief Enable or disable rate correction in latency monitor

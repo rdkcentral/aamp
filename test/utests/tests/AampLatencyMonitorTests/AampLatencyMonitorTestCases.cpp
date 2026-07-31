@@ -116,7 +116,8 @@ protected:
 		ON_CALL(*mMockAamp, GetState()).WillByDefault(Return(eSTATE_PLAYING));
 		ON_CALL(*mMockAamp, IsAdPlaying()).WillByDefault(Return(false));
 		ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
-		ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
+		ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(5.0));
+		ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(5.0));
 		ON_CALL(*mMockAamp, UpdateVideoEndMetrics(_)).WillByDefault(Return());
 		ON_CALL(*mMockSinkMgr, GetStreamSink(_)).WillByDefault(Return(mMockSink));
 		ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
@@ -295,7 +296,6 @@ TEST_F(AampLatencyMonitorTest, Reset_StopResetsRateToNormal)
 {
 	// Use latency > maxLatencyMs so the worker drives rate to maxRate.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 6000L)); // > 7000 ms max
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
 	mMonitor->Start(MakeFastConfig());
@@ -324,7 +324,6 @@ TEST_F(AampLatencyMonitorTest, Reset_EnableRateCorrectionFalse_ResetsToNormal)
 {
 	// Drive the monitor to maxRate first.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 6000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
     EXPECT_CALL(*mMockSinkMgr, GetStreamSink(_))
 		.WillRepeatedly(Return(mMockSink));
     // Expect the worker to request maxRate from the sink due to high latency.
@@ -354,7 +353,6 @@ TEST_F(AampLatencyMonitorTest, Reset_EnableRateCorrectionFalse_ThenTrue_Resumes)
 {
 	// Latency in-band so rate stays normal once correction re-enabled.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
 	mMonitor->Start(MakeFastConfig());
 	ASSERT_TRUE(WaitForRunning());
@@ -397,7 +395,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_HighLatency_SpeedsUp)
 {
 	// Latency = 10 000 ms > 7 000 ms max; buffer = 5 s >= 4 s target.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
 	EXPECT_CALL(*mMockSink, SetPlayBackRate(DEFAULT_MAX_RATE_CORRECTION_SPEED)).Times(AtLeast(1)).WillRepeatedly(Return(true));
 	// Allow the reset-to-normal call issued by Stop() during TearDown.
@@ -419,7 +416,8 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_BufferBelowThreshold_SkipsPoll)
 	// Latency is out-of-band-high, but buffer (1.5 s) is below the configured
 	// correction-enable threshold (2000ms) — the poll must be skipped.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{1.5, 1.5}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(1.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(1.5));
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
@@ -441,7 +439,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_LowLatency_SlowsDown)
 {
 	// Latency = 3 000 ms < 5 000 ms min; buffer healthy.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMinLatencyMs - 2000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
 	EXPECT_CALL(*mMockSink, SetPlayBackRate(DEFAULT_MIN_RATE_CORRECTION_SPEED)).Times(AtLeast(1)).WillRepeatedly(Return(true));
 	// Allow the reset-to-normal call issued by Stop() during TearDown.
@@ -461,7 +458,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_InBandLatency_StaysNormal)
 {
 	// Latency at target — squarely in the dead-band [min, max].
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
 	mMonitor->Start(MakeFastConfig());
 	ASSERT_TRUE(WaitForRunning());
@@ -479,7 +475,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_ReturnToNormal_AfterSpeedUp)
 	// Phase 1: high latency — drive to maxRate.
 	std::atomic<long> latency{kMaxLatencyMs + 3000L};
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault([&latency]() { return latency.load(); });
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
 	mMonitor->Start(MakeFastConfig());
@@ -501,7 +496,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_ReturnToNormal_AfterSlowDown)
 	// Phase 1: low latency — drive to minRate.
 	std::atomic<long> latency{kMinLatencyMs - 2000L};
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault([&latency]() { return latency.load(); });
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
 	mMonitor->Start(MakeFastConfig());
@@ -522,7 +516,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_AdPlaying_SkipsCorrection)
 {
 	// Latency would normally trigger speed-up, but ad is playing.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockAamp, IsAdPlaying()).WillByDefault(Return(true));
 
     EXPECT_CALL(*mMockSink, SetPlayBackRate(_)).Times(0); // no rate changes when ad is playing
@@ -541,7 +534,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_NotPlaying_SkipsCorrection)
 {
 	ON_CALL(*mMockAamp, GetState()).WillByDefault(Return(eSTATE_BUFFERING));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 
     EXPECT_CALL(*mMockSink, SetPlayBackRate(_)).Times(0); // no rate changes when state != eSTATE_PLAYING
 
@@ -558,7 +550,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_NotPlaying_SkipsCorrection)
 TEST_F(AampLatencyMonitorTest, RateCorrection_SinkReturnsFailure_RateUnchanged)
 {
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	// Sink rejects rate change.
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(false));
 
@@ -577,7 +568,6 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_SinkReturnsFailure_RateUnchanged)
 TEST_F(AampLatencyMonitorTest, RateCorrection_NoSink_RateUnchanged)
 {
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
 	ON_CALL(*mMockSinkMgr, GetStreamSink(_)).WillByDefault(Return(nullptr));
 
 	mMonitor->Start(MakeFastConfig());
@@ -588,14 +578,15 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_NoSink_RateUnchanged)
 
 /**
  * @test RateCorrection_NegativeBuffer_SkipsPoll
- * @brief GetMinAVBufferedDurationSecs() returning a negative value (e.g. during a
+ * @brief GetVideo/AudioBufferedDurationSecs() returning a negative value (e.g. during a
  *        period switch) is below the default threshold (0.0), so the poll must
  *        be skipped and the rate must remain at normal.
  */
 TEST_F(AampLatencyMonitorTest, RateCorrection_NegativeBuffer_SkipsPoll)
 {
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{-1.0, -1.0}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(-1.0));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(-1.0));
 
 	mMonitor->Start(MakeFastConfig()); // default correctionActivationThresholdSec = 0.0
 	ASSERT_TRUE(WaitForRunning());
@@ -626,7 +617,7 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_ZeroStep_ThresholdsUnchanged)
 		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
 	ASSERT_TRUE(WaitForRunning());
 
-	mMonitor->OnBufferLevelUpdate(500.0); // below danger, but rebufStepMs=0 → no-op
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0); // below danger, but rebufStepMs=0 → no-op
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
 	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
@@ -650,7 +641,8 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MultipleRebuffers_ThresholdsAcc
 	constexpr double kStep = 1000.0;
 	// GetBufferedDurationSecs drives Run()'s buffer level; start below danger.
 	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -662,21 +654,21 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MultipleRebuffers_ThresholdsAcc
 
 	// ── Episode 1 ──────────────────────────────────────────────────────────────
 	// Buffer is low (500ms); wake Run() early via notify.
-	mMonitor->OnBufferLevelUpdate(500.0); // below danger → wakes Run()
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0); // below danger → wakes Run()
 	// Run() sees bufSecs=0.5 (<1s danger), shifts +kStep, sets mBelowDangerShifted.
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// ── Recovery ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 	// Healthy buffer wakes Run() which clears the episode guard via UpdateDangerBufferState.
 	bufSecs.store(5.0); // 5000ms >= danger 1000ms → healthy
-	mMonitor->OnBufferLevelUpdate(5000.0); // wakes Run() to clear mBelowDangerShifted
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 5000.0); // wakes Run() to clear mBelowDangerShifted
 	// Wait for Run() to wake, observe healthy buffer, and clear mBelowDangerShifted
 	// before we change bufSecs back to a danger level for episode 2.
 	std::this_thread::sleep_for(std::chrono::milliseconds(30));
 
 	// ── Episode 2 ──────────────────────────────────────────────────────────────
 	bufSecs.store(0.5); // back below danger
-	mMonitor->OnBufferLevelUpdate(500.0); // flag clear → wakes Run() again
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0); // flag clear → wakes Run() again
 	// Run() sees bufSecs=0.5, shifts +kStep a second time.
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + 2.0 * kStep, 500));
 
@@ -698,7 +690,8 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MaxIncrementCap_ThresholdsClamp
 	constexpr double kMaxIncr = 3000.0;
 
 	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -713,20 +706,20 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MaxIncrementCap_ThresholdsClamp
 	{
 		// Dip below danger.
 		bufSecs.store(0.5);
-		mMonitor->OnBufferLevelUpdate(500.0);
+		mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 		const double expectedAfter = std::min(static_cast<double>(episode) * kStep, kMaxIncr);
 		ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + expectedAfter, 500));
 
 		// Recover to clear the episode guard before the next dip.
 		bufSecs.store(5.0);
-		mMonitor->OnBufferLevelUpdate(5000.0); // wakes Run() to clear mBelowDangerShifted
+		mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 5000.0); // wakes Run() to clear mBelowDangerShifted
 		// Wait for Run() to wake, observe healthy buffer, and clear mBelowDangerShifted.
 		std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
 
 	// A fourth episode must not increase the shift beyond the cap.
 	bufSecs.store(0.5);
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
@@ -745,7 +738,8 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_Stop_ResetsThresholdsToConfigDe
 {
 	constexpr double kStep = 1000.0;
 	// Buffer below danger so Run() shifts on each poll.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.5));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -756,7 +750,7 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_Stop_ResetsThresholdsToConfigDe
 	ASSERT_TRUE(WaitForRunning());
 
 	// Wake Run() and let it shift +kStep.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	mMonitor->Stop();
@@ -777,7 +771,8 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_Stop_ResetsThresholdsToConfigDe
 TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_DisableRateCorrection_ResetsThresholdsToConfigDefaults)
 {
 	constexpr double kStep = 1000.0;
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.5));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -788,7 +783,7 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_DisableRateCorrection_ResetsThr
 	ASSERT_TRUE(WaitForRunning());
 
 	// Wake Run() and let it shift +kStep.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	mMonitor->EnableRateCorrection(false);
@@ -818,7 +813,8 @@ TEST_F(AampLatencyMonitorTest,
 {
 	// Buffer starts BELOW danger so Run() shifts on its first poll after the wakeup.
 	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMinLatencyMs + 200L));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
@@ -870,7 +866,8 @@ TEST_F(AampLatencyMonitorTest, Restoration_ZeroWindowSec_RestorationDisabled)
 {
 	constexpr double kStep = 1000.0;
 	// Buffer below danger so Run() can shift.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.5));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	// latencyStableSec = 0 → Run()'s restoration timer block is guarded out.
@@ -882,11 +879,11 @@ TEST_F(AampLatencyMonitorTest, Restoration_ZeroWindowSec_RestorationDisabled)
 	ASSERT_TRUE(WaitForRunning());
 
 	// Shift happens (Run() sees buffer < danger).
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// Now buffer becomes healthy; with latencyStableSec=0 no restoration must fire.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0}));
+
 	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // let Run() poll several times
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
@@ -904,7 +901,6 @@ TEST_F(AampLatencyMonitorTest, Restoration_ZeroWindowSec_RestorationDisabled)
 TEST_F(AampLatencyMonitorTest, Restoration_AlreadyAtBase_TryRestoreIsNoOp)
 {
 	// Healthy buffer throughout — no shift, no restoration needed.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 5.0})); // 5000ms >= danger 1000ms
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -931,7 +927,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_AlreadyAtBase_TryRestoreIsNoOp)
  *        one TryRestoreThresholdsLocked call must reduce the shift by kStep,
  *        returning thresholds to base.
  *
- * Restoration is driven entirely by Run() polling GetMinAVBufferedDurationSecs();
+ * Restoration is driven entirely by Run() polling GetVideo/AudioBufferedDurationSecs();
  * no OnBufferLevelUpdate is needed to trigger the timer or the restore step.
  */
 TEST_F(AampLatencyMonitorTest, Restoration_OneStep_ReducesAccumulatedByStep)
@@ -941,7 +937,8 @@ TEST_F(AampLatencyMonitorTest, Restoration_OneStep_ReducesAccumulatedByStep)
 
 	// Phase 1: buffer below danger → Run() shifts on first poll.
 	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
@@ -951,7 +948,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_OneStep_ReducesAccumulatedByStep)
 	ASSERT_TRUE(WaitForRunning());
 
 	// Wake Run() and wait for the shift.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// Phase 2: buffer recovers → Run() observes healthy buffer for >= 0.5 s → restores.
@@ -976,7 +973,8 @@ TEST_F(AampLatencyMonitorTest, Restoration_StepLargerThanAccumulated_ClampsToBas
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	std::atomic<double> bufSecs{0.5}; // below danger initially
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
@@ -986,7 +984,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_StepLargerThanAccumulated_ClampsToBas
 	ASSERT_TRUE(WaitForRunning());
 
 	// Shift: accumulated = 1000ms.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + 1000.0, 500));
 
 	// Recovery: Run() observes healthy buffer for >= 0.5s → restores.
@@ -1012,7 +1010,8 @@ TEST_F(AampLatencyMonitorTest, Restoration_MultipleSteps_ThresholdsReturnToBase)
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	std::atomic<double> bufSecs{0.5};
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
@@ -1024,12 +1023,12 @@ TEST_F(AampLatencyMonitorTest, Restoration_MultipleSteps_ThresholdsReturnToBase)
 	for (int episode = 1; episode <= 3; ++episode)
 	{
 		bufSecs.store(0.5);
-		mMonitor->OnBufferLevelUpdate(500.0);
+		mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 		const double expected = std::min(static_cast<double>(episode) * kStep, kMaxIncr);
 		ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + expected, 500));
 		// Recover briefly to clear episode guard before the next dip.
 		bufSecs.store(5.0);
-		mMonitor->OnBufferLevelUpdate(5000.0); // clears mBelowDangerShifted
+		mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 5000.0); // clears mBelowDangerShifted
 		std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
 	{
@@ -1051,7 +1050,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_MultipleSteps_ThresholdsReturnToBase)
 
 /**
  * @test Restoration_UnhealthyBuffer_DoesNotTrigger
- * @brief When the buffer returned by GetMinAVBufferedDurationSecs() stays below
+ * @brief When the buffer returned by GetVideo/AudioBufferedDurationSecs() stays below
  *        dangerBufferMs across all Run() polls, the restoration timer is
  *        never started, so TryRestoreThresholdsLocked must never fire and
  *        the shift must remain at the cap.
@@ -1061,7 +1060,8 @@ TEST_F(AampLatencyMonitorTest, Restoration_UnhealthyBuffer_DoesNotTrigger)
 	constexpr double kStep = 1000.0;
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 	// Buffer stays at 500ms < dangerBufferMs (1000ms) throughout.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.5));
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
@@ -1071,7 +1071,7 @@ TEST_F(AampLatencyMonitorTest, Restoration_UnhealthyBuffer_DoesNotTrigger)
 	ASSERT_TRUE(WaitForRunning());
 
 	// First episode: Run() shifts +kStep and sets the episode guard.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// Buffer remains unhealthy for several poll cycles.
@@ -1105,7 +1105,8 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_SameEpisode_ShiftsOnlyOnce)
 {
 	constexpr double kStep = 1000.0;
 	// Buffer stays below danger throughout — one continuous episode.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5})); // 500ms < 1000ms danger
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.5)); // 500ms < 1000ms danger
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1116,7 +1117,7 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_SameEpisode_ShiftsOnlyOnce)
 	ASSERT_TRUE(WaitForRunning());
 
 	// Wake Run() for the first (and only) shift of this episode.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// Let Run() poll several more times — episode guard blocks any further shift.
@@ -1138,7 +1139,8 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_SameEpisode_ShiftsOnlyOnce)
 TEST_F(AampLatencyMonitorTest, EpisodeGuard_MultipleOnBufferCalls_SameEpisode_WakesOnce)
 {
 	constexpr double kStep = 1000.0;
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.5));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1149,13 +1151,13 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_MultipleOnBufferCalls_SameEpisode_Wa
 	ASSERT_TRUE(WaitForRunning());
 
 	// First call wakes Run(); Run() shifts and sets guard.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// Subsequent calls during the same episode must be no-ops.
 	for (int i = 0; i < 10; ++i)
 	{
-		mMonitor->OnBufferLevelUpdate(500.0);
+		mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	}
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -1173,7 +1175,8 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_RecoveryThenNewDip_ShiftsTwice)
 {
 	constexpr double kStep = 1000.0;
 	std::atomic<double> bufSecs{0.5};
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1184,19 +1187,19 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_RecoveryThenNewDip_ShiftsTwice)
 	ASSERT_TRUE(WaitForRunning());
 
 	// Episode 1: dip → Run() shifts → guard set.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// Recovery: healthy buffer wakes Run() which clears the episode guard via UpdateDangerBufferState.
 	bufSecs.store(5.0);
-	mMonitor->OnBufferLevelUpdate(5000.0); // wakes Run() to clear mBelowDangerShifted
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 5000.0); // wakes Run() to clear mBelowDangerShifted
 	// Wait for Run() to wake, observe healthy buffer, and clear mBelowDangerShifted
 	// before we change bufSecs back to a danger level for episode 2.
 	std::this_thread::sleep_for(std::chrono::milliseconds(30));
 
 	// Episode 2: new dip → guard is clear → Run() shifts again.
 	bufSecs.store(0.5);
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + 2.0 * kStep, 500));
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
@@ -1216,7 +1219,7 @@ TEST_F(AampLatencyMonitorTest, EpisodeGuard_RecoveryThenNewDip_ShiftsTwice)
 /**
  * @test DownloadFailure_RunDetectsLowBuffer_ShiftsThreshold
  * @brief When OnBufferLevelUpdate() is never called (simulating a sustained
- *        download failure) but GetMinAVBufferedDurationSecs() returns a value below
+ *        download failure) but GetVideo/AudioBufferedDurationSecs() returns a value below
  *        dangerBufferMs, Run()'s regular polling loop must detect the low buffer
  *        and shift thresholds upward.
  */
@@ -1225,7 +1228,8 @@ TEST_F(AampLatencyMonitorTest, DownloadFailure_RunDetectsLowBuffer_ShiftsThresho
 	constexpr double kStep = 1000.0;
 	// Buffer starts healthy, then drops to simulate a download failure draining the buffer.
 	std::atomic<double> bufSecs{5.0};
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault([&bufSecs](){ return AampAVBufferDuration{bufSecs.load(), bufSecs.load()}; });
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault([&bufSecs]{ return bufSecs.load(); });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1265,7 +1269,8 @@ TEST_F(AampLatencyMonitorTest, DownloadFailure_SustainedLowBuffer_ShiftsOnlyOnce
 {
 	constexpr double kStep = 1000.0;
 	// Buffer stays below danger for the entire test — no OnBufferLevelUpdate called.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.5));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1298,7 +1303,8 @@ TEST_F(AampLatencyMonitorTest, DownloadFailure_OnBufferUpdateBeforeRunPolls_Shif
 {
 	constexpr double kStep = 1000.0;
 	// Buffer below danger — both OnBufferLevelUpdate and Run() will observe it.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.5, 0.5}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.5));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	// Use a longer poll interval so OnBufferLevelUpdate fires first.
@@ -1315,7 +1321,7 @@ TEST_F(AampLatencyMonitorTest, DownloadFailure_OnBufferUpdateBeforeRunPolls_Shif
 	// OnBufferLevelUpdate fires before the 200ms poll interval expires.
 	// It sees !mBelowDangerShifted → wakes Run() immediately.
 	// Run() shifts and sets the guard.
-	mMonitor->OnBufferLevelUpdate(500.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_VIDEO, 500.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	// The scheduled poll at 200ms fires later; guard is already set → no second shift.
@@ -1334,8 +1340,9 @@ TEST_F(AampLatencyMonitorTest, AudioBuffer_LowerThanVideo_DrivesThresholdShift)
 {
 	constexpr double kStep = 1000.0;
 	// Simulate: video buffer = 5000 ms, audio buffer = 200 ms.
-	// GetMinAVBufferedDurationSecs() returns {video=5.0s, audio=0.2s}; min = 0.2s.
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{5.0, 0.2}));
+	// GetVideo/AudioBufferedDurationSecs() returns {video=5.0s, audio=0.2s}; min = 0.2s.
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(5.0));
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.2));
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
 	mMonitor->Start(MakeFastConfig(
@@ -1347,7 +1354,7 @@ TEST_F(AampLatencyMonitorTest, AudioBuffer_LowerThanVideo_DrivesThresholdShift)
 
 	// Wake Run() via the audio underflow notification path.
 	// 200 ms < 1000 ms dangerBufferMs → Run() must shift +kStep.
-	mMonitor->OnBufferLevelUpdate(200.0);
+	mMonitor->OnBufferLevelUpdate(eMEDIATYPE_AUDIO, 200.0);
 	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
@@ -1366,7 +1373,8 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_LowAudioBuffer_BlocksSpeedUpOnHigh
 	// High latency would trigger speed-up, but audio buffer (300 ms) is below
 	// correctionActivationThresholdMs (2000 ms) — poll must be skipped entirely.
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMaxLatencyMs + 3000L));
-	ON_CALL(*mMockAamp, GetMinAVBufferedDurationSecs()).WillByDefault(Return(AampAVBufferDuration{0.3, 0.3}));
+	ON_CALL(*mMockAamp, GetVideoBufferedDurationSecs()).WillByDefault(Return(5.0)); // healthy — audio is the limiting track
+	ON_CALL(*mMockAamp, GetAudioBufferedDurationSecs()).WillByDefault(Return(0.3)); // 300ms < 2000ms threshold → blocks speed-up
 
 	EXPECT_CALL(*mMockSink, SetPlayBackRate(_)).Times(0);
 
