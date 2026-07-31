@@ -30,8 +30,8 @@ include_directories(${AAMP_ROOT}
                     ${AAMP_ROOT}/abr
                     ${AAMP_ROOT}/mp4demux)
 
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
+include_directories(BEFORE ${GTEST_INCLUDE_DIRS})
+include_directories(BEFORE ${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
