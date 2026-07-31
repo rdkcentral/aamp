@@ -55,6 +55,7 @@ pkg_check_modules(UUID REQUIRED uuid)
 # option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
 # components should be sourced from external repositories or built from the local aamp repository.
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+	message("CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES set")
 	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
 	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
 	pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
@@ -82,11 +83,13 @@ if(APPLE)
 	set(CMAKE_SKIP_BUILD_RPATH FALSE)
 
 	list(APPEND CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_BUILD_RPATH "/Library/Frameworks")
 
 	# when building, don't use the install RPATH already
 	# (but later on when installing)
 	set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 	set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_INSTALL_RPATH "/Library/Frameworks")
 
 	# add the automatically determined parts of the RPATH
 	# which point to directories outside the build tree to the install RPATH
@@ -253,7 +256,7 @@ endif()
 
 add_subdirectory(test/rialtoPOC)
 
-if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+#if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	include_directories(support/aampmetrics)
 
@@ -261,7 +264,7 @@ if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} metrics)
-endif()
+#endif()
 
 message("Adding tsb folder")
 add_subdirectory(tsb)
@@ -517,6 +520,7 @@ set(LIBAAMP_SOURCES
 	AampMPDDownloader.cpp AampMPDDownloader.h
 	AampMPDParseHelper.cpp AampMPDParseHelper.h
 	AampMPDUtils.cpp AampMPDUtils.h
+	AampVodStitcher.cpp AampVodStitcher.h
 	ElementaryProcessor.cpp ElementaryProcessor.h
 	AampStreamSinkManager.cpp AampStreamSinkManager.h
 	MetadataProcessor.cpp MetadataProcessor.hpp

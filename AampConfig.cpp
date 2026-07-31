@@ -382,6 +382,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "monitorMp4Integrity", eAAMPConfig_MonitorMp4Integrity, false},
+	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
+	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

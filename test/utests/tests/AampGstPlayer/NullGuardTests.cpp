@@ -28,7 +28,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include "middleware/InterfacePlayerRDK.h"
+#include "InterfacePlayerRDK.h"
 #include "aampgstplayer.h"
 #include "MockGStreamer.h"
 #include "MockGLib.h"
