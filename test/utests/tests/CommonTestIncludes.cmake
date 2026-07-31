@@ -44,10 +44,14 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 # For legacy builds without external middleware, fall back to middleware-player-interface repo or internal paths
 if(PLAYERFBINTERFACE_INCLUDE_DIRS)
 	# External middleware (preferred)
-	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
-	include_directories(${BASECONVERSION_INCLUDE_DIRS})
-	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
-	include_directories(${SUBTEC_INCLUDE_DIRS})
+	# Filter out .libs/include from pkg-config results to avoid old gmock headers
+	foreach(_dir IN LISTS PLAYERFBINTERFACE_INCLUDE_DIRS BASECONVERSION_INCLUDE_DIRS PLAYERLOGMANAGER_INCLUDE_DIRS SUBTEC_INCLUDE_DIRS)
+		if(NOT _dir MATCHES "\\.libs/include$")
+			include_directories(${_dir})
+		else()
+			message(STATUS "Skipping .libs/include directory: ${_dir}")
+		endif()
+	endforeach()
 elseif(EXISTS ${AAMP_ROOT}/middleware-player-interface)
 	# Middleware from aamp/middleware-player-interface (GitHub Actions CI)
 	include_directories(${AAMP_ROOT}/middleware-player-interface
