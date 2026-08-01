@@ -21,7 +21,7 @@ set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")
 
 # Middleware headers - use external middleware-player-interface if available via pkg-config
-# Otherwise fall back to middleware-player-interface repo (GitHub Actions) or internal aamp/middleware
+# Otherwise fall back to middleware-player-interface repo (GitHub Actions CI clones it here)
 # Note: .libs/include is NOT used because it contains gtest headers that conflict with FetchContent
 if(PLAYERFBINTERFACE_INCLUDE_DIRS)
 	# External middleware via pkg-config (preferred for installed middleware)

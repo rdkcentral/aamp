@@ -24,7 +24,6 @@
 #
 # Optional variables (from install_options.sh):
 # - OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH: explicit path to a local middleware-player-interface repo
-# - MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID: commit to checkout when cloning from GitHub (fallback only)
 #
 # This script requires the following functions to be available (for GitHub clone fallback only):
 # - do_clone_fn: Function to clone git repositories
@@ -125,23 +124,7 @@ function install_build_middleware_interface_fn()
         sibling_path="$(dirname "${AAMP_DIR}")/middleware-player-interface"
         if [[ -d "${sibling_path}" ]]; then
             mw_src="$(cd "${sibling_path}" && pwd -P)"
-            echo "Using sibling middleware-player-interface repo: ${mw_src}"
-            
-            # Checkout the required commit if specified
-            if [[ -n "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID:-}" ]]; then
-                if ! command -v git &> /dev/null; then
-                    echo "Warning: git not found, cannot checkout commit '${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}'"
-                    echo "Using whatever is currently checked out in sibling repo"
-                else
-                    echo "Checking out commit: ${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
-                    cd "${mw_src}" || return 1
-                    if ! git checkout "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}" 2>/dev/null; then
-                        echo "Warning: Failed to checkout commit '${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}' in sibling repo"
-                        current_head=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-                        echo "Using current HEAD: ${current_head}"
-                    fi
-                fi
-            fi
+            echo "Using sibling middleware-player-interface repo at HEAD: ${mw_src}"
         fi
     fi
 
@@ -149,10 +132,6 @@ function install_build_middleware_interface_fn()
     if [[ -z "${mw_src}" ]]; then
         if ! command -v git &> /dev/null; then
             echo "Error: git is not installed (needed to clone middleware-player-interface)"
-            return 1
-        fi
-        if [[ -z "$MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID" ]]; then
-            echo "Error: MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID variable is not set (needed for GitHub clone)"
             return 1
         fi
         if ! declare -f do_clone_fn > /dev/null; then
@@ -180,26 +159,14 @@ function install_build_middleware_interface_fn()
             echo "middleware-player-interface clone already present in .libs"
             mw_src="${LOCAL_DEPS_BUILD_DIR}/middleware-player-interface"
         else
-            echo "Cloning middleware-player-interface from GitHub..."
-            if ! do_clone_fn https://github.com/rdkcentral/middleware-player-interface.git; then
+            echo "Cloning middleware-player-interface from GitHub (develop branch)..."
+            if ! do_clone_fn -b develop https://github.com/rdkcentral/middleware-player-interface.git; then
                 echo "Error: Failed to clone middleware-player-interface repository"
                 return 1
             fi
 
             mw_src="${LOCAL_DEPS_BUILD_DIR}/middleware-player-interface"
             mw_cloned=true
-
-            cd "${mw_src}" || {
-                echo "Error: Failed to change directory to middleware-player-interface"
-                return 1
-            }
-
-            local middleware_commit_id="${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
-            echo "Checking out commit: $middleware_commit_id"
-            if ! git checkout "$middleware_commit_id"; then
-                echo "Error: Failed to checkout commit '$middleware_commit_id'"
-                return 1
-            fi
         fi
     fi
 
@@ -246,40 +213,6 @@ function install_build_middleware_interface_fn()
         echo "Error: Failed to change directory to ${mw_build_dir}"
         return 1
     }
-
-    # Apply middleware fixes patch (see OSX/patches/middleware-build-fixes-summary.md)
-    # This patch fixes gstreamer-base-1.0 dependency issues AND adds setPtsOffset for commit bd2b3b1
-    local patch_file="${AAMP_DIR}/OSX/patches/middleware-fixes-4c1d90a.patch"
-    if [[ -f "${patch_file}" ]]; then
-        if ! command -v patch &> /dev/null; then
-            echo "Warning: 'patch' command not found, cannot apply middleware fixes"
-            echo "Build may fail if using unpatched middleware commit bd2b3b1"
-        else
-            echo "Applying middleware build fixes patch..."
-            cd "${mw_src}" || return 1
-            local dry_run_output
-            dry_run_output=$(patch -p1 --forward --dry-run < "${patch_file}" 2>&1)
-            local dry_run_status=$?
-            
-            if [[ ${dry_run_status} -eq 0 ]]; then
-                # Patch can be applied
-                if ! patch -p1 < "${patch_file}"; then
-                    echo "Error: Failed to apply middleware build fixes patch"
-                    echo "Build will likely fail. Check that middleware commit is bd2b3b1"
-                    return 1
-                fi
-                echo "Middleware patch applied successfully"
-            elif echo "${dry_run_output}" | grep -q "Reversed (or previously applied) patch detected"; then
-                echo "Patch already applied, skipping..."
-            else
-                echo "Warning: Patch does not apply cleanly to current middleware source"
-                echo "This may indicate wrong middleware commit (expected bd2b3b1)"
-                echo "Dry-run output: ${dry_run_output}"
-                echo "Continuing anyway, but build may fail..."
-            fi
-        fi
-        cd "${mw_build_dir}" || return 1
-    fi
 
     echo "Running cmake configuration for middleware-player-interface..."
     local cmake_platform_flag=""
