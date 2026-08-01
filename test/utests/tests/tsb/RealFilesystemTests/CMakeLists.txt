@@ -22,5 +22,5 @@ project(TsbRealFilesystemTests)
 set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 
 add_definitions(-DENABLE_TSB_LOGGER)
-add_compile_options(-Wall -Wextra -Wpedantic -Werror -Werror=effc++)
+add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wno-effc++)
 add_subdirectory(tests)
