@@ -170,6 +170,21 @@ function install_build_middleware_interface_fn()
         fi
     fi
 
+    # Checkout specific commit if requested (only applies to GitHub clones)
+    if [[ -n "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID:-}" ]] && [[ "${mw_cloned}" == true ]]; then
+        echo "Checking out specified commit: ${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+        cd "${mw_src}" || {
+            echo "Error: Failed to change directory to ${mw_src}"
+            return 1
+        }
+        if ! git checkout "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}" 2>/dev/null; then
+            echo "Warning: Failed to checkout commit ${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}, using HEAD"
+        else
+            echo "Checked out commit: $(git rev-parse HEAD)"
+        fi
+        cd - > /dev/null
+    fi
+
     # Build and install from mw_src
     local mw_build_marker="${LOCAL_DEPS_BUILD_DIR}/.mw_installed"
 
