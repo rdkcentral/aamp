@@ -48,22 +48,24 @@ if(PLAYERFBINTERFACE_INCLUDE_DIRS)
 	include_directories(${BASECONVERSION_INCLUDE_DIRS})
 	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
 	include_directories(${SUBTEC_INCLUDE_DIRS})
-elseif(EXISTS ${AAMP_ROOT}/middleware-player-interface)
-	# Middleware from aamp/middleware-player-interface (GitHub Actions CI)
-	include_directories(${AAMP_ROOT}/middleware-player-interface
-	                    ${AAMP_ROOT}/middleware-player-interface/playerisobmff
-	                    ${AAMP_ROOT}/middleware-player-interface/subtitle
-	                    ${AAMP_ROOT}/middleware-player-interface/subtec/subtecparser
-	                    ${AAMP_ROOT}/middleware-player-interface/subtec/libsubtec
-	                    ${AAMP_ROOT}/middleware-player-interface/playerjsonobject
-	                    ${AAMP_ROOT}/middleware-player-interface/closedcaptions
-	                    ${AAMP_ROOT}/middleware-player-interface/drm
-	                    ${AAMP_ROOT}/middleware-player-interface/drm/helper
-	                    ${AAMP_ROOT}/middleware-player-interface/externals
-	                    ${AAMP_ROOT}/middleware-player-interface/externals/contentsecuritymanager
-	                    ${AAMP_ROOT}/middleware-player-interface/baseConversion
-	                    ${AAMP_ROOT}/middleware-player-interface/playerLogManager
-	                    ${AAMP_ROOT}/middleware-player-interface/vendor)
+elseif(EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
+	# Middleware from middleware-player-interface repo (GitHub Actions CI clones it here).
+	# Use MIDDLEWARE_REPO_ABS_PATH (set in parent CMakeLists.txt) — always an absolute path,
+	# avoiding the fragile relative EXISTS ${AAMP_ROOT}/... resolution.
+	include_directories(${MIDDLEWARE_REPO_ABS_PATH}
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/playerisobmff
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/subtitle
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/subtec/subtecparser
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/subtec/libsubtec
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/playerjsonobject
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/closedcaptions
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/externals
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/externals/contentsecuritymanager
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/baseConversion
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/playerLogManager
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/vendor)
 else()
 	# Internal middleware paths (deprecated, for legacy builds only)
 	include_directories(${AAMP_ROOT}/middleware

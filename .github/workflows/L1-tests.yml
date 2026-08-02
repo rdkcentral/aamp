@@ -18,7 +18,12 @@ jobs:
       # Checkout the aamp repository
       - name: Checkout aamp code
         uses: actions/checkout@v3
-      
+
+      # Must run before any step that invokes git (e.g. dorny/test-reporter)
+      - name: Mark workspace as safe for git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Clone Middleware repo
         run: |
           git clone -b develop https://github.com/rdkcentral/middleware-player-interface
@@ -36,11 +41,6 @@ jobs:
         working-directory: ./test/utests
         run: |
           python3 parse_gtest_log.py utest_run.log
-      
-      # Needed to avoid git safe directory issues in GH Actions container    
-      - name: Mark workspace as safe for git
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # Publish AAMP test results
       - name: Publish AAMP L1 test results

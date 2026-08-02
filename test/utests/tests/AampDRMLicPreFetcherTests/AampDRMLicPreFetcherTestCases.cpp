@@ -62,6 +62,20 @@ private:
 public:
 	TestDrmSession() : DrmSession("test-key-system"), mState(KEY_READY) {}
 
+#ifdef DRMSESSION_HAS_LIFECYCLE_GUARD
+	~TestDrmSession() override
+	{
+		// Mirror what DrmSessionManager does before deleting a real session:
+		// mark for destruction and wait for any in-flight operations to drain
+		// before the object is freed. PrepareForDestruction() is defined in
+		// DrmSession.cpp which is not linked into this test binary, so we
+		// inline the equivalent logic using the protected members directly.
+		std::unique_lock<std::mutex> lock(mLifecycleMutex);
+		mMarkedForDestruction = true;
+		mLifecycleCV.wait(lock, [this]() { return mActiveOperations == 0; });
+	}
+#endif
+
 	void generateDRMSession(const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData) override
 	{
 		// Test implementation - no-op

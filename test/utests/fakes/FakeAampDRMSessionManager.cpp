@@ -67,6 +67,12 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* )
 // DrmSession implementations
 DrmSession::DrmSession(const string &keySystem) : m_keySystem(keySystem), m_OutputProtectionEnabled(false)
 		, mContentSecurityManagerSession()
+#ifdef DRMSESSION_HAS_LIFECYCLE_GUARD
+		, mLifecycleMutex()
+		, mLifecycleCV()
+		, mActiveOperations(0)
+		, mMarkedForDestruction(false)
+#endif
 {
 }
 
