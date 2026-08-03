@@ -225,6 +225,12 @@ bool SocInterface::IsVideoMaster(GstElement *videoSink)
 	return true;
 }
 
+bool SocInterface::mIsRialtoMode = false;
+
+void SocInterface::InitializePlatformFromPlugins()
+{
+	// No-op on Ubuntu/Darwin — plugin-based platform detection not needed
+}
 /**
  * @brief Sets the playback rate for the given GStreamer elements.
  *
