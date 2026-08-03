@@ -120,12 +120,18 @@ function install_build_middleware_interface_fn()
             return 1
         }
         echo "Using explicit local middleware-player-interface: ${mw_src}"
+        if [[ -n "${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID:-}" ]]; then
+            echo "Warning: --middleware-player-interface-commit-id is ignored when --middleware-player-interface-local-path is set"
+        fi
     else
         local sibling_path
         sibling_path="$(dirname "${AAMP_DIR}")/middleware-player-interface"
         if [[ -d "${sibling_path}" ]]; then
             mw_src="$(cd "${sibling_path}" && pwd -P)"
             echo "Using sibling middleware-player-interface repo at HEAD: ${mw_src}"
+            if [[ -n "${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID:-}" ]]; then
+                echo "Warning: --middleware-player-interface-commit-id is ignored when a sibling repo is present; checkout the desired commit manually in ${mw_src}"
+            fi
         fi
     fi
 
