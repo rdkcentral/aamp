@@ -968,6 +968,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 									aamp->mRecoveryAttemptCount++;
 									AAMPLOG_WARN("SetRateInternal: pipeline resume failed (GstState timeout); recovering via re-seek (attempt %d/%d)										",aamp->mRecoveryAttemptCount, PrivateInstanceAAMP::MAX_RECOVERY_ATTEMPTS);
 
+									// drive pipeline to NULL before re-seek so GStreamer clears all
+									// pending state transitions — prevents double-wedge inside ConfigurePipeline
+									AAMPLOG_WARN("SetRateInternal: resetting pipeline to NULL before recovery re-seek");
+									sink->Stop(false);   // NULL state flush; clears wedged PAUSED->PAUSED condition
 									{
 										std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 										aamp->TuneHelper(eTUNETYPE_SEEK, false);
