@@ -41,45 +41,38 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 # Middleware headers - use external middleware-player-interface via pkg-config
 # These variables are set in parent test/utests/CMakeLists.txt
-# For legacy builds without external middleware, fall back to middleware-player-interface repo or internal paths
+# Fall back to middleware-player-interface repo cloned alongside aamp (GitHub Actions CI)
 if(PLAYERFBINTERFACE_INCLUDE_DIRS)
 	# External middleware (preferred)
 	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
 	include_directories(${BASECONVERSION_INCLUDE_DIRS})
 	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
 	include_directories(${SUBTEC_INCLUDE_DIRS})
-elseif(EXISTS ${AAMP_ROOT}/middleware-player-interface)
-	# Middleware from aamp/middleware-player-interface (GitHub Actions CI)
-	include_directories(${AAMP_ROOT}/middleware-player-interface
-	                    ${AAMP_ROOT}/middleware-player-interface/playerisobmff
-	                    ${AAMP_ROOT}/middleware-player-interface/subtitle
-	                    ${AAMP_ROOT}/middleware-player-interface/subtec/subtecparser
-	                    ${AAMP_ROOT}/middleware-player-interface/subtec/libsubtec
-	                    ${AAMP_ROOT}/middleware-player-interface/playerjsonobject
-	                    ${AAMP_ROOT}/middleware-player-interface/closedcaptions
-	                    ${AAMP_ROOT}/middleware-player-interface/drm
-	                    ${AAMP_ROOT}/middleware-player-interface/drm/helper
-	                    ${AAMP_ROOT}/middleware-player-interface/externals
-	                    ${AAMP_ROOT}/middleware-player-interface/externals/contentsecuritymanager
-	                    ${AAMP_ROOT}/middleware-player-interface/baseConversion
-	                    ${AAMP_ROOT}/middleware-player-interface/playerLogManager
-	                    ${AAMP_ROOT}/middleware-player-interface/vendor)
+elseif(EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
+	# Middleware from middleware-player-interface repo (GitHub Actions CI clones it here).
+	# Use MIDDLEWARE_REPO_ABS_PATH (set in parent CMakeLists.txt) — always an absolute path,
+	# avoiding the fragile relative EXISTS ${AAMP_ROOT}/... resolution.
+	include_directories(${MIDDLEWARE_REPO_ABS_PATH}
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/playerisobmff
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/subtitle
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/subtec/subtecparser
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/subtec/libsubtec
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/playerjsonobject
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/closedcaptions
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/externals
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/externals/contentsecuritymanager
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/baseConversion
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/playerLogManager
+	                    ${MIDDLEWARE_REPO_ABS_PATH}/vendor)
 else()
-	# Internal middleware paths (deprecated, for legacy builds only)
-	include_directories(${AAMP_ROOT}/middleware
-	                    ${AAMP_ROOT}/middleware/playerisobmff
-	                    ${AAMP_ROOT}/middleware/subtitle
-	                    ${AAMP_ROOT}/middleware/subtec/subtecparser
-	                    ${AAMP_ROOT}/middleware/subtec/libsubtec
-	                    ${AAMP_ROOT}/middleware/playerjsonobject
-	                    ${AAMP_ROOT}/middleware/closedcaptions
-	                    ${AAMP_ROOT}/middleware/drm
-	                    ${AAMP_ROOT}/middleware/drm/helper
-	                    ${AAMP_ROOT}/middleware/externals
-	                    ${AAMP_ROOT}/middleware/externals/contentsecuritymanager
-	                    ${AAMP_ROOT}/middleware/baseConversion
-	                    ${AAMP_ROOT}/middleware/playerLogManager
-	                    ${AAMP_ROOT}/middleware/vendor)
+	message(FATAL_ERROR
+		"middleware-player-interface headers not found.\n"
+		"Either install the middleware-player-interface package (provides pkg-config 'playerfbinterface') "
+		"or clone the middleware-player-interface repository as a sibling of the aamp directory so that "
+		"MIDDLEWARE_REPO_ABS_PATH resolves correctly.\n"
+		"Searched: ${MIDDLEWARE_REPO_ABS_PATH}")
 endif()
 
 # std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
