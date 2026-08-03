@@ -20,7 +20,7 @@ file(GLOB fakes_SRC "*.cpp")
 set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")
 
-# Middleware headers - use external middleware-player-interface if available via pkg-config
+# Middleware headers - use external middleware-player-interface via pkg-config
 # Otherwise fall back to middleware-player-interface repo (GitHub Actions CI clones it here)
 # Note: .libs/include is NOT used because it contains gtest headers that conflict with FetchContent
 if(PLAYERFBINTERFACE_INCLUDE_DIRS)
@@ -50,23 +50,7 @@ elseif(EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
 	include_directories(${MIDDLEWARE_REPO_ABS_PATH}/subtec/libsubtec)
 	include_directories(${MIDDLEWARE_REPO_ABS_PATH}/playerjsonobject)
 else()
-	# Internal middleware paths (for local builds with aamp/middleware folder)
-	message(STATUS "Using internal aamp/middleware paths (deprecated)")
-	include_directories(${AAMP_ROOT}/middleware)
-	include_directories(${AAMP_ROOT}/middleware/drm)
-	include_directories(${AAMP_ROOT}/middleware/drm/helper)
-	include_directories(${AAMP_ROOT}/middleware/drm/aes)
-	include_directories(${AAMP_ROOT}/middleware/externals)
-	include_directories(${AAMP_ROOT}/middleware/vendor)
-	include_directories(${AAMP_ROOT}/middleware/playerLogManager)
-	include_directories(${AAMP_ROOT}/middleware/baseConversion)
-	include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
-	include_directories(${AAMP_ROOT}/middleware/closedcaptions)
-	include_directories(${AAMP_ROOT}/middleware/playerisobmff)
-	include_directories(${AAMP_ROOT}/middleware/subtitle)
-	include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
-	include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-	include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
+	message(FATAL_ERROR "middleware-player-interface not found. Either install via pkg-config or clone the repo alongside the aamp directory. See: https://github.com/rdkcentral/middleware-player-interface")
 endif()
 
 # AAMP source directories
