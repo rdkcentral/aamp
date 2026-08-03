@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "8.03"
+#define AAMP_VERSION "8.04"
 #define AAMP_TUNETIME_VERSION 8
 
 //Stringification of Macro : use two levels of macros
@@ -60,7 +60,7 @@
 #define DEFAULT_BUFFER_HEALTH_MONITOR_INTERVAL 5
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
-#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 0			/**< Default ABR Bandwidth Estimation Algorithm */
+#define DEFAULT_ABR_BANDWIDTH_ESTIMATION_ALGORITHM 1			/**< Default ABR bandwidth estimation algorithm; value must stay in sync with BandwidthEstimationAlgorithm ordinal 1 in abr/abr.h */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */
 #define DEFAULT_PROGRESS_LOGGING_DIVISOR 4			/**< Divisor of progress logging frequency to print logging */
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
@@ -113,6 +113,7 @@
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
 #define MAX_AD_FULFILLMENT_TIMEOUT 5000	/**< Max Ad fulfillment timeout in milliseconds */
+#define DEFAULT_VOD_ADBREAK_LOOKAHEAD_SEC 5	/**< Default VOD ad-break lookahead in seconds; event fired this many seconds before the insertion point */
 
 #define AAMP_TRACK_COUNT 3		/**< internal use - audio+video+sub track */
 #define DEFAULT_CURL_INSTANCE_COUNT (AAMP_TRACK_COUNT + 1) /**< One for Manifest/Playlist + Number of tracks */
@@ -121,6 +122,7 @@
 #define DEFAULT_PLAYLIST_DL_TIMEOUT 10L	/**< Curl timeout for playlist download */
 #define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
 #define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
+#define DEFAULT_DNS_CACHE_TIMEOUT (3*60L)	/**< Name resolve results cached for this many seconds (180 s = 3x the libcurl default of 60 s) */
 #define EAS_CURL_TIMEOUT 3L		/**< Curl timeout for EAS manifest downloads */
 #define EAS_CURL_CONNECTTIMEOUT 2L      /**< Curl timeout for EAS connection */
 #define DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS (6*1000)   /**< Interval between playlist refreshes */
@@ -160,6 +162,9 @@
 #define DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC 0.0  /*< Default is 0.0 means latency correction is enabled at all buffer values */
 #define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
 #define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 8.0	/*< LiveOffset(15s) - MaxLatency(7s) */
+#define DEFAULT_LATENCY_STABLE_DURATION_SEC 300.0		/*< Duration (s) of consecutive healthy buffer (latencyStableDurationSec) required before one restoration step */
+#define DEFAULT_LATENCY_DANGER_BUFFER_SEC 1.0			/*< Buffer level (s) below which latency thresholds are increased; buffer must stay above this level for latencyStableDurationSec before thresholds are restored */
+
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
@@ -196,6 +201,7 @@
 #define DEFAULT_MIN_LOW_LATENCY					5.0			/**< min Default Latency */
 #define DEFAULT_MAX_LOW_LATENCY					7.0			/**< max Default Latency */
 #define DEFAULT_TARGET_LOW_LATENCY				6.0			/**< Target Default Latency */
+#define DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS	10000.0	/**< Accumulated latency threshold (ms) above which trickplay fast-forward is unblocked even at live point */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED	1.00f		/**< Live Catchup Normal play rate */
@@ -203,7 +209,6 @@
 #define AAMP_LLD_LOW_BUFF_CHECK_COUNT           (4)         /**< Count to confirm low buffer state for LLD stream playback; 4 sec to ABR; So Allow ABR first*/
 #define DEFAULT_MIN_BUFFER_LOW_LATENCY          (2.0f)      /**< Default minimum buffer for Low latency stream*/
 #define DEFAULT_TARGET_BUFFER_LOW_LATENCY       (4.0f)      /**< Default minimum buffer for Low latency stream*/
-#define DEFAULT_ALLOWED_DELAY_LOW_LATENCY       (2.5f)      /**< Default allowed server delay for Low latency stream*/
 
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD 4               /**< 2 fragments for MSO specific linear streams. */
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD 1           /**< LLD 1 sec minimum buffer to alert */
@@ -211,7 +216,16 @@
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
-#define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragment chunks per track */
+/** Hard upper limit for the per-track fragment ring buffer.
+ *  mCachedFragment[] is sized by this value.
+ *  No config or SetCachedFragmentSize call may exceed it.
+ */
+#define MAX_CACHED_FRAGMENTS_PER_TRACK  20
+#define DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK	MAX_CACHED_FRAGMENTS_PER_TRACK	/**< Default LLD cached fragments per track; must be <= MAX_CACHED_FRAGMENTS_PER_TRACK */
+static_assert(DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRACK,
+	"DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK must not exceed MAX_CACHED_FRAGMENTS_PER_TRACK");
+static_assert(DEFAULT_CACHED_FRAGMENTS_PER_TRACK <= MAX_CACHED_FRAGMENTS_PER_TRACK,
+	"DEFAULT_CACHED_FRAGMENTS_PER_TRACK must not exceed MAX_CACHED_FRAGMENTS_PER_TRACK");
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */

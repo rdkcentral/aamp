@@ -143,15 +143,15 @@ class AdFallbackTests : public ::testing::Test
 
 			mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 
-			g_mockAampConfig = new NiceMock<MockAampConfig>();
+			g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
 
 			mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+			g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
 
-			g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
+			g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
 
-			g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
+			g_mockAampMPDDownloader = std::make_shared<StrictMock<MockAampMPDDownloader>>();
 
 			mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -175,17 +175,13 @@ class AdFallbackTests : public ::testing::Test
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
 
-			delete g_mockAampConfig;
-			g_mockAampConfig = nullptr;
+			g_mockAampConfig.reset();
 
-			delete g_mockPrivateInstanceAAMP;
-			g_mockPrivateInstanceAAMP = nullptr;
+			g_mockPrivateInstanceAAMP.reset();
 
-			delete g_mockMediaStreamContext;
-			g_mockMediaStreamContext = nullptr;
+			g_mockMediaStreamContext.reset();
 
-			delete g_mockAampMPDDownloader;
-			g_mockAampMPDDownloader = nullptr;
+			g_mockAampMPDDownloader.reset();
 
 			mManifest = nullptr;
 			mAdManifest = nullptr;
@@ -429,21 +425,27 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	// After ad init failure, the ad break should not have mpd set
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).mpd, nullptr);
 
+	int downloadsEnabledCounter = 0;
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
-		.WillRepeatedly([]()
+		.WillRepeatedly([&downloadsEnabledCounter]()
 			{
-				static int counter = 0;
-				return (++counter < 10);
+				return (++downloadsEnabledCounter < 10);
 			});
 
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
-		.Times(4) // 2 audio + 2 video init fragments
+		.Times(testing::AtLeast(4)) // Init headers may be retried during profile-change fallback.
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
 		.WillRepeatedly(Return(true)); // Media fragments
 
-	TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL;
+	// eTUNETYPE_RETUNE is required here because Init() has a guard that skips onAdEvent(INIT)
+	// for eTUNETYPE_NEW_NORMAL and eTUNETYPE_NEW_SEEK and eTUNETYPE_NEW_END.
+	// Skipping onAdEvent(INIT) means the CDAI state never transitions to IN_ADBREAK_AD_PLAYING
+	// during Init(), so StreamSelection() does not set the ad manifest URL and no ad init fragment
+	// is fetched. eTUNETYPE_RETUNE bypasses that guard, allowing onAdEvent(INIT) to run
+	// and the ad init path to be exercised as intended.
+	TuneType tuneType = TuneType::eTUNETYPE_RETUNE;
 	// Will start fetching the ad, but fails in ad init fragment and should fallback to source period and its init fragment
 	status = Init(tuneType);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);

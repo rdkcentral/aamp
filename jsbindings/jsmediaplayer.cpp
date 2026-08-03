@@ -558,7 +558,6 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			aamp_ApplyPageHttpHeaders(privObj->_aamp);
 
 			{
-				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
 				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
 				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStitchingMode, std::move(sid),manifestbuffer);
 
@@ -3056,6 +3055,130 @@ static JSValueRef AAMPMediaPlayerJS_notifyReservationCompletion(JSContextRef ctx
 
 
 /**
+ * @brief API invoked from JS when executing AAMPMediaPlayer.registerVodAdBreak()
+ * @param[in] ctx JS execution context
+ * @param[in] function JSObject that is the function being called
+ * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
+ * @param[in] argumentCount number of args
+ * @param[in] arguments[] JSValue array of args
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ * @retval JSValue that is the function's return value
+ */
+static JSValueRef AAMPMediaPlayerJS_registerVodAdBreak(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
+{
+	LOG_TRACE("Enter");
+	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	if (!privObj || !privObj->_aamp)
+	{
+		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call registerVodAdBreak() on instances of AAMPPlayer");
+		return JSValueMakeUndefined(ctx);
+	}
+
+	if (argumentCount != 1 || !JSValueIsObject(ctx, arguments[0]))
+	{
+		LOG_ERROR(privObj,"InvalidArgument: argumentCount=%zu, expected: 1 object", argumentCount);
+		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute registerVodAdBreak() - 1 object argument required");
+		return JSValueMakeUndefined(ctx);
+	}
+
+	JSObjectRef breakObj = JSValueToObject(ctx, arguments[0], NULL);
+	if (!breakObj)
+	{
+		LOG_ERROR(privObj,"Unable to convert argument to JSObject");
+		return JSValueMakeUndefined(ctx);
+	}
+
+	char *breakId = NULL;
+	double insertionPointSec = 0.0;
+	double breakDurationSec = 0.0;
+	char *breakType = NULL;
+
+	JSStringRef propName;
+	JSValueRef propValue;
+
+	propName = JSStringCreateWithUTF8CString("breakId");
+	propValue = JSObjectGetProperty(ctx, breakObj, propName, NULL);
+	if (JSValueIsString(ctx, propValue))
+		breakId = aamp_JSValueToCString(ctx, propValue, NULL);
+	JSStringRelease(propName);
+
+	propName = JSStringCreateWithUTF8CString("insertionPointSec");
+	propValue = JSObjectGetProperty(ctx, breakObj, propName, NULL);
+	if (JSValueIsNumber(ctx, propValue))
+		insertionPointSec = JSValueToNumber(ctx, propValue, NULL);
+	JSStringRelease(propName);
+
+	propName = JSStringCreateWithUTF8CString("breakDurationSec");
+	propValue = JSObjectGetProperty(ctx, breakObj, propName, NULL);
+	if (JSValueIsNumber(ctx, propValue))
+		breakDurationSec = JSValueToNumber(ctx, propValue, NULL);
+	JSStringRelease(propName);
+
+	propName = JSStringCreateWithUTF8CString("breakType");
+	propValue = JSObjectGetProperty(ctx, breakObj, propName, NULL);
+	if (JSValueIsString(ctx, propValue))
+		breakType = aamp_JSValueToCString(ctx, propValue, NULL);
+	JSStringRelease(propName);
+
+	if (breakId && breakType)
+	{
+		LOG_WARN(privObj,"registerVodAdBreak breakId=%s type=%s insertionPt=%.3f dur=%.3f",
+			breakId, breakType, insertionPointSec, breakDurationSec);
+		privObj->_aamp->RegisterVodAdBreak(std::string(breakId), insertionPointSec,
+		                                    breakDurationSec, std::string(breakType));
+	}
+	else
+	{
+		LOG_ERROR(privObj,"registerVodAdBreak: missing required breakId or breakType");
+	}
+
+	SAFE_DELETE_ARRAY(breakId);
+	SAFE_DELETE_ARRAY(breakType);
+	LOG_TRACE("Exit");
+	return JSValueMakeUndefined(ctx);
+}
+
+/**
+ * @brief API invoked from JS when executing AAMPMediaPlayer.cancelVodAdBreak()
+ * @param[in] ctx JS execution context
+ * @param[in] function JSObject that is the function being called
+ * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
+ * @param[in] argumentCount number of args
+ * @param[in] arguments[] JSValue array of args
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ * @retval JSValue that is the function's return value
+ */
+static JSValueRef AAMPMediaPlayerJS_cancelVodAdBreak(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
+{
+	LOG_TRACE("Enter");
+	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	if (!privObj || !privObj->_aamp)
+	{
+		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call cancelVodAdBreak() on instances of AAMPPlayer");
+		return JSValueMakeUndefined(ctx);
+	}
+
+	if (argumentCount != 1)
+	{
+		LOG_ERROR(privObj,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
+		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute cancelVodAdBreak() - 1 argument required");
+		return JSValueMakeUndefined(ctx);
+	}
+
+	const char *breakId = aamp_JSValueToCString(ctx, arguments[0], exception);
+	if (breakId)
+	{
+		LOG_WARN(privObj,"cancelVodAdBreak breakId=%s", breakId);
+		privObj->_aamp->CancelVodAdBreak(std::string(breakId));
+		SAFE_DELETE_ARRAY(breakId);
+	}
+	LOG_TRACE("Exit");
+	return JSValueMakeUndefined(ctx);
+}
+
+/**
  * @brief API invoked from JS when executing AAMPMediaPlayer.setClosedCaptionStatus()
  * @param[in] ctx JS execution context
  * @param[in] function JSObject that is the function being called
@@ -3665,6 +3788,8 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "getVideoRectangle", AAMPMediaPlayerJS_getVideoRectangle, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setAlternateContent", AAMPMediaPlayerJS_setAlternateContent, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "notifyReservationCompletion", AAMPMediaPlayerJS_notifyReservationCompletion, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "registerVodAdBreak", AAMPMediaPlayerJS_registerVodAdBreak, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "cancelVodAdBreak", AAMPMediaPlayerJS_cancelVodAdBreak, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setClosedCaptionStatus", AAMPMediaPlayerJS_setClosedCaptionStatus, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setTextStyleOptions", AAMPMediaPlayerJS_setTextStyleOptions, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "getTextStyleOptions", AAMPMediaPlayerJS_getTextStyleOptions, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },

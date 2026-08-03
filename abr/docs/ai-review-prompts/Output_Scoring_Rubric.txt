@@ -1,0 +1,12 @@
+Score each rule:
+- PASS: behavior matches spec exactly; evidence cited.
+- PARTIAL: mostly matches but one edge case or clamp/trigger condition differs.
+- FAIL: contradicts spec or violates MUST/MUST NOT.
+- NOT FOUND: rule not implemented in provided code.
+- NOT DETERMINABLE: code/logs insufficient to conclude.
+
+Severity tags:
+- S0 Safety: increases underflow/freeze risk
+- S1 Latency: violates targetLatency/speed policy
+- S2 Stability: causes oscillation/thrash
+- S3 Quality: suboptimal but safe

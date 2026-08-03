@@ -20,23 +20,33 @@
 #ifndef __AAMP_DEMUX_DATA_TYPES_H__
 #define __AAMP_DEMUX_DATA_TYPES_H__
 
-#include <string>
 #include <vector>
 #include <cstdint>
+#include <memory>
 #include "DemuxDataTypes.h" // for MediaDrmMetadata
 
 /**
  * @struct AampMediaSample
  * @brief Media sample structure.
  *
- * In future, we can consider unifying this with MediaSample in DemuxDataTypes.h
+ * mData is a shared_ptr<const uint8_t> built with the aliasing constructor
+ * so that it points at the raw sample bytes inside the owning segment buffer
+ * while the segment buffer's reference count keeps that storage alive.
+ * mDataSize gives the byte count of the payload.
+ *
+ * AampMediaSample is the demuxer-domain sample; MediaSample
+ * (middleware/MediaSample.h) is the sink-domain sample.  Both now hold
+ * shared_ptr<const uint8_t>, so AAMPGstPlayer::SendSample bridges between
+ * them without any const_pointer_cast.
  */
 struct AampMediaSample
 {
-	std::vector<uint8_t> mData{};  /**< Sample data buffer */
-	double mPts{0.0};
-	double mDts{0.0};
-	double mDuration{0.0};
+	std::shared_ptr<const uint8_t> mData{};  /**< Aliased pointer into the segment buffer (zero-copy) */
+	size_t mDataSize{0};                     /**< Byte count of the sample payload */
+	double mPts{0.0};                        /**< Presentation timestamp in seconds */
+	double mDts{0.0};                        /**< Decode timestamp in seconds */
+	double mDuration{0.0};                   /**< Sample duration in seconds */
+	bool mIsKeyFrame{false};                 /**< True if this sample is a sync/key frame (I-frame) */
 	MediaDrmMetadata mDrmMetadata{}; /**< DRM metadata for encrypted samples */
 
 	// Move constructor and move assignment (allow efficient transfers)

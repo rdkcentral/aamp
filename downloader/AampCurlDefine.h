@@ -29,15 +29,12 @@
 #include <sstream>
 #include <chrono>
 #include <curl/curl.h>
+#include "AampDefine.h"
 
 #define CURL_EASY_SETOPT(curl, CURLoption, option)\
 		if (curl_easy_setopt(curl, CURLoption, option) != 0) {\
 			AAMPLOG_WARN("Failed at curl_easy_setopt ");\
 		}
-
-#define DEFAULT_CURL_TIMEOUT 5L		/**< Default timeout for Curl downloads */
-#define DEFAULT_CURL_CONNECTTIMEOUT 3L	/**< Curl socket connection timeout */
-#define DEFAULT_DNS_CACHE_TIMEOUT 3*60L	/***< Name resolve results for this number of seconds*/
 
 /**
  * @brief Http Header Type

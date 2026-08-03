@@ -1,8 +1,33 @@
 #include "SocInterface.h"
-#include "vendor/default/DefaultSocInterface.h"
-#include "vendor/amlogic/AmlogicSocInterface.h"
-#include "vendor/brcm/BrcmSocInterface.h"
-#include "vendor/realtek/RealtekSocInterface.h"
+
+// Fake implementation of DefaultSocInterface for unit tests
+// Note: vendor-specific headers are internal to middleware and not exposed by external middleware
+class DefaultSocInterface : public SocInterface
+{
+public:
+	DefaultSocInterface();
+	bool UseAppSrc() override;
+	void SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume) override;
+	bool IsVideoSink(const char* name) override;
+	bool IsVideoDecoder(const char* name) override;
+	bool IsAudioOrVideoDecoder(const char* name) override;
+	void SetPlaybackFlags(gint &flags, bool isSub) override;
+	bool IsSimulatorFirstFrame() override;
+	bool IsSimulatorSink() override;
+	void ConfigurePluginPriority() override;
+	bool IsSimulatorVideoSample() override;
+	void SetH264Caps(GstCaps *caps) override;
+	void SetHevcCaps(GstCaps *caps) override;
+	bool ConfigureAudioSink(GstElement **audio_sink, GstObject *src, bool decStreamSync) override;
+	bool ShouldTearDownForTrickplay() override;
+	
+	// Additional pure virtual methods from SocInterface
+	bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override { return false; }
+	bool SetRateCorrection() override { return false; }
+	bool IsAudioSinkOrAudioDecoder(const char* name) override { return false; }
+	void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec) override {}
+	bool IsVideoMaster(GstElement *videoSink) override { return false; }
+};
 
 //static local variable
 static std::shared_ptr<SocInterface> socInterface = nullptr;
@@ -165,21 +190,14 @@ void SocInterface::SetDecodeError(GstObject* src)
         g_object_set(src, "report_decode_errors", TRUE, NULL);
 }
 
-long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
+long long SocInterface::ReadVideoPts(GstElement */*element*/)
 {
-        gint64 currentPTS = 0;
-        GstElement *element;
+	return 0;
+}
 
-        element = video_dec;
-        if(element)
-        {
-                g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */
-                if(!isWesteros)
-                {
-                        currentPTS = currentPTS * 2;
-                }
-        }
-        return (long long)currentPTS;
+long long SocInterface::GetVideoPts(GstElement */*video_sink*/, GstElement */*video_dec*/, bool /*isWesteros*/)
+{
+	return 0;
 }
 
 bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
@@ -219,4 +237,16 @@ bool DefaultSocInterface::ShouldTearDownForTrickplay()
 void SocInterface::SetWesterosSinkState(bool status)
 {
 	mUsingWesterosSink = status;
+}
+
+void SocInterface::CheckVideoPtsPropertySupport(GstElement */*element*/)
+{
+}
+
+void SocInterface::DiscoverVideoDecoderProperties(GstElement */*element*/)
+{
+}
+
+void SocInterface::DiscoverVideoSinkProperties(GstElement */*element*/)
+{
 }

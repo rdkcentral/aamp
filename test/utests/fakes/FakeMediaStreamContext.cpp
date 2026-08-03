@@ -20,7 +20,7 @@
 #include "MediaStreamContext.h"
 #include "MockMediaStreamContext.h"
 
-MockMediaStreamContext *g_mockMediaStreamContext = nullptr;
+std::shared_ptr<MockMediaStreamContext> g_mockMediaStreamContext{};
 
 bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint8_t *ptr, size_t size, std::string remoteUrl, uint64_t dnldStartTime, uint64_t durationInTicks)
 {
@@ -108,11 +108,11 @@ void MediaStreamContext::abortWaitForVideoPTS()
 {
 }
 
-bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragment)
+bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& fragment)
 {
 	if (g_mockMediaStreamContext != nullptr)
 	{
-		return g_mockMediaStreamContext->CacheTsbFragment(fragment);
+		return g_mockMediaStreamContext->CacheTsbFragment(std::move(fragment));
 	}
 	else
 	{

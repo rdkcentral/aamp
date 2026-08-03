@@ -24,8 +24,8 @@
 
 #include "AampUnderflowMonitor.h"
 
-AampUnderflowMonitor::AampUnderflowMonitor(StreamAbstractionAAMP* stream, PrivateInstanceAAMP* aamp)
-	: mStream(stream), mAamp(aamp)
+AampUnderflowMonitor::AampUnderflowMonitor(PrivateInstanceAAMP* aamp)
+	: mAamp(aamp)
 {
 }
 
@@ -38,5 +38,21 @@ void AampUnderflowMonitor::Start()
 }
 
 void AampUnderflowMonitor::Stop()
+{
+}
+
+void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRate)
+{
+}
+
+void AampUnderflowMonitor::NotifyPipelinePaused()
+{
+}
+
+void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playRate)
+{
+}
+
+void AampUnderflowMonitor::NotifyRateChange(float rate)
 {
 }

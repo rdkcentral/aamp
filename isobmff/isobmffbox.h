@@ -30,31 +30,76 @@
 #include <string.h>
 #include <string>
 #include <cstring>
+#include <memory>
 #include "AampLogManager.h"
 
 // Size of the size and tag fields in IsoBmff
 #define SIZEOF_SIZE_AND_TAG    (8)
 
-#define READ_U16(buf) \
-	(buf[0] << 8) | buf[1]; buf+=2;
+template <typename ByteT>
+inline uint16_t READ_U16(ByteT *&buf)
+{
+	uint16_t val = (static_cast<uint16_t>(buf[0]) << 8) |
+		static_cast<uint16_t>(buf[1]);
+	buf += sizeof(uint16_t);
+	return val;
+}
 
-#define READ_U32(buf) \
-	((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8) | buf[3]; buf+=4;
+template <typename ByteT>
+inline uint32_t READ_U32(ByteT *&buf)
+{
+	uint32_t val = (static_cast<uint32_t>(buf[0]) << 24) |
+		(static_cast<uint32_t>(buf[1]) << 16) |
+		(static_cast<uint32_t>(buf[2]) << 8) |
+		static_cast<uint32_t>(buf[3]);
+	buf += sizeof(uint32_t);
+	return val;
+}
 
-#define WRITE_U64(buf, val) \
-	buf[0]= val>>56; buf[1]= val>>48; buf[2]= val>>40; buf[3]= val>>32; buf[4]= val>>24; buf[5]= val>>16; buf[6]= val>>8; buf[7]= val;
+inline void WRITE_U64(uint8_t *buf, uint64_t val)
+{
+	buf[0] = static_cast<uint8_t>(val >> 56);
+	buf[1] = static_cast<uint8_t>(val >> 48);
+	buf[2] = static_cast<uint8_t>(val >> 40);
+	buf[3] = static_cast<uint8_t>(val >> 32);
+	buf[4] = static_cast<uint8_t>(val >> 24);
+	buf[5] = static_cast<uint8_t>(val >> 16);
+	buf[6] = static_cast<uint8_t>(val >> 8);
+	buf[7] = static_cast<uint8_t>(val);
+}
 
-#define WRITE_U32(buf, val) \
-	buf[0]= val>>24; buf[1]= val>>16; buf[2]= val>>8; buf[3]= val;
+inline void WRITE_U32(uint8_t *buf, uint32_t val)
+{
+	buf[0] = static_cast<uint8_t>(val >> 24);
+	buf[1] = static_cast<uint8_t>(val >> 16);
+	buf[2] = static_cast<uint8_t>(val >> 8);
+	buf[3] = static_cast<uint8_t>(val);
+}
 
-#define READ_U8(dst, src, sz) \
-	memcpy(dst, src, sz); src+=sz;
+template <typename ByteT>
+inline void READ_U8(void *dst, ByteT *&src, size_t sz)
+{
+	std::memcpy(dst, src, sz);
+	src += sz;
+}
 
-#define READ_VERSION(buf) \
-		buf[0]; buf++;
+template <typename ByteT>
+inline uint8_t READ_VERSION(ByteT *&buf)
+{
+	uint8_t version = buf[0];
+	buf += sizeof(uint8_t);
+	return version;
+}
 
-#define READ_FLAGS(buf) \
-		(buf[0] << 16) | (buf[1] << 8) | buf[2]; buf+=3;
+template <typename ByteT>
+inline uint32_t READ_FLAGS(ByteT *&buf)
+{
+	uint32_t flags = (static_cast<uint32_t>(buf[0]) << 16) |
+		(static_cast<uint32_t>(buf[1]) << 8) |
+		static_cast<uint32_t>(buf[2]);
+	buf += (sizeof(uint8_t) * 3);
+	return flags;
+}
 
 /**
  * @fn ReadUint64
@@ -62,7 +107,7 @@
  * @param[in] buf - buffer pointer
  * @return bytes read from buffer
  */
-uint64_t ReadUint64(uint8_t *buf);
+uint64_t ReadUint64(const uint8_t *buf);
 
 /**
  * @fn WriteUint64
@@ -80,11 +125,19 @@ void WriteUint64(uint8_t *dst, uint64_t val);
  */
 int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
 
-#define READ_U64(buf) \
-		ReadUint64(buf); buf+=8;
+template <typename ByteT>
+inline uint64_t READ_U64(ByteT *&buf)
+{
+	uint64_t val = ReadUint64(buf);
+	buf += sizeof(uint64_t);
+	return val;
+}
 
-#define IS_TYPE(value, type) \
-		(value[0]==type[0] && value[1]==type[1] && value[2]==type[2] && value[3]==type[3])
+template <typename T, typename U>
+inline bool IS_TYPE(const T *value, const U *type)
+{
+	return (std::memcmp(value, type, sizeof(uint32_t)) == 0);
+}
 
 
 /**
@@ -93,14 +146,10 @@ int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
  */
 class Box
 {
-private:
-	uint8_t *base;		/**< Ptr to start of box */
-	uint32_t offset;	/**< Offset from the beginning of the segment */
-	uint32_t size;		/**< Box Size */
-	char type[5]; 		/**< Box Type Including \0 */
-
-/*TODO: Handle special cases separately */
 public:
+	static constexpr size_t BOX_TYPE_LENGTH = sizeof(uint32_t);
+	static constexpr size_t BOX_TYPE_BUFFER_SIZE = BOX_TYPE_LENGTH + sizeof(char);
+
 	static constexpr const char *FTYP = "ftyp";
 	static constexpr const char *MOOV = "moov";
 	static constexpr const char *MVHD = "mvhd";
@@ -124,6 +173,13 @@ public:
 	static constexpr const char *SENC = "senc";
 	static constexpr const char *SAIZ = "saiz";
 
+private:
+	uint8_t *base;		/**< Ptr to start of box */
+	uint32_t offset;	/**< Offset from the beginning of the segment */
+	uint32_t size;		/**< Box Size */
+	char type[BOX_TYPE_BUFFER_SIZE]; 		/**< Box Type Including \0 */
+
+public:
 	/**
 	 * @fn Box
 	 *
@@ -166,7 +222,7 @@ public:
 	 *
 	 * @return array of child boxes
 	 */
-	virtual const std::vector<Box*> *getChildren() const;
+	virtual const std::vector<std::unique_ptr<Box>> *getChildren() const;
 
 	/**
 	 * @fn truncate
@@ -201,7 +257,7 @@ public:
 	 * @param[in] newTrackId - new track id to overwrite the existing track id, when value is -1, it will not override
 	 * @return newly constructed Box object
 	 */
-	static Box* constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize = false, int newTrackId = -1);
+	static std::unique_ptr<Box> constructBox(uint8_t *hdr, uint32_t maxSz, bool correctBoxSize = false, int newTrackId = -1);
 
 	uint8_t *getBase(void) const { return base; }
 
@@ -231,7 +287,7 @@ public:
 class GenericContainerBox : public Box
 {
 private:
-	std::vector<Box*> children;	// array of child boxes
+	std::vector<std::unique_ptr<Box>> children;	// array of child boxes
 
 public:
 	/**
@@ -253,7 +309,7 @@ public:
 	 * @param[in] box - child box object
 	 * @return void
 	 */
-	void addChildren(Box *box);
+	void addChildren(std::unique_ptr<Box> box);
 
 	/**
 	 * @fn hasChildren
@@ -267,7 +323,7 @@ public:
 	 *
 	 * @return array of child boxes
 	 */
-	const std::vector<Box*> *getChildren() const override;
+	const std::vector<std::unique_ptr<Box>> *getChildren() const override;
 
 	/**
 	 * @fn constructContainer
@@ -375,7 +431,8 @@ public:
 	SkipBox(uint32_t sz, uint8_t *locn) : Box(sz, Box::SKIP)
 	{
 		WRITE_U32(locn, sz);
-		memcpy(locn + sizeof(uint32_t), Box::SKIP, std::strlen(Box::SKIP));
+		std::memcpy(locn + sizeof(uint32_t), Box::SKIP,
+			sizeof(uint32_t));
 	}
 };
 
@@ -815,7 +872,7 @@ public:
 	 * @param[in] sampleDuration - Sample Duration value
 	 * @return void
 	 */
-	void setFirstSampleDuration(uint64_t sampleDuration);
+	void setFirstSampleDuration(uint32_t sampleDuration);
 
 	/**
 	 * @fn getSampleDuration
@@ -917,7 +974,7 @@ public:
 	 *
 	 * @param[in] sample_duration - Default sample duration value to set
 	 */
-	void setDefaultSampleDuration(uint64_t sample_duration);
+	void setDefaultSampleDuration(uint32_t sample_duration);
 
 	/**
 	 * @fn getDefaultSampleSize
@@ -1062,6 +1119,7 @@ private:
 	uint8_t *sampleCountLoc;
 	uint32_t numSamples;
 	uint32_t firstSampleInfoSize;
+	bool hasPerSampleInfoTable;
 
 public:
 	/**
@@ -1071,8 +1129,9 @@ public:
 	 * @param[in] sampleCountLoc - location of the sample count
 	 * @param[in] numSamples - number of samples
 	 * @param[in] sample_info_size - Size for the first auxiliary sample information entry
+	 * @param[in] hasPerSampleInfoTable - True when sample_info_size entries are present per sample
 	 */
-	SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t sample_info_size);
+	SaizBox(FullBox &fbox, uint8_t *sampleCountLoc, uint32_t numSamples, uint32_t sample_info_size, bool hasPerSampleInfoTable);
 
 	/**
 	 * @fn constructSaizBox

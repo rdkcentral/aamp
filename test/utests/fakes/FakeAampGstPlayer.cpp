@@ -22,11 +22,14 @@
 #include "priv_aamp.h"
 #include "AampLogManager.h"
 
-MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
+std::shared_ptr<MockAAMPGstPlayer> g_mockAampGstPlayer{};
 // // Required by AampGstPlayer mocks
 // AAMPGstPlayer::id3_callback_t mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t & ){ };
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
+	: aamp(aamp),
+	  mEncryptedAamp(nullptr),
+	  mEncryptedAampId(-1)
 {
 }
 
@@ -86,7 +89,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	return true;
 }
 
-bool AAMPGstPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
+bool AAMPGstPlayer::Pause(bool pause, bool forceStopPreBuffering)
 {
 	return true;
 }
@@ -217,6 +220,12 @@ bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aamp)
 	return false;
 }
 
+const int AAMPGstPlayer::GetEncryptedAampId(void) const
+{
+	// Return the id of the encrypted player
+	return (mEncryptedAamp ? mEncryptedAampId : -1);
+}
+
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	if (g_mockAampGstPlayer != nullptr)
@@ -231,6 +240,9 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 	{
 		g_mockAampGstPlayer->SetEncryptedAamp(aamp);
 	}
+	// Update the encrypted player id as the mock will not
+	mEncryptedAampId = (aamp ? aamp->mPlayerId : -1);
+	mEncryptedAamp = aamp;
 }
 
 void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)
@@ -263,7 +275,7 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 void AAMPGstPlayer::SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo)
 {
 }
-bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample& sample)
+bool AAMPGstPlayer::SendSample(AampMediaType mediaType, AampMediaSample&& sample)
 {
 	return true;
 }

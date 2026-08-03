@@ -29,6 +29,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockIsoBmffBuffer.h"
+#include "MockStreamAbstractionAAMP.h"
 
 // #include "fragmentcollector_mpd.h"
 #include "isobmff/isobmffprocessor.h"
@@ -40,6 +41,11 @@ using namespace testing;
 static constexpr uint32_t PLAYBACK_TIMESCALE{90000};
 
 AampConfig *gpGlobalConfig{nullptr};
+
+// Defined here (not via libfakes) so FakeStreamAbstractionAamp.cpp.o is not
+// loaded from the archive — which would cause duplicate-symbol errors with the
+// streamabstraction.cpp that is compiled directly into this test binary.
+std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP{};
 
 class MediaTrackTest : public MediaTrack
 {
@@ -111,35 +117,33 @@ public:
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
-	void fillCachedFragment(bool isInit, bool isDisc, bool isLLD)
+	void fillCachedFragment(bool isInit, bool isDisc)
 	{
 		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
-		int fragmentIdxToFetch = 0;
-		// int fragmentIdxToFetch = 0;
-		CachedFragment *cachFragment = nullptr;
-		if (isLLD)
-		{
-			cachFragment = &this->mCachedFragmentChunks[fragmentIdxToFetch];
-		}
-		else
-		{
-			// cachFragment = GetFetchBuffer(true);
-			this->mCachedFragment = new CachedFragment[3];
-			cachFragment = &this->mCachedFragment[fragmentIdxToFetch];
-		}
+		// DASH now routes all fragments through the chunk cache (see
+		// MediaStreamContext::CacheStagingFragmentForInjection); the old per-fragment
+		// ring-buffer path is no longer populated here.
+		CachedFragment *cachFragment = &this->mCachedFragment[0];
 		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
 		cachFragment->fragment.assign(data, data + sizeof(data));
-		if (isLLD)
-		{
-			UpdateTSAfterChunkFetch();
-		}
-		else
-		{
-			UpdateTSAfterFetch(false);
-		}
+		UpdateTSAfterFetch();
+	}
+
+	// Clears the injection slot so InjectFragment() sees an EOS sentinel
+	// (capacity == 0 with eosReached == true).
+	void SetupEosSentinel()
+	{
+		CachedFragment *slot = &mCachedFragment[fragmentIdxToInject];
+		slot->fragment.clear();
+		slot->fragment.shrink_to_fit();
+	}
+
+	void SetAbortInject(bool shouldAbort)
+	{
+		abortInject = shouldAbort;
 	}
 };
 
@@ -205,7 +209,7 @@ public:
 			{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 			{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
 			{eAAMPConfig_StallTimeoutMS, DEFAULT_STALL_DETECTION_TIMEOUT},
-			{eAAMPConfig_MaxFragmentChunkCached, 20},
+			{eAAMPConfig_MaxLLDFragmentCached, 20},
 			{eAAMPConfig_DiscontinuityTimeout, 1}};
 
 	IntConfigSettings mIntConfigSettings;
@@ -217,11 +221,11 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
+		g_mockIsoBmffBuffer = std::make_shared<MockIsoBmffBuffer>();
 
-		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockMediaStreamContext = std::make_shared<StrictMock<MockMediaStreamContext>>();
+		g_mockPrivateInstanceAAMP = std::make_shared<StrictMock<MockPrivateInstanceAAMP>>();
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
@@ -230,8 +234,7 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockMediaStreamContext;
-		g_mockMediaStreamContext = nullptr;
+		g_mockMediaStreamContext.reset();
 
 		delete mMediaTrack;
 		mMediaTrack = nullptr;
@@ -239,17 +242,14 @@ protected:
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockIsoBmffBuffer;
-		g_mockIsoBmffBuffer = nullptr;
+		g_mockIsoBmffBuffer.reset();
 	}
 
 public:
@@ -288,7 +288,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(false, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
@@ -314,7 +314,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(true, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(true, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
@@ -340,7 +340,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(false, false);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
@@ -379,7 +379,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(true, false, llDashData.lowLatencyMode);
+	mMediaTrack->fillCachedFragment(true, false);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
@@ -390,4 +390,123 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	mMediaTrack->RunInjectLoop();
+}
+
+/**
+ * Verify that InjectFragment() calls StopUnderflowMonitor() exactly once when
+ * the video track reaches end-of-stream on a VOD asset (eosReached == true,
+ * IsLive() == false) and the injector encounters the EOS-sentinel empty slot.
+ */
+TEST_F(TrackInjectTests, InjectFragment_VodEos_StopsUnderflowMonitor)
+{
+	AampLLDashServiceData llDashData;
+	llDashData.availabilityTimeOffset = 0.0;
+	llDashData.lowLatencyMode = false;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	mPrivateInstanceAAMP->SetIsLive(false); // VOD
+
+	// Attach a MockStreamAbstractionAAMP so StopUnderflowMonitor() can be observed.
+	g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	Initialize();
+
+	// Mark the video track at EOS and prepare the EOS-sentinel slot.
+	// fillCachedFragment increments numberOfFragmentsCached so that
+	// WaitForCachedFragmentAvailable() returns true (not "aborted").
+	// then clears fragment.capacity() to 0, which is the
+	// signal InjectFragment uses to trigger the EOS path.
+	mMediaTrack->eosReached = true;
+	mMediaTrack->fillCachedFragment(false, false);
+	mMediaTrack->SetupEosSentinel();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true))
+		.WillRepeatedly(Return(false));
+
+	// The key assertion: StopUnderflowMonitor must be called exactly once.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor()).Times(1);
+
+	mMediaTrack->RunInjectLoop();
+
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
+}
+
+/**
+ * Verify that InjectFragment() does NOT call StopUnderflowMonitor() when the
+ * track reaches end-of-stream on a LIVE asset.  The live-stream code path must
+ * be unaffected by the VOD fix.
+ */
+TEST_F(TrackInjectTests, InjectFragment_LiveEos_DoesNotStopUnderflowMonitor)
+{
+	AampLLDashServiceData llDashData;
+	llDashData.availabilityTimeOffset = 0.0;
+	llDashData.lowLatencyMode = false;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	mPrivateInstanceAAMP->SetIsLive(true); // LIVE
+
+	g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	Initialize();
+
+	mMediaTrack->eosReached = true;
+	mMediaTrack->fillCachedFragment(false, false);
+	mMediaTrack->SetupEosSentinel();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true))
+		.WillRepeatedly(Return(false));
+
+	// StopUnderflowMonitor must NOT be called for live streams.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor()).Times(0);
+
+	mMediaTrack->RunInjectLoop();
+
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
+}
+
+/**
+ * Verify that InjectFragment() calls StopUnderflowMonitor() on VOD when EOS is
+ * signalled from the aborted WaitForCachedFragmentAvailable() path.
+ */
+TEST_F(TrackInjectTests, InjectFragment_VodEosAbortedWait_StopsUnderflowMonitor)
+{
+	AampLLDashServiceData llDashData;
+	llDashData.availabilityTimeOffset = 0.0;
+	llDashData.lowLatencyMode = false;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	mPrivateInstanceAAMP->SetIsLive(false); // VOD
+
+	g_mockStreamAbstractionAAMP = std::make_shared<NiceMock<MockStreamAbstractionAAMP>>(mPrivateInstanceAAMP);
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	Initialize();
+
+	// Force WaitForCachedFragmentAvailable() to abort and return false.
+	mMediaTrack->eosReached = true;
+	mMediaTrack->SetAbortInject(true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData(_, _, _));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.WillOnce(Return(true))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, StopUnderflowMonitor()).Times(1);
+
+	mMediaTrack->RunInjectLoop();
+
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	g_mockStreamAbstractionAAMP.reset();
 }

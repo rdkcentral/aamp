@@ -65,6 +65,10 @@ function install_build_libdash_fn()
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0010-RDKAAMP-121-Failover-Tag-on-SegmentTemplate.patch || { echo "ERROR: Failed to apply patch 0010"; return 1; }
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0011-RDKAAMP-61-AAMP-low-latency-dash-stream-evaluation.patch || { echo "ERROR: Failed to apply patch 0011"; return 1; }
         patch -p1 < meta-rdk-ext/recipes-multimedia/libdash/libdash/0012-To-retrieves-the-text-content-of-CDATA-section.patch || { echo "ERROR: Failed to apply patch 0012"; return 1; }
+        # Apply compilation fix for missing standard library includes
+        # Required on macOS (Clang) and newer GCC versions that no longer
+        # implicitly include <vector>/<string>/<map> via other headers.
+        patch -p1 < ../../../OSX/patches/0001-libdash-add-missing-std-includes.patch || { echo "ERROR: Failed to apply compilation fix patch"; return 1; }
         mkdir -p build
         cd build || { echo "ERROR: Failed to change to build directory"; return 1; }
         
@@ -84,6 +88,7 @@ function install_build_libdash_fn()
         cmake .. \
             -DCMAKE_INSTALL_PREFIX="${LOCAL_DEPS_BUILD_DIR}" \
             -DCMAKE_MACOSX_RPATH=TRUE \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_C_FLAGS="${EXTRA_C_FLAGS}" \
             -DCMAKE_CXX_FLAGS="${EXTRA_CXX_FLAGS}" \
             -DCMAKE_SHARED_LINKER_FLAGS="${EXTRA_LINK_FLAGS}" || {

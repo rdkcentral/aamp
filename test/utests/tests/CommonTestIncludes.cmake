@@ -24,15 +24,14 @@ include_directories(${AAMP_ROOT}
                     ${AAMP_ROOT}/drm/helper 
                     ${AAMP_ROOT}/downloader 
                     ${AAMP_ROOT}/subtitle
-                    ${AAMP_ROOT}/middleware
                     ${AAMP_ROOT}/tsb/api
                     ${AAMP_ROOT}/isobmff
                     ${AAMP_ROOT}/subtec/subtecparser
                     ${AAMP_ROOT}/abr
                     ${AAMP_ROOT}/mp4demux)
 
-include_directories(${GTEST_INCLUDE_DIRS})
-include_directories(${GMOCK_INCLUDE_DIRS})
+include_directories(BEFORE ${GTEST_INCLUDE_DIRS})
+include_directories(BEFORE ${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
@@ -40,18 +39,52 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
-# Middleware specific includes
-# Pretty print below for better readability
-include_directories(${AAMP_ROOT}/middleware
-                    ${AAMP_ROOT}/middleware/playerisobmff
-                    ${AAMP_ROOT}/middleware/subtitle
-                    ${AAMP_ROOT}/middleware/subtec/subtecparser
-                    ${AAMP_ROOT}/middleware/subtec/libsubtec
-                    ${AAMP_ROOT}/middleware/playerjsonobject
-                    ${AAMP_ROOT}/middleware/closedcaptions
-                    ${AAMP_ROOT}/middleware/drm
-                    ${AAMP_ROOT}/middleware/externals
-                    ${AAMP_ROOT}/middleware/externals/contentsecuritymanager
-                    ${AAMP_ROOT}/middleware/baseConversion
-                    ${AAMP_ROOT}/middleware/playerLogManager
-                    ${AAMP_ROOT}/middleware/vendor)
+# Middleware headers - use external middleware-player-interface via pkg-config
+# These variables are set in parent test/utests/CMakeLists.txt
+# For legacy builds without external middleware, fall back to middleware-player-interface repo or internal paths
+if(PLAYERFBINTERFACE_INCLUDE_DIRS)
+	# External middleware (preferred)
+	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
+	include_directories(${BASECONVERSION_INCLUDE_DIRS})
+	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
+	include_directories(${SUBTEC_INCLUDE_DIRS})
+elseif(EXISTS ${AAMP_ROOT}/middleware-player-interface)
+	# Middleware from aamp/middleware-player-interface (GitHub Actions CI)
+	include_directories(${AAMP_ROOT}/middleware-player-interface
+	                    ${AAMP_ROOT}/middleware-player-interface/playerisobmff
+	                    ${AAMP_ROOT}/middleware-player-interface/subtitle
+	                    ${AAMP_ROOT}/middleware-player-interface/subtec/subtecparser
+	                    ${AAMP_ROOT}/middleware-player-interface/subtec/libsubtec
+	                    ${AAMP_ROOT}/middleware-player-interface/playerjsonobject
+	                    ${AAMP_ROOT}/middleware-player-interface/closedcaptions
+	                    ${AAMP_ROOT}/middleware-player-interface/drm
+	                    ${AAMP_ROOT}/middleware-player-interface/drm/helper
+	                    ${AAMP_ROOT}/middleware-player-interface/externals
+	                    ${AAMP_ROOT}/middleware-player-interface/externals/contentsecuritymanager
+	                    ${AAMP_ROOT}/middleware-player-interface/baseConversion
+	                    ${AAMP_ROOT}/middleware-player-interface/playerLogManager
+	                    ${AAMP_ROOT}/middleware-player-interface/vendor)
+else()
+	# Internal middleware paths (deprecated, for legacy builds only)
+	include_directories(${AAMP_ROOT}/middleware
+	                    ${AAMP_ROOT}/middleware/playerisobmff
+	                    ${AAMP_ROOT}/middleware/subtitle
+	                    ${AAMP_ROOT}/middleware/subtec/subtecparser
+	                    ${AAMP_ROOT}/middleware/subtec/libsubtec
+	                    ${AAMP_ROOT}/middleware/playerjsonobject
+	                    ${AAMP_ROOT}/middleware/closedcaptions
+	                    ${AAMP_ROOT}/middleware/drm
+	                    ${AAMP_ROOT}/middleware/drm/helper
+	                    ${AAMP_ROOT}/middleware/externals
+	                    ${AAMP_ROOT}/middleware/externals/contentsecuritymanager
+	                    ${AAMP_ROOT}/middleware/baseConversion
+	                    ${AAMP_ROOT}/middleware/playerLogManager
+	                    ${AAMP_ROOT}/middleware/vendor)
+endif()
+
+# std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
+# GCC emits __atomic_load_16 / __atomic_store_16 requiring the atomic support
+# library, which GCC always ships for its target arch.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(OS_LD_FLAGS ${OS_LD_FLAGS} "-latomic")
+endif()

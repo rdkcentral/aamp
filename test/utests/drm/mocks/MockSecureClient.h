@@ -21,6 +21,7 @@
 #define AAMP_MOCK_SECURE_CLIENT_H
 
 #include "sec_client.h"
+#include <memory>
 #include <gmock/gmock.h>
 
 class MockSecureClient
@@ -33,6 +34,6 @@ public:
 				 size_t *licenseResponseLength));
 };
 
-extern MockSecureClient *g_mocksecclient;
+extern std::shared_ptr<MockSecureClient> g_mocksecclient;
 
 #endif /* AAMP_MOCK_SECURE_CLIENT_H */

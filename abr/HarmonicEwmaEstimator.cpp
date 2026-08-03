@@ -145,6 +145,22 @@ void HarmonicEwmaEstimator::UpdateDownloadMetrics(const DownloadMetrics &downloa
 		m_ewma_slow_BytesPerSecond = payload_bytes_per_second;
 	}
 	RecomputeHarmonicMeanAndMedianTTFB();
+	// Invalidate the stale in-flight progress estimate.  The completed (or
+	// aborted) sample now provides the authoritative throughput figure.
+	// Without this, the initial burst of bytes at the start of a stalled
+	// download inflates m_progressBytesPerSecond to an unrealistically high
+	// value which — when no completed-sample history exists yet — is returned
+	// as the sole bandwidth estimate by GetThroughputBytesPerSecond(), causing
+	// ABR to ramp up to the highest profile mid-stall and enter a thrash loop.
+	// The progress context will be re-established by the first xferinfo()
+	// callback of the next download.
+	m_progressBytesPerSecond = 0.0;
+	m_progressHasSample = false;
+	m_progressContextValid = false;
+	// Clear the one-shot suppression flag now that we have a fresh completed
+	// sample.  Subsequent calls to GetBandwidthBitsPerSecond() will return the
+	// updated EWMA estimate rather than -1.
+	m_bandwidthReportSuppressed = false;
 }
 
 /**
@@ -172,6 +188,7 @@ void HarmonicEwmaEstimator::Reset()
 	m_progressLastNowBytes = 0;
 	m_progressLastTotalBytes = 0;
 	m_progressHasSample = false;
+	m_bandwidthReportSuppressed = false;
 }
 
 /**
@@ -234,6 +251,12 @@ void HarmonicEwmaEstimator::UpdateDownloadProgress(
  */
 BitsPerSecond HarmonicEwmaEstimator::GetBandwidthBitsPerSecond()
 {
+	// Return -1 for one cycle after ResetCurrentlyAvailableBandwidth() to provide
+	// hysteresis: prevents an immediate re-switch after a profile change.
+	if (m_bandwidthReportSuppressed)
+	{
+		return static_cast<BitsPerSecond>(-1);
+	}
 	const double throughputBytesPerSecond = GetThroughputBytesPerSecond();
 	// Convert to bits per second and address edge case of zero/negative throughput
 	if (throughputBytesPerSecond <= 0.0)
@@ -314,11 +337,22 @@ double HarmonicEwmaEstimator::GetPredictedDownloadTimeSeconds(
 }
 
 /**
- * @brief Reset only the currently available bandwidth estimate.
+ * @brief Suppress bandwidth reporting for one download cycle.
+ *
+ * Sets a one-shot flag so that GetBandwidthBitsPerSecond() returns -1 until
+ * the next completed segment is processed by UpdateDownloadMetrics().  This
+ * provides the same post-switch hysteresis as RollingMedianOutlierEstimator
+ * (which achieves it by clearing its rolling cache) without discarding the
+ * EWMA state: all history, fast/slow EWMA accumulators, and harmonic mean are
+ * preserved and immediately available once the suppression clears.
+ *
+ * Network throughput is a property of the link, not of the encoded profile.
+ * Clearing accumulated history on every profile change would introduce
+ * unnecessary noise into the estimate.
  */
 void HarmonicEwmaEstimator::ResetCurrentlyAvailableBandwidth()
 {
-	// TODO: Implement if needed
+	m_bandwidthReportSuppressed = true;
 }
 
 /**

@@ -380,6 +380,7 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 void AampTSBSessionManager::NotifyVideoTsbWaiters()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
+	AAMPLOG_TRACE("Notifying video TSB waiters");
 	mStopWaitingForVideoTsb = true;
 	mNewVideoTsbContentCV.notify_one();
 }
@@ -387,7 +388,9 @@ void AampTSBSessionManager::NotifyVideoTsbWaiters()
 void AampTSBSessionManager::WaitForVideoTsbContentOrAbort()
 {
 	std::unique_lock<std::mutex> lock(mReadMutex);
+	AAMPLOG_TRACE("Waiting for video TSB content or abort");
 	mNewVideoTsbContentCV.wait(lock, [this]() { return mStopWaitingForVideoTsb; });
+	AAMPLOG_TRACE("Woke up from video TSB content wait");
 	mStopWaitingForVideoTsb = false;
 }
 
@@ -536,6 +539,7 @@ void AampTSBSessionManager::Flush()
 	{
 		// Notify the monitor thread in case it's waiting
 		mWriteThreadCV.notify_one();
+		NotifyVideoTsbWaiters();
 		if (mWriteThread.joinable())
 		{
 			mWriteThread.join();
@@ -771,7 +775,7 @@ std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType
  * @param[in] rate
  * @param[in] tuneType
  *
- * @return AAMPSTatusType - OK if success
+ * @return AAMPStatusType - OK if success
  */
 AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType)
 {
@@ -1077,27 +1081,6 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 	return ret;
 }
 
-/**
- * @brief GetManifestEndDelta - Get manifest delta with live downloader end
- *
- * @return void
- */
-double AampTSBSessionManager::GetManifestEndDelta()
-{
-	double manifestEndDelta = 0.0;
-	LockReadMutex();
-	if(mStoreEndPosition > 0.0 && mAamp->mAbsoluteEndPosition > 0.0  )
-	{
-		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0.0;
-	}
-	else
-	{
-		AAMPLOG_WARN("TSB Session manager progress has not yet updated!!! returning..  %.02lf", manifestEndDelta);
-	}
-	UnlockReadMutex();
-
-	return manifestEndDelta;
-}
 /**
  * @brief UpdateProgress - Progress updates
  *

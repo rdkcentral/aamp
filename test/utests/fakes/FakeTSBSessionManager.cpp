@@ -27,7 +27,7 @@
 #include "MockTSBSessionManager.h"
 #include "isobmffhelper.h" // Include for IsoBmffHelper
 
-MockTSBSessionManager *g_mockTSBSessionManager = nullptr;
+std::shared_ptr<MockTSBSessionManager> g_mockTSBSessionManager{};
 
 /**
  * @fn AampTSBSessionManager Constructor
@@ -144,11 +144,6 @@ void AampTSBSessionManager::InitializeDataManagers()
 }
 
 BitsPerSecond AampTSBSessionManager::GetVideoBitrate()
-{
-	return 0;
-}
-
-double AampTSBSessionManager::GetManifestEndDelta()
 {
 	return 0;
 }

@@ -19,40 +19,84 @@
 
 /**
  * @file AampUnderflowMonitor.cpp
- * @brief Implements the AampUnderflowMonitor class for monitoring underflow conditions.
+ * @brief Timer-driven video underflow detection for AampUnderflowMonitor.
+ *
+ * Algorithm overview
+ * ==================
+ * On each video fragment (or LL-DASH chunk) download completion, the caller
+ * invokes NotifyVideoFragment(endPosition, playRate).  The monitor computes:
+ *
+ *   bufferSec = endPosition - aamp->GetPositionSeconds()   // sampled once here
+ *   deadline  = steady_clock::now() + bufferSec / playRate
+ *
+ * The background thread sleeps until `deadline`.  If it wakes without the
+ * deadline having been updated (i.e. no new fragment arrived in time),
+ * underflow is declared via SetBufferingState(true).
+ *
+ * The deadline is re-armed by:
+ *   - NotifyVideoFragment()   — each downloaded fragment / chunk
+ *   - NotifyPipelineResumed() — after buffering recovery
+ *
+ * The deadline is suspended (disarmed) by:
+ *   - NotifyPipelinePaused()  — while pipeline is paused for buffering
+ *   - Stop()                  — shutdown
+ *
+ * Resume logic
+ * ============
+ * While underflow is active (mBufUnderFlowStatus == true), NotifyVideoFragment()
+ * accumulates buffered content but does NOT resume the pipeline itself.
+ * Instead it calls SetBufferingState(false) once bufferSec >= kResumeThresholdSec,
+ * which unpauses the pipeline.  The deadline is then re-armed directly inside
+ * NotifyVideoFragment() (not via NotifyPipelineResumed()) to avoid re-acquiring
+ * mMutex on the same call stack, which would deadlock on some platforms.
+ * NotifyPipelineResumed() remains available for callers that resume the pipeline
+ * through an independent path (e.g. an external seek or tune).
+ *
+ * No polling, no GStreamer sinkCacheEmpty, no position-change heuristics.
  */
 #include "AampUnderflowMonitor.h"
-#include "StreamAbstractionAAMP.h"
-#include "AampEvent.h"
+#include "priv_aamp.h"
 #include "AampDefine.h"
 #include "AampConfig.h"
 #include "AampLogManager.h"
+#include "AampMediaType.h"
 #include "AampUtils.h"
 #include <stdexcept>
 
+// Minimum buffered content remaining (seconds) below which a deadline expiry is
+// treated as a genuine underflow.  If more than this much content is still ahead
+// of the current playback position when the deadline fires, the expiry is a false
+// alarm — e.g. a CDAI period-boundary injection gap, or a brief live-edge stall
+// where GStreamer has content queued but the download loop is momentarily idle.
+// In those cases the deadline is rearmed for the remaining drain time.
+static constexpr double kFalseAlarmGuardSec = 1.0;
 
-AampUnderflowMonitor::AampUnderflowMonitor(StreamAbstractionAAMP* stream, PrivateInstanceAAMP* aamp)
-: mStream(stream), mAamp(aamp)
+// ---------------------------------------------------------------------------
+// Construction / destruction
+// ---------------------------------------------------------------------------
+
+AampUnderflowMonitor::AampUnderflowMonitor(PrivateInstanceAAMP* aamp)
+    : mAamp(aamp)
 {
     if (mAamp == nullptr)
     {
-        throw std::invalid_argument("Aamp cannot be null");
-    }
-    if (mStream == nullptr)
-    {
-        throw std::invalid_argument("StreamAbstractionAAMP cannot be null");
+        throw std::invalid_argument("AampUnderflowMonitor: aamp cannot be null");
     }
 }
 
-AampUnderflowMonitor::~AampUnderflowMonitor() {
+AampUnderflowMonitor::~AampUnderflowMonitor()
+{
     Stop();
 }
 
-void AampUnderflowMonitor::Start() {
-    // Use unique_lock to allow unlock around join operations
+// ---------------------------------------------------------------------------
+// Lifecycle
+// ---------------------------------------------------------------------------
+
+void AampUnderflowMonitor::Start()
+{
     std::unique_lock<std::mutex> lock(mMutex);
 
-    // If a previous thread exists but is not running, join it before starting a new
     if (mThread.joinable())
     {
         if (mRunning.load())
@@ -66,206 +110,260 @@ void AampUnderflowMonitor::Start() {
         lock.lock();
     }
 
+    mDeadlineArmed = false;
+    mRunning.store(true);
+
     try
     {
-        mRunning.store(true);
         mThread = std::thread(&AampUnderflowMonitor::Run, this);
-        AAMPLOG_INFO("AampUnderflowMonitor thread created [%zx]", GetPrintableThreadID(mThread));
+        AAMPLOG_INFO("AampUnderflowMonitor thread created [%zx]",
+                     GetPrintableThreadID(mThread));
     }
-    catch(const std::exception& e)
+    catch (const std::exception& e)
     {
         mRunning.store(false);
-        AAMPLOG_WARN("Failed to create AampUnderflowMonitor thread : %s", e.what());
-        return;
-    }
-
-    // If the thread exited immediately (e.g., due to player state), ensure we join it to avoid a dangling joinable thread
-    if (!mRunning.load() && mThread.joinable())
-    {
-        lock.unlock();
-        mThread.join();
-        AAMPLOG_WARN("AampUnderflowMonitor thread exited immediately after start; joined");
+        AAMPLOG_WARN("Failed to create AampUnderflowMonitor thread: %s", e.what());
     }
 }
 
 void AampUnderflowMonitor::Stop()
 {
-    // Signal thread to stop
-    mRunning.store(false);
-    
-    // Wait for thread to terminate
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mRunning.store(false);
+        mDeadlineArmed = false;
+    }
+    mCV.notify_all();
+
     if (mThread.joinable())
     {
         mThread.join();
         AAMPLOG_INFO("AampUnderflowMonitor thread joined");
     }
-    
-    // Nullify pointers under mutex to prevent any race with thread cleanup
-    std::lock_guard<std::mutex> lock(mMutex);
-    mAamp = nullptr;
-    mStream = nullptr;
 }
+
+// ---------------------------------------------------------------------------
+// Deadline management (called from downloader / pipeline threads)
+// ---------------------------------------------------------------------------
+
+void AampUnderflowMonitor::RearmDeadline(double bufferSec, float playRate)
+{
+    // Caller holds mMutex.
+    if (playRate <= 0.0f)
+    {
+        mDeadlineArmed = false;
+        return;
+    }
+    const double sleepSec = bufferSec / static_cast<double>(playRate);
+    using Dur = Clock::duration;
+    mDeadline      = Clock::now() + std::chrono::duration_cast<Dur>(std::chrono::duration<double>(sleepSec));
+    mDeadlineArmed = true;
+}
+
+void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRate)
+{
+    if (!mRunning.load()) return;
+
+    double bufferSec       = 0.0;
+    bool   shouldResume    = false;
+    double resumeThreshold = 0.0;
+
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (!mAamp) return;
+
+        const double positionSec = mAamp->GetPositionMs() / 1000.0;
+        bufferSec = endPosition - positionSec;
+        if (bufferSec < 0.0) bufferSec = 0.0;
+
+        mCurrentEndPosition = endPosition;
+        mCurrentPlayRate    = playRate;
+
+        const bool underflowActive = mAamp->GetBufUnderFlowStatus();
+
+        if (underflowActive)
+        {
+            // Pipeline is paused for buffering.  Check whether we now have enough
+            // content to resume.  Don't rearm the timer here — NotifyPipelineResumed()
+            // does that once the pipeline is confirmed live.
+            resumeThreshold = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowResumeThresholdSec);
+            shouldResume    = (bufferSec >= resumeThreshold);
+        }
+        else
+        {
+            // Normal playback: rearm the deadline.
+            RearmDeadline(bufferSec, playRate);
+        }
+    }
+
+    if (shouldResume)
+    {
+        AAMPLOG_INFO("[video] underflow ended. buffered=%.3f (>= resume threshold %.3f)",
+                     bufferSec, resumeThreshold);
+        mAamp->SetBufferingState(false);
+        // Directly rearm the deadline here rather than through SetBufferingState →
+        // NotifyPipelineResumedToUnderflowMonitor, which would try to re-acquire
+        // mUnderflowMonitorMutex on the same thread (deadlock on macOS).
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            RearmDeadline(bufferSec, playRate);
+        }
+    }
+    else if (mAamp->GetBufUnderFlowStatus())
+    {
+        AAMPLOG_INFO("[video] waiting to end underflow. buffered=%.3f", bufferSec);
+    }
+
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyRateChange(float rate)
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mCurrentPlayRate = rate;
+        // If transitioning to trickplay, disarm immediately so the stale deadline
+        // (armed at the old rate) cannot fire before the first trickplay fragment
+        // arrives and rearmed the timer via NotifyVideoFragment.
+        const bool isTrickplay = (rate != AAMP_NORMAL_PLAY_RATE &&
+                                  rate != AAMP_SLOWMOTION_RATE  &&
+                                  rate != AAMP_RATE_PAUSE);
+        if (isTrickplay)
+        {
+            AAMPLOG_INFO("[video] AampUnderflowMonitor: rate changed to %.2f (trickplay); disarming deadline",
+                         rate);
+            mDeadlineArmed = false;
+        }
+    }
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyPipelinePaused()
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mDeadlineArmed = false;
+    }
+    mCV.notify_one();
+}
+
+void AampUnderflowMonitor::NotifyPipelineResumed(double endPosition, float playRate)
+{
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (!mAamp) return;
+
+        const double positionSec = mAamp->GetPositionMs() / 1000.0;
+        double bufferSec = endPosition - positionSec;
+        if (bufferSec < 0.0) bufferSec = 0.0;
+
+        mCurrentEndPosition = endPosition;
+        mCurrentPlayRate    = playRate;
+        RearmDeadline(bufferSec, playRate);
+    }
+    mCV.notify_one();
+}
+
+// ---------------------------------------------------------------------------
+// Background thread
+// ---------------------------------------------------------------------------
 
 void AampUnderflowMonitor::Run()
 {
-    // Resolve configurable thresholds and polling intervals once
-    const double kUnderflowDetectThresholdSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowDetectThresholdSec);
-    const double kUnderflowResumeThresholdSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowResumeThresholdSec);
-    const double kLowBufferSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowLowBufferSec);
-    const double kHighBufferSec = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowHighBufferSec);
-    const int kLowBufferPollMs = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowLowBufferPollMs);
-    const int kMediumBufferPollMs = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowMediumBufferPollMs);
-    const int kHighBufferPollMs = mAamp->mConfig->GetConfigValue(eAAMPConfig_UnderflowHighBufferPollMs);
+    AAMPLOG_INFO("Started AampUnderflowMonitor for video");
 
-    // Wait until playback enters PLAYING state or underflow becomes active; exit if playback stops
-    while (mRunning.load()) {
-        AAMPPlayerState state;
-        bool shouldBreak = false;
-        bool underflowStatus = false;
-        
+    std::unique_lock<std::mutex> lock(mMutex);
+
+    while (mRunning.load())
+    {
+        if (!mDeadlineArmed)
         {
-            std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp) return; // Stop() was called
-            
-            state = mAamp->GetState();
-            if (state == eSTATE_STOPPED || state == eSTATE_RELEASED || state == eSTATE_ERROR) {
-                mRunning.store(false);
-                return;
-            }
-            underflowStatus = mAamp->GetBufUnderFlowStatus();
-            shouldBreak = (state == eSTATE_PLAYING || underflowStatus);
+            // No active deadline — wait for a fragment notification or Stop().
+            mCV.wait(lock, [this]{ return !mRunning.load() || mDeadlineArmed; });
+            continue;
         }
-        
-        if (shouldBreak) {
+
+        // Sleep until the deadline, or until woken by a rearm / stop.
+        const TimePoint deadline = mDeadline;
+        const bool timedOut = !mCV.wait_until(lock, deadline,
+            [this, &deadline]{ return !mRunning.load() || !mDeadlineArmed || mDeadline != deadline; });
+
+        if (!mRunning.load()) break;
+
+        // Woken early (deadline changed or disarmed) — loop back.
+        if (!timedOut) continue;
+
+        // Deadline expired — declare underflow.
+        if (!mAamp) break;
+
+        const AAMPPlayerState state = mAamp->GetState();
+        if (state == eSTATE_STOPPED || state == eSTATE_RELEASED ||
+            state == eSTATE_ERROR   || state == eSTATE_IDLE ||
+            state == eSTATE_COMPLETE)
+        {
+            AAMPLOG_INFO("[video] AampUnderflowMonitor: exiting (state=%d)", static_cast<int>(state));
             break;
         }
-        
+
+        // Use the cached play rate (updated under mMutex in NotifyVideoFragment) rather
+        // than reading mAamp->rate directly — the latter is a plain non-atomic float
+        // that would constitute a C++ data race with the writer thread.
+        const float rate       = mCurrentPlayRate;
+        const bool  isTrickplay = (rate != AAMP_NORMAL_PLAY_RATE &&
+                                   rate != AAMP_SLOWMOTION_RATE  &&
+                                   rate != AAMP_RATE_PAUSE);
+        const bool  isSeeking   = (state == eSTATE_SEEKING);
+
+        if (isTrickplay || isSeeking)
         {
-            std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp) return;
-            mAamp->interruptibleMsSleep(100);
+            AAMPLOG_TRACE("[video] underflow deadline expired but suppressed "
+                          "(rate=%.2f trickplay=%d seeking=%d); disarming",
+                          rate, (int)isTrickplay, (int)isSeeking);
+            mDeadlineArmed = false;
+            continue;
+        }
+
+        // Re-read the actual buffer depth before declaring underflow.  If GStreamer
+        // still has content queued (e.g. CDAI period-boundary injection gap or a
+        // brief live-edge stall), the deadline expiry is premature — rearm the
+        // timer for the remaining drain time and wait rather than pausing the pipeline.
+        // GetPositionMs() is safe to call under mMutex (same pattern used in
+        // NotifyVideoFragment); mCurrentEndPosition is guarded by the same mutex.
+        {
+            const double posNow  = mAamp->GetPositionMs() / 1000.0;
+            const double bufLeft = mCurrentEndPosition - posNow;
+            if (bufLeft > kFalseAlarmGuardSec)
+            {
+                AAMPLOG_INFO("[video] deadline expired but %.3fs still buffered; "
+                             "rearming (period gap / live-edge stall, not underflow)",
+                             bufLeft);
+                RearmDeadline(bufLeft, rate);
+                continue;
+            }
+
+        }
+
+        if (!mAamp->GetBufUnderFlowStatus())
+        {
+            AAMPLOG_INFO("[video] underflow detected (deadline expired, rate=%.2f)", rate);
+            mDeadlineArmed = false;  // Disarm — resume path will rearm.
+
+            // Release the lock while calling into aamp to avoid priority inversion.
+            lock.unlock();
+            mAamp->SetBufferingState(true);
+            PlaybackErrorType errorType = eGST_ERROR_UNDERFLOW;
+            mAamp->SendAnomalyEvent(ANOMALY_WARNING, "%s %s",
+                                    GetMediaTypeName(eMEDIATYPE_VIDEO),
+                                    mAamp->getStringForPlaybackError(errorType));
+            lock.lock();
+        }
+        else
+        {
+            // Already in underflow (NotifyPipelinePaused should have disarmed,
+            // but guard against racing calls).
+            mDeadlineArmed = false;
         }
     }
 
-    while (mRunning.load()) {
-        // Check player state and underflow status under mutex
-        bool underflowActive;
-        AAMPPlayerState playerState;
-        float currentRate;
-        double bufferedTimeSec;
-        
-        {
-            std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp || !mStream) return; // Stop() was called
-            
-            underflowActive = mAamp->GetBufUnderFlowStatus();
-            playerState = mAamp->GetState();
-            // Exit when playback transitions to stopped/released/error/idle
-            if (playerState == eSTATE_STOPPED || playerState == eSTATE_RELEASED || playerState == eSTATE_ERROR || playerState == eSTATE_IDLE) {
-                break;
-            }
-            
-            // Skip buffer-based underflow checks during trickplay or seeking
-            currentRate = mAamp->rate;
-            
-            // Query buffered duration once and reuse for detection and sleep cadence
-            bufferedTimeSec = mStream->GetBufferedVideoDurationSec();
-            if (bufferedTimeSec < 0.0) bufferedTimeSec = 0.0;
-        }
-        
-        const bool inPlayOrUnderflow = (playerState == eSTATE_PLAYING) || underflowActive;
-        const bool isTrickplay = (currentRate != AAMP_NORMAL_PLAY_RATE && currentRate != AAMP_SLOWMOTION_RATE && currentRate != AAMP_RATE_PAUSE);
-        const bool isSeekingState = (playerState == eSTATE_SEEKING);
-
-        if (inPlayOrUnderflow) {
-            // Video underflow detection/resume (query under mutex)
-            bool trackDownloadsEnabled;
-            bool sinkCacheEmpty;
-            
-            {
-                std::lock_guard<std::mutex> lock(mMutex);
-                if (!mAamp) return;
-                trackDownloadsEnabled = mAamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO);
-                sinkCacheEmpty = mAamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
-            }
-
-            // Only evaluate buffer threshold when not in trickplay/seeking; still honor sink cache emptiness
-            const bool allowBufferCheck = (!isTrickplay && !isSeekingState);
-            if (((allowBufferCheck && bufferedTimeSec <= kUnderflowDetectThresholdSec && trackDownloadsEnabled)) || sinkCacheEmpty)
-            {
-                if (!underflowActive)
-                {
-                    AAMPLOG_INFO("[video] underflow detected. buffered=%.3f cacheEmpty=%d (rate=%.2f, trickplay=%d, seeking=%d)", bufferedTimeSec, (int)sinkCacheEmpty, currentRate, (int)isTrickplay, (int)isSeekingState);
-                    
-                    std::lock_guard<std::mutex> lock(mMutex);
-                    if (!mAamp) return;
-                    mAamp->SetBufferingState(true);
-                    PlaybackErrorType errorType = eGST_ERROR_UNDERFLOW;
-                    mAamp->SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(eMEDIATYPE_VIDEO), mAamp->getStringForPlaybackError(errorType));
-                }
-                else
-                {
-                    if (!trackDownloadsEnabled && sinkCacheEmpty)
-                    {
-                        AAMPLOG_WARN("[video] downloads blocked with empty cache during underflow; resuming");
-                        std::lock_guard<std::mutex> lock(mMutex);
-                        if (!mAamp) return;
-                        mAamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
-                    }
-                }
-            }
-            else
-            {
-                if (!allowBufferCheck)
-                {
-                    // Informational: buffer-based underflow checks suppressed during trickplay/seeking
-                    AAMPLOG_TRACE("[video] skipping buffer-based underflow check (rate=%.2f, trickplay=%d, seeking=%d). cacheEmpty=%d buffered=%.3f",
-                                   currentRate, (int)isTrickplay, (int)isSeekingState, (int)sinkCacheEmpty, bufferedTimeSec);
-                }
-                
-                bool pipelinePaused = false;
-                {
-                    std::lock_guard<std::mutex> lock(mMutex);
-                    if (!mAamp) return;
-                    pipelinePaused = mAamp->mSinkPaused.load();
-                }
-                
-                if (underflowActive && pipelinePaused)
-                {
-                    if (bufferedTimeSec >= kUnderflowResumeThresholdSec && !sinkCacheEmpty)
-                    {
-                        AAMPLOG_INFO("[video] underflow ended. buffered=%.3f cacheEmpty=%d", bufferedTimeSec, (int)sinkCacheEmpty);
-                        std::lock_guard<std::mutex> lock(mMutex);
-                        if (!mAamp) return;
-                        mAamp->SetBufferingState(false);
-                    }
-                    else
-                    {
-                        AAMPLOG_INFO("[video] waiting to end underflow. buffered=%.3f cacheEmpty=%d", bufferedTimeSec, (int)sinkCacheEmpty);
-                    }
-                }
-                else if (underflowActive && !trackDownloadsEnabled && sinkCacheEmpty)
-                {
-                    AAMPLOG_WARN("[video] underflow ongoing, downloads blocked and cache empty; resuming track downloads");
-                    std::lock_guard<std::mutex> lock(mMutex);
-                    if (!mAamp) return;
-                    mAamp->ResumeTrackDownloads(eMEDIATYPE_VIDEO);
-                }
-            }
-            // Audio underflow is not handled currently as we are aligning with the existing behavior
-        }
-
-        // Choose sleep interval based on buffer level (branchless style)
-        const int sleepMs = (bufferedTimeSec < kLowBufferSec) ? kLowBufferPollMs
-                             : (bufferedTimeSec >= kHighBufferSec) ? kHighBufferPollMs
-                             : kMediumBufferPollMs;
-        
-        {
-            std::lock_guard<std::mutex> lock(mMutex);
-            if (!mAamp) return;
-            mAamp->interruptibleMsSleep(sleepMs);
-        }
-    }
     mRunning.store(false);
 }
-

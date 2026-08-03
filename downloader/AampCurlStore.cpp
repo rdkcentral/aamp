@@ -28,7 +28,26 @@
 #include <mutex>
 
 // Curl callback functions
-static std::mutex gCurlShMutex;
+//
+// VPAAMP-558: per-host embedded lock (curlstorestruct::mShareLock).
+//
+// Each curlstorestruct embeds a CurlDataShareLock as a value member.
+// CURLSHOPT_USERDATA is set to &CurlSock->mShareLock so that DNS, SSL, and
+// general libcurl-share operations for each CDN hostname use independent
+// per-host mutexes, restoring the parallelism lost by the
+// VPAAMP-139 single-static-lock fix.
+//
+// Safety: every cleanup path (RemoveCurlSock, ~CurlStore, FlushCurlSockForHost)
+// follows the order:
+//   1. curl_easy_cleanup all queued handles  (no further easy-handle callbacks)
+//   2. curl_share_cleanup(mCurlShared)        (share teardown; lock may fire)
+//   3. SAFE_DELETE(CurlSock)                  (destroys embedded mShareLock)
+// The embedded lock is therefore always alive when curl_share_cleanup needs it.
+//
+// Non-store path: gCurlShLock (file-scope static, process lifetime) is passed
+// as CURLSHOPT_USERDATA in CurlInit when the curl store is disabled, giving
+// the same per-type DNS / SSL / general mutex granularity.
+static CurlDataShareLock gCurlShLock; // process-lifetime; used by non-store path
 
 /**
  * @brief
@@ -67,7 +86,7 @@ static void curl_lock_callback(CURL *curl, curl_lock_data data, curl_lock_access
 	}
 	else
 	{
-		gCurlShMutex.lock();
+		gCurlShLock.mCurlSharedlock.lock(); // defensive fallback; user_ptr should never be NULL
 	}
 }
 
@@ -106,7 +125,7 @@ static void curl_unlock_callback(CURL *curl, curl_lock_data data, void *user_ptr
 	}
 	else
 	{
-		gCurlShMutex.unlock();
+		gCurlShLock.mCurlSharedlock.unlock(); // defensive fallback; user_ptr should never be NULL
 	}
 }
 
@@ -243,16 +262,10 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
  */
 CurlSocketStoreStruct *CurlStore::CreateCurlStore ( const std::string &hostname )
 {
-	CurlSocketStoreStruct *CurlSock = new curlstorestruct();
-	CurlDataShareLock *locks = new curldatasharelock();
-	if ( NULL == CurlSock || NULL == locks )
-	{
-		AAMPLOG_WARN("Failed to alloc memory for curl store");
-		return NULL;
-	}
+	CurlSocketStoreStruct *CurlSock = new curlstorestruct(); // throws std::bad_alloc on failure; no NULL check needed
+	CurlDataShareLock *locks = &CurlSock->mShareLock; // per-host embedded lock (VPAAMP-558)
 
 	CurlSock->timestamp = aamp_GetCurrentTimeMS();
-	CurlSock->pstShareLocks = locks;
 	CurlSock->mCurlStoreUserCount += 1;
 
 	CurlSock->mCurlShared = curl_share_init();
@@ -316,6 +329,7 @@ void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, Aamp
 	else
 	{
 		curl_easy_cleanup(curl);
+		// no need to set to nullptr here since passed by value and not subsequently used
 	}
 }
 
@@ -353,7 +367,7 @@ CURL* CurlStore::CurlEasyInitWithOpt ( PrivateInstanceAAMP *aamp, const std::str
 	CURL_EASY_SETOPT_STRING(curlEasyhdl, CURLOPT_ACCEPT_ENCODING, "");//Enable all the encoding formats supported by client
 	CURL_EASY_SETOPT_FUNC(curlEasyhdl, CURLOPT_SSL_CTX_FUNCTION, ssl_callback); //Check for downloads disabled in btw ssl handshake
 	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SSL_CTX_DATA, aamp);
-	long dns_cache_timeout = 3*60;
+	long dns_cache_timeout = GETCONFIGVALUE(eAAMPConfig_Dns_CacheTimeout);
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
 	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SHARE, aamp->mCurlShared);
 
@@ -430,7 +444,7 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 			if(NULL==aamp->mCurlShared)
 			{
 				aamp->mCurlShared = curl_share_init();
-				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_USERDATA, (void*)NULL);
+				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_USERDATA, (void*)&gCurlShLock);
 				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_LOCKFUNC, curl_lock_callback);
 				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_UNLOCKFUNC, curl_unlock_callback);
 				CURL_SHARE_SETOPT(aamp->mCurlShared, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
@@ -548,13 +562,14 @@ CurlStore::~CurlStore()
 			if(itFreeQ.curl)
 			{
 				curl_easy_cleanup(itFreeQ.curl);
+				// no field reset needed: CurlSock is deleted immediately after this loop
 			}
 		}
 
 		if(CurlSock->mCurlShared)
 		{
 			(void)curl_share_cleanup(CurlSock->mCurlShared);
-			SAFE_DELETE(CurlSock->pstShareLocks);
+			CurlSock->mCurlShared = nullptr;
 		}
 
 		SAFE_DELETE(CurlSock);
@@ -862,6 +877,7 @@ void CurlStore::RemoveCurlSock ( void )
 			if(it->curl)
 			{
 				curl_easy_cleanup(it->curl);
+				// no field reset needed: element is erased immediately below
 			}
 			it=RmCurlSock->mFreeQ.erase(it);
 		}
@@ -870,7 +886,7 @@ void CurlStore::RemoveCurlSock ( void )
 		if(RmCurlSock->mCurlShared)
 		{
 			curl_share_cleanup(RmCurlSock->mCurlShared);
-			SAFE_DELETE(RmCurlSock->pstShareLocks);
+			RmCurlSock->mCurlShared = nullptr;
 		}
 
 		SAFE_DELETE(RmCurlSock);
@@ -906,7 +922,7 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 			{
 				AAMPLOG_INFO("Removing host:%s curlInstance:%d:%p", (removeIter->first).c_str(), it->curlId,it->curl);
 				curl_easy_cleanup(it->curl);
-				it->curl = NULL;
+				// no field reset needed: element is erased immediately below
 			}
 			it=RmCurlSock->mFreeQ.erase(it);
 		}
@@ -918,7 +934,7 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 			{
 				AAMPLOG_INFO("cleaning up curl shared context %p",RmCurlSock->mCurlShared);
 				curl_share_cleanup(RmCurlSock->mCurlShared);
-				SAFE_DELETE(RmCurlSock->pstShareLocks);
+				RmCurlSock->mCurlShared = nullptr;
 			}
 			else
 			{

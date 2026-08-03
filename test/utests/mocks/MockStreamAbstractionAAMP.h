@@ -21,6 +21,7 @@
 #define AAMP_MOCK_STREAM_ABSTRACTION_AAMP_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "StreamAbstractionAAMP.h"
 
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
@@ -97,6 +98,8 @@ public:
 
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 
+	MOCK_METHOD(bool, IsInitialCachingSupported, (), (override));
+
 	MOCK_METHOD(void, ReinitializeInjection, (double rate));
 
 	MOCK_METHOD(void, SetCurrentTextTrackIndex, (const std::string& index));
@@ -104,8 +107,10 @@ public:
 	MOCK_METHOD(void, SetIsAtLivePoint, (bool isAtLivePoint));
 
 	MOCK_METHOD(bool, IsCurrentProfileLowest, ());
+
+	MOCK_METHOD(void, StopUnderflowMonitor, (), (override));
 };
 
-extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;
+extern std::shared_ptr<MockStreamAbstractionAAMP> g_mockStreamAbstractionAAMP;
 
 #endif /* AAMP_MOCK_STREAM_ABSTRACTION_AAMP_H */

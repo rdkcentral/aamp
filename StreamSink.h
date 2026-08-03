@@ -26,6 +26,11 @@
 #include "AampMediaType.h"
 #include "AampDemuxDataTypes.h" // for AampMediaSample
 #include "DemuxDataTypes.h" // for MediaCodecInfo
+#include "ID3Metadata.hpp"
+#include "VideoZoomMode.h"
+#include "AampDefine.h"
+
+class PrivateInstanceAAMP;
 
 /**
  * @struct PlaybackQualityData
@@ -39,7 +44,7 @@ typedef struct PlaybackQualityData
 
 /**
  * @class StreamSink
- * @brief GStreamer Abstraction class for the implementation of AAMPGstPlayer and gstaamp plugin
+ * @brief Abstract interface for stream sink implementations (e.g. GStreamer, DirectRialto)
  */
 class StreamSink
 {
@@ -89,10 +94,12 @@ public:
      *   @brief  API to send audio/video sample into the sink.
      *
      *   @param[in]  mediaType - Type of the media.
-     *   @param[in]  sample - Media sample
-     *   @return void
+     *   @param[in]  sample - Media sample; ownership is transferred (consumed).
+     *                        Callers must pass via std::move() and must not
+     *                        access the sample after this call returns.
+     *   @return true if sample was accepted by the sink, false otherwise.
      */
-    virtual bool SendSample( AampMediaType mediaType, AampMediaSample& sample ) = 0;
+    virtual bool SendSample( AampMediaType mediaType, AampMediaSample&& sample ) = 0;
 
     /**
      *   @brief  Checks pipeline is configured for media type
@@ -162,10 +169,10 @@ public:
      *   @brief Enabled or disable playback pause
      *
      *   @param[in] pause  Enable/Disable
-     *   @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
+     *   @param[in] forceStopPreBuffering - true for disabling pre-buffering in progress
      *   @return true if content successfully paused
      */
-    virtual bool Pause(bool pause, bool forceStopGstreamerPreBuffering){ return true; }
+    virtual bool Pause(bool pause, bool forceStopPreBuffering){ return true; }
 
     /**
      *   @brief Get playback duration in milliseconds
@@ -410,6 +417,41 @@ public:
      * @param[in] codecInfo - Codec information
      */
     virtual void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) {};
+
+    /**
+     *   @brief Check if the specified player instance is associated with this sink
+     *
+     *   @param[in]  aampInstance - Pointer to the PrivateInstanceAAMP to check
+     *   @return true if associated
+     */
+    virtual bool IsAssociatedAamp(PrivateInstanceAAMP *aampInstance) { return false; }
+
+    /**
+     *   @brief Change the AAMP instance associated with this sink
+     *
+     *   @param[in]  newAamp              - Pointer to the new PrivateInstanceAAMP
+     *   @param[in]  id3HandlerCallback   - ID3 metadata callback for the new instance
+     */
+    virtual void ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback) {}
+
+    /**
+     *   @brief Set the AAMP instance that owns encrypted content
+     *
+     *   @param[in]  aamp - Pointer to the PrivateInstanceAAMP with encrypted content
+     */
+    virtual void SetEncryptedAamp(PrivateInstanceAAMP *aamp) {}
+
+    /**
+     *   @brief Return the player ID of the encrypted AAMP instance
+     *
+     *   @return Player ID or -1 if not set
+     */
+    virtual const int GetEncryptedAampId() const { return -1; }
+
+    /**
+     *   @brief Reset the first-frame tracking state
+     */
+    virtual void ResetFirstFrame() {}
 
 };
 

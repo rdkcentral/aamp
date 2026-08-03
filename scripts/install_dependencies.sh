@@ -55,7 +55,7 @@ function install_pkgs_darwin_fn()
             OPENSSL_PATH=$(brew --prefix ${DEFAULT_OPENSSL_VERSION})
             # link may not exist so don't fail
             OPENSSL_CUR_PATH=`readlink /usr/local/ssl` || true
-            if [ "$OPENSSL_CUR_PATH" != "{$OPENSSL_PATH}" ] ; then
+            if [ "$OPENSSL_CUR_PATH" != "${OPENSSL_PATH}" ] ; then
                 sudo rm -f /usr/local/ssl || true
                 sudo ln -s $OPENSSL_PATH /usr/local/ssl
             fi 
@@ -163,6 +163,9 @@ function install_pkgs_linux_fn()
     install_package_fn libtinyxml2-dev
     install_package_fn openjdk-21-jre-headless
     install_package_fn libglib2.0-dev
+    install_package_fn autoconf
+    install_package_fn automake
+    install_package_fn libtool
 
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
@@ -205,8 +208,8 @@ function install_asio_fn()
     cd ${LOCAL_DEPS_BUILD_DIR}
     if [ ! -d asio-1.18.2 ]; then
         echo "Installing asio"
-        curl -o asio-1.18.2.tar.gz "https://excellmedia.dl.sourceforge.net/project/asio/asio/1.18.2%20%28Stable%29/asio-1.18.2.tar.bz2?viasf=1"
-        tar -xf asio-1.18.2.tar.gz
+        curl -L -o asio-1.18.2.tar.bz2 "https://downloads.sourceforge.net/project/asio/asio/1.18.2%20%28Stable%29/asio-1.18.2.tar.bz2?viasf=1" --ssl-no-revoke
+        tar -xf asio-1.18.2.tar.bz2
         pushd asio-1.18.2
         mkdir build && cd build
         ../configure
@@ -237,6 +240,24 @@ function install_pkgs_fn()
 
       install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl wavpack
       install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5 "openjdk@21"
+
+      # GStreamer: required for the cmake build.  Use the official macOS framework if present;
+      # otherwise install via homebrew so the build does not fail with an opaque pkg-config error.
+      local _GST_FRAMEWORK_PKG="/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
+      if [ -d "${_GST_FRAMEWORK_PKG}" ]; then
+          echo "GStreamer framework is already installed."
+      else
+          local _GST_VER
+          _GST_VER=$(brew ls --versions gstreamer 2>/dev/null) || true
+          local _GST_BASE_VER
+          _GST_BASE_VER=$(brew ls --versions gst-plugins-base 2>/dev/null) || true
+          if [ -n "${_GST_VER}" ] && [ -n "${_GST_BASE_VER}" ]; then
+              echo "gstreamer is already installed (via homebrew)."
+          else
+              echo "GStreamer framework not found. Installing gstreamer and gst-plugins-base via homebrew..."
+              brew install gstreamer gst-plugins-base
+          fi
+      fi
 
       # Check if running on arm64 with macOS 15.5 or later
       if [[ "$ARCH" == "arm64" ]] && [[ "$(printf '%s\n' "$CUR_MACOS_VER" "15.5" | sort -V | head -n1)" == "15.5" ]]; then

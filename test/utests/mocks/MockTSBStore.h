@@ -21,6 +21,7 @@
 #define AAMP_MOCK_TSB_STORE_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "TsbApi.h"
 
 using namespace TSB;
@@ -35,6 +36,6 @@ public:
 	MOCK_METHOD(void, Flush, ());
 };
 
-extern MockTSBStore *g_mockTSBStore;
+extern std::shared_ptr<MockTSBStore> g_mockTSBStore;
 
 #endif /* AAMP_MOCK_TSB_STORE_H */

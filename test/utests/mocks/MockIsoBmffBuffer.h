@@ -21,6 +21,7 @@
 #define AAMP_MOCK_ISOBMFF_BUFFER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "isobmff/isobmffbuffer.h"
 
 class MockIsoBmffBuffer : public IsoBmffBuffer
@@ -37,7 +38,7 @@ public:
     MOCK_METHOD(void, setBuffer, (uint8_t *, size_t));
     MOCK_METHOD(bool, parseBuffer, (bool, int));
     MOCK_METHOD(void, restampPts, (int64_t));
-    MOCK_METHOD(void, setPtsAndDuration, (uint64_t, uint64_t));
+    MOCK_METHOD(void, setPtsAndDuration, (uint64_t, uint32_t));
     MOCK_METHOD(uint64_t, getSegmentDuration, ());
     MOCK_METHOD(bool, getMdatBoxCount, (size_t&));
     MOCK_METHOD(size_t, getParsedBoxesSize, ());
@@ -52,6 +53,6 @@ public:
     MOCK_METHOD(int, getLastMdatBoxIndex, (), (const));
 };
 
-extern MockIsoBmffBuffer *g_mockIsoBmffBuffer;
+extern std::shared_ptr<MockIsoBmffBuffer> g_mockIsoBmffBuffer;
 
 #endif /* AAMP_MOCK_ISOBMFF_BUFFER_H */

@@ -32,14 +32,13 @@ public:
 protected:
 	void SetUp() override
 	{
-		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+		g_mockPrivateInstanceAAMP = std::make_shared<MockPrivateInstanceAAMP>();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
 	}
 
 	void TearDown() override
 	{
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;

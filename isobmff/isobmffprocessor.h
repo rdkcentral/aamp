@@ -116,7 +116,7 @@ public:
 	 * @param[in] peerBmffProcessor - peer instance of IsoBmffProcessor
 	 */
 	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, bool passThrough = false,
-		IsoBmffProcessor* peerBmffProcessor = NULL, IsoBmffProcessor* peerSubProcessor = NULL);
+		IsoBmffProcessor* peerBmffProcessor = nullptr, IsoBmffProcessor* peerSubProcessor = nullptr);
 
 	/**
 	 * @fn ~IsoBmffProcessor
@@ -179,7 +179,7 @@ public:
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(std::vector<uint8_t>& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+	bool sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -296,6 +296,12 @@ public:
 	 * @return true if pass through mode, false otherwise
 	 */
 	bool getPassThroughMode() { return passThroughMode; }
+
+	/**
+	 * @brief Check whether the processor performs PTS restamping internally.
+	 * @return true if internal PTS restamping is configured and active
+	 */
+	bool getPTSRestampStatus() const override;
 
 private:
 

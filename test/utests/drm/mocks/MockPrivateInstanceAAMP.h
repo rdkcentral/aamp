@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_PRIV_AAMP_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "priv_aamp.h"
 
 class MockPrivateInstanceAAMP
@@ -28,10 +29,16 @@ class MockPrivateInstanceAAMP
 public:
 	MOCK_METHOD(void, Individualization, (const std::string &payload));
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
+	MOCK_METHOD(void, SendErrorEvent,
+		(AAMPTuneFailure tuneFailure, const char *description,
+			bool isRetryEnabled, int32_t secManagerClassCode,
+			int32_t secManagerReasonCode,
+			int32_t secClientBusinessStatus,
+			const std::string &responseData));
 	MOCK_METHOD(void, SendDrmErrorEvent, (DrmMetaDataEventPtr event, bool isRetryEnabled));
 	MOCK_METHOD(void, SendDRMMetaData, (DrmMetaDataEventPtr e));
 };
 
-extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
+extern std::shared_ptr<MockPrivateInstanceAAMP> g_mockPrivateInstanceAAMP;
 
 #endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */

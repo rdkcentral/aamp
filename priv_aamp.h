@@ -30,7 +30,7 @@
 #include "AampScheduler.h"
 #include "StreamSink.h"
 #include "TimedMetadata.h"
-
+#include "AampSpeedCache.h"
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
@@ -77,6 +77,7 @@
 #define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
 
 // forward declaration to avoid circular dependency
+class Mp4Demux;
 class AampMPDDownloader;
 class AampLatencyMonitor;
 struct LatencyConfig;
@@ -411,30 +412,6 @@ struct ThumbnailData {
 };
 
 /**
- * @struct SpeedCache
- * @brief Stores the information for cache speed
- */
-struct SpeedCache
-{
-    long last_sample_time_val;
-    long prev_dlnow;
-    long prevSampleTotalDownloaded;
-    long totalDownloaded;
-    long speed_now;
-    long start_val;
-    bool bStart;
-
-    double totalWeight;
-    double weightedBitsPerSecond;
-    std::vector< std::pair<double,long> > mChunkSpeedData;
-
-    SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false) , totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
-    {
-    }
-};
-
-
-/**
  * @brief To store video rectangle properties
  */
 struct videoRect {
@@ -758,10 +735,10 @@ public:
 	 * @fn PausePipeline
 	 *
 	 * @param[in] pause - true for pause and false for play
-	 * @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
+	 * @param[in] forceStopPreBuffering - true for disabling buffer-in-progress
 	 * @return true on success
 	 */
-	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
+	bool PausePipeline(bool pause, bool forceStopPreBuffering);
 
 	/**
 	 * @fn SetBufferingState
@@ -863,6 +840,12 @@ public:
 	void SetLatencyParam(double latency, double buffer, double playbackRate, double bw);
 
 	/**
+	 * @brief Set the PRT-derived clock offset used in live latency calculation
+	 * @param offsetMs offset in milliseconds
+	 */
+	void SetPRTClockOffsetMs(long offsetMs) { mEncoderDelay = offsetMs; }
+
+	/**
 	 * @fn SetLLDLowBufferParam - to mark the lld low buff details
 	 * @param latency - latency value
 	 * @param buff - buffer
@@ -894,7 +877,7 @@ public:
 	*
 	* @return modified manifest data
 	*/
-	std::string SendManifestPreProcessEvent();
+	std::pair<std::string,int> SendManifestPreProcessEvent();
 
 	/**
 	 * @brief This function is invoked by application with the available preprocessed manifest information
@@ -907,10 +890,29 @@ public:
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
-	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
+
+	/** Pre-tune VOD ad-break registrations buffered before mCdaiObject is created */
+	struct PendingVodAdBreak
+	{
+		std::string breakId;
+		double      insertionPointSec;
+		double      breakDurationSec;
+		std::string breakType;
+	};
+	std::vector<PendingVodAdBreak> mPendingVodAdBreaks; /**< Breaks queued before mCdaiObject exists */
+
+	/** Pre-tune SetAlternateContents calls buffered before mCdaiObject is created */
+	struct PendingAlternateContents
+	{
+		std::string adBreakId;
+		std::string adId;
+		std::string url;
+	};
+	std::vector<PendingAlternateContents> mPendingAlternateContents; /**< SetAlternateContents calls queued before mCdaiObject exists */
+
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */
@@ -1163,8 +1165,6 @@ public:
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */
 	bool midFragmentSeekCache;    				/**< To find if cache is updated when seeked to mid fragment boundary */
-	bool mDisableRateCorrection;             /**< Disable live latency correction when user pause or seek the playback **/
-	bool mAbortRateCorrection;               /**< Flag to abort rate correction thread **/
 	bool mAutoResumeTaskPending;
 
 	std::string mTsbRecordingId; 				/**< Recording ID of current TSB */
@@ -1180,8 +1180,6 @@ public:
 	double mProgressReportAvailabilityOffset; 	/**< Offset time for progress reporting from availability start */
 	double mAbsoluteEndPosition; 				/**< Live Edge position for absolute reporting */
 	AampConfig *mConfig;
-	long mDiscStartTime;					/**< start time of discontinuity */
-	bool mRateCorrectionDelay;				/**<Disable live latency correction when discontinuity is playing */
 
 	bool mbUsingExternalPlayer; 				/**<Playback using external players eg:OTA, HDMIIN,Composite*/
 
@@ -1192,9 +1190,6 @@ public:
 	double mNextPeriodStartTime; 				/**< Keep Next Period Start Time  */
 	double mNextPeriodScaledPtoStartTime; 			/**< Keep Next Period Start Time as per PTO  */
 
-	std::condition_variable mRateCorrectionWait;	/**< Conditional variable for signaling timed wait for rate correction*/
-	std::mutex mRateCorrectionTimeoutLock;				/**< Rate correction thread mutex for conditional timed wait*/
-	double mCorrectionRate;                          /**< Variable to store correction rate **/
 	bool mIsEventStreamFound;				/**< Flag to indicate event stream entry in any of period */
 
 	bool mIsFakeTune;
@@ -1209,6 +1204,7 @@ public:
 	bool playerStartedWithTrickPlay; 			/**< To indicate player switch happened in trickplay rate */
 	bool userProfileStatus; 				/**< Select profile based on user list*/
 	bool mApplyCachedVideoMute;				/**< To apply video mute() operations if it has been cached due to tune in progress */
+	std::atomic_bool mApplyCachedCCStatus;				/**< To apply cached subtitle/CC operations if cached due to tune in progress */
 	std::vector<uint8_t> mcurrent_keyIdArray;		/**< Current KeyID for DRM license */
 	DynamicDrmInfo mDynamicDrmDefaultconfig;		/**< Init drmConfig stored as default config */
 	std::vector<std::string> mDynamicDrmCache;
@@ -1323,11 +1319,11 @@ public:
 	/**
 	 * @fn SetCurlTimeout
 	 *
-	 * @param[in] timeout - maximum time  in seconds curl request is allowed to take
+	 * @param[in] timeoutMs - maximum time  in milliseconds curl request is allowed to take
 	 * @param[in] instance - index of curl instance to which timeout to be set
-	 * @return void
+	 * @return true if timeout changed, else false
 	 */
-	void SetCurlTimeout(long timeout, AampCurlInstance instance);
+	bool SetCurlTimeout(long timeoutMs, AampCurlInstance instance);
 
 	/**
 	 * @brief Set manifest curl timeout
@@ -1415,6 +1411,21 @@ public:
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
 				int *fogError = NULL, double fragmentDurationS = 0,
 				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
+
+	/**
+	 * @fn CheckSegmentIntegrity
+	 * @brief Parse a downloaded segment with a persistent Mp4Demux validator to
+	 *        detect structural corruption (any condition reaching Mp4Demux::setParseError).
+	 *        Logs every segment at INFO level. On parse failure logs a warning and
+	 *        writes the raw bytes to harvestPath (or /tmp if unset).
+	 *
+	 * @param[in] buffer    Raw segment bytes; read-only, caller retains ownership.
+	 * @param[in] mediaType Media type of the segment.
+	 * @param[in] remoteUrl CDN URL of the segment, used as the dump filename.
+	 */
+	void CheckSegmentIntegrity(const std::vector<uint8_t>& buffer,
+	                           AampMediaType mediaType,
+	                           const std::string& remoteUrl);
 
 	/**
 	 * @fn getUUID
@@ -1576,11 +1587,10 @@ public:
 
 	/**
 	 * @fn SendTuneMetricsEvent
-	 *
-	 * @param[in] timeMetricData- Providing the Tune Timemetric info as an event
+	 * @brief Send tune metrics event to registered listeners
 	 * @return void
 	 */
-	void SendTuneMetricsEvent(std::string &timeMetricData);
+	void SendTuneMetricsEvent();
 
 	/* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
 	std::atomic<bool> mBufUnderFlowStatus{false};
@@ -1649,6 +1659,22 @@ public:
 	 * @return void
 	 */
 	void CancelReservation(const std::string& cancelAtReservationId);
+
+	/**
+	 * @brief Register a VOD ad-break insertion point.
+	 * @param[in] breakId           Unique break identifier
+	 * @param[in] insertionPointSec Position in VOD timeline in seconds
+	 * @param[in] breakDurationSec  Advisory break duration in seconds
+	 * @param[in] breakType         "preroll", "midroll", or "postroll"
+	 */
+	void RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+	                        double breakDurationSec, const std::string &breakType);
+
+	/**
+	 * @brief Cancel a registered VOD ad-break that has not yet started.
+	 * @param[in] breakId Break identifier previously passed to RegisterVodAdBreak()
+	 */
+	void CancelVodAdBreak(const std::string &breakId);
 
 	/**
 	 * @fn getLastInjectedPosition
@@ -1751,34 +1777,6 @@ public:
 	 *   @param[in]  beginningOfStream - Flag to indicate if the progress reporting is for the Beginning Of Stream
 	 */
 	void MonitorProgress(bool sync = true, bool beginningOfStream = false);
-	/**
-	 *   @fn WakeupLatencyCheck
-	 *   @return void
-	 */
-	void WakeupLatencyCheck();
-	/**
-	 *   @fn TimedWaitForLatencyCheck
-	 *   @param [in] timeInMs - Time in milliseconds
-	 *   @return void
-	 */
-	void TimedWaitForLatencyCheck(int timeInMs);
-	/**
-	 *   @fn StartRateCorrectionWorkerThread
-	 *   @return void
-	 */
-	void StartRateCorrectionWorkerThread(void);
-
-	/**
-	 *   @fn StopRateCorrectionWorkerThread
-	 *   @return void
-	 */
-	void StopRateCorrectionWorkerThread(void);
-
-	/**
-	 *   @fn RateCorrectionWorkerThread
-	 *   @return void
-	 */
-	void RateCorrectionWorkerThread(void);
 
 	/**
 	 *   @fn ReportAdProgress
@@ -1883,10 +1881,12 @@ public:
 	 *   @fn SendStreamTransfer
 	 *
 	 *   @param[in]  mediaType - Type of the media.
-	 *   @param[in]  sample - Media sample
+	 *   @param[in]  sample - Media sample; ownership is transferred (consumed).
+	 *                        Callers must pass via std::move() and must not
+	 *                        access the sample after this call returns.
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample& sample);
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample);
 
 	/**
 	 * @fn IsLive
@@ -2189,18 +2189,16 @@ public:
 	void InitializeCC(unsigned long decoderHandle);
 
 	/**
-	 *   @brief GStreamer operation start
+	 * @brief Acquire the GStreamer operation lock (RAII).
 	 *
-	 *   @return void
-	 */
-	void SyncBegin(void);
-
-	/**
-	 * @fn SyncEnd
+	 * The lock is released automatically when the returned guard goes
+	 * out of scope, guaranteeing exception safety. The [[nodiscard]]
+	 * attribute causes a compile-time warning if the guard is discarded
+	 * immediately (which would release the lock at once, not at scope end).
 	 *
-	 * @return void
+	 * @return std::unique_lock<std::recursive_mutex> holding mLock.
 	 */
-	void SyncEnd(void);
+	[[nodiscard]] std::unique_lock<std::recursive_mutex> SyncLock();
 
 	/**
 	 * @fn GetSeekBase
@@ -3662,6 +3660,14 @@ public:
 	long GetCurrentLatencyMs();
 
 	/**
+	 * @fn NotifyBufferLevelToLatencyMonitor
+	 * @brief Forward the current buffer level to the latency monitor so it
+	 *        can track buffer health and apply threshold restoration steps.
+	 * @param[in] bufferMs  Current buffered duration in milliseconds.
+	 */
+	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+
+	/**
 	 *     @fn SetCurrentLatency
 	 *     @param[in] currentLatency - Current latency to set
 	 *     @return void
@@ -4066,6 +4072,23 @@ public:
 	void EnableLatencyMonitor(bool enable);
 
 	/**
+	 * @brief Check whether the accumulated latency increment from rebuffering
+	 * events exceeds the trickplay-unblock threshold
+	 *
+	 * When true, fast-forward trickplay should be permitted even at live point
+	 * so the player can catch up to the live edge.
+	 *
+	 * @return true if accumulated latency exceeds the threshold, false otherwise.
+	 */
+	bool IsLatencyExceedingTrickplayThreshold() const;
+	
+	/**
+	 * @brief Returns true if latency monitor rate correction is currently enabled
+	 */
+	bool IsLatencyMonitorEnabled() const;
+
+
+	/**
 	 * @brief Check if an ad is currently playing
 	 * @return true if an ad is playing, false otherwise
 	 */
@@ -4217,14 +4240,15 @@ protected:
 	void BuildLatencyConfig(LatencyConfig &config);
 
 	/**
-	 * @brief Start the latency monitor if conditions are met
+	 * @brief Start the latency monitor if conditions are met (live, at live point, normal rate, config enabled).
 	 * If the latency monitor is already running, it will just enable the rate correction.
 	 * If the conditions are not met, the latency monitor will not be started.
 	 */
 	void StartLatencyMonitor();
 
 	/**
-	 * @brief Stop the latency monitor
+	 * @brief Stop the latency monitor.
+	 * Safe to call when the monitor is already stopped.
 	 */
 	void StopLatencyMonitor();
 
@@ -4293,6 +4317,8 @@ protected:
 	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
+	std::unique_ptr<Mp4Demux> mVideoIntegrityValidator; /**< Persistent Mp4Demux for video-track integrity monitoring */
+	std::unique_ptr<Mp4Demux> mAudioIntegrityValidator; /**< Persistent Mp4Demux for audio-track integrity monitoring */
 	int mCCId;
 	AampLLDashServiceData mAampLLDashServiceData; /**< Low Latency Service Configuration Data */
 	bool bLowLatencyServiceConfigured;
@@ -4305,6 +4331,7 @@ protected:
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
 	long mCurrentLatencyMs;         /**< Current latency in milliseconds */
+	long mEncoderDelay;         /**< PRT-derived clock offset (ms) added to live latency */
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectangle */
 	bool mApplyContentRestriction;		/**< Status to apply content restriction */
 	videoRect mVideoRect;
@@ -4332,6 +4359,8 @@ protected:
 	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 	std::unique_ptr<AampLatencyMonitor> mLatencyMonitor; /**< Unified live latency monitor */
+	std::atomic<bool> mTuneMetricDataPending{false}; /**< True when mTuneTimeMetricData has been populated and not yet consumed */
+	std::string mTuneTimeMetricData{}; /**< JSON string containing data for tune time metrics */
 
 private:
 	/**

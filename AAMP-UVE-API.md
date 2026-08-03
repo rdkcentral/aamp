@@ -146,6 +146,7 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | abrNwConsistency | Number | 2 | Number of checks before profile increment/decrement. Prevents frequent profile switching with network fluctuations. |
 | abrSkipDuration | Number | 6 | Minimum duration of fragment to download before triggering ABR (in seconds). |
 | audioOnlyPlayback | Boolean | false | Enable/disable audio-only playback. |
+| enableProducerReferenceDelay | Boolean | false | Enable/disable adding the PRT (ProducerReferenceTime)-derived encoder delay to the live latency calculation. When enabled, AAMP reads the `ProducerReferenceTime` element from the DASH manifest to compute the encoding pipeline delay and accounts for it when measuring and correcting live latency. Disable if the stream's PRT data is absent or unreliable. |
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for CDVR. AAMP starts live playback this much time before the live point for in-progress CDVR. |
 | customHeader | String | - | Custom header data to append to HTTP requests. |
 | contentProtectionDataUpdateTimeout | Number | 5000 | Timeout for Content Protection Data Update on Dynamic Key Rotation (milliseconds). Player waits for [setContentProtectionDataConfig](#setcontentprotectiondataconfig_json-string) API update within the timeout interval. On timeout, uses last configured values. Also refer API [setContentProtectionDataUpdateTimeout](#setcontentprotectiondataupdatetimeout_timeout). |
@@ -165,6 +166,8 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | initRampdownLimit | Number | 0 | Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time. |
 | latencyMonitorDelayMs | Number | 5000 | Delay in milliseconds before starting latency monitoring after tune completion. |
 | latencyMonitorIntervalMs | Number | 1000 | Time between latency checks in milliseconds. Changing the value will only affect monitoring and corrective actions (how frequently latency is sampled and rate corrections are attempted). |
+| latencyDangerBufferSec | Float | 1.0 | Buffer level (seconds) below which latency thresholds are dynamically increased to accommodate the low-buffer condition. Once the buffer recovers above this level and remains healthy for `latencyStableDurationSec`, the thresholds are gradually restored toward their configured defaults. Zero disables the adaptive threshold feature entirely. |
+| latencyStableDurationSec | Float | 300.0 | Duration (seconds) of consecutive healthy buffer (above `latencyDangerBufferSec`) required before one restoration step is applied to the latency thresholds. Zero disables dynamic restoration entirely. |
 | licenseAnonymousRequest | Boolean | false | Enable/disable acquiring of license without token. |
 | licenseKeyAcquireWaitTime | Number | 5000 | License key acquire wait time (milliseconds). |
 | licenseRetryWaitTime | Number | 500 | License retry wait interval (milliseconds). |
@@ -180,9 +183,10 @@ Configuration options are passed to AAMP using the UVE `initConfig()` method. Th
 | minABRBufferRampdown | Number | 10 | Minimum ABR Buffer for Rampdown in secs. |
 | minLatencyCorrectionPlaybackRate | Float | 0.97 | Minimum playback speed for latency correction. When the player detects that it’s too close to the live edge (or ahead of target latency), it can slow down playback slightly to increase latency without causing noticeable slow motion. |
 | normalLatencyCorrectionPlaybackRate | Float | 1.0 | Normal playback speed when latency is within acceptable range. Maintains standard playback when no correction is needed. |
+| rebufferLatencyMaxIncrementSec | Float | 8.0 | Maximum total accumulated increment (seconds) that can be added to latency thresholds across all rebuffering events. Caps the upward drift of `lowLatencyMinValue`, `lowLatencyTargetValue`, and `lowLatencyMaxValue`. Zero means no cap. |
+| rebufferLatencyStepSec | Float | 1.0 | Step size (seconds) added to all three latency thresholds (`lowLatencyMinValue`, `lowLatencyTargetValue`, `lowLatencyMaxValue`) each time the buffer drops below `latencyDangerBufferSec`. Allows the player to tolerate higher latency during poor network conditions. Zero disables the adaptive threshold feature entirely. |
 | playreadyOutputProtection | Boolean | false | Enable/disable HDCP output protection for DASH-PlayReady playback. |
 | preferredDrm | Number | 2 | Preferred DRM for playback. Refer Preferred DRM table below for available values. 0 - No DRM, 1 - Widevine, 2 - PlayReady (Default), 3 - Consec, 4 - AdobeAccess, 5 - Vanilla AES, 6 - ClearKey |
-| ceaFormat | Number | -1 | Preferred CEA option for closed captions. Default is stream-based. 0 - CEA 608, 1 - CEA 708 |
 | preFetchIframePlaylist | Boolean | false | Enable/disable prefetching of I-Frame playlist. |
 | preplayBuffercount | Number | 1 | Count of segments to download until reaching play state. |
 | ptsErrorThreshold | Number | 4 | Maximum number of back-to-back PTS errors before triggering a retune. |
@@ -2229,31 +2233,71 @@ Example:
 ### drmMetadata
 
 **Event Payload:**
-- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
-- code: number
-- description: string
-- headers: array
-- responseData: string
-- networkMetrics: string
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| sessionId | string | Refer to [load](#load-uri_autoplay_tuneparams) API for details |
+| code | number | Access status value from DRM system |
+| description | string | Human-readable access status string |
+| headers | array | HTTP response headers from the license request. Populated only when `sendLicenseResponseHeaders` config is enabled |
+| responseData | string | Raw license server error response body. **Populated on failure only** — set to the server error body when the HTTP status code is not 200/206 (direct HTTP path), or when SecClient/SecManager reports failure. Falls back to `undefined` if the server returned an empty body. Empty string on success |
+| networkMetrics | string | **JSON-encoded** telemetry string. Must be `JSON.parse()`d before accessing individual fields. See schema below |
 
 **Description:**
 - Supported UVE version 0.7 and above.
-- Fired when there is a change in DRM metadata (especially expiration of DRM auth data)
-- Refer sendLicenseResponseHeaders configuration for headers
-- Provides the DRM license response metrics information Json format with below key & value fields
-    - req -> requestType: DRM license request type(0 - getLicense/ 1 - getLicenseSec)
-    - res -> resCode: HTTP Response code
-    - tot -> totalTime: download time in Ms
-    - con -> download connection time
-    - str -> StartTransfer: time to start the data transfer
-    - res -> resolve: DNS resolution time
-    - acn -> Appconnect: time to establish the application-level connection
-    - ptr -> PreTransfer: request pretransfer time
-    - rdt -> Redirect: request redirect time
-    - dls -> DlSize: size of the downloaded resource
-    - rqs -> ReqSize: request size
-    - url -> request url
+- Fired when a DRM license request completes (success or failure), or when DRM auth data changes/expires.
 
+**`networkMetrics` JSON Schema:**
+
+Keys always present:
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `req` | number | DRM license request type. `0` = direct HTTP fetch via curl (`getLicense`); `1` = SecClient / SecManager / FireboltSDK path (`getLicenseSec`) |
+| `res` | number | HTTP or curl response/error code (e.g. `200`, `412`, `28` for `CURLE_OPERATION_TIMEDOUT`). Consistently represents the HTTP/curl status code across all DRM flows |
+| `tot` | number | Total time in **milliseconds** from the first attempt to the final outcome, including all retries. Retries happen on network errors (timeout, DNS failure), HTTP responses, or SecClient/SecManager failures|
+| `url` | string | License server URL that was contacted |
+
+Keys present only when `req` = `0` (DRM_GET_LICENSE — direct HTTP/curl path). **Not available** when `req` = `1` (DRM_GET_LICENSE_SEC — SecClient/SecManager/FireboltSDK), because in that path the HTTP transaction is handled entirely inside SecClient/SecManager/FireboltSDK; AAMP never invokes curl for the license request and therefore cannot collect curl-level timing metrics.
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `con` | number | TCP connection establishment time (ms) |
+| `str` | number | Time until first response byte received — "start transfer" (ms) |
+| `dns` | number | DNS resolution time (ms) |
+| `acn` | number | Application-level connect time — TCP + TLS handshake (ms) |
+| `ptr` | number | Pre-transfer time; from start until just before first byte is sent (ms) |
+| `rdt` | number | Total redirect time (ms); `0` if no redirects |
+| `dls` | number | Downloaded response body size (bytes) |
+| `rqs` | number | Uploaded request body size (bytes) |
+
+**Example via direct HTTP (`req=0`):**
+```json
+{
+  "req": 0,
+  "res": 200,
+  "tot": 312,
+  "url": "https://license.example.com/widevine",
+  "con": 45,
+  "str": 290,
+  "dns": 12,
+  "acn": 80,
+  "ptr": 85,
+  "rdt": 0,
+  "dls": 1024,
+  "rqs": 768
+}
+```
+
+**Example via SecManager (`req=1`):**
+```json
+{
+  "req": 1,
+  "res": 412,
+  "tot": 520,
+  "url": "license.example.com"
+}
+```
 ---
 
 ### anomalyReport
@@ -2616,6 +2660,237 @@ adPlayer2.stop();
 
 When a player instance is no longer needed, recommend to call explicit release() method rather than rely only on eventual garbage collection.  However, player instances can be recycled and reused throughout an app's lifecycle.
 
+
+### CDAI Mechanism #3 – VOD CDAI (Manifest-Stitching)
+
+Supported for DASH VOD.  Uses the same `setAlternateContent` / `notifyReservationCompletion` reservation API as Mechanism #1 (Engine Managed CDAI).  Ad pods are inserted at registered time positions in a stitched multi-period MPD built by the player before playback begins; the result is a single, seamlessly playable manifest.  Preroll, midroll, and postroll positions are all supported.
+
+**Key characteristics:**
+- All ad manifests **must be pre-resolved before `load()` is called** (pre-tune resolution).  The player does not support runtime ad resolution for this mechanism — all `setAlternateContent` + `notifyReservationCompletion` calls must complete before tune.
+- The player builds a continuous 0-based stitched timeline.  Position values reported by `getCurrentPosition()` and the ad event `time` fields reflect this stitched timeline, not the source VOD timeline.  Use `getVirtualPosition()` to convert a stitched position back to the source VOD timeline offset.
+- `reservationStart`, `placementStart`, `placementProgress`, `placementEnd`, and `reservationEnd` events are fired as the playhead crosses each ad break on the stitched timeline.
+- After a seek, all ad events re-fire as the playhead crosses each break again (same behaviour as live CDAI with TSB).
+
+---
+
+#### Workflow
+
+1. Register all VOD insertion points via `registerVodAdBreak` — before `load()`.
+2. For each break, call `setAlternateContent` (one call per ad in the pod) followed by `notifyReservationCompletion`.  **All resolution must complete before `load()` is called.**
+3. Call `load()`.  The player fetches all resolved ad manifests, stitches them into a multi-period MPD, and begins playback.
+4. As the playhead crosses each ad break on the stitched timeline, AAMP fires `reservationStart`, `placementStart`, periodic `placementProgress`, `placementEnd`, and `reservationEnd` events for beaconing.
+5. Application may call `cancelVodAdBreak` before `load()` to skip a break entirely.
+
+---
+
+#### registerVodAdBreak( breakInfo )
+
+Register a VOD ad-break insertion point.  Must be called before `load()`.
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| breakInfo | Object | Insertion point descriptor |
+| breakInfo.breakId | String | Unique identifier for this break; used as `reservationId` in `setAlternateContent` |
+| breakInfo.insertionPointSec | Number | Position in the source VOD timeline (seconds) at which the ad pod will be inserted.  Use the source asset duration for a postroll. |
+| breakInfo.breakDurationSec | Number | Advisory break duration in seconds. |
+| breakInfo.breakType | String | `"preroll"`, `"midroll"`, or `"postroll"` (informational only) |
+
+```javascript
+player.registerVodAdBreak({
+    breakId: "break-preroll",
+    insertionPointSec: 0,
+    breakDurationSec: 60,
+    breakType: "preroll"
+});
+player.registerVodAdBreak({
+    breakId: "break-mid1",
+    insertionPointSec: 300,
+    breakDurationSec: 30,
+    breakType: "midroll"
+});
+```
+
+---
+
+#### cancelVodAdBreak( breakId )
+
+Cancel a registered VOD ad-break before `load()`.  Has no effect after the player has started.
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| breakId | String | Identifier previously passed to `registerVodAdBreak` |
+
+```javascript
+player.cancelVodAdBreak("break-mid1");
+```
+
+---
+
+#### getVirtualPosition()
+
+Returns the current playback position mapped back to the **source VOD timeline** (seconds), excluding ad pod durations.  Because the stitched MPD has a continuous 0-based timeline that includes ad periods, `getCurrentPosition()` advances through ad time.  Use `getVirtualPosition()` when the application needs the equivalent source-content offset (e.g. for resume-point tracking).
+
+```javascript
+var sourceOffsetSec = player.getVirtualPosition();
+```
+
+---
+
+#### vodAdBreakOpportunity event
+
+> **Note:** For manifest-stitching VOD CDAI, all ad resolution must be complete _before_ `load()`.  The `vodAdBreakOpportunity` event is **not** used in this mechanism; ad URLs are supplied directly via `setAlternateContent` before tune.
+
+---
+
+#### Ad Progress Events for VOD CDAI
+
+As the playhead plays through the stitched timeline, AAMP fires the standard CDAI ad events.  For VOD the `time` field in each event is a **stitched-timeline position in milliseconds**.
+
+| Event | Fired when |
+| ----- | ---------- |
+| `reservationStart` | Playhead enters the ad break window (before the first ad in the pod) |
+| `placementStart` | Playhead enters an individual ad within the pod |
+| `placementProgress` | Fired periodically while an ad is playing (same cadence as linear CDAI) |
+| `placementEnd` | Playhead exits an individual ad |
+| `reservationEnd` | All ads in the pod have completed |
+
+**Notes:**
+- Each `breakId` maps to exactly one ad MPD URL. To chain multiple ads at the same timeline position, register each ad under its own unique `breakId` with the same `insertionPointSec` — the stitcher sequences them in registration order. One `placementStart`/`placementEnd` pair fires per `breakId`; `reservationStart`/`reservationEnd` fire once per `breakId`.
+- After a seek that lands before a previously-seen ad break, all events for that break re-fire as the playhead crosses it again.
+- `reservationEnd` and `placementEnd` **are** sent for VOD CDAI after normal playback to end of break.
+
+---
+
+#### Complete VOD CDAI Example
+
+```javascript
+var player = new AAMPMediaPlayer();
+
+// 1. Register all insertion points.
+//    Each breakId maps to exactly one ad MPD.
+//    To chain two ads at the same position, use two breakIds with the same insertionPointSec.
+player.registerVodAdBreak({ breakId:"pre",   insertionPointSec:0,   breakDurationSec:30, breakType:"preroll"  });
+player.registerVodAdBreak({ breakId:"mid1a", insertionPointSec:180, breakDurationSec:15, breakType:"midroll"  });
+player.registerVodAdBreak({ breakId:"mid1b", insertionPointSec:180, breakDurationSec:15, breakType:"midroll"  });
+player.registerVodAdBreak({ breakId:"post",  insertionPointSec:600, breakDurationSec:30, breakType:"postroll" });
+
+// 2. Resolve all ads pre-tune (one setAlternateContent per breakId)
+player.setAlternateContent({
+    reservationId: "pre",
+    reservationBehavior: 0,
+    placementRequest: { id: "ad-pre-001", pts: 0, url: "https://ad.example.com/pre.mpd" }
+}, function(id, ok) {});
+player.notifyReservationCompletion("pre", 0);
+
+player.setAlternateContent({
+    reservationId: "mid1a",
+    reservationBehavior: 0,
+    placementRequest: { id: "ad-mid1-001", pts: 0, url: "https://ad.example.com/mid1a.mpd" }
+}, function(id, ok) {});
+player.notifyReservationCompletion("mid1a", 0);
+
+player.setAlternateContent({
+    reservationId: "mid1b",
+    reservationBehavior: 0,
+    placementRequest: { id: "ad-mid1-002", pts: 0, url: "https://ad.example.com/mid1b.mpd" }
+}, function(id, ok) {});
+player.notifyReservationCompletion("mid1b", 0);
+
+player.setAlternateContent({
+    reservationId: "post",
+    reservationBehavior: 0,
+    placementRequest: { id: "ad-post-001", pts: 0, url: "https://ad.example.com/post.mpd" }
+}, function(id, ok) {});
+player.notifyReservationCompletion("post", 0);
+
+// 3. Subscribe to ad events for beaconing
+player.addEventListener("reservationStart",  function(e) { beacon("resStart", e.adbreakId, e.time); });
+player.addEventListener("placementStart",    function(e) { beacon("plcStart", e.adId,      e.time); });
+player.addEventListener("placementProgress", function(e) { beacon("plcProg",  e.adId,      e.time); });
+player.addEventListener("placementEnd",      function(e) { beacon("plcEnd",   e.adId,      e.time); });
+player.addEventListener("reservationEnd",    function(e) { beacon("resEnd",   e.adbreakId, e.time); });
+
+// 4. Load — player stitches the manifest and begins playback
+player.load("https://content.example.com/movie.mpd");
+```
+
+---
+
+#### Sequence Diagram – VOD CDAI Configure and Playback
+
+The following diagram shows the full interaction between the application, the AAMP player, and the ad decision system for a VOD asset with one preroll (30 s) and one midroll (30 s) at source position 180 s.  After stitching, the midroll begins at stitched-timeline position 210 s (180 s of content + 30 s preroll).
+
+```
+App                          AAMP Player                Ad Server
+ |                                |                         |
+ |--registerVodAdBreak(pre)------>|                         |
+ |--registerVodAdBreak(mid1)----->|                         |
+ |                                |                         |
+ |   < out-of-band ad decision >  |                         |
+ |<--------------------------------------------ad URLs----->|
+ |                                |                         |
+ |--setAlternateContent(pre,  ad-pre-001,  pre.mpd)-------->|
+ |--notifyReservationCompletion(pre)----------------------->|
+ |--setAlternateContent(mid1, ad-mid1-001, mid1a.mpd)------>|
+ |--setAlternateContent(mid1, ad-mid1-002, mid1b.mpd)------>|
+ |--notifyReservationCompletion(mid1)--------------------->|
+ |                                |                         |
+ |--load("movie.mpd")------------>|                         |
+ |                                |--fetch movie.mpd------->|
+ |                                |--fetch pre.mpd--------->|
+ |                                |--fetch mid1a.mpd------->|
+ |                                |--fetch mid1b.mpd------->|
+ |                                |--stitch MPD             |
+ |                                |  [pre    0 s – 30 s]    |
+ |                                |  [content 30 s – 210 s] |
+ |                                |  [mid1a 210 s – 225 s]  |
+ |                                |  [mid1b 225 s – 240 s]  |
+ |                                |  [content 240 s – ...]  |
+ |                                |                         |
+ |   == Playhead at stitched 0 ms (preroll) ==              |
+ |                                |                         |
+ |<--reservationStart(pre,  t=0 ms)------------------------|
+ |<--placementStart(ad-pre-001, t=0 ms)--------------------|
+ |<--placementProgress(ad-pre-001, t=...) [periodic]-------|
+ |                                |                         |
+ |   == Playhead at stitched 30 000 ms ==                   |
+ |                                |                         |
+ |<--placementEnd(ad-pre-001, t=30000 ms)------------------|
+ |<--reservationEnd(pre,  t=30000 ms)----------------------|
+ |                                |                         |
+ |   == Playhead at stitched 210 000 ms (midroll) ==        |
+ |                                |                         |
+ |<--reservationStart(mid1, t=210000 ms)-------------------|
+ |<--placementStart(ad-mid1-001, t=210000 ms)--------------|
+ |<--placementProgress(ad-mid1-001, t=...) [periodic]------|
+ |                                |                         |
+ |   == Playhead at stitched 225 000 ms ==                  |
+ |                                |                         |
+ |<--placementEnd(ad-mid1-001,  t=225000 ms)---------------|
+ |<--placementStart(ad-mid1-002, t=225000 ms)--------------|
+ |<--placementProgress(ad-mid1-002, t=...) [periodic]------|
+ |                                |                         |
+ |   == Playhead at stitched 240 000 ms ==                  |
+ |                                |                         |
+ |<--placementEnd(ad-mid1-002,  t=240000 ms)---------------|
+ |<--reservationEnd(mid1, t=240000 ms)--------------------|
+ |                                |                         |
+ |   == getVirtualPosition() ==                             |
+ |                                |                         |
+ |--getVirtualPosition()--------->|                         |
+ |<--returns source-content offset (stitched pos – ad time)-|
+```
+
+**Key points illustrated:**
+- All `setAlternateContent` / `notifyReservationCompletion` calls happen **before** `load()`.
+- `time` values in events are stitched-timeline milliseconds, not source-content seconds.
+- `getVirtualPosition()` translates the stitched position back to source-content time.
+- For a multi-ad pod (`mid1` above), `reservationStart`/`reservationEnd` fire once for the whole pod; `placementStart`/`placementEnd` fire once per individual ad.
+
+
+---
+
+<div style="page-break-after: always;"></div>
 ---
 
 <div style="page-break-after: always;"></div>

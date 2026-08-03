@@ -33,11 +33,9 @@
 #include <glib.h>
 #include <mutex>
 
-#ifdef AAMP_NET_TRACE
 namespace aamptrace {
 	class NetTrace;
 }
-#endif
 
 #define eCURL_MAX_AGE_TIME			( (300) * (1000) )			/**< 5 mins - 300 secs - Max age for a connection */
 
@@ -82,12 +80,12 @@ typedef struct curlstorestruct
 {
 	std::deque<CurlHandleStruct> mFreeQ;
 	CURLSH* mCurlShared;
-	CurlDataShareLock *pstShareLocks;
+	CurlDataShareLock mShareLock; // per-host lock; lifetime equals this struct
 
 	unsigned int mCurlStoreUserCount;
 	long long timestamp;
 
-	curlstorestruct():mCurlShared(NULL), pstShareLocks(NULL), timestamp(0), mCurlStoreUserCount(0), mFreeQ()
+	curlstorestruct():mFreeQ(), mCurlShared(NULL), mShareLock(), mCurlStoreUserCount(0), timestamp(0)
 	{}
 
 	//Disabled for now
@@ -105,6 +103,8 @@ class CurlStore
 private:
 	std::mutex mCurlInstLock{};
 	int MaxCurlSockStore;
+	// mSharedCurlLock removed (VPAAMP-558): each curlstorestruct now embeds its own
+	// CurlDataShareLock (mShareLock), restoring per-host DNS/SSL lock granularity.
 
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*> CurlSockData ;
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*>::iterator CurlSockDataIter;
@@ -253,9 +253,7 @@ enum class ChunkedTransferState
  */
 struct CurlCallbackContext
 {
-#ifdef AAMP_NET_TRACE
 	aamptrace::NetTrace* net = nullptr;
-#endif
 	
 	// HTTP/1.1 Chunked Transfer Protocol
 	
@@ -277,6 +275,7 @@ struct CurlCallbackContext
 	long long processDelay = 0; /**< Indicate the external process delay in curl operation; especially for lld*/
 	size_t bufferOffset = 0; // Used for chunked injection to keep track of start offset of the last mp4 chunk in buffer
 	size_t chunkBoundary = 0; // Used for chunked injection to store the end offset of the last mp4 chunk in buffer
+	bool chunkInjectionUsed = false; /**< True if at least one chunk was cached for this download */
 	long long dataTransferStartTime = -1; /**< Indicate the time when data transfer starts */
 	CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE; /**< Reason for aborting the curl download  */
 	bool earlyAbortEnabled = false; /**< Flag to enable early abort logic for chunk downloads */
@@ -308,6 +307,7 @@ struct CurlCallbackContext
 		m_ChunkedTransferState = ChunkedTransferState::READING_CHUNK_SIZE;
 		bufferOffset = 0;
 		chunkBoundary = 0;
+		chunkInjectionUsed = false;
 		abortReason = eCURL_ABORT_REASON_NONE;
 		dataTransferStartTime = -1;
 		chunkDurationInTicks = 0;

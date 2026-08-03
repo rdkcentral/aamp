@@ -195,7 +195,7 @@ Mp4Demux::~Mp4Demux()
 	LogMetrics();
 }
 
-void Mp4Demux::setParseError( Mp4ParseError err )
+void Mp4Demux::setParseError( Mp4ParseError err, const char* what )
 {
 	parseError = err;
 	const char *text = nullptr;
@@ -250,7 +250,14 @@ void Mp4Demux::setParseError( Mp4ParseError err )
 			text = "UNEXPECTED_IS_ENCRYPTED_FIELD";
 			break;
 	}
-	MP4_LOG_ERR( "%s", text );
+	if (what && what[0] != '\0')
+	{
+		MP4_LOG_ERR( "%s: %s", text, what );
+	}
+	else
+	{
+		MP4_LOG_ERR( "%s", text );
+	}
 }
 
 /**
@@ -645,12 +652,19 @@ void Mp4Demux::ParseSampleAuxiliaryInformationOffsets()
  * - Initialization vector (IV)
  * - Subsample encryption information (clear/encrypted byte pairs)
  * - Cipher mode and pattern encryption settings
+ *
+ * @param next Pointer to next box
  */
-void Mp4Demux::ParseSampleEncryption()
+void Mp4Demux::ParseSampleEncryption(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t sampleCount = ReadU32();
 	uint64_t maxSampleCount = sampleOffset + sampleCount;
+	MP4_LOG_DEBUG("senc: sampleCount=%" PRIu32 " ivSize=%u flags=0x%x subSamplePresent=%d boxRemaining=%zu",
+		sampleCount, ivSize, flags,
+		(flags & SENC_SUBSAMPLE_ENCRYPTION_PRESENT) ? 1 : 0,
+		static_cast<size_t>(next - ptr));
+
 	if (samples.size() != maxSampleCount)
 	{
 		throw Mp4ParseException(MP4_PARSE_ERROR_SAMPLE_COUNT_MISMATCH, "senc: sampleCount mismatch");
@@ -712,11 +726,12 @@ void Mp4Demux::ParseTrackRun()
 		int32_t dataOffset = ReadI32();
 		dataPtr += dataOffset;
 	}
-	uint32_t sampleFlags = 0;
+	// ISO 14496-12: TRUN_FIRST_SAMPLE_FLAGS_PRESENT overrides the first sample only;
+	// TRUN_SAMPLE_FLAGS_PRESENT provides per-sample flags; otherwise use defaultSampleFlags.
+	uint32_t firstSampleFlags = 0;
 	if (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT)
 	{
-		sampleFlags = ReadU32();
-		(void)sampleFlags;
+		firstSampleFlags = ReadU32();
 	}
 	uint64_t dts = baseMediaDecodeTime;
 	for (auto i = 0u; i < sampleCount; i++)
@@ -732,11 +747,18 @@ void Mp4Demux::ParseTrackRun()
 		{
 			sampleLen = ReadU32();
 		}
+		uint32_t effectiveSampleFlags = defaultSampleFlags;
 		if (flags & TRUN_SAMPLE_FLAGS_PRESENT)
-		{ // rarely present?
-			sampleFlags = ReadU32();
-			(void)sampleFlags;
+		{ // per-sample flags present in TRUN
+			effectiveSampleFlags = ReadU32();
 		}
+		else if (i == 0 && (flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT))
+		{ // first-sample-only override (mutually exclusive with TRUN_SAMPLE_FLAGS_PRESENT)
+			effectiveSampleFlags = firstSampleFlags;
+		}
+		// ISO 14496-12 sample_flags bit 16: sample_is_non_sync_sample
+		// 0 = sync/key frame (I-frame), 1 = non-sync sample
+		bool isKeyFrame = (effectiveSampleFlags & 0x00010000) == 0;
 		int32_t sampleCompositionTimeOffset = 0;
 		if (flags & TRUN_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)
 		{ // for samples where pts and dts differ (overriding 'trex')
@@ -751,6 +773,7 @@ void Mp4Demux::ParseTrackRun()
 		pendingSample.mDts      = dts / (double)timeScale;
 		pendingSample.mPts      = (dts + sampleCompositionTimeOffset) / (double)timeScale;
 		pendingSample.mDuration = sampleDuration / (double)timeScale;
+		pendingSample.mIsKeyFrame = isKeyFrame;
 		mSampleInfo.emplace_back(pendingSample);
 		dataPtr += sampleLen;
 		dts += sampleDuration;
@@ -781,16 +804,19 @@ void Mp4Demux::ProcessSamples()
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: dataPtr outside mdat");
 		}
 		// Guard: sample payload must not overrun mdat
-		const uint8_t* hardEnd = mdatEnd;
-		if (dataPtr + sampleLen > hardEnd)
+		if (dataPtr + sampleLen > mdatEnd)
 		{
 			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "trun: sample payload OOB");
 		}
 		AampMediaSample& s = samples[pending.sampleIdx];
-		s.mData.insert(s.mData.end(), dataPtr, dataPtr + sampleLen);
-		s.mDts      = pending.mDts;
-		s.mPts      = pending.mPts;
-		s.mDuration = pending.mDuration;
+		// Aliasing constructor: mData shares mCurrentSegment's refcount but
+		// points directly at the sample payload within that buffer.
+		s.mData       = std::shared_ptr<const uint8_t>(mCurrentSegment, dataPtr);
+		s.mDataSize   = sampleLen;
+		s.mDts        = pending.mDts;
+		s.mPts        = pending.mPts;
+		s.mDuration   = pending.mDuration;
+		s.mIsKeyFrame = pending.mIsKeyFrame;
 	}
 	mSampleInfo.clear();
 }
@@ -1145,6 +1171,181 @@ void Mp4Demux::ParseMovieExtendsHeader()
 	// Currently not used
 }
 
+/**
+ * @brief Parse meta box (ISO BMFF / QTFF dual-variant container)
+ *
+ * The meta box has two mutually incompatible encodings in the wild:
+ *   - QTFF variant (Apple): the box is a *short* atom with no FullBox
+ *     header; child boxes start immediately at the payload offset.
+ *     Detection: the first child box's type field (bytes 4-7 of payload)
+ *     equals 'hdlr'.
+ *   - ISO BMFF variant: the box is a *full* atom carrying a 4-byte
+ *     version+flags field (always 0x00000000) before the child boxes.
+ *     Detection: the first 4 bytes of the payload are 0x00000000.
+ *
+ * This dual-variant detection mirrors the approach in GStreamer qtdemux.c.
+ * In both cases the function recurses into the child boxes. Known children
+ * such as 'hdlr' are explicitly skipped by DemuxHelper; unknown children
+ * (e.g. 'ilst', 'keys') fall through to the default skip handler.
+ *
+ * @param next Pointer to end of box payload
+ */
+void Mp4Demux::ParseMetaBox(const uint8_t *next)
+{
+	if (static_cast<uint64_t>(next - ptr) < 8)
+	{
+		MP4_LOG_WARN("meta: payload too small, skipping");
+		ptr = next;
+		return;
+	}
+	// Peek at the first two words without advancing ptr.
+	const uint8_t *savedPtr = ptr;
+	const uint32_t firstWord  = ReadU32();
+	const uint32_t secondWord = ReadU32();
+	ptr = savedPtr;
+	if (secondWord == MultiChar_Constant("hdlr"))
+	{
+		// QTFF variant: no FullBox header; children start at ptr.
+		MP4_LOG_DEBUG("meta: QTFF short variant");
+		DemuxHelper(next);
+	}
+	else if (firstWord == 0x00000000)
+	{
+		// ISO BMFF variant: skip 4-byte version+flags; children start at ptr+4.
+		MP4_LOG_DEBUG("meta: ISO BMFF full-atom variant");
+		SkipBytes(4);
+		DemuxHelper(next);
+	}
+	else
+	{
+		// Unknown encoding; consume silently rather than aborting the parse.
+		MP4_LOG_WARN("meta: unknown variant (firstWord=0x%08x secondWord=0x%08x), skipping",
+		             firstWord, secondWord);
+		ptr = next;
+	}
+}
+
+/**
+ * @brief Parse sample group description box (SGPD)
+ *
+ * ISO 14496-12 Section 8.9.2.  Maps group-description entries to a
+ * grouping_type FourCC.  The box layout is version-dependent:
+ *   version 0: entry_count fixed-length entries (default_length not present)
+ *   version 1: default_length field; if default_length==0, each entry is
+ *              preceded by an individual description_length field
+ *   version 2: adds default_group_description_index
+ *
+ * Common grouping types in streaming:
+ *   'seig' - Common Encryption sample entry (per-group key/IV info)
+ *   'roll' - Audio random-access roll recovery (pre-roll distance)
+ *   'prol' - Pre-roll (similar to 'roll')
+ *
+ * The function reads and logs the grouping_type, then consumes all entry
+ * bytes.  Full 'seig' entry interpretation (key rotation, per-group KIDs)
+ * is deferred to a future implementation.
+ *
+ * @param next Pointer to end of box payload
+ */
+void Mp4Demux::ParseSampleGroupDescription(const uint8_t *next)
+{
+	ReadHeader(); // version, flags
+	// Minimum payload depends on version:
+	//   v0: grouping_type(4) + entry_count(4)                          = 8 bytes
+	//   v1: + default_length(4)                                        = 12 bytes
+	//   v2: + default_group_description_index(4)                       = 16 bytes
+	// Validate against next (the box boundary), not endPtr, so a short box
+	// whose buffer is followed by sibling boxes cannot be silently over-read.
+	const ptrdiff_t minPayload = 8 + (version >= 1 ? 4 : 0) + (version >= 2 ? 4 : 0);
+	if (next - ptr < minPayload)
+	{
+		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_BOX, "sgpd: payload too small for declared version");
+	}
+	const uint32_t groupingType = ReadU32();
+	MP4_LOG_DEBUG("sgpd: grouping_type='%s'", FourCCToString(groupingType).c_str());
+
+	uint32_t defaultLength = 0;
+	if (version >= 1)
+	{
+		defaultLength = ReadU32();
+	}
+	if (version >= 2)
+	{
+		(void)ReadU32(); // default_group_description_index
+	}
+	const uint32_t entryCount = ReadU32();
+	for (uint32_t i = 0; i < entryCount; ++i)
+	{
+		uint32_t entryLen = defaultLength;
+		if (version == 1 && defaultLength == 0)
+		{
+			entryLen = ReadU32(); // per-entry description_length
+		}
+		if (entryLen > static_cast<uint32_t>(next - ptr))
+		{
+			throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "sgpd: entry exceeds box boundary");
+		}
+		// Skip entry payload. Full 'seig' parsing (key rotation) can be
+		// added here when per-group encryption support is required.
+		SkipBytes(entryLen);
+	}
+	// For version 0 the spec does not carry a defaultLength field, so
+	// per-entry byte lengths are unknown and the loop above consumes nothing.
+	// Advance to the box end to avoid a boundary-mismatch from DemuxHelper.
+	if (version == 0)
+	{
+		ptr = next;
+	}
+}
+
+/**
+ * @brief Parse sample to group box (SBGP)
+ *
+ * ISO 14496-12 Section 8.9.3.  Associates contiguous runs of samples with
+ * entries in the corresponding sample group description box (SGPD) that
+ * shares the same grouping_type.
+ *
+ * Box layout:
+ *   FullBox header (version, flags)
+ *   grouping_type             uint32  - matches the SGPD grouping_type
+ *   [grouping_type_parameter  uint32] - present only when version == 1
+ *   entry_count               uint32
+ *   for each entry:
+ *     sample_count            uint32  - number of consecutive samples
+ *     group_description_index uint32  - 1-based index into SGPD; 0 = no group
+ *
+ * @param next Pointer to end of box payload
+ */
+void Mp4Demux::ParseSampleToGroup(const uint8_t *next)
+{
+	ReadHeader(); // version, flags
+	const ptrdiff_t minPayload = (version >= 1) ? 12 : 8;
+	if (next - ptr < minPayload)
+	{
+		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_BOX, "sbgp: payload too small for declared version");
+	}
+	const uint32_t groupingType = ReadU32();
+	MP4_LOG_DEBUG("sbgp: grouping_type='%s'", FourCCToString(groupingType).c_str());
+
+	if (version == 1)
+	{
+		(void)ReadU32(); // grouping_type_parameter
+	}
+	const uint32_t entryCount = ReadU32();
+	// Each entry is exactly 8 bytes (sample_count + group_description_index).
+	const size_t expectedBytes = static_cast<size_t>(entryCount) * 8u;
+	if (expectedBytes > static_cast<size_t>(next - ptr))
+	{
+		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "sbgp: entries exceed box boundary");
+	}
+	// Consume all entries.  Per-sample group mapping (e.g. for key rotation
+	// driven by 'seig' SGPD) can be built here when that feature is needed.
+	for (uint32_t i = 0; i < entryCount; ++i)
+	{
+		(void)ReadU32(); // sample_count
+		(void)ReadU32(); // group_description_index
+	}
+}
+
 void Mp4Demux::DemuxHelper(const uint8_t *fin)
 {
 	while (ptr < fin)
@@ -1217,7 +1418,7 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ParseSampleAuxiliaryInformationSizes();
 				break;
 			case MultiChar_Constant("senc"): // modern, optional
-				ParseSampleEncryption();
+				ParseSampleEncryption(next);
 				break;
 			case MultiChar_Constant("tfhd"):
 				ParseTrackFragmentHeader();
@@ -1286,10 +1487,15 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				// Recursive parsing for container boxes
 				DemuxHelper(next);
 				break;
+			case MultiChar_Constant("meta"): // Metadata container (QTFF or ISO BMFF variant)
+				ParseMetaBox(next);
+				break;
 			case MultiChar_Constant("mehd"): // Movie Extends Header
 			case MultiChar_Constant("mfhd"): // Movie Fragment Header
 			case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
 			case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
+			case MultiChar_Constant("ilst"): // Apple metadata item list (child of meta)
+			case MultiChar_Constant("keys"): // Apple metadata key declarations (child of meta)
 			case MultiChar_Constant("vmhd"): // Video Media Header (graphics_mode, op_color)
 			case MultiChar_Constant("smhd"): // Sound Media Header (balance)
 			case MultiChar_Constant("dref"): // Data Reference (url) (under dinf box)
@@ -1309,6 +1515,12 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("udta"): // User Data (can appear under moov, trak, moof, traf)
 				ptr = next;
 				break;
+			case MultiChar_Constant("sgpd"): // Sample Group Description
+				ParseSampleGroupDescription(next);
+				break;
+			case MultiChar_Constant("sbgp"): // Sample to Group
+				ParseSampleToGroup(next);
+				break;
 			case MultiChar_Constant("mdat"): // Movie Data (under file box)
 				// Track mdat payload range for TRUN validation
 				mdatStart = ptr; // start of payload (after header bytes)
@@ -1318,6 +1530,9 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 				ptr = next; // skip payload
 				break;
 			default:
+				// Unknown/unhandled box — skip payload and continue
+				MP4_LOG_WARN("Skipping unknown box type: %s, size: %" PRIu64, FourCCToString(type).c_str(), size);
+				ptr = next;
 				break;
 		}
 		if (ptr != next)
@@ -1328,24 +1543,30 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 }
 
 /**
- * @brief Parse MP4 data segment
- * Main entry point for MP4 parsing. Resets sample data from previous
- * segments while preserving metadata, then initiates recursive parsing
- * of the MP4 container structure. Handles both initialization segments
- * and media fragments.
+ * @brief Parse MP4 data segment with shared ownership of the backing buffer.
  *
- * @param ptr Pointer to MP4 data buffer
- * @param len Length of data buffer in bytes
+ * Stores @p segment internally during parsing so that every extracted sample's
+ * mData field (aliasing shared_ptr) keeps the buffer alive exactly as long as
+ * the sample exists. Resets sample data from previous segments while preserving
+ * metadata, then initiates recursive parsing of the MP4 container structure.
+ * Handles both initialization segments and media fragments.
+ * The internal mCurrentSegment hold is released before returning; only the
+ * individual samples carry a shared reference thereafter.
+ *
+ * @param segment Shared ownership of the buffer to parse (must not be null/empty).
  * @return true if parsing succeeded, false on error
  */
-
-bool Mp4Demux::Parse(const void *data, size_t len)
+bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 {
-	bool ret = false;
-	if (!data || len == 0) {
-		setParseError( MP4_PARSE_ERROR_INVALID_INPUT );
+	if (!segment || segment->empty())
+	{
+		setParseError(MP4_PARSE_ERROR_INVALID_INPUT);
 		return false;
 	}
+	mCurrentSegment = std::move(segment);
+
+	const void *data = mCurrentSegment->data();
+	size_t len = mCurrentSegment->size();
 	MP4_LOG_DEBUG("Parsing MP4 data segment, ptr:%p len=%zu", data, len);
 
 	// Start timing for metrics
@@ -1365,10 +1586,11 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 	mdatEnd = nullptr;
 	this->ptr = (const uint8_t *)data;
 
+	bool ret = false;
 	try {
 		DemuxHelper(&this->ptr[len]);
 		ret = true;
-		// Force encrypted flag if any encrypted samples were handled previously
+		// Force encrypted flag if any encrypted samples were handled previously.
 		// For GStreamer, renegotiation will fail if the caps change from
 		// encrypted to clear, so we need to keep the encrypted flag set.
 		if (handledEncryptedSamples && codecInfo.mIsEncrypted == false)
@@ -1394,20 +1616,22 @@ bool Mp4Demux::Parse(const void *data, size_t len)
 			MP4_LOG_DEBUG("Demux metrics: %u frames in %.3f ms", frameCount, demuxDuration.count());
 		}
 	} catch (const Mp4ParseException& ex) {
-		setParseError(ex.code());
+		setParseError(ex.code(), ex.what());
 		ret = false;
 	} catch (const std::exception& /*ex*/) {
 		// Map unknown std exceptions to a generic parse error
 		setParseError(MP4_PARSE_ERROR_INVALID_BOX);
 		ret = false;
 	}
+
+	mCurrentSegment = nullptr;
 	return ret;
 }
 
-
-void Mp4Demux::ParseOrThrow(const void *data, size_t len)
+void Mp4Demux::ParseOrThrow(std::shared_ptr<std::vector<uint8_t>>&& segment)
 {
-	if (!Parse(data, len)) {
+	if (!Parse(std::move(segment)))
+	{
 		throw Mp4ParseException(GetLastError(), "Parse failed");
 	}
 }
@@ -1466,15 +1690,18 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
 }
 
 /**
- * @brief Get parsed media samples
+ * @brief Return parsed media samples with lifetime tracking.
+ *
  * Returns all media samples extracted from the current MP4 fragment,
  * including sample data, timing information, and encryption metadata.
+ * Each sample's mData is an aliasing shared_ptr<const uint8_t> that keeps
+ * the backing segment buffer (previously passed to Parse()) alive for the
+ * sample's lifetime, enabling zero-copy access to the parsed payload.
  *
- * @return Media samples vector with ownership transferred to caller
+ * @return Media samples vector with ownership transferred to caller.
  */
 std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
-	// std::move is required here because codecInfo is a member variable.
 	return std::move(samples);
 }
 

@@ -55,18 +55,13 @@ pkg_check_modules(UUID REQUIRED uuid)
 # option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
 # components should be sourced from external repositories or built from the local aamp repository.
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
+	message("CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES set")
 	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
 	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
 	pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
 	pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
 	pkg_check_modules(SUBTEC REQUIRED libsubtec)
 endif()	
-
-if(CMAKE_PREINIT_DECODER)
-       message("CMAKE_PREINIT_DECODER Set")
-       set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_PREINIT_DECODING=1")
-       set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_PREINIT_DECODING=1")
-endif()
 
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
@@ -77,7 +72,9 @@ endif()
 
 # Platform specific settings
 if(APPLE)
-	set(CMAKE_OSX_DEPLOYMENT_TARGET "15.6")
+	if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "26.0")
+	endif()
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
 	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
@@ -86,11 +83,13 @@ if(APPLE)
 	set(CMAKE_SKIP_BUILD_RPATH FALSE)
 
 	list(APPEND CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_BUILD_RPATH "/Library/Frameworks")
 
 	# when building, don't use the install RPATH already
 	# (but later on when installing)
 	set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 	set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_INSTALL_RPATH "/Library/Frameworks")
 
 	# add the automatically determined parts of the RPATH
 	# which point to directories outside the build tree to the install RPATH
@@ -98,12 +97,6 @@ if(APPLE)
 else()
 	# For other builds, use the origin of the executable as the RPATH
 	set(CMAKE_INSTALL_RPATH "$ORIGIN")
-endif()
-
-option(ENABLE_AAMP_NET_TRACE "Enable network activity tracing instrumentation" OFF)
-if(ENABLE_AAMP_NET_TRACE)
-	message("AAMP_NET_TRACE set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_NET_TRACE=1")
 endif()
 
 #update XCode scheme flags, harmless for non Darwin builds
@@ -140,14 +133,16 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
 		string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
 		message("AAMP_CLI_LD_FLAGS: ${AAMP_CLI_LD_FLAGS}")
-		# Use pkg-config library directories for dependencies
-		link_directories(${OPENSSL_LIBRARY_DIRS})
-		link_directories(${GSTREAMER_LIBRARY_DIRS})
-		link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
-		link_directories(${GSTREAMERBASE_LIBRARY_DIRS})
 		pkg_check_modules(GLIB REQUIRED glib-2.0)
 		include_directories(${GLIB_INCLUDE_DIRS})
-		link_directories(${GLIB_LIBRARY_DIRS})
+		# Note: link_directories() is intentionally omitted here for OpenSSL and
+		# GStreamer. The Xcode generator appends $(CONFIGURATION) (e.g. "Debug") to
+		# every path passed via link_directories(), producing spurious "search path
+		# not found" warnings for paths like .../lib/Debug that don't exist under
+		# Homebrew prefixes. OpenSSL and GStreamer are linked via their
+		# *_LINK_LIBRARIES variables (full absolute paths) so the directory hint is
+		# not needed. Other dependencies (e.g. LIBXML2) still use short library
+		# names and rely on the system linker search path.
 		set(GL_DEPENDS
 			"-framework OpenGL"
 			"-framework GLUT"
@@ -213,11 +208,15 @@ set(LIBAAMP_DEPENDS
 	${LIBDASH_LINK_LIBRARIES}
 	${LIBXML2_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
-	${OPENSSL_LIBRARIES}
+	${OPENSSL_LINK_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
-	-ldl
 )
+# -ldl is part of libSystem on Darwin and linked automatically; adding it
+# explicitly duplicates what transitive dependencies already bring in.
+if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+	list(APPEND LIBAAMP_DEPENDS -ldl)
+endif()
 
 if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
 
@@ -257,7 +256,7 @@ endif()
 
 add_subdirectory(test/rialtoPOC)
 
-if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
+#if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	include_directories(support/aampmetrics)
 
@@ -265,7 +264,7 @@ if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} metrics)
-endif()
+#endif()
 
 message("Adding tsb folder")
 add_subdirectory(tsb)
@@ -282,6 +281,13 @@ if(CMAKE_SYSTEMD_JOURNAL)
 	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-lsystemd")
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
 endif()
+# std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64
+# GCC emits __atomic_load_16 / __atomic_store_16 which require the atomic
+# support library shipped with GCC.  ARM64 handles them natively.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-latomic")
+	set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} "-latomic")
+endif()
 #Enabling ethan log macro and lib
 if(CMAKE_USE_ETHAN_LOG)
 	message("DCMAKE_USE_ETHAN_LOG set")
@@ -295,7 +301,7 @@ if(CMAKE_USE_ETHAN_LOG)
 	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 # Building jsbindings
-if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
+if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE OR CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
 
 	set(LIBJSBINDINGS_SOURCES
@@ -376,6 +382,47 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS OR APPLE)
 		xcode_define_schema(aampjsbindings)
 		xcode_define_schema(uveExecuter)
 
+    elseif(CMAKE_PLATFORM_UBUNTU)
+        # On Ubuntu use the system JavaScriptCore provided by webkitgtk
+        pkg_check_modules(JSC javascriptcoregtk-4.1)
+        if(NOT JSC_FOUND)
+            pkg_check_modules(JSC javascriptcoregtk-4.0)
+        endif()
+        if(NOT JSC_FOUND)
+            message(FATAL_ERROR "JavaScriptCore library not found on Ubuntu. "
+                "Please install libjavascriptcoregtk-4.1-dev or libjavascriptcoregtk-4.0-dev.")
+        endif()
+        message("Found JavaScriptCore: ${JSC_LINK_LIBRARIES}")
+
+        include_directories(${JSC_INCLUDE_DIRS})
+        set(LIBAAMPJSBINDINGS_DEPENDS ${LIBAAMPJSBINDINGS_DEPENDS} ${JSC_LINK_LIBRARIES})
+        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+
+        target_link_libraries(aampjsbindings PUBLIC aamp tsb playergstinterface playerfbinterface ${LIBAAMPJSBINDINGS_DEPENDS})
+        set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
+
+        install(TARGETS aampjsbindings DESTINATION lib)
+
+        set(LIBJSBINDINGS_SIMULATOR_SOURCES test/jsBindingTest/UVEBinding.cpp)
+
+        add_executable(uveExecuter ${LIBJSBINDINGS_SIMULATOR_SOURCES})
+
+        set_target_properties(uveExecuter PROPERTIES
+            COMPILE_FLAGS "${OS_CXX_FLAGS} ${LIBAAMP_DEFINES}")
+
+        target_include_directories(uveExecuter PRIVATE
+            ${JSC_INCLUDE_DIRS}
+            ${GSTREAMER_INCLUDE_DIRS}
+        )
+
+        target_link_libraries(uveExecuter PRIVATE
+            aampjsbindings
+            ${GSTREAMER_LINK_LIBRARIES}
+            ${JSC_LINK_LIBRARIES}
+        )
+
+        install(TARGETS uveExecuter DESTINATION bin)
+
     else()
         pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
         if(NOT WPE_WEBKIT_FOUND)
@@ -442,6 +489,7 @@ set(LIBAAMP_SOURCES
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
+	AampNetworkPersona.cpp AampNetworkPersona.h
 	lstring.hpp lstring.cpp
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
@@ -472,6 +520,7 @@ set(LIBAAMP_SOURCES
 	AampMPDDownloader.cpp AampMPDDownloader.h
 	AampMPDParseHelper.cpp AampMPDParseHelper.h
 	AampMPDUtils.cpp AampMPDUtils.h
+	AampVodStitcher.cpp AampVodStitcher.h
 	ElementaryProcessor.cpp ElementaryProcessor.h
 	AampStreamSinkManager.cpp AampStreamSinkManager.h
 	MetadataProcessor.cpp MetadataProcessor.hpp
@@ -497,6 +546,7 @@ set(LIBAAMP_SOURCES
 	AampDemuxDataTypes.h
 	net_trace.h
 	AampLatencyMonitor.cpp AampLatencyMonitor.h
+	simnet/net_persona_fitter.cpp simnet/net_persona_fitter.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -671,6 +721,7 @@ install(FILES
 	abr/RollingMedianOutlierEstimator.h
 	abr/HarmonicEwmaEstimator.h
 	abr/BandwidthEstimatorBase.h
+	AampSpeedCache.h
 	DESTINATION include
 )
 

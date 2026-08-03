@@ -26,7 +26,7 @@
 #include "MockMp4Demux.h"
 
 // Global mock instance used by the testable AampMp4Demuxer
-MockMp4Demux *g_mockMp4Demux = nullptr;
+std::shared_ptr<MockMp4Demux> g_mockMp4Demux{};
 
 /**
  * @brief Fake MP4Demux constructor
@@ -44,18 +44,15 @@ Mp4Demux::~Mp4Demux()
 
 /**
  * @brief Fake Parse implementation - delegates to mock if available
- * @param ptr Pointer to MP4 data
- * @param len Length of data
+ * @param segment Shared ownership of the buffer to parse
  * @return true if parsing was successful
  */
-bool Mp4Demux::Parse(const void *ptr, size_t len)
+bool Mp4Demux::Parse(std::shared_ptr<std::vector<uint8_t>>&& segment)
 {
-    // Delegate to mock if available
-    if (g_mockMp4Demux) {
-		return g_mockMp4Demux->Parse(ptr, len);
-    }
-    // Otherwise, do nothing (fake behavior)
-    return true;
+	if (g_mockMp4Demux) {
+		return g_mockMp4Demux->Parse(std::move(segment));
+	}
+	return true;
 }
 
 /**
@@ -64,13 +61,13 @@ bool Mp4Demux::Parse(const void *ptr, size_t len)
  */
 uint32_t Mp4Demux::GetTimeScale() const
 {
-    // Delegate to mock if available
-    if (g_mockMp4Demux) {
-        return g_mockMp4Demux->GetTimeScale();
-    }
-    
-    // Default fake value
-    return 1; // Common timescale for video
+	// Delegate to mock if available
+	if (g_mockMp4Demux) {
+		return g_mockMp4Demux->GetTimeScale();
+	}
+	
+	// Default fake value
+	return 1; // Common timescale for video
 }
 
 /**
@@ -79,16 +76,16 @@ uint32_t Mp4Demux::GetTimeScale() const
  */
 MediaCodecInfo Mp4Demux::GetCodecInfo()
 {
-    // Delegate to mock if available
-    if (g_mockMp4Demux) {
-        return g_mockMp4Demux->GetCodecInfo();
-    }
-    
-    // Default fake codec info
-    MediaCodecInfo codecInfo;
-    codecInfo.mCodecFormat = GST_FORMAT_INVALID;
-    codecInfo.mIsEncrypted = false;
-    return codecInfo;
+	// Delegate to mock if available
+	if (g_mockMp4Demux) {
+		return g_mockMp4Demux->GetCodecInfo();
+	}
+	
+	// Default fake codec info
+	MediaCodecInfo codecInfo;
+	codecInfo.mCodecFormat = GST_FORMAT_INVALID;
+	codecInfo.mIsEncrypted = false;
+	return codecInfo;
 }
 
 /**
@@ -97,13 +94,13 @@ MediaCodecInfo Mp4Demux::GetCodecInfo()
  */
 std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
 {
-    // Delegate to mock if available
-    if (g_mockMp4Demux) {
-        return g_mockMp4Demux->GetProtectionEvents();
-    }
-    
-    // Default fake - no protection events
-    return std::vector<MediaProtectionInfo>();
+	// Delegate to mock if available
+	if (g_mockMp4Demux) {
+		return g_mockMp4Demux->GetProtectionEvents();
+	}
+	
+	// Default fake - no protection events
+	return std::vector<MediaProtectionInfo>();
 }
 
 /**
@@ -112,13 +109,10 @@ std::vector<MediaProtectionInfo> Mp4Demux::GetProtectionEvents()
  */
 std::vector<AampMediaSample> Mp4Demux::GetSamples()
 {
-    // Delegate to mock if available
-    if (g_mockMp4Demux) {
-        return g_mockMp4Demux->GetSamples();
-    }
-    
-    // Default fake - no samples
-    return std::vector<AampMediaSample>();
+	if (g_mockMp4Demux) {
+		return g_mockMp4Demux->GetSamples();
+	}
+	return std::vector<AampMediaSample>();
 }
 
 /**
@@ -127,8 +121,8 @@ std::vector<AampMediaSample> Mp4Demux::GetSamples()
  */
 Mp4ParseError Mp4Demux::GetLastError() const
 {
-    if (g_mockMp4Demux) {
-        return g_mockMp4Demux->GetLastError();
-    }
+	if (g_mockMp4Demux) {
+		return g_mockMp4Demux->GetLastError();
+	}
 	return MP4_PARSE_OK;
 }

@@ -32,6 +32,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <thread>
 
 #include "AampLatencyMonitor.h"
@@ -68,20 +69,23 @@ static constexpr long kMaxLatencyMs    = static_cast<long>(DEFAULT_MAX_LATENCY_M
 // tests complete quickly in CI.
 // ---------------------------------------------------------------------------
 static LatencyConfig MakeFastConfig(
-	double normalRate  = DEFAULT_NORMAL_RATE_CORRECTION_SPEED, //1.00
-	double minRate     = DEFAULT_MIN_RATE_CORRECTION_SPEED, //0.97
-	double maxRate     = DEFAULT_MAX_RATE_CORRECTION_SPEED, //1.03
-	double minLatMs    = DEFAULT_MIN_LATENCY_MS, //3000 ms
-	double targetLatMs = DEFAULT_TARGET_LATENCY_MS, //6000 ms
-	double maxLatMs    = DEFAULT_MAX_LATENCY_MS, //9000 ms
-	double bufToEnable = DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC * 1000, // 0.0s
+	double normalRate     = DEFAULT_NORMAL_RATE_CORRECTION_SPEED, //1.00
+	double minRate        = DEFAULT_MIN_RATE_CORRECTION_SPEED,    //0.97
+	double maxRate        = DEFAULT_MAX_RATE_CORRECTION_SPEED,    //1.03
+	double minLatMs       = DEFAULT_MIN_LATENCY_MS,               //5000 ms
+	double targetLatMs    = DEFAULT_TARGET_LATENCY_MS,            //6000 ms
+	double maxLatMs       = DEFAULT_MAX_LATENCY_MS,               //7000 ms
+	double bufToEnable    = DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC * 1000, // 0.0s
 	double rebufStepMs    = 0.0,   // latency increment per rebuffering event
-	double rebufMaxIncrMs = 0.0)   // max total accumulated increment (0 = uncapped)
+	double rebufMaxIncrMs = 0.0,   // max total accumulated increment (0 = uncapped)
+	double dangerBufferMs = 0.0,   // min buffer (ms) that must hold for latencyStableSec
+	double latencyStableSec = 0.0) // stable buffer duration (s) before one restoration step
 {
 	// monitorDelayMs = 0, monitorIntervalMs = 5 ms — fast for tests.
 	return LatencyConfig{normalRate, minRate, maxRate,
 		minLatMs, targetLatMs, maxLatMs,
-		0, 5, bufToEnable, rebufStepMs, rebufMaxIncrMs};
+		0, 5, bufToEnable, rebufStepMs, rebufMaxIncrMs,
+		dangerBufferMs, latencyStableSec};
 }
 
 // ---------------------------------------------------------------------------
@@ -105,8 +109,8 @@ protected:
 		mMockSinkMgr = new NiceMock<MockAampStreamSinkManager>();
 		mMockSink    = new NiceMock<MockStreamSink>();
 
-		g_mockPrivateInstanceAAMP  = mMockAamp;
-		g_mockAampStreamSinkManager = mMockSinkMgr;
+		g_mockPrivateInstanceAAMP = std::shared_ptr<MockPrivateInstanceAAMP>(mMockAamp, [](MockPrivateInstanceAAMP*){});
+		g_mockAampStreamSinkManager = std::shared_ptr<MockAampStreamSinkManager>(mMockSinkMgr, [](MockAampStreamSinkManager*){});
 
 		// Default safe stubs — overridden per test as required.
 		ON_CALL(*mMockAamp, GetState()).WillByDefault(Return(eSTATE_PLAYING));
@@ -131,7 +135,7 @@ protected:
 		}
 
 		g_mockPrivateInstanceAAMP   = nullptr;
-		g_mockAampStreamSinkManager = nullptr;
+		g_mockAampStreamSinkManager.reset();
 
 		delete mMockSink;    mMockSink    = nullptr;
 		delete mMockSinkMgr; mMockSinkMgr = nullptr;
@@ -167,6 +171,24 @@ protected:
 			std::this_thread::sleep_for(std::chrono::milliseconds(2));
 		}
 		return true;
+	}
+
+	/// @brief Wait until the effective minimum latency threshold equals @p expected
+	///        (up to @p maxWaitMs milliseconds).  Used to detect that Run() has
+	///        performed a threshold shift or restoration after being woken or polled.
+	bool WaitForMinLatency(double expected, int maxWaitMs = 500)
+	{
+		auto deadline = std::chrono::steady_clock::now()
+			+ std::chrono::milliseconds(maxWaitMs);
+		while (true)
+		{
+			auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+			if (std::abs(minMs - expected) < 0.001)
+				return true;
+			if (std::chrono::steady_clock::now() >= deadline)
+				return false;
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));
+		}
 	}
 };
 
@@ -583,20 +605,28 @@ TEST_F(AampLatencyMonitorTest, RateCorrection_NegativeBuffer_SkipsPoll)
 }
 
 // ===========================================================================
-// 5. Adaptive latency threshold shifts driven by rebuffering events
+// 5. Adaptive latency threshold shifts driven by low-buffer events
 // ===========================================================================
 
 /**
  * @test AdaptiveThreshold_ZeroStep_ThresholdsUnchanged
- * @brief When rebufferingLatencyStepMs is 0 (default), OnRebufferingStart()
- *        must leave all three thresholds unchanged.
+ * @brief When rebufferingLatencyStepMs is 0 (default), OnBufferLevelUpdate()
+ *        with a buffer below dangerBufferMs must leave all three thresholds
+ *        unchanged.
  */
 TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_ZeroStep_ThresholdsUnchanged)
 {
-	mMonitor->Start(MakeFastConfig()); // rebufStepMs = 0 by default
-	ASSERT_TRUE(WaitForRunning()); // wait for worker to start before calling OnRebufferingStart()
+	// rebufStepMs = 0 → OnBufferLevelUpdate early-returns, no shift.
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_RATE_CORRECTION_SPEED,
+		DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, /*rebufStepMs=*/0.0, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
 
-	mMonitor->OnRebufferingStart();
+	mMonitor->OnBufferLevelUpdate(500.0); // below danger, but rebufStepMs=0 → no-op
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
 	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
@@ -606,22 +636,49 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_ZeroStep_ThresholdsUnchanged)
 
 /**
  * @test AdaptiveThreshold_MultipleRebuffers_ThresholdsAccumulate
- * @brief Multiple OnRebufferingStart() calls must accumulate the step so that
- *        after N calls the shift equals N * rebufferingLatencyStepMs.
+ * @brief Each distinct low-buffer episode must accumulate one rebufferingLatencyStepMs
+ *        shift.  Two separate episodes (separated by a healthy-buffer recovery that
+ *        clears the episode guard) must produce an accumulated shift of 2 * kStep.
+ *
+ * Design note: with the notify-only OnBufferLevelUpdate pattern the episode guard
+ * (mBelowDangerShifted) is set by Run() after the first shift.  Calling
+ * OnBufferLevelUpdate() with a healthy buffer clears the guard so that the next
+ * dip is treated as a new episode and triggers a fresh wakeup + shift.
  */
 TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MultipleRebuffers_ThresholdsAccumulate)
 {
 	constexpr double kStep = 1000.0;
-	mMonitor->Start(MakeFastConfig(
-		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_RATE_CORRECTION_SPEED,
-		DEFAULT_MAX_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
-		0.0, kStep, /*rebufMaxIncrMs=*/0.0));
-	ASSERT_TRUE(WaitForRunning()); // wait for worker to start before calling OnRebufferingStart()
+	// GetBufferedDurationSecs drives Run()'s buffer level; start below danger.
+	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
-	mMonitor->OnRebufferingStart();
-	mMonitor->OnRebufferingStart();
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// ── Episode 1 ──────────────────────────────────────────────────────────────
+	// Buffer is low (500ms); wake Run() early via notify.
+	mMonitor->OnBufferLevelUpdate(500.0); // below danger → wakes Run()
+	// Run() sees bufSecs=0.5 (<1s danger), shifts +kStep, sets mBelowDangerShifted.
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// ── Recovery ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+	// Healthy buffer wakes Run() which clears the episode guard via UpdateDangerBufferState.
+	bufSecs.store(5.0); // 5000ms >= danger 1000ms → healthy
+	mMonitor->OnBufferLevelUpdate(5000.0); // wakes Run() to clear mBelowDangerShifted
+	// Wait for Run() to wake, observe healthy buffer, and clear mBelowDangerShifted
+	// before we change bufSecs back to a danger level for episode 2.
+	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
+	// ── Episode 2 ──────────────────────────────────────────────────────────────
+	bufSecs.store(0.5); // back below danger
+	mMonitor->OnBufferLevelUpdate(500.0); // flag clear → wakes Run() again
+	// Run() sees bufSecs=0.5, shifts +kStep a second time.
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + 2.0 * kStep, 500));
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
 	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + 2.0 * kStep);
@@ -637,21 +694,40 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MultipleRebuffers_ThresholdsAcc
  */
 TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MaxIncrementCap_ThresholdsClamped)
 {
-	constexpr double kStep   = 1000.0;
+	constexpr double kStep    = 1000.0;
 	constexpr double kMaxIncr = 3000.0;
-	mMonitor->Start(MakeFastConfig(
-		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_RATE_CORRECTION_SPEED,
-		DEFAULT_MAX_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
-		0.0, kStep, kMaxIncr));
-	ASSERT_TRUE(WaitForRunning()); // wait for worker to start before calling OnRebufferingStart()
 
-	// Four calls: cap should be reached after the third.
-	mMonitor->OnRebufferingStart(); // accumulated = 1000
-	mMonitor->OnRebufferingStart(); // accumulated = 2000
-	mMonitor->OnRebufferingStart(); // accumulated = 3000 (at cap)
-	mMonitor->OnRebufferingStart(); // still capped at 3000
+	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, kMaxIncr,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Three distinct episodes drive accumulation to the cap (3000ms).
+	for (int episode = 1; episode <= 3; ++episode)
+	{
+		// Dip below danger.
+		bufSecs.store(0.5);
+		mMonitor->OnBufferLevelUpdate(500.0);
+		const double expectedAfter = std::min(static_cast<double>(episode) * kStep, kMaxIncr);
+		ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + expectedAfter, 500));
+
+		// Recover to clear the episode guard before the next dip.
+		bufSecs.store(5.0);
+		mMonitor->OnBufferLevelUpdate(5000.0); // wakes Run() to clear mBelowDangerShifted
+		// Wait for Run() to wake, observe healthy buffer, and clear mBelowDangerShifted.
+		std::this_thread::sleep_for(std::chrono::milliseconds(30));
+	}
+
+	// A fourth episode must not increase the shift beyond the cap.
+	bufSecs.store(0.5);
+	mMonitor->OnBufferLevelUpdate(500.0);
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
 	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + kMaxIncr);
@@ -668,20 +744,20 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_MaxIncrementCap_ThresholdsClamp
 TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_Stop_ResetsThresholdsToConfigDefaults)
 {
 	constexpr double kStep = 1000.0;
-	mMonitor->Start(MakeFastConfig(
-		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_RATE_CORRECTION_SPEED,
-		DEFAULT_MAX_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
-		0.0, kStep, /*rebufMaxIncrMs=*/0.0));
-	ASSERT_TRUE(WaitForRunning()); // wait for worker to start before calling OnRebufferingStart()
+	// Buffer below danger so Run() shifts on each poll.
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
-	mMonitor->OnRebufferingStart();
-	{
-		auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
-		// Verify the shift was applied before Stop().
-		EXPECT_DOUBLE_EQ(minMs, DEFAULT_MIN_LATENCY_MS + kStep);
-	}
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/10.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Wake Run() and let it shift +kStep.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	mMonitor->Stop();
 
@@ -701,20 +777,19 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_Stop_ResetsThresholdsToConfigDe
 TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_DisableRateCorrection_ResetsThresholdsToConfigDefaults)
 {
 	constexpr double kStep = 1000.0;
-	mMonitor->Start(MakeFastConfig(
-		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_RATE_CORRECTION_SPEED,
-		DEFAULT_MAX_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
-		0.0, kStep, /*rebufMaxIncrMs=*/0.0));
-	ASSERT_TRUE(WaitForRunning()); // wait for worker to start before calling OnRebufferingStart()
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
 
-	mMonitor->OnRebufferingStart();
-	{
-		auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
-		// Verify the shift was applied before disabling rate correction.
-		EXPECT_DOUBLE_EQ(minMs, DEFAULT_MIN_LATENCY_MS + kStep);
-	}
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Wake Run() and let it shift +kStep.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
 
 	mMonitor->EnableRateCorrection(false);
 
@@ -728,46 +803,524 @@ TEST_F(AampLatencyMonitorTest, AdaptiveThreshold_DisableRateCorrection_ResetsThr
 
 /**
  * @test AdaptiveThreshold_ShiftedThreshold_ChangesRateCorrectionBehavior
- * @brief Behavioural test: latency that is in-band before rebuffering must
- *        trigger a slow-down after OnRebufferingStart() shifts minLatencyMs
- *        above the observed value.
+ * @brief Behavioural test: latency that is in-band before a low-buffer episode
+ *        must trigger a slow-down after Run() shifts minLatencyMs above the
+ *        observed value.
  *
  * Setup:
- *   minLatencyMs = 3 000 ms, step = 1 000 ms.
- *   Observed latency = 3 200 ms (above min → in-band → normal rate).
- *   After OnRebufferingStart(): minLatencyMs = 4 000 ms.
- *   3 200 ms < 4 000 ms → worker must apply minPlaybackRate.
+ *   minLatencyMs = 5 000 ms (DEFAULT_MIN_LATENCY_MS), step = 1 000 ms.
+ *   Observed latency = 5 200 ms (above min → in-band → normal rate).
+ *   Buffer below danger → Run() shifts: minLatencyMs = 6 000 ms.
+ *   5 200 ms < 6 000 ms → worker must apply minPlaybackRate.
  */
 TEST_F(AampLatencyMonitorTest,
 	AdaptiveThreshold_ShiftedThreshold_ChangesRateCorrectionBehavior)
 {
-	// Latency just above the default min — initially in-band.
+	// Buffer starts BELOW danger so Run() shifts on its first poll after the wakeup.
+	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
 	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kMinLatencyMs + 200L));
-	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(5.0));
 	ON_CALL(*mMockSink, SetPlayBackRate(_)).WillByDefault(Return(true));
 
 	mMonitor->Start(MakeFastConfig(
 		DEFAULT_NORMAL_RATE_CORRECTION_SPEED,
 		DEFAULT_MIN_RATE_CORRECTION_SPEED,
 		DEFAULT_MAX_RATE_CORRECTION_SPEED,
-		DEFAULT_MIN_LATENCY_MS,   // 3 000 ms
+		DEFAULT_MIN_LATENCY_MS,   // 5 000 ms
 		DEFAULT_TARGET_LATENCY_MS,
 		DEFAULT_MAX_LATENCY_MS,
 		0.0,
 		/*rebufStepMs=*/1000.0,
-		/*rebufMaxIncrMs=*/0.0));
+		/*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0,
+		/*latencyStableSec=*/5.0));
 	ASSERT_TRUE(WaitForRunning());
 
-	// Confirm the rate stays normal while 3 200 ms > min (3 000 ms).
-	std::this_thread::sleep_for(std::chrono::milliseconds(30));
-	EXPECT_DOUBLE_EQ(mMonitor->GetCurrentRate(), DEFAULT_NORMAL_RATE_CORRECTION_SPEED);
-
-	// Rebuffering shifts minLatencyMs to 4 000 ms; now 3 200 < 4 000.
+	// Buffer is 500ms < dangerBufferMs. Run() polls naturally and shifts immediately
+	// (no manual OnBufferLevelUpdate needed to trigger the shift).
+	// minLatencyMs shifts from 5000ms to 6000ms.
+	// latency (3200ms) < new minLatencyMs (4000ms) → worker must slow down.
 	EXPECT_CALL(*mMockSink, SetPlayBackRate(DEFAULT_MIN_RATE_CORRECTION_SPEED))
 		.Times(AtLeast(1)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*mMockSink, SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
 		.Times(AnyNumber()).WillRepeatedly(Return(true));
 
-	mMonitor->OnRebufferingStart();
 	EXPECT_TRUE(WaitForRate(DEFAULT_MIN_RATE_CORRECTION_SPEED, 500));
+}
+
+// ===========================================================================
+// 6. Dynamic threshold restoration (TryRestoreThresholdsLocked)
+//
+// TryRestoreThresholdsLocked is called from Run() when:
+//   - dangerBufferMs > 0
+//   - latencyStableSec > 0
+//   - rebufferingLatencyStepMs > 0
+//   - bufferMs >= dangerBufferMs for latencyStableSec consecutive seconds
+//     (measured across polling intervals by the worker thread)
+// ===========================================================================
+
+/**
+ * @test Restoration_ZeroWindowSec_RestorationDisabled
+ * @brief When latencyStableSec == 0 the restoration timer in Run() is gated out.
+ *        Low-buffer episodes still shift thresholds upward (the shift mechanism is
+ *        independent), but the healthy-buffer window that would tighten them back
+ *        never fires.
+ */
+TEST_F(AampLatencyMonitorTest, Restoration_ZeroWindowSec_RestorationDisabled)
+{
+	constexpr double kStep = 1000.0;
+	// Buffer below danger so Run() can shift.
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	// latencyStableSec = 0 → Run()'s restoration timer block is guarded out.
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		/*bufToEnable=*/0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/0.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Shift happens (Run() sees buffer < danger).
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// Now buffer becomes healthy; with latencyStableSec=0 no restoration must fire.
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(5.0));
+	std::this_thread::sleep_for(std::chrono::milliseconds(100)); // let Run() poll several times
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + kStep); // shift kept, never restored
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS + kStep);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS    + kStep);
+}
+
+/**
+ * @test Restoration_AlreadyAtBase_TryRestoreIsNoOp
+ * @brief When there is no accumulated increment (no prior rebuffering),
+ *        Run() must not apply a restoration step even after the stable-buffer
+ *        window elapses.
+ */
+TEST_F(AampLatencyMonitorTest, Restoration_AlreadyAtBase_TryRestoreIsNoOp)
+{
+	// Healthy buffer throughout — no shift, no restoration needed.
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(5.0)); // 5000ms >= danger 1000ms
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		/*bufToEnable=*/0.0, /*rebufStepMs=*/1000.0, /*rebufMaxIncrMs=*/8000.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Let Run() poll for several windows with healthy buffer.
+	// accumulated == 0 → early-return in TryRestoreThresholdsLocked → thresholds unchanged.
+	std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS);
+}
+
+/**
+ * @test Restoration_OneStep_ReducesAccumulatedByStep
+ * @brief After one rebuffering episode the thresholds are shifted by kStep.
+ *        Once Run() observes a healthy buffer for latencyStableSec (0.1 s),
+ *        one TryRestoreThresholdsLocked call must reduce the shift by kStep,
+ *        returning thresholds to base.
+ *
+ * Restoration is driven entirely by Run() polling GetBufferedDurationSecs();
+ * no OnBufferLevelUpdate is needed to trigger the timer or the restore step.
+ */
+TEST_F(AampLatencyMonitorTest, Restoration_OneStep_ReducesAccumulatedByStep)
+{
+	constexpr double kStep = 1000.0;
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	// Phase 1: buffer below danger → Run() shifts on first poll.
+	std::atomic<double> bufSecs{0.5}; // 500ms < dangerBufferMs 1000ms
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		/*bufToEnable=*/0.0, kStep, /*rebufMaxIncrMs=*/8000.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/0.5));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Wake Run() and wait for the shift.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// Phase 2: buffer recovers → Run() observes healthy buffer for >= 0.5 s → restores.
+	// monitorIntervalMs = 5ms; after ~500ms of polls the window elapses and restore fires.
+	bufSecs.store(5.0); // 5000ms >= dangerBufferMs 1000ms
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS, 2000)); // allow ~1.5s for restoration
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS);
+}
+
+/**
+ * @test Restoration_StepLargerThanAccumulated_ClampsToBase
+ * @brief When rebufferingLatencyStepMs exceeds the accumulated increment,
+ *        TryRestoreThresholdsLocked must clamp the result at 0 and return
+ *        thresholds exactly to their config-default values.
+ */
+TEST_F(AampLatencyMonitorTest, Restoration_StepLargerThanAccumulated_ClampsToBase)
+{
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	std::atomic<double> bufSecs{0.5}; // below danger initially
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		/*bufToEnable=*/0.0, /*rebufStepMs=*/1000.0, /*rebufMaxIncrMs=*/8000.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/0.5));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Shift: accumulated = 1000ms.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + 1000.0, 500));
+
+	// Recovery: Run() observes healthy buffer for >= 0.5s → restores.
+	// rebufStep (1000ms) == accumulated (1000ms) → clamps to 0 → back to base.
+	bufSecs.store(5.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS, 2000));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS);
+}
+
+/**
+ * @test Restoration_MultipleSteps_ThresholdsReturnToBase
+ * @brief Multiple restoration cycles (one per latencyStableSec window of healthy buffer)
+ *        must reduce the accumulated increment step-by-step until it reaches zero.
+ */
+TEST_F(AampLatencyMonitorTest, Restoration_MultipleSteps_ThresholdsReturnToBase)
+{
+	constexpr double kStep    = 1000.0;
+	constexpr double kMaxIncr = 3000.0;
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	std::atomic<double> bufSecs{0.5};
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		/*bufToEnable=*/0.0, kStep, kMaxIncr, /*dangerBufferMs=*/1000.0, /*latencyStableSec=*/0.05));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Accumulate maximum shift via 3 distinct episodes.
+	for (int episode = 1; episode <= 3; ++episode)
+	{
+		bufSecs.store(0.5);
+		mMonitor->OnBufferLevelUpdate(500.0);
+		const double expected = std::min(static_cast<double>(episode) * kStep, kMaxIncr);
+		ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + expected, 500));
+		// Recover briefly to clear episode guard before the next dip.
+		bufSecs.store(5.0);
+		mMonitor->OnBufferLevelUpdate(5000.0); // clears mBelowDangerShifted
+		std::this_thread::sleep_for(std::chrono::milliseconds(30));
+	}
+	{
+		auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+		EXPECT_DOUBLE_EQ(minMs, DEFAULT_MIN_LATENCY_MS + kMaxIncr);
+	}
+
+	// Now keep buffer healthy so Run() drives 3 restoration cycles.
+	// Each cycle: Run() observes healthy buffer for >= latencyStableSec (0.05s) → one restore step.
+	// With monitorIntervalMs=5ms, each 50ms window needs ~10 polls.
+	bufSecs.store(5.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS, 2000));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS);
+}
+
+/**
+ * @test Restoration_UnhealthyBuffer_DoesNotTrigger
+ * @brief When the buffer returned by GetBufferedDurationSecs() stays below
+ *        dangerBufferMs across all Run() polls, the restoration timer is
+ *        never started, so TryRestoreThresholdsLocked must never fire and
+ *        the shift must remain at the cap.
+ */
+TEST_F(AampLatencyMonitorTest, Restoration_UnhealthyBuffer_DoesNotTrigger)
+{
+	constexpr double kStep = 1000.0;
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+	// Buffer stays at 500ms < dangerBufferMs (1000ms) throughout.
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(0.5));
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		/*bufToEnable=*/0.0, kStep, /*rebufMaxIncrMs=*/kStep,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// First episode: Run() shifts +kStep and sets the episode guard.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// Buffer remains unhealthy for several poll cycles.
+	// Episode guard (mBelowDangerShifted=true) prevents further shifts.
+	// Run() never enters the healthy branch → restoration timer never starts.
+	std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + kStep);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS + kStep);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS    + kStep);
+}
+
+// ===========================================================================
+// 7. Episode-guard and notify-only pattern
+//
+// These tests verify the new design where OnBufferLevelUpdate() is a pure
+// notifier (it never shifts thresholds) and Run() is the sole actor.
+// The episode guard (mBelowDangerShifted) ensures exactly one shift per
+// continuous low-buffer episode regardless of how many times either path
+// observes the low buffer.
+// ===========================================================================
+
+/**
+ * @test EpisodeGuard_SameEpisode_ShiftsOnlyOnce
+ * @brief While buffer stays below dangerBufferMs the episode guard must prevent
+ *        Run() from applying more than one shift per continuous low-buffer
+ *        episode, even across multiple polling intervals.
+ */
+TEST_F(AampLatencyMonitorTest, EpisodeGuard_SameEpisode_ShiftsOnlyOnce)
+{
+	constexpr double kStep = 1000.0;
+	// Buffer stays below danger throughout — one continuous episode.
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(0.5)); // 500ms < 1000ms danger
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Wake Run() for the first (and only) shift of this episode.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// Let Run() poll several more times — episode guard blocks any further shift.
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + kStep); // exactly one shift
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS + kStep);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS    + kStep);
+}
+
+/**
+ * @test EpisodeGuard_MultipleOnBufferCalls_SameEpisode_WakesOnce
+ * @brief Multiple OnBufferLevelUpdate() calls with buffer below danger during
+ *        the same episode must only send a single wakeup to Run() (once the
+ *        episode guard is set by Run(), subsequent calls are suppressed without
+ *        taking mSleepMutex).  The net result is still exactly one shift.
+ */
+TEST_F(AampLatencyMonitorTest, EpisodeGuard_MultipleOnBufferCalls_SameEpisode_WakesOnce)
+{
+	constexpr double kStep = 1000.0;
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// First call wakes Run(); Run() shifts and sets guard.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// Subsequent calls during the same episode must be no-ops.
+	for (int i = 0; i < 10; ++i)
+	{
+		mMonitor->OnBufferLevelUpdate(500.0);
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs, DEFAULT_MIN_LATENCY_MS + kStep); // still exactly one shift
+}
+
+/**
+ * @test EpisodeGuard_RecoveryThenNewDip_ShiftsTwice
+ * @brief A recovery (buffer >= dangerBufferMs) clears the episode guard.
+ *        The next dip must be treated as a fresh episode and trigger a second
+ *        shift, accumulating 2 * kStep in total.
+ */
+TEST_F(AampLatencyMonitorTest, EpisodeGuard_RecoveryThenNewDip_ShiftsTwice)
+{
+	constexpr double kStep = 1000.0;
+	std::atomic<double> bufSecs{0.5};
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Episode 1: dip → Run() shifts → guard set.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// Recovery: healthy buffer wakes Run() which clears the episode guard via UpdateDangerBufferState.
+	bufSecs.store(5.0);
+	mMonitor->OnBufferLevelUpdate(5000.0); // wakes Run() to clear mBelowDangerShifted
+	// Wait for Run() to wake, observe healthy buffer, and clear mBelowDangerShifted
+	// before we change bufSecs back to a danger level for episode 2.
+	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
+	// Episode 2: new dip → guard is clear → Run() shifts again.
+	bufSecs.store(0.5);
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + 2.0 * kStep, 500));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + 2.0 * kStep);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS + 2.0 * kStep);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS    + 2.0 * kStep);
+}
+
+// ===========================================================================
+// 8. Download-failure path: Run() detects low buffer without OnBufferLevelUpdate
+//
+// When fragment downloads are failing, OnBufferLevelUpdate() is never called.
+// Run()'s regular poll must still detect buffer < dangerBufferMs and shift
+// the thresholds on the first dip detection.
+// ===========================================================================
+
+/**
+ * @test DownloadFailure_RunDetectsLowBuffer_ShiftsThreshold
+ * @brief When OnBufferLevelUpdate() is never called (simulating a sustained
+ *        download failure) but GetBufferedDurationSecs() returns a value below
+ *        dangerBufferMs, Run()'s regular polling loop must detect the low buffer
+ *        and shift thresholds upward.
+ */
+TEST_F(AampLatencyMonitorTest, DownloadFailure_RunDetectsLowBuffer_ShiftsThreshold)
+{
+	constexpr double kStep = 1000.0;
+	// Buffer starts healthy, then drops to simulate a download failure draining the buffer.
+	std::atomic<double> bufSecs{5.0};
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault([&bufSecs](){ return bufSecs.load(); });
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Confirm no shift while buffer is healthy.
+	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+	{
+		auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+		EXPECT_DOUBLE_EQ(minMs, DEFAULT_MIN_LATENCY_MS);
+	}
+
+	// Simulate download failure: buffer drains below danger.
+	// OnBufferLevelUpdate is NOT called (download not completing).
+	bufSecs.store(0.5); // 500ms < 1000ms dangerBufferMs
+
+	// Run()'s next scheduled poll must detect low buffer and shift.
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + kStep);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS + kStep);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS    + kStep);
+}
+
+/**
+ * @test DownloadFailure_SustainedLowBuffer_ShiftsOnlyOnce
+ * @brief Even if Run() polls many times while buffer stays below danger (e.g.
+ *        during a prolonged download failure), the episode guard must ensure
+ *        the thresholds are shifted exactly once for the continuous episode.
+ */
+TEST_F(AampLatencyMonitorTest, DownloadFailure_SustainedLowBuffer_ShiftsOnlyOnce)
+{
+	constexpr double kStep = 1000.0;
+	// Buffer stays below danger for the entire test — no OnBufferLevelUpdate called.
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	mMonitor->Start(MakeFastConfig(
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED, DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0));
+	ASSERT_TRUE(WaitForRunning());
+
+	// Wait for the first shift to happen.
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// Let Run() poll many more times (monitorIntervalMs=5ms → ~20 more polls).
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	// Episode guard must have blocked all subsequent shifts.
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs,    DEFAULT_MIN_LATENCY_MS    + kStep);
+	EXPECT_DOUBLE_EQ(targetMs, DEFAULT_TARGET_LATENCY_MS + kStep);
+	EXPECT_DOUBLE_EQ(maxMs,    DEFAULT_MAX_LATENCY_MS    + kStep);
+}
+
+/**
+ * @test DownloadFailure_OnBufferUpdateBeforeRunPolls_ShiftsOnce
+ * @brief If OnBufferLevelUpdate fires (partial fragment) before Run()'s
+ *        next scheduled poll, Run() must see the episode guard already set
+ *        and skip its own shift — net result is exactly one shift.
+ */
+TEST_F(AampLatencyMonitorTest, DownloadFailure_OnBufferUpdateBeforeRunPolls_ShiftsOnce)
+{
+	constexpr double kStep = 1000.0;
+	// Buffer below danger — both OnBufferLevelUpdate and Run() will observe it.
+	ON_CALL(*mMockAamp, GetBufferedDurationSecs()).WillByDefault(Return(0.5));
+	ON_CALL(*mMockAamp, GetCurrentLatencyMs()).WillByDefault(Return(kTargetLatencyMs));
+
+	// Use a longer poll interval so OnBufferLevelUpdate fires first.
+	LatencyConfig cfg{
+		DEFAULT_NORMAL_RATE_CORRECTION_SPEED, DEFAULT_MIN_RATE_CORRECTION_SPEED,
+		DEFAULT_MAX_RATE_CORRECTION_SPEED,
+		DEFAULT_MIN_LATENCY_MS, DEFAULT_TARGET_LATENCY_MS, DEFAULT_MAX_LATENCY_MS,
+		/*monitorDelay=*/0, /*monitorInterval=*/200, // 200ms interval
+		/*bufToEnable=*/0.0, kStep, /*rebufMaxIncrMs=*/0.0,
+		/*dangerBufferMs=*/1000.0, /*latencyStableSec=*/5.0};
+	mMonitor->Start(cfg);
+	ASSERT_TRUE(WaitForRunning());
+
+	// OnBufferLevelUpdate fires before the 200ms poll interval expires.
+	// It sees !mBelowDangerShifted → wakes Run() immediately.
+	// Run() shifts and sets the guard.
+	mMonitor->OnBufferLevelUpdate(500.0);
+	ASSERT_TRUE(WaitForMinLatency(DEFAULT_MIN_LATENCY_MS + kStep, 500));
+
+	// The scheduled poll at 200ms fires later; guard is already set → no second shift.
+	std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+	auto [minMs, targetMs, maxMs] = mMonitor->GetCurrentThresholds();
+	EXPECT_DOUBLE_EQ(minMs, DEFAULT_MIN_LATENCY_MS + kStep); // exactly one shift
 }
