@@ -6416,7 +6416,7 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(void* adaptationSe
  * @brief Adds a text track to the list if it is not already in list
  * @return true if the text track was added, false otherwise
  */
-bool StreamAbstractionAAMP_MPD::AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo& value)
+bool StreamAbstractionAAMP_MPD::AddIfUnique(std::vector<TextTrackInfo> &tTracks, TextTrackInfo value)
 {
 	if (std::find(tTracks.begin(), tTracks.end(), value) == tTracks.end())
 	{
