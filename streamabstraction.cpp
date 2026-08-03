@@ -1213,8 +1213,8 @@ void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &pos
 
 		// Restamp the ISOBMFF position and duration in the media segment
 		(void)mIsoBmffHelper->SetPtsAndDuration(fragment,
-												static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedPts),
-												static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedDuration));
+												static_cast<uint64_t>(TRICKMODE_TIMESCALE * mRestampedPts.inSeconds()),
+												static_cast<uint32_t>(TRICKMODE_TIMESCALE * mRestampedDuration.inSeconds()));
 	}
 	// Update cached values for GStreamer
 	position = mRestampedPts.inSeconds();
@@ -2358,7 +2358,11 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 
 
 /**
- *  @brief Update rampdown profile on network failure
+ *  @brief Return the effective buffer depth for ABR decisions.
+ *
+ *  Returns GetBufferedDuration() except during local TSB playback or when
+ *  paused, where it returns lastDownloadedPosition - GetLivePlayPosition(),
+ *  clamped to >= 0.
  */
 double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
@@ -2366,24 +2370,23 @@ double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 	if (track)
 	{
 		bufferValue = track->GetBufferedDuration();
-		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
+		/**< Also apply when paused: a frozen GStreamer position inflates GetBufferedDuration(),
+		 *   masking real drift from the live edge.*/
+		if (aamp->IsLocalAAMPTsb() && (track->IsLocalTSBInjection() || aamp->mSinkPaused.load()))
 		{
-			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
-			if(tsbSessionManager)
+			/**< Buffer depth is the gap between the live downloader's leading edge
+			 *   (last downloaded fragment end position) and the pseudo live play
+			 *   position (mLiveOffset behind the live edge). This will shrink if the
+			 *   downloader can't keep up with the live edge at the current bitrate,
+			 *   driving rampdown to recover.*/
+			double livePlayPosition = aamp->GetLivePlayPosition();
+			double lastFetchedEndPosition = track->GetLastDownloadedPosition();
+			bufferValue = lastFetchedEndPosition - livePlayPosition;
+			AAMPLOG_INFO("Buffer (%.02lf)sec based on last downloaded end position (%.02lf)sec and live play position (%.02lf)sec !!",
+						 bufferValue, lastFetchedEndPosition, livePlayPosition);
+			if (bufferValue < 0.0)
 			{
-				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
-				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
-				bufferValue += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
-				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
-							 bufferValue, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
-				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
-				{
-					bufferValue = 0;
-				}
-			}
-			else
-			{
-				AAMPLOG_ERR("tsbSessionManager is NULL for LocalTSB!! Returning buffer value as %.02lf !!",bufferValue);
+				bufferValue = 0.0;
 			}
 		}
 	}

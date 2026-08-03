@@ -19,8 +19,9 @@
 
 # default values
 OPTION_AAMP_BRANCH="dev_sprint_25_2"
-OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="4c1d90a24338c342599ac098e247a8d644ea28e1"
-OPTION_PLAYER_INTERFACE_SOURCE="internal"
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="bd2b3b1"  # June 1 - latest before seekPausedState (June 4)
+OPTION_PLAYER_INTERFACE_SOURCE="external"
+OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH=""
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false
@@ -59,6 +60,10 @@ function install_options_fn()
       --middleware-player-interface-commit-id=*)
         OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${1#*=}"
         echo "Middleware player interface commit ID: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+        ;;
+      --middleware-player-interface-local-path=*)
+        OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH="${1#*=}"
+        echo "Middleware player interface local path: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH}"
         ;;
       --rialto-force-simulator)
         OPTION_RIALTO_FORCE_SIMULATOR=true
@@ -146,8 +151,9 @@ function install_options_fn()
         [-s] Skip subtec build and installation]"
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
         [-k] Build aamp-cli Kotlin module (Linux and MacOS only)]
-        [--player-interface-source=internal|external] Choose player interface source (default: internal)
-        [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external (default: 269f2b1a38492c26f2f7cfb41d194029a8ea88d2)
+        [--player-interface-source=internal|external] Choose player interface source (default: external)
+        [--middleware-player-interface-commit-id=<commit>] Specify commit ID when using external source (cloned from GitHub)
+        [--middleware-player-interface-local-path=<path>] Use a local directory instead of cloning (default: auto-detect sibling ../middleware-player-interface)
         [--rialto-force-simulator] Force simulator build instead of linking system Rialto client
         [-t] Remove .libs and build directories before build (full rebuild)
         [-u] Enable Ubuntu address sanitizer (Linux only)"

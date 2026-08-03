@@ -132,6 +132,20 @@ AampMp4Demuxer::~AampMp4Demuxer()
 }
 
 /**
+ * @brief Advance trickmode restamp timeline on discontinuity boundary.
+ */
+void AampMp4Demuxer::HandleTrickModeDiscontinuity()
+{
+	if (mTrickPhase == Mp4TrickPhase::STEADY)
+	{
+		mRestampedPts += mRestampedDuration;
+		mTrickPhase = Mp4TrickPhase::DISCONTINUITY;
+		AAMPLOG_WARN("[%s] Trickmode discontinuity: advancing restampedPts by %.6f to %.6f",
+			GetMediaTypeName(mMediaType), mRestampedDuration, mRestampedPts);
+	}
+}
+
+/**
  * @brief Apply trickmode PTS restamping to a sample, dynamically adjusting duration based on rate and frame rate
  * Similar to qtdemux approach but with dynamic duration calculation for smoother trickmode playback
  * @param[in,out] sample - Sample to restamp
@@ -146,18 +160,6 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	double originalDuration = sample.mDuration;
 	double fragmentPtsDelta = 0.0;
 	double restampedDuration = 0.0;
-
-	// On the first keyframe of a discontinuous segment (while in STEADY state), advance
-	// the output PTS by the last known duration so the stream stays gapless, then switch
-	// to DISCONTINUITY so the switch below reuses that duration instead of computing a
-	// (potentially huge) cross-discontinuity PTS delta.
-	if (discontinuous && mTrickPhase == Mp4TrickPhase::STEADY)
-	{
-		mRestampedPts += mRestampedDuration;
-		mTrickPhase = Mp4TrickPhase::DISCONTINUITY;
-		AAMPLOG_WARN("[%s] Trickmode discontinuity: advancing restampedPts by %.6f to %.6f",
-			GetMediaTypeName(mMediaType), mRestampedDuration, mRestampedPts);
-	}
 
 	// All phase transitions are owned here.
 	switch (mTrickPhase)
@@ -334,6 +336,12 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				{
 					AAMPLOG_ERR("No samples for type:%d and invalid codec format:%d", mMediaType, codecInfo.mCodecFormat);
 					ret = false;
+				}
+				// Init segments can carry discontinuity without samples.
+				// Pre-mark discontinuity so next data sample avoids cross-period PTS delta spikes.
+				if (ret && mIsTrickMode && isInit && discontinuous)
+				{
+					HandleTrickModeDiscontinuity();
 				}
 			}
 		}

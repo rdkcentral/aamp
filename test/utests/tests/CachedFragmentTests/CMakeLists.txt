@@ -29,9 +29,9 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 
 # Find packages using pkg-config (following project pattern)
+# Note: GTEST and GMOCK are configured in parent CMakeLists.txt to use FetchContent googletest
+# Do not call pkg_check_modules here as it will override the parent settings
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GTEST REQUIRED gtest)
-pkg_check_modules(GMOCK REQUIRED gmock)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 link_directories(${LIBCJSON_LIBRARY_DIRS})

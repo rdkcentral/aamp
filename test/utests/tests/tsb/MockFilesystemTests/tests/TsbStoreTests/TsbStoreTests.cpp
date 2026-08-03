@@ -487,7 +487,7 @@ TEST_F(TsbStoreTests, WriteNoSpace_MaxCapacity)
 	const uint32_t maxCapacityBytes = 10485760;                                // in bytes (1024 * 1024)
 	const uint32_t maxCapacityMB = maxCapacityBytes / TSB_TEST_BYTES_IN_MIB;   // in MiB
 	// Test precondition: maximum capacity in MB is greater than 0
-	ASSERT_GT(maxCapacityBytes, 0);
+	ASSERT_GT(maxCapacityBytes, 0u);
 	// Test precondition: maximum capacity set is exactly divisible by 2
 	ASSERT_TRUE(maxCapacityBytes % 2 == 0);
 	// Test precondition: maximum capacity set is lower than the available partition capacity

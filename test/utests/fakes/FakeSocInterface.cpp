@@ -1,8 +1,33 @@
 #include "SocInterface.h"
-#include "vendor/default/DefaultSocInterface.h"
-#include "vendor/amlogic/AmlogicSocInterface.h"
-#include "vendor/brcm/BrcmSocInterface.h"
-#include "vendor/realtek/RealtekSocInterface.h"
+
+// Fake implementation of DefaultSocInterface for unit tests
+// Note: vendor-specific headers are internal to middleware and not exposed by external middleware
+class DefaultSocInterface : public SocInterface
+{
+public:
+	DefaultSocInterface();
+	bool UseAppSrc() override;
+	void SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume) override;
+	bool IsVideoSink(const char* name) override;
+	bool IsVideoDecoder(const char* name) override;
+	bool IsAudioOrVideoDecoder(const char* name) override;
+	void SetPlaybackFlags(gint &flags, bool isSub) override;
+	bool IsSimulatorFirstFrame() override;
+	bool IsSimulatorSink() override;
+	void ConfigurePluginPriority() override;
+	bool IsSimulatorVideoSample() override;
+	void SetH264Caps(GstCaps *caps) override;
+	void SetHevcCaps(GstCaps *caps) override;
+	bool ConfigureAudioSink(GstElement **audio_sink, GstObject *src, bool decStreamSync) override;
+	bool ShouldTearDownForTrickplay() override;
+	
+	// Additional pure virtual methods from SocInterface
+	bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override { return false; }
+	bool SetRateCorrection() override { return false; }
+	bool IsAudioSinkOrAudioDecoder(const char* name) override { return false; }
+	void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec) override {}
+	bool IsVideoMaster(GstElement *videoSink) override { return false; }
+};
 
 //static local variable
 static std::shared_ptr<SocInterface> socInterface = nullptr;

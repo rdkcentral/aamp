@@ -1346,11 +1346,9 @@ void AampDRMLicenseManager::TriggerLAProfileErrorCb(void *ptr)
 	{
 		DrmMetaDataEventPtr e = *static_cast<DrmMetaDataEventPtr*>(ptr);
 		AAMPTuneFailure failure = e->getFailure();
-		if(AAMP_TUNE_FAILURE_UNKNOWN != failure)
+		if (AAMP_TUNE_FAILURE_UNKNOWN != failure)
 		{
-			long responseCode = e->getResponseCode();
-			bool selfAbort = (failure == AAMP_TUNE_LICENCE_REQUEST_FAILED && (responseCode == CURLE_ABORTED_BY_CALLBACK || responseCode == CURLE_WRITE_ERROR));
-			if (!selfAbort)
+			if (failure != AAMP_TUNE_DRM_SELF_ABORT)
 			{
 				aampInstance->SendErrorEvent(failure);
 			}

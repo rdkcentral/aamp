@@ -234,6 +234,14 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	double GetBufferedDuration() override;
 
 	/**
+	 * @brief Get the absolute end position of the last downloaded fragment
+	 *        (position + duration). This tracks the live downloader's leading
+	 *        edge and is independent of GStreamer injection state.
+	 * @return last downloaded fragment end position in seconds
+	 */
+	double GetLastDownloadedPosition() override { return lastDownloadedPosition.load(); }
+
+	/**
 	 * @fn SignalTrickModeDiscontinuity
 	 * @return void
 	 */

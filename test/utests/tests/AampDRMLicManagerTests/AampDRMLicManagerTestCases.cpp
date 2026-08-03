@@ -535,3 +535,28 @@ TEST_F(AampDRMLicManagerTests, UpdateLicenseMetrics_ValidateAllNetworkMetricKeys
 	// Clear the global mock pointer
 	g_mockDrmMetaDataEvent.reset();
 }
+
+/**
+ * @brief Validate that self-abort DRM failure does not emit ErrorEvent
+ *
+ * TriggerLAProfileErrorCb must suppress SendErrorEvent when failure is
+ * AAMP_TUNE_DRM_SELF_ABORT.
+ */
+TEST_F(AampDRMLicManagerTests, TriggerLAProfileErrorCb_SelfAbort_DoesNotSendErrorEvent)
+{
+	mPrivateInstanceAAMP->licenceFromManifest = false;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+			SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+
+	DrmMetaDataEventPtr eventHandle = std::make_shared<DrmMetaDataEvent>(
+		AAMP_TUNE_DRM_SELF_ABORT,
+		"",
+		0,
+		0,
+		false,
+		"");
+	void *callbackData = static_cast<void *>(&eventHandle);
+
+	mTestableDRMLicenseManager->TriggerLAProfileErrorCb(callbackData);
+}
