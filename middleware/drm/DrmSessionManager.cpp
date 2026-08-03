@@ -106,6 +106,10 @@ void DrmSessionManager::clearSessionData()
 	{
 		if (drmSessionContexts != NULL && drmSessionContexts[i].drmSession != NULL)
 		{
+			/* DELIA-70726 fix: block until any in-flight decrypt() on this session
+			 * (called from a GStreamer pipeline thread via a cached raw pointer)
+			 * has completed, before freeing the object. */
+			drmSessionContexts[i].drmSession->PrepareForDestruction();
 			MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
 			drmSessionContexts[i] = DrmSessionContext();
 		}
@@ -198,6 +202,8 @@ void DrmSessionManager::clearDrmSession(bool forceClearSession)
 			if (drmSessionContexts[i].drmSession != NULL)
 			{
 				MW_LOG_WARN("DrmSessionManager:: Clearing failed Session Data Slot : %d", i);
+				/* DELIA-70726 fix: see clearSessionData() for rationale. */
+				drmSessionContexts[i].drmSession->PrepareForDestruction();
 				MW_SAFE_DELETE(drmSessionContexts[i].drmSession);
 			}
 		}
@@ -703,6 +709,13 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			MW_LOG_WARN("existing DRM session for %s has different key in slot %d", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str(), sessionSlot);
 		}
 		MW_LOG_WARN("deleting existing DRM session for %s ", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
+		/* DELIA-70726 fix: this slot may still be referenced by a GStreamer
+		 * decryptor element of a previous, not-yet-fully-torn-down pipeline
+		 * (rapid/back-to-back channel change). Block here until any decrypt()
+		 * call already in flight against this session finishes, so the delete
+		 * below cannot race with OCDMSessionAdapter::verifyOutputProtection()/
+		 * decrypt() running on the old pipeline's multiqueue thread. */
+		drmSessionContexts[sessionSlot].drmSession->PrepareForDestruction();
 		MW_SAFE_DELETE(drmSessionContexts[sessionSlot].drmSession);
 	}
         this->ProfileUpdateCb();
