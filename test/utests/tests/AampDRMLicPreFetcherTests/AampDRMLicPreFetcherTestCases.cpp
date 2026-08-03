@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <memory>
+#include <mutex>
 #include <vector>
 #include <thread>
 #include <chrono>

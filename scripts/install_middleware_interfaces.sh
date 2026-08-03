@@ -24,6 +24,7 @@
 #
 # Optional variables (from install_options.sh):
 # - OPTION_MIDDLEWARE_PLAYER_INTERFACE_LOCAL_PATH: explicit path to a local middleware-player-interface repo
+# - OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID: specific commit to checkout (only applies to GitHub clones)
 #
 # This script requires the following functions to be available (for GitHub clone fallback only):
 # - do_clone_fn: Function to clone git repositories
@@ -171,14 +172,14 @@ function install_build_middleware_interface_fn()
     fi
 
     # Checkout specific commit if requested (only applies to GitHub clones)
-    if [[ -n "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID:-}" ]] && [[ "${mw_cloned}" == true ]]; then
-        echo "Checking out specified commit: ${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
+    if [[ -n "${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID:-}" ]] && [[ "${mw_cloned}" == true ]]; then
+        echo "Checking out specified commit: ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
         cd "${mw_src}" || {
             echo "Error: Failed to change directory to ${mw_src}"
             return 1
         }
-        if ! git checkout "${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}" 2>/dev/null; then
-            echo "Warning: Failed to checkout commit ${MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}, using HEAD"
+        if ! git checkout "${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}" 2>/dev/null; then
+            echo "Warning: Failed to checkout commit ${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}, using HEAD"
         else
             echo "Checked out commit: $(git rev-parse HEAD)"
         fi

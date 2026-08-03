@@ -67,21 +67,12 @@ elseif(EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/playerLogManager
 	                    ${MIDDLEWARE_REPO_ABS_PATH}/vendor)
 else()
-	# Internal middleware paths (deprecated, for legacy builds only)
-	include_directories(${AAMP_ROOT}/middleware
-	                    ${AAMP_ROOT}/middleware/playerisobmff
-	                    ${AAMP_ROOT}/middleware/subtitle
-	                    ${AAMP_ROOT}/middleware/subtec/subtecparser
-	                    ${AAMP_ROOT}/middleware/subtec/libsubtec
-	                    ${AAMP_ROOT}/middleware/playerjsonobject
-	                    ${AAMP_ROOT}/middleware/closedcaptions
-	                    ${AAMP_ROOT}/middleware/drm
-	                    ${AAMP_ROOT}/middleware/drm/helper
-	                    ${AAMP_ROOT}/middleware/externals
-	                    ${AAMP_ROOT}/middleware/externals/contentsecuritymanager
-	                    ${AAMP_ROOT}/middleware/baseConversion
-	                    ${AAMP_ROOT}/middleware/playerLogManager
-	                    ${AAMP_ROOT}/middleware/vendor)
+	message(FATAL_ERROR
+		"middleware-player-interface headers not found.\n"
+		"Either install the middleware-player-interface package (provides pkg-config 'playerfbinterface') "
+		"or clone the middleware-player-interface repository as a sibling of the aamp directory so that "
+		"MIDDLEWARE_REPO_ABS_PATH resolves correctly.\n"
+		"Searched: ${MIDDLEWARE_REPO_ABS_PATH}")
 endif()
 
 # std::atomic<ABRManager::PersistBandwidthData> is 16 bytes.  On Linux/x86_64

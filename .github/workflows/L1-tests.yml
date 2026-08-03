@@ -19,7 +19,7 @@ jobs:
       - name: Checkout aamp code
         uses: actions/checkout@v3
 
-      # Must run before any step that invokes git (e.g. dorny/test-reporter)
+      # Must run before subsequent steps that invoke git in the workspace (e.g. dorny/test-reporter)
       - name: Mark workspace as safe for git
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
