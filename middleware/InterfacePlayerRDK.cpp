@@ -124,7 +124,7 @@ audioVolume(1.0), eosCallbackIdleTaskId(GST_TASK_ID_INVALID), eosCallbackIdleTas
 firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
 using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
-buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
+buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0), armBufferingBeforePlayPending(FALSE),
 buffering_target_state(GST_STATE_NULL),
 lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
 numberOfVideoBuffersSent(0), segmentStart(0), positionQuery(NULL),
@@ -4046,6 +4046,15 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 			interfacePlayerPriv->gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 			interfacePlayerPriv->gstPrivateContext->buffering_target_state = GST_STATE_NULL;
 			MW_LOG_MIL("%s buffering_enabled %u", GST_ELEMENT_NAME(interfacePlayerPriv->gstPrivateContext->pipeline), interfacePlayerPriv->gstPrivateContext->buffering_enabled);
+			
+			/* A buffering-before-play arm was requested (from SetActive) before this pipeline existed. The pipeline is now created, so apply it here. */
+			if (interfacePlayerPriv->gstPrivateContext->armBufferingBeforePlayPending)
+			{
+				interfacePlayerPriv->gstPrivateContext->armBufferingBeforePlayPending = false;
+				ArmBufferingBeforePlay(GST_NORMAL_PLAY_RATE);
+				MW_LOG_MIL("Triggered ArmBufferingBeforePlay ");
+			}
+		
 			if (interfacePlayerPriv->gstPrivateContext->positionQuery == NULL)
 			{
 
@@ -5402,4 +5411,43 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
+}
+/**
+ * @brief Arm buffering before play
+ * @param[in] rate - playback rate
+ */
+void InterfacePlayerRDK::ArmBufferingBeforePlay(int rate)
+{
+    auto *ctx = interfacePlayerPriv->gstPrivateContext;
+    if (ctx->buffering_enabled && (GST_NORMAL_PLAY_RATE == rate) && !ctx->paused)
+	{
+		if (ctx->pipeline)
+		{
+			ctx->buffering_target_state = GST_STATE_PLAYING;
+			ctx->buffering_in_progress = true;
+			ctx->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
+			ctx->pendingPlayState = false;
+			if (ctx->bufferingTimeoutTimerId == 0)
+			{
+				ctx->bufferingTimeoutTimerId =
+					g_timeout_add(DEFAULT_BUFFERING_TO_MS, buffering_timeout, this);
+			}
+			ctx->armBufferingBeforePlayPending = false;
+			MW_LOG_MIL("Re-armed buffering-before-play on reactivation");
+		}
+		else
+		{
+			/* Single-pipeline reactivation: AampStreamSinkManager::SetActive() calls this 
+			 * before the pipeline is (re)created in CreatePipeline(). Defer the arm so it
+			 * is applied once the pipeline exists. 
+			 */
+			ctx->armBufferingBeforePlayPending = true;
+			MW_LOG_MIL("Deferred buffering-before-play; pipeline not yet created");
+		}
+	}
+	else
+	{
+		if (ctx->buffering_enabled && (GST_NORMAL_PLAY_RATE == rate) && !ctx->paused)
+		MW_LOG_MIL("invalid buffer[%u]rate[%d]pause[%u]",ctx->buffering_enabled,rate,ctx->paused);
+	}
 }

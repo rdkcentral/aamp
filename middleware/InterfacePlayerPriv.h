@@ -205,6 +205,7 @@ struct GstPlayerPriv
 	gboolean buffering_enabled;                                                              /**< enable buffering based on multiqueue */
 	gboolean buffering_in_progress;                                                  /**< buffering is in progress */
 	guint buffering_timeout_cnt;                                                     /**< make sure buffering_timeout doesn't get stuck */
+	bool armBufferingBeforePlayPending;												/**< Set when ArmBufferingBeforePlay() is requested before the pipeline exists*/
 	GstState buffering_target_state;                                                 /**< the target state after buffering */
 	gint64 lastKnownPTS;                                                                     /**< To store the PTS of last displayed video */
 	long long ptsUpdatedTimeMS;                                                              /**< Timestamp when PTS was last updated */
