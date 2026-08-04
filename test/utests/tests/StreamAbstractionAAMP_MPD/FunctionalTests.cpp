@@ -709,6 +709,34 @@ protected:
 		*/
 		void SetIsFogTSB(bool value) { mIsFogTSB = value; }
 		void SetAdPlayingFromCDN(bool value) { mAdPlayingFromCDN = value; }
+		void SetABRMode(ABRMode mode) { mABRMode = mode; }
+
+		StreamInfo* GetStreamInfo(int idx) override
+		{
+			bool isFogTsb = mIsFogTSB && !mAdPlayingFromCDN;
+			if (isFogTsb)
+			{
+				if (idx >= 0 && idx < static_cast<int>(mStreamInfo.size()))
+				{
+					return &mStreamInfo[idx];
+				}
+				return nullptr;
+			}
+
+			int profileIndex = idx;
+			if (GetABRManager().getProfileCount() > 0)
+			{
+				profileIndex = GetABRManager().getUserDataOfProfile(idx);
+			}
+
+			if (profileIndex >= 0 && profileIndex < static_cast<int>(mStreamInfo.size()))
+			{
+				return &mStreamInfo[profileIndex];
+			}
+
+			return nullptr;
+		}
+
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -717,7 +745,12 @@ protected:
 	void SetUp() override
 	{
 		// Set up your objects before each test case
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP();
+		if (gpGlobalConfig == nullptr)
+		{
+			gpGlobalConfig = new AampConfig();
+		}
+		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
 
@@ -733,6 +766,10 @@ protected:
 	void TearDown() override
 	{
 		// Clean up your objects after each test
+
+		delete g_mockAampConfig;
+		g_mockAampConfig = nullptr;
+
 		delete g_mockTSBSessionManager;
 		g_mockTSBSessionManager = nullptr;
 
@@ -4841,3 +4878,37 @@ INSTANTIATE_TEST_SUITE_P(AllTuneTypes,
 							std::make_pair(eTUNETYPE_RETUNE, true),
 							std::make_pair(eTUNETYPE_SEEKTOEND, true)
 						));
+/**
+ * @brief Verify that CheckForRampDownProfile() ramps down on CURLE_RECV_ERROR
+ *        in DASH ABR manager mode.
+ */
+TEST_F(StreamAbstractionAAMP_MPDTest, CheckForRampDownProfile_CurleRecvError_RampsDown)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableABR))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ABRBufferCheckEnabled))
+		.WillRepeatedly(Return(false));
+
+	mStreamAbstractionAAMP_MPD->SetIsFogTSB(false);
+	mStreamAbstractionAAMP_MPD->SetAdPlayingFromCDN(false);
+	mStreamAbstractionAAMP_MPD->SetABRMode(StreamAbstractionAAMP::ABRMode::ABR_MANAGER);
+	mStreamAbstractionAAMP_MPD->ResizeStreamInfo(2);
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(0).bandwidthBitsPerSecond = 100000;
+	mStreamAbstractionAAMP_MPD->GetStreamInfoAt(1).bandwidthBitsPerSecond = 200000;
+	mStreamAbstractionAAMP_MPD->currentProfileIndex = 1;
+	mStreamAbstractionAAMP_MPD->trickplayMode = true;
+
+	EXPECT_CALL(*g_mockABRManager, getProfileCount())
+		.WillRepeatedly(Return(2));
+	EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(0))
+		.WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockABRManager, getUserDataOfProfile(1))
+		.WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockABRManager, getLowestIframeProfile())
+		.WillRepeatedly(Return(0));
+
+	bool result = mStreamAbstractionAAMP_MPD->CheckForRampDownProfile(CURLE_RECV_ERROR);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(0, mStreamAbstractionAAMP_MPD->currentProfileIndex);
+}
