@@ -275,11 +275,8 @@ public:
 	/// @copydoc StreamSink::NotifyInjectorToPause
 	void NotifyInjectorToPause() override;
 
-	/// @copydoc StreamSink::StopTrackInjection
-	void StopTrackInjection(AampMediaType type) override;
-
-	/// @copydoc StreamSink::ResumeTrackInjection
-	void ResumeTrackInjection(AampMediaType type) override;
+	/// @copydoc StreamSink::UnblockTrackInjection
+	void UnblockTrackInjection(AampMediaType type) override;
 
 	/// @copydoc StreamSink::SetStreamCaps
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo &&codecInfo) override;
