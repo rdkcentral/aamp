@@ -1833,30 +1833,13 @@ void AampRialtoPlayer::NotifyInjectorToPause()
 	AAMPLOG_INFO("EXIT");
 }
 
-void AampRialtoPlayer::StopTrackInjection(AampMediaType type)
+void AampRialtoPlayer::UnblockTrackInjection(AampMediaType type)
 {
 	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
 	if (type < m_sources.size() && m_sources[type])
 	{
-		m_sources[type]->unblockInjection(m_pipeline.get(), "StopTrackInjection");
-	}
-	AAMPLOG_INFO("EXIT");
-}
-
-void AampRialtoPlayer::ResumeTrackInjection(AampMediaType type)
-{
-	AAMPLOG_INFO("ENTRY type=%d", static_cast<int>(type));
-
-	if(m_stateMachine.currentState() == PlayerStateId::FLUSHING)
-	{
-		AAMPLOG_WARN("Player is in FLUSHING state. So skipping gateInjection - false call for all sources");
-	}
-	else
-	{
-		if (type < m_sources.size() && m_sources[type])
-		{
-			m_sources[type]->gateInjection(m_pipeline.get(), false, "ResumeTrackInjection");
-		}
+		// This requires Stream to be called by AAMP to ungate the content
+		m_sources[type]->unblockInjection(m_pipeline.get(), "UnblockTrackInjection");
 	}
 	AAMPLOG_INFO("EXIT");
 }

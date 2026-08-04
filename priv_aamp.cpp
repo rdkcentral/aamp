@@ -10675,18 +10675,22 @@ bool PrivateInstanceAAMP::IsMuxedStream()
  * @brief Stop injection for a track.
  * Called from StopInjection
  */
-void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
+void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
 {
 	if( type<AAMP_TRACK_COUNT && !mTrackInjectionBlocked[type] )
 	{
 		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		std::lock_guard<std::recursive_mutex> guard(mLock);
-		// Direct Rialto blocks the injector thread(s) whilst waiting for NeedData,
-		// this call releases the thread for the specific track being stopped
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-		if (sink)
+		if (discard)
 		{
-			sink->StopTrackInjection(type);
+			// Direct Rialto blocks the injector thread(s) whilst waiting for NeedData,
+			// this call releases the thread for the specific track being stopped
+			// so the caller can join it via StopInjectLoop
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->UnblockTrackInjection(type);
+			}
 		}
 		mTrackInjectionBlocked[type] = true;
 	}
@@ -10703,13 +10707,6 @@ void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 	{
 		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		std::lock_guard<std::recursive_mutex> guard(mLock);
-		// Direct Rialto blocks the injector thread(s) whilst waiting for NeedData;
-		// this call resumes injection for the specific track being restarted
-		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-		if (sink)
-		{
-			sink->ResumeTrackInjection(type);
-		}
 		mTrackInjectionBlocked[type] = false;
 	}
 	AAMPLOG_TRACE ("PrivateInstanceAAMP::Exit. type = %d", (int) type);

@@ -1039,7 +1039,7 @@ void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
+void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
 {
 }
 
