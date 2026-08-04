@@ -85,6 +85,8 @@ include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/abr)
 include_directories(${AAMP_ROOT}/mp4demux)
 include_directories(${AAMP_ROOT}/direct-rialto)
+# Rialto client headers only; .libs/include itself is excluded (gtest clash)
+include_directories(${AAMP_ROOT}/.libs/include/rialto)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # Test framework directories
