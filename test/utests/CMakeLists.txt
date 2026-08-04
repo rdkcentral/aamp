@@ -68,6 +68,22 @@ pkg_check_modules(BASECONVERSION libbaseconversion)
 pkg_check_modules(PLAYERLOGMANAGER libplayerlogmanager)
 pkg_check_modules(SUBTEC libsubtec)
 
+# Detect which middleware headers will be used and propagate a compile definition
+# so that subdirectory CMake files and source files can conditionally compile
+# against features only present in the external middleware-player-interface repo.
+# We do this once here using CMAKE_CURRENT_SOURCE_DIR (always absolute) to avoid
+# the fragile relative-path EXISTS checks in fakes/CMakeLists.txt and
+# tests/CommonTestIncludes.cmake.
+get_filename_component(MIDDLEWARE_REPO_ABS_PATH
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../middleware-player-interface" ABSOLUTE)
+if(PLAYERFBINTERFACE_INCLUDE_DIRS OR EXISTS "${MIDDLEWARE_REPO_ABS_PATH}")
+	message(STATUS "Middleware develop headers detected — enabling DRMSESSION_HAS_LIFECYCLE_GUARD")
+	add_compile_definitions(DRMSESSION_HAS_LIFECYCLE_GUARD)
+endif()
+# Cache the absolute path so subdirectory cmake files (CommonTestIncludes.cmake,
+# fakes/CMakeLists.txt) can use it reliably instead of fragile relative EXISTS checks.
+set(MIDDLEWARE_REPO_ABS_PATH "${MIDDLEWARE_REPO_ABS_PATH}" CACHE INTERNAL "")
+
 if (NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	pkg_search_module(JSCORE REQUIRED javascriptcoregtk-4.1 javascriptcoregtk-4.0)
 	find_path (JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${JSCORE_INCLUDE_DIRS} REQUIRED)
