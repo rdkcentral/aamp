@@ -6592,3 +6592,98 @@ TEST_F(PrivAampPrivTests, StartLatencyMonitor_LiveLatencyCorrectionDisabled_Does
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 }
 
+// ---------------------------------------------------------------------------
+// VPAAMP-918: Error code mapping contract tests
+//
+// These tests verify the end-to-end path through SendErrorEvent() →
+// tuneFailureMap[] lookup → MediaErrorEvent emission for the three error
+// codes that were inadvertently shifted by commit bda30014 (VPLAY-11225).
+//
+// The developer's AampEventTests/ErrorCodeMappingTests.cpp tests only the
+// MediaErrorEvent value-holder constructor (circular: it passes in the
+// expected code and asserts it back out).  These tests exercise the real
+// tuneFailureMap[] table in priv_aamp.cpp so that any future modification
+// to that table causes an immediate CI failure.
+//
+// Oracle:
+//   AAMP_TUNE_CORRUPT_DRM_DATA       → code 51, subCode 1
+//   AAMP_TUNE_DEVICE_NOT_PROVISIONED → code 52, subCode 1
+//   AAMP_TUNE_HDCP_COMPLIANCE_ERROR  → code 53, subCode 1
+// ---------------------------------------------------------------------------
+
+/**
+ * @test SendErrorEvent_CorruptDrmData_EmitsCode51SubCode1
+ * @brief SendErrorEvent(AAMP_TUNE_CORRUPT_DRM_DATA) must produce a
+ *        MediaErrorEvent with code==51, subCode==1.
+ *
+ * Regression guard for VPAAMP-918 / bda30014: CORRUPT_DRM_DATA was moved
+ * to 50/10 by that commit, breaking external clients matching code 51.
+ * This test fails if tuneFailureMap[] is reverted or shifted again.
+ *
+ * Rate is set to AAMP_NORMAL_PLAY_RATE so that SendErrorEvent does not
+ * also emit a speed-change event before the MediaErrorEvent.
+ */
+TEST_F(PrivAampTests, SendErrorEvent_CorruptDrmData_EmitsCode51SubCode1)
+{
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	AAMPEventPtr capturedEvent;
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_FAILED), AAMP_EVENT_ASYNC_MODE))
+		.WillOnce(::testing::SaveArg<0>(&capturedEvent));
+
+	p_aamp->SendErrorEvent(AAMP_TUNE_CORRUPT_DRM_DATA);
+
+	ASSERT_NE(capturedEvent, nullptr);
+	MediaErrorEventPtr errorEvent = std::dynamic_pointer_cast<MediaErrorEvent>(capturedEvent);
+	ASSERT_NE(errorEvent, nullptr);
+	EXPECT_EQ(errorEvent->getCode(),    51);
+	EXPECT_EQ(errorEvent->getSubCode(),  1);
+}
+
+/**
+ * @test SendErrorEvent_DeviceNotProvisioned_EmitsCode52SubCode1
+ * @brief SendErrorEvent(AAMP_TUNE_DEVICE_NOT_PROVISIONED) must produce a
+ *        MediaErrorEvent with code==52, subCode==1.
+ *
+ * Regression guard for VPAAMP-918 / bda30014: the −1 cascade shifted this
+ * from 52/1 to 51/1, breaking external clients matching code 52.
+ */
+TEST_F(PrivAampTests, SendErrorEvent_DeviceNotProvisioned_EmitsCode52SubCode1)
+{
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	AAMPEventPtr capturedEvent;
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_FAILED), AAMP_EVENT_ASYNC_MODE))
+		.WillOnce(::testing::SaveArg<0>(&capturedEvent));
+
+	p_aamp->SendErrorEvent(AAMP_TUNE_DEVICE_NOT_PROVISIONED);
+
+	ASSERT_NE(capturedEvent, nullptr);
+	MediaErrorEventPtr errorEvent = std::dynamic_pointer_cast<MediaErrorEvent>(capturedEvent);
+	ASSERT_NE(errorEvent, nullptr);
+	EXPECT_EQ(errorEvent->getCode(),    52);
+	EXPECT_EQ(errorEvent->getSubCode(),  1);
+}
+
+/**
+ * @test SendErrorEvent_HdcpComplianceError_EmitsCode53SubCode1
+ * @brief SendErrorEvent(AAMP_TUNE_HDCP_COMPLIANCE_ERROR) must produce a
+ *        MediaErrorEvent with code==53, subCode==1.
+ *
+ * Regression guard for VPAAMP-918 / bda30014: the −1 cascade shifted this
+ * from 53/1 to 52/1, breaking external clients matching code 53.
+ */
+TEST_F(PrivAampTests, SendErrorEvent_HdcpComplianceError_EmitsCode53SubCode1)
+{
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	AAMPEventPtr capturedEvent;
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_TUNE_FAILED), AAMP_EVENT_ASYNC_MODE))
+		.WillOnce(::testing::SaveArg<0>(&capturedEvent));
+
+	p_aamp->SendErrorEvent(AAMP_TUNE_HDCP_COMPLIANCE_ERROR);
+
+	ASSERT_NE(capturedEvent, nullptr);
+	MediaErrorEventPtr errorEvent = std::dynamic_pointer_cast<MediaErrorEvent>(capturedEvent);
+	ASSERT_NE(errorEvent, nullptr);
+	EXPECT_EQ(errorEvent->getCode(),    53);
+	EXPECT_EQ(errorEvent->getSubCode(),  1);
+}
+
