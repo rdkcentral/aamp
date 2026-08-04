@@ -157,7 +157,6 @@ INSTALL_STATUS_ARR+=("install_build_libdash check passed.")
 
 # Build middleware interface (only if external is selected)
 if [ "${OPTION_PLAYER_INTERFACE_SOURCE}" = "external" ] ; then
-    export MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID="${OPTION_MIDDLEWARE_PLAYER_INTERFACE_COMMIT_ID}"
     install_build_middleware_interface_fn "${OPTION_CLEAN}"
     INSTALL_STATUS_ARR+=("install_build_middleware_interface_fn check passed.")
 else
