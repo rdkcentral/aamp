@@ -514,9 +514,20 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position
 	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
 
 	mStreamPlayer->ChangeAamp(aamp, mInactivePlayersMap[aamp]->GetID3MetadataHandler());
-	aamp->mIsFlushOperationInProgress = true;
-	mStreamPlayer->Flush(position, aamp->rate, true);
-	aamp->mIsFlushOperationInProgress = false;
+	// Skip the reactivation flush when a seek/tune is imminent; TuneHelper's
+	// DoEarlyStreamSinkFlush performs the authoritative flush and a redundant
+	// flush here would issue extra flushing seeks that re-base the sink segment.
+	const bool seekPending = (aamp->GetState() == eSTATE_SEEKING) || aamp->mbSeeked;
+	if (!seekPending)
+	{
+		aamp->mIsFlushOperationInProgress = true;
+		mStreamPlayer->Flush(position, aamp->rate, true);
+		aamp->mIsFlushOperationInProgress = false;
+	}
+	else
+	{
+		AAMPLOG_WARN("AampStreamSinkManager(%p) Skipping SetActive flush for PLAYER[%d]; seek/tune pending (state=%d, mbSeeked=%d)", this, aamp->mPlayerId, aamp->GetState(), aamp->mbSeeked);
+	}
 	mStreamPlayer->SetSubtitleMute(aamp->subtitles_muted);
 	if(!aamp->IsTuneCompleted() && aamp->IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))
 	{
