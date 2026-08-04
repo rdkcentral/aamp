@@ -966,10 +966,25 @@ void AampRialtoPlayer::AttachSource(
 		AAMPLOG_INFO("Creating m_drmBridge with m_aamp=%p", m_aamp);
 	}
 
+	// HLS always queues content protection under eMEDIATYPE_VIDEO (see
+	// StreamAbstractionAAMP_HLS::InitiateDrmProcess), even when the
+	// EXT-X-KEY/EXT-X-SESSION-KEY applies to an audio-only track. Fall back
+	// to the video slot so encrypted non-video sources still get a DRM
+	// session in that case.
+	const auto *protectionToUse = &m_pendingProtection[static_cast<size_t>(type)];
+	if (codecInfo.mIsEncrypted && !protectionToUse->has_value() &&
+	    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
+	{
+		AAMPLOG_WARN("mediaType=%d is encrypted but has no queued protection - "
+			"falling back to eMEDIATYPE_VIDEO protection params (HLS convention)",
+			static_cast<int>(type));
+		protectionToUse = &m_pendingProtection[eMEDIATYPE_VIDEO];
+	}
+
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
 		m_pendingPositionNs.load(std::memory_order_relaxed),
-		m_pendingProtection[static_cast<size_t>(type)],
+		*protectionToUse,
 		computeAppliedRate(
 			m_pendingFlushRate.load(std::memory_order_relaxed)));
 
