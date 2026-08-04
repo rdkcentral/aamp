@@ -982,11 +982,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 							if (sink)
 							{
-								// VPAAMP-768: Flush to current PTS before unpause so
-								// GStreamer resets its base time after a seek-while-paused.
-								double flushPos = aamp->mpStreamAbstractionAAMP->GetFirstPTS();
-								AAMPLOG_WARN("Flushing pipeline to PTS %f before unpause", flushPos);
-								sink->Flush(flushPos, aamp->rate, false);
 								retValue = sink->Pause(false, false);
 							}
 							// required since buffers are already cached in paused state
