@@ -22,6 +22,19 @@ function rialto_install_fn() {
     # even when not building the libraries.
     if [ -d "rialto" ]; then
         echo "rialto exists"
+        # An existing clone can be left on an older reference after the
+        # pinned OPTION_RIALTO_REFERENCE is bumped, which produces confusing
+        # compile errors against stale public headers.  Re-sync it.
+        pushd rialto
+        if [ -n "$(git status --porcelain)" ]; then
+            echo "WARNING: rialto has local modifications;"
+            echo "         leaving it on $(git describe --tags --always) instead of checking out '${OPTION_RIALTO_REFERENCE}'"
+        elif [ "$(git rev-parse HEAD)" != "$(git rev-parse ${OPTION_RIALTO_REFERENCE}^{commit} 2>/dev/null)" ]; then
+            echo "Re-checkout rialto '${OPTION_RIALTO_REFERENCE}'"
+            git fetch --tags
+            git checkout ${OPTION_RIALTO_REFERENCE}
+        fi
+        popd
         INSTALL_STATUS_ARR+=("rialto was already installed.")
     else
         do_clone_fn https://github.com/rdkcentral/rialto.git rialto

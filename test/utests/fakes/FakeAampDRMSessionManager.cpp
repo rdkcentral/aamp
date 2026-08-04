@@ -64,7 +64,38 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* )
 	return false;	
 }
 
-void DrmSessionManager::UpdateDRMConfig(bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
+// DrmSession implementations
+DrmSession::DrmSession(const string &keySystem) : m_keySystem(keySystem), m_OutputProtectionEnabled(false)
+		, mContentSecurityManagerSession()
+#ifdef DRMSESSION_HAS_LIFECYCLE_GUARD
+		, mLifecycleMutex()
+		, mLifecycleCV()
+		, mActiveOperations(0)
+		, mMarkedForDestruction(false)
+#endif
+{
+}
+
+DrmSession::~DrmSession()
+{
+}
+
+string DrmSession::getKeySystem(void)
+{
+	return m_keySystem;
+}
+
+int DrmSession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuffer* buffer, unsigned subSampleCount, GstBuffer* subSamplesBuffer, GstCaps* caps)
+{
+	return -1;
+}
+
+int DrmSession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData)
+{
+	return -1;
+}
+
+void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
 {
 }
 
