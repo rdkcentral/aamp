@@ -690,16 +690,50 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		(representation != nullptr) &&
 		(representation->GetSegmentBase() != nullptr) &&
 		!range.empty();
+	const bool highPriorityInit =
+		(isInitializationSegment && pMediaStreamContext->profileChanged);
+	const uint64_t initCid =
+		(static_cast<uint64_t>(static_cast<uint32_t>(mCurrentPeriodIdx) & 0xFFFFu) << 48) |
+		(static_cast<uint64_t>(static_cast<uint32_t>(pMediaStreamContext->mediaType) & 0xFFu) << 40) |
+		((static_cast<uint64_t>(pMediaStreamContext->fragmentDescriptor.Number) & 0xFFFFFu) << 20) |
+		(static_cast<uint64_t>(pMediaStreamContext->fragmentDescriptor.Time) & 0xFFFFFu);
+	if (isInitializationSegment)
+	{
+		AAMPLOG_WARN("InitDownloadDecision initCid=%" PRIu64 " track=%s profileChanged=%d discontinuity=%d highPriority=%d segmentBaseContent=%d rangeEmpty=%d",
+			initCid,
+			GetMediaTypeName(pMediaStreamContext->mediaType),
+			pMediaStreamContext->profileChanged,
+			discontinuity,
+			highPriorityInit,
+			segmentBaseContent,
+			range.empty());
+	}
 	if (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && !segmentBaseContent)
 	{
-		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, (isInitializationSegment && pMediaStreamContext->profileChanged));
+		auto future = aamp->GetAampTrackWorkerManager()->SubmitJob(downloadInfo->mediaType, downloadJob, highPriorityInit);
 		if (future.valid())
 		{
 			AAMPLOG_DEBUG("Submitted download job for fragment: %s", downloadInfo->uriList.begin()->second.url.c_str());
+			if (isInitializationSegment && !highPriorityInit)
+			{
+				AAMPLOG_WARN("InitSubmitLowPriority initCid=%" PRIu64 " track=%s url=%s",
+					initCid,
+					GetMediaTypeName(downloadInfo->mediaType),
+					downloadInfo->uriList.begin()->second.url.c_str());
+			}
 		}
 		else
 		{
 			AAMPLOG_ERR("Failed to submit download job for fragment: %s", downloadInfo->uriList.begin()->second.url.c_str());
+			if (isInitializationSegment)
+			{
+				AAMPLOG_ERR("InitSubmitFailed initCid=%" PRIu64 " track=%s profileChanged=%d discontinuity=%d highPriority=%d",
+					initCid,
+					GetMediaTypeName(downloadInfo->mediaType),
+					pMediaStreamContext->profileChanged,
+					discontinuity,
+					highPriorityInit);
+			}
 			retval = false;
 		}
 	}
@@ -8930,6 +8964,19 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 {
 	for( int i = 0; i < mNumberOfTracks; i++)
 	{
+		const uint64_t initCid =
+			(static_cast<uint64_t>(static_cast<uint32_t>(mCurrentPeriodIdx) & 0xFFFFu) << 48) |
+			(static_cast<uint64_t>(static_cast<uint32_t>(mMediaStreamContext[i]->mediaType) & 0xFFu) << 40) |
+			((static_cast<uint64_t>(mMediaStreamContext[i]->fragmentDescriptor.Number) & 0xFFFFFu) << 20) |
+			(static_cast<uint64_t>(mMediaStreamContext[i]->fragmentDescriptor.Time) & 0xFFFFFu);
+		AAMPLOG_WARN("InitSweep initCid=%" PRIu64 " trackIdx=%d track=%s enabled=%d profileChangedBefore=%d discontinuityIn=%d",
+			initCid,
+			i,
+			GetMediaTypeName(mMediaStreamContext[i]->mediaType),
+			mMediaStreamContext[i]->enabled,
+			mMediaStreamContext[i]->profileChanged,
+			discontinuity);
+
 		if (!discontinuity)
 		{
 			mMediaStreamContext[i]->profileChanged = true;
@@ -8945,6 +8992,25 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool discontinuity)
 {
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
+		const uint64_t initCid =
+			(static_cast<uint64_t>(static_cast<uint32_t>(mCurrentPeriodIdx) & 0xFFFFu) << 48) |
+			(static_cast<uint64_t>(static_cast<uint32_t>(pMediaStreamContext->mediaType) & 0xFFu) << 40) |
+			((static_cast<uint64_t>(pMediaStreamContext->fragmentDescriptor.Number) & 0xFFFFFu) << 20) |
+			(static_cast<uint64_t>(pMediaStreamContext->fragmentDescriptor.Time) & 0xFFFFFu);
+		const bool shouldTryInit =
+			(pMediaStreamContext->enabled &&
+			(pMediaStreamContext->profileChanged || pMediaStreamContext->discontinuity));
+		if (discontinuity)
+		{
+			AAMPLOG_WARN("InitEntry initCid=%" PRIu64 " trackIdx=%d track=%s enabled=%d profileChanged=%d discontinuityFlag=%d shouldTryInit=%d",
+				initCid,
+				trackIdx,
+				GetMediaTypeName(pMediaStreamContext->mediaType),
+				pMediaStreamContext->enabled,
+				pMediaStreamContext->profileChanged,
+				pMediaStreamContext->discontinuity,
+				shouldTryInit);
+		}
 
 		if(discontinuity && pMediaStreamContext->enabled)
 		{
@@ -8969,13 +9035,23 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							setNextobjectrequestUrl(std::move(media), &pMediaStreamContext->fragmentDescriptor, AampMediaType(pMediaStreamContext->type));
 						}
 						pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
-						FetchFragment(pMediaStreamContext, std::move(initialization), 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity);
+						if (!FetchFragment(pMediaStreamContext, std::move(initialization), 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity))
+						{
+							AAMPLOG_ERR("InitFetchFailed initCid=%" PRIu64 " track=%s path=SegmentTemplate",
+								initCid,
+								GetMediaTypeName(pMediaStreamContext->mediaType));
+						}
 						pMediaStreamContext->discontinuity = false;
 						pMediaStreamContext->profileChanged = false;
 					}
 					else
 					{
 						AAMPLOG_WARN("initialization  is null");  //CID:84853 ,86291- Null Return
+						AAMPLOG_WARN("InitSkipped initCid=%" PRIu64 " track=%s reason=EmptySegmentTemplateInitialization repId=%s",
+							initCid,
+							GetMediaTypeName(pMediaStreamContext->mediaType),
+							pMediaStreamContext->representation ?
+							pMediaStreamContext->representation->GetId().c_str() : "unknown");
 						pMediaStreamContext->profileChanged = false;
 					}
 				}
@@ -9021,6 +9097,12 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 							}
 						}
+						else
+						{
+							AAMPLOG_WARN("InitSkipped initCid=%" PRIu64 " track=%s reason=WaitForFreeFragmentAvailableFailed path=SegmentBase",
+								initCid,
+								GetMediaTypeName(pMediaStreamContext->mediaType));
+						}
 						// Consume profile change once SegmentBase init handling has run,
 						// even when the free-fragment wait fails, to avoid re-trigger loops.
 						pMediaStreamContext->profileChanged = false;
@@ -9038,6 +9120,9 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								if( !urlType )
 								{
 									AAMPLOG_WARN("initialization is null");
+									AAMPLOG_WARN("InitSkipped initCid=%" PRIu64 " track=%s reason=MissingSegmentListInitializationUrlType",
+										initCid,
+										GetMediaTypeName(pMediaStreamContext->mediaType));
 									return;
 								}
 							}
@@ -9056,7 +9141,12 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 									{
 										setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 									}
-									FetchFragment(pMediaStreamContext, std::move(initialization), 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity);
+									if (!FetchFragment(pMediaStreamContext, std::move(initialization), 0.0, true, getCurlInstanceByMediaType(pMediaStreamContext->mediaType), false, pMediaStreamContext->discontinuity))
+									{
+										AAMPLOG_ERR("InitFetchFailed initCid=%" PRIu64 " track=%s path=SegmentListSourceUrl",
+											initCid,
+											GetMediaTypeName(pMediaStreamContext->mediaType));
+									}
 									pMediaStreamContext->discontinuity = false;
 									pMediaStreamContext->profileChanged = false;
 							}
@@ -9124,6 +9214,12 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 											AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 										}
 									}
+									else
+									{
+										AAMPLOG_WARN("InitSkipped initCid=%" PRIu64 " track=%s reason=WaitForFreeFragmentAvailableFailed path=SegmentListRange",
+											initCid,
+											GetMediaTypeName(pMediaStreamContext->mediaType));
+									}
 									// Consume profile change once SegmentList init handling has run,
 									// even when the free-fragment wait fails, to avoid re-trigger loops.
 									pMediaStreamContext->profileChanged = false;
@@ -9131,6 +9227,9 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								else
 								{
 									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: segmentList - empty range string for Initialization");
+									AAMPLOG_WARN("InitSkipped initCid=%" PRIu64 " track=%s reason=SegmentListEmptyInitRange",
+										initCid,
+										GetMediaTypeName(pMediaStreamContext->mediaType));
 								}
 							}
 						}
@@ -9150,6 +9249,15 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					}
 				}
 			}
+		}
+		else if (discontinuity)
+		{
+			AAMPLOG_WARN("InitSkipped initCid=%" PRIu64 " track=%s reason=InitTriggerConditionFalse enabled=%d profileChanged=%d discontinuityFlag=%d",
+				initCid,
+				GetMediaTypeName(pMediaStreamContext->mediaType),
+				pMediaStreamContext->enabled,
+				pMediaStreamContext->profileChanged,
+				pMediaStreamContext->discontinuity);
 		}
 }
 
