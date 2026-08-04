@@ -222,7 +222,7 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_LICENCE_REQUEST_FAILED, 50, 7, "AAMP: DRM License Request Failed"},
 	{AAMP_TUNE_INVALID_DRM_KEY, 50, 8, "AAMP: Invalid Key Error, from DRM"},
 	{AAMP_TUNE_FAILED_TO_GET_KEYID, 50, 9, "AAMP: Failed to parse key id from PSSH"},
-	{AAMP_TUNE_CORRUPT_DRM_DATA, 50, 10, "AAMP: DRM failure due to Corrupt DRM files"},
+	{AAMP_TUNE_CORRUPT_DRM_DATA, 51, 1, "AAMP: DRM failure due to Corrupt DRM files"},
 	{AAMP_TUNE_CORRUPT_DRM_METADATA, 50, 11, "AAMP: DRM failure due to Bad DRMMetadata in stream"},
 	{AAMP_TUNE_DRM_DECRYPT_FAILED, 50, 12, "AAMP: DRM Decryption Failed for Fragments"},
 	{AAMP_TUNE_DRM_UNSUPPORTED, 50, 13, "AAMP: DRM format Unsupported"},
@@ -233,10 +233,10 @@ static TuneFailureMap tuneFailureMap[] =
 
 
 	//Provisioning failure
-	{AAMP_TUNE_DEVICE_NOT_PROVISIONED, 51, 1, "AAMP: Device not provisioned"},
+	{AAMP_TUNE_DEVICE_NOT_PROVISIONED, 52, 1, "AAMP: Device not provisioned"},
 
 	//Hdcp failure
-	{AAMP_TUNE_HDCP_COMPLIANCE_ERROR, 52, 1, "AAMP: HDCP Compliance Check Failure"},
+	{AAMP_TUNE_HDCP_COMPLIANCE_ERROR, 53, 1, "AAMP: HDCP Compliance Check Failure"},
 
 	//Stream failure
 	{AAMP_TUNE_UNSUPPORTED_STREAM_TYPE, 60, 1, "AAMP: Unsupported Stream Type"}, //"Unable to determine stream type for DRM Init"
@@ -8526,9 +8526,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
 	auto streamLockStartTime = NOW_STEADY_TS_MS;
-	auto streamLockStopTime = NOW_STEADY_TS_MS;
+	decltype(NOW_STEADY_TS_MS) streamLockStopTime;
 	auto licenseAcquisitionLockStartTime = NOW_STEADY_TS_MS;
-	auto licenseAcquisitionLockStopTime = NOW_STEADY_TS_MS;
+	auto licenseAcquisitionLockStopTime = licenseAcquisitionLockStartTime;
 	// Stopping the playback, release all DRM context
 	{
 		std::lock_guard<std::recursive_mutex> lock(mStreamLock);
@@ -8745,7 +8745,7 @@ void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMilliseconds, const
 void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
 {
 	bool bMetadata = ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReport) || ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReportLive);
-	if(bMetadata && init && IsNewTune())
+	if(bMetadata)
 	{
 		ReportBulkTimedMetadata();
 	}

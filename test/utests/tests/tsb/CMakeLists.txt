@@ -42,14 +42,8 @@ function(tsb_test_run_add test_suite)
 endfunction()
 
 include(CTest)
-include(FetchContent)
-
-FetchContent_Declare(
-	googletest
-	URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-)
-FetchContent_MakeAvailable(googletest)
-
+# Note: FetchContent for googletest is now handled in parent test/utests/CMakeLists.txt
+# to ensure all test targets have access to gtest/gmock CMake targets
 include(GoogleTest)
 
 add_subdirectory (MockFilesystemTests)

@@ -1213,8 +1213,8 @@ void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &pos
 
 		// Restamp the ISOBMFF position and duration in the media segment
 		(void)mIsoBmffHelper->SetPtsAndDuration(fragment,
-												static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedPts),
-												static_cast<int64_t>(TRICKMODE_TIMESCALE * mRestampedDuration));
+												static_cast<uint64_t>(TRICKMODE_TIMESCALE * mRestampedPts.inSeconds()),
+												static_cast<uint32_t>(TRICKMODE_TIMESCALE * mRestampedDuration.inSeconds()));
 	}
 	// Update cached values for GStreamer
 	position = mRestampedPts.inSeconds();
