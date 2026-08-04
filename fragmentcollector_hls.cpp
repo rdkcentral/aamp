@@ -1062,13 +1062,13 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 									// AAMP_ERR_audioDiscontinue is pattern-matched from this log line.
 									// Logging at WARN here fires the marker for every normal playlist-
 									// refresh-latency event (transient, always recovers within one cycle).
-									// Only log at WARN when the match genuinely fails after all retries.
+									// Only log at WARN when the match genuinely fails after all tries.
 									AAMPLOG_INFO("%s Checking HasDiscontinuity for position :%f, playposition :%f playtarget:%f", name, position.inSeconds(), playPosition.inSeconds(), playTarget.inSeconds());
 									bool result = other->HasDiscontinuityAroundPosition(position.inSeconds(), (NULL != programDateTime), diff, playPosition.inSeconds(), iCulledSeconds.inSeconds(), iProgramDateTime.inSeconds(), isDiffChkReq);
 
 									if (false == result)
 									{
-										AAMPLOG_WARN("[%s] Ignoring discontinuity as %s track does not have discontinuity after all retries", name, other->name);
+										AAMPLOG_WARN("[%s] Ignoring discontinuity as %s track does not have discontinuity after all tries", name, other->name);
 										discontinuity = false;
 									}
 								}
