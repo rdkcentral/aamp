@@ -90,11 +90,11 @@ public:
 
     bool threadDone{false};
 
-    void RunFetchLoop() override
-    {
-        while (!threadDone)
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+	void RunFetchLoop() override
+	{
+		// No-op for unit tests: avoid background sleeps/loops.
+		threadDone = true;
+	}
 };
 
 // ---------------------------------------------------------------------------
