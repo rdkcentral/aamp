@@ -67,7 +67,6 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 				 ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
 				 ${AAMP_ROOT}/ProcessHandler.cpp
-				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmUtils.cpp
 				 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
 				 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
 				 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp
@@ -91,7 +90,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm/opencdmsessionadapter.cpp
 				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm/OcdmBasicSessionAdapter.cpp
 				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm/OcdmGstSessionAdapter.cpp
-
 				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/HlsOcdmBridge.cpp
 				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/HlsDrmSessionManager.cpp
 				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper/ClearKeyHelper.cpp
