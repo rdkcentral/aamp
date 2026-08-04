@@ -51,17 +51,14 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
-# CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES is set when the distro "build_external_player_interface" 
-# option is enabled in the Yocto recipe. This flag determines whether middleware-player-interface 
-# components should be sourced from external repositories or built from the local aamp repository.
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-	message("CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES set")
-	pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
-	pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
-	pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
-	pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
-	pkg_check_modules(SUBTEC REQUIRED libsubtec)
-endif()	
+# External middleware-player-interface dependencies (required)
+# Components are sourced from the external middleware-player-interface repository.
+# See: https://github.com/rdkcentral/middleware-player-interface
+pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
+pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
+pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
+pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
+pkg_check_modules(SUBTEC REQUIRED libsubtec)
 
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
@@ -218,41 +215,24 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	list(APPEND LIBAAMP_DEPENDS -ldl)
 endif()
 
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-
-	list(APPEND LIBAAMP_DEPENDS 
+list(APPEND LIBAAMP_DEPENDS 
 	${PLAYERFBINTERFACE_LINK_LIBRARIES} 
 	${BASECONVERSION_LINK_LIBRARIES} 
 	${PLAYERLOGMANAGER_LINK_LIBRARIES} 
 	${PLAYERGSTINTERFACE_LINK_LIBRARIES} 
 	${SUBTEC_LINK_LIBRARIES} )
 
-	# TDB needs to bring back for UT. 
-	#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
+# TDB needs to bring back for UT. 
+#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
-	# External player interface include directories
-	include_directories(
-		${PLAYERFBINTERFACE_INCLUDE_DIRS}
-		${BASECONVERSION_INCLUDE_DIRS}
-		${PLAYERLOGMANAGER_INCLUDE_DIRS}
-		${PLAYERGSTINTERFACE_INCLUDE_DIRS}
-		${SUBTEC_INCLUDE_DIRS}
-	)
-else()
-	# TDB needs to bring back for UT. 
-	#include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
-	# Adding subdirectories for internal libraries
-	include_directories(
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager
-		${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes
-	)
-	add_subdirectory(middleware)
-endif()
+# External player interface include directories
+include_directories(
+	${PLAYERFBINTERFACE_INCLUDE_DIRS}
+	${BASECONVERSION_INCLUDE_DIRS}
+	${PLAYERLOGMANAGER_INCLUDE_DIRS}
+	${PLAYERGSTINTERFACE_INCLUDE_DIRS}
+	${SUBTEC_INCLUDE_DIRS}
+)
 
 add_subdirectory(test/rialtoPOC)
 
@@ -598,11 +578,7 @@ set(COMMON_COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 
 set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 add_library(aamp SHARED ${LIBAAMP_SOURCES})
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-	target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
-else()
-	target_link_libraries(aamp tsb playergstinterface playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
-endif()
+target_link_libraries(aamp tsb ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
@@ -624,12 +600,8 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliPrintf.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-if(CMAKE_EXTERNAL_PLAYER_INTERFACE_DEPENDENCIES)
-	# Note: Most libraries are already included via the aamp library dependency
-	target_link_libraries(aamp-cli aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
-else()
-	target_link_libraries(aamp-cli aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
-endif()
+# Note: Most libraries are already included via the aamp library dependency
+target_link_libraries(aamp-cli aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 
 set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")

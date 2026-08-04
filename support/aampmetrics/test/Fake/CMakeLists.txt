@@ -22,9 +22,23 @@ set(UTESTS_ROOT "..")
 
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle)
-include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
-include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
+
+# Middleware headers from external middleware-player-interface
+pkg_check_modules(SUBTEC_PKG QUIET libsubtec)
+if(SUBTEC_PKG_INCLUDE_DIRS)
+    include_directories(${SUBTEC_PKG_INCLUDE_DIRS})
+else()
+    # Fallback to sibling middleware-player-interface repo
+    get_filename_component(_MW_REPO "${AAMP_ROOT}/../middleware-player-interface" ABSOLUTE)
+    if(EXISTS "${_MW_REPO}")
+        include_directories(${_MW_REPO}/subtec/libsubtec)
+        include_directories(${_MW_REPO}/subtec/subtecparser)
+        include_directories(${_MW_REPO}/playerjsonobject)
+    else()
+        # Legacy .libs/include fallback
+        include_directories(${AAMP_ROOT}/.libs/include)
+    endif()
+endif()
 include_directories(${AAMP_ROOT}/test/aampcli)
 include_directories(${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 include_directories(${GLIB_INCLUDE_DIRS})
