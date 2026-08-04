@@ -131,16 +131,44 @@ void AampFlightDataRecorder::AddEntry(const FDRLogEntry& entry)
 	
 	EvictOldEntries();
 	
+	// Atomically claim a write slot.  fetch_add gives each producer a unique
+	// monotonically-increasing index, so concurrent writers never share a slot.
 	size_t write_pos_idx = mHead.fetch_add(1, std::memory_order_acq_rel);
 	size_t write_pos = write_pos_idx % mMaxEntries;
 	
 	mBuffer[write_pos] = entry;
 	
-	size_t old_count = mCount.fetch_add(1, std::memory_order_relaxed);
-	if (old_count >= mMaxEntries)
+	// After claiming head, advance tail if the buffer is now full so that the
+	// fill level (head - tail) never exceeds mMaxEntries.  Use a CAS loop so
+	// that concurrent producers converge on the correct tail position without
+	// double-advancing it.  mCount is kept consistent as a derived quantity.
+	size_t new_head = write_pos_idx + 1;
+	size_t current_tail = mTail.load(std::memory_order_acquire);
+	if (new_head - current_tail > mMaxEntries)
 	{
-		mCount.fetch_sub(1, std::memory_order_relaxed);
-		mTail.fetch_add(1, std::memory_order_release);
+		// Try to advance tail by exactly one slot.  If another producer already
+		// advanced it (or EvictOldEntries did), the CAS will fail and we leave
+		// it alone — the buffer is no longer over-full from our perspective.
+		size_t expected_tail = current_tail;
+		if (mTail.compare_exchange_strong(expected_tail, current_tail + 1,
+		                                   std::memory_order_release,
+		                                   std::memory_order_relaxed))
+		{
+			// We advanced tail, so one entry was implicitly evicted — keep
+			// mCount capped at mMaxEntries.
+			mCount.store(mMaxEntries, std::memory_order_relaxed);
+		}
+		// else: another thread already advanced tail; count unchanged.
+	}
+	else
+	{
+		// Buffer was not full; this entry is a net addition.
+		size_t old_count = mCount.fetch_add(1, std::memory_order_relaxed);
+		if (old_count >= mMaxEntries)
+		{
+			// Clamp — can happen when a concurrent EvictOldEntries races.
+			mCount.store(mMaxEntries, std::memory_order_relaxed);
+		}
 	}
 }
 
@@ -201,6 +229,7 @@ void AampFlightDataRecorder::Dump(int triggerLevel, const char* triggerSource)
 		return;
 	}
 	
+	// these need to be cleaned up and routed to ethanlogger
 	printf("\n");
 	printf("================================================================================\n");
 	printf("[FDR] FLIGHT DATA RECORDER DUMP (triggered by %s %s)\n", 
