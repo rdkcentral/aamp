@@ -469,4 +469,6 @@ CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl);
 
 bool IsCurlTimeoutFailure( int httpResponseCode );
 
+bool IsRetryableCurlFailure( CURLcode curlCode );
+
 #endif  /* __AAMP_UTILS_H__ */

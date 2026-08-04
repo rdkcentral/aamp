@@ -1992,7 +1992,8 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mCond(), mLastVideoFragCheckedForABR(0), mLastVideoFragParsedTimeMS(0),
 		mSubCond(), mAudioTracks(), mTextTracks(),mABRHighBufferCounter(0),mABRLowBufferCounter(0),mMaxBufferCountCheck(0),
 		mStateLock(), mStateCond(), mTrackState(eDISCONTINUITY_FREE),
-		mRampDownLimit(-1), mRampDownCount(0),mABRMaxBuffer(0), mABRCacheLength(0), mABRMinBuffer(0), mABRNwConsistency(0),
+		mRampDownLimit(-1), mRampDownCount(0), mConsecutiveSendRecvErrorCount(0), mConsecutiveSendRecvErrorProfileIndex(-1),
+		mLastSendRecvErrorTimeMs(-1), mABRMaxBuffer(0), mABRCacheLength(0), mABRMinBuffer(0), mABRNwConsistency(0),
 		mBitrateReason(eAAMP_BITRATE_CHANGE_BY_TUNE),
 		mAudioTrackIndex(), mTextTrackIndex(),
 		mAudioTracksAll(), mTextTracksAll(),
@@ -2495,7 +2496,52 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
  */
 bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 {
-	bool ret = false;
+	bool guardedSendRecvFailure =
+		(http_error == CURLE_SEND_ERROR || http_error == CURLE_RECV_ERROR);
+	if (guardedSendRecvFailure)
+	{
+		int streakWindowMs = 1000;
+		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+		if (video && video->fragmentDurationSeconds > 0)
+		{
+			int halfFragmentMs = static_cast<int>(video->fragmentDurationSeconds * 500.0);
+			streakWindowMs = std::max(500, std::min(1200, halfFragmentMs));
+		}
+		if (aamp->GetLLDashServiceData()->lowLatencyMode && aamp->GetLLDashChunkMode())
+		{
+			// LL chunk mode: keep a tight streak window so stale failures do not accumulate.
+			streakWindowMs = 500;
+		}
+
+		long long nowMs = NOW_STEADY_TS_MS;
+		bool withinWindow =
+			(mLastSendRecvErrorTimeMs > 0) &&
+			((nowMs - mLastSendRecvErrorTimeMs) <= streakWindowMs);
+
+		if ((mConsecutiveSendRecvErrorProfileIndex == currentProfileIndex) && withinWindow)
+		{
+			mConsecutiveSendRecvErrorCount++;
+		}
+		else
+		{
+			mConsecutiveSendRecvErrorProfileIndex = currentProfileIndex;
+			mConsecutiveSendRecvErrorCount = 1;
+		}
+		mLastSendRecvErrorTimeMs = nowMs;
+
+		if (mConsecutiveSendRecvErrorCount < 2)
+		{
+			return false;
+		}
+	}
+	else
+	{
+		// Any non-55/56 error breaks the guarded send/recv failure streak.
+		mConsecutiveSendRecvErrorCount = 0;
+		mConsecutiveSendRecvErrorProfileIndex = -1;
+		mLastSendRecvErrorTimeMs = -1;
+	}
+
 	int desiredProfileIndex = currentProfileIndex;
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	if (this->UseIframeTrack())
@@ -2537,6 +2583,26 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 			}
 		}
 	}
+
+	bool retValue = ApplyRampDownProfileIndex(desiredProfileIndex, http_error);
+	if (guardedSendRecvFailure && retValue)
+	{
+		AAMPLOG_INFO("StreamAbstractionAAMP: Guarded rampdown success for curl=%d streak=%d", http_error, mConsecutiveSendRecvErrorCount);
+		mConsecutiveSendRecvErrorCount = 0;
+		mConsecutiveSendRecvErrorProfileIndex = -1;
+		mLastSendRecvErrorTimeMs = -1;
+	}
+
+	return retValue;
+}
+
+bool StreamAbstractionAAMP::ApplyRampDownProfileIndex(int desiredProfileIndex,
+	int http_error)
+
+{
+	bool ret = false;
+	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+
 	if (desiredProfileIndex != currentProfileIndex)
 	{
 		AAMPAbrInfo stAbrInfo = {};
@@ -2593,6 +2659,41 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	}
 
 	return ret;
+}
+
+bool StreamAbstractionAAMP::IsRampDownEligibleError(int http_error) const
+{
+	switch (http_error)
+	{
+		// Throughput/download starvation classes.
+		case CURLE_OPERATION_TIMEDOUT:
+		case CURLE_PARTIAL_FILE:
+		case PARTIAL_FILE_DOWNLOAD_TIME_EXPIRED_AAMP:
+		case PARTIAL_FILE_START_STALL_TIMEOUT_AAMP:
+		case 404:
+		case CURLE_SEND_ERROR:
+		case CURLE_RECV_ERROR:
+			return true;
+
+		// Connectivity/path classes - bitrate change won't help.
+		case CURLE_COULDNT_CONNECT:
+		case CURLE_COULDNT_RESOLVE_HOST:
+		case CURLE_COULDNT_RESOLVE_PROXY:
+		case PARTIAL_FILE_CONNECTIVITY_AAMP:
+		case OPERATION_TIMEOUT_CONNECTIVITY_AAMP:
+			return false;
+
+		// Auth/transient server classes - avoid immediate rampdown.
+		case 401:
+		case 403:
+		case 500:
+		case 502:
+		case 503:
+			return false;
+
+		default:
+			return false;
+	}
 }
 
 /**
@@ -2656,31 +2757,13 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	// If lowest profile reached, then no need to check for ramp up/down for timeout cases, instead skip the failed fragment and jump to next fragment to download.
 	if (GetABRMode() == ABRMode::ABR_MANAGER && !IsCurrentProfileLowest())
 	{
-		http_error = getOriginalCurlError(http_error);
+		if (IsRampDownEligibleError(http_error))
+		{
+			retValue = RampDownProfile(http_error);
 
-		if (http_error == 404 || http_error == 403 ||
-			http_error == 500 || http_error == 503 ||
-			http_error == CURLE_PARTIAL_FILE)
-		{
-			if (RampDownProfile(http_error))
+			if (retValue)
 			{
-				AAMPLOG_INFO("StreamAbstractionAAMP: Condition Rampdown Success");
-				retValue = true;
-			}
-		}
-		// For timeout, use FragmentfailureRampdown (via RampDownProfile) which selects
-		// a ramp-down target based on buffer fill percentage.  UpdateProfileBasedOnFragmentCache
-		// is intentionally NOT called here: it computes the desired profile from the EWMA
-		// bandwidth estimate, which can still be very high from pre-stall successful downloads.
-		// When the EWMA-desired profile is higher than the current one (e.g. after ramping down
-		// to 480p), UpdateProfileBasedOnFragmentCache would ramp UP instead of down, causing an
-		// infinite 480p-stall → ramp-up-to-1080p → 1080p-stall → ramp-down → 480p-stall loop.
-		// FragmentfailureRampdown already performs multi-step ramp-downs for timeout scenarios.
-		else if (IsCurlTimeoutFailure (http_error))
-		{
-			if (RampDownProfile(http_error))
-			{
-				retValue = true;
+				AAMPLOG_INFO("StreamAbstractionAAMP: Rampdown success for error=%d", http_error);
 			}
 		}
 	}

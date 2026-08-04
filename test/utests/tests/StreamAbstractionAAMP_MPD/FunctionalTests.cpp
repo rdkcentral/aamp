@@ -2269,6 +2269,84 @@ TEST_F(FunctionalTests_1, UseIframeTrack_iframeextract)
 	EXPECT_EQ(result, true);
 }
 
+/**
+ * @brief Verify DASH ramp-down eligibility for connectivity and timeout classes.
+ * Connectivity errors must not trigger ramp-down, while download timeout classes can.
+ */
+TEST_F(FunctionalTests_1, IsRampDownEligibleError_DashConnectivityAndTimeoutClasses)
+{
+	EXPECT_FALSE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(PARTIAL_FILE_CONNECTIVITY_AAMP));
+	EXPECT_FALSE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(OPERATION_TIMEOUT_CONNECTIVITY_AAMP));
+	EXPECT_TRUE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(PARTIAL_FILE_DOWNLOAD_TIME_EXPIRED_AAMP));
+	EXPECT_TRUE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(PARTIAL_FILE_START_STALL_TIMEOUT_AAMP));
+}
+
+/**
+ * @brief Verify guarded transport and HTTP cases are eligible for DASH ramp-down checks.
+ */
+TEST_F(FunctionalTests_1, IsRampDownEligibleError_DashTransportAndHttpCases)
+{
+	EXPECT_TRUE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(CURLE_SEND_ERROR));
+	EXPECT_TRUE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(CURLE_RECV_ERROR));
+	EXPECT_TRUE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(404));
+	EXPECT_FALSE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(CURLE_COULDNT_CONNECT));
+	EXPECT_FALSE(_instanceStreamAbstractionAAMP_MPD->IsRampDownEligibleError(CURLE_COULDNT_RESOLVE_HOST));
+}
+
+/**
+ * @brief Verify guarded curl 55 path does not ramp down on first failure.
+ *
+ * The first CURLE_SEND_ERROR should only start the streak tracking state.
+ */
+TEST_F(FunctionalTests_1, RampDownProfile_GuardedSendError_FirstFailureStartsStreak)
+{
+	_instanceStreamAbstractionAAMP_MPD->currentProfileIndex = 3;
+	_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorCount = 0;
+	_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorProfileIndex = -1;
+	_instanceStreamAbstractionAAMP_MPD->mLastSendRecvErrorTimeMs = -1;
+
+	const bool result = _instanceStreamAbstractionAAMP_MPD->RampDownProfile(CURLE_SEND_ERROR);
+	EXPECT_FALSE(result);
+	EXPECT_EQ(_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorCount, 1);
+	EXPECT_EQ(_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorProfileIndex,
+		_instanceStreamAbstractionAAMP_MPD->currentProfileIndex);
+	EXPECT_GT(_instanceStreamAbstractionAAMP_MPD->mLastSendRecvErrorTimeMs, 0);
+}
+
+/**
+ * @brief Verify guarded curl 56 path increments streak on consecutive failures.
+ */
+TEST_F(FunctionalTests_1, RampDownProfile_GuardedRecvError_ConsecutiveFailuresIncreaseStreak)
+{
+	_instanceStreamAbstractionAAMP_MPD->currentProfileIndex = 4;
+	_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorCount = 0;
+	_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorProfileIndex = -1;
+	_instanceStreamAbstractionAAMP_MPD->mLastSendRecvErrorTimeMs = -1;
+
+	(void)_instanceStreamAbstractionAAMP_MPD->RampDownProfile(CURLE_RECV_ERROR);
+	(void)_instanceStreamAbstractionAAMP_MPD->RampDownProfile(CURLE_RECV_ERROR);
+
+	EXPECT_EQ(_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorProfileIndex,
+		_instanceStreamAbstractionAAMP_MPD->currentProfileIndex);
+	EXPECT_GE(_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorCount, 2);
+}
+
+/**
+ * @brief Verify non-55/56 error clears guarded send/recv streak state.
+ */
+TEST_F(FunctionalTests_1, RampDownProfile_NonGuardedError_ResetsSendRecvStreak)
+{
+	_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorCount = 2;
+	_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorProfileIndex = 5;
+	_instanceStreamAbstractionAAMP_MPD->mLastSendRecvErrorTimeMs = NOW_STEADY_TS_MS;
+
+	(void)_instanceStreamAbstractionAAMP_MPD->RampDownProfile(404);
+
+	EXPECT_EQ(_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorCount, 0);
+	EXPECT_EQ(_instanceStreamAbstractionAAMP_MPD->mConsecutiveSendRecvErrorProfileIndex, -1);
+	EXPECT_EQ(_instanceStreamAbstractionAAMP_MPD->mLastSendRecvErrorTimeMs, -1);
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, PrintSelectedTrackTest)
 {
 	mStreamAbstractionAAMP_MPD->CallPrintSelectedTrack("2", AampMediaType::eMEDIATYPE_SUBTITLE);

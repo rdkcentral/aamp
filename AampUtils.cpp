@@ -1546,3 +1546,27 @@ bool IsCurlTimeoutFailure( int httpResponseCode )
 			return false;
 	}
 }
+
+/**
+ * @brief Check if a curl failure is retryable based on transient transport errors
+ * @param[in] curlCode curl error code
+ * @retval true if the error is retryable
+ * @retval false otherwise
+ */
+bool IsRetryableCurlFailure( CURLcode curlCode )
+{
+	switch( curlCode )
+	{
+		case CURLE_OPERATION_TIMEDOUT:
+		case CURLE_PARTIAL_FILE:
+		case CURLE_COULDNT_RESOLVE_PROXY:
+		case CURLE_COULDNT_RESOLVE_HOST:
+		case CURLE_COULDNT_CONNECT:
+		case CURLE_RECV_ERROR:
+		case CURLE_SEND_ERROR:
+		case CURLE_GOT_NOTHING:
+			return true;
+		default:
+			return false;
+	}
+}
