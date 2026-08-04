@@ -4210,6 +4210,14 @@ void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType type)
 	ResumeTrackDownloads(type);
 }
 
+void PrivateInstanceAAMP::ResetNewSegmentEventSent()
+{
+	if(SocUtils::ResetNewSegmentEvent())
+	{
+		for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
+	}
+}
+
 /**
  *  @brief Block the injector thread until gstreamer needs buffer/more data.
  */

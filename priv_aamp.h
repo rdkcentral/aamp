@@ -2085,6 +2085,11 @@ public:
 	void ForceResumeTrackBufferControl(AampMediaType type);
 
 	/**
+	 * @fn ResetNewSegmentEventSent
+	 */
+	void ResetNewSegmentEventSent();
+
+	/**
 	 *   @fn BlockUntilGstreamerWantsData
 	 *
 	 *   @param[in] cb - Callback helping to perform additional tasks, if gst doesn't need extra data

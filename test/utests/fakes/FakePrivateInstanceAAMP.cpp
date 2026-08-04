@@ -1531,6 +1531,10 @@ void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType)
 {
 }
 
+void PrivateInstanceAAMP::ResetNewSegmentEventSent()
+{
+}
+
 void PrivateInstanceAAMP::SetDiscontinuityParam()
 {
 }

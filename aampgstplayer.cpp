@@ -1149,6 +1149,9 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
 			privateContext->mBufferControl[i].flush();
 		}
+		// VPAAMP-768: A flush invalidates the active GStreamer segment;
+		// ensure a new segment event is sent on the next injection.
+		aamp->ResetNewSegmentEventSent();
 	}
 }
 
