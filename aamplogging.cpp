@@ -227,6 +227,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			
 			if (logLevelIndex == eLOGLEVEL_ERROR)
 			{
+				printf( "logprintf processing error level log!\n" );
 				AampFlightDataRecorder::GetInstance().Flush();
 			}
 		}
