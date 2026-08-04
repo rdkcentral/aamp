@@ -2925,7 +2925,7 @@ App                          AAMP Player                Ad Server
 | AAMP_TUNE_LICENCE_REQUEST_FAILED | 50 | 7 | AAMP: DRM License Request Failed |
 | AAMP_TUNE_INVALID_DRM_KEY | 50 | 8 | AAMP: Invalid Key Error, from DRM |
 | AAMP_TUNE_FAILED_TO_GET_KEYID | 50 | 9 | AAMP: Failed to parse key id from PSSH |
-| AAMP_TUNE_CORRUPT_DRM_DATA | 50 | 10 | AAMP: DRM failure due to Corrupt DRM files |
+| AAMP_TUNE_CORRUPT_DRM_DATA | 51 | 1 | AAMP: DRM failure due to Corrupt DRM files |
 | AAMP_TUNE_CORRUPT_DRM_METADATA | 50 | 11 | AAMP: DRM failure due to Bad DRMMetadata in stream |
 | AAMP_TUNE_DRM_DECRYPT_FAILED | 50 | 12 | AAMP: DRM Decryption Failed for Fragments |
 | AAMP_TUNE_DRM_UNSUPPORTED | 50 | 13 | AAMP: DRM format Unsupported |
@@ -2933,8 +2933,8 @@ App                          AAMP Player                Ad Server
 | AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN | 50 | 15 | AAMP: Failed to get access token from Auth Service |
 | AAMP_TUNE_DRM_KEY_UPDATE_FAILED | 50 | 16 | AAMP: Failed to process DRM key |
 | AAMP_TUNE_DRM_SESSION_CREATE_FAILED | 50 | 17 | AAMP: OCDM session construction failed |
-| AAMP_TUNE_DEVICE_NOT_PROVISIONED | 51 | 1 | AAMP: Device not provisioned |
-| AAMP_TUNE_HDCP_COMPLIANCE_ERROR | 52 | 1 | AAMP: HDCP Compliance Check Failure |
+| AAMP_TUNE_DEVICE_NOT_PROVISIONED | 52 | 1 | AAMP: Device not provisioned |
+| AAMP_TUNE_HDCP_COMPLIANCE_ERROR | 53 | 1 | AAMP: HDCP Compliance Check Failure |
 
 | AAMP_TUNE_UNSUPPORTED_STREAM_TYPE | 60 | 1 | AAMP: Unsupported Stream Type |
 | AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE | 60 | 2 | AAMP: No supported Audio Types in Manifest |
