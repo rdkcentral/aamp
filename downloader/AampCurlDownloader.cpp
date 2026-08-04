@@ -115,7 +115,6 @@ long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
 	}
 	return rc;
 }
-
 char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
 {
 	char *rc = NULL;
@@ -368,7 +367,8 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
 					{ //Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR)
+						if (IsRetryableCurlFailure(static_cast<CURLcode>(httpRetVal)) ||
+							IsCurlTimeoutFailure(httpRetVal))
 						{
 							AAMPLOG_WARN("Download failed due to curl error %d numDownloadAttempts %d numRetriesAllowed %d", httpRetVal, numDownloadAttempts, numRetriesAllowed);
 							loopAgain = true;

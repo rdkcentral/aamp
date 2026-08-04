@@ -5018,10 +5018,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-						if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) ||
+						const bool isRetryableStall =
 							(isDownloadStalled &&
-								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
-							res == CURLE_SEND_ERROR)
+								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason));
+						if (IsRetryableCurlFailure(res) || IsCurlTimeoutFailure(res) ||
+							isRetryableStall)
 						{
 
 						if(mpStreamAbstractionAAMP)
