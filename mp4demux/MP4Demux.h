@@ -213,6 +213,7 @@ private:
 	// Track fragment fields
 	uint64_t baseMediaDecodeTime; /**< Base media decode time */
 	uint32_t trackId; /**< Track identifier */
+	uint32_t handlerType; /**< Handler type FourCC from 'hdlr' (e.g. 'vide', 'soun', 'meta'), for diagnostics */
 	uint64_t baseDataOffset; /**< Base data offset */
 	uint32_t defaultSampleDescriptionIndex; /**< Default sample description index */
 	uint32_t defaultSampleDuration; /**< Default sample duration */
