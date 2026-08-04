@@ -1675,6 +1675,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
 		MW_LOG_ERR("Seek failed");
+		MW_LOG_WARN("[VPAAMP-610] Seek failed - aborting EOS signal to prevent RialtoServer preroll stall (fix active)");
 		/* Do not re-arm pendingSeek or signal audio EOS after a failed seek.
 		 * Doing so drives the pipeline into an inconsistent flush/preroll state
 		 * that can stall RialtoServer's FlushOnPrerollController indefinitely.
