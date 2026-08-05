@@ -535,11 +535,15 @@ protected:
 	}
 
 	/// Trigger initFragment SendTransfer for audio.
-	void SendAudioInitFragment()
+	void SendAudioInitFragment(bool encrypted = false)
 	{
 		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
 		ON_CALL(*g_mockMp4Demux, GetCodecInfo())
-			.WillByDefault([]() { return MakeAudioAacCodecInfo(); });
+			.WillByDefault([encrypted]() {
+				MediaCodecInfo ci = MakeAudioAacCodecInfo();
+				ci.mIsEncrypted = encrypted;
+				return ci;
+			});
 		std::vector<uint8_t> buf = {0x00, 0x00, 0x00, 0x01};
 		m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(buf),
 			0, 0, 0, 0, /*initFragment=*/true);
@@ -1735,6 +1739,106 @@ TEST_F(AampRialtoPlayerDrmTest,
 				return true;
 			}));
 	SendVideoInitFragment();
+}
+
+// ---------------------------------------------------------------------------
+// HLS-convention fallback: protection queued only under eMEDIATYPE_VIDEO
+// (see StreamAbstractionAAMP_HLS::InitiateDrmProcess) must still be used to
+// create a DRM session for an encrypted non-video source.
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSource_EncryptedWithOnlyVideoProtectionQueued_UsesVideoProtection)
+{
+	const uint8_t initData[] = {0x01, 0x02};
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	// HLS only ever queues protection under eMEDIATYPE_VIDEO.
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.Times(2) // once for video's own attach, once for the audio fallback
+		.WillRepeatedly(Return(10));
+
+	// Attach order is video, then the inband CC subtitle source (deferred
+	// in Configure() until video attaches, no protection queued for it),
+	// then audio once SendAudioInitFragment() runs.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+	SendAudioInitFragment(/*encrypted=*/true);
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSource_NotEncrypted_DoesNotFallBackToVideoProtection)
+{
+	const uint8_t initData[] = {0x01, 0x02};
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	// Only the video attach should create a DRM session.
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.Times(1)
+		.WillOnce(Return(10));
+
+	// Attach order is video, then the inband CC subtitle source, then audio.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_FALSE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+	SendAudioInitFragment(/*encrypted=*/false);
 }
 
 // ===========================================================================

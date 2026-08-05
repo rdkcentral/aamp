@@ -169,7 +169,7 @@ Mp4Demux::Mp4Demux() :
 	moofPtr(),
 	ptr(), endPtr(nullptr),
 	version(), flags(), baseMediaDecodeTime(),
-	trackId(), baseDataOffset(),
+	trackId(), handlerType(), baseDataOffset(),
 	mdatStart(nullptr), mdatEnd(nullptr),
 	defaultSampleDescriptionIndex(), defaultSampleDuration(), defaultSampleSize(),
 	defaultSampleFlags(),
@@ -966,6 +966,20 @@ void Mp4Demux::ParseMediaHeader()
 }
 
 /**
+ * @brief Parse handler reference box (HDLR)
+ * Extracts handler_type (e.g. 'vide', 'soun', 'meta', 'text') so the
+ * current track's media type is available for diagnostic logging.
+ * Caller is responsible for skipping to the next box afterwards, since
+ * the trailing name string is not needed.
+ */
+void Mp4Demux::ParseHandlerReference()
+{
+	ReadHeader();
+	SkipBytes(4); // pre_defined
+	handlerType = ReadU32();
+}
+
+/**
  * @brief Parse track extends box (TREX)
  * Extracts default sample properties for the track:
  * - Track ID
@@ -986,7 +1000,16 @@ void Mp4Demux::ParseTrackExtendsBox()
 /**
  * @brief Parse sample description box (STSD)
  * Extracts the number of sample descriptions and processes them.
- * Currently only supports a single sample description.
+ * A track may legitimately carry more than one sample entry - e.g. CMAF
+ * content packaged with a protected entry (encv/enca) plus a clear
+ * fallback entry (avc1/mp4a) to support switching between encrypted and
+ * clear content via sample_description_index (clear-lead / ad-insertion).
+ * AAMP does not currently select entries per fragment, so all entries are
+ * parsed via the normal box dispatch and the last one parsed wins for
+ * codec/video/audio info. This is safe for mIsEncrypted specifically,
+ * since a 'tenc' box under any entry sets handledEncryptedSamples, and
+ * Mp4Demux::Parse() forces mIsEncrypted back to true afterwards even if
+ * the last-parsed entry itself was the clear variant.
  *
  * @param next Pointer to next box
  */
@@ -994,8 +1017,14 @@ void Mp4Demux::ParseSampleDescriptionBox(const uint8_t *next)
 {
 	ReadHeader();
 	uint32_t count = ReadU32();
-	if (count != 1) {
-		throw Mp4ParseException(MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT, "stsd: count != 1");
+	if (count == 0) {
+		MP4_LOG_ERR("stsd: invalid entry_count %u for trackId %u, handlerType '%s'",
+			count, trackId, FourCCToString(handlerType).c_str());
+		throw Mp4ParseException(MP4_PARSE_ERROR_INVALID_ENTRY_COUNT, "stsd: count == 0");
+	}
+	if (count > 1) {
+		MP4_LOG_WARN("stsd: entry_count %u for trackId %u, handlerType '%s' (multiple sample entries, likely clear/encrypted variants)",
+			count, trackId, FourCCToString(handlerType).c_str());
 	}
 	// Parse contained sample entries/config boxes
 	DemuxHelper(next);
@@ -1504,10 +1533,13 @@ void Mp4Demux::DemuxHelper(const uint8_t *fin)
 			case MultiChar_Constant("meta"): // Metadata container (QTFF or ISO BMFF variant)
 				ParseMetaBox(next);
 				break;
+			case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
+				ParseHandlerReference();
+				ptr = next;
+				break;
 			case MultiChar_Constant("mehd"): // Movie Extends Header
 			case MultiChar_Constant("mfhd"): // Movie Fragment Header
 			case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
-			case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
 			case MultiChar_Constant("ilst"): // Apple metadata item list (child of meta)
 			case MultiChar_Constant("keys"): // Apple metadata key declarations (child of meta)
 			case MultiChar_Constant("vmhd"): // Video Media Header (graphics_mode, op_color)

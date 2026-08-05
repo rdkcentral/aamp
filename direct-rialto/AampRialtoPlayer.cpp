@@ -966,10 +966,32 @@ void AampRialtoPlayer::AttachSource(
 		AAMPLOG_INFO("Creating m_drmBridge with m_aamp=%p", m_aamp);
 	}
 
+	// HLS always queues content protection under eMEDIATYPE_VIDEO (see
+	// StreamAbstractionAAMP_HLS::InitiateDrmProcess), even when the
+	// EXT-X-KEY/EXT-X-SESSION-KEY applies to an audio-only track. Fall back
+	// to the video slot so encrypted non-video sources still get a DRM
+	// session in that case.
+	// Take a value copy under lock so attachOrUpdate() (which may block on
+	// DRM session creation) never runs concurrently with a QueueProtectionEvent
+	// write to the same slot.
+	std::optional<AampRialtoMediaSource::ProtectionParams> protectionCopy;
+	{
+		std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
+		protectionCopy = m_pendingProtection[static_cast<size_t>(type)];
+		if (codecInfo.mIsEncrypted && !protectionCopy.has_value() &&
+		    type != eMEDIATYPE_VIDEO && m_pendingProtection[eMEDIATYPE_VIDEO].has_value())
+		{
+			AAMPLOG_WARN("mediaType=%d is encrypted but has no queued protection - "
+				"falling back to eMEDIATYPE_VIDEO protection params (HLS convention)",
+				static_cast<int>(type));
+			protectionCopy = m_pendingProtection[eMEDIATYPE_VIDEO];
+		}
+	}
+
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
 		m_pendingPositionNs.load(std::memory_order_relaxed),
-		m_pendingProtection[static_cast<size_t>(type)],
+		protectionCopy,
 		computeAppliedRate(
 			m_pendingFlushRate.load(std::memory_order_relaxed)));
 
@@ -1685,6 +1707,7 @@ void AampRialtoPlayer::QueueProtectionEvent(
 		auto idx = static_cast<size_t>(type);
 		if (idx < kMaxSourceTypes)
 		{
+			std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
 			m_pendingProtection[idx] = prot;
 		}
 
@@ -1695,9 +1718,12 @@ void AampRialtoPlayer::QueueProtectionEvent(
 void AampRialtoPlayer::ClearProtectionEvent()
 {
 	AAMPLOG_INFO("ENTRY");
-	for (auto &prot : m_pendingProtection)
 	{
-		prot.reset();
+		std::lock_guard<std::mutex> lock(m_pendingProtectionMutex);
+		for (auto &prot : m_pendingProtection)
+		{
+			prot.reset();
+		}
 	}
 	AAMPLOG_INFO("EXIT");
 }

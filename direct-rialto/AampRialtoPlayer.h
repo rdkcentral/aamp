@@ -398,8 +398,11 @@ private:
 	/// unconditionally so that protection data survives even if no source
 	/// exists yet (i.e. before the first Configure call).  Configure
 	/// applies any pending protection to newly created sources.
+	/// Guarded by m_pendingProtectionMutex: written from the DRM/manifest
+	/// thread, read from the injector thread in AttachSource().
 	std::array<std::optional<AampRialtoMediaSource::ProtectionParams>, kMaxSourceTypes>
 		m_pendingProtection;
+	std::mutex m_pendingProtectionMutex;
 
 	/// Deferred attachment buffer.  Rialto's GStreamer pipeline requires
 	/// video to be attached before audio.  When a non-video init fragment

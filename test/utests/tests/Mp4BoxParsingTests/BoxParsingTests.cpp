@@ -418,6 +418,74 @@ TEST(Mp4Demux_Gaps, AC4InitHasCodecData) {
 	EXPECT_EQ(info.mCodecData[4], 0x14);
 }
 
+// stsd: entry_count == 0 is invalid and must raise MP4_PARSE_ERROR_INVALID_ENTRY_COUNT.
+TEST(Mp4Demux_Stsd, EntryCountZero_RaisesInvalidEntryCountError)
+{
+	std::vector<uint8_t> buf;
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, /*entry_count*/0);
+			stsd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	EXPECT_FALSE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_INVALID_ENTRY_COUNT);
+}
+
+// stsd: entry_count > 1 (e.g. clear/encrypted variants) must parse successfully,
+// with the last sample entry's codec info taking effect.
+TEST(Mp4Demux_Stsd, MultipleEntries_ParsesSuccessfully_LastEntryWins)
+{
+	std::vector<uint8_t> buf;
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, /*entry_count*/2);
+			for (uint8_t entryPayloadByte : { uint8_t(0xAA), uint8_t(0xBB) })
+			{
+				Box ac4(buf, "ac-4"); // AudioSampleEntry per ISO/IEC 14496-12
+
+				// reserved[6] + data_reference_index(2) + reserved[8] = 16 bytes
+				for (int i = 0; i < 16; ++i) buf.push_back(0x00);
+
+				// channel_count(2) = 2
+				write16be(buf, 2);
+
+				// sample_size(2) + pre_defined(2) + reserved(2) = 6 bytes
+				buf.insert(buf.end(), 6, 0x00);
+
+				// sample_rate (32-bit fixed-point 16.16): upper16 = 0xAC44, lower16 = 0x0000
+				write16be(buf, 0xAC44);
+				write16be(buf, 0x0000);
+
+				// Decoder-specific AC-4 box: 'dac4', payload distinguishes entries
+				{
+					Box dac4(buf, "dac4");
+					for (int i = 0; i < 5; ++i) buf.push_back(uint8_t(entryPayloadByte + i));
+					dac4.close();
+				}
+				ac4.close();
+			}
+			stsd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+	auto info = d.GetCodecInfo();
+	ASSERT_EQ(info.mCodecData.size(), 5u);
+	// Last-parsed entry (payload starting at 0xBB) must be the one in effect.
+	EXPECT_EQ(info.mCodecData[0], 0xBB);
+}
+
 // E) TRUN overrun detection (negative)
 TEST(Mp4Demux_Gaps, TrunOverrunDetection) {
 	std::vector<uint8_t> buf;
