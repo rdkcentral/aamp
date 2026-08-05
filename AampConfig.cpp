@@ -243,7 +243,7 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT] =
 {
 	{true,"abr",eAAMPConfig_EnableABR,false},
-	{true,"fog",eAAMPConfig_Fog,false},
+	{false,"fog",eAAMPConfig_Fog,false},
 	{false,"preFetchIframePlaylist",eAAMPConfig_PrefetchIFramePlaylistDL,false},
 	{false,"throttle",eAAMPConfig_Throttle,false},
 	{false,"demuxAudioBeforeVideo",eAAMPConfig_DemuxAudioBeforeVideo,false},
@@ -278,7 +278,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"appSrcForProgressivePlayback",eAAMPConfig_UseAppSrcForProgressivePlayback,false},
 	{false,"descriptiveAudioTrack",eAAMPConfig_DescriptiveAudioTrack,false},
 	{true,"reportBufferEvent",eAAMPConfig_ReportBufferEvent,false},
-	{false,"info",eAAMPConfig_InfoLogging,true},
+	{true,"info",eAAMPConfig_InfoLogging,true},
 	{false,"debug",eAAMPConfig_DebugLogging,false},
 	{false,"trace",eAAMPConfig_TraceLogging,false},
 	{true,"warn",eAAMPConfig_WarnLogging,false},
@@ -364,7 +364,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
 	{false, "useDirectRialto", eAAMPConfig_useDirectRialto, false},
-	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
+	{true, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
