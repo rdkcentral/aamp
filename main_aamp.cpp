@@ -128,9 +128,9 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			}			
 			
 		}
-
+		SETCONFIGVALUE(AAMP_CUSTOM_DEV_CFG_SETTING, eAAMPConfig_useRialtoSink, false);
 		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
-
+		SETCONFIGVALUE(AAMP_CUSTOM_DEV_CFG_SETTING, eAAMPConfig_useRialtoSink, false);
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
@@ -156,7 +156,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	const char* szJSLib = "libaamp.so";
 #endif
 	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
-	AAMPLOG_WARN("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
+	AAMPLOG_WARN("[SAMEE][AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
 #endif
 
 #ifdef AAMP_BUILD_INFO
