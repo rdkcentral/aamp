@@ -100,6 +100,17 @@ public:
 		/// the current request batch; triggers haveData(OK) when it
 		/// reaches pendingFrameCount.
 		size_t   segmentsAddedInBatch{0};
+		/// True once the first segment of the current batch has set
+		/// batchFirstPtsSec.  Distinguishes "first frame had PTS 0" from
+		/// "no frame added yet", mirroring kFirstPtsNotSet's role for
+		/// m_firstPtsMs but scoped to a single needData batch.
+		bool     batchHasFirstPts{false};
+		/// PTS (seconds) of the first segment added in the current batch.
+		/// Only meaningful when batchHasFirstPts is true.
+		double   batchFirstPtsSec{0.0};
+		/// Running sum of durations (seconds) of segments added in the
+		/// current batch.
+		double   batchDurationSecSum{0.0};
 		/// Set once signalEos() has been called.  Causes the next batch
 		/// completion (or an idle needData) to fire haveData(EOS) instead
 		/// of haveData(OK).
@@ -162,6 +173,20 @@ public:
 		UPDATED,         ///< Source already attached; metadata refreshed
 		NEWLY_ATTACHED,  ///< New source successfully attached to pipeline
 		FAILED           ///< Invalid codec or attachSource() failed
+	};
+
+	/**
+	 * @brief Snapshot of the segments staged for a needData batch, taken
+	 *        at the moment the batch is claimed/abandoned so the eventual
+	 *        haveData() response can be logged alongside what data (if
+	 *        any) it is answering for.
+	 */
+	struct BatchSummary
+	{
+		size_t frameCount{0};       ///< Segments added to this batch.
+		bool   hasFirstPts{false};  ///< True once at least one segment was added.
+		double firstPtsSec{0.0};    ///< PTS (seconds) of the first segment added.
+		double durationSecSum{0.0}; ///< Sum of durations (seconds) added.
 	};
 
 	// -----------------------------------------------------------------
@@ -576,7 +601,8 @@ private:
 		uint64_t capturedGen,
 		uint32_t reqId,
 		bool morePending,
-		double samplePts);
+		double samplePts,
+		double sampleDurationSec);
 
 	// -----------------------------------------------------------------
 	// Pending-request handshake helpers
@@ -586,14 +612,18 @@ private:
 	 * @brief Claim the current pending request so the caller can close
 	 *        it out.
 	 *
-	 * Caller must hold m_state.mu.  Clears hasPending and
-	 * segmentsAddedInBatch.  Does not itself send any response — the
-	 * caller decides what status to reply with (or whether it is even
+	 * Caller must hold m_state.mu.  Clears hasPending and the batch
+	 * tracking fields (via snapshotAndClearBatchLocked()), returning their
+	 * pre-claim values in outBatch.  Does not itself send any response —
+	 * the caller decides what status to reply with (or whether it is even
 	 * safe to reply, e.g. only when no injector is active).
 	 *
+	 * @param outBatch  Set to a summary of the segments staged for this
+	 *                  batch when this returns true; left unmodified
+	 *                  otherwise.
 	 * @return true if there was a pending request to claim.
 	 */
-	bool claimPendingRequestLocked(uint32_t &outReqId);
+	bool claimPendingRequestLocked(uint32_t &outReqId, BatchSummary &outBatch);
 
 	/**
 	 * @brief Attempt to resolve a pending request as EOS.
@@ -613,9 +643,12 @@ private:
 	 *
 	 * @param outReqId  Set to the claimed request ID when this returns
 	 *                  true; left unmodified otherwise.
+	 * @param outBatch  Set to a summary of the segments staged for this
+	 *                  batch when this returns true; left unmodified
+	 *                  otherwise.
 	 * @return true if a pending request was claimed for EOS.
 	 */
-	bool tryClaimEosLocked(uint32_t &outReqId);
+	bool tryClaimEosLocked(uint32_t &outReqId, BatchSummary &outBatch);
 
 	/**
 	 * @brief Send haveData(NO_AVAILABLE_SAMPLES) for a request this
@@ -625,7 +658,35 @@ private:
 	 */
 	void respondAbandonedRequest(
 		firebolt::rialto::IMediaPipeline *pipeline,
-		uint32_t reqId);
+		uint32_t reqId,
+		const BatchSummary &batch);
+
+	/**
+	 * @brief Respond to a needData request via
+	 *        IMediaPipeline::haveData(), logging which source is
+	 *        responding and with what data before forwarding the call.
+	 *
+	 * @param pipeline   The Rialto media pipeline to respond to.
+	 * @param status     The status being reported to Rialto.
+	 * @param requestId  The needData request ID being answered.
+	 * @param batch      Summary of the segments staged for this batch.
+	 * @return The result of the underlying haveData() call.
+	 */
+	bool sendHaveData(
+		firebolt::rialto::IMediaPipeline &pipeline,
+		firebolt::rialto::MediaSourceStatus status,
+		uint32_t requestId,
+		const BatchSummary &batch);
+
+	/**
+	 * @brief Snapshot the current batch's frameCount/firstPts/duration
+	 *        totals and reset them to their empty state.
+	 *
+	 * Caller must hold m_state.mu.  Does not touch hasPending/
+	 * pendingRequestId — the caller decides whether/when the batch is
+	 * fully claimed.
+	 */
+	BatchSummary snapshotAndClearBatchLocked();
 };
 
 #endif /* AAMP_RIALTO_MEDIA_SOURCE_H */

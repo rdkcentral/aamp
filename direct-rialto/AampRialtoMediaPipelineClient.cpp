@@ -165,18 +165,16 @@ void AampRialtoMediaPipelineClient::notifySourceFlushed(int32_t sourceId)
 {
 	// Flush() now uses pipeline-level setPosition(); completion is signalled
 	// via PlaybackState::SEEK_DONE, not per-source SourceFlushedEvents.
-	AAMPLOG_INFO("sourceId=%d - no-op", sourceId);
+	AAMPLOG_TRACE("Not Implemented - sourceId=%d - no-op", sourceId);
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackInfo(
 	const PlaybackInfo &playbackInfo)
 {
-	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("Not Implemented");
 }
 
 void AampRialtoMediaPipelineClient::notifyFirstFrameReceived(int32_t sourceId)
 {
-	AAMPLOG_INFO("ENTRY sourceId=%d", sourceId);
-	AAMPLOG_INFO("EXIT");
+	AAMPLOG_TRACE("Not Implemented - sourceId=%d", sourceId);
 }
