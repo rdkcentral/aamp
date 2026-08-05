@@ -35,6 +35,7 @@
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
 #include "MockAdManager.h"
+#include "MockAampTimeBasedBufferManager.h"
 
 using ::testing::_;
 using ::testing::AnyNumber;
@@ -2296,5 +2297,278 @@ TEST_F(AdSelectionTests, PushNextFragment_DoesNotFetchWhenCurrentAdCancelled)
 
 	bool ret = PushNextFragment(eTRACK_VIDEO);
 	EXPECT_FALSE(ret);
+}
+
+/**
+ * @brief FetcherLoop CDAI test — IN_ADBREAK_AD_NOT_PLAYING state.
+ *
+ * In linear CDAI rewind, CheckForAdStart returns adIdx=-1 when the entry offset
+ * (period end) lies outside the ad slot range, so the state machine parks in
+ * IN_ADBREAK_AD_NOT_PLAYING.  While there, the source-period init fragment IS
+ * fetched by DetectDiscontinuityAndFetchInit (periodChanged=true) because
+ * mCurrentPeriod still points at the source period (state != IN_ADBREAK_AD_PLAYING).
+ * That source-init download is in-flight when BASE_OFFSET_CHANGE later transitions
+ * to IN_ADBREAK_AD_PLAYING; VPAAMP-684's WaitForCompletionWithTimeout drains it
+ * before the ad init begins.
+ *
+ * This test verifies that the FetcherLoop terminates cleanly when downloads are
+ * disabled while parked in IN_ADBREAK_AD_NOT_PLAYING (i.e. before BASE_OFFSET_CHANGE
+ * can fire), and that the CDAI state is preserved on exit.
+ */
+TEST_F(AdSelectionTests, CDAI_FetcherLoop_ExitsOnDownloadsDisabled_InAdNotPlayingState)
+{
+	std::string initFragUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(initFragUrl, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 10.0, AAMP_NORMAL_PLAY_RATE);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	// Simulate having entered the ad-break period with adIdx=-1 (offset at period end
+	// lies outside the ad slot range) — the state the rewind log shows.
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
+	cdaiObj->mCurPlayingBreakId = "p0";
+	cdaiObj->mPeriodMap["p0"] = Period2AdData();
+	mStreamAbstractionAAMP_MPD->SetBasePeriodId("p0");
+	// Non-zero offset so the rewind-boundary condition (mBasePeriodOffset <= 0) does
+	// not fire and BASE_OFFSET_CHANGE is not triggered while buffer stays full.
+	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(5.0);
+
+	// Buffer full → AdvanceTrack is skipped; mBasePeriodOffset stays constant so
+	// lastPrdOffset == mBasePeriodOffset and BASE_OFFSET_CHANGE never fires.
+	g_mockAampTimeBasedBufferManager =
+		std::make_shared<NiceMock<aamp::MockAampTimeBasedBufferManager>>();
+	ON_CALL(*g_mockAampTimeBasedBufferManager, IsFull()).WillByDefault(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+
+	// Allow a few iterations then disable downloads to terminate the loop.
+	int downloadsCounter = 0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly([&downloadsCounter]() {
+			return ++downloadsCounter <= 3;
+		});
+
+	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+
+	// Downloads were disabled before BASE_OFFSET_CHANGE could fire, so state is
+	// preserved — no spurious transition to IN_ADBREAK_AD_PLAYING.
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+
+	g_mockAampTimeBasedBufferManager.reset();
+}
+
+/**
+ * @brief Reproduces the rewind CDAI state transitions observed in linear live CDAI.
+ *
+ * Forward-play period mapping (from the log):
+ *   '1550076913397-1' → ad '13-1' [BasePeriodId='1550076915397-1']
+ *                     → ad '14-1' [BasePeriodId='1550076945397-1']
+ *                     → '1550077005397-1' (source content)
+ *
+ * During rewind the two ad breaks are crossed in reverse order:
+ *
+ *   AdBreak '1550076945397-1' (hit first during rewind):
+ *     endPeriodOffset == period duration → entry key == end →
+ *     CheckForAdStart succeeds → OUTSIDE_ADBREAK → IN_ADBREAK_AD_PLAYING directly.
+ *
+ *   AdBreak '1550076915397-1' (hit second during rewind):
+ *     endPeriodOffset < period duration → entry key > end →
+ *     CheckForAdStart returns adIdx=-1 → IN_ADBREAK_AD_NOT_PLAYING first,
+ *     then BASE_OFFSET_CHANGE (offset decrements into range) → IN_ADBREAK_AD_PLAYING.
+ *     This is the path where VPAAMP-684's WaitForCompletionWithTimeout matters.
+ */
+TEST_F(AdSelectionTests, CDAI_Rewind_TwoAdBreaks_StateTransitions)
+{
+	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="2700000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
+</MPD>
+)";
+	InitializeAdMPDObject(adManifest);
+
+	std::string fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	AAMPStatusType status = InitializeMPD(mVodManifest, eTUNETYPE_NEW_NORMAL, 0.0, -2.0);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+
+	// AdBreak1 (1550076915397-1) — first in forward order, second hit during rewind.
+	// Log: mBasePeriodOffset[30.016000] adIdx[-1]
+	// endPeriodId is the NEXT source period (1550076945397-1) → code uses curP2Ad.duration=30000 as 'end'.
+	// key=(uint64_t)(30.016*1000)=30016 > end=30000 → both conditions fail → IN_ADBREAK_AD_NOT_PLAYING.
+	const std::string adBreak1Id = "1550076915397-1";
+	const std::string adBreak1NextPeriod = "1550076945397-1";
+	cdaiObj->mAdBreaks[adBreak1Id] = AdBreakObject(
+		30000, std::make_shared<std::vector<AdNode>>(), adBreak1NextPeriod, 0, 30000);
+	cdaiObj->mAdBreaks[adBreak1Id].ads->emplace_back(
+		false, true, true, "13-1", adUrl, 30000, adBreak1Id, 0, mAdMPD);
+	cdaiObj->mPeriodMap[adBreak1Id] = Period2AdData(false, adBreak1Id, 30000,
+	{
+		std::make_pair(0, AdOnPeriod(0, 0)),
+	});
+
+	// AdBreak2 (1550076945397-1) — second in forward order, first hit during rewind.
+	// Log: mBasePeriodOffset[60.000000] adIdx[0] adOffset[60.000000]
+	// endPeriodId is the NEXT source period (1550077005397-1) → code uses curP2Ad.duration=60000 as 'end'.
+	// key=(uint64_t)(60.0*1000)=60000; (60000<60000)=FALSE, (rate<0 && 60000==60000)=TRUE → IN_ADBREAK_AD_PLAYING.
+	const std::string adBreak2Id = "1550076945397-1";
+	const std::string adBreak2NextPeriod = "1550077005397-1";
+	cdaiObj->mAdBreaks[adBreak2Id] = AdBreakObject(
+		60000, std::make_shared<std::vector<AdNode>>(), adBreak2NextPeriod, 0, 60000);
+	cdaiObj->mAdBreaks[adBreak2Id].ads->emplace_back(
+		false, true, true, "14-1", adUrl, 60000, adBreak2Id, 0, mAdMPD);
+	cdaiObj->mPeriodMap[adBreak2Id] = Period2AdData(false, adBreak2Id, 60000,
+	{
+		std::make_pair(0, AdOnPeriod(0, 0)),
+	});
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
+
+	// ── Rewind step 1: enter adBreak2 at period end (offset=60s, log: mBasePeriodOffset[60.000000]) ──
+	// key=60000 == curP2Ad.duration=60000 → IN_ADBREAK_AD_PLAYING directly (no NOT_PLAYING stop).
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adBreak2Id);
+	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(60.0);
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(0).adId, "14-1");
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+
+	// All ads in adBreak2 done → OUTSIDE_ADBREAK.
+	cdaiObj->mCurPlayingBreakId = adBreak2Id;
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+
+	// ── Rewind step 2: enter adBreak1 at period end (offset=30.016s, log: mBasePeriodOffset[30.016000]) ──
+	// key=30016 > curP2Ad.duration=30000 → CheckForAdStart returns adIdx=-1
+	// → IN_ADBREAK_AD_NOT_PLAYING (16 ms overshoot past the 30 s slot boundary).
+	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adBreak1Id);
+	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(30.016);
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, -1); // no ad found at the entry offset
+	EXPECT_EQ(cdaiObj->mCurAds, nullptr);
+
+	// ── Rewind step 3: offset decrements into the ad range; BASE_OFFSET_CHANGE fires ──
+	// key=15000, 0 <= 15000 < 25000 → adIdx=0 → IN_ADBREAK_AD_PLAYING.
+	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(15.0);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::BASE_OFFSET_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	EXPECT_EQ(cdaiObj->mCurAdIdx, 0);
+	EXPECT_EQ(cdaiObj->mCurAds->at(0).adId, "13-1");
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+
+	// All ads in adBreak1 done → OUTSIDE_ADBREAK.
+	cdaiObj->mCurPlayingBreakId = adBreak1Id;
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+}
+
+/**
+ * @brief Verifies via InvokeFetcherLoop() that the source-period init fragment is
+ *        fetched when the FetcherLoop enters IN_ADBREAK_AD_NOT_PLAYING on rewind.
+ *
+ * Setup mirrors the mBasePeriodOffset[30.016000] overshoot seen in the log:
+ *   - adBreak registered at "p0", curP2Ad.duration=29000 ms (<30000).
+ *   - SelectSourceOrAdPeriod resets mBasePeriodOffset to GetPeriodDuration()=30000 ms.
+ *   - key=30000 > end=29000 → CheckForAdStart returns adIdx=-1 → IN_ADBREAK_AD_NOT_PLAYING.
+ *   - periodChanged=true (mBasePeriodId mismatch) → DetectDiscontinuityAndFetchInit fires.
+ *   - CacheFragment for the source iframe init is called exactly twice:
+ *       1. During Init() → normal first-play init fetch.
+ *       2. During FetcherLoop's DetectDiscontinuityAndFetchInit → the in-flight source
+ *          init download that VPAAMP-684's WaitForCompletionWithTimeout drains before
+ *          the ad init can begin.
+ *   - DownloadsAreEnabled() is then disabled to terminate the loop.
+ */
+TEST_F(AdSelectionTests, CDAI_Rewind_FetcherLoop_SourceInitFetchedDuringAdNotPlaying)
+{
+	// rate=-2 → iframe track selected from mVodManifest p0 → dash/iframe_init.m4s
+	// Called once from Init() and once from FetcherLoop's DetectDiscontinuityAndFetchInit.
+	std::string initFragUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(initFragUrl, _, _, _, _, true, _, _, _))
+		.Times(2)
+		.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(mVodManifest, eTUNETYPE_NEW_NORMAL, 0.0, -2.0);
+	ASSERT_EQ(status, eAAMPSTATUS_OK);
+
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+
+	// Register adBreak at "p0" (the source period at mCurrentPeriodIdx=0).
+	// curP2Ad.duration=29000 < GetPeriodDuration("p0")=30000:
+	//   after SelectSourceOrAdPeriod resets mBasePeriodOffset=30.0,
+	//   key=30000 > end=29000 → adIdx=-1 → IN_ADBREAK_AD_NOT_PLAYING.
+	const std::string adBreakId = "p0";
+	const std::string adBreakNextPeriod = "p1";
+	cdaiObj->mAdBreaks[adBreakId] = AdBreakObject(
+		30000, std::make_shared<std::vector<AdNode>>(), adBreakNextPeriod, 0, 29000);
+	cdaiObj->mAdBreaks[adBreakId].ads->emplace_back(
+		false, true, true, "13-1", adUrl, 29000, adBreakId, 0, nullptr);
+	cdaiObj->mPeriodMap[adBreakId] = Period2AdData(false, adBreakId, 29000,
+	{
+		std::make_pair(0, AdOnPeriod(0, 0)),
+	});
+
+	// Set mCurrentPeriod to p1 so FetcherLoop initialises currentPeriodId="p1".
+	// When SelectSourceOrAdPeriod resets mCurrentPeriod back to p0,
+	// currentPeriodId("p1") != mCurrentPeriod->GetId()("p0") triggers periodChanged=true,
+	// which causes DetectDiscontinuityAndFetchInit to be called.
+	mStreamAbstractionAAMP_MPD->SetCurrentPeriod(mStreamAbstractionAAMP_MPD->GetMPD()->GetPeriods().at(1));
+	// mBasePeriodId mismatch also ensures periodChanged=true in SelectSourceOrAdPeriod.
+	mStreamAbstractionAAMP_MPD->SetBasePeriodId("p1");
+
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+
+	g_mockAampTimeBasedBufferManager =
+		std::make_shared<NiceMock<aamp::MockAampTimeBasedBufferManager>>();
+	ON_CALL(*g_mockAampTimeBasedBufferManager, IsFull()).WillByDefault(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
+
+	// Disable downloads after a few iterations to terminate the loop.
+	int downloadsCounter = 0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+		.Times(AnyNumber())
+		.WillRepeatedly([&downloadsCounter]() {
+			return ++downloadsCounter <= 5;
+		});
+
+	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
+
+	// Downloads disabled before BASE_OFFSET_CHANGE could fire; state preserved.
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+
+	g_mockAampTimeBasedBufferManager.reset();
 }
  
