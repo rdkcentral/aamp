@@ -1007,8 +1007,9 @@ void Mp4Demux::ParseTrackExtendsBox()
  * AAMP does not currently select entries per fragment, so all entries are
  * parsed via the normal box dispatch and the last one parsed wins for
  * codec/video/audio info. This is safe for mIsEncrypted specifically,
- * since that is only ever set true by a 'tenc' box, which is only present
- * under the protected entry.
+ * since a 'tenc' box under any entry sets handledEncryptedSamples, and
+ * Mp4Demux::Parse() forces mIsEncrypted back to true afterwards even if
+ * the last-parsed entry itself was the clear variant.
  *
  * @param next Pointer to next box
  */
