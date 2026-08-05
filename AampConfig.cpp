@@ -284,7 +284,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"warn",eAAMPConfig_WarnLogging,false},
 	{false,"failover",eAAMPConfig_FailoverLogging,false},
 	{false,"gst",eAAMPConfig_GSTLogging,false},
-	{false,"progress",eAAMPConfig_ProgressLogging,false},
+	{true,"progress",eAAMPConfig_ProgressLogging,false},
 	{false,"curl",eAAMPConfig_CurlLogging,false},
 	{false,"curlLicense",eAAMPConfig_CurlLicenseLogging,false},
 	{false,"logMetadata",eAAMPConfig_MetadataLogging,false},
