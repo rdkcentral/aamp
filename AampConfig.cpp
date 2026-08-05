@@ -280,7 +280,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"reportBufferEvent",eAAMPConfig_ReportBufferEvent,false},
 	{false,"info",eAAMPConfig_InfoLogging,true},
 	{false,"debug",eAAMPConfig_DebugLogging,false},
-	{true,"trace",eAAMPConfig_TraceLogging,false},
+	{false,"trace",eAAMPConfig_TraceLogging,false},
 	{true,"warn",eAAMPConfig_WarnLogging,false},
 	{false,"failover",eAAMPConfig_FailoverLogging,false},
 	{false,"gst",eAAMPConfig_GSTLogging,false},
