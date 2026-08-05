@@ -443,19 +443,53 @@ public:
 			if (allNonSubtitleSourcesEos &&
 				!m_eosNotified.exchange(true, std::memory_order_relaxed))
 			{
+				// Snapshot the maximum injected content duration across
+				// non-subtitle sources.  A real renderer must play out all
+				// buffered frames before signalling END_OF_STREAM, so the
+				// drain wait must cover at least this many nanoseconds of
+				// elapsed wall time from play-start.  On fast networks AAMP
+				// can inject a 60 s clip well under 60 s of wall time,
+				// leaving up to kBufferHighWaterNs of content buffered-ahead
+				// when EOS arrives; without this guard the fixed 6 s floor
+				// is already satisfied and END_OF_STREAM fires immediately
+				// — premature relative to the clip end.
+				int64_t maxInjectedNs = 0;
+				{
+					std::lock_guard<std::mutex> lock(m_trackMutex);
+					for (const auto &entry : m_injectedDurationNs)
+					{
+						auto typeIt = m_sourceTypes.find(entry.first);
+						if (typeIt != m_sourceTypes.end() &&
+							typeIt->second != MediaSourceType::SUBTITLE &&
+							entry.second > maxInjectedNs)
+						{
+							maxInjectedNs = entry.second;
+						}
+					}
+				}
 				// All non-subtitle sources EOS'd — delay END_OF_STREAM
 				// to model the real pipeline's drain time (renderer must
 				// play out buffered frames before signalling EOS).
-				std::thread([this]() {
+				std::thread([this, maxInjectedNs]() {
 					using namespace std::chrono;
-					constexpr auto kMinDrainTime = seconds(6);
+					constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
+					// Wait until wall time from play-start covers whichever
+					// is larger: the fixed 6 s floor or the full injected
+					// content duration.  The latter dominates whenever AAMP
+					// injects faster than real-time (fast network/CDN),
+					// ensuring END_OF_STREAM is never signalled before the
+					// simulated renderer would have finished playing all
+					// buffered frames.
+					int64_t waitUntilNs = std::max(kMinDrainNs, maxInjectedNs);
 					auto elapsed = steady_clock::now() - m_playStartTime;
-					if (elapsed < kMinDrainTime)
+					auto elapsedNs =
+						duration_cast<nanoseconds>(elapsed).count();
+					if (elapsedNs < waitUntilNs)
 					{
-						auto remaining = kMinDrainTime - elapsed;
+						auto remainingNs = waitUntilNs - elapsedNs;
 						RIALTO_SIM_LOG("draining: waiting %ld ms before END_OF_STREAM",
-							duration_cast<milliseconds>(remaining).count());
-						std::this_thread::sleep_for(remaining);
+							remainingNs / 1000000L);
+						std::this_thread::sleep_for(nanoseconds(remainingNs));
 					}
 					if (m_stopRequested.load(std::memory_order_relaxed))
 					{
