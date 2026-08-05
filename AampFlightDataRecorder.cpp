@@ -212,12 +212,14 @@ void AampFlightDataRecorder::Dump(int triggerLevel, const char* triggerSource)
 {
 	if (!mInitialized.load(std::memory_order_acquire))
 	{
+		printf( "not mInitialized\n" );
 		return;
 	}
 	
 	bool expected = false;
 	if (!mDumping.compare_exchange_strong(expected, true, std::memory_order_acquire))
 	{
+		printf( "mDumping broken\n" );
 		return;
 	}
 	
@@ -225,6 +227,7 @@ void AampFlightDataRecorder::Dump(int triggerLevel, const char* triggerSource)
 	
 	if (entries_to_read == 0)
 	{
+		printf( "no entries to log\n" );
 		mDumping.store(false, std::memory_order_release);
 		return;
 	}
@@ -239,7 +242,7 @@ void AampFlightDataRecorder::Dump(int triggerLevel, const char* triggerSource)
 	printf("================================================================================\n");
 	
 	size_t tail_pos = mTail.load(std::memory_order_acquire);
-	
+	printf( "entries_to_read=%zu\n", entries_to_read );
 	for (size_t i = 0; i < entries_to_read; i++)
 	{
 		size_t read_pos = (tail_pos + i) % mMaxEntries;
