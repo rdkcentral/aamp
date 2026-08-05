@@ -136,8 +136,8 @@ function subtec_install_fn() {
         return 1
     }
 
-    git apply -p1 "${1}/OSX/patches/subttxrend-app-boost-1.89-compat.patch" || {
-        echo "ERROR: Failed to apply subttxrend-app-boost-1.89-compat.patch"
+    git apply -p1 "${1}/OSX/patches/subttxrend-app-boost-1.89-compatible.patch" || {
+        echo "ERROR: Failed to apply subttxrend-app-boost-1.89-compatible.patch"
         popd
         return 1
     }

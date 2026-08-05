@@ -25,7 +25,7 @@ This syntax worked with Boost < 1.86 but fails with Boost 1.86+ because `system`
 
 ## Solution
 
-The patch `subttxrend-app-boost-1.89-compat.patch` modifies the `Ipp2UtilsConfig.cmake.in` template to:
+The patch `subttxrend-app-boost-1.89-compatible.patch` modifies the `Ipp2UtilsConfig.cmake.in` template to:
 
 1. First try to find Boost with the `system` component (for older Boost versions)
 2. If that fails, find Boost without specifying components (for Boost 1.86+)
@@ -34,8 +34,8 @@ This makes the build compatible with both old and new Boost versions.
 
 ## Files Modified
 
-- `OSX/patches/subttxrend-app-boost-1.89-compat.patch` - New patch file
-- `middleware/OSX/patches/subttxrend-app-boost-1.89-compat.patch` - Copy for middleware builds
+- `OSX/patches/subttxrend-app-boost-1.89-compatible.patch` - New patch file
+- `middleware/OSX/patches/subttxrend-app-boost-1.89-compatible.patch` - Copy for middleware builds
 - `scripts/install_subtec.sh` - Added patch application
 - `middleware/scripts/install_subtec.sh` - Added patch application
 
