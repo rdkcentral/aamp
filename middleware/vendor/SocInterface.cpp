@@ -18,15 +18,11 @@
  */
 
 #include <assert.h>
-#include <mutex>
 #include "SocInterface.h"
 #include "vendor/amlogic/AmlogicSocInterface.h"
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
 #include "vendor/default/DefaultSocInterface.h"
-// Private singleton storage
-static std::shared_ptr<SocInterface> g_socInterface;
-static std::mutex g_socMutex;
 
 /**Initially re-sets the IsRialtoMode */
 bool SocInterface::mIsRialtoMode = false;
@@ -57,14 +53,11 @@ bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
  */
 SocPlatformType InferPlatformFromPluginScan()
 {
-	
 	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
-	
 	// Ensure GST is initialized
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
 	}
-	
 	static const std::pair<const char*, SocPlatformType> plugins[] = {
 		{"amlhalasink", SOC_PLATFORM_AMLOGIC},
 		{"omxeac3dec", SOC_PLATFORM_REALTEK},
@@ -153,30 +146,7 @@ SocPlatformType SocInterface::InferPlatformFromDeviceProperties( void )
 
 
 /**
- * @brief Helper to create the right subclass based on platform type.
- */
-static std::shared_ptr<SocInterface> CreateForPlatform(SocPlatformType platformType)
-{
-	switch (platformType)
-	{
-		case SOC_PLATFORM_AMLOGIC:
-			MW_LOG_MIL("Setting up SoC Interface for AMLOGIC");
-			return std::make_shared<AmlogicSocInterface>();
-		case SOC_PLATFORM_BROADCOM:
-			MW_LOG_MIL("Setting up SoC Interface for BROADCOM");
-			return std::make_shared<BrcmSocInterface>();
-		case SOC_PLATFORM_REALTEK:
-			MW_LOG_MIL("Setting up SoC Interface for REALTEK");
-			return std::make_shared<RealtekSocInterface>();
-		default:
-			MW_LOG_MIL("Setting up SoC Interface for Default");
-			return std::make_shared<DefaultSocInterface>();
-	}
-}
-
-
-/**
- * @brief Loads the instance with rialto mode or not
+ * @brief Loads the instance with rialto mode or not 
  *
  * @return A pointer to the created SocInterface object, or nullptr on failure.
  */
@@ -191,48 +161,41 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 }
 
 /**
- * @brief Phase 1: Creates an instance of the SoC-specific interface.
- *        Safe to call during dl_init — only reads /etc/device.properties, NO GStreamer calls.
+ * @brief Creates an instance of the SoC-specific interface based on the detected platform.
  *
- * @return A pointer to the created SocInterface object.
+ * @return A pointer to the created SocInterface object, or nullptr on failure.
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
-	std::lock_guard<std::mutex> lock(g_socMutex);
-	if (!g_socInterface)
+	static std::shared_ptr<SocInterface> socInterface;
+	if( !socInterface)
 	{
-		// Only use device.properties at this stage — no GStreamer calls
 		SocPlatformType platformType = InferPlatformFromDeviceProperties();
-		g_socInterface = CreateForPlatform(platformType);
+		if(platformType == SOC_PLATFORM_DEFAULT)
+		{
+			if(!mIsRialtoMode)
+			{
+				MW_LOG_MIL("Performing InterfacePluginScan| Rialto-Disabled");
+				platformType = InferPlatformFromPluginScan();
+                        }
+		}
+		switch (platformType)
+		{
+			case SOC_PLATFORM_AMLOGIC:
+				socInterface = std::make_shared<AmlogicSocInterface>();
+				break;
+			case SOC_PLATFORM_BROADCOM:
+				socInterface = std::make_shared<BrcmSocInterface>();
+				break;
+			case SOC_PLATFORM_REALTEK:
+				socInterface = std::make_shared<RealtekSocInterface>();
+				break;
+			default:
+				socInterface = std::make_shared<DefaultSocInterface>();
+				break;
+		}
 	}
-	return g_socInterface;
-}
-
-/**
- * @brief Phase 2: Called after GStreamer is safely initialized to re-detect platform via plugin scan.
- *        Must NOT be called during dl_init / library constructor.
- *        Contains gst_init_check (via InferPlatformFromPluginScan).
- */
-void SocInterface::InitializePlatformFromPlugins()
-{
-	std::lock_guard<std::mutex> lock(g_socMutex);
-	if (mIsRialtoMode) return;
-
-	// If device.properties already identified a specific platform, no need to scan plugins
-	SocPlatformType currentType = InferPlatformFromDeviceProperties();
-	if (currentType != SOC_PLATFORM_DEFAULT)
-	{
-		MW_LOG_MIL("Platform already identified from device.properties, skipping plugin scan");
-		return;
-	}
-
-	// This calls gst_init_check internally — safe here because we are NOT in dl_init
-	SocPlatformType platformType = InferPlatformFromPluginScan();
-	if (platformType != SOC_PLATFORM_DEFAULT)
-	{
-		MW_LOG_MIL("Plugin scan detected platform, replacing SoC interface");
-		g_socInterface = CreateForPlatform(platformType);
-	}
+	return socInterface;
 }
 
 /**
