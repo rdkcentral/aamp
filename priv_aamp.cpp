@@ -3076,6 +3076,7 @@ bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
 	{
 		return false;
 	}
+
 	// Buffer drained while manifest refresh was already failing.
 	// Send the appropriate fatal error event instead of a BufferingChanged event.
 	// SetBufUnderFlowStatus is intentionally omitted here: the error event triggers

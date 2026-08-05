@@ -167,7 +167,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
 	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
 	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
-	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT),mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK)
+	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT),mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK),mManifestRefreshRetryFailureThreshold(2)
 {
 }
 
@@ -204,7 +204,6 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 	// reset
 	Release();
 	mReleaseCalled = false;
-	ClearManifestRefreshRetryStatus();
 
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
 	mMPDDnldCfg = std::move(mpdDnldCfg);
@@ -499,22 +498,44 @@ void AampMPDDownloader::downloadMPDThread1()
 			if (mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK)
 			{
 				retryStatus = ManifestRefreshStatus();
-			}
-			else if ((mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR) ||
-				(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR))
-			{
-				retryStatus = ManifestRefreshStatus(
-					mMPDData->mMPDStatus,
-					0);
+				mManifestRefreshRetryFailureCount.store(0);
+				mManifestRefreshErrorType.store(retryStatus.type);
+				mManifestRefreshErrorCode.store(retryStatus.errorCode);
 			}
 			else
 			{
-				retryStatus = ManifestRefreshStatus(
-					mMPDData->mMPDStatus,
-					mMPDData->mMPDDownloadResponse->iHttpRetValue);
+				if ((mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR) ||
+					(mMPDData->mMPDStatus == AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR))
+				{
+					retryStatus = ManifestRefreshStatus(
+						mMPDData->mMPDStatus,
+						0);
+				}
+				else
+				{
+					retryStatus = ManifestRefreshStatus(
+						mMPDData->mMPDStatus,
+						mMPDData->mMPDDownloadResponse->iHttpRetValue);
+				}
+
+				AAMPStatusType previousErrorType = mManifestRefreshErrorType.load();
+				int previousErrorCode = mManifestRefreshErrorCode.load();
+				bool sameAsPreviousFailure =
+					(previousErrorType == retryStatus.type) &&
+					(previousErrorCode == retryStatus.errorCode);
+
+				if (sameAsPreviousFailure)
+				{
+					mManifestRefreshRetryFailureCount.fetch_add(1);
+				}
+				else
+				{
+					// Start a new failure streak when retry failure reason changes.
+					mManifestRefreshRetryFailureCount.store(1);
+				}
+				mManifestRefreshErrorType.store(retryStatus.type);
+				mManifestRefreshErrorCode.store(retryStatus.errorCode);
 			}
-			mManifestRefreshErrorType.store(retryStatus.type);
-			mManifestRefreshErrorCode.store(retryStatus.errorCode);
 		}
 
 		if(doPush)
@@ -1169,6 +1190,11 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 
 ManifestRefreshStatus AampMPDDownloader::GetManifestRefreshStatus() const
 {
+	if (mManifestRefreshRetryFailureCount.load() <
+		mManifestRefreshRetryFailureThreshold)
+	{
+		return ManifestRefreshStatus();
+	}
 	return ManifestRefreshStatus(
 		mManifestRefreshErrorType.load(),
 		mManifestRefreshErrorCode.load());

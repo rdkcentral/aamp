@@ -459,6 +459,8 @@ private:
 	std::atomic<int> mManifestRefreshErrorCode;
 	std::atomic<AAMPStatusType>
 		mManifestRefreshErrorType;
+	std::atomic<int> mManifestRefreshRetryFailureCount;
+	int mManifestRefreshRetryFailureThreshold;
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */

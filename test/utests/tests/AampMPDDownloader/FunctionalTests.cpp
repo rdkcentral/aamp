@@ -29,6 +29,7 @@
 #include <thread>
 #include <unistd.h>
 #include <atomic>
+#include <vector>
 
 using ::testing::_;
 using ::testing::An;
@@ -45,6 +46,48 @@ std::string url1 = "https://example.com/VideoTestStream/xyz.mpd";
 std::string url2 = "http://example.com/Content/CMAF_S2-CTR-4s-v2/Live/channel(exampleChannel)/60_master_2hr.m3u8?c3.ri=example-ri&audio=all&subtitle=all&forcedNarrative=true";
 std::string url3 = "https://example-livesim.org/livesim/Manifest.mpd";
 std::string url4 = "https://example.com/GOLFD_HD_NAT_16403_0_example.mpd";
+
+static const char *kLiveMpdManifestForRefreshStatusTests =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0.5S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
+	<Period id="901591170" start="PT416006H37M27.854S">
+		<EventStream schemeIdUri="urn:example:test:2024" timescale="1000"/>
+		<AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+			<SegmentTemplate initialization="init-$RepresentationID$.mp4" media="seg-$Number$.m4s" timescale="90000" startNumber="901599260" presentationTimeOffset="20213">
+				<SegmentTimeline>
+					<S t="1377581813" d="172800" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="root_video4" bandwidth="562800" codecs="hvc1.1.6.L63.90" width="640" height="360" frameRate="25000/1000"/>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+static const char *kMalformedMpdManifest = "<MPD xmlns='urn:mpeg:dash:schema:mpd:2011'><Period>";
+
+static ManifestDownloadResponsePtr WaitForNextManifest(
+	AampMPDDownloader *downloader,
+	const ManifestDownloadResponsePtr &previousManifest,
+	int timeoutMs)
+{
+	auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::milliseconds(timeoutMs);
+	do
+	{
+		ManifestDownloadResponsePtr nextManifest =
+			downloader->GetManifest(false, 0);
+		if (!nextManifest ||
+			nextManifest.get() != previousManifest.get())
+		{
+			return nextManifest;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	} while (std::chrono::steady_clock::now() < deadline);
+
+	return previousManifest;
+}
 
 class FunctionalTests : public ::testing::Test
 {
@@ -491,6 +534,245 @@ TEST_F(FunctionalTests,
 	EXPECT_TRUE(thirdManifest != nullptr);
 	EXPECT_TRUE(thirdManifest.get() != secondManifest.get());
 	EXPECT_EQ(thirdManifest->mMPDDownloadResponse->iHttpRetValue, CURLE_RECV_ERROR);
+
+	mAampMPDDownloader->Release();
+}
+
+TEST_F(FunctionalTests, AampMPDDownloader_RefreshStatus_OkResetsCounterAndStatus)
+{
+	std::shared_ptr<ManifestDownloadConfig> inpData =
+		std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+
+	std::vector<std::pair<std::string, int>> callbackSequence =
+	{
+		{std::string(kLiveMpdManifestForRefreshStatusTests), 200},
+		{std::string(), CURLE_RECV_ERROR},
+		{std::string(kLiveMpdManifestForRefreshStatusTests), 200}
+	};
+
+	std::atomic<size_t> callbackIndex(0);
+	auto preProcessCallback = [&callbackSequence, &callbackIndex]()
+		-> std::pair<std::string, int>
+	{
+		size_t index = callbackIndex.fetch_add(1);
+		if (index >= callbackSequence.size())
+		{
+			index = callbackSequence.size() - 1;
+		}
+		return callbackSequence[index];
+	};
+
+	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr firstManifest =
+		mAampMPDDownloader->GetManifest(true, 2000);
+	ASSERT_TRUE(firstManifest != nullptr);
+
+	ManifestDownloadResponsePtr secondManifest =
+		WaitForNextManifest(mAampMPDDownloader, firstManifest, 2000);
+	ASSERT_TRUE(secondManifest != nullptr);
+	ASSERT_TRUE(secondManifest.get() != firstManifest.get());
+	EXPECT_EQ(secondManifest->mMPDDownloadResponse->iHttpRetValue,
+		CURLE_RECV_ERROR);
+
+	ManifestRefreshStatus statusAfterFirstFailure =
+		mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(statusAfterFirstFailure.type, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(statusAfterFirstFailure.errorCode, 0);
+
+	ManifestDownloadResponsePtr thirdManifest =
+		WaitForNextManifest(mAampMPDDownloader, secondManifest, 2000);
+	ASSERT_TRUE(thirdManifest != nullptr);
+	ASSERT_TRUE(thirdManifest.get() != secondManifest.get());
+	EXPECT_TRUE(
+		IS_HTTP_SUCCESS(thirdManifest->mMPDDownloadResponse->iHttpRetValue));
+
+	ManifestRefreshStatus statusAfterRecovery =
+		mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(statusAfterRecovery.type, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(statusAfterRecovery.errorCode, 0);
+
+	mAampMPDDownloader->Release();
+}
+
+TEST_F(FunctionalTests,
+	AampMPDDownloader_RefreshStatus_SameFailureTwice_ReachesThreshold)
+{
+	std::shared_ptr<ManifestDownloadConfig> inpData =
+		std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+
+	std::vector<std::pair<std::string, int>> callbackSequence =
+	{
+		{std::string(kLiveMpdManifestForRefreshStatusTests), 200},
+		{std::string(), CURLE_RECV_ERROR},
+		{std::string(), CURLE_RECV_ERROR}
+	};
+
+	std::atomic<size_t> callbackIndex(0);
+	auto preProcessCallback = [&callbackSequence, &callbackIndex]()
+		-> std::pair<std::string, int>
+	{
+		size_t index = callbackIndex.fetch_add(1);
+		if (index >= callbackSequence.size())
+		{
+			index = callbackSequence.size() - 1;
+		}
+		return callbackSequence[index];
+	};
+
+	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr firstManifest =
+		mAampMPDDownloader->GetManifest(true, 2000);
+	ASSERT_TRUE(firstManifest != nullptr);
+
+	ManifestDownloadResponsePtr secondManifest =
+		WaitForNextManifest(mAampMPDDownloader, firstManifest, 2000);
+	ASSERT_TRUE(secondManifest != nullptr);
+	ASSERT_TRUE(secondManifest.get() != firstManifest.get());
+	EXPECT_EQ(secondManifest->mMPDDownloadResponse->iHttpRetValue,
+		CURLE_RECV_ERROR);
+
+	ManifestRefreshStatus statusAfterFirstFailure =
+		mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(statusAfterFirstFailure.type, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(statusAfterFirstFailure.errorCode, 0);
+
+	ManifestDownloadResponsePtr thirdManifest =
+		WaitForNextManifest(mAampMPDDownloader, secondManifest, 2000);
+	ASSERT_TRUE(thirdManifest != nullptr);
+	ASSERT_TRUE(thirdManifest.get() != secondManifest.get());
+	EXPECT_EQ(thirdManifest->mMPDDownloadResponse->iHttpRetValue,
+		CURLE_RECV_ERROR);
+
+	ManifestRefreshStatus statusAfterSecondSameFailure =
+		mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(statusAfterSecondSameFailure.type,
+		AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+	EXPECT_EQ(statusAfterSecondSameFailure.errorCode, CURLE_RECV_ERROR);
+
+	mAampMPDDownloader->Release();
+}
+
+TEST_F(FunctionalTests,
+	AampMPDDownloader_RefreshStatus_FailureTypeChanges_DoesNotAccumulate)
+{
+	std::shared_ptr<ManifestDownloadConfig> inpData =
+		std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+
+	std::vector<std::pair<std::string, int>> callbackSequence =
+	{
+		{std::string(kLiveMpdManifestForRefreshStatusTests), 200},
+		{std::string(), CURLE_RECV_ERROR},
+		{std::string(kMalformedMpdManifest), 200}
+	};
+
+	std::atomic<size_t> callbackIndex(0);
+	auto preProcessCallback = [&callbackSequence, &callbackIndex]()
+		-> std::pair<std::string, int>
+	{
+		size_t index = callbackIndex.fetch_add(1);
+		if (index >= callbackSequence.size())
+		{
+			index = callbackSequence.size() - 1;
+		}
+		return callbackSequence[index];
+	};
+
+	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr firstManifest =
+		mAampMPDDownloader->GetManifest(true, 2000);
+	ASSERT_TRUE(firstManifest != nullptr);
+
+	ManifestDownloadResponsePtr secondManifest =
+		WaitForNextManifest(mAampMPDDownloader, firstManifest, 2000);
+	ASSERT_TRUE(secondManifest != nullptr);
+	ASSERT_TRUE(secondManifest.get() != firstManifest.get());
+
+	ManifestRefreshStatus statusAfterFirstFailure =
+		mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(statusAfterFirstFailure.type, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(statusAfterFirstFailure.errorCode, 0);
+
+	ManifestDownloadResponsePtr thirdManifest =
+		WaitForNextManifest(mAampMPDDownloader, secondManifest, 2000);
+	ASSERT_TRUE(thirdManifest != nullptr);
+	ASSERT_TRUE(thirdManifest.get() != secondManifest.get());
+
+	ManifestRefreshStatus statusAfterChangedFailure =
+		mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(statusAfterChangedFailure.type, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(statusAfterChangedFailure.errorCode, 0);
+
+	mAampMPDDownloader->Release();
+}
+
+TEST_F(FunctionalTests,
+	AampMPDDownloader_RefreshStatus_AfterChange_NewTypeNeedsOwnStreak)
+{
+	std::shared_ptr<ManifestDownloadConfig> inpData =
+		std::make_shared<ManifestDownloadConfig>(-1);
+	inpData->mTuneUrl = url1;
+
+	std::vector<std::pair<std::string, int>> callbackSequence =
+	{
+		{std::string(kLiveMpdManifestForRefreshStatusTests), 200},
+		{std::string(), CURLE_RECV_ERROR},
+		{std::string(), CURLE_COULDNT_CONNECT},
+		{std::string(), CURLE_COULDNT_CONNECT}
+	};
+
+	std::atomic<size_t> callbackIndex(0);
+	auto preProcessCallback = [&callbackSequence, &callbackIndex]()
+		-> std::pair<std::string, int>
+	{
+		size_t index = callbackIndex.fetch_add(1);
+		if (index >= callbackSequence.size())
+		{
+			index = callbackSequence.size() - 1;
+		}
+		return callbackSequence[index];
+	};
+
+	mAampMPDDownloader->Initialize(inpData, appName, preProcessCallback);
+	mAampMPDDownloader->Start();
+
+	ManifestDownloadResponsePtr firstManifest =
+		mAampMPDDownloader->GetManifest(true, 2000);
+	ASSERT_TRUE(firstManifest != nullptr);
+
+	ManifestDownloadResponsePtr secondManifest =
+		WaitForNextManifest(mAampMPDDownloader, firstManifest, 2000);
+	ASSERT_TRUE(secondManifest != nullptr);
+	ASSERT_TRUE(secondManifest.get() != firstManifest.get());
+
+	ManifestDownloadResponsePtr thirdManifest =
+		WaitForNextManifest(mAampMPDDownloader, secondManifest, 2000);
+	ASSERT_TRUE(thirdManifest != nullptr);
+	ASSERT_TRUE(thirdManifest.get() != secondManifest.get());
+
+	ManifestRefreshStatus statusAfterFirstFailureB =
+		mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(statusAfterFirstFailureB.type, AAMPStatusType::eAAMPSTATUS_OK);
+	EXPECT_EQ(statusAfterFirstFailureB.errorCode, 0);
+
+	ManifestDownloadResponsePtr fourthManifest =
+		WaitForNextManifest(mAampMPDDownloader, thirdManifest, 2000);
+	ASSERT_TRUE(fourthManifest != nullptr);
+	ASSERT_TRUE(fourthManifest.get() != thirdManifest.get());
+
+	ManifestRefreshStatus statusAfterSecondFailureB =
+		mAampMPDDownloader->GetManifestRefreshStatus();
+	EXPECT_EQ(statusAfterSecondFailureB.type,
+		AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR);
+	EXPECT_EQ(statusAfterSecondFailureB.errorCode, CURLE_COULDNT_CONNECT);
 
 	mAampMPDDownloader->Release();
 }
