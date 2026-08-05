@@ -53,11 +53,6 @@ int32_t AampDrmBridge::createSession(
 		return -1;
 	}
 
-	DrmSessionManager *dsm = licMgr->mDrmSessionManager;
-
-	int responseCode = 0;
-	int err          = 0;
-
 	// streamType must be cast-compatible with GstMediaType:
 	//   eGST_MEDIATYPE_VIDEO (0) == eMEDIATYPE_VIDEO
 	//   eGST_MEDIATYPE_AUDIO (1) == eMEDIATYPE_AUDIO
@@ -66,21 +61,26 @@ int32_t AampDrmBridge::createSession(
 	AAMPLOG_INFO("AampDrmBridge::createSession systemId=%s len=%zu type=%d",
 		systemId, len, streamType);
 
-	DrmSession *session = dsm->createDrmSession(
-		responseCode,
-		err,
+	// AampDRMLicenseManager::createDrmSession() (unlike DrmSessionManager's
+	// own overload) always builds and forwards a real DrmMetaDataEventPtr;
+	// acquireLicense() unconditionally dereferences that handle internally,
+	// so passing nullptr here would crash on any license request.
+	DrmMetaDataEventPtr eventHandle = std::make_shared<DrmMetaDataEvent>(
+		AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, m_aamp->GetSessionId());
+
+	DrmSession *session = licMgr->createDrmSession(
 		systemId,
 		eMEDIAFORMAT_DASH,
 		static_cast<const unsigned char *>(initData),
 		static_cast<uint16_t>(len),
 		streamType,
 		m_aamp,      // PrivateInstanceAAMP implements DrmCallbacks
-		nullptr);    // content metadata — not available at this call site
+		eventHandle);
 
 	if (!session)
 	{
 		AAMPLOG_ERR("AampDrmBridge::createSession: createDrmSession failed "
-			"responseCode=%d err=%d", responseCode, err);
+			"failure=%d", static_cast<int>(eventHandle->getFailure()));
 		return -1;
 	}
 
