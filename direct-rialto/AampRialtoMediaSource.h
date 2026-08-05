@@ -501,10 +501,14 @@ protected:
 
 	/**
 	 * @brief Map a codec format to a MIME type and Rialto stream format.
+	 * @param naluLengthPrefixed True when the codec's NAL units are
+	 *        length-prefixed (AVCC/HVCC), false for Annex-B byte-stream.
+	 *        Only meaningful for NAL-unit video codecs (H.264/HEVC).
 	 * @return true if the codec is recognised, false otherwise.
 	 */
 	virtual bool mapCodecToMime(
 		GstStreamOutputFormat codecFormat,
+		bool naluLengthPrefixed,
 		std::string &mimeType,
 		firebolt::rialto::StreamFormat &streamFormat) const = 0;
 

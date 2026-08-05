@@ -112,6 +112,7 @@ TEST_F(Mp4DemuxFunctionalTests, ParseInitSegmentAndValidateCodecData)
 	EXPECT_FALSE(codecInfo.mCodecData.empty()) << "Codec data (avcC) should not be empty";
 	EXPECT_EQ(codecInfo.mInfo.video.mWidth, 1280) << "Video width should be 1280";
 	EXPECT_EQ(codecInfo.mInfo.video.mHeight, 720) << "Video height should be 720";
+	EXPECT_TRUE(codecInfo.mNaluLengthPrefixed) << "avcC config implies length-prefixed (AVCC) NAL units";
 }
 
 /**
@@ -417,6 +418,7 @@ TEST(Mp4Demux_Gaps, AC4InitHasCodecData) {
 	ASSERT_EQ(info.mCodecData.size(), 5u);
 	EXPECT_EQ(info.mCodecData[0], 0x10);
 	EXPECT_EQ(info.mCodecData[4], 0x14);
+	EXPECT_FALSE(info.mNaluLengthPrefixed) << "AC-4 is not a NAL-unit codec";
 }
 
 // stsd: entry_count == 0 is invalid and must raise MP4_PARSE_ERROR_INVALID_ENTRY_COUNT.

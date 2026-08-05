@@ -179,7 +179,7 @@ TEST_F(AampRialtoSubtitleSourceTest,
 	std::string mimeType;
 	firebolt::rialto::StreamFormat fmt{};
 	const bool ok = m_source.mapCodecToMime(
-		GST_FORMAT_SUBTITLE_TTML, mimeType, fmt);
+		GST_FORMAT_SUBTITLE_TTML, false, mimeType, fmt);
 	EXPECT_TRUE(ok);
 	EXPECT_EQ(mimeType, "text/ttml");
 }
@@ -194,7 +194,7 @@ TEST_F(AampRialtoSubtitleSourceTest,
 	std::string mimeType;
 	firebolt::rialto::StreamFormat fmt{};
 	const bool ok = m_source.mapCodecToMime(
-		GST_FORMAT_SUBTITLE_WEBVTT, mimeType, fmt);
+		GST_FORMAT_SUBTITLE_WEBVTT, false, mimeType, fmt);
 	EXPECT_TRUE(ok);
 	EXPECT_EQ(mimeType, "text/vtt");
 }
@@ -209,7 +209,7 @@ TEST_F(AampRialtoSubtitleSourceTest,
 	std::string mimeType;
 	firebolt::rialto::StreamFormat fmt{};
 	const bool ok = m_source.mapCodecToMime(
-		GST_FORMAT_SUBTITLE_MP4, mimeType, fmt);
+		GST_FORMAT_SUBTITLE_MP4, false, mimeType, fmt);
 	EXPECT_TRUE(ok);
 	EXPECT_EQ(mimeType, "text/ttml");
 }
@@ -225,7 +225,7 @@ TEST_F(AampRialtoSubtitleSourceTest,
 	std::string mimeType;
 	firebolt::rialto::StreamFormat fmt{};
 	const bool ok = m_source.mapCodecToMime(
-		GST_FORMAT_INVALID, mimeType, fmt);
+		GST_FORMAT_INVALID, false, mimeType, fmt);
 	EXPECT_FALSE(ok);
 }
 
@@ -271,7 +271,7 @@ TEST_F(AampRialtoSubtitleSourceTest,
 {
 	std::string mimeType;
 	firebolt::rialto::StreamFormat fmt{};
-	const bool ok = m_source.mapCodecToMime(GST_FORMAT_UNKNOWN, mimeType, fmt);
+	const bool ok = m_source.mapCodecToMime(GST_FORMAT_UNKNOWN, false, mimeType, fmt);
 
 	EXPECT_TRUE(ok);
 	EXPECT_TRUE(m_source.isInbandCC());

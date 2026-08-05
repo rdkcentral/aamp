@@ -340,7 +340,8 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	std::string mimeType;
 	firebolt::rialto::StreamFormat streamFormat =
 		firebolt::rialto::StreamFormat::UNDEFINED;
-	if (!mapCodecToMime(codecInfo.mCodecFormat, mimeType, streamFormat))
+	if (!mapCodecToMime(codecInfo.mCodecFormat, codecInfo.mNaluLengthPrefixed,
+		mimeType, streamFormat))
 	{
 		AAMPLOG_ERR("Unknown codec format=%d for mediaType=%d",
 			static_cast<int>(codecInfo.mCodecFormat),
