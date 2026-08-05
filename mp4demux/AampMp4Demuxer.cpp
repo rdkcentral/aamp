@@ -46,6 +46,15 @@ AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bo
 }
 
 /**
+ * @brief Provide the manifest-declared fallback timescale
+ * @see AampMp4Demuxer.h
+ */
+void AampMp4Demuxer::setFallbackTimeScale(uint32_t timeScale)
+{
+	mMp4Demux->SetFallbackTimeScale(timeScale);
+}
+
+/**
  * @brief Set frame rate for trickmode
  * @param[in] frameRate - rate per second
  */

@@ -162,7 +162,7 @@ Mp4Demux::Mp4Demux() :
 	mMediaTypeName("unknown"),
 	ivSize(),
 	cryptByteBlock(), skipByteBlock(),
-	constantIvSize(), constantIv(), timeScale(),
+	constantIvSize(), constantIv(), timeScale(), fallbackTimeScale(),
 	samples(), defaultKid(), gotAuxiliaryInformationOffset(),
 	auxiliaryInformationOffset(), schemeType(CIPHER_TYPE_NONE),
 	originalMediaType(), cencAuxInfoSizes(), protectionData(),
@@ -735,6 +735,22 @@ void Mp4Demux::ParseTrackRun()
 	{
 		firstSampleFlags = ReadU32();
 	}
+	if (timeScale == 0)
+	{
+		// No mvhd/mdhd was parsed for this track (e.g. stream has no init
+		// segment for this track), so sample times/durations would divide
+		// by zero and yield NaN/Inf. Fall back to the manifest-declared
+		// timescale if one was supplied; otherwise sample times are set to 0.
+		if (fallbackTimeScale == 0)
+		{
+			MP4_LOG_WARN("trun: timeScale is 0 (no mdhd/mvhd parsed, no manifest fallback); sample pts/dts/duration will be set to 0");
+		}
+		else
+		{
+			MP4_LOG_WARN("trun: timeScale is 0 (no mdhd/mvhd parsed); falling back to manifest timescale %u", fallbackTimeScale);
+		}
+	}
+	const uint32_t effectiveTimeScale = (timeScale != 0) ? timeScale : fallbackTimeScale;
 	uint64_t dts = baseMediaDecodeTime;
 	for (auto i = 0u; i < sampleCount; i++)
 	{
@@ -772,9 +788,9 @@ void Mp4Demux::ParseTrackRun()
 		pendingSample.dataPtr  = dataPtr;
 		pendingSample.sampleLen = sampleLen;
 		pendingSample.sampleIdx = samples.size() - 1;
-		pendingSample.mDts      = dts / (double)timeScale;
-		pendingSample.mPts      = (dts + sampleCompositionTimeOffset) / (double)timeScale;
-		pendingSample.mDuration = sampleDuration / (double)timeScale;
+		pendingSample.mDts      = (effectiveTimeScale != 0) ? (dts / (double)effectiveTimeScale) : 0.0;
+		pendingSample.mPts      = (effectiveTimeScale != 0) ? ((dts + sampleCompositionTimeOffset) / (double)effectiveTimeScale) : 0.0;
+		pendingSample.mDuration = (effectiveTimeScale != 0) ? (sampleDuration / (double)effectiveTimeScale) : 0.0;
 		pendingSample.mIsKeyFrame = isKeyFrame;
 		mSampleInfo.emplace_back(pendingSample);
 		dataPtr += sampleLen;
@@ -1703,6 +1719,15 @@ Mp4ParseError Mp4Demux::GetLastError() const
 uint32_t Mp4Demux::GetTimeScale() const
 {
 	return timeScale;
+}
+
+/**
+ * @brief Set the manifest-declared fallback timescale
+ * @see MP4Demux.h
+ */
+void Mp4Demux::SetFallbackTimeScale(uint32_t ts)
+{
+	fallbackTimeScale = ts;
 }
 
 /**

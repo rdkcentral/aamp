@@ -34,6 +34,7 @@
 #include "Mp4DemuxTestData.h"
 #include <vector>
 #include <cstring>
+#include <cmath>
 
 /**
  * @class Mp4DemuxFunctionalTests
@@ -830,6 +831,83 @@ TEST(Mp4Demux_NoInitSegment, SaioSaizFragment_WithoutInitSegment_NoCrash)
 	// ProcessAuxiliaryInformation: cencAuxInfoSizes[i]=16 > 0==ivSize
 	EXPECT_FALSE(ok);
 	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+}
+
+// Build a minimal moof+traf+tfhd+tfdt+trun+mdat fragment with one sample and
+// no init segment (no moov/mvhd/mdhd), to exercise timeScale==0 handling.
+static std::vector<uint8_t> BuildSingleSampleFragmentNoInit(uint32_t sampleDurationTicks, uint32_t sampleSize)
+{
+	std::vector<uint8_t> buf;
+	size_t dataOffsetFieldPos = 0;
+	{
+		Box moof(buf, "moof");
+		{ Box mfhd(buf, "mfhd"); writeFullBoxHeader(buf,0,0); write32be(buf,1); mfhd.close(); }
+		{
+			Box traf(buf, "traf");
+			{ Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf,0,0); write32be(buf,1); tfhd.close(); }
+			{ Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf,0,0); write32be(buf,0); tfdt.close(); }
+			{ Box trun(buf, "trun"); writeFullBoxHeader(buf,0,0x0301); // data-offset + duration + size present
+				write32be(buf,1); // sample_count
+				dataOffsetFieldPos = buf.size();
+				write32be(buf,0); // data_offset placeholder
+				write32be(buf,sampleDurationTicks);
+				write32be(buf,sampleSize);
+				trun.close(); }
+			traf.close();
+		}
+		moof.close();
+	}
+	size_t moofSize = buf.size();
+	int32_t dataOffset = static_cast<int32_t>(moofSize + 8);
+	buf[dataOffsetFieldPos+0] = uint8_t((dataOffset>>24)&0xFF);
+	buf[dataOffsetFieldPos+1] = uint8_t((dataOffset>>16)&0xFF);
+	buf[dataOffsetFieldPos+2] = uint8_t((dataOffset>>8 )&0xFF);
+	buf[dataOffsetFieldPos+3] = uint8_t((dataOffset>>0 )&0xFF);
+
+	write32be(buf, static_cast<uint32_t>(8 + sampleSize));
+	write4cc(buf, "mdat");
+	for (uint32_t i = 0; i < sampleSize; ++i)
+		buf.push_back(uint8_t(i & 0xFF));
+	return buf;
+}
+
+// Regression test for a subtitle stream whose manifest SegmentTemplate has no
+// 'initialization' attribute: timeScale stays 0, so sample pts/dts/duration
+// must be set to 0 rather than dividing by zero (which produced NaN/Inf).
+TEST(Mp4Demux_NoInitSegment, NoTimeScale_SamplePtsAndDurationSetToZero_NotNanOrInf)
+{
+	std::vector<uint8_t> buf = BuildSingleSampleFragmentNoInit(/*sampleDurationTicks=*/48000, /*sampleSize=*/16);
+
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetTimeScale(), 0u) << "No mvhd/mdhd parsed, timescale should remain 0";
+
+	auto samples = d.GetSamples();
+	ASSERT_EQ(samples.size(), 1u);
+	EXPECT_TRUE(std::isfinite(samples[0].mPts)) << "pts must not be NaN/Inf when timescale is 0";
+	EXPECT_TRUE(std::isfinite(samples[0].mDts)) << "dts must not be NaN/Inf when timescale is 0";
+	EXPECT_TRUE(std::isfinite(samples[0].mDuration)) << "duration must not be NaN/Inf when timescale is 0";
+	EXPECT_DOUBLE_EQ(samples[0].mPts, 0.0);
+	EXPECT_DOUBLE_EQ(samples[0].mDts, 0.0);
+	EXPECT_DOUBLE_EQ(samples[0].mDuration, 0.0);
+}
+
+// When no mvhd/mdhd is present, SetFallbackTimeScale() (manifest-declared
+// timescale, e.g. DASH SegmentTemplate@timescale) should be used instead of 0.
+TEST(Mp4Demux_NoInitSegment, FallbackTimeScale_UsedWhenNoMdhdMvhdParsed)
+{
+	std::vector<uint8_t> buf = BuildSingleSampleFragmentNoInit(/*sampleDurationTicks=*/48000, /*sampleSize=*/16);
+
+	Mp4Demux d;
+	d.SetFallbackTimeScale(48000);
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetTimeScale(), 0u) << "mdhd/mvhd still not parsed; box-derived timescale stays 0";
+
+	auto samples = d.GetSamples();
+	ASSERT_EQ(samples.size(), 1u);
+	EXPECT_DOUBLE_EQ(samples[0].mDuration, 1.0) << "48000 ticks / 48000 fallback timescale == 1 second";
+	EXPECT_DOUBLE_EQ(samples[0].mPts, 0.0);
+	EXPECT_DOUBLE_EQ(samples[0].mDts, 0.0);
 }
 
 

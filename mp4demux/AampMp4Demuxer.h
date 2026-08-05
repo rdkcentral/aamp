@@ -48,6 +48,14 @@ public:
 	AampMp4Demuxer& operator=(const AampMp4Demuxer&) = delete;
 
 	/**
+	 * @brief Provide the manifest-declared timescale (e.g. DASH SegmentTemplate\@timescale)
+	 * for this track, used as a fallback when a data segment has no mvhd/mdhd
+	 * (e.g. streams with no init segment for this track), to avoid NaN/Inf sample times.
+	 * @param[in] timeScale - timescale value from the manifest
+	 */
+	void setFallbackTimeScale(uint32_t timeScale);
+
+	/**
 	 * @brief given TS media segment (not yet injected), extract and report first PTS
 	 */
 	double getFirstPts( const std::vector<uint8_t>& buffer ) override { return 0.0; };

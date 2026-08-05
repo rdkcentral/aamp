@@ -93,6 +93,17 @@ TEST_F(AampMp4DemuxerTests, ConstructorDestructor)
 }
 
 /**
+ * @brief Test setFallbackTimeScale forwards the manifest-declared timescale
+ * to the underlying Mp4Demux, so it can be used when a track has no init
+ * segment (e.g. subtitle streams with no 'initialization' attribute).
+ */
+TEST_F(AampMp4DemuxerTests, SetFallbackTimeScaleForwardsToMp4Demux)
+{
+	EXPECT_CALL(*g_mockMp4Demux, SetFallbackTimeScale(48000)).Times(1);
+	mDemuxer->setFallbackTimeScale(48000);
+}
+
+/**
  * @brief Test sendSegment with valid buffer containing samples
  */
 TEST_F(AampMp4DemuxerTests, SendSegmentWithSamples)
