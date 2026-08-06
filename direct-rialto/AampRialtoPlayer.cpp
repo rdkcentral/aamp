@@ -1767,9 +1767,21 @@ void AampRialtoPlayer::NotifyFragmentCachingOngoing()
 	AAMPLOG_INFO("EXIT");
 }
 
+// Rialto has no video-size query; derive it from the last SetVideoRectangle().
 void AampRialtoPlayer::GetVideoSize(int &w, int &h)
 {
 	AAMPLOG_INFO("ENTRY");
+	int x = 0;
+	int y = 0;
+	int parsedW = 0;
+	int parsedH = 0;
+	if ((sscanf(m_videoRectangle.c_str(), "%d,%d,%d,%d",
+			&x, &y, &parsedW, &parsedH) == 4) &&
+		(parsedW > 0) && (parsedH > 0))
+	{
+		w = parsedW;
+		h = parsedH;
+	}
 	AAMPLOG_INFO("EXIT w=%d h=%d", w, h);
 }
 

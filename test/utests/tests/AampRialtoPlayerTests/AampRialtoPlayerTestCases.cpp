@@ -2722,6 +2722,39 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // ===========================================================================
+// GetVideoSize
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoSize_AfterSetVideoRectangle_ReturnsWidthAndHeight)
+{
+	Configure();
+	ON_CALL(*m_mockPipelinePtr, setVideoWindow(_, _, _, _))
+		.WillByDefault(Return(true));
+
+	m_player->SetVideoRectangle(10, 20, 640, 480);
+
+	int w = 0;
+	int h = 0;
+	m_player->GetVideoSize(w, h);
+
+	EXPECT_EQ(w, 640);
+	EXPECT_EQ(h, 480);
+}
+
+TEST_F(AampRialtoPlayerTest, GetVideoSize_BeforeSetVideoRectangle_LeavesOutputsUnchanged)
+{
+	int w = 111;
+	int h = 222;
+	m_player->GetVideoSize(w, h);
+
+	// No rectangle has been set yet, so the (unparseable) empty string
+	// must leave the caller-supplied values untouched.
+	EXPECT_EQ(w, 111);
+	EXPECT_EQ(h, 222);
+}
+
+// ===========================================================================
 // IRialtoControlBackend integration
 // ===========================================================================
 
