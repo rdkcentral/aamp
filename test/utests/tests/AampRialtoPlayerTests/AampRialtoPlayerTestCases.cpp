@@ -54,6 +54,7 @@
 using ::testing::_;
 using ::testing::AnyOf;
 using ::testing::DoAll;
+using ::testing::DoubleEq;
 using ::testing::Invoke;
 using ::testing::Ne;
 using ::testing::NiceMock;
@@ -2638,6 +2639,40 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // ===========================================================================
+// GetVideoPTS
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPTS_ConvertsPipelinePositionTo90kHzTicks)
+{
+	Configure();
+
+	constexpr int64_t   kPositionNs = 5'000'000'000LL;  // 5000 ms
+	constexpr long long kExpectedPts = 450'000LL;         // 5000 ms * 90
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kPositionNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetVideoPTS(), kExpectedPts);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPTS_WhenPipelineQueryFails_ReturnsZero)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).WillOnce(Return(false));
+
+	EXPECT_EQ(m_player->GetVideoPTS(), 0LL);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	GetVideoPTS_NoPipeline_ReturnsZero)
+{
+	EXPECT_EQ(m_player->GetVideoPTS(), 0LL);
+}
+
+// ===========================================================================
 // SetVideoRectangle / GetVideoRectangle
 // ===========================================================================
 
@@ -2684,6 +2719,39 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.Times(1);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+// ===========================================================================
+// GetVideoSize
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoSize_AfterSetVideoRectangle_ReturnsWidthAndHeight)
+{
+	Configure();
+	ON_CALL(*m_mockPipelinePtr, setVideoWindow(_, _, _, _))
+		.WillByDefault(Return(true));
+
+	m_player->SetVideoRectangle(10, 20, 640, 480);
+
+	int w = 0;
+	int h = 0;
+	m_player->GetVideoSize(w, h);
+
+	EXPECT_EQ(w, 640);
+	EXPECT_EQ(h, 480);
+}
+
+TEST_F(AampRialtoPlayerTest, GetVideoSize_BeforeSetVideoRectangle_LeavesOutputsUnchanged)
+{
+	int w = 111;
+	int h = 222;
+	m_player->GetVideoSize(w, h);
+
+	// No rectangle has been set yet, so the (unparseable) empty string
+	// must leave the caller-supplied values untouched.
+	EXPECT_EQ(w, 111);
+	EXPECT_EQ(h, 222);
 }
 
 // ===========================================================================
@@ -4479,6 +4547,292 @@ TEST_F(AampRialtoPlayerTest,
 	 *        must not crash.
 	 */
 	EXPECT_NO_FATAL_FAILURE(m_player->SetSubtitleMute(true));
+}
+
+// ===========================================================================
+// SetAudioVolume
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SetAudioVolume_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief SetAudioVolume called before Configure() (no pipeline) must
+	 *        not crash.
+	 */
+	EXPECT_NO_FATAL_FAILURE(m_player->SetAudioVolume(50));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetAudioVolume_NonZero_CallsPipelineSetVolume)
+{
+	/**
+	 * @brief SetAudioVolume(50) with an existing pipeline must forward the
+	 *        0-100 value to IMediaPipeline::setVolume() as 0.0-1.0, without
+	 *        touching setMute() (the audio source has no sourceId yet).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.5), _, _)).Times(1);
+	m_player->SetAudioVolume(50);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_ZeroWithAttachedAudio_CallsPipelineSetMuteOnly)
+{
+	/**
+	 * @brief SetAudioVolume(0) with an attached audio source must call
+	 *        setMute(sourceId, true) and must NOT call setVolume() -
+	 *        mirrors InterfacePlayerRDK::SetVolumeOrMuteUnMute(), which
+	 *        skips the volume write while muted.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	const int32_t audioSrcId = m_mockSources[eMEDIATYPE_AUDIO]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(audioSrcId, true)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(_, _, _)).Times(0);
+	m_player->SetAudioVolume(0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_NonZeroAfterMute_UnmutesAndSetsVolume)
+{
+	/**
+	 * @brief SetAudioVolume(volume>0) after a previous SetAudioVolume(0)
+	 *        must unmute the audio source and forward the new volume.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	const int32_t audioSrcId = m_mockSources[eMEDIATYPE_AUDIO]->sourceId();
+
+	m_player->SetAudioVolume(0);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(audioSrcId, false)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.3), _, _)).Times(1);
+	m_player->SetAudioVolume(30);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_MutedBeforeAudioAttached_MuteAppliedOnAttach)
+{
+	/**
+	 * @brief SetAudioVolume(0) called before the audio source attaches
+	 *        must cache the value and apply setMute() once the audio
+	 *        source attaches (mirrors the SetSubtitleMute deferred-apply
+	 *        pattern).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	// Mute before attach - no sourceId yet, so setMute must NOT fire here.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, _)).Times(0);
+	m_player->SetAudioVolume(0);
+
+	// setMute must be called exactly once when the audio source attaches.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, true)).Times(1);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_Retune_ReappliesCachedAudioVolumeToNewPipeline)
+{
+	/**
+	 * @brief A freshly (re)created pipeline defaults to full volume, so a
+	 *        previously requested SetAudioVolume() value must be re-sent
+	 *        to the new pipeline once Configure() recreates it.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	m_player->SetAudioVolume(40);
+
+	ResetMockPipeline();
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.4), _, _)).Times(1);
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+// ===========================================================================
+// SetVideoMute
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetVideoMute_AttachedVideo_CallsPipelineSetMute)
+{
+	/**
+	 * @brief When the video source is attached, SetVideoMute(true) must
+	 *        call m_pipeline->setMute(sourceId, true) and
+	 *        SetVideoMute(false) must call setMute(sourceId, false).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(videoSrcId, true)).Times(1);
+	m_player->SetVideoMute(true);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(videoSrcId, false)).Times(1);
+	m_player->SetVideoMute(false);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetVideoMute_VideoNotYetAttached_MuteAppliedWhenAttached)
+{
+	/**
+	 * @brief SetVideoMute(true) called before the video source is attached
+	 *        must cache the state and call setMute once the source
+	 *        attaches (triggered here by SendVideoInitFragment).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+
+	// Mute before attach — must NOT trigger setMute yet.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, _)).Times(0);
+	m_player->SetVideoMute(true);
+
+	// setMute must be called exactly once when the video source attaches.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, true)).Times(1);
+	SendVideoInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetVideoMute_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief SetVideoMute called before Configure() (no pipeline) must not
+	 *        crash.
+	 */
+	EXPECT_NO_FATAL_FAILURE(m_player->SetVideoMute(true));
+}
+
+// ===========================================================================
+// GetVideoPlaybackQuality
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_Playing_ReturnsStats)
+{
+	/**
+	 * @brief In PLAYING state with the video source attached,
+	 *        GetVideoPlaybackQuality() must query
+	 *        m_pipeline->getStats(videoSourceId, ...) and return a pointer
+	 *        populated with the rendered/dropped frame counts.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(videoSrcId, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(100), SetArgReferee<2>(5),
+			Return(true)));
+
+	PlaybackQualityStruct *result = m_player->GetVideoPlaybackQuality();
+
+	ASSERT_NE(result, nullptr);
+	EXPECT_EQ(result->rendered, 100);
+	EXPECT_EQ(result->dropped, 5);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_Paused_ReturnsStats)
+{
+	/**
+	 * @brief PAUSED (like PLAYING) is a queryable state.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(videoSrcId, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(42), SetArgReferee<2>(1),
+			Return(true)));
+
+	PlaybackQualityStruct *result = m_player->GetVideoPlaybackQuality();
+
+	ASSERT_NE(result, nullptr);
+	EXPECT_EQ(result->rendered, 42);
+	EXPECT_EQ(result->dropped, 1);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_NotPlayingOrPaused_ReturnsNullptrWithoutQuery)
+{
+	/**
+	 * @brief Outside PLAYING/PAUSED (e.g. right after Configure(), still
+	 *        SOURCES_ATTACHED), the query must not be issued at all.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).Times(0);
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_VideoNotAttached_ReturnsNullptr)
+{
+	/**
+	 * @brief Even in PLAYING state, if the video source has not attached
+	 *        there is no sourceId to query stats for.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).Times(0);
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_PipelineGetStatsFails_ReturnsNullptr)
+{
+	/**
+	 * @brief If IMediaPipeline::getStats() itself fails, the method must
+	 *        return nullptr rather than a stale/partial struct.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).WillOnce(Return(false));
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	GetVideoPlaybackQuality_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief Called before Configure() (no pipeline) must not crash and
+	 *        must return nullptr.
+	 */
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
 }
 
 // ===========================================================================

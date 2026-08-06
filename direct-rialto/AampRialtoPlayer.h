@@ -469,6 +469,19 @@ private:
 	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
 	bool m_subtitleMuted{false};
 
+	/// Cached audio volume (0-100), matching PrivateInstanceAAMP::audio_volume.
+	/// Set by SetAudioVolume() and re-applied via applyAudioVolume() whenever
+	/// the pipeline is (re)created or the audio source newly attaches.
+	int m_audioVolume{100};
+
+	/// Cached video mute state.  Set by SetVideoMute() and re-applied via
+	/// m_pipeline->setMute() whenever the video source first attaches.
+	bool m_videoMuted{false};
+
+	/// Backing storage for the pointer returned by GetVideoPlaybackQuality().
+	/// Overwritten on each call; not re-applied anywhere (read-only query).
+	PlaybackQualityStruct m_playbackQuality{};
+
 	/// @brief Embedded progress timer with immediate-start and kick capability.
 	///
 	/// Fires immediately on start, then continues at specified interval.
@@ -556,6 +569,17 @@ private:
 	 * Caller must hold m_attachMutex and verify m_pipeline is non-null.
 	 */
 	void AttachSource(AampRialtoMediaSource &source, MediaCodecInfo &codecInfo);
+
+	/**
+	 * @brief Apply m_audioVolume to the current pipeline.
+	 *
+	 * Mirrors the GStreamer path (InterfacePlayerRDK::SetVolumeOrMuteUnMute):
+	 * volume 0 mutes the audio source without touching setVolume(); any other
+	 * value unmutes the audio source (if attached) and forwards the 0-100
+	 * value as 0.0-1.0 to IMediaPipeline::setVolume().  Does nothing if no
+	 * pipeline exists yet.
+	 */
+	void applyAudioVolume();
 
 	/**
 	 * @brief Compute the appliedRate to pass to setSourcePosition().

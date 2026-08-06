@@ -605,6 +605,11 @@ void AampRialtoPlayer::Configure(
 				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();
 
+				// Re-apply cached audio volume/mute - a freshly created
+				// pipeline defaults to full volume, so any previously
+				// requested value must be re-sent here.
+				applyAudioVolume();
+
 				// Create the AV health monitor when the feature is enabled.
 				if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV))
 				{
@@ -1044,6 +1049,24 @@ void AampRialtoPlayer::AttachSource(
 			AAMPLOG_INFO("Applying cached subtitle mute on attach sourceId=%d",
 				source.sourceId());
 			m_pipeline->setMute(source.sourceId(), true);
+		}
+
+		// Re-apply cached video mute state when the video source first attaches -
+		// mirrors the subtitle mute re-apply above (SetVideoMute() may have been
+		// called before the video source was ready).
+		if (type == eMEDIATYPE_VIDEO && m_videoMuted)
+		{
+			AAMPLOG_INFO("Applying cached video mute on attach sourceId=%d",
+				source.sourceId());
+			m_pipeline->setMute(source.sourceId(), true);
+		}
+
+		// Re-apply cached audio volume/mute now that the audio source has
+		// a valid Rialto sourceId - SetAudioVolume() may have been called
+		// (e.g. muting to 0) before this source was attached.
+		if (type == eMEDIATYPE_AUDIO)
+		{
+			applyAudioVolume();
 		}
 
 		CheckAllSourcesAttached();
@@ -1549,11 +1572,38 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 	return result;
 }
 
+// Rialto has no dedicated PTS API; derive it from the pipeline position.
 long long AampRialtoPlayer::GetVideoPTS()
 {
+	// 90kHz PTS clock expressed as ticks per 100us unit of position, to
+	// match the same integer conversion Rialto itself uses internally.
+	constexpr int64_t kNsPerConversionUnit = 100000;
+	constexpr int64_t kPtsTicksPerConversionUnit = 9;
+
 	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return 0;
+	long long result = 0;
+
+	if (m_pipeline)
+	{
+		int64_t positionNs = 0;
+		if (m_pipeline->getPosition(positionNs))
+		{
+			result = static_cast<long long>(
+				(positionNs / kNsPerConversionUnit) *
+				kPtsTicksPerConversionUnit);
+		}
+		else
+		{
+			AAMPLOG_WARN("getPosition() failed");
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("pipeline is null");
+	}
+
+	AAMPLOG_INFO("EXIT result=%lld", result);
+	return result;
 }
 
 void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
@@ -1570,15 +1620,24 @@ void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
 	AAMPLOG_INFO("EXIT");
 }
 
+// Rialto has no zoom-mode API, so there is nothing to call here.
 void AampRialtoPlayer::SetVideoZoom(VideoZoomMode zoom)
 {
 	AAMPLOG_INFO("ENTRY zoom=%d", static_cast<int>(zoom));
+	AAMPLOG_WARN("Video zoom is not supported by Rialto - ignoring");
 	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::SetVideoMute(bool muted)
 {
 	AAMPLOG_INFO("ENTRY muted=%d", muted);
+	std::lock_guard<std::mutex> lock(m_attachMutex);
+	m_videoMuted = muted;
+	auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+	if (m_pipeline && videoSource && videoSource->isAttached())
+	{
+		m_pipeline->setMute(videoSource->sourceId(), muted);
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
@@ -1634,7 +1693,42 @@ void AampRialtoPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 void AampRialtoPlayer::SetAudioVolume(int volume)
 {
 	AAMPLOG_INFO("ENTRY volume=%d", volume);
+	m_audioVolume = volume;
+	applyAudioVolume();
 	AAMPLOG_INFO("EXIT");
+}
+
+void AampRialtoPlayer::applyAudioVolume()
+{
+	if (!m_pipeline)
+	{
+		AAMPLOG_INFO("pipeline is null - volume/mute request cached, "
+			"will be applied when the pipeline is created");
+	}
+	else
+	{
+		const auto *audioSource = m_sources[eMEDIATYPE_AUDIO].get();
+		const int32_t audioSourceId = audioSource ? audioSource->sourceId() : -1;
+		// Mute without touching volume - mirrors InterfacePlayerRDK's
+		// SetVolumeOrMuteUnMute(), which skips the "volume" property write
+		// while muted.
+		const bool muted = (m_audioVolume == 0);
+
+		if (audioSourceId < 0)
+		{
+			AAMPLOG_INFO("audio source not yet attached - mute request "
+				"will be re-applied on attach");
+		}
+		else if (!m_pipeline->setMute(audioSourceId, muted))
+		{
+			AAMPLOG_WARN("setMute(%d) failed for sourceId=%d", muted, audioSourceId);
+		}
+
+		if (!muted && !m_pipeline->setVolume(static_cast<double>(m_audioVolume) / 100.0))
+		{
+			AAMPLOG_WARN("setVolume(%d) failed", m_audioVolume);
+		}
+	}
 }
 
 bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
@@ -1676,9 +1770,21 @@ void AampRialtoPlayer::NotifyFragmentCachingOngoing()
 	AAMPLOG_INFO("EXIT");
 }
 
+// Rialto has no video-size query; derive it from the last SetVideoRectangle().
 void AampRialtoPlayer::GetVideoSize(int &w, int &h)
 {
 	AAMPLOG_INFO("ENTRY");
+	int x = 0;
+	int y = 0;
+	int parsedW = 0;
+	int parsedH = 0;
+	if ((sscanf(m_videoRectangle.c_str(), "%d,%d,%d,%d",
+			&x, &y, &parsedW, &parsedH) == 4) &&
+		(parsedW > 0) && (parsedH > 0))
+	{
+		w = parsedW;
+		h = parsedH;
+	}
 	AAMPLOG_INFO("EXIT w=%d h=%d", w, h);
 }
 
@@ -1798,8 +1904,34 @@ bool AampRialtoPlayer::SetTextStyle(const std::string &options)
 PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality()
 {
 	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return nullptr;
+	PlaybackQualityStruct *result = nullptr;
+
+	const PlayerStateId state = m_stateMachine.currentState();
+	if (state != PlayerStateId::PLAYING && state != PlayerStateId::PAUSED)
+	{
+		AAMPLOG_INFO("state=%d is not PLAYING or PAUSED - can't query playback quality now",
+			static_cast<int>(state));
+	}
+	else
+	{
+		auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+		uint64_t rendered = 0;
+		uint64_t dropped = 0;
+		if (m_pipeline && videoSource && videoSource->isAttached() &&
+			m_pipeline->getStats(videoSource->sourceId(), rendered, dropped))
+		{
+			m_playbackQuality.rendered = static_cast<long long>(rendered);
+			m_playbackQuality.dropped = static_cast<long long>(dropped);
+			result = &m_playbackQuality;
+		}
+		else
+		{
+			AAMPLOG_ERR("Failed to get video sink stats");
+		}
+	}
+
+	AAMPLOG_INFO("EXIT result=%p", result);
+	return result;
 }
 
 bool AampRialtoPlayer::SignalSubtitleClock()
