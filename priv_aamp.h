@@ -1224,7 +1224,6 @@ public:
 	std::string mFogDownloadFailReason; /** Identify Fog Manifest Download Failure Reason*/
 	int mBufferFor4kRampup; 		    /** Max Buffer for rampup used for 4k stream */
 	int mBufferFor4kRampdown; 	    /** Min Buffer for rampdown used for 4k Stream */
-	bool mIsLoggingNeeded;               /** Enable/disable logging for LLD based on buffer */
 	double mLiveEdgeDeltaFromCurrentTime;	/**< The delta between Live edge and current time (calculated at tune time after processing the manifest) */
 	double mTrickModePositionEOS;			/**< Position at which EOS will be raised during trick mode playback */
 	AampCMCDCollector *mCMCDCollector;
