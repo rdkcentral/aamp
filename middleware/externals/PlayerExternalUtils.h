@@ -30,9 +30,11 @@
 
 #define MW_PRE_LOGGER_LOG(fmt, ...)                                            \
     do {                                                                    \
-        std::printf("[MIDDLEWARE] %s:%d %s: " fmt, __FILE__, __LINE__,      \
-                    __func__ , ##__VA_ARGS__);                              \
-        std::fflush(stdout);                                                \
+        if (stderr != nullptr) {                                            \
+            std::fprintf(stderr, "[MIDDLEWARE] %s:%d %s: " fmt, __FILE__, __LINE__, \
+                         __func__ , ##__VA_ARGS__);                         \
+            std::fflush(stderr);                                            \
+        }                                                                   \
     } while (0)
 
 
