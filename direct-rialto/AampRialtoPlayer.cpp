@@ -1792,7 +1792,7 @@ bool AampRialtoPlayer::SetTextStyle(const std::string &options)
 {
 	AAMPLOG_INFO("ENTRY options=%s", options.c_str());
 	AAMPLOG_INFO("EXIT");
-	return false;
+	return true;
 }
 
 PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality()
