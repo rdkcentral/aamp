@@ -488,7 +488,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
 	{5000, "flightDataRecorderMaxLines", eAAMPConfig_FlightDataRecorderMaxLines, false},
-	{60, "flightDataRecorderMaxSeconds", eAAMPConfig_FlightDataRecorderMaxSeconds, false},
+	{15, "flightDataRecorderMaxSeconds", eAAMPConfig_FlightDataRecorderMaxSeconds, false},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility
@@ -1857,7 +1857,7 @@ void AampConfig::ConfigureLogSettings()
 	size_t fdrMaxLines = (rawMaxLines > 0) ? (size_t)rawMaxLines : 5000;
 	if (fdrMaxLines > 100000) fdrMaxLines = 100000;
 	
-	uint64_t fdrMaxSeconds = (rawMaxSeconds > 0) ? (uint64_t)rawMaxSeconds : 60;
+	uint64_t fdrMaxSeconds = (rawMaxSeconds > 0) ? (uint64_t)rawMaxSeconds : 15;
 	if (fdrMaxSeconds > 3600) fdrMaxSeconds = 3600;
 	
 	AampFlightDataRecorder::GetInstance().Initialize(fdrEnabled, fdrMaxLines, fdrMaxSeconds);

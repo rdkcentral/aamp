@@ -91,6 +91,12 @@ void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line
 	}
 }
 
+void emitLogLine(int logLevel, const char* line,
+                 bool disableRedirection, bool enableEthanRedirection)
+{
+	printf("%s\n", line);
+}
+
 void DumpBlob(const unsigned char *ptr, size_t len)
 {
 }
