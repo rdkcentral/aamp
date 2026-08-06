@@ -58,6 +58,8 @@ static FDRLogEntry MakeEntry(const std::string& msg,
     e.thread_id    = std::this_thread::get_id();
     e.seq_num      = 0;
     e.player_id    = 0;
+    e.func         = "TestFunc";
+    e.line         = 0;
     e.source       = "TEST";
     e.message      = msg;
     return e;
