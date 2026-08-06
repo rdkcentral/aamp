@@ -54,6 +54,7 @@
 using ::testing::_;
 using ::testing::AnyOf;
 using ::testing::DoAll;
+using ::testing::DoubleEq;
 using ::testing::Invoke;
 using ::testing::Ne;
 using ::testing::NiceMock;
@@ -4479,6 +4480,115 @@ TEST_F(AampRialtoPlayerTest,
 	 *        must not crash.
 	 */
 	EXPECT_NO_FATAL_FAILURE(m_player->SetSubtitleMute(true));
+}
+
+// ===========================================================================
+// SetAudioVolume
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SetAudioVolume_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief SetAudioVolume called before Configure() (no pipeline) must
+	 *        not crash.
+	 */
+	EXPECT_NO_FATAL_FAILURE(m_player->SetAudioVolume(50));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetAudioVolume_NonZero_CallsPipelineSetVolume)
+{
+	/**
+	 * @brief SetAudioVolume(50) with an existing pipeline must forward the
+	 *        0-100 value to IMediaPipeline::setVolume() as 0.0-1.0, without
+	 *        touching setMute() (the audio source has no sourceId yet).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.5), _, _)).Times(1);
+	m_player->SetAudioVolume(50);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_ZeroWithAttachedAudio_CallsPipelineSetMuteOnly)
+{
+	/**
+	 * @brief SetAudioVolume(0) with an attached audio source must call
+	 *        setMute(sourceId, true) and must NOT call setVolume() -
+	 *        mirrors InterfacePlayerRDK::SetVolumeOrMuteUnMute(), which
+	 *        skips the volume write while muted.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	const int32_t audioSrcId = m_mockSources[eMEDIATYPE_AUDIO]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(audioSrcId, true)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(_, _, _)).Times(0);
+	m_player->SetAudioVolume(0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_NonZeroAfterMute_UnmutesAndSetsVolume)
+{
+	/**
+	 * @brief SetAudioVolume(volume>0) after a previous SetAudioVolume(0)
+	 *        must unmute the audio source and forward the new volume.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	const int32_t audioSrcId = m_mockSources[eMEDIATYPE_AUDIO]->sourceId();
+
+	m_player->SetAudioVolume(0);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(audioSrcId, false)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.3), _, _)).Times(1);
+	m_player->SetAudioVolume(30);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_MutedBeforeAudioAttached_MuteAppliedOnAttach)
+{
+	/**
+	 * @brief SetAudioVolume(0) called before the audio source attaches
+	 *        must cache the value and apply setMute() once the audio
+	 *        source attaches (mirrors the SetSubtitleMute deferred-apply
+	 *        pattern).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	// Mute before attach - no sourceId yet, so setMute must NOT fire here.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, _)).Times(0);
+	m_player->SetAudioVolume(0);
+
+	// setMute must be called exactly once when the audio source attaches.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, true)).Times(1);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_Retune_ReappliesCachedAudioVolumeToNewPipeline)
+{
+	/**
+	 * @brief A freshly (re)created pipeline defaults to full volume, so a
+	 *        previously requested SetAudioVolume() value must be re-sent
+	 *        to the new pipeline once Configure() recreates it.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	m_player->SetAudioVolume(40);
+
+	ResetMockPipeline();
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.4), _, _)).Times(1);
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
 }
 
 // ===========================================================================

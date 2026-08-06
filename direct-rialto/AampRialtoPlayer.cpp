@@ -605,6 +605,11 @@ void AampRialtoPlayer::Configure(
 				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();
 
+				// Re-apply cached audio volume/mute - a freshly created
+				// pipeline defaults to full volume, so any previously
+				// requested value must be re-sent here.
+				applyAudioVolume();
+
 				// Create the AV health monitor when the feature is enabled.
 				if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV))
 				{
@@ -1044,6 +1049,14 @@ void AampRialtoPlayer::AttachSource(
 			AAMPLOG_INFO("Applying cached subtitle mute on attach sourceId=%d",
 				source.sourceId());
 			m_pipeline->setMute(source.sourceId(), true);
+		}
+
+		// Re-apply cached audio volume/mute now that the audio source has
+		// a valid Rialto sourceId - SetAudioVolume() may have been called
+		// (e.g. muting to 0) before this source was attached.
+		if (type == eMEDIATYPE_AUDIO)
+		{
+			applyAudioVolume();
 		}
 
 		CheckAllSourcesAttached();
@@ -1634,7 +1647,39 @@ void AampRialtoPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 void AampRialtoPlayer::SetAudioVolume(int volume)
 {
 	AAMPLOG_INFO("ENTRY volume=%d", volume);
+	m_audioVolume = volume;
+	applyAudioVolume();
 	AAMPLOG_INFO("EXIT");
+}
+
+void AampRialtoPlayer::applyAudioVolume()
+{
+	if (!m_pipeline)
+	{
+		return;
+	}
+
+	const auto *audioSource = m_sources[eMEDIATYPE_AUDIO].get();
+	const int32_t audioSourceId = audioSource ? audioSource->sourceId() : -1;
+
+	if (m_audioVolume == 0)
+	{
+		// Mute without touching volume - mirrors InterfacePlayerRDK's
+		// SetVolumeOrMuteUnMute(), which skips the "volume" property write
+		// while muted.
+		if (audioSourceId >= 0)
+		{
+			m_pipeline->setMute(audioSourceId, true);
+		}
+	}
+	else
+	{
+		if (audioSourceId >= 0)
+		{
+			m_pipeline->setMute(audioSourceId, false);
+		}
+		m_pipeline->setVolume(static_cast<double>(m_audioVolume) / 100.0);
+	}
 }
 
 bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
