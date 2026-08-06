@@ -23,10 +23,19 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstdio>
 #include "AampConfig.h"
 
 // Required by the fake AAMP infrastructure linked via the 'fakes' library.
 AampConfig *gpGlobalConfig{nullptr};
+
+// Stub for emitLogLine — used by AampFlightDataRecorder::Dump() to emit
+// pre-formatted log lines. In tests we just printf to stdout.
+void emitLogLine(int logLevel, const char* line,
+                 bool disableRedirection, bool enableEthanRedirection)
+{
+    printf("%s\n", line);
+}
 
 int main(int argc, char** argv)
 {

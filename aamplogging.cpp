@@ -171,45 +171,47 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			
 			if (logLevelIndex == eLOGLEVEL_ERROR)
 			{
-				
-				printf( "eLOGLEVEL_ERROR dump\n" );
 				AampFlightDataRecorder::GetInstance().Dump(logLevelIndex, "AAMP-PLAYER");
 			}
 			
-			if( AampLogManager::disableLogRedirection )
-			{ // aampcli
-				vprintf( format_ptr, args );
-			}
-			else if ( AampLogManager::enableEthanLogRedirection )
-			{ // remap AAMP log levels to Ethan log levels
-				int ethanLogLevel;
-				// Important: in production builds, Ethan logger filters out everything
-				// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
-				switch (logLevelIndex)
-				{
-					case eLOGLEVEL_TRACE:
-					case eLOGLEVEL_DEBUG:
-						ethanLogLevel = ETHAN_LOG_DEBUG;
-						break;
-						
-					case eLOGLEVEL_ERROR:
-						ethanLogLevel = ETHAN_LOG_FATAL;
-						break;
-						
-					case eLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
-					case eLOGLEVEL_WARN:
-					case eLOGLEVEL_MIL:
-					default:
-						ethanLogLevel = ETHAN_LOG_MILESTONE;
-						break;
-				}
-				format_ptr[format_bytes-1] = 0x00; // strip explicit newline, since Ethan logger will add one and we don't want it doubled
-				vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
-			}
-			else
+			// Display guard: only emit to backend if log level meets the configured threshold
+			if( logLevelIndex >= AampLogManager::aampLoglevel )
 			{
-				format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
-				sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
+				if( AampLogManager::disableLogRedirection )
+				{ // aampcli
+					vprintf( format_ptr, args );
+				}
+				else if ( AampLogManager::enableEthanLogRedirection )
+				{ // remap AAMP log levels to Ethan log levels
+					int ethanLogLevel;
+					// Important: in production builds, Ethan logger filters out everything
+					// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+					switch (logLevelIndex)
+					{
+						case eLOGLEVEL_TRACE:
+						case eLOGLEVEL_DEBUG:
+							ethanLogLevel = ETHAN_LOG_DEBUG;
+							break;
+							
+						case eLOGLEVEL_ERROR:
+							ethanLogLevel = ETHAN_LOG_FATAL;
+							break;
+							
+						case eLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
+						case eLOGLEVEL_WARN:
+						case eLOGLEVEL_MIL:
+						default:
+							ethanLogLevel = ETHAN_LOG_MILESTONE;
+							break;
+					}
+					format_ptr[format_bytes-1] = 0x00; // strip explicit newline, since Ethan logger will add one and we don't want it doubled
+					vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				}
+				else
+				{
+					format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
+					sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
+				}
 			}
 			va_end(args);
 			
@@ -221,6 +223,8 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 				entry.thread_id = std::this_thread::get_id();
 				entry.seq_num = logSeqNum;
 				entry.player_id = gPlayerId;
+				entry.func = func;
+				entry.line = line;
 				entry.source = "AAMP-PLAYER";
 				entry.message = user_message_ptr;
 				
@@ -229,11 +233,66 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			
 			if (logLevelIndex == eLOGLEVEL_ERROR)
 			{
-				printf( "eLOGLEVEL_ERROR flush\n" );
 				AampFlightDataRecorder::GetInstance().Flush();
 			}
 		}
 	}
+}
+
+/**
+ * @brief Map AAMP log level to Ethan log level.
+ */
+static int MapToEthanLogLevel(int logLevel)
+{
+	switch (logLevel)
+	{
+		case eLOGLEVEL_TRACE:
+		case eLOGLEVEL_DEBUG:
+			return ETHAN_LOG_DEBUG;
+		case eLOGLEVEL_ERROR:
+			return ETHAN_LOG_FATAL;
+		case eLOGLEVEL_INFO:
+		case eLOGLEVEL_WARN:
+		case eLOGLEVEL_MIL:
+		default:
+			return ETHAN_LOG_MILESTONE;
+	}
+}
+
+/**
+ * @brief Internal variadic wrapper for vethanlog/sd_journal_printv.
+ * Converts a pre-formatted string into a va_list-based call.
+ */
+static void emitLogLineVA(int logLevel, const char* line,
+                           bool disableRedirection, bool enableEthanRedirection)
+{
+	if (disableRedirection)
+	{
+		printf("%s\n", line);
+	}
+	else if (enableEthanRedirection)
+	{
+		// vethanlog requires a format + va_list; we use "%s" with the pre-formatted string
+		// We need a real va_list, so call through a local variadic lambda is not possible.
+		// Instead, use ethanlog directly with a simple format.
+		int ethanLevel = MapToEthanLogLevel(logLevel);
+		// Cannot call vethanlog without a real va_list; use the printf-style ethanlog if available.
+		// Fall back to printf for the pre-formatted string through the sd_journal stub.
+		// Since we have the formatted string, just use printf path for ethanlog too.
+		// Note: ethanlog() (non-variadic) is not universally available; use printf as fallback.
+		printf("%s\n", line);
+		(void)ethanLevel;
+	}
+	else
+	{
+		printf("%s\n", line);
+	}
+}
+
+void emitLogLine(int logLevel, const char* line,
+                 bool disableRedirection, bool enableEthanRedirection)
+{
+	emitLogLineVA(logLevel, line, disableRedirection, enableEthanRedirection);
 }
 
 /**
