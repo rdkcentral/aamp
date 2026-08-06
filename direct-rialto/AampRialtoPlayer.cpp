@@ -1572,11 +1572,38 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 	return result;
 }
 
+// Rialto has no dedicated PTS API; derive it from the pipeline position.
 long long AampRialtoPlayer::GetVideoPTS()
 {
+	// 90kHz PTS clock expressed as ticks per 100us unit of position, to
+	// match the same integer conversion Rialto itself uses internally.
+	constexpr int64_t kNsPerConversionUnit = 100000;
+	constexpr int64_t kPtsTicksPerConversionUnit = 9;
+
 	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return 0;
+	long long result = 0;
+
+	if (m_pipeline)
+	{
+		int64_t positionNs = 0;
+		if (m_pipeline->getPosition(positionNs))
+		{
+			result = static_cast<long long>(
+				(positionNs / kNsPerConversionUnit) *
+				kPtsTicksPerConversionUnit);
+		}
+		else
+		{
+			AAMPLOG_WARN("getPosition() failed");
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("pipeline is null");
+	}
+
+	AAMPLOG_INFO("EXIT result=%lld", result);
+	return result;
 }
 
 void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
@@ -1593,9 +1620,11 @@ void AampRialtoPlayer::SetVideoRectangle(int x, int y, int w, int h)
 	AAMPLOG_INFO("EXIT");
 }
 
+// Rialto has no zoom-mode API, so there is nothing to call here.
 void AampRialtoPlayer::SetVideoZoom(VideoZoomMode zoom)
 {
 	AAMPLOG_INFO("ENTRY zoom=%d", static_cast<int>(zoom));
+	AAMPLOG_WARN("Video zoom is not supported by Rialto - ignoring");
 	AAMPLOG_INFO("EXIT");
 }
 

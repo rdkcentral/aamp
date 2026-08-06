@@ -2639,6 +2639,40 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // ===========================================================================
+// GetVideoPTS
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPTS_ConvertsPipelinePositionTo90kHzTicks)
+{
+	Configure();
+
+	constexpr int64_t   kPositionNs = 5'000'000'000LL;  // 5000 ms
+	constexpr long long kExpectedPts = 450'000LL;         // 5000 ms * 90
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kPositionNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetVideoPTS(), kExpectedPts);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPTS_WhenPipelineQueryFails_ReturnsZero)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).WillOnce(Return(false));
+
+	EXPECT_EQ(m_player->GetVideoPTS(), 0LL);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	GetVideoPTS_NoPipeline_ReturnsZero)
+{
+	EXPECT_EQ(m_player->GetVideoPTS(), 0LL);
+}
+
+// ===========================================================================
 // SetVideoRectangle / GetVideoRectangle
 // ===========================================================================
 
