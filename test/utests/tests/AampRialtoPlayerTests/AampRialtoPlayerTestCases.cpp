@@ -4592,6 +4592,64 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // ===========================================================================
+// SetVideoMute
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetVideoMute_AttachedVideo_CallsPipelineSetMute)
+{
+	/**
+	 * @brief When the video source is attached, SetVideoMute(true) must
+	 *        call m_pipeline->setMute(sourceId, true) and
+	 *        SetVideoMute(false) must call setMute(sourceId, false).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(videoSrcId, true)).Times(1);
+	m_player->SetVideoMute(true);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(videoSrcId, false)).Times(1);
+	m_player->SetVideoMute(false);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetVideoMute_VideoNotYetAttached_MuteAppliedWhenAttached)
+{
+	/**
+	 * @brief SetVideoMute(true) called before the video source is attached
+	 *        must cache the state and call setMute once the source
+	 *        attaches (triggered here by SendVideoInitFragment).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+
+	// Mute before attach — must NOT trigger setMute yet.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, _)).Times(0);
+	m_player->SetVideoMute(true);
+
+	// setMute must be called exactly once when the video source attaches.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, true)).Times(1);
+	SendVideoInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetVideoMute_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief SetVideoMute called before Configure() (no pipeline) must not
+	 *        crash.
+	 */
+	EXPECT_NO_FATAL_FAILURE(m_player->SetVideoMute(true));
+}
+
+// ===========================================================================
 // Inband Closed Caption (CC) — PlayerDirectRialtoCCManager integration
 // ===========================================================================
 

@@ -474,6 +474,10 @@ private:
 	/// the pipeline is (re)created or the audio source newly attaches.
 	int m_audioVolume{100};
 
+	/// Cached video mute state.  Set by SetVideoMute() and re-applied via
+	/// m_pipeline->setMute() whenever the video source first attaches.
+	bool m_videoMuted{false};
+
 	/// @brief Embedded progress timer with immediate-start and kick capability.
 	///
 	/// Fires immediately on start, then continues at specified interval.

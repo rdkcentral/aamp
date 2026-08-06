@@ -1051,6 +1051,16 @@ void AampRialtoPlayer::AttachSource(
 			m_pipeline->setMute(source.sourceId(), true);
 		}
 
+		// Re-apply cached video mute state when the video source first attaches -
+		// mirrors the subtitle mute re-apply above (SetVideoMute() may have been
+		// called before the video source was ready).
+		if (type == eMEDIATYPE_VIDEO && m_videoMuted)
+		{
+			AAMPLOG_INFO("Applying cached video mute on attach sourceId=%d",
+				source.sourceId());
+			m_pipeline->setMute(source.sourceId(), true);
+		}
+
 		// Re-apply cached audio volume/mute now that the audio source has
 		// a valid Rialto sourceId - SetAudioVolume() may have been called
 		// (e.g. muting to 0) before this source was attached.
@@ -1592,6 +1602,13 @@ void AampRialtoPlayer::SetVideoZoom(VideoZoomMode zoom)
 void AampRialtoPlayer::SetVideoMute(bool muted)
 {
 	AAMPLOG_INFO("ENTRY muted=%d", muted);
+	std::lock_guard<std::mutex> lock(m_attachMutex);
+	m_videoMuted = muted;
+	auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+	if (m_pipeline && videoSource && videoSource->isAttached())
+	{
+		m_pipeline->setMute(videoSource->sourceId(), muted);
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
