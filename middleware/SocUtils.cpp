@@ -104,6 +104,19 @@ namespace SocUtils
 	{
 		return socInterface->EnablePTSRestamp();
 	}
+	
+	/**
+	 * @brief Gets the SoC platform type.
+	 *
+	 * This function queries the SOC interface to determine the platform type.
+	 *
+	 * @return The SocPlatformType enum value for the current platform.
+	 */
+	SocPlatformType GetSocPlatformType(void)
+	{
+		return socInterface->GetSocPlatformType();
+	}
+	
 	/**
 	 * @brief Resets segment event flags during trickplay transitions.
 	 *

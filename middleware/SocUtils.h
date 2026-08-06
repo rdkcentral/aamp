@@ -24,6 +24,19 @@
 #ifndef SOC_UTILS_H
 #define SOC_UTILS_H
 
+/**
+ * @enum SocPlatformType
+ * @brief Enumeration of supported SoC platforms.
+ */
+enum SocPlatformType
+{
+	SOC_PLATFORM_DEFAULT,     /**< Ubuntu/OSX */
+	SOC_PLATFORM_AMLOGIC,     /**< Amlogic */
+	SOC_PLATFORM_REALTEK,     /**< Realtek */
+	SOC_PLATFORM_BROADCOM,    /**< Broadcom */
+	SOC_PLATFORM_MEDIATEK,	 /**< MediaTek */
+};
+
 namespace SocUtils
 {
 	/**
@@ -84,6 +97,16 @@ namespace SocUtils
 	 * @return true if PTS re-stamping is enabled, false otherwise.
 	 */
 	bool EnablePTSRestamp(void);
+	
+	/**
+	 * @brief Gets the SoC platform type.
+	 *
+	 * This function queries the SOC interface to determine the platform type.
+	 *
+	 * @return The SocPlatformType enum value for the current platform.
+	 */
+	SocPlatformType GetSocPlatformType(void);
+	
 	/**
 	 * @brief Resets segment event flags during trickplay transitions.
 	 *

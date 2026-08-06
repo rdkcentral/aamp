@@ -34,6 +34,12 @@ public:
 	DefaultSocInterface();
 	
 	/**
+	 * @brief Get the SoC platform type.
+	 * @return SOC_PLATFORM_DEFAULT
+	 */
+	SocPlatformType GetSocPlatformType() const override { return SOC_PLATFORM_DEFAULT; }
+	
+	/**
 	 * @brief Check if AppSrc should be used.
 	 *
 	 * Determines whether the AppSrc element should be used in the current context.
