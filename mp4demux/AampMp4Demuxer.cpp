@@ -294,6 +294,11 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					double firstBeforeDTS = 0.0;
 					double firstAfterDTS  = 0.0;
 					double totalDuration  = 0.0;
+					if (mEnablePtsRestamp && !samples.empty())
+					{
+						firstBeforeDTS = samples.front().mDts;
+						firstAfterDTS  = samples.front().mDts + fragmentPTSoffset;
+					}
 					for (auto& sample : samples)
 					{
 						// Re-checked on every iteration: abort() can be called from
@@ -317,11 +322,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							// Carry the applied restamp as a display-timing correction
 							// for subtitles.
 							sample.mDisplayOffsetMs = static_cast<int64_t>(fragmentPTSoffset * 1000.0);
-							if (sampleIndex == 0)
-							{
-								firstBeforeDTS = beforeDTS;
-								firstAfterDTS = sample.mDts;
-							}
+
 							totalDuration += sample.mDuration;
 							// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
 							if (mEnablePtsRestampLogging)
