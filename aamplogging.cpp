@@ -171,9 +171,8 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			
 			// FDR log routing: INFO and MIL are queued in the FDR ring buffer
 			// (MIL is deferred for chronological ordering; emitted on eviction or dump).
-			// WARN triggers FDR dump then emits normally.
-			// ERROR triggers FDR dump, emits normally, then flushes.
-			if (logLevelIndex >= eLOGLEVEL_INFO && logLevelIndex < eLOGLEVEL_WARN)
+			// Only WARN and ERROR trigger an FDR dump then emit normally.
+			if (logLevelIndex == eLOGLEVEL_INFO || logLevelIndex == eLOGLEVEL_MIL)
 			{
 				FDRLogEntry entry;
 				entry.timestamp_us = AampFlightDataRecorder::GetCurrentTimeMicroseconds();
@@ -189,7 +188,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 				AampFlightDataRecorder::GetInstance().AddEntry(entry);
 			}
 			
-			if (logLevelIndex >= eLOGLEVEL_WARN)
+			if (logLevelIndex == eLOGLEVEL_WARN || logLevelIndex == eLOGLEVEL_ERROR)
 			{
 				// Dump FDR before emitting WARN/ERROR so buffered context precedes the trigger
 				AampFlightDataRecorder::GetInstance().Dump(logLevelIndex, "AAMP-PLAYER");
