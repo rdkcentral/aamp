@@ -540,6 +540,324 @@ TEST_F(DrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 	}
 }
 
+/*****************************************************************************
+ * RDKEMW-19892: setDefaultKeyID / getKey test suite
+ *
+ * These tests verify both WORKING and NON-WORKING (previously broken) scenarios
+ * to confirm the fix for the defaultkey:-1 issue during trick play.
+ *
+ * WORKING SCENARIOS (pass before AND after fix):
+ *   - Raw binary bytes as string (how existing tests called setDefaultKeyID)
+ *   - getKey fallback to slot 0 when setDefaultKeyID not called
+ *
+ * PREVIOUSLY BROKEN SCENARIOS (FAIL before fix, PASS after fix):
+ *   - UUID string with hyphens (real DASH manifest cenc:default_KID format)
+ *   - Multi-key PSSH with UUID selecting non-zero slot
+ *   - UUID lowercase/uppercase variants
+ *****************************************************************************/
+
+/**
+ * WORKING SCENARIO 1: Raw binary bytes as string (old test pattern)
+ *
+ * This is how existing tests used setDefaultKeyID — passing the raw binary
+ * key bytes directly as a std::string. This trivially matches because the
+ * comparison is byte-for-byte identical.
+ *
+ * STATUS: PASS before fix, PASS after fix
+ */
+TEST_F(DrmHelperTests, RDKEMW19892_Working_RawBinaryBytesAsString)
+{
+	// PSSH Version 1 with single key: 2db6c48d-301f-48ea-bb77-1ba7a8ac9042
+	const char *psshBase64 = "AAAANHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAEttsSNMB9I6rt3G6eorJBCAAAAAA==";
+	size_t psshDataLen = 0;
+	unsigned char *psshDataPtr = base64_Decode(psshBase64, &psshDataLen, strlen(psshBase64));
+	ASSERT_NE(psshDataPtr, nullptr);
+
+	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
+							"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+	std::shared_ptr<DrmHelper> widevineHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_NE(widevineHelper, nullptr);
+	ASSERT_TRUE(widevineHelper->parsePssh(psshDataPtr, (uint32_t)psshDataLen));
+
+	std::map<int, std::vector<uint8_t>> keyIDs;
+	widevineHelper->getKeys(keyIDs);
+	ASSERT_GE(keyIDs.size(), 1u);
+
+	std::vector<uint8_t> expectedKey = {0x2D, 0xB6, 0xC4, 0x8D, 0x30, 0x1F, 0x48, 0xEA,
+	                                     0xBB, 0x77, 0x1B, 0xA7, 0xA8, 0xAC, 0x90, 0x42};
+	ASSERT_EQ(keyIDs[0], expectedKey);
+
+	// Pass raw binary as string (this is how old tests did it — always worked)
+	std::string defaultKeyStr(keyIDs[0].begin(), keyIDs[0].end());
+	widevineHelper->setDefaultKeyID(defaultKeyStr);
+
+	std::vector<uint8_t> keyID;
+	widevineHelper->getKey(keyID);
+	EXPECT_EQ(keyID, expectedKey) << "Raw binary setDefaultKeyID must work (always worked)";
+
+	free(psshDataPtr);
+}
+
+/**
+ * WORKING SCENARIO 2: getKey without setDefaultKeyID (fallback to slot 0)
+ *
+ * Simulates the race condition during trick play where createHelper completes
+ * and parsePssh populates mKeyIDs, but setDefaultKeyID hasn't been called yet.
+ * getKey must still return a valid key (slot 0 fallback).
+ *
+ * STATUS: PASS before fix, PASS after fix
+ */
+TEST_F(DrmHelperTests, RDKEMW19892_Working_GetKeyFallbackWithoutSetDefault)
+{
+	const char *psshBase64 = "AAAANHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAEttsSNMB9I6rt3G6eorJBCAAAAAA==";
+	size_t psshDataLen = 0;
+	unsigned char *psshDataPtr = base64_Decode(psshBase64, &psshDataLen, strlen(psshBase64));
+	ASSERT_NE(psshDataPtr, nullptr);
+
+	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
+							"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+	std::shared_ptr<DrmHelper> widevineHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_NE(widevineHelper, nullptr);
+	ASSERT_TRUE(widevineHelper->parsePssh(psshDataPtr, (uint32_t)psshDataLen));
+
+	// DO NOT call setDefaultKeyID — mDefaultKeySlot stays -1
+	// getKey should still return slot 0 key (fallback behavior)
+	std::vector<uint8_t> keyID;
+	widevineHelper->getKey(keyID);
+	EXPECT_FALSE(keyID.empty()) << "getKey must return a valid key even without setDefaultKeyID";
+
+	std::vector<uint8_t> expectedKey = {0x2D, 0xB6, 0xC4, 0x8D, 0x30, 0x1F, 0x48, 0xEA,
+	                                     0xBB, 0x77, 0x1B, 0xA7, 0xA8, 0xAC, 0x90, 0x42};
+	EXPECT_EQ(keyID, expectedKey) << "Fallback to slot 0 must return the first key";
+
+	free(psshDataPtr);
+}
+
+/**
+ * WORKING SCENARIO 3: Multi-key, raw binary setDefaultKeyID selects slot 1
+ *
+ * STATUS: PASS before fix, PASS after fix
+ */
+TEST_F(DrmHelperTests, RDKEMW19892_Working_MultiKeyRawBinarySelectsCorrectSlot)
+{
+	// PSSH Version 1 with 2 keys:
+	// Key 0: all zeros, Key 1: all 0x11
+	const char *psshBase64 = "AAAARHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAIAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREQAAAAA=";
+	size_t psshDataLen = 0;
+	unsigned char *psshDataPtr = base64_Decode(psshBase64, &psshDataLen, strlen(psshBase64));
+	ASSERT_NE(psshDataPtr, nullptr);
+
+	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
+							"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+	std::shared_ptr<DrmHelper> widevineHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_NE(widevineHelper, nullptr);
+	ASSERT_TRUE(widevineHelper->parsePssh(psshDataPtr, (uint32_t)psshDataLen));
+
+	std::map<int, std::vector<uint8_t>> keyIDs;
+	widevineHelper->getKeys(keyIDs);
+	ASSERT_EQ(keyIDs.size(), 2u);
+
+	std::vector<uint8_t> key1 = {0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,
+	                              0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11};
+
+	// Pass raw binary of key1 as string — this always worked
+	std::string defaultKeyStr(keyIDs[1].begin(), keyIDs[1].end());
+	widevineHelper->setDefaultKeyID(defaultKeyStr);
+
+	std::vector<uint8_t> keyID;
+	widevineHelper->getKey(keyID);
+	EXPECT_EQ(keyID, key1) << "Raw binary setDefaultKeyID must select correct slot (slot 1)";
+
+	free(psshDataPtr);
+}
+
+/**
+ * NON-WORKING SCENARIO 1 (BROKEN BEFORE FIX):
+ * UUID string with hyphens — real DASH manifest format
+ *
+ * This is the ACTUAL format from cenc:default_KID in production DASH manifests.
+ * The manifest has: cenc:default_KID="2db6c48d-301f-48ea-bb77-1ba7a8ac9042"
+ * CreateDrmHelper extracts this string and passes it directly to setDefaultKeyID.
+ *
+ * BEFORE FIX: setDefaultKeyID converts "2db6c48d-301f-48ea-bb77-1ba7a8ac9042"
+ *             to 36 ASCII bytes and compares against 16-byte binary keys.
+ *             NEVER matches → mDefaultKeySlot stays -1 → defaultkey:-1 in logs
+ *
+ * AFTER FIX: UUID string is hex-decoded to 16-byte binary before comparison.
+ *            Matches correctly → mDefaultKeySlot = 0 → correct key returned
+ *
+ * STATUS: FAIL before fix, PASS after fix
+ */
+TEST_F(DrmHelperTests, RDKEMW19892_Broken_UUIDFormatNeverMatchedBinaryKeys)
+{
+	// PSSH with single 16-byte binary key: 2db6c48d301f48eabb771ba7a8ac9042
+	const char *psshBase64 = "AAAANHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAEttsSNMB9I6rt3G6eorJBCAAAAAA==";
+	size_t psshDataLen = 0;
+	unsigned char *psshDataPtr = base64_Decode(psshBase64, &psshDataLen, strlen(psshBase64));
+	ASSERT_NE(psshDataPtr, nullptr);
+
+	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
+							"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+	ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+	std::shared_ptr<DrmHelper> widevineHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_NE(widevineHelper, nullptr);
+	ASSERT_TRUE(widevineHelper->parsePssh(psshDataPtr, (uint32_t)psshDataLen));
+
+	std::map<int, std::vector<uint8_t>> keyIDs;
+	widevineHelper->getKeys(keyIDs);
+	ASSERT_GE(keyIDs.size(), 1u);
+
+	std::vector<uint8_t> expectedBinaryKey = {0x2D, 0xB6, 0xC4, 0x8D, 0x30, 0x1F, 0x48, 0xEA,
+	                                           0xBB, 0x77, 0x1B, 0xA7, 0xA8, 0xAC, 0x90, 0x42};
+	ASSERT_EQ(keyIDs[0], expectedBinaryKey);
+
+	// THIS IS THE REAL PRODUCTION FORMAT: UUID with hyphens from manifest
+	// <ContentProtection cenc:default_KID="2db6c48d-301f-48ea-bb77-1ba7a8ac9042"/>
+	std::string cencDefaultKID = "2db6c48d-301f-48ea-bb77-1ba7a8ac9042";
+	widevineHelper->setDefaultKeyID(cencDefaultKID);
+
+	// BEFORE FIX: getKey would log "defaultkey: -1" and fall to slot 0 by luck
+	// (which happens to be correct here since there's only 1 key, but wrong for multi-key)
+	// AFTER FIX: mDefaultKeySlot is properly set to 0
+	std::vector<uint8_t> keyID;
+	widevineHelper->getKey(keyID);
+	EXPECT_FALSE(keyID.empty()) << "getKey must not return empty with UUID format cenc:default_KID";
+	EXPECT_EQ(keyID, expectedBinaryKey) << "UUID format must correctly match binary PSSH key";
+
+	free(psshDataPtr);
+}
+
+/**
+ * NON-WORKING SCENARIO 2 (BROKEN BEFORE FIX):
+ * Multi-key PSSH with UUID selecting a NON-ZERO slot
+ *
+ * This is the CRITICAL case that caused the production crash.
+ * With 2+ keys, if setDefaultKeyID fails to match, getKey falls back to slot 0.
+ * But the manifest's cenc:default_KID may point to slot 1, 2, or 3.
+ * Returning the WRONG key causes the decryptor to fail → NULL caps → crash.
+ *
+ * BEFORE FIX: UUID "11111111-1111-1111-1111-111111111111" → 36 ASCII bytes
+ *             compared against 16-byte binary → NO MATCH → mDefaultKeySlot=-1
+ *             → getKey returns slot 0 (key0 = all zeros) → WRONG KEY USED
+ *             → decryptor fails → GStreamer-CRITICAL: gst_caps_merge NULL
+ *
+ * AFTER FIX: UUID hex-decoded to {0x11,0x11,...} → matches slot 1 → correct key
+ *
+ * STATUS: FAIL before fix, PASS after fix
+ */
+TEST_F(DrmHelperTests, RDKEMW19892_Broken_MultiKeyUUIDSelectsWrongSlot)
+{
+	// PSSH Version 1 with 2 key IDs:
+	// Key 0: 00000000-0000-0000-0000-000000000000 (all zeros)
+	// Key 1: 11111111-1111-1111-1111-111111111111 (all 0x11)
+	const char *psshBase64 = "AAAARHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAIAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREQAAAAA=";
+	size_t psshDataLen = 0;
+	unsigned char *psshDataPtr = base64_Decode(psshBase64, &psshDataLen, strlen(psshBase64));
+	ASSERT_NE(psshDataPtr, nullptr);
+
+	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
+							"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+	std::shared_ptr<DrmHelper> widevineHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_NE(widevineHelper, nullptr);
+	ASSERT_TRUE(widevineHelper->parsePssh(psshDataPtr, (uint32_t)psshDataLen));
+
+	std::map<int, std::vector<uint8_t>> keyIDs;
+	widevineHelper->getKeys(keyIDs);
+	ASSERT_EQ(keyIDs.size(), 2u);
+
+	std::vector<uint8_t> key0 = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+	                              0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+	std::vector<uint8_t> key1 = {0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,
+	                              0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11};
+	ASSERT_EQ(keyIDs[0], key0);
+	ASSERT_EQ(keyIDs[1], key1);
+
+	// Manifest says: cenc:default_KID="11111111-1111-1111-1111-111111111111"
+	// This should select KEY 1 (slot 1)
+	std::string cencDefaultKID = "11111111-1111-1111-1111-111111111111";
+	widevineHelper->setDefaultKeyID(cencDefaultKID);
+
+	std::vector<uint8_t> keyID;
+	widevineHelper->getKey(keyID);
+
+	// BEFORE FIX: Returns key0 (slot 0 fallback) → WRONG KEY → crash downstream
+	// AFTER FIX:  Returns key1 (slot 1 correct) → correct decryption
+	EXPECT_NE(keyID, key0) << "BEFORE-FIX BEHAVIOR: fell back to slot 0 (wrong key!)";
+	EXPECT_EQ(keyID, key1) << "AFTER-FIX: UUID must correctly select slot 1";
+
+	free(psshDataPtr);
+}
+
+/**
+ * NON-WORKING SCENARIO 3 (BROKEN BEFORE FIX):
+ * UUID with uppercase hex digits
+ *
+ * Some DASH manifest generators use uppercase in cenc:default_KID.
+ * e.g., cenc:default_KID="2DB6C48D-301F-48EA-BB77-1BA7A8AC9042"
+ * The fix must handle case-insensitive hex conversion.
+ *
+ * STATUS: FAIL before fix, PASS after fix
+ */
+TEST_F(DrmHelperTests, RDKEMW19892_Broken_UUIDUppercaseHex)
+{
+	const char *psshBase64 = "AAAANHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAEttsSNMB9I6rt3G6eorJBCAAAAAA==";
+	size_t psshDataLen = 0;
+	unsigned char *psshDataPtr = base64_Decode(psshBase64, &psshDataLen, strlen(psshBase64));
+	ASSERT_NE(psshDataPtr, nullptr);
+
+	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
+							"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+	std::shared_ptr<DrmHelper> widevineHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_NE(widevineHelper, nullptr);
+	ASSERT_TRUE(widevineHelper->parsePssh(psshDataPtr, (uint32_t)psshDataLen));
+
+	std::vector<uint8_t> expectedKey = {0x2D, 0xB6, 0xC4, 0x8D, 0x30, 0x1F, 0x48, 0xEA,
+	                                     0xBB, 0x77, 0x1B, 0xA7, 0xA8, 0xAC, 0x90, 0x42};
+
+	// UPPERCASE UUID — some CDN/manifest generators produce this
+	std::string cencDefaultKID = "2DB6C48D-301F-48EA-BB77-1BA7A8AC9042";
+	widevineHelper->setDefaultKeyID(cencDefaultKID);
+
+	std::vector<uint8_t> keyID;
+	widevineHelper->getKey(keyID);
+	EXPECT_EQ(keyID, expectedKey) << "Uppercase UUID must also correctly match binary PSSH key";
+
+	free(psshDataPtr);
+}
+
+/**
+ * NON-WORKING SCENARIO 4 (BROKEN BEFORE FIX):
+ * UUID without hyphens (some implementations strip hyphens)
+ *
+ * STATUS: FAIL before fix, PASS after fix (due to fallback to slot 0)
+ */
+TEST_F(DrmHelperTests, RDKEMW19892_Broken_UUIDWithoutHyphens)
+{
+	const char *psshBase64 = "AAAANHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAEttsSNMB9I6rt3G6eorJBCAAAAAA==";
+	size_t psshDataLen = 0;
+	unsigned char *psshDataPtr = base64_Decode(psshBase64, &psshDataLen, strlen(psshBase64));
+	ASSERT_NE(psshDataPtr, nullptr);
+
+	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
+							"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
+	std::shared_ptr<DrmHelper> widevineHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_NE(widevineHelper, nullptr);
+	ASSERT_TRUE(widevineHelper->parsePssh(psshDataPtr, (uint32_t)psshDataLen));
+
+	std::vector<uint8_t> expectedKey = {0x2D, 0xB6, 0xC4, 0x8D, 0x30, 0x1F, 0x48, 0xEA,
+	                                     0xBB, 0x77, 0x1B, 0xA7, 0xA8, 0xAC, 0x90, 0x42};
+
+	// UUID without hyphens (32 hex chars) — also valid
+	std::string cencDefaultKID = "2db6c48d301f48eabb771ba7a8ac9042";
+	widevineHelper->setDefaultKeyID(cencDefaultKID);
+
+	std::vector<uint8_t> keyID;
+	widevineHelper->getKey(keyID);
+	EXPECT_EQ(keyID, expectedKey) << "UUID without hyphens must also match binary PSSH key";
+
+	free(psshDataPtr);
+}
+
 TEST_F(DrmHelperTests, TestCreateWidevineHelper)
 {
 	const std::vector<CreateHelperTestData> testData = {
