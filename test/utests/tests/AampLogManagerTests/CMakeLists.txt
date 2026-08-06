@@ -36,7 +36,7 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
-# Use external middleware headers instead of deprecated aamp/middleware
+# Use external middleware headers from middleware-player-interface
 include_directories(${AAMP_ROOT}/.libs/include)
 
 

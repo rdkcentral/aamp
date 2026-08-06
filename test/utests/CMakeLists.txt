@@ -29,10 +29,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
-# Note: Middleware include paths are now handled conditionally in:
+# Note: Middleware include paths are handled in:
 # - fakes/CMakeLists.txt (for fakes library)
 # - tests/CommonTestIncludes.cmake (for individual test targets)
-# This allows using external middleware-player-interface when available
+# These use external middleware-player-interface (pkg-config or sibling repo)
 
 find_package(PkgConfig REQUIRED)
 
@@ -48,9 +48,9 @@ set(PKG_GMOCK_INCLUDE_DIRS ${GMOCK_INCLUDE_DIRS})
 set(PKG_GTEST_LINK_LIBRARIES ${GTEST_LINK_LIBRARIES})
 set(PKG_GMOCK_LINK_LIBRARIES ${GMOCK_LINK_LIBRARIES})
 
-# Middleware headers are now provided via:
-# - External middleware-player-interface pkg-config (for CI builds)
-# - Internal aamp/middleware paths (for local builds)
+# Middleware headers are provided via:
+# - External middleware-player-interface pkg-config (preferred)
+# - middleware-player-interface repo cloned alongside aamp (GitHub Actions CI)
 # See fakes/CMakeLists.txt and tests/CommonTestIncludes.cmake
 # NOTE: .libs/include is NOT used because it contains gtest/gmock that conflict with FetchContent
 
@@ -61,8 +61,8 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
-# External middleware-player-interface libraries (optional for backward compatibility)
-# When available via pkg-config, these are preferred over internal aamp/middleware
+# External middleware-player-interface libraries
+# When available via pkg-config, these are preferred over the sibling repo fallback
 pkg_check_modules(PLAYERFBINTERFACE libplayerfbinterface)
 pkg_check_modules(BASECONVERSION libbaseconversion)
 pkg_check_modules(PLAYERLOGMANAGER libplayerlogmanager)

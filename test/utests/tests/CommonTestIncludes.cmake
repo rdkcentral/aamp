@@ -43,7 +43,7 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 # These variables are set in parent test/utests/CMakeLists.txt
 # Fall back to middleware-player-interface repo cloned alongside aamp (GitHub Actions CI)
 if(PLAYERFBINTERFACE_INCLUDE_DIRS)
-	# External middleware (preferred)
+	# External middleware via pkg-config (preferred for installed middleware)
 	include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
 	include_directories(${BASECONVERSION_INCLUDE_DIRS})
 	include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
