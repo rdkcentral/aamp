@@ -869,7 +869,9 @@ static std::vector<uint8_t> BuildSingleSampleFragmentNoInit(uint32_t sampleDurat
 	write32be(buf, static_cast<uint32_t>(8 + sampleSize));
 	write4cc(buf, "mdat");
 	for (uint32_t i = 0; i < sampleSize; ++i)
+	{
 		buf.push_back(uint8_t(i & 0xFF));
+	}
 	return buf;
 }
 

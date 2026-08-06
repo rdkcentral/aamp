@@ -35,6 +35,8 @@ bool AampRialtoVideoSource::mapCodecToMime(
 	std::string &mimeType,
 	firebolt::rialto::StreamFormat &streamFormat) const
 {
+	bool result = false;
+
 	switch (codecFormat)
 	{
 		case GST_FORMAT_VIDEO_ES_H264:
@@ -45,14 +47,18 @@ bool AampRialtoVideoSource::mapCodecToMime(
 			streamFormat = naluLengthPrefixed
 				? firebolt::rialto::StreamFormat::AVC
 				: firebolt::rialto::StreamFormat::BYTE_STREAM;
-			return true;
+			result = true;
+			break;
 		case GST_FORMAT_VIDEO_ES_HEVC:
 			mimeType     = "video/h265";
 			streamFormat = firebolt::rialto::StreamFormat::HVC1;
-			return true;
+			result = true;
+			break;
 		default:
-			return false;
+			break;
 	}
+
+	return result;
 }
 
 // ---------------------------------------------------------------------------

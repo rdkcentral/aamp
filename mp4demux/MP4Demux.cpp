@@ -1196,10 +1196,11 @@ void Mp4Demux::ParseCodecConfigurationBox(uint32_t type, const uint8_t *next)
 	codecInfo.mCodecFormat = GetGstStreamOutputFormatFromFourCC(type);
 	// avcC/hvcC configuration records imply ISO/IEC 14496-15 sample storage,
 	// i.e. NAL units are always length-prefixed (never Annex-B start codes).
-	if (type == MultiChar_Constant("avcC") || type == MultiChar_Constant("hvcC"))
-	{
-		codecInfo.mNaluLengthPrefixed = true;
-	}
+	// Reset for other codec config boxes (e.g. esds) so a prior avcC/hvcC
+	// parse on this same instance (e.g. a moov with multiple traks) cannot
+	// leak into a later, unrelated codec config.
+	codecInfo.mNaluLengthPrefixed =
+		(type == MultiChar_Constant("avcC") || type == MultiChar_Constant("hvcC"));
 	if (type == MultiChar_Constant("esds"))
 	{
 		// Skip FullBox header: version (1 byte) + flags (3 bytes) = 4 bytes
