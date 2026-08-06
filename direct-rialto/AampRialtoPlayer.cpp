@@ -1860,8 +1860,34 @@ bool AampRialtoPlayer::SetTextStyle(const std::string &options)
 PlaybackQualityStruct *AampRialtoPlayer::GetVideoPlaybackQuality()
 {
 	AAMPLOG_INFO("ENTRY");
-	AAMPLOG_INFO("EXIT");
-	return nullptr;
+	PlaybackQualityStruct *result = nullptr;
+
+	const PlayerStateId state = m_stateMachine.currentState();
+	if (state != PlayerStateId::PLAYING && state != PlayerStateId::PAUSED)
+	{
+		AAMPLOG_INFO("state=%d is not PLAYING or PAUSED - can't query playback quality now",
+			static_cast<int>(state));
+	}
+	else
+	{
+		auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+		uint64_t rendered = 0;
+		uint64_t dropped = 0;
+		if (m_pipeline && videoSource && videoSource->isAttached() &&
+			m_pipeline->getStats(videoSource->sourceId(), rendered, dropped))
+		{
+			m_playbackQuality.rendered = static_cast<long long>(rendered);
+			m_playbackQuality.dropped = static_cast<long long>(dropped);
+			result = &m_playbackQuality;
+		}
+		else
+		{
+			AAMPLOG_ERR("Failed to get video sink stats");
+		}
+	}
+
+	AAMPLOG_INFO("EXIT result=%p", result);
+	return result;
 }
 
 bool AampRialtoPlayer::SignalSubtitleClock()

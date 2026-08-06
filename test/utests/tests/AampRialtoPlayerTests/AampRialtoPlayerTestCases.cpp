@@ -4650,6 +4650,125 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // ===========================================================================
+// GetVideoPlaybackQuality
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_Playing_ReturnsStats)
+{
+	/**
+	 * @brief In PLAYING state with the video source attached,
+	 *        GetVideoPlaybackQuality() must query
+	 *        m_pipeline->getStats(videoSourceId, ...) and return a pointer
+	 *        populated with the rendered/dropped frame counts.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(videoSrcId, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(100), SetArgReferee<2>(5),
+			Return(true)));
+
+	PlaybackQualityStruct *result = m_player->GetVideoPlaybackQuality();
+
+	ASSERT_NE(result, nullptr);
+	EXPECT_EQ(result->rendered, 100);
+	EXPECT_EQ(result->dropped, 5);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_Paused_ReturnsStats)
+{
+	/**
+	 * @brief PAUSED (like PLAYING) is a queryable state.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(videoSrcId, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(42), SetArgReferee<2>(1),
+			Return(true)));
+
+	PlaybackQualityStruct *result = m_player->GetVideoPlaybackQuality();
+
+	ASSERT_NE(result, nullptr);
+	EXPECT_EQ(result->rendered, 42);
+	EXPECT_EQ(result->dropped, 1);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_NotPlayingOrPaused_ReturnsNullptrWithoutQuery)
+{
+	/**
+	 * @brief Outside PLAYING/PAUSED (e.g. right after Configure(), still
+	 *        SOURCES_ATTACHED), the query must not be issued at all.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).Times(0);
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_VideoNotAttached_ReturnsNullptr)
+{
+	/**
+	 * @brief Even in PLAYING state, if the video source has not attached
+	 *        there is no sourceId to query stats for.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).Times(0);
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_PipelineGetStatsFails_ReturnsNullptr)
+{
+	/**
+	 * @brief If IMediaPipeline::getStats() itself fails, the method must
+	 *        return nullptr rather than a stale/partial struct.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).WillOnce(Return(false));
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	GetVideoPlaybackQuality_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief Called before Configure() (no pipeline) must not crash and
+	 *        must return nullptr.
+	 */
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+// ===========================================================================
 // Inband Closed Caption (CC) — PlayerDirectRialtoCCManager integration
 // ===========================================================================
 

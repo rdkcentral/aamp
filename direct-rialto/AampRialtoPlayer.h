@@ -478,6 +478,10 @@ private:
 	/// m_pipeline->setMute() whenever the video source first attaches.
 	bool m_videoMuted{false};
 
+	/// Backing storage for the pointer returned by GetVideoPlaybackQuality().
+	/// Overwritten on each call; not re-applied anywhere (read-only query).
+	PlaybackQualityStruct m_playbackQuality{};
+
 	/// @brief Embedded progress timer with immediate-start and kick capability.
 	///
 	/// Fires immediately on start, then continues at specified interval.
