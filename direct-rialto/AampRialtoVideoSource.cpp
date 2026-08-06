@@ -31,26 +31,34 @@
 
 bool AampRialtoVideoSource::mapCodecToMime(
 	GstStreamOutputFormat codecFormat,
+	bool naluLengthPrefixed,
 	std::string &mimeType,
 	firebolt::rialto::StreamFormat &streamFormat) const
 {
+	bool result = false;
+
 	switch (codecFormat)
 	{
 		case GST_FORMAT_VIDEO_ES_H264:
 			mimeType = "video/h264";
-			// HLS-TS ES path: TSProcessor outputs Annex B (byte-stream).
-			// fMP4 path: AampMp4Demuxer outputs AVCC (length-prefixed).
-			streamFormat = hasDemuxer()
+			// Length-prefixed (AVCC) vs Annex-B (byte-stream) is a property
+			// of how the demuxer produced this codecInfo, not of which
+			// object instance happens to own an Mp4Demux.
+			streamFormat = naluLengthPrefixed
 				? firebolt::rialto::StreamFormat::AVC
 				: firebolt::rialto::StreamFormat::BYTE_STREAM;
-			return true;
+			result = true;
+			break;
 		case GST_FORMAT_VIDEO_ES_HEVC:
 			mimeType     = "video/h265";
 			streamFormat = firebolt::rialto::StreamFormat::HVC1;
-			return true;
+			result = true;
+			break;
 		default:
-			return false;
+			break;
 	}
+
+	return result;
 }
 
 // ---------------------------------------------------------------------------

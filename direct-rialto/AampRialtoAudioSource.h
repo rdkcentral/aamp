@@ -47,6 +47,7 @@ public:
 protected:
 	bool mapCodecToMime(
 		GstStreamOutputFormat codecFormat,
+		bool naluLengthPrefixed,
 		std::string &mimeType,
 		firebolt::rialto::StreamFormat &streamFormat) const override;
 

@@ -67,6 +67,9 @@ void AampRialtoMediaSource::reset()
 		++m_state.generation;
 		m_state.hasPending          = false;
 		m_state.segmentsAddedInBatch = 0;
+		m_state.batchHasFirstPts    = false;
+		m_state.batchFirstPtsSec    = 0.0;
+		m_state.batchDurationSecSum = 0.0;
 		m_state.eos                 = false;
 		// gateMode is intentionally left untouched here.  reset() runs
 		// mid-Configure(), which can be followed by a second Flush() (e.g.
@@ -93,6 +96,7 @@ void AampRialtoMediaSource::unblockInjection(
 	bool     fireNoAvailableSamples = false;
 	uint32_t reqId                  = 0;
 	GateMode previousMode           = GateMode::NONE;
+	BatchSummary batch;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		previousMode = m_state.gateMode;
@@ -111,7 +115,7 @@ void AampRialtoMediaSource::unblockInjection(
 			// behalf — close it out now so it is never left dangling
 			// (e.g. a needData arrived just before Flush()/Stop() and
 			// nothing would otherwise ever respond to it).
-			fireNoAvailableSamples = claimPendingRequestLocked(reqId);
+			fireNoAvailableSamples = claimPendingRequestLocked(reqId, batch);
 		}
 		// If an injector is active, it owns the request and will close
 		// it out itself when it observes the generation change (see
@@ -122,7 +126,7 @@ void AampRialtoMediaSource::unblockInjection(
 		static_cast<int>(previousMode), m_sourceId, static_cast<int>(mediaType()), newEosState.has_value() ? static_cast<int>(*newEosState) : -1, reason);
 	if (fireNoAvailableSamples)
 	{
-		respondAbandonedRequest(pipeline, reqId);
+		respondAbandonedRequest(pipeline, reqId, batch);
 	}
 	// Reset segment-start so the next injection establishes a fresh
 	// baseline after the seek.  Written outside the lock (atomic).
@@ -136,6 +140,7 @@ void AampRialtoMediaSource::gateInjection(
 	GateMode newMode      = GateMode::NONE;
 	bool     fireEos      = false;
 	uint32_t reqId        = 0;
+	BatchSummary batch;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		previousMode     = m_state.gateMode;
@@ -145,7 +150,7 @@ void AampRialtoMediaSource::gateInjection(
 		{
 			// Replay any EOS resolution that was deliberately deferred
 			// while BLOCKED — see tryClaimEosLocked().
-			fireEos = tryClaimEosLocked(reqId);
+			fireEos = tryClaimEosLocked(reqId, batch);
 		}
 		m_state.cv.notify_all();
 	}
@@ -162,8 +167,8 @@ void AampRialtoMediaSource::gateInjection(
 			AAMPLOG_ERR("pipeline is null — cannot send deferred EOS for "
 				"sourceId=%d", m_sourceId);
 		}
-		else if (!pipeline->haveData(
-				firebolt::rialto::MediaSourceStatus::EOS, reqId))
+		else if (!sendHaveData(*pipeline,
+				firebolt::rialto::MediaSourceStatus::EOS, reqId, batch))
 		{
 			AAMPLOG_WARN("haveData(EOS) failed requestId=%u", reqId);
 		}
@@ -183,44 +188,84 @@ void AampRialtoMediaSource::setEos(bool eos, const char *reason)
 	}
 }
 
-bool AampRialtoMediaSource::claimPendingRequestLocked(uint32_t &outReqId)
+AampRialtoMediaSource::BatchSummary AampRialtoMediaSource::snapshotAndClearBatchLocked()
+{
+	BatchSummary summary;
+	summary.frameCount     = m_state.segmentsAddedInBatch;
+	summary.hasFirstPts    = m_state.batchHasFirstPts;
+	summary.firstPtsSec    = m_state.batchFirstPtsSec;
+	summary.durationSecSum = m_state.batchDurationSecSum;
+	m_state.segmentsAddedInBatch = 0;
+	m_state.batchHasFirstPts     = false;
+	m_state.batchFirstPtsSec     = 0.0;
+	m_state.batchDurationSecSum  = 0.0;
+	return summary;
+}
+
+bool AampRialtoMediaSource::claimPendingRequestLocked(uint32_t &outReqId, BatchSummary &outBatch)
 {
 	bool claimed = false;
 	if (m_state.hasPending)
 	{
-		outReqId                    = m_state.pendingRequestId;
-		m_state.hasPending          = false;
-		m_state.segmentsAddedInBatch = 0;
-		claimed                     = true;
+		outReqId           = m_state.pendingRequestId;
+		outBatch           = snapshotAndClearBatchLocked();
+		m_state.hasPending = false;
+		claimed            = true;
 	}
 	return claimed;
 }
 
-bool AampRialtoMediaSource::tryClaimEosLocked(uint32_t &outReqId)
+bool AampRialtoMediaSource::tryClaimEosLocked(uint32_t &outReqId, BatchSummary &outBatch)
 {
+	bool claimed = false;
 	if (m_state.eos && m_state.hasPending &&
 	    !m_state.injectorActive && m_state.gateMode != GateMode::BLOCKED)
 	{
-		return claimPendingRequestLocked(outReqId);
+		claimed = claimPendingRequestLocked(outReqId, outBatch);
 	}
-	return false;
+	return claimed;
 }
 
 void AampRialtoMediaSource::respondAbandonedRequest(
-	firebolt::rialto::IMediaPipeline *pipeline, uint32_t reqId)
+	firebolt::rialto::IMediaPipeline *pipeline, uint32_t reqId,
+	const BatchSummary &batch)
 {
 	if (!pipeline)
 	{
 		AAMPLOG_ERR("pipeline is null — cannot close abandoned "
 			"requestId=%u for sourceId=%d", reqId, m_sourceId);
 	}
-	else if (!pipeline->haveData(
+	else if (!sendHaveData(*pipeline,
 			firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES,
-			reqId))
+			reqId, batch))
 	{
 		AAMPLOG_WARN("haveData(NO_AVAILABLE_SAMPLES) failed "
 			"requestId=%u for sourceId=%d", reqId, m_sourceId);
 	}
+}
+
+bool AampRialtoMediaSource::sendHaveData(
+	firebolt::rialto::IMediaPipeline &pipeline,
+	firebolt::rialto::MediaSourceStatus status,
+	uint32_t requestId,
+	const BatchSummary &batch)
+{
+	if (batch.hasFirstPts)
+	{
+		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
+			"frameCount=%zu firstPtsSec=%.3f durationSecSum=%.3f",
+			m_sourceId, static_cast<int>(mediaType()),
+			static_cast<int>(status), requestId,
+			batch.frameCount, batch.firstPtsSec, batch.durationSecSum);
+	}
+	else
+	{
+		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
+			"frameCount=%zu",
+			m_sourceId, static_cast<int>(mediaType()),
+			static_cast<int>(status), requestId, batch.frameCount);
+	}
+	return pipeline.haveData(status, requestId);
 }
 
 int64_t AampRialtoMediaSource::firstPtsMs() const
@@ -295,7 +340,8 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	std::string mimeType;
 	firebolt::rialto::StreamFormat streamFormat =
 		firebolt::rialto::StreamFormat::UNDEFINED;
-	if (!mapCodecToMime(codecInfo.mCodecFormat, mimeType, streamFormat))
+	if (!mapCodecToMime(codecInfo.mCodecFormat, codecInfo.mNaluLengthPrefixed,
+		mimeType, streamFormat))
 	{
 		AAMPLOG_ERR("Unknown codec format=%d for mediaType=%d",
 			static_cast<int>(codecInfo.mCodecFormat),
@@ -421,6 +467,7 @@ bool AampRialtoMediaSource::injectOneSample(
 		bool     bailedOut    = false;
 		bool     abortPending = false;
 		uint32_t abortReqId   = 0;
+		BatchSummary abortBatch;
 		bool     regated      = false;
 
 		// Stage 1: block here — rather than dropping the sample — while
@@ -446,7 +493,7 @@ bool AampRialtoMediaSource::injectOneSample(
 				// Superseded by a newer flush, or injection has been
 				// switched to DROPPED mode while waiting for the gate to
 				// clear — discard the sample and never block on it.
-				abortPending = claimPendingRequestLocked(abortReqId);
+				abortPending = claimPendingRequestLocked(abortReqId, abortBatch);
 				m_state.injectorActive = false;
 				bailedOut = true;
 			}
@@ -459,7 +506,7 @@ bool AampRialtoMediaSource::injectOneSample(
 				m_sourceId, abortPending ? abortReqId : 0);
 			if (abortPending)
 			{
-				respondAbandonedRequest(&pipeline, abortReqId);
+				respondAbandonedRequest(&pipeline, abortReqId, abortBatch);
 			}
 			done = true;
 			continue;
@@ -485,7 +532,7 @@ bool AampRialtoMediaSource::injectOneSample(
 				// (we were the active injector) — if a request is still
 				// pending, no other path will ever close it out, so we
 				// must respond ourselves once the lock is released.
-				abortPending = claimPendingRequestLocked(abortReqId);
+				abortPending = claimPendingRequestLocked(abortReqId, abortBatch);
 				m_state.injectorActive = false;
 				bailedOut = true;
 			}
@@ -506,7 +553,7 @@ bool AampRialtoMediaSource::injectOneSample(
 				m_sourceId, abortPending ? abortReqId : 0);
 			if (abortPending)
 			{
-				respondAbandonedRequest(&pipeline, abortReqId);
+				respondAbandonedRequest(&pipeline, abortReqId, abortBatch);
 			}
 			done = true;
 			continue;
@@ -531,6 +578,7 @@ bool AampRialtoMediaSource::injectOneSample(
 				bool     sendResponse = false;
 				bool     wasEos       = false;
 				uint32_t respReqId    = 0;
+				BatchSummary respBatch;
 				{
 					std::lock_guard<std::mutex> lock(m_state.mu);
 					if (m_state.hasPending &&
@@ -539,7 +587,7 @@ bool AampRialtoMediaSource::injectOneSample(
 						respReqId                     = reqId;
 						wasEos                        = m_state.eos;
 						m_state.hasPending            = false;
-						m_state.segmentsAddedInBatch  = 0;
+						respBatch                     = snapshotAndClearBatchLocked();
 						sendResponse                   = true;
 					}
 					m_state.injectorActive = false;
@@ -549,7 +597,7 @@ bool AampRialtoMediaSource::injectOneSample(
 					const auto status = wasEos
 						? firebolt::rialto::MediaSourceStatus::EOS
 						: firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES;
-					if (!pipeline.haveData(status, respReqId))
+					if (!sendHaveData(pipeline, status, respReqId, respBatch))
 					{
 						AAMPLOG_WARN("haveData failed requestId=%u", respReqId);
 					}
@@ -575,7 +623,8 @@ bool AampRialtoMediaSource::injectOneSample(
 				else
 				{
 					handleAddSegmentCompletion(pipeline, addStatus,
-						capturedGen, reqId, morePending, sample.mPts);
+						capturedGen, reqId, morePending, sample.mPts,
+						sample.mDuration);
 					injected = true;
 					done     = true;
 				}
@@ -679,25 +728,24 @@ void AampRialtoMediaSource::handleAddSegmentNoSpace(
 	uint64_t capturedGen,
 	uint32_t reqId)
 {
-	size_t   addedSoFar   = 0;
-	bool     sendHaveData = false;
-	uint32_t claimedReqId = 0;
+	bool         sendHaveData = false;
+	uint32_t     claimedReqId = 0;
+	BatchSummary batch;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		if (m_state.generation == capturedGen &&
 		    m_state.hasPending &&
 		    m_state.pendingRequestId == reqId)
 		{
-			addedSoFar   = m_state.segmentsAddedInBatch;
-			sendHaveData = claimPendingRequestLocked(claimedReqId);
+			sendHaveData = claimPendingRequestLocked(claimedReqId, batch);
 		}
 	}
 	if (sendHaveData)
 	{
-		const auto status = addedSoFar > 0
+		const auto status = batch.frameCount > 0
 			? firebolt::rialto::MediaSourceStatus::OK
 			: firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES;
-		if (!pipeline.haveData(status, reqId))
+		if (!this->sendHaveData(pipeline, status, reqId, batch))
 		{
 			AAMPLOG_WARN("haveData failed requestId=%u", reqId);
 		}
@@ -713,7 +761,8 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 	uint64_t capturedGen,
 	uint32_t reqId,
 	bool morePending,
-	double samplePts)
+	double samplePts,
+	double sampleDurationSec)
 {
 	if (addStatus == firebolt::rialto::AddSegmentStatus::OK)
 	{
@@ -736,6 +785,7 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 	bool sendHaveData  = false;
 	bool sendEos       = false;
 	bool sendAbandoned = false;
+	BatchSummary batch;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		if (m_state.generation == capturedGen &&
@@ -743,22 +793,28 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 		    m_state.pendingRequestId == reqId)
 		{
 			++m_state.segmentsAddedInBatch;
+			if (!m_state.batchHasFirstPts)
+			{
+				m_state.batchHasFirstPts = true;
+				m_state.batchFirstPtsSec = samplePts;
+			}
+			m_state.batchDurationSecSum += sampleDurationSec;
 			if (m_state.eos)
 			{
 				// Last sample — signal EOS to Rialto.
-				m_state.hasPending           = false;
-				m_state.segmentsAddedInBatch = 0;
-				sendHaveData                  = true;
-				sendEos                       = true;
+				m_state.hasPending = false;
+				batch              = snapshotAndClearBatchLocked();
+				sendHaveData        = true;
+				sendEos             = true;
 			}
 			else if (m_state.segmentsAddedInBatch >=
 			         m_state.pendingFrameCount || !morePending)
 			{
 				// Send haveData when we've reached the requested frame count
 				// OR when morePending is false (last sample in the batch)
-				m_state.hasPending           = false;
-				m_state.segmentsAddedInBatch = 0;
-				sendHaveData                  = true;
+				m_state.hasPending = false;
+				batch              = snapshotAndClearBatchLocked();
+				sendHaveData        = true;
 			}
 		}
 		else if (m_state.hasPending && m_state.pendingRequestId == reqId)
@@ -768,9 +824,9 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 			// claimed it since — unblockInjection() left it for us (the
 			// active injector at the time) to close out.  Answer it now
 			// rather than leaking it forever.
-			m_state.hasPending           = false;
-			m_state.segmentsAddedInBatch = 0;
-			sendAbandoned                = true;
+			m_state.hasPending = false;
+			batch              = snapshotAndClearBatchLocked();
+			sendAbandoned       = true;
 		}
 		m_state.injectorActive = false;
 	}
@@ -779,7 +835,7 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 		auto status = sendEos
 			? firebolt::rialto::MediaSourceStatus::EOS
 			: firebolt::rialto::MediaSourceStatus::OK;
-		if (!pipeline.haveData(status, reqId))
+		if (!this->sendHaveData(pipeline, status, reqId, batch))
 		{
 			AAMPLOG_WARN("haveData failed requestId=%u",
 				reqId);
@@ -787,7 +843,7 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 	}
 	else if (sendAbandoned)
 	{
-		respondAbandonedRequest(&pipeline, reqId);
+		respondAbandonedRequest(&pipeline, reqId, batch);
 	}
 }
 
@@ -800,6 +856,7 @@ void AampRialtoMediaSource::signalEos(
 {
 	bool     fireEos = false;
 	uint32_t reqId   = 0;
+	BatchSummary batch;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		m_state.eos = true;
@@ -807,7 +864,7 @@ void AampRialtoMediaSource::signalEos(
 		// deferred until gateInjection(false) replays it, so EOS is never
 		// answered ahead of samples still blocked behind the gate — see
 		// tryClaimEosLocked().
-		fireEos = tryClaimEosLocked(reqId);
+		fireEos = tryClaimEosLocked(reqId, batch);
 		// If injectorActive or gateMode==BLOCKED, the pending request is
 		// left for the injector (on completion) or gateInjection(false)
 		// (on ungate) to send haveData(EOS).
@@ -819,8 +876,8 @@ void AampRialtoMediaSource::signalEos(
 			AAMPLOG_ERR("pipeline is null — cannot send EOS for sourceId=%d",
 				m_sourceId);
 		}
-		else if (!pipeline->haveData(
-				firebolt::rialto::MediaSourceStatus::EOS, reqId))
+		else if (!sendHaveData(*pipeline,
+				firebolt::rialto::MediaSourceStatus::EOS, reqId, batch))
 		{
 			AAMPLOG_WARN("haveData(EOS) failed requestId=%u", reqId);
 		}
@@ -842,9 +899,11 @@ void AampRialtoMediaSource::handleNeedData(
 
 	bool     fireEos           = false;
 	uint32_t eosReqId          = 0;
+	BatchSummary eosBatch;
 	bool     rejectGated       = false;
 	bool     supersededPending = false;
 	uint32_t supersededReqId   = 0;
+	BatchSummary supersededBatch;
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		// If a previous needData was staged but never claimed, it must be
@@ -856,6 +915,7 @@ void AampRialtoMediaSource::handleNeedData(
 		{
 			supersededPending = true;
 			supersededReqId   = m_state.pendingRequestId;
+			supersededBatch   = snapshotAndClearBatchLocked();
 		}
 		rejectGated = m_state.gateMode != GateMode::NONE;
 		if (rejectGated)
@@ -870,18 +930,16 @@ void AampRialtoMediaSource::handleNeedData(
 			// playback is genuinely ready to resume (i.e. once the gate is
 			// cleared via gateInjection(false)).  gateMode is intentionally
 			// NOT cleared here — see the gateMode field comment for why.
-			m_state.hasPending           = false;
-			m_state.segmentsAddedInBatch = 0;
+			m_state.hasPending = false;
 		}
 		else
 		{
 			m_state.hasPending           = true;
 			m_state.pendingRequestId     = requestId;
 			m_state.pendingFrameCount    = std::max<size_t>(frameCount, 1);
-			m_state.segmentsAddedInBatch = 0;
 
 			// Attempt to resolve it immediately as EOS.
-			fireEos = tryClaimEosLocked(eosReqId);
+			fireEos = tryClaimEosLocked(eosReqId, eosBatch);
 		}
 	}
 	if (supersededPending)
@@ -890,7 +948,7 @@ void AampRialtoMediaSource::handleNeedData(
 			"requestId=%u before it was ever answered - closing it out "
 			"with NO_AVAILABLE_SAMPLES",
 			m_sourceId, requestId, supersededReqId);
-		respondAbandonedRequest(pipeline, supersededReqId);
+		respondAbandonedRequest(pipeline, supersededReqId, supersededBatch);
 	}
 	if (rejectGated)
 	{
@@ -899,13 +957,15 @@ void AampRialtoMediaSource::handleNeedData(
 			"immediately (Rialto would treat data on this request as "
 			"stale pre-SEEK_DONE)",
 			m_sourceId, requestId);
-		respondAbandonedRequest(pipeline, requestId);
+		// This request was rejected in the same call that created it, so it
+		// never had any segments added — always an empty batch.
+		respondAbandonedRequest(pipeline, requestId, BatchSummary{});
 	}
 	else if (fireEos)
 	{
 		if (pipeline &&
-		    !pipeline->haveData(
-			    firebolt::rialto::MediaSourceStatus::EOS, eosReqId))
+		    !sendHaveData(*pipeline,
+			    firebolt::rialto::MediaSourceStatus::EOS, eosReqId, eosBatch))
 		{
 			AAMPLOG_WARN("haveData(EOS) failed requestId=%u", eosReqId);
 		}
@@ -918,8 +978,8 @@ void AampRialtoMediaSource::handleCancelNeedData()
 	AAMPLOG_INFO("sourceId=%d", m_sourceId);
 	{
 		std::lock_guard<std::mutex> lock(m_state.mu);
-		m_state.hasPending          = false;
-		m_state.segmentsAddedInBatch = 0;
+		m_state.hasPending = false;
+		snapshotAndClearBatchLocked();
 	}
 	m_state.cv.notify_all();
 }

@@ -442,6 +442,17 @@ public:
 	virtual double GetLastDownloadedPosition (void) { return 0.0; }
 
 	/**
+	 *   @brief Get the manifest-declared timescale for this track (e.g. DASH
+	 *          SegmentTemplate\@timescale), used by demuxers as a fallback when
+	 *          a track has no init segment to establish a timescale from.
+	 *          Overridden by tracks that expose manifest timing info; base
+	 *          implementation returns 0 (no manifest timescale available).
+	 *
+	 *   @return manifest-declared timescale, or 0 if not applicable/known
+	 */
+	virtual uint32_t GetManifestTimeScale (void) const { return 0; }
+
+	/**
 	 * @fn GetFetchBuffer
 	 * @param[in] initialize true to initialize the fragment slot
 	 * @retval Pointer to the next fragment fetch slot.

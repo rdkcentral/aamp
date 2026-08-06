@@ -242,6 +242,13 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	double GetLastDownloadedPosition() override { return lastDownloadedPosition.load(); }
 
 	/**
+	 * @brief Manifest-declared timescale for this representation (DASH
+	 *        SegmentTemplate\@timescale), populated during manifest parsing.
+	 * @return manifest timescale, or 0 if not yet known
+	 */
+	uint32_t GetManifestTimeScale() const override { return fragmentDescriptor.TimeScale; }
+
+	/**
 	 * @fn SignalTrickModeDiscontinuity
 	 * @return void
 	 */

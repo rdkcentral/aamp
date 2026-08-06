@@ -44,13 +44,15 @@ using ::testing::Return;
 // ---------------------------------------------------------------------------
 
 static MediaCodecInfo MakeH264CodecInfo(
-	uint16_t width = 1280, uint16_t height = 720)
+	uint16_t width = 1280, uint16_t height = 720,
+	bool naluLengthPrefixed = false)
 {
 	MediaCodecInfo ci{};
 	ci.mCodecFormat           = GST_FORMAT_VIDEO_ES_H264;
 	ci.mInfo.video.mWidth     = width;
 	ci.mInfo.video.mHeight    = height;
 	ci.mCodecData             = {0x01, 0x02, 0x03};
+	ci.mNaluLengthPrefixed    = naluLengthPrefixed;
 	return ci;
 }
 
@@ -1450,14 +1452,16 @@ TEST_F(AampRialtoVideoSourceTest,
 
 /**
  * @test AampRialtoVideoSource_AttachH264NoDemuxer_SucceedsWithByteStreamFormat
- * @brief Verify attachOrUpdate succeeds with H.264 and no demuxer.
- *        Captures the MediaSource passed to attachSource() and validates
- *        that mapCodecToMime() correctly computed BYTE_STREAM format.
+ * @brief Verify attachOrUpdate succeeds with H.264 codec info that declares
+ *        Annex-B (non-length-prefixed) NAL units, e.g. HLS-TS ES delivered
+ *        via TSProcessor. Captures the MediaSource passed to attachSource()
+ *        and validates that mapCodecToMime() correctly computed
+ *        BYTE_STREAM format.
  */
 TEST_F(AampRialtoVideoSourceTest,
 	AampRialtoVideoSource_AttachH264NoDemuxer_SucceedsWithByteStreamFormat)
 {
-	auto codecInfo = MakeH264CodecInfo(1280, 720);
+	auto codecInfo = MakeH264CodecInfo(1280, 720, /*naluLengthPrefixed=*/false);
 
 	// Capture the MediaSource to verify its stream format
 	firebolt::rialto::StreamFormat capturedStreamFormat =
@@ -1490,22 +1494,22 @@ TEST_F(AampRialtoVideoSourceTest,
 	EXPECT_EQ(m_source.height(), 720);
 
 	// Verify the stream format was computed correctly by mapCodecToMime
-	// H.264 without demuxer → BYTE_STREAM (Annex B raw ES)
+	// H.264, non-length-prefixed → BYTE_STREAM (Annex B raw ES)
 	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::BYTE_STREAM);
 }
 
 /**
  * @test AampRialtoVideoSource_AttachH264WithDemuxer_SucceedsWithAVCFormat
- * @brief Verify attachOrUpdate with H.264 and an active demuxer produces AVC
- *        stream format in the MediaSource passed to attachSource().
- *
- *        The fMP4 path uses AampMp4Demuxer, whose output is AVCC
- *        (length-prefixed), so Rialto must receive AVC format.
+ * @brief Verify attachOrUpdate with H.264 codec info that declares
+ *        length-prefixed NAL units (as Mp4Demux always reports for avcC
+ *        sample entries) produces AVC stream format in the MediaSource
+ *        passed to attachSource(), regardless of whether this particular
+ *        source object owns an internal demuxer.
  */
 TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	AampRialtoVideoSource_AttachH264WithDemuxer_SucceedsWithAVCFormat)
 {
-	auto codecInfo = MakeH264CodecInfo(1280, 720);
+	auto codecInfo = MakeH264CodecInfo(1280, 720, /*naluLengthPrefixed=*/true);
 
 	// Capture the MediaSource to verify its stream format
 	firebolt::rialto::StreamFormat capturedStreamFormat =
@@ -1533,7 +1537,47 @@ TEST_F(AampRialtoVideoSourceWithDemuxTest,
 	EXPECT_TRUE(m_source.isAttached());
 
 	// Verify the stream format was computed correctly by mapCodecToMime
-	// H.264 with demuxer → AVC (AVCC length-prefixed, fMP4 path)
+	// H.264, length-prefixed → AVC (AVCC, fMP4/DASH path)
+	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::AVC);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachH264LengthPrefixedNoOwnDemuxer_SucceedsWithAVCFormat
+ * @brief Regression test: a source with NO internal demuxer of its own
+ *        (hasDemuxer()==false) must still produce AVC when the supplied
+ *        codecInfo declares length-prefixed NAL units. This is the
+ *        AampMp4Demuxer -> SetStreamCaps() path for DASH/fMP4 content,
+ *        where codec info is parsed by a separate Mp4Demux instance and
+ *        this object's own m_demuxer is never created.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachH264LengthPrefixedNoOwnDemuxer_SucceedsWithAVCFormat)
+{
+	ASSERT_FALSE(m_source.hasDemuxer());
+	auto codecInfo = MakeH264CodecInfo(1280, 720, /*naluLengthPrefixed=*/true);
+
+	firebolt::rialto::StreamFormat capturedStreamFormat =
+		firebolt::rialto::StreamFormat::UNDEFINED;
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([&](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			auto videoSource = dynamic_cast<
+				firebolt::rialto::IMediaPipeline::MediaSourceVideo*>(src.get());
+			if (videoSource)
+			{
+				capturedStreamFormat = videoSource->getStreamFormat();
+			}
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
 	EXPECT_EQ(capturedStreamFormat, firebolt::rialto::StreamFormat::AVC);
 }
 

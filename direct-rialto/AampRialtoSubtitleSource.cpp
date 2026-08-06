@@ -84,6 +84,7 @@ bool AampRialtoSubtitleSource::findFirstBeginMs(
 
 bool AampRialtoSubtitleSource::mapCodecToMime(
 	GstStreamOutputFormat codecFormat,
+	bool /*naluLengthPrefixed*/,
 	std::string &mimeType,
 	firebolt::rialto::StreamFormat &streamFormat) const
 {

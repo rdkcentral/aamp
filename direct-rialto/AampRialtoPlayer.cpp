@@ -71,11 +71,11 @@ void AampRialtoPlayer::RialtoLogHandler::log(
 			tag, file.c_str(), line, function.c_str(), message.c_str());
 		break;
 	case Level::Info:
-	case Level::External:
 		AAMPLOG_INFO("%s [%s:%d %s] %s",
 			tag, file.c_str(), line, function.c_str(), message.c_str());
 		break;
 	case Level::Debug:
+	case Level::External:
 	default:
 		AAMPLOG_TRACE("%s [%s:%d %s] %s",
 			tag, file.c_str(), line, function.c_str(), message.c_str());

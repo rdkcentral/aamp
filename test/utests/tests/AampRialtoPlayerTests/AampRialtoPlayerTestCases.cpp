@@ -242,9 +242,10 @@ protected:
 						.WillByDefault([rawPtr]() {
 							return rawPtr->format() == FORMAT_INVALID;
 						});
-					ON_CALL(*rawPtr, mapCodecToMime(_, _, _))
+					ON_CALL(*rawPtr, mapCodecToMime(_, _, _, _))
 						.WillByDefault(Invoke(
 							[type](GstStreamOutputFormat,
+								bool,
 								std::string &mimeType,
 								firebolt::rialto::StreamFormat &fmt)
 							{
@@ -2819,7 +2820,7 @@ TEST_F(AampRialtoPlayerTest,
 	// Override mapCodecToMime to return false for invalid format
 	if (m_mockSources[eMEDIATYPE_VIDEO])
 	{
-		ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], mapCodecToMime(_, _, _))
+		ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], mapCodecToMime(_, _, _, _))
 			.WillByDefault(Return(false));
 	}
 

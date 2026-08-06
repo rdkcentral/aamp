@@ -4128,7 +4128,17 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 					 subtitleFormat == FORMAT_SUBTITLE_MP4);
 				if (needsDemuxer)
 				{
-					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
+					auto demuxer = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
+					track->playContext = demuxer;
+
+					// Fall back to the manifest-declared timescale when a track has
+					// no init segment to establish one from (e.g. subtitle streams
+					// with no 'initialization' attribute in the SegmentTemplate).
+					uint32_t manifestTimeScale = track->GetManifestTimeScale();
+					if (manifestTimeScale != 0)
+					{
+						demuxer->setFallbackTimeScale(manifestTimeScale);
+					}
 
 					// Set playback rate
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
