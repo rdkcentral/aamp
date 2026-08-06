@@ -1702,6 +1702,8 @@ void AampRialtoPlayer::applyAudioVolume()
 {
 	if (!m_pipeline)
 	{
+		AAMPLOG_INFO("pipeline is null - volume/mute request cached, "
+			"will be applied when the pipeline is created");
 		return;
 	}
 
@@ -1713,18 +1715,21 @@ void AampRialtoPlayer::applyAudioVolume()
 		// Mute without touching volume - mirrors InterfacePlayerRDK's
 		// SetVolumeOrMuteUnMute(), which skips the "volume" property write
 		// while muted.
-		if (audioSourceId >= 0)
+		if (audioSourceId >= 0 && !m_pipeline->setMute(audioSourceId, true))
 		{
-			m_pipeline->setMute(audioSourceId, true);
+			AAMPLOG_WARN("setMute(true) failed for sourceId=%d", audioSourceId);
 		}
 	}
 	else
 	{
-		if (audioSourceId >= 0)
+		if (audioSourceId >= 0 && !m_pipeline->setMute(audioSourceId, false))
 		{
-			m_pipeline->setMute(audioSourceId, false);
+			AAMPLOG_WARN("setMute(false) failed for sourceId=%d", audioSourceId);
 		}
-		m_pipeline->setVolume(static_cast<double>(m_audioVolume) / 100.0);
+		if (!m_pipeline->setVolume(static_cast<double>(m_audioVolume) / 100.0))
+		{
+			AAMPLOG_WARN("setVolume(%d) failed", m_audioVolume);
+		}
 	}
 }
 
