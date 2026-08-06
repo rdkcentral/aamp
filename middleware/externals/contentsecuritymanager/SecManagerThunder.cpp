@@ -199,15 +199,25 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 			param["accessToken"] = accessTokenStr;
 			param["contentMetadata"] = contentMetaDataStr;
 			param["licenseRequest"] = licenseRequestStr;
-
-#ifdef DEBUG_SECMANAGER
 			{
 				std::string params;
 				param.ToString(params);
 				MW_LOG_WARN("SecManager %s param: %s",apiName, params.c_str());
+				std::stringstream logMsg;
+				logMsg << "SecManager " << apiName << " param: " << params;
+				std::string fullLogMessage = logMsg.str();
+				MW_LOG_WARN("SecManager INPUT -> %s", fullLogMessage.c_str());		
+				std::ofstream logFile("/tmp/sectestlog.txt", std::ios::app);
+				if (logFile.is_open()) {
+					// Write to the file
+					logFile << "SecManager INPUT -> " << fullLogMessage << std::endl;
+					logFile.close();
+				}
+				else
+				{
+					MW_LOG_WARN("File open failed");
+				}
 			}
-#endif
-
 			//invoke "openPlaybackSession" or "updatePlaybackSession" with retries for specific error cases
 			do
 			{
