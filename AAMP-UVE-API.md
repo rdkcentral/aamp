@@ -2935,12 +2935,10 @@ App                          AAMP Player                Ad Server
 | AAMP_TUNE_CORRUPT_DRM_DATA | 51 | 1 | AAMP: DRM failure due to Corrupt DRM files |
 | AAMP_TUNE_DEVICE_NOT_PROVISIONED | 52 | 1 | AAMP: Device not provisioned |
 | AAMP_TUNE_HDCP_COMPLIANCE_ERROR | 53 | 1 | AAMP: HDCP Compliance Check Failure |
-
 | AAMP_TUNE_UNSUPPORTED_STREAM_TYPE | 60 | 1 | AAMP: Unsupported Stream Type |
 | AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE | 60 | 2 | AAMP: No supported Audio Types in Manifest |
 | AAMP_TUNE_GST_PIPELINE_ERROR | 80 | 1 | AAMP: Error from gstreamer pipeline |
 | AAMP_TUNE_FAILED_PTS_ERROR | 80 | 2 | AAMP: Playback failed due to PTS error |
-
 | AAMP_TUNE_PLAYBACK_STALLED | 7600 | 1 | AAMP: Playback was stalled due to lack of new fragments |
 | AAMP_TUNE_FAILURE_UNKNOWN | 100 | 1 | AAMP: Unknown Failure |
 
