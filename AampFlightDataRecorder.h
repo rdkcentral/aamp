@@ -42,10 +42,12 @@ struct FDRLogEntry
 	std::thread::id thread_id;
 	uint32_t seq_num;
 	int player_id;
+	const char* func;      // __FUNCTION__ at log call site (static storage, no copy needed)
+	int line;              // __LINE__ at log call site
 	std::string source;
 	std::string message;
 	
-	FDRLogEntry() : timestamp_us(0), log_level(0), thread_id(), seq_num(0), player_id(-1), source(), message() {}
+	FDRLogEntry() : timestamp_us(0), log_level(0), thread_id(), seq_num(0), player_id(-1), func(""), line(0), source(), message() {}
 };
 
 /**

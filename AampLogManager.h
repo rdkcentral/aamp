@@ -49,7 +49,7 @@ extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtil
  */
 #define AAMPLOG( LEVEL, FORMAT, ... ) \
 do { \
-if( (LEVEL) >= AampLogManager::aampLoglevel ) \
+if( (LEVEL) >= eLOGLEVEL_INFO ) \
 { \
 logprintf( LEVEL, __FILE__, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 } \
@@ -127,6 +127,19 @@ struct AAMPAbrInfo
  * @return void
  */
 extern void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line, const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
+
+/**
+ * @brief Low-level log emission (no FDR interaction).
+ * Used by FDR Dump to emit pre-formatted log lines through the configured backend
+ * without risking recursion back into FDR.
+ *
+ * @param logLevel  The AAMP log level (for ethanlog level mapping).
+ * @param line      Pre-formatted, NUL-terminated log string.
+ * @param disableRedirection  If true, use printf (CLI mode).
+ * @param enableEthanRedirection  If true, use ethanlog; otherwise sd_journal.
+ */
+void emitLogLine(int logLevel, const char* line,
+                 bool disableRedirection, bool enableEthanRedirection);
 
 extern thread_local int gPlayerId;
 
