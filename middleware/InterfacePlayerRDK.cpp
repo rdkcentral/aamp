@@ -31,6 +31,11 @@
 #include "TextStyleAttributes.h"
 #include <memory>
 #include <gst/gst.h>
+#ifdef AAMP_TELEMETRY_SUPPORT
+#include "AampTelemetry2.hpp"
+#endif //AAMP_TELEMETRY_SUPPORT
+
+
 #ifdef USE_EXTERNAL_STATS
 #include "player-xternal-stats.h"
 #endif
@@ -4116,6 +4121,22 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 
 		MW_LOG_WARN("## Got Underflow message from %s type %d ##", GST_ELEMENT_NAME(object), type);
 		privatePlayer->gstPrivateContext->stream[type].bufferUnderrun = true;
+#ifdef AAMP_TELEMETRY_SUPPORT
+		std::map<std::string, int> i;
+		std::map<std::string, std::string> s;
+		std::map<std::string, float> f;
+
+		s["elem"] = GST_ELEMENT_NAME(object);
+
+		i["typ"] = static_cast<int>(type);
+		i["eos"] = privatePlayer->gstPrivateContext->stream[type].eosReached ? 1 : 0;
+		i["und"] = privatePlayer->gstPrivateContext->stream[type].bufferUnderrun ? 1 : 0;
+
+		f["rate"] = privatePlayer->gstPrivateContext->rate;
+
+		AAMPTelemetry2  telemetry;
+		telemetry.send("MW_BUFFER_UNDERFLOW", i, s, f);
+#endif
 
 		if ((privatePlayer->gstPrivateContext->stream[type].eosReached) && (privatePlayer->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
 		{
