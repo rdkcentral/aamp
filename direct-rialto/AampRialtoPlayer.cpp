@@ -1704,29 +1704,27 @@ void AampRialtoPlayer::applyAudioVolume()
 	{
 		AAMPLOG_INFO("pipeline is null - volume/mute request cached, "
 			"will be applied when the pipeline is created");
-		return;
-	}
-
-	const auto *audioSource = m_sources[eMEDIATYPE_AUDIO].get();
-	const int32_t audioSourceId = audioSource ? audioSource->sourceId() : -1;
-
-	if (m_audioVolume == 0)
-	{
-		// Mute without touching volume - mirrors InterfacePlayerRDK's
-		// SetVolumeOrMuteUnMute(), which skips the "volume" property write
-		// while muted.
-		if (audioSourceId >= 0 && !m_pipeline->setMute(audioSourceId, true))
-		{
-			AAMPLOG_WARN("setMute(true) failed for sourceId=%d", audioSourceId);
-		}
 	}
 	else
 	{
-		if (audioSourceId >= 0 && !m_pipeline->setMute(audioSourceId, false))
+		const auto *audioSource = m_sources[eMEDIATYPE_AUDIO].get();
+		const int32_t audioSourceId = audioSource ? audioSource->sourceId() : -1;
+		// Mute without touching volume - mirrors InterfacePlayerRDK's
+		// SetVolumeOrMuteUnMute(), which skips the "volume" property write
+		// while muted.
+		const bool muted = (m_audioVolume == 0);
+
+		if (audioSourceId < 0)
 		{
-			AAMPLOG_WARN("setMute(false) failed for sourceId=%d", audioSourceId);
+			AAMPLOG_INFO("audio source not yet attached - mute request "
+				"will be re-applied on attach");
 		}
-		if (!m_pipeline->setVolume(static_cast<double>(m_audioVolume) / 100.0))
+		else if (!m_pipeline->setMute(audioSourceId, muted))
+		{
+			AAMPLOG_WARN("setMute(%d) failed for sourceId=%d", muted, audioSourceId);
+		}
+
+		if (!muted && !m_pipeline->setVolume(static_cast<double>(m_audioVolume) / 100.0))
 		{
 			AAMPLOG_WARN("setVolume(%d) failed", m_audioVolume);
 		}
