@@ -47,7 +47,7 @@ AampFlightDataRecorder::AampFlightDataRecorder()
 	, mEnabled{false}
 	, mDumping{false}
 	, mMaxEntries(5000)
-	, mMaxAgeUs(60000000)
+	, mMaxAgeUs(15000000)
 	, mInitialized{false}
 {
 }
@@ -146,6 +146,19 @@ void AampFlightDataRecorder::AddEntry(const FDRLogEntry& entry)
 	size_t current_tail = mTail.load(std::memory_order_acquire);
 	if (new_head - current_tail > mMaxEntries)
 	{
+		// Emit the evicted entry if it was at or above display threshold (MIL+).
+		// This ensures milestone logs are never silently lost — they are lazily
+		// emitted when pushed out of the ring buffer.
+		size_t evict_pos = current_tail % mMaxEntries;
+		const FDRLogEntry& evicted = mBuffer[evict_pos];
+		if (evicted.timestamp_us > 0 && evicted.log_level >= eLOGLEVEL_MIL)
+		{
+			std::string formatted = FormatLogEntry(evicted);
+			emitLogLine(evicted.log_level, formatted.c_str(),
+			            AampLogManager::disableLogRedirection,
+			            AampLogManager::enableEthanLogRedirection);
+		}
+		
 		// Try to advance tail by exactly one slot.  If another producer already
 		// advanced it (or EvictOldEntries did), the CAS will fail and we leave
 		// it alone — the buffer is no longer over-full from our perspective.

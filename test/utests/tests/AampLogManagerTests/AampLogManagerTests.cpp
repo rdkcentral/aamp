@@ -751,6 +751,7 @@ TEST_F(AampLogManagerTest, setLogLevelError_AAMPLOG_MIL)
 
 TEST_F(AampLogManagerTest, logprintf_TRACE)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
 	AAMP_LogLevel level = eLOGLEVEL_TRACE;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -769,6 +770,7 @@ TEST_F(AampLogManagerTest, logprintf_TRACE)
 
 TEST_F(AampLogManagerTest, logprintf_INFO)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -793,6 +795,7 @@ const int MAX_DEBUG_LOG_BUFF_SIZE = 512;
 
 TEST_F(AampLogManagerTest, logprintf_LongFile)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -813,6 +816,7 @@ TEST_F(AampLogManagerTest, logprintf_LongFile)
 */
 TEST_F(AampLogManagerTest, logprintf_LongMessage)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunc");
@@ -833,6 +837,7 @@ TEST_F(AampLogManagerTest, logprintf_LongMessage)
 */
 TEST_F(AampLogManagerTest, logprintf_MaxMessage)
 {
+	AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 	AAMP_LogLevel level = eLOGLEVEL_INFO;
 	std::string file("test.cpp");
 	std::string func("testFunc");

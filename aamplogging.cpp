@@ -169,12 +169,33 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			vsnprintf(user_message_ptr, user_message_bytes, format, args_copy);
 			va_end(args_copy);
 			
-			if (logLevelIndex == eLOGLEVEL_ERROR)
+			// FDR log routing: INFO and MIL are queued in the FDR ring buffer
+			// (MIL is deferred for chronological ordering; emitted on eviction or dump).
+			// WARN triggers FDR dump then emits normally.
+			// ERROR triggers FDR dump, emits normally, then flushes.
+			if (logLevelIndex >= eLOGLEVEL_INFO && logLevelIndex < eLOGLEVEL_WARN)
 			{
+				FDRLogEntry entry;
+				entry.timestamp_us = AampFlightDataRecorder::GetCurrentTimeMicroseconds();
+				entry.log_level = logLevelIndex;
+				entry.thread_id = std::this_thread::get_id();
+				entry.seq_num = logSeqNum;
+				entry.player_id = gPlayerId;
+				entry.func = func;
+				entry.line = line;
+				entry.source = "AAMP-PLAYER";
+				entry.message = user_message_ptr;
+				
+				AampFlightDataRecorder::GetInstance().AddEntry(entry);
+			}
+			
+			if (logLevelIndex >= eLOGLEVEL_WARN)
+			{
+				// Dump FDR before emitting WARN/ERROR so buffered context precedes the trigger
 				AampFlightDataRecorder::GetInstance().Dump(logLevelIndex, "AAMP-PLAYER");
 			}
 			
-			// Display guard: only emit to backend if log level meets the configured threshold
+			// Display guard: only emit to logging dispatch if log level meets the configured threshold
 			if( logLevelIndex >= AampLogManager::aampLoglevel )
 			{
 				if( AampLogManager::disableLogRedirection )
@@ -214,22 +235,6 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 				}
 			}
 			va_end(args);
-			
-			if (logLevelIndex >= eLOGLEVEL_INFO && logLevelIndex < AampLogManager::aampLoglevel)
-			{
-				FDRLogEntry entry;
-				entry.timestamp_us = AampFlightDataRecorder::GetCurrentTimeMicroseconds();
-				entry.log_level = logLevelIndex;
-				entry.thread_id = std::this_thread::get_id();
-				entry.seq_num = logSeqNum;
-				entry.player_id = gPlayerId;
-				entry.func = func;
-				entry.line = line;
-				entry.source = "AAMP-PLAYER";
-				entry.message = user_message_ptr;
-				
-				AampFlightDataRecorder::GetInstance().AddEntry(entry);
-			}
 			
 			if (logLevelIndex == eLOGLEVEL_ERROR)
 			{
