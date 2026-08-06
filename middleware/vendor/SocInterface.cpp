@@ -187,7 +187,19 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 	    MW_LOG_MIL("Rialto is enabled and creating default soc");
 	}
 	mIsRialtoMode = isRialto;
-	return CreateSocInterface();
+	// Phase 1: create the safe singleton (no GStreamer calls)
+        std::shared_ptr<SocInterface> instance = CreateSocInterface();
+
+
+        // Phase 2: now that isRialto is known and we are NOT in dl_init,
+        // run plugin scan and replace singleton if a platform is detected.
+
+        InitializePlatformFromPlugins();
+
+
+        // Return the possibly-replaced singleton.
+        return CreateSocInterface();
+
 }
 
 /**

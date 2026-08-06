@@ -5248,7 +5248,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 	SocUtils::Init();
 
 	// Phase 2: Now that GStreamer is initialized, re-detect platform from plugin registry if needed
-	SocInterface::InitializePlatformFromPlugins();
+	//SocInterface::InitializePlatformFromPlugins();
 
 
 #define PLUGINS_TO_LOWER_RANK_MAX    2
