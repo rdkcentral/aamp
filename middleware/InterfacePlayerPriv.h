@@ -219,6 +219,8 @@ struct GstPlayerPriv
 	bool firstTuneWithWesterosSinkOff;                                               /**< track if first tune was done for Realtekce build */
 	long long decodeErrorMsgTimeMS;                                                  /**< Timestamp when decode error message last posted */
 	int decodeErrorCBCount;                                                                  /**< Total decode error cb received within threshold time */
+	long long playingRequestTimeMS;                                                  /**< Timestamp when set_state(PLAYING) was called — for diagnosing bus_message dispatch delay */
+	long long pipelineConfigureTimeMS;                                               /**< Timestamp when ConfigurePipeline was called — baseline for total pipeline delay */
 	bool progressiveBufferingEnabled;
 	bool progressiveBufferingStatus;
 	bool forwardAudioBuffers;                                 /**< flag denotes if audio buffers to be forwarded to aux pipeline */

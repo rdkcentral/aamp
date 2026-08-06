@@ -24,8 +24,9 @@
 
 #include "AampEventManager.h"
 
-
-//#define EVENT_DEBUGGING 1
+/* [XSTLP-999-DBG][LOG-POINT-4] Enable EVENT_DEBUGGING to log time each JS event listener
+ * blocks the calling thread. Measures SendEventSync blocking duration per event type. */
+#define EVENT_DEBUGGING 1
 
 
 /**
@@ -361,9 +362,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
-#ifdef EVENT_DEBUGGING
 	long long startTime = NOW_STEADY_TS_MS;
-#endif
 	// Check if already player in release state , then no need to send any events
 	// Its checked again here ,as async events can come to sync mode after playback is stopped 
 	if(mPlayerState == eSTATE_RELEASED)
@@ -419,7 +418,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		SAFE_DELETE(pCurrent);
 	}
 #ifdef EVENT_DEBUGGING
-	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));
+	AAMPLOG_WARN("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] SendEventSync type=%d took %lld ms",eventType, (long long)(NOW_STEADY_TS_MS - startTime));
 #endif
 
 }

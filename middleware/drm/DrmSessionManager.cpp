@@ -26,9 +26,13 @@
 #include "DrmSessionManager.h"
 #include "_base64.h"
 #include <iostream>
+#include <atomic>
+#include <thread>
+#include <glib.h>
 #include "DrmHelper.h"
 #include <inttypes.h>
 #include "PlayerUtils.h"
+#include "AampUtils.h"
 #include "ContentSecurityManager.h"
 #define DRM_METADATA_TAG_START "<ckm:policy xmlns:ckm=\"urn:ccp:ckm\">"
 #define DRM_METADATA_TAG_END "</ckm:policy>"
@@ -390,6 +394,30 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		DrmCallbacks* player, void *metaDataPtr, const unsigned char* contentMetadataPtr,
 		 bool isPrimarySession)
 {
+	/* SERXIONE-8666 debug: track concurrent DRM session creation to detect
+	 * GLib main loop starvation from parallel createHelper/getKey calls */
+	static std::atomic<int> activeDrmCreations{0};
+	int concurrent = ++activeDrmCreations;
+
+	/* [XSTLP-999-DBG][LOG-POINT-6] Detect if createDrmSession runs on the GLib main loop thread.
+	 * If it does, it directly blocks bus_message dispatch and progress timer callbacks. */
+	GMainContext* ctx = g_main_context_get_thread_default();
+	if (ctx == NULL) ctx = g_main_context_default();
+	gboolean isMainLoopThread = g_main_context_is_owner(ctx);
+	if (isMainLoopThread)
+	{
+		MW_LOG_WARN("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] createDrmSession called ON MAIN LOOP THREAD [tid=%zx] "
+			"- will block bus_message dispatch",
+			std::hash<std::thread::id>{}(std::this_thread::get_id()));
+	}
+	else
+	{
+		MW_LOG_MIL("[XSTLP-999-DBG] createDrmSession called on worker thread [tid=%zx]",
+			std::hash<std::thread::id>{}(std::this_thread::get_id()));
+	}
+	long long drmStartMS = NOW_STEADY_TS_MS;
+	MW_LOG_MIL("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] createDrmSession entry: concurrent=%d streamType=%d systemId=%s", concurrent, streamType, systemId ? systemId : "null");
+
 	DrmInfo drmInfo;
 	std::shared_ptr<DrmHelper> drmHelper;
 	DrmSession *drmSession = NULL;
@@ -424,6 +452,9 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		}
 	}
 
+	long long drmElapsedMS = NOW_STEADY_TS_MS - drmStartMS;
+	--activeDrmCreations;
+	MW_LOG_MIL("[XSTLP-999-DBG][MAIN-LOOP-STARVATION] createDrmSession exit: took %lld ms, concurrent=%d, session=%p", drmElapsedMS, activeDrmCreations.load(), drmSession);
 	return drmSession;
 }
 /**
