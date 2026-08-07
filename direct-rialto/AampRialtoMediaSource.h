@@ -658,6 +658,9 @@ private:
 	 * @brief Send haveData(NO_AVAILABLE_SAMPLES) for a request this
 	 *        source is abandoning (Flush()/Stop()/generation change).
 	 *
+	 * Silently drops the request if @p pipeline is null (Stop() has
+	 * already destroyed it) - there is nothing left to answer.
+	 *
 	 * Must be called without holding m_state.mu.
 	 */
 	void respondAbandonedRequest(

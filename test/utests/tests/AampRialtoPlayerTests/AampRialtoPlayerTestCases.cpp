@@ -1071,14 +1071,58 @@ TEST_F(AampRialtoPlayerTest, Stop_NullPipeline_DoesNotCrash)
 	EXPECT_NO_THROW(m_player->Stop(false));
 }
 
+TEST_F(AampRialtoPlayerTest, Stop_DestroysPipeline)
+{
+	/**
+	 * @brief m_pipeline is private, so destruction is observed indirectly:
+	 *        a tracked pipeline subclass flips a flag from its destructor,
+	 *        installed in place of the fixture's default mock pipeline.
+	 */
+	class TrackedPipeline : public NiceMock<MockIMediaPipeline>
+	{
+	public:
+		explicit TrackedPipeline(bool *destroyedFlag) : m_destroyedFlag(destroyedFlag) {}
+		~TrackedPipeline() override { *m_destroyedFlag = true; }
+	private:
+		bool *m_destroyedFlag;
+	};
+
+	bool pipelineDestroyed = false;
+	auto trackedPipeline = std::make_unique<TrackedPipeline>(&pipelineDestroyed);
+	ON_CALL(*trackedPipeline, load(_, _, _, _)).WillByDefault(Return(true));
+	ON_CALL(*trackedPipeline, stop()).WillByDefault(Return(true));
+
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillOnce(Invoke(
+			[&trackedPipeline](std::weak_ptr<firebolt::rialto::IMediaPipelineClient>,
+			                    const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				return std::move(trackedPipeline);
+			}));
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_FALSE(pipelineDestroyed)
+		<< "Pipeline must stay alive while the player is configured";
+
+	m_player->Stop(false);
+
+	EXPECT_TRUE(pipelineDestroyed)
+		<< "Stop() must release the pipeline so its destructor runs immediately";
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_Idempotent_DoesNotCrash)
 {
 	Configure();
 
-	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(2);
+	// Stop() destroys the pipeline, so a second call has no pipeline left
+	// to call stop() on again.
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(1);
 
 	m_player->Stop(false);
-	m_player->Stop(false);
+	EXPECT_NO_THROW(m_player->Stop(false));
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest, Stop_KeepLastFrame_StillCallsPipelineStop)
@@ -1131,28 +1175,20 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
 	SendVideoInitFragment();
 
-	m_player->Stop(false);
-
-	// Stop() leaves the source gated, so the stale needData is answered
-	// immediately with NO_AVAILABLE_SAMPLES (see AampRialtoMediaSource::
-	// handleNeedData's rejectGated branch) rather than reactivating
-	// injection - no real sample data must ever be attached to it.
-	EXPECT_CALL(*m_mockPipelinePtr, addSegment(_, _)).Times(0);
-	EXPECT_CALL(*m_mockPipelinePtr,
-		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 99))
-		.Times(1);
-
 	auto client = m_capturedClient.lock();
 	ASSERT_NE(client, nullptr);
-	client->notifyNeedMediaData(/*sourceId=*/0, /*frameCount=*/3,
-		/*requestId=*/99, /*shmInfo=*/nullptr);
+
+	m_player->Stop(false);
+
+	// Stop() destroys the pipeline (m_mockPipelinePtr is now a dangling
+	// pointer - no EXPECT_CALL can be set against it). The stale needData
+	// arriving after Stop() has nothing left to respond to and must be
+	// dropped safely rather than reactivating injection or crashing (see
+	// AampRialtoMediaSource::respondAbandonedRequest's null-pipeline branch).
+	EXPECT_NO_THROW(client->notifyNeedMediaData(/*sourceId=*/0, /*frameCount=*/3,
+		/*requestId=*/99, /*shmInfo=*/nullptr));
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(20));
-
-	// Verify here, before teardown destroys the player and its own
-	// unblockInjection() cleanup runs (which would otherwise be a
-	// second, unrelated call against these same expectations).
-	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
@@ -1165,29 +1201,20 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->EndOfStreamReached(eMEDIATYPE_VIDEO);
 	m_player->EndOfStreamReached(eMEDIATYPE_AUDIO);
 
-	m_player->Stop(false);
-
-	// Stop() must not resurrect the EOS state and re-fire haveData(EOS, ...).
-	// Stop() leaves the source gated, so the stale needData is instead
-	// answered immediately with NO_AVAILABLE_SAMPLES (see
-	// AampRialtoMediaSource::handleNeedData's rejectGated branch).
-	EXPECT_CALL(*m_mockPipelinePtr,
-		haveData(firebolt::rialto::MediaSourceStatus::EOS, _)).Times(0);
-	EXPECT_CALL(*m_mockPipelinePtr,
-		haveData(firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES, 100))
-		.Times(1);
-
 	auto client = m_capturedClient.lock();
 	ASSERT_NE(client, nullptr);
-	client->notifyNeedMediaData(/*sourceId=*/0, /*frameCount=*/3,
-		/*requestId=*/100, /*shmInfo=*/nullptr);
+
+	m_player->Stop(false);
+
+	// Stop() destroys the pipeline (m_mockPipelinePtr is now a dangling
+	// pointer - no EXPECT_CALL can be set against it), so it must not
+	// resurrect the EOS state and re-fire haveData(EOS, ...); the stale
+	// needData arriving after Stop() has nothing left to respond to and
+	// must be dropped safely rather than crashing.
+	EXPECT_NO_THROW(client->notifyNeedMediaData(/*sourceId=*/0, /*frameCount=*/3,
+		/*requestId=*/100, /*shmInfo=*/nullptr));
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(20));
-
-	// Verify here, before teardown destroys the player and its own
-	// unblockInjection() cleanup runs (which would otherwise be a
-	// second, unrelated call against these same expectations).
-	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 }
 
 

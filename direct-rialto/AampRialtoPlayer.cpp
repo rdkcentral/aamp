@@ -306,8 +306,9 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 	bool bESChangeStatus,
 	bool setReadyAfterPipelineCreation) const
 {
-	// Explicit override flags always force a full recreation.
-	if (m_pipelineStopped.load(std::memory_order_relaxed) ||
+	// No pipeline (never created, creation failed, or torn down by Stop())
+	// and the explicit override flags always force a full recreation.
+	if (!m_pipeline ||
 	    bESChangeStatus ||
 	    setReadyAfterPipelineCreation)
 	{
@@ -450,9 +451,6 @@ void AampRialtoPlayer::Configure(
 			return;
 		}
 	}
-
-	// Clear the stopped flag now that we are about to rebuild the pipeline.
-	m_pipelineStopped.store(false, std::memory_order_relaxed);
 
 	// Signal the state machine that Configure() is starting a new session
 	// (re-tune or first tune).  This resets to IDLE from whatever previous
@@ -1286,10 +1284,11 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	if (m_pipeline)
 	{
 		m_pipeline->stop();
+		// Release the pipeline now rather than waiting for the next
+		// Configure() to overwrite it - all other call sites already
+		// null-check m_pipeline before use.
+		m_pipeline.reset();
 	}
-	// Mark the pipeline as stopped so the next Configure() always triggers
-	// a full pipeline recreation, even when stream formats are unchanged.
-	m_pipelineStopped.store(true, std::memory_order_relaxed);
 	// Reset play intent so a new tune's Configure() starts clean.
 	// This is the canonical place to reset m_playRequested: Stop() ends the
 	// current session, whereas Configure() may be called mid-session for a

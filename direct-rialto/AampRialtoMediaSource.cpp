@@ -232,8 +232,10 @@ void AampRialtoMediaSource::respondAbandonedRequest(
 {
 	if (!pipeline)
 	{
-		AAMPLOG_ERR("pipeline is null — cannot close abandoned "
-			"requestId=%u for sourceId=%d", reqId, m_sourceId);
+		// Pipeline already torn down by Stop() - nothing left to answer,
+		// drop the stale request rather than treating this as an error.
+		AAMPLOG_INFO("pipeline gone - dropping abandoned requestId=%u "
+			"for sourceId=%d", reqId, m_sourceId);
 	}
 	else if (!sendHaveData(*pipeline,
 			firebolt::rialto::MediaSourceStatus::NO_AVAILABLE_SAMPLES,
