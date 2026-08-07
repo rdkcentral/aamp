@@ -401,6 +401,8 @@ void AampRialtoPlayer::Configure(
 	AAMPLOG_INFO("ENTRY videoFormat=%d audioFormat=%d subFormat=%d bESChangeStatus=%d setReadyAfterPipelineCreation=%d", static_cast<int>(videoFormat), static_cast<int>(audioFormat),
 		static_cast<int>(subFormat), bESChangeStatus, setReadyAfterPipelineCreation);
 
+	AAMPLOG_MIL("videoFormat %d audioFormat %d subFormat %d", static_cast<int>(videoFormat), static_cast<int>(audioFormat), static_cast<int>(subFormat));
+
 	// If a flush cycle is in progress, block until all sources finish
 	// flushing so m_rate is committed before ShouldRecreatePipeline reads it.
 	WaitForFlushToComplete();
