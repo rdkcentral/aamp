@@ -1010,18 +1010,30 @@ GstPad * gst_ghost_pad_new (const gchar * name, GstPad * target)
 GstCaps *gst_app_src_get_caps(GstAppSrc *appsrc)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_app_src_get_caps(appsrc);
+	}
 	return NULL;
 }
 
 GstSample *gst_sample_new (GstBuffer * buffer, GstCaps * caps, const GstSegment * segment, GstStructure * info)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_sample_new(buffer, caps, segment, info);
+	}
 	return NULL;
 }
 
 GstFlowReturn gst_app_src_push_sample (GstAppSrc * appsrc, GstSample * sample)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_app_src_push_sample(appsrc, sample);
+	}
 	return GST_FLOW_OK;
 }
 
