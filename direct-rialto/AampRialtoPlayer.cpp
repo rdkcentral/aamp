@@ -1788,9 +1788,11 @@ void AampRialtoPlayer::StopBuffering(bool forceStop)
 	AAMPLOG_INFO("EXIT");
 }
 
+// Rialto has no text style APIs, so there is nothing to call here.
 bool AampRialtoPlayer::SetTextStyle(const std::string &options)
 {
 	AAMPLOG_INFO("ENTRY options=%s", options.c_str());
+	AAMPLOG_WARN("Set text style is not supported by Rialto - ignoring");
 	AAMPLOG_INFO("EXIT");
 	return true;
 }
