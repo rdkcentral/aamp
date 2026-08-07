@@ -787,7 +787,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				}
 				else
 				{
-					AAMPLOG_WARN("PipelinePause[%d] rate[%d] Aamprate[%f] ", isPipelinePaused, rate, aamp->rate);
+					AAMPLOG_WARN("PipelinePause[%d] rate[%f] Aamprate[%f] ", isPipelinePaused, rate, aamp->rate);
 				}
 
 				AAMPLOG_WARN("Already running at playback rate(%f) mSinkPaused(%d), hence skipping set rate for (%f)", aamp->rate, isPipelinePaused, rate);
