@@ -50,6 +50,7 @@
 #include "MockAampConfig.h"
 #include "MockGLib.h"
 #include "MockIMediaPipelineCapabilities.h"
+#include "MockPlayerCCManager.h"
 
 using ::testing::_;
 using ::testing::AnyOf;
@@ -4926,6 +4927,32 @@ TEST_F(AampRialtoPlayerTest,
 		.WillOnce(Return(true));
 
 	EXPECT_TRUE(cc->setTextTrackIdentifier("CC1"));
+}
+
+/**
+ * @test ~AampRialtoPlayer() must invalidate any PlayerCCManager handle that
+ *       still refers to this instance. In multi-pipeline mode the CC manager
+ *       singleton (and its GetId()/Release() refcount) is shared across
+ *       independently-lived AampRialtoPlayer instances, so it cannot be
+ *       relied on to clear the handle before this object is destroyed.
+ */
+TEST_F(AampRialtoPlayerTest,
+	Destructor_InvalidatesCCManagerHandle)
+{
+	g_mockPlayerCCManager = std::make_shared<StrictMock<MockPlayerCCManager>>();
+	// Force the (fake) CC manager singleton to exist, mirroring production
+	// where Init() is called once the first frame/decoder handle arrives.
+	PlayerCCManager::GetInstance();
+
+	auto *cc = dynamic_cast<IDirectRialtoCC *>(m_player.get());
+	ASSERT_NE(cc, nullptr);
+	void *expectedHandle = static_cast<void *>(cc);
+
+	EXPECT_CALL(*g_mockPlayerCCManager, InvalidateHandle(expectedHandle)).Times(1);
+
+	m_player.reset();
+
+	g_mockPlayerCCManager.reset();
 }
 
 // ===========================================================================
