@@ -161,7 +161,7 @@
 
 #define DEFAULT_BUFFER_LEVEL_TO_ENABLE_LATENCY_SEC 0.0  /*< Default is 0.0 means latency correction is enabled at all buffer values */
 #define DEFAULT_REBUFFER_LATENCY_STEP_SEC 1.0			/*< Step value for latency increase when rebuffering occurs in seconds */
-#define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 8.0	/*< LiveOffset(15s) - MaxLatency(7s) */
+#define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 10.0	/*< Cap for accumulated latency shift and trickplay-unblock threshold; both derived from rebufferLatencyMaxIncrementSec config */
 #define DEFAULT_LATENCY_STABLE_DURATION_SEC 300.0		/*< Duration (s) of consecutive healthy buffer (latencyStableDurationSec) required before one restoration step */
 #define DEFAULT_LATENCY_DANGER_BUFFER_SEC 1.0			/*< Buffer level (s) below which latency thresholds are increased; buffer must stay above this level for latencyStableDurationSec before thresholds are restored */
 
@@ -201,7 +201,6 @@
 #define DEFAULT_MIN_LOW_LATENCY					5.0			/**< min Default Latency */
 #define DEFAULT_MAX_LOW_LATENCY					7.0			/**< max Default Latency */
 #define DEFAULT_TARGET_LOW_LATENCY				6.0			/**< Target Default Latency */
-#define DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS	10000.0	/**< Accumulated latency threshold (ms) above which trickplay fast-forward is unblocked even at live point */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED	1.00f		/**< Live Catchup Normal play rate */
