@@ -417,6 +417,9 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	AAMPLOG_INFO("Attached source id=%d mime=%s mediaType=%d",
 		m_sourceId, mimeType.c_str(), static_cast<int>(mediaType()));
 
+
+	MW_LOG_MIL("[SetStreamCaps][421] Setting stream caps for type[%d] mime[%s]", static_cast<int>(mediaType()), mimeType.c_str());
+
 	// 8. Set initial segment position if a flush was staged
 	if (flushPosNs >= 0)
 	{
