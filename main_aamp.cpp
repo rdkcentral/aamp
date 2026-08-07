@@ -762,6 +762,34 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			bool isPipelinePaused = aamp->mSinkPaused.load();
 			if ((!isPipelinePaused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && isPipelinePaused))
 			{
+				if (!isPipelinePaused && rate == aamp->rate && rate == AAMP_NORMAL_PLAY_RATE)
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sink && !sink->Pause(false, false))   // un-pause; false == pipeline wedged
+					{
+						AAMPLOG_WARN("SetRateInternal[765]: resume reported failure (pipeline wedged); recovering via re-seek");
+						aamp->SetState(eSTATE_SEEKING);
+						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+						aamp->rate = AAMP_NORMAL_PLAY_RATE;
+						aamp->mSinkPaused = false;
+						{
+							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						}
+						aamp->NotifySpeedChanged(aamp->rate, false);
+						aamp->ResumeDownloads();
+						return;
+					}
+					else
+					{
+						AAMPLOG_WARN("sink is not valid");
+					}
+				}
+				else
+				{
+					AAMPLOG_WARN("PipelinePause[%d] rate[%d] Aamprate[%d] ", isPipelinePaused, rate, aamp->rate);
+				}
+
 				AAMPLOG_WARN("Already running at playback rate(%f) mSinkPaused(%d), hence skipping set rate for (%f)", aamp->rate, isPipelinePaused, rate);
 				return;
 			}
