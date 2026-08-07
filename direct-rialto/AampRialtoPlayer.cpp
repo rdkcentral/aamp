@@ -1283,7 +1283,10 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 
 	if (m_pipeline)
 	{
-		m_pipeline->stop();
+		if (!m_pipeline->stop())
+		{
+			AAMPLOG_ERR("pipeline stop() failed");
+		}
 		// Release the pipeline now rather than waiting for the next
 		// Configure() to overwrite it - all other call sites already
 		// null-check m_pipeline before use.
