@@ -26,6 +26,7 @@
 #include "AampLogManager.h"
 #include "AampUtils.h"
 #include "AampConfig.h"
+#include <cinttypes>
 #include <cmath>
 
 
@@ -290,6 +291,16 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				}
 				else
 				{
+					if (mEnablePtsRestamp && !samples.empty())
+					{
+						const uint32_t timeScale = mMp4Demux->GetTimeScale();
+						AAMPLOG_INFO("[RestampPts][%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " mp4demux",
+							GetMediaTypeName(mMediaType),
+							timeScale,
+							static_cast<uint64_t>((position - fragmentPTSoffset) * timeScale),
+							static_cast<uint64_t>(position * timeScale),
+							static_cast<uint64_t>(duration * timeScale));
+					}
 					for (auto& sample : samples)
 					{
 						// Re-checked on every iteration: abort() can be called from
@@ -312,7 +323,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							sample.mDts += fragmentPTSoffset;
 							// Carry the applied restamp as a display-timing correction
 							// for subtitles.
-							sample.mDisplayOffsetMs = static_cast<int64_t>(fragmentPTSoffset * 1000.0);							
+							sample.mDisplayOffsetMs = static_cast<int64_t>(fragmentPTSoffset * 1000.0);
 							// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
 							if (mEnablePtsRestampLogging)
 							{
