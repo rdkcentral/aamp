@@ -291,13 +291,15 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				}
 				else
 				{
-					double firstBeforeDTS = 0.0;
-					double firstAfterDTS  = 0.0;
-					double totalDuration  = 0.0;
 					if (mEnablePtsRestamp && !samples.empty())
 					{
-						firstBeforeDTS = samples.front().mDts;
-						firstAfterDTS  = samples.front().mDts + fragmentPTSoffset;
+						const uint32_t timeScale = mMp4Demux->GetTimeScale();
+						AAMPLOG_INFO("[RestampPts][%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " mp4demux",
+							GetMediaTypeName(mMediaType),
+							timeScale,
+							static_cast<uint64_t>((position - fragmentPTSoffset) * timeScale),
+							static_cast<uint64_t>(position * timeScale),
+							static_cast<uint64_t>(duration * timeScale));
 					}
 					for (auto& sample : samples)
 					{
@@ -322,7 +324,6 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							// Carry the applied restamp as a display-timing correction
 							// for subtitles.
 							sample.mDisplayOffsetMs = static_cast<int64_t>(fragmentPTSoffset * 1000.0);
-							totalDuration += sample.mDuration;
 							// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
 							if (mEnablePtsRestampLogging)
 							{
@@ -338,16 +339,6 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 						++sampleIndex;
 						bool morePending = (sampleIndex < totalSamples);
 						mAamp->SendStreamTransfer(mMediaType, std::move(sample), morePending);
-					}
-					if (mEnablePtsRestamp && sampleIndex > 0)
-					{
-						const uint32_t timeScale = mMp4Demux->GetTimeScale();
-						AAMPLOG_INFO("[%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " mp4demux",
-							GetMediaTypeName(mMediaType),
-							timeScale,
-							static_cast<uint64_t>(firstBeforeDTS * timeScale),
-							static_cast<uint64_t>(firstAfterDTS  * timeScale),
-							static_cast<uint64_t>(totalDuration  * timeScale));
 					}
 				}
 			}
