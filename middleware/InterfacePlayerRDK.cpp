@@ -5247,10 +5247,6 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 	}
 	SocUtils::Init();
 
-	// Phase 2: Now that GStreamer is initialized, re-detect platform from plugin registry if needed
-	//SocInterface::InitializePlatformFromPlugins();
-
-
 #define PLUGINS_TO_LOWER_RANK_MAX    2
 	static const char *plugins_to_lower_rank[PLUGINS_TO_LOWER_RANK_MAX] = {
 		"aacparse",
