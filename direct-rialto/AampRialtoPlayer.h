@@ -610,10 +610,6 @@ private:
 	 */
 	void UngateAllSources(const char *reason);
 
-	/// Set by Stop() to guarantee the next Configure() always recreates
-	/// the pipeline even when stream formats are unchanged.
-	std::atomic<bool> m_pipelineStopped{false};
-
 	/**
 	 * @brief Return true when Configure() must recreate the pipeline.
 	 *
