@@ -33,6 +33,7 @@
 #include "IControl.h"
 #include "AampRialtoControlBackend.h"
 #include "AampRialtoMonitorAV.h"
+#include "PlayerCCManager.h"
 #include <glib.h>
 #include <chrono>
 #include <cinttypes>
@@ -291,6 +292,17 @@ AampRialtoPlayer::~AampRialtoPlayer()
 		{
 			source->unblockInjection(m_pipeline.get(), "~AampRialtoPlayer");
 		}
+	}
+	// The CC manager singleton may still hold this object's IDirectRialtoCC*
+	// (e.g. multi-pipeline mode, where its GetId()/Release() refcount is
+	// shared with other, still-live AampRialtoPlayer instances). Clear it
+	// now to avoid leaving a dangling handle. Cast explicitly - multiple
+	// inheritance means the IDirectRialtoCC* subobject address can differ
+	// from `this`, and it must match what GetCCHandle() originally stored.
+	if (PlayerCCManager::HasInstance())
+	{
+		PlayerCCManager::GetInstance()->InvalidateHandle(
+			static_cast<IDirectRialtoCC *>(this));
 	}
 	AAMPLOG_INFO("AampRialtoPlayer: destroyed");
 }
