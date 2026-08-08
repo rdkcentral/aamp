@@ -765,29 +765,60 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				if (!isPipelinePaused && rate == aamp->rate && rate == AAMP_NORMAL_PLAY_RATE)
 				{
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-					if (sink && !sink->Pause(false, false))   // un-pause; false == pipeline wedged
+					if (sink)
 					{
-						AAMPLOG_WARN("SetRateInternal[765]: resume reported failure (pipeline wedged); recovering via re-seek");
-						aamp->SetState(eSTATE_SEEKING);
-						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
-						aamp->rate = AAMP_NORMAL_PLAY_RATE;
-						aamp->mSinkPaused = false;
+						GstState curState;
+						GstState pendState;
+						sink->GetPipelineState(&curState, &pendState);
+
+						// Only attempt un-pause if pipeline is actually stuck in PAUSED
+						if (curState == GST_STATE_PAUSED)
 						{
-							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-							aamp->TuneHelper(eTUNETYPE_SEEK, false);
+							if (!sink->Pause(false, false))
+							{
+								AAMPLOG_WARN("SetRateInternal: pipeline stuck in PAUSED, resume failed; recovering via re-seek");
+								aamp->SetState(eSTATE_SEEKING);
+								aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+								aamp->rate = AAMP_NORMAL_PLAY_RATE;
+								aamp->mSinkPaused = false;
+								{
+									std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+									aamp->TuneHelper(eTUNETYPE_SEEK, false);
+								}
+								aamp->NotifySpeedChanged(aamp->rate, false);
+								aamp->ResumeDownloads();
+								return;
+							}
+							else
+							{
+								// Un-pause succeeded, pipeline was just lagging
+								AAMPLOG_WARN("SetRateInternal: pipeline was PAUSED (drift), un-pause succeeded");
+								aamp->NotifyFirstBufferProcessed(sink->GetVideoRectangle());
+								return;
+							}
 						}
-						aamp->NotifySpeedChanged(aamp->rate, false);
-						aamp->ResumeDownloads();
-						return;
+						else if (curState != GST_STATE_PLAYING)
+						{
+							// Pipeline is in unexpected state (ASYNC/READY/NULL) — re-seek
+							AAMPLOG_WARN("SetRateInternal: pipeline in unexpected state=%d pending=%d; recovering via re-seek",
+								curState, pendState);
+							aamp->SetState(eSTATE_SEEKING);
+							aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+							aamp->rate = AAMP_NORMAL_PLAY_RATE;
+							aamp->mSinkPaused = false;
+							{
+								std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+								aamp->TuneHelper(eTUNETYPE_SEEK, false);
+							}
+							aamp->NotifySpeedChanged(aamp->rate, false);
+							aamp->ResumeDownloads();
+							return;
+						}
+						else
+						{
+							AAMPLOG_WARN("PipelinePause[%d] rate[%f] Aamprate[%f] ", isPipelinePaused, rate, aamp->rate);
+						}
 					}
-					else
-					{
-						AAMPLOG_WARN("sink is not valid");
-					}
-				}
-				else
-				{
-					AAMPLOG_WARN("PipelinePause[%d] rate[%f] Aamprate[%f] ", isPipelinePaused, rate, aamp->rate);
 				}
 
 				AAMPLOG_WARN("Already running at playback rate(%f) mSinkPaused(%d), hence skipping set rate for (%f)", aamp->rate, isPipelinePaused, rate);
