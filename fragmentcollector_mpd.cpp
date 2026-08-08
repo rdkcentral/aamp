@@ -2190,6 +2190,42 @@ void StreamAbstractionAAMP_MPD::SeekInPeriod( double seekPositionSeconds, bool s
 		}
 
 	}
+
+	// After SkipFragments, check if tracks selected fragments in different periods
+	// This can happen when seeking near a period boundary where audio/video fragments have
+	// slightly different end times. Ensure both tracks start in the same period.
+	bool videoEOS = false, audioEOS = false;
+
+	if (mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+	{
+		videoEOS = mMediaStreamContext[eMEDIATYPE_VIDEO]->eos;
+	}
+	if (mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled)
+	{
+		audioEOS = mMediaStreamContext[eMEDIATYPE_AUDIO]->eos;
+	}
+
+	// If any track hit EOS but the original seek position is within the current period,
+	// this is a spurious EOS caused by seeking near the period boundary or tracks having
+	// slightly different durations. Clear the EOS flags to prevent unwanted period transition.
+	// For live streams, use < to allow seeks at period boundary to trigger manifest refresh.
+	// For VOD, use <= to handle exact boundary seeks (e.g., 28.8s in 28.8s period).
+	// If seeking BEYOND the period (e.g., 12s in 10s period), allow the EOS and
+	// period transition to occur with the remaining seek value.
+	double periodDurationSeconds = mPeriodDuration / 1000.0;
+	bool seekWithinPeriod = mIsLiveStream ? (seekPositionSeconds < periodDurationSeconds)
+	                                       : (seekPositionSeconds <= periodDurationSeconds);
+	if ((videoEOS || audioEOS) && seekWithinPeriod)
+	{
+		AAMPLOG_INFO("Track(s) hit EOS during seek to %.3f, but seek target is within period (duration=%.3f) - clearing EOS to stay in current period",
+			seekPositionSeconds, periodDurationSeconds);
+		if (mMediaStreamContext[eMEDIATYPE_VIDEO])
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->eos = false;
+		if (mMediaStreamContext[eMEDIATYPE_AUDIO])
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->eos = false;
+		trackRemainingSeek = 0; // No remaining seek - we're done
+	}
+
 	// trackRemainingSeek is the SkipFragments remaining-seek value from the last A/V
 	// (non-subtitle) track.  Subtitle seek result is intentionally excluded (see comment
 	// above).  HandleSeekEOSAndPeriodTransition uses this value for a sign check (>= 0)
@@ -2368,7 +2404,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
 				if (pMediaStreamContext->timeLineIndex >= timelines.size() || pMediaStreamContext->timeLineIndex < 0)
 				{
-					AAMPLOG_INFO("Type[%d] EOS. timeLineIndex[%d] size [%zu]",pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
+					AAMPLOG_INFO("Type[%d] EOS triggered! timeLineIndex[%d] >= size[%zu] - This causes period transition",
+						pMediaStreamContext->type, pMediaStreamContext->timeLineIndex, timelines.size());
 					pMediaStreamContext->eos = true;
 					break;
 				}
@@ -2480,10 +2517,57 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					//Content Audio and Video Played for 1-2 seconds when we seek after Ad break.
 					//Even if skiptime is equal to fragmentduration(eg: skipTime = 1.190600 & fragmentDuration=1.190600 this is based on logs)
 					//it is not entering the loop which is leading to go back to 2 seconds of previous period content and play,
-					//then jump to next period. The issue here is complier is optimizing the value to 1.18999 for skiptime where as
+					//then jump to next period. The issue here is compiler is optimizing the value to 1.18999 for skiptime where as
 					//fragment duration is optimized to 1.190600. so adding floating point precision.
 					else if (skipTime >= fragmentDuration - FLOATING_POINT_EPSILON)
 					{
+						// Check if this is the last fragment in the period AND remaining skipTime after
+						// this fragment would be very small (< EPSILON). If so, select it to avoid invalid
+						// fragment indices. But if skipTime is still significant, allow advancing past to
+						// return proper remainingSeek for period transition.
+						double skipTimeAfterFragment = skipTime - fragmentDuration;
+						if ((pMediaStreamContext->fragmentRepeatCount == repeatCount) &&
+							(pMediaStreamContext->timeLineIndex + 1 >= timelines.size()) &&
+							(skipTimeAfterFragment < FLOATING_POINT_EPSILON))
+						{
+							AAMPLOG_INFO("Type[%d] Last fragment in period with small remaining skipTime %.3f - selecting",
+								pMediaStreamContext->type, skipTimeAfterFragment);
+							if (updateFirstPTS && pMediaStreamContext->type == eTRACK_VIDEO)
+							{
+								if ((mFirstPTS == 0) || (firstPTS < mFirstPTS))
+								{
+									AAMPLOG_INFO("[%s] mFirstPTS %f -> %f ", pMediaStreamContext->name, mFirstPTS, firstPTS);
+									mFirstPTS = firstPTS;
+									mIsFinalFirstPTS = true;
+									mVideoPosRemainder = skipTime;
+									if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
+									{
+										mFirstPTS += mVideoPosRemainder;
+										if(mVideoPosRemainder > fragmentDuration/2)
+										{
+											if(aamp->GetInitialBufferDuration() == 0)
+											{
+												AAMPPlayerState state = aamp->GetState();
+												if(state == eSTATE_SEEKING)
+												{
+													SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,(int)fragmentDuration + 1);
+													aamp->midFragmentSeekCache = true;
+												}
+											}
+										}
+										else if(aamp->midFragmentSeekCache)
+										{
+											SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,0);
+											aamp->midFragmentSeekCache = false;
+										}
+									}
+									AAMPLOG_INFO("[%s] mFirstPTS %f  mVideoPosRemainder %f", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
+								}
+							}
+							skipTime = 0;
+							break;
+						}
+
 						if (updateFirstPTS)
 						{
 							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
