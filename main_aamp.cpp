@@ -957,7 +957,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->mSinkPaused = false;
 						{
-							std::lock_guard lock(aamp->GetStreamLock());
+							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
 						aamp->NotifySpeedChanged(aamp->rate, false);
@@ -1071,7 +1071,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 					if (aamp->IsPipelineWedged())
 					{
-						AAMPLOG_WARN("NotifyFirstVideoFrameDisplayed: pipeline wedged, skipping pause on first frame");
+						AAMPLOG_WARN("SetRateInternal: pipeline wedged at pause-on-first-frame, skipping pause");
 						// Don't attempt pause, just notify completion
 						return;
 					}
@@ -1085,12 +1085,12 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					
 					if (!retValue)
 					{
-						AAMPLOG_WARN("NotifyFirstVideoFrameDisplayed: pause failed on first frame, pipeline wedged; recovering via re-seek");
+						AAMPLOG_WARN("SetRateInternal: pause failed on first frame; recovering via re-seek");
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->mSinkPaused = true;
 						{
-							std::lock_guard lock(aamp->GetStreamLock());
+							std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
 							aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						}
 						return;
