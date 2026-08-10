@@ -240,3 +240,8 @@ std::string GetBrowserUA(JSContextRef ctx)
 {
 	return "";
 }
+
+bool JSValueIsUndefined(JSContextRef ctx, JSValueRef value)
+{
+	return false;
+}

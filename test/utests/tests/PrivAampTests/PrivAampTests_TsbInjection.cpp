@@ -32,7 +32,7 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::WithParamInterface;
 
-class PrivAampTests : public ::testing::Test
+class PrivAampTestsBase : public ::testing::Test
 {
 public:
 	PrivateInstanceAAMP *p_aamp{nullptr};
@@ -78,13 +78,13 @@ struct TrackInjectionParams
 	}
 };
 
-class TestPrivateInstanceAAMPTracks : public PrivAampTests,
+class TestPrivateInstanceAAMPTracks : public PrivAampTestsBase,
 									  public WithParamInterface<TrackInjectionParams>
 {
 protected:
 	void SetUp() override
 	{
-		PrivAampTests::SetUp();
+		PrivAampTestsBase::SetUp();
 		p_aamp->SetLocalAAMPTsbInjection(true);
 		p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
 	}

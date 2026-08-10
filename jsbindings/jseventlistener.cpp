@@ -24,10 +24,67 @@
 
 
 #include "jseventlistener.h"
-#include "jsevent.h"
 #include "jsutils.h"
 #include "vttCue.h"
 
+/**
+ * @brief Structure contains properties and callbacks of Event object of AAMPMediaPlayer
+ */
+static const JSClassDefinition AAMPJSEvent_object_def =
+{
+	0,
+	kJSClassAttributeNone,
+	"__Event_AAMPJS",
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
+/**
+ * @brief To get AAMPJSEvent class reference
+ * @retval JSClassRef of AAMPJSEvent
+ */
+static JSClassRef AAMPJSEvent_class_ref()
+{
+	static JSClassRef classDef = NULL;
+	if (!classDef)
+	{
+		classDef = JSClassCreate(&AAMPJSEvent_object_def);
+	}
+	return classDef;
+}
+
+/**
+ * @brief To create a new JS event instance
+ * @param[in] ctx JS execution context
+ * @param[in] type event type
+ * @retval JSObject of the new instance created
+ */
+JSObjectRef createNewAAMPJSEvent(JSGlobalContextRef ctx, const char *type)
+{
+	JSObjectRef eventObj = JSObjectMake(ctx, AAMPJSEvent_class_ref(), NULL);
+	
+	// Set the event type property
+	if (type != NULL)
+	{
+		JSStringRef prop = JSStringCreateWithUTF8CString("type");
+		JSObjectSetProperty(ctx, eventObj, prop, aamp_CStringToJSValue(ctx, type), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+	}
+	
+	return eventObj;
+}
 
 /**
  * @class AAMP_Listener_PlaybackStateChanged
@@ -146,8 +203,6 @@ public:
 		prop = JSStringCreateWithUTF8CString("currentPlayRate");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getCurrentPlayRate()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
-	
-
 	}
 };
 
@@ -501,8 +556,8 @@ public:
 
 		//MediaFormat type
 		prop = JSStringCreateWithUTF8CString("mediaFormat");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getMediaFormat().c_str()), kJSPropertyAttributeReadOnly, NULL);
-                JSStringRelease(prop);
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getMediaFormat().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
         
 		//tsbdepth
 		prop = JSStringCreateWithUTF8CString("tsbDepthMs");
@@ -615,13 +670,13 @@ public:
 	void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj)
 	{
 		TuneProfilingEventPtr evt = std::dynamic_pointer_cast<TuneProfilingEvent>(ev);
-                JSStringRef prop;
-                const char* microData = evt->getProfilingData().c_str();
+		JSStringRef prop;
+		const char* microData = evt->getProfilingData().c_str();
 
-                LOG_TRACE("AAMP_Listener_TuneProfiling microData %s", microData);
-                prop = JSStringCreateWithUTF8CString("microData");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, microData), kJSPropertyAttributeReadOnly, NULL);
-                JSStringRelease(prop);
+		LOG_TRACE("AAMP_Listener_TuneProfiling microData %s", microData);
+		prop = JSStringCreateWithUTF8CString("microData");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, microData), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 
 };
@@ -657,7 +712,7 @@ public:
 
 		prop = JSStringCreateWithUTF8CString("decoderHandle");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getCCHandle()), kJSPropertyAttributeReadOnly, NULL);
-                JSStringRelease(prop);
+		JSStringRelease(prop);
 	}
 
 };
@@ -775,7 +830,7 @@ public:
 		int severity = evt->getSeverity();
 		const char* description = evt->getMessage().c_str();
 
-        	LOG_WARN_EX("AAMP_Listener_AnomalyReport severity %d Description %s", severity, description);
+		LOG_WARN_EX("AAMP_Listener_AnomalyReport severity %d Description %s", severity, description);
 		prop = JSStringCreateWithUTF8CString("severity");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, severity), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
@@ -886,22 +941,21 @@ public:
 	 * @param[in] type event type
 	 * @param[in] jsCallback callback to be registered as listener
 	 */
-        AAMP_Listener_BulkTimedMetadata(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
-		: AAMP_JSEventListener(obj, type, jsCallback)
-        {
-        }
+	AAMP_Listener_BulkTimedMetadata(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
+	: AAMP_JSEventListener(obj, type, jsCallback)
+	{
+	}
 
-
-        /**
-         * @brief Set JS event properties
-         */
-        void SetEventProperties(const AAMPEventPtr& ev,  JSObjectRef eventObj)
-        {
+	/**
+	 * @brief Set JS event properties
+	 */
+	void SetEventProperties(const AAMPEventPtr& ev,  JSObjectRef eventObj)
+	{
 		BulkTimedMetadataEventPtr evt = std::dynamic_pointer_cast<BulkTimedMetadataEvent>(ev);
 		JSStringRef name = JSStringCreateWithUTF8CString("timedMetadatas");
 		JSObjectSetProperty(p_obj->_ctx, eventObj, name, aamp_CStringToJSValue(p_obj->_ctx, evt->getContent().c_str()),  kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
-        }
+	}
 };
 
 
@@ -1269,12 +1323,12 @@ public:
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("displayWidth");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getDisplayWidth()), kJSPropertyAttributeReadOnly, NULL);
-                JSStringRelease(name);
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getDisplayWidth()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("displayHeight");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getDisplayHeight()), kJSPropertyAttributeReadOnly, NULL);
-                JSStringRelease(name);
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, name, JSValueMakeNumber(p_obj->_ctx, evt->getDisplayHeight()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
 
 		if(eVIDEOSCAN_UNKNOWN != evt->getScanType())
 		{
@@ -1517,20 +1571,20 @@ public:
          */
         void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj)
         {
-                WatermarkSessionUpdateEventPtr evt = std::dynamic_pointer_cast<WatermarkSessionUpdateEvent>(ev);
-                JSStringRef prop;
+			WatermarkSessionUpdateEventPtr evt = std::dynamic_pointer_cast<WatermarkSessionUpdateEvent>(ev);
+			JSStringRef prop;
 
-		prop = JSStringCreateWithUTF8CString("sessionHandle");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSessionHandle()), kJSPropertyAttributeReadOnly, NULL);
-                JSStringRelease(prop);
+			prop = JSStringCreateWithUTF8CString("sessionHandle");
+			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSessionHandle()), kJSPropertyAttributeReadOnly, NULL);
+			JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("status");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getStatus()), kJSPropertyAttributeReadOnly, NULL);
-                JSStringRelease(prop);
+			prop = JSStringCreateWithUTF8CString("status");
+			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getStatus()), kJSPropertyAttributeReadOnly, NULL);
+			JSStringRelease(prop);
 
-                prop = JSStringCreateWithUTF8CString("system");
-                JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getSystem().c_str()), kJSPropertyAttributeReadOnly, NULL);
-                JSStringRelease(prop);
+			prop = JSStringCreateWithUTF8CString("system");
+			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getSystem().c_str()), kJSPropertyAttributeReadOnly, NULL);
+			JSStringRelease(prop);
         }
 };
 
@@ -1705,6 +1759,41 @@ public:
 
 /// -----------------------------------------------------------------------------------------
 
+class AAMP_Listener_VodAdBreakOpportunity : public AAMP_JSEventListener
+{
+public:
+	AAMP_Listener_VodAdBreakOpportunity(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
+		: AAMP_JSEventListener(obj, type, jsCallback)
+	{
+	}
+
+	void SetEventProperties(const AAMPEventPtr& evt, JSObjectRef jsEventObj)
+	{
+		VodAdBreakOpportunityEventPtr e = std::dynamic_pointer_cast<VodAdBreakOpportunityEvent>(evt);
+		if (!e) return;
+
+		JSStringRef prop;
+
+		prop = JSStringCreateWithUTF8CString("breakId");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, e->getBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("insertionPointSec");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, e->getInsertionPointSec()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("breakDurationSec");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, e->getBreakDurationSec()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("breakType");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, e->getBreakType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+	}
+};
+
+/// -----------------------------------------------------------------------------------------
+
 class AAMP_Listener_DefaultEvent : public AAMP_JSEventListener
 {
 public:
@@ -1762,13 +1851,13 @@ AAMP_JSEventListener::~AAMP_JSEventListener()
 void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 {
 	AAMPEventType evtType = e->getType();
-        LOG_TRACE("type=%d, jsCallback=%p", evtType, p_jsCallback);
+	LOG_TRACE("type=%d, jsCallback=%p", evtType, p_jsCallback);
 
 	if (evtType < 0 || evtType >= AAMP_MAX_NUM_EVENTS)
 	{
 		return;
 	}
-	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
+	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType));
 	if (event)
 	{
 		JSGlobalContextRef ctx = p_obj->_ctx;
@@ -1910,7 +1999,8 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 			pListener = std::make_shared<AAMP_Listener_AdProgress>(obj, type, jsCallback);
 			break;
 		case AAMP_EVENT_AD_PLACEMENT_ERROR:
-			pListener = std::make_shared<AAMP_Listener_AdPlacementError>(obj, type, jsCallback);				break;
+			pListener = std::make_shared<AAMP_Listener_AdPlacementError>(obj, type, jsCallback);
+			break;
 		case AAMP_EVENT_ID3_METADATA:
 			pListener = std::make_shared<AAMP_Listener_Id3Metadata>(obj, type, jsCallback);
 			break;
@@ -1935,6 +2025,9 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 		case AAMP_EVENT_MONITORAV_STATUS:
 			pListener = std::make_shared<AAMP_Listener_MonitorAVStatus>(obj, type, jsCallback);
 			break;
+		case AAMP_EVENT_VOD_ADBREAK_OPPORTUNITY:
+			pListener = std::make_shared<AAMP_Listener_VodAdBreakOpportunity>(obj, type, jsCallback);
+			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,
 		// AAMP_EVENT_AUDIO_TRACKS_CHANGED, AAMP_EVENT_TEXT_TRACKS_CHANGED, AAMP_EVENT_NEED_MANIFEST_DATA
@@ -1958,10 +2051,9 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
  */
 void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEventType type, JSObjectRef jsCallback)
 {
-        LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
+	LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
 	if (obj->_listeners.count(type) > 0)
 	{
-
 		typedef std::multimap<AAMPEventType, std::shared_ptr<void>>::iterator listenerIter_t;
 		std::pair<listenerIter_t, listenerIter_t> range = obj->_listeners.equal_range(type);
 		for(listenerIter_t iter = range.first; iter != range.second; )
@@ -1989,8 +2081,7 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
  */
 void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 {
-	
-        LOG_TRACE("obj(%p) listeners remaining(%d)", obj, obj->_listeners.size());
+	LOG_TRACE("obj(%p) listeners remaining(%d)", obj, obj->_listeners.size());
 
 	for (auto listenerIter = obj->_listeners.begin(); listenerIter != obj->_listeners.end();)
 	{
@@ -2003,5 +2094,4 @@ void AAMP_JSEventListener::RemoveAllEventListener(PrivAAMPStruct_JS * obj)
 	}
 
 	obj->_listeners.clear();
-
 }

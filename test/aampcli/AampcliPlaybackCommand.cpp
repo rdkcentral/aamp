@@ -284,6 +284,18 @@ void PlaybackCommand::HandleCommandSleep( const char *cmd )
 
 void PlaybackCommand::HandleCommandTuneLocator( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
 {
+	// Pre-resolve all mapped VOD ad breaks so the manifest stitcher finds
+	// them in mAdBreaks before FetchDashManifest() runs.
+	static int sAdReservationIndex = 0;
+	for( const AdvertInfo &advertInfo : mAdvertList )
+	{
+		std::string adId = "adId-pre" + std::to_string(++sAdReservationIndex);
+		AAMPCLI_PRINTF("[AAMP-CLI] Pre-tune SetAlternateContents breakId=%s adId=%s url=%s\n",
+			advertInfo.adBreakId.c_str(), adId.c_str(), advertInfo.url.c_str());
+		playerInstanceAamp->SetAlternateContents(advertInfo.adBreakId, adId, advertInfo.url);
+		playerInstanceAamp->NotifyReservationComplete(advertInfo.adBreakId);
+	}
+
 	const auto sid = mAampcli.GetSessionId();
 	const char *contentType = (mAampcli.mContentType.empty()) ? nullptr : mAampcli.mContentType.c_str();
 	if (sid.empty())
@@ -590,7 +602,7 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 			std::getline( input, advertInfo.adBreakId, ' ' );
 			std::getline( input, advertInfo.url, ' ' );
 			mAdvertList.push_back(advertInfo);
-			AAMPCLI_PRINTF("[AAMP-CLI] mapped adBreakId %s\n", advertInfo.adBreakId.c_str() );
+			AAMPCLI_PRINTF("[AAMP-CLI] mapped adBreakId %s -> %s\n", advertInfo.adBreakId.c_str(), advertInfo.url.c_str() );
 		}
 		else if( token == "defer" )
 		{
@@ -652,7 +664,11 @@ void PlaybackCommand::HandleCommandCancelVodAdBreak( const char *cmd, PlayerInst
 
 	std::string token;
 	std::getline(input, token, ' ');
-	assert(token == "cancelVodAdBreak");
+	if (token != "cancelVodAdBreak")
+	{
+		AAMPCLI_PRINTF("[AAMP-CLI] ERROR - unexpected command token: %s\n", token.c_str());
+		return;
+	}
 
 	std::string breakId;
 	if (std::getline(input, breakId, ' '))

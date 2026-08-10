@@ -1,0 +1,142 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4162075..2f8972f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -48,13 +48,8 @@ pkg_check_modules(GST REQUIRED gstreamer-plugins-base-1.0)
+ pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+ pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
+ 
+-if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+-	include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+-else()
+-	include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS})
+-endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
++include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+ 
+-#include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+ include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff
+ 	closedcaptions
+ 	closedcaptions/subtec
+@@ -126,6 +121,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+ 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
+ 	string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
+ 	link_directories(${OPENSSL_LIBRARY_DIRS})
++	link_directories(${GST_LIBRARY_DIRS} ${GSTREAMER_LIBRARY_DIRS} ${GSTREAMERBASE_LIBRARY_DIRS})
+ 	set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+ 	set(CMAKE_HAVE_THREADS_LIBRARY 1)
+ 	pkg_check_modules(GLIB REQUIRED GLib-2.0)
+diff --git a/gst-plugins/CMakeLists.txt b/gst-plugins/CMakeLists.txt
+index c7371b4..552d0dc 100755
+--- a/gst-plugins/CMakeLists.txt
++++ b/gst-plugins/CMakeLists.txt
+@@ -35,7 +35,9 @@ pkg_check_modules(CURL REQUIRED libcurl)
+ # Mac OS X
+ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+     pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
++    pkg_check_modules(UUID REQUIRED uuid)
+     link_directories(${GSTREAMERVIDEO_LIBRARY_DIRS})
++    link_directories(${UUID_LIBRARY_DIRS})
+     set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++")
+     set(OS_LD_FLAGS "${OS_LD_FLAGS} -framework Cocoa")
+     string(STRIP "${OS_LD_FLAGS}" OS_LD_FLAGS)
+diff --git a/gst-plugins/gst_subtec/CMakeLists.txt b/gst-plugins/gst_subtec/CMakeLists.txt
+index 4d922b8..2c2ce88 100644
+--- a/gst-plugins/gst_subtec/CMakeLists.txt
++++ b/gst-plugins/gst_subtec/CMakeLists.txt
+@@ -23,21 +23,23 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ find_package(PkgConfig REQUIRED)
+ 
+ pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+-pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
++pkg_check_modules(GSTREAMERAPP REQUIRED gstreamer-app-1.0)
++pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-base-1.0)
+ 
+ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+ include_directories(${GSTREAMER_INCLUDE_DIRS})
++include_directories(${GSTREAMERAPP_INCLUDE_DIRS})
+ include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
+ 
+ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../middleware/subtec/libsubtec)
+-    link_directories(${GSTREAMERBASE_LIBRARY_DIRS} ${GSTREAMER_LIBRARY_DIRS})
++    link_directories(${GSTREAMER_LIBRARY_DIRS} ${GSTREAMERAPP_LIBRARY_DIRS} ${GSTREAMERBASE_LIBRARY_DIRS})
+     link_directories(${CMAKE_INSTALL_PREFIX})
+ endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+ 
+ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -DSUBTEC_PACKET_DEBUG")
+ 
+-set(GSTSUBTEC_DEPENDENCIES ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES})
++set(GSTSUBTEC_DEPENDENCIES ${GSTREAMER_LIBRARIES} ${GSTREAMERAPP_LIBRARIES} ${GSTREAMERBASE_LIBRARIES})
+ 
+ add_library(gstsubtecsink SHARED gstsubtecsink.cpp)
+ 
+diff --git a/subtec/subtecparser/WebVttSubtecParser.cpp b/subtec/subtecparser/WebVttSubtecParser.cpp
+index b284e47..92e9d71 100644
+--- a/subtec/subtecparser/WebVttSubtecParser.cpp
++++ b/subtec/subtecparser/WebVttSubtecParser.cpp
+@@ -19,6 +19,7 @@
+ 
+ #include "WebVttSubtecParser.hpp"
+ #include "TextStyleAttributes.h"
++#include <cmath>
+ 
+ WebVTTSubtecParser::WebVTTSubtecParser(SubtitleMimeType type, int width, int height) : SubtitleParser(type, width, height), m_channel(nullptr)
+ {
+@@ -70,11 +71,20 @@ bool WebVTTSubtecParser::processData(const char* buffer, size_t bufferLen, doubl
+ 	std::string str(const_cast<const char*>(buffer), bufferLen);
+ 	std::vector<uint8_t> data(str.begin(), str.end());
+ 
+-	m_channel->SendDataPacket(std::move(data), 0);
++	m_channel->SendDataPacket(std::move(data), time_offset_ms_);
+ 
+ 	return true;
+ }
+ 
++void WebVTTSubtecParser::setPtsOffset(double ptsOffsetSec)
++{
++	// Subtec's display_time = media_PTS - time_offset_ms (subtraction
++	// convention shared with Rialto SetSubtitlePtsOffset). The HLS
++	// restamped video PTS is media_PTS + ptsOffsetSec, so we negate
++	// here to make subtec add the offset on the subtitle path.
++	time_offset_ms_ = -static_cast<std::int64_t>(std::llround(ptsOffsetSec * 1000.0));
++}
++
+ void WebVTTSubtecParser::mute(bool mute)
+ {
+ 	if (mute)
+diff --git a/subtec/subtecparser/WebVttSubtecParser.hpp b/subtec/subtecparser/WebVttSubtecParser.hpp
+index 5e4186d..e9cbf04 100644
+--- a/subtec/subtecparser/WebVttSubtecParser.hpp
++++ b/subtec/subtecparser/WebVttSubtecParser.hpp
+@@ -40,9 +40,10 @@ public:
+ 	void pause(bool pause) override;
+ 	void mute(bool mute) override;
+ 	void setTextStyle(const std::string &options) override;
++	void setPtsOffset(double ptsOffsetSec) override;
+ protected:
+ 	std::unique_ptr<SubtecChannel> m_channel;
+ private:
+-	std::uint64_t time_offset_ms_ = 0;
++	std::int64_t time_offset_ms_ = 0;
+ 	std::uint64_t start_ms_ = 0;
+ };
+diff --git a/subtitle/subtitleParser.h b/subtitle/subtitleParser.h
+index fb1d88a..ca156bf 100644
+--- a/subtitle/subtitleParser.h
++++ b/subtitle/subtitleParser.h
+@@ -93,6 +93,15 @@ public:
+ 	virtual void mute(bool mute) {}
+ 	virtual void isLinear(bool isLinear) {}
+ 	virtual void setTextStyle(const std::string &options){}
++	/**
++	 * @brief Set a per-fragment PTS offset (seconds) that the parser
++	 *        applies when forwarding cue data to its subtitle sink.
++	 *
++	 * Used by the HLS PTS-restamp path to align subtitle display time
++	 * with the restamped video PTS without rewriting MPEGTS in the
++	 * VTT header. Default no-op; subtec-based parsers override.
++	 */
++	virtual void setPtsOffset(double ptsOffsetSec) {}
+ 	void RegisterCallback(const PlayerCallbacks& playerCallBack)
+ 	{
+ 		playerResumeTrackDownloads_CB = playerCallBack.resumeTrackDownloads_CB;
