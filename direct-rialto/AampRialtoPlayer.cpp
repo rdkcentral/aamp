@@ -586,7 +586,7 @@ void AampRialtoPlayer::Configure(
 			// TODO: How do we determine value for isLive
 			if (!m_pipeline->load(
 					firebolt::rialto::MediaType::MSE,
-					"video/mp4",
+					"",
 					/*url=*/"",
 					/*isLive*/false))
 			{
