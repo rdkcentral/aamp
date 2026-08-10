@@ -1003,12 +1003,14 @@ void AampRialtoPlayer::AttachSource(
 		}
 	}
 
+	const double appliedRate = computeAppliedRate(
+		m_pendingFlushRate.load(std::memory_order_relaxed), type);
+
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
 		m_pendingPositionNs.load(std::memory_order_relaxed),
 		protectionCopy,
-		computeAppliedRate(
-			m_pendingFlushRate.load(std::memory_order_relaxed)));
+		appliedRate);
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED ||
 	    result == AampRialtoMediaSource::AttachResult::UPDATED)
@@ -2254,18 +2256,22 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// segment event carries the correct applied_rate for trickplay.
 			// resetTime=false: the pipeline-level setPosition() already
 			// flushed source buffers; we only update the segment rate.
-			auto appliedRate = computeAppliedRate(pendingRate);
 			auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
-			if (appliedRate != AAMP_NORMAL_PLAY_RATE && videoSource)
+			if (videoSource)
 			{
-				if (!m_pipeline->setSourcePosition(
+				const double appliedRate =
+					computeAppliedRate(pendingRate, eMEDIATYPE_VIDEO);
+				if (appliedRate != AAMP_NORMAL_PLAY_RATE)
+				{
+					if (!m_pipeline->setSourcePosition(
 							videoSource->sourceId(), posNs,
 							/*resetTime=*/false,
-							computeAppliedRate(pendingRate)))
-				{
-					AAMPLOG_WARN("setSourcePosition failed for "
-						"sourceId=%d after SEEK_DONE",
-						videoSource->sourceId());
+							appliedRate))
+					{
+						AAMPLOG_WARN("setSourcePosition failed for "
+							"sourceId=%d after SEEK_DONE",
+							videoSource->sourceId());
+					}
 				}
 			}
 
@@ -2378,9 +2384,13 @@ void AampRialtoPlayer::OnBufferUnderflow(int32_t sourceId)
 	m_notifiable->NotifyBufferUnderflow(source->mediaType());
 }
 
-double AampRialtoPlayer::computeAppliedRate(int candidateRate) const
+double AampRialtoPlayer::computeAppliedRate(int candidateRate, AampMediaType type) const
 {
-	if (m_pipelineCapabilities)
+	// Only the video segment's applied_rate matters for trickplay, and at
+	// normal play rate the result is always 1.0 - skip the isVideoMaster
+	// IPC round-trip entirely in both cases.
+	if (type == eMEDIATYPE_VIDEO && candidateRate != AAMP_NORMAL_PLAY_RATE &&
+		m_pipelineCapabilities)
 	{
 		bool videoMaster = false;
 		if (m_pipelineCapabilities->isVideoMaster(videoMaster) && !videoMaster)
@@ -2388,7 +2398,7 @@ double AampRialtoPlayer::computeAppliedRate(int candidateRate) const
 			return static_cast<double>(candidateRate);
 		}
 	}
-	return 1.0;
+	return AAMP_NORMAL_PLAY_RATE;
 }
 
 void AampRialtoPlayer::OnSourceFlushed(int32_t sourceId)

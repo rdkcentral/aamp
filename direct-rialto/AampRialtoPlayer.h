@@ -584,11 +584,12 @@ private:
 	/**
 	 * @brief Compute the appliedRate to pass to setSourcePosition().
 	 *
-	 * Queries IMediaPipelineCapabilitiesFactory for the isVideoMaster
-	 * property.  Returns @p candidateRate when the query succeeds and
-	 * isVideoMaster is false; returns 1.0 otherwise.
+	 * Only the video source's segment carries a trickplay applied_rate,
+	 * so @p type must be eMEDIATYPE_VIDEO for the isVideoMaster IPC query
+	 * to run at all; any other type (or normal play rate) short-circuits
+	 * to 1.0 without contacting Rialto.
 	 */
-	double computeAppliedRate(int candidateRate) const;
+	double computeAppliedRate(int candidateRate, AampMediaType type) const;
 
 	/**
 	 * @brief Call allSourcesAttached() once every expected source has

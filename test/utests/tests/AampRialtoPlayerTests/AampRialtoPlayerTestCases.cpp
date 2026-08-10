@@ -4180,7 +4180,9 @@ TEST_F(AampRialtoPlayerTest,
 {
 	/**
 	 * @brief When the platform reports isVideoMaster==false, setSourcePosition
-	 * must be called with appliedRate equal to the flushed rate (2.0 here).
+	 * must be called with appliedRate equal to the flushed rate (2.0) for the
+	 * video source, but the accompanying inband CC subtitle source (which
+	 * carries no trickplay rate of its own) must get appliedRate==1.0.
 	 */
 	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
 		/*videoMaster=*/false);
@@ -4203,8 +4205,13 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
 			/*resetTime=*/true, 2.0, _))
-		.Times(2)
-		.WillRepeatedly(Return(true));
+		.Times(1)
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 1.0, _))
+		.Times(1)
+		.WillOnce(Return(true));
 
 	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
 }
