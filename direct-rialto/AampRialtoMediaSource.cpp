@@ -421,7 +421,7 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	if (flushPosNs >= 0)
 	{
 		if (!pipeline.setSourcePosition(
-				m_sourceId, flushPosNs, /*resetTime=*/true, appliedRate))
+				m_sourceId, flushPosNs, /*resetTime=*/false, appliedRate))
 		{
 			AAMPLOG_WARN("setSourcePosition(%" PRId64 ") appliedRate=%f failed "
 				"for mediaType=%d", flushPosNs, appliedRate,
