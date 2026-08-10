@@ -250,7 +250,7 @@ AampRialtoPlayer::AampRialtoPlayer(
 	: AampRialtoPlayer(
 		aamp,
 		/*notifiable=*/nullptr,
-		std::make_unique<AampRialtoControlBackend>(),
+		/*controlBackend=*/nullptr,  // lazily created in Configure()
 		id3HandlerCallback,
 		std::move(exportFrames),
 		makeDefaultSourceCreator())
@@ -526,6 +526,15 @@ void AampRialtoPlayer::Configure(
 		}
 	}
 
+	// Registering with Rialto's IControl is deferred to the first Configure()
+	// call (mirrors rialto-gstreamer's PullModePlaybackDelegate, which creates
+	// its ControlBackend on the NULL->READY state change) rather than at
+	// construction time, so a player instance that is created but never
+	// tuned does not register a client with the Rialto server.
+	if (!m_controlBackend)
+	{
+		m_controlBackend = std::make_unique<AampRialtoControlBackend>();
+	}
 	if (!m_pipelineFactory)
 	{
 		m_pipelineFactory = firebolt::rialto::IMediaPipelineFactory::createFactory();
@@ -1306,6 +1315,10 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 		// null-check m_pipeline before use.
 		m_pipeline.reset();
 	}
+	// Deregister from Rialto's IControl now that the session has ended,
+	// mirroring rialto-gstreamer's removeControlBackend() on READY->NULL.
+	// Configure() lazily recreates it on the next tune.
+	m_controlBackend.reset();
 	// Reset play intent so a new tune's Configure() starts clean.
 	// This is the canonical place to reset m_playRequested: Stop() ends the
 	// current session, whereas Configure() may be called mid-session for a
