@@ -702,12 +702,19 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					aamp->pipeline_paused = false;
 					aamp->mbSeeked = false;
+					/* Without this, a failed Flush() inside ActivatePlayer() leaves the UI speed
+					 * display stale at whatever the last ad trickplay rate was (VPAAMP-610). */
+					aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, !aamp->IsFragmentCachingRequired());
 					return;
 				}
 				else if(AAMP_RATE_PAUSE != rate)
 				{
 					AAMPLOG_INFO("Player switched at trickplay %f", rate);
 					aamp->playerStartedWithTrickPlay = true; //to be used to show at least one frame
+					/* Tell UI the content player was at 1x before the inherited trickplay rate is
+					 * applied. JSPP speed-guard (isSleFastFwdBlocked) will call setSpeed(1) immediately
+					 * if the user already released FF during the ad, preventing a spurious cascade. */
+					aamp->NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, false);
 				}
 			}
 			bool retValue = true;
