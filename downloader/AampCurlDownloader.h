@@ -82,7 +82,8 @@ typedef struct _downloadConfig
 	_downloadConfig() : pCurl(nullptr),iDownloadTimeout(DEFAULT_CURL_TIMEOUT),iLowBWTimeout(0),iCurlConnectionTimeout(DEFAULT_CURL_CONNECTTIMEOUT),
 			iStallTimeout(0),iStartTimeout(0),bSSLVerifyPeer(false),lSupportedTLSVersion(CURL_SSLVERSION_TLSv1_2),proxyName(""),userAgentString(""),sCustomHeaders(),
 			bVerbose(false),bIgnoreResponseHeader(false),bNeedDownloadMetrics(false),eRequestType(eCURL_GET),postData(""),iDownloadRetryCount(0),iDownload502RetryCount(0),
-			iDownloadRetryWaitMs(50),iDownload502RetryWaitMs(MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS),iDnsCacheTimeOut(DEFAULT_DNS_CACHE_TIMEOUT), bCurlThroughput(false), networkPersonaFile()
+			iDownloadRetryWaitMs(50),iDownload502RetryWaitMs(MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS),iDnsCacheTimeOut(DEFAULT_DNS_CACHE_TIMEOUT), bCurlThroughput(false),
+			networkPersonaFile()
 	{
 	}
 	
@@ -301,6 +302,8 @@ private:
 	CURL *mCurl;
 	struct curl_slist *mHeaders;
 	size_t contentLength;
+	bool mDnsCacheBypassed;		/**< True when DNS cache timeout was set to 0; needs restore on next non-DNS-failure */
+	int mConsecutiveDnsFailures;	/**< Count of consecutive CURLE_COULDNT_RESOLVE_HOST errors */
 };
 
 #endif 

@@ -524,7 +524,7 @@ void AampMPDDownloader::downloadMPDThread1()
 		}
 
 		//Timeout/connect failure during live refresh
-		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue))
+		if(!firstDownload && (IsCurlTimeoutFailure(mMPDData->mMPDDownloadResponse->iHttpRetValue) || CURLE_COULDNT_CONNECT == mMPDData->mMPDDownloadResponse->iHttpRetValue || CURLE_COULDNT_RESOLVE_HOST == mMPDData->mMPDDownloadResponse->iHttpRetValue))
 		{
 			AAMPLOG_WARN("Refresh after 500ms to handle a manifest timeout error.");
 			//Forcefully go with 500 ms refresh after a download failure
@@ -637,6 +637,7 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 		case CURLE_OPERATION_TIMEDOUT:
 		case CURLE_PARTIAL_FILE:
 		case CURLE_COULDNT_CONNECT:
+		case CURLE_COULDNT_RESOLVE_HOST:
 		case eCURL_TIMEOUT_DNS:
 		case eCURL_TIMEOUT_CONNECT:
 			// introduce  extra marker for connection status curl 7/18/28,

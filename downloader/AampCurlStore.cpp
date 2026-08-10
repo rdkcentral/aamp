@@ -369,6 +369,7 @@ CURL* CurlStore::CurlEasyInitWithOpt ( PrivateInstanceAAMP *aamp, const std::str
 	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SSL_CTX_DATA, aamp);
 	long dns_cache_timeout = GETCONFIGVALUE(eAAMPConfig_Dns_CacheTimeout);
 	CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_DNS_CACHE_TIMEOUT, dns_cache_timeout);
+
 	CURL_EASY_SETOPT_POINTER(curlEasyhdl, CURLOPT_SHARE, aamp->mCurlShared);
 
 	aamp->curlDLTimeout[instId] = DEFAULT_CURL_TIMEOUT * 1000;

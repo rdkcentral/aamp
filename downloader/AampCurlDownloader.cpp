@@ -44,7 +44,6 @@ void _downloadConfig::show()
 	AAMPLOG_INFO("proxyName :%s",proxyName.c_str());
 	AAMPLOG_INFO("iDnsCacheTimeOut :%ld",iDnsCacheTimeOut);
 
-	
 	if (sCustomHeaders.size() > 0)
 	{
 		std::string customHeader;
@@ -129,7 +128,8 @@ char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
 
 
 AampCurlDownloader::AampCurlDownloader() : mCurlMutex(),m_threadName(""),mDownloadActive(false),mCreatedNewFd(false),
-			mCurl(nullptr),mDownloadUpdatedTime(0),mDownloadStartTime(0),mDnldCfg(),mDownloadResponse(nullptr),mHeaders(NULL),mWriteCallbackBufferSize(0),contentLength(0)
+			mCurl(nullptr),mDownloadUpdatedTime(0),mDownloadStartTime(0),mDnldCfg(),mDownloadResponse(nullptr),mHeaders(NULL),mWriteCallbackBufferSize(0),contentLength(0),
+			mDnsCacheBypassed(false),mConsecutiveDnsFailures(0)
 
 {
 	// All download related configs are read here
@@ -323,6 +323,21 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				numDownloadAttempts++;
 				if(httpRetVal == CURLE_OK)
 				{
+					// Reset DNS failure counter on success
+					if (mConsecutiveDnsFailures > 0)
+					{
+						AAMPLOG_INFO("Resetting DNS failure counter (was %d) after successful download", mConsecutiveDnsFailures);
+						mConsecutiveDnsFailures = 0;
+					}
+					
+					if (mDnsCacheBypassed && mDnldCfg)
+					{
+						// Restore original DNS cache timeout after a successful download
+						// following a DNS cache bypass
+						CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_DNS_CACHE_TIMEOUT, mDnldCfg->iDnsCacheTimeOut);
+						mDnsCacheBypassed = false;
+						AAMPLOG_INFO("DNS cache timeout restored to %ld after successful download", mDnldCfg->iDnsCacheTimeOut);
+					}
 					if( memcmp(urlStr.c_str(), "file:", 5) == 0 )
 					{ // file uri scheme
 						// libCurl does not provide CURLINFO_RESPONSE_CODE for 'file:' protocol.
@@ -368,10 +383,65 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
 					{ //Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR || httpRetVal == CURLE_RECV_ERROR)
+						if (httpRetVal == CURLE_COULDNT_CONNECT || httpRetVal == CURLE_COULDNT_RESOLVE_HOST || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_SEND_ERROR || httpRetVal == CURLE_RECV_ERROR)
 						{
 							AAMPLOG_WARN("Download failed due to curl error %d numDownloadAttempts %d numRetriesAllowed %d", httpRetVal, numDownloadAttempts, numRetriesAllowed);
+							if (httpRetVal == CURLE_COULDNT_RESOLVE_HOST)
+							{
+								// Retry after a delay to increase the chances of recovery.
+								std::this_thread::sleep_for(std::chrono::milliseconds(DEFAULT_DNS_RETRY_WAIT_TIME_MS));
+							}
 							loopAgain = true;
+						}
+					}
+					
+					// Handle DNS resolution failures with threshold-based cache bypass
+					if (httpRetVal == CURLE_COULDNT_RESOLVE_HOST)
+					{
+						mConsecutiveDnsFailures++;
+						double resolveTime = mDownloadResponse ? mDownloadResponse->downloadCompleteMetrics.resolve : 0.0;
+						
+						// Instant failure (< 1ms) suggests cache hit on bad entry - bypass immediately
+						bool likelyCacheHit = (resolveTime < 0.001);
+						
+						if (likelyCacheHit && !mDnsCacheBypassed)
+						{
+							AAMPLOG_WARN("DNS cache hit on bad entry (curl 6, failure #%d, resolve=%.4fms), bypassing cache immediately", 
+							             mConsecutiveDnsFailures, resolveTime * 1000.0);
+							CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_DNS_CACHE_TIMEOUT, 0);
+							mDnsCacheBypassed = true;
+						}
+						else if (mConsecutiveDnsFailures >= DEFAULT_DNS_CACHE_BYPASS_THRESHOLD && !mDnsCacheBypassed)
+						{
+							AAMPLOG_WARN("DNS resolution failure threshold reached (curl 6, failure #%d, resolve=%.4fms), bypassing cache", 
+							             mConsecutiveDnsFailures, resolveTime * 1000.0);
+							// setting CURLOPT_DNS_CACHE_TIMEOUT=0 on one easy handle only clears it for that handle's next lookup.
+							// Since we might be using CurlStore, all handles in the same store share the mCurlShared DNS cache,
+							// the stale entry persists in the share until all active handles let it expire
+							CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_DNS_CACHE_TIMEOUT, 0);
+							mDnsCacheBypassed = true;
+						}
+						else
+						{
+							AAMPLOG_WARN("DNS resolution failure (curl 6, failure #%d, resolve=%.4fms), will retry", 
+							             mConsecutiveDnsFailures, resolveTime * 1000.0);
+						}
+					}
+					else
+					{
+						// Reset counter on any non-DNS error or success
+						if (mConsecutiveDnsFailures > 0)
+						{
+							AAMPLOG_INFO("Resetting DNS failure counter (was %d) after non-DNS result", mConsecutiveDnsFailures);
+							mConsecutiveDnsFailures = 0;
+						}
+						
+						// Restore DNS cache timeout if it was bypassed
+						if (mDnsCacheBypassed && mDnldCfg)
+						{
+							CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_DNS_CACHE_TIMEOUT, mDnldCfg->iDnsCacheTimeOut);
+							mDnsCacheBypassed = false;
+							AAMPLOG_INFO("DNS cache timeout restored to %ld after successful download", mDnldCfg->iDnsCacheTimeOut);
 						}
 					}
 				}
@@ -606,7 +676,7 @@ void AampCurlDownloader::updateCurlParams()
 	//CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SSL_CTX_FUNCTION, ssl_callback); //Check for downloads disabled in btw ssl handshake
 	//CURL_EASY_SETOPT(curlEasyhdl, CURLOPT_SSL_CTX_DATA, aamp);
 	CURL_EASY_SETOPT_LONG(mCurl, CURLOPT_DNS_CACHE_TIMEOUT,mDnldCfg->iDnsCacheTimeOut);
-	
+
 	if (!mDnldCfg->proxyName.empty())
 	{
 		/* use this proxy */

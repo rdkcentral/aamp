@@ -485,6 +485,9 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_UNDERFLOW_LOW_BUFFER_POLL_MS, "underflowLowBufferPollMs", eAAMPConfig_UnderflowLowBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_MEDIUM_BUFFER_POLL_MS, "underflowMediumBufferPollMs", eAAMPConfig_UnderflowMediumBufferPollMs, true},
 	{DEFAULT_UNDERFLOW_HIGH_BUFFER_POLL_MS, "underflowHighBufferPollMs", eAAMPConfig_UnderflowHighBufferPollMs, true},
+	// DNS recovery configuration
+	{DEFAULT_DNS_CACHE_BYPASS_THRESHOLD, "dnsCacheBypassThreshold", eAAMPConfig_DnsCacheBypassThreshold, true},
+	{DEFAULT_DNS_RETRY_WAIT_TIME_MS, "dnsRetryWaitTimeMs", eAAMPConfig_DnsRetryWaitTimeMs, true},
 	// Add new integer config entries above this line, before the aliases section.
 	//
 	// Aliases, kept for backwards compatibility

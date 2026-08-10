@@ -37,6 +37,7 @@
 #include "MediaStreamContext.h"
 #include "AampLatencyMonitor.h"
 #include "AampNetworkPersona.h"
+#include "AampDefine.h"
 #include <unistd.h>
 #include "net_trace.h"  // header-only, provides aamptrace::NetTrace and now_monotonic_s()
 
@@ -4634,6 +4635,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
 			auto getFileStartTimeHR = std::chrono::steady_clock::now(); // captured before retries; used to compute totalPerformRequest including backoff sleeps
 			long long maxInitDownloadRetryUntil = maxInitDownloadTimeMS + NOW_STEADY_TS_MS;
+			bool dnsCacheBypass = false;
+			int consecutiveDnsFailures = 0;
 			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
 				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
 
@@ -4777,6 +4780,20 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				bool loopAgain = false;
 				if (res == CURLE_OK)
 				{ // all data collected
+					// Reset DNS failure counter on success
+					if (consecutiveDnsFailures > 0)
+					{
+						AAMPLOG_INFO("Resetting DNS failure counter (was %d) after successful download", consecutiveDnsFailures);
+						consecutiveDnsFailures = 0;
+					}
+					
+					// Restore DNS cache timeout if it was bypassed
+					if (dnsCacheBypass)
+					{
+						CURL_EASY_SETOPT_LONG(curl, CURLOPT_DNS_CACHE_TIMEOUT, GETCONFIGVALUE_PRIV(eAAMPConfig_Dns_CacheTimeout));
+						dnsCacheBypass = false;
+						AAMPLOG_INFO("DNS cache timeout restored to %lf after successful download", GETCONFIGVALUE_PRIV(eAAMPConfig_Dns_CacheTimeout));
+					}
 					if( memcmp(remoteUrl.c_str(), "file:", 5) == 0 )
 					{ // file uri scheme
 						// libCurl does not provide CURLINFO_RESPONSE_CODE for 'file:' protocol.
@@ -4958,7 +4975,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-						if (res == CURLE_COULDNT_CONNECT || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) ||
+						if (res == CURLE_COULDNT_CONNECT || res == CURLE_COULDNT_RESOLVE_HOST || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) ||
 							(isDownloadStalled &&
 								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
 							res == CURLE_SEND_ERROR )
@@ -5026,6 +5043,32 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 							}
 						}
 						AAMPLOG_WARN("Download failed due to curl error %d or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", res, isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
+						
+						// Handle DNS resolution failures with threshold-based cache bypass
+						if (loopAgain && res == CURLE_COULDNT_RESOLVE_HOST)
+						{
+							consecutiveDnsFailures++;
+							
+							// Retry after a delay to increase the chances of recovery.
+							AAMPLOG_WARN("DNS resolution failure (curl 6, failure #%d), wait time: %ld", 
+							             consecutiveDnsFailures, DEFAULT_DNS_RETRY_WAIT_TIME_MS);
+							interruptibleMsSleep(DEFAULT_DNS_RETRY_WAIT_TIME_MS);
+							
+							// Bypass DNS cache after threshold is reached
+							if (consecutiveDnsFailures >= DEFAULT_DNS_CACHE_BYPASS_THRESHOLD && !dnsCacheBypass)
+							{
+								AAMPLOG_WARN("DNS failure threshold reached (failure #%d), bypassing cache on retry", 
+								             consecutiveDnsFailures);
+								CURL_EASY_SETOPT_LONG(curl, CURLOPT_DNS_CACHE_TIMEOUT, 0);
+								dnsCacheBypass = true;
+							}
+						}
+						else if (res != CURLE_COULDNT_RESOLVE_HOST && consecutiveDnsFailures > 0)
+						{
+							// Reset counter on non-DNS error
+							AAMPLOG_INFO("Resetting DNS failure counter (was %d) after non-DNS error", consecutiveDnsFailures);
+							consecutiveDnsFailures = 0;
+						}
 					}
 
 					/*
@@ -5130,7 +5173,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						// append app name with class data
 						appName = mAppName + ",";
 					}
-					if ( IsCurlTimeoutFailure(res) || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+					if ( IsCurlTimeoutFailure(res) || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res || CURLE_COULDNT_RESOLVE_HOST == res)
 					{
 						// introduce  extra marker for connection status curl 7/18/28,
 						// example 18(0) if connection failure with PARTIAL_FILE code
@@ -5175,8 +5218,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if(!loopAgain)
 					break;
+			} // while(downloadAttempt < maxDownloadAttempt)
+			if (dnsCacheBypass)
+			{
+				// Lets reset the dns timeout cache
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_DNS_CACHE_TIMEOUT, GETCONFIGVALUE_PRIV(eAAMPConfig_Dns_CacheTimeout));
 			}
-		}
+		} // if (curl)
 
 		// Flush NetTrace CSV after retry loop completes (success or terminal failure)
 		// This ensures only one CSV row per GetFile call, regardless of retry attempts

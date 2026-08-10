@@ -1014,6 +1014,7 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 	else
 	{
 		AAMPLOG_ERR("Http Error Returned [%d]", respData->iHttpRetValue);
+		respData->show();
 	}
 	
 	if(http_error)

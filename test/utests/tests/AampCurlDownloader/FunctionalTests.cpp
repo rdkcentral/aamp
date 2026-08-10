@@ -815,3 +815,133 @@ TEST_F(FunctionalTests, DnsCacheTimeout_PassedFromDownloadConfig_NotHardCoded)
 
 	mAampCurlDownloader->Initialize(inpData);
 }
+
+/**
+ * @brief Verify that CURLE_COULDNT_RESOLVE_HOST (curl 6) triggers a download retry.
+ *
+ * When curl_easy_perform returns CURLE_COULDNT_RESOLVE_HOST and retries are
+ * allowed (iDownloadRetryCount >= 1), the downloader must retry the request.
+ * If the retry succeeds, the final iHttpRetValue should reflect the successful
+ * HTTP response code.
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_Retry_DnsResolveFailure)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownloadRetryCount = 1;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	/* First attempt: CURLE_COULDNT_RESOLVE_HOST → triggers retry.
+	 * Second attempt: CURLE_OK → HTTP 200. */
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_COULDNT_RESOLVE_HOST))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+}
+
+/**
+ * @brief Verify that consecutive DNS failures bypass the DNS cache and a
+ *        subsequent successful download restores the original timeout.
+ *
+ * Scenario (threshold = 2, iDnsCacheTimeOut = DEFAULT_DNS_CACHE_TIMEOUT):
+ *  - Call Download() twice, each returning CURLE_COULDNT_RESOLVE_HOST.
+ *    After the second failure the downloader must set CURLOPT_DNS_CACHE_TIMEOUT
+ *    to 0, bypassing the per-handle DNS cache for the next attempt.
+ *  - Call Download() a third time with CURLE_OK / HTTP 200. The downloader
+ *    must restore CURLOPT_DNS_CACHE_TIMEOUT to DEFAULT_DNS_CACHE_TIMEOUT.
+ *
+ * Observability:
+ *  - curl_easy_setopt_long(CURLOPT_DNS_CACHE_TIMEOUT, 0) is expected once
+ *    (after the second DNS failure).
+ *  - curl_easy_setopt_long(CURLOPT_DNS_CACHE_TIMEOUT, DEFAULT_DNS_CACHE_TIMEOUT)
+ *    is expected once more (on recovery).
+ */
+TEST_F(FunctionalTests, AampCurlDownloader_DnsCacheBypass_AndRestore)
+{
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	/* No retries within a single Download() call — each call returns after
+	 * one attempt so we can control the sequence across calls. */
+	inpData->iDownloadRetryCount = 0;
+	/* Use defaults: DEFAULT_DNS_CACHE_BYPASS_THRESHOLD = 2, iDnsCacheTimeOut = DEFAULT_DNS_CACHE_TIMEOUT */
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	/* --- Phase 1: Two consecutive DNS failures --- */
+	/* Failure 1: below threshold, no DNS cache change expected. */
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_COULDNT_RESOLVE_HOST));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+	EXPECT_EQ(CURLE_COULDNT_RESOLVE_HOST, respData->iHttpRetValue);
+	respData->clear();
+
+	/* Failure 2: reaches threshold → CURLOPT_DNS_CACHE_TIMEOUT set to 0. */
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_COULDNT_RESOLVE_HOST));
+	/* Expect the DNS cache bypass: timeout set to 0 */
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_DNS_CACHE_TIMEOUT, 0))
+		.WillOnce(Return(CURLE_OK));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+	EXPECT_EQ(CURLE_COULDNT_RESOLVE_HOST, respData->iHttpRetValue);
+	respData->clear();
+
+	/* --- Phase 2: Recovery — successful download restores the timeout --- */
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+	/* Expect the DNS cache timeout to be restored to its original value */
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_DNS_CACHE_TIMEOUT, DEFAULT_DNS_CACHE_TIMEOUT))
+		.WillOnce(Return(CURLE_OK));
+
+	mAampCurlDownloader->Download(mUrl, respData);
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
+}
