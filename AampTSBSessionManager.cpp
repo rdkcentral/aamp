@@ -981,7 +981,12 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 					CachedFragmentPtr initFragment = Read(std::move(initFragmentData));
 					if (initFragment)
 					{
-						if(reader->IsDiscontinuous())
+						// Mark discontinuous on a period boundary even when the stored
+						// fragment flag is false: data fragments are written to TSB with
+						// discontinuity=false; only init fragments carry the marker, so
+						// IsPeriodBoundary() (set by ReadNext/CheckPeriodBoundary) is the
+						// reliable signal for an ad<->content transition.
+						if(reader->IsDiscontinuous() || reader->IsPeriodBoundary())
 						{
 							initFragment->discontinuity = true;
 						}
