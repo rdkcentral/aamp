@@ -762,6 +762,27 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			bool isPipelinePaused = aamp->mSinkPaused.load();
 			if ((!isPipelinePaused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && isPipelinePaused))
 			{
+				// RDKEMW-21923: During rapid scrubbing (e.g. 1x->2x->1x->PAUSE within ~1s),
+				// TuneHelper may still be rebuilding the pipeline (NULL/READY state).
+				// If we skip here, downstream Pause()/Resume() will race with the rebuild
+				// and cause a PAUSED->PAUSED wedge. Detect and bail out early.
+				if (!isPipelinePaused && rate == aamp->rate && rate == AAMP_NORMAL_PLAY_RATE)
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sink)
+					{
+						GstState curState = GST_STATE_VOID_PENDING;
+						GstState pendState = GST_STATE_VOID_PENDING;
+						sink->GetPipelineState(&curState, &pendState);
+						if (curState == GST_STATE_NULL || curState == GST_STATE_VOID_PENDING || curState == GST_STATE_READY)
+						{
+							AAMPLOG_WARN("SetRateInternal: rate=%.1f but pipeline in state %d "
+								"(rebuild in progress) — skipping, TuneHelper will complete", rate, curState);
+							return;
+						}
+					}
+				}
+
 				if (!isPipelinePaused && rate == aamp->rate && rate == AAMP_NORMAL_PLAY_RATE)
 				{
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
@@ -1041,10 +1062,36 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							}
 							else
 							{
-								// Resume completed normally -> healthy; reset the recovery counter.
-								aamp->mRecoveryAttemptCount = 0;
-								// required since buffers are already cached in paused state
-								aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
+								if (!retValue && sink)
+								{
+									// RDKEMW-21923: Resume failed — check if pipeline is now wedged.
+									GstState cur = GST_STATE_VOID_PENDING;
+									GstState pend = GST_STATE_VOID_PENDING;
+									GstStateChangeReturn stRet = sink->GetPipelineState(&cur, &pend);
+									if (stRet == GST_STATE_CHANGE_FAILURE ||
+										(stRet == GST_STATE_CHANGE_ASYNC && cur == pend))
+									{
+										AAMPLOG_WARN("SetRateInternal: post-resume wedge detected "
+											"(state=%d pending=%d ret=%d), recovering via re-seek",
+											cur, pend, stRet);
+										aamp->SetState(eSTATE_SEEKING);
+										aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+										aamp->rate = AAMP_NORMAL_PLAY_RATE;
+										aamp->mSinkPaused = false;
+										{
+											std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+											aamp->TuneHelper(eTUNETYPE_SEEK, false);
+										}
+										aamp->NotifySpeedChanged(aamp->rate, false);
+										aamp->ResumeDownloads();
+										return;
+									}
+								}
+								else
+								{
+									// required since buffers are already cached in paused state
+									aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
+								}
 							}
 						}
 					}
@@ -1056,6 +1103,24 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				if (!aamp->mSinkPaused.load())
 				{
+					// RDKEMW-21923: Guard against pausing a pipeline that is mid-rebuild.
+					// Calling sink->Pause() on a NULL/READY pipeline triggers a PAUSED->PAUSED
+					// wedge once the rebuild completes. Defer: mark paused and return.
+					StreamSink *sinkCheck = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sinkCheck)
+					{
+						GstState cur = GST_STATE_VOID_PENDING;
+						GstState pend = GST_STATE_VOID_PENDING;
+						sinkCheck->GetPipelineState(&cur, &pend);
+						if (cur == GST_STATE_NULL || cur == GST_STATE_VOID_PENDING || cur == GST_STATE_READY)
+						{
+							AAMPLOG_WARN("SetRateInternal: pause requested but pipeline in state %d "
+								"(rebuild in progress) — deferring pause", cur);
+							aamp->mSinkPaused = true;
+							return;
+						}
+					}
+
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 					if (!aamp->IsLocalAAMPTsb())
 					{
