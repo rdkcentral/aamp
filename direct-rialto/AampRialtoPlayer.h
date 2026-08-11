@@ -467,7 +467,7 @@ private:
 
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
 	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
-	bool m_subtitleMuted{false};
+	bool m_subtitleMuted{true};
 
 	/// Cached audio volume (0-100), matching PrivateInstanceAAMP::audio_volume.
 	/// Set by SetAudioVolume() and re-applied via applyAudioVolume() whenever
