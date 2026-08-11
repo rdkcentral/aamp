@@ -567,7 +567,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 						}
 					}
 
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d AvailStartTime %f periodStart %f %s", periodIndex, mAvailabilityStartTime, periodStart,startTimeStr.c_str());
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d Period.id %s AvailStartTime %f periodStart %f %s", periodIndex, mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), mAvailabilityStartTime, periodStart,startTimeStr.c_str());
 				}
 				// As per spec:If the @start attribute is absent, but the previous Period element contains a @duration attribute .The start time of the new Period PeriodStart is the sum of the start time of the previous Period PeriodStart and the value of the attribute @duration of the previous Period
 				else if (periodIndex > 0 && !mMPDInstance->GetPeriods().at(periodIndex-1)->GetDuration().empty())
@@ -591,7 +591,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 						periodStart += mAvailabilityStartTime;
 					}
 
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d periodStart %f", periodIndex, periodStart);
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d Period.id %s periodStart %f", periodIndex, mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), periodStart);
 				}
 			}
 		}
@@ -687,7 +687,7 @@ double AampMPDParseHelper::GetPeriodEndTime(int periodIndex, uint64_t mLastPlayl
 					periodEndTime +=  mAvailabilityStartTime;
 				}
 			}
-			AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d periodEndTime %f", periodIndex, periodEndTime);
+			AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d Period.id %s periodEndTime %f", periodIndex, period->GetId().c_str(), periodEndTime);
 		}
 		else
 		{
@@ -880,14 +880,14 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 					if(mMediaPresentationDuration != 0 )
 					{
 						periodDurationMs = mMediaPresentationDuration;
-						AAMPLOG_MIL("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
+						AAMPLOG_MIL("period duration based on mMediaPresentationDuration Period.id %s =%f", mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), periodDurationMs );
 						return mMediaPresentationDuration;
 					}
 					//Next priority for duration tag
 					else if(!durationStr.empty() )
 					{
 						periodDurationMs = ParseISO8601Duration(durationStr.c_str());
-						AAMPLOG_WARN("period duration based on duration field =%f",periodDurationMs );
+						AAMPLOG_WARN("period duration based on duration field Period.id %s =%f", mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), periodDurationMs );
 						return periodDurationMs;
 					}
 				}
@@ -921,7 +921,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 						periodDurationMs = (liveTime - mAvailabilityStartTime) * 1000;
 					}
 					periodDuration = periodDurationMs / 1000.0;
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
+					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: MPD periodIndex:%d Period.id %s periodDuration %f", periodIndex, mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), periodDuration);
 				}
 				else
 				{
@@ -936,7 +936,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 							periodDurationMs = aamp_GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs);
 						}
 						periodDuration = (periodDurationMs / 1000.0);
-						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [MediaPresentation] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
+						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [MediaPresentation] - MPD periodIndex:%d Period.id %s periodDuration %f", periodIndex, mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), periodDuration);
 					}
 					else
 					{
@@ -955,7 +955,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 							periodDurationMs = nextPeriodStartMs - curPeriodStartMs;
 							periodDuration = (periodDurationMs / 1000.0);
 							if(periodDuration != 0.0f)
-								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [StartTime based] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
+								AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [StartTime based] - MPD periodIndex:%d Period.id %s periodDuration %f", periodIndex, mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), periodDuration);
 						}
 						else
 						{
@@ -970,7 +970,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 								periodDurationMs = aamp_GetPeriodDuration(periodIndex, mLastPlaylistDownloadTimeMs);
 								periodDuration = (periodDurationMs / 1000.0);
 							}
-							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [Segments based] - MPD periodIndex:%d periodDuration %f", periodIndex, periodDuration);
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD: [Segments based] - MPD periodIndex:%d Period.id %s periodDuration %f", periodIndex, mMPDInstance->GetPeriods().at(periodIndex)->GetId().c_str(), periodDuration);
 						}
 					}
 				}
