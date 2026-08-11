@@ -4711,6 +4711,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 			vector<IPeriod *> periods = mpd->GetPeriods();
 			int iter = (int)periods.size() - 1;
 			mCurrentPeriodIdx = 0;
+			bool periodFoundById = false;
 			while(iter > 0)
 			{
 				if(aamp->mPipelineIsClear &&
@@ -4722,9 +4723,87 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 				if(mBasePeriodId == periods.at(iter)->GetId())
 				{
 					mCurrentPeriodIdx = iter;
+					periodFoundById = true;
 					break;
 				}
 				iter--;
+			}
+
+			// Time-based fallback: if period ID not found and we have valid playback position
+			if (!periodFoundById && !mBasePeriodId.empty())
+			{
+				double absolutePlaybackPosition = 0.0;
+
+				// Get absolute position from video track (primary reference)
+				if (mMediaStreamContext[eMEDIATYPE_VIDEO] &&
+					mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
+				{
+					absolutePlaybackPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
+				}
+				// Fallback to audio if video unavailable
+				else if (mMediaStreamContext[eMEDIATYPE_AUDIO] &&
+						 mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled)
+				{
+					absolutePlaybackPosition = mMediaStreamContext[eMEDIATYPE_AUDIO]->fragmentTime;
+				}
+
+				if (absolutePlaybackPosition > 0.0)
+				{
+					AAMPLOG_WARN("Period ID '%s' not found in manifest, using time-based fallback at position %f (rate: %f)",
+								 mBasePeriodId.c_str(), absolutePlaybackPosition, mPlayRate);
+
+					// Search through periods by time range
+					bool periodFound = false;
+					for (int i = 0; i < periods.size(); i++)
+					{
+						double periodStart = mMPDParseHelper->GetPeriodStartTime(i, mLastPlaylistDownloadTimeMs);
+						double periodEnd = mMPDParseHelper->GetPeriodEndTime(i, mLastPlaylistDownloadTimeMs,
+																			 ShouldCheckOnlyIframeAdaptation(),
+																			 aamp->IsUninterruptedTSB());
+
+						if (absolutePlaybackPosition >= periodStart && absolutePlaybackPosition < periodEnd)
+						{
+							mCurrentPeriodIdx = i;
+							mBasePeriodId = periods.at(i)->GetId();
+							periodFound = true;
+							AAMPLOG_INFO("Time-based fallback selected period %d (ID: %s) [%f - %f]",
+										 i, mBasePeriodId.c_str(), periodStart, periodEnd);
+							break;
+						}
+					}
+
+					if (!periodFound)
+					{
+						// Position not in any period - select appropriate boundary period based on playback direction
+						if (mPlayRate < AAMP_RATE_PAUSE)
+						{
+							// Rewind: select first available period
+							mCurrentPeriodIdx = 0;
+							if (periods.size() > 0)
+							{
+								mBasePeriodId = periods.at(0)->GetId();
+								AAMPLOG_WARN("Time-based fallback (rewind): position %f not in any period, selected first period %d (ID: %s)",
+											 absolutePlaybackPosition, mCurrentPeriodIdx, mBasePeriodId.c_str());
+							}
+						}
+						else
+						{
+							// Forward playback: select last available period
+							mCurrentPeriodIdx = periods.size() - 1;
+							if (mCurrentPeriodIdx >= 0)
+							{
+								mBasePeriodId = periods.at(mCurrentPeriodIdx)->GetId();
+								AAMPLOG_WARN("Time-based fallback (forward): position %f not in any period, selected last period %d (ID: %s)",
+											 absolutePlaybackPosition, mCurrentPeriodIdx, mBasePeriodId.c_str());
+							}
+						}
+					}
+				}
+				else
+				{
+					AAMPLOG_WARN("Period ID '%s' not found and no valid playback position available, defaulting to first period",
+								 mBasePeriodId.c_str());
+				}
 			}
 		}
 		else
@@ -4741,6 +4820,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 		deltaInPeriodIndex -= mCurrentPeriodIdx;
 		//Adjusting currently iterating period index based on delta
 		mIterPeriodIndex -= deltaInPeriodIndex;
+
+		// Detect period switch for init fragment queueing
+		bool periodSwitchedInRefresh = (deltaInPeriodIndex != 0);
+
 		if(AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState)
 		{
 			mCurrentPeriod = mpd->GetPeriods().at(mCurrentPeriodIdx);
@@ -4768,6 +4851,19 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 					for (int i = 0; i < mNumberOfTracks; i++)
 					{
 						mMediaStreamContext[i]->freshManifest = true;
+					}
+
+					// Handle period switch: re-run StreamSelection and queue init fragments
+					if (periodSwitchedInRefresh)
+					{
+						AAMPLOG_INFO("Period switched during manifest refresh (deltaInPeriodIndex: %d), re-running StreamSelection",
+									 deltaInPeriodIndex);
+						StreamSelection(false, false);
+
+						// Queue init fragments for the new period
+						AAMPLOG_INFO("Queueing init fragments for period switch to period %d (ID: %s)",
+									 mCurrentPeriodIdx, mBasePeriodId.c_str());
+						FetchAndInjectInitFragments(false);
 					}
 				}
 				// To store period duration in local reference to avoid duplicate mpd parsing to reduce processing delay
