@@ -584,10 +584,11 @@ void AampRialtoPlayer::Configure(
 			AAMPLOG_INFO("Created pipeline %p", m_pipeline.get());
 
 			// TODO: How do we determine value for isLive
+			std::string utf8url = "mse://1";
 			if (!m_pipeline->load(
 					firebolt::rialto::MediaType::MSE,
 					"",
-					/*url=*/"",
+					/*url=*/utf8url,
 					/*isLive*/false))
 			{
 				AAMPLOG_ERR("load() failed - Rialto will reject attachSource calls");
