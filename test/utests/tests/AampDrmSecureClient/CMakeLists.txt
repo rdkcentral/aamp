@@ -49,7 +49,7 @@ if(SEC_CLIENT_HEADERS)
 					 ${DRM_ROOT}/mocks/FakeABRManager.cpp
 					 ${DRM_ROOT}/mocks/FakeAampStreamSinkManager.cpp
 					 ${DRM_ROOT}/mocks/curlMocks.c
-					 ${AAMP_ROOT}/middleware/test/utests/drm/mocks/gstMocks.c
+					 ${MIDDLEWARE_REPO_ABS_PATH}/test/utests/drm/mocks/gstMocks.c
 					 ${DRM_ROOT}/mocks/pthreadMocks.c
 					 ${DRM_ROOT}/mocks/openSslMocks.c
 					 ${DRM_ROOT}/mocks/Fakeopencdm.cpp
@@ -66,7 +66,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
 					 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
 					 ${AAMP_ROOT}/AampUtils.cpp
 					 ${AAMP_ROOT}/iso639map.cpp
-					 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
+					 ${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmUtils.cpp
 					 ${AAMP_ROOT}/drm/aampoutputprotection.cpp
 					 ${AAMP_ROOT}/isobmff/isobmffbox.cpp
 					 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)

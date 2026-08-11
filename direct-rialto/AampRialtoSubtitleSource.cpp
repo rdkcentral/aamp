@@ -24,7 +24,6 @@
 
 #include "AampRialtoSubtitleSource.h"
 #include "AampLogManager.h"
-#include "middleware/GstUtils.h"
 #include <cinttypes>
 #include <cmath>
 #include <cstdio>
