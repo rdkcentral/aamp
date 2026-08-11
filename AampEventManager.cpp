@@ -419,7 +419,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		SAFE_DELETE(pCurrent);
 	}
 #ifdef EVENT_DEBUGGING
-	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));
+	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%lld]",eventType, (NOW_STEADY_TS_MS - startTime));
 #endif
 
 }
