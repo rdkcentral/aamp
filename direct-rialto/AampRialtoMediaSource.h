@@ -111,6 +111,12 @@ public:
 		/// Running sum of durations (seconds) of segments added in the
 		/// current batch.
 		double   batchDurationSecSum{0.0};
+		/// Running sum of raw media payload bytes (AampMediaSample::mDataSize)
+		/// of segments added in the current batch.
+		size_t   batchMediaBytesSum{0};
+		/// Running sum of DRM metadata bytes (key id + IV + subsample table)
+		/// attached to segments added in the current batch.
+		size_t   batchMetadataBytesSum{0};
 		/// Set once signalEos() has been called.  Causes the next batch
 		/// completion (or an idle needData) to fire haveData(EOS) instead
 		/// of haveData(OK).
@@ -187,6 +193,8 @@ public:
 		bool   hasFirstPts{false};  ///< True once at least one segment was added.
 		double firstPtsSec{0.0};    ///< PTS (seconds) of the first segment added.
 		double durationSecSum{0.0}; ///< Sum of durations (seconds) added.
+		size_t mediaBytes{0};       ///< Sum of media payload bytes added.
+		size_t metadataBytes{0};    ///< Sum of DRM metadata bytes added.
 	};
 
 	// -----------------------------------------------------------------
@@ -606,7 +614,9 @@ private:
 		uint32_t reqId,
 		bool morePending,
 		double samplePts,
-		double sampleDurationSec);
+		double sampleDurationSec,
+		size_t sampleMediaBytes,
+		size_t sampleMetadataBytes);
 
 	// -----------------------------------------------------------------
 	// Pending-request handshake helpers

@@ -48,6 +48,20 @@ firebolt::rialto::CipherMode cipherTypeToRialto(CipherType cipher)
 	}
 }
 
+/// Bytes of DRM metadata (key id + IV + subsample table) a sample
+/// contributes to its segment, for batch byte-accounting/logging only.
+/// Mirrors the encrypted-segment condition used by annotateEncryption().
+size_t drmMetadataBytes(const AampMediaSample &sample, int32_t mksId)
+{
+	if (!sample.mDrmMetadata.mIsEncrypted || mksId < 0)
+	{
+		return 0;
+	}
+	return sample.mDrmMetadata.mKeyId.size() +
+	       sample.mDrmMetadata.mIV.size() +
+	       sample.mDrmMetadata.mSubSamples.size();
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -66,11 +80,13 @@ void AampRialtoMediaSource::reset()
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		++m_state.generation;
 		m_state.hasPending          = false;
-		m_state.segmentsAddedInBatch = 0;
-		m_state.batchHasFirstPts    = false;
-		m_state.batchFirstPtsSec    = 0.0;
-		m_state.batchDurationSecSum = 0.0;
-		m_state.eos                 = false;
+		m_state.segmentsAddedInBatch  = 0;
+		m_state.batchHasFirstPts      = false;
+		m_state.batchFirstPtsSec      = 0.0;
+		m_state.batchDurationSecSum   = 0.0;
+		m_state.batchMediaBytesSum    = 0;
+		m_state.batchMetadataBytesSum = 0;
+		m_state.eos                   = false;
 		// gateMode is intentionally left untouched here.  reset() runs
 		// mid-Configure(), which can be followed by a second Flush() (e.g.
 		// trickplay's Flush(pos=0) -> Configure() -> Flush(correctPos) ->
@@ -195,10 +211,14 @@ AampRialtoMediaSource::BatchSummary AampRialtoMediaSource::snapshotAndClearBatch
 	summary.hasFirstPts    = m_state.batchHasFirstPts;
 	summary.firstPtsSec    = m_state.batchFirstPtsSec;
 	summary.durationSecSum = m_state.batchDurationSecSum;
-	m_state.segmentsAddedInBatch = 0;
-	m_state.batchHasFirstPts     = false;
-	m_state.batchFirstPtsSec     = 0.0;
-	m_state.batchDurationSecSum  = 0.0;
+	summary.mediaBytes     = m_state.batchMediaBytesSum;
+	summary.metadataBytes  = m_state.batchMetadataBytesSum;
+	m_state.segmentsAddedInBatch  = 0;
+	m_state.batchHasFirstPts      = false;
+	m_state.batchFirstPtsSec      = 0.0;
+	m_state.batchDurationSecSum   = 0.0;
+	m_state.batchMediaBytesSum    = 0;
+	m_state.batchMetadataBytesSum = 0;
 	return summary;
 }
 
@@ -255,17 +275,20 @@ bool AampRialtoMediaSource::sendHaveData(
 	if (batch.hasFirstPts)
 	{
 		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
-			"frameCount=%zu firstPtsSec=%.3f durationSecSum=%.3f",
+			"frameCount=%zu firstPtsSec=%.3f durationSecSum=%.3f "
+			"mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
 			static_cast<int>(status), requestId,
-			batch.frameCount, batch.firstPtsSec, batch.durationSecSum);
+			batch.frameCount, batch.firstPtsSec, batch.durationSecSum,
+			batch.mediaBytes, batch.metadataBytes);
 	}
 	else
 	{
 		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
-			"frameCount=%zu",
+			"frameCount=%zu mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
-			static_cast<int>(status), requestId, batch.frameCount);
+			static_cast<int>(status), requestId, batch.frameCount,
+			batch.mediaBytes, batch.metadataBytes);
 	}
 	return pipeline.haveData(status, requestId);
 }
@@ -626,7 +649,8 @@ bool AampRialtoMediaSource::injectOneSample(
 				{
 					handleAddSegmentCompletion(pipeline, addStatus,
 						capturedGen, reqId, morePending, sample.mPts,
-						sample.mDuration);
+						sample.mDuration, sample.mDataSize,
+						drmMetadataBytes(sample, m_mksId));
 					injected = true;
 					done     = true;
 				}
@@ -764,7 +788,9 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 	uint32_t reqId,
 	bool morePending,
 	double samplePts,
-	double sampleDurationSec)
+	double sampleDurationSec,
+	size_t sampleMediaBytes,
+	size_t sampleMetadataBytes)
 {
 	if (addStatus == firebolt::rialto::AddSegmentStatus::OK)
 	{
@@ -795,6 +821,8 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 		    m_state.pendingRequestId == reqId)
 		{
 			++m_state.segmentsAddedInBatch;
+			m_state.batchMediaBytesSum    += sampleMediaBytes;
+			m_state.batchMetadataBytesSum += sampleMetadataBytes;
 			if (!m_state.batchHasFirstPts)
 			{
 				m_state.batchHasFirstPts = true;
