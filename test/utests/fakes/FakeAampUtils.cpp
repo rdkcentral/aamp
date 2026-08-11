@@ -202,9 +202,38 @@ std::size_t GetPrintableThreadID()
 	return 0;
 }
 
+static const FormatMap mFakeAudioFormatMap[] =
+{
+	{ "mp4a.40.2", FORMAT_AUDIO_ES_AAC },
+	{ "mp4a.40.5", FORMAT_AUDIO_ES_AAC },
+	{ "ac-3", FORMAT_AUDIO_ES_AC3 },
+	{ "mp4a.a5", FORMAT_AUDIO_ES_AC3 },
+	{ "ac-4.02.01.01", FORMAT_AUDIO_ES_AC4 },
+	{ "ac-4.02.01.02", FORMAT_AUDIO_ES_AC4 },
+	{ "ec-3", FORMAT_AUDIO_ES_EC3 },
+	{ "ec+3", FORMAT_AUDIO_ES_ATMOS },
+	{ "eac3", FORMAT_AUDIO_ES_EC3 }
+};
+
+static const FormatMap mFakeVideoFormatMap[] =
+{
+	{ "avc1.", FORMAT_VIDEO_ES_H264 },
+	{ "hvc1.", FORMAT_VIDEO_ES_HEVC },
+	{ "hev1.", FORMAT_VIDEO_ES_HEVC },
+	{ "mpeg2v", FORMAT_VIDEO_ES_MPEG2 }
+};
+
 const FormatMap * GetAudioFormatForCodec( const char *codecs )
 {
-    return NULL;
+	if (codecs)
+	{
+		for (const auto &entry : mFakeAudioFormatMap)
+		{
+			if (strstr(codecs, entry.codec))
+				return &entry;
+		}
+	}
+	return NULL;
 }
 
 /**
@@ -343,7 +372,15 @@ std::string Getiso639map_NormalizeLanguageCode(std::string lang, LangCodePrefere
 
 const FormatMap * GetVideoFormatForCodec( const char *codecs )
 {
-    return NULL;
+	if (codecs)
+	{
+		for (const auto &entry : mFakeVideoFormatMap)
+		{
+			if (strstr(codecs, entry.codec))
+				return &entry;
+		}
+	}
+	return NULL;
 }
 
 bool aamp_IsAbsoluteURL( const std::string &url )

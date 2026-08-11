@@ -11666,13 +11666,38 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
 	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 	{
-		// Mp4Demuxer will set the format later once the init fragment is parsed
-		// format is only used for video and audio formats. Subtitle should be unaffected
+		// Default caps set here from manifest codec info; mp4demux updates with detailed caps after parsing init fragment
 		format = FORMAT_UNKNOWN;
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
-		primaryOutputFormat = format;
+		if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+		{
+			StreamOutputFormat videoFormat = FORMAT_UNKNOWN;
+			auto *videoCtx = mMediaStreamContext[eMEDIATYPE_VIDEO];
+			std::string codecStr;
+			if (videoCtx->representation)
+			{
+				const auto &codecs = videoCtx->representation->GetCodecs();
+				if (!codecs.empty()) codecStr = codecs.at(0);
+			}
+			if (codecStr.empty() && videoCtx->adaptationSet)
+			{
+				const auto &codecs = videoCtx->adaptationSet->GetCodecs();
+				if (!codecs.empty()) codecStr = codecs.at(0);
+			}
+			if (!codecStr.empty())
+			{
+				const FormatMap *map = GetVideoFormatForCodec(codecStr.c_str());
+				if (map) videoFormat = map->format;
+			}
+			AAMPLOG_INFO("GetStreamFormat(Mp4Demux) video codec=[%s] format=%d", codecStr.c_str(), videoFormat);
+			primaryOutputFormat = videoFormat;
+		}
+		else
+		{
+			primaryOutputFormat = format;
+		}
 	}
 	else
 	{
@@ -11680,7 +11705,33 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 	if(mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled )
 	{
-		audioOutputFormat = format;
+		if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+		{
+			StreamOutputFormat audioFormat = FORMAT_UNKNOWN;
+			auto *audioCtx = mMediaStreamContext[eMEDIATYPE_AUDIO];
+			std::string codecStr;
+			if (audioCtx->representation)
+			{
+				const auto &codecs = audioCtx->representation->GetCodecs();
+				if (!codecs.empty()) codecStr = codecs.at(0);
+			}
+			if (codecStr.empty() && audioCtx->adaptationSet)
+			{
+				const auto &codecs = audioCtx->adaptationSet->GetCodecs();
+				if (!codecs.empty()) codecStr = codecs.at(0);
+			}
+			if (!codecStr.empty())
+			{
+				const FormatMap *map = GetAudioFormatForCodec(codecStr.c_str());
+				if (map) audioFormat = map->format;
+			}
+			AAMPLOG_INFO("GetStreamFormat(Mp4Demux) audio codec=[%s] format=%d", codecStr.c_str(), audioFormat);
+			audioOutputFormat = audioFormat;
+		}
+		else
+		{
+			audioOutputFormat = format;
+		}
 	}
 	else
 	{

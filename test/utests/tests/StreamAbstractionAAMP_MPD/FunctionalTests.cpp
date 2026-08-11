@@ -2077,6 +2077,126 @@ TEST_F(FunctionalTests_1, GetStreamFormatTest)
 	EXPECT_EQ(FORMAT_INVALID, subtitleFormat);
 }
 
+/**
+ * @brief GetStreamFormat with UseMp4Demux: codec string in manifest maps to specific format early.
+ *
+ * Video: avc1.640028 -> FORMAT_VIDEO_ES_H264
+ * Audio: mp4a.40.2  -> FORMAT_AUDIO_ES_AAC
+ */
+TEST_F(FunctionalTests, GetStreamFormat_Mp4Demux_CodecFromManifest)
+{
+	std::string fragmentUrl;
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+	<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="vp09.00.10.08" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="vp9/video_init.mp4" media="vp9/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="12800" initialization="h264/video_init.mp4" media="h264/video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="opus" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="opus/audio_init.mp4" media="opus/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="4" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="aac/audio_init.mp4" media="aac/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	AAMPStatusType status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	StreamOutputFormat primaryFormat = FORMAT_INVALID;
+	StreamOutputFormat audioFormat = FORMAT_INVALID;
+	StreamOutputFormat subtitleFormat = FORMAT_INVALID;
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, subtitleFormat);
+
+	EXPECT_EQ(FORMAT_VIDEO_ES_H264, primaryFormat);
+	EXPECT_EQ(FORMAT_AUDIO_ES_AAC, audioFormat);
+	EXPECT_EQ(FORMAT_INVALID, subtitleFormat);
+}
+
+/**
+ * @brief GetStreamFormat with UseMp4Demux: unknown codec string falls back to FORMAT_UNKNOWN.
+ */
+TEST_F(FunctionalTests, GetStreamFormat_Mp4Demux_UnknownCodecFallback)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H1M0.00S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+	<Period duration="PT1M0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="vp09.00.10.08" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S d="5000" r="29" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio">
+			<Representation id="1" mimeType="audio/mp4" codecs="opus" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="audio_init.mp4" media="audio_$Number$.m4s" startNumber="1">
+					<SegmentTimeline><S d="96000" r="29" /></SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	mBoolConfigSettings[eAAMPConfig_UseMp4Demux] = true;
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	AAMPStatusType status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	StreamOutputFormat primaryFormat = FORMAT_INVALID;
+	StreamOutputFormat audioFormat = FORMAT_INVALID;
+	StreamOutputFormat subtitleFormat = FORMAT_INVALID;
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryFormat, audioFormat, subtitleFormat);
+
+	EXPECT_EQ(FORMAT_UNKNOWN, primaryFormat);
+	EXPECT_EQ(FORMAT_UNKNOWN, audioFormat);
+}
+
 TEST_F(FunctionalTests_1, GetVideoBitratesTest)
 {
 	// Call the GetVideoBitrates function
