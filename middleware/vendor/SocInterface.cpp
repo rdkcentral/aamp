@@ -162,7 +162,7 @@ static std::shared_ptr<SocInterface> CreateForPlatform(SocPlatformType platformT
 		case SOC_PLATFORM_BROADCOM:
 			MW_LOG_MIL("Setting up SoC Interface for BROADCOM");
 			return std::make_shared<BrcmSocInterface>();
-
+		case SOC_PLATFORM_REALTEK:
 			MW_LOG_MIL("Setting up SoC Interface for REALTEK");
 			return std::make_shared<RealtekSocInterface>();
 		default:
