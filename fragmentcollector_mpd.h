@@ -997,13 +997,7 @@ protected:
 	 * @param media media information string
 	 */
 	void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media);
-	/**
-	 * @fn CalculateProducerReferenceTimeOffset
-	 * @brief Computes the encoder delay in milliseconds using
-	 *        ProducerReferenceTime (PRT) data from the current period's
-	 *        video AdaptationSet.
-	 */
-	double CalculateProducerReferenceTimeOffset();
+	double GetEncoderDisplayLatency();
 	/**
 	 * @fn StartLatencyMonitorThread
 	 * @return void

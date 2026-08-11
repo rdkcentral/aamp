@@ -114,7 +114,6 @@ protected:
 				{eAAMPConfig_LocalTSBEnabled, false},
 				{eAAMPConfig_EnableIFrameTrackExtract, false},
 				{eAAMPConfig_useRialtoSink, false},
-				{eAAMPConfig_EnableProducerReferenceDelay, true},
 		};
 
 		BoolConfigSettings mBoolConfigSettings;
