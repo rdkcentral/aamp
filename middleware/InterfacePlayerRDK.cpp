@@ -1558,7 +1558,7 @@ bool InterfacePlayerRDK::IsUsingRialtoSink()
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
-bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek)
+bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek, bool keepPausedSeek)
 {
 	GstState aud_current;
 	GstState aud_pending;
@@ -1612,6 +1612,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	GstStateChangeReturn ret;
 	ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 100 * GST_MSECOND);
+	
+	if (GST_STATE_CHANGE_ASYNC == ret && keepPausedSeek)
+	{
+		MW_LOG_WARN("InterfacePlayerRDK: Flush requested during in-flight state change (current=%s pending=%s) - waiting to settle",
+			gst_element_state_get_name(current), gst_element_state_get_name(pending));
+		ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 300 * GST_MSECOND);
+	}
+	
 	if ((current != GST_STATE_PLAYING && current != GST_STATE_PAUSED) || ret == GST_STATE_CHANGE_FAILURE)
 	{
 		MW_LOG_WARN("InterfacePlayerRDK: Pipeline state %s, ret %u", gst_element_state_get_name(current), ret);

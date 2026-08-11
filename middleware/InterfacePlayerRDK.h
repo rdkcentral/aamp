@@ -707,11 +707,9 @@ class InterfacePlayerRDK
         	 * @param[in] position The position to flush to, in seconds.
         	 * @param[in] rate The playback rate.
         	 * @param[in] shouldTearDown Whether to tear down the pipeline.
-        	 * @param[in] GstState The desired GStreamer pipeline state.
-        	 * @param[in] gstMediaFormat The media format for the pipeline.
-        	 */
-        	bool Flush(double position, int rate, bool shouldTearDown, bool isAppSeek);
-        	/**
+        	 * @param[in] isAppSeek Indicates if the flush is triggered by an application seek.
+			 * @param[in] keepPausedSeek true only for an explicit seek-with-keepPaused request        	 */
+        	bool Flush(double position, int rate, bool shouldTearDown, bool isAppSeek, bool keepPausedSeek);        	/**
         	 * @fn TimerAdd
         	 * @param[in] funcPtr function to execute on timer expiry
         	 * @param[in] repeatTimeout timeout between calls in ms
