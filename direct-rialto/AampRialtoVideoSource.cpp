@@ -76,7 +76,7 @@ AampRialtoVideoSource::createRialtoSource(
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSourceVideo>(
 		mimeType,
-		hasDrm,
+		true,
 		static_cast<int32_t>(codecInfo.mInfo.video.mWidth),
 		static_cast<int32_t>(codecInfo.mInfo.video.mHeight),
 		firebolt::rialto::SegmentAlignment::AU,
