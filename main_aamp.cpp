@@ -970,6 +970,27 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				{
 					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 	
+					// RDKEMW-21923: If pipeline is NULL/READY (mid-rebuild from a prior
+					// TuneHelper), do NOT attempt resume — it will fail and wedge.
+					// Instead, clear mSinkPaused and let TuneHelper's rebuild naturally
+					// transition to PLAYING.
+					StreamSink *sinkGuard = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);	
+					if (sinkGuard)
+					{
+						GstState guardCur = GST_STATE_VOID_PENDING;
+						GstState guardPend = GST_STATE_VOID_PENDING;
+						sinkGuard->GetPipelineState(&guardCur, &guardPend);
+
+						if (guardCur == GST_STATE_NULL || guardCur == GST_STATE_VOID_PENDING || guardCur == GST_STATE_READY)
+						{
+							AAMPLOG_WARN("SetRateInternal: resume requested but pipeline in state %d "
+								"(rebuild in progress) — deferring, TuneHelper will resume", guardCur);
+							aamp->mSinkPaused = false;
+							aamp->ResumeDownloads();
+							return;
+						}
+					}
+
 					if (aamp->IsPipelineWedged())
 					{
 						AAMPLOG_WARN("SetRateInternal: pipeline wedged, recovering via re-seek instead of resume");
@@ -1103,6 +1124,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				if (!aamp->mSinkPaused.load())
 				{
+					
 					// RDKEMW-21923: Guard against pausing a pipeline that is mid-rebuild.
 					// Calling sink->Pause() on a NULL/READY pipeline triggers a PAUSED->PAUSED
 					// wedge once the rebuild completes. Defer: mark paused and return.

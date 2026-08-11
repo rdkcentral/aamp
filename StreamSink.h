@@ -149,9 +149,11 @@ public:
      * @return GstStateChangeReturn from gst_element_get_state (default: SUCCESS/no-op)
      */
     virtual GstStateChangeReturn GetPipelineState(GstState *currentState, GstState *pendingState) {
-	if (currentState) *currentState = GST_STATE_VOID_PENDING;
+    // Default: assume pipeline is healthy (PLAYING). Concrete overrides query real state.
+	if (currentState) *currentState = GST_STATE_PLAYING;
 	if (pendingState) *pendingState = GST_STATE_VOID_PENDING;
-	return GST_STATE_CHANGE_SUCCESS; }
+	return GST_STATE_CHANGE_SUCCESS; 
+}
     /**
      *   @brief Flush the audio playbin
      *   @param[in]  position - playback position
