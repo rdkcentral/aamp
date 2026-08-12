@@ -169,7 +169,7 @@ static std::shared_ptr<SocInterface> CreateForPlatform(SocPlatformType platformT
 			MW_LOG_MIL("Setting up SoC Interface for Default");
 			return std::make_shared<DefaultSocInterface>();
 	}
-
+}
 
 /**
  * @brief Loads the instance with rialto mode or not

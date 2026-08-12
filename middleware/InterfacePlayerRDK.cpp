@@ -297,7 +297,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	if(!(m_gstConfigParam->useWesterosSink))
 	{
 		interfacePlayerPriv->gstPrivateContext->using_westerossink = false;
-		interfacePlayerPriv->gstPrivateContext->firstTuneWithWesterosSinkOff = interfacePlayerPriv->socInterface->IsFirstTuneWithWesteros();
+		interfacePlayerPriv->gstPrivateContext->firstTuneWithWesterosSinkOff = interfacePlayerPriv->GetSocInterface()->IsFirstTuneWithWesteros();
 	}
 
 	else
