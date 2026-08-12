@@ -10221,7 +10221,9 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
  *
  * @return void
  */
-void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChanged, uint64_t nextSegmentTime)
+void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChanged,
+	uint64_t nextSegmentTime, uint32_t nextSegmentTimeScale,
+	const std::string &nextSegmentPeriodId)
 {
 	bool discontinuity = false;
 
@@ -10250,6 +10252,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				// Trying to maintain parity with GetFirstSegmentStartTime() logic, and get video start time
 				uint64_t segmentStartTime = 0;
 				bool usingPTO = false;
+				uint32_t periodTimeScale = segmentTemplates.GetTimescale();
 				const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
 				if (segmentTimeline)
 				{
@@ -10268,6 +10271,44 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					usingPTO = true;
 				}
 
+				double nextSegSecondsFromCapturedScale = -1.0;
+				double nextSegSecondsFromCurrentScale = -1.0;
+				double firstSegSeconds = -1.0;
+				double tickRatio = 0.0;
+				if (nextSegmentTimeScale > 0)
+				{
+					nextSegSecondsFromCapturedScale =
+						((double) nextSegmentTime / (double) nextSegmentTimeScale);
+				}
+				if (periodTimeScale > 0)
+				{
+					nextSegSecondsFromCurrentScale =
+						((double) nextSegmentTime / (double) periodTimeScale);
+					firstSegSeconds =
+						((double) segmentStartTime / (double) periodTimeScale);
+				}
+				if (segmentStartTime > 0)
+				{
+					tickRatio = ((double) nextSegmentTime / (double) segmentStartTime);
+				}
+
+				AAMPLOG_WARN("[PTS-DIAG] periodChanged=%d prevPeriodId='%s' currPeriodId='%s' prevPeriodIdx=%d currPeriodIdx=%d nextSegmentTime=%" PRIu64 " nextScale=%u nextSec(prevScale)=%.6f nextSec(currScale)=%.6f firstSegmentStart=%" PRIu64 " firstScale=%u firstSec=%.6f ratioTicks=%.6f playRate=%.3f adState=%d",
+					periodChanged,
+					nextSegmentPeriodId.c_str(),
+					mCurrentPeriod ? mCurrentPeriod->GetId().c_str() : "unknown",
+					mIterPeriodIndex,
+					mCurrentPeriodIdx,
+					nextSegmentTime,
+					nextSegmentTimeScale,
+					nextSegSecondsFromCapturedScale,
+					nextSegSecondsFromCurrentScale,
+					segmentStartTime,
+					periodTimeScale,
+					firstSegSeconds,
+					tickRatio,
+					mPlayRate,
+					(int)mCdaiObject->mAdState);
+
 				/* Process the discontinuity,
 				* 1. If the next segment time is not matching with the next period segment start time.
 				* 2. To reconfigure the pipeline, if there is a change in the Audio Codec even if there is no change in segment start time in multi period content.
@@ -10277,9 +10318,9 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					discontinuity = true;
 					// mFirstPTS should not be updated if we are coming out of partial ad playback mSeekedInPeriod = true
-					if (segmentTemplates.GetTimescale() != 0 && !mSeekedInPeriod)
+					if (periodTimeScale != 0 && !mSeekedInPeriod)
 					{
-						mFirstPTS = (double)segmentStartTime / (double)segmentTemplates.GetTimescale();
+						mFirstPTS = (double)segmentStartTime / (double)periodTimeScale;
 						mIsFinalFirstPTS = true;
 					}
 					else
@@ -10297,7 +10338,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					discontinuity = true;
 					if (usingPTO)
 					{
-						mFirstPTS = (double)segmentStartTime / (double)segmentTemplates.GetTimescale();
+						mFirstPTS = (double)segmentStartTime / (double)periodTimeScale;
 						mIsFinalFirstPTS = true;
 					}
 					if (!mIsFogTSB)
@@ -10570,7 +10611,22 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 			}
 
-			uint64_t nextSegmentTime = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time;
+			uint64_t nextSegmentTime =
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time;
+			uint32_t nextSegmentTimeScale =
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
+			std::string nextSegmentPeriodId = currentPeriodId;
+
+			if (periodChanged)
+			{
+				AAMPLOG_WARN("[PTS-DIAG] capture-before-period-switch periodId='%s' periodIdx=%d nextSegmentTime=%" PRIu64 " nextScale=%u playRate=%.3f adState=%d",
+					nextSegmentPeriodId.c_str(),
+					mCurrentPeriodIdx,
+					nextSegmentTime,
+					nextSegmentTimeScale,
+					mPlayRate,
+					(int)mCdaiObject->mAdState);
+			}
 			/*
 			 * Index selected period from ad or source content
 			 */
@@ -10586,7 +10642,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
 				UpdatePtsOffset(periodChanged);
 				// Indexing success case
-				DetectDiscontinuityAndFetchInit(periodChanged, nextSegmentTime);
+				DetectDiscontinuityAndFetchInit(periodChanged, nextSegmentTime,
+					nextSegmentTimeScale, nextSegmentPeriodId);
 				if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState)
 				{
 					if (mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed)
