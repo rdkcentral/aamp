@@ -33,6 +33,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <iomanip>
+#include <sstream>
 #include <thread>
 #include <vector>
 #include <string>
@@ -46,18 +48,20 @@
 /**
  * @brief Build a minimal FDRLogEntry with the given message.
  * @param msg Message text for the entry.
- * @param tsUs Timestamp in microseconds (defaults to current wall time).
+ * @param tsMs Timestamp in milliseconds (defaults to current wall time).
  * @return Populated FDRLogEntry.
  */
 static FDRLogEntry MakeEntry(const std::string& msg,
-                              uint64_t tsUs = AampFlightDataRecorder::GetCurrentTimeMicroseconds())
+                              uint64_t tsMs = AampFlightDataRecorder::GetCurrentTimeMilliseconds(),
+                              int logLevel = eLOGLEVEL_INFO)
 {
     FDRLogEntry e;
-    e.timestamp_us = tsUs;
-    e.log_level    = 2; // INFO
+    e.timestamp_ms = tsMs;
+    e.log_level    = logLevel;
     e.thread_id    = std::this_thread::get_id();
     e.seq_num      = 0;
     e.player_id    = 0;
+    e.file         = "/tmp/TestFile.cpp";
     e.func         = "TestFunc";
     e.line         = 0;
     e.source       = "TEST";
@@ -90,13 +94,8 @@ static bool WaitFor(Pred pred, std::chrono::milliseconds timeout = std::chrono::
 /**
  * @brief Fixture for AampFlightDataRecorder tests.
  *
- * Because AampFlightDataRecorder is a singleton, each test that requires a
- * fresh state must flush and re-enable the recorder.  Tests that need a
- * specific buffer size create a local instance via the protected reset helper.
- *
- * IMPORTANT: The singleton's Initialize() is a one-shot guard; after the first
- * call it returns without effect.  Tests that need different sizes work with
- * a small default (kDefaultCapacity) set in SetUpTestSuite().
+ * Because AampFlightDataRecorder is a singleton, each test restores the
+ * default capacity and retention window before running.
  */
 class AampFlightDataRecorderTest : public ::testing::Test
 {
@@ -114,7 +113,7 @@ protected:
     void SetUp() override
     {
         auto& fdr = AampFlightDataRecorder::GetInstance();
-        fdr.SetEnabled(true);
+        fdr.Initialize(true, kDefaultCapacity, kDefaultWindowSec);
         fdr.Flush();
     }
 
@@ -156,9 +155,7 @@ TEST_F(AampFlightDataRecorderTest, SetEnabled_TogglesEnabledFlag)
  * @test AampFlightDataRecorder_AddEntry_WhenDisabled_DoesNotStore
  * @brief AddEntry while disabled is a no-op; Dump produces no entries.
  *
- * Observable outcome: Dump() with an empty recorder prints its header/footer
- * but returns without crashing.  We verify by calling Dump directly (stdout
- * goes to the test runner) and asserting no ASSERTs fire.
+ * Observable outcome: Dump() with an empty recorder returns without output or failure.
  */
 TEST_F(AampFlightDataRecorderTest, AddEntry_WhenDisabled_DoesNotStore)
 {
@@ -361,7 +358,7 @@ TEST_F(AampFlightDataRecorderTest, Dump_FullBuffer_DoesNotCrash)
 /**
  * @test AampFlightDataRecorder_Dump_ConcurrentWithWriters_DoesNotCrash
  * @brief Dump() triggered while writers are still active must not crash.
- *        The mDumping flag prevents writers from racing with the dump reader.
+ *        The recorder mutex prevents writers from racing with the dump reader.
  */
 TEST_F(AampFlightDataRecorderTest, Dump_ConcurrentWithWriters_DoesNotCrash)
 {
@@ -402,8 +399,8 @@ TEST_F(AampFlightDataRecorderTest, Dump_ConcurrentWithWriters_DoesNotCrash)
  */
 TEST_F(AampFlightDataRecorderTest, EvictOldEntries_OldTimestampsRemoved)
 {
-    uint64_t now   = AampFlightDataRecorder::GetCurrentTimeMicroseconds();
-    uint64_t stale = (now > 120ULL * 1000000ULL) ? (now - 120ULL * 1000000ULL) : 0ULL;
+    uint64_t now   = AampFlightDataRecorder::GetCurrentTimeMilliseconds();
+    uint64_t stale = (now > 120ULL * 1000ULL) ? (now - 120ULL * 1000ULL) : 0ULL;
 
     // Insert a stale entry directly (timestamp 2 minutes in the past)
     fdr().AddEntry(MakeEntry("stale-entry", stale));
@@ -416,12 +413,95 @@ TEST_F(AampFlightDataRecorderTest, EvictOldEntries_OldTimestampsRemoved)
 }
 
 /**
- * @test AampFlightDataRecorder_GetCurrentTimeMicroseconds_ReturnsMonotonic
- * @brief Two successive calls return non-decreasing values.
+ * @test AampFlightDataRecorder_GetCurrentTimeMilliseconds_ReturnsUtcEpoch
+ * @brief The returned UTC epoch value is expressed in milliseconds.
  */
-TEST_F(AampFlightDataRecorderTest, GetCurrentTimeMicroseconds_ReturnsMonotonic)
+TEST_F(AampFlightDataRecorderTest, GetCurrentTimeMilliseconds_ReturnsUtcEpoch)
 {
-    uint64_t t1 = AampFlightDataRecorder::GetCurrentTimeMicroseconds();
-    uint64_t t2 = AampFlightDataRecorder::GetCurrentTimeMicroseconds();
-    EXPECT_GE(t2, t1);
+    uint64_t timestampMs = AampFlightDataRecorder::GetCurrentTimeMilliseconds();
+    EXPECT_GT(timestampMs, 1577836800000ULL);
+}
+
+TEST_F(AampFlightDataRecorderTest, CapacityEviction_EmitsWarnButNotInfo)
+{
+    fdr().Initialize(true, 3, kDefaultWindowSec);
+    fdr().AddEntry(MakeEntry("warn-eldest", AampFlightDataRecorder::GetCurrentTimeMilliseconds(), eLOGLEVEL_WARN));
+    fdr().AddEntry(MakeEntry("info-middle"));
+    fdr().AddEntry(MakeEntry("mil-newest", AampFlightDataRecorder::GetCurrentTimeMilliseconds(), eLOGLEVEL_MIL));
+
+    testing::internal::CaptureStdout();
+    fdr().AddEntry(MakeEntry("overflow"));
+    std::string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_THAT(output, testing::HasSubstr("warn-eldest"));
+    EXPECT_THAT(output, testing::Not(testing::HasSubstr("info-middle")));
+    EXPECT_THAT(output, testing::Not(testing::HasSubstr("FLIGHT DATA RECORDER DUMP")));
+}
+
+TEST_F(AampFlightDataRecorderTest, AgeEviction_EmitsMilestone)
+{
+    uint64_t now = AampFlightDataRecorder::GetCurrentTimeMilliseconds();
+    testing::internal::CaptureStdout();
+    fdr().AddEntry(MakeEntry("aged-mil", now - 120000, eLOGLEVEL_MIL));
+    fdr().AddEntry(MakeEntry("fresh-info", now));
+    std::string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_THAT(output, testing::HasSubstr("aged-mil"));
+    EXPECT_THAT(output, testing::Not(testing::HasSubstr("fresh-info")));
+}
+
+TEST_F(AampFlightDataRecorderTest, Flush_EmitsInOrderAndLeavesEmpty)
+{
+    fdr().AddEntry(MakeEntry("first-info"));
+    fdr().AddEntry(MakeEntry("second-warn", AampFlightDataRecorder::GetCurrentTimeMilliseconds(), eLOGLEVEL_WARN));
+    fdr().AddEntry(MakeEntry("third-mil", AampFlightDataRecorder::GetCurrentTimeMilliseconds(), eLOGLEVEL_MIL));
+
+    testing::internal::CaptureStdout();
+    fdr().Flush(eLOGLEVEL_ERROR, "ERROR_TEST");
+    std::string output = testing::internal::GetCapturedStdout();
+    size_t first = output.find("first-info");
+    size_t second = output.find("second-warn");
+    size_t third = output.find("third-mil");
+
+    ASSERT_NE(first, std::string::npos);
+    ASSERT_NE(second, std::string::npos);
+    ASSERT_NE(third, std::string::npos);
+    EXPECT_LT(first, second);
+    EXPECT_LT(second, third);
+    EXPECT_THAT(output, testing::HasSubstr("triggered by ERROR_TEST ERROR"));
+
+    testing::internal::CaptureStdout();
+    fdr().Dump(eLOGLEVEL_ERROR, "SECOND_DUMP");
+    EXPECT_TRUE(testing::internal::GetCapturedStdout().empty());
+}
+
+TEST_F(AampFlightDataRecorderTest, Flush_PreservesTimestampAndFilenameFormat)
+{
+    AampLogManager::logFilename = true;
+    uint64_t timestampMs = AampFlightDataRecorder::GetCurrentTimeMilliseconds();
+    fdr().AddEntry(MakeEntry("formatted", timestampMs));
+
+    testing::internal::CaptureStdout();
+    fdr().Flush(eLOGLEVEL_ERROR, "FORMAT_TEST");
+    std::string output = testing::internal::GetCapturedStdout();
+    AampLogManager::logFilename = false;
+
+    std::ostringstream timestamp;
+    timestamp << timestampMs / 1000 << "." << std::setfill('0') << std::setw(3) << timestampMs % 1000;
+    EXPECT_THAT(output, testing::HasSubstr(timestamp.str() + ": [TEST][000][0][INFO]"));
+    EXPECT_THAT(output, testing::HasSubstr("[TestFile.cpp][TestFunc][0]formatted"));
+}
+
+TEST_F(AampFlightDataRecorderTest, Initialize_ReconfiguresCapacityAndEnabledState)
+{
+    fdr().Initialize(true, 1, 15);
+    fdr().AddEntry(MakeEntry("before-disable", AampFlightDataRecorder::GetCurrentTimeMilliseconds(), eLOGLEVEL_WARN));
+
+    testing::internal::CaptureStdout();
+    fdr().Initialize(false, 4, 30);
+    std::string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_FALSE(fdr().IsEnabled());
+    EXPECT_THAT(output, testing::HasSubstr("before-disable"));
+    EXPECT_FALSE(fdr().AddEntry(MakeEntry("disabled")));
 }

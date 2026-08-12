@@ -1850,7 +1850,8 @@ void AampConfig::ConfigureLogSettings()
 
 	AampLogManager::logFilename = configValueBool[eAAMPConfig_LogFilename].value;
 	
-	bool fdrEnabled = configValueBool[eAAMPConfig_EnableFlightDataRecorder].value;
+	bool fdrEnabled = configValueBool[eAAMPConfig_EnableFlightDataRecorder].value &&
+		AampLogManager::aampLoglevel.load(std::memory_order_relaxed) > eLOGLEVEL_INFO;
 	int rawMaxLines = configValueInt[eAAMPConfig_FlightDataRecorderMaxLines].value;
 	int rawMaxSeconds = configValueInt[eAAMPConfig_FlightDataRecorderMaxSeconds].value;
 	

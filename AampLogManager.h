@@ -24,6 +24,7 @@
  * @brief Log managed for Aamp
  */
 
+#include <atomic>
 #include <vector>
 #include <string>
 #include <memory.h>
@@ -140,6 +141,7 @@ extern void logprintf(AAMP_LogLevel level, const char* file, const char* func, i
  */
 void emitLogLine(int logLevel, const char* line,
                  bool disableRedirection, bool enableEthanRedirection);
+void flushFlightDataRecorder(int triggerLevel, const char* triggerSource);
 
 extern thread_local int gPlayerId;
 
@@ -165,11 +167,11 @@ public:
 class AampLogManager
 {
 public:
-	static bool disableLogRedirection;		/**<  disables log re-direction to journal or ethan log apis and uses vprintf - used by simulators */
-	static AAMP_LogLevel aampLoglevel;
-	static bool locked;
-	static bool enableEthanLogRedirection;  /**<  Enables Ethan log redirection which uses Ethan lib for logging */
-	static bool logFilename;				/**<  Include source filename in log output */
+	static std::atomic<bool> disableLogRedirection;		/**<  disables log re-direction to journal or ethan log apis and uses vprintf - used by simulators */
+	static std::atomic<AAMP_LogLevel> aampLoglevel;
+	static std::atomic<bool> locked;
+	static std::atomic<bool> enableEthanLogRedirection;  /**<  Enables Ethan log redirection which uses Ethan lib for logging */
+	static std::atomic<bool> logFilename;				/**<  Include source filename in log output */
 	
 	/**
 	 * @fn aampLogger
@@ -387,7 +389,7 @@ public:
 	 */
 	static bool isLogLevelAllowed(AAMP_LogLevel chkLevel)
 	{
-		return (chkLevel>=aampLoglevel);
+		return (chkLevel >= aampLoglevel.load(std::memory_order_relaxed));
 	}
 	
 	/**
@@ -398,10 +400,10 @@ public:
 	 */
 	static void setLogLevel(AAMP_LogLevel newLevel)
 	{
-		if( !locked )
+		if (!locked.load(std::memory_order_relaxed))
 		{
-			aampLoglevel = newLevel;
-			AAMPLOG_MIL("Log level set to %d", aampLoglevel);
+			aampLoglevel.store(newLevel, std::memory_order_relaxed);
+			AAMPLOG_MIL("Log level set to %d", newLevel);
 		}
 	}
 	
@@ -412,7 +414,7 @@ public:
 	 */
 	static void lockLogLevel( bool lock )
 	{
-		locked = lock;
+		locked.store(lock, std::memory_order_relaxed);
 	}
 	
 	/**
