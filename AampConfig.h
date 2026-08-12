@@ -365,7 +365,8 @@ typedef enum
 	eAAMPConfig_RebufferLatencyStepSec,				/**< Step value for latency increase when rebuffering occurs */
 	eAAMPConfig_RebufferLatencyMaxIncrementSec,		/**< Max latency increment allowed due to rebuffering */
 	eAAMPConfig_LatencyStableDurationSec,				/**< Duration (s) of consecutive healthy buffer required before one latency-threshold restoration step (default: DEFAULT_LATENCY_STABLE_DURATION_SEC) */
-	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased; buffer must stay above this for latencyStableDurationSec before thresholds are restored (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
+	eAAMPConfig_LatencyDangerBufferSec,				/**< Buffer level (s) below which latency thresholds are increased (default: DEFAULT_LATENCY_DANGER_BUFFER_SEC) */
+	eAAMPConfig_LatencyRestorationBufferSec,		/**< Buffer level (s) required during the full stable window before one latency-threshold restoration step is applied (default: DEFAULT_LATENCY_RESTORATION_BUFFER_SEC) */
 	eAAMPConfig_LLMinLatency,						/**< Low Latency Min Latency Offset */
 	eAAMPConfig_LLTargetLatency,					/**< Low Latency Target Latency */
 	eAAMPConfig_LLMaxLatency,						/**< Low Latency Max Latency */
