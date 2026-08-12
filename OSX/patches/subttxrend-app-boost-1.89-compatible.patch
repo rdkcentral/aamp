@@ -5,7 +5,7 @@ diff --git a/websocket-ipplayer2-utils/cmake/Ipp2UtilsConfig.cmake.in b/websocke
 index 1234567..abcdefg 100644
 --- a/websocket-ipplayer2-utils/cmake/Ipp2UtilsConfig.cmake.in
 +++ b/websocket-ipplayer2-utils/cmake/Ipp2UtilsConfig.cmake.in
-@@ -24,6 +24,13 @@
+@@ -24,7 +24,15 @@
  @PACKAGE_INIT@
  include("${CMAKE_CURRENT_LIST_DIR}/@TARGETS_EXPORT_NAME@.cmake")
  
