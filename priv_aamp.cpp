@@ -15066,6 +15066,7 @@ void PrivateInstanceAAMP::BuildLatencyConfig(LatencyConfig &config)
 		config.rebufferingLatencyStepMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyStepSec) * 1000;
 		config.rebufferingLatencyMaxIncrementMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyMaxIncrementSec) * 1000;
 		config.dangerBufferMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyDangerBufferSec) * 1000;
+		config.restorationBufferMs = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyRestorationBufferSec) * 1000;
 		config.latencyStableSec = GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyStableDurationSec);
 		AAMPLOG_MIL("LL DASH Latency Config - minPlaybackRate: %f, maxPlaybackRate: %f, minLatencyMs: %f, targetLatencyMs: %f, maxLatencyMs: %f",
 			config.minPlaybackRate, config.maxPlaybackRate, config.minLatencyMs, config.targetLatencyMs, config.maxLatencyMs);
