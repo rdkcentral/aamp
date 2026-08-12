@@ -261,9 +261,7 @@ void SocInterface::InitializePlatformFromPlugins(
      */
     if (platformType != SOC_PLATFORM_DEFAULT)
     {
-        MW_LOG_MIL(
-            "Platform already identified from device.properties, "
-            "skipping plugin scan");
+        MW_LOG_MIL("Platform already identified from device.properties, ""skipping plugin scan");
 
         return;
     }
@@ -272,20 +270,16 @@ void SocInterface::InitializePlatformFromPlugins(
      * Platform was not identified from device.properties.
      * Plugin scan can now safely call gst_init_check().
      */
-    MW_LOG_MIL(
-        "Platform not identified from device.properties, "
-        "performing plugin scan");
+    MW_LOG_MIL("Platform not identified from device.properties, ""performing plugin scan");
 
-    SocPlatformType detectedPlatform =
-        InferPlatformFromPluginScan();
+    SocPlatformType detectedPlatform = InferPlatformFromPluginScan();
 
     if (detectedPlatform != SOC_PLATFORM_DEFAULT)
     {
         MW_LOG_MIL(
             "Plugin scan detected platform, replacing SoC interface");
 
-        g_socInterface =
-            CreateForPlatform(detectedPlatform);
+        g_socInterface = CreateForPlatform(detectedPlatform);
     }
 }
 
