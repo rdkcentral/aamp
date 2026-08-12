@@ -1991,7 +1991,8 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mIsPlaybackStalled(false), mTuneType(), mLock(),
 		mCond(), mLastVideoFragCheckedForABR(0), mLastVideoFragParsedTimeMS(0),
 		mSubCond(), mAudioTracks(), mTextTracks(),mABRHighBufferCounter(0),mABRLowBufferCounter(0),mMaxBufferCountCheck(0),
-		mStateLock(), mStateCond(), mTrackState(eDISCONTINUITY_FREE),
+		mStateLock(), mStateCond(), mAbortDiscontinuityWait(false),
+		mTrackState(eDISCONTINUITY_FREE),
 		mRampDownLimit(-1), mRampDownCount(0),mABRMaxBuffer(0), mABRCacheLength(0), mABRMinBuffer(0), mABRNwConsistency(0),
 		mBitrateReason(eAAMP_BITRATE_CHANGE_BY_TUNE),
 		mAudioTrackIndex(), mTextTrackIndex(),
@@ -3418,7 +3419,10 @@ void MediaTrack::OnSinkBufferFull()
  */
 void StreamAbstractionAAMP::resetDiscontinuityTrackState()
 {
+	std::lock_guard<std::mutex> guard(mStateLock);
 	mTrackState = eDISCONTINUITY_FREE;
+	mAbortDiscontinuityWait = false;
+	mStateCond.notify_all();
 }
 
 /**
@@ -3465,6 +3469,11 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 	{
 		bool aborted = false;
 		bool wait = false;
+
+		if (mTrackState == eDISCONTINUITY_FREE)
+		{
+			mAbortDiscontinuityWait = false;
+		}
 		mTrackState = (MediaTrackDiscontinuityState) (mTrackState | state);
 
 		AAMPLOG_MIL("mTrackState:%d!", mTrackState);
@@ -3473,22 +3482,37 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 		{
 			wait = true;
 			AAMPLOG_MIL("track[%d] Going into wait for processing discontinuity in other track!", type);
-			mStateCond.wait(lock);
-			MediaTrack *track = GetMediaTrack(type);
-			if (track && track->IsInjectionAborted())
+
+			auto isTrackInjectionAborted = [this, type]() -> bool
 			{
-				//AbortWaitForDiscontinuity called, don't push discontinuity
-				//Just exit with ret = true to avoid InjectFragmentInternal
-				aborted = true;
-			}
-			else if (type == eTRACK_AUDIO)
-			{
-				//AbortWaitForDiscontinuity() will be triggered by video first, check video injection aborted
-				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-				if (video && video->IsInjectionAborted())
+				MediaTrack *track = GetMediaTrack(type);
+				if (track && track->IsInjectionAborted())
 				{
-					aborted = true;
+					return true;
 				}
+
+				if (type == eTRACK_AUDIO)
+				{
+					MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+					if (video && video->IsInjectionAborted())
+					{
+						return true;
+					}
+				}
+
+				return false;
+			};
+
+			while ((mTrackState == state) && !mAbortDiscontinuityWait &&
+					!isTrackInjectionAborted())
+			{
+				mStateCond.wait_for(lock, std::chrono::milliseconds(100));
+			}
+
+			aborted = mAbortDiscontinuityWait || isTrackInjectionAborted();
+			if (mAbortDiscontinuityWait)
+			{
+				AAMPLOG_WARN("track[%d] discontinuity wait aborted", type);
 			}
 
 			//Check if mTrackState was reset from CheckForMediaTrackInjectionStall
@@ -3536,7 +3560,8 @@ void StreamAbstractionAAMP::AbortWaitForDiscontinuity()
 {
 	//Release injector thread blocked in ProcessDiscontinuity
 	std::lock_guard<std::mutex> guard(mStateLock);
-	mStateCond.notify_one();
+	mAbortDiscontinuityWait = true;
+	mStateCond.notify_all();
 }
 
 /**

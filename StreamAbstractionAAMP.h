@@ -2127,6 +2127,7 @@ protected:
 	long long mLastPausedTimeStamp;     /**< stores timestamp of last pause operation */
 	std::mutex mStateLock;         /**< lock for A/V track discontinuity injection*/
 	std::condition_variable mStateCond;          /**< condition for A/V track discontinuity injection*/
+	bool mAbortDiscontinuityWait;  /**< true when discontinuity waiters must exit */
 	int mRampDownLimit;                 /**< stores ramp down limit value */
 	BitrateChangeReason mBitrateReason; /**< holds the reason for last bitrate change */
 protected:
