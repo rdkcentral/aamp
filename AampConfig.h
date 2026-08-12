@@ -216,7 +216,6 @@ typedef enum
 	eAAMPConfig_SeamlessAudioSwitch,					/**< To enable audio Restart - Currently supported for HLS_MP4 on same codec streams*/
 	eAAMPConfig_useRialtoSink,                      /**< Enable/Disable player to use Rialto sink based video and audio pipeline */
 	eAAMPConfig_useDirectRialto,                    /**< Enable/Disable direct AampRialtoPlayer usage instead of AAMPGstPlayer */
-	eAAMPConfig_RialtoSinkSetsDirectRialto,         /**< HACK for testing only - When enabled, enabling Rialto sink also enables direct Rialto usage */
 	eAAMPConfig_LocalTSBEnabled,                                            /**< To enable/disable Local TSB in LLD */
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
