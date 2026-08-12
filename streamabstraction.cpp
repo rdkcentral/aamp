@@ -805,7 +805,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	bool stopInjection = false;
 	StreamAbstractionAAMP* context = GetContext();
 	double injectedDuration = GetTotalInjectedDuration();
-	static constexpr double epsilon = 0.01;  // floating point comparison tolerance.
+	static constexpr double epsilon = 0.01; // seconds; tolerance for near-zero comparisons
 
 	if(cachedFragment->fragment.capacity() != 0)
 	{
