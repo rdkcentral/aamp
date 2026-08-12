@@ -88,6 +88,11 @@ AampRialtoAudioSource::createRialtoSource(
 		audioConfig.codecSpecificConfig = codecInfo.mCodecData;
 	}
 
+	// Hard-coded true regardless of the incoming hasDrm arg: the non-Direct-Rialto
+	// path never overrides has-drm on the audio sink (it stays at its default of
+	// true even for eGST_MEDIAFORMAT_HLS), so this already matches that behaviour.
+	// Kept explicit/hard-coded alongside the video source for consistency and
+	// easy reversion.
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSourceAudio>(
 		mimeType,
