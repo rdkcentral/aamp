@@ -805,7 +805,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	bool stopInjection = false;
 	StreamAbstractionAAMP* context = GetContext();
 	double injectedDuration = GetTotalInjectedDuration();
-	static constexpr double EPS = 0.01;  // floating point comparison tolerance.
+	static constexpr double epsilon = 0.01;  // floating point comparison tolerance.
 
 	if(cachedFragment->fragment.capacity() != 0)
 	{
@@ -827,7 +827,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 			 * This was seen with subtitles where switching to a period with subtitles enabled from one without could result in fragments being pushed
 			 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
 			 */
-			if ((std::fabs(injectedDuration) < EPS) &&
+			if ((std::fabs(injectedDuration) < epsilon) &&
 				!aamp->mpStreamAbstractionAAMP->GetESChangeStatus() &&
 				aamp->PipelineValid((AampMediaType)type))
 			{
