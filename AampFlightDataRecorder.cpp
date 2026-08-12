@@ -23,12 +23,12 @@
  */
 
 #include "AampFlightDataRecorder.h"
+#include <chrono>
 #include <cstdio>
-#include <sys/time.h>
-#include <sstream>
+#include <cstring>
 #include <iomanip>
-#include <algorithm>
 #include <inttypes.h>
+#include <sstream>
 
 static const char* LOG_LEVEL_STRINGS[] = {
 	"TRACE",
@@ -44,16 +44,26 @@ AampFlightDataRecorder::AampFlightDataRecorder()
 	, mHead(0)
 	, mTail(0)
 	, mCount(0)
-	, mEnabled{false}
-	, mDumping{false}
+	, mEnabled(false)
 	, mMaxEntries(5000)
-	, mMaxAgeUs(15000000)
-	, mInitialized{false}
+	, mMaxAgeMs(15000)
+	, mInitialized(false)
+	, mStopping(false)
+	, mEvictionThread()
 {
 }
 
 AampFlightDataRecorder::~AampFlightDataRecorder()
 {
+	{
+		std::lock_guard<std::mutex> lock(mMutex);
+		mStopping = true;
+		mCondition.notify_all();
+	}
+	if (mEvictionThread.joinable())
+	{
+		mEvictionThread.join();
+	}
 }
 
 AampFlightDataRecorder& AampFlightDataRecorder::GetInstance()
@@ -64,130 +74,190 @@ AampFlightDataRecorder& AampFlightDataRecorder::GetInstance()
 
 void AampFlightDataRecorder::Initialize(bool enabled, size_t maxLines, uint64_t maxSeconds)
 {
-	if (mInitialized.load(std::memory_order_acquire))
+	maxLines = maxLines > 0 ? maxLines : 1;
+	maxLines = maxLines <= 100000 ? maxLines : 100000;
+	maxSeconds = maxSeconds > 0 ? maxSeconds : 1;
+	maxSeconds = maxSeconds <= 3600 ? maxSeconds : 3600;
+
+	std::lock_guard<std::mutex> lock(mMutex);
+	const uint64_t maxAgeMs = maxSeconds * 1000ULL;
+	if (!mInitialized)
+	{
+		std::vector<FDRLogEntry> replacement(maxLines);
+		std::thread evictionThread(&AampFlightDataRecorder::EvictionLoop, this);
+		mBuffer.swap(replacement);
+		mMaxEntries = maxLines;
+		mMaxAgeMs = maxAgeMs;
+		mEvictionThread = std::move(evictionThread);
+		mInitialized = true;
+	}
+	else if (maxLines != mMaxEntries || maxAgeMs != mMaxAgeMs)
+	{
+		std::vector<FDRLogEntry> replacement(maxLines);
+		std::vector<FDRLogEntry> evicted;
+		evicted.reserve(mCount);
+		auto now = std::chrono::steady_clock::now();
+		size_t firstRetained = mCount > maxLines ? mCount - maxLines : 0;
+		size_t replacementCount = 0;
+		for (size_t i = 0; i < mCount; ++i)
+		{
+			const FDRLogEntry& entry = mBuffer[(mTail + i) % mMaxEntries];
+			bool expired = entry.recorded_at != std::chrono::steady_clock::time_point() &&
+				now - entry.recorded_at >= std::chrono::milliseconds(maxAgeMs);
+			if (!enabled || expired || i < firstRetained)
+			{
+				evicted.push_back(entry);
+			}
+			else
+			{
+				replacement[replacementCount++] = entry;
+			}
+		}
+		mBuffer.swap(replacement);
+		mMaxEntries = maxLines;
+		mMaxAgeMs = maxAgeMs;
+		mTail = 0;
+		mCount = replacementCount;
+		mHead = replacementCount % mMaxEntries;
+		for (const FDRLogEntry& entry : evicted)
+		{
+			EmitEntryLocked(entry);
+		}
+	}
+	else if (!enabled)
+	{
+		while (mCount > 0)
+		{
+			EvictEldestLocked();
+		}
+		mHead = mTail;
+	}
+
+	mEnabled.store(enabled, std::memory_order_release);
+	mCondition.notify_all();
+}
+
+void AampFlightDataRecorder::SetEnabled(bool enabled)
+{
+	std::lock_guard<std::mutex> lock(mMutex);
+	if (!enabled)
+	{
+		while (mCount > 0)
+		{
+			EvictEldestLocked();
+		}
+		mHead = mTail;
+	}
+	mEnabled.store(enabled, std::memory_order_release);
+	mCondition.notify_all();
+}
+
+uint64_t AampFlightDataRecorder::GetCurrentTimeMilliseconds()
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+void AampFlightDataRecorder::EmitEntryLocked(const FDRLogEntry& entry) const
+{
+	if (entry.timestamp_ms > 0 && (entry.log_level == eLOGLEVEL_WARN || entry.log_level == eLOGLEVEL_MIL))
+	{
+		std::string formatted = FormatLogEntry(entry);
+		emitLogLine(entry.log_level, formatted.c_str(),
+			AampLogManager::disableLogRedirection,
+			AampLogManager::enableEthanLogRedirection);
+	}
+}
+
+void AampFlightDataRecorder::EvictEldestLocked()
+{
+	if (mCount == 0)
 	{
 		return;
 	}
-	
-	mMaxEntries = maxLines;
-	mMaxAgeUs = maxSeconds * 1000000ULL;
-	mEnabled.store(enabled, std::memory_order_relaxed);
-	
-	mBuffer.resize(mMaxEntries);
-	
-	mHead.store(0, std::memory_order_relaxed);
-	mTail.store(0, std::memory_order_relaxed);
-	mCount.store(0, std::memory_order_relaxed);
-	
-	mInitialized.store(true, std::memory_order_release);
+
+	FDRLogEntry evicted = std::move(mBuffer[mTail]);
+	mBuffer[mTail] = FDRLogEntry();
+	mTail = (mTail + 1) % mMaxEntries;
+	--mCount;
+	EmitEntryLocked(evicted);
 }
 
-uint64_t AampFlightDataRecorder::GetCurrentTimeMicroseconds()
+void AampFlightDataRecorder::EvictOldEntriesLocked(std::chrono::steady_clock::time_point now)
 {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return (uint64_t)tv.tv_sec * 1000000ULL + (uint64_t)tv.tv_usec;
-}
-
-void AampFlightDataRecorder::EvictOldEntries()
-{
-	if (mCount.load(std::memory_order_relaxed) == 0)
+	while (mCount > 0)
 	{
-		return;
-	}
-	
-	uint64_t now = GetCurrentTimeMicroseconds();
-	uint64_t cutoff = (now > mMaxAgeUs) ? (now - mMaxAgeUs) : 0;
-	
-	while (mCount.load(std::memory_order_acquire) > 0)
-	{
-		size_t tail_pos = mTail.load(std::memory_order_acquire);
-		size_t read_pos = tail_pos % mMaxEntries;
-		
-		if (mBuffer[read_pos].timestamp_us >= cutoff)
+		const FDRLogEntry& eldest = mBuffer[mTail];
+		if (eldest.recorded_at == std::chrono::steady_clock::time_point() ||
+			now - eldest.recorded_at < std::chrono::milliseconds(mMaxAgeMs))
 		{
 			break;
 		}
-		
-		size_t new_tail = tail_pos + 1;
-		if (mTail.compare_exchange_weak(tail_pos, new_tail, std::memory_order_release))
-		{
-			mCount.fetch_sub(1, std::memory_order_relaxed);
-		}
+		EvictEldestLocked();
 	}
 }
 
-void AampFlightDataRecorder::AddEntry(const FDRLogEntry& entry)
+void AampFlightDataRecorder::EvictionLoop()
 {
-	if (!mEnabled.load(std::memory_order_relaxed) || !mInitialized.load(std::memory_order_acquire))
+	std::unique_lock<std::mutex> lock(mMutex);
+	while (!mStopping)
 	{
-		return;
-	}
-	
-	if (mDumping.load(std::memory_order_relaxed))
-	{
-		return;
-	}
-	
-	EvictOldEntries();
-	
-	// Atomically claim a write slot.  fetch_add gives each producer a unique
-	// monotonically-increasing index, so concurrent writers never share a slot.
-	size_t write_pos_idx = mHead.fetch_add(1, std::memory_order_acq_rel);
-	size_t write_pos = write_pos_idx % mMaxEntries;
-	
-	mBuffer[write_pos] = entry;
-	
-	// After claiming head, advance tail if the buffer is now full so that the
-	// fill level (head - tail) never exceeds mMaxEntries.  Use a CAS loop so
-	// that concurrent producers converge on the correct tail position without
-	// double-advancing it.  mCount is kept consistent as a derived quantity.
-	size_t new_head = write_pos_idx + 1;
-	size_t current_tail = mTail.load(std::memory_order_acquire);
-	if (new_head - current_tail > mMaxEntries)
-	{
-		// Emit the evicted entry if it was at or above display threshold (MIL+).
-		// This ensures milestone logs are never silently lost — they are lazily
-		// emitted when pushed out of the ring buffer.
-		size_t evict_pos = current_tail % mMaxEntries;
-		const FDRLogEntry& evicted = mBuffer[evict_pos];
-		if (evicted.timestamp_us > 0 && evicted.log_level >= eLOGLEVEL_MIL)
+		if (!mInitialized || !mEnabled.load(std::memory_order_acquire) || mCount == 0)
 		{
-			std::string formatted = FormatLogEntry(evicted);
-			emitLogLine(evicted.log_level, formatted.c_str(),
-			            AampLogManager::disableLogRedirection,
-			            AampLogManager::enableEthanLogRedirection);
+			mCondition.wait(lock);
+			continue;
 		}
-		
-		// Try to advance tail by exactly one slot.  If another producer already
-		// advanced it (or EvictOldEntries did), the CAS will fail and we leave
-		// it alone — the buffer is no longer over-full from our perspective.
-		size_t expected_tail = current_tail;
-		if (mTail.compare_exchange_strong(expected_tail, current_tail + 1,
-		                                   std::memory_order_release,
-		                                   std::memory_order_relaxed))
+
+		auto now = std::chrono::steady_clock::now();
+		const FDRLogEntry& eldest = mBuffer[mTail];
+		auto age = now - eldest.recorded_at;
+		if (age >= std::chrono::milliseconds(mMaxAgeMs))
 		{
-			// We advanced tail, so one entry was implicitly evicted — keep
-			// mCount capped at mMaxEntries.
-			mCount.store(mMaxEntries, std::memory_order_relaxed);
+			EvictOldEntriesLocked(now);
+			continue;
 		}
-		// else: another thread already advanced tail; count unchanged.
+
+		mCondition.wait_for(lock, std::chrono::milliseconds(mMaxAgeMs) - age);
 	}
-	else
+}
+
+bool AampFlightDataRecorder::AddEntry(FDRLogEntry entry)
+{
+	std::lock_guard<std::mutex> lock(mMutex);
+	if (!mInitialized || !mEnabled.load(std::memory_order_acquire))
 	{
-		// Buffer was not full; this entry is a net addition.
-		size_t old_count = mCount.fetch_add(1, std::memory_order_relaxed);
-		if (old_count >= mMaxEntries)
-		{
-			// Clamp — can happen when a concurrent EvictOldEntries races.
-			mCount.store(mMaxEntries, std::memory_order_relaxed);
-		}
+		return false;
 	}
+
+	auto steadyNow = std::chrono::steady_clock::now();
+	uint64_t utcNowMs = GetCurrentTimeMilliseconds();
+	if (entry.timestamp_ms == 0)
+	{
+		entry.timestamp_ms = utcNowMs;
+		entry.recorded_at = steadyNow;
+	}
+	else if (entry.recorded_at == std::chrono::steady_clock::time_point())
+	{
+		uint64_t ageMs = entry.timestamp_ms < utcNowMs ? utcNowMs - entry.timestamp_ms : 0;
+		entry.recorded_at = steadyNow - std::chrono::milliseconds(ageMs);
+	}
+
+	EvictOldEntriesLocked(steadyNow);
+	if (mCount == mMaxEntries)
+	{
+		EvictEldestLocked();
+	}
+
+	mBuffer[mHead] = std::move(entry);
+	mHead = (mHead + 1) % mMaxEntries;
+	++mCount;
+	mCondition.notify_all();
+	return true;
 }
 
 const char* AampFlightDataRecorder::GetLogLevelString(int level) const
 {
-	if (level >= 0 && level <= 5)
+	if (level >= eLOGLEVEL_TRACE && level <= eLOGLEVEL_ERROR)
 	{
 		return LOG_LEVEL_STRINGS[level];
 	}
@@ -197,87 +267,67 @@ const char* AampFlightDataRecorder::GetLogLevelString(int level) const
 std::string AampFlightDataRecorder::FormatLogEntry(const FDRLogEntry& entry) const
 {
 	std::ostringstream oss;
-	
-	uint64_t sec = entry.timestamp_us / 1000000;
-	uint64_t msec = (entry.timestamp_us % 1000000) / 1000;
-	
+	uint64_t sec = entry.timestamp_ms / 1000;
+	uint64_t msec = entry.timestamp_ms % 1000;
 	oss << sec << "." << std::setfill('0') << std::setw(3) << msec << ": ";
-	
 	oss << "[" << entry.source << "]";
 	oss << "[" << std::setfill('0') << std::setw(3) << entry.seq_num << "]";
-	
-	if (entry.player_id >= 0)
-	{
-		oss << "[" << entry.player_id << "]";
-	}
-	
+	oss << "[" << entry.player_id << "]";
 	oss << "[" << GetLogLevelString(entry.log_level) << "]";
-	
 	std::hash<std::thread::id> hasher;
 	oss << "[" << std::hex << hasher(entry.thread_id) << std::dec << "]";
-	
-	oss << "[" << entry.func << "][" << entry.line << "]";
-	oss << entry.message;
-	
+	if (AampLogManager::logFilename && !entry.file.empty())
+	{
+		const char* basename = strrchr(entry.file.c_str(), '/');
+		oss << "[" << (basename ? basename + 1 : entry.file.c_str()) << "]";
+	}
+	oss << "[" << entry.func << "][" << entry.line << "]" << entry.message;
 	return oss.str();
+}
+
+void AampFlightDataRecorder::FlushLocked(int triggerLevel, const char* triggerSource)
+{
+	if (mCount == 0)
+	{
+		return;
+	}
+
+	bool disableRedir = AampLogManager::disableLogRedirection;
+	bool enableEthan = AampLogManager::enableEthanLogRedirection;
+	char header[256];
+	snprintf(header, sizeof(header),
+		"[FDR] FLIGHT DATA RECORDER DUMP (triggered by %s %s) %zu entries from last %" PRIu64 "s",
+		triggerSource, GetLogLevelString(triggerLevel), mCount, mMaxAgeMs / 1000);
+	emitLogLine(triggerLevel, header, disableRedir, enableEthan);
+
+	while (mCount > 0)
+	{
+		FDRLogEntry entry = std::move(mBuffer[mTail]);
+		mBuffer[mTail] = FDRLogEntry();
+		mTail = (mTail + 1) % mMaxEntries;
+		--mCount;
+		if (entry.timestamp_ms > 0)
+		{
+			std::string formatted = FormatLogEntry(entry);
+			emitLogLine(entry.log_level, formatted.c_str(), disableRedir, enableEthan);
+		}
+	}
+	mHead = mTail;
+	emitLogLine(triggerLevel, "[FDR] END FLIGHT DATA RECORDER DUMP", disableRedir, enableEthan);
 }
 
 void AampFlightDataRecorder::Dump(int triggerLevel, const char* triggerSource)
 {
-	if (!mInitialized.load(std::memory_order_acquire))
-	{
-		return;
-	}
-	
-	bool expected = false;
-	if (!mDumping.compare_exchange_strong(expected, true, std::memory_order_acquire))
-	{
-		return;
-	}
-	
-	size_t entries_to_read = mCount.load(std::memory_order_acquire);
-	
-	if (entries_to_read == 0)
-	{
-		mDumping.store(false, std::memory_order_release);
-		return;
-	}
-	
-	bool disableRedir = AampLogManager::disableLogRedirection;
-	bool enableEthan = AampLogManager::enableEthanLogRedirection;
-	
-	char header[256];
-	snprintf(header, sizeof(header),
-	         "[FDR] FLIGHT DATA RECORDER DUMP (triggered by %s %s) %zu entries from last %" PRIu64 "s",
-	         triggerSource, GetLogLevelString(triggerLevel),
-	         entries_to_read, mMaxAgeUs / 1000000);
-	emitLogLine(triggerLevel, header, disableRedir, enableEthan);
-	
-	size_t tail_pos = mTail.load(std::memory_order_acquire);
-	for (size_t i = 0; i < entries_to_read; i++)
-	{
-		size_t read_pos = (tail_pos + i) % mMaxEntries;
-		const FDRLogEntry& entry = mBuffer[read_pos];
-		
-		if (entry.timestamp_us > 0)
-		{
-			emitLogLine(entry.log_level, FormatLogEntry(entry).c_str(), disableRedir, enableEthan);
-		}
-	}
-	
-	emitLogLine(triggerLevel, "[FDR] END FLIGHT DATA RECORDER DUMP", disableRedir, enableEthan);
-	
-	mDumping.store(false, std::memory_order_release);
+	Flush(triggerLevel, triggerSource);
 }
 
-void AampFlightDataRecorder::Flush()
+void AampFlightDataRecorder::Flush(int triggerLevel, const char* triggerSource)
 {
-	if (!mInitialized.load(std::memory_order_acquire))
+	std::lock_guard<std::mutex> lock(mMutex);
+	if (!mInitialized || !mEnabled.load(std::memory_order_acquire))
 	{
 		return;
 	}
-	
-	size_t head_pos = mHead.load(std::memory_order_relaxed);
-	mTail.store(head_pos, std::memory_order_release);
-	mCount.store(0, std::memory_order_release);
+	FlushLocked(triggerLevel, triggerSource);
+	mCondition.notify_all();
 }

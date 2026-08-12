@@ -3990,6 +3990,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 			}
 		}
 		SendAnomalyEvent(eMsgType, "Tune attempt#%d. %s:%s URL:%s", mTuneAttempts,playbackType.c_str(),getStreamTypeString().c_str(),GetTunedManifestUrl());
+		flushFlightDataRecorder(eLOGLEVEL_MIL, "TUNE_COMPLETE");
 	}
 }
 
