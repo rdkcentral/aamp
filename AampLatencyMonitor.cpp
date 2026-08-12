@@ -514,12 +514,17 @@ void AampLatencyMonitor::UpdateDangerBufferState(double bufferMs)
 	}
 	else
 	{
-		// Buffer healthy — end the episode and run the restoration timer.
+		// Buffer recovered from danger — end the episode.
 		mBelowDangerShifted.store(false, std::memory_order_relaxed);
 
-		if (mConfig.latencyStableSec > 0.0)
+		if (mConfig.latencyStableSec > 0.0 && mConfig.restorationBufferMs > 0.0)
 		{
-			if (mLatencyIncrementAccumulatedMs <= 0.0)
+			if (bufferMs < mConfig.restorationBufferMs)
+			{
+				// Not enough headroom for restoration; reset the stability timer.
+				mRestorationWindowStartTime = {};
+			}
+			else if (mLatencyIncrementAccumulatedMs <= 0.0)
 			{
 				// Nothing accumulated — keep timer cleared.
 				mRestorationWindowStartTime = {};
@@ -529,7 +534,7 @@ void AampLatencyMonitor::UpdateDangerBufferState(double bufferMs)
 				const auto now = std::chrono::steady_clock::now();
 				if (mRestorationWindowStartTime == std::chrono::steady_clock::time_point{})
 				{
-					// Buffer just recovered — start the stability window.
+					// Buffer has restoration headroom — start the stability window.
 					mRestorationWindowStartTime = now;
 				}
 				else

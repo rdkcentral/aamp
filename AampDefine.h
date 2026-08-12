@@ -164,6 +164,7 @@
 #define DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC 8.0	/*< LiveOffset(15s) - MaxLatency(7s) */
 #define DEFAULT_LATENCY_STABLE_DURATION_SEC 300.0		/*< Duration (s) of consecutive healthy buffer (latencyStableDurationSec) required before one restoration step */
 #define DEFAULT_LATENCY_DANGER_BUFFER_SEC 1.0			/*< Buffer level (s) below which latency thresholds are increased; buffer must stay above this level for latencyStableDurationSec before thresholds are restored */
+#define DEFAULT_LATENCY_RESTORATION_BUFFER_SEC 2.0	/*< Buffer level (s) required to sustain the restoration window for reducing latency thresholds */
 
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
