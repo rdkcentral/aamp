@@ -16,10 +16,10 @@ July 16, 2026
 
 ### 2. AampFlightDataRecorder.cpp
 - Implementation of the FDR class
-- Lock-free `AddEntry()` method using atomic head/tail pointers
-- Time-based and count-based eviction (`EvictOldEntries()`)
-- `Dump()` method to output all buffered entries
-- `Flush()` method to clear buffer after error dump
+- Mutex-protected `AddEntry()` preserving complete string entries and chronological order
+- Time-based eviction driven by a maintenance thread plus count-based eviction
+- `Dump()` and `Flush()` emit all buffered entries and leave the recorder empty
+- Runtime-safe reconfiguration of enabled state, line count, and retention time
 - Thread-safe operations throughout
 
 ## Files Modified
@@ -27,7 +27,7 @@ July 16, 2026
 ### 1. AampConfig.h
 - Added `eAAMPConfig_EnableFlightDataRecorder` (boolean) - default: true
 - Added `eAAMPConfig_FlightDataRecorderMaxLines` (int) - default: 5000
-- Added `eAAMPConfig_FlightDataRecorderMaxSeconds` (int) - default: 60
+- Added `eAAMPConfig_FlightDataRecorderMaxSeconds` (int) - default: 15
 
 ### 2. AampConfig.cpp
 - Added FDR config entries to lookup tables:
@@ -40,16 +40,13 @@ July 16, 2026
 - Included `AampFlightDataRecorder.h`
 - Modified `logprintf()` function:
   - Captures user message using `va_copy`
-  - Dumps FDR buffer BEFORE logging ERROR
-  - Adds log entries to FDR for INFO and above (INFO, WARN, MIL, ERROR)
-  - Flushes FDR buffer AFTER logging ERROR
-- Prevents recursive dumps with atomic flag
+  - Queues INFO, WARN, and MILESTONE when FDR is active
+  - Emits and clears the FDR buffer BEFORE logging ERROR
+  - Bypasses FDR for INFO-level developer logging or when FDR is disabled
+- Routes FDR output through the configured journal or Ethanlog backend
 
-### 4. middleware/playerLogManager/PlayerLogManager.cpp
-- Included `AampFlightDataRecorder.h` (relative path: `../../AampFlightDataRecorder.h`)
-- Modified middleware `logprintf()` function:
-  - Same FDR integration as core AAMP
-  - Uses "PLAYER_IF" as source identifier
+### 4. Middleware logging
+Middleware integration is deferred to VPAAMP-953.
   - Shares same FDR singleton instance
 
 ### 5. CMakeLists.txt
@@ -63,46 +60,39 @@ July 16, 2026
 - Thread-safe concurrent access from multiple logging threads
 
 ### 2. Dual Eviction Strategy
-- **Time-based**: Removes entries older than configured seconds (default: 60s)
+- **Time-based**: Removes entries older than configured seconds (default: 15s)
 - **Count-based**: Maintains maximum number of entries (default: 5000)
 - Eviction runs on every `AddEntry()` call
 
-### 3. ERROR Trigger Behavior
-- On ERROR log:
-  1. Dump full ring buffer contents to console
-  2. Log the actual ERROR message
-  3. Flush the ring buffer
-  4. Continue capturing new logs (allows multiple dumps per session)
+### 3. Full Dump Trigger Behavior
+- Only ERROR and tune completion emit the full ring buffer.
+- Full dumps preserve chronological order and leave the ring buffer empty.
+- WARN and MILESTONE are emitted individually when age- or count-evicted.
 
 ### 4. Captured Log Levels
-- INFO, WARN, MILESTONE, ERROR
-- TRACE and DEBUG are NOT captured (reduces memory usage)
+- INFO, WARN, and MILESTONE
+- ERROR triggers a full dump and is then emitted normally
+- TRACE and DEBUG are NOT captured
 
 ### 5. Configuration
 - Fully configurable via AampConfig
 - Can be enabled/disabled at runtime
 - Adjustable buffer size and time window
 
-### 6. Unified Logging
-- Works for both core AAMP and middleware logging
-- Single shared FDR instance
-- Distinguishable by source tag: "AAMP-PLAYER" vs "PLAYER_IF"
+### 6. Core Logging
+- Core AAMP logging uses a single shared FDR instance
+- Middleware integration is deferred to VPAAMP-953
 
 ## Output Format
 
 When ERROR occurs, FDR dumps in this format:
 
 ```
-================================================================================
-[FDR] FLIGHT DATA RECORDER DUMP (triggered by AAMP-PLAYER ERROR)
-[FDR] Captured 1234 log entries from last 60 seconds
-================================================================================
-[FDR] 1721134567.123: [AAMP-PLAYER][042][0][INFO][7f8a2c001700] Log message 1
-[FDR] 1721134567.456: [PLAYER_IF][015][WARN][7f8a2d002800] Log message 2
+[FDR] FLIGHT DATA RECORDER DUMP (triggered by AAMP-PLAYER ERROR) 1234 entries from last 15s
+1721134567.123: [AAMP-PLAYER][042][0][INFO][7f8a2c001700][Tune][100]Log message 1
+1721134567.456: [AAMP-PLAYER][043][0][WARN][7f8a2c001700][Tune][101]Log message 2
 ...
-================================================================================
 [FDR] END FLIGHT DATA RECORDER DUMP
-================================================================================
 ```
 
 ## Configuration Options
@@ -112,7 +102,7 @@ When ERROR occurs, FDR dumps in this format:
 {
   "enableFlightDataRecorder": true,
   "flightDataRecorderMaxLines": 5000,
-  "flightDataRecorderMaxSeconds": 60
+  "flightDataRecorderMaxSeconds": 15
 }
 ```
 
@@ -120,7 +110,7 @@ When ERROR occurs, FDR dumps in this format:
 ```bash
 export AAMP_enableFlightDataRecorder=true
 export AAMP_flightDataRecorderMaxLines=5000
-export AAMP_flightDataRecorderMaxSeconds=60
+export AAMP_flightDataRecorderMaxSeconds=15
 ```
 
 ## Memory Usage
@@ -138,23 +128,23 @@ export AAMP_flightDataRecorderMaxSeconds=60
 
 ## Performance Impact
 
-- Minimal: lock-free operations, no blocking
-- Eviction check on every add: typically O(1), worst case O(n) when evicting
+- Ring operations are serialized to prevent races on string entries
+- Eviction is typically O(1), with a maintenance thread enforcing the time bound
 - Only active for INFO+ logs (TRACE/DEBUG skipped)
 
 ## Phase 1 Scope (Completed)
 
 ✅ Core FDR infrastructure
 ✅ ERROR-only trigger
-✅ Both AAMP core and middleware integration
+✅ AAMP core integration
 ✅ Configuration via AampConfig
-✅ Lock-free circular buffer
+✅ Thread-safe circular buffer
 ✅ Time + line count limits
 ✅ Flush and continue after dump
 
 ## Phase 2 Scope (Future)
 
-⏳ WARN trigger support (after WARN/ERROR audit)
+⏳ Middleware logging integration (VPAAMP-953)
 ⏳ Player Analytics integration
 ⏳ Event-based error reporting to JavaScript
 ⏳ Compression/sampling for large buffers
@@ -162,7 +152,7 @@ export AAMP_flightDataRecorderMaxSeconds=60
 
 ## Testing Recommendations
 
-1. **Unit Tests** (to be created):
+1. **Unit Tests**:
    - Test circular buffer wraparound
    - Test time-based eviction
    - Test line-count eviction

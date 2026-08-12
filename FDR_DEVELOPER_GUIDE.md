@@ -6,12 +6,12 @@ The Flight Data Recorder (FDR) is now automatically integrated into AAMP logging
 
 ## How It Works
 
-1. **Normal Operation**: FDR silently captures INFO, WARN, MILESTONE, and ERROR logs in a ring buffer (even if they're filtered from console output)
+1. **Normal Operation**: FDR silently captures INFO, WARN, and MILESTONE logs in a ring buffer when normal logging is above INFO
 
-2. **On ERROR**: 
-   - FDR automatically dumps the last 60 seconds (or 5000 lines) of logs
-   - The ERROR is then logged normally
-   - Buffer is flushed and continues capturing
+2. **On ERROR or tune completion**:
+   - FDR emits the last 15 seconds (or configured line limit) in chronological order
+   - The ring buffer is left empty
+   - An ERROR trigger is then logged normally
 
 3. **Result**: When debugging production issues, you get historical context leading up to the error
 
@@ -28,7 +28,7 @@ The Flight Data Recorder (FDR) is now automatically integrated into AAMP logging
 ```json
 {
   "flightDataRecorderMaxLines": 5000,
-  "flightDataRecorderMaxSeconds": 60
+  "flightDataRecorderMaxSeconds": 15
 }
 ```
 
@@ -36,7 +36,7 @@ The Flight Data Recorder (FDR) is now automatically integrated into AAMP logging
 ```
 enableFlightDataRecorder=true
 flightDataRecorderMaxLines=5000
-flightDataRecorderMaxSeconds=60
+flightDataRecorderMaxSeconds=15
 ```
 
 ## Example Output
@@ -44,19 +44,13 @@ flightDataRecorderMaxSeconds=60
 When an ERROR occurs, you'll see:
 
 ```
-================================================================================
-[FDR] FLIGHT DATA RECORDER DUMP (triggered by AAMP-PLAYER ERROR)
-[FDR] Captured 342 log entries from last 60 seconds
-================================================================================
-[FDR] 1721134567.123: [AAMP-PLAYER][042][0][INFO][7f8a2c001700] Tuning to URL: https://...
-[FDR] 1721134567.456: [PLAYER_IF][015][WARN][7f8a2d002800] Network latency high: 250ms
-[FDR] 1721134568.789: [AAMP-PLAYER][043][0][INFO][7f8a2c001700] Manifest downloaded
-... (340 more lines)
-================================================================================
+[FDR] FLIGHT DATA RECORDER DUMP (triggered by AAMP-PLAYER ERROR) 342 entries from last 15s
+1721134567.123: [AAMP-PLAYER][042][0][INFO][7f8a2c001700][Tune][100]Tuning to URL: https://...
+1721134567.456: [AAMP-PLAYER][043][0][WARN][7f8a2c001700][Tune][101]Network latency high: 250ms
+1721134568.789: [AAMP-PLAYER][044][0][INFO][7f8a2c001700][Tune][102]Manifest downloaded
+...
 [FDR] END FLIGHT DATA RECORDER DUMP
-================================================================================
-
-[AAMP-PLAYER][044][0][ERROR][7f8a2c001700] Fragment download failed: HTTP 404
+[AAMP-PLAYER][045][0][ERROR][7f8a2c001700][Tune][103]Fragment download failed: HTTP 404
 ```
 
 ## Debugging Tips
@@ -97,8 +91,6 @@ grep -E '\[FDR\].*\[(WARN|ERROR)\]' aamp.log
 # Extract logs from specific thread
 grep '\[FDR\].*\[7f8a2c001700\]' aamp.log
 
-# Extract middleware logs only
-grep '\[FDR\].*\[PLAYER_IF\]' aamp.log
 ```
 
 ## Performance Considerations
@@ -109,9 +101,9 @@ grep '\[FDR\].*\[PLAYER_IF\]' aamp.log
 - Fixed allocation - no runtime growth
 
 ### CPU Impact
-- Minimal: lock-free atomic operations
-- No blocking or mutex contention
-- Eviction check is typically O(1)
+- Ring operations are serialized to preserve entry integrity and chronological order
+- A maintenance thread expires entries at the configured time boundary
+- Eviction is typically O(1)
 
 ### When to Disable
 Disable FDR if:
@@ -126,7 +118,7 @@ Disable FDR if:
 **Check:**
 1. Is FDR enabled? `grep enableFlightDataRecorder aamp.cfg`
 2. Are you logging at ERROR level? `AAMPLOG_ERR()` or `MW_LOG_ERR()`
-3. Check if recursion guard is preventing dump (should be rare)
+3. Confirm the recorder contains entries; empty buffers do not emit dump markers
 
 ### Issue: FDR dumps are empty
 
@@ -196,8 +188,9 @@ if (downloadFailed)
 
 ### For Most Developers: No API Needed
 FDR works automatically with existing logging macros:
-- `AAMPLOG_INFO()`, `AAMPLOG_WARN()`, `AAMPLOG_ERR()` (core AAMP)
-- `MW_LOG_INFO()`, `MW_LOG_WARN()`, `MW_LOG_ERR()` (middleware)
+- `AAMPLOG_INFO()`, `AAMPLOG_WARN()`, `AAMPLOG_MIL()`, `AAMPLOG_ERR()` (core AAMP)
+
+Middleware logging integration is deferred to VPAAMP-953.
 
 ### Advanced: Direct FDR Access (Rare)
 
@@ -217,8 +210,8 @@ if (fdr.IsEnabled()) {
 // Manual dump (not recommended - use ERROR logging instead)
 fdr.Dump(eLOGLEVEL_ERROR, "CUSTOM_SOURCE");
 
-// Manual flush (not recommended)
-fdr.Flush();
+// Manual full emit-and-clear flush (normally used for ERROR or tune completion)
+fdr.Flush(eLOGLEVEL_MIL, "CUSTOM_SOURCE");
 ```
 
 ## Troubleshooting
@@ -238,7 +231,7 @@ If FDR crashes or behaves unexpectedly:
 
 ## Future Enhancements (Phase 2)
 
-- **WARN Trigger**: Dump on WARN level (after WARN audit)
+- **Middleware Integration (VPAAMP-953)**: Route middleware logging through FDR
 - **Analytics Integration**: Automatic upload to analytics system
 - **Compression**: Reduce memory footprint
 - **Sampling**: Capture every Nth log to extend time window
@@ -256,6 +249,6 @@ For issues or questions:
 ### 2026-07-16 - Phase 1 Implementation
 - Initial FDR implementation
 - ERROR-only trigger
-- Core AAMP and middleware integration
+- Core AAMP integration
 - Configuration support
 - Lock-free circular buffer

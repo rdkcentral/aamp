@@ -26,10 +26,13 @@
  */
 
 #include <atomic>
-#include <vector>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <mutex>
 #include <string>
 #include <thread>
-#include <cstdint>
+#include <vector>
 #include "AampLogManager.h"
 
 /**
@@ -37,26 +40,24 @@
  */
 struct FDRLogEntry
 {
-	uint64_t timestamp_us;
+	uint64_t timestamp_ms;
 	int log_level;
 	std::thread::id thread_id;
 	uint32_t seq_num;
 	int player_id;
-	const char* func;      // __FUNCTION__ at log call site (static storage, no copy needed)
-	int line;              // __LINE__ at log call site
+	std::string file;
+	std::string func;
+	int line;
 	std::string source;
 	std::string message;
-	
-	FDRLogEntry() : timestamp_us(0), log_level(0), thread_id(), seq_num(0), player_id(-1), func(""), line(0), source(), message() {}
+	std::chrono::steady_clock::time_point recorded_at;
+
+	FDRLogEntry() : timestamp_ms(0), log_level(0), thread_id(), seq_num(0), player_id(-1), file(), func(), line(0), source(), message(), recorded_at() {}
 };
 
 /**
  * @class AampFlightDataRecorder
  * @brief Captures recent logs in a ring buffer for post-error diagnostics
- * 
- * This class implements a lock-free circular buffer that stores recent log entries
- * regardless of the current log level. When an ERROR occurs, the buffer contents
- * are dumped to provide context about what led to the error.
  */
 class AampFlightDataRecorder
 {
@@ -66,86 +67,80 @@ public:
 	 * @return Reference to the singleton instance
 	 */
 	static AampFlightDataRecorder& GetInstance();
-	
+
 	/**
-	 * @brief Initialize the flight data recorder
+	 * @brief Initialize or reconfigure the flight data recorder
 	 * @param enabled Enable/disable FDR
 	 * @param maxLines Maximum number of log lines to store
 	 * @param maxSeconds Maximum age of log entries in seconds
 	 */
 	void Initialize(bool enabled, size_t maxLines, uint64_t maxSeconds);
-	
+
 	/**
 	 * @brief Add a log entry to the ring buffer
 	 * @param entry Log entry to add
 	 */
-	void AddEntry(const FDRLogEntry& entry);
-	
+	bool AddEntry(FDRLogEntry entry);
+
 	/**
-	 * @brief Dump all buffered log entries
+	 * @brief Emit all buffered log entries and leave the buffer empty
 	 * @param triggerLevel Log level that triggered the dump
-	 * @param triggerSource Source of the trigger (AAMP-PLAYER or PLAYER_IF)
+	 * @param triggerSource Source of the trigger
 	 */
 	void Dump(int triggerLevel, const char* triggerSource);
-	
+
 	/**
-	 * @brief Flush the ring buffer
+	 * @brief Emit all buffered log entries and leave the buffer empty
+	 * @param triggerLevel Log level that triggered the flush
+	 * @param triggerSource Source of the trigger
 	 */
-	void Flush();
-	
+	void Flush(int triggerLevel = eLOGLEVEL_MIL, const char* triggerSource = "EXPLICIT");
+
 	/**
 	 * @brief Check if FDR is enabled
 	 * @return true if enabled, false otherwise
 	 */
-	bool IsEnabled() const { return mEnabled.load(std::memory_order_relaxed); }
-	
+	bool IsEnabled() const { return mEnabled.load(std::memory_order_acquire); }
+
 	/**
 	 * @brief Set enabled state
 	 * @param enabled New enabled state
 	 */
-	void SetEnabled(bool enabled) { mEnabled.store(enabled, std::memory_order_relaxed); }
-	
+	void SetEnabled(bool enabled);
+
 	/**
-	 * @brief Get current timestamp in microseconds
-	 * @return Timestamp in microseconds since epoch
+	 * @brief Get current UTC timestamp in milliseconds
+	 * @return Milliseconds since epoch
 	 */
-	static uint64_t GetCurrentTimeMicroseconds();
+	static uint64_t GetCurrentTimeMilliseconds();
 
 private:
 	AampFlightDataRecorder();
 	~AampFlightDataRecorder();
-	
+
 	AampFlightDataRecorder(const AampFlightDataRecorder&) = delete;
 	AampFlightDataRecorder& operator=(const AampFlightDataRecorder&) = delete;
-	
-	/**
-	 * @brief Evict old entries based on time threshold
-	 */
-	void EvictOldEntries();
-	
-	/**
-	 * @brief Format a log entry for output
-	 * @param entry Log entry to format
-	 * @return Formatted string
-	 */
+
+	void EvictionLoop();
+	void EvictOldEntriesLocked(std::chrono::steady_clock::time_point now);
+	void EvictEldestLocked();
+	void EmitEntryLocked(const FDRLogEntry& entry) const;
+	void FlushLocked(int triggerLevel, const char* triggerSource);
 	std::string FormatLogEntry(const FDRLogEntry& entry) const;
-	
-	/**
-	 * @brief Get log level string
-	 * @param level Log level
-	 * @return String representation
-	 */
 	const char* GetLogLevelString(int level) const;
 
+	mutable std::mutex mMutex;
+	std::condition_variable mCondition;
 	std::vector<FDRLogEntry> mBuffer;
-	std::atomic<size_t> mHead;
-	std::atomic<size_t> mTail;
-	std::atomic<size_t> mCount;
+	size_t mHead;
+	size_t mTail;
+	size_t mCount;
 	std::atomic<bool> mEnabled;
-	std::atomic<bool> mDumping;
 	size_t mMaxEntries;
-	uint64_t mMaxAgeUs;
-	std::atomic<bool> mInitialized;
+	uint64_t mMaxAgeMs;
+	bool mInitialized;
+	bool mStopping;
+	std::thread mEvictionThread;
 };
 
 #endif // AAMP_FLIGHT_DATA_RECORDER_H
