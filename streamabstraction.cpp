@@ -805,14 +805,17 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	bool stopInjection = false;
 	StreamAbstractionAAMP* context = GetContext();
 	double injectedDuration = GetTotalInjectedDuration();
-	static constexpr double epsilon = 0.01;  // floating point comparison tolerance.
+	static constexpr double epsilon = 0.01; // seconds; tolerance for near-zero comparisons
 
 	if(cachedFragment->fragment.capacity() != 0)
 	{
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
 			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
-			AAMPLOG_INFO("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
+			AAMPLOG_INFO("track %s - encountered aamp discontinuity @position - %f, "
+						 "isDiscoIgnoredForOtherTrack - %d ptsError %d",
+						 name, cachedFragment->position,
+						 isDiscoIgnoredForOtherTrack, ptsError);
 			if (eTRACK_SUBTITLE != type)
 			{
 				cachedFragment->discontinuity = false;

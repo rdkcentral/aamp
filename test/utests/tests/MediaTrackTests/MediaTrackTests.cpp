@@ -1268,6 +1268,35 @@ TEST_F(MediaTrackTests, CheckForDiscontinuity_PtsRestampPath_WithMp4DemuxerPlayC
 }
 
 /**
+ * @brief Verify discontinuity is ignored when injected duration is effectively zero,
+ * ES change is not pending, and the pipeline is already valid.
+ */
+TEST_F(MediaTrackTests, CheckForDiscontinuity_IgnoresDiscontinuity_WhenInjectedDurationIsZeroAndPipelineValid)
+{
+	// Allow CheckForDiscontinuity to read ES-change status.
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = mStreamAbstractionAAMP_MPD;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+
+	// Keep ES change status false to satisfy branch predicate.
+	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->GetESChangeStatus());
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+	CachedFragment fragment = MakeDiscontinuousFragment();
+	bool fragmentDiscarded{false};
+	bool isDiscontinuity{false};
+	bool ret{true};
+
+	bool stopInjection = videoTrack.CheckForDiscontinuity(
+		&fragment, fragmentDiscarded, isDiscontinuity, ret);
+
+	EXPECT_FALSE(stopInjection);
+	EXPECT_FALSE(fragmentDiscarded);
+	EXPECT_FALSE(isDiscontinuity);
+	EXPECT_TRUE(ret);
+	EXPECT_FALSE(fragment.discontinuity);
+}
+
+/**
 * @brief Test that CheckForDiscontinuity falls back to the plain
 * ProcessDiscontinuity path when neither FORMAT_ISO_BMFF nor mp4demux applies.
 * This verifies the new mp4demux condition does not change behavior for
