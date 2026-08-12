@@ -73,10 +73,16 @@ AampRialtoVideoSource::createRialtoSource(
 	firebolt::rialto::StreamFormat streamFormat,
 	std::shared_ptr<firebolt::rialto::CodecData> codecData) const
 {
+	// Hard-coded true regardless of the incoming hasDrm arg: the non-Direct-Rialto
+	// path (InterfacePlayerRDK::SetupStream) sets has-drm=false on the video sink
+	// only for eGST_MEDIAFORMAT_HLS (TS-based HLS), and true otherwise/always for
+	// audio. Forcing true here unconditionally avoided a Rialto Server crash seen
+	// during testing. Revisit and mirror that HLS-TS exception if/when we see an
+	// actual issue with clear HLS-TS streams under Direct Rialto.
 	return std::make_unique<
 		firebolt::rialto::IMediaPipeline::MediaSourceVideo>(
 		mimeType,
-		hasDrm,
+		/* hasDrm */ true,
 		static_cast<int32_t>(codecInfo.mInfo.video.mWidth),
 		static_cast<int32_t>(codecInfo.mInfo.video.mHeight),
 		firebolt::rialto::SegmentAlignment::AU,
