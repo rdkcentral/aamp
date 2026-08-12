@@ -812,7 +812,10 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
 			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
-			AAMPLOG_INFO("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
+			AAMPLOG_INFO("track %s - encountered aamp discontinuity @position - %f, "
+						 "isDiscoIgnoredForOtherTrack - %d ptsError %d",
+						 name, cachedFragment->position,
+						 isDiscoIgnoredForOtherTrack, ptsError);
 			if (eTRACK_SUBTITLE != type)
 			{
 				cachedFragment->discontinuity = false;
