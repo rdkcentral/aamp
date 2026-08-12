@@ -782,6 +782,9 @@ class InterfacePlayerRDK
 		 */
 		void SetStreamCaps(GstMediaType type, MediaCodecInfo&& codecInfo);
 
+		GstStateChangeReturn GetPipelineState(GstState *currentState, GstState *pendingState);
+
+
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
 };

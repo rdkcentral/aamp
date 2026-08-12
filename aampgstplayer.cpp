@@ -1272,7 +1272,17 @@ void AAMPGstPlayer::SeekStreamSink(double position, double rate)
 	Flush(position, rate, false, false);
 
 }
-
+/**
+ * @brief Get the current and pending state of the GStreamer pipeline
+ *
+ * @param[out] cur - Pointer to store the current state
+ * @param[out] pend - Pointer to store the pending state
+ * @return GstStateChangeReturn indicating success or failure
+ */
+GstStateChangeReturn AAMPGstPlayer::GetPipelineState(GstState *cur, GstState *pend)
+{
+   return playerInstance->GetPipelineState(cur, pend);
+}
 /**
  *  @brief Get the video rectangle co-ordinates
  */

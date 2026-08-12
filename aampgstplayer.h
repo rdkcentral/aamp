@@ -338,6 +338,13 @@ public:
 	void SeekStreamSink(double position, double rate) override;
 
 	/**
+	 * @fn GetPipelineState
+	 * @param[out] cur - Pointer to store the current state
+	 * @param[out] pend - Pointer to store the pending state
+	 * @return GstStateChangeReturn indicating success or failure
+	 */
+	GstStateChangeReturn GetPipelineState(GstState *cur, GstState *pend) override;
+	/**
 	 	 *   @fn GetVideoRectangle
 		 *
 	 	 */

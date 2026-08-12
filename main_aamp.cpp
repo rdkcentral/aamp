@@ -762,6 +762,36 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			bool isPipelinePaused = aamp->mSinkPaused.load();
 			if ((!isPipelinePaused && rate == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp()) || (rate == 0 && isPipelinePaused))
 			{
+				/* RDKEMW-21923: mSinkPaused can be stale while pipeline is wedged.
+				 * Only skip when pipeline is at PLAYING or heading there (pend=PLAYING).
+				 * cur!=PLAYING AND pend!=PLAYING = genuine wedge → force recovery. */
+				if (!isPipelinePaused && rate == AAMP_NORMAL_PLAY_RATE)
+				{
+					StreamSink *wedgeSink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (wedgeSink)
+					{
+						GstState curState = GST_STATE_VOID_PENDING, pendState = GST_STATE_VOID_PENDING;
+						GstStateChangeReturn ret = wedgeSink->GetPipelineState(&curState, &pendState);
+						if (ret == GST_STATE_CHANGE_ASYNC &&
+						    curState != GST_STATE_PLAYING &&
+						    pendState != GST_STATE_PLAYING)
+						{
+							AAMPLOG_WARN("SetRateInternal[765]: wedged (cur=%d pend=%d); recovering",
+							             curState, pendState);
+							aamp->SetState(eSTATE_SEEKING);
+							aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+							aamp->rate = AAMP_NORMAL_PLAY_RATE;
+							aamp->mSinkPaused = false;
+							{
+								std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+								aamp->TuneHelper(eTUNETYPE_SEEK, false);
+							}
+							aamp->NotifySpeedChanged(aamp->rate, false);
+							aamp->ResumeDownloads();
+							return;
+						}
+					}
+				}
 				AAMPLOG_WARN("Already running at playback rate(%f) mSinkPaused(%d), hence skipping set rate for (%f)", aamp->rate, isPipelinePaused, rate);
 				return;
 			}
@@ -940,11 +970,29 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							}
 							else
 							{
+
+								if (!retValue)
+								{
+									/* MW reported genuine wedge (pend != PLAYING). Recover instead
+									* of calling NotifyFirstBufferProcessed prematurely. */
+									AAMPLOG_WARN("SetRateInternal: Pause(false) failed; pipeline wedged, recovering via re-seek");
+									aamp->SetState(eSTATE_SEEKING);
+									aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+									aamp->rate = AAMP_NORMAL_PLAY_RATE;
+									aamp->mSinkPaused = false;
+									{
+										std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
+										aamp->TuneHelper(eTUNETYPE_SEEK, false);
+									}
+									aamp->NotifySpeedChanged(aamp->rate, false);
+									aamp->ResumeDownloads();
+									return;
+								}
 								// required since buffers are already cached in paused state
 								aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 							}
 						}
-					}
+					}	
 					aamp->mSinkPaused = false;
 					aamp->ResumeDownloads();
 				}
