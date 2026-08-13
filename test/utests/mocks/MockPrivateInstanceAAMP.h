@@ -100,6 +100,9 @@ public:
 	MOCK_METHOD(bool, IsAtLivePoint, ());
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
+	MOCK_METHOD(bool, ReconfigureForElementaryStreamUpdate, ());
+	MOCK_METHOD(void, CompleteDiscontinuityDataDeliverForPTSRestamp,
+		(AampMediaType type));
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
 	MOCK_METHOD(bool, IsAdPlaying, ());

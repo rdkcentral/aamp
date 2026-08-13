@@ -1420,7 +1420,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// setSourcePosition fires for both video (id=0) and the inband CC
 	// subtitle source (id=1) created alongside video in Configure().
 	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, 10000000000LL, true, _, _)).Times(2);
+		setSourcePosition(_, 10000000000LL, false, _, _)).Times(2);
 
 	SendVideoInitFragment();
 }
@@ -3923,7 +3923,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// setSourcePosition fires for both video (id=0) and the inband CC
 	// subtitle source (id=1) created alongside video in Configure().
 	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, 10000000000LL, true, _, _)).Times(2);
+		setSourcePosition(_, 10000000000LL, false, _, _)).Times(2);
 
 	SendVideoInitFragment();
 }
@@ -4204,12 +4204,12 @@ TEST_F(AampRialtoPlayerTest,
 			}));
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/true, 2.0, _))
+			/*resetTime=*/false, 2.0, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/true, 1.0, _))
+			/*resetTime=*/false, 1.0, _))
 		.Times(1)
 		.WillOnce(Return(true));
 
@@ -4243,7 +4243,7 @@ TEST_F(AampRialtoPlayerTest,
 			}));
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/true, 1.0, _))
+			/*resetTime=*/false, 1.0, _))
 		.Times(2)
 		.WillRepeatedly(Return(true));
 
@@ -4277,7 +4277,7 @@ TEST_F(AampRialtoPlayerTest,
 			}));
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/true, 1.0, _))
+			/*resetTime=*/false, 1.0, _))
 		.Times(2)
 		.WillRepeatedly(Return(true));
 
@@ -4679,9 +4679,12 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Mute before attach - no sourceId yet, so setMute must NOT fire here.
 	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, _)).Times(0);
 	m_player->SetAudioVolume(0);
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 
-	// setMute must be called exactly once when the audio source attaches.
-	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, true)).Times(1);
+	// Inband CC attaches before audio and applies its default cached mute.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(1, true)).Times(1);
+	// The audio source follows video and inband CC, so it receives sourceId 2.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(2, true)).Times(1);
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
@@ -4746,9 +4749,12 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Mute before attach — must NOT trigger setMute yet.
 	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, _)).Times(0);
 	m_player->SetVideoMute(true);
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 
-	// setMute must be called exactly once when the video source attaches.
-	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, true)).Times(1);
+	// Inband CC attaches before the cached video mute is applied.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(1, true)).Times(1);
+	// The video source is attached first and receives sourceId 0.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(0, true)).Times(1);
 	SendVideoInitFragment();
 	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
 }

@@ -319,3 +319,33 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 
 	EXPECT_DOUBLE_EQ(notifiable.GetProgressReportIntervalSeconds(), 0.75);
 }
+
+// ===========================================================================
+// Discontinuity
+// ===========================================================================
+//
+// Unlike the notifications above, these two are called synchronously (no
+// ScheduleAsyncTask) - see the rationale comment in
+// PrivateInstanceAAMPNotifiable.cpp.
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	CompleteDiscontinuityDataDeliverForPTSRestamp_ForwardsToAampSynchronously)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_, _, _))
+		.Times(0);
+
+	m_notifiable->CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO);
+}
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NotifyPipelinePausedToUnderflowMonitor_NullStreamAbstraction_DoesNotCrash)
+{
+	// m_aamp has no mpStreamAbstractionAAMP attached; verify the null check
+	// prevents a crash and no task is scheduled (synchronous call).
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_, _, _))
+		.Times(0);
+
+	EXPECT_NO_THROW(m_notifiable->NotifyPipelinePausedToUnderflowMonitor());
+}

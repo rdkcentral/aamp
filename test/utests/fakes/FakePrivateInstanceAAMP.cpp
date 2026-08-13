@@ -1251,6 +1251,10 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 
 void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
+	}
 }
 
 void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char* format, ...)
@@ -1769,6 +1773,10 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 
 bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->ReconfigureForElementaryStreamUpdate();
+	}
 	return false;
 }
 
