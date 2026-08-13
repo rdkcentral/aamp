@@ -177,7 +177,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
 			bool fdrEnabled = fdr.IsEnabled();
 			AAMP_LogLevel configuredLevel = AampLogManager::aampLoglevel.load(std::memory_order_relaxed);
-			bool bypassFdr = !fdrEnabled || configuredLevel <= eLOGLEVEL_INFO;
+			bool bypassFdr = !fdrEnabled || configuredLevel >= eLOGLEVEL_INFO;
 			bool queuedInFdr = false;
 			if (!bypassFdr && (logLevelIndex == eLOGLEVEL_INFO ||
 				logLevelIndex == eLOGLEVEL_WARN || logLevelIndex == eLOGLEVEL_MIL))
@@ -202,7 +202,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 				fdr.Flush(logLevelIndex, "AAMP-PLAYER");
 			}
 
-			bool forceImmediate = (!fdrEnabled || !fdr.IsEnabled()) && logLevelIndex >= eLOGLEVEL_INFO;
+			bool forceImmediate = (!fdrEnabled || !fdr.IsEnabled() || bypassFdr) && logLevelIndex >= eLOGLEVEL_TRACE;
 			if (!queuedInFdr && (forceImmediate || logLevelIndex >= configuredLevel))
 			{
 				if( AampLogManager::disableLogRedirection )
