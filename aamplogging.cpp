@@ -202,7 +202,8 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 				fdr.Flush(logLevelIndex, "AAMP-PLAYER");
 			}
 
-			bool forceImmediate = (fdrEnabled && fdr.IsEnabled() && bypassFdr) && logLevelIndex >= eLOGLEVEL_TRACE;
+			bool forceImmediate = ((!fdrEnabled || !fdr.IsEnabled()) && logLevelIndex >= eLOGLEVEL_INFO) ||
+			                      (fdrEnabled && fdr.IsEnabled() && bypassFdr && logLevelIndex >= eLOGLEVEL_TRACE);
 			if (!queuedInFdr && (forceImmediate || logLevelIndex >= configuredLevel))
 			{
 				if( AampLogManager::disableLogRedirection )
