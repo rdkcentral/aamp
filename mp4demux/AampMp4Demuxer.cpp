@@ -262,7 +262,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		
 		if (!ret)
 		{
-			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);			// Propagate the parse failure as an anomaly event so that the playback
+			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
 			mAamp->SendErrorEvent(AAMP_TUNE_MP4_DEMUX_ERROR,
 				"Mp4Demux Error:This file is invalid and cannot be played.", false);		}
 		else
