@@ -15140,8 +15140,8 @@ bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
 		return false;
 	}
 
-	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs()
-		>= DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS;
+	const double thresholdMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyMaxIncrementSec) * 1000.0;
+	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs() >= thresholdMs;
 }
 
 /**

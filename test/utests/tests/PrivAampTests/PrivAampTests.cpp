@@ -6492,6 +6492,8 @@ INSTANTIATE_TEST_SUITE_P(
  */
 TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsFalse_WhenAccumulatedIsZero)
 {
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RebufferLatencyMaxIncrementSec))
+		.WillOnce(Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC));
 	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
 		.WillOnce(testing::Return(0.0));
 
@@ -6500,43 +6502,49 @@ TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsFalse_WhenAccu
 
 /**
  * @brief Threshold check returns false when accumulated latency is strictly
- * below DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS (10 000 ms).
+ * below the configured maximum increment (DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000 ms).
  *
- * Contract: 9999.9 ms < 10 000 ms → result must be false.
+ * Contract: threshold - 0.1 ms < threshold → result must be false.
  */
 TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsFalse_WhenBelowThreshold)
 {
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RebufferLatencyMaxIncrementSec))
+		.WillOnce(Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC));
 	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
-		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS - 0.1));
+		.WillOnce(testing::Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000.0 - 0.1));
 
 	EXPECT_FALSE(p_aamp->IsLatencyExceedingTrickplayThreshold());
 }
 
 /**
  * @brief Threshold check returns true when accumulated latency equals the
- * threshold exactly (DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS = 10 000 ms).
+ * configured maximum increment exactly (DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000 ms).
  *
- * Contract: 10 000 ms >= 10 000 ms → result must be true.
+ * Contract: threshold >= threshold → result must be true.
  */
 TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsTrue_WhenAtThreshold)
 {
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RebufferLatencyMaxIncrementSec))
+		.WillOnce(Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC));
 	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
-		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS));
+		.WillOnce(testing::Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000.0));
 
 	EXPECT_TRUE(p_aamp->IsLatencyExceedingTrickplayThreshold());
 }
 
 /**
  * @brief Threshold check returns true when accumulated latency exceeds the
- * threshold (> 10 000 ms).
+ * configured maximum increment.
  *
  * Contract: A heavily buffered/rebuffered stream can accumulate well beyond
- * 10 s.  The check must return true for any value above the threshold.
+ * the threshold.  The check must return true for any value above it.
  */
 TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsTrue_WhenAboveThreshold)
 {
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RebufferLatencyMaxIncrementSec))
+		.WillOnce(Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC));
 	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
-		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS + 5000.0));
+		.WillOnce(testing::Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000.0 + 5000.0));
 
 	EXPECT_TRUE(p_aamp->IsLatencyExceedingTrickplayThreshold());
 }
