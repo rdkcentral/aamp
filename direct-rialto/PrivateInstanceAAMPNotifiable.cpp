@@ -231,11 +231,11 @@ AAMPPlayerState PrivateInstanceAAMPNotifiable::GetState()
 
 void PrivateInstanceAAMPNotifiable::NotifyPipelineFailure()
 {
-	AAAMPLOG_TRACE("NotifyPipelineFailure");
+	AAMPLOG_TRACE("NotifyPipelineFailure");
 	auto *args = new NotifyPipelineFailureArgs{m_aamp};
 	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
 		auto *a = static_cast<NotifyPipelineFailureArgs *>(p);
-		AAAMPLOG_ERR("Schedule retune for Rialto pipeline failure");
+		AAMPLOG_ERR("Schedule retune for Rialto pipeline failure");
 		a->aamp->ScheduleRetune(ePIPELINE_ERROR_INTERNAL, eMEDIATYPE_VIDEO);
 		delete a;
 		return 0;
