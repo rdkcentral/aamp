@@ -50,7 +50,7 @@ extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtil
  */
 #define AAMPLOG( LEVEL, FORMAT, ... ) \
 do { \
-if( (LEVEL) >= eLOGLEVEL_INFO ) \
+if( (LEVEL) >= eLOGLEVEL_TRACE ) \
 { \
 logprintf( LEVEL, __FILE__, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 } \
