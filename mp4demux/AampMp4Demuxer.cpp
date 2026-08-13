@@ -104,6 +104,7 @@ void AampMp4Demuxer::abort()
 	mLastSamplePts = 0.0;
 	mRestampedPts = 0.0;
 	mRestampedDuration = 0.0;
+	mLastFragmentPtsDelta = 0.0;
 	mLastTrickRate = 0.0;
 	AAMPLOG_INFO("Abort: Reset trickmode state for media type %s", GetMediaTypeName(mMediaType));
 }
@@ -128,6 +129,7 @@ void AampMp4Demuxer::resetTrickMode()
 	mLastSamplePts = 0.0;
 	mRestampedPts = 0.0;
 	mRestampedDuration = 0.0;
+	mLastFragmentPtsDelta = 0.0;
 	mLastTrickRate = 0.0;
 	AAMPLOG_INFO("Reset trickmode state for media type %s", GetMediaTypeName(mMediaType));
 }
@@ -150,6 +152,7 @@ void AampMp4Demuxer::HandleTrickModeDiscontinuity()
 	{
 		mRestampedPts += mRestampedDuration;
 		mTrickPhase = Mp4TrickPhase::DISCONTINUITY;
+		mLastFragmentPtsDelta = 0.0;
 		AAMPLOG_WARN("[%s] Trickmode discontinuity: advancing restampedPts by %.6f to %.6f",
 			GetMediaTypeName(mMediaType), mRestampedDuration, mRestampedPts);
 	}
@@ -282,6 +285,25 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					else
 					{
 						auto& iframe = samples.front();
+						if (!discontinuous && (mTrickPhase == Mp4TrickPhase::STEADY))
+						{
+							double fragmentPtsDelta = fabs(iframe.mPts - mLastSamplePts);
+							if (mLastFragmentPtsDelta > 0.0)
+							{
+								constexpr double kDeltaIncreaseMultiplier = 2.0;
+								if (fragmentPtsDelta >= (kDeltaIncreaseMultiplier * mLastFragmentPtsDelta))
+								{
+									AAMPLOG_WARN("[%s] Synthetic trickmode discontinuity: fragmentPtsDelta %.6f prevDelta %.6f currPTS %.6f lastPTS %.6f",
+										GetMediaTypeName(mMediaType),
+										fragmentPtsDelta,
+										mLastFragmentPtsDelta,
+										iframe.mPts,
+										mLastSamplePts);
+									HandleTrickModeDiscontinuity();
+								}
+							}
+							mLastFragmentPtsDelta = fragmentPtsDelta;
+						}
 						TrickmodePtsRestamp(iframe, duration, discontinuous);
 
 						++sampleIndex;

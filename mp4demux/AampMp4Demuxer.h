@@ -200,6 +200,7 @@ private:
 	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */
 	double mLastTrickRate {0.0};     /**< Last used trickplay rate for state reset */
 	double mRestampedDuration {0.0}; /**< Last restamped duration (seconds); reused across discontinuities */
+	double mLastFragmentPtsDelta {0.0}; /**< Previous fragment PTS delta used for synthetic discontinuity detection */
 };
 
 #endif /* __AAMPMP4DEMUXER_H__ */
