@@ -8740,12 +8740,7 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 					}
 				}
 
-				// VPAAMP-768: When a period is culled during live playback, the video
-				// inject thread may be blocked in BlockUntilGstreamerWantsData due to a
-				// prior enoughData signal.  Unblock it so it can transition to the new
-				// period.  We must reset the buffer control state (not just the
-				// download-blocked flag) so that enoughData does not immediately
-				// re-block on the next actionDownloads call.
+				// Resume video if blocked by enoughData when the period it was on is culled.
 				if (culled > 0 && !aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
 				{
 					AAMPLOG_WARN("Period culled (%.2fs) while video downloads blocked; forcing buffer control resume", culled);
@@ -8815,7 +8810,7 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 					}
 				}
 
-				// VPAAMP-768: Same guard as the segmentTimeline path above.
+				// Resume video if blocked by enoughData when the period it was on is culled.
 				if (culled > 0 && !aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO))
 				{
 					AAMPLOG_WARN("Period culled (%.2fs) while video downloads blocked; forcing buffer control resume", culled);

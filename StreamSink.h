@@ -224,9 +224,6 @@ public:
 
     /**
      *   @brief Force buffer control to resume for a given track.
-     *
-     *   Used when a period is culled during live playback and the video
-     *   inject thread is blocked in eBUFFER_NEEDS_DATA_SIGNAL state.
      *   @param[in] type - Media type to resume
      */
     virtual void ForceResumeBufferControl(AampMediaType type){};

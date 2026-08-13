@@ -4193,11 +4193,6 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 
 /**
  * @brief Force-resume buffer control and track downloads for a media type.
- *
- * VPAAMP-768: Called when a live period is culled while the track's inject
- * thread is blocked in eBUFFER_NEEDS_DATA_SIGNAL.  This resets the buffer
- * control state machine (via the same needData path GStreamer would use)
- * AND unblocks the download flag, preventing immediate re-blocking.
  */
 void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType type)
 {
@@ -4206,7 +4201,6 @@ void PrivateInstanceAAMP::ForceResumeTrackBufferControl(AampMediaType type)
 	{
 		sink->ForceResumeBufferControl(type);
 	}
-	// Also ensure the download-blocked flag is cleared
 	ResumeTrackDownloads(type);
 }
 
@@ -4239,12 +4233,8 @@ void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int peri
 				cb();
 				elapsedMs -= periodMs;
 			}
-			elapsedMs += 10;
 		}
-		else
-		{
-			elapsedMs += 10;
-		}
+		elapsedMs += 10;
 		interruptibleMsSleep(10);
 	}
 	if (elapsedMs > 1000)
