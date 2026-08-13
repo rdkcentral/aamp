@@ -91,6 +91,17 @@ void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line
 	}
 }
 
+bool isLogLevelEnabledForRouting(AAMP_LogLevel level)
+{
+	return level >= eLOGLEVEL_INFO || level >= AampLogManager::aampLoglevel.load(std::memory_order_relaxed);
+}
+
+void logprintfMessage(AAMP_LogLevel level, const char* source, bool includePlayerId,
+                      const char* file, const char* func, int line, const char* message)
+{
+	logprintf(level, file, func, line, "%s", message);
+}
+
 void emitLogLine(int logLevel, const char* line,
                  bool disableRedirection, bool enableEthanRedirection)
 {

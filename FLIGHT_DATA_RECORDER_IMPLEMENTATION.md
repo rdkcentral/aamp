@@ -46,8 +46,10 @@ July 16, 2026
 - Routes FDR output through the configured journal or Ethanlog backend
 
 ### 4. Middleware logging
-Middleware integration is deferred to VPAAMP-953.
-  - Shares same FDR singleton instance
+- Registers structured logger callbacks with middleware-player-interface
+- Routes `PLAYER_IF` logs through the same FDR singleton
+- Uses an admission callback so normally discarded TRACE/DEBUG logs are not formatted or forwarded
+- Uses the temporary RDKEMW-23400 macOS patch until the middleware API is released
 
 ### 5. CMakeLists.txt
 - Added `AampFlightDataRecorder.cpp` and `AampFlightDataRecorder.h` to build
@@ -79,9 +81,9 @@ Middleware integration is deferred to VPAAMP-953.
 - Can be enabled/disabled at runtime
 - Adjustable buffer size and time window
 
-### 6. Core Logging
-- Core AAMP logging uses a single shared FDR instance
-- Middleware integration is deferred to VPAAMP-953
+### 6. Unified Logging
+- Core AAMP and middleware logging use a single shared FDR instance
+- Source tags preserve `AAMP-PLAYER` and `PLAYER_IF` tool compatibility
 
 ## Output Format
 
@@ -144,7 +146,6 @@ export AAMP_flightDataRecorderMaxSeconds=15
 
 ## Phase 2 Scope (Future)
 
-⏳ Middleware logging integration (VPAAMP-953)
 ⏳ Player Analytics integration
 ⏳ Event-based error reporting to JavaScript
 ⏳ Compression/sampling for large buffers

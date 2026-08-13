@@ -1013,3 +1013,44 @@ TEST_F(AampLogManagerTest, DisabledFdrEmitsInfoImmediately)
 		AllOf(HasSubstr("[INFO]"), HasSubstr("disabled-fdr-info"))));
 	logprintf(eLOGLEVEL_INFO, "test.cpp", "testFunc", 1, "%s", "disabled-fdr-info");
 }
+
+TEST_F(AampLogManagerTest, MiddlewareLogsUseFdrAndPreserveFormat)
+{
+	AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
+	fdr.Initialize(true, 16, 60);
+
+	{
+		InSequence sequence;
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("FLIGHT DATA RECORDER DUMP"), HasSubstr("triggered by PLAYER_IF ERROR"))));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("[PLAYER_IF]"), HasSubstr("[INFO]"), HasSubstr("middleware-info"),
+			      Not(HasSubstr("[-1]")))));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("[PLAYER_IF]"), HasSubstr("[WARN]"), HasSubstr("middleware-warn"),
+			      Not(HasSubstr("[-1]")))));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("[PLAYER_IF]"), HasSubstr("[MIL]"), HasSubstr("middleware-mil"),
+			      Not(HasSubstr("[-1]")))));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			HasSubstr("END FLIGHT DATA RECORDER DUMP")));
+		EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
+			AllOf(HasSubstr("[PLAYER_IF]"), HasSubstr("[ERROR]"), HasSubstr("middleware-error"),
+			      Not(HasSubstr("[-1]")))));
+
+		logprintfMessage(eLOGLEVEL_INFO, "PLAYER_IF", false, NULL, "MwInfo", 10, "middleware-info");
+		logprintfMessage(eLOGLEVEL_WARN, "PLAYER_IF", false, NULL, "MwWarn", 11, "middleware-warn");
+		logprintfMessage(eLOGLEVEL_MIL, "PLAYER_IF", false, NULL, "MwMil", 12, "middleware-mil");
+		logprintfMessage(eLOGLEVEL_ERROR, "PLAYER_IF", false, NULL, "MwError", 13, "middleware-error");
+	}
+	fdr.SetEnabled(false);
+}
+
+TEST_F(AampLogManagerTest, MiddlewareAdmissionDropsTraceAndDebugByDefault)
+{
+	AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
+	EXPECT_FALSE(isLogLevelEnabledForRouting(eLOGLEVEL_TRACE));
+	EXPECT_FALSE(isLogLevelEnabledForRouting(eLOGLEVEL_DEBUG));
+	EXPECT_TRUE(isLogLevelEnabledForRouting(eLOGLEVEL_INFO));
+	EXPECT_TRUE(isLogLevelEnabledForRouting(eLOGLEVEL_ERROR));
+}

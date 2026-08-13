@@ -189,8 +189,7 @@ if (downloadFailed)
 ### For Most Developers: No API Needed
 FDR works automatically with existing logging macros:
 - `AAMPLOG_INFO()`, `AAMPLOG_WARN()`, `AAMPLOG_MIL()`, `AAMPLOG_ERR()` (core AAMP)
-
-Middleware logging integration is deferred to VPAAMP-953.
+- `MW_LOG_INFO()`, `MW_LOG_WARN()`, `MW_LOG_MIL()`, `MW_LOG_ERR()` (middleware)
 
 ### Advanced: Direct FDR Access (Rare)
 
@@ -231,7 +230,6 @@ If FDR crashes or behaves unexpectedly:
 
 ## Future Enhancements (Phase 2)
 
-- **Middleware Integration (VPAAMP-953)**: Route middleware logging through FDR
 - **Analytics Integration**: Automatic upload to analytics system
 - **Compression**: Reduce memory footprint
 - **Sampling**: Capture every Nth log to extend time window

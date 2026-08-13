@@ -29,6 +29,7 @@
 #include <atomic>
 #include <cstring>
 #include <mutex>
+#include <vector>
 #include "priv_aamp.h"
 #include "AampFlightDataRecorder.h"
 using namespace std;
@@ -246,6 +247,78 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			va_end(args);
 
 		}
+	}
+}
+
+bool isLogLevelEnabledForRouting(AAMP_LogLevel level)
+{
+	AAMP_LogLevel configuredLevel = AampLogManager::aampLoglevel.load(std::memory_order_relaxed);
+	return level >= eLOGLEVEL_INFO || level >= configuredLevel;
+}
+
+void logprintfMessage(AAMP_LogLevel logLevelIndex, const char* source, bool includePlayerId,
+                      const char* file, const char* func, int line, const char* message)
+{
+	std::lock_guard<std::recursive_mutex> lock(gLogMutex);
+	uint64_t logTimestampMs = AampFlightDataRecorder::GetCurrentTimeMilliseconds();
+	auto logSteadyTime = std::chrono::steady_clock::now();
+	uint32_t logSeqNum = gLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
+	AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
+	bool fdrEnabled = fdr.IsEnabled();
+	AAMP_LogLevel configuredLevel = AampLogManager::aampLoglevel.load(std::memory_order_relaxed);
+	bool bypassFdr = !fdrEnabled || configuredLevel <= eLOGLEVEL_INFO;
+	bool queuedInFdr = false;
+
+	if (!bypassFdr && (logLevelIndex == eLOGLEVEL_INFO ||
+		logLevelIndex == eLOGLEVEL_WARN || logLevelIndex == eLOGLEVEL_MIL))
+	{
+		FDRLogEntry entry;
+		entry.timestamp_ms = logTimestampMs;
+		entry.recorded_at = logSteadyTime;
+		entry.log_level = logLevelIndex;
+		entry.thread_id = std::this_thread::get_id();
+		entry.seq_num = logSeqNum;
+		entry.player_id = gPlayerId;
+		entry.include_player_id = includePlayerId;
+		entry.file = file ? file : "";
+		entry.func = func ? func : "";
+		entry.line = line;
+		entry.source = source ? source : "";
+		entry.message = message ? message : "";
+		queuedInFdr = fdr.AddEntry(entry);
+	}
+
+	if (!bypassFdr && logLevelIndex == eLOGLEVEL_ERROR)
+	{
+		fdr.Flush(logLevelIndex, source ? source : "");
+	}
+
+	bool forceImmediate = (!fdrEnabled || !fdr.IsEnabled()) && logLevelIndex >= eLOGLEVEL_INFO;
+	if (!queuedInFdr && (forceImmediate || logLevelIndex >= configuredLevel))
+	{
+		std::ostringstream output;
+		if (AampLogManager::disableLogRedirection.load(std::memory_order_relaxed))
+		{
+			output << logTimestampMs / 1000 << "." << std::setfill('0') << std::setw(3)
+			       << logTimestampMs % 1000 << ": ";
+		}
+		output << "[" << (source ? source : "") << "]";
+		output << "[" << std::setfill('0') << std::setw(3) << logSeqNum << "]";
+		if (includePlayerId)
+		{
+			output << "[" << gPlayerId << "]";
+		}
+		output << "[" << mLogLevelStr[logLevelIndex] << "]";
+		output << "[" << std::hex << GetPrintableThreadID() << std::dec << "]";
+		if (AampLogManager::logFilename.load(std::memory_order_relaxed) && file)
+		{
+			const char* basename = strrchr(file, '/');
+			output << "[" << (basename ? basename + 1 : file) << "]";
+		}
+		output << "[" << (func ? func : "") << "][" << line << "]" << (message ? message : "");
+		emitLogLine(logLevelIndex, output.str().c_str(),
+			AampLogManager::disableLogRedirection.load(std::memory_order_relaxed),
+			AampLogManager::enableEthanLogRedirection.load(std::memory_order_relaxed));
 	}
 }
 

@@ -1,0 +1,205 @@
+diff --git a/playerLogManager/PlayerLogManager.cpp b/playerLogManager/PlayerLogManager.cpp
+index 6351aa1..8d272e6 100644
+--- a/playerLogManager/PlayerLogManager.cpp
++++ b/playerLogManager/PlayerLogManager.cpp
+@@ -29,6 +29,9 @@
+ #include <cstdarg>
+ #include <cstring>
+ #include <atomic>
++#include <condition_variable>
++#include <mutex>
++#include <vector>
+ #include "PlayerLogManager.h"
+ #include "PlayerUtils.h"
+ 
+@@ -81,6 +84,84 @@ bool PlayerLogManager::locked = false;
+ bool PlayerLogManager::disableLogRedirection = false;
+ bool PlayerLogManager::enableEthanLogRedirection = false;
+ 
++static std::mutex gLoggerCallbacksMutex;
++static std::condition_variable gLoggerCallbacksCondition;
++static PlayerLoggerCallbacks gLoggerCallbacks = { sizeof(PlayerLoggerCallbacks), NULL, NULL, NULL };
++static size_t gActiveLoggerCallbacks = 0;
++
++class LoggerCallbackLease
++{
++public:
++	LoggerCallbackLease()
++	{
++		std::lock_guard<std::mutex> lock(gLoggerCallbacksMutex);
++		mCallbacks = gLoggerCallbacks;
++		if (mCallbacks.log)
++		{
++			++gActiveLoggerCallbacks;
++		}
++	}
++
++	~LoggerCallbackLease()
++	{
++		if (mCallbacks.log)
++		{
++			std::lock_guard<std::mutex> lock(gLoggerCallbacksMutex);
++			if (--gActiveLoggerCallbacks == 0)
++			{
++				gLoggerCallbacksCondition.notify_all();
++			}
++		}
++	}
++
++	const PlayerLoggerCallbacks& Get() const { return mCallbacks; }
++
++private:
++	PlayerLoggerCallbacks mCallbacks;
++};
++
++bool PlayerLogManager::SetLoggerCallbacks(const PlayerLoggerCallbacks* callbacks)
++{
++	if (!callbacks || callbacks->structSize < sizeof(PlayerLoggerCallbacks) || !callbacks->log)
++	{
++		return false;
++	}
++	std::lock_guard<std::mutex> lock(gLoggerCallbacksMutex);
++	gLoggerCallbacks = *callbacks;
++	return true;
++}
++
++void PlayerLogManager::ResetLoggerCallbacks()
++{
++	std::unique_lock<std::mutex> lock(gLoggerCallbacksMutex);
++	gLoggerCallbacks = { sizeof(PlayerLoggerCallbacks), NULL, NULL, NULL };
++	gLoggerCallbacksCondition.wait(lock, [] { return gActiveLoggerCallbacks == 0; });
++}
++
++bool PlayerLogManager::HasLoggerCallbacks()
++{
++	std::lock_guard<std::mutex> lock(gLoggerCallbacksMutex);
++	return gLoggerCallbacks.log != NULL;
++}
++
++bool PlayerLogManager::IsLogLevelEnabled(MW_LogLevel level)
++{
++	LoggerCallbackLease lease;
++	const PlayerLoggerCallbacks& callbacks = lease.Get();
++	if (!callbacks.log)
++	{
++		return level >= mwLoglevel;
++	}
++	try
++	{
++		return !callbacks.isEnabled || callbacks.isEnabled(callbacks.context, level);
++	}
++	catch (...)
++	{
++		return false;
++	}
++}
++
+ static std::hash<std::thread::id> std_thread_hasher;
+ 
+ // Sequential log counter for tracking missing log lines
+@@ -89,11 +170,59 @@ std::size_t GetPlayerPrintableThreadID( void )
+ {
+ 	return std_thread_hasher( std::this_thread::get_id() );
+ }
++
++static bool DispatchToLoggerCallbacks(MW_LogLevel level, const char* function, int line,
++                                      const char* format, va_list args)
++{
++	LoggerCallbackLease lease;
++	const PlayerLoggerCallbacks& callbacks = lease.Get();
++	if (!callbacks.log)
++	{
++		return false;
++	}
++	try
++	{
++		if (callbacks.isEnabled && !callbacks.isEnabled(callbacks.context, level))
++		{
++			return true;
++		}
++
++		va_list measureArgs;
++		va_copy(measureArgs, args);
++		int messageBytes = vsnprintf(NULL, 0, format, measureArgs);
++		va_end(measureArgs);
++		if (messageBytes < 0)
++		{
++			return true;
++		}
++
++		std::vector<char> message(static_cast<size_t>(messageBytes) + 1);
++		vsnprintf(message.data(), message.size(), format, args);
++		callbacks.log(callbacks.context, level, "PLAYER_IF", function, line, message.data());
++	}
++	catch (...)
++	{
++	}
++	return true;
++}
+ /**
+  * @brief Print logs to console / log file
+  */
+ void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, const char *format, ...)
+ {
++	va_list callbackArgs;
++	va_start(callbackArgs, format);
++	bool callbackHandled = DispatchToLoggerCallbacks(logLevelIndex, func, line, format, callbackArgs);
++	va_end(callbackArgs);
++	if (callbackHandled)
++	{
++		return;
++	}
++	if (logLevelIndex < PlayerLogManager::mwLoglevel)
++	{
++		return;
++	}
++
+ 	// Increment log counter for each log line, wrap at 1000 for consistent 3-digit formatting
+ 	uint32_t logSeqNum = gMwLogCounter.fetch_add(1, std::memory_order_relaxed) % 1000;
+ 	
+diff --git a/playerLogManager/PlayerLogManager.h b/playerLogManager/PlayerLogManager.h
+index 3dae3c9..2339f60 100644
+--- a/playerLogManager/PlayerLogManager.h
++++ b/playerLogManager/PlayerLogManager.h
+@@ -44,6 +44,20 @@ enum MW_LogLevel
+         mLOGLEVEL_ERROR,    /**< Error level */
+ };
+ 
++#define PLAYER_LOGGER_CALLBACK_API_VERSION 1
++
++typedef bool (*PlayerLogEnabledCallback)(void* context, MW_LogLevel level);
++typedef void (*PlayerLogCallback)(void* context, MW_LogLevel level, const char* source,
++                                  const char* function, int line, const char* message);
++
++struct PlayerLoggerCallbacks
++{
++	uint32_t structSize;
++	void* context;
++	PlayerLogEnabledCallback isEnabled;
++	PlayerLogCallback log;
++};
++
+ /**
+  * @class PlayerLogManager 
+  * @brief PlayerLogManager Class
+@@ -56,6 +70,11 @@ public :
+ 	static bool disableLogRedirection;		/**<  disables log re-direction to journal or ethan log apis and uses vprintf - used by simulators */
+ 	static bool enableEthanLogRedirection;  /**<  Enables Ethan log redirection which uses Ethan lib for logging */
+ 
++	static bool SetLoggerCallbacks(const PlayerLoggerCallbacks* callbacks);
++	static void ResetLoggerCallbacks();
++	static bool HasLoggerCallbacks();
++	static bool IsLogLevelEnabled(MW_LogLevel level);
++
+ 	/**
+ 	 * @brief Sets the externals logger information.
+ 	 *
+@@ -138,7 +157,7 @@ extern void logprintf(MW_LogLevel logLevelIndex, const char* func, int line, con
+ 
+ #define MW_LOG( LEVEL, FORMAT, ... ) \
+ do{\
+-if( (LEVEL) >= PlayerLogManager::mwLoglevel ) \
++if( PlayerLogManager::IsLogLevelEnabled(LEVEL) ) \
+ { \
+  logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+ }\

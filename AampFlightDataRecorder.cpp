@@ -272,7 +272,10 @@ std::string AampFlightDataRecorder::FormatLogEntry(const FDRLogEntry& entry) con
 	oss << sec << "." << std::setfill('0') << std::setw(3) << msec << ": ";
 	oss << "[" << entry.source << "]";
 	oss << "[" << std::setfill('0') << std::setw(3) << entry.seq_num << "]";
-	oss << "[" << entry.player_id << "]";
+	if (entry.include_player_id)
+	{
+		oss << "[" << entry.player_id << "]";
+	}
 	oss << "[" << GetLogLevelString(entry.log_level) << "]";
 	std::hash<std::thread::id> hasher;
 	oss << "[" << std::hex << hasher(entry.thread_id) << std::dec << "]";

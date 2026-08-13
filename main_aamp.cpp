@@ -34,7 +34,6 @@
 #include "PlayerExternalsInterface.h"
 #include "PlayerLogManager.h"
 #include "PlayerMetadata.hpp"
-#include "PlayerLogManager.h"
 #include "AampDRMLicManager.h"
 
 #include <dlfcn.h>
@@ -47,6 +46,48 @@ AampConfig *gpGlobalConfig=NULL;
 #include "ContentSecurityManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
+
+#if defined(PLAYER_LOGGER_CALLBACK_API_VERSION) && PLAYER_LOGGER_CALLBACK_API_VERSION >= 1
+static AAMP_LogLevel MapMiddlewareLogLevel(MW_LogLevel level)
+{
+	switch (level)
+	{
+		case mLOGLEVEL_TRACE: return eLOGLEVEL_TRACE;
+		case mLOGLEVEL_DEBUG: return eLOGLEVEL_DEBUG;
+		case mLOGLEVEL_INFO: return eLOGLEVEL_INFO;
+		case mLOGLEVEL_WARN: return eLOGLEVEL_WARN;
+		case mLOGLEVEL_MIL: return eLOGLEVEL_MIL;
+		case mLOGLEVEL_ERROR: return eLOGLEVEL_ERROR;
+	}
+	return eLOGLEVEL_ERROR;
+}
+
+static bool IsMiddlewareLogEnabled(void*, MW_LogLevel level)
+{
+	return isLogLevelEnabledForRouting(MapMiddlewareLogLevel(level));
+}
+
+static void RouteMiddlewareLog(void*, MW_LogLevel level, const char* source,
+                               const char* function, int line, const char* message)
+{
+	logprintfMessage(MapMiddlewareLogLevel(level), source, false, NULL, function, line, message);
+}
+
+static void ConfigureMiddlewareLoggerCallbacks()
+{
+	static const PlayerLoggerCallbacks callbacks = {
+		sizeof(PlayerLoggerCallbacks), NULL, IsMiddlewareLogEnabled, RouteMiddlewareLog
+	};
+	if (!PlayerLogManager::SetLoggerCallbacks(&callbacks))
+	{
+		AAMPLOG_WARN("Failed to register middleware logger callbacks");
+	}
+}
+#else
+static void ConfigureMiddlewareLoggerCallbacks()
+{
+}
+#endif
 
 const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
 {
@@ -128,6 +169,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		}
 
 		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
+		ConfigureMiddlewareLoggerCallbacks();
 
 		//TR181 is not supported in firebolt
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
@@ -159,6 +201,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
 
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+	ConfigureMiddlewareLoggerCallbacks();
 	
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
@@ -3283,6 +3326,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+	ConfigureMiddlewareLoggerCallbacks();
 	return retVal;
 }
 

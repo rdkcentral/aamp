@@ -45,6 +45,7 @@ struct FDRLogEntry
 	std::thread::id thread_id;
 	uint32_t seq_num;
 	int player_id;
+	bool include_player_id;
 	std::string file;
 	std::string func;
 	int line;
@@ -52,7 +53,7 @@ struct FDRLogEntry
 	std::string message;
 	std::chrono::steady_clock::time_point recorded_at;
 
-	FDRLogEntry() : timestamp_ms(0), log_level(0), thread_id(), seq_num(0), player_id(-1), file(), func(), line(0), source(), message(), recorded_at() {}
+	FDRLogEntry() : timestamp_ms(0), log_level(0), thread_id(), seq_num(0), player_id(-1), include_player_id(true), file(), func(), line(0), source(), message(), recorded_at() {}
 };
 
 /**

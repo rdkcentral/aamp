@@ -29,6 +29,37 @@ bool PlayerLogManager::locked = false;
 bool PlayerLogManager::disableLogRedirection = false;
 bool PlayerLogManager::enableEthanLogRedirection = false;
 
+#ifdef PLAYER_LOGGER_CALLBACK_API_VERSION
+static PlayerLoggerCallbacks gCallbacks = { sizeof(PlayerLoggerCallbacks), nullptr, nullptr, nullptr };
+
+bool PlayerLogManager::SetLoggerCallbacks(const PlayerLoggerCallbacks* callbacks)
+{
+	if (!callbacks || callbacks->structSize < sizeof(PlayerLoggerCallbacks) || !callbacks->log)
+	{
+		return false;
+	}
+	gCallbacks = *callbacks;
+	return true;
+}
+
+void PlayerLogManager::ResetLoggerCallbacks()
+{
+	gCallbacks = { sizeof(PlayerLoggerCallbacks), nullptr, nullptr, nullptr };
+}
+
+bool PlayerLogManager::HasLoggerCallbacks()
+{
+	return gCallbacks.log != nullptr;
+}
+
+bool PlayerLogManager::IsLogLevelEnabled(MW_LogLevel level)
+{
+	return gCallbacks.log
+		? (!gCallbacks.isEnabled || gCallbacks.isEnabled(gCallbacks.context, level))
+		: level >= mwLoglevel;
+}
+#endif
+
 /**
  * @brief Print logs to console / log file
  */

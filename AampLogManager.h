@@ -128,6 +128,9 @@ struct AAMPAbrInfo
  * @return void
  */
 extern void logprintf(AAMP_LogLevel level, const char* file, const char* func, int line, const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
+bool isLogLevelEnabledForRouting(AAMP_LogLevel level);
+void logprintfMessage(AAMP_LogLevel level, const char* source, bool includePlayerId,
+                      const char* file, const char* func, int line, const char* message);
 
 /**
  * @brief Low-level log emission (no FDR interaction).
