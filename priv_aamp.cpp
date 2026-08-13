@@ -9157,14 +9157,14 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 	else if (AAMP_RATE_PAUSE != rate && ContentType_EAS != mContentType)
 	{
 		//pipeline error during trickplay
-		if(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL)
+		if(errorType == ePIPELINE_ERROR_INTERNAL)
 		{
 			// Protect mpStreamAbstractionAAMP and related state while processing
 			// the retune. All accesses must be serialized by this mutex to avoid
 			// undefined behaviour in the C++ memory model.
 			std::lock_guard<std::recursive_mutex> guard(mStreamLock); // protect mpStreamAbstractionAAMP (this must cover calls to AdditionalTuneFailLogEntries)
-			AAMPLOG_WARN("Processing retune for GstPipeline Internal Error and rate %f", rate);
-			SendAnomalyEvent(ANOMALY_WARNING, "%s GstPipeline Internal Error", GetMediaTypeName(trackType));
+			AAMPLOG_WARN("Processing retune for pipeline internal error and rate %f", rate);
+			SendAnomalyEvent(ANOMALY_WARNING, "%s Pipeline Internal Error", GetMediaTypeName(trackType));
 			gLock.lock();
 			for (std::list<gActivePrivAAMP_t>::iterator iter = gActivePrivAAMPs.begin(); iter != gActivePrivAAMPs.end(); iter++)
 			{
@@ -14884,8 +14884,8 @@ const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType err
 			return "LL DASH Input Protection Error";
 		case eDASH_RECONFIGURE_FOR_ENC_PERIOD:
 			return "Encrypted period found";
-		case eGST_ERROR_GST_PIPELINE_INTERNAL:
-			return "GstPipeline Internal Error";
+		case ePIPELINE_ERROR_INTERNAL:
+			return "Pipeline Internal Error";
 		default:
 			return "STARTTIME RESET";
 	}

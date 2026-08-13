@@ -81,6 +81,7 @@ public:
 	double GetProgressReportIntervalSeconds() override;
 	void NotifySpeedChanged(float rate, bool changeState) override;
 	AAMPPlayerState GetState() override;
+	void NotifyPipelineFailure() override;
 	void NotifyBufferUnderflow(AampMediaType type) override;
 	void SendMonitorAvEvent(
 		const std::string &status,

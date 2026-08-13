@@ -184,7 +184,7 @@ enum PlaybackErrorType
 	eGST_ERROR_OUTPUT_PROTECTION_ERROR,       /**< Output Protection error */
 	eDASH_ERROR_STARTTIME_RESET,    	  /**< Start time reset of DASH */
 	eSTALL_AFTER_DISCONTINUITY,		  /**< Playback stall after notifying discontinuity */
-	eGST_ERROR_GST_PIPELINE_INTERNAL,	  /**< GstPipeline Internal Error */
+	ePIPELINE_ERROR_INTERNAL,	  /**< Pipeline internal error (GStreamer or Rialto) */
 	eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED, /**< Low Latency Dash Max Correction Reached**/
 	eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR,  /**< Low Latency Dash Input Protection error **/
 	eDASH_RECONFIGURE_FOR_ENC_PERIOD /**< Retune to reconfigure pipeline for encrypted period **/

@@ -360,13 +360,13 @@ TEST_F(LocalTSBTests, ScheduleRetuneTest)
 					taskName = obj.mTaskName;
 					return 1;
 				}));
-	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+	mPrivateInstanceAAMP->ScheduleRetune(ePIPELINE_ERROR_INTERNAL, eMEDIATYPE_VIDEO);
 	EXPECT_EQ(taskName, "PrivateInstanceAAMP_Retune");
 
 	//paused state
 	mPrivateInstanceAAMP->rate=0;
 	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0); // should not be called
-	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+	mPrivateInstanceAAMP->ScheduleRetune(ePIPELINE_ERROR_INTERNAL, eMEDIATYPE_VIDEO);
 
 	//trickplay but not internal pipeline error
 	mPrivateInstanceAAMP->rate=2;
@@ -377,7 +377,7 @@ TEST_F(LocalTSBTests, ScheduleRetuneTest)
 	mPrivateInstanceAAMP->rate=4;
 	mPrivateInstanceAAMP->SetContentType("EAS");
 	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0);
-	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+	mPrivateInstanceAAMP->ScheduleRetune(ePIPELINE_ERROR_INTERNAL, eMEDIATYPE_VIDEO);
 
 	g_mockAampScheduler.reset();
 }

@@ -5813,7 +5813,7 @@ TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
 	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED), "LL DASH Max Correction Reached");
 	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR), "LL DASH Input Protection Error");
 	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_RECONFIGURE_FOR_ENC_PERIOD), "Encrypted period found");
-	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_GST_PIPELINE_INTERNAL), "GstPipeline Internal Error");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(ePIPELINE_ERROR_INTERNAL), "Pipeline Internal Error");
 	EXPECT_STREQ(p_aamp->getStringForPlaybackError(static_cast<PlaybackErrorType>(-1)), "STARTTIME RESET");
 }
 

@@ -164,9 +164,17 @@ public:
 	virtual AAMPPlayerState GetState() = 0;
 
 	// -----------------------------------------------------------------------
-	// Underflow
+	// Pipeline failure
 	// -----------------------------------------------------------------------
 
+	/**
+	 * @brief Notify that the Rialto media pipeline has reported a fatal failure.
+	 *        Schedules a retune via AAMP's async task dispatcher
+	 */
+	virtual void NotifyPipelineFailure() = 0;
+
+	// -----------------------------------------------------------------------
+	// Underflow
 	/**
 	 * @brief Notify that Rialto's pipeline reported a buffer underflow on
 	 *        the given media track.

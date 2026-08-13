@@ -2228,6 +2228,8 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				m_stateMachine.onError();
 			}
 			m_flushCv.notify_all();
+			// Schedule a retune to recover from the pipeline failure
+			m_notifiable->NotifyPipelineFailure();
 			break;
 		case firebolt::rialto::PlaybackState::SEEKING:
 			AAMPLOG_INFO("SEEKING notification received (state=%s)",

@@ -616,7 +616,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			else if ((busEvent.msg.find("Internal data stream error") != std::string::npos) && _this->aamp->mConfig->IsConfigSet(eAAMPConfig_RetuneForGSTError))
 			{
 				AAMPLOG_ERR("Schedule retune for GstPipeline Error");
-				_this->aamp->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+				_this->aamp->ScheduleRetune(ePIPELINE_ERROR_INTERNAL, eMEDIATYPE_VIDEO);
 			}
 			else if (busEvent.msg.find("Error parsing H.264 stream") != std::string::npos)
 			{ // note: surfacing this intermittent error can cause freeze on partner apps.
