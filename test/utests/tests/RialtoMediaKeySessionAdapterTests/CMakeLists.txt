@@ -27,7 +27,7 @@ set(AAMP_SOURCES
 	${AAMP_ROOT}/direct-rialto/RialtoMediaKeySessionAdapter.cpp
 	${AAMP_ROOT}/direct-rialto/RialtoMediaKeySystem.cpp
 	${AAMP_ROOT}/direct-rialto/RialtoMediaKeySession.cpp
-	${AAMP_ROOT}/middleware/PlayerUtils.cpp
+	${AAMP_ROOT}/AampUtils.cpp
 )
 
 add_executable(${EXEC_NAME} ${TEST_SOURCES} ${AAMP_SOURCES})

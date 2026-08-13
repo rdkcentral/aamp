@@ -364,7 +364,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
 	{false, "useDirectRialto", eAAMPConfig_useDirectRialto, false},
-	{true, "RialtoSinkSetsDirectRialto", eAAMPConfig_RialtoSinkSetsDirectRialto, false},
 	{false, "localTSBEnabled", eAAMPConfig_LocalTSBEnabled, true},
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
@@ -382,7 +381,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
-	{false, "monitorMp4Integrity", eAAMPConfig_MonitorMp4Integrity, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
 };

@@ -24,7 +24,7 @@
 
 #include "RialtoMediaKeySessionAdapter.h"
 #include "AampLogManager.h"
-#include "PlayerUtils.h"
+#include "AampUtils.h"
 
 #include <algorithm>
 #include <chrono>
@@ -82,7 +82,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 		return;
 	}
 
-	m_timeBeforeCallback = GetCurrentTimeMS();
+	m_timeBeforeCallback = aamp_GetCurrentTimeMS();
 
 	// Wire callbacks to route Rialto events into this adapter.
 	RialtoSessionCallbacks callbacks;
@@ -91,7 +91,7 @@ void RialtoMediaKeySessionAdapter::generateDRMSession(
 	                               const uint8_t* challenge,
 	                               uint16_t challengeSize)
 	{
-		long long elapsed = GetCurrentTimeMS() - m_timeBeforeCallback;
+		long long elapsed = aamp_GetCurrentTimeMS() - m_timeBeforeCallback;
 		AAMPLOG_INFO("RialtoMediaKeySessionAdapter: onChallenge received, elapsed=%lld ms size=%u destUrl=%s",
 		            elapsed, challengeSize, destUrl);
 

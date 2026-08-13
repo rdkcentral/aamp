@@ -340,7 +340,8 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_AttachSourceFails_Return
 
 /**
  * @test AampRialtoAudioSource_AttachWithDRM_CreatesDrmSession
- * @brief Verify DRM session is created when protection params are set.
+ * @brief Verify DRM session is created when protection params are set, and
+ *        the resulting MediaSourceAudio reports hasDrm() true.
  */
 TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_AttachWithDRM_CreatesDrmSession)
 {
@@ -355,11 +356,53 @@ TEST_F(AampRialtoAudioSourceTest, AampRialtoAudioSource_AttachWithDRM_CreatesDrm
 
 	auto codecInfo = MakeAacCodecInfo();
 
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			EXPECT_TRUE(src->getHasDrm());
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
 	auto result = m_source.attachOrUpdate(
 		*m_pipelinePtr, codecInfo, &mockDrm, -1, prot);
 
 	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
 	EXPECT_EQ(m_source.mksId(), 77);
+}
+
+/**
+ * @test AampRialtoAudioSource_AttachWithoutDrmSession_CreatesSourceWithHasDrmTrue
+ * @brief Trip-wire test: createRialtoSource() currently hard-codes hasDrm=true
+ *        regardless of the mksId-derived hasDrm argument it receives (see
+ *        comment in AampRialtoAudioSource::createRialtoSource). No DRM
+ *        session is created here (no protection params supplied), yet the
+ *        resulting MediaSourceAudio must still report hasDrm() true. If this
+ *        starts failing, createRialtoSource's hard-coded value has changed —
+ *        update this test deliberately to match the new intended behaviour.
+ */
+TEST_F(AampRialtoAudioSourceTest,
+	AampRialtoAudioSource_AttachWithoutDrmSession_CreatesSourceWithHasDrmTrue)
+{
+	auto codecInfo = MakeAacCodecInfo();
+
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			EXPECT_TRUE(src->getHasDrm());
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo, nullptr, -1);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
+	EXPECT_EQ(m_source.mksId(), -1);
 }
 
 // ---------------------------------------------------------------------------
