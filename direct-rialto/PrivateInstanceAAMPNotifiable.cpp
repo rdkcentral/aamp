@@ -24,6 +24,7 @@
 
 #include "PrivateInstanceAAMPNotifiable.h"
 #include "priv_aamp.h"
+#include "StreamAbstractionAAMP.h"
 #include "AampLogManager.h"
 #include <cinttypes>
 
@@ -246,6 +247,36 @@ void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
 	}, args, "NotifyBufferUnderflow") == AAMP_TASK_ID_INVALID)
 	{
 		delete args;
+	}
+}
+
+// CompleteDiscontinuityDataDeliverForPTSRestamp() and
+// NotifyPipelinePausedToUnderflowMonitor() are called synchronously, unlike
+// the notifications above.  Those are deferred via ScheduleAsyncTask because
+// they originate on a Rialto IPC callback thread that may be holding a
+// Rialto-side lock while AAMP holds its own lock (AB/BA deadlock risk).
+// These two instead run on AAMP's own fragment-injector thread, and the
+// GStreamer reference (AAMPGstPlayer::Discontinuity()) makes the equivalent
+// calls synchronously from the same call chain, so this adds no new hazard.
+// Note PrivateInstanceAAMP::Discontinuity() still holds mLock across the
+// sink call: re-entering AAMP here is safe because mLock is recursive and
+// both targets are leaf operations that take only their own mutex
+// (mDiscoCompleteLock / mUnderflowMonitorMutex) and never call back out.
+void PrivateInstanceAAMPNotifiable::CompleteDiscontinuityDataDeliverForPTSRestamp(
+	AampMediaType type)
+{
+	AAMPLOG_TRACE("type=%d", static_cast<int>(type));
+	m_aamp->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
+}
+
+void PrivateInstanceAAMPNotifiable::NotifyPipelinePausedToUnderflowMonitor()
+{
+	AAMPLOG_TRACE("NotifyPipelinePausedToUnderflowMonitor");
+	// Read without mStreamLock, matching the GStreamer reference; the null
+	// check guards the common teardown race, not object lifetime.
+	if (m_aamp->mpStreamAbstractionAAMP)
+	{
+		m_aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 	}
 }
 

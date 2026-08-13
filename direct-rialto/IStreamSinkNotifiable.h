@@ -180,6 +180,34 @@ public:
 	virtual void NotifyBufferUnderflow(AampMediaType type) = 0;
 
 	// -----------------------------------------------------------------------
+	// Discontinuity
+	// -----------------------------------------------------------------------
+
+	/**
+	 * @brief Notify that a discontinuity has been fully absorbed via PTS
+	 *        restamping, with no elementary-stream change and therefore no
+	 *        EOS/pipeline-reconfigure sequence required.
+	 *
+	 * Mirrors AAMPGstPlayer::Discontinuity()'s
+	 * CompleteDiscontinuityDataDeliverForPTSRestamp path: unblocks any
+	 * thread waiting for discontinuity processing to complete.
+	 *
+	 * @param[in] type  Media type the discontinuity applies to.
+	 */
+	virtual void CompleteDiscontinuityDataDeliverForPTSRestamp(
+		AampMediaType type) = 0;
+
+	/**
+	 * @brief Notify that pipeline buffering has been intentionally halted
+	 *        as part of a discontinuity that requires an elementary-stream
+	 *        reconfigure, so the underflow monitor should disarm its
+	 *        deadline until playback resumes.
+	 *
+	 * Mirrors AAMPGstPlayer::Discontinuity()'s shouldHaltBuffering path.
+	 */
+	virtual void NotifyPipelinePausedToUnderflowMonitor() = 0;
+
+	// -----------------------------------------------------------------------
 	// AV monitoring
 	// -----------------------------------------------------------------------
 

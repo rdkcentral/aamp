@@ -1764,8 +1764,93 @@ void AampRialtoPlayer::applyAudioVolume()
 bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 {
 	AAMPLOG_INFO("ENTRY mediaType=%d", static_cast<int>(mediaType));
-	AAMPLOG_INFO("EXIT");
-	return false;
+
+	// Mirrors InterfacePlayerRDK::CheckDiscontinuity() (middleware-player-
+	// interface), reached via AAMPGstPlayer::Discontinuity():
+	//  - a discontinuity that arrives before this track has ever injected
+	//    a sample is ignored - there is no established playback state yet
+	//    to disrupt (mirrors the stream->firstBufferProcessed guard).
+	//  - PTS restamping (Restamp 2.0) enabled and no elementary-stream
+	//    change pending: absorb the discontinuity without any pipeline
+	//    disruption (mirrors the unblockDiscProcess/
+	//    CompleteDiscontinuityDataDeliverForPTSRestamp path).
+	//  - otherwise: treat it like a codec-reconfigure discontinuity -
+	//    signal EOS on the track (mirrors GstPlayer_SignalEOS(), which
+	//    lets the downstream pipeline flush/renegotiate for the new
+	//    codec), resume buffering unconditionally, and disarm the
+	//    underflow monitor while the transition completes.  The eos state
+	//    this sets is cleared by AampRialtoMediaSource::reset() when the
+	//    caller subsequently reconfigures the sink, or by
+	//    unblockInjection() on the flush path; a discontinuity that leads
+	//    to neither would leave the track latched at EOS.
+	//
+	// The reference additionally gates the restamp branch on the stream
+	// being ISO-BMFF or mp4-demuxed.  That check is deliberately omitted:
+	// direct Rialto is always fed demuxed ISO-BMFF.  The one divergence
+	// this creates is audio-only content (mVideoFormat == FORMAT_INVALID),
+	// where the reference would fall through to the EOS branch.
+	auto *source = getSource(mediaType);
+	if (!source)
+	{
+		AAMPLOG_WARN("unsupported mediaType=%d", static_cast<int>(mediaType));
+		AAMPLOG_INFO("EXIT mediaType=%d result=false", static_cast<int>(mediaType));
+		return false;
+	}
+
+	if (source->firstPtsMs() == AampRialtoMediaSource::kFirstPtsNotSet)
+	{
+		AAMPLOG_WARN("mediaType=%d discontinuity received before first "
+			"sample - ignoring", static_cast<int>(mediaType));
+		AAMPLOG_INFO("EXIT mediaType=%d result=false", static_cast<int>(mediaType));
+		return false;
+	}
+
+	const bool esChangePending = m_aamp->ReconfigureForElementaryStreamUpdate();
+	const bool ptsRestampActive =
+		m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp) &&
+		!esChangePending;
+
+	if (ptsRestampActive)
+	{
+		AAMPLOG_INFO("mediaType=%d PTS-restamp active, no ES change - "
+			"completing discontinuity delivery without EOS",
+			static_cast<int>(mediaType));
+		m_notifiable->CompleteDiscontinuityDataDeliverForPTSRestamp(mediaType);
+	}
+	else
+	{
+		AAMPLOG_INFO("mediaType=%d esChangePending=%d - signalling EOS and "
+			"resuming buffering across discontinuity",
+			static_cast<int>(mediaType), esChangePending);
+		source->signalEos(m_pipeline.get());
+
+		// Rialto only reports END_OF_STREAM once every attached source has
+		// delivered haveData(EOS), and AAMP drives the rest of the
+		// discontinuity from that notification.  Subtitle is always
+		// attached alongside video (sidecar track or inband CC) but is
+		// never the track a discontinuity is reported on, so signal it
+		// here - the reference does the same from its audio branch.  Keyed
+		// off video because audio may be absent, matching
+		// EndOfStreamReached().
+		auto *subtitleSrc = m_sources[eMEDIATYPE_SUBTITLE].get();
+		if (mediaType == eMEDIATYPE_VIDEO
+		    && subtitleSrc
+		    && subtitleSrc->isAttached()
+		    && !subtitleSrc->state().eos)
+		{
+			AAMPLOG_INFO("auto-signaling subtitle EOS: video discontinuity");
+			subtitleSrc->signalEos(m_pipeline.get());
+		}
+
+		StopBuffering(true);
+		if (m_aamp->mConfig->IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		{
+			m_notifiable->NotifyPipelinePausedToUnderflowMonitor();
+		}
+	}
+
+	AAMPLOG_INFO("EXIT mediaType=%d result=true", static_cast<int>(mediaType));
+	return true;
 }
 
 bool AampRialtoPlayer::CheckForPTSChangeWithTimeout(long timeout)

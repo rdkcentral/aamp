@@ -82,6 +82,9 @@ public:
 	void NotifySpeedChanged(float rate, bool changeState) override;
 	AAMPPlayerState GetState() override;
 	void NotifyBufferUnderflow(AampMediaType type) override;
+	void CompleteDiscontinuityDataDeliverForPTSRestamp(
+		AampMediaType type) override;
+	void NotifyPipelinePausedToUnderflowMonitor() override;
 	void SendMonitorAvEvent(
 		const std::string &status,
 		int64_t videoPositionMs,

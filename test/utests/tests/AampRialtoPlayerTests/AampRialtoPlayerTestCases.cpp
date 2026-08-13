@@ -5084,3 +5084,289 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	EXPECT_TRUE(cc->setCCMute(true));
 }
+
+// ===========================================================================
+// Discontinuity
+// ===========================================================================
+//
+// Mirrors InterfacePlayerRDK::CheckDiscontinuity() (middleware-player-
+// interface/InterfacePlayerRDK.cpp), reached via
+// AAMPGstPlayer::Discontinuity():
+//  - a discontinuity before this track's first injected sample is ignored
+//    (mirrors the stream->firstBufferProcessed guard) - returns false, no
+//    side effects.
+//  - PTS restamping enabled + no elementary-stream change pending:
+//    CompleteDiscontinuityDataDeliverForPTSRestamp() only, no EOS signal
+//    and no buffering disruption.
+//  - otherwise (the default / no-PTS-restamp / ES-change-pending case):
+//    signal EOS on the track (mirrors GstPlayer_SignalEOS()), resume
+//    buffering unconditionally (StopBuffering(true) semantics), and
+//    disarm the underflow monitor when AampUnderflowMonitor is enabled.
+//
+// Additionally, and unlike the reference, a media type with no source at
+// all is rejected outright, and the EOS branch propagates EOS to the
+// subtitle source (keyed off video rather than the reference's audio,
+// because audio may be absent) so Rialto can still report END_OF_STREAM.
+
+/**
+ * @test A discontinuity that arrives before this track has ever injected a
+ *       sample must be ignored: no EOS signal, no buffering change, and the
+ *       call reports the discontinuity as not handled.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_BeforeFirstSample_IgnoredReturnsFalse)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(AampRialtoMediaSource::kFirstPtsNotSet));
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelinePausedToUnderflowMonitor())
+		.Times(0);
+	EXPECT_CALL(m_mockNotifiable,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(_))
+		.Times(0);
+
+	EXPECT_FALSE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+}
+
+/**
+ * @test Default configuration (PTS restamp disabled) must signal EOS on the
+ *       track, resume buffering (equivalent to StopBuffering(true): sources
+ *       ungated, pipeline resumed), and report the discontinuity as handled.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_PtsRestampDisabled_SignalsEosAndResumesBuffering)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode =
+		AampRialtoMediaSource::GateMode::BLOCKED;
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::NONE);
+}
+
+/**
+ * @test When AampUnderflowMonitor is enabled, the halt-buffering branch
+ *       must also notify the monitor so it disarms its deadline during
+ *       the transition.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_UnderflowMonitorEnabled_NotifiesPipelinePaused)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		.WillByDefault(Return(true));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelinePausedToUnderflowMonitor())
+		.Times(1);
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().eos);
+}
+
+/**
+ * @test When AampUnderflowMonitor is disabled (default), the halt-buffering
+ *       branch must not notify the monitor.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_UnderflowMonitorDisabled_DoesNotNotifyPipelinePaused)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelinePausedToUnderflowMonitor())
+		.Times(0);
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().eos);
+}
+
+/**
+ * @test PTS restamping enabled with no elementary-stream change pending
+ *       must complete the discontinuity via the restamp path only, without
+ *       signalling EOS or resuming/halting buffering.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_PtsRestampActiveNoEsChange_CompletesWithoutTouchingBuffering)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+
+	EXPECT_CALL(m_mockNotifiable,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO))
+		.Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+}
+
+/**
+ * @test Even with PTS restamping enabled, a pending elementary-stream
+ *       change must fall back to the halt-buffering branch (EOS signal +
+ *       resumed buffering) instead of the restamp-only completion.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_PtsRestampActiveButEsChangePending_SignalsEosAndResumesBuffering)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(true));
+
+	EXPECT_CALL(m_mockNotifiable,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(_))
+		.Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+}
+
+/**
+ * @test A discontinuity for a media type that has no source (here, before
+ *       Configure() has created any) must be rejected outright: returning
+ *       true would make AAMP wait for an EOS that can never be signalled.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_NoSourceForMediaType_ReturnsFalse)
+{
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelinePausedToUnderflowMonitor())
+		.Times(0);
+	EXPECT_CALL(m_mockNotifiable,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(_))
+		.Times(0);
+
+	EXPECT_FALSE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+}
+
+/**
+ * @test The first-sample guard is evaluated per track: a video
+ *       discontinuity must still be ignored when only audio has injected
+ *       a sample.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_FirstSampleGuardIsPerTrack_IgnoresVideoOnly)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(AampRialtoMediaSource::kFirstPtsNotSet));
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+
+	// Only the audio call reaches the halt-buffering branch.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+
+	EXPECT_FALSE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().eos);
+}
+
+/**
+ * @test Rialto reports END_OF_STREAM only once every attached source has
+ *       delivered haveData(EOS), so a video discontinuity that signals EOS
+ *       must also signal the always-attached subtitle source.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_VideoEos_AlsoSignalsSubtitleEos)
+{
+	Configure();
+	SendVideoInitFragment();
+	// PLAYING triggers the inband CC subtitle source attachment.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->state().eos);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->state().eos);
+}
+
+/**
+ * @test Subtitle EOS is keyed off video only - an audio discontinuity must
+ *       leave the subtitle source untouched, since video will still be
+ *       delivering samples.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_AudioEos_LeavesSubtitleUntouched)
+{
+	Configure();
+	SendVideoInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().eos);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->state().eos);
+}
+
+/**
+ * @test The PTS-restamp branch must not signal EOS on the subtitle source
+ *       either - no track is being taken to EOS in that path.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_PtsRestampActiveNoEsChange_LeavesSubtitleUntouched)
+{
+	Configure();
+	SendVideoInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->state().eos);
+}

@@ -54,6 +54,11 @@ public:
 	MOCK_METHOD(void, NotifyBufferUnderflow,
 		(AampMediaType type), (override));
 
+	MOCK_METHOD(void, CompleteDiscontinuityDataDeliverForPTSRestamp,
+		(AampMediaType type), (override));
+
+	MOCK_METHOD(void, NotifyPipelinePausedToUnderflowMonitor, (), (override));
+
 	MOCK_METHOD(void, SendMonitorAvEvent,
 		(const std::string &status,
 		 int64_t videoPositionMs,
