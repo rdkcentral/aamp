@@ -8150,6 +8150,13 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
  */
 void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 {
+	/* The app may have enabled/disabled CC before the CC decoder handle became
+	 * available. In that case the request was only recorded in subtitles_muted
+	 * and never pushed down to the CC manager, so CC stayed hidden until the
+	 * next tune re-applied it. Apply the current status first, so that the
+	 * Init() below starts rendering when the app has already requested CC. */
+	SetCCStatusInternal();
+
 	PlayerCCManager::GetInstance()->Init((void *)decoderHandle);
 	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 	{

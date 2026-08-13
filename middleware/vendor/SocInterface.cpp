@@ -28,6 +28,14 @@
 static std::shared_ptr<SocInterface> g_socInterface;
 static std::mutex g_socMutex;
 
+/**
+ * Plugin registry scan is expensive and its result cannot change for the
+ * lifetime of the process. Cache the outcome so the scan is performed only
+ * once, instead of on every player/SoC interface creation (i.e. every tune).
+ */
+static bool g_pluginScanDone = false;
+static SocPlatformType g_pluginScanPlatform = SOC_PLATFORM_DEFAULT;
+
 /**Initially re-sets the IsRialtoMode */
 bool SocInterface::mIsRialtoMode = false;
 /**
@@ -270,10 +278,30 @@ void SocInterface::InitializePlatformFromPlugins(
     /*
      * Platform was not identified from device.properties.
      * Plugin scan can now safely call gst_init_check().
+     *
+     * The registry contents cannot change during the lifetime of the process,
+     * so the scan is performed only once and the result reused afterwards.
      */
+    if (g_pluginScanDone)
+    {
+        MW_LOG_INFO("Plugin scan already performed earlier, reusing cached result");
+
+        if (g_pluginScanPlatform != SOC_PLATFORM_DEFAULT)
+        {
+            g_socInterface = CreateForPlatform(g_pluginScanPlatform);
+        }
+
+        return;
+    }
+
     MW_LOG_MIL("Platform not identified from device.properties, ""performing plugin scan");
 
     SocPlatformType detectedPlatform = InferPlatformFromPluginScan();
+
+    /* Remember that the scan was executed, regardless of the outcome, so that
+     * a device without any of the known plugins does not rescan on every tune. */
+    g_pluginScanDone = true;
+    g_pluginScanPlatform = detectedPlatform;
 
     if (detectedPlatform != SOC_PLATFORM_DEFAULT)
     {

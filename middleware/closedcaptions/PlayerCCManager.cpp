@@ -531,7 +531,14 @@ try
 	}
 	else
 	{
-		MW_LOG_WARN("PlayerCCManagerBase::CC rendering not enabled");
+		/* CC rendering is not enabled yet (e.g. style applied before the CC
+		 * handle/decoder is available). Remember the requested style so that it
+		 * can be applied once rendering is enabled, instead of discarding it. */
+		if (!options.empty())
+		{
+			mOptions = options;
+		}
+		MW_LOG_WARN("PlayerCCManagerBase::CC rendering not enabled, caching style for later");
 	}
 	return ret;
 }
@@ -583,6 +590,14 @@ int PlayerCCManagerBase::Init(void *handle)
 	if (mEnabled)
 	{
 		Start();
+		/* Re-apply any style that was requested before CC rendering became
+		 * available, otherwise the earlier request would be lost. */
+		if (!mOptions.empty())
+		{
+			const std::string pendingOptions = mOptions;
+			MW_LOG_WARN("PlayerCCManagerBase:: applying cached CC style after init");
+			(void)SetStyle(pendingOptions);
+		}
 	}
 	else
 	{
