@@ -704,9 +704,11 @@ TEST_F(AampLogManagerTest, AAMPLOG_DEBUG_Enabled)
 */
 TEST_F(AampLogManagerTest, AAMPLOG_INFO)
 {
+	AampFlightDataRecorder::GetInstance().Initialize(true, 16, 60);
 	const std::string message{"Test INFO log line"};
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(_, _)).Times(0);
 	AAMPLOG_INFO("%s", message.c_str());
+	AampFlightDataRecorder::GetInstance().SetEnabled(false);
 }
 
 /*
