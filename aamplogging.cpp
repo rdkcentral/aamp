@@ -177,7 +177,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, const char* func, 
 			AampFlightDataRecorder& fdr = AampFlightDataRecorder::GetInstance();
 			bool fdrEnabled = fdr.IsEnabled();
 			AAMP_LogLevel configuredLevel = AampLogManager::aampLoglevel.load(std::memory_order_relaxed);
-			bool bypassFdr = !fdrEnabled || configuredLevel >= eLOGLEVEL_INFO;
+			bool bypassFdr = !fdrEnabled || configuredLevel <= eLOGLEVEL_INFO;
 			bool queuedInFdr = false;
 			if (!bypassFdr && (logLevelIndex == eLOGLEVEL_INFO ||
 				logLevelIndex == eLOGLEVEL_WARN || logLevelIndex == eLOGLEVEL_MIL))
