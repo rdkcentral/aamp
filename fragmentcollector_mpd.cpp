@@ -9012,6 +9012,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
  */
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 {
+	AAMPLOG_INFO("discontinuity:%d numberOfTracks:%d", discontinuity, mNumberOfTracks);
 	for( int i = 0; i < mNumberOfTracks; i++)
 	{
 		if (!discontinuity)
@@ -9034,6 +9035,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 		{
 			pMediaStreamContext->discontinuity = discontinuity;
 		}
+		AAMPLOG_INFO("track:%d enabled:%d profileChanged:%d discontinuity:%d", trackIdx, pMediaStreamContext->enabled, pMediaStreamContext->profileChanged, pMediaStreamContext->discontinuity);
 		if(pMediaStreamContext->enabled && (pMediaStreamContext->profileChanged || pMediaStreamContext->discontinuity))
 		{
 			if (pMediaStreamContext->adaptationSet)
@@ -10224,6 +10226,10 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 {
 	bool discontinuity = false;
 
+	AAMPLOG_INFO("periodChanged:%d nextSegmentTime:%" PRIu64 " MPDDiscontinuityHandling:%d videoTrackEnabled:%d",
+		periodChanged, nextSegmentTime, ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandling),
+		mMediaStreamContext[eMEDIATYPE_VIDEO] ? mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled : false);
+
 	/*Discontinuity handling on period change*/
 	if (periodChanged && ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandling) && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled &&
 		(ISCONFIGSET(eAAMPConfig_MPDDiscontinuityHandlingCdvr) || (!aamp->IsInProgressCDVR())))
@@ -10323,6 +10329,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 			}
 		}
 	}
+	AAMPLOG_INFO("resolved discontinuity:%d for periodChanged:%d", discontinuity, periodChanged);
 	FetchAndInjectInitFragments(discontinuity);
 }
 

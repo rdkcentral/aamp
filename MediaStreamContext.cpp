@@ -421,6 +421,7 @@ void MediaStreamContext::updateSkipPoint(double position, double duration )
  */
  void MediaStreamContext::setDiscontinuityState(bool isDiscontinuity)
  {
+	AAMPLOG_INFO("Type[%d] isDiscontinuity:%d EnablePTSReStamp:%d videoFormat:%d playContext:%p", type, isDiscontinuity, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp), aamp->mVideoFormat, static_cast<void*>(playContext.get()));
 	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
 	{
 		if(playContext)
