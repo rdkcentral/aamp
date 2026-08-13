@@ -46,11 +46,13 @@ protected:
 		g_mockSdJournal = std::make_shared<NiceMock<MockSdJournal>>();
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_WARN);
+		AampFlightDataRecorder::GetInstance().SetEnabled(false);
 	}
 
 	void TearDown() override
 	{
 		g_mockSdJournal.reset();
+		AampFlightDataRecorder::GetInstance().SetEnabled(false);
 	}
 };
 
@@ -1061,6 +1063,7 @@ TEST_F(AampLogManagerTest, FdrDebugLevelBypassesRecorder)
 		AllOf(HasSubstr("[DEBUG]"), HasSubstr("immediate-debug"))));
 	logprintf(eLOGLEVEL_DEBUG, "test.cpp", "testFunc", 1, "%s", "immediate-debug");
 
+	// INFO logs are emitted immediately when FDR is bypassed at DEBUG level
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
 		AllOf(HasSubstr("[INFO]"), HasSubstr("immediate-info"))));
 	logprintf(eLOGLEVEL_INFO, "test.cpp", "testFunc", 2, "%s", "immediate-info");
@@ -1086,6 +1089,7 @@ TEST_F(AampLogManagerTest, FdrTraceLevelBypassesRecorder)
 		AllOf(HasSubstr("[DEBUG]"), HasSubstr("immediate-debug"))));
 	logprintf(eLOGLEVEL_DEBUG, "test.cpp", "testFunc", 2, "%s", "immediate-debug");
 
+	// INFO logs are emitted immediately when FDR is bypassed at TRACE level
 	EXPECT_CALL(*g_mockSdJournal, sd_journal_print_mock(LOG_NOTICE,
 		AllOf(HasSubstr("[INFO]"), HasSubstr("immediate-info"))));
 	logprintf(eLOGLEVEL_INFO, "test.cpp", "testFunc", 3, "%s", "immediate-info");
