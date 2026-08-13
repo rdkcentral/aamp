@@ -247,6 +247,9 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_GST_PIPELINE_ERROR, 80, 1, "AAMP: Error from gstreamer pipeline"},
 	{AAMP_TUNE_FAILED_PTS_ERROR, 80, 2, "AAMP: Playback failed due to PTS error"},
 
+	//Mp4 demuxer error
+	{AAMP_TUNE_MP4_DEMUX_ERROR, 80, 3, "AAMP: Error from mp4 demuxer"},
+
 	//Playback failure
 	{AAMP_TUNE_PLAYBACK_STALLED, 7600, 1, "AAMP: Playback was stalled due to lack of new fragments"},
 
