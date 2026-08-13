@@ -251,6 +251,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 	}
 	if (mMp4Demux && !buffer.empty())
 	{
+		AAMPLOG_INFO("type:%d isInit:%d discontinuous:%d mIsTrickMode:%d position:%f duration:%f", mMediaType, isInit, discontinuous, mIsTrickMode, position, duration);
 		// Move the caller's buffer into a shared_ptr and pass ownership into
 		// Parse(), which stamps each sample's mData (via aliasing shared_ptr)
 		// so each sample keeps the segment buffer alive for its lifetime.
@@ -361,7 +362,12 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				// Pre-mark discontinuity so next data sample avoids cross-period PTS delta spikes.
 				if (ret && mIsTrickMode && isInit && discontinuous)
 				{
+					AAMPLOG_INFO("type:%d calling HandleTrickModeDiscontinuity()", mMediaType);
 					HandleTrickModeDiscontinuity();
+				}
+				else if (isInit && discontinuous)
+				{
+					AAMPLOG_INFO("type:%d discontinuous init segment with no samples, not trickmode - discontinuous flag not acted on here", mMediaType);
 				}
 			}
 		}
