@@ -757,7 +757,7 @@ int AampCurlDownloader::progress_callback(
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	if (!mDownloadActive)
 	{
-		rc = 1; // CURLE_ABORTED_BY_CALLBACK
+		rc = 1; // non-zero return aborts transfer (CURLE_ABORTED_BY_CALLBACK)
 		AAMPLOG_WARN("Abort download... Release called");
 	}
 	else
