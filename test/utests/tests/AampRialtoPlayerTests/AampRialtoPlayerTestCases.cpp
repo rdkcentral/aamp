@@ -2707,6 +2707,123 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // ===========================================================================
+// CheckForPTSChangeWithTimeout
+// ===========================================================================
+//
+// Mirrors InterfacePlayerRDK::CheckForPTSChangeWithTimeout(), reached via
+// AAMPGstPlayer::CheckForPTSChangeWithTimeout().  A false return makes
+// PrivateInstanceAAMP::CheckForDiscontinuityStall() schedule a retune, so
+// false must be reported only when the PTS is genuinely available and has
+// not advanced for longer than the timeout.
+
+/**
+ * @test With no queryable position the PTS is unknown, so the check must
+ *       optimistically report "still moving" rather than force a retune.
+ */
+TEST_F(AampRialtoPlayerTest,
+	CheckForPTSChangeWithTimeout_NoPipeline_ReturnsTrue)
+{
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(0));
+}
+
+/**
+ * @test A failed position query yields PTS 0, which must also be treated as
+ *       "unknown" rather than "stalled".
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_PositionQueryFails_ReturnsTrue)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_)).WillByDefault(Return(false));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(0));
+}
+
+/**
+ * @test An advancing PTS must report no stall, and must refresh the
+ *       last-updated timestamp so a subsequent zero timeout does not
+ *       immediately trip.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_PtsAdvancing_ReturnsTrue)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}), Return(true)))
+		.WillOnce(DoAll(SetArgReferee<0>(int64_t{2'000'000'000}), Return(true)));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+}
+
+/**
+ * @test A static PTS within the timeout window must not be reported as a
+ *       stall.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_PtsStaticWithinTimeout_ReturnsTrue)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}),
+			Return(true)));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(60'000));
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(60'000));
+}
+
+/**
+ * @test Only a PTS that has been static for longer than the timeout may be
+ *       reported as a stall.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_PtsStaticBeyondTimeout_ReturnsFalse)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}),
+			Return(true)));
+
+	// First call establishes the baseline timestamp for this PTS.
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+	EXPECT_FALSE(m_player->CheckForPTSChangeWithTimeout(1));
+}
+
+/**
+ * @test Stop() must clear the PTS baseline so a new session starting at the
+ *       same PTS is not immediately judged stalled using the previous
+ *       session's timestamp.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_AfterStop_BaselineIsReset)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}),
+			Return(true)));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	ASSERT_FALSE(m_player->CheckForPTSChangeWithTimeout(1));
+
+	m_player->Stop(false);
+	Configure();
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}),
+			Return(true)));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+}
+
+// ===========================================================================
 // SetVideoRectangle / GetVideoRectangle
 // ===========================================================================
 

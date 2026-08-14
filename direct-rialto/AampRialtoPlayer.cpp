@@ -1325,6 +1325,11 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	// current session, whereas Configure() may be called mid-session for a
 	// codec change and must not discard a pending Stream() request.
 	m_playRequested.store(false, std::memory_order_relaxed);
+	{
+		std::lock_guard<std::mutex> lock(m_ptsCheckMutex);
+		m_lastKnownPts = 0;
+		m_ptsUpdatedTimeMs = 0;
+	}
 	m_stateMachine.onStop();
 	AAMPLOG_INFO("EXIT");
 }
@@ -1856,8 +1861,49 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 bool AampRialtoPlayer::CheckForPTSChangeWithTimeout(long timeout)
 {
 	AAMPLOG_INFO("ENTRY timeout=%ld", timeout);
-	AAMPLOG_INFO("EXIT");
-	return false;
+
+	// Mirrors InterfacePlayerRDK::CheckForPTSChangeWithTimeout(), reached via
+	// AAMPGstPlayer::CheckForPTSChangeWithTimeout().  Called by
+	// PrivateInstanceAAMP::CheckForDiscontinuityStall(): returning false
+	// triggers a retune, so report a stall only when the PTS is genuinely
+	// available and has not advanced for longer than the timeout.  A PTS of
+	// 0 means the position is not queryable yet, in which case the reference
+	// optimistically reports "still moving" rather than forcing a retune.
+	bool ret = true;
+	const long long currentPts = GetVideoPTS();
+
+	if (currentPts == 0)
+	{
+		AAMPLOG_MIL("video PTS unavailable - assuming PTS is still moving");
+	}
+	else
+	{
+		const long long nowMs =
+			std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::steady_clock::now().time_since_epoch()).count();
+
+		std::lock_guard<std::mutex> lock(m_ptsCheckMutex);
+		if (currentPts != m_lastKnownPts)
+		{
+			AAMPLOG_MIL("PTS updated prevPTS=%lld newPTS=%lld",
+				m_lastKnownPts, currentPts);
+			m_lastKnownPts = currentPts;
+			m_ptsUpdatedTimeMs = nowMs;
+		}
+		else
+		{
+			const long long diff = nowMs - m_ptsUpdatedTimeMs;
+			if (diff > timeout)
+			{
+				AAMPLOG_WARN("video PTS has not been updated for %lld ms "
+					"(timeout %ld ms)", diff, timeout);
+				ret = false;
+			}
+		}
+	}
+
+	AAMPLOG_INFO("EXIT result=%d", ret);
+	return ret;
 }
 
 bool AampRialtoPlayer::IsCacheEmpty(AampMediaType mediaType)

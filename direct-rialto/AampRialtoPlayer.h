@@ -351,6 +351,16 @@ private:
 	/// notifyDuration callbacks from the Rialto server.
 	std::atomic<int64_t> m_durationMs{0};
 
+	/// Guards m_lastKnownPts / m_ptsUpdatedTimeMs, which must be read and
+	/// updated together by CheckForPTSChangeWithTimeout().
+	std::mutex m_ptsCheckMutex;
+
+	/// Video PTS observed on the previous CheckForPTSChangeWithTimeout()
+	/// call, and the steady-clock time (ms) at which it last changed.
+	/// Reset by Stop(), mirroring InterfacePlayerRDK.
+	long long m_lastKnownPts{0};
+	long long m_ptsUpdatedTimeMs{0};
+
 	/// Current video rectangle stored as "x,y,w,h".  Updated by
 	/// SetVideoRectangle() and returned by GetVideoRectangle().
 	std::string m_videoRectangle;
