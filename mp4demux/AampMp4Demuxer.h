@@ -158,8 +158,9 @@ private:
 	 * @param[in,out] sample - Sample to restamp
 	 * @param[in] duration - Fragment duration
 	 * @param[in] discontinuous - True if this sample begins a discontinuous segment
+	 * @param[in] fragmentPTSoffset - PTS offset from the manifest/container for this fragment
 	 */
-	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous);
+	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous, double fragmentPTSoffset);
 
 	/**
 	 * @brief Handle trickmode discontinuity by pre-advancing state machine
