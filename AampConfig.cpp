@@ -33,6 +33,7 @@
 #include "PlayerSecInterface.h"
 #include <time.h>
 #include <map>
+#include <sys/syscall.h> // DEBUG-> for syscall(SYS_gettid) thread id in debug logs
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
 /// 1. This Class handles Configuration Parameters of AAMP Player , only Config related functionality to be added
 /// 2. Simple Steps to add a new configuration
@@ -812,6 +813,8 @@ AampConfig::AampConfig(): mChannelOverrideMap(),vCustom(),vCustomIt(),customFoun
  */
 AampConfig& AampConfig::operator=(const AampConfig& rhs)
 {
+	AAMPLOG_WARN("DEBUG-> AampConfig::operator= ENTER tid=%ld this=%p rhs=%p (bulk-copies ALL config strings; racing this with GetConfigValue/SetConfigValue corrupts heap)",
+		(long)syscall(SYS_gettid), (void*)this, (const void*)&rhs);
 	mChannelOverrideMap = rhs.mChannelOverrideMap;
 	vCustom = rhs.vCustom;
 	customFound = rhs.customFound;
@@ -821,11 +824,18 @@ AampConfig& AampConfig::operator=(const AampConfig& rhs)
 
  	for(int index=0;index <AAMPCONFIG_STRING_COUNT; index++)
 	{
+		if(index == eAAMPConfig_AuthToken)
+		{
+			AAMPLOG_WARN("DEBUG-> AampConfig::operator= copying AuthToken tid=%ld dstPtr=%p dstSize=%zu srcPtr=%p srcSize=%zu",
+				(long)syscall(SYS_gettid), (const void*)configValueString[index].value.c_str(), configValueString[index].value.size(),
+				(const void*)rhs.configValueString[index].value.c_str(), rhs.configValueString[index].value.size());
+		}
 		configValueString[index].owner = rhs.configValueString[index].owner;
 		configValueString[index].lastowner = rhs.configValueString[index].lastowner;
 		configValueString[index].value = rhs.configValueString[index].value;
 		configValueString[index].lastvalue = rhs.configValueString[index].lastvalue;
 	}
+	AAMPLOG_WARN("DEBUG-> AampConfig::operator= EXIT tid=%ld this=%p", (long)syscall(SYS_gettid), (void*)this);
 	return *this;
 }
 
@@ -847,6 +857,8 @@ void AampConfig::Initialize()
 	{
 		configValueString[i].value = mConfigLookupTableString[i].defaultValue;
 	}
+	AAMPLOG_WARN("DEBUG-> AampConfig::Initialize tid=%ld this=%p all string configs (re)initialized to defaults",
+		(long)syscall(SYS_gettid), (void*)this);
 }
 
 void AampConfig::ApplyDeviceCapabilities()
@@ -924,8 +936,20 @@ std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg) const
 {
 	if(cfg < AAMPCONFIG_STRING_COUNT)
 	{
-		return configValueString[cfg].value;
+		// DEBUG-> log buffer pointer/size/capacity (NOT the value, to avoid leaking tokens). A garbage
+		// size/capacity or a crash right after this line indicates the std::string was being mutated
+		// on another thread while this copy ran (heap corruption / data race).
+		const ConfigValueString &dbgSetting = configValueString[cfg];
+		AAMPLOG_WARN("DEBUG-> GetConfigValue(String) tid=%ld this=%p cfg=%d name=%s owner=%d ptr=%p size=%zu cap=%zu (about to copy)",
+			(long)syscall(SYS_gettid), (const void*)this, (int)cfg, GetConfigName(cfg), dbgSetting.owner,
+			(const void*)dbgSetting.value.c_str(), dbgSetting.value.size(), dbgSetting.value.capacity());
+		std::string dbgCopy = configValueString[cfg].value;
+		AAMPLOG_WARN("DEBUG-> GetConfigValue(String) tid=%ld cfg=%d name=%s copy OK size=%zu",
+			(long)syscall(SYS_gettid), (int)cfg, GetConfigName(cfg), dbgCopy.size());
+		return dbgCopy;
 	}
+	AAMPLOG_WARN("DEBUG-> GetConfigValue(String) tid=%ld cfg=%d OUT-OF-RANGE (max=%d) returning empty",
+		(long)syscall(SYS_gettid), (int)cfg, (int)AAMPCONFIG_STRING_COUNT);
 	return "";
 }
 
@@ -1073,6 +1097,11 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString
 {
 	const char * cfgName = GetConfigName(cfg);
 	ConfigValueString &setting = configValueString[cfg];
+	// DEBUG-> This is the ONLY write path for config strings. tid here identifies the writer thread;
+	// correlate it against the tid seen in GetConfigValue for the same cfg to prove a concurrent read/write race.
+	AAMPLOG_WARN("DEBUG-> SetConfigValue(String) ENTER tid=%ld this=%p cfg=%d name=%s newowner=%d curOwner=%d oldPtr=%p oldSize=%zu oldCap=%zu incomingSize=%zu",
+		(long)syscall(SYS_gettid), (void*)this, (int)cfg, cfgName, newowner, setting.owner,
+		(const void*)setting.value.c_str(), setting.value.size(), setting.value.capacity(), value.size());
 	if(setting.owner <= newowner )
 	{
 		if(setting.owner != newowner)
@@ -1082,10 +1111,15 @@ void AampConfig::SetConfigValue(ConfigPriority newowner, AAMPConfigSettingString
 		}
 		setting.value = value;
 		setting.owner = newowner;
+		AAMPLOG_WARN("DEBUG-> SetConfigValue(String) DONE tid=%ld cfg=%d name=%s newPtr=%p newSize=%zu newCap=%zu newowner=%d",
+			(long)syscall(SYS_gettid), (int)cfg, cfgName, (const void*)setting.value.c_str(),
+			setting.value.size(), setting.value.capacity(), newowner);
 		AAMPLOG_MIL("%s New Owner[%d]",cfgName,newowner);
 	}
 	else
 	{
+		AAMPLOG_WARN("DEBUG-> SetConfigValue(String) SKIPPED (owner too low) tid=%ld cfg=%d name=%s newowner=%d curOwner=%d",
+			(long)syscall(SYS_gettid), (int)cfg, cfgName, newowner, setting.owner);
 		AAMPLOG_WARN("%s Owner[%d] not allowed to Set ,current Owner[%d]", cfgName, newowner, setting.owner);
 	}
 }
@@ -1793,6 +1827,11 @@ void AampConfig::ReadOperatorConfiguration()
  */
 void AampConfig::ConfigureLogSettings()
 {
+	// DEBUG-> another reader of a config string (LogLevel) - logs the reader thread + buffer info
+	AAMPLOG_WARN("DEBUG-> ConfigureLogSettings tid=%ld this=%p reading LogLevel ptr=%p size=%zu cap=%zu",
+		(long)syscall(SYS_gettid), (void*)this,
+		(const void*)configValueString[eAAMPConfig_LogLevel].value.c_str(),
+		configValueString[eAAMPConfig_LogLevel].value.size(), configValueString[eAAMPConfig_LogLevel].value.capacity());
 	std::string logString = configValueString[eAAMPConfig_LogLevel].value;
 
 	if(configValueBool[eAAMPConfig_TraceLogging].value || logString.compare("trace") == 0)
@@ -1871,6 +1910,7 @@ void AampConfig::ShowAAMPConfiguration()
  */
 void AampConfig::DoCustomSetting(ConfigPriority owner)
 {
+	AAMPLOG_WARN("DEBUG-> DoCustomSetting ENTER tid=%ld this=%p owner=%d", (long)syscall(SYS_gettid), (void*)this, owner);
 	if(IsConfigSet(eAAMPConfig_StereoOnly))
 	{
 		// If Stereo Only flag is set , it will override all other sub setting with audio
@@ -1898,6 +1938,12 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	}
 	if(GetConfigOwner(eAAMPConfig_AuthToken) == AAMP_APPLICATION_SETTING)
 	{
+		// DEBUG-> DoCustomSetting directly reads/writes the AuthToken struct members (lastowner/lastvalue)
+		// WITHOUT going through SetConfigValue. If this runs while the tune thread copies AuthToken, it races.
+		AAMPLOG_WARN("DEBUG-> DoCustomSetting AuthToken ENTER tid=%ld this=%p owner=%d valuePtr=%p valueSize=%zu lastvaluePtr=%p lastvalueSize=%zu",
+			(long)syscall(SYS_gettid), (void*)this, configValueString[eAAMPConfig_AuthToken].owner,
+			(const void*)configValueString[eAAMPConfig_AuthToken].value.c_str(), configValueString[eAAMPConfig_AuthToken].value.size(),
+			(const void*)configValueString[eAAMPConfig_AuthToken].lastvalue.c_str(), configValueString[eAAMPConfig_AuthToken].lastvalue.size());
 		ConfigPriority tempowner;
 		std::string tempvalue;
 		std::string sessionToken;
@@ -1908,6 +1954,9 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 		SetConfigValue(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
 		configValueString[eAAMPConfig_AuthToken].lastowner = std::move(tempowner);
 		configValueString[eAAMPConfig_AuthToken].lastvalue = std::move(tempvalue);
+		AAMPLOG_WARN("DEBUG-> DoCustomSetting AuthToken EXIT tid=%ld this=%p newValuePtr=%p newValueSize=%zu",
+			(long)syscall(SYS_gettid), (void*)this,
+			(const void*)configValueString[eAAMPConfig_AuthToken].value.c_str(), configValueString[eAAMPConfig_AuthToken].value.size());
 
 	}
 	if(GetConfigValue(eAAMPConfig_InitialBuffer) > 0)
@@ -1986,6 +2035,11 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner )
 		// for string array
 		if(configValueString[i].owner == owner && configValueString[i].owner != configValueString[i].lastowner)
 		{
+			AAMPLOG_WARN("DEBUG-> RestoreConfiguration(bulk) string write tid=%ld this=%p cfg=%d name=%s owner=%d->%d curPtr=%p curSize=%zu lastPtr=%p lastSize=%zu",
+				(long)syscall(SYS_gettid), (void*)this, i, GetConfigName((AAMPConfigSettingString)i),
+				configValueString[i].owner, configValueString[i].lastowner,
+				(const void*)configValueString[i].value.c_str(), configValueString[i].value.size(),
+				(const void*)configValueString[i].lastvalue.c_str(), configValueString[i].lastvalue.size());
 			AAMPLOG_MIL("Cfg [%-3d][%-20s][%-5s]->[%-5s][%s]->[%s]",i,GetConfigName((AAMPConfigSettingString)i), mOwnerLookupTable[configValueString[i].owner].ownerName,
 				mOwnerLookupTable[configValueString[i].lastowner].ownerName,configValueString[i].value.c_str(),configValueString[i].lastvalue.c_str());
 			configValueString[i].owner = configValueString[i].lastowner;
@@ -2049,6 +2103,11 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingStr
 {
 	if(configValueString[cfg].owner == owner && configValueString[cfg].owner != configValueString[cfg].lastowner)
 	{
+		AAMPLOG_WARN("DEBUG-> RestoreConfiguration(single) string write tid=%ld this=%p cfg=%d name=%s owner=%d->%d curPtr=%p curSize=%zu lastPtr=%p lastSize=%zu",
+			(long)syscall(SYS_gettid), (void*)this, (int)cfg, GetConfigName(cfg),
+			configValueString[cfg].owner, configValueString[cfg].lastowner,
+			(const void*)configValueString[cfg].value.c_str(), configValueString[cfg].value.size(),
+			(const void*)configValueString[cfg].lastvalue.c_str(), configValueString[cfg].lastvalue.size());
 		AAMPLOG_MIL("Cfg restoring [%-20s][%-5s]->[%-5s][%s]->[%s]",GetConfigName(cfg), mOwnerLookupTable[configValueString[cfg].owner].ownerName,
 					mOwnerLookupTable[configValueString[cfg].lastowner].ownerName,configValueString[cfg].value.c_str(),configValueString[cfg].lastvalue.c_str());
 		configValueString[cfg].owner = configValueString[cfg].lastowner;
