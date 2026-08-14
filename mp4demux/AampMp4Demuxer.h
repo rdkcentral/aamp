@@ -158,8 +158,9 @@ private:
 	 * @param[in,out] sample - Sample to restamp
 	 * @param[in] duration - Fragment duration
 	 * @param[in] discontinuous - True if this sample begins a discontinuous segment
+	 * @param[in] fragmentPTSoffset - PTS offset from the manifest/container for this fragment
 	 */
-	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous);
+	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous, double fragmentPTSoffset);
 
 	/**
 	 * @brief Handle trickmode discontinuity by pre-advancing state machine
@@ -200,7 +201,6 @@ private:
 	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */
 	double mLastTrickRate {0.0};     /**< Last used trickplay rate for state reset */
 	double mRestampedDuration {0.0}; /**< Last restamped duration (seconds); reused across discontinuities */
-	double mLastFragmentPtsDelta {0.0}; /**< Previous fragment PTS delta used for synthetic discontinuity detection */
 };
 
 #endif /* __AAMPMP4DEMUXER_H__ */
