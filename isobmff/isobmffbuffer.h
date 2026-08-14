@@ -126,6 +126,16 @@ private:
 	void restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz);
 
 	/**
+		 * @fn restampPtsUsingParsedBoxes
+		 *
+		 * @brief Private method to restamp PTS using already-parsed boxes
+		 *
+		 * @param[in] offset - pts offset
+		 * @param[in] boxes - vector of parsed boxes
+		 */
+	void restampPtsUsingParsedBoxes(int64_t offset, const std::vector<std::unique_ptr<Box>> *boxes);
+
+	/**
 	 * @fn updateSampleDurationInternal
 	 *
 	 * @brief Private method to update the sample duration in the relevant boxes,

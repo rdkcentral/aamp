@@ -391,7 +391,83 @@ void IsoBmffBuffer::restampPts(int64_t offset)
 		return;
 	}
 
-	restampPtsInternal(offset, const_cast<uint8_t *>(buffer), bufSize);
+	// Use the already-parsed boxes instead of re-parsing raw bytes
+	// This avoids issues with partial/incomplete box data in the buffer
+	restampPtsUsingParsedBoxes(offset, &boxes);
+}
+
+void IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector<std::unique_ptr<Box>> *boxes)
+{
+	for (size_t i = 0; i < boxes->size(); i++)
+	{
+		Box *box = boxes->at(i).get();
+		
+		if (IS_TYPE(box->getType(), Box::MOOF) || IS_TYPE(box->getType(), Box::TRAF))
+		{
+			// Recursively process child boxes
+			if (box->hasChildren())
+			{
+				restampPtsUsingParsedBoxes(offset, box->getChildren());
+			}
+		}
+		else if (IS_TYPE(box->getType(), Box::TFDT))
+		{
+			// Get the raw buffer pointer for this box to modify the PTS
+			uint8_t *boxBuffer = const_cast<uint8_t *>(buffer) + box->getOffset();
+			uint8_t *boxData = boxBuffer + sizeof(uint32_t) + sizeof(uint32_t); // Skip size and type
+			
+			// TFDT box structure: [version(1) + flags(3) + baseMediaDecodeTime(4 or 8)]
+			uint8_t version = boxData[0];
+			
+			if (1 == version)
+			{
+				// Version 1: 64-bit baseMediaDecodeTime at offset 4
+				uint64_t pts = (uint64_t)boxData[4] << 56 | (uint64_t)boxData[5] << 48 | 
+				                (uint64_t)boxData[6] << 40 | (uint64_t)boxData[7] << 32 |
+				                (uint64_t)boxData[8] << 24 | (uint64_t)boxData[9] << 16 | 
+				                (uint64_t)boxData[10] << 8 | (uint64_t)boxData[11];
+				if (!firstPtsSaved)
+				{
+					beforePTS = pts;
+				}
+				pts += offset;
+				// Write back the 64-bit PTS
+				boxData[4] = (pts >> 56) & 0xFF;
+				boxData[5] = (pts >> 48) & 0xFF;
+				boxData[6] = (pts >> 40) & 0xFF;
+				boxData[7] = (pts >> 32) & 0xFF;
+				boxData[8] = (pts >> 24) & 0xFF;
+				boxData[9] = (pts >> 16) & 0xFF;
+				boxData[10] = (pts >> 8) & 0xFF;
+				boxData[11] = pts & 0xFF;
+				if (!firstPtsSaved)
+				{
+					firstPtsSaved = true;
+					afterPTS = pts;
+				}
+			}
+			else
+			{
+				// Version 0: 32-bit baseMediaDecodeTime at offset 4
+				uint32_t pts = (boxData[4] << 24) | (boxData[5] << 16) | (boxData[6] << 8) | boxData[7];
+				if (!firstPtsSaved)
+				{
+					beforePTS = pts;
+				}
+				pts += (uint32_t)offset;
+				// Write back the 32-bit PTS
+				boxData[4] = (pts >> 24) & 0xFF;
+				boxData[5] = (pts >> 16) & 0xFF;
+				boxData[6] = (pts >> 8) & 0xFF;
+				boxData[7] = pts & 0xFF;
+				if (!firstPtsSaved)
+				{
+					afterPTS = pts;
+					firstPtsSaved = true;
+				}
+			}
+		}
+	}
 }
 
 void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint32_t duration)
