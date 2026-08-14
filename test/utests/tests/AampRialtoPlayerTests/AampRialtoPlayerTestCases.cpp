@@ -1467,7 +1467,7 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 // ===========================================================================
-// SeekStreamSink — Uses pipeline->setPosition() to seek
+// SeekStreamSink — Delegates to Flush() (matches AAMPGstPlayer::SeekStreamSink())
 // ===========================================================================
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
@@ -1477,8 +1477,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 	SendAudioInitFragment();
 
-	// SeekStreamSink should call pipeline->setPosition() with position in nanoseconds.
-	// position = 10.5 seconds = 10,500,000,000 nanoseconds
+	// SeekStreamSink delegates to Flush(), which calls pipeline->setPosition()
+	// with position in nanoseconds. position = 10.5 seconds = 10,500,000,000ns.
 	const int64_t expectedPosNs = 10'500'000'000LL;
 	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
 		.WillOnce(Return(true));
@@ -1514,6 +1514,61 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.WillOnce(Return(true));
 
 	m_player->SeekStreamSink(15.0, -2.0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_GatesAllSourcesDuringFlush)
+{
+	/**
+	 * @brief A mid-playback discontinuity (e.g. AampMp4Demuxer's delayed
+	 *        video-track flush) must gate every source, not just adjust
+	 *        position - otherwise other tracks keep injecting new-period
+	 *        data completely unsynchronized with the flush.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->SeekStreamSink(8.76, 1.0);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_AutoResumesAllSourcesAfterSeekDone)
+{
+	/**
+	 * @brief Nothing else calls Stream() again for a mid-playback
+	 *        discontinuity flush, so SeekStreamSink() must itself request
+	 *        playback resumption - otherwise sources stay gated forever
+	 *        once SEEK_DONE arrives, freezing playback.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->SeekStreamSink(8.76, 1.0);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
 }
 
 TEST_F(AampRialtoPlayerTest,

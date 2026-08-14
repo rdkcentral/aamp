@@ -2005,19 +2005,20 @@ void AampRialtoPlayer::SeekStreamSink(double position, double rate)
 {
 	AAMPLOG_INFO("ENTRY position=%f rate=%f", position, rate);
 
-	if (m_pipeline)
-	{
-		// Convert position from seconds to nanoseconds for Rialto API
-		const int64_t positionNs = static_cast<int64_t>(position * 1'000'000'000LL);
-		if (!m_pipeline->setPosition(positionNs))
-		{
-			AAMPLOG_WARN("setPosition failed for position=%.3f s (%" PRId64 " ns)",
-			             position, positionNs);
-		}
-	}
+	// Delegate to the full flushing-seek path (gates every source, then
+	// setPosition()) instead of a bare setPosition() - matches
+	// AAMPGstPlayer::SeekStreamSink(), which is Flush() under the hood.
+	// A bare setPosition() left other tracks (e.g. audio) completely
+	// ungated while this call's video-demuxer-triggered flush was still
+	// in flight, letting new-period samples race past the flush position.
+	Flush(position, static_cast<int>(rate), false);
 
-	// Store rate for GetPositionMilliseconds() calculations
-	m_rate.store(static_cast<int>(rate), std::memory_order_relaxed);
+	// This call site is a mid-playback discontinuity, not a fresh Stream()
+	// from ProcessPendingDiscontinuity() - nothing else will (re)request
+	// playback for this flush cycle, so without this, SEEK_DONE would
+	// leave every source gated forever. Flush() just entered FLUSHING
+	// synchronously above, so Stream() defers play() until SEEK_DONE.
+	Stream();
 
 	AAMPLOG_INFO("EXIT");
 }
@@ -2383,8 +2384,9 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 		case firebolt::rialto::PlaybackState::SEEK_DONE:
 		{
 			// Ignore SEEK_DONE not originating from a Flush()-initiated seek.
-			// setPosition() is also called by SeekStreamSink() without
-			// entering FLUSHING; that path needs no flush-completion work.
+			// SeekStreamSink() now also delegates to Flush(), so it enters
+			// FLUSHING like any other caller; this guard only excludes
+			// stray/duplicate SEEK_DONE notifications outside a flush cycle.
 			if (m_stateMachine.currentState() != PlayerStateId::FLUSHING)
 			{
 				AAMPLOG_INFO("SEEK_DONE received outside FLUSHING (state=%s) - ignored",

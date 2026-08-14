@@ -1531,6 +1531,10 @@ void PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, doub
 
 void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->FlushStreamSink(position, rate);
+	}
 }
 
 /**

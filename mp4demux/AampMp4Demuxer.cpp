@@ -105,6 +105,7 @@ void AampMp4Demuxer::abort()
 	mRestampedPts = 0.0;
 	mRestampedDuration = 0.0;
 	mLastTrickRate = 0.0;
+	armPendingFlush();
 	AAMPLOG_INFO("Abort: Reset trickmode state for media type %s", GetMediaTypeName(mMediaType));
 }
 
@@ -114,7 +115,27 @@ void AampMp4Demuxer::abort()
 void AampMp4Demuxer::reset()
 {
 	mAborted.store(false, std::memory_order_relaxed);
+	armPendingFlush();
 	resetTrickMode();
+}
+
+/**
+ * @brief Arm the deferred stream-sink flush for the video track.
+ *
+ * StopInjection()/StartInjection() (which call abort()/reset() on every
+ * track's playContext) bracket both the initial tune and every subsequent
+ * discontinuity, so arming here - rather than relying on the caller's
+ * isInit/discontinuous segment flags, which are not reliably threaded
+ * through for HLS - guarantees the next video segment with real sample PTS
+ * re-establishes the sink position exactly once per period. Mirrors
+ * IsoBmffProcessor::resetInternal() clearing initSegmentProcessComplete.
+ */
+void AampMp4Demuxer::armPendingFlush()
+{
+	if (mMediaType == eMEDIATYPE_VIDEO)
+	{
+		mFlushPendingOnDiscontinuity.store(true, std::memory_order_relaxed);
+	}
 }
 
 /**
@@ -292,6 +313,21 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				}
 				else
 				{
+					// Video-only, mirroring IsoBmffProcessor: the first segment with
+					// samples after a discontinuous init segment carries the new
+					// period's actual first PTS, so flush the sink to it now before
+					// injecting - a manifest-declared discontinuity position
+					// doesn't itself trigger a stream sink flush/seek anywhere else.
+					// mMediaType is re-checked here (not just at arm time in
+					// armPendingFlush()) because mFlushPendingOnDiscontinuity
+					// defaults to armed at construction for every media type.
+					if (mMediaType == eMEDIATYPE_VIDEO &&
+						mFlushPendingOnDiscontinuity.exchange(false, std::memory_order_relaxed))
+					{
+						const double flushPosition = samples.front().mPts;
+						AAMPLOG_WARN("type:%d flushing stream sink at discontinuity boundary, position:%f rate:%.2f", mMediaType, flushPosition, mRate);
+						mAamp->FlushStreamSink(flushPosition, mRate);
+					}
 					if (mEnablePtsRestamp && !samples.empty())
 					{
 						const uint32_t timeScale = mMp4Demux->GetTimeScale();
@@ -367,7 +403,11 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				}
 				else if (isInit && discontinuous)
 				{
-					AAMPLOG_INFO("type:%d discontinuous init segment with no samples, not trickmode - discontinuous flag not acted on here", mMediaType);
+					// No samples in an init segment. The deferred stream-sink flush
+					// for this new period is already armed by the abort()/reset()
+					// that StopInjection()/StartInjection() issued ahead of this
+					// discontinuity - see armPendingFlush().
+					AAMPLOG_INFO("type:%d discontinuous init segment with no samples", mMediaType);
 				}
 			}
 		}

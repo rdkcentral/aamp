@@ -819,3 +819,178 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NoDuplicateInitAtSameRate)
 	
 	mDemuxer->sendSegment(std::move(media2Buffer), 0.0, 2.0, 0.0, false, false, nullptr, ptsError);
 }
+
+/**
+ * @brief A discontinuous init segment (no samples) must not itself trigger a
+ * stream sink flush - IsoBmffProcessor only flushes once the new period's
+ * actual first PTS is known, i.e. on the following segment with samples.
+ */
+TEST_F(AampMp4DemuxerTests, SendSegment_DiscontinuousInitSegment_DoesNotFlushImmediately)
+{
+	const char* initData = "init_data";
+	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
+
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples()).WillOnce(Return(std::vector<AampMediaSample>()));
+	EXPECT_CALL(*g_mockMp4Demux, GetCodecInfo()).WillOnce(Return(MediaCodecInfo()));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushStreamSink(_, _)).Times(0);
+
+	bool ptsError = false;
+	bool discontinuous = true;
+	bool isInit = true;
+	mDemuxer->sendSegment(std::move(initBuffer), 8.0, 0.0, 0.0, discontinuous, isInit, nullptr, ptsError);
+}
+
+/**
+ * @brief Root-cause regression test for direct-Rialto stalling after a
+ * discontinuity: HLS does not reliably thread isInit/discontinuous segment
+ * flags through to AampMp4Demuxer (see AampMp4Demuxer::armPendingFlush()),
+ * so the flush must be armed by abort()/reset() - the same calls
+ * StopInjection()/StartInjection() make around every discontinuity - not by
+ * the segment's own flags. The first video segment carrying samples after
+ * that abort()/reset() cycle must flush the stream sink to the new period's
+ * actual first PTS, mirroring IsoBmffProcessor's delayed-flush behaviour
+ * that gstreamer/rialto-gstreamer playback relies on.
+ */
+TEST_F(AampMp4DemuxerTests, SendSegment_AfterDiscontinuity_FlushesStreamSinkOnNextSegmentWithSamples)
+{
+	// Simulates StopInjection()/StartInjection() bracketing a discontinuity.
+	mDemuxer->abort();
+	mDemuxer->reset();
+
+	const char* mediaData = "media_data";
+	std::vector<uint8_t> mediaBuffer(mediaData, mediaData + strlen(mediaData));
+
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() {
+			std::vector<AampMediaSample> samples;
+			AampMediaSample sample;
+			sample.mPts = 8.76;
+			sample.mDuration = 0.04;
+			samples.push_back(std::move(sample));
+			return samples;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushStreamSink(8.76, 1.0)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _)).Times(1);
+
+	// isInit/discontinuous are false here - exactly as HLS logs show in
+	// practice - proving the flush no longer depends on those flags.
+	bool ptsError = false;
+	mDemuxer->sendSegment(std::move(mediaBuffer), 8.0, 0.04, 0.0, /*discontinuous=*/false, /*isInit=*/false, nullptr, ptsError);
+}
+
+/**
+ * @brief Only the video track drives the stream sink flush - matching
+ * IsoBmffProcessor, which gates its equivalent FlushStreamSink() call on
+ * eBMFFPROCESSOR_TYPE_VIDEO. Audio/subtitle discontinuities must not flush.
+ */
+TEST_F(AampMp4DemuxerTests, SendSegment_AudioTrack_DoesNotFlushStreamSinkAfterDiscontinuity)
+{
+	AampMp4Demuxer audDemuxer(mPrivateInstanceAAMP, eMEDIATYPE_AUDIO, false);
+	audDemuxer.abort();
+	audDemuxer.reset();
+
+	const char* mediaData = "media_data";
+	std::vector<uint8_t> mediaBuffer(mediaData, mediaData + strlen(mediaData));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() {
+			std::vector<AampMediaSample> samples;
+			AampMediaSample sample;
+			sample.mPts = 8.76;
+			sample.mDuration = 0.04;
+			samples.push_back(std::move(sample));
+			return samples;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushStreamSink(_, _)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_AUDIO, _, _)).Times(1);
+
+	bool ptsError = false;
+	audDemuxer.sendSegment(std::move(mediaBuffer), 8.0, 0.04, 0.0, /*discontinuous=*/false, /*isInit=*/false, nullptr, ptsError);
+}
+
+/**
+ * @brief The flush fires exactly once per discontinuity: a second video
+ * segment with samples, with no intervening abort()/reset() cycle, must not
+ * re-flush the stream sink.
+ */
+TEST_F(AampMp4DemuxerTests, SendSegment_SubsequentSegmentWithoutNewDiscontinuity_DoesNotReFlush)
+{
+	// First segment with samples consumes the arm that is present from
+	// construction (mirroring the abort()/reset() cycle preceding tune start).
+	const char* mediaData1 = "media_data_1";
+	std::vector<uint8_t> mediaBuffer1(mediaData1, mediaData1 + strlen(mediaData1));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() {
+			std::vector<AampMediaSample> samples;
+			AampMediaSample sample;
+			sample.mPts = 1.0;
+			sample.mDuration = 0.04;
+			samples.push_back(std::move(sample));
+			return samples;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushStreamSink(1.0, 1.0)).Times(1);
+	bool ptsError = false;
+	mDemuxer->sendSegment(std::move(mediaBuffer1), 1.0, 0.04, 0.0, /*discontinuous=*/false, /*isInit=*/false, nullptr, ptsError);
+
+	// Second segment, no new discontinuity - must not re-flush.
+	const char* mediaData2 = "media_data_2";
+	std::vector<uint8_t> mediaBuffer2(mediaData2, mediaData2 + strlen(mediaData2));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() {
+			std::vector<AampMediaSample> samples;
+			AampMediaSample sample;
+			sample.mPts = 1.04;
+			sample.mDuration = 0.04;
+			samples.push_back(std::move(sample));
+			return samples;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushStreamSink(_, _)).Times(0);
+	mDemuxer->sendSegment(std::move(mediaBuffer2), 1.04, 0.04, 0.0, /*discontinuous=*/false, /*isInit=*/false, nullptr, ptsError);
+}
+
+/**
+ * @brief A second discontinuity (a further abort()/reset() cycle) re-arms
+ * the flush so the next period's first sample flushes again.
+ */
+TEST_F(AampMp4DemuxerTests, SendSegment_SecondDiscontinuity_ReArmsFlush)
+{
+	// Consume the initial arm.
+	const char* mediaData1 = "media_data_1";
+	std::vector<uint8_t> mediaBuffer1(mediaData1, mediaData1 + strlen(mediaData1));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() {
+			std::vector<AampMediaSample> samples;
+			AampMediaSample sample;
+			sample.mPts = 1.0;
+			sample.mDuration = 0.04;
+			samples.push_back(std::move(sample));
+			return samples;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushStreamSink(1.0, 1.0)).Times(1);
+	bool ptsError = false;
+	mDemuxer->sendSegment(std::move(mediaBuffer1), 1.0, 0.04, 0.0, /*discontinuous=*/false, /*isInit=*/false, nullptr, ptsError);
+
+	// Simulates StopInjection()/StartInjection() at a second discontinuity.
+	mDemuxer->abort();
+	mDemuxer->reset();
+
+	const char* mediaData2 = "media_data_2";
+	std::vector<uint8_t> mediaBuffer2(mediaData2, mediaData2 + strlen(mediaData2));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() {
+			std::vector<AampMediaSample> samples;
+			AampMediaSample sample;
+			sample.mPts = 8.76;
+			sample.mDuration = 0.04;
+			samples.push_back(std::move(sample));
+			return samples;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, FlushStreamSink(8.76, 1.0)).Times(1);
+	mDemuxer->sendSegment(std::move(mediaBuffer2), 8.0, 0.04, 0.0, /*discontinuous=*/false, /*isInit=*/false, nullptr, ptsError);
+}

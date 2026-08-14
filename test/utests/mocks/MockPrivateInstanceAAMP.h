@@ -52,6 +52,7 @@ public:
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, std::vector<uint8_t>&, double, double, double, double, bool, bool));
 	MOCK_METHOD(void, SendStreamTransfer, (AampMediaType, AampMediaSample&&, bool));
 	MOCK_METHOD(void, SetStreamCaps, (AampMediaType, MediaCodecInfo&&));
+	MOCK_METHOD(void, FlushStreamSink, (double position, double rate));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const std::vector<uint8_t>& buffer, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(bool, SendStreamCopy, (AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration));
 	MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());

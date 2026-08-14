@@ -177,6 +177,12 @@ private:
 	 */
 	void resetTrickMode();
 
+	/**
+	 * @brief Arm the deferred stream-sink flush for the video track.
+	 * @see mFlushPendingOnDiscontinuity
+	 */
+	void armPendingFlush();
+
 	std::unique_ptr<Mp4Demux> mMp4Demux;
 	PrivateInstanceAAMP* mAamp;
 	AampMediaType mMediaType;
@@ -196,6 +202,16 @@ private:
 	/// to block on each remaining sample (e.g. against an injection gate set
 	/// by AampRialtoMediaSource::unblockInjection()).  Cleared by reset().
 	std::atomic<bool> mAborted {false};
+
+	/// Video-track only: armed by abort()/reset() (called by
+	/// StopInjection()/StartInjection(), which bracket the initial tune and
+	/// every subsequent discontinuity). Consumed by the next segment carrying
+	/// samples, which calls PrivateInstanceAAMP::FlushStreamSink() with the
+	/// new period's first PTS. Mirrors IsoBmffProcessor's delayed
+	/// flush-on-discontinuity (see StreamAbstractionAAMP::InitializeMediaProcessor()
+	/// and IsoBmffProcessor::resetInternal()), which AampMp4Demuxer otherwise
+	/// has no equivalent for.
+	std::atomic<bool> mFlushPendingOnDiscontinuity {true};
 		
 	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */
 	double mLastTrickRate {0.0};     /**< Last used trickplay rate for state reset */
