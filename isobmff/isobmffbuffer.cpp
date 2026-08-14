@@ -307,82 +307,6 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 	}
 }
 
-void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
-{
-	constexpr size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
-	size_t curOffset = 0;
-	while (curOffset < bufSz)
-	{
-		const size_t remaining = bufSz - curOffset;
-		if (remaining < minHeaderSize)
-		{
-			AAMPLOG_WARN("Trailing bytes[%zu] smaller than box header while restamping",
-				remaining);
-			break;
-		}
-
-		uint8_t *buf = segment + curOffset;
-		uint32_t size = READ_U32(buf);
-		if (size < minHeaderSize || size > remaining)
-		{
-			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %zu)",
-				size, remaining);
-			break;
-		}
-		char type[Box::BOX_TYPE_BUFFER_SIZE];
-		READ_U8(type, buf, sizeof(uint32_t));
-		type[sizeof(uint32_t)] = '\0';
-
-		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
-		{
-			restampPtsInternal(offset, buf, size);
-		}
-		else if (IS_TYPE(type, Box::TFDT))
-		{
-			uint8_t version = READ_VERSION(buf);
-			uint32_t flags  = READ_FLAGS(buf);
-
-			(void)flags; // Avoid a warning.
-
-			if (1 == version)
-			{
-				uint64_t pts = ReadUint64(buf);
-				if (!firstPtsSaved)
-				{
-					beforePTS = pts;
-				}
-				pts += offset;
-				WriteUint64(buf, pts);
-				if (!firstPtsSaved)
-				{
-					firstPtsSaved = true;
-					afterPTS = pts;
-				}
-			}
-			else
-			{
-				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-				if (!firstPtsSaved)
-				{
-					beforePTS = pts;
-				}
-				pts += (uint32_t)offset;
-				WRITE_U32(buf, pts);
-				if (!firstPtsSaved )
-				{
-					afterPTS = pts;
-					firstPtsSaved = true;
-				}
-			}
-		}
-		else
-		{
-			// Any other box type
-		}
-		curOffset += size;
-	}
-}
-
 void IsoBmffBuffer::restampPts(int64_t offset)
 {
 	if (readOnlyBuffer)
@@ -412,58 +336,44 @@ void IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector
 		}
 		else if (IS_TYPE(box->getType(), Box::TFDT))
 		{
-			// Get the raw buffer pointer for this box to modify the PTS
-			uint8_t *boxBuffer = const_cast<uint8_t *>(buffer) + box->getOffset();
-			uint8_t *boxData = boxBuffer + sizeof(uint32_t) + sizeof(uint32_t); // Skip size and type
-			
-			// TFDT box structure: [version(1) + flags(3) + baseMediaDecodeTime(4 or 8)]
-			uint8_t version = boxData[0];
-			
-			if (1 == version)
+			// Use the TfdtBox API to safely modify the PTS
+			TfdtBox *tfdtBox = dynamic_cast<TfdtBox*>(box);
+			if (tfdtBox != nullptr)
 			{
-				// Version 1: 64-bit baseMediaDecodeTime at offset 4
-				uint64_t pts = (uint64_t)boxData[4] << 56 | (uint64_t)boxData[5] << 48 | 
-				                (uint64_t)boxData[6] << 40 | (uint64_t)boxData[7] << 32 |
-				                (uint64_t)boxData[8] << 24 | (uint64_t)boxData[9] << 16 | 
-				                (uint64_t)boxData[10] << 8 | (uint64_t)boxData[11];
-				if (!firstPtsSaved)
+				// Check the TFDT version to determine arithmetic type
+				uint8_t version = tfdtBox->getVersion();
+				
+				if (version == 0)
 				{
-					beforePTS = pts;
+					// For version 0 boxes, use 32-bit arithmetic to maintain overflow/underflow behavior
+					uint32_t pts = static_cast<uint32_t>(tfdtBox->getBaseMDT());
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					pts += static_cast<uint32_t>(offset);
+					tfdtBox->setBaseMDT(pts);
+					if (!firstPtsSaved)
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
 				}
-				pts += offset;
-				// Write back the 64-bit PTS
-				boxData[4] = (pts >> 56) & 0xFF;
-				boxData[5] = (pts >> 48) & 0xFF;
-				boxData[6] = (pts >> 40) & 0xFF;
-				boxData[7] = (pts >> 32) & 0xFF;
-				boxData[8] = (pts >> 24) & 0xFF;
-				boxData[9] = (pts >> 16) & 0xFF;
-				boxData[10] = (pts >> 8) & 0xFF;
-				boxData[11] = pts & 0xFF;
-				if (!firstPtsSaved)
+				else
 				{
-					firstPtsSaved = true;
-					afterPTS = pts;
-				}
-			}
-			else
-			{
-				// Version 0: 32-bit baseMediaDecodeTime at offset 4
-				uint32_t pts = (boxData[4] << 24) | (boxData[5] << 16) | (boxData[6] << 8) | boxData[7];
-				if (!firstPtsSaved)
-				{
-					beforePTS = pts;
-				}
-				pts += (uint32_t)offset;
-				// Write back the 32-bit PTS
-				boxData[4] = (pts >> 24) & 0xFF;
-				boxData[5] = (pts >> 16) & 0xFF;
-				boxData[6] = (pts >> 8) & 0xFF;
-				boxData[7] = pts & 0xFF;
-				if (!firstPtsSaved)
-				{
-					afterPTS = pts;
-					firstPtsSaved = true;
+					// For version 1 boxes, use 64-bit arithmetic
+					uint64_t pts = tfdtBox->getBaseMDT();
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					pts += offset;
+					tfdtBox->setBaseMDT(pts);
+					if (!firstPtsSaved)
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
 				}
 			}
 		}

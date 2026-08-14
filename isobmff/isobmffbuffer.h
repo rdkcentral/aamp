@@ -115,24 +115,13 @@ private:
 	bool getBoxesInternal(const std::vector<std::unique_ptr<Box>> *boxes, const char *name, std::vector<Box*> *pBoxes);
 
 	/**
-	 * @fn restampPtsInternal
+	 * @fn restampPtsUsingParsedBoxes
 	 *
-	 * @brief Private method to restamp PTS in a buffer
+	 * @brief Private method to restamp PTS using already-parsed boxes
 	 *
 	 * @param[in] offset - pts offset
-	 * @param[in] segment - buffer pointer
-	 * @param[in] bufSz - buffer size
+	 * @param[in] boxes - vector of parsed boxes
 	 */
-	void restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz);
-
-	/**
-		 * @fn restampPtsUsingParsedBoxes
-		 *
-		 * @brief Private method to restamp PTS using already-parsed boxes
-		 *
-		 * @param[in] offset - pts offset
-		 * @param[in] boxes - vector of parsed boxes
-		 */
 	void restampPtsUsingParsedBoxes(int64_t offset, const std::vector<std::unique_ptr<Box>> *boxes);
 
 	/**
