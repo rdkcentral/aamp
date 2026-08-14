@@ -162,7 +162,7 @@ void AampMp4Demuxer::HandleTrickModeDiscontinuity()
  * @param[in] duration - Fragment duration
  * @param[in] discontinuous - True if this sample begins a discontinuous segment
  */
-void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous)
+void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous, double fragmentPTSoffset)
 {
 	// Store original values for logging
 	double originalPts = sample.mPts;
@@ -194,7 +194,7 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 		case Mp4TrickPhase::STEADY:
 			// Delta-based duration: distance between current and previous original PTS
 			// divided by |rate|.
-			fragmentPtsDelta = fabs(sample.mPts - mLastSamplePts);
+			fragmentPtsDelta = fabs(sample.mPts + fragmentPTSoffset - mLastSamplePts);
 			restampedDuration = fragmentPtsDelta / std::fabs(mRate);
 			mRestampedDuration = restampedDuration;
 			mRestampedPts += restampedDuration;
@@ -202,7 +202,7 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	} // end switch
 
 	// Store the current sample PTS before overwriting it
-	mLastSamplePts = sample.mPts;
+	mLastSamplePts = sample.mPts + fragmentPTSoffset;
 
 	// Apply restamped PTS and duration to the sample
 	sample.mPts = mRestampedPts;
@@ -282,8 +282,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					else
 					{
 						auto& iframe = samples.front();
-						TrickmodePtsRestamp(iframe, duration, discontinuous);
-
+						TrickmodePtsRestamp(iframe, duration, discontinuous, fragmentPTSoffset);
 						++sampleIndex;
 						bool morePending = (sampleIndex < totalSamples);
 						mAamp->SendStreamTransfer(mMediaType, std::move(iframe), morePending);
