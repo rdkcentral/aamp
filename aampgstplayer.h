@@ -441,6 +441,14 @@ public:
      * @param[in] codecInfo - Codec information
      */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo) override;
+	
+	/**
+	 * @brief Get the stream capabilities for a given media type
+	 *
+	 * @param[in] type - Media type
+	 * @return const reference to MediaCodecInfo for the specified media type
+	 */
+	GstStateChangeReturn GetPipelineState(GstState *currentState, GstState *pendingState) override;
 
 private:
 	std::mutex mBufferingLock;

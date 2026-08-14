@@ -15155,3 +15155,57 @@ bool PrivateInstanceAAMP::IsAdPlaying()
 	}
 	return false;
 }
+
+// RDKEMW-21923: Detect pipeline wedge states, excluding NULL/destroyed pipelines
+bool PrivateInstanceAAMP::IsPipelineWedged()
+{
+    StreamSink* sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+
+    if (sink)
+    {
+        GstState currentState;
+        GstState pendingState;
+
+        GstStateChangeReturn ret =
+            sink->GetPipelineState(&currentState, &pendingState);
+
+        // Pipeline NULL/VOID — not wedged, just destroyed/being rebuilt
+        if (currentState == GST_STATE_NULL ||
+            currentState == GST_STATE_VOID_PENDING)
+        {
+            AAMPLOG_WARN("IsPipelineWedged: pipeline NULL/VOID (state=%d) — "
+                "not wedged, teardown/rebuild in progress", currentState);
+            return false;
+        }
+
+        // Case 1: Wedged if async transition to the same state (PAUSED -> PAUSED)
+        if (ret == GST_STATE_CHANGE_ASYNC &&
+            currentState == pendingState)
+        {
+            AAMPLOG_WARN("IsPipelineWedged: detected wedged pipeline "
+                "state=%d pending=%d", currentState, pendingState);
+            return true;
+        }
+
+        // Case 2: State change failed entirely
+        if (ret == GST_STATE_CHANGE_FAILURE)
+        {
+            AAMPLOG_WARN("IsPipelineWedged: GST_STATE_CHANGE_FAILURE detected "
+                "state=%d pending=%d", currentState, pendingState);
+            return true;
+        }
+
+        // Case 3: mSinkPaused=false but pipeline actually in PAUSED (state drift)
+        if (!mSinkPaused.load() &&
+            ret == GST_STATE_CHANGE_SUCCESS &&
+            currentState == GST_STATE_PAUSED)
+        {
+            AAMPLOG_WARN("IsPipelineWedged: state drift detected — "
+                "mSinkPaused=false but pipeline PAUSED "
+                "state=%d pending=%d", currentState, pendingState);
+            return true;
+        }
+    }
+
+    return false;
+}
