@@ -640,7 +640,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			if (busEvent.msg.find("HDCPProtectionFailure") != std::string::npos)
 			{
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
-				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true, false);
+				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
 				_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
 			}
 			break;
@@ -1021,7 +1021,7 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
-void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown, bool keepPausedSeek)
+void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -1033,7 +1033,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown, bool k
 	{
 		isAppSeek = true;
 	}
-	bool ret = playerInstance->Flush(position, rate, shouldTearDown, isAppSeek, keepPausedSeek);
+	bool ret = playerInstance->Flush(position, rate, shouldTearDown, isAppSeek);
 	if(ret)
 	{
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -1157,7 +1157,7 @@ void AAMPGstPlayer::SeekStreamSink(double position, double rate)
 	// shouldTearDown is set to false, because in case of a new tune pipeline
 	// might not be in a playing/paused state which causes Flush() to destroy
 	// pipeline. This has to be avoided.
-	Flush(position, rate, false, false);
+	Flush(position, rate, false);
 
 }
 
