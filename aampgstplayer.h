@@ -168,7 +168,7 @@ public:
 		 * @param[in] shouldTearDown flag indicates if pipeline should be destroyed if in invalid state
 		 * @param[in] keepPausedSeek true only for an explicit seek-with-keepPaused request
 		 */
-	void Flush(double position, int rate, bool shouldTearDown, bool keepPausedSeek) override;
+	void Flush(double position, int rate, bool shouldTearDown, bool keepPausedSeek);
 	/**
 		 * @fn Pause
 		 * @param[in] pause flag to pause/play the pipeline
