@@ -359,7 +359,7 @@ public:
 	/**
 	 * @fn FlushTrack
 	 */
-	void FlushTrack(AampMediaType mediaType,double pos) override;
+	void FlushTrack(AampMediaType mediaType,double pos);
 
 	/**
 	 * @fn ChangeAamp

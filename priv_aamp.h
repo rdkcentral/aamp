@@ -1035,6 +1035,7 @@ public:
 	float rate; 						/**< most recent (non-zero) play rate for non-paused content */
 	float playerrate;
 	bool mSetPlayerRateAfterFirstframe;
+	std::atomic<bool> mSinkPaused; 			/**< true if pipeline is paused - atomic for thread safety */
 	bool pipeline_paused; 					/**< true if pipeline is paused */
 	bool mbNewSegmentEvtSent[AAMP_TRACK_COUNT];
 
