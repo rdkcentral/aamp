@@ -47,6 +47,7 @@ AampConfig *gpGlobalConfig=NULL;
 #include "ContentSecurityManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
+static constexpr int PAUSE_RESUME_LOCK_TIMEOUT_MS = 2000;
 
 const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
 {
@@ -903,6 +904,20 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					else
 					{
+						// Cancel a not-yet-fired pause-on-first-frame request outright, rather than letting
+						// it fire and then immediately reversing it - this resume supersedes that stale intent
+						// (RDKEMW-21923 freeze fix).
+						aamp->CancelPendingFirstFramePause();
+
+						// Bounded wait (not indefinite) in case a pause is already in flight inside
+						// PausePipeline() - see mPauseResumeMutex. If it times out we proceed anyway rather
+						// than risk hanging this thread (AampScheduler's single worker) forever.
+						std::unique_lock<std::timed_mutex> pauseResumeLock(aamp->mPauseResumeMutex, std::defer_lock);
+						if (!pauseResumeLock.try_lock_for(std::chrono::milliseconds(PAUSE_RESUME_LOCK_TIMEOUT_MS)))
+						{
+							AAMPLOG_WARN("SetRateInternal: timed out waiting for an in-flight pause; proceeding with resume anyway");
+						}
+
 						// check if unpausing in the middle of fragments caching
 						if(!aamp->SetStateBufferingIfRequired())
 						{

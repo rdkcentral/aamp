@@ -902,6 +902,15 @@ public:
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
+	std::timed_mutex mPauseResumeMutex;	/**< Serializes PausePipeline() (used by NotifyFirstVideoFrameDisplayed
+									 *   and the underflow-recovery path) against SetRateInternal()'s direct
+									 *   resume-to-PLAYING call, so GStreamer never receives two competing
+									 *   state changes concurrently (RDKEMW-21923 freeze fix). A bounded
+									 *   try_lock_for() is used rather than an indefinite wait/lock: PausePipeline's
+									 *   own GStreamer work is capped by GST_ELEMENT_GET_STATE_RETRY_CNT_MAX
+									 *   retries (~1s), and this timeout is defense-in-depth in case that bound
+									 *   is ever broken by a future change - a resume must never be able to hang
+									 *   the calling thread (AampScheduler's single worker) forever. */
 	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
@@ -3528,6 +3537,16 @@ public:
 	bool GetPauseOnFirstVideoFrameDisp(void);
 
 	/**
+	 *   @fn CancelPendingFirstFramePause
+	 *   @brief Cancels a not-yet-fired pause-on-first-frame-displayed request. Called from
+	 *   SetRateInternal()'s resume path so a resume that arrives before the pause has actually
+	 *   run supersedes it outright, instead of letting the pause fire and then immediately
+	 *   reversing it (RDKEMW-21923 freeze fix - fixes the stale-intent race, not just the
+	 *   concurrent-GStreamer-call symptom of it).
+	 */
+	void CancelPendingFirstFramePause(void);
+
+	/**
 	 *   @fn SetLLDashServiceData
 	 *   @param[in] stAampLLDashServiceData - Low Latency Service Data from MPD
 	 *   @return void
@@ -4274,7 +4293,13 @@ protected:
 	std::string mDrmInitData; 		/**< DRM init data from main manifest URL (if present) */
 	bool mFragmentCachingRequired; 		/**< True if fragment caching is required or ongoing */
 	std::recursive_mutex mFragmentCachingLock; 	/**< To sync fragment initial caching operations */
-	bool mPauseOnFirstVideoFrameDisp; 	/**< True if pause AAMP after displaying first video frame */
+	std::atomic<bool> mPauseOnFirstVideoFrameDisp; 	/**< True if pause AAMP after displaying first video frame.
+									 *   Atomic: cleared from SetRateInternal() (resume path, to cancel a stale
+									 *   pending pause - RDKEMW-21923 freeze fix) as well as from
+									 *   NotifyFirstVideoFrameDisplayed() itself, on different threads. */
+	static constexpr int PAUSE_RESUME_LOCK_TIMEOUT_MS = 2000; 	/**< Bound for mPauseResumeMutex.try_lock_for();
+									 *   generous relative to the ~1s internal GStreamer retry cap in
+									 *   InterfacePlayerRDK::Pause(), so this should rarely if ever be hit. */
 //	AudioTrackInfo mPreferredAudioTrack; 	/**< Preferred audio track from available tracks in asset */
 	TextTrackInfo mPreferredTextTrack; 	/**< Preferred text track from available tracks in asset */
 	bool mFirstVideoFrameDisplayedEnabled; 	/**< Set True to enable call to NotifyFirstVideoFrameDisplayed() from Sink */
