@@ -799,3 +799,107 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_NoDuplicateInitAtSameRate)
 	
 	mDemuxer->sendSegment(std::move(media2Buffer), 0.0, 2.0, 0.0, false, false, nullptr, ptsError);
 }
+
+/**
+ * @brief Verify TrickmodePtsRestamp produces continuous restampedPts across a
+ * DASH live content-to-ad boundary where the two streams have completely
+ * different PTS ranges.
+ *
+ * DASH live content carries large, epoch-based PTS values (~69760 s).
+ * Ad segments are independently timed and carry small, ad-relative PTS
+ * values starting near 0.  Without fragmentPTSoffset the STEADY delta for
+ * the first ad fragment is |0 - 69762| ≈ 69762 s, causing a massive jump
+ * in restampedPts.  With fragmentPTSoffset the effective timeline PTS is
+ * sample.mPts + fragmentPTSoffset, so the delta remains 2 s throughout.
+ *
+ * Timeline (rate=4, fps=4, fragDur=2 s, step=0.5 s):
+ *   Content seg 1 FIRST_SAMPLE: mPts=69760  offset=0      effPts=69760  restamped=0.0
+ *   Content seg 2 STEADY:       mPts=69762  offset=0      effPts=69762  delta=2  restamped=0.5
+ *   Ad      seg 1 STEADY:       mPts=0      offset=69764  effPts=69764  delta=2  restamped=1.0
+ *   Ad      seg 2 STEADY:       mPts=2      offset=69764  effPts=69766  delta=2  restamped=1.5
+ *
+ * Without the fix ad seg 1 would produce restampedPts ≈ 17441 s (abrupt jump).
+ */
+TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_DashLive_ContentToAdContinuity)
+{
+	constexpr double kRate         = 4.0;
+	constexpr int    kFps          = 4;
+	constexpr double kFragDuration = 2.0;
+	// MAX(2.0/4.0, 1.0/4.0) = 0.5 for FIRST_SAMPLE; 2.0/4.0 = 0.5 for STEADY
+	constexpr double kStep         = 0.5;
+
+	// {mPts, fragmentPTSoffset} for each fragment after init
+	struct FragInfo { double mPts; double offset; };
+	const FragInfo kFrags[] = {
+		{69760.0,  0.0},    // content seg 1 — FIRST_SAMPLE
+		{69762.0,  0.0},    // content seg 2 — STEADY
+		{    0.0, 69764.0}, // ad seg 1      — STEADY, PTS jumps back to 0
+		{    2.0, 69764.0}, // ad seg 2      — STEADY
+	};
+	const double kExpectedPts[] = {0.0, 0.5, 1.0, 1.5};
+	constexpr int kNumFrags = 4;
+
+	mPrivateInstanceAAMP->rate = kRate;
+	mDemuxer->setRate(kRate, PlayMode_normal);
+	mDemuxer->setFrameRateForTM(kFps);
+
+	// --- init fragment ---
+	const char* initData = "init";
+	std::vector<uint8_t> initBuffer(initData, initData + strlen(initData));
+	EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+		.WillOnce([]() { return std::vector<AampMediaSample>(); });
+	EXPECT_CALL(*g_mockMp4Demux, GetCodecInfo())
+		.WillOnce([]() {
+			MediaCodecInfo codecInfo;
+			codecInfo.mCodecFormat = GST_FORMAT_VIDEO_ES_H264;
+			return codecInfo;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetStreamCaps(eMEDIATYPE_VIDEO, _)).Times(1);
+	bool ptsError = false;
+	mDemuxer->sendSegment(std::move(initBuffer), 0.0, 0.0, 0.0, false, true, nullptr, ptsError);
+
+	// --- content and ad media fragments ---
+	std::vector<double> capturedPts;
+	for (int i = 0; i < kNumFrags; ++i)
+	{
+		const char* mediaData = "media";
+		std::vector<uint8_t> buf(mediaData, mediaData + strlen(mediaData));
+		double samplePts = kFrags[i].mPts;
+		double offset    = kFrags[i].offset;
+
+		EXPECT_CALL(*g_mockMp4Demux, Parse(_)).WillOnce(Return(true));
+		EXPECT_CALL(*g_mockMp4Demux, GetSamples())
+			.WillOnce([samplePts]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s;
+				s.mPts = samplePts;
+				s.mDts = samplePts;
+				s.mDuration = kStep;
+				s.mIsKeyFrame = true;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _))
+			.WillOnce(Invoke([&capturedPts, i, &kExpectedPts](AampMediaType, AampMediaSample&& sample, bool) {
+				capturedPts.push_back(sample.mPts);
+				EXPECT_NEAR(sample.mPts, kExpectedPts[i], 1e-9)
+					<< "Fragment " << i << ": restampedPts incorrect";
+				EXPECT_NEAR(sample.mDuration, kStep, 1e-9)
+					<< "Fragment " << i << ": restamped duration incorrect";
+			}));
+
+		bool result = mDemuxer->sendSegment(std::move(buf), 0.0, kFragDuration, offset, false, false, nullptr, ptsError);
+		EXPECT_TRUE(result);
+		EXPECT_FALSE(ptsError);
+	}
+
+	// restampedPts must advance strictly — no abrupt jump at the content/ad boundary
+	ASSERT_EQ(capturedPts.size(), static_cast<size_t>(kNumFrags));
+	for (int i = 1; i < kNumFrags; ++i)
+	{
+		EXPECT_NEAR(capturedPts[i] - capturedPts[i - 1], kStep, 1e-9)
+			<< "Abrupt PTS jump at fragment " << i
+			<< " (content/ad boundary causes this without fragmentPTSoffset fix)";
+	}
+}
