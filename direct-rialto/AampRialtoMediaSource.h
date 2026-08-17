@@ -169,6 +169,13 @@ public:
 		std::string          systemId;
 		std::vector<uint8_t> initData;
 		AampMediaType        type;
+
+		bool operator==(const ProtectionParams &other) const
+		{
+			return systemId == other.systemId &&
+				initData == other.initData &&
+				type == other.type;
+		}
 	};
 
 	/**
@@ -556,6 +563,12 @@ protected:
 	SourceState m_state;
 	int32_t m_sourceId{-1};
 	int32_t m_mksId{-1};
+	/// Protection params last used to create the current DRM session (via
+	/// m_mksId). Compared against the params passed to attachOrUpdate() on
+	/// subsequent calls so a genuinely new PSSH/init-data triggers a new
+	/// createSession() while unchanged/repeated params (e.g. re-queued on
+	/// every period) do not incur a redundant OCDM license round-trip.
+	std::optional<ProtectionParams> m_activeProtection;
 	std::unique_ptr<Mp4Demux> m_demuxer;
 	std::shared_ptr<firebolt::rialto::CodecData> m_pendingCodecData;
 	/// Stream format passed to Configure() when this source was created.

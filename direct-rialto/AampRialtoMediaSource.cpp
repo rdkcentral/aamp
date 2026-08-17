@@ -100,6 +100,7 @@ void AampRialtoMediaSource::reset()
 	}
 	m_sourceId       = -1;
 	m_mksId          = -1;
+	m_activeProtection.reset();
 	m_pendingCodecData = nullptr;
 
 	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
@@ -388,9 +389,48 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	// 4. Stage pending codec data for the injection path
 	m_pendingCodecData = codecData;
 
-	// 5. If already attached → update only
+	// 5. If already attached → update only.  A new period's init segment
+	//    can carry genuinely new protection params (different DRM system or
+	//    PSSH/init data), which must be applied to the existing session —
+	//    otherwise every subsequent sample keeps stamping the stale mksId.
+	//    Compare against the params last used to create a session so
+	//    unchanged/repeated params (re-queued on every period regardless of
+	//    whether they changed) do not trigger a redundant OCDM license
+	//    round-trip.
 	if (m_sourceId >= 0)
 	{
+		if (protection.has_value() && !(m_activeProtection == protection))
+		{
+			if (!drmBridge)
+			{
+				AAMPLOG_ERR("Protection params changed but drmBridge is null for"
+					" mediaType=%d — DRM session will not be updated",
+					static_cast<int>(mediaType()));
+			}
+			else
+			{
+				const auto &prot = *protection;
+				const int32_t newMksId = drmBridge->createSession(
+					prot.systemId.c_str(),
+					prot.initData.data(),
+					prot.initData.size(),
+					prot.type);
+				if (newMksId < 0)
+				{
+					AAMPLOG_WARN("createSession failed while updating mediaType=%d"
+						" — keeping previous mksId=%d",
+						static_cast<int>(mediaType()), m_mksId);
+				}
+				else
+				{
+					AAMPLOG_INFO("createSession returned new mksId=%d (was %d) for"
+						" mediaType=%d", newMksId, m_mksId,
+						static_cast<int>(mediaType()));
+					m_mksId = newMksId;
+					m_activeProtection = protection;
+				}
+			}
+		}
 		AAMPLOG_INFO("source already attached (id=%d) for mediaType=%d, "
 			"staged new codec data",
 			m_sourceId, static_cast<int>(mediaType()));
@@ -421,6 +461,7 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 		{
 			AAMPLOG_INFO("createSession returned mksId=%d for mediaType=%d",
 				m_mksId, static_cast<int>(mediaType()));
+			m_activeProtection = protection;
 		}
 	}
 
