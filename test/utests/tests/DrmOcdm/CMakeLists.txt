@@ -29,7 +29,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
-include_directories(${AAMP_ROOT}/middleware/play)
+include_directories(${MIDDLEWARE_REPO_ABS_PATH}/play)
 include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${RFC_ROOT})
@@ -48,7 +48,7 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 				 ${DRM_ROOT}/mocks/FakeABRManager.cpp
 				 ${DRM_ROOT}/mocks/FakeAampStreamSinkManager.cpp
  				 ${DRM_ROOT}/mocks/curlMocks.c
-				 ${AAMP_ROOT}/middleware/test/utests/drm/mocks/gstMocks.c
+				 ${MIDDLEWARE_REPO_ABS_PATH}/test/utests/drm/mocks/gstMocks.c
 				 ${DRM_ROOT}/mocks/pthreadMocks.c
 				 ${DRM_ROOT}/mocks/openSslMocks.c
 				 ${DRM_ROOT}/mocks/Fakeopencdm.cpp)
@@ -56,7 +56,7 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${UTESTS_ROOT}/fakes/FakePlayerExternalsInterface.cpp
 				 ${UTESTS_ROOT}/fakes/FakeProcessProtectionHls.cpp
-				 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/test/utests/fakes/FakeSocUtils.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerSecInterface.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakeContentSecurityManager.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakeContentSecurityManagerSession.cpp
@@ -67,36 +67,34 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 				 ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
 				 ${AAMP_ROOT}/ProcessHandler.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
 				 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
 				 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
 				 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp
 				 ${AAMP_ROOT}/AampEvent.cpp
 				 ${AAMP_ROOT}/AampJsonObject.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmJsonObject.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmJsonObject.cpp
 				 ${AAMP_ROOT}/AampProfiler.cpp
 				 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
 				 ${AAMP_ROOT}/AampFragmentDescriptor.cpp
 				 ${AAMP_ROOT}/AampUtils.cpp
 				 ${AAMP_ROOT}/iso639map.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
-				 ${AAMP_ROOT}/middleware/drm/base64.cpp
-				 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmSessionFactory.cpp
-				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
-				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelperFactory.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmSessionManager.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
-				 ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
-				 ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
-				 ${AAMP_ROOT}/middleware/drm/ocdm/OcdmBasicSessionAdapter.cpp
-				 ${AAMP_ROOT}/middleware/drm/ocdm/OcdmGstSessionAdapter.cpp
-
-				 ${AAMP_ROOT}/middleware/drm/HlsOcdmBridge.cpp
-				 ${AAMP_ROOT}/middleware/drm/HlsDrmSessionManager.cpp
-				 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
-				 ${AAMP_ROOT}/middleware/drm/helper/WidevineDrmHelper.cpp
-				 ${AAMP_ROOT}/middleware/drm/helper/PlayReadyHelper.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmUtils.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/base64.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/PlayerUtils.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmSessionFactory.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper/DrmHelper.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper/DrmHelperFactory.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmSessionManager.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/DrmSession.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm/opencdmsessionadapter.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm/opencdmsessionadapter.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm/OcdmBasicSessionAdapter.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/ocdm/OcdmGstSessionAdapter.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/HlsOcdmBridge.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/HlsDrmSessionManager.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper/ClearKeyHelper.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper/WidevineDrmHelper.cpp
+				 ${MIDDLEWARE_REPO_ABS_PATH}/drm/helper/PlayReadyHelper.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbox.h
 				 ${AAMP_ROOT}/isobmff/isobmffbox.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbuffer.h

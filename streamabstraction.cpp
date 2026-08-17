@@ -805,13 +805,17 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	bool stopInjection = false;
 	StreamAbstractionAAMP* context = GetContext();
 	double injectedDuration = GetTotalInjectedDuration();
+	static constexpr double epsilon = 0.01; // seconds; tolerance for near-zero comparisons
 
 	if(cachedFragment->fragment.capacity() != 0)
 	{
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
 			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
-			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
+			AAMPLOG_INFO("track %s - encountered aamp discontinuity @position - %f, "
+						 "isDiscoIgnoredForOtherTrack - %d ptsError %d",
+						 name, cachedFragment->position,
+						 isDiscoIgnoredForOtherTrack, ptsError);
 			if (eTRACK_SUBTITLE != type)
 			{
 				cachedFragment->discontinuity = false;
@@ -826,7 +830,9 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 			 * This was seen with subtitles where switching to a period with subtitles enabled from one without could result in fragments being pushed
 			 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
 			 */
-			if (injectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus()&& aamp->PipelineValid((AampMediaType)type))
+			if ((std::fabs(injectedDuration) < epsilon) &&
+				!aamp->mpStreamAbstractionAAMP->GetESChangeStatus() &&
+				aamp->PipelineValid((AampMediaType)type))
 			{
 				stopInjection = false;
 
@@ -2660,26 +2666,11 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 
 		if (http_error == 404 || http_error == 403 ||
 			http_error == 500 || http_error == 503 ||
-			http_error == CURLE_PARTIAL_FILE)
+			http_error == CURLE_PARTIAL_FILE || IsCurlTimeoutFailure (http_error) || CURLE_RECV_ERROR == http_error)
 		{
 			if (RampDownProfile(http_error))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP: Condition Rampdown Success");
-				retValue = true;
-			}
-		}
-		// For timeout, use FragmentfailureRampdown (via RampDownProfile) which selects
-		// a ramp-down target based on buffer fill percentage.  UpdateProfileBasedOnFragmentCache
-		// is intentionally NOT called here: it computes the desired profile from the EWMA
-		// bandwidth estimate, which can still be very high from pre-stall successful downloads.
-		// When the EWMA-desired profile is higher than the current one (e.g. after ramping down
-		// to 480p), UpdateProfileBasedOnFragmentCache would ramp UP instead of down, causing an
-		// infinite 480p-stall → ramp-up-to-1080p → 1080p-stall → ramp-down → 480p-stall loop.
-		// FragmentfailureRampdown already performs multi-step ramp-downs for timeout scenarios.
-		else if (IsCurlTimeoutFailure (http_error))
-		{
-			if (RampDownProfile(http_error))
-			{
 				retValue = true;
 			}
 		}

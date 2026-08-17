@@ -348,14 +348,14 @@ int SupportedSpeedsChangedEvent::getSupportedSpeedCount() const
 }
 
 MediaErrorEvent::MediaErrorEvent(AAMPTuneFailure failure, int code, int subCode, const std::string &desc, bool shouldRetry, int classCode, int reason, int businessStatus, const std::string &responseData, std::string sid):
-		AAMPEventObject(AAMP_EVENT_TUNE_FAILED, std::move(sid))
+		AAMPEventObject(AAMP_EVENT_TUNE_FAILED, std::move(sid)), mCode(code), mSubCode(subCode)
 {
 }
 bool MediaErrorEvent::shouldRetry(void) const { return false; }
 int32_t MediaErrorEvent::getBusinessStatus(void) const { return 0; }
 int32_t MediaErrorEvent::getClass(void) const { return 0; }
-int MediaErrorEvent::getCode(void) const { return 0; }
-int MediaErrorEvent::getSubCode(void) const { return 0; }
+int MediaErrorEvent::getCode(void) const { return mCode; }
+int MediaErrorEvent::getSubCode(void) const { return mSubCode; }
 
 BitrateChangeEvent::BitrateChangeEvent(int time, BitsPerSecond bitrate, const std::string &desc, int width, int height, double frameRate, double position, bool cappedProfile, int displayWidth, int displayHeight, VideoScanType videoScanType, int aspectRatioWidth, int aspectRatioHeight, std::string sid):
 		AAMPEventObject(AAMP_EVENT_BITRATE_CHANGED, std::move(sid))

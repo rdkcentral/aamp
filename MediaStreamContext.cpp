@@ -989,7 +989,14 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 				}
 				else
 				{
-					AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Already at the lowest profile, skipping segment at pos:%lf dur:%lf disc:%d", name, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->isDiscontinuity);
+					if (context->IsCurrentProfileLowest())
+					{
+						AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Already at the lowest profile, skipping segment at pos:%lf dur:%lf disc:%d", name, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->isDiscontinuity);
+					}
+					else
+					{
+						AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Rampdown not applied for error:%d; skipping segment at pos:%lf dur:%lf disc:%d", name, httpErrorCode, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->isDiscontinuity);
+					}
 					if (!dlInfo->isInitSegment)
 						updateSkipPoint((dlInfo->pts + dlInfo->fragmentDurationSec), dlInfo->fragmentDurationSec);
 					auto timeBasedBufferManager = GetTimeBasedBufferManager();
