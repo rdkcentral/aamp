@@ -155,9 +155,10 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	double originalDuration = sample.mDuration;
 	double fragmentPtsDelta = 0.0;
 	double restampedDuration = 0.0;
-	bool init = false; // Placeholder for init segment check if needed in future
+	bool init = false;
 	bool discontinuity = false;
 	Mp4TrickPhase lastTrickPhase = mTrickPhase;
+
 	// All phase transitions are owned here.
 	switch (mTrickPhase)
 	{
