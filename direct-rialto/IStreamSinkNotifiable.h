@@ -180,6 +180,25 @@ public:
 	virtual void NotifyBufferUnderflow(AampMediaType type) = 0;
 
 	// -----------------------------------------------------------------------
+	// Playback error
+	// -----------------------------------------------------------------------
+
+	/**
+	 * @brief Notify that a non-fatal playback error was reported.
+	 *
+	 * Mirrors AAMPGstPlayer's GST_MESSAGE_ERROR handling: drives an AAMP
+	 * tune-failure event so the application can react (error UI, retry).
+	 *
+	 * @param[in] failure         The classified AAMP tune failure.
+	 * @param[in] description     Human-readable description for the event.
+	 * @param[in] isRetryEnabled  Whether AAMP should permit retry.
+	 */
+	virtual void NotifyPlaybackError(
+		AAMPTuneFailure failure,
+		const std::string &description,
+		bool isRetryEnabled) = 0;
+
+	// -----------------------------------------------------------------------
 	// Discontinuity
 	// -----------------------------------------------------------------------
 

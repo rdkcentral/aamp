@@ -77,6 +77,14 @@ struct NotifyBufferUnderflowArgs
 	AampMediaType type;
 };
 
+struct NotifyPlaybackErrorArgs
+{
+	PrivateInstanceAAMP *aamp;
+	AAMPTuneFailure failure;
+	std::string description;
+	bool isRetryEnabled;
+};
+
 struct SendMonitorAvEventArgs
 {
 	PrivateInstanceAAMP *aamp;
@@ -245,6 +253,26 @@ void PrivateInstanceAAMPNotifiable::NotifyBufferUnderflow(AampMediaType type)
 		delete a;
 		return 0;
 	}, args, "NotifyBufferUnderflow") == AAMP_TASK_ID_INVALID)
+	{
+		delete args;
+	}
+}
+
+void PrivateInstanceAAMPNotifiable::NotifyPlaybackError(
+	AAMPTuneFailure failure, const std::string &description,
+	bool isRetryEnabled)
+{
+	AAMPLOG_TRACE("failure=%d isRetryEnabled=%d description=%s",
+		static_cast<int>(failure), isRetryEnabled, description.c_str());
+	auto *args = new NotifyPlaybackErrorArgs{
+		m_aamp, failure, description, isRetryEnabled};
+	if (m_aamp->ScheduleAsyncTask([](void *p) -> int {
+		auto *a = static_cast<NotifyPlaybackErrorArgs *>(p);
+		a->aamp->SendErrorEvent(
+			a->failure, a->description.c_str(), a->isRetryEnabled);
+		delete a;
+		return 0;
+	}, args, "NotifyPlaybackError") == AAMP_TASK_ID_INVALID)
 	{
 		delete args;
 	}

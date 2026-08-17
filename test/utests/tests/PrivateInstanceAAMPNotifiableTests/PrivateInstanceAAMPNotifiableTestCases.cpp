@@ -275,6 +275,28 @@ TEST_F(PrivateInstanceAAMPNotifiableTest,
 }
 
 // ===========================================================================
+// NotifyPlaybackError
+// ===========================================================================
+
+TEST_F(PrivateInstanceAAMPNotifiableTest,
+	NotifyPlaybackError_SchedulesTaskThatCallsSendErrorEvent)
+{
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ScheduleAsyncTask(_, _, std::string("NotifyPlaybackError")))
+		.WillOnce([](IdleTask task, void *arg, std::string) -> int {
+			task(arg);
+			return 1;
+		});
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		SendErrorEvent(AAMP_TUNE_HDCP_COMPLIANCE_ERROR,
+			testing::StrEq("Rialto HDCP failure"), false, _, _, _, _));
+
+	m_notifiable->NotifyPlaybackError(
+		AAMP_TUNE_HDCP_COMPLIANCE_ERROR, "Rialto HDCP failure",
+		/*isRetryEnabled=*/false);
+}
+
+// ===========================================================================
 // SendMonitorAvEvent
 // ===========================================================================
 

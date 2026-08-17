@@ -445,6 +445,15 @@ protected:
 		client->notifyBufferUnderflow(sourceId);
 	}
 
+	/// Post a Rialto playback-error notification via the captured client.
+	void PostPlaybackError(int32_t sourceId, firebolt::rialto::PlaybackError error)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostPlaybackError";
+		client->notifyPlaybackError(sourceId, error);
+	}
+
 	/// Call Configure() with specific formats.
 	/// Recreate m_mockPipeline with fresh default behaviours.
 	/// Must be called before every player Configure() so the factory lambda
@@ -3715,6 +3724,68 @@ TEST_F(AampRialtoPlayerTest,
 		.Times(0);
 
 	PostBufferUnderflow(/*sourceId=*/99);
+}
+
+// ===========================================================================
+// notifyPlaybackError — OnPlaybackError dispatch / mapping
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackError_Decryption_MapsToDrmDecryptFailedWithRetry)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_DRM_DECRYPT_FAILED, _,
+			/*isRetryEnabled=*/true))
+		.Times(1);
+
+	PostPlaybackError(/*sourceId=*/0,
+		firebolt::rialto::PlaybackError::DECRYPTION);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackError_OutputProtection_MapsToHdcpComplianceErrorNoRetry)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_HDCP_COMPLIANCE_ERROR, _,
+			/*isRetryEnabled=*/false))
+		.Times(1);
+
+	PostPlaybackError(/*sourceId=*/0,
+		firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackError_Unknown_MapsToGstPipelineErrorWithRetry)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _,
+			/*isRetryEnabled=*/true))
+		.Times(1);
+
+	PostPlaybackError(/*sourceId=*/0,
+		firebolt::rialto::PlaybackError::UNKNOWN);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackError_UnknownSourceId_StillReportsError)
+{
+	// Unlike underflow, a playback error for an unrecognised sourceId is
+	// still forwarded (with a generic description) — the error itself is
+	// real even if the specific source can no longer be identified.
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _, _))
+		.Times(1);
+
+	PostPlaybackError(/*sourceId=*/99,
+		firebolt::rialto::PlaybackError::UNKNOWN);
 }
 
 // ===========================================================================

@@ -638,6 +638,10 @@ void AampRialtoPlayer::Configure(
 					[this](int32_t sid) {
 						OnBufferUnderflow(sid);
 					});
+				m_client->SetPlaybackErrorCallback(
+					[this](int32_t sid, firebolt::rialto::PlaybackError error) {
+						OnPlaybackError(sid, error);
+					});
 
 				// Advance state machine: pipeline is now created and loaded.
 				m_stateMachine.onPipelineLoaded();
@@ -2606,6 +2610,41 @@ void AampRialtoPlayer::OnBufferUnderflow(int32_t sourceId)
 		return;
 	}
 	m_notifiable->NotifyBufferUnderflow(source->mediaType());
+}
+
+void AampRialtoPlayer::OnPlaybackError(
+	int32_t sourceId, firebolt::rialto::PlaybackError error)
+{
+	AAMPLOG_WARN("sourceId=%d error=%d", sourceId, static_cast<int>(error));
+	auto *source = findSourceByRialtoId(sourceId);
+	std::string mediaDesc =
+		source ? GetMediaTypeName(source->mediaType()) : "unknown";
+	std::string errorDesc = "Rialto PlaybackError: sourceId=" +
+		std::to_string(sourceId) + " mediaType=" + mediaDesc;
+
+	// PlaybackError carries no message text (unlike GStreamer's GError),
+	// so only a coarse category -> AAMPTuneFailure mapping is possible;
+	// see the GST_MESSAGE_ERROR substring-matching in AAMPGstPlayer's
+	// HandleBusMessage() for the richer reference behaviour.
+	switch (error)
+	{
+		case firebolt::rialto::PlaybackError::DECRYPTION:
+			m_notifiable->NotifyPlaybackError(
+				AAMP_TUNE_DRM_DECRYPT_FAILED, errorDesc,
+				/*isRetryEnabled=*/true);
+			break;
+		case firebolt::rialto::PlaybackError::OUTPUT_PROTECTION:
+			m_notifiable->NotifyPlaybackError(
+				AAMP_TUNE_HDCP_COMPLIANCE_ERROR, errorDesc,
+				/*isRetryEnabled=*/false);
+			break;
+		case firebolt::rialto::PlaybackError::UNKNOWN:
+		default:
+			m_notifiable->NotifyPlaybackError(
+				AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc,
+				/*isRetryEnabled=*/true);
+			break;
+	}
 }
 
 double AampRialtoPlayer::computeAppliedRate(int candidateRate, AampMediaType type) const

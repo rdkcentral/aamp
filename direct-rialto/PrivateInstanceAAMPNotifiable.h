@@ -82,6 +82,10 @@ public:
 	void NotifySpeedChanged(float rate, bool changeState) override;
 	AAMPPlayerState GetState() override;
 	void NotifyBufferUnderflow(AampMediaType type) override;
+	void NotifyPlaybackError(
+		AAMPTuneFailure failure,
+		const std::string &description,
+		bool isRetryEnabled) override;
 	void CompleteDiscontinuityDataDeliverForPTSRestamp(
 		AampMediaType type) override;
 	void NotifyPipelinePausedToUnderflowMonitor() override;

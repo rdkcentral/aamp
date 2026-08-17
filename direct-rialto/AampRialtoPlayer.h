@@ -575,6 +575,9 @@ private:
 	/// @brief Called when Rialto reports that a media source has run dry.
 	void OnBufferUnderflow(int32_t sourceId);
 
+	/// @brief Called when Rialto reports a non-fatal playback error.
+	void OnPlaybackError(int32_t sourceId, firebolt::rialto::PlaybackError error);
+
 	/// @brief Called when Rialto confirms a source flush is complete.
 	///
 	/// Clears the flushing flag on the source and calls
