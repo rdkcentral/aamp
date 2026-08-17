@@ -475,6 +475,16 @@ private:
 	///   order and cannot substitute for this atomic.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
+	/// Claimed by the first sample that drives the deferred discontinuity
+	/// Flush(), so that concurrent video/audio injector threads cannot both
+	/// trigger it.  Reset when DISCONTINUITY is entered.
+	std::atomic<bool> m_discontinuityFlushClaimed{false};
+
+	/// Issue the deferred discontinuity Flush() using @p position, if this
+	/// sample is the first from the track elected to supply the new period's
+	/// PTS.  No-op unless the player is in DISCONTINUITY.
+	void MaybeFlushForDiscontinuity(AampMediaType mediaType, double position);
+
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
 	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
 	bool m_subtitleMuted{true};

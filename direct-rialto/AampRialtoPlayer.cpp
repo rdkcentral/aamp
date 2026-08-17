@@ -419,6 +419,23 @@ void AampRialtoPlayer::Configure(
 
 	StopProgressTimer();
 
+	// Reached from ProcessPendingDiscontinuity() after StopInjection() has
+	// joined every injector thread, so all pre-discontinuity content has
+	// already been delivered and gating here cannot discard any of it.
+	// Gating before StartInjection() resumes is what stops other tracks
+	// racing new-period samples in ahead of the Flush() SendSample() issues.
+	if (m_stateMachine.currentState() == PlayerStateId::DISCONTINUITY)
+	{
+		for (auto &source : m_sources)
+		{
+			if (source)
+			{
+				source->gateInjection(m_pipeline.get(), true,
+					"Configure(discontinuity)");
+			}
+		}
+	}
+
 	// Guard: skip teardown and recreation when the pipeline can be reused.
 	// Rialto does not support dynamic source management, so any change to
 	// the source set requires a full rebuild.  The exception is audio going
@@ -1177,11 +1194,50 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 
 	if (m_pipeline)
 	{
+		MaybeFlushForDiscontinuity(mediaType, sample.mPts);
 		result = source->injectSingleSample(*m_pipeline, std::move(sample), morePending);
 	}
 
 	AAMPLOG_INFO("EXIT result=%d", result);
 	return result;
+}
+
+void AampRialtoPlayer::MaybeFlushForDiscontinuity(
+	AampMediaType mediaType, double position)
+{
+	if (m_stateMachine.currentState() != PlayerStateId::DISCONTINUITY)
+	{
+		return;
+	}
+
+	// Video carries the reference timeline; fall back to audio only when there
+	// is no attached video source to supply a PTS.
+	const auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
+	const AampMediaType electedType =
+		(videoSource && videoSource->isAttached()) ? eMEDIATYPE_VIDEO
+		                                           : eMEDIATYPE_AUDIO;
+	if (mediaType != electedType)
+	{
+		return;
+	}
+
+	// Video and audio inject on separate threads; only one may drive the flush.
+	if (m_discontinuityFlushClaimed.exchange(true, std::memory_order_acq_rel))
+	{
+		return;
+	}
+
+	const int rate = m_rate.load(std::memory_order_relaxed);
+	AAMPLOG_MIL("discontinuity resolved by mediaType=%d first sample - "
+		"flushing to position=%f rate=%d",
+		static_cast<int>(electedType), position, rate);
+
+	Flush(position, rate, false);
+
+	// Flush() has just entered FLUSHING, so this only records intent; the
+	// SEEK_DONE handler ungates every source and issues play().  Without it
+	// the sources gated by Configure()/Flush() would never be released.
+	Stream();
 }
 
 bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType type)
@@ -1239,9 +1295,15 @@ void AampRialtoPlayer::Stream()
 		// handler in OnPlaybackState() once onFlushComplete() restores state.
 		// FLUSHING is set inside m_flushMutex in Flush() and cleared by
 		// onFlushComplete() (both protected by the state machine mutex).
-		if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
+		// DISCONTINUITY defers for the same reason: the Flush() that resolves
+		// it has not been issued yet, so playing now would run past the
+		// discontinuity at the old position.
+		const PlayerStateId state = m_stateMachine.currentState();
+		if (state == PlayerStateId::FLUSHING ||
+		    state == PlayerStateId::DISCONTINUITY)
 		{
-			AAMPLOG_INFO("deferring play() - flush in progress");
+			AAMPLOG_INFO("deferring play() - state=%s",
+				m_stateMachine.currentStateName());
 		}
 		// seq_cst load: pairs with the seq_cst store in CheckAllSourcesAttached()
 		// to guarantee one side always calls play().
@@ -1366,6 +1428,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		(preFlushState == PlayerStateId::PLAYING ||
 		 preFlushState == PlayerStateId::SOURCES_ATTACHED ||
 		 preFlushState == PlayerStateId::PAUSED ||
+		 preFlushState == PlayerStateId::DISCONTINUITY ||
 		 preFlushState == PlayerStateId::FLUSHED);
 
 	if (!isFlushableState && shouldTearDown)
@@ -1854,6 +1917,13 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 		}
 	}
 
+	// Returning true tells PrivateInstanceAAMP to set mProcessingDiscontinuity
+	// for this track, so a flush cycle is now guaranteed to follow.  For content
+	// with no manifest-known PTS (HLS fMP4) that cycle issues no Flush() of its
+	// own, so mark the window and supply the Flush() from SendSample() instead.
+	m_discontinuityFlushClaimed.store(false, std::memory_order_relaxed);
+	m_stateMachine.onDiscontinuity();
+
 	AAMPLOG_INFO("EXIT mediaType=%d result=true", static_cast<int>(mediaType));
 	return true;
 }
@@ -2318,7 +2388,14 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 
 			// Clear the gate so inject threads resume blocking
 			// normally on needData rather than aborting immediately.
-			UngateAllSources("OnPlaybackState(PLAYING)");
+			// Not while DISCONTINUITY: the gate applied by Configure() must
+			// hold until the deferred Flush() resolves the new position, and
+			// this notification may be a late echo of the play() issued by
+			// StopBuffering() inside Discontinuity().
+			if (m_stateMachine.currentState() != PlayerStateId::DISCONTINUITY)
+			{
+				UngateAllSources("OnPlaybackState(PLAYING)");
+			}
 
 			const bool firstFrame =
 				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);

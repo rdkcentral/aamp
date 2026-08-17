@@ -67,6 +67,7 @@ STATES = [
     ("SOURCES_ATTACHED",  "allSourcesAttached() sent to Rialto server"),
     ("PLAYING",           "Server confirmed PLAYING"),
     ("PAUSED",            "Server confirmed PAUSED"),
+    ("DISCONTINUITY",     "AAMP committed to a discontinuity; sources gated until first sample resolves position"),
     ("FLUSHING",          "Flush() in progress; awaiting new segments"),
     ("FLUSHED",           "SEEK_DONE received; awaiting Rialto PLAYING/PAUSED"),
     ("ERROR",             "Server reported a fatal error"),
@@ -80,6 +81,25 @@ TRANSITIONS = [
     ("SOURCES_ATTACHED",  "onPlaybackStarted",    "play() confirmed",      "PLAYING"),
     ("PLAYING",           "onPlaybackPaused",     "pause() confirmed",     "PAUSED"),
     ("PAUSED",            "onPlaybackStarted",    "play() confirmed",      "PLAYING"),
+
+    # ── Discontinuity ───────────────────────────────────────────────────────
+    # Discontinuity() returning true means AAMP has committed to a flush
+    # cycle for this track (mProcessingDiscontinuity is set on that basis).
+    # For content whose new-period PTS isn't known from the manifest (HLS
+    # fMP4), that cycle issues no Flush() of its own, so this state gates all
+    # sources (in Configure()) and defers play() (in Stream()) until
+    # SendSample() sees the elected track's first post-discontinuity sample
+    # and drives the Flush()+Stream() itself. Every track signals its own
+    # discontinuity; only the first transitions (repeat notifications are
+    # tolerated silently).
+    ("SOURCES_ATTACHED",  "onDiscontinuity",      "Discontinuity() accepted", "DISCONTINUITY"),
+    ("PLAYING",           "onDiscontinuity",      "Discontinuity() accepted", "DISCONTINUITY"),
+    ("PAUSED",            "onDiscontinuity",      "Discontinuity() accepted", "DISCONTINUITY"),
+    ("FLUSHED",           "onDiscontinuity",      "Discontinuity() accepted", "DISCONTINUITY"),
+
+    # Normal exit: either the elected track's first sample (SendSample) or an
+    # AAMP-driven Flush() that already knows the position (DASH) takes over.
+    ("DISCONTINUITY",     "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
 
     # ── Flush / seek ───────────────────────────────────────────────────────
     ("SOURCES_ATTACHED",  "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
@@ -116,6 +136,7 @@ TRANSITIONS = [
     ("SOURCES_ATTACHED",  "onStop",               "stop()",                "IDLE"),
     ("PLAYING",           "onStop",               "stop()",                "IDLE"),
     ("PAUSED",            "onStop",               "stop()",                "IDLE"),
+    ("DISCONTINUITY",     "onStop",               "stop()",                "IDLE"),
     ("FLUSHED",           "onStop",               "stop()",                "IDLE"),
     ("ERROR",             "onStop",               "stop()",                "IDLE"),
 
@@ -125,6 +146,7 @@ TRANSITIONS = [
     ("SOURCES_ATTACHED",  "onError",              "FAILURE notification",  "ERROR"),
     ("PLAYING",           "onError",              "FAILURE notification",  "ERROR"),
     ("PAUSED",            "onError",              "FAILURE notification",  "ERROR"),
+    ("DISCONTINUITY",     "onError",              "FAILURE notification",  "ERROR"),
     ("FLUSHING",          "onError",              "FAILURE notification",  "ERROR"),
     ("FLUSHED",           "onError",              "FAILURE notification",  "ERROR"),
 
@@ -138,6 +160,7 @@ TRANSITIONS = [
     ("SOURCES_ATTACHED",  "onReconfigure",        "re-tune",               "IDLE"),
     ("PLAYING",           "onReconfigure",        "re-tune",               "IDLE"),
     ("PAUSED",            "onReconfigure",        "re-tune",               "IDLE"),
+    ("DISCONTINUITY",     "onReconfigure",        "re-tune",               "IDLE"),
     ("FLUSHED",           "onReconfigure",        "re-tune",               "IDLE"),
 
     ("ERROR",             "onReconfigure",        "re-tune",               "IDLE"),
@@ -153,6 +176,7 @@ STATE_COLOURS = {
     "SOURCES_ATTACHED":  ("#E8F5E9", "#2E7D32"),   # green
     "PLAYING":           ("#F3E5F5", "#6A1B9A"),   # purple
     "PAUSED":            ("#FBE9E7", "#BF360C"),   # deep-orange
+    "DISCONTINUITY":     ("#FFE0B2", "#E65100"),   # orange
     "FLUSHING":          ("#EFEBE9", "#4E342E"),   # brown
     "FLUSHED":           ("#D7CCC8", "#4E342E"),   # darker brown
     "ERROR":             ("#FFEBEE", "#C62828"),   # red
@@ -177,6 +201,7 @@ PUML_STATE_COLOURS = {
     "SOURCES_ATTACHED":  "#E8F5E9",
     "PLAYING":           "#F3E5F5",
     "PAUSED":            "#FBE9E7",
+    "DISCONTINUITY":     "#FFE0B2",
     "FLUSHING":          "#EFEBE9",
     "FLUSHED":           "#D7CCC8",
     "ERROR":             "#FFEBEE",
