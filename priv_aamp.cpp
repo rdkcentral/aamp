@@ -5620,6 +5620,15 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 					sink->Stop(!newTune);
 				}
 			}
+			// Deactivate DRM session after pipeline teardown to avoid use-after-free race
+			// between GStreamer element disposal and async DRM session cleanup
+			if (!IsLocalAAMPTsb() && (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK)))
+			{
+				if (mDRMLicenseManager)
+				{
+					mDRMLicenseManager->notifyCleanup();
+				}
+			}
 		}
 	}
 	else

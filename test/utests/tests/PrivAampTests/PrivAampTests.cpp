@@ -3103,6 +3103,78 @@ TEST_F(PrivAampTests,TeardownStreamTest_1)
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 }
 
+// Verify notifyCleanup is called on full teardown (newTune=true) with SecManager enabled
+TEST_F(PrivAampTests, TeardownStream_DRMCleanup_CalledOnNewTune)
+{
+	// First call makes streamerIsActive = true
+	p_aamp->TeardownStream(false);
+
+	// Configure conditions for DRM cleanup path
+	p_aamp->SetLocalAAMPTsb(false);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp))
+		.WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockAampLicenseManager, notifyCleanup()).Times(1);
+
+	p_aamp->TeardownStream(true);
+}
+
+// Verify notifyCleanup is NOT called on seek/temporary teardown (newTune=false)
+TEST_F(PrivAampTests, TeardownStream_DRMCleanup_NotCalledOnSeek)
+{
+	// First call makes streamerIsActive = true
+	p_aamp->TeardownStream(false);
+
+	p_aamp->SetLocalAAMPTsb(false);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager))
+		.WillRepeatedly(Return(true));
+
+	// notifyCleanup must NOT be called for seek teardown
+	EXPECT_CALL(*g_mockAampLicenseManager, notifyCleanup()).Times(0);
+
+	p_aamp->TeardownStream(false);
+}
+
+// Verify notifyCleanup is NOT called when IsLocalAAMPTsb() is true
+TEST_F(PrivAampTests, TeardownStream_DRMCleanup_NotCalledForLocalTsb)
+{
+	// First call makes streamerIsActive = true
+	p_aamp->TeardownStream(false);
+
+	p_aamp->SetLocalAAMPTsb(true);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp))
+		.WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockAampLicenseManager, notifyCleanup()).Times(0);
+
+	p_aamp->TeardownStream(true);
+}
+
+// Verify notifyCleanup is NOT called when neither SecManager nor FireboltSDK is configured
+TEST_F(PrivAampTests, TeardownStream_DRMCleanup_NotCalledWithoutDrmConfig)
+{
+	// First call makes streamerIsActive = true
+	p_aamp->TeardownStream(false);
+
+	p_aamp->SetLocalAAMPTsb(false);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp))
+		.WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockAampLicenseManager, notifyCleanup()).Times(0);
+
+	p_aamp->TeardownStream(true);
+}
+
 TEST_F(PrivAampTests,TeardownStreamTest_2)
 {
 	EXPECT_EQ(0,p_aamp->rate);
