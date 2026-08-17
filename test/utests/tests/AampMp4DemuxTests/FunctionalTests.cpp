@@ -880,8 +880,8 @@ TEST_F(AampMp4DemuxerTests, TrickplayPtsRestamp_DashLive_ContentToAdContinuity)
 				samples.push_back(std::move(s));
 				return samples;
 			});
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _))
-			.WillOnce(Invoke([&capturedPts, i, &kExpectedPts](AampMediaType, AampMediaSample&& sample, bool) {
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _))
+			.WillOnce(Invoke([&capturedPts, i, &kExpectedPts](AampMediaType, AampMediaSample&& sample) {
 				capturedPts.push_back(sample.mPts);
 				EXPECT_NEAR(sample.mPts, kExpectedPts[i], 1e-9)
 					<< "Fragment " << i << ": restampedPts incorrect";
