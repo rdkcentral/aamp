@@ -11613,13 +11613,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			sink->ClearProtectionEvent();
 		}
-		if (clearChannelData)
-		{
-			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
-			{
-				aamp->mDRMLicenseManager->notifyCleanup();
-			}
-		}
 	}
 
 	if (!aamp->DownloadsAreEnabled())
