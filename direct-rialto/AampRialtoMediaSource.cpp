@@ -275,6 +275,13 @@ int64_t AampRialtoMediaSource::firstPtsMs() const
 	return m_firstPtsMs.load(std::memory_order_relaxed);
 }
 
+void AampRialtoMediaSource::setFirstPtsMs(int64_t ptsMs)
+{
+	AAMPLOG_INFO("firstPtsMs set to %" PRId64 " for sourceId=%d mediaType=%d",
+		ptsMs, m_sourceId, static_cast<int>(mediaType()));
+	m_firstPtsMs.store(ptsMs, std::memory_order_relaxed);
+}
+
 bool AampRialtoMediaSource::waitForAttach()
 {
 	if (isAttached())

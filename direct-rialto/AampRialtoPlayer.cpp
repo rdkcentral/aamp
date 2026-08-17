@@ -1468,8 +1468,15 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	}
 
 	// m_firstPtsMs is reset automatically on each source by
-	// unblockInjection() (called above), so the next injection into
-	// the video source establishes the fresh segment-start baseline.
+	// unblockInjection() (called above). Set the flush position
+	// as the firstPTS to establish fresh segment-start baseline.
+	for (auto &source : m_sources)
+	{
+		if (source)
+		{
+			source->setFirstPtsMs(posNs / (kNsPerSecond / 1000));
+		}
+	}
 
 	AAMPLOG_INFO("EXIT");
 }

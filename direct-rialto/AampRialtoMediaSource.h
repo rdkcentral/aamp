@@ -461,6 +461,9 @@ public:
 	 */
 	virtual int64_t firstPtsMs() const;
 
+	/// @brief Overwrite the segment-start baseline with @p ptsMs.
+	void setFirstPtsMs(int64_t ptsMs);
+
 	/**
 	 * @brief Signal end-of-stream for this source.
 	 */
