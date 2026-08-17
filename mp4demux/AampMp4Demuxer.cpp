@@ -200,10 +200,10 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	sample.mDuration = restampedDuration;
 
        // The first 2 rows match the same in streamabstraction.cpp and are used in the L2 tests
-       AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d initFragment %d discontinuity %d "
-                                "position %.6fs duration %.6fs restamped position %.6fs duration %.6fs "
+       AAMPLOG_INFO("[TrickModePtsRestamp][%p]state %d rate %.2f trickPlayFPS %d initFragment %d discontinuity %d "
+                                "position %.6fs duration %.6fs restampedPTS %.6fs restampedDur %.6fs "
                                 "origDTS %.6f restampedDTS %.6f lastSamplePTS %.6f inputDuration %.6f",
-                                static_cast<int>(lastTrickPhase), mRate, mTrickPlayFPS, init, discontinuity,
+                                static_cast<void*>(this), static_cast<int>(lastTrickPhase), mRate, mTrickPlayFPS, init, discontinuity,
                                 originalPts, originalDuration, sample.mPts, sample.mDuration,
                                 originalDts, sample.mDts, mLastSamplePts, duration);
 
