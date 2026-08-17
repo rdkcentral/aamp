@@ -155,7 +155,9 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	double originalDuration = sample.mDuration;
 	double fragmentPtsDelta = 0.0;
 	double restampedDuration = 0.0;
-
+	bool init = false; // Placeholder for init segment check if needed in future
+	bool discontinuity = false;
+	Mp4TrickPhase lastTrickPhase = mTrickPhase;
 	// All phase transitions are owned here.
 	switch (mTrickPhase)
 	{
@@ -166,6 +168,7 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 			restampedDuration = MAX(duration / std::fabs(mRate), 1.0 / mTrickPlayFPS);
 			mRestampedDuration = restampedDuration;
 			mRestampedPts = 0.0;
+			init = true;
 			mTrickPhase = Mp4TrickPhase::STEADY;
 			AAMPLOG_INFO("Trickmode FIRST_SAMPLE->STEADY: rate=%.2f", mRate);
 			break;
@@ -174,6 +177,7 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 			// by sendSegment() before the sample loop; reuse the last known duration
 			// (same as MediaTrack::TrickModePtsRestamp DISCONTINUITY handling).
 			restampedDuration = mRestampedDuration;
+			discontinuity = true;
 			mTrickPhase = Mp4TrickPhase::STEADY;
 			break;
 		case Mp4TrickPhase::STEADY:
@@ -194,19 +198,14 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	sample.mDts = mRestampedPts;
 	sample.mDuration = restampedDuration;
 
-	// Single comprehensive log line
-	AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d origPTS %.6f origDTS %.6f origDur %.6f restampedPTS %.6f restampedDTS %.6f restampedDur %.6f lastSamplePTS %.6f inputDuration %.6f",
-		static_cast<int>(mTrickPhase),
-		mRate,
-		mTrickPlayFPS,
-		originalPts,
-		originalDts,
-		originalDuration,
-		sample.mPts,
-		sample.mDts,
-		sample.mDuration,
-		mLastSamplePts,
-		duration);
+       // The first 2 rows match the same in streamabstraction.cpp and are used in the L2 tests
+       AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d initFragment %d discontinuity %d "
+                                "position %.6fs duration %.6fs restamped position %.6fs duration %.6fs "
+                                "origDTS %.6f restampedDTS %.6f lastSamplePTS %.6f inputDuration %.6f",
+                                static_cast<int>(lastTrickPhase), mRate, mTrickPlayFPS, init, discontinuity,
+                                originalPts, originalDuration, sample.mPts, sample.mDuration,
+                                originalDts, sample.mDts, mLastSamplePts, duration);
+
 }
 /**
  * @fn sendSegment
@@ -235,10 +234,10 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		// so each sample keeps the segment buffer alive for its lifetime.
 		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
-		
-	
+
+
 		ret = mMp4Demux->Parse(std::move(segment));
-		
+
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
