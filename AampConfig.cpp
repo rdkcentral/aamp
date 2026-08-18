@@ -438,6 +438,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_LLD_CACHED_FRAGMENTS_PER_TRACK,"downloadBufferChunks",eAAMPConfig_MaxLLDFragmentCached,false,eCONFIG_RANGE_FRAGMENT_CACHE},
 	{DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE,"abrChunkThresholdSize",eAAMPConfig_ABRChunkThresholdSize,false},
 	{MAX_SEG_DOWNLOAD_FAIL_COUNT,"fragmentDownloadFailThreshold",eAAMPConfig_FragmentDownloadFailThreshold,false,eCONFIG_RANGE_DOWNLOAD_ERROR_THRESHOLD },
+	{0,"manifestRefreshFailEventThreshold",eAAMPConfig_ManifestRefreshFailEventThreshold,false,eCONFIG_RANGE_ANY },
 	{MAX_INIT_FRAGMENT_CACHE_PER_TRACK,"maxInitFragCachePerTrack",eAAMPConfig_MaxInitFragCachePerTrack,true, eCONFIG_RANGE_INIT_FRAGMENT_CACHE },
 	{FOG_MAX_CONCURRENT_DOWNLOADS,"fogMaxConcurrentDownloads",eAAMPConfig_FogMaxConcurrentDownloads, false },
 	{DEFAULT_CONTENT_PROTECTION_DATA_UPDATE_TIMEOUT,"contentProtectionDataUpdateTimeout",eAAMPConfig_ContentProtectionDataUpdateTimeout,false},
