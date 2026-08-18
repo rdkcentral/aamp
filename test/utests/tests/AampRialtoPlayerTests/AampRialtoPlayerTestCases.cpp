@@ -2080,8 +2080,13 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackState_Playing_ClearsGateModeOnAllSources)
+	OnPlaybackState_Playing_DoesNotChangeGateMode)
 {
+	// A PLAYING notification is not a genuine ungate point (see the
+	// consolidated ungate-timing design comment below) - it can be a late
+	// echo of a play() issued elsewhere (e.g. StopBuffering() inside
+	// Discontinuity()) while a position is still pending, and must not
+	// prematurely clear a gate applied by Configure()/Flush().
 	Configure();
 
 	// Force sources into a gated state first.
@@ -2090,8 +2095,8 @@ TEST_F(AampRialtoPlayerTest,
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 
-	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
-	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
 }
 
 // ===========================================================================
@@ -2102,11 +2107,11 @@ TEST_F(AampRialtoPlayerTest,
 // flushable path) or to DROPPED by unblockInjection() (Flush()/Stop()/
 // NotifyInjectorToPause()/dtor), and must be cleared to NONE ONLY at the
 // points that genuinely issue play(): Stream(), CheckAllSourcesAttached()
-// (deferred play), Pause(false), StopBuffering(),
-// OnPlaybackState(SEEK_DONE)'s shouldPlay branch, and
-// OnPlaybackState(PLAYING) (covered above). It must NOT be cleared by
-// reset(), AttachSource(), or handleNeedData() — see
-// AampRialtoVideoSourceTests for those.
+// (deferred play), Pause(false), StopBuffering(), and
+// OnPlaybackState(SEEK_DONE)'s shouldPlay branch. It must NOT be cleared by
+// reset(), AttachSource(), handleNeedData(), or OnPlaybackState(PLAYING)
+// (covered above) — see AampRialtoVideoSourceTests for the former group.
+
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_SetsGateModeBlockedOnAllSources)
@@ -3237,6 +3242,40 @@ TEST_F(AampRialtoPlayerTest,
 		/*fpts=*/3.0, /*fdts=*/3.0, /*fDuration=*/0.1);
 
 	EXPECT_FALSE(result);
+}
+
+/**
+ * @test SendCopy() must also drive the deferred pending-position flush
+ *       (MaybeFlushForPendingPosition()), not just SendSample() - muxed
+ *       HLS-TS content is injected exclusively via SendCopy(), so a
+ *       discontinuity on that content would otherwise never resolve.
+ */
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_PositionPending_FlushesToFragmentPts)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	const int64_t expectedPosNs = 4'500'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, /*fpts=*/4.5, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buffer = {0x01, 0x02, 0x03, 0x04};
+	const bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/4.5, /*fdts=*/4.5, /*fDuration=*/0.1);
+
+	EXPECT_TRUE(result);
 }
 
 // ===========================================================================
@@ -4632,6 +4671,41 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 }
 
+/**
+ * @test SendTransfer() must also drive the deferred pending-position flush
+ *       (MaybeFlushForPendingPosition()) for its direct processDataFragment()
+ *       path (non-init fragment, no external demuxer), not just SendSample().
+ */
+TEST_F(AampRialtoPlayerTest,
+	SendTransfer_PositionPending_FlushesToFragmentPts)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	const int64_t expectedPosNs = 9'500'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_VIDEO],
+		processDataFragment(_, _, /*fpts=*/9.5, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buf = {0x01, 0x02, 0x03, 0x04};
+	const bool result = m_player->SendTransfer(
+		eMEDIATYPE_VIDEO, std::move(buf),
+		/*fpts=*/9.5, /*fdts=*/9.5, /*fDuration=*/0.04,
+		/*fragmentPTSoffset=*/0.0, /*initFragment=*/false);
+
+	EXPECT_TRUE(result);
+}
+
 // ===========================================================================
 // Phase N — Subtitle source injection
 // ===========================================================================
@@ -5615,17 +5689,20 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 // ===========================================================================
-// Deferred discontinuity flush — DISCONTINUITY state
+// Deferred discontinuity flush — pending-position tracking
 // ===========================================================================
 
 /**
- * @test An accepted discontinuity must move the player into DISCONTINUITY.
- *       Returning true from Discontinuity() commits AAMP to a flush cycle,
- *       but for HLS fMP4 that cycle issues no Flush() of its own, so the
- *       sink has to mark the window and supply the position itself.
+ * @test An accepted discontinuity no longer moves the player to a dedicated
+ *       FSM state - it only arms the internal "position pending" tracking
+ *       (exercised behaviourally by the Configure()/Stream()/SendSample()
+ *       tests below).  Returning true from Discontinuity() commits AAMP to
+ *       a flush cycle, but for HLS fMP4 that cycle issues no Flush() of its
+ *       own, so the sink has to mark the window and supply the position
+ *       itself.
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Discontinuity_Accepted_EntersDiscontinuityState)
+	Discontinuity_Accepted_LeavesStateUnchanged)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -5642,7 +5719,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
 
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::DISCONTINUITY);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 }
 
 /**
@@ -5650,7 +5727,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
  *       must not disturb the state or re-arm the pending flush.
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Discontinuity_SecondTrack_RemainsInDiscontinuityState)
+	Discontinuity_SecondTrack_LeavesStateUnchanged)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -5669,7 +5746,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
 	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
 
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::DISCONTINUITY);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 }
 
 /**
@@ -5679,7 +5756,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
  *       racing new-period samples in before the deferred Flush().
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Configure_InDiscontinuityState_GatesAllSources)
+	Configure_PositionPending_GatesAllSources)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -5694,10 +5771,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.WillByDefault(Return(false));
 	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
 
-	// Same formats: the pipeline is reused, so the state survives.
+	// Same formats: the pipeline is reused, so the pending position survives.
 	Configure();
 
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::DISCONTINUITY);
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
 		AampRialtoMediaSource::GateMode::BLOCKED);
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode,
@@ -5710,7 +5786,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
  *       position, so play() must be deferred until the flush resolves.
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Stream_InDiscontinuityState_DefersPlay)
+	Stream_PositionPending_DefersPlay)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -5729,7 +5805,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	m_player->Stream();
 
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::DISCONTINUITY);
+	// state machine still reports PLAYING (no dedicated FSM state); the
+	// pending position is what actually deferred play() above.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 }
 
 /**
@@ -5737,7 +5815,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
  *       period's actual PTS, which is the position the sink must flush to.
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	SendSample_VideoInDiscontinuityState_FlushesToSamplePts)
+	SendSample_PositionPending_VideoFlushesToSamplePts)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -5789,7 +5867,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
  *       first PTS may differ from it.
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	SendSample_AudioInDiscontinuityState_VideoAttached_DoesNotFlush)
+	SendSample_PositionPending_AudioDoesNotFlushWhenVideoAttached)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -5814,8 +5892,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	WaitFor([&sendDone]{ return sendDone.load(); },
 		std::chrono::milliseconds(30));
-	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::DISCONTINUITY)
-		<< "audio must leave the discontinuity unresolved for video";
+	EXPECT_FALSE(sendDone.load())
+		<< "audio must leave the pending position unresolved for video";
 
 	// Release the blocked injector so the test can join.
 	m_player->Stop(false);
@@ -5829,7 +5907,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
  *       sample can issue a second, competing seek.
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Flush_InDiscontinuityState_TakesOverDiscontinuity)
+	Flush_PositionPending_TakesOverDiscontinuity)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -5854,11 +5932,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 /**
- * @test Stop() during the window ends the session; the discontinuity is moot
- *       and must not leave the player stuck in DISCONTINUITY.
+ * @test Stop() during the window ends the session; the pending position is
+ *       moot and must not leave the player stuck (e.g. gated forever).
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Stop_InDiscontinuityState_ClearsDiscontinuity)
+	Stop_PositionPending_EndsSession)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -5875,5 +5953,5 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	m_player->Stop(false);
 
-	EXPECT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::DISCONTINUITY);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
 }

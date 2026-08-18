@@ -475,15 +475,27 @@ private:
 	///   order and cannot substitute for this atomic.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
-	/// Claimed by the first sample that drives the deferred discontinuity
-	/// Flush(), so that concurrent video/audio injector threads cannot both
-	/// trigger it.  Reset when DISCONTINUITY is entered.
-	std::atomic<bool> m_discontinuityFlushClaimed{false};
+	/// True when a discontinuity/retune has left the player without an
+	/// established position for the new period.  Set by Discontinuity();
+	/// cleared once Flush() resolves a position (onFlushComplete()/
+	/// SEEK_DONE).  Generalizes the old DISCONTINUITY state to any
+	/// "position not yet known" window - notably HLS fMP4, where
+	/// ProcessPendingDiscontinuity() issues no Flush() of its own and
+	/// MaybeFlushForPendingPosition() must supply one once the new
+	/// period's first sample is demuxed.  Not armed on an initial/fresh
+	/// Configure(): there is no prior position to invalidate, so the
+	/// first sample of a new tune is injected without an implicit flush.
+	std::atomic<bool> m_positionPending{false};
 
-	/// Issue the deferred discontinuity Flush() using @p position, if this
-	/// sample is the first from the track elected to supply the new period's
-	/// PTS.  No-op unless the player is in DISCONTINUITY.
-	void MaybeFlushForDiscontinuity(AampMediaType mediaType, double position);
+	/// Claimed by the first sample that drives the deferred implicit Flush(),
+	/// so that concurrent video/audio injector threads cannot both trigger
+	/// it.  Reset whenever m_positionPending is (re)armed.
+	std::atomic<bool> m_pendingPositionFlushClaimed{false};
+
+	/// Issue the deferred Flush() using @p position, if this sample is the
+	/// first from the track elected to supply the new period's PTS.  No-op
+	/// unless m_positionPending is true.
+	void MaybeFlushForPendingPosition(AampMediaType mediaType, double position);
 
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
 	/// via m_pipeline->setMute() whenever the subtitle source first attaches.

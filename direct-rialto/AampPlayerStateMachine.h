@@ -64,7 +64,6 @@ enum class PlayerStateId
 	SOURCES_ATTACHED,   ///< allSourcesAttached() sent to Rialto
 	PLAYING,            ///< Server confirmed PLAYING
 	PAUSED,             ///< Server confirmed PAUSED
-	DISCONTINUITY,      ///< AAMP signalled a discontinuity; awaiting its Flush()
 	FLUSHING,           ///< Flush in progress; new segment arrival expected
 	FLUSHED,            ///< SEEK_DONE received; awaiting Rialto PLAYING/PAUSED
 	STOPPED,            ///< Stop() was called
@@ -117,9 +116,6 @@ public:
 
 	/// Fired when notifyPlaybackState(PAUSED) is received from Rialto.
 	virtual std::unique_ptr<IPlayerState> onPlaybackPaused()     { return nullptr; }
-
-	/// Fired when AAMP signals a discontinuity it intends to process.
-	virtual std::unique_ptr<IPlayerState> onDiscontinuity()      { return nullptr; }
 
 	/// Fired when Flush() is called.
 	virtual std::unique_ptr<IPlayerState> onFlush()              { return nullptr; }
@@ -192,11 +188,6 @@ public:
 
 	/// @see IPlayerState::onPlaybackPaused
 	void onPlaybackPaused();
-
-	/// Fired from Discontinuity() once the sink has accepted a discontinuity
-	/// that AAMP will go on to process.  A repeat notification while already
-	/// DISCONTINUITY is tolerated silently (every track signals separately).
-	void onDiscontinuity();
 
 	/// @see IPlayerState::onFlush
 	void onFlush();

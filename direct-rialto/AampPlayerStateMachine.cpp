@@ -40,7 +40,6 @@ class SourcesAttachingState;
 class SourcesAttachedState;
 class PlayingState;
 class PausedState;
-class DiscontinuityState;
 class FlushingState;
 class FlushedState;
 class StoppedState;  // forward decl retained; Stop() calls WaitForFlushToComplete
@@ -93,7 +92,6 @@ public:
 
 	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
 	std::unique_ptr<IPlayerState> onFlush()           override;
-	std::unique_ptr<IPlayerState> onDiscontinuity()   override;
 	std::unique_ptr<IPlayerState> onStop()            override;
 	std::unique_ptr<IPlayerState> onError()           override;
 	std::unique_ptr<IPlayerState> onReconfigure()     override;
@@ -107,7 +105,6 @@ public:
 
 	std::unique_ptr<IPlayerState> onPlaybackPaused()  override;
 	std::unique_ptr<IPlayerState> onFlush()           override;
-	std::unique_ptr<IPlayerState> onDiscontinuity()   override;
 	std::unique_ptr<IPlayerState> onStop()            override;
 	std::unique_ptr<IPlayerState> onError()           override;
 	std::unique_ptr<IPlayerState> onReconfigure()     override;
@@ -124,38 +121,9 @@ public:
 
 	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
 	std::unique_ptr<IPlayerState> onFlush()           override;
-	std::unique_ptr<IPlayerState> onDiscontinuity()   override;
 	std::unique_ptr<IPlayerState> onStop()            override;
 	std::unique_ptr<IPlayerState> onError()           override;
 	std::unique_ptr<IPlayerState> onReconfigure()     override;
-};
-
-/**
- * @class DiscontinuityState
- * @brief AAMP has signalled a discontinuity via Discontinuity() and is
- *        committed to processing it, but has not yet issued the Flush().
- *
- * For content whose new-period PTS is not known from the manifest (HLS fMP4),
- * ProcessPendingDiscontinuity() performs no Flush() at all - the position only
- * becomes known once the first post-discontinuity sample is demuxed.  This
- * state marks that window so AampRialtoPlayer can hold playback and issue the
- * Flush() itself from SendSample() once that PTS arrives.
- *
- * onPlaybackStarted/onPlaybackPaused are deliberately NOT overridden: a
- * Rialto PLAYING/PAUSED notification arriving mid-window (e.g. from the
- * StopBuffering() inside Discontinuity()'s EOS branch) must not clear the
- * pending-flush marker.  dispatch() logs a WARN and the state is retained.
- */
-class DiscontinuityState final : public IPlayerState
-{
-public:
-	PlayerStateId id()   const override { return PlayerStateId::DISCONTINUITY; }
-	const char   *name() const override { return "DISCONTINUITY"; }
-
-	std::unique_ptr<IPlayerState> onFlush()       override;
-	std::unique_ptr<IPlayerState> onStop()        override;
-	std::unique_ptr<IPlayerState> onError()       override;
-	std::unique_ptr<IPlayerState> onReconfigure() override;
 };
 
 class FlushingState final : public IPlayerState
@@ -214,7 +182,6 @@ public:
 	std::unique_ptr<IPlayerState> onPlaybackStarted() override;
 	std::unique_ptr<IPlayerState> onPlaybackPaused()  override;
 	std::unique_ptr<IPlayerState> onFlush()           override;
-	std::unique_ptr<IPlayerState> onDiscontinuity()   override;
 	std::unique_ptr<IPlayerState> onStop()            override;
 	std::unique_ptr<IPlayerState> onError()           override;
 	std::unique_ptr<IPlayerState> onReconfigure()     override;
@@ -291,21 +258,6 @@ std::unique_ptr<IPlayerState> PausedState::onFlush()
 {
 	return std::make_unique<FlushingState>();
 }
-
-// onDiscontinuity - valid from any state in which samples have already been
-// injected, which is exactly when AampRialtoPlayer::Discontinuity() returns
-// true (it rejects a discontinuity before this track's first sample).
-std::unique_ptr<IPlayerState> PlayingState::onDiscontinuity()          { return std::make_unique<DiscontinuityState>(); }
-std::unique_ptr<IPlayerState> PausedState::onDiscontinuity()           { return std::make_unique<DiscontinuityState>(); }
-std::unique_ptr<IPlayerState> SourcesAttachedState::onDiscontinuity()  { return std::make_unique<DiscontinuityState>(); }
-std::unique_ptr<IPlayerState> FlushedState::onDiscontinuity()          { return std::make_unique<DiscontinuityState>(); }
-
-// Any of these means AAMP has taken over the discontinuity: Flush() supplies
-// the new position itself, Stop()/Configure() end or rebuild the session.
-std::unique_ptr<IPlayerState> DiscontinuityState::onFlush()       { return std::make_unique<FlushingState>(); }
-std::unique_ptr<IPlayerState> DiscontinuityState::onStop()        { return std::make_unique<IdleState>(); }
-std::unique_ptr<IPlayerState> DiscontinuityState::onError()       { return std::make_unique<ErrorState>(); }
-std::unique_ptr<IPlayerState> DiscontinuityState::onReconfigure() { return std::make_unique<IdleState>(); }
 
 std::unique_ptr<IPlayerState> FlushingState::onFlushComplete()
 {
@@ -436,20 +388,6 @@ void PlayerStateMachine::onPlaybackStarted()
 void PlayerStateMachine::onPlaybackPaused()
 {
 	dispatch(&IPlayerState::onPlaybackPaused, "onPlaybackPaused");
-}
-
-void PlayerStateMachine::onDiscontinuity()
-{
-	{
-		// Every track signals its own discontinuity; only the first transitions.
-		std::lock_guard<std::mutex> lock(m_mutex);
-		if (m_state->id() == PlayerStateId::DISCONTINUITY)
-		{
-			AAMPLOG_INFO("PlayerState: repeat onDiscontinuity in DISCONTINUITY - ignored");
-			return;
-		}
-	}
-	dispatch(&IPlayerState::onDiscontinuity, "onDiscontinuity");
 }
 
 void PlayerStateMachine::onFlush()

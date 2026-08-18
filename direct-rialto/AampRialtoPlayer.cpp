@@ -420,18 +420,21 @@ void AampRialtoPlayer::Configure(
 	StopProgressTimer();
 
 	// Reached from ProcessPendingDiscontinuity() after StopInjection() has
-	// joined every injector thread, so all pre-discontinuity content has
-	// already been delivered and gating here cannot discard any of it.
-	// Gating before StartInjection() resumes is what stops other tracks
-	// racing new-period samples in ahead of the Flush() SendSample() issues.
-	if (m_stateMachine.currentState() == PlayerStateId::DISCONTINUITY)
+	// joined every injector thread, so all previously-delivered content is
+	// safe and gating here cannot discard any of it.  Gating before
+	// StartInjection() resumes is what stops other tracks racing new-period
+	// samples in ahead of the Flush()/SendSample() that will eventually
+	// resolve the pending position.  Only set by Discontinuity(); an
+	// initial/fresh Configure() (no prior Discontinuity()) leaves this
+	// false, so ordinary tuning is unaffected.
+	if (m_positionPending.load(std::memory_order_relaxed))
 	{
 		for (auto &source : m_sources)
 		{
 			if (source)
 			{
 				source->gateInjection(m_pipeline.get(), true,
-					"Configure(discontinuity)");
+					"Configure(position-pending)");
 			}
 		}
 	}
@@ -870,6 +873,7 @@ bool AampRialtoPlayer::SendCopy(
 
 		auto sharedBuffer =
 			std::make_shared<std::vector<uint8_t>>(std::move(buffer));
+		MaybeFlushForPendingPosition(mediaType, fpts);
 		if (!source->processDataFragment(
 					*m_pipeline, std::move(sharedBuffer),
 					fpts, fdts, fDuration, 0.0))
@@ -946,6 +950,7 @@ bool AampRialtoPlayer::SendTransfer(
 	}
 	else if (m_pipeline)
 	{
+		MaybeFlushForPendingPosition(mediaType, fpts);
 		if (!source->processDataFragment(
 				*m_pipeline, std::move(sharedBuffer),
 				fpts, fdts, fDuration, fragmentPTSoffset))
@@ -1198,7 +1203,7 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 
 	if (m_pipeline)
 	{
-		MaybeFlushForDiscontinuity(mediaType, sample.mPts);
+		MaybeFlushForPendingPosition(mediaType, sample.mPts);
 		result = source->injectSingleSample(*m_pipeline, std::move(sample), morePending);
 	}
 
@@ -1206,10 +1211,10 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 	return result;
 }
 
-void AampRialtoPlayer::MaybeFlushForDiscontinuity(
+void AampRialtoPlayer::MaybeFlushForPendingPosition(
 	AampMediaType mediaType, double position)
 {
-	if (m_stateMachine.currentState() != PlayerStateId::DISCONTINUITY)
+	if (!m_positionPending.load(std::memory_order_relaxed))
 	{
 		return;
 	}
@@ -1226,13 +1231,13 @@ void AampRialtoPlayer::MaybeFlushForDiscontinuity(
 	}
 
 	// Video and audio inject on separate threads; only one may drive the flush.
-	if (m_discontinuityFlushClaimed.exchange(true, std::memory_order_acq_rel))
+	if (m_pendingPositionFlushClaimed.exchange(true, std::memory_order_acq_rel))
 	{
 		return;
 	}
 
 	const int rate = m_rate.load(std::memory_order_relaxed);
-	AAMPLOG_MIL("discontinuity resolved by mediaType=%d first sample - "
+	AAMPLOG_MIL("pending position resolved by mediaType=%d first sample - "
 		"flushing to position=%f rate=%d",
 		static_cast<int>(electedType), position, rate);
 
@@ -1299,15 +1304,17 @@ void AampRialtoPlayer::Stream()
 		// handler in OnPlaybackState() once onFlushComplete() restores state.
 		// FLUSHING is set inside m_flushMutex in Flush() and cleared by
 		// onFlushComplete() (both protected by the state machine mutex).
-		// DISCONTINUITY defers for the same reason: the Flush() that resolves
-		// it has not been issued yet, so playing now would run past the
-		// discontinuity at the old position.
+		// m_positionPending defers for the same reason: a position is still
+		// owed (explicit Flush() not yet issued, or awaiting the implicit
+		// one from MaybeFlushForPendingPosition()), so playing now would run
+		// past the pending position at the old one.
 		const PlayerStateId state = m_stateMachine.currentState();
 		if (state == PlayerStateId::FLUSHING ||
-		    state == PlayerStateId::DISCONTINUITY)
+		    m_positionPending.load(std::memory_order_relaxed))
 		{
-			AAMPLOG_INFO("deferring play() - state=%s",
-				m_stateMachine.currentStateName());
+			AAMPLOG_INFO("deferring play() - state=%s positionPending=%d",
+				m_stateMachine.currentStateName(),
+				m_positionPending.load(std::memory_order_relaxed));
 		}
 		// seq_cst load: pairs with the seq_cst store in CheckAllSourcesAttached()
 		// to guarantee one side always calls play().
@@ -1432,7 +1439,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		(preFlushState == PlayerStateId::PLAYING ||
 		 preFlushState == PlayerStateId::SOURCES_ATTACHED ||
 		 preFlushState == PlayerStateId::PAUSED ||
-		 preFlushState == PlayerStateId::DISCONTINUITY ||
 		 preFlushState == PlayerStateId::FLUSHED);
 
 	if (!isFlushableState && shouldTearDown)
@@ -1532,6 +1538,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			m_rate.store(
 				m_pendingFlushRate.load(std::memory_order_relaxed),
 				std::memory_order_relaxed);
+			m_positionPending.store(false, std::memory_order_relaxed);
 			{
 				std::lock_guard<std::mutex> lock(m_flushMutex);
 				m_stateMachine.onFlushComplete();
@@ -1548,6 +1555,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			std::memory_order_relaxed);
 		AAMPLOG_INFO("No pipeline during flush - committed playback rate=%d",
 			m_rate.load(std::memory_order_relaxed));
+		m_positionPending.store(false, std::memory_order_relaxed);
 		{
 			std::lock_guard<std::mutex> lock(m_flushMutex);
 			m_stateMachine.onFlushComplete();
@@ -1925,8 +1933,8 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 	// for this track, so a flush cycle is now guaranteed to follow.  For content
 	// with no manifest-known PTS (HLS fMP4) that cycle issues no Flush() of its
 	// own, so mark the window and supply the Flush() from SendSample() instead.
-	m_discontinuityFlushClaimed.store(false, std::memory_order_relaxed);
-	m_stateMachine.onDiscontinuity();
+	m_pendingPositionFlushClaimed.store(false, std::memory_order_relaxed);
+	m_positionPending.store(true, std::memory_order_relaxed);
 
 	AAMPLOG_INFO("EXIT mediaType=%d result=true", static_cast<int>(mediaType));
 	return true;
@@ -2389,17 +2397,16 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// so onFlushComplete() (called from the SEEK_DONE handler above)
 			// has already left FLUSHING and woken any waiter in
 			// WaitForFlushToComplete() by the time this case runs.
-
-			// Clear the gate so inject threads resume blocking
-			// normally on needData rather than aborting immediately.
-			// Not while DISCONTINUITY: the gate applied by Configure() must
-			// hold until the deferred Flush() resolves the new position, and
-			// this notification may be a late echo of the play() issued by
-			// StopBuffering() inside Discontinuity().
-			if (m_stateMachine.currentState() != PlayerStateId::DISCONTINUITY)
-			{
-				UngateAllSources("OnPlaybackState(PLAYING)");
-			}
+			//
+			// Deliberately no UngateAllSources() here.  The two genuine
+			// ungate points are Stream() (fresh play(), all sources
+			// attached) and the SEEK_DONE handler below (flush resolved);
+			// a PLAYING notification can also be a late echo of the
+			// play() issued by StopBuffering() inside Discontinuity(),
+			// while m_positionPending is still true and Configure()'s gate
+			// must hold until the deferred Flush() resolves the new
+			// position.  Ungating here was a fail-safe with no identified
+			// need; removing it avoids that race rather than guarding it.
 
 			const bool firstFrame =
 				!m_firstFrameNotified.exchange(true, std::memory_order_acq_rel);
@@ -2534,6 +2541,13 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 
 			m_rate.store(pendingRate, std::memory_order_relaxed);
 			AAMPLOG_INFO("SEEK_DONE: committed playback rate=%d", pendingRate);
+
+			// This SEEK_DONE resolves whatever position was pending (an
+			// explicit caller-issued Flush(), or the implicit one from
+			// MaybeFlushForPendingPosition()); Configure()'s gate and
+			// Stream()'s defer are both keyed off m_positionPending, so it
+			// must be cleared before the ungate/play() decision below.
+			m_positionPending.store(false, std::memory_order_relaxed);
 
 			// Transition FLUSHING -> FLUSHED and wake any thread blocked in
 			// WaitForFlushToComplete(). FLUSHED does not restore the
