@@ -78,7 +78,7 @@ constexpr int64_t kMinPlayDurationNs = 1000000000LL; // 1 second
 // racing a trickplay reader to the start of the buffer and signalling a
 // premature EOS.  Expressed in the pipeline (restamped) timebase, so it
 // applies equally to normal play and trickplay.
-constexpr int64_t kBufferHighWaterNs = 10000000000LL; // 10 seconds
+constexpr int64_t kBufferHighWaterNs = 20000000000LL; // 20 seconds
 
 // Number of frames requested per needMediaData.  A real pipeline only asks
 // for as much data as its buffers can currently accept; modelling that with
@@ -1189,7 +1189,7 @@ public:
 	{
 		// Return nullptr - full DRM support not needed in simulator
 		// Production code already handles null IMediaKeys gracefully
-		RIALTO_SIM_LOG("createMediaKeys: keySystem=%s (returning null)", 
+		RIALTO_SIM_LOG("createMediaKeys: keySystem=%s (returning null)",
 			keySystem.c_str());
 		return nullptr;
 	}
