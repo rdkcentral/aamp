@@ -239,6 +239,8 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 				if (eTRACK_VIDEO == type)
 				{
 					// Notify the underflow monitor for LL-DASH chunks.
+					// Paused-state gating to 0.0f is handled inside
+					// NotifyVideoFragmentToUnderflowMonitor under its mutex.
 					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
 						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
 						aamp->rate);
@@ -751,6 +753,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		// reset count on video fragment success
 		context->mRampDownCount = 0;
 		// Notify the underflow monitor — re-arms the drain deadline.
+		// Paused-state gating to 0.0f is handled inside
+		// NotifyVideoFragmentToUnderflowMonitor under its mutex.
 		context->NotifyVideoFragmentToUnderflowMonitor(
 			dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
 			aamp->rate);

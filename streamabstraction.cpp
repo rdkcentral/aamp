@@ -2920,7 +2920,10 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
-		mUnderflowMonitor->NotifyVideoFragment(endPosition, playRate);
+		// Resolve paused-state gating under the same mutex used by pause/resume
+		// notifications so check+use are serialized with monitor updates.
+		const float effectiveRate = (aamp && aamp->mSinkPaused.load()) ? 0.0f : playRate;
+		mUnderflowMonitor->NotifyVideoFragment(endPosition, effectiveRate);
 	}
 }
 
@@ -2934,6 +2937,10 @@ void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
 
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2943,6 +2950,10 @@ void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 
 void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2952,6 +2963,10 @@ void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
