@@ -4205,9 +4205,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_CommitsRateOnlyAfterSeekDone)
 {
 	/**
-	 * @brief Flush() stages the pending rate immediately, but the active
-	 *        playback rate must change only once SEEK_DONE confirms the
-	 *        pipeline-level flushing seek completed - not while FLUSHING.
+	 * @brief Flush() stages the pending rate, but the rate multiplier must
+	 *        only be applied once SEEK_DONE confirms the flushing seek
+	 *        completed.  While FLUSHING, GetPositionMilliseconds() short-
+	 *        circuits to firstPtsMs() (the seek baseline) without querying
+	 *        the pipeline or applying the pending rate.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -4221,8 +4223,6 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
 		/*videoMaster=*/false);
 
-	ON_CALL(*m_mockPipelinePtr, getPosition(_))
-		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
 	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
 		.WillByDefault(Return(0LL));
 
@@ -4230,10 +4230,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Still FLUSHING: the pending rate (-4) must not yet be active.
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
+	// FLUSHING: returns firstPtsMs() (0) directly — no pipeline query, no rate.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 
-	// SEEK_DONE commits the pending rate as a single event.
+	// SEEK_DONE commits the pending rate (-4); subsequent query uses it.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
 }
