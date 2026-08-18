@@ -3103,6 +3103,78 @@ TEST_F(PrivAampTests,TeardownStreamTest_1)
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 }
 
+// Verify notifyCleanup is called on full teardown (newTune=true) with SecManager enabled
+TEST_F(PrivAampTests, TeardownStream_DRMCleanup_CalledOnNewTune)
+{
+	// First call makes streamerIsActive = true
+	p_aamp->TeardownStream(false);
+
+	// Configure conditions for DRM cleanup path
+	p_aamp->SetLocalAAMPTsb(false);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp))
+		.WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockAampLicenseManager, notifyCleanup()).Times(1);
+
+	p_aamp->TeardownStream(true);
+}
+
+// Verify notifyCleanup is NOT called on seek/temporary teardown (newTune=false)
+TEST_F(PrivAampTests, TeardownStream_DRMCleanup_NotCalledOnSeek)
+{
+	// First call makes streamerIsActive = true
+	p_aamp->TeardownStream(false);
+
+	p_aamp->SetLocalAAMPTsb(false);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager))
+		.WillRepeatedly(Return(true));
+
+	// notifyCleanup must NOT be called for seek teardown
+	EXPECT_CALL(*g_mockAampLicenseManager, notifyCleanup()).Times(0);
+
+	p_aamp->TeardownStream(false);
+}
+
+// Verify notifyCleanup is NOT called when IsLocalAAMPTsb() is true
+TEST_F(PrivAampTests, TeardownStream_DRMCleanup_NotCalledForLocalTsb)
+{
+	// First call makes streamerIsActive = true
+	p_aamp->TeardownStream(false);
+
+	p_aamp->SetLocalAAMPTsb(true);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager))
+		.WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp))
+		.WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockAampLicenseManager, notifyCleanup()).Times(0);
+
+	p_aamp->TeardownStream(true);
+}
+
+// Verify notifyCleanup is NOT called when neither SecManager nor FireboltSDK is configured
+TEST_F(PrivAampTests, TeardownStream_DRMCleanup_NotCalledWithoutDrmConfig)
+{
+	// First call makes streamerIsActive = true
+	p_aamp->TeardownStream(false);
+
+	p_aamp->SetLocalAAMPTsb(false);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK))
+		.WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp))
+		.WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockAampLicenseManager, notifyCleanup()).Times(0);
+
+	p_aamp->TeardownStream(true);
+}
+
 TEST_F(PrivAampTests,TeardownStreamTest_2)
 {
 	EXPECT_EQ(0,p_aamp->rate);
@@ -6492,6 +6564,8 @@ INSTANTIATE_TEST_SUITE_P(
  */
 TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsFalse_WhenAccumulatedIsZero)
 {
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RebufferLatencyMaxIncrementSec))
+		.WillOnce(Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC));
 	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
 		.WillOnce(testing::Return(0.0));
 
@@ -6500,43 +6574,49 @@ TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsFalse_WhenAccu
 
 /**
  * @brief Threshold check returns false when accumulated latency is strictly
- * below DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS (10 000 ms).
+ * below the configured maximum increment (DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000 ms).
  *
- * Contract: 9999.9 ms < 10 000 ms → result must be false.
+ * Contract: threshold - 0.1 ms < threshold → result must be false.
  */
 TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsFalse_WhenBelowThreshold)
 {
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RebufferLatencyMaxIncrementSec))
+		.WillOnce(Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC));
 	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
-		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS - 0.1));
+		.WillOnce(testing::Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000.0 - 0.1));
 
 	EXPECT_FALSE(p_aamp->IsLatencyExceedingTrickplayThreshold());
 }
 
 /**
  * @brief Threshold check returns true when accumulated latency equals the
- * threshold exactly (DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS = 10 000 ms).
+ * configured maximum increment exactly (DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000 ms).
  *
- * Contract: 10 000 ms >= 10 000 ms → result must be true.
+ * Contract: threshold >= threshold → result must be true.
  */
 TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsTrue_WhenAtThreshold)
 {
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RebufferLatencyMaxIncrementSec))
+		.WillOnce(Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC));
 	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
-		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS));
+		.WillOnce(testing::Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000.0));
 
 	EXPECT_TRUE(p_aamp->IsLatencyExceedingTrickplayThreshold());
 }
 
 /**
  * @brief Threshold check returns true when accumulated latency exceeds the
- * threshold (> 10 000 ms).
+ * configured maximum increment.
  *
  * Contract: A heavily buffered/rebuffered stream can accumulate well beyond
- * 10 s.  The check must return true for any value above the threshold.
+ * the threshold.  The check must return true for any value above it.
  */
 TEST_F(PrivAampTests, IsLatencyExceedingTrickplayThreshold_ReturnsTrue_WhenAboveThreshold)
 {
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_RebufferLatencyMaxIncrementSec))
+		.WillOnce(Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC));
 	EXPECT_CALL(*g_mockAampLatencyMonitor, GetAccumulatedLatencyIncrementMs())
-		.WillOnce(testing::Return(DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS + 5000.0));
+		.WillOnce(testing::Return(DEFAULT_REBUFFER_LATENCY_MAX_INCREMENT_SEC * 1000.0 + 5000.0));
 
 	EXPECT_TRUE(p_aamp->IsLatencyExceedingTrickplayThreshold());
 }

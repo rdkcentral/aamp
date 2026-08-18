@@ -138,6 +138,10 @@ void AampDRMLicenseManager::SetCommonKeyDuration(int keyDuration)
 
 void AampDRMLicenseManager::notifyCleanup()
 {
+    if (g_mockAampLicenseManager)
+    {
+        g_mockAampLicenseManager->notifyCleanup();
+    }
 }
 DrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, unsigned char const*, unsigned short, int, DrmCallbacks*, std::shared_ptr<DrmMetaDataEvent>, unsigned char const*, bool)
 {
