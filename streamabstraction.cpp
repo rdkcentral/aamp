@@ -1419,6 +1419,12 @@ bool MediaTrack::InjectFragment()
 		AAMPLOG_TRACE("[%s] fragmentIdxToInject : %d Discontinuity %d ", name, fragmentIdxToInject, cachedFragment->discontinuity);
 		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
 					  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.data());
+		// Diagnostic: log every ring-buffer slot read on the inject side so it can be
+		// correlated against the write-side DIAG logs in MediaStreamContext::CacheTsbFragment
+		// / CacheStagingFragmentForInjection to confirm whether a cached init fragment is
+		// ever reached and injected.
+		AAMPLOG_WARN("[%s] DIAG InjectFragment reading slot=%d initFragment=%d position=%f capacity=%zu numberOfFragmentsCached=%d",
+					 name, fragmentIdxToInject, cachedFragment->initFragment, cachedFragment->position, cachedFragment->fragment.capacity(), numberOfFragmentsCached);
 		if (cachedFragment->discontinuity)
 		{
 			AAMPLOG_INFO("[%s] fragmentIdxToInject : %d Discontinuity flag set on cached fragment @position %f", name, fragmentIdxToInject, cachedFragment->position);
