@@ -5659,6 +5659,15 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 					sink->Stop(!newTune);
 				}
 			}
+			// Deactivate DRM session after pipeline teardown to avoid use-after-free race
+			// between GStreamer element disposal and async DRM session cleanup
+			if (!IsLocalAAMPTsb() && (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK)))
+			{
+				if (mDRMLicenseManager)
+				{
+					mDRMLicenseManager->notifyCleanup();
+				}
+			}
 		}
 	}
 	else
@@ -15187,8 +15196,8 @@ bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
 		return false;
 	}
 
-	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs()
-		>= DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS;
+	const double thresholdMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyMaxIncrementSec) * 1000.0;
+	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs() >= thresholdMs;
 }
 
 /**

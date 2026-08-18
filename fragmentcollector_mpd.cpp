@@ -4707,7 +4707,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 			//Periods could be added or removed, So select period based on periodID
 			//If period ID not found in MPD that means it got culled, in that case select
 			// first period
-			AAMPLOG_INFO("Updating period index after mpd refresh");
+			AAMPLOG_INFO("Updating period index after mpd refresh, current periodId %s", mBasePeriodId.c_str());
 			vector<IPeriod *> periods = mpd->GetPeriods();
 			int iter = (int)periods.size() - 1;
 			mCurrentPeriodIdx = 0;
@@ -4750,7 +4750,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 		// Update Track Information based on flag
 		if (updateTrackInfo)
 		{
-			AAMPLOG_INFO("MPD has %d periods current period index %u", mNumberOfPeriods, mCurrentPeriodIdx);
+			IPeriod *currentPeriod = availablePeriods.at(mCurrentPeriodIdx);
+			AAMPLOG_INFO("MPD has %d periods current period index %u periodId %s", mNumberOfPeriods, mCurrentPeriodIdx, currentPeriod->GetId().c_str());
 			if(mIsLiveStream)
 			{
 				// IsLive = 1 , resetTimeLineIndex = 1
@@ -11611,13 +11612,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		if (sink)
 		{
 			sink->ClearProtectionEvent();
-		}
-		if (clearChannelData)
-		{
-			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
-			{
-				aamp->mDRMLicenseManager->notifyCleanup();
-			}
 		}
 	}
 
