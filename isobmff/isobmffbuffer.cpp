@@ -307,82 +307,6 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 	}
 }
 
-void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
-{
-	constexpr size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
-	size_t curOffset = 0;
-	while (curOffset < bufSz)
-	{
-		const size_t remaining = bufSz - curOffset;
-		if (remaining < minHeaderSize)
-		{
-			AAMPLOG_WARN("Trailing bytes[%zu] smaller than box header while restamping",
-				remaining);
-			break;
-		}
-
-		uint8_t *buf = segment + curOffset;
-		uint32_t size = READ_U32(buf);
-		if (size < minHeaderSize || size > remaining)
-		{
-			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %zu)",
-				size, remaining);
-			break;
-		}
-		char type[Box::BOX_TYPE_BUFFER_SIZE];
-		READ_U8(type, buf, sizeof(uint32_t));
-		type[sizeof(uint32_t)] = '\0';
-
-		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
-		{
-			restampPtsInternal(offset, buf, size);
-		}
-		else if (IS_TYPE(type, Box::TFDT))
-		{
-			uint8_t version = READ_VERSION(buf);
-			uint32_t flags  = READ_FLAGS(buf);
-
-			(void)flags; // Avoid a warning.
-
-			if (1 == version)
-			{
-				uint64_t pts = ReadUint64(buf);
-				if (!firstPtsSaved)
-				{
-					beforePTS = pts;
-				}
-				pts += offset;
-				WriteUint64(buf, pts);
-				if (!firstPtsSaved)
-				{
-					firstPtsSaved = true;
-					afterPTS = pts;
-				}
-			}
-			else
-			{
-				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-				if (!firstPtsSaved)
-				{
-					beforePTS = pts;
-				}
-				pts += (uint32_t)offset;
-				WRITE_U32(buf, pts);
-				if (!firstPtsSaved )
-				{
-					afterPTS = pts;
-					firstPtsSaved = true;
-				}
-			}
-		}
-		else
-		{
-			// Any other box type
-		}
-		curOffset += size;
-	}
-}
-
 void IsoBmffBuffer::restampPts(int64_t offset)
 {
 	if (readOnlyBuffer)
@@ -391,7 +315,69 @@ void IsoBmffBuffer::restampPts(int64_t offset)
 		return;
 	}
 
-	restampPtsInternal(offset, const_cast<uint8_t *>(buffer), bufSize);
+	// Use the already-parsed boxes instead of re-parsing raw bytes
+	// This avoids issues with partial/incomplete box data in the buffer
+	restampPtsUsingParsedBoxes(offset, &boxes);
+}
+
+void IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector<std::unique_ptr<Box>> *boxes)
+{
+	for (size_t i = 0; i < boxes->size(); i++)
+	{
+		Box *box = boxes->at(i).get();
+		
+		if (IS_TYPE(box->getType(), Box::MOOF) || IS_TYPE(box->getType(), Box::TRAF))
+		{
+			// Recursively process child boxes
+			if (box->hasChildren())
+			{
+				restampPtsUsingParsedBoxes(offset, box->getChildren());
+			}
+		}
+		else if (IS_TYPE(box->getType(), Box::TFDT))
+		{
+			// Use the TfdtBox API to safely modify the PTS
+			TfdtBox *tfdtBox = dynamic_cast<TfdtBox*>(box);
+			if (tfdtBox != nullptr)
+			{
+				// Check the TFDT version to determine arithmetic type
+				uint8_t version = tfdtBox->getVersion();
+				
+				if (version == 0)
+				{
+					// For version 0 boxes, use 32-bit arithmetic to maintain overflow/underflow behavior
+					uint32_t pts = static_cast<uint32_t>(tfdtBox->getBaseMDT());
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					pts += static_cast<uint32_t>(offset);
+					tfdtBox->setBaseMDT(pts);
+					if (!firstPtsSaved)
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
+				}
+				else
+				{
+					// For version 1 boxes, use 64-bit arithmetic
+					uint64_t pts = tfdtBox->getBaseMDT();
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					pts += offset;
+					tfdtBox->setBaseMDT(pts);
+					if (!firstPtsSaved)
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
+				}
+			}
+		}
+	}
 }
 
 void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint32_t duration)
