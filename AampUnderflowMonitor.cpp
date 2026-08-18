@@ -62,6 +62,9 @@
 #include "AampMediaType.h"
 #include "AampUtils.h"
 #include <stdexcept>
+#include <atomic>
+
+static std::atomic<uint32_t> sNegativeBufferCount{0};
 
 // Minimum buffered content remaining (seconds) below which a deadline expiry is
 // treated as a genuine underflow.  If more than this much content is still ahead
@@ -167,19 +170,44 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
     double bufferSec       = 0.0;
     bool   shouldResume    = false;
     double resumeThreshold = 0.0;
-
+    const bool underflowActive = mAamp->GetBufUnderFlowStatus();
     {
         std::lock_guard<std::mutex> lock(mMutex);
         if (!mAamp) return;
 
         const double positionSec = mAamp->GetPositionMs() / 1000.0;
         bufferSec = endPosition - positionSec;
-        if (bufferSec < 0.0) bufferSec = 0.0;
+        // A negative bufferSec means the reported position is ahead of the downloaded
+        // end position — physically impossible during normal playback.  This always
+        // indicates a stale GStreamer position (e.g. after a seek while a fragment
+        // download retry is in progress and GStreamer hasn't flushed yet).  Disarm
+        // the deadline rather than clamping to 0, which would trigger an immediate
+        // false underflow.
+        if (bufferSec < 0.0)
+        {
+            if (++sNegativeBufferCount % 10 == 0)
+            {
+                AAMPLOG_WARN("[video] Negative buffer count: %u", sNegativeBufferCount.load());
+            }
+            AAMPLOG_WARN("[video] negative bufferSec=%.3f (endPos=%.3f positionSec=%.3f) — stale pos; disarming deadline",
+                         bufferSec, endPosition, positionSec);
+            if (!underflowActive)  // Only disarm if not already buffering
+            {
+                mDeadlineArmed = false;
+            }
+            mCurrentEndPosition = endPosition;
+            mCurrentPlayRate    = playRate;
+            mCV.notify_one();
+            return;
+        }
 
+        if (sNegativeBufferCount > 0)
+        {
+            AAMPLOG_INFO("[video] Buffer recovered after %u negative occurrences", sNegativeBufferCount.load());
+            sNegativeBufferCount = 0;
+        }
         mCurrentEndPosition = endPosition;
         mCurrentPlayRate    = playRate;
-
-        const bool underflowActive = mAamp->GetBufUnderFlowStatus();
 
         if (underflowActive)
         {
@@ -191,7 +219,9 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
         }
         else
         {
-            // Normal playback: rearm the deadline.
+            // Normal playback: rearm the drain deadline.
+            // Call sites pass 0.0f when mSinkPaused so RearmDeadline disarms cleanly
+            // for intentional pause (RearmDeadline guards playRate <= 0).
             RearmDeadline(bufferSec, playRate);
         }
     }
@@ -209,7 +239,7 @@ void AampUnderflowMonitor::NotifyVideoFragment(double endPosition, float playRat
             RearmDeadline(bufferSec, playRate);
         }
     }
-    else if (mAamp->GetBufUnderFlowStatus())
+    else if (underflowActive)
     {
         AAMPLOG_INFO("[video] waiting to end underflow. buffered=%.3f", bufferSec);
     }

@@ -1703,9 +1703,13 @@ public:
 	/**
 	 * @fn NotifyVideoFragmentToUnderflowMonitor
 	 * @brief Notify the underflow monitor that a video fragment (or chunk) has
-	 *        been queued for injection.  Re-arms the underflow deadline.
+	 *        been queued for injection. Re-arms the underflow deadline.
+	 *
+	 *        If the pipeline is currently paused, this path forces an effective
+	 *        rate of 0.0f under the underflow-monitor mutex so pause/disarm and
+	 *        fragment notifications are serialized consistently.
 	 * @param[in] endPosition  Absolute end position of the queued content (seconds).
-	 * @param[in] playRate     Current play rate.
+	 * @param[in] playRate     Caller-provided play rate (used when not paused).
 	 */
 	void NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate);
 

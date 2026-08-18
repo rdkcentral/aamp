@@ -963,6 +963,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						retValue = sink->Pause(true, false);
 					}
 					aamp->mSinkPaused = true;
+					// Notify the underflow monitor that the pipeline is now intentionally
+					// paused by the user. This disarms the deadline so that fragments
+					// downloaded while paused (e.g. during seek-while-paused) do not
+					// trigger a false underflow via NotifyVideoFragment.
+					if (aamp->mpStreamAbstractionAAMP && retValue)
+					{
+						aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+					}
 				}
 			}
 			else
@@ -999,8 +1007,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// prevents a stale normal-play deadline from firing and declaring a
 				// false underflow during the gap between the rate change and the first
 				// trickplay fragment arriving (AAMP-TSB-5016, AAMP-CDAI-8003).
-				if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) &&
-					aamp->mpStreamAbstractionAAMP)
+				if(aamp->mpStreamAbstractionAAMP)
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyRateChangeToUnderflowMonitor(rate);
 				}
