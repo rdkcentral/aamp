@@ -1183,7 +1183,7 @@ void AampRialtoPlayer::CheckAllSourcesAttached()
 
 bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sample, bool morePending)
 {
-	AAMPLOG_INFO("ENTRY mediaType=%d pts=%f dur=%f morePending=%d",
+	AAMPLOG_TRACE("ENTRY mediaType=%d pts=%f dur=%f morePending=%d",
 		static_cast<int>(mediaType), sample.mPts, sample.mDuration, morePending);
 
 	bool result = false;
@@ -1202,7 +1202,7 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 		result = source->injectSingleSample(*m_pipeline, std::move(sample), morePending);
 	}
 
-	AAMPLOG_INFO("EXIT result=%d", result);
+	AAMPLOG_TRACE("EXIT result=%d", result);
 	return result;
 }
 
