@@ -2668,6 +2668,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_WhileFlushing_ReturnsSeekPositionWithoutQueryingPipeline)
 {
 	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
 
 	// Seek to 30 s mid-segment.  setPosition returning true keeps the
 	// player in FLUSHING so the SEEK_DONE path is not yet taken.
@@ -2713,6 +2715,8 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_AfterMidFragmentSeek_FirstQueryReturnsZero)
 {
 	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
 
 	constexpr double   kSeekSec   = 30.0;
 	constexpr int64_t  kSeekPosMs = 30'000LL;
