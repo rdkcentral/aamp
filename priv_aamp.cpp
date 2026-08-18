@@ -15050,8 +15050,18 @@ void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::ve
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
+		// An init segment can carry PSSH boxes for multiple DRM systems, but only
+		// one is selected for this session (manifest-driven, e.g. preferredKeysystem).
+		// Only forward the matching entry so we don't create sessions for the rest.
+		DrmHelperPtr currentDrm = GetCurrentDRM();
 		for (const auto& protectionEvent : protectionEvents)
 		{
+			if (currentDrm && strcasecmp(protectionEvent.systemID.c_str(), currentDrm->getUuid().c_str()) != 0)
+			{
+				AAMPLOG_INFO("Skipping in-band protection event for type:%d systemId:%s (selected DRM systemId:%s)",
+					type, protectionEvent.systemID.c_str(), currentDrm->getUuid().c_str());
+				continue;
+			}
 			AAMPLOG_INFO("Queueing in-band protection event for type:%d systemId:%s psshSize:%zu",
 				type, protectionEvent.systemID.c_str(), protectionEvent.pssh.size());
 			sink->QueueProtectionEvent(protectionEvent.systemID.c_str(), protectionEvent.pssh.data(), protectionEvent.pssh.size(), type);
