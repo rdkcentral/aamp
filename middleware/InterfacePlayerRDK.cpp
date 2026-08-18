@@ -3312,26 +3312,45 @@ void InterfacePlayerRDK::ClearProtectionEvent()
  */
 static GstState validateStateWithMsTimeout( InterfacePlayerRDK *pInterfacePlayerRDK, GstState stateToValidate, guint msTimeOut)
 {
-	GstState gst_current;
-	GstState gst_pending;
+	GstState gst_current = GST_STATE_VOID_PENDING;
+	GstState gst_pending = GST_STATE_VOID_PENDING;
 	float timeout = 100.0;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gint gstGetStateCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
+	GstStateChangeReturn ret;
 
 	do
 	{
-		if ((GST_STATE_CHANGE_SUCCESS
-			 == gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &gst_current, &gst_pending, timeout * GST_MSECOND))
-			&& (gst_current == stateToValidate))
+		ret = gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &gst_current, &gst_pending, timeout * GST_MSECOND);
+		if ((GST_STATE_CHANGE_SUCCESS == ret) && (gst_current == stateToValidate))
 		{
 			GST_WARNING(
 						"validateStateWithMsTimeout - PIPELINE gst_element_get_state - SUCCESS : State = %d, Pending = %d",
 						gst_current, gst_pending);
 			return gst_current;
 		}
+		// RDKEMW-21923-class fix: the previous loop condition below re-checked only
+		// (gst_current != stateToValidate). That snapshot can already equal
+		// stateToValidate on an early poll even when ret != SUCCESS (i.e. the bin's
+		// "current" field already reports the target but the transition has not
+		// actually committed - confirmed in the field: playbin2/playbin3 completed
+		// their real async-done 130-600ms *after* this function had already logged
+		// FAILURE on the very first 100ms poll). That made the loop exit after a
+		// single iteration instead of using the intended
+		// GST_ELEMENT_GET_STATE_RETRY_CNT_MAX * msTimeOut retry budget, so a
+		// transition that was genuinely still in flight and about to succeed on its
+		// own got reported as a hard failure. Retry based on the actual return code
+		// instead: keep polling on ASYNC (still in progress) up to the retry budget,
+		// but stop immediately on a genuine GST_STATE_CHANGE_FAILURE since no amount
+		// of extra waiting fixes that case (see the separate, permanently-stuck
+		// playbin wedge investigated under this same ticket).
+		if (GST_STATE_CHANGE_FAILURE == ret)
+		{
+			break;
+		}
 		g_usleep (msTimeOut * 1000); // Let pipeline safely transition to required state
 	}
-	while ((gst_current != stateToValidate) && (gstGetStateCnt-- != 0));
+	while (gstGetStateCnt-- != 0);
 
 	MW_LOG_ERR("validateStateWithMsTimeout - PIPELINE gst_element_get_state - FAILURE : State = %d, Pending = %d",
 			   gst_current, gst_pending);
