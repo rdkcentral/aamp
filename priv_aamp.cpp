@@ -15038,6 +15038,27 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	}
 }
 
+/**
+ * @fn QueueProtectionEvent
+ * @brief Forward in-band PSSH data (parsed from an MP4 container) to the stream sink
+ *
+ * @param[in] type - Media type
+ * @param[in] protectionEvents - Protection system data (systemID + pssh blob) extracted from the MP4 container
+ */
+void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		for (const auto& protectionEvent : protectionEvents)
+		{
+			AAMPLOG_INFO("Queueing in-band protection event for type:%d systemId:%s psshSize:%zu",
+				type, protectionEvent.systemID.c_str(), protectionEvent.pssh.size());
+			sink->QueueProtectionEvent(protectionEvent.systemID.c_str(), protectionEvent.pssh.data(), protectionEvent.pssh.size(), type);
+		}
+	}
+}
+
 double PrivateInstanceAAMP::GetBufferedDurationSecs()
 {
 	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);

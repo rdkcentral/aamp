@@ -267,6 +267,14 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		}
 		else
 		{
+			// pssh boxes are typically found in the init segment (moov), but
+			// key-rotation streams can also carry them per-fragment (moof), so
+			// this is checked unconditionally rather than gated on isInit.
+			auto protectionEvents = mMp4Demux->GetProtectionEvents();
+			if (!protectionEvents.empty())
+			{
+				mAamp->QueueProtectionEvent(mMediaType, protectionEvents);
+			}
 			auto samples = mMp4Demux->GetSamples();
 			if (!samples.empty())
 			{

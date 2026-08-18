@@ -4061,6 +4061,15 @@ public:
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
 
 	/**
+	 * @fn QueueProtectionEvent
+	 * @brief Forward in-band PSSH data (parsed from an MP4 container) to the stream sink
+	 *
+	 * @param[in] type - Media type
+	 * @param[in] protectionEvents - Protection system data (systemID + pssh blob) extracted from the MP4 container
+	 */
+	void QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents);
+
+	/**
 	 * @fn GetBufferedDurationSecs
 	 * @brief Get the buffered duration in seconds
 	 * @return Buffered duration in seconds
