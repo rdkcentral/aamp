@@ -24,6 +24,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
 set(TEST_SOURCES PauseAtTests.cpp
                  PauseOnPlaybackTests.cpp
+		 PauseResumeRaceTests.cpp
                  TextStyleTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp

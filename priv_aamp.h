@@ -3546,6 +3546,12 @@ public:
 	 */
 	void CancelPendingFirstFramePause(void);
 
+	static constexpr int PAUSE_RESUME_LOCK_TIMEOUT_MS = 2000; 	/**< Bound for mPauseResumeMutex.try_lock_for().
+									 *   Public: SetRateInternal() (main_aamp.cpp / PlayerInstanceAAMP)
+									 *   references this as PrivateInstanceAAMP::PAUSE_RESUME_LOCK_TIMEOUT_MS
+									 *   when it takes the same mutex - single source of truth, do not
+									 *   duplicate this constant elsewhere. */
+
 	/**
 	 *   @fn SetLLDashServiceData
 	 *   @param[in] stAampLLDashServiceData - Low Latency Service Data from MPD
@@ -4297,9 +4303,6 @@ protected:
 									 *   Atomic: cleared from SetRateInternal() (resume path, to cancel a stale
 									 *   pending pause - RDKEMW-21923 freeze fix) as well as from
 									 *   NotifyFirstVideoFrameDisplayed() itself, on different threads. */
-	static constexpr int PAUSE_RESUME_LOCK_TIMEOUT_MS = 2000; 	/**< Bound for mPauseResumeMutex.try_lock_for();
-									 *   generous relative to the ~1s internal GStreamer retry cap in
-									 *   InterfacePlayerRDK::Pause(), so this should rarely if ever be hit. */
 //	AudioTrackInfo mPreferredAudioTrack; 	/**< Preferred audio track from available tracks in asset */
 	TextTrackInfo mPreferredTextTrack; 	/**< Preferred text track from available tracks in asset */
 	bool mFirstVideoFrameDisplayedEnabled; 	/**< Set True to enable call to NotifyFirstVideoFrameDisplayed() from Sink */

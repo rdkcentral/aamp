@@ -3369,11 +3369,18 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			if (nextState != validateStateWithMsTimeout(this,nextState, 100))
 			{
 				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED GstState %d", nextState);
+				// RDKEMW-21923-class fix: this was previously swallowed - callers (AAMPGstPlayer::Pause(),
+				// PrivateInstanceAAMP::PausePipeline(), SetRateInternal()) all treated this as success,
+				// so mSinkPaused/paused-bookkeeping got set to a state GStreamer never actually confirmed,
+				// with no code path left to detect or retry it - a permanent freeze/black-screen/banner
+				// with no self-recovery. Propagate the failure instead.
+				retValue = false;
 			}
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
 		{
 			MW_LOG_ERR("InterfacePlayerRDK_Pause - gst_element_set_state - FAILED rc %d", rc);
+			retValue = false; // RDKEMW-21923-class fix: same rationale as above
 		}
 		
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = nextState;

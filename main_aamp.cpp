@@ -47,7 +47,6 @@ AampConfig *gpGlobalConfig=NULL;
 #include "ContentSecurityManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
-static constexpr int PAUSE_RESUME_LOCK_TIMEOUT_MS = 2000;
 
 const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
 {
@@ -913,7 +912,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						// PausePipeline() - see mPauseResumeMutex. If it times out we proceed anyway rather
 						// than risk hanging this thread (AampScheduler's single worker) forever.
 						std::unique_lock<std::timed_mutex> pauseResumeLock(aamp->mPauseResumeMutex, std::defer_lock);
-						if (!pauseResumeLock.try_lock_for(std::chrono::milliseconds(PAUSE_RESUME_LOCK_TIMEOUT_MS)))
+						if (!pauseResumeLock.try_lock_for(std::chrono::milliseconds(PrivateInstanceAAMP::PAUSE_RESUME_LOCK_TIMEOUT_MS)))
 						{
 							AAMPLOG_WARN("SetRateInternal: timed out waiting for an in-flight pause; proceeding with resume anyway");
 						}
@@ -931,7 +930,24 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 						}
 					}
-					aamp->mSinkPaused = false;
+					// RDKEMW-21923-class fix: only trust the sink as resumed if the underlying
+					// Pause(false, ...) actually confirmed it (retValue - see line ~928 above).
+					// Previously this was set unconditionally, so a genuine middleware/GStreamer
+					// failure to reach PLAYING (validateStateWithMsTimeout FAILURE, now propagated
+					// as retValue=false - see InterfacePlayerRDK::Pause()) still got recorded here
+					// as "playing", leaving no path to detect or retry the still-paused pipeline -
+					// a permanent freeze/black-screen/banner with no self-recovery. On failure, leave
+					// mSinkPaused as-is (still true) so the next explicit play request retries instead
+					// of being silently skipped by the mSinkPaused.load() check above.
+					if (retValue)
+					{
+						aamp->mSinkPaused = false;
+						AAMPLOG_INFO("SetRateIntenral: resume success ");
+					}
+					else
+					{
+						AAMPLOG_ERR("SetRateInternal: resume failed to unpause the sink - leaving mSinkPaused=true so a subsequent resume can retry");
+					}
 					aamp->ResumeDownloads();
 				}
 			}
