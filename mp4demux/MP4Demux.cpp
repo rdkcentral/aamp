@@ -445,6 +445,10 @@ void Mp4Demux::ParseTrackEncryptionBox()
  */
 void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 {
+	// consumers (e.g. Rialto's parsePssh) re-parse the raw pssh box
+	// themselves, so remember where the fullbox body (version/flags onward)
+	// starts to allow reconstructing a standard-form box below
+	const uint8_t *fullBoxBodyStart = ptr;
 	ReadHeader();
 	// Must have at least systemID (16)
 	if (ptr + PSSH_SYSTEM_ID_SIZE > next)
@@ -482,8 +486,19 @@ void Mp4Demux::ParseProtectionSystemSpecificHeaderBox(const uint8_t *next)
 	uint32_t dataSize = ReadU32();
 	if (ptr + dataSize > next)
 		throw Mp4ParseException(MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH, "pssh: data OOB");
-	psshData.pssh.assign(ptr, ptr + dataSize);
 	SkipBytes(dataSize);
+	// Reconstruct a standard-form pssh box (8-byte size+type header followed
+	// by the fullbox body) since downstream DRM code (e.g. Rialto's
+	// parsePssh) re-parses this as a self-contained ISO BMFF box.
+	const size_t bodyLen = static_cast<size_t>(ptr - fullBoxBodyStart);
+	const uint32_t boxSize = static_cast<uint32_t>(8 + bodyLen);
+	psshData.pssh.reserve(boxSize);
+	psshData.pssh.push_back(static_cast<uint8_t>(boxSize >> 24));
+	psshData.pssh.push_back(static_cast<uint8_t>(boxSize >> 16));
+	psshData.pssh.push_back(static_cast<uint8_t>(boxSize >> 8));
+	psshData.pssh.push_back(static_cast<uint8_t>(boxSize));
+	psshData.pssh.insert(psshData.pssh.end(), {'p', 's', 's', 'h'});
+	psshData.pssh.insert(psshData.pssh.end(), fullBoxBodyStart, ptr);
 }
 
 /**
