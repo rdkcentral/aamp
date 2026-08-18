@@ -656,6 +656,14 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 			AAMPLOG_WARN("[%s] DIAG writing init fragment to inject-ring slot=%d position=%f numberOfFragmentsCached=%d",
 				name, fragmentIdxToFetch, fragment->position, numberOfFragmentsCached);
 		}
+		else
+		{
+			// Diagnostic: log every non-init write too, so the full write-side slot
+			// sequence can be reconstructed and compared against the read-side
+			// sequence logged in MediaTrack::InjectFragment().
+			AAMPLOG_WARN("[%s] DIAG writing fragment to inject-ring slot=%d position=%f numberOfFragmentsCached=%d",
+				name, fragmentIdxToFetch, fragment->position, numberOfFragmentsCached);
+		}
 		*cachedFragment = std::move(*fragment);
 		if(!cachedFragment->fragment.empty())
 		{
