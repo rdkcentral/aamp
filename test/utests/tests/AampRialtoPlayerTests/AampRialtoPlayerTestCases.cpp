@@ -3303,6 +3303,57 @@ TEST_F(AampRialtoPlayerTest,
 	EXPECT_TRUE(result);
 }
 
+/**
+ * @test When ProcessPendingDiscontinuity() is guaranteed to issue its own
+ *       explicit Flush() (WillFlushOnDiscontinuity() == true), Discontinuity()
+ *       must not arm the deferred m_positionPending window - PTS-restamped
+ *       samples keep flowing across Discontinuity(), so arming here would let
+ *       the next sample drive an early implicit Flush() that races the
+ *       guaranteed explicit one, discarding whatever it buffered in between.
+ */
+TEST_F(AampRialtoPlayerTest,
+	Discontinuity_WillFlushOnDiscontinuity_DoesNotArmPositionPending)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+
+	// First sample resolves Configure()'s own unconditional arm, so the
+	// window is provably closed before Discontinuity() runs below.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(false));
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, /*fpts=*/1.0, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> firstBuffer = {0x01, 0x02, 0x03, 0x04};
+	ASSERT_TRUE(m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(firstBuffer),
+		/*fpts=*/1.0, /*fdts=*/1.0, /*fDuration=*/0.1));
+
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+	testing::Mock::VerifyAndClearExpectations(m_mockSources[eMEDIATYPE_AUDIO]);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ON_CALL(*g_mockPrivateInstanceAAMP, WillFlushOnDiscontinuity())
+		.WillByDefault(Return(true));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).Times(0);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, /*fpts=*/4.5, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> secondBuffer = {0x05, 0x06, 0x07, 0x08};
+	const bool result = m_player->SendCopy(eMEDIATYPE_AUDIO,
+		std::move(secondBuffer), /*fpts=*/4.5, /*fdts=*/4.5,
+		/*fDuration=*/0.1);
+
+	EXPECT_TRUE(result);
+}
+
 // ===========================================================================
 // SendSample — per-sample injection via external demuxer path
 // ===========================================================================

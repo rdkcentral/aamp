@@ -1784,6 +1784,15 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 	return false;
 }
 
+bool PrivateInstanceAAMP::WillFlushOnDiscontinuity()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->WillFlushOnDiscontinuity();
+	}
+	return false;
+}
+
 std::pair<std::string,int> PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;

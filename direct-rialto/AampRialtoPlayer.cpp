@@ -431,8 +431,7 @@ void AampRialtoPlayer::Configure(
 	// clears it. AttachSource() also clears it directly when a fresh
 	// NEWLY_ATTACHED already establishes a definitive baseline, so an
 	// ordinary tune's first sample does not trigger a redundant flush.
-	m_pendingPositionFlushClaimed.store(false, std::memory_order_relaxed);
-	m_positionPending.store(true, std::memory_order_relaxed);
+	ArmPositionPending("Configure");
 	for (auto &source : m_sources)
 	{
 		if (source)
@@ -1231,6 +1230,13 @@ bool AampRialtoPlayer::SendSample(AampMediaType mediaType, AampMediaSample &&sam
 	return result;
 }
 
+void AampRialtoPlayer::ArmPositionPending(const char *reason)
+{
+	m_pendingPositionFlushClaimed.store(false, std::memory_order_relaxed);
+	m_positionPending.store(true, std::memory_order_relaxed);
+	AAMPLOG_INFO("armed position-pending: %s", reason);
+}
+
 void AampRialtoPlayer::MaybeFlushForPendingPosition(
 	AampMediaType mediaType, double position)
 {
@@ -1982,11 +1988,19 @@ bool AampRialtoPlayer::Discontinuity(AampMediaType mediaType)
 	}
 
 	// Returning true tells PrivateInstanceAAMP to set mProcessingDiscontinuity
-	// for this track, so a flush cycle is now guaranteed to follow.  For content
-	// with no manifest-known PTS (HLS fMP4) that cycle issues no Flush() of its
-	// own, so mark the window and supply the Flush() from SendSample() instead.
-	m_pendingPositionFlushClaimed.store(false, std::memory_order_relaxed);
-	m_positionPending.store(true, std::memory_order_relaxed);
+	// for this track, so ProcessPendingDiscontinuity() is now guaranteed to run
+	// once every track has discontinued.  Content where that guaranteed
+	// explicit Flush() is not coming (e.g. HLS fMP4 - no manifest-known PTS)
+	// needs the deferred window armed here, so SendSample() can supply the
+	// Flush() itself.  Content that WILL get the explicit Flush() must NOT be
+	// armed here: PTS-restamped samples keep flowing across this call, and
+	// arming would let SendSample() race an early implicit Flush() ahead of
+	// the guaranteed one, which would then redundantly re-flush and discard
+	// whatever was buffered in between.
+	if (!m_aamp->WillFlushOnDiscontinuity())
+	{
+		ArmPositionPending("Discontinuity");
+	}
 
 	AAMPLOG_INFO("EXIT mediaType=%d result=true", static_cast<int>(mediaType));
 	return true;

@@ -498,17 +498,28 @@ private:
 	/// a Flush() of its own (DoEarlyStreamSinkFlush()/
 	/// DoStreamSinkFlushOnDiscontinuity() are both false for ISO BMFF), so
 	/// MaybeFlushForPendingPosition() must supply one once the new period's
-	/// first sample is demuxed. Armed unconditionally by every Configure()
-	/// (in addition to Discontinuity()): Configure() cannot tell whether the
-	/// caller will follow up with an explicit Flush() carrying the real
-	/// position or not at all, so every source is gated until either an
-	/// AttachSource() or a Flush() resolves the real position.
+	/// first sample is demuxed. Armed unconditionally by every Configure():
+	/// no sample can be in flight yet at any Configure() call site (always
+	/// preceded by StopInjection()/not-yet-Start()), so an unconditional arm
+	/// there is never racy, even when an explicit Flush() immediately
+	/// follows and clears it again. Discontinuity() only arms this when
+	/// m_aamp->WillFlushOnDiscontinuity() is false - PTS-restamped content
+	/// keeps injecting across that call, so arming when an explicit Flush()
+	/// is guaranteed would let the still-flowing samples race an early
+	/// implicit Flush() ahead of it. Either arm site gates every source
+	/// until an AttachSource() or a Flush() resolves the real position.
 	std::atomic<bool> m_positionPending{false};
 
 	/// Claimed by the first sample that drives the deferred implicit Flush(),
 	/// so that concurrent video/audio injector threads cannot both trigger
 	/// it.  Reset whenever m_positionPending is (re)armed.
 	std::atomic<bool> m_pendingPositionFlushClaimed{false};
+
+	/// Arms the deferred-flush window: resets the claim so the next elected
+	/// sample may drive MaybeFlushForPendingPosition(), then sets
+	/// m_positionPending.  Shared by every call site that needs to mark a
+	/// position as not-yet-established for the current segment.
+	void ArmPositionPending(const char *reason);
 
 	/// Issue the deferred Flush() using @p position, if this sample is the
 	/// first from the track elected to supply the new period's PTS.  No-op

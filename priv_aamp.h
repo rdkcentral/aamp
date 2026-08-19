@@ -872,6 +872,12 @@ public:
 	bool ReconfigureForElementaryStreamUpdate();
 
 	/**
+	 * @brief Get if an explicit StreamSink Flush() is guaranteed to follow a discontinuity (from stream abstraction)
+	 * @return true if StreamSink::Flush() will be called explicitly for the pending discontinuity
+	 */
+	bool WillFlushOnDiscontinuity();
+
+	/**
 	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
 	*  Also it generate error event if preprocessed manifest is not available.
 	*

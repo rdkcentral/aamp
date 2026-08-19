@@ -103,6 +103,8 @@ public:
 	MOCK_METHOD(bool, IsLiveStream, ());
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 	MOCK_METHOD(bool, ReconfigureForElementaryStreamUpdate, ());
+
+	MOCK_METHOD(bool, WillFlushOnDiscontinuity, ());
 	MOCK_METHOD(void, CompleteDiscontinuityDataDeliverForPTSRestamp,
 		(AampMediaType type));
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
