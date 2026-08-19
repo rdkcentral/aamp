@@ -1430,6 +1430,7 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		}
 	}
 
+	constexpr int64_t kNsPerMs = 1'000'000LL;
 	if (m_pipeline)
 	{
 		// Perform a pipeline-level flushing seek.  Rialto will emit
@@ -1450,6 +1451,20 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			}
 			m_flushCv.notify_all();
 		}
+		else
+		{
+			// m_firstPtsMs is reset automatically on each source by
+			// unblockInjection() (called above). Since seek is accepted,
+			// set the seek position as the firstPTS to establish
+			// fresh segment-start baseline.
+			for (auto &source : m_sources)
+			{
+				if (source)
+				{
+					source->setFirstPtsMs(posNs / kNsPerMs);
+				}
+			}
+		}
 	}
 	else
 	{
@@ -1466,10 +1481,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		}
 		m_flushCv.notify_all();
 	}
-
-	// m_firstPtsMs is reset automatically on each source by
-	// unblockInjection() (called above), so the next injection into
-	// the video source establishes the fresh segment-start baseline.
 
 	AAMPLOG_INFO("EXIT");
 }
@@ -1548,38 +1559,48 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 	int64_t rawMs = startMs;
 	long long result = 0LL;
 
-	if (m_pipeline)
+	// During FLUSHING the pipeline position is unreliable; So, return the
+	// staged seek position (written by Flush() via setFirstPtsMs()) directly.
+	if (m_stateMachine.currentState() != PlayerStateId::FLUSHING)
 	{
-		constexpr int64_t kNsPerMs = 1'000'000LL;
-		int64_t queriedNs = 0;
-		if (m_pipeline->getPosition(queriedNs))
+		if (m_pipeline)
 		{
-			rawMs = queriedNs / kNsPerMs;
-			if (startMs >= 0)
+			constexpr int64_t kNsPerMs = 1'000'000LL;
+			int64_t queriedNs = 0;
+			if (m_pipeline->getPosition(queriedNs))
 			{
-				const int rate = m_rate.load(std::memory_order_relaxed);
-				const int64_t elapsed = rawMs - startMs;
-				// For forward play (rate > 0) clamp to zero to avoid a
-				// negative blip caused by clock jitter at startup.  For
-				// reverse trickplay (rate < 0) allow negative so the caller
-				// observes a decrementing position - mirroring GStreamer's
-				//   rc = (pos - segmentStart) * rate.
-				result = (rate > 0)
-					? std::max(int64_t{0}, elapsed) * rate
-					: elapsed * rate;
+				rawMs = queriedNs / kNsPerMs;
+				if (startMs != AampRialtoMediaSource::kFirstPtsNotSet)
+				{
+					const int rate = m_rate.load(std::memory_order_relaxed);
+					const int64_t elapsed = rawMs - startMs;
+					// For forward play (rate > 0) clamp to zero to avoid a
+					// negative blip caused by clock jitter at startup.  For
+					// reverse trickplay (rate < 0) allow negative so the caller
+					// observes a decrementing position - mirroring GStreamer's
+					//   rc = (pos - segmentStart) * rate.
+					result = (rate > 0)
+						? std::max(int64_t{0}, elapsed) * rate
+						: elapsed * rate;
+				}
+				AAMPLOG_INFO("queried=%" PRId64 " ms  segmentStart=%" PRId64
+					" ms  rate=%d  position=%lld ms", rawMs, startMs,
+					m_rate.load(std::memory_order_relaxed), result);
 			}
-			AAMPLOG_INFO("queried=%" PRId64 " ms  segmentStart=%" PRId64
-				" ms  rate=%d  position=%lld ms", rawMs, startMs,
-				m_rate.load(std::memory_order_relaxed), result);
+			else
+			{
+				AAMPLOG_WARN("getPosition() failed");
+			}
 		}
 		else
 		{
-			AAMPLOG_WARN("getPosition() failed");
+			AAMPLOG_WARN("pipeline is null");
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("pipeline is null");
+		result = (rawMs >= 0) ? static_cast<long long>(rawMs) : 0LL;
+		AAMPLOG_INFO("FLUSHING state, result=%lld", result);
 	}
 
 	AAMPLOG_INFO("EXIT result=%lld", result);

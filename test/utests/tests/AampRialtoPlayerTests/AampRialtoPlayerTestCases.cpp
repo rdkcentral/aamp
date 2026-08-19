@@ -2659,6 +2659,96 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpected);
 }
 
+// During a mid-segment seek, Flush() writes the seek position as firstPtsMs
+// so that GetPositionMilliseconds() can return it immediately while the
+// pipeline is in FLUSHING state (before any sample arrives at the new
+// position).  This prevents position reporting from snapping to zero during
+// the flush window.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_WhileFlushing_ReturnsSeekPositionWithoutQueryingPipeline)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Seek to 30 s mid-segment.  setPosition returning true keeps the
+	// player in FLUSHING so the SEEK_DONE path is not yet taken.
+	constexpr double   kSeekSec   = 30.0;
+	constexpr int64_t  kSeekPosMs = 30'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(kSeekSec, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// Verify Flush() wrote the seek position into the concrete atomic.
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->AampRialtoMediaSource::firstPtsMs(),
+		kSeekPosMs);
+
+	// Delegate to the real atomic so the result depends on what Flush() stored.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault([this]() {
+			return m_mockSources[eMEDIATYPE_VIDEO]
+				->AampRialtoMediaSource::firstPtsMs();
+		});
+
+	// getPosition() must not be called while in FLUSHING state.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kSeekPosMs);
+
+	// Exit FLUSHING so TearDown() can clean up without blocking.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+}
+
+// After a mid-fragment seek the segment-start baseline is the seek position
+// (not the PTS of the first byte of the fragment).  When the pipeline reports
+// that same seek position as its current position on the first query after
+// SEEK_DONE, the elapsed calculation (queried - segmentStart) == 0 so the
+// reported position is 0 — correctly representing "just seeked, no elapsed
+// playback yet" rather than surfacing a non-zero fragment-offset blip.
+//
+// The test reads the concrete atomic (bypassing the mock override) to verify
+// that Flush() wrote the correct seek position, not a hard-coded stub.  The
+// mock getter is then delegated to that same atomic so GetPositionMilliseconds()
+// uses the value Flush() actually stored.  The test fails if Flush() omits
+// setFirstPtsMs(), sets the wrong position, or the elapsed calculation regresses.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterMidFragmentSeek_FirstQueryReturnsZero)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	constexpr double   kSeekSec   = 30.0;
+	constexpr int64_t  kSeekPosMs = 30'000LL;
+	constexpr int64_t  kSeekPosNs = 30'000'000'000LL;
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(kSeekSec, /*rate=*/1, /*shouldTearDown=*/false);
+
+	// Verify Flush() wrote the seek position into the concrete atomic.
+	// Fails if setFirstPtsMs() was not called or was called with a wrong value.
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->AampRialtoMediaSource::firstPtsMs(),
+		kSeekPosMs);
+
+	// Delegate the mock getter to the real atomic so GetPositionMilliseconds()
+	// uses what Flush() actually stored, not a hard-coded test constant.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault([this]() {
+			return m_mockSources[eMEDIATYPE_VIDEO]
+				->AampRialtoMediaSource::firstPtsMs();
+		});
+
+	// Rialto confirms the seek; player exits FLUSHING.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	// Pipeline reports exactly the seek position immediately after SEEK_DONE.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kSeekPosNs), Return(true)));
+
+	// (30000 - 30000) * 1 = 0: no elapsed time since the seek target.
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetDurationMilliseconds_ReturnsLatestNotifiedDuration)
 {
@@ -4115,9 +4205,11 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	Flush_CommitsRateOnlyAfterSeekDone)
 {
 	/**
-	 * @brief Flush() stages the pending rate immediately, but the active
-	 *        playback rate must change only once SEEK_DONE confirms the
-	 *        pipeline-level flushing seek completed - not while FLUSHING.
+	 * @brief Flush() stages the pending rate, but the rate multiplier must
+	 *        only be applied once SEEK_DONE confirms the flushing seek
+	 *        completed.  While FLUSHING, GetPositionMilliseconds() short-
+	 *        circuits to firstPtsMs() (the seek baseline) without querying
+	 *        the pipeline or applying the pending rate.
 	 */
 	Configure();
 	SendVideoInitFragment();
@@ -4131,8 +4223,6 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
 		/*videoMaster=*/false);
 
-	ON_CALL(*m_mockPipelinePtr, getPosition(_))
-		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
 	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
 		.WillByDefault(Return(0LL));
 
@@ -4140,10 +4230,14 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Still FLUSHING: the pending rate (-4) must not yet be active.
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
+	// FLUSHING: returns firstPtsMs() (0) directly — no pipeline query, no rate.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
 
-	// SEEK_DONE commits the pending rate as a single event.
+	// SEEK_DONE commits the pending rate (-4); subsequent query uses it.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
 }

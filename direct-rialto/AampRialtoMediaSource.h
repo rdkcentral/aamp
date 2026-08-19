@@ -39,6 +39,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -442,24 +443,33 @@ public:
 		bool morePending = false);
 
 	/// Sentinel value returned by firstPtsMs() when no sample has been
-	/// injected yet in the current session.  Mirrors the -1 sentinel
-	/// used by GStreamer's segmentStart in InterfacePlayerRDK.
-	static constexpr int64_t kFirstPtsNotSet = -1LL;
+	/// injected yet in the current session.
+	static constexpr int64_t kFirstPtsNotSet = std::numeric_limits<int64_t>::min();
 
 	/**
-	 * @brief PTS of the first sample injected since the last reset or
-	 *        unblockInjection().
+	 * @brief PTS (ms) of the segment-start baseline for this source.
 	 *
-	 * Set when the first addSegment() call succeeds in each session.
-	 * This avoids establishing a segment-start baseline for samples that
-	 * never become accepted pipeline content.
-	 * Returns kFirstPtsNotSet if no sample has been injected yet.
+	 * Normally set when the first addSegment() call succeeds in a session
+	 * (via a compare-exchange from kFirstPtsNotSet).  May also be written
+	 * directly by AampRialtoPlayer::Flush() via setFirstPtsMs() to
+	 * pre-stage the seek position as the baseline before the first sample
+	 * arrives (mid-fragment seek support).
+	 * Returns kFirstPtsNotSet if no baseline has been established yet.
 	 *
 	 * Used by AampRialtoPlayer::GetPositionMilliseconds() as the segment-
 	 * start baseline, mirroring GStreamer's segmentStart subtraction in
 	 * InterfacePlayerRDK::GetPositionMilliseconds().
 	 */
 	virtual int64_t firstPtsMs() const;
+
+	/**
+	 * @brief Overwrite the segment-start baseline with @p ptsMs.
+	 *
+	 * Called by Flush() to pre-stage the seek position so that
+	 * GetPositionMilliseconds() returns a meaningful value before the
+	 * first post-seek sample is injected.
+	 */
+	void setFirstPtsMs(int64_t ptsMs);
 
 	/**
 	 * @brief Signal end-of-stream for this source.
