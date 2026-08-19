@@ -75,6 +75,18 @@ public:
 					bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
+	 * @brief Supply the source URL of the next fragment passed to sendSegment()
+	 *
+	 * Appended to the per-segment restamp log line so it matches the line
+	 * IsoBmffHelper::RestampPts() emits when useMp4Demux=false. Consumed and cleared by the
+	 * next sendSegment() call. See the base class declaration for the full rationale.
+	 *
+	 * @param[in] fragmentUrl - URL the next fragment was downloaded from
+	 * @return void
+	 */
+	void SetNextFragmentUrl(const std::string& fragmentUrl) override { mNextFragmentUrl = fragmentUrl; }
+
+	/**
 	 * @brief Set playback rate
 	 *
 	 * @param[in] rate - playback rate
@@ -174,6 +186,7 @@ private:
 	bool mEnablePtsRestamp; // Flag to enable PTS restamping
 	// A separate flag to enable logging for PTS restamping for better control.
 	bool mEnablePtsRestampLogging {false}; // Flag to enable logging for PTS restamping
+	std::string mNextFragmentUrl;			/**< URL of the next fragment, for restamp logging only; consumed and cleared by sendSegment() */
 	
 	// Trickmode state variables
 	int mTrickPlayFPS {0};					/**< Trickplay frames per second */

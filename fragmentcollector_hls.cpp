@@ -1800,6 +1800,9 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}
 
+		// Restamp logging only: lets a processor that restamps internally append the fragment
+		// URL to its log line, as IsoBmffHelper::RestampPts() does on the non-mp4demux path.
+		playContext->SetNextFragmentUrl(cachedFragment->uri);
 		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment),
 			position.inSeconds(),
 			cachedFragment->duration,

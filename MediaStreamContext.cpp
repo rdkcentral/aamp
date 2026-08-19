@@ -47,6 +47,9 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
 		};
+		// Restamp logging only: lets a processor that restamps internally append the fragment
+		// URL to its log line, as IsoBmffHelper::RestampPts() does on the non-mp4demux path.
+		playContext->SetNextFragmentUrl(cachedFragment->uri);
 		fragmentDiscarded = !playContext->sendSegment(std::move(cachedFragment->fragment), cachedFragment->position,
 														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, std::move(processor), ptsError);
 	}

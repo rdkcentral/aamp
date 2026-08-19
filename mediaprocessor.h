@@ -30,6 +30,7 @@
 #include <stddef.h>
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 
@@ -103,6 +104,25 @@ public:
 	 */
 	virtual bool sendSegment(std::vector<uint8_t>&& buffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError) = 0;
+
+	/**
+	 * @brief Supply the source URL of the next fragment passed to sendSegment()
+	 *
+	 * Only used for restamp logging. On the non-mp4demux path the restamp line is emitted by
+	 * IsoBmffHelper::RestampPts(), which is called from MediaTrack with the fragment URL in
+	 * scope and appends it to the line; L2 tests match on that URL to confirm which specific
+	 * fragments were restamped (see AAMP-TSB-5007). An implementation that restamps
+	 * internally has no other way to reach the URL, so callers may supply it here.
+	 *
+	 * Consumed by the next sendSegment() call and then cleared, so a stale URL is never
+	 * attributed to a later fragment. Default implementation is a no-op: implementations that
+	 * do not log restamping need not override it, and callers without a URL need not call it.
+	 *
+	 * @param[in] fragmentUrl - URL the next fragment was downloaded from
+	 * @return void
+	 */
+	virtual void SetNextFragmentUrl(const std::string& fragmentUrl) { (void)fragmentUrl; }
+
 	/**
 	 * @brief Set playback rate
 	 *

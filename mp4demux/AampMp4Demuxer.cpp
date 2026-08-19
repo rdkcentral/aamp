@@ -228,6 +228,12 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 {
 	bool ret = true;
 	(void) processor;
+	// Take the URL supplied by SetNextFragmentUrl() and clear the member immediately, so it
+	// applies to this fragment only. If a caller does not set it for the next fragment the
+	// field is omitted rather than repeating a stale URL. Cleared on every path, including
+	// early returns below.
+	const std::string fragmentUrl = std::move(mNextFragmentUrl);
+	mNextFragmentUrl.clear();
 	if (mMp4Demux && !buffer.empty())
 	{
 		// Move the caller's buffer into a shared_ptr and pass ownership into
@@ -320,15 +326,23 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					// line is always emitted even when the offset is zero (see the comment in
 					// MediaTrack::ProcessAndInjectFragment), and one line per segment does not
 					// flood. The per-sample line above stays gated because that one does.
+					//
+					// The trailing URL matters too: the legacy line ends with the fragment URL and
+					// some tests match on it to confirm which specific fragments were restamped
+					// (AAMP-TSB-5007 distinguishes ad fragments that way). Callers supply it via
+					// SetNextFragmentUrl(); when they do not, the field is simply omitted, which
+					// the checker regex allows.
 					if (haveFirstSample && !isInit)
 					{
 						const uint32_t timeScale = mMp4Demux->GetTimeScale();
-						AAMPLOG_INFO("[RestampPts][%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64,
+						AAMPLOG_INFO("[RestampPts][%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 "%s%s",
 							GetMediaTypeName(mMediaType),
 							timeScale,
 							static_cast<uint64_t>(std::llround(segmentBeforeDts * timeScale)),
 							static_cast<uint64_t>(std::llround(segmentAfterDts * timeScale)),
-							static_cast<uint64_t>(std::llround(segmentDuration * timeScale)));
+							static_cast<uint64_t>(std::llround(segmentDuration * timeScale)),
+							fragmentUrl.empty() ? "" : " ",
+							fragmentUrl.c_str());
 					}
 				}
 			}
