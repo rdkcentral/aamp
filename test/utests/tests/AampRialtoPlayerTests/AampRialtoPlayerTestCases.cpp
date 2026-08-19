@@ -6050,6 +6050,73 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 /**
+ * @test MaybeFlushForPendingPosition() must not start a second, overlapping
+ *       flush while one is already resolving.  Discontinuity() arms
+ *       m_positionPending, but here an unrelated explicit seek
+ *       (SeekStreamSink(), e.g. a trickplay rate change) begins resolving a
+ *       position before the first post-discontinuity sample arrives - the
+ *       injection thread must simply wait behind that in-flight flush
+ *       (state==FLUSHING) rather than kicking off its own.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_PositionPending_DuringActiveFlush_DoesNotIssueOverlappingFlush)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	// An unrelated explicit seek (e.g. a trickplay rate change) begins
+	// resolving a position while m_positionPending is still armed from
+	// Discontinuity() above; setPosition() is async, so the player stays
+	// FLUSHING until SEEK_DONE arrives. This is the ONLY setPosition() call
+	// expected - if MaybeFlushForPendingPosition() were to issue a second,
+	// overlapping flush below, this expectation is violated.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_))
+		.Times(1).WillOnce(Return(true));
+	m_player->SeekStreamSink(10.0, 4.0);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// The still-pending discontinuity's first sample now arrives on the
+	// injection thread while the flush above is in flight.
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(_, _))
+		.WillByDefault(Return(true));
+
+	std::atomic<bool> sendDone{false};
+	std::thread sender([this, &sendDone]() {
+		m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(8.76, 0.04));
+		sendDone = true;
+	});
+
+	// The sample must simply wait behind the in-flight flush's gate, not
+	// complete early via a redundant flush of its own.
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load())
+		<< "sample must wait behind the in-flight flush, not resolve early "
+		   "via a redundant Flush() of its own";
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/1);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	sender.join();
+}
+
+/**
  * @test Stop() during the window ends the session; the pending position is
  *       moot and must not leave the player stuck (e.g. gated forever).
  */

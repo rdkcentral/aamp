@@ -1239,6 +1239,14 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 		return;
 	}
 
+	// A flush - explicit, or previously triggered from here - is already
+	// resolving the pending position; its SEEK_DONE will clear
+	// m_positionPending, so avoid issuing a second, overlapping Flush().
+	if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
+	{
+		return;
+	}
+
 	// Video carries the reference timeline; fall back to audio only when there
 	// is no attached video source to supply a PTS.
 	const auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
