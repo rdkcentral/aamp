@@ -3284,6 +3284,20 @@ void PrivateInstanceAAMP::SetBufferingState(bool buffering)
 bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
 {
 	bool ret_val = true;
+
+	// Serialize against SetRateInternal()'s direct resume call so GStreamer never receives a
+	// PAUSED request and a PLAYING request for the same transition concurrently (RDKEMW-21923
+	// freeze fix). This guards every caller of PausePipeline() (e.g. the underflow-recovery
+	// path as well as the first-frame-pause path), not just one call site.
+	// Bounded try_lock_for rather than an indefinite lock: this call site's own GStreamer work
+	// is capped by InterfacePlayerRDK's internal retry logic (~1s); the timeout here is
+	// defense-in-depth so a stalled state change can never hang the caller forever.
+	std::unique_lock<std::timed_mutex> pauseResumeLock(mPauseResumeMutex, std::defer_lock);
+	if (!pauseResumeLock.try_lock_for(std::chrono::milliseconds(PAUSE_RESUME_LOCK_TIMEOUT_MS)))
+	{
+		AAMPLOG_WARN("PausePipeline: timed out waiting %dms for an in-flight pipeline state change; proceeding anyway", PAUSE_RESUME_LOCK_TIMEOUT_MS);
+	}
+
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
@@ -6324,7 +6338,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				// shouldTearDown is set to false, because in case of a new tune pipeline
 				// might not be in a playing/paused state which causes Flush() to destroy
 				// pipeline. This has to be avoided.
-				sink->Flush(flushPosition, rate, false, seekWhilePaused);
+				sink->Flush(flushPosition, rate, false);
 			}
 		}
 
@@ -13818,6 +13832,19 @@ void PrivateInstanceAAMP::ReportID3Metadata(AampMediaType mediaType, std::vector
 bool PrivateInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
 {
 	return mPauseOnFirstVideoFrameDisp;
+}
+
+/**
+ * @brief Cancels a not-yet-fired pause-on-first-frame-displayed request (RDKEMW-21923 freeze fix)
+ */
+void PrivateInstanceAAMP::CancelPendingFirstFramePause(void)
+{
+	// Simple flag clear - if NotifyFirstVideoFrameDisplayed() hasn't reached its check yet,
+	// it will now see false and skip pausing entirely, rather than pausing and then being
+	// immediately reversed by this resume. If it has already progressed past the check and
+	// is inside PausePipeline(), this cancel is a no-op for that in-flight call; the mutex
+	// below still keeps the two calls from executing on the pipeline concurrently.
+	mPauseOnFirstVideoFrameDisp = false;
 }
 
 /**

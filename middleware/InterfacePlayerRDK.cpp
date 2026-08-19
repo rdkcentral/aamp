@@ -1568,7 +1568,7 @@ bool InterfacePlayerRDK::IsUsingRialtoSink()
 /**
  *  @brief Flush cached GstBuffers and set seek position & rate
  */
-bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek, bool keepPausedSeek)
+bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, bool isAppSeek)
 {
 	GstState aud_current;
 	GstState aud_pending;
@@ -1622,14 +1622,6 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	GstStateChangeReturn ret;
 	ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 100 * GST_MSECOND);
-	
-	if (GST_STATE_CHANGE_ASYNC == ret && keepPausedSeek)
-	{
-		MW_LOG_WARN("InterfacePlayerRDK: Flush requested during in-flight state change (current=%s pending=%s) - waiting to settle",
-			gst_element_state_get_name(current), gst_element_state_get_name(pending));
-		ret = gst_element_get_state(interfacePlayerPriv->gstPrivateContext->pipeline, &current, &pending, 300 * GST_MSECOND);
-	}
-
 	if ((current != GST_STATE_PLAYING && current != GST_STATE_PAUSED) || ret == GST_STATE_CHANGE_FAILURE)
 	{
 		MW_LOG_WARN("InterfacePlayerRDK: Pipeline state %s, ret %u", gst_element_state_get_name(current), ret);
@@ -3312,6 +3304,65 @@ void InterfacePlayerRDK::ClearProtectionEvent()
 	pthread_mutex_unlock(&mProtectionLock);
 }
 /**
+ * RDKEMW-21923 diagnostic: on a validateStateWithMsTimeout FAILURE, individually
+ * peek (0-timeout, non-blocking) each per-track source/sinkbin so the stall can be
+ * attributed to a specific element instead of only the aggregate pipeline-level
+ * State/Pending we already log. How to read the output when a FAILURE line is
+ * followed by these diag lines:
+ *   - every source AND sinkbin already reports rc=SUCCESS at the target state,
+ *     but the pipeline itself is still ASYNC -> the stall is in the
+ *     AAMPGstPlayerPipeline custom bin's own state aggregation (middleware code,
+ *     InterfacePlayerRDK.cpp/GstUtils, not a vendor plugin).
+ *   - a specific track's "source" (uridecodebin/demux/parse chain) is still
+ *     ASYNC/pending -> stall is upstream, in the AAMP-authored source element
+ *     setup or a demux/parser plugin feeding it.
+ *   - a specific track's "sinkbin" is still ASYNC/pending -> stall is downstream,
+ *     typically inside the vendor-supplied rendering sink (e.g.
+ *     westerossink/amlhalasink and the platform decoder behind it) waiting on a
+ *     buffer/resource that never arrived.
+ * This only runs on the FAILURE path (not on every successful poll), so it adds
+ * no log volume to the healthy case.
+ */
+static void DumpChildElementStatesOnFailure(InterfacePlayerRDK *pInterfacePlayerRDK)
+{
+	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	if (!privatePlayer || !privatePlayer->gstPrivateContext)
+	{
+		return;
+	}
+	static const char *trackName[GST_TRACK_COUNT] = { "VIDEO", "AUDIO", "SUBTITLE" };
+	for (int i = 0; i < GST_TRACK_COUNT; i++)
+	{
+		struct gst_media_stream *stream = &privatePlayer->gstPrivateContext->stream[i];
+		GstElement *elements[2] = { stream->source, stream->sinkbin };
+		const char *elementRole[2] = { "source", "sinkbin" };
+		for (int e = 0; e < 2; e++)
+		{
+			GstElement *el = elements[e];
+			if (el)
+			{
+				GstState cur = GST_STATE_VOID_PENDING;
+				GstState pending = GST_STATE_VOID_PENDING;
+				/* 0 timeout: non-blocking peek at last-known state, does not wait/poll */
+				GstStateChangeReturn rc = gst_element_get_state(el, &cur, &pending, 0);
+				MW_LOG_ERR("validateStateWithMsTimeout FAILURE diag - track=%s role=%s element=%s rc=%d current=%s pending=%s",
+						   trackName[i], elementRole[e], GST_ELEMENT_NAME(el), (int)rc,
+						   gst_element_state_get_name(cur), gst_element_state_get_name(pending));
+			}
+		}
+	}
+	if (privatePlayer->gstPrivateContext->pipeline)
+	{
+		GstState cur = GST_STATE_VOID_PENDING;
+		GstState pending = GST_STATE_VOID_PENDING;
+		GstStateChangeReturn rc = gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &cur, &pending, 0);
+		MW_LOG_ERR("validateStateWithMsTimeout FAILURE diag - track=PIPELINE role=AAMPGstPlayerPipeline element=%s rc=%d current=%s pending=%s",
+				   GST_ELEMENT_NAME(privatePlayer->gstPrivateContext->pipeline), (int)rc,
+				   gst_element_state_get_name(cur), gst_element_state_get_name(pending));
+	}
+}
+
+/**
  * @brief Validate pipeline state transition within a max timeout
  * @param[in] _this pointer to InterfacePlayerRDK instance
  * @param[in] stateToValidate state to be validated
@@ -3320,29 +3371,49 @@ void InterfacePlayerRDK::ClearProtectionEvent()
  */
 static GstState validateStateWithMsTimeout( InterfacePlayerRDK *pInterfacePlayerRDK, GstState stateToValidate, guint msTimeOut)
 {
-	GstState gst_current;
-	GstState gst_pending;
+	GstState gst_current = GST_STATE_VOID_PENDING;
+	GstState gst_pending = GST_STATE_VOID_PENDING;
 	float timeout = 100.0;
 	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
 	gint gstGetStateCnt = GST_ELEMENT_GET_STATE_RETRY_CNT_MAX;
+	GstStateChangeReturn ret;
 
 	do
 	{
-		if ((GST_STATE_CHANGE_SUCCESS
-			 == gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &gst_current, &gst_pending, timeout * GST_MSECOND))
-			&& (gst_current == stateToValidate))
+		ret = gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &gst_current, &gst_pending, timeout * GST_MSECOND);
+		if ((GST_STATE_CHANGE_SUCCESS == ret) && (gst_current == stateToValidate))
 		{
 			GST_WARNING(
 						"validateStateWithMsTimeout - PIPELINE gst_element_get_state - SUCCESS : State = %d, Pending = %d",
 						gst_current, gst_pending);
 			return gst_current;
 		}
+		// RDKEMW-21923-class fix: the previous loop condition below re-checked only
+		// (gst_current != stateToValidate). That snapshot can already equal
+		// stateToValidate on an early poll even when ret != SUCCESS (i.e. the bin's
+		// "current" field already reports the target but the transition has not
+		// actually committed - confirmed in the field: playbin2/playbin3 completed
+		// their real async-done 130-600ms *after* this function had already logged
+		// FAILURE on the very first 100ms poll). That made the loop exit after a
+		// single iteration instead of using the intended
+		// GST_ELEMENT_GET_STATE_RETRY_CNT_MAX * msTimeOut retry budget, so a
+		// transition that was genuinely still in flight and about to succeed on its
+		// own got reported as a hard failure. Retry based on the actual return code
+		// instead: keep polling on ASYNC (still in progress) up to the retry budget,
+		// but stop immediately on a genuine GST_STATE_CHANGE_FAILURE since no amount
+		// of extra waiting fixes that case (see the separate, permanently-stuck
+		// playbin wedge investigated under this same ticket).
+		if (GST_STATE_CHANGE_FAILURE == ret)
+		{
+			break;
+		}
 		g_usleep (msTimeOut * 1000); // Let pipeline safely transition to required state
 	}
-	while ((gst_current != stateToValidate) && (gstGetStateCnt-- != 0));
+	while (gstGetStateCnt-- != 0);
 
 	MW_LOG_ERR("validateStateWithMsTimeout - PIPELINE gst_element_get_state - FAILURE : State = %d, Pending = %d",
 			   gst_current, gst_pending);
+	DumpChildElementStatesOnFailure(pInterfacePlayerRDK);
 	return gst_current;
 }
 
@@ -3376,14 +3447,19 @@ bool InterfacePlayerRDK::Pause(bool pause , bool forceStopGstreamerPreBuffering)
 			/* wait a bit longer for the state change to conclude */
 			if (nextState != validateStateWithMsTimeout(this,nextState, 100))
 			{
-				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED GstState %d ret-false", nextState);
+				MW_LOG_ERR("InterfacePlayerRDK_Pause - validateStateWithMsTimeout - FAILED GstState %d", nextState);
+				// RDKEMW-21923-class fix: this was previously swallowed - callers (AAMPGstPlayer::Pause(),
+				// PrivateInstanceAAMP::PausePipeline(), SetRateInternal()) all treated this as success,
+				// so mSinkPaused/paused-bookkeeping got set to a state GStreamer never actually confirmed,
+				// with no code path left to detect or retry it - a permanent freeze/black-screen/banner
+				// with no self-recovery. Propagate the failure instead.
 				retValue = false;
 			}
 		}
 		else if (GST_STATE_CHANGE_SUCCESS != rc)
 		{
-			MW_LOG_ERR("InterfacePlayerRDK_Pause - gst_element_set_state - FAILED rc %d ret-false", rc);
-			retValue = false;
+			MW_LOG_ERR("InterfacePlayerRDK_Pause - gst_element_set_state - FAILED rc %d", rc);
+			retValue = false; // RDKEMW-21923-class fix: same rationale as above
 		}
 		
 		interfacePlayerPriv->gstPrivateContext->buffering_target_state = nextState;

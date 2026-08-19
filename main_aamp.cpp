@@ -903,6 +903,20 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					else
 					{
+						// Cancel a not-yet-fired pause-on-first-frame request outright, rather than letting
+						// it fire and then immediately reversing it - this resume supersedes that stale intent
+						// (RDKEMW-21923 freeze fix).
+						aamp->CancelPendingFirstFramePause();
+
+						// Bounded wait (not indefinite) in case a pause is already in flight inside
+						// PausePipeline() - see mPauseResumeMutex. If it times out we proceed anyway rather
+						// than risk hanging this thread (AampScheduler's single worker) forever.
+						std::unique_lock<std::timed_mutex> pauseResumeLock(aamp->mPauseResumeMutex, std::defer_lock);
+						if (!pauseResumeLock.try_lock_for(std::chrono::milliseconds(PrivateInstanceAAMP::PAUSE_RESUME_LOCK_TIMEOUT_MS)))
+						{
+							AAMPLOG_WARN("SetRateInternal: timed out waiting for an in-flight pause; proceeding with resume anyway");
+						}
+
 						// check if unpausing in the middle of fragments caching
 						if(!aamp->SetStateBufferingIfRequired())
 						{
@@ -912,37 +926,28 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							{
 								retValue = sink->Pause(false, false);
 							}
-							
-							if (sink && !retValue)
-							{
-								// Pipeline resume did not complete (async PAUSED->PLAYING wedged by a
-								// rapid trickplay->seek->resume race - seen on both VOD and FOG-TSB linear).
-								// Recover by re-seeking to the current position: the same mechanism theExpand commentComment on lines R920 to R924Resolved
-								// local-TSB resume path uses. Works uniformly for VOD, FOG-TSB & local TSB.
-								AAMPLOG_WARN("SetRateInternal: pipeline resume failed (GstState timeout); recovering via re-seek");
-								aamp->SetState(eSTATE_SEEKING);
-								aamp->seek_pos_seconds = aamp->GetPositionSeconds();
-								aamp->rate = AAMP_NORMAL_PLAY_RATE;
-								aamp->mSinkPaused = false;
-								{
-									std::lock_guard<std::recursive_mutex> lock(aamp->GetStreamLock());
-									aamp->TuneHelper(eTUNETYPE_SEEK, false);
-								}
-
-								// Skip common notification (like local-TSB path): state -> PLAYING
-								// via NotifyFirstBufferProcessed once fragments arrive.
-								retValue = false;
-								aamp->NotifySpeedChanged(aamp->rate, false);
-							}
-							else
-							{
-								// required since buffers are already cached in paused state
-								aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
-							}							
-							
+							// required since buffers are already cached in paused state
+							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 						}
 					}
-					aamp->mSinkPaused = false;
+					// RDKEMW-21923-class fix: only trust the sink as resumed if the underlying
+					// Pause(false, ...) actually confirmed it (retValue - see line ~928 above).
+					// Previously this was set unconditionally, so a genuine middleware/GStreamer
+					// failure to reach PLAYING (validateStateWithMsTimeout FAILURE, now propagated
+					// as retValue=false - see InterfacePlayerRDK::Pause()) still got recorded here
+					// as "playing", leaving no path to detect or retry the still-paused pipeline -
+					// a permanent freeze/black-screen/banner with no self-recovery. On failure, leave
+					// mSinkPaused as-is (still true) so the next explicit play request retries instead
+					// of being silently skipped by the mSinkPaused.load() check above.
+					if (retValue)
+					{
+						aamp->mSinkPaused = false;
+						AAMPLOG_INFO("SetRateIntenral: resume success ");
+					}
+					else
+					{
+						AAMPLOG_ERR("SetRateInternal: resume failed to unpause the sink - leaving mSinkPaused=true so a subsequent resume can retry");
+					}
 					aamp->ResumeDownloads();
 				}
 			}
