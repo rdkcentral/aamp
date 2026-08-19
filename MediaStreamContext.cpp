@@ -239,17 +239,23 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 				if (eTRACK_VIDEO == type)
 				{
 					// Notify the underflow monitor for LL-DASH chunks.
+					// Paused-state gating to 0.0f is handled inside
+					// NotifyVideoFragmentToUnderflowMonitor under its mutex.
 					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
 						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
 						aamp->rate);
-					// Notify the latency monitor so it can wake its worker early on
-					// danger-buffer onset rather than waiting for the next scheduled poll.
+					const double videoBufferMs = GetContext()->GetBufferedVideoDurationSec() * 1000.0;
+					if (videoBufferMs >= 0.0)
 					{
-						const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
-						if (bufferMs >= 0.0)
-						{
-							GetContext()->NotifyBufferLevelToLatencyMonitor(bufferMs);
-						}
+						GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_VIDEO, videoBufferMs);
+					}
+				}
+				else if (eTRACK_AUDIO == type)
+				{
+					const double audioBufferMs = GetContext()->GetBufferedAudioDurationSec() * 1000.0;
+					if (audioBufferMs >= 0.0)
+					{
+						GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_AUDIO, audioBufferMs);
 					}
 				}
 			}
@@ -751,17 +757,23 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		// reset count on video fragment success
 		context->mRampDownCount = 0;
 		// Notify the underflow monitor — re-arms the drain deadline.
+		// Paused-state gating to 0.0f is handled inside
+		// NotifyVideoFragmentToUnderflowMonitor under its mutex.
 		context->NotifyVideoFragmentToUnderflowMonitor(
 			dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
 			aamp->rate);
-		// Notify the latency monitor so it can wake its worker early on
-		// danger-buffer onset rather than waiting for the next scheduled poll.
+		const double videoBufferMs = aamp->GetVideoBufferedDurationSecs() * 1000.0;
+		if (videoBufferMs >= 0.0)
 		{
-			const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
-			if (bufferMs >= 0.0)
-			{
-				context->NotifyBufferLevelToLatencyMonitor(bufferMs);
-			}
+			context->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_VIDEO, videoBufferMs);
+		}
+	}
+	else if ((eTRACK_AUDIO == type) && (!dlInfo->isInitSegment))
+	{
+		const double audioBufferMs = aamp->GetAudioBufferedDurationSecs() * 1000.0;
+		if (audioBufferMs >= 0.0)
+		{
+			context->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_AUDIO, audioBufferMs);
 		}
 	}
 

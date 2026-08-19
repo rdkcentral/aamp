@@ -1165,7 +1165,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 		// after pipeline reinitialisation.  Without this call the monitor would fire
 		// during the flush gap and falsely pause the pipeline, preventing GST_MESSAGE_EOS
 		// from being processed and AAMP_EVENT_STATE_CHANGED: COMPLETE from ever firing.
-		if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) && aamp->mpStreamAbstractionAAMP)
+		if (aamp->mpStreamAbstractionAAMP)
 		{
 			aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 		}
