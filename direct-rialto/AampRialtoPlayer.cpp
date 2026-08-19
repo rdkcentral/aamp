@@ -1470,14 +1470,11 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// m_firstPtsMs is reset automatically on each source by
 	// unblockInjection() (called above). Set the flush position
 	// as the firstPTS to establish fresh segment-start baseline.
-	if (posNs > 0)
+	for (auto &source : m_sources)
 	{
-		for (auto &source : m_sources)
+		if (source)
 		{
-			if (source)
-			{
-				source->setFirstPtsMs(posNs / (kNsPerSecond / 1000));
-			}
+			source->setFirstPtsMs(posNs / (kNsPerSecond / 1000));
 		}
 	}
 
@@ -1569,7 +1566,7 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 			if (m_pipeline->getPosition(queriedNs))
 			{
 				rawMs = queriedNs / kNsPerMs;
-				if (startMs >= 0)
+				if (startMs != AampRialtoMediaSource::kFirstPtsNotSet)
 				{
 					const int rate = m_rate.load(std::memory_order_relaxed);
 					const int64_t elapsed = rawMs - startMs;

@@ -4523,22 +4523,27 @@ double StreamAbstractionAAMP_HLS::GetFirstPTS()
 	AampTime pts{};
 	if(mStartTimestampZero)
 	{
+		AAMPLOG_INFO("mStartTimestampZero. pts=%f mFirstPTS=%f midSeekPtsOffset=%f", pts.inSeconds(), mFirstPTS.inSeconds(), midSeekPtsOffset.inSeconds());
 		// For CMAF assets, we employ isobmffprocessor to get the PTS value since its not
 		// known from manifest. mFirstPTS will be populated only if platform has qtdemux override enabled.
 		// We check for only video, since mFirstPTS is first video frame's PTS.
 		if (trackState[eMEDIATYPE_VIDEO]->streamOutputFormat == FORMAT_ISO_BMFF && mFirstPTS != 0)
 		{
+			AAMPLOG_INFO("FORMAT_ISO_BMFF && mFirstPTS != 0. pts=%f mFirstPTS=%f midSeekPtsOffset=%f", pts.inSeconds(), mFirstPTS.inSeconds(), midSeekPtsOffset.inSeconds());
 			pts += mFirstPTS;
 		}
+		//if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek) && midSeekPtsOffset > 0.0)//anj
 		if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 		{
 			pts += midSeekPtsOffset;
+			AAMPLOG_INFO("Added midSeekPtsOffset to pts. pts=%f mFirstPTS=%f midSeekPtsOffset=%f", pts.inSeconds(), mFirstPTS.inSeconds(), midSeekPtsOffset.inSeconds());
 		}
 	}
 	else
 	{
 		pts = seekPosition;
 	}
+	AAMPLOG_INFO("pts=%f mFirstPTS=%f midSeekPtsOffset=%f", pts.inSeconds(), mFirstPTS.inSeconds(), midSeekPtsOffset.inSeconds());
 	return pts.inSeconds();
 }
 
