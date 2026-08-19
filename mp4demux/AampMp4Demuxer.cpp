@@ -27,6 +27,7 @@
 #include "AampUtils.h"
 #include "AampConfig.h"
 #include <cmath>
+#include <cinttypes>
 
 
 /**
@@ -155,6 +156,11 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	double originalDuration = sample.mDuration;
 	double fragmentPtsDelta = 0.0;
 	double restampedDuration = 0.0;
+	// Phase on entry. The "state" field logged below reports mTrickPhase after the switch, and
+	// every branch transitions to STEADY, so it cannot tell you which branch actually ran. The
+	// entry phase is what determines the expected restamped pts and duration, so it is logged
+	// as a separate "phase" field for the L2 restamp checks.
+	const Mp4TrickPhase entryPhase = mTrickPhase;
 
 	// All phase transitions are owned here.
 	switch (mTrickPhase)
@@ -194,8 +200,9 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	sample.mDts = mRestampedPts;
 	sample.mDuration = restampedDuration;
 
-	// Single comprehensive log line
-	AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d origPTS %.6f origDTS %.6f origDur %.6f restampedPTS %.6f restampedDTS %.6f restampedDur %.6f lastSamplePTS %.6f inputDuration %.6f",
+	// Single comprehensive log line. The field names and order up to inputDuration are parsed by
+	// the L2 tests, so new fields are appended rather than inserted or renamed.
+	AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d origPTS %.6f origDTS %.6f origDur %.6f restampedPTS %.6f restampedDTS %.6f restampedDur %.6f lastSamplePTS %.6f inputDuration %.6f phase %d",
 		static_cast<int>(mTrickPhase),
 		mRate,
 		mTrickPlayFPS,
@@ -206,7 +213,8 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 		sample.mDts,
 		sample.mDuration,
 		mLastSamplePts,
-		duration);
+		duration,
+		static_cast<int>(entryPhase));
 }
 /**
  * @fn sendSegment
@@ -257,6 +265,12 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 				}
 				else
 				{
+					// Accumulated for the per-segment restamp summary logged after the loop.
+					bool haveFirstSample = false;
+					double segmentBeforeDts = 0.0;
+					double segmentAfterDts = 0.0;
+					double segmentDuration = 0.0;
+
 					for (auto& sample : samples)
 					{
 						if (mEnablePtsRestamp)
@@ -264,6 +278,14 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							const double beforeDTS = sample.mDts;
 							sample.mPts += fragmentPTSoffset;
 							sample.mDts += fragmentPTSoffset;
+							if (!haveFirstSample)
+							{
+								segmentBeforeDts = beforeDTS;
+								segmentAfterDts = sample.mDts;
+								haveFirstSample = true;
+							}
+							// Read before the sample is moved below.
+							segmentDuration += sample.mDuration;
 							if (mEnablePtsRestampLogging)
 							{
 								const uint32_t timeScale = mMp4Demux->GetTimeScale();
@@ -276,6 +298,26 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							}
 						}
 						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
+					}
+
+					// Per-segment summary in the same shape as the line IsoBmffHelper::RestampPts()
+					// emits when useMp4Demux=false, so restamp verification works identically on
+					// both paths. Values are in timescale ticks: the first sample's decode time
+					// before and after the offset, and the container duration of the segment.
+					//
+					// Deliberately not gated on eAAMPConfig_EnablePTSReStampLogging. The legacy
+					// line is always emitted even when the offset is zero (see the comment in
+					// MediaTrack::ProcessAndInjectFragment), and one line per segment does not
+					// flood. The per-sample line above stays gated because that one does.
+					if (haveFirstSample && !isInit)
+					{
+						const uint32_t timeScale = mMp4Demux->GetTimeScale();
+						AAMPLOG_INFO("[RestampPts][%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64,
+							GetMediaTypeName(mMediaType),
+							timeScale,
+							static_cast<uint64_t>(std::llround(segmentBeforeDts * timeScale)),
+							static_cast<uint64_t>(std::llround(segmentAfterDts * timeScale)),
+							static_cast<uint64_t>(std::llround(segmentDuration * timeScale)));
 					}
 				}
 			}
