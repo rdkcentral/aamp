@@ -78,7 +78,7 @@ constexpr int64_t kMinPlayDurationNs = 1000000000LL; // 1 second
 // racing a trickplay reader to the start of the buffer and signalling a
 // premature EOS.  Expressed in the pipeline (restamped) timebase, so it
 // applies equally to normal play and trickplay.
-constexpr int64_t kBufferHighWaterNs = 20000000000LL; // 20 seconds
+constexpr int64_t kBufferHighWaterNs = 40000000000LL; // 40 seconds
 
 // Number of frames requested per needMediaData.  A real pipeline only asks
 // for as much data as its buffers can currently accept; modelling that with
