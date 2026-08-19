@@ -29,10 +29,12 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <limits>
 #include <mutex>
 #include <thread>
 #include <tuple>
 #include "AampDefine.h"
+#include "AampMediaType.h"
 
 class PrivateInstanceAAMP;
 
@@ -225,20 +227,16 @@ public:
 	double GetAccumulatedLatencyIncrementMs() const;
 
 	/**
-	 * @brief Notify the monitor of the current buffer level.
-	 * When @p bufferMs is **below** dangerBufferMs and the episode guard
-	 * (mBelowDangerShifted) is clear, the worker thread is signalled to wake
-	 * early so it can apply the threshold shift on its next iteration rather
-	 * than waiting for the next scheduled poll interval.  Subsequent
-	 * notifications within the same episode are no-ops (the episode guard
-	 * suppresses redundant wake-ups).
-	 *
-	 * When @p bufferMs is **at or above** dangerBufferMs and a danger episode
-	 * is active (mBelowDangerShifted is set), Run() is woken once so it can
-	 * clear the episode guard and start the restoration timer from the accurate
-	 * moment of recovery. Run() owns all state transitions; mBelowDangerShifted
-	 * is never written here.
-	 *
+	 * @brief Notify the monitor of the current buffer level for one track.
+	 * The effective buffer level is the minimum of the last-known video and
+	 * audio buffer levels.  The monitor uses this to determine whether the stream is
+	 * healthy or in danger of rebuffering, and to apply the adaptive threshold
+	 * shift when the buffer is below dangerBufferMs.
+	 * signalled to wake early so it can apply the threshold shift on its next
+	 * iteration rather than waiting for the next scheduled poll interval.
+	 * Subsequent notifications within the same episode are no-ops (the episode
+	 * guard suppresses redundant wake-ups).
+
 	 * A negative @p bufferMs (the sentinel returned by
 	 * GetBufferedDurationSecs() on lock-contention) is silently ignored so
 	 * that a transient read failure cannot trigger a spurious wakeup.
@@ -250,10 +248,11 @@ public:
 	 *
 	 * Thread-safe (mBelowDangerShifted is atomic; wakeup uses mSleepMutex).
 	 *
-	 * @param[in] bufferMs  Current buffered duration in milliseconds,
-	 *                      or a negative sentinel if the measurement is unavailable.
+	 * @param[in] mediaType  Track type (eMEDIATYPE_VIDEO or eMEDIATYPE_AUDIO).
+	 * @param[in] bufferMs   Current buffered duration for that track in milliseconds,
+	 *                       or a negative sentinel if the measurement is unavailable.
 	 */
-	void OnBufferLevelUpdate(double bufferMs);
+	void OnBufferLevelUpdate(AampMediaType mediaType, double bufferMs);
 
 private:
 

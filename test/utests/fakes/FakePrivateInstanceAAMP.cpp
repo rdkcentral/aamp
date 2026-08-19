@@ -479,6 +479,24 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	return 0.0;
 }
 
+double PrivateInstanceAAMP::GetVideoBufferedDurationSecs()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->GetVideoBufferedDurationSecs();
+	}
+	return 0.0;
+}
+
+double PrivateInstanceAAMP::GetAudioBufferedDurationSecs()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->GetAudioBufferedDurationSecs();
+	}
+	return 0.0;
+}
+
 bool PrivateInstanceAAMP::IsAdPlaying()
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
@@ -1680,7 +1698,7 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
 }
 
-void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 }
 

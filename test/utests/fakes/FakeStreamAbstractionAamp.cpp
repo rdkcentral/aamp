@@ -67,7 +67,7 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	}
 }
 
-void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 }
 

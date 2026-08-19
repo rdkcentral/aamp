@@ -244,14 +244,18 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
 						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
 						aamp->rate);
-					// Notify the latency monitor so it can wake its worker early on
-					// danger-buffer onset rather than waiting for the next scheduled poll.
+					const double videoBufferMs = GetContext()->GetBufferedVideoDurationSec() * 1000.0;
+					if (videoBufferMs >= 0.0)
 					{
-						const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
-						if (bufferMs >= 0.0)
-						{
-							GetContext()->NotifyBufferLevelToLatencyMonitor(bufferMs);
-						}
+						GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_VIDEO, videoBufferMs);
+					}
+				}
+				else if (eTRACK_AUDIO == type)
+				{
+					const double audioBufferMs = GetContext()->GetBufferedAudioDurationSec() * 1000.0;
+					if (audioBufferMs >= 0.0)
+					{
+						GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_AUDIO, audioBufferMs);
 					}
 				}
 			}
@@ -758,14 +762,18 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		context->NotifyVideoFragmentToUnderflowMonitor(
 			dlInfo->absolutePosition + dlInfo->fragmentDurationSec,
 			aamp->rate);
-		// Notify the latency monitor so it can wake its worker early on
-		// danger-buffer onset rather than waiting for the next scheduled poll.
+		const double videoBufferMs = aamp->GetVideoBufferedDurationSecs() * 1000.0;
+		if (videoBufferMs >= 0.0)
 		{
-			const double bufferMs = aamp->GetBufferedDurationSecs() * 1000.0;
-			if (bufferMs >= 0.0)
-			{
-				context->NotifyBufferLevelToLatencyMonitor(bufferMs);
-			}
+			context->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_VIDEO, videoBufferMs);
+		}
+	}
+	else if ((eTRACK_AUDIO == type) && (!dlInfo->isInitSegment))
+	{
+		const double audioBufferMs = aamp->GetAudioBufferedDurationSecs() * 1000.0;
+		if (audioBufferMs >= 0.0)
+		{
+			context->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_AUDIO, audioBufferMs);
 		}
 	}
 
