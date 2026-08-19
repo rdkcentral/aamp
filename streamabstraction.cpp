@@ -1225,8 +1225,8 @@ void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &pos
 	// Update cached values for GStreamer
 	position = mRestampedPts.inSeconds();
 
-	AAMPLOG_INFO("state %d rate %f trickPlayFPS %d initFragment %d discontinuity %d "
-				 "position %lfs duration %lfs restamped position %lfs duration %lfs",
+	AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d initFragment %d discontinuity %d "
+				 "position %fs duration %fs restampedPTS %fs restampedDur %fs",
 				 static_cast<int>(mTrickmodeState),
 				 aamp->rate, trickPlayFPS, initFragment, discontinuity,
 				 inFragmentPosition.inSeconds(), inFragmentDuration.inSeconds(),
