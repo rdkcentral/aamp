@@ -1239,9 +1239,11 @@ void AampRialtoPlayer::MaybeFlushForPendingPosition(
 		return;
 	}
 
-	// A flush - explicit, or previously triggered from here - is already
-	// resolving the pending position; its SEEK_DONE will clear
-	// m_positionPending, so avoid issuing a second, overlapping Flush().
+	// Flush() clears m_positionPending as soon as it commits to a position,
+	// so reaching here with it still true while FLUSHING means a concurrent
+	// Discontinuity() re-armed it for a new period after that flush was
+	// already claimed - its SEEK_DONE is for the earlier position, so avoid
+	// issuing a second, overlapping Flush() for this one until it clears.
 	if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
 	{
 		return;
@@ -1460,6 +1462,13 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
 	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
 
+	// The position this call was armed to resolve is now known (staged
+	// above), regardless of which branch below is taken - clear it here,
+	// synchronously, rather than waiting on an async SEEK_DONE that may not
+	// even happen (teardown / non-flushable paths), so a sample injected
+	// concurrently does not try to resolve an already-resolved position.
+	m_positionPending.store(false, std::memory_order_relaxed);
+
 	// Step 2: Decide whether to tear down or flush based on current state.
 	// This check happens BEFORE claiming FLUSHING so that Stop() — which
 	// also calls WaitForFlushToComplete() at its start — does not deadlock
@@ -1575,7 +1584,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			m_rate.store(
 				m_pendingFlushRate.load(std::memory_order_relaxed),
 				std::memory_order_relaxed);
-			m_positionPending.store(false, std::memory_order_relaxed);
 			{
 				std::lock_guard<std::mutex> lock(m_flushMutex);
 				m_stateMachine.onFlushComplete();
@@ -1592,7 +1600,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 			std::memory_order_relaxed);
 		AAMPLOG_INFO("No pipeline during flush - committed playback rate=%d",
 			m_rate.load(std::memory_order_relaxed));
-		m_positionPending.store(false, std::memory_order_relaxed);
 		{
 			std::lock_guard<std::mutex> lock(m_flushMutex);
 			m_stateMachine.onFlushComplete();
@@ -2592,12 +2599,11 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// mid-fragment, so the first sample's own PTS is not reliable.
 			m_segmentStartPositionNs.store(posNs, std::memory_order_relaxed);
 
-			// This SEEK_DONE resolves whatever position was pending (an
-			// explicit caller-issued Flush(), or the implicit one from
-			// MaybeFlushForPendingPosition()); Configure()'s gate and
-			// Stream()'s defer are both keyed off m_positionPending, so it
-			// must be cleared before the ungate/play() decision below.
-			m_positionPending.store(false, std::memory_order_relaxed);
+			// m_positionPending was already cleared synchronously when
+			// Flush() entered this cycle (not deferred to here) - clearing
+			// it again on this SEEK_DONE would wrongly discard a re-arm
+			// from a Discontinuity() that landed for a newer period while
+			// this flush was still in flight.
 
 			// Transition FLUSHING -> FLUSHED and wake any thread blocked in
 			// WaitForFlushToComplete(). FLUSHED does not restore the

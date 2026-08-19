@@ -488,7 +488,10 @@ private:
 	/// True when the player has no established position for the current
 	/// period. Cleared once a position is (re)established: either
 	/// AttachSource() commits a definitive baseline for a newly-attached
-	/// video source, or Flush() resolves it (onFlushComplete()/SEEK_DONE).
+	/// video source, or Flush() commits to one - cleared synchronously as
+	/// soon as Flush() enters (flushable or staging-only path), not
+	/// deferred until SEEK_DONE, so a sample injected while that flush is
+	/// still resolving does not try to resolve it a second time.
 	/// Generalizes the old DISCONTINUITY state to any "position not yet
 	/// known" window - notably HLS fMP4, where neither
 	/// ProcessPendingDiscontinuity() nor an ordinary TuneHelper(SEEK) issues
