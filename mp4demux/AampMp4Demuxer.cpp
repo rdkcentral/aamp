@@ -198,8 +198,10 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	sample.mPts = mRestampedPts;
 	sample.mDts = mRestampedPts;
 	sample.mDuration = restampedDuration;
-
-	// This matches the same log line in streamabstraction.cpp and are used in the L2 tests
+	// The first two rows of this log line mirror the format emitted by
+	// MediaTrack::TrickModePtsRestamp() in streamabstraction.cpp so that one L2
+	// regex parses both the mp4demux and non-mp4demux paths. Field names and order
+	// are parsed by the L2 tests — append new fields, do not insert or rename.
 	AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d initFragment %d discontinuity %d "
 				 "position %fs duration %fs restampedPTS %fs restampedDur %fs",
 				 static_cast<int>(lastTrickPhase), mRate, mTrickPlayFPS, init, discontinuity,
