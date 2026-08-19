@@ -150,7 +150,7 @@ private:
 	 * @param[in] duration - Fragment duration
 	 * @param[in] discontinuous - True if this sample begins a discontinuous segment
 	 */
-	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous);
+	void TrickModePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous);
 
 	/**
 	 * @brief Handle trickmode discontinuity by pre-advancing state machine
