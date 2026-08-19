@@ -458,6 +458,16 @@ private:
 	/// -1 means no flush position has been set yet.
 	std::atomic<int64_t> m_pendingPositionNs{-1};
 
+	/// Position (ns) the current segment actually started at: either the
+	/// value consumed by AttachSource() when the video source newly attaches
+	/// (covers the first tune, and content types where Flush() pre-stages a
+	/// position before any source is attached - see DoStreamSinkFlushOnDiscontinuity
+	/// in priv_aamp.cpp), or the value committed by the SEEK_DONE handler for
+	/// a later mid-playback Flush()/seek.  Used by GetPositionMilliseconds()
+	/// as the segment-start baseline instead of the first injected sample's
+	/// own PTS, since a flush/seek position can land mid-fragment.
+	std::atomic<int64_t> m_segmentStartPositionNs{0};
+
 	/// Set by Stream(); cleared once play() is issued.  Lets us defer the
 	/// play() call until after allSourcesAttached() so the Rialto server
 	/// transitions PAUSED→PLAYING only after all sources are registered.

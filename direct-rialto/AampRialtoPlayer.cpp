@@ -1042,9 +1042,12 @@ void AampRialtoPlayer::AttachSource(
 	const double appliedRate = computeAppliedRate(
 		m_pendingFlushRate.load(std::memory_order_relaxed), type);
 
+	const int64_t attachPositionNs =
+		m_pendingPositionNs.load(std::memory_order_relaxed);
+
 	auto result = source.attachOrUpdate(
 		*m_pipeline, codecInfo, m_drmBridge.get(),
-		m_pendingPositionNs.load(std::memory_order_relaxed),
+		attachPositionNs,
 		protectionCopy,
 		appliedRate);
 
@@ -1071,6 +1074,15 @@ void AampRialtoPlayer::AttachSource(
 
 	if (result == AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED)
 	{
+		// This attach establishes the segment's actual start position -
+		// -1 (no Flush() ever staged one) means the segment starts at 0.
+		if (type == eMEDIATYPE_VIDEO)
+		{
+			m_segmentStartPositionNs.store(
+				std::max<int64_t>(0, attachPositionNs),
+				std::memory_order_relaxed);
+		}
+
 		// After video attaches, drain any non-video sources that were deferred
 		// by the video-before-audio ordering theory above.
 		if (type == eMEDIATYPE_VIDEO)
@@ -1419,7 +1431,16 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// Stage the requested position/rate unconditionally, before the
 	// teardown/flushable branching below, so every exit path (including
 	// the Stop(true) teardown path) records the caller's intent.
-	const int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	// Clamp to >= 0: no caller has a legitimate reason to seek before the
+	// start of the timeline, and a negative value would otherwise flow
+	// unclamped into the pipeline-level setPosition() call and the
+	// SEEK_DONE-committed segment-start baseline (m_segmentStartPositionNs).
+	int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
+	if (posNs < 0)
+	{
+		AAMPLOG_WARN("Negative position=%f requested - clamping to 0", position);
+		posNs = 0;
+	}
 	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
 	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
 
@@ -1564,8 +1585,9 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	}
 
 	// m_firstPtsMs is reset automatically on each source by
-	// unblockInjection() (called above), so the next injection into
-	// the video source establishes the fresh segment-start baseline.
+	// unblockInjection() (called above); Discontinuity() uses it to reject
+	// a discontinuity for a track that has not injected any sample since
+	// this flush.
 
 	AAMPLOG_INFO("EXIT");
 }
@@ -1629,44 +1651,51 @@ long long AampRialtoPlayer::GetPositionMilliseconds()
 {
 	AAMPLOG_INFO("ENTRY");
 
-	// Segment-start: PTS (ms) of the first video sample injected since the
-	// last Configure/Flush.  Mirrors GStreamer's segmentStart, which is
-	// derived from the segment event pushed before the first buffer.
-	// kFirstPtsNotSet (-1) means no sample has arrived yet -> return 0.
-	const auto *videoSource = m_sources[eMEDIATYPE_VIDEO].get();
-	const int64_t startMs = videoSource
-		? videoSource->firstPtsMs()
-		: AampRialtoMediaSource::kFirstPtsNotSet;
-
-	// Initialise rawMs to startMs: if the pipeline is unavailable or its
-	// query fails, the subtraction (rawMs - startMs) correctly yields 0
-	// rather than surfacing a potentially stale cached value.
-	int64_t rawMs = startMs;
+	constexpr int64_t kNsPerMs = 1'000'000LL;
 	long long result = 0LL;
+
+	if (m_stateMachine.currentState() == PlayerStateId::FLUSHING)
+	{
+		// Seek in progress - the pipeline hasn't confirmed the new position
+		// via SEEK_DONE yet, so report the requested target directly rather
+		// than a stale pre-seek value.
+		result = m_pendingPositionNs.load(std::memory_order_relaxed) / kNsPerMs;
+		AAMPLOG_INFO("EXIT FLUSHING - pending flush position=%lld ms", result);
+		return result;
+	}
+
+	if (m_positionPending.load(std::memory_order_relaxed))
+	{
+		// Gated awaiting the deferred Flush() from MaybeFlushForPendingPosition();
+		// no reliable position is known yet.
+		AAMPLOG_INFO("EXIT positionPending - reporting 0");
+		return result;
+	}
 
 	if (m_pipeline)
 	{
-		constexpr int64_t kNsPerMs = 1'000'000LL;
 		int64_t queriedNs = 0;
 		if (m_pipeline->getPosition(queriedNs))
 		{
-			rawMs = queriedNs / kNsPerMs;
-			if (startMs >= 0)
-			{
-				const int rate = m_rate.load(std::memory_order_relaxed);
-				const int64_t elapsed = rawMs - startMs;
-				// For forward play (rate > 0) clamp to zero to avoid a
-				// negative blip caused by clock jitter at startup.  For
-				// reverse trickplay (rate < 0) allow negative so the caller
-				// observes a decrementing position - mirroring GStreamer's
-				//   rc = (pos - segmentStart) * rate.
-				result = (rate > 0)
-					? std::max(int64_t{0}, elapsed) * rate
-					: elapsed * rate;
-			}
+			// Segment-start: position (ns) the current segment actually
+			// began at (attach-time stage or last SEEK_DONE) - may differ
+			// from the first injected sample's own PTS when a flush/seek
+			// lands mid-fragment.
+			const int64_t startMs =
+				m_segmentStartPositionNs.load(std::memory_order_relaxed) / kNsPerMs;
+			const int64_t rawMs = queriedNs / kNsPerMs;
+			const int rate = m_rate.load(std::memory_order_relaxed);
+			const int64_t elapsed = rawMs - startMs;
+			// For forward play (rate > 0) clamp to zero to avoid a
+			// negative blip caused by clock jitter at startup.  For
+			// reverse trickplay (rate < 0) allow negative so the caller
+			// observes a decrementing position - mirroring GStreamer's
+			//   rc = (pos - segmentStart) * rate.
+			result = (rate > 0)
+				? std::max(int64_t{0}, elapsed) * rate
+				: elapsed * rate;
 			AAMPLOG_INFO("queried=%" PRId64 " ms  segmentStart=%" PRId64
-				" ms  rate=%d  position=%lld ms", rawMs, startMs,
-				m_rate.load(std::memory_order_relaxed), result);
+				" ms  rate=%d  position=%lld ms", rawMs, startMs, rate, result);
 		}
 		else
 		{
@@ -2541,6 +2570,11 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 
 			m_rate.store(pendingRate, std::memory_order_relaxed);
 			AAMPLOG_INFO("SEEK_DONE: committed playback rate=%d", pendingRate);
+
+			// Commit this flush's target as the new segment-start baseline
+			// for GetPositionMilliseconds() - the seek may have landed
+			// mid-fragment, so the first sample's own PTS is not reliable.
+			m_segmentStartPositionNs.store(posNs, std::memory_order_relaxed);
 
 			// This SEEK_DONE resolves whatever position was pending (an
 			// explicit caller-issued Flush(), or the implicit one from

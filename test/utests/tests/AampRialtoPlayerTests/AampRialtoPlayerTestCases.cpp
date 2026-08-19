@@ -2582,65 +2582,74 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	constexpr int64_t  kCurrentNs  = 5'000'000'000LL;
 	constexpr long long kExpectedMs = 5'000LL;
 
-	// Simulate video source reporting first PTS = 0 ms (PTS-restamped start).
-	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
-		.WillByDefault(Return(0LL));
+	// No Flush()/AttachSource() has run yet, so the segment-start baseline
+	// defaults to 0 (PTS-restamped start).
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(kCurrentNs), Return(true)));
 
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpectedMs);
 }
 
-// When PTSReStamp causes the pipeline to start at a non-zero PTS offset
-// (e.g. 13440 ms of accumulated prior content), GetPositionMilliseconds()
-// must return elapsed time from that first PTS, not the raw PTS value.
-// Without the fix this returns 14921 ms instead of 1481 ms.
+// When Flush() pre-stages a non-zero position before the video source
+// attaches (e.g. the DASH known-PTS-discontinuity path, where
+// priv_aamp.cpp calls sink->Flush() immediately after Configure() and
+// before any source is attached), AttachSource() commits that position as
+// the segment-start baseline.  GetPositionMilliseconds() must then return
+// elapsed time from that baseline, not the raw pipeline position.
 TEST_F(AampRialtoPlayerWithDemuxTest,
 	GetPositionMilliseconds_WithNonZeroSegmentStart_ReturnsElapsedTime)
 {
 	Configure();
 
-	// Simulate 7 × 1920 ms of prior restamped content already buffered.
-	// The first video sample had PTS = 13440 ms; this is reported via
-	// firstPtsMs() (set lazily in injectOneSample()).
-	constexpr int64_t  kSegmentStartMs = 13'440LL;
+	// Flush() before any source attaches: not a flushable state, so the
+	// position is only staged (no SEEK_DONE) - AttachSource() will consume
+	// it below, committing 13440 ms as the segment-start baseline.
 	constexpr int64_t  kCurrentPosNs   = 14'921'000'000LL;  // 14921 ms
 	constexpr long long kExpectedMs    = 1'481LL;            // elapsed
 
-	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
-		.WillByDefault(Return(kSegmentStartMs));
+	m_player->Flush(/*position=*/13.44, /*rate=*/1, /*shouldTearDown=*/false);
+	SendVideoInitFragment();
+
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(kCurrentPosNs), Return(true)));
 
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpectedMs);
 }
 
-// After Configure() the segment-start offset must be cleared so that the
-// next injection establishes a fresh baseline for the new session.
+// Unlike m_positionPending (cleared per-flush cycle), the segment-start
+// baseline is a plain committed value with no automatic reset hook: neither
+// Stop() nor Configure() clears it, mirroring the pre-existing lifecycle of
+// m_pendingPositionNs (which it is derived from).  A re-tune that does not
+// issue its own Flush() before the first AttachSource() therefore carries
+// over the previous session's baseline until a new Flush()/SEEK_DONE
+// commits a fresh one.
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	GetPositionMilliseconds_AfterReconfigure_ResetsSegmentStart)
+	GetPositionMilliseconds_AfterReconfigureWithoutNewFlush_CarriesOverPriorBaseline)
 {
-	// First session: first video sample had PTS = 5000 ms.
+	// First session: Flush() stages 5000 ms before the video source attaches.
 	Configure();
-	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
-		.WillByDefault(Return(5'000LL));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	SendVideoInitFragment();
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(7'000'000'000LL), Return(true)));
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 2'000LL);
 
-	// Reconfigure — simulates a re-tune (Stop then Configure).  Stop() marks
-	// the pipeline as stopped so Configure() performs a full recreation.
-	// New sources are created; their default firstPtsMs() = kFirstPtsNotSet.
+	// Reconfigure — simulates a re-tune (Stop then Configure) with no
+	// intervening Flush() call.
 	m_player->Stop(false);
 	Configure();
 
-	// Before the first sample from the new session, position must be zero.
-	// Default firstPtsMs() = kFirstPtsNotSet (-1) forces result = 0.
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+	// The prior session's 5000 ms baseline is still in effect until the new
+	// session's first AttachSource()/SEEK_DONE commits a fresh one: a raw
+	// position of 6000 ms yields 1000 ms elapsed against the stale 5000 ms
+	// baseline, not 6000 ms.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(6'000'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1'000LL);
 
-	// Second session: first video sample had PTS = 2000 ms.
-	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
-		.WillByDefault(Return(2'000LL));
+	// Second session: a fresh Flush() before attach commits a new baseline.
+	m_player->Flush(/*position=*/2.0, /*rate=*/1, /*shouldTearDown=*/false);
+	SendVideoInitFragment();
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(3'500'000'000LL), Return(true)));
 	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1'500LL);
@@ -4385,12 +4394,12 @@ TEST_F(AampRialtoPlayerTest,
 	// Complete second flush cycle.
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
 
-	// GetPositionMilliseconds() must use rate from the second flush (-4).
-	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
-		.WillByDefault(Return(0LL));
+	// GetPositionMilliseconds() must use both the rate and the segment-start
+	// baseline (33000 ms) committed by the second flush's SEEK_DONE:
+	// (500 - 33000) * -4 = 130000 ms.
 	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillOnce(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 130'000LL);
 }
 
 TEST_F(AampRialtoPlayerWithDemuxTest,
@@ -4415,19 +4424,19 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	ON_CALL(*m_mockPipelinePtr, getPosition(_))
 		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
-	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
-		.WillByDefault(Return(0LL));
 
 	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
 	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
-	// Still FLUSHING: the pending rate (-4) must not yet be active.
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), 500LL);
+	// Still FLUSHING: report the pending flush target (12000 ms) directly,
+	// ignoring both the not-yet-committed rate and the raw pipeline query.
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 12'000LL);
 
-	// SEEK_DONE commits the pending rate as a single event.
+	// SEEK_DONE commits the pending rate AND the segment-start baseline
+	// (12000 ms) as a single event: (500 - 12000) * -4 = 46000 ms.
 	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
-	EXPECT_EQ(m_player->GetPositionMilliseconds(), -2000LL);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 46'000LL);
 }
 
 // ===========================================================================
