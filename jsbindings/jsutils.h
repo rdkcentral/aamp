@@ -46,7 +46,7 @@
 #define LOG_ERROR_EX(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,__FUNCTION__,__LINE__,eLOGLEVEL_ERROR,FORMAT,##__VA_ARGS__)
 
 
-#ifdef TRACE
+#if 1
 #define LOG_TRACE(FORMAT, ...)   jsBindingLogprintf(PLAYER_ID_NA,__FUNCTION__,__LINE__,eUVE_JS_LOG_DEBUG,FORMAT, ##__VA_ARGS__)
 
 #else
