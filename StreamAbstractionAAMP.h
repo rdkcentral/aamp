@@ -1703,23 +1703,28 @@ public:
 	/**
 	 * @fn NotifyVideoFragmentToUnderflowMonitor
 	 * @brief Notify the underflow monitor that a video fragment (or chunk) has
-	 *        been queued for injection.  Re-arms the underflow deadline.
+	 *        been queued for injection. Re-arms the underflow deadline.
+	 *
+	 *        If the pipeline is currently paused, this path forces an effective
+	 *        rate of 0.0f under the underflow-monitor mutex so pause/disarm and
+	 *        fragment notifications are serialized consistently.
 	 * @param[in] endPosition  Absolute end position of the queued content (seconds).
-	 * @param[in] playRate     Current play rate.
+	 * @param[in] playRate     Caller-provided play rate (used when not paused).
 	 */
 	void NotifyVideoFragmentToUnderflowMonitor(double endPosition, float playRate);
 
 	/**
 	 * @fn NotifyBufferLevelToLatencyMonitor
-	 * @brief Notify the latency monitor of the current buffer level.
+	 * @brief Notify the latency monitor of the current buffer level for one track.
 	 *
-	 * Call this whenever a video fragment (or LL-DASH chunk) is successfully
-	 * queued for injection so the latency monitor can track buffer health
-	 * and wake promptly to reduce latency in detecting buffer dips.
+	 * Call this whenever a video or audio fragment (or LL-DASH chunk) is
+	 * successfully queued for injection so the latency monitor can track buffer
+	 * health per track and wake promptly on buffer dips.
 	 *
-	 * @param[in] bufferMs  Current buffered duration in milliseconds.
+	 * @param[in] mediaType  Track type (eMEDIATYPE_VIDEO or eMEDIATYPE_AUDIO).
+	 * @param[in] bufferMs   Current buffered duration for that track in milliseconds.
 	 */
-	void NotifyBufferLevelToLatencyMonitor(double bufferMs);
+	void NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs);
 
 	/**
 	 * @fn NotifyPipelinePausedToUnderflowMonitor
