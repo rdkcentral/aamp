@@ -18,6 +18,7 @@
  */
 
 #include <assert.h>
+#include <condition_variable>
 #include <mutex>
 #include "SocInterface.h"
 #include "vendor/amlogic/AmlogicSocInterface.h"
@@ -27,6 +28,35 @@
 // Private singleton storage
 static std::shared_ptr<SocInterface> g_socInterface;
 static std::mutex g_socMutex;
+static std::mutex g_platformInitializationMutex;
+static std::condition_variable g_platformInitializationCondition;
+enum class PlatformInitializationState { NotStarted, InProgress, Complete };
+static PlatformInitializationState g_platformInitializationState = PlatformInitializationState::NotStarted;
+
+class PlatformInitializationGuard
+{
+public:
+	~PlatformInitializationGuard()
+	{
+		if (!mFinished)
+		{
+			Finish(PlatformInitializationState::NotStarted);
+		}
+	}
+
+	void Finish(PlatformInitializationState state)
+	{
+		{
+			std::lock_guard<std::mutex> lock(g_platformInitializationMutex);
+			g_platformInitializationState = state;
+		}
+		mFinished = true;
+		g_platformInitializationCondition.notify_all();
+	}
+
+private:
+	bool mFinished{false};
+};
 
 /**Initially re-sets the IsRialtoMode */
 bool SocInterface::mIsRialtoMode = false;
@@ -178,9 +208,27 @@ static std::shared_ptr<SocInterface> CreateForPlatform(SocPlatformType platformT
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 {
+	std::unique_lock<std::mutex> initializationLock(g_platformInitializationMutex);
+	g_platformInitializationCondition.wait(initializationLock, []()
+	{
+		return g_platformInitializationState != PlatformInitializationState::InProgress;
+	});
+	if (g_platformInitializationState == PlatformInitializationState::Complete)
+	{
+		if (mIsRialtoMode != isRialto)
+		{
+			MW_LOG_ERR("Ignoring conflicting Rialto mode request: initialized=%d requested=%d", mIsRialtoMode, isRialto);
+		}
+		initializationLock.unlock();
+		return CreateSocInterface();
+	}
+	g_platformInitializationState = PlatformInitializationState::InProgress;
+	initializationLock.unlock();
+	PlatformInitializationGuard initializationGuard;
+
 	if(isRialto == true)
 	{
-	    MW_LOG_MIL("Rialto is enabled and creating default soc");
+		MW_LOG_MIL("Rialto is enabled and creating default soc");
 	}
 	mIsRialtoMode = isRialto;
 
@@ -190,16 +238,23 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 	// Phase 2: now that isRialto is known and we are NOT in dl_init,
 	// run plugin scan and replace singleton if a platform is detected.
 	SocPlatformType platformType = InferPlatformFromDeviceProperties();
+	bool initializationComplete = true;
+	if (!isRialto && platformType == SOC_PLATFORM_DEFAULT && !gst_init_check(nullptr, nullptr, nullptr))
+	{
+		MW_LOG_ERR("gst_init_check() failed; platform detection will be retried");
+		initializationComplete = false;
+	}
+	else
+	{
+		// Phase 2: now that isRialto is known and we are NOT in dl_init,
+		// run plugin scan and replace singleton if a platform is detected.
+		InitializePlatformFromPlugins(platformType);
+	}
 
-        // Phase 2: now that isRialto is known and we are NOT in dl_init,
-        // run plugin scan and replace singleton if a platform is detected.
+	initializationGuard.Finish(initializationComplete ? PlatformInitializationState::Complete : PlatformInitializationState::NotStarted);
 
-        InitializePlatformFromPlugins(platformType);
-
-
-        // Return the possibly-replaced singleton.
-        return CreateSocInterface();
-
+	// Return the possibly-replaced singleton.
+	return CreateSocInterface();
 }
 
 /**
@@ -231,8 +286,6 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 void SocInterface::InitializePlatformFromPlugins(
         SocPlatformType platformType)
 {
-    std::lock_guard<std::mutex> lock(g_socMutex);
-
     /*
      * Rialto mode:
      *
@@ -247,6 +300,7 @@ void SocInterface::InitializePlatformFromPlugins(
                 "Rialto mode: platform detected from device.properties, "
                    "using default SoC interface");
 
+            std::lock_guard<std::mutex> lock(g_socMutex);
             g_socInterface =
                 CreateForPlatform(SOC_PLATFORM_DEFAULT);
         }
@@ -280,6 +334,7 @@ void SocInterface::InitializePlatformFromPlugins(
         MW_LOG_MIL(
             "Plugin scan detected platform, replacing SoC interface");
 
+        std::lock_guard<std::mutex> lock(g_socMutex);
         g_socInterface = CreateForPlatform(detectedPlatform);
     }
 }

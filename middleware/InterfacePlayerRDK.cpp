@@ -30,6 +30,7 @@
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 #include <memory>
+#include <mutex>
 #include <gst/gst.h>
 #ifdef USE_EXTERNAL_STATS
 #include "player-xternal-stats.h"
@@ -101,6 +102,7 @@ InterfacePlayerRDK::~InterfacePlayerRDK()
 InterfacePlayerPriv::InterfacePlayerPriv(bool isRialto):mPlayerName()
 {
 	gstPrivateContext = new GstPlayerPriv();
+	InterfacePlayerRDK::InitializePlayerGstreamerPlugins();
 	(void)SocInterface::CreateSocInterface(isRialto);  // trigger singleton init/replacement, do not cache
 }
 
@@ -297,6 +299,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	if(!(m_gstConfigParam->useWesterosSink))
 	{
 		interfacePlayerPriv->gstPrivateContext->using_westerossink = false;
+		interfacePlayerPriv->GetSocInterface()->SetWesterosSinkState(false);
 		interfacePlayerPriv->gstPrivateContext->firstTuneWithWesterosSinkOff = interfacePlayerPriv->GetSocInterface()->IsFirstTuneWithWesteros();
 	}
 
@@ -4046,7 +4049,7 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 long long InterfacePlayerRDK::GetVideoPTS(void)
 {
 	gint64 currentPTS = 0;
-	currentPTS = interfacePlayerPriv->GetSocInterface()->GetVideoPts(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->using_westerossink);
+	currentPTS = interfacePlayerPriv->GetSocInterface()->GetVideoPts(interfacePlayerPriv->gstPrivateContext->video_sink, interfacePlayerPriv->gstPrivateContext->video_dec, interfacePlayerPriv->gstPrivateContext->using_westerossink.load());
 	return (long long)currentPTS;
 }
 
@@ -4846,6 +4849,14 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					 note: alternate "window-set" works as well
 					 */
 					gst_object_replace((GstObject **)&privatePlayer->gstPrivateContext->video_sink, msg->src);
+					if (gst_StartsWith(GST_OBJECT_NAME(msg->src), "westerossink"))
+					{
+						if (!privatePlayer->gstPrivateContext->using_westerossink.exchange(true))
+						{
+							MW_LOG_WARN("Actual video sink is westerossink; correcting cached sink state");
+						}
+						privatePlayer->GetSocInterface()->SetWesterosSinkState(true);
+					}
 
 					if (privatePlayer->gstPrivateContext->usingRialtoSink)
 					{
@@ -5241,9 +5252,18 @@ bool InterfacePlayerRDK::SignalSubtitleClock(gint64 vPTS, bool state)
  */
 void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 {
+	static std::mutex initializationMutex;
+	static bool initialized = false;
+	std::lock_guard<std::mutex> lock(initializationMutex);
+	if (initialized)
+	{
+		return;
+	}
+
 	// Ensure GST is initialized
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
+		return;
 	}
 	SocUtils::Init();
 
@@ -5331,6 +5351,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 			MW_LOG_MIL("InterfacePlayerRDK: %s plugin priority set to GST_RANK_PRIMARY  - 1", plugins_to_lower_rank[i]);
 		}
 	}
+	initialized = true;
 }
 
 /**

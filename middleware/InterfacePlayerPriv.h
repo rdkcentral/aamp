@@ -196,7 +196,7 @@ struct GstPlayerPriv
 	guint firstFrameCallbackIdleTaskId;                                      /**< ID of idle handler created for notifying first frame event. */
 	GstEvent *protectionEvent[GST_TRACK_COUNT];                      /**< GstEvent holding the pssi data to be sent downstream. */
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
-	bool using_westerossink;                                                         /**< true if westeros sink is used as video sink */
+	std::atomic<bool> using_westerossink;                                            /**< true if westeros sink is used as video sink */
 	bool usingRialtoSink;                                                            /**< true if rialto sink is used for video and audio sinks */
 	bool usingClosedCaptionsControl;                                                 /**< true if subtitle sink being used for CC control */
 	char videoRectangle[VIDEO_COORDINATES_SIZE];
