@@ -286,6 +286,10 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 							}
 							// Read before the sample is moved below.
 							segmentDuration += sample.mDuration;
+							// Per-sample detail line, gated because it is high volume.
+							// The literal "[RestampPts]" tag is required here for the same reason
+							// as the per-segment line below: AAMPLOG_INFO prefixes the line with
+							// __FUNCTION__, which here is "sendSegment", not "RestampPts".
 							if (mEnablePtsRestampLogging)
 							{
 								const uint32_t timeScale = mMp4Demux->GetTimeScale();
@@ -304,6 +308,21 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					// emits when useMp4Demux=false, so restamp verification works identically on
 					// both paths. Values are in timescale ticks: the first sample's decode time
 					// before and after the offset, and the container duration of the segment.
+					//
+					// DO NOT remove the literal "[RestampPts]" tag below. It looks redundant
+					// next to the format string in isobmffhelper.cpp, which is only "[%s] ...",
+					// but it is not: AAMPLOG_INFO expands to
+					//     logprintf(level, __FILE__, __FUNCTION__, __LINE__, format, ...)
+					// which prefixes every line with "[<__FUNCTION__>][<__LINE__>]". The legacy
+					// line sits in IsoBmffHelper::RestampPts(), so __FUNCTION__ *is* "RestampPts"
+					// and the line reaching the log is:
+					//     [RestampPts][68][video] timeScale ... before ... after ... duration ...
+					// This line sits in AampMp4Demuxer::sendSegment(), so the same shape can only
+					// be produced by carrying the tag explicitly. The L2 checker regex
+					// (PtsRestampUtils.LOG_LINE in test/l2test/utilities/l2test_pts_restamp.py)
+					// anchors on \[RestampPts\], so dropping the tag makes it silently stop
+					// matching and every restamp continuity assertion is skipped rather than
+					// failed. See VPAAMP-1027.
 					//
 					// Deliberately not gated on eAAMPConfig_EnablePTSReStampLogging. The legacy
 					// line is always emitted even when the offset is zero (see the comment in
