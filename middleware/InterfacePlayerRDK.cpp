@@ -3304,6 +3304,65 @@ void InterfacePlayerRDK::ClearProtectionEvent()
 	pthread_mutex_unlock(&mProtectionLock);
 }
 /**
+ * RDKEMW-21923 diagnostic: on a validateStateWithMsTimeout FAILURE, individually
+ * peek (0-timeout, non-blocking) each per-track source/sinkbin so the stall can be
+ * attributed to a specific element instead of only the aggregate pipeline-level
+ * State/Pending we already log. How to read the output when a FAILURE line is
+ * followed by these diag lines:
+ *   - every source AND sinkbin already reports rc=SUCCESS at the target state,
+ *     but the pipeline itself is still ASYNC -> the stall is in the
+ *     AAMPGstPlayerPipeline custom bin's own state aggregation (middleware code,
+ *     InterfacePlayerRDK.cpp/GstUtils, not a vendor plugin).
+ *   - a specific track's "source" (uridecodebin/demux/parse chain) is still
+ *     ASYNC/pending -> stall is upstream, in the AAMP-authored source element
+ *     setup or a demux/parser plugin feeding it.
+ *   - a specific track's "sinkbin" is still ASYNC/pending -> stall is downstream,
+ *     typically inside the vendor-supplied rendering sink (e.g.
+ *     westerossink/amlhalasink and the platform decoder behind it) waiting on a
+ *     buffer/resource that never arrived.
+ * This only runs on the FAILURE path (not on every successful poll), so it adds
+ * no log volume to the healthy case.
+ */
+static void DumpChildElementStatesOnFailure(InterfacePlayerRDK *pInterfacePlayerRDK)
+{
+	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+	if (!privatePlayer || !privatePlayer->gstPrivateContext)
+	{
+		return;
+	}
+	static const char *trackName[GST_TRACK_COUNT] = { "VIDEO", "AUDIO", "SUBTITLE" };
+	for (int i = 0; i < GST_TRACK_COUNT; i++)
+	{
+		struct gst_media_stream *stream = &privatePlayer->gstPrivateContext->stream[i];
+		GstElement *elements[2] = { stream->source, stream->sinkbin };
+		const char *elementRole[2] = { "source", "sinkbin" };
+		for (int e = 0; e < 2; e++)
+		{
+			GstElement *el = elements[e];
+			if (el)
+			{
+				GstState cur = GST_STATE_VOID_PENDING;
+				GstState pending = GST_STATE_VOID_PENDING;
+				/* 0 timeout: non-blocking peek at last-known state, does not wait/poll */
+				GstStateChangeReturn rc = gst_element_get_state(el, &cur, &pending, 0);
+				MW_LOG_ERR("validateStateWithMsTimeout FAILURE diag - track=%s role=%s element=%s rc=%d current=%s pending=%s",
+						   trackName[i], elementRole[e], GST_ELEMENT_NAME(el), (int)rc,
+						   gst_element_state_get_name(cur), gst_element_state_get_name(pending));
+			}
+		}
+	}
+	if (privatePlayer->gstPrivateContext->pipeline)
+	{
+		GstState cur = GST_STATE_VOID_PENDING;
+		GstState pending = GST_STATE_VOID_PENDING;
+		GstStateChangeReturn rc = gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &cur, &pending, 0);
+		MW_LOG_ERR("validateStateWithMsTimeout FAILURE diag - track=PIPELINE role=AAMPGstPlayerPipeline element=%s rc=%d current=%s pending=%s",
+				   GST_ELEMENT_NAME(privatePlayer->gstPrivateContext->pipeline), (int)rc,
+				   gst_element_state_get_name(cur), gst_element_state_get_name(pending));
+	}
+}
+
+/**
  * @brief Validate pipeline state transition within a max timeout
  * @param[in] _this pointer to InterfacePlayerRDK instance
  * @param[in] stateToValidate state to be validated
@@ -3354,6 +3413,7 @@ static GstState validateStateWithMsTimeout( InterfacePlayerRDK *pInterfacePlayer
 
 	MW_LOG_ERR("validateStateWithMsTimeout - PIPELINE gst_element_get_state - FAILURE : State = %d, Pending = %d",
 			   gst_current, gst_pending);
+	DumpChildElementStatesOnFailure(pInterfacePlayerRDK);
 	return gst_current;
 }
 
