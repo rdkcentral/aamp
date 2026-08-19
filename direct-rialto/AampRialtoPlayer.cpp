@@ -419,23 +419,26 @@ void AampRialtoPlayer::Configure(
 
 	StopProgressTimer();
 
-	// Reached from ProcessPendingDiscontinuity() after StopInjection() has
-	// joined every injector thread, so all previously-delivered content is
-	// safe and gating here cannot discard any of it.  Gating before
-	// StartInjection() resumes is what stops other tracks racing new-period
-	// samples in ahead of the Flush()/SendSample() that will eventually
-	// resolve the pending position.  Only set by Discontinuity(); an
-	// initial/fresh Configure() (no prior Discontinuity()) leaves this
-	// false, so ordinary tuning is unaffected.
-	if (m_positionPending.load(std::memory_order_relaxed))
+	// Configure() cannot tell whether the caller will follow up with an
+	// explicit Flush() carrying the real position (e.g. DASH, or HLS TS)
+	// or not at all (HLS MP4: DoEarlyStreamSinkFlush()/
+	// DoStreamSinkFlushOnDiscontinuity() are both false for ISO BMFF, since
+	// that format historically relied on a media-processor-level delayed
+	// flush that AampMp4Demuxer does not implement). So every Configure()
+	// unconditionally arms the deferred-flush mechanism and gates existing
+	// sources: whichever of Flush() or MaybeFlushForPendingPosition() (via
+	// the first post-Configure() sample) resolves the real position first
+	// clears it. AttachSource() also clears it directly when a fresh
+	// NEWLY_ATTACHED already establishes a definitive baseline, so an
+	// ordinary tune's first sample does not trigger a redundant flush.
+	m_pendingPositionFlushClaimed.store(false, std::memory_order_relaxed);
+	m_positionPending.store(true, std::memory_order_relaxed);
+	for (auto &source : m_sources)
 	{
-		for (auto &source : m_sources)
+		if (source)
 		{
-			if (source)
-			{
-				source->gateInjection(m_pipeline.get(), true,
-					"Configure(position-pending)");
-			}
+			source->gateInjection(m_pipeline.get(), true,
+				"Configure(position-pending)");
 		}
 	}
 
@@ -1081,6 +1084,11 @@ void AampRialtoPlayer::AttachSource(
 			m_segmentStartPositionNs.store(
 				std::max<int64_t>(0, attachPositionNs),
 				std::memory_order_relaxed);
+
+			// A definitive baseline has just been established - clear the
+			// gate Configure() armed unconditionally so an ordinary tune's
+			// first sample does not trigger a redundant deferred flush.
+			m_positionPending.store(false, std::memory_order_relaxed);
 		}
 
 		// After video attaches, drain any non-video sources that were deferred

@@ -485,16 +485,21 @@ private:
 	///   order and cannot substitute for this atomic.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
-	/// True when a discontinuity/retune has left the player without an
-	/// established position for the new period.  Set by Discontinuity();
-	/// cleared once Flush() resolves a position (onFlushComplete()/
-	/// SEEK_DONE).  Generalizes the old DISCONTINUITY state to any
-	/// "position not yet known" window - notably HLS fMP4, where
-	/// ProcessPendingDiscontinuity() issues no Flush() of its own and
-	/// MaybeFlushForPendingPosition() must supply one once the new
-	/// period's first sample is demuxed.  Not armed on an initial/fresh
-	/// Configure(): there is no prior position to invalidate, so the
-	/// first sample of a new tune is injected without an implicit flush.
+	/// True when the player has no established position for the current
+	/// period. Cleared once a position is (re)established: either
+	/// AttachSource() commits a definitive baseline for a newly-attached
+	/// video source, or Flush() resolves it (onFlushComplete()/SEEK_DONE).
+	/// Generalizes the old DISCONTINUITY state to any "position not yet
+	/// known" window - notably HLS fMP4, where neither
+	/// ProcessPendingDiscontinuity() nor an ordinary TuneHelper(SEEK) issues
+	/// a Flush() of its own (DoEarlyStreamSinkFlush()/
+	/// DoStreamSinkFlushOnDiscontinuity() are both false for ISO BMFF), so
+	/// MaybeFlushForPendingPosition() must supply one once the new period's
+	/// first sample is demuxed. Armed unconditionally by every Configure()
+	/// (in addition to Discontinuity()): Configure() cannot tell whether the
+	/// caller will follow up with an explicit Flush() carrying the real
+	/// position or not at all, so every source is gated until either an
+	/// AttachSource() or a Flush() resolves the real position.
 	std::atomic<bool> m_positionPending{false};
 
 	/// Claimed by the first sample that drives the deferred implicit Flush(),
