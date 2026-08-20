@@ -4253,6 +4253,24 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						// SkipFragments/SeekInPeriod start closer to live edge.
 						if (mLowLatencyMode && newTune)
 						{
+							// Derive the relative live position from the absolute MPD period end.
+							// The live time and period end are in the same UTC time domain;
+							// compensate local time when a server UTC delta is available.
+							double liveTime = static_cast<double>(NOW_SYSTEM_TS_MS) / 1000.0;
+							if (mTimeSyncClient.HasServerUtcTime())
+							{
+								liveTime += mTimeSyncClient.GetDelta();
+							}
+							double periodEndTime = mMPDParseHelper->GetPeriodEndTime(
+								mCurrentPeriodIdx,
+								mLastPlaylistDownloadTimeMs,
+								ShouldCheckOnlyIframeAdaptation(),
+								aamp->IsUninterruptedTSB());
+							offsetFromStart = duration + (liveTime - aamp->mLiveOffset - periodEndTime);
+							AAMPLOG_INFO("StreamAbstractionAAMP_MPD:[LL-DASH] liveTime %.3f liveOffset %.3f "
+							            "periodEndTime %.3f duration %.3f offsetFromStart %.3f",
+							            liveTime, aamp->mLiveOffset, periodEndTime, duration, offsetFromStart);
+
 							double drmLatencyEstimate = GETCONFIGVALUE(eAAMPConfig_LLDrmLatencyEstimateSec);
 							if (drmLatencyEstimate > 0.0 && IsVideoDRMLicenseRequired())
 							{
