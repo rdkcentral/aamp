@@ -262,7 +262,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
-			mAamp->SendErrorEvent(AAMP_TUNE_MP4_DEMUX_ERROR, "Mp4Demux Error:This file is invalid and cannot be played.", false);		
+			mAamp->SendErrorEvent(AAMP_TUNE_MP4_DEMUX_ERROR, "Mp4Demux Error:This file is invalid and cannot be played.", false);
 		}
 		else
 		{
@@ -296,8 +296,8 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 						AAMPLOG_INFO("[RestampPts][%s] timeScale %u before %" PRIu64 " after %" PRIu64 " duration %" PRIu64 " mp4demux",
 							GetMediaTypeName(mMediaType),
 							timeScale,
-							static_cast<uint64_t>((position - fragmentPTSoffset) * timeScale),
 							static_cast<uint64_t>(position * timeScale),
+							static_cast<uint64_t>((position + fragmentPTSoffset) * timeScale),
 							static_cast<uint64_t>(duration * timeScale));
 					}
 					for (auto& sample : samples)
