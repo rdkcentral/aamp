@@ -529,7 +529,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_MIN_LOW_LATENCY, "lowLatencyMinValue", eAAMPConfig_LLMinLatency, true},
 	{DEFAULT_TARGET_LOW_LATENCY, "lowLatencyTargetValue", eAAMPConfig_LLTargetLatency, true},
 	{DEFAULT_MAX_LOW_LATENCY, "lowLatencyMaxValue", eAAMPConfig_LLMaxLatency, true},
-	{0.0, "llDrmLatencyEstimate", eAAMPConfig_LLDrmLatencyEstimateSec, false}
+	{DEFAULT_LL_DRM_LATENCY_ESTIMATE_SEC, "llDrmLatencyEstimate", eAAMPConfig_LLDrmLatencyEstimateSec, false}
 };
 
 /**

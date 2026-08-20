@@ -709,12 +709,14 @@ protected:
 	AAMPStatusType  EnableAndSetLiveOffsetForLLDashPlayback(const MPD* mpd);
 
 	/**
-	 * @fn IsMPDEncrypted
-	 * @brief Returns true if any adaptation set in the MPD has content protection,
-	 *        indicating encrypted content that requires DRM licence acquisition.
-	 * @retval bool true if MPD contains content protection, false otherwise
+	 * @fn IsVideoDRMLicenseRequired
+	 * @brief Returns true if an encrypted video adaptation set has a DRM helper and
+	 *        an unprocessed key ID, indicating that licence acquisition is required.
+	 *        Returns false for clear streams, missing DRM data, unavailable DRM
+	 *        session management, or already processed keys.
+	 * @retval bool true if the video stream requires DRM licence acquisition
 	 */
-	bool IsMPDEncrypted() const;
+	bool IsVideoDRMLicenseRequired();
 
 	/**
 	 * @fn GetLowLatencyParams

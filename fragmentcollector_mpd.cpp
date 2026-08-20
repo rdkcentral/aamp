@@ -4254,7 +4254,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						if (mLowLatencyMode && newTune)
 						{
 							double drmLatencyEstimate = GETCONFIGVALUE(eAAMPConfig_LLDrmLatencyEstimateSec);
-							if (drmLatencyEstimate > 0.0 && IsMPDEncrypted())
+							if (drmLatencyEstimate > 0.0 && IsVideoDRMLicenseRequired())
 							{
 								offsetFromStart += drmLatencyEstimate;
 								if (offsetFromStart > duration)
@@ -14025,31 +14025,61 @@ IProducerReferenceTime *StreamAbstractionAAMP_MPD::GetProducerReferenceTimeForAd
 }
 
 /**
- * @brief Returns true if any adaptation set in the MPD has content protection,
- *        indicating that DRM licence acquisition will be required.
+ * @brief Returns true if an encrypted video adaptation set requires DRM licence
+ *        acquisition because its key has not already been processed.
  */
-bool StreamAbstractionAAMP_MPD::IsMPDEncrypted() const
+bool StreamAbstractionAAMP_MPD::IsVideoDRMLicenseRequired()
 {
-	if (mpd == nullptr || mMPDParseHelper == nullptr)
+	bool licenseRequired = false;
+	const bool drmStateAvailable =
+		mpd != nullptr &&
+		mMPDParseHelper != nullptr &&
+		aamp != nullptr &&
+		aamp->mDRMLicenseManager != nullptr &&
+		aamp->mDRMLicenseManager->mDrmSessionManager != nullptr;
+
+	/* Only inspect the manifest when all DRM state required for the check exists. */
+	if (drmStateAvailable)
 	{
-		return false;
-	}
-	for (const auto *period : mpd->GetPeriods())
-	{
-		if (period == nullptr)
+		for (const auto* period : mpd->GetPeriods())
 		{
-			continue;
-		}
-		for (const auto *adaptationSet : period->GetAdaptationSets())
-		{
-			if (adaptationSet != nullptr &&
-				!mMPDParseHelper->GetContentProtection(adaptationSet).empty())
+			if (period == nullptr || licenseRequired)
 			{
-				return true;
+				continue;
+			}
+
+			for (const auto* adaptationSet : period->GetAdaptationSets())
+			{
+				/* Clear and non-video adaptation sets do not need a video DRM license. */
+				if (adaptationSet == nullptr ||
+					!mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_VIDEO) ||
+					mMPDParseHelper->GetContentProtection(adaptationSet).empty())
+				{
+					continue;
+				}
+
+				/* Build the helper used to identify the key for this protected video. */
+				DrmHelperPtr drmHelper = CreateDrmHelper(adaptationSet, eMEDIATYPE_VIDEO);
+				if (drmHelper == nullptr)
+				{
+					continue;
+				}
+
+				std::vector<uint8_t> keyId;
+				drmHelper->getKey(keyId);
+				if (keyId.empty())
+				{
+					continue;
+				}
+
+				/* A license is required only when the DRM session has not processed the key. */
+				bool keyStatus = false;
+				licenseRequired = !aamp->mDRMLicenseManager->IsKeyIdProcessed(keyId, keyStatus);
 			}
 		}
 	}
-	return false;
+
+	return licenseRequired;
 }
 
 /**
