@@ -648,14 +648,6 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 			// Slot was not cleared after previous use; the assignment below will overwrite and release the old data.
 			AAMPLOG_WARN("Fetch buffer has junk data; previous slot was not cleared after use");
 		}
-		if (fragment->initFragment)
-		{
-			// Diagnostic: identify exactly which ring-buffer slot an init fragment
-			// lands in on the write side, to correlate against the read side in
-			// MediaTrack::InjectFragment().
-			AAMPLOG_WARN("[%s] DIAG writing init fragment to inject-ring slot=%d position=%f numberOfFragmentsCached=%d",
-				name, fragmentIdxToFetch, fragment->position, numberOfFragmentsCached);
-		}
 		*cachedFragment = std::move(*fragment);
 		if(!cachedFragment->fragment.empty())
 		{
@@ -670,7 +662,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 	}
 	else
 	{
-		AAMPLOG_WARN("[%s] Failed to update inject (fragmentEmpty=%d initFragment=%d)", name, fragment->fragment.empty(), fragment->initFragment);
+		AAMPLOG_WARN("[%s] Failed to update inject", name);
 	}
 	return ret;
 }
@@ -688,13 +680,6 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
  */
 void MediaStreamContext::CacheStagingFragmentForInjection()
 {
-	if (mStagingFragment.initFragment)
-	{
-		// Diagnostic: confirm the init fragment reaches the plain SLD
-		// injection-caching path (as opposed to being routed only through the
-		// TSB/LLD branches in OnFragmentDownloadSuccess).
-		AAMPLOG_WARN("[%s] DIAG CacheStagingFragmentForInjection reached for init fragment position=%f", name, mStagingFragment.position);
-	}
 	std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 	fragmentToCache->Copy(mStagingFragment);
 	if (auto* pContext = GetContext())
@@ -781,15 +766,6 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 		}
 	}
 
-	if (dlInfo->isInitSegment)
-	{
-		// Diagnostic: capture the branch-selection state for init segments so we can
-		// determine which path (TSB write, LLD chunk-cache, or plain SLD injection
-		// cache) an init fragment takes after an ABR profile-triggered fetch.
-		AAMPLOG_WARN("[%s] DIAG init-segment branch-state: tsbSessionManager=%d fragSize=%zu IsLocalTSBInjection=%d LLD=%d mSinkPaused=%d position=%f",
-			name, (tsbSessionManager != nullptr), cachedFragment->fragment.size(), IsLocalTSBInjection(), aamp->GetLLDashChunkMode(), aamp->mSinkPaused.load(), cachedFragment->position);
-	}
-
 	if(tsbSessionManager && cachedFragment->fragment.size())
 	{
 		std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
@@ -854,11 +830,6 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 	if (tsbSessionManager &&
 		(IsLocalTSBInjection() || (isPipelinePaused && !aamp->GetBufUnderFlowStatus() && !wasUnderFlowActive)))
 	{
-		if (dlInfo->isInitSegment)
-		{
-			AAMPLOG_WARN("[%s] DIAG init segment DISCARDED (not cached for injection) position=%f IsLocalTSBInjection=%d isPipelinePaused=%d",
-				name, cachedFragment->position, IsLocalTSBInjection(), isPipelinePaused);
-		}
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->mSinkPaused %d, aamp->GetBufUnderFlowStatus() %d",
 			name, cachedFragment, cachedFragment->fragment.data(), IsLocalTSBInjection(), isPipelinePaused, aamp->GetBufUnderFlowStatus());
 		aamp_utils::ClearAndRelease(cachedFragment->fragment);
