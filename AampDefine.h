@@ -127,6 +127,7 @@
 #define EAS_CURL_CONNECTTIMEOUT 2L      /**< Curl timeout for EAS connection */
 #define DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS (6*1000)   /**< Interval between playlist refreshes */
 #define DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS 3000
+#define DEFAULT_MANIFEST_REFRESH_FAILURE_THRESHOLD 2		/**< Number of consecutive identical manifest refresh failures required before reporting a manifest error during buffering */
 #define MAX_DELAY_BETWEEN_MPD_UPDATE_MS (6000)
 #define MIN_DELAY_BETWEEN_MPD_UPDATE_MS (500) // 500mSec
 #define SAFE_LATENCY_VALUE_FOR_SLOW_REFRESH (20000) // 20 sec

@@ -80,6 +80,11 @@ struct ManifestRefreshStatus
 		: type(retryType), errorCode(code)
 	{
 	}
+	bool operator==(const ManifestRefreshStatus& other) const
+	{
+		return (type == other.type) &&
+			(errorCode == other.errorCode);
+	}
 };
 
 /**
@@ -472,8 +477,9 @@ private:
 	std::atomic_bool mMPDNotifyPending ; /*To allow wait for downloadNotifier based on NotifyPending Status */
 	std::function<std::pair<std::string,int>()> mMpdPreProcessFuncptr; /* function invoked to read the available preprocessed manifest data or to send event if manifest data is not available */
 	int mPreProcessErrorCode; /**< curl/HTTP error injected when mMpdPreProcessFuncptr returns empty; default CURLE_OPERATION_TIMEDOUT */
-	std::atomic<int> mManifestRefreshErrorCode;
-	std::atomic<AAMPStatusType> mManifestRefreshErrorType;
+	std::atomic<ManifestRefreshStatus> mManifestRefreshStatus;
+	std::atomic<int> mManifestRefreshRetryFailureCount;
+	int mManifestRefreshRetryFailureThreshold;
 };
 
 #endif /* __AAMP_MPD_DOWNLOADER_H__ */
