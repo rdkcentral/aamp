@@ -811,7 +811,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
 			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
-			AAMPLOG_INFO("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
+			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
 			if (eTRACK_SUBTITLE != type)
 			{
 				cachedFragment->discontinuity = false;
@@ -875,18 +875,12 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				// discontinuity.
 				if(IsPTSRestampEnabled())
 				{
-					bool esChangeStatus = context->GetESChangeStatus();
-					bool pipelineFlushStatus = context->GetPipelineFlushStatus();
-					AAMPLOG_INFO("track %s - PTS restamp enabled, ESChangeStatus %d PipelineFlushStatus %d", name, esChangeStatus, pipelineFlushStatus);
-					if (esChangeStatus || pipelineFlushStatus)
+					if (context->GetESChangeStatus() || context->GetPipelineFlushStatus())
 					{
 						stopInjection = context->ProcessDiscontinuity(type);
 					}
 					else
 					{
-						// stopInjection intentionally left false - ProcessDiscontinuity's return
-						// value is not used to gate injection in this case.
-						AAMPLOG_INFO("track %s - PTS restamp active with no ES/pipeline change, ProcessDiscontinuity result not used to gate injection", name);
 						context->ProcessDiscontinuity(type);
 					}
 					bool isDiscontinuityIgnoredForCurrentTrack = aamp->IsDiscontinuityIgnoredForCurrentTrack((AampMediaType)type);
@@ -913,7 +907,6 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				}
 				else
 				{
-					AAMPLOG_INFO("track %s - PTS restamp disabled, calling ProcessDiscontinuity directly", name);
 					stopInjection = context->ProcessDiscontinuity(type);
 				}
 			}
@@ -1419,10 +1412,6 @@ bool MediaTrack::InjectFragment()
 		AAMPLOG_TRACE("[%s] fragmentIdxToInject : %d Discontinuity %d ", name, fragmentIdxToInject, cachedFragment->discontinuity);
 		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
 					  name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.data());
-		if (cachedFragment->discontinuity)
-		{
-			AAMPLOG_INFO("[%s] fragmentIdxToInject : %d Discontinuity flag set on cached fragment @position %f", name, fragmentIdxToInject, cachedFragment->position);
-		}
 		if (cachedFragment->fragment.capacity() != 0)
 		{
 			// This is currently supported for non-LL DASH streams only at normal play rate
@@ -3440,7 +3429,6 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 	bool ret = true;
 	MediaTrackDiscontinuityState state = eDISCONTINUITY_FREE;
 	bool isMuxedAndAudioDiscoIgnored = false;
-	AAMPLOG_INFO("track[%d] ENTRY mTrackState:%d", type, mTrackState);
 
 	std::unique_lock<std::mutex> lock(mStateLock);
 	if (type == eTRACK_VIDEO)
@@ -3509,7 +3497,6 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 				//Ignore discontinuity
 				ret = false;
 				aborted = true;
-				AAMPLOG_WARN("track[%d] discontinuity ignored after wait - RetuneForUnpairDiscontinuity:%d mTrackState:%d state:%d", type, ISCONFIGSET(eAAMPConfig_RetuneForUnpairDiscontinuity), mTrackState, state);
 			}
 		}
 		AAMPLOG_MIL("track[%d] mTrackState:%d wait:%d aborted:%d", type, mTrackState, wait, aborted);
@@ -3519,9 +3506,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 		{
 			lock.unlock();
 
-			AAMPLOG_INFO("track[%d] calling aamp->Discontinuity()", type);
 			ret = aamp->Discontinuity((AampMediaType) type, false);
-			AAMPLOG_INFO("track[%d] aamp->Discontinuity() returned %d", type, ret);
 			//Discontinuity ignored, so we need to remove state from mTrackState
 			if (ret == false)
 			{
@@ -3539,13 +3524,8 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 			lock.lock();
 			mStateCond.notify_one();
 		}
-		else
-		{
-			AAMPLOG_INFO("track[%d] not yet paired, deferring aamp->Discontinuity() call (mTrackState:%d wait:%d aborted:%d)", type, mTrackState, wait, aborted);
-		}
 	}
 
-	AAMPLOG_INFO("track[%d] EXIT ret:%d mTrackState:%d", type, ret, mTrackState);
 	return ret;
 }
 

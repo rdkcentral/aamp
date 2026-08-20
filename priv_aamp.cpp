@@ -8966,12 +8966,10 @@ bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinui
 	{
 		auto syncLock = SyncLock();
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-		AAMPLOG_INFO("track:%d calling sink->Discontinuity(), sink:%p", track, static_cast<void*>(sink));
 		if (sink)
 		{
 			ret = sink->Discontinuity(track);
 		}
-		AAMPLOG_INFO("track:%d sink->Discontinuity() returned %d", track, ret);
 	}
 
 	if (ret)
