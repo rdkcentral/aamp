@@ -664,13 +664,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 			AAMPLOG_WARN("[%s] DIAG writing fragment to inject-ring slot=%d position=%f numberOfFragmentsCached=%d",
 				name, fragmentIdxToFetch, fragment->position, numberOfFragmentsCached);
 		}
-		size_t preMoveSrcSize = fragment->fragment.size();
 		*cachedFragment = std::move(*fragment);
-		// Diagnostic: confirm the move actually transferred the buffer into this
-		// slot; if empty here despite a non-empty source, UpdateTSAfterFetch is
-		// skipped below and the next write will silently reuse this same slot.
-		AAMPLOG_WARN("[%s] DIAG post-move slot=%d ptr=%p srcSizeBeforeMove=%zu destSizeAfterMove=%zu destEmptyAfterMove=%d",
-			name, fragmentIdxToFetch, cachedFragment, preMoveSrcSize, cachedFragment->fragment.size(), cachedFragment->fragment.empty());
 		if(!cachedFragment->fragment.empty())
 		{
 			ret = true;
@@ -678,7 +672,7 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 		}
 		else
 		{
-			AAMPLOG_WARN("[%s] DIAG Empty fragment after move, not injecting (slot=%d)", name, fragmentIdxToFetch);
+			AAMPLOG_TRACE("Empty fragment, not injecting");
 			aamp_utils::ClearAndRelease(cachedFragment->fragment);
 		}
 	}
