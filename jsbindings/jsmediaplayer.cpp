@@ -4268,6 +4268,22 @@ JSValueRef XREReceiverJS_onevent (JSContextRef ctx, JSObjectRef function, JSObje
 	{
 		if (JSValueIsString(ctx, arguments[0]))
 		{
+			AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+			LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_load native object privObj=%p aamp=%p",
+				privObj, privObj ? privObj->_aamp : nullptr);
+	
+			bool mediaPlayerConstructed = false;
+			{
+				std::lock_guard<std::mutex> guard(jsMediaPlayerCacheMutex);
+				mediaPlayerConstructed = !AAMPMediaPlayer_JS::_jsMediaPlayerInstances.empty();
+			}
+
+			if (!mediaPlayerConstructed)
+			{
+				LOG_WARN_EX("[JS_TRACE] XREReceiverJS_onevent constructing AAMPMediaPlayer");
+				AAMPMediaPlayer_JS_class_constructor(ctx, nullptr, 0, nullptr, exception);
+			}
+
 			char* value =  aamp_JSValueToCString(ctx, arguments[0], exception);
 			std::string method;
 			method.assign(value);
