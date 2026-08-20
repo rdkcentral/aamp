@@ -201,6 +201,7 @@
 #define DEFAULT_MIN_LOW_LATENCY					5.0			/**< min Default Latency */
 #define DEFAULT_MAX_LOW_LATENCY					7.0			/**< max Default Latency */
 #define DEFAULT_TARGET_LOW_LATENCY				6.0			/**< Target Default Latency */
+#define DEFAULT_LL_DRM_LATENCY_ESTIMATE_SEC		2.0		/**< Default estimated DRM acquisition latency for LL-DASH (seconds) */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.97f		/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.03f		/**< max Rate correction speed */
 #define DEFAULT_NORMAL_RATE_CORRECTION_SPEED	1.00f		/**< Live Catchup Normal play rate */
