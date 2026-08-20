@@ -275,7 +275,7 @@ bool AampRialtoMediaSource::sendHaveData(
 {
 	if (batch.hasFirstPts)
 	{
-		AAMPLOG_INFO("sourceId=%d mediaType=%d status=%d requestId=%u "
+		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
 			"frameCount=%zu firstPtsSec=%.3f durationSecSum=%.3f "
 			"mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
@@ -285,7 +285,7 @@ bool AampRialtoMediaSource::sendHaveData(
 	}
 	else
 	{
-		AAMPLOG_INFO("sourceId=%d mediaType=%d status=%d requestId=%u "
+		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
 			"frameCount=%zu mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
 			static_cast<int>(status), requestId, batch.frameCount,

@@ -1444,6 +1444,28 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	SendVideoInitFragment();
 }
 
+// Stop() ends the session outright (as opposed to Flush()'s internal
+// teardown-recovery call, which pre-stages a position for the very next
+// Configure()/AttachSource()).  A stale m_pendingPositionNs left over from
+// the ended session must not be reused by a fresh tune's own AttachSource()
+// when that tune issues no Flush() of its own (e.g. an ordinary HLS tune).
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_ResetsPendingPositionForNextSessionsAttach)
+{
+	// First session: Flush() stages a non-zero position before attach.
+	m_player->Flush(10.0, 1, false);
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	m_player->Stop(false);
+
+	// Second session (fresh tune): no Flush() before the video source
+	// attaches - the stale 10s position must not be reused.
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+	SendVideoInitFragment();
+}
+
 // ===========================================================================
 // Phase 7 — Flush calls pipeline flush + resets queues
 // ===========================================================================
@@ -2455,6 +2477,69 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 }
 
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_SeekDone_PositionStillPendingAfterConcurrentDiscontinuity_DefersPlay)
+{
+	/**
+	 * @brief Regression: a Discontinuity() that arrives for a newer period
+	 *        while an earlier flush cycle is still FLUSHING re-arms
+	 *        m_positionPending (see MaybeFlushForPendingPosition()'s own
+	 *        FLUSHING-guard comment: its SEEK_DONE resolves the earlier,
+	 *        now-stale position only). The SEEK_DONE that completes THIS
+	 *        stale flush cycle must not ungate/play - a position is still
+	 *        owed to the newer period, and playing now would run past it.
+	 *        m_playRequested must be left set (not consumed) so the next
+	 *        flush cycle's own SEEK_DONE - once it resolves the newer
+	 *        position - performs the deferred ungate/play instead.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+
+	// First (stale) flush cycle.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// Stream() while FLUSHING sets m_playRequested=true and defers play().
+	m_player->Stream();
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	// A concurrent Discontinuity() for a newer period re-arms
+	// m_positionPending while the above flush cycle is still in flight.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ON_CALL(*g_mockPrivateInstanceAAMP, WillFlushOnDiscontinuity())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	// SEEK_DONE completing the STALE flush cycle must not play - a position
+	// is still owed to the newer, re-armed period.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED)
+		<< "Gate must remain BLOCKED - a newer position is still pending";
+
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// The subsequent flush cycle that finally resolves the re-armed
+	// position must still perform the deferred ungate/play once ITS
+	// SEEK_DONE arrives.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/6.0, /*rate=*/1, /*shouldTearDown=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
 // ===========================================================================
 // IStreamSinkNotifiable — position and duration callbacks
 // ===========================================================================
@@ -2848,8 +2933,9 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 		.WillOnce(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}), Return(true)))
 		.WillOnce(DoAll(SetArgReferee<0>(int64_t{2'000'000'000}), Return(true)));
 
+	// No sleep needed here: the PTS itself changes between calls, which
+	// resets the baseline regardless of elapsed wall-clock time.
 	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
 	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
 }
 

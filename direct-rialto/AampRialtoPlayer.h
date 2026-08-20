@@ -453,6 +453,21 @@ private:
 	 */
 	void WaitForFlushToComplete();
 
+	/**
+	 * @brief Shared implementation for Stop() and Flush()'s teardown-recovery
+	 *        call.
+	 *
+	 * @param[in] keepLastFrame        Forwarded to the pipeline stop() call.
+	 * @param[in] preservePendingPosition  When false (the normal Stop()
+	 *            case), resets m_pendingPositionNs/m_segmentStartPositionNs
+	 *            so a stale prior-session position cannot leak into the next
+	 *            session's AttachSource().  When true, used only by Flush()'s
+	 *            "not in a flushable state and shouldTearDown" branch, which
+	 *            has just staged those values moments earlier for the
+	 *            caller's benefit and must not have them wiped out here.
+	 */
+	void StopInternal(bool keepLastFrame, bool preservePendingPosition);
+
 	/// Position (ns) stored by Flush(); used to set the initial GStreamer
 	/// segment via setSourcePosition() once each source is attached.
 	/// -1 means no flush position has been set yet.

@@ -1385,7 +1385,13 @@ void AampRialtoPlayer::Stream()
 
 void AampRialtoPlayer::Stop(bool keepLastFrame)
 {
-	AAMPLOG_INFO("ENTRY keepLastFrame=%d", keepLastFrame);
+	StopInternal(keepLastFrame, /*preservePendingPosition=*/false);
+}
+
+void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosition)
+{
+	AAMPLOG_INFO("ENTRY keepLastFrame=%d preservePendingPosition=%d",
+		keepLastFrame, preservePendingPosition);
 
 	// Wait for any in-progress flush cycle to complete before stopping.
 	// This ensures the state machine has already exited FLUSHING so that
@@ -1434,6 +1440,18 @@ void AampRialtoPlayer::Stop(bool keepLastFrame)
 	// current session, whereas Configure() may be called mid-session for a
 	// codec change and must not discard a pending Stream() request.
 	m_playRequested.store(false, std::memory_order_relaxed);
+	if (!preservePendingPosition)
+	{
+		// A normal Stop() ends the session outright, so any staged seek
+		// position/baseline from this session must not leak into the next
+		// tune's AttachSource(). Flush()'s internal teardown-recovery call
+		// (preservePendingPosition=true) is the one exception: it has just
+		// staged m_pendingPositionNs for the caller's benefit and Stop()
+		// here is only being used to recover from a non-flushable state,
+		// not to end a session on the caller's behalf.
+		m_pendingPositionNs.store(-1, std::memory_order_relaxed);
+		m_segmentStartPositionNs.store(0, std::memory_order_relaxed);
+	}
 	{
 		std::lock_guard<std::mutex> lock(m_ptsCheckMutex);
 		m_lastKnownPts = 0;
@@ -1498,10 +1516,14 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		// Player is not in a flushable state; recover by stopping.
 		// Stop() will call WaitForFlushToComplete() which returns immediately
 		// since we have not claimed FLUSHING.
+		// preservePendingPosition=true: the position/rate staged above are
+		// for the caller's benefit (typically a pre-Configure() seek
+		// pre-stage) and must survive this recovery Stop(), unlike a normal
+		// caller-initiated Stop() which ends the session outright.
 		AAMPLOG_WARN("Player was not in PLAYING/PAUSED/SOURCES_ATTACHED/FLUSHED "
 			"(pre-flush state=%d) and shouldTearDown=true - calling Stop(true)",
 			static_cast<int>(preFlushState));
-		Stop(true);
+		StopInternal(true, /*preservePendingPosition=*/true);
 		AAMPLOG_INFO("EXIT - teardown requested");
 		return;
 	}
@@ -2643,12 +2665,24 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			// seek-while-paused is handled correctly: Stream() is not called
 			// in that path so m_playRequested stays false and the gate is
 			// left for the later Pause(false)/StopBuffering() to clear.
+			//
+			// m_positionPending may already be true again here: a
+			// Discontinuity() can re-arm it for a newer period while this
+			// flush cycle was still in flight (see MaybeFlushForPendingPosition()).
+			// In that case this SEEK_DONE only resolves the earlier,
+			// now-stale position - playing now would run past the still-owed
+			// newer one. Mirror Stream()'s own deferral: leave
+			// m_playRequested set (do not consume it) so the SEEK_DONE of the
+			// flush cycle that resolves the newer position ungates/plays
+			// instead.
+			const bool positionStillPending =
+				m_positionPending.load(std::memory_order_relaxed);
 			const bool playRequested =
 				m_playRequested.load(std::memory_order_seq_cst);
-			m_playRequested.store(false, std::memory_order_relaxed);
 
-			if (playRequested)
+			if (playRequested && !positionStillPending)
 			{
+				m_playRequested.store(false, std::memory_order_relaxed);
 				UngateAllSources("OnPlaybackState(SEEK_DONE)");
 				AAMPLOG_INFO("SEEK_DONE: issuing play() (state=%s)",
 					m_stateMachine.currentStateName());
@@ -2657,6 +2691,12 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 				{
 					AAMPLOG_ERR("play() failed after SEEK_DONE");
 				}
+			}
+			else if (playRequested)
+			{
+				AAMPLOG_INFO("SEEK_DONE: deferring play() - a newer position "
+					"is still pending (state=%s)",
+					m_stateMachine.currentStateName());
 			}
 			else
 			{

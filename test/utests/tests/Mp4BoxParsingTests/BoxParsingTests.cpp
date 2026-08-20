@@ -81,6 +81,12 @@ TEST_F(Mp4DemuxFunctionalTests, ParsePsshBoxAndValidateProtectionEvents)
 	// Validate PSSH data was extracted
 	EXPECT_FALSE(protectionEvents[0].pssh.empty()) << "PSSH data should not be empty";
 	EXPECT_GT(protectionEvents[0].pssh.size(), 0) << "PSSH data should have content";
+
+	// Reconstructed box must be byte-identical to the input (size, type,
+	// version/flags, and data), since Rialto's parsePssh re-parses it as a
+	// standalone ISO BMFF box.
+	std::vector<uint8_t> expectedBox(psshBoxWidevine, psshBoxWidevine + sizeof(psshBoxWidevine));
+	EXPECT_EQ(protectionEvents[0].pssh, expectedBox) << "Reconstructed PSSH box should match input byte-for-byte";
 }
 
 /**
@@ -237,6 +243,11 @@ TEST_F(Mp4DemuxFunctionalTests, ParsePsshV1WithKID)
 	ASSERT_EQ(protectionEvents.size(), 1) << "Should have one PSSH entry";
 	EXPECT_FALSE(protectionEvents[0].systemID.empty());
 	EXPECT_FALSE(protectionEvents[0].pssh.empty());
+
+	// Reconstructed box must be byte-identical to the input (size, type,
+	// version/flags, KIDs, and data).
+	std::vector<uint8_t> expectedBox(psshBoxV1WithKID, psshBoxV1WithKID + sizeof(psshBoxV1WithKID));
+	EXPECT_EQ(protectionEvents[0].pssh, expectedBox) << "Reconstructed PSSH v1 box should match input byte-for-byte";
 }
 
 
