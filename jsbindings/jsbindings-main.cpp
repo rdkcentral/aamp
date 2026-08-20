@@ -112,10 +112,11 @@ void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP * aampObject)
  */
 void aamp_LoadJSController(JSGlobalContextRef context)
 {
-	LOG_WARN_EX("aamp_LoadJSController context=%p", context);
+	LOG_WARN_EX("[JS_TRACE] aamp_LoadJSController enter context=%p", context);
 	g_UserAgent = "";
 
 	AAMPPlayer_LoadJS(context);
+	LOG_WARN_EX("[JS_TRACE] aamp_LoadJSController exit context=%p", context);
 }
 
 

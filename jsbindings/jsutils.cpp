@@ -306,7 +306,8 @@ JSValueRef aamp_GetException(JSContextRef context, ErrorCode error, const char *
 		snprintf(exceptionMsg, EXCEPTION_ERR_MSG_MAX_LEN - 1, "%s!!", str);
 	}
 
-	LOG_WARN_EX("exception=%s", exceptionMsg);
+	LOG_WARN_EX("[JS_TRACE] aamp_GetException context=%p error=%d additionalInfo=%s exception=%s",
+			context, error, additionalInfo ? additionalInfo : "<none>", exceptionMsg);
 		
 	const JSValueRef arguments[] = { aamp_CStringToJSValue(context, exceptionMsg) };
 	JSValueRef exception = NULL;

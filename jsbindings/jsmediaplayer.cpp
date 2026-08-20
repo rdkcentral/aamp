@@ -681,19 +681,19 @@ JSValueRef AAMPMediaPlayerJS_initConfig (JSContextRef ctx, JSObjectRef function,
  */
 JSValueRef AAMPMediaPlayerJS_play (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	LOG_TRACE("Enter");
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_play enter ctx=%p this=%p", ctx, thisObject);
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || !privObj->_aamp)
 	{
-		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		LOG_ERROR_EX("[JS_TRACE] AAMPMediaPlayerJS_play missing private object privObj=%p", privObj);
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call play() on instances of AAMPPlayer");
 		return JSValueMakeUndefined(ctx);
 	}
 	{
-		LOG_WARN(privObj," _aamp->SetRate(%d)",AAMP_NORMAL_PLAY_RATE);
+		LOG_WARN(privObj,"[JS_TRACE] AAMPMediaPlayerJS_play aamp=%p SetRate(%d)", privObj->_aamp, AAMP_NORMAL_PLAY_RATE);
 		privObj->_aamp->SetRate(AAMP_NORMAL_PLAY_RATE);
 	}
-	LOG_TRACE("Exit");
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_play exit ctx=%p this=%p", ctx, thisObject);
 	return JSValueMakeUndefined(ctx);
 }
 
@@ -3955,6 +3955,7 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 
 	privObj->_ctx = JSContextGetGlobalContext(ctx);
 	privObj->_aamp = new PlayerInstanceAAMP(NULL, NULL);
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayer constructor ctx=%p privObj=%p aamp=%p", ctx, privObj, privObj->_aamp);
 
 	if (!appName.empty())
 	{
@@ -4322,10 +4323,10 @@ void LoadXREReceiverStub(void* context)
  */
 void AAMPPlayer_LoadJS(void* context)
 {
-	LOG_TRACE("Enter");
+	LOG_WARN_EX("[JS_TRACE] AAMPPlayer_LoadJS enter context=%p", context);
 	if (context == NULL)
 	{
-		LOG_ERROR_EX("NULL context passed to AAMPPlayer_LoadJS, cannot initialize JS bindings");
+		LOG_ERROR_EX("[JS_TRACE] AAMPPlayer_LoadJS NULL context");
 		return;
 	}
 
@@ -4341,6 +4342,7 @@ void AAMPPlayer_LoadJS(void* context)
 
 	JSStringRef str = JSStringCreateWithUTF8CString(JS_AAMP_MEDIA_PLAYER_OBJECT_NAME);
 	JSObjectSetProperty(jsContext, globalJSObj, str, classObj, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, NULL);
+	LOG_WARN_EX("[JS_TRACE] AAMPPlayer_LoadJS registered global %s context=%p class=%p", JS_AAMP_MEDIA_PLAYER_OBJECT_NAME, context, classObj);
 
 	JSClassRelease(mediaPlayerClass);
 	JSStringRelease(str);
@@ -4359,7 +4361,7 @@ void AAMPPlayer_LoadJS(void* context)
 #ifdef USE_PREINIT_DECODING
 	doFakeTune();
 #endif
-	LOG_TRACE("Exit");
+	LOG_WARN_EX("[JS_TRACE] AAMPPlayer_LoadJS exit context=%p", context);
 }
 
 /**
