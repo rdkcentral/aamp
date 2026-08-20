@@ -456,15 +456,19 @@ void parseDRMConfiguration (JSContextRef ctx, AAMPMediaPlayer_JS* privObj, JSVal
  */
 JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	LOG_TRACE("Enter");
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_load enter ctx=%p this=%p args=%zu",
+			ctx, thisObject, argumentCount);
 
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || !privObj->_aamp)
 	{
-		LOG_ERROR_EX( "JSObjectGetPrivate returned NULL!");
+		LOG_ERROR_EX("[JS_TRACE] AAMPMediaPlayerJS_load missing private object privObj=%p",
+				privObj);
 		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call load() on instances of AAMPPlayer");
 		return JSValueMakeUndefined(ctx);
 	}
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_load native object privObj=%p aamp=%p",
+			privObj, privObj->_aamp);
 
 	bool autoPlay = true;
 	bool bFinalAttempt = false;
@@ -560,11 +564,19 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 		case 1:		
 		{
 			url = aamp_JSValueToCString(ctx, arguments[0], exception);
+			LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_load url=%s autoPlay=%d",
+					url ? url : "<null>", autoPlay);
 			aamp_ApplyPageHttpHeaders(privObj->_aamp);
 
 			{
-				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
+				LOG_WARN(privObj,"[JS_TRACE] AAMPMediaPlayerJS_load Tune url=%s autoPlay=%d contentType=%s first=%d final=%d traceId=%s sid=%s manifest=%s",
+					url ? url : "<null>", autoPlay,
+					contentType ? contentType : "<null>", bFirstAttempt,
+					bFinalAttempt, strTraceId ? strTraceId : "<null>",
+					sid.c_str(), manifestbuffer ? "present" : "<null>");
 				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStitchingMode, std::move(sid),manifestbuffer);
+				LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_load Tune returned aamp=%p",
+						privObj->_aamp);
 
 			}
 			break;
@@ -575,7 +587,8 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute load() <= 3 arguments required");
 	}
 
-	LOG_TRACE("Exit..");
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_load exit ctx=%p this=%p",
+			ctx, thisObject);
 	SAFE_DELETE_ARRAY(url);
 	SAFE_DELETE_ARRAY(contentType);
 	SAFE_DELETE_ARRAY(strTraceId);
@@ -3937,7 +3950,8 @@ static JSClassRef AAMPMediaPlayer_object_ref() {
  */
 JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	LOG_TRACE("Enter");
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayer constructor enter ctx=%p constructor=%p args=%zu",
+			ctx, constructor, argumentCount);
 
 	std::string appName;
 	if (argumentCount > 0)
@@ -3949,7 +3963,13 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 			LOG_WARN_EX("AAMPMediaPlayer created with app name: %s", appName.c_str());
 			SAFE_DELETE_ARRAY(value);
 		}
+		else
+		{
+			LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayer constructor first argument is not a string");
+		}
 	}
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayer constructor parsed appName=%s",
+			appName.empty() ? "<empty>" : appName.c_str());
 
 	AAMPMediaPlayer_JS* privObj = new AAMPMediaPlayer_JS();
 
@@ -3977,10 +3997,14 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	// There is chance that aamp_UnloadJS is called then functions on aamp object is called from JS script.
 	// In this case AAMPMediaPlayer_JS should be available to access
 	JSObjectRef newObj = JSObjectMake(ctx, AAMPMediaPlayer_object_ref(), privObj);
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayer constructor JSObjectMake newObj=%p privObj=%p aamp=%p",
+			newObj, privObj, privObj->_aamp);
 
 	{
 		std::lock_guard<std::mutex> guard(jsMediaPlayerCacheMutex);
 		AAMPMediaPlayer_JS::_jsMediaPlayerInstances.push_back(privObj);
+		LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayer constructor cache size=%zu",
+				AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
 	}
 
 	// Add a dummy event listener without any function callback.
@@ -3998,7 +4022,8 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	JSStringRelease(fName);
 	JSStringRelease(fString);
 
-	LOG_TRACE("Exit");
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayer constructor exit ctx=%p newObj=%p privObj=%p aamp=%p",
+			ctx, newObj, privObj, privObj->_aamp);
 	return newObj;
 }
 
@@ -4236,7 +4261,8 @@ std::unordered_map<std::string, XREReceiver_onEventHandler::Handler_t>  XRERecei
  */
 JSValueRef XREReceiverJS_onevent (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	LOG_WARN_EX("[XREReceiver]: arg count - %zu", argumentCount);
+	LOG_WARN_EX("[JS_TRACE] XREReceiverJS_onevent enter ctx=%p this=%p args=%zu",
+			ctx, thisObject, argumentCount);
 
 	if (argumentCount > 0)
 	{
@@ -4245,11 +4271,22 @@ JSValueRef XREReceiverJS_onevent (JSContextRef ctx, JSObjectRef function, JSObje
 			char* value =  aamp_JSValueToCString(ctx, arguments[0], exception);
 			std::string method;
 			method.assign(value);
+			LOG_WARN_EX("[JS_TRACE] XREReceiverJS_onevent method=%s payloadObject=%d",
+					method.c_str(), argumentCount > 1 && JSValueIsObject(ctx, arguments[1]));
 			XREReceiver_onEventHandler::handle(ctx, method, argumentCount, arguments);
 
 			SAFE_DELETE_ARRAY(value);
 		}
+		else
+		{
+			LOG_ERROR_EX("[JS_TRACE] XREReceiverJS_onevent method argument is not a string");
+		}
 	}
+	else
+	{
+		LOG_ERROR_EX("[JS_TRACE] XREReceiverJS_onevent missing method argument");
+	}
+	LOG_WARN_EX("[JS_TRACE] XREReceiverJS_onevent exit ctx=%p", ctx);
 	return JSValueMakeUndefined(ctx);
 }
 
