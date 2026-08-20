@@ -67,7 +67,7 @@ AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBu
 	mMPDDnldMutex(),mRefreshInterval(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS),mLatencyValue(-1),mReleaseCalled(false),
 	mMPDDnldCfg(NULL),mDownloaderThread_t1(),mDownloaderThread_t2(),mDownloader1(),mDownloader2(),mMPDData(nullptr),mAppName(""),
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
-	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0)
+	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false),mPreProcessErrorCode(CURLE_OPERATION_TIMEDOUT),mManifestRefreshErrorCode(0),mManifestRefreshErrorType(AAMPStatusType::eAAMPSTATUS_OK)
 {
 }
 
@@ -193,4 +193,16 @@ void AampMPDDownloader::UnRegisterCallback()
  */
 void AampMPDDownloader::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
+}
+
+ManifestRefreshStatus AampMPDDownloader::GetManifestRefreshStatus() const
+{
+	if (g_mockAampMPDDownloader != nullptr)
+	{
+		return g_mockAampMPDDownloader->GetManifestRefreshStatus();
+	}
+
+	return ManifestRefreshStatus(
+		AAMPStatusType::eAAMPSTATUS_OK,
+		0);
 }

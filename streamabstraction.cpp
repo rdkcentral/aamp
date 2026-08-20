@@ -1225,8 +1225,8 @@ void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &pos
 	// Update cached values for GStreamer
 	position = mRestampedPts.inSeconds();
 
-	AAMPLOG_INFO("state %d rate %f trickPlayFPS %d initFragment %d discontinuity %d "
-				 "position %lfs duration %lfs restamped position %lfs duration %lfs",
+	AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d initFragment %d discontinuity %d "
+				 "position %fs duration %fs restampedPTS %fs restampedDur %fs",
 				 static_cast<int>(mTrickmodeState),
 				 aamp->rate, trickPlayFPS, initFragment, discontinuity,
 				 inFragmentPosition.inSeconds(), inFragmentDuration.inSeconds(),
@@ -2920,20 +2920,32 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
-		mUnderflowMonitor->NotifyVideoFragment(endPosition, playRate);
+		// Resolve paused-state gating under the same mutex used by pause/resume
+		// notifications so check+use are serialized with monitor updates.
+		const float effectiveRate = (aamp && aamp->mSinkPaused.load()) ? 0.0f : playRate;
+		mUnderflowMonitor->NotifyVideoFragment(endPosition, effectiveRate);
 	}
 }
 
-void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+/**
+ *  @brief Notify buffer level to latency monitor.
+ *  @param mediaType The media type (audio or video).
+ *  @param bufferMs The buffer level in milliseconds.
+ */
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 	if (aamp)
 	{
-		aamp->NotifyBufferLevelToLatencyMonitor(bufferMs);
+		aamp->NotifyBufferLevelToLatencyMonitor(mediaType, bufferMs);
 	}
 }
 
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2943,6 +2955,10 @@ void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 
 void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2952,6 +2968,10 @@ void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{

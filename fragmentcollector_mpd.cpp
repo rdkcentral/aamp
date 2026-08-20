@@ -4855,11 +4855,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
-			if (this->mpd != NULL && ( ( IsCurlTimeoutFailure( http_error ) ) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL &&
+				((IsCurlTimeoutFailure(http_error)) ||
+				 (CURLE_COULDNT_CONNECT == http_error)))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore curl timeout");
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Ignore transient curl failure");
 				ret = AAMPStatusType::eAAMPSTATUS_OK;
 			}
 			else if (http_error == 512 )
@@ -4881,7 +4883,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 				}
 				if(aamp->mFogDownloadFailReason.find("PROFILE_NONE") != std::string::npos)
 				{
-
 					aamp->mFogDownloadFailReason.clear();
 					AAMPLOG_ERR("StreamAbstractionAAMP_MPD: No playable profiles found");
 					ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
@@ -4890,9 +4891,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			//When Fog is having tsb write error , then it will respond back with 302 with direct CDN url,In this case alone TSB should be disabled
 			else if (aamp->mFogTSBEnabled && http_error == 302)
 			{
-					aamp->mFogTSBEnabled = false;
+				aamp->mFogTSBEnabled = false;
 			}
-
 			else
 			{
 				aamp->UpdateDuration(0);
@@ -5051,60 +5051,44 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 	}
 	else
 	{
-		// Failure from the manifest download during refresh --- fire , what to do ??
-		// Check if the App only insisted to stop the download resulting in partial failure ?
-		int http_error	=	tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-
+		// Failure from the manifest download during refresh
+		// 1. Check if its due to app-induced stop
+		// 2. Log a FOG reason if available
+		// 3. Move on with the old manifest. The error might recover on next try.
+		// 4. Ultimately when buffer runs dry and manifest is not updated, send appropriate error event to app
+		int http_error = tmpManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 		if (aamp->DownloadsAreEnabled())
 		{
 			// if already mpd is available
-			if (this->mpd != NULL
-				&& ( IsCurlTimeoutFailure(http_error) || CURLE_COULDNT_CONNECT == http_error))
+			if (this->mpd != NULL &&
+				(IsCurlTimeoutFailure(http_error) ||
+				 CURLE_COULDNT_CONNECT == http_error))
 			{
 				//Skip this for first ever update mpd request
 				mNetworkDownDetected = true;
-				AAMPLOG_WARN("Ignore curl timeout");
+				AAMPLOG_WARN("Ignore transient curl failure");
 			}
-			else
+			else if (http_error == 512 &&
+					tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() &&
+					aamp->mFogTSBEnabled)
 			{
-				if (http_error == 512 )
+				for (const std::string& header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader)
 				{
-					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mFogTSBEnabled)
+					if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
 					{
-						for ( std::string header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
-						{
-							if(STARTS_WITH_IGNORE_CASE(header.c_str(),FOG_REASON_STRING))
-							{
-								aamp->mFogDownloadFailReason.clear();
-								aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
-								AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
-								aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
-								break;
-							}
-						}
+						aamp->mFogDownloadFailReason.clear();
+						aamp->mFogDownloadFailReason  =         header.substr(std::string(FOG_REASON_STRING).length());
+						AAMPLOG_WARN("Received FOG-Reason header: %s",aamp->mFogDownloadFailReason.c_str());
+						aamp->SendAnomalyEvent(ANOMALY_WARNING, "FOG-Reason:%s", aamp->mFogDownloadFailReason.c_str());
+						break;
 					}
 				}
-				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
-				{
-					aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE); //corrupt or invalid manifest
-					AAMPLOG_ERR("Invalid manifest, parse failed");
-				}
-				else if(tmpManifestDnldRespPtr->mMPDStatus == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
-				{
-					//Unknown Manifest content
-					aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
-					AAMPLOG_ERR("Unknown manifest content");
-				}
-				else
-				{
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
-					AAMPLOG_ERR("manifest download failed");
-				}
 			}
+			AAMPLOG_ERR("manifest download failed [status:%d][http:%d], re-using old manifest", tmpManifestDnldRespPtr->mMPDStatus, http_error);
 		}
-		else // if downloads disabled
+		else
 		{
-			AAMPLOG_ERR("manifest download failed");
+			AAMPLOG_ERR("manifest download failed, due to downloads being disabled, re-using old manifest");
 		}
 	}
 	// Inform fetch loop to proceed with the new manifest
