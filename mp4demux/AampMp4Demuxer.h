@@ -197,7 +197,6 @@ private:
 	/// to block on each remaining sample (e.g. against an injection gate set
 	/// by AampRialtoMediaSource::unblockInjection()).  Cleared by reset().
 	std::atomic<bool> mAborted {false};
-
 	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */
 	double mLastTrickRate {0.0};     /**< Last used trickplay rate for state reset */
 	double mRestampedDuration {0.0}; /**< Last restamped duration (seconds); reused across discontinuities */

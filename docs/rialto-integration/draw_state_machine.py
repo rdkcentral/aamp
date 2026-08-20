@@ -81,15 +81,6 @@ TRANSITIONS = [
     ("PLAYING",           "onPlaybackPaused",     "pause() confirmed",     "PAUSED"),
     ("PAUSED",            "onPlaybackStarted",    "play() confirmed",      "PLAYING"),
 
-    # ── Pending position (not an FSM state) ────────────────────────────────
-    # Discontinuity() no longer drives any state transition. It sets the
-    # out-of-band m_positionPending flag (gating sources, deferring play())
-    # so that whichever track's SendSample()/SendTransfer()/SendCopy() first
-    # observes m_positionPending calls MaybeFlushForPendingPosition(), which
-    # issues the real onFlush() below using that track's first post-event
-    # PTS. Configure() also arms m_positionPending on every tune (including
-    # first tune), so the same mechanism resolves the initial position.
-
     # ── Flush / seek ───────────────────────────────────────────────────────
     ("SOURCES_ATTACHED",  "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),
     ("PLAYING",           "onFlush",              "flush() + setSourcePosition()", "FLUSHING"),

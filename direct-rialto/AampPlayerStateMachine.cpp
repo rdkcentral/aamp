@@ -131,6 +131,7 @@ class FlushingState final : public IPlayerState
 public:
 	PlayerStateId id()   const override { return PlayerStateId::FLUSHING; }
 	const char   *name() const override { return "FLUSHING"; }
+
 	std::unique_ptr<IPlayerState> onFlushComplete() override;
 	std::unique_ptr<IPlayerState> onError()         override;
 
