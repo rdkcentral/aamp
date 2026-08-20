@@ -682,12 +682,14 @@ protected:
 	 * @param[in] nextSegmentTime
 	 * @param[in] nextSegmentTimeScale TimeScale corresponding to nextSegmentTime
 	 * @param[in] nextSegmentPeriodId Period Id associated with nextSegmentTime
+	 * @param[in] nextSegmentPeriodIdx Period index associated with nextSegmentTime
 	 *
 	 * @return void
 	 */
 	void DetectDiscontinuityAndFetchInit(bool periodChanged, uint64_t nextSegmentTime,
 		uint32_t nextSegmentTimeScale = 0,
-		const std::string &nextSegmentPeriodId = "");
+		const std::string &nextSegmentPeriodId = "",
+		int nextSegmentPeriodIdx = -1);
 
 	/**
 	 * @fn TsbReader

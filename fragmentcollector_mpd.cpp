@@ -10223,7 +10223,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
  */
 void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChanged,
 	uint64_t nextSegmentTime, uint32_t nextSegmentTimeScale,
-	const std::string &nextSegmentPeriodId)
+	const std::string &nextSegmentPeriodId, int nextSegmentPeriodIdx)
 {
 	bool discontinuity = false;
 
@@ -10296,7 +10296,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					periodChanged,
 					nextSegmentPeriodId.c_str(),
 					mCurrentPeriod ? mCurrentPeriod->GetId().c_str() : "unknown",
-					mIterPeriodIndex,
+					nextSegmentPeriodIdx,
 					mCurrentPeriodIdx,
 					nextSegmentTime,
 					nextSegmentTimeScale,
@@ -10497,6 +10497,14 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				break;
 			}
 
+			const std::string previousPeriodId =
+				mCurrentPeriod ? mCurrentPeriod->GetId() : "unknown";
+			const int previousPeriodIdx = mCurrentPeriodIdx;
+			const uint64_t previousSegmentTime =
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time;
+			const uint32_t previousSegmentTimeScale =
+				mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
+
 			/*
 			 * VOD CDAI: fire vodAdBreakOpportunity events for upcoming insertion points.
 			 * Only runs when CDAI is enabled and content is VOD.
@@ -10611,19 +10619,19 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 			}
 
-			uint64_t nextSegmentTime =
-				mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time;
-			uint32_t nextSegmentTimeScale =
-				mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
-			std::string nextSegmentPeriodId = currentPeriodId;
+			uint64_t nextSegmentTime = previousSegmentTime;
+			uint32_t nextSegmentTimeScale = previousSegmentTimeScale;
+			std::string nextSegmentPeriodId = previousPeriodId;
 
 			if (periodChanged)
 			{
-				AAMPLOG_WARN("[PTS-DIAG] capture-before-period-switch periodId='%s' periodIdx=%d nextSegmentTime=%" PRIu64 " nextScale=%u playRate=%.3f adState=%d",
-					nextSegmentPeriodId.c_str(),
-					mCurrentPeriodIdx,
-					nextSegmentTime,
-					nextSegmentTimeScale,
+				AAMPLOG_WARN("[PTS-DIAG] transition-owner-before-select oldPeriod='%s' oldIdx=%d segmentTime=%" PRIu64 " timeScale=%u segmentSec=%.6f playRate=%.3f adState=%d",
+					previousPeriodId.c_str(),
+					previousPeriodIdx,
+					previousSegmentTime,
+					previousSegmentTimeScale,
+					previousSegmentTimeScale > 0 ?
+						(double)previousSegmentTime / (double)previousSegmentTimeScale : -1.0,
 					mPlayRate,
 					(int)mCdaiObject->mAdState);
 			}
@@ -10638,12 +10646,30 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			}
 			else
 			{
+				if (periodChanged)
+				{
+					MediaStreamContext *videoContext =
+						mMediaStreamContext[eMEDIATYPE_VIDEO];
+					AAMPLOG_WARN("[PTS-DIAG] transition-owner-after-index oldPeriod='%s' oldIdx=%d newPeriod='%s' newIdx=%d postSegmentTime=%.0f postScale=%u postSegmentSec=%.6f fragmentTime=%.6f timelineIndex=%d",
+						previousPeriodId.c_str(),
+						previousPeriodIdx,
+						mCurrentPeriod ? mCurrentPeriod->GetId().c_str() : "unknown",
+						mCurrentPeriodIdx,
+						videoContext->fragmentDescriptor.Time,
+						videoContext->fragmentDescriptor.TimeScale,
+						videoContext->fragmentDescriptor.TimeScale > 0 ?
+							(double)videoContext->fragmentDescriptor.Time /
+							(double)videoContext->fragmentDescriptor.TimeScale : -1.0,
+						videoContext->fragmentTime,
+						videoContext->timeLineIndex);
+				}
 				// Call after StreamSelection() to get correct ->adaptationSetIdx ->representationIndex
 				AAMPLOG_TRACE("Update PTS offset after StreamSelection, period changed %d", periodChanged);
 				UpdatePtsOffset(periodChanged);
 				// Indexing success case
 				DetectDiscontinuityAndFetchInit(periodChanged, nextSegmentTime,
-					nextSegmentTimeScale, nextSegmentPeriodId);
+					nextSegmentTimeScale, nextSegmentPeriodId,
+					previousPeriodIdx);
 				if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState)
 				{
 					if (mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed)
