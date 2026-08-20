@@ -796,10 +796,6 @@ public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
 	int numberOfFragmentsCached;        /**< Number of fragments cached in this track*/
-	// DIAG: lifetime counters, immune to any single dropped log line - a widening
-	// gap between these two (beyond mCachedFragmentSize) proves real fragment loss.
-	uint64_t mDiagTotalFragmentsCached = 0;
-	uint64_t mDiagTotalFragmentsInjected = 0;
 	const char* name;                   /**< Track name used for debugging*/
 	double fragmentDurationSeconds;     /**< duration in seconds for current fragment-of-interest */
 	int segDLFailCount;                 /**< Segment download fail count*/

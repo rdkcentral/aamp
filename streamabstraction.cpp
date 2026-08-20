@@ -404,9 +404,6 @@ void MediaTrack::UpdateTSAfterInject()
 	{
 		numberOfFragmentsCached--;
 	}
-	mDiagTotalFragmentsInjected++;
-	// Diagnostic: lifetime injected count, immune to any single dropped log line.
-	AAMPLOG_WARN("[%s] DIAG lifetime totals cached=%" PRIu64 " injected=%" PRIu64, name, mDiagTotalFragmentsCached, mDiagTotalFragmentsInjected);
 
 	AAMPLOG_DEBUG("[%s] updated fragmentIdxToInject = %d numberOfFragmentsCached %d",
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
@@ -610,9 +607,6 @@ void MediaTrack::UpdateTSAfterFetch()
 	std::lock_guard<std::mutex> guard(mutex);
 
 	numberOfFragmentsCached++;
-	mDiagTotalFragmentsCached++;
-	// Diagnostic: lifetime cached count, immune to any single dropped log line.
-	AAMPLOG_WARN("[%s] DIAG lifetime totals cached=%" PRIu64 " injected=%" PRIu64, name, mDiagTotalFragmentsCached, mDiagTotalFragmentsInjected);
 	AAMPLOG_DEBUG("[%s] numberOfFragmentsCached++ [%d]", name,numberOfFragmentsCached);
 
 	//this should never HIT
