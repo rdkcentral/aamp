@@ -612,8 +612,6 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 { // given url, synchronously download and transmit associated fragment
 	bool retval = true;
 
-	AAMPLOG_INFO("track:%d isInit:%d discontinuity:%d fragmentDuration:%f curlInstance:%u", pMediaStreamContext->type, isInitializationSegment, discontinuity, fragmentDuration, curlInstance);
-
 	URLBitrateMap uriList;
 	if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
 	{
@@ -658,8 +656,6 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		pMediaStreamContext->fragmentDescriptor.Bandwidth,
 		mPTSOffset,
 		uriList);
-
-	AAMPLOG_INFO("track:%d isInit:%d downloadInfo->isDiscontinuity:%d", pMediaStreamContext->type, isInitializationSegment, downloadInfo->isDiscontinuity);
 
 	// Wrap the lambda in a JobWrapper
 	auto downloadJob = std::make_shared<aamp::MediaSegmentDownloadJob>(downloadInfo, [this, pMediaStreamContext, downloadInfo]() {
@@ -9035,7 +9031,6 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 {
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 
-		AAMPLOG_INFO("track:%d incomingDiscontinuity:%d enabled:%d currentDiscontinuity:%d", trackIdx, discontinuity, pMediaStreamContext->enabled, pMediaStreamContext->discontinuity);
 		if(discontinuity && pMediaStreamContext->enabled)
 		{
 			pMediaStreamContext->discontinuity = discontinuity;
@@ -14795,7 +14790,6 @@ void StreamAbstractionAAMP_MPD::ClearWorkers()
 void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, DownloadInfoPtr downloadInfo)
 {
 	auto pMediaStreamContext = mMediaStreamContext[downloadInfo->mediaType];
-	AAMPLOG_INFO("mediaType:%d status:%d isInitSegment:%d isDiscontinuity:%d profileChanged:%d", downloadInfo->mediaType, status, downloadInfo->isInitSegment, downloadInfo->isDiscontinuity, pMediaStreamContext ? pMediaStreamContext->profileChanged : -1);
 	if (pMediaStreamContext)
 	{
 		if ((downloadInfo->mediaType == eMEDIATYPE_VIDEO) && !downloadInfo->isInitSegment && (mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.capacity() != 0)
@@ -14823,13 +14817,12 @@ void StreamAbstractionAAMP_MPD::OnFragmentDownloadComplete(bool status, Download
 		// Without resetting profileChanged flag , fetch of audio was stopped causing audio drop
 		if (status && downloadInfo->isInitSegment)
 		{
-			AAMPLOG_INFO("mediaType:%d resetting profileChanged/discontinuity to false after init segment success", downloadInfo->mediaType);
 			pMediaStreamContext->profileChanged = false;
 			pMediaStreamContext->discontinuity = false;
 		}
 		else if (pMediaStreamContext->profileChanged)
 		{ // Profile changed case, reuse the same downloadInfo for init header fetch
-			AAMPLOG_INFO("%s Profile changed, reuse downloadInfo for init header fetch, isDiscontinuity:%d", GetMediaTypeName(downloadInfo->mediaType), downloadInfo->isDiscontinuity);
+			AAMPLOG_DEBUG("%s Profile changed, reuse downloadInfo for init header fetch", GetMediaTypeName(downloadInfo->mediaType));
 			// Lock the media stream context while fetching and injecting initialization to avoid race conditions
 			std::lock_guard<std::recursive_mutex> lock(pMediaStreamContext->mMediaStreamContextMutex);
 			// The absolute position for init fragment will be taken from latest media stream context last injected duration
