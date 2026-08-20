@@ -1831,17 +1831,6 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 }
 
 /**
- * @brief Block until any in-progress PlaceAds() / FulFillAdObject() has finished.
- *        Both hold mDaiMtx for their duration, so acquiring it here is sufficient.
- */
-void PrivateCDAIObjectMPD::WaitForPlacementComplete()
-{
-	AAMPLOG_INFO("[CDAI] Waiting for any in-progress ad placement to complete.");
-	std::lock_guard<std::recursive_mutex> lock(mDaiMtx);
-	AAMPLOG_INFO("[CDAI] Ad placement quiesced.");
-}
-
-/**
  * @brief Get the ad duration of remaining ads to be placed in an adbreak
  * @param[in] breakId - adbreak id
  * @param[in] adIdx - current ad index

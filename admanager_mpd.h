@@ -623,13 +623,6 @@ public:
 	void AbortWaitForNextAdResolved();
 
 	/**
-	 * @brief Block the caller until any in-progress PlaceAds() / FulFillAdObject()
-	 *        has finished. Must be called after AbortWaitForNextAdResolved() so that
-	 *        the placement thread can exit quickly once downloads are disabled.
-	 */
-	void WaitForPlacementComplete();
-
-	/**
 	 * @brief Get the ad duration of remaining ads to be placed in an adbreak
 	 * @param[in] breakId - adbreak id
 	 * @param[in] adIdx - current ad index

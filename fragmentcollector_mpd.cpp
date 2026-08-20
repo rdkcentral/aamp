@@ -11168,10 +11168,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	{
 		aamp->DisableDownloads();
 		mCdaiObject->AbortWaitForNextAdResolved();
-		// Synchronously wait for any PlaceAds()/FulFillAdObject() already in progress
-		// to finish before tearing down the pipeline; AbortWaitForNextAdResolved() only
-		// unblocks the CV wait, not the placement thread itself.
-		mCdaiObject->WaitForPlacementComplete();
 		aamp->mAampTsbLanguageChangeInProgress = false;
 	}
 
