@@ -1429,7 +1429,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// setSourcePosition fires for both video (id=0) and the inband CC
 	// subtitle source (id=1) created alongside video in Configure().
 	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, 10000000000LL, false, _, _)).Times(2);
+		setSourcePosition(_, 10000000000LL, true, _, _)).Times(2);
 
 	SendVideoInitFragment();
 }
@@ -4281,7 +4281,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// setSourcePosition fires for both video (id=0) and the inband CC
 	// subtitle source (id=1) created alongside video in Configure().
 	EXPECT_CALL(*m_mockPipelinePtr,
-		setSourcePosition(_, 10000000000LL, false, _, _)).Times(2);
+		setSourcePosition(_, 10000000000LL, true, _, _)).Times(2);
 
 	SendVideoInitFragment();
 }
@@ -4562,12 +4562,12 @@ TEST_F(AampRialtoPlayerTest,
 			}));
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/false, 2.0, _))
+			/*resetTime=*/true, 2.0, _))
 		.Times(1)
 		.WillOnce(Return(true));
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/false, 1.0, _))
+			/*resetTime=*/true, 1.0, _))
 		.Times(1)
 		.WillOnce(Return(true));
 
@@ -4601,7 +4601,7 @@ TEST_F(AampRialtoPlayerTest,
 			}));
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/false, 1.0, _))
+			/*resetTime=*/true, 1.0, _))
 		.Times(2)
 		.WillRepeatedly(Return(true));
 
@@ -4635,7 +4635,7 @@ TEST_F(AampRialtoPlayerTest,
 			}));
 	EXPECT_CALL(*m_mockPipelinePtr,
 		setSourcePosition(_, testing::Ge(10'000'000'000LL),
-			/*resetTime=*/false, 1.0, _))
+			/*resetTime=*/true, 1.0, _))
 		.Times(2)
 		.WillRepeatedly(Return(true));
 
