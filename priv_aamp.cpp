@@ -247,6 +247,9 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_GST_PIPELINE_ERROR, 80, 1, "AAMP: Error from gstreamer pipeline"},
 	{AAMP_TUNE_FAILED_PTS_ERROR, 80, 2, "AAMP: Playback failed due to PTS error"},
 
+	//Mp4 demuxer error
+	{AAMP_TUNE_MP4_DEMUX_ERROR, 80, 3, "AAMP: Error from mp4 demuxer"},
+
 	//Playback failure
 	{AAMP_TUNE_PLAYBACK_STALLED, 7600, 1, "AAMP: Playback was stalled due to lack of new fragments"},
 
@@ -3060,11 +3063,61 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 }
 
 /**
- * @brief Sends UnderFlow Event messages
- * @param[in] bufferingStarted True if buffering started, false if buffering ended.
+ * @brief Handle a pending manifest refresh failure when buffering starts.
+ *
+ * If buffering begins while the MPD downloader is already in a manifest
+ * refresh failure state, send the corresponding fatal error event and let
+ * the caller skip the normal BufferingChanged path.
+ *
+ * @return true if a manifest failure event was sent; false otherwise.
  */
+bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
+{
+	if (mMPDDownloaderInstance == nullptr)
+	{
+		// Always null for HLS, so lets move to DEBUG to avoid noisy logging
+		AAMPLOG_DEBUG("Null MPD downloader instance");
+		return false;
+	}
+
+	ManifestRefreshStatus retryStatus = mMPDDownloaderInstance->GetManifestRefreshStatus();
+	AAMPStatusType retryErrorType = retryStatus.type;
+	if (retryErrorType == AAMPStatusType::eAAMPSTATUS_OK)
+	{
+		AAMPLOG_DEBUG("Manifest refresh status is OK");
+		return false;
+	}
+	// Buffer drained while manifest refresh was already failing.
+	// Send the appropriate fatal error event instead of a BufferingChanged event.
+	// SetBufUnderFlowStatus is intentionally omitted here: the error event triggers
+	// player teardown, so the underflow flag is irrelevant. The normal buffering path
+	// (when this function returns false) sets it via SetBufUnderFlowStatus(bufferingStarted).
+	else if (retryErrorType == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with manifest content failure; sending init-failed content error");
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+	}
+	else if (retryErrorType == AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with manifest parse failure; sending init-failed parse error");
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR);
+	}
+	else
+	{
+		int manifestRefreshError = retryStatus.errorCode;
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry failure (status=%d err=%d); sending manifest request failed event", retryErrorType, manifestRefreshError);
+		SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, manifestRefreshError);
+	}
+	return true;
+}
+
 void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
+	if (bufferingStarted && HandleManifestRefreshFailureOnBuffering())
+	{
+		return;
+	}
+
 	// Buffer Change event indicate buffer availability
 	// bufferingStarted need to be inverted to indicate if buffer available or not
 	// BufferChangeEvent with False = Underflow / non-availability of buffer to play
@@ -3116,11 +3169,11 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 /**
  * @brief Forward the current buffer level to the latency monitor.
  */
-void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 	if (mLatencyMonitor)
 	{
-		mLatencyMonitor->OnBufferLevelUpdate(bufferMs);
+		mLatencyMonitor->OnBufferLevelUpdate(mediaType, bufferMs);
 	}
 }
 
@@ -5625,6 +5678,15 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				if (sink)
 				{
 					sink->Stop(!newTune);
+				}
+			}
+			// Deactivate DRM session after pipeline teardown to avoid use-after-free race
+			// between GStreamer element disposal and async DRM session cleanup
+			if (!IsLocalAAMPTsb() && (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK)))
+			{
+				if (mDRMLicenseManager)
+				{
+					mDRMLicenseManager->notifyCleanup();
 				}
 			}
 		}
@@ -15090,6 +15152,36 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 }
 
 /**
+ * @fn GetVideoBufferedDurationSecs
+ * @brief Get the buffered video duration in seconds
+ * @return Buffered video duration in seconds
+ */
+double PrivateInstanceAAMP::GetVideoBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
+	}
+	return -1.0;
+}
+
+/**
+ * @fn GetAudioBufferedDurationSecs
+ * @brief Get the buffered audio duration in seconds
+ * @return Buffered audio duration in seconds
+ */
+double PrivateInstanceAAMP::GetAudioBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedAudioDurationSec();
+	}
+	return -1.0;
+}
+
+/**
  * @brief Build the latency configuration for the latency monitor
  * The configuration will be built based on the current stream and player state.
  */
@@ -15198,8 +15290,8 @@ bool PrivateInstanceAAMP::IsLatencyExceedingTrickplayThreshold() const
 		return false;
 	}
 
-	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs()
-		>= DEFAULT_ACCUMULATED_LATENCY_THRESHOLD_MS;
+	const double thresholdMs = GETCONFIGVALUE_PRIV(eAAMPConfig_RebufferLatencyMaxIncrementSec) * 1000.0;
+	return mLatencyMonitor->GetAccumulatedLatencyIncrementMs() >= thresholdMs;
 }
 
 /**
