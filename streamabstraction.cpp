@@ -1252,7 +1252,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	class StreamAbstractionAAMP* pContext = GetContext();
 	// This will change for trickplay if restamping is enabled (cachedFragment->duration is changed according to abs rate)
 	double inFragmentDuration = cachedFragment->duration;
-	if (aamp->GetLLDashChunkMode())
+
+	//if (aamp->GetLLDashChunkMode())
+	if (true == false)
 	{
 		bool bIgnore = true;
 		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
@@ -4637,12 +4639,7 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
-	double ret = totalInjectedDuration;
-	if (aamp->GetLLDashChunkMode())
-	{
-		ret = totalInjectedChunksDuration;
-	}
-	return ret;
+	return totalInjectedDuration;
 }
 
 /**

@@ -34,7 +34,7 @@
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-	assert(!aamp->GetLLDashChunkMode());
+	// assert(!aamp->GetLLDashChunkMode());
 
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
@@ -228,6 +228,13 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 			cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 			cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
 			cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
+			// Position of this chunk, before chunkDurationSec advances past it - required by the
+			// SLD restamping path (RestampPts/TrickModePtsRestamp), which chunk mode now also uses.
+			cachedFragment->position = mActiveDownloadInfo->pts + mActiveDownloadInfo->chunkDurationSec;
+			if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+			{
+				cachedFragment->position += mActiveDownloadInfo->ptsOffset.inSeconds();
+			}
 			mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
 			// Only update when absPosition is set to avoid messing up the values.
 			if (cachedFragment->absPosition > 0)
