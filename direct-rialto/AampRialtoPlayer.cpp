@@ -1478,11 +1478,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// unclamped into the pipeline-level setPosition() call and the
 	// SEEK_DONE-committed segment-start baseline (m_segmentStartPositionNs).
 	int64_t posNs = static_cast<int64_t>(position * kNsPerSecond);
-	if (posNs < 0)
-	{
-		AAMPLOG_WARN("Negative position=%f requested - clamping to 0", position);
-		posNs = 0;
-	}
 	m_pendingPositionNs.store(posNs, std::memory_order_relaxed);
 	m_pendingFlushRate.store(rate, std::memory_order_relaxed);
 
@@ -1634,11 +1629,6 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 		}
 		m_flushCv.notify_all();
 	}
-
-	// m_firstPtsMs is reset automatically on each source by
-	// unblockInjection() (called above); Discontinuity() uses it to reject
-	// a discontinuity for a track that has not injected any sample since
-	// this flush.
 
 	AAMPLOG_INFO("EXIT");
 }

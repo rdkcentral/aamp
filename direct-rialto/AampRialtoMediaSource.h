@@ -457,9 +457,8 @@ public:
 		bool morePending = false);
 
 	/// Sentinel value returned by firstPtsMs() when no sample has been
-	/// injected yet in the current session.  Mirrors the -1 sentinel
-	/// used by GStreamer's segmentStart in InterfacePlayerRDK.
-	static constexpr int64_t kFirstPtsNotSet = -1LL;
+	/// injected yet in the current session.
+	static constexpr int64_t kFirstPtsNotSet = std::numeric_limits<int64_t>::min();
 
 	/**
 	 * @brief PTS of the first sample injected since the last reset or
