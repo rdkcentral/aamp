@@ -9359,6 +9359,12 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 	AampTime timelineStart;
 	AampTime duration;
 
+	if (!mCurrentPeriod)
+	{
+		AAMPLOG_ERR("No current period");
+		return;
+	}
+
 	IPeriod *period = mCurrentPeriod;
 	GetStartAndDurationForPtsRestamping(timelineStart, duration);
 
