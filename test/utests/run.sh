@@ -133,7 +133,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     # forces cmake to re-run pkg_check_modules with the correct PKG_CONFIG_PATH
     # set by this script, picking up the newly installed version.
     if [[ -f "CMakeCache.txt" ]]; then
-        _cached_ssl_inc=$(grep "^OPENSSL_INCLUDE_DIRS:INTERNAL=" CMakeCache.txt | cut -d= -f2)
+        _cached_ssl_inc=$(grep "^OPENSSL_INCLUDE_DIRS:INTERNAL=" CMakeCache.txt | cut -d= -f2) || true
         if [[ -n "${_cached_ssl_inc}" && ! -f "${_cached_ssl_inc}/openssl/sha.h" ]]; then
             echo "WARNING: Cached OpenSSL include path is stale:"
             echo "         ${_cached_ssl_inc}/openssl/sha.h not found."

@@ -137,7 +137,7 @@ function aampcli_install_build_darwin_fn()
     # with the PKG_CONFIG_PATH set below, picking up the new version.
     if [[ -f "CMakeCache.txt" ]]; then
         local _cached_ssl_inc
-        _cached_ssl_inc=$(grep "^OPENSSL_INCLUDE_DIRS:INTERNAL=" CMakeCache.txt | cut -d= -f2)
+        _cached_ssl_inc=$(grep "^OPENSSL_INCLUDE_DIRS:INTERNAL=" CMakeCache.txt | cut -d= -f2) || true
         if [[ -n "${_cached_ssl_inc}" && ! -f "${_cached_ssl_inc}/openssl/sha.h" ]]; then
             echo "WARNING: Cached OpenSSL include path is stale:"
             echo "         ${_cached_ssl_inc}/openssl/sha.h not found."
