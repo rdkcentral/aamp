@@ -683,13 +683,16 @@ protected:
 	 * @param[in] nextSegmentTimeScale TimeScale corresponding to nextSegmentTime
 	 * @param[in] nextSegmentPeriodId Period Id associated with nextSegmentTime
 	 * @param[in] nextSegmentPeriodIdx Period index associated with nextSegmentTime
+	 * @param[in] nextSegmentPto Presentation time offset associated with nextSegmentTime
+	 * @param[in] nextSegmentPeriodStart Period start associated with nextSegmentTime
 	 *
 	 * @return void
 	 */
 	void DetectDiscontinuityAndFetchInit(bool periodChanged, uint64_t nextSegmentTime,
 		uint32_t nextSegmentTimeScale = 0,
 		const std::string &nextSegmentPeriodId = "",
-		int nextSegmentPeriodIdx = -1);
+		int nextSegmentPeriodIdx = -1, uint64_t nextSegmentPto = 0,
+		double nextSegmentPeriodStart = 0.0);
 
 	/**
 	 * @fn TsbReader
