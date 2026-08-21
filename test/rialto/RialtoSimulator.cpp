@@ -473,18 +473,24 @@ public:
 				std::thread([this, maxInjectedNs]() {
 					using namespace std::chrono;
 					constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
-					// Drain must advance only while playback advances.
-					// Using wall-clock elapsed would continue draining while
-					// paused, which can signal END_OF_STREAM too early.
+					// Drain must not advance while paused, but should otherwise
+					// follow active playback wall time so trickplay timing
+					// remains consistent with previous behavior.
 					const int64_t waitUntilNs = std::max(kMinDrainNs,
 						maxInjectedNs);
-					const int64_t drainStartPosNs = getCurrentPositionNs();
+					int64_t drainedWhilePlayingNs = 0;
+					auto lastTick = steady_clock::now();
 					for (;;)
 					{
 						if (m_stopRequested.load(std::memory_order_relaxed))
 						{
 							return;
 						}
+
+						auto now = steady_clock::now();
+						auto deltaNs = duration_cast<nanoseconds>(
+							now - lastTick).count();
+						lastTick = now;
 
 						if (!m_playing.load(std::memory_order_relaxed))
 						{
@@ -493,15 +499,14 @@ public:
 							continue;
 						}
 
-						const int64_t playedSinceDrainStartNs =
-							getCurrentPositionNs() - drainStartPosNs;
-						if (playedSinceDrainStartNs >= waitUntilNs)
+						drainedWhilePlayingNs += deltaNs;
+						if (drainedWhilePlayingNs >= waitUntilNs)
 						{
 							break;
 						}
 
 						const int64_t remainingNs = waitUntilNs -
-							playedSinceDrainStartNs;
+							drainedWhilePlayingNs;
 						const int64_t sleepNs = std::min<int64_t>(remainingNs,
 							200000000LL);
 						std::this_thread::sleep_for(nanoseconds(sleepNs));
