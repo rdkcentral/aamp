@@ -3159,11 +3159,11 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 /**
  * @brief Forward the current buffer level to the latency monitor.
  */
-void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 	if (mLatencyMonitor)
 	{
-		mLatencyMonitor->OnBufferLevelUpdate(bufferMs);
+		mLatencyMonitor->OnBufferLevelUpdate(mediaType, bufferMs);
 	}
 }
 
@@ -15087,6 +15087,36 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	// Return a negative sentinel so callers can distinguish a genuine empty
 	// buffer from a transient lock-contention failure.  0.0 would be
 	// indistinguishable from an actually-empty buffer.
+	return -1.0;
+}
+
+/**
+ * @fn GetVideoBufferedDurationSecs
+ * @brief Get the buffered video duration in seconds
+ * @return Buffered video duration in seconds
+ */
+double PrivateInstanceAAMP::GetVideoBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
+	}
+	return -1.0;
+}
+
+/**
+ * @fn GetAudioBufferedDurationSecs
+ * @brief Get the buffered audio duration in seconds
+ * @return Buffered audio duration in seconds
+ */
+double PrivateInstanceAAMP::GetAudioBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedAudioDurationSec();
+	}
 	return -1.0;
 }
 
