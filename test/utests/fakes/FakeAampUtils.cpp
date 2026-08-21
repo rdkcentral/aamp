@@ -346,6 +346,16 @@ const FormatMap * GetVideoFormatForCodec( const char *codecs )
     return NULL;
 }
 
+StreamOutputFormat GetMp4DemuxVideoFormatForCodec( const char *codecs )
+{
+    return FORMAT_UNKNOWN;
+}
+
+StreamOutputFormat GetMp4DemuxAudioFormatForCodec( const char *codecs )
+{
+    return FORMAT_UNKNOWN;
+}
+
 bool aamp_IsAbsoluteURL( const std::string &url )
 {
 	return url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0;

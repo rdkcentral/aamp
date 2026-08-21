@@ -594,6 +594,44 @@ TEST(_AampUtils, GetVideoFormatForCodec)
 	EXPECT_EQ(result, nullptr);
 }
 
+
+TEST(_AampUtils, GetMp4DemuxVideoFormatForCodec)
+{
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("avc1.64001f"), FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("hvc1.2.4.L120.90"), FORMAT_VIDEO_ES_HEVC);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("hev1.2.4.L120.90"), FORMAT_VIDEO_ES_HEVC);
+	// A HLS profile lists video and audio codecs together; the video lookup must pick out its own
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_VIDEO_ES_H264);
+	// mpeg2v has no codec configuration box AampMp4Demuxer recognises, so it must not be predicted
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("mpeg2v"), FORMAT_UNKNOWN);
+	// an audio-only codec string must not yield a video format
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("mp4a.40.2"), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec(""), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec(nullptr), FORMAT_UNKNOWN);
+}
+
+
+TEST(_AampUtils, GetMp4DemuxAudioFormatForCodec)
+{
+	// AampMp4Demuxer strips the container and reports raw AAC, not the ADTS-framed
+	// FORMAT_AUDIO_ES_AAC that GetAudioFormatForCodec returns for these same strings
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("mp4a.40.2"), FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("mp4a.40.5"), FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ec-3"), FORMAT_AUDIO_ES_EC3);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("eac3"), FORMAT_AUDIO_ES_EC3);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.01"), FORMAT_AUDIO_ES_AC4);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.02"), FORMAT_AUDIO_ES_AC4);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_AUDIO_ES_AAC_RAW);
+	// ac-3 and ATMOS have no dac3/dec3-distinguishable mapping in AampMp4Demuxer, so they must
+	// fall through to FORMAT_UNKNOWN rather than being predicted incorrectly
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-3"), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ec+3"), FORMAT_UNKNOWN);
+	// a video-only codec string must not yield an audio format
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f"), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec(""), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec(nullptr), FORMAT_UNKNOWN);
+}
+
 static void PrintableStdThreadHelper( size_t *out )
 {
 	*out = GetPrintableThreadID();
