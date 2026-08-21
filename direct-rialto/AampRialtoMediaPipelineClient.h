@@ -76,6 +76,11 @@ public:
 	/// Parameter: sourceId
 	using SourceFlushedCallback = std::function<void(int32_t)>;
 
+	/// Callback invoked when Rialto reports a non-fatal playback error.
+	/// Parameters: sourceId, PlaybackError
+	using PlaybackErrorCallback =
+		std::function<void(int32_t, PlaybackError)>;
+
 	AampRialtoMediaPipelineClient();
 	~AampRialtoMediaPipelineClient() override;
 
@@ -123,6 +128,12 @@ public:
 		m_sourceFlushedCallback = std::move(cb);
 	}
 
+	/// @brief Install callback for notifyPlaybackError events.
+	void SetPlaybackErrorCallback(PlaybackErrorCallback cb)
+	{
+		m_playbackErrorCallback = std::move(cb);
+	}
+
 	// IMediaPipelineClient Implementation (All required pure virtuals)
 	void notifyNetworkState(NetworkState state) override;
 	void notifyPlaybackState(PlaybackState state) override;
@@ -159,6 +170,7 @@ private:
 	DurationCallback m_durationCallback;
 	BufferUnderflowCallback m_bufferUnderflowCallback;
 	SourceFlushedCallback m_sourceFlushedCallback;
+	PlaybackErrorCallback m_playbackErrorCallback;
 };
 
 #endif // AAMP_RIALTO_MEDIA_PIPELINE_CLIENT_H

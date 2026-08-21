@@ -23,7 +23,8 @@
  *
  * This fake faithfully dispatches callbacks just like the real implementation.
  * AampRialtoPlayerTests relies on the callback dispatch to exercise the
- * needData/cancelNeedData/playbackState/position/duration event paths.
+ * needData/cancelNeedData/playbackState/position/duration/bufferUnderflow/
+ * playbackError event paths.
  *
  * Test targets that include the real AampRialtoPlayer.cpp will link against
  * this fake instead of the real AampRialtoMediaPipelineClient.cpp.
@@ -105,8 +106,13 @@ void AampRialtoMediaPipelineClient::notifyCancelNeedMediaData(
 }
 
 void AampRialtoMediaPipelineClient::notifyPlaybackError(
-	int32_t /*sourceId*/,
-	firebolt::rialto::PlaybackError /*error*/) {}
+	int32_t sourceId, firebolt::rialto::PlaybackError error)
+{
+	if (m_playbackErrorCallback)
+	{
+		m_playbackErrorCallback(sourceId, error);
+	}
+}
 
 void AampRialtoMediaPipelineClient::notifySourceFlushed(
 	int32_t sourceId)

@@ -194,3 +194,55 @@ TEST_F(AampRialtoMediaPipelineClientTest,
 	// Only the second callback should fire.
 	EXPECT_EQ(callCount, 10);
 }
+
+// ---------------------------------------------------------------------------
+// notifyPlaybackError — PlaybackErrorCallback baseline tests
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	notifyPlaybackError_WithCallback_InvokesCallback)
+{
+	bool called = false;
+	int32_t gotSource = -1;
+	firebolt::rialto::PlaybackError gotError =
+		firebolt::rialto::PlaybackError::UNKNOWN;
+
+	m_client->SetPlaybackErrorCallback(
+		[&](int32_t src, firebolt::rialto::PlaybackError error) {
+			called    = true;
+			gotSource = src;
+			gotError  = error;
+		});
+
+	m_client->notifyPlaybackError(
+		/*sourceId=*/3, firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);
+
+	EXPECT_TRUE(called);
+	EXPECT_EQ(gotSource, 3);
+	EXPECT_EQ(gotError, firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);
+}
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	notifyPlaybackError_WithoutCallback_DoesNotCrash)
+{
+	// No callback installed — must not crash.
+	EXPECT_NO_THROW(m_client->notifyPlaybackError(
+		2, firebolt::rialto::PlaybackError::DECRYPTION));
+}
+
+TEST_F(AampRialtoMediaPipelineClientTest,
+	SetPlaybackErrorCallback_ReplacesExisting)
+{
+	int callCount = 0;
+
+	m_client->SetPlaybackErrorCallback(
+		[&](int32_t, firebolt::rialto::PlaybackError) { callCount++; });
+	m_client->SetPlaybackErrorCallback(
+		[&](int32_t, firebolt::rialto::PlaybackError) { callCount += 10; });
+
+	m_client->notifyPlaybackError(1, firebolt::rialto::PlaybackError::UNKNOWN);
+
+	// Only the second callback should fire.
+	EXPECT_EQ(callCount, 10);
+}
+

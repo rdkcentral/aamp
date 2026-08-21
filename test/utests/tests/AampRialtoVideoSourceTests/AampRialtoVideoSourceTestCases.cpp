@@ -35,6 +35,7 @@
 #include <thread>
 
 using ::testing::_;
+using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -339,6 +340,135 @@ TEST_F(AampRialtoVideoSourceTest,
 
 	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::NEWLY_ATTACHED);
 	EXPECT_EQ(m_source.mksId(), -1);
+}
+
+// ---------------------------------------------------------------------------
+// attachOrUpdate — DRM session refresh on already-attached source
+// ---------------------------------------------------------------------------
+
+/**
+ * @test AampRialtoVideoSource_AttachTwice_UnchangedProtection_DoesNotRecreateSession
+ * @brief Verify that re-queuing the same protection params on a later
+ *        attachOrUpdate() call (e.g. every period's init segment) does not
+ *        trigger a redundant createSession() call.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachTwice_UnchangedProtection_DoesNotRecreateSession)
+{
+	NiceMock<MockDrmBridge> mockDrm;
+	EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.Times(1)
+		.WillOnce(Return(42));
+
+	AampRialtoMediaSource::ProtectionParams prot;
+	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	prot.initData = {0xCA, 0xFE};
+	prot.type     = eMEDIATYPE_VIDEO;
+
+	auto codecInfo1 = MakeH264CodecInfo();
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo1, &mockDrm, -1, prot);
+	ASSERT_EQ(m_source.mksId(), 42);
+
+	auto codecInfo2 = MakeH264CodecInfo(1920, 1080);
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo2, &mockDrm, -1, prot);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.mksId(), 42);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachTwice_ChangedProtection_RecreatesSession
+ * @brief Verify that different protection params (new PSSH/init data) on a
+ *        later attachOrUpdate() call refresh mksId via a new createSession()
+ *        call — this is the key-rotation-across-periods scenario.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachTwice_ChangedProtection_RecreatesSession)
+{
+	NiceMock<MockDrmBridge> mockDrm;
+	AampRialtoMediaSource::ProtectionParams protA;
+	protA.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	protA.initData = {0xCA, 0xFE};
+	protA.type     = eMEDIATYPE_VIDEO;
+
+	AampRialtoMediaSource::ProtectionParams protB;
+	protB.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	protB.initData = {0xBE, 0xEF};
+	protB.type     = eMEDIATYPE_VIDEO;
+
+	{
+		InSequence seq;
+		EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+			.WillOnce(Return(42));
+		EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+			.WillOnce(Return(99));
+	}
+
+	auto codecInfo1 = MakeH264CodecInfo();
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo1, &mockDrm, -1, protA);
+	ASSERT_EQ(m_source.mksId(), 42);
+
+	auto codecInfo2 = MakeH264CodecInfo();
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo2, &mockDrm, -1, protB);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.mksId(), 99);
+}
+
+/**
+ * @test AampRialtoVideoSource_AttachTwice_ProtectionArrivesLate_CreatesSession
+ * @brief Verify that protection params supplied for the first time on a
+ *        later attachOrUpdate() call (source already attached unencrypted)
+ *        still create a DRM session and populate mksId.
+ */
+TEST_F(AampRialtoVideoSourceTest,
+	AampRialtoVideoSource_AttachTwice_ProtectionArrivesLate_CreatesSession)
+{
+	auto codecInfo1 = MakeH264CodecInfo();
+	EXPECT_CALL(*m_pipelinePtr, attachSource(_))
+		.WillOnce(Invoke([this](const std::unique_ptr<
+			firebolt::rialto::IMediaPipeline::MediaSource> &src)
+		{
+			const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+				*src).setId(m_nextSourceId++);
+			return true;
+		}));
+	m_source.attachOrUpdate(*m_pipelinePtr, codecInfo1, nullptr, -1);
+	ASSERT_EQ(m_source.mksId(), -1);
+
+	NiceMock<MockDrmBridge> mockDrm;
+	EXPECT_CALL(mockDrm, createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(7));
+
+	AampRialtoMediaSource::ProtectionParams prot;
+	prot.systemId = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+	prot.initData = {0xCA, 0xFE};
+	prot.type     = eMEDIATYPE_VIDEO;
+
+	auto codecInfo2 = MakeH264CodecInfo();
+	auto result = m_source.attachOrUpdate(
+		*m_pipelinePtr, codecInfo2, &mockDrm, -1, prot);
+
+	EXPECT_EQ(result, AampRialtoMediaSource::AttachResult::UPDATED);
+	EXPECT_EQ(m_source.mksId(), 7);
 }
 
 // ---------------------------------------------------------------------------
