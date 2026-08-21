@@ -305,13 +305,13 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 					// next to the format string in isobmffhelper.cpp, which is only "[%s] ...",
 					// but it is not: AAMPLOG_INFO expands to
 					//     logprintf(level, __FILE__, __FUNCTION__, __LINE__, format, ...)
-					// which prefixes every line with "[<__FUNCTION__>][<__LINE__>]". The legacy
+					// which includes "[<__FUNCTION__>][<__LINE__>]" in its prefix. The legacy
 					// line sits in IsoBmffHelper::RestampPts(), so __FUNCTION__ *is* "RestampPts"
 					// and the line reaching the log is:
 					//     [RestampPts][68][video] timeScale ... before ... after ... duration ...
 					// This line sits in AampMp4Demuxer::sendSegment(), so the same shape can only
 					// be produced by carrying the tag explicitly. The L2 checker regex
-					// (PtsRestampUtils.LOG_LINE in test/l2test/utilities/l2test_pts_restamp.py)
+					// (PtsRestampUtils.LOG_LINE in the L2 pts-restamp checker)
 					// anchors on \[RestampPts\], so dropping the tag makes it silently stop
 					// matching and every restamp continuity assertion is skipped rather than
 					// failed. See VPAAMP-1027.
