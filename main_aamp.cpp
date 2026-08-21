@@ -867,6 +867,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->AcquireStreamLock();
 						aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						aamp->ReleaseStreamLock();
+						
+						// Notify speed change without state transition (eSTATE_SEEKING)
+						// State will naturally transition to PLAYING when NotifyFirstBufferProcessed() is called after fragments arrive
+						aamp->NotifySpeedChanged(aamp->rate, false);
 					}
 					else
 					{
