@@ -698,7 +698,8 @@ bool MediaTrack::WaitForCachedFragmentInjected(int timeoutMs)
 		}
 		else if (numberOfFragmentsCached == mCachedFragmentSize)
 		{
-			AAMPLOG_DEBUG("[%s] cache still full (%d/%zu), returning false", name, numberOfFragmentsCached, mCachedFragmentSize);
+			AAMPLOG_WARN("[VPAAMP-1020][%s] WaitForCachedFragmentInjected timed out — cache still full (%d/%zu)",
+				name, numberOfFragmentsCached, mCachedFragmentSize);
 			ret = false;
 		}
 	}
@@ -721,12 +722,16 @@ bool MediaTrack::WaitForCachedFragmentAvailable()
 
 	if ((numberOfFragmentsCached == 0) && !(abort || abortInject))
 	{
-		AAMPLOG_DEBUG("## [%s] Waiting for CachedFragment to be available, eosReached=%d ##", name, eosReached);
-
 		if (!eosReached)
 		{
+			AAMPLOG_WARN("[VPAAMP-1020][%s] WaitForCachedFragmentAvailable: blocking — cache empty, eosReached=false", name);
 			fragmentFetched.wait(lock);
-			AAMPLOG_DEBUG("[%s] wait complete for fragmentFetched", name);
+			AAMPLOG_WARN("[VPAAMP-1020][%s] WaitForCachedFragmentAvailable: unblocked — cached=%d eosReached=%d abort=%d abortInject=%d",
+				name, numberOfFragmentsCached, eosReached, abort, abortInject);
+		}
+		else
+		{
+			AAMPLOG_INFO("[VPAAMP-1020][%s] WaitForCachedFragmentAvailable: cache empty, eosReached=true — signalling EOS", name);
 		}
 	}
 

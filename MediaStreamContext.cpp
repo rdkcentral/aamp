@@ -639,6 +639,13 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment>&& frag
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
 	bool ret = false;
+	AAMPLOG_INFO("[VPAAMP-1020][%s] CacheTsbFragment: cached=%d/%zu pos=%f",
+		name, numberOfFragmentsCached, GetCachedFragmentSize(), fragment->position);
+	if (numberOfFragmentsCached == GetCachedFragmentSize())
+	{
+		AAMPLOG_WARN("[VPAAMP-1020][%s] CacheTsbFragment: cache full — blocking on WaitForCachedFragmentInjected pos=%f",
+			name, fragment->position);
+	}
 	if(!fragment->fragment.empty() && WaitForCachedFragmentInjected())
 	{
 		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
@@ -1209,10 +1216,14 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		// Skip the wait when playing from local TSB
 		if (IsFragmentCacheFull() && !aamp->IsLocalAAMPTsbInjection())
 		{
+			AAMPLOG_WARN("[VPAAMP-1020][%s] cache full (%d/%zu) before download of %s — waiting for inject slot",
+				name, numberOfFragmentsCached, GetCachedFragmentSize(), dlInfo->url.c_str());
+			int waitCount = 0;
 			while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
 			{
-				AAMPLOG_TRACE("Waiting for free fragment");
+				AAMPLOG_WARN("[VPAAMP-1020][%s] still waiting for free fragment slot (attempt %d)", name, ++waitCount);
 			}
+			AAMPLOG_INFO("[VPAAMP-1020][%s] cache slot available (cached=%d)", name, numberOfFragmentsCached);
 		}
 		while (WaitForLowLatencyDashDownloads())
 		{
@@ -1223,6 +1234,10 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		if (DownloadsEnabled())
 		{
 			retval = CacheFragment(dlInfo->url, dlInfo->curlInstance, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->range.c_str(), dlInfo->isInitSegment, dlInfo->isDiscontinuity, dlInfo->isPlayingAd, dlInfo->timeScale);
+		}
+		else
+		{
+			AAMPLOG_WARN("[VPAAMP-1020][%s] downloads disabled before CacheFragment for %s", name, dlInfo->url.c_str());
 		}
 	}
 
