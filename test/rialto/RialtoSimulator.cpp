@@ -473,27 +473,38 @@ public:
 				std::thread([this, maxInjectedNs]() {
 					using namespace std::chrono;
 					constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
-					// Wait until wall time from play-start covers whichever
-					// is larger: the fixed 6 s floor or the full injected
-					// content duration.  The latter dominates whenever AAMP
-					// injects faster than real-time (fast network/CDN),
-					// ensuring END_OF_STREAM is never signalled before the
-					// simulated renderer would have finished playing all
-					// buffered frames.
-					int64_t waitUntilNs = std::max(kMinDrainNs, maxInjectedNs);
-					auto elapsed = steady_clock::now() - m_playStartTime;
-					auto elapsedNs =
-						duration_cast<nanoseconds>(elapsed).count();
-					if (elapsedNs < waitUntilNs)
+					// Drain must advance only while playback advances.
+					// Using wall-clock elapsed would continue draining while
+					// paused, which can signal END_OF_STREAM too early.
+					const int64_t waitUntilNs = std::max(kMinDrainNs,
+						maxInjectedNs);
+					const int64_t drainStartPosNs = getCurrentPositionNs();
+					for (;;)
 					{
-						auto remainingNs = waitUntilNs - elapsedNs;
-						RIALTO_SIM_LOG("draining: waiting %ld ms before END_OF_STREAM",
-							remainingNs / 1000000L);
-						std::this_thread::sleep_for(nanoseconds(remainingNs));
-					}
-					if (m_stopRequested.load(std::memory_order_relaxed))
-					{
-						return;
+						if (m_stopRequested.load(std::memory_order_relaxed))
+						{
+							return;
+						}
+
+						if (!m_playing.load(std::memory_order_relaxed))
+						{
+							std::this_thread::sleep_for(
+								milliseconds(50));
+							continue;
+						}
+
+						const int64_t playedSinceDrainStartNs =
+							getCurrentPositionNs() - drainStartPosNs;
+						if (playedSinceDrainStartNs >= waitUntilNs)
+						{
+							break;
+						}
+
+						const int64_t remainingNs = waitUntilNs -
+							playedSinceDrainStartNs;
+						const int64_t sleepNs = std::min<int64_t>(remainingNs,
+							200000000LL);
+						std::this_thread::sleep_for(nanoseconds(sleepNs));
 					}
 					// Re-validate EOS after draining: new media may have
 					// arrived during the drain window (e.g. trickplay
