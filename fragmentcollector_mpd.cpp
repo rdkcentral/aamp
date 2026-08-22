@@ -7843,13 +7843,21 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
 		auto pMediaStreamContext = mMediaStreamContext[mediaType];
 		if( pMediaStreamContext )
 		{
-			if( pMediaStreamContext->representation && pMediaStreamContext->representation->GetCodecs().size() )
+			if( pMediaStreamContext->representation )
 			{
-				codec = pMediaStreamContext->representation->GetCodecs().at(0);
+				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
+				if( !repCodecs.empty() )
+				{
+					codec = repCodecs[0];
+				}
 			}
-			else if( pMediaStreamContext->adaptationSet && pMediaStreamContext->adaptationSet->GetCodecs().size() )
+			if( codec.empty() && pMediaStreamContext->adaptationSet )
 			{
-				codec = pMediaStreamContext->adaptationSet->GetCodecs().at(0);
+				const auto& adapCodecs = pMediaStreamContext->adaptationSet->GetCodecs();
+				if( !adapCodecs.empty() )
+				{
+					codec = adapCodecs[0];
+				}
 			}
 		}
 	}
