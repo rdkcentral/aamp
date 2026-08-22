@@ -805,10 +805,13 @@ TEST(_AampUtils, parseAndValidateSCTE35ProgramResumption_invalid)
 
 TEST(_AampUtils, parseAndValidateSCTE35ProgramResumption_true)
 {
-	/* Start with a known-good SCTE35 signal and mutate the segmentation_type_id
-	 * byte to PROGRAM_IMMEDIATE_RESUMPTION (0x1A), then recompute CRC32.
+	/* Start with a known-good SCTE35 signal that contains no resumption type
+	 * (0x1A) and mutate the segmentation_type_id byte to
+	 * PROGRAM_IMMEDIATE_RESUMPTION (0x1A), then recompute CRC32.
+	 * The previous string ("/DBcAABMcsOF…") was a multi-descriptor payload
+	 * that already contained a 0x1A descriptor, making EXPECT_FALSE fail.
 	 */
-	const std::string providerAdvertisementStart = "/DBcAABMcsOF///wBQb+MrpDwgBGAjNDVUVJAAAACX+/ASQ1MzhlNGMzOC1iYWFjLTQ1OGEtODE1MS1mYmJiNDU3OGM1NGE1AAACD0NVRUkAAAAKf78AABoAAMkTIBk=";
+	const std::string providerAdvertisementStart = "/DB3AACRDm31AP/wBQb++u5TsABhAl9DVUVJAABhSH/AAAANu6ANSw4pYXZhaWxpZD04OTc1NTc3OTkmYml0bWFwPSZpbmFjdGl2aXR5PTM0ODAPHnVybjpjb21jYXN0OmFsdGNvbjphZGRyZXNzYWJsZTAAAC2N6xw=";
 	EXPECT_FALSE(parseAndValidateSCTE35ProgramResumption(providerAdvertisementStart));
 
 	size_t decodedLen = 0;

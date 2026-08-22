@@ -27,8 +27,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 set(TEST_SOURCES AampUtilsTests.cpp
                  AampUtilsAAMPTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampUtils.cpp
-                 ${AAMP_ROOT}/iso639map.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/iso639map.cpp
                  ${AAMP_ROOT}/scte35/AampSCTE35.cpp)
 
 add_executable(${EXEC_NAME}
