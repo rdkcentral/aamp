@@ -346,6 +346,35 @@ const FormatMap * GetVideoFormatForCodec( const char *codecs )
     return NULL;
 }
 
+StreamOutputFormat GetMp4DemuxVideoFormatForCodec( const char *codecs )
+{
+    // Mirror AampUtils.cpp mMp4DemuxVideoFormatMap so tests that link fakes
+    // exercise the real codec->caps prediction introduced by VPAAMP-1039.
+    if( codecs )
+    {
+        if( strstr(codecs, "avc1.") ) return FORMAT_VIDEO_ES_H264;
+        if( strstr(codecs, "hvc1.") ) return FORMAT_VIDEO_ES_HEVC;
+        if( strstr(codecs, "hev1.") ) return FORMAT_VIDEO_ES_HEVC;
+    }
+    return FORMAT_UNKNOWN;
+}
+
+StreamOutputFormat GetMp4DemuxAudioFormatForCodec( const char *codecs )
+{
+    // Mirror AampUtils.cpp mMp4DemuxAudioFormatMap so tests that link fakes
+    // exercise the real codec->caps prediction introduced by VPAAMP-1039.
+    if( codecs )
+    {
+        if( strstr(codecs, "mp4a.40.2") )      return FORMAT_AUDIO_ES_AAC_RAW;
+        if( strstr(codecs, "mp4a.40.5") )      return FORMAT_AUDIO_ES_AAC_RAW;
+        if( strstr(codecs, "ec-3") )            return FORMAT_AUDIO_ES_EC3;
+        if( strstr(codecs, "eac3") )            return FORMAT_AUDIO_ES_EC3;
+        if( strstr(codecs, "ac-4.02.01.01") )  return FORMAT_AUDIO_ES_AC4;
+        if( strstr(codecs, "ac-4.02.01.02") )  return FORMAT_AUDIO_ES_AC4;
+    }
+    return FORMAT_UNKNOWN;
+}
+
 bool aamp_IsAbsoluteURL( const std::string &url )
 {
 	return url.compare(0, 7, "http://")==0 || url.compare(0, 8, "https://")==0;
