@@ -5912,6 +5912,7 @@ TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateMp4DemuxTest)
 	EXPECT_TRUE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 
 	// Both flags set -> true: ESChangeStatus wins
+	testp_aamp->mpStreamAbstractionAAMP->SetESChangeStatus();
 	testp_aamp->mpStreamAbstractionAAMP->SetPipelineFlushStatus();
 	EXPECT_TRUE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 }
