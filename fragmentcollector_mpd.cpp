@@ -7830,6 +7830,42 @@ std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaTyp
 }
 
 /**
+ * @brief GetCurrentCodec
+ * @param mediaType type of media
+ * @retval codec string declared by the current representation, falling back to the adaptation
+ *         set when the representation does not declare one. Empty when neither does.
+ */
+std::string StreamAbstractionAAMP_MPD::GetCurrentCodec(AampMediaType mediaType)
+{
+	std::string codec;
+	if( mediaType < mNumberOfTracks )
+	{
+		auto pMediaStreamContext = mMediaStreamContext[mediaType];
+		if( pMediaStreamContext )
+		{
+			if( pMediaStreamContext->representation )
+			{
+				const auto& repCodecs = pMediaStreamContext->representation->GetCodecs();
+				if( !repCodecs.empty() )
+				{
+					codec = repCodecs[0];
+				}
+			}
+			if( codec.empty() && pMediaStreamContext->adaptationSet )
+			{
+				const auto& adapCodecs = pMediaStreamContext->adaptationSet->GetCodecs();
+				if( !adapCodecs.empty() )
+				{
+					codec = adapCodecs[0];
+				}
+			}
+		}
+	}
+	AAMPLOG_DEBUG( "type %d codec '%s'", mediaType, codec.c_str() );
+	return codec;
+}
+
+/**
  * @brief Is this a Webvm video codec
  *
  * @param codec Name of codec
@@ -11640,16 +11676,36 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  */
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
-	StreamOutputFormat format = FORMAT_ISO_BMFF; // Default format
+	StreamOutputFormat videoFormat = FORMAT_ISO_BMFF; // Default format
+	StreamOutputFormat audioFormat = FORMAT_ISO_BMFF;
 	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
 	{
-		// Mp4Demuxer will set the format later once the init fragment is parsed
-		// format is only used for video and audio formats. Subtitle should be unaffected
-		format = FORMAT_UNKNOWN;
+		// AampMp4Demuxer consumes the container and feeds elementary streams, so the sink needs
+		// the codec format rather than FORMAT_ISO_BMFF. Predict it from the manifest so the appsrc
+		// is created with the correct caps and gstreamer autoplugs its decoder chain once, during
+		// preroll - the same sequence the qtdemux path gets for free.
+		//
+		// Reporting FORMAT_UNKNOWN instead means the appsrc is created with no caps at all, and
+		// the real caps only arrive from SetStreamCaps() after the init segment is parsed, on an
+		// already-running pipeline. That forces gstreamer to re-link downstream while the first
+		// data push is already in flight, and when the autoplug loses that race the push lands on
+		// an unlinked pad and the pipeline dies with "not-linked (-1)". See VPAAMP-1039.
+		//
+		// FORMAT_UNKNOWN is still the fallback whenever the codec cannot be predicted, which
+		// keeps the previous behaviour for anything this cannot cover:
+		//  - codecs AampMp4Demuxer does not recognise (see the maps in AampUtils.cpp)
+		//  - DRM protected assets, whose final caps are application/x-cenc, a different media
+		//    type that cannot be derived from the codec string alone
+		videoFormat = audioFormat = FORMAT_UNKNOWN;
+		if (!hasDrm)
+		{
+			videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
+			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
+		}
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
-		primaryOutputFormat = format;
+		primaryOutputFormat = videoFormat;
 	}
 	else
 	{
@@ -11657,7 +11713,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	}
 	if(mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled )
 	{
-		audioOutputFormat = format;
+		audioOutputFormat = audioFormat;
 	}
 	else
 	{
