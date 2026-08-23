@@ -1274,9 +1274,28 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
 		* after parsing the segment before sending to gstreamer.
 		*/
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
+		const bool trickplay = (pContext && pContext->trickplayMode);
+		/*
+		* Subtitle is the exception to the mp4demux rule above. InitializeMediaProcessor leaves
+		* playContext null for the subtitle track when useMp4Demux is set (see the "Using Mp4Demux"
+		* branch), so subtitle segments never reach AampMp4Demuxer and nothing else restamps them:
+		* cues would stay on the CDN timeline while video and audio are restamped, drifting apart
+		* in ad-insertion and TSB playback. Restamp subtitle here instead.
+		*
+		* Trickplay is excluded deliberately. The subtitle layer is hidden during FF/REW, and
+		* TrickModePtsRestamp() drives per-track trickmode state that the subtitle track should
+		* not enter. So under mp4demux this block handles subtitle during normal play only;
+		* without mp4demux the behaviour for every track is unchanged.
+		*
+		* The useMp4Demux check stays inline below rather than being hoisted into a local, so it
+		* is still only evaluated after the EnablePTSReStamp and DASH checks pass, exactly as
+		* before. Reading it unconditionally would add a config lookup to every fragment
+		* injection on every path.
+		*/
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
+			(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay)))
 		{
-			if ((pContext && pContext->trickplayMode))
+			if (trickplay)
 			{
 				TrickModePtsRestamp(cachedFragment);
 			}
