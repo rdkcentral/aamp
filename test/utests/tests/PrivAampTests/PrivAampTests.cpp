@@ -5871,6 +5871,9 @@ TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateTest1)
 {
 	testp_aamp->InitStreamAbstraction();
 
+	// mp4demux disabled for this test — the new mp4demux guard must not trigger.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillRepeatedly(Return(false));
+
 	//codec change and reconfigpipeline enabled -> false
 	testp_aamp->mpStreamAbstractionAAMP->SetESChangeStatus();
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(true));
@@ -5884,6 +5887,33 @@ TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateTest1)
 	testp_aamp->mpStreamAbstractionAAMP->ResetESChangeStatus();
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
 	EXPECT_FALSE(testp_aamp->ReconfigureForElementaryStreamUpdate());
+}
+
+// VPAAMP-1046: with useMp4Demux + enablePTSReStamp, PipelineFlushStatus must NOT be
+// reported as a codec change — it causes CheckDiscontinuity to signal EOS which
+// permanently stalls the pipeline in PAUSED at the second period boundary.
+// ESChangeStatus (genuine audio decoder change) is still propagated.
+TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateMp4DemuxTest)
+{
+	testp_aamp->InitStreamAbstraction();
+
+	// Common setup: mp4demux + PTS restamp enabled, ReconfigPipelineOnDiscontinuity disabled.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillRepeatedly(Return(false));
+
+	// PipelineFlushStatus only (e.g. PTO > segmentStartTime) -> false: restamp absorbs the offset
+	testp_aamp->mpStreamAbstractionAAMP->SetPipelineFlushStatus();
+	EXPECT_FALSE(testp_aamp->ReconfigureForElementaryStreamUpdate());
+
+	// ESChangeStatus only (genuine audio codec change) -> true: pipeline reconfigure still needed
+	testp_aamp->mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
+	testp_aamp->mpStreamAbstractionAAMP->SetESChangeStatus();
+	EXPECT_TRUE(testp_aamp->ReconfigureForElementaryStreamUpdate());
+
+	// Both flags set -> true: ESChangeStatus wins
+	testp_aamp->mpStreamAbstractionAAMP->SetPipelineFlushStatus();
+	EXPECT_TRUE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 }
 
 TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
