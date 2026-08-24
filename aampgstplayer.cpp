@@ -1155,6 +1155,14 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 	{
 		AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED and codec has not changed");
 		aamp->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
+		// With mp4demux, AampMp4Demuxer handles discontinuities inline via
+		// fragmentPTSoffset — no pipeline flush or EOS is required.  Returning
+		// false here prevents the inject-loop from stopping, which is the
+		// correct behaviour: injection must continue uninterrupted.
+		if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+		{
+			ret = false;
+		}
 	}
 
 	else if(shouldHaltBuffering)
@@ -1169,6 +1177,21 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 		{
 			aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
 		}
+	}
+	else if (ISCONFIGSET(eAAMPConfig_UseMp4Demux))
+	{
+		// With mp4demux, AampMp4Demuxer feeds elementary streams directly into
+		// GStreamer appsrc.  At period boundaries the codec and stream format are
+		// unchanged, so the player library returns ret=true as a benign "handled"
+		// response without setting either output flag.  In that case there is
+		// nothing for GStreamer to flush and no PTS-restamp latch to release, so
+		// we must:
+		//   (a) unblock the FetcherLoop's WaitForDiscontinuityProcessToComplete()
+		//       so it can continue downloading segments for the new period, and
+		//   (b) return false so the inject-loop keeps running without interruption.
+		AAMPLOG_WARN("mp4demux: no pipeline flush needed at period boundary, continuing injection");
+		aamp->UnblockWaitForDiscontinuityProcessToComplete();
+		ret = false;
 	}
 	return ret;
 }
