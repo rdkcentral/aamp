@@ -282,18 +282,6 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 }
 
 /**
- *  @brief Unified fragment caching implementation
- *  @note Phase 2: Stub implementation - will be fully implemented in Phase 3
- */
-bool MediaStreamContext::CacheFragmentData(const FragmentCacheDescriptor& desc)
-{
-	// Phase 2 stub: Not yet implemented
-	// This will be implemented in Phase 3 with unified logic
-	AAMPLOG_WARN("[%s] CacheFragmentData() called but not yet implemented (Phase 2 stub)", name);
-	return false;
-}
-
-/**
  *  @brief Transfer buffer data into a CachedFragment.
  *
  *  In chunk mode the data is assigned (copied) from the ephemeral CURL
