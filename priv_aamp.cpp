@@ -4557,11 +4557,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 #else
 			if( ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3) && mediaType != eMEDIATYPE_LICENCE )
 			{
-				static bool warnedHTTP3 = false;
-				if (!warnedHTTP3)
+				static std::atomic<bool> warnedHTTP3{false};
+				bool expected = false;
+				if (warnedHTTP3.compare_exchange_strong(expected, true))
 				{
 					AAMPLOG_WARN("enableHTTP3 config is set but HTTP/3 is not available in this build (libcurl lacks QUIC support)");
-					warnedHTTP3 = true;
 				}
 			}
 #endif
