@@ -34,8 +34,6 @@
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-	// assert(!aamp->GetLLDashChunkMode());
-
 	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		fragmentDiscarded = false;

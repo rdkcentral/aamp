@@ -117,7 +117,7 @@ public:
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
-	void fillCachedFragment(bool isInit, bool isDisc)
+	void fillCachedFragment(bool isInit, bool isDisc, double position = 0.0, double duration = 0.0)
 	{
 		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 		// DASH now routes all fragments through the chunk cache (see
@@ -127,6 +127,8 @@ public:
 		cachFragment->timeScale = PLAYBACK_TIMESCALE;
 		cachFragment->initFragment = isInit;
 		cachFragment->discontinuity = isDisc;
+		cachFragment->position = position;
+		cachFragment->duration = duration;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
 		cachFragment->fragment.assign(data, data + sizeof(data));
 		UpdateTSAfterFetch();
@@ -340,28 +342,16 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	// Initialize after mock has been setup
 	Initialize();
 
-	mMediaTrack->fillCachedFragment(false, false);
+	double pts = 10.0, duration = 0.48;
+	mMediaTrack->fillCachedFragment(false, false, pts, duration);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
-		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
-	uint8_t unParsedBuffer[] = "AAAAAAAAAAAAAAAAAA";
-	int parsedBufferSize = 12, unParsedBufferSize = sizeof(unParsedBuffer);
-	double pts = 10.0, duration = 0.48;
-	EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _))
-		.WillRepeatedly(DoAll(SetArgReferee<1>(unParsedBuffer),
-							  SetArgReferee<3>(parsedBufferSize),
-							  SetArgReferee<4>(unParsedBufferSize),
-							  SetArgReferee<5>(pts),
-							  SetArgReferee<6>(duration),
-							  Return(true)));
-
-	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(An<std::vector<uint8_t>&>()));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
+	// InjectFragmentInternal is overridden above to forward cachedFragment->position/duration
+	// straight to SendStreamTransfer, so no ISOBMFF box parsing occurs on this path.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();
 }
@@ -385,7 +375,8 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
+	// InjectFragmentInternal is overridden above to forward straight to SendStreamTransfer,
+	// bypassing ProcessID3Metadata.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
