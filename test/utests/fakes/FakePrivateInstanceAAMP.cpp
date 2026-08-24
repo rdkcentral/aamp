@@ -1269,6 +1269,10 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 
 void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
+	}
 }
 
 void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char* format, ...)
@@ -1545,6 +1549,10 @@ void PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, doub
 
 void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->FlushStreamSink(position, rate);
+	}
 }
 
 /**
@@ -1787,6 +1795,19 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 
 bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->ReconfigureForElementaryStreamUpdate();
+	}
+	return false;
+}
+
+bool PrivateInstanceAAMP::WillFlushOnDiscontinuity()
+{
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		return g_mockPrivateInstanceAAMP->WillFlushOnDiscontinuity();
+	}
 	return false;
 }
 
@@ -1919,6 +1940,14 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	if (g_mockPrivateInstanceAAMP)
 	{
 		g_mockPrivateInstanceAAMP->SetStreamCaps(type, std::move(codecInfo));
+	}
+}
+
+void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->QueueProtectionEvent(type, protectionEvents);
 	}
 }
 

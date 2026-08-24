@@ -10813,6 +10813,15 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 }
 
 /**
+ * @brief Get if an explicit StreamSink Flush() is guaranteed to follow a discontinuity (from stream abstraction)
+ * @return true if StreamSink::Flush() will be called explicitly for the pending discontinuity
+ */
+bool PrivateInstanceAAMP::WillFlushOnDiscontinuity()
+{
+	return mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->DoStreamSinkFlushOnDiscontinuity();
+}
+
+/**
  * @brief Sends an ID3 metadata event.
  */
 void PrivateInstanceAAMP::SendId3MetadataEvent(aamp::id3_metadata::CallbackData * id3Metadata)
@@ -15095,6 +15104,37 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	if (sink)
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
+	}
+}
+
+/**
+ * @fn QueueProtectionEvent
+ * @brief Forward in-band PSSH data (parsed from an MP4 container) to the stream sink
+ *
+ * @param[in] type - Media type
+ * @param[in] protectionEvents - Protection system data (systemID + pssh blob) extracted from the MP4 container
+ */
+void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		// An init segment can carry PSSH boxes for multiple DRM systems, but only
+		// one is selected for this session (manifest-driven, e.g. preferredKeysystem).
+		// Only forward the matching entry so we don't create sessions for the rest.
+		DrmHelperPtr currentDrm = GetCurrentDRM();
+		for (const auto& protectionEvent : protectionEvents)
+		{
+			if (currentDrm && strcasecmp(protectionEvent.systemID.c_str(), currentDrm->getUuid().c_str()) != 0)
+			{
+				AAMPLOG_INFO("Skipping in-band protection event for type:%d systemId:%s (selected DRM systemId:%s)",
+					type, protectionEvent.systemID.c_str(), currentDrm->getUuid().c_str());
+				continue;
+			}
+			AAMPLOG_INFO("Queueing in-band protection event for type:%d systemId:%s psshSize:%zu",
+				type, protectionEvent.systemID.c_str(), protectionEvent.pssh.size());
+			sink->QueueProtectionEvent(protectionEvent.systemID.c_str(), protectionEvent.pssh.data(), protectionEvent.pssh.size(), type);
+		}
 	}
 }
 

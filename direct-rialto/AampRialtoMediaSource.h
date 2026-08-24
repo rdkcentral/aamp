@@ -39,7 +39,6 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -112,6 +111,12 @@ public:
 		/// Running sum of durations (seconds) of segments added in the
 		/// current batch.
 		double   batchDurationSecSum{0.0};
+		/// Running sum of raw media payload bytes (AampMediaSample::mDataSize)
+		/// of segments added in the current batch.
+		size_t   batchMediaBytesSum{0};
+		/// Running sum of DRM metadata bytes (key id + IV + subsample table)
+		/// attached to segments added in the current batch.
+		size_t   batchMetadataBytesSum{0};
 		/// Set once signalEos() has been called.  Causes the next batch
 		/// completion (or an idle needData) to fire haveData(EOS) instead
 		/// of haveData(OK).
@@ -164,6 +169,13 @@ public:
 		std::string          systemId;
 		std::vector<uint8_t> initData;
 		AampMediaType        type;
+
+		bool operator==(const ProtectionParams &other) const
+		{
+			return systemId == other.systemId &&
+				initData == other.initData &&
+				type == other.type;
+		}
 	};
 
 	/**
@@ -188,6 +200,8 @@ public:
 		bool   hasFirstPts{false};  ///< True once at least one segment was added.
 		double firstPtsSec{0.0};    ///< PTS (seconds) of the first segment added.
 		double durationSecSum{0.0}; ///< Sum of durations (seconds) added.
+		size_t mediaBytes{0};       ///< Sum of media payload bytes added.
+		size_t metadataBytes{0};    ///< Sum of DRM metadata bytes added.
 	};
 
 	// -----------------------------------------------------------------
@@ -447,29 +461,19 @@ public:
 	static constexpr int64_t kFirstPtsNotSet = std::numeric_limits<int64_t>::min();
 
 	/**
-	 * @brief PTS (ms) of the segment-start baseline for this source.
+	 * @brief PTS of the first sample injected since the last reset or
+	 *        unblockInjection().
 	 *
-	 * Normally set when the first addSegment() call succeeds in a session
-	 * (via a compare-exchange from kFirstPtsNotSet).  May also be written
-	 * directly by AampRialtoPlayer::Flush() via setFirstPtsMs() to
-	 * pre-stage the seek position as the baseline before the first sample
-	 * arrives (mid-fragment seek support).
-	 * Returns kFirstPtsNotSet if no baseline has been established yet.
+	 * Set when the first addSegment() call succeeds in each session.
+	 * This avoids establishing a segment-start baseline for samples that
+	 * never become accepted pipeline content.
+	 * Returns kFirstPtsNotSet if no sample has been injected yet.
 	 *
 	 * Used by AampRialtoPlayer::GetPositionMilliseconds() as the segment-
 	 * start baseline, mirroring GStreamer's segmentStart subtraction in
 	 * InterfacePlayerRDK::GetPositionMilliseconds().
 	 */
 	virtual int64_t firstPtsMs() const;
-
-	/**
-	 * @brief Overwrite the segment-start baseline with @p ptsMs.
-	 *
-	 * Called by Flush() to pre-stage the seek position so that
-	 * GetPositionMilliseconds() returns a meaningful value before the
-	 * first post-seek sample is injected.
-	 */
-	void setFirstPtsMs(int64_t ptsMs);
 
 	/**
 	 * @brief Signal end-of-stream for this source.
@@ -558,6 +562,12 @@ protected:
 	SourceState m_state;
 	int32_t m_sourceId{-1};
 	int32_t m_mksId{-1};
+	/// Protection params last used to create the current DRM session (via
+	/// m_mksId). Compared against the params passed to attachOrUpdate() on
+	/// subsequent calls so a genuinely new PSSH/init-data triggers a new
+	/// createSession() while unchanged/repeated params (e.g. re-queued on
+	/// every period) do not incur a redundant OCDM license round-trip.
+	std::optional<ProtectionParams> m_activeProtection;
 	std::unique_ptr<Mp4Demux> m_demuxer;
 	std::shared_ptr<firebolt::rialto::CodecData> m_pendingCodecData;
 	/// Stream format passed to Configure() when this source was created.
@@ -616,7 +626,9 @@ private:
 		uint32_t reqId,
 		bool morePending,
 		double samplePts,
-		double sampleDurationSec);
+		double sampleDurationSec,
+		size_t sampleMediaBytes,
+		size_t sampleMetadataBytes);
 
 	// -----------------------------------------------------------------
 	// Pending-request handshake helpers
