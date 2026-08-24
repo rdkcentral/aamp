@@ -372,6 +372,7 @@ static bool findInGlobalCacheAndRelease(AAMPMediaPlayer_JS *privObj)
  */
 void parseDRMConfiguration (JSContextRef ctx, AAMPMediaPlayer_JS* privObj, JSValueRef drmConfigParam)
 {
+	LOG_WARN_EX("[JS_TRACE] parseDRMConfiguration ctx=%p privObj=%p aamp=%p drmConfigParam=%p", ctx, privObj, privObj ? privObj->_aamp : nullptr, drmConfigParam);
 	JSValueRef exception = NULL;
 	JSObjectRef drmConfigObj = JSValueToObject(ctx, drmConfigParam, &exception);
 
@@ -4271,18 +4272,6 @@ JSValueRef XREReceiverJS_onevent (JSContextRef ctx, JSObjectRef function, JSObje
 			AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 			LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_load native object privObj=%p aamp=%p",
 				privObj, privObj ? privObj->_aamp : nullptr);
-	
-			bool mediaPlayerConstructed = false;
-			{
-				std::lock_guard<std::mutex> guard(jsMediaPlayerCacheMutex);
-				mediaPlayerConstructed = !AAMPMediaPlayer_JS::_jsMediaPlayerInstances.empty();
-			}
-
-			if (!mediaPlayerConstructed)
-			{
-				LOG_WARN_EX("[JS_TRACE] XREReceiverJS_onevent constructing AAMPMediaPlayer");
-				AAMPMediaPlayer_JS_class_constructor(ctx, nullptr, 0, nullptr, exception);
-			}
 
 			char* value =  aamp_JSValueToCString(ctx, arguments[0], exception);
 			std::string method;
@@ -4323,9 +4312,9 @@ static const JSStaticFunction XREReceiver_JS_static_functions[] =
  */
 JSObjectRef XREReceiver_JS_class_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	LOG_TRACE("Enter");
+	LOG_WARN_EX("[JS_TRACE] Enter");
 	*exception = aamp_GetException(ctx, AAMPJS_GENERIC_ERROR, "Cannot create an object of XREReceiver");
-	LOG_TRACE("Exit");
+	LOG_WARN_EX("[JS_TRACE] Exit");
 	return NULL;
 }
 
@@ -4356,7 +4345,7 @@ static JSClassDefinition XREReceiver_JS_class_def {
 
 void LoadXREReceiverStub(void* context)
 {
-	LOG_TRACE(" context = %p", context);
+	LOG_WARN_EX("[JS_TRACE] context = %p", context);
 
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 
@@ -4367,7 +4356,7 @@ void LoadXREReceiverStub(void* context)
 	JSStringRef str = JSStringCreateWithUTF8CString("XREReceiver");
 	JSObjectSetProperty(jsContext, globalObj, str, classObj, kJSPropertyAttributeReadOnly, NULL);
 
-	LOG_TRACE("Exit");
+	LOG_WARN_EX("[JS_TRACE] Exit");
 }
 
 /**
@@ -4400,14 +4389,33 @@ void AAMPPlayer_LoadJS(void* context)
 	JSClassRelease(mediaPlayerClass);
 	JSStringRelease(str);
 
-	// Add the global AAMP JS object to JS context. This can be used to query the AAMP.version
-	JSClassRef gAAMPClass = JSClassCreate(&AAMP_class_def);
-	JSObjectRef gAAMPObj = JSObjectMake(jsContext, gAAMPClass, NULL);
-	JSValueProtect(jsContext, gAAMPObj);
-	JSStringRef gAAMPStr = JSStringCreateWithUTF8CString(JS_AAMP_OBJECT_NAME);
-	JSObjectSetProperty(jsContext, globalJSObj, gAAMPStr, gAAMPObj, kJSPropertyAttributeReadOnly, NULL);
-	JSStringRelease(gAAMPStr);
-	JSClassRelease(gAAMPClass);
+	if (JSObjectGetProperty(jsContext, globalJSObj, JSStringCreateWithUTF8CString(JS_AAMP_OBJECT_NAME), NULL) == NULL)
+	{
+		// Create the legacy global AAMP player instance during page load.
+		JSValueRef exception = NULL;
+		JSObjectRef gAAMPObj = AAMPMediaPlayer_JS_class_constructor(
+			jsContext, classObj, 0, NULL, &exception);
+		if (gAAMPObj != NULL && exception == NULL)
+		{
+			AAMPMediaPlayer_JS *privObj = (AAMPMediaPlayer_JS *)
+				JSObjectGetPrivate(gAAMPObj);
+			LOG_WARN_EX("[JS_TRACE] AAMPPlayer_LoadJS created global AAMP player instance context=%p privObj=%p aamp=%p", context, privObj, privObj ? privObj->_aamp : nullptr);
+			JSValueProtect(jsContext, gAAMPObj);
+		}
+		else
+		{
+			LOG_ERROR_EX("Failed to create global AAMP player object");
+			return;
+		}
+
+		JSStringRef gAAMPStr = JSStringCreateWithUTF8CString(JS_AAMP_OBJECT_NAME);
+		JSObjectSetProperty(jsContext, globalJSObj, gAAMPStr, gAAMPObj, kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(gAAMPStr);
+	}
+	else
+	{
+		LOG_WARN_EX("[JS_TRACE] AAMPPlayer_LoadJS global AAMP player instance %p already exists context=%p", JSObjectGetProperty(jsContext, globalJSObj, JSStringCreateWithUTF8CString(JS_AAMP_OBJECT_NAME), NULL), context);
+	}
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
