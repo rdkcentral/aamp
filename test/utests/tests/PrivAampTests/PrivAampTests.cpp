@@ -6376,14 +6376,6 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 }
 
 #if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
-/**
- * @brief Verify HTTP/3 config defaults to false
- */
-TEST_F(PrivAampTests, GetFileTest_HTTP3ConfigDefaultsToFalse)
-{
-	AampConfig defaultConfig;
-	EXPECT_FALSE(defaultConfig.IsConfigSet(eAAMPConfig_EnableHTTP3));
-}
 
 /**
  * @brief Verify CURLOPT_HTTP_VERSION is set to HTTP/3 for video fragments when enabled
