@@ -140,7 +140,7 @@ public:
 	 * @param[in] mediaType stream type
 	 * @param[in] sample media sample
 	 */
-	bool SendSample(AampMediaType mediaType, AampMediaSample&& sample) override;
+bool SendSample(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false) override;
 
 	/**
 		 * @fn PipelineConfiguredForMedia
