@@ -2214,7 +2214,12 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			else
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(ccHandle);
+				// PREPARED means a retune cycled through configure: signal waitforplaystart.
+				// PAUSED means resume-from-pause: notify first frame not required.
+				if (m_notifiable->GetState() == eSTATE_PREPARED)
+				{
+					m_notifiable->NotifyFirstFrameReceived(ccHandle);
+				}
 				m_notifiable->NotifySpeedChanged(
 					static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
 					/*changeState=*/true);
