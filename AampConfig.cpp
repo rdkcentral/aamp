@@ -384,6 +384,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "logFilename", eAAMPConfig_LogFilename, false},
 	{false, "processLicenseFromEAP", eAAMPConfig_ProcessLicenseFromEAP, false},
 	{false, "enableProducerReferenceDelay", eAAMPConfig_EnableProducerReferenceDelay, false},
+	{true, "applyEncryptedCaps", eAAMPConfig_ApplyEncryptedCaps, true},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

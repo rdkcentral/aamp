@@ -11691,13 +11691,12 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// data push is already in flight, and when the autoplug loses that race the push lands on
 		// an unlinked pad and the pipeline dies with "not-linked (-1)". See VPAAMP-1039.
 		//
-		// FORMAT_UNKNOWN is still the fallback whenever the codec cannot be predicted, which
-		// keeps the previous behaviour for anything this cannot cover:
-		//  - codecs AampMp4Demuxer does not recognise (see the maps in AampUtils.cpp)
-		//  - DRM protected assets, whose final caps are application/x-cenc, a different media
-		//    type that cannot be derived from the codec string alone
+		// FORMAT_UNKNOWN is still the fallback for codecs AampMp4Demuxer does not recognise
+		// (see the maps in AampUtils.cpp). DRM protection does not gate this lookup; clear and
+		// protected assets use the same codec mapping, unless eAAMPConfig_ApplyEncryptedCaps
+		// is disabled, in which case encrypted assets fall back to FORMAT_UNKNOWN.
 		videoFormat = audioFormat = FORMAT_UNKNOWN;
-		if (!hasDrm)
+		if (!hasDrm || ISCONFIGSET(eAAMPConfig_ApplyEncryptedCaps))
 		{
 			videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
 			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());

@@ -778,6 +778,17 @@ protected:
 			mMaxTracks = numTracks;
 		}
 
+		void SetupStreamFormatContexts(IRepresentation *videoRepresentation,
+			IRepresentation *audioRepresentation, bool drm)
+		{
+			SetupMediaStreamContexts(2);
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->representation = videoRepresentation;
+			mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled = true;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->representation = audioRepresentation;
+			mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled = true;
+			hasDrm = drm;
+		}
+
 		bool GetProfileChanged(int trackIdx) const
 		{
 			return mMediaStreamContext[trackIdx]->profileChanged;
@@ -840,6 +851,61 @@ protected:
 		g_mockAampConfig.reset();
 	}
 };
+
+class StreamFormatMPDTest : public StreamAbstractionAAMP_MPDTest,
+	public ::testing::WithParamInterface<bool>
+{
+};
+
+TEST_P(StreamFormatMPDTest, GetStreamFormat_UseMp4Demux_ReturnsCodecFormats)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT1M">
+	<Period>
+		<AdaptationSet contentType="video">
+			<Representation id="video" mimeType="video/mp4" codecs="avc1.640028" bandwidth="1000000" />
+		</AdaptationSet>
+		<AdaptationSet contentType="audio">
+			<Representation id="audio" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" />
+		</AdaptationSet>
+	</Period>
+</MPD>)";
+
+	ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
+	response->mMPDDownloadResponse->mDownloadData.assign(manifest, manifest + strlen(manifest));
+	GetMPDFromManifest(response);
+	ASSERT_NE(response->mMPDInstance, nullptr);
+	ASSERT_EQ(response->mMPDInstance->GetPeriods().size(), 1u);
+	const auto& adaptationSets = response->mMPDInstance->GetPeriods()[0]->GetAdaptationSets();
+	ASSERT_EQ(adaptationSets.size(), 2u);
+	ASSERT_EQ(adaptationSets[0]->GetRepresentation().size(), 1u);
+	ASSERT_EQ(adaptationSets[1]->GetRepresentation().size(), 1u);
+
+	mStreamAbstractionAAMP_MPD->SetupStreamFormatContexts(
+		adaptationSets[0]->GetRepresentation()[0],
+		adaptationSets[1]->GetRepresentation()[0], GetParam());
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillOnce(Return(true));
+
+	StreamOutputFormat primaryOutputFormat{};
+	StreamOutputFormat audioOutputFormat{};
+	StreamOutputFormat subtitleOutputFormat{};
+	mStreamAbstractionAAMP_MPD->GetStreamFormat(primaryOutputFormat,
+		audioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(audioOutputFormat, FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(subtitleOutputFormat, FORMAT_INVALID);
+}
+
+INSTANTIATE_TEST_SUITE_P(ClearAndDrm, StreamFormatMPDTest,
+	::testing::Values(false, true),
+	[](const ::testing::TestParamInfo<bool>& info)
+	{
+		return info.param ? "Drm" : "Clear";
+	});
 
 /**
  * @brief Functional tests class.
