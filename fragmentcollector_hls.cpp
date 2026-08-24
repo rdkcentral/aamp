@@ -5074,7 +5074,9 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// StreamAbstractionAAMP_MPD::GetStreamFormat and VPAAMP-1039.
 		primaryOutputFormat = FORMAT_UNKNOWN;
 		audioOutputFormat = FORMAT_UNKNOWN;
-		if (!hasDrm)
+		// DRM protection does not gate this lookup unless eAAMPConfig_ApplyEncryptedCaps is
+		// disabled, in which case encrypted assets fall back to FORMAT_UNKNOWN (see MPD equivalent).
+		if (!hasDrm || ISCONFIGSET(eAAMPConfig_ApplyEncryptedCaps))
 		{
 			HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
 			if (streamInfo != NULL)
