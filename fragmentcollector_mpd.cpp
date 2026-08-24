@@ -11694,14 +11694,10 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// FORMAT_UNKNOWN is still the fallback whenever the codec cannot be predicted, which
 		// keeps the previous behaviour for anything this cannot cover:
 		//  - codecs AampMp4Demuxer does not recognise (see the maps in AampUtils.cpp)
-		//  - DRM protected assets, whose final caps are application/x-cenc, a different media
-		//    type that cannot be derived from the codec string alone
-		videoFormat = audioFormat = FORMAT_UNKNOWN;
-		if (!hasDrm)
-		{
-			videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
-			audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
-		}
+		//  - DRM protected assets use the same codec mapping; the sink wraps the codec-specific
+		//    caps as application/x-cenc during pipeline configuration
+		videoFormat = GetMp4DemuxVideoFormatForCodec(GetCurrentCodec(eMEDIATYPE_VIDEO).c_str());
+		audioFormat = GetMp4DemuxAudioFormatForCodec(GetCurrentCodec(eMEDIATYPE_AUDIO).c_str());
 	}
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{

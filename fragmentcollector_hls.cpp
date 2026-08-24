@@ -5074,16 +5074,13 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// StreamAbstractionAAMP_MPD::GetStreamFormat and VPAAMP-1039.
 		primaryOutputFormat = FORMAT_UNKNOWN;
 		audioOutputFormat = FORMAT_UNKNOWN;
-		if (!hasDrm)
+		HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
+		if (streamInfo != NULL)
 		{
-			HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
-			if (streamInfo != NULL)
-			{
-				// A HLS video profile lists every codec it carries in one attribute, so the video
-				// and audio lookups are given the same string and each picks out its own.
-				primaryOutputFormat = GetMp4DemuxVideoFormatForCodec(streamInfo->codecs.c_str());
-				audioOutputFormat = GetMp4DemuxAudioFormatForCodec(streamInfo->codecs.c_str());
-			}
+			// A HLS video profile lists every codec it carries in one attribute, so the video
+			// and audio lookups are given the same string and each picks out its own.
+			primaryOutputFormat = GetMp4DemuxVideoFormatForCodec(streamInfo->codecs.c_str());
+			audioOutputFormat = GetMp4DemuxAudioFormatForCodec(streamInfo->codecs.c_str());
 		}
 	}
 	else
