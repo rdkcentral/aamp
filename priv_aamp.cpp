@@ -10791,6 +10791,12 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 			 */
 			if (ISCONFIGSET_PRIV(eAAMPConfig_UseMp4Demux) && ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
 			{
+				// PipelineFlushStatus is consumed here (it was the reason this branch was
+				// taken); clear it now so it cannot leak into a subsequent discontinuity
+				// and make the next period boundary look like a pipeline flush.
+				// The normal reset happens in ProcessPendingDiscontinuity() at line ~3698,
+				// but that code is bypassed when we return early on this path.
+				mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 				return mpStreamAbstractionAAMP->GetESChangeStatus();
 			}
 			return (mpStreamAbstractionAAMP->GetESChangeStatus() || mpStreamAbstractionAAMP->GetPipelineFlushStatus());

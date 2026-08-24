@@ -401,8 +401,14 @@ public:
 	}
 	void InitStreamAbstraction()
 	{
-		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
+		// Assign the fixture mock rather than constructing a real
+		// StreamAbstractionAAMP_MPD.  The real constructor is heavy, bypasses
+		// g_mockStreamAbstractionAAMP_MPD, and leaves mpStreamAbstractionAAMP
+		// unmanaged by TearDown.  Tests that only manipulate the base-class
+		// status flags (ESChangeStatus, PipelineFlushStatus) work identically
+		// with the mock object, which inherits those non-virtual methods from
+		// StreamAbstractionAAMP.
+		mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD.get();
 	}
 	std::unordered_map<std::string, std::vector<std::string>> GetCustomHeaders()
 	{
@@ -5902,18 +5908,22 @@ TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateMp4DemuxTest)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillRepeatedly(Return(false));
 
-	// PipelineFlushStatus only (e.g. PTO > segmentStartTime) -> false: restamp absorbs the offset
+	// PipelineFlushStatus only (e.g. PTO > segmentStartTime) → false: restamp absorbs the offset.
+	// ALSO: ReconfigureForElementaryStreamUpdate() must clear PipelineFlushStatus so the flag
+	// cannot leak into a subsequent discontinuity and incorrectly look like a pipeline flush.
 	testp_aamp->mpStreamAbstractionAAMP->SetPipelineFlushStatus();
 	EXPECT_FALSE(testp_aamp->ReconfigureForElementaryStreamUpdate());
+	EXPECT_FALSE(testp_aamp->mpStreamAbstractionAAMP->GetPipelineFlushStatus());
 
-	// ESChangeStatus only (genuine audio codec change) -> true: pipeline reconfigure still needed
-	testp_aamp->mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
+	// ESChangeStatus only (genuine audio codec change) → true: pipeline reconfigure still needed.
 	testp_aamp->mpStreamAbstractionAAMP->SetESChangeStatus();
 	EXPECT_TRUE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 
-	// Both flags set -> true: ESChangeStatus wins
+	// Both flags set → true: ESChangeStatus wins.
+	// PipelineFlushStatus must again be cleared by the early-return path.
 	testp_aamp->mpStreamAbstractionAAMP->SetPipelineFlushStatus();
 	EXPECT_TRUE(testp_aamp->ReconfigureForElementaryStreamUpdate());
+	EXPECT_FALSE(testp_aamp->mpStreamAbstractionAAMP->GetPipelineFlushStatus());
 }
 
 TEST_F(PrivAampTests,isDecryptClearSamplesRequired)

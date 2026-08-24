@@ -1265,10 +1265,18 @@ bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
 
 void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->UnblockWaitForDiscontinuityProcessToComplete();
+	}
 }
 
 void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
+	}
 }
 
 void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char* format, ...)
