@@ -254,7 +254,7 @@ public:
 										setup->bESChangeStatus,
 										setup->forwardAudioToAux,
 										  setup->setReadyAfterPipelineCreation,
-										  false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest");
+										  false, 0, GST_NORMAL_PLAY_RATE, "testPipeline", 0, false, "testManifest", false);
 
 		ASSERT_TRUE(bus_sync_func != nullptr);
 		ASSERT_TRUE(bus_message_func != nullptr);
