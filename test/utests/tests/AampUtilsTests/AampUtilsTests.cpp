@@ -602,7 +602,7 @@ TEST(_AampUtils, GetMp4DemuxVideoFormatForCodec)
 	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("hev1.2.4.L120.90"), FORMAT_VIDEO_ES_HEVC);
 	// A HLS profile lists video and audio codecs together; the video lookup must pick out its own
 	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_VIDEO_ES_H264);
-	// mpeg2v has no codec configuration box AampMp4Demuxer recognises, so it must not be predicted
+	// mpeg2v has no codec configuration box AampMp4Demuxer recognizes, so it must not be predicted
 	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("mpeg2v"), FORMAT_UNKNOWN);
 	// an audio-only codec string must not yield a video format
 	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("mp4a.40.2"), FORMAT_UNKNOWN);
