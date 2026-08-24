@@ -236,6 +236,7 @@ typedef enum
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
 	eAAMPConfig_ProcessLicenseFromEAP,			/**< Config to enable non-VSS early available period DRM prefetch */
 	eAAMPConfig_EnableProducerReferenceDelay,		/**< Add PRT-derived encoder delay (from CalculateProducerReferenceTimeOffset) to DASH live latency calculation; default false */
+	eAAMPConfig_ApplyEncryptedCaps,
 	eAAMPConfig_BoolMaxValue				/**< Max value of bool config always last element */	
 
 } AAMPConfigSettingBool;
