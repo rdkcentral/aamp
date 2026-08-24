@@ -78,6 +78,39 @@ static const FormatMap mVideoFormatMap[] =
 };
 #define AAMP_VIDEO_FORMAT_MAP_LEN ARRAY_SIZE(mVideoFormatMap)
 
+/*
+ * Manifest codec string -> the elementary stream format AampMp4Demuxer reports once it has
+ * parsed the init segment.
+ *
+ * These two maps deliberately mirror gCodecMappings in mp4demux/MP4Demux.cpp, which recognises
+ * exactly five codec configuration boxes: avcC, hvcC, esds, dec3 and dac4. Codecs outside that
+ * set are omitted on purpose - the point of these maps is to predict the format AampMp4Demuxer
+ * will report so the appsrc caps never have to change, and a format it will not report would
+ * defeat that. Keep them in step with gCodecMappings.
+ *
+ * Note mp4a maps to FORMAT_AUDIO_ES_AAC_RAW here, not the ADTS-framed FORMAT_AUDIO_ES_AAC that
+ * mAudioFormatMap returns for the same codec string: AampMp4Demuxer strips the container and
+ * delivers raw AAC, so the two produce different caps.
+ */
+static const FormatMap mMp4DemuxVideoFormatMap[] =
+{
+	{ "avc1.", FORMAT_VIDEO_ES_H264 },		/**< avcC */
+	{ "hvc1.", FORMAT_VIDEO_ES_HEVC },		/**< hvcC */
+	{ "hev1.", FORMAT_VIDEO_ES_HEVC }		/**< hvcC */
+};
+#define AAMP_MP4DEMUX_VIDEO_FORMAT_MAP_LEN ARRAY_SIZE(mMp4DemuxVideoFormatMap)
+
+static const FormatMap mMp4DemuxAudioFormatMap[] =
+{
+	{ "mp4a.40.2", FORMAT_AUDIO_ES_AAC_RAW },	/**< esds */
+	{ "mp4a.40.5", FORMAT_AUDIO_ES_AAC_RAW },	/**< esds */
+	{ "ec-3", FORMAT_AUDIO_ES_EC3 },		/**< dec3 */
+	{ "eac3", FORMAT_AUDIO_ES_EC3 },		/**< dec3 */
+	{ "ac-4.02.01.01", FORMAT_AUDIO_ES_AC4 },	/**< dac4 */
+	{ "ac-4.02.01.02", FORMAT_AUDIO_ES_AC4 }	/**< dac4 */
+};
+#define AAMP_MP4DEMUX_AUDIO_FORMAT_MAP_LEN ARRAY_SIZE(mMp4DemuxAudioFormatMap)
+
 bool IS_HTTP_SUCCESS(int code)
 {
 	return code == 200 || code == 204 || code == 206;
@@ -955,6 +988,50 @@ const FormatMap * GetVideoFormatForCodec( const char *codecs )
 		}
 	}
 	return NULL;
+}
+
+/*
+* @fn GetMp4DemuxVideoFormatForCodec
+* @brief Function to get the video elementary stream format AampMp4Demuxer will report.
+*
+* @param[in] Video codec string from the manifest
+* @return StreamOutputFormat, FORMAT_UNKNOWN when AampMp4Demuxer does not recognise the codec
+*/
+StreamOutputFormat GetMp4DemuxVideoFormatForCodec( const char *codecs )
+{
+	if( codecs )
+	{
+		for( int i=0; i<AAMP_MP4DEMUX_VIDEO_FORMAT_MAP_LEN; i++ )
+		{
+			if( strstr( codecs, mMp4DemuxVideoFormatMap[i].codec) )
+			{
+				return mMp4DemuxVideoFormatMap[i].format;
+			}
+		}
+	}
+	return FORMAT_UNKNOWN;
+}
+
+/*
+* @fn GetMp4DemuxAudioFormatForCodec
+* @brief Function to get the audio elementary stream format AampMp4Demuxer will report.
+*
+* @param[in] Audio codec string from the manifest
+* @return StreamOutputFormat, FORMAT_UNKNOWN when AampMp4Demuxer does not recognise the codec
+*/
+StreamOutputFormat GetMp4DemuxAudioFormatForCodec( const char *codecs )
+{
+	if( codecs )
+	{
+		for( int i=0; i<AAMP_MP4DEMUX_AUDIO_FORMAT_MAP_LEN; i++ )
+		{
+			if( strstr( codecs, mMp4DemuxAudioFormatMap[i].codec) )
+			{
+				return mMp4DemuxAudioFormatMap[i].format;
+			}
+		}
+	}
+	return FORMAT_UNKNOWN;
 }
 
 static std::hash<std::thread::id> std_thread_hasher;
