@@ -113,6 +113,7 @@ public:
 	{
 		AAMPLOG_WARN("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d",
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);
+		g_mockPrivateInstanceAAMP->ProcessID3Metadata(cachedFragment->fragment, (AampMediaType)type, 0);
 		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment, cachedFragment->position,
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
@@ -296,6 +297,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, _, false, false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
@@ -322,6 +324,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
@@ -352,6 +355,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 
 	// InjectFragmentInternal is overridden above to forward cachedFragment->position/duration
 	// straight to SendStreamTransfer, so no ISOBMFF box parsing occurs on this path.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();
 }
@@ -376,7 +380,8 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 		.WillOnce(Return(false));
 
 	// InjectFragmentInternal is overridden above to forward straight to SendStreamTransfer,
-	// bypassing ProcessID3Metadata.
+	// after also forwarding to ProcessID3Metadata (matching production's non-playContext branch).
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 

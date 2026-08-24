@@ -234,6 +234,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 				cachedFragment->position += mActiveDownloadInfo->ptsOffset.inSeconds();
 			}
 			mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
+			cachedFragment->PTSOffsetSec = mActiveDownloadInfo->ptsOffset.inSeconds();
 			// Only update when absPosition is set to avoid messing up the values.
 			if (cachedFragment->absPosition > 0)
 			{
@@ -265,10 +266,10 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 				}
 			}
 		}
-		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
-		 * the last segment from the previous period has been injected, hence we copy it
-		 */
-		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
+		else
+		{
+			cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
+		}
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.data());
 		UpdateTSAfterFetch();
