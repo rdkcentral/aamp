@@ -4621,6 +4621,44 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// all segments including the init segments for the GST buffer that goes with the init
 		mPTSOffset = 0.0;
 		mNextPts = 0.0;
+
+		// For CDAI retuning with mp4demux + PTS-restamp, seed mNextPts so that the
+		// restamped PTS timeline of the new stream continues seamlessly from where the
+		// previous stream left off (e.g. back-to-back ad breaks).
+		//
+		// By the time we reach this point, SeekInPeriod() has already positioned all
+		// MediaStreamContexts at the first fragment to be fetched.  If the CDAI placed
+		// us part-way into an ad (fragmentDescriptor.Time > 0), we subtract that offset
+		// so that UpdatePtsOffset() produces the correct mPTSOffset:
+		//
+		//   mPTSOffset = mNextPts - timelineStart
+		//              = (accumulated - seekOffset) - 0
+		//   after_sec  = DTS_first_fragment + mPTSOffset
+		//              ≈ seekOffset + (accumulated - seekOffset) = accumulated  ✓
+		if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
+		    ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) &&
+		    ISCONFIGSET(eAAMPConfig_EnableClientDai) &&
+		    aamp->mMp4DemuxAccumulatedPts > 0.0)
+		{
+			double seekOffset = 0.0;
+			const MediaStreamContext *audioCtx = mMediaStreamContext[eMEDIATYPE_AUDIO];
+			const MediaStreamContext *videoCtx = mMediaStreamContext[eMEDIATYPE_VIDEO];
+			if (audioCtx && audioCtx->fragmentDescriptor.TimeScale > 0)
+			{
+				seekOffset = static_cast<double>(audioCtx->fragmentDescriptor.Time) /
+				             static_cast<double>(audioCtx->fragmentDescriptor.TimeScale);
+			}
+			else if (videoCtx && videoCtx->fragmentDescriptor.TimeScale > 0)
+			{
+				seekOffset = static_cast<double>(videoCtx->fragmentDescriptor.Time) /
+				             static_cast<double>(videoCtx->fragmentDescriptor.TimeScale);
+			}
+			mNextPts = aamp->mMp4DemuxAccumulatedPts - seekOffset;
+			AAMPLOG_INFO("CDAI retune: seeding mNextPts=%.3f (accumulated=%.3f seekOffset=%.3f)",
+			             mNextPts.inSeconds(), aamp->mMp4DemuxAccumulatedPts, seekOffset);
+			aamp->mMp4DemuxAccumulatedPts = 0.0;
+		}
+
 		UpdatePtsOffset(true);
 		FetchAndInjectInitFragments();
 	}
@@ -9790,6 +9828,17 @@ void StreamAbstractionAAMP_MPD::UpdatePtsOffset(bool isNewPeriod)
 	}
 
 	mNextPts = duration + timelineStart;
+
+	// Keep a running record of the expected presentation time at the end of the current
+	// period.  This is used to seed the PTS offset of a replacement stream that is
+	// created by a CDAI retune (e.g. back-to-back ad breaks), so that the restamped
+	// PTS timeline is continuous across the retune boundary.
+	if (ISCONFIGSET(eAAMPConfig_UseMp4Demux) &&
+	    ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) &&
+	    ISCONFIGSET(eAAMPConfig_EnableClientDai))
+	{
+		aamp->mMp4DemuxAccumulatedPts = (mNextPts + mPTSOffset).inSeconds();
+	}
 }
 
 void StreamAbstractionAAMP_MPD::RestorePtsOffsetCalculation(void)

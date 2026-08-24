@@ -916,6 +916,12 @@ public:
 	};
 	std::vector<PendingAlternateContents> mPendingAlternateContents; /**< SetAlternateContents calls queued before mCdaiObject exists */
 
+	double mMp4DemuxAccumulatedPts; /**< Accumulated expected-PTS at the last CDAI period boundary
+	                                     (mNextPts + mPTSOffset from StreamAbstractionAAMP_MPD).
+	                                     Preserved across eTUNETYPE_RETUNE so the replacement stream can
+	                                     seed its PTS offset and maintain a seamless presentation
+	                                     timeline (e.g. back-to-back CDAI ad breaks, useMp4Demux=true). */
+
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
 	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */

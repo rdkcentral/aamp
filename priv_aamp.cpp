@@ -1846,6 +1846,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mLastSleThumbnailInfo()
 	, mLatencyMonitor(std::make_unique<AampLatencyMonitor>(this))
 	, mTuneTimeMetricData()
+	, mMp4DemuxAccumulatedPts(0.0)
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -5966,6 +5967,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mEncryptedPeriodFound = false;
 		mPipelineIsClear = false;
 		AAMPLOG_INFO ("Resetting mClearPipeline & mEncryptedPeriodFound");
+		// For non-retune transitions (fresh tune, user seek) the accumulated PTS
+		// from a previous CDAI stream is not meaningful for the new position.
+		mMp4DemuxAccumulatedPts = 0.0;
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
