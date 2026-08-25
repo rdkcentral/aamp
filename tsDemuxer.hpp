@@ -87,6 +87,12 @@ private:
 	 * Negative means "no previous sample" (start of stream / discontinuity).
 	 */
 	double last_sent_dts_s = -1.0;
+	/* The first access unit of an epoch is buffered here until the next
+	 * access unit arrives, so its true duration can be measured from the
+	 * DTS delta before it is emitted. */
+	std::vector<uint8_t> pending_es{};
+	SegmentInfo_t pending_info{};
+	bool has_pending_sample = false;
 	uint33_t base_pts{};
 	bool rollover_pts = false;
 	uint33_t current_pts{};
@@ -122,6 +128,30 @@ private:
 	void send();
 
 	/**
+	 * @brief Flushes a completed access unit, buffering the first sample of
+	 *        an epoch until the following sample establishes its duration.
+	 * @param[in] processor Optional processor; when null the sample is sent
+	 *        via PrivateInstanceAAMP::SendStreamCopy.
+	 */
+	void sendCompleted(const MediaProcessor::process_fcn_t &processor);
+
+	/**
+	 * @brief Emits a single access unit via the processor or SendStreamCopy.
+	 * @param[in] info Timing information for the sample.
+	 * @param[in,out] payload Elementary stream bytes (moved when a processor
+	 *        is supplied); cleared on return.
+	 * @param[in] processor Optional processor.
+	 */
+	void emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payload, const MediaProcessor::process_fcn_t &processor);
+
+	/**
+	 * @brief Emits the buffered first sample, if any, with its current
+	 *        (possibly fallback) duration.
+	 * @param[in] processor Optional processor.
+	 */
+	void emitPendingSample(const MediaProcessor::process_fcn_t &processor);
+
+	/**
 	 * @brief reset demux state
 	 */
 	void resetInternal();
@@ -149,6 +179,9 @@ public:
 		// New encoder epoch: the first access unit after the boundary has
 		// no valid predecessor for per-sample duration calculation.
 		last_sent_dts_s = -1.0;
+		// Flush any sample still held for look-ahead from the previous epoch
+		// so it is not measured against the new (discontinuous) timeline.
+		emitPendingSample(nullptr);
 	}
 
 	/**
@@ -264,12 +297,18 @@ public:
 	{
 		std::lock_guard<std::mutex> lock{mMutex};
 
+		bool sent = false;
 		if (!es.empty())
 		{
-			sendInternal(std::move(processor));
-			return true;
+			sendInternal(processor);
+			sent = true;
 		}
-		return false;
+		if (has_pending_sample)
+		{
+			emitPendingSample(processor);
+			sent = true;
+		}
+		return sent;
 	}
 
 	/**
@@ -281,7 +320,7 @@ public:
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return !es.empty();
+		return !es.empty() || has_pending_sample;
 	}
 
 	/**
@@ -292,7 +331,7 @@ public:
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return es.size();
+		return es.size() + pending_es.size();
 	}
 
 };

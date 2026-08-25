@@ -178,43 +178,83 @@ AAMPLOG_INFO("patrick");
 	return ret;
 }
 
+void Demuxer::emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payload, const MediaProcessor::process_fcn_t &processor)
+{
+	if (processor)
+	{
+		processor(type, info, std::move(payload));
+	}
+	else if (aamp)
+	{
+		aamp->SendStreamCopy(type, payload, info.pts_s, info.dts_s, info.duration);
+	}
+	payload.clear(); // move may leave payload valid-but-unspecified; clear for determinism
+}
+
+void Demuxer::emitPendingSample(const MediaProcessor::process_fcn_t &processor)
+{
+	if (has_pending_sample)
+	{
+		emitSample(pending_info, pending_es, processor);
+		has_pending_sample = false;
+	}
+}
+
+void Demuxer::sendCompleted(const MediaProcessor::process_fcn_t &processor)
+{
+	if (!CheckForSteadyState())
+	{
+		return; // CheckForSteadyState() clears es on discard
+	}
+	const SegmentInfo_t info = UpdateSegmentInfo();
+
+	// A previously buffered first sample can now have its true duration
+	// measured as the DTS delta to this (the next) access unit. Emit it
+	// before the current sample to preserve decode order.
+	if (has_pending_sample)
+	{
+		const double sampleDuration = info.dts_s - pending_info.dts_s;
+		if (sampleDuration > 0.0)
+		{
+			pending_info.duration = sampleDuration;
+		}
+		emitSample(pending_info, pending_es, processor);
+		has_pending_sample = false;
+	}
+
+	if (last_sent_dts_s < 0.0)
+	{
+		// First access unit of the epoch: buffer it until the next sample
+		// arrives so its duration can be established from that sample.
+		pending_es = std::move(es);
+		es.clear();
+		pending_info = info;
+		has_pending_sample = true;
+		last_sent_dts_s = info.dts_s;
+	}
+	else
+	{
+		emitSample(info, es, processor);
+		last_sent_dts_s = info.dts_s;
+	}
+}
+
 void Demuxer::send()
 {
-	if (CheckForSteadyState())
-	{
-		const auto info = UpdateSegmentInfo();
-
-		if (aamp)
-		{
-			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, info.duration);
-		}
-		last_sent_dts_s = info.dts_s;
-		es.clear();
-	}
+	sendCompleted(nullptr);
 }
 
 void Demuxer::resetInternal()
 {
 	aamp_utils::ClearAndRelease(es);
 	aamp_utils::ClearAndRelease(pes_header);
+	aamp_utils::ClearAndRelease(pending_es);
+	has_pending_sample = false;
 }
 
 void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 {
-	if (processor)
-	{
-		if (CheckForSteadyState())
-		{
-			const auto info = UpdateSegmentInfo();
-			last_sent_dts_s = info.dts_s;
-			processor(type, info, std::move(es));
-			es.clear(); // move leaves es in valid-but-unspecified state; clear for determinism
-		}
-	}
-	else
-	{
-		send();
-	}
+	sendCompleted(processor);
 }
 
 void Demuxer::init(double position, double duration, bool trickmode, bool resetBasePTS, bool optimizeMuxed )
@@ -231,6 +271,8 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	current_pts = 0;
 	first_pts = 0;
 	last_sent_dts_s = -1.0;
+	pending_es.clear();
+	has_pending_sample = false;
 	update_first_pts = false;
 	finalized_base_pts = false;
 	rollover_pts = false;
@@ -253,6 +295,9 @@ void Demuxer::flush()
 		AAMPLOG_INFO("demux : sending remaining bytes. es.len %zu", es.size());
 		send();
 	}
+	// Emit any sample still held for look-ahead (e.g. a single-sample epoch);
+	// no successor is available so it keeps its fallback duration.
+	emitPendingSample(nullptr);
 	resetInternal();
 }
 
