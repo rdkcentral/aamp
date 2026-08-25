@@ -156,6 +156,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 #endif
 	mJSBinding_DL = dlopen(szJSLib, RTLD_GLOBAL | RTLD_LAZY);
 	AAMPLOG_WARN("[AAMP_JS] dlopen(\"%s\")=%p", szJSLib, mJSBinding_DL);
+	
+	gpGlobalConfig->ApplyDeviceCapabilities();
 #endif
 
 #ifdef AAMP_BUILD_INFO

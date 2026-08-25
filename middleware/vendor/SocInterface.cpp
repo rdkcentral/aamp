@@ -18,11 +18,45 @@
  */
 
 #include <assert.h>
+#include <condition_variable>
+#include <mutex>
 #include "SocInterface.h"
 #include "vendor/amlogic/AmlogicSocInterface.h"
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
 #include "vendor/default/DefaultSocInterface.h"
+// Private singleton storage
+static std::shared_ptr<SocInterface> g_socInterface;
+static std::mutex g_socMutex;
+static std::mutex g_platformInitializationMutex;
+static std::condition_variable g_platformInitializationCondition;
+enum class PlatformInitializationState { NotStarted, InProgress, Complete };
+static PlatformInitializationState g_platformInitializationState = PlatformInitializationState::NotStarted;
+
+class PlatformInitializationGuard
+{
+public:
+	~PlatformInitializationGuard()
+	{
+		if (!mFinished)
+		{
+			Finish(PlatformInitializationState::NotStarted);
+		}
+	}
+
+	void Finish(PlatformInitializationState state)
+	{
+		{
+			std::lock_guard<std::mutex> lock(g_platformInitializationMutex);
+			g_platformInitializationState = state;
+		}
+		mFinished = true;
+		g_platformInitializationCondition.notify_all();
+	}
+
+private:
+	bool mFinished{false};
+};
 
 /**Initially re-sets the IsRialtoMode */
 bool SocInterface::mIsRialtoMode = false;
@@ -146,57 +180,165 @@ SocPlatformType SocInterface::InferPlatformFromDeviceProperties( void )
 
 
 /**
- * @brief Loads the instance with rialto mode or not 
+ * @brief Helper to create the right subclass based on platform type.
+ */
+static std::shared_ptr<SocInterface> CreateForPlatform(SocPlatformType platformType)
+{
+	switch (platformType)
+	{
+		case SOC_PLATFORM_AMLOGIC:
+			MW_LOG_MIL("Setting up SoC Interface for AMLOGIC");
+			return std::make_shared<AmlogicSocInterface>();
+		case SOC_PLATFORM_BROADCOM:
+			MW_LOG_MIL("Setting up SoC Interface for BROADCOM");
+			return std::make_shared<BrcmSocInterface>();
+		case SOC_PLATFORM_REALTEK:
+			MW_LOG_MIL("Setting up SoC Interface for REALTEK");
+			return std::make_shared<RealtekSocInterface>();
+		default:
+			MW_LOG_MIL("Setting up SoC Interface for Default");
+			return std::make_shared<DefaultSocInterface>();
+	}
+}
+
+/**
+ * @brief Loads the instance with rialto mode or not
  *
  * @return A pointer to the created SocInterface object, or nullptr on failure.
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 {
+	std::unique_lock<std::mutex> initializationLock(g_platformInitializationMutex);
+	g_platformInitializationCondition.wait(initializationLock, []()
+	{
+		return g_platformInitializationState != PlatformInitializationState::InProgress;
+	});
+	if (g_platformInitializationState == PlatformInitializationState::Complete)
+	{
+		if (mIsRialtoMode != isRialto)
+		{
+			MW_LOG_ERR("Ignoring conflicting Rialto mode request: initialized=%d requested=%d", mIsRialtoMode, isRialto);
+		}
+		initializationLock.unlock();
+		return CreateSocInterface();
+	}
+	g_platformInitializationState = PlatformInitializationState::InProgress;
+	initializationLock.unlock();
+	PlatformInitializationGuard initializationGuard;
+
 	if(isRialto == true)
 	{
-	    MW_LOG_MIL("Rialto is enabled and creating default soc");
+		MW_LOG_MIL("Rialto is enabled and creating default soc");
 	}
 	mIsRialtoMode = isRialto;
+
+	// Phase 1: ensure safe singleton exists (only device.properties, no GStreamer calls)
+	(void)CreateSocInterface();
+
+	// Phase 2: now that isRialto is known and we are NOT in dl_init,
+	// run plugin scan and replace singleton if a platform is detected.
+	SocPlatformType platformType = InferPlatformFromDeviceProperties();
+	bool initializationComplete = true;
+	if (!isRialto && platformType == SOC_PLATFORM_DEFAULT && !gst_init_check(nullptr, nullptr, nullptr))
+	{
+		MW_LOG_ERR("gst_init_check() failed; platform detection will be retried");
+		initializationComplete = false;
+	}
+	else
+	{
+		// Phase 2: now that isRialto is known and we are NOT in dl_init,
+		// run plugin scan and replace singleton if a platform is detected.
+		InitializePlatformFromPlugins(platformType);
+	}
+
+	initializationGuard.Finish(initializationComplete ? PlatformInitializationState::Complete : PlatformInitializationState::NotStarted);
+
+	// Return the possibly-replaced singleton.
 	return CreateSocInterface();
 }
 
 /**
- * @brief Creates an instance of the SoC-specific interface based on the detected platform.
+ * @brief Phase 1: Creates an instance of the SoC-specific interface.
+ *        Safe to call during dl_init — only reads /etc/device.properties, NO GStreamer calls.
  *
- * @return A pointer to the created SocInterface object, or nullptr on failure.
+ * @return A pointer to the created SocInterface object.
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
-	static std::shared_ptr<SocInterface> socInterface;
-	if( !socInterface)
-	{
-		SocPlatformType platformType = InferPlatformFromDeviceProperties();
-		if(platformType == SOC_PLATFORM_DEFAULT)
-		{
-			if(!mIsRialtoMode)
-			{
-				MW_LOG_MIL("Performing InterfacePluginScan| Rialto-Disabled");
-				platformType = InferPlatformFromPluginScan();
-                        }
-		}
-		switch (platformType)
-		{
-			case SOC_PLATFORM_AMLOGIC:
-				socInterface = std::make_shared<AmlogicSocInterface>();
-				break;
-			case SOC_PLATFORM_BROADCOM:
-				socInterface = std::make_shared<BrcmSocInterface>();
-				break;
-			case SOC_PLATFORM_REALTEK:
-				socInterface = std::make_shared<RealtekSocInterface>();
-				break;
-			default:
-				socInterface = std::make_shared<DefaultSocInterface>();
-				break;
-		}
-	}
-	return socInterface;
+    std::lock_guard<std::mutex> lock(g_socMutex);
+
+    if (!g_socInterface)
+    {
+        // Only use device.properties at this stage.
+        // No GStreamer calls.
+        SocPlatformType platformType =
+            InferPlatformFromDeviceProperties();
+
+        g_socInterface = CreateForPlatform(platformType);
+    }
+
+    return g_socInterface;
 }
+
+
+
+
+void SocInterface::InitializePlatformFromPlugins(
+        SocPlatformType platformType)
+{
+    /*
+     * Rialto mode:
+     *
+     * If device.properties detected a specific platform,
+     * use the default SoC interface as required by Rialto.
+     */
+    if (mIsRialtoMode)
+    {
+        if (platformType != SOC_PLATFORM_DEFAULT)
+        {
+            MW_LOG_MIL(
+                "Rialto mode: platform detected from device.properties, "
+                   "using default SoC interface");
+
+            std::lock_guard<std::mutex> lock(g_socMutex);
+            g_socInterface =
+                CreateForPlatform(SOC_PLATFORM_DEFAULT);
+        }
+
+        return;
+    }
+
+    /*
+     * Non-Rialto mode:
+     *
+     * If device.properties already identified the platform,
+     * no plugin scan is required.
+     */
+    if (platformType != SOC_PLATFORM_DEFAULT)
+    {
+        MW_LOG_MIL("Platform already identified from device.properties, ""skipping plugin scan");
+
+        return;
+    }
+
+    /*
+     * Platform was not identified from device.properties.
+     * Plugin scan can now safely call gst_init_check().
+     */
+    MW_LOG_MIL("Platform not identified from device.properties, ""performing plugin scan");
+
+    SocPlatformType detectedPlatform = InferPlatformFromPluginScan();
+
+    if (detectedPlatform != SOC_PLATFORM_DEFAULT)
+    {
+        MW_LOG_MIL(
+            "Plugin scan detected platform, replacing SoC interface");
+
+        std::lock_guard<std::mutex> lock(g_socMutex);
+        g_socInterface = CreateForPlatform(detectedPlatform);
+    }
+}
+
 
 /**
  * @brief Get video PTS.
