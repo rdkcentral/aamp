@@ -1225,8 +1225,8 @@ void MediaTrack::TrickModePtsRestamp(std::vector<uint8_t> &fragment, double &pos
 	// Update cached values for GStreamer
 	position = mRestampedPts.inSeconds();
 
-	AAMPLOG_INFO("state %d rate %f trickPlayFPS %d initFragment %d discontinuity %d "
-				 "position %lfs duration %lfs restamped position %lfs duration %lfs",
+	AAMPLOG_INFO("state %d rate %.2f trickPlayFPS %d initFragment %d discontinuity %d "
+				 "position %fs duration %fs restampedPTS %fs restampedDur %fs",
 				 static_cast<int>(mTrickmodeState),
 				 aamp->rate, trickPlayFPS, initFragment, discontinuity,
 				 inFragmentPosition.inSeconds(), inFragmentDuration.inSeconds(),
@@ -1274,9 +1274,28 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
 		* after parsing the segment before sending to gstreamer.
 		*/
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (!ISCONFIGSET(eAAMPConfig_UseMp4Demux)))
+		const bool trickplay = (pContext && pContext->trickplayMode);
+		/*
+		* Subtitle is the exception to the mp4demux rule above. InitializeMediaProcessor leaves
+		* playContext null for the subtitle track when useMp4Demux is set (see the "Using Mp4Demux"
+		* branch), so subtitle segments never reach AampMp4Demuxer and nothing else restamps them:
+		* cues would stay on the CDN timeline while video and audio are restamped, drifting apart
+		* in ad-insertion and TSB playback. Restamp subtitle here instead.
+		*
+		* Trickplay is excluded deliberately. The subtitle layer is hidden during FF/REW, and
+		* TrickModePtsRestamp() drives per-track trickmode state that the subtitle track should
+		* not enter. So under mp4demux this block handles subtitle during normal play only;
+		* without mp4demux the behaviour for every track is unchanged.
+		*
+		* The useMp4Demux check stays inline below rather than being hoisted into a local, so it
+		* is still only evaluated after the EnablePTSReStamp and DASH checks pass, exactly as
+		* before. Reading it unconditionally would add a config lookup to every fragment
+		* injection on every path.
+		*/
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
+			(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay)))
 		{
-			if ((pContext && pContext->trickplayMode))
+			if (trickplay)
 			{
 				TrickModePtsRestamp(cachedFragment);
 			}
@@ -2920,20 +2939,32 @@ void StreamAbstractionAAMP::NotifyVideoFragmentToUnderflowMonitor(double endPosi
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
-		mUnderflowMonitor->NotifyVideoFragment(endPosition, playRate);
+		// Resolve paused-state gating under the same mutex used by pause/resume
+		// notifications so check+use are serialized with monitor updates.
+		const float effectiveRate = (aamp && aamp->mSinkPaused.load()) ? 0.0f : playRate;
+		mUnderflowMonitor->NotifyVideoFragment(endPosition, effectiveRate);
 	}
 }
 
-void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+/**
+ *  @brief Notify buffer level to latency monitor.
+ *  @param mediaType The media type (audio or video).
+ *  @param bufferMs The buffer level in milliseconds.
+ */
+void StreamAbstractionAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 	if (aamp)
 	{
-		aamp->NotifyBufferLevelToLatencyMonitor(bufferMs);
+		aamp->NotifyBufferLevelToLatencyMonitor(mediaType, bufferMs);
 	}
 }
 
 void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2943,6 +2974,10 @@ void StreamAbstractionAAMP::NotifyPipelinePausedToUnderflowMonitor()
 
 void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{
@@ -2952,6 +2987,10 @@ void StreamAbstractionAAMP::NotifyRateChangeToUnderflowMonitor(float rate)
 
 void StreamAbstractionAAMP::NotifyPipelineResumedToUnderflowMonitor(float playRate)
 {
+	if (!ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor))
+	{
+		return;
+	}
 	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
 	if (mUnderflowMonitor)
 	{

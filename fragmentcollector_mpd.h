@@ -874,6 +874,12 @@ protected:
 	 */
 	std::string GetCurrentMimeType(AampMediaType mediaType);
 	/**
+	 * @fn GetCurrentCodec
+	 * @param AampMediaType type of media
+	 * @retval codec string
+	 */
+	std::string GetCurrentCodec(AampMediaType mediaType);
+	/**
 	 * @fn UpdateTrackInfo
 	 */
 	virtual AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false, bool isInit = false);

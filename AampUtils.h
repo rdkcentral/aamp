@@ -101,6 +101,24 @@ const FormatMap * GetAudioFormatForCodec( const char *codecs );
 */
 const FormatMap * GetVideoFormatForCodec( const char *codecs );
 
+/*
+* @fn GetMp4DemuxVideoFormatForCodec
+* @brief Function to get the video elementary stream format AampMp4Demuxer will report.
+*
+* @param[in] Video codec string from the manifest
+* @return StreamOutputFormat, FORMAT_UNKNOWN when AampMp4Demuxer does not recognise the codec
+*/
+StreamOutputFormat GetMp4DemuxVideoFormatForCodec( const char *codecs );
+
+/*
+* @fn GetMp4DemuxAudioFormatForCodec
+* @brief Function to get the audio elementary stream format AampMp4Demuxer will report.
+*
+* @param[in] Audio codec string from the manifest
+* @return StreamOutputFormat, FORMAT_UNKNOWN when AampMp4Demuxer does not recognise the codec
+*/
+StreamOutputFormat GetMp4DemuxAudioFormatForCodec( const char *codecs );
+
 /**
  * @fn aamp_GetCurrentTimeMS
  *

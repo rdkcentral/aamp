@@ -41,6 +41,7 @@
 #include <termios.h>
 #include <errno.h>
 #include <regex>
+#include <cctype>
 
 AampConfig *gpGlobalConfig=NULL;
 
@@ -96,6 +97,40 @@ void doFakeTune()
 	// No-op when preinit decoding is not enabled
 }
 #endif
+
+/**
+ * @brief Helper function to determine if input looks like JSON and attempt parsing
+ * 
+ * @param[in] input - Input string to check and parse
+ * @return cJSON* - Parsed JSON object/array if successful, NULL otherwise
+ * 
+ * @note Only attempts JSON parsing if input starts with '{' or '[' after trimming whitespace.
+ *       This prevents bare JSON primitives (numbers, strings, booleans) from being parsed as JSON.
+ */
+static cJSON* TryParseAsJson(const char* input)
+{
+	if (!input || input[0] == '\0')
+	{
+		return NULL;
+	}
+
+	// Skip leading whitespace to check first meaningful character
+	// Include all standard whitespace characters: space, tab, newline, carriage return, form feed, vertical tab
+	const char *trimmed = input;
+	while (*trimmed && std::isspace(static_cast<unsigned char>(*trimmed)))
+	{
+		trimmed++;
+	}
+
+	// Only try JSON parsing if it looks like a JSON object or array
+	// This prevents bare numbers, strings, booleans from being parsed as JSON
+	if (trimmed[0] == '{' || trimmed[0] == '[')
+	{
+		return cJSON_Parse(input);
+	}
+
+	return NULL;
+}
 
 /**
  *  @brief PlayerInstanceAAMP Constructor.
@@ -963,6 +998,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						retValue = sink->Pause(true, false);
 					}
 					aamp->mSinkPaused = true;
+					// Notify the underflow monitor that the pipeline is now intentionally
+					// paused by the user. This disarms the deadline so that fragments
+					// downloaded while paused (e.g. during seek-while-paused) do not
+					// trigger a false underflow via NotifyVideoFragment.
+					if (aamp->mpStreamAbstractionAAMP && retValue)
+					{
+						aamp->mpStreamAbstractionAAMP->NotifyPipelinePausedToUnderflowMonitor();
+					}
 				}
 			}
 			else
@@ -999,8 +1042,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// prevents a stale normal-play deadline from firing and declaring a
 				// false underflow during the gap between the rate change and the first
 				// trickplay fragment arriving (AAMP-TSB-5016, AAMP-CDAI-8003).
-				if (ISCONFIGSET(eAAMPConfig_EnableAampUnderflowMonitor) &&
-					aamp->mpStreamAbstractionAAMP)
+				if(aamp->mpStreamAbstractionAAMP)
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyRateChangeToUnderflowMonitor(rate);
 				}
@@ -3230,20 +3272,54 @@ void PlayerInstanceAAMP::SetRepairIframes(bool configState)
 }
 
 /**
- *  @brief InitAAMPConfig - Initialize the media player session with json config
+ * @brief InitAAMPConfig - Initialize the media player session with configuration
+ * 
+ * @param[in] jsonStr - Configuration string (JSON format or "key=value" format)
+ * 
+ * @return true if configuration was processed successfully, false otherwise
+ * 
+ * @note Automatically detects JSON vs simple config string format:
+ *       - JSON object/array: {"networkTimeout": 10.0} or [...]
+ *       - Config string: "networkTimeout=10.0" or "abr=true"
+ *       - Bare values (numbers, strings) are treated as config strings
+ * 
+ * Detection logic:
+ *   - Strings starting with '{' or '[' are parsed as JSON
+ *   - All other strings are processed as config strings
+ * 
+ * Examples:
+ *   player->InitAAMPConfig("{\"networkTimeout\": 10.0}");  // JSON format
+ *   player->InitAAMPConfig("networkTimeout=10.0");         // Config string format
+ *   player->InitAAMPConfig("abr=true");                    // Boolean config
+ *   player->InitAAMPConfig("userAgent=CustomAgent/1.0");   // String config
+ *   player->InitAAMPConfig("12345");                       // Treated as config string, not JSON
  */
 bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 {
 	bool retVal = false;
 	cJSON *cfgdata = NULL;
-	if(jsonStr)
+
+	if(jsonStr && jsonStr[0] != '\0')
 	{
-		cfgdata = cJSON_Parse(jsonStr);
+		// Try parsing as JSON (only if it looks like JSON object/array)
+		cfgdata = TryParseAsJson(jsonStr);
+
 		if(cfgdata != NULL)
 		{
-			retVal = mConfig.ProcessConfigJson(cfgdata,AAMP_APPLICATION_SETTING);
+			// Valid JSON object/array - process as JSON
+			AAMPLOG_TRACE("Processing configuration as JSON");
+			retVal = mConfig.ProcessConfigJson(cfgdata, AAMP_APPLICATION_SETTING);
+		}
+		else
+		{
+			// Not JSON object/array - process as config string
+			AAMPLOG_TRACE("Processing configuration as config string: %s", jsonStr);
+			std::string cfg(jsonStr);
+			retVal = mConfig.ProcessConfigText(cfg, AAMP_APPLICATION_SETTING);
 		}
 	}
+
+	// Common post-processing for both paths
 	mConfig.DoCustomSetting(AAMP_APPLICATION_SETTING);
 	if(GETCONFIGOWNER(eAAMPConfig_AsyncTune) == AAMP_APPLICATION_SETTING)
 	{

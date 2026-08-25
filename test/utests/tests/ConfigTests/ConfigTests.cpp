@@ -333,11 +333,11 @@ static void testBoolSuccess(AampConfig& aampConfig, ConfigPriority owner)
 		AAMPConfigSettingBool eCfg = mConfigLookupTableBool[i].configEnum;
 		//Get current setting & try & set to the opposite.
 		bResult = aampConfig.IsConfigSet(eCfg);
-		aampConfig.SetConfigValue(owner, eCfg, !bResult);
+		EXPECT_TRUE(aampConfig.SetConfigValue(owner, eCfg, !bResult));
 		bResult2 = aampConfig.IsConfigSet(eCfg);
 		EXPECT_NE(bResult, bResult2) << mConfigLookupTableBool[i].cmdString << " failed to set to " << !bResult;
 		//Set back to original state and verify it's what we set it to
-		aampConfig.SetConfigValue(owner, eCfg, bResult);
+		EXPECT_TRUE(aampConfig.SetConfigValue(owner, eCfg, bResult));
 		bResult2 = aampConfig.GetConfigValue(eCfg);
 		EXPECT_EQ(bResult, bResult2);
 		aampConfig.GetConfigValue((AAMPConfigSettingBool)(MaxConfig+1)); //coverage
@@ -405,6 +405,7 @@ static void testIntSuccess(AampConfig& aampConfig, ConfigPriority owner)
 				
 		//Try & set to a value > max.
 		iTest = maxVal < INT_MAX ? maxVal + 1 : INT_MAX;
+		// If the value is INT_MAX, it will pass and other cases it will fail. So skipping return value check
 		aampConfig.SetConfigValue(owner, eCfg, iTest);
 		iResult = aampConfig.GetConfigValue(eCfg);
 		if(maxVal == INT_MAX)
@@ -418,8 +419,8 @@ static void testIntSuccess(AampConfig& aampConfig, ConfigPriority owner)
 				
 		//Try & set to a value < min.
 		initVal = aampConfig.GetConfigValue(eCfg);
-		iTest = minVal > INT_MIN ? minVal - 1 : INT_MIN; 	
-		aampConfig.SetConfigValue(owner, eCfg, iTest);
+		iTest = minVal > INT_MIN ? minVal - 1 : INT_MIN;
+		EXPECT_FALSE(aampConfig.SetConfigValue(owner, eCfg, iTest));
 		iResult = aampConfig.GetConfigValue(eCfg);
 		if(minVal == INT_MIN)
 		{
@@ -433,7 +434,7 @@ static void testIntSuccess(AampConfig& aampConfig, ConfigPriority owner)
 
 		//Verify we can set to a value between min and max.
 		iTest = minVal == maxVal ? maxVal : minVal + 1;
-		aampConfig.SetConfigValue(owner, eCfg, iTest);
+		EXPECT_TRUE(aampConfig.SetConfigValue(owner, eCfg, iTest));
 		iResult = aampConfig.GetConfigValue(eCfg);
 		EXPECT_EQ(iTest, iResult) << mConfigLookupTableInt[i].cmdString << " result: " << iResult << " should be equal to test val: " << iTest;
 		//Test return as a parameter.
@@ -524,7 +525,7 @@ static void testFloatSuccess(AampConfig& aampConfig, ConfigPriority owner)
 		//Try & set to a value > max.
 		initVal = aampConfig.GetConfigValue(eCfg);
 		dTest = maxVal < maxDouble ? maxVal + 1 : maxDouble;
-		aampConfig.SetConfigValue(owner, eCfg, dTest);
+		EXPECT_FALSE(aampConfig.SetConfigValue(owner, eCfg, dTest));
 		dResult = aampConfig.GetConfigValue(eCfg);
 		if(maxVal == maxDouble)
 		{
@@ -539,7 +540,7 @@ static void testFloatSuccess(AampConfig& aampConfig, ConfigPriority owner)
 		//Try & set to a value < min.
 		initVal = aampConfig.GetConfigValue(eCfg);
 		dTest = minVal > minDouble ? minVal - 1.0 : minDouble;
-		aampConfig.SetConfigValue(owner, eCfg, dTest);
+		EXPECT_FALSE(aampConfig.SetConfigValue(owner, eCfg, dTest));
 		dResult = aampConfig.GetConfigValue(eCfg);
 		if(minVal == minDouble)
 		{
@@ -553,7 +554,7 @@ static void testFloatSuccess(AampConfig& aampConfig, ConfigPriority owner)
 
 		//Verify we can set to a value between min and max.
 		dTest = minVal/2 + maxVal/2;
-		aampConfig.SetConfigValue(owner, eCfg, dTest);
+		EXPECT_TRUE(aampConfig.SetConfigValue(owner, eCfg, dTest));
 		dResult = aampConfig.GetConfigValue(eCfg);
 		EXPECT_EQ(dTest, dResult) << mConfigLookupTableFloat[i].cmdString << " result: " << dResult << " should be equal to test val: " << dTest;
 		//Test double returned as a parameter.
@@ -618,12 +619,12 @@ static void testStringSuccess(AampConfig& aampConfig, ConfigPriority owner)
 	{
 		AAMPConfigSettingString eCfg = mConfigLookupTableString[i].configEnum;
 		std::string testString("Test string");
-		aampConfig.SetConfigValue(owner, eCfg, testString);
+		EXPECT_TRUE(aampConfig.SetConfigValue(owner, eCfg, testString));
 		//Test returned string
 		std::string result = aampConfig.GetConfigValue(eCfg);
 		EXPECT_STREQ(testString.c_str(), result.c_str()) << mConfigLookupTableString[i].cmdString << " result: " << result.c_str() << " should be equal to test val: " << testString.c_str();
 		testString = "Different text";
-		aampConfig.SetConfigValue(owner, eCfg, testString);
+		EXPECT_TRUE(aampConfig.SetConfigValue(owner, eCfg, testString));
 		result = aampConfig.GetConfigValue(eCfg);
 		EXPECT_STREQ(testString.c_str(), result.c_str())  << mConfigLookupTableString[i].cmdString << " result: " << result.c_str() << " should be equal to test val: " << testString.c_str();
 		aampConfig.GetConfigValue((AAMPConfigSettingString)(MaxConfig+1)); //coverage
@@ -637,7 +638,7 @@ static void testStringFail(AampConfig& aampConfig, ConfigPriority owner)
 	{
 		AAMPConfigSettingString eCfg = mConfigLookupTableString[i].configEnum;
 		std::string testString("Test fail string");
-		aampConfig.SetConfigValue(owner, eCfg, testString);
+		EXPECT_FALSE(aampConfig.SetConfigValue(owner, eCfg, testString));
 		//Test returned string
 		std::string result = aampConfig.GetConfigValue(eCfg);
 		EXPECT_STRNE(testString.c_str(), result.c_str()) << mConfigLookupTableString[i].cmdString << " result: " << result.c_str() << " was incorrectly able to set: " << testString.c_str();
@@ -663,7 +664,7 @@ TEST_F(AampConfigTests, ProcessConfigTextBlankString)
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 	std::string trstr("");
-	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	EXPECT_FALSE(aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING));
 }
 
 //With no value supplied, the resulting value expected to be toggle/inverted of existing value
@@ -673,7 +674,7 @@ TEST_F(AampConfigTests, ProcessConfigTextNoValue)
 	aampConfig.Initialize();
 	std::string trstr("debug= ");
 	bool bResult = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
-	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	EXPECT_TRUE(aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING));
 	bool bResult2 = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
 	EXPECT_NE(bResult, bResult2);
 }
@@ -683,7 +684,7 @@ TEST_F(AampConfigTests, ProcessConfigTextValidProperty)
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 	std::string trstr("debug=1");
-	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	EXPECT_TRUE(aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING));
 	int configVal = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
 	EXPECT_EQ(configVal,1);
 }
@@ -695,35 +696,37 @@ TEST_F(AampConfigTests, ProcessConfigTextNoValue2)
 	aampConfig.Initialize();
 	std::string trstr("debug");
 	bool bResult = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
-	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	EXPECT_TRUE(aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING));
 	bool bResult2 = aampConfig.GetConfigValue(eAAMPConfig_DebugLogging);
 	EXPECT_NE(bResult, bResult2);
 }
 
+// With whitespace, the config should not be applied
 TEST_F(AampConfigTests, ProcessConfigTextWhiteSpace)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 	std::string trstr(" ");
-	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	EXPECT_FALSE(aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING));
 }
 
+// With just new line, the config should not be applied
 TEST_F(AampConfigTests, ProcessConfigTextNewLine)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 	std::string trstr("\n");
-	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	EXPECT_FALSE(aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING));
 }
 
+// With only value present, the config should not be applied
 TEST_F(AampConfigTests, ProcessConfigTextNoKeyOnlyValue)
 {
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 	std::string trstr("=1");
-	aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING);
+	EXPECT_FALSE(aampConfig.ProcessConfigText(trstr,AAMP_OPERATOR_SETTING));
 }
-
 
 //channel map test for ProcessConfigJson
 const std::string chmap = 
@@ -947,6 +950,7 @@ TEST_F(AampConfigTests, ReadAampCfgFromEnv)
 	EXPECT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_TRACE );
 }
 
+// Validates channel override config update in ProcessConfigText
 TEST_F(AampConfigTests, ProcessConfigText)
 {
 	AampConfig aampConfig;
@@ -954,13 +958,13 @@ TEST_F(AampConfigTests, ProcessConfigText)
 	const char* result = aampConfig.GetChannelLicenseOverride("test");
 	EXPECT_STREQ(result, NULL);
 	std::string str = "*licenseServerUrl=test licence";
-	aampConfig.ProcessConfigText(str, AAMP_DEV_CFG_SETTING);
+	EXPECT_TRUE(aampConfig.ProcessConfigText(str, AAMP_DEV_CFG_SETTING));
 	result = aampConfig.GetChannelOverride("HBOCM");
 	EXPECT_STREQ(result, NULL);
 	result = aampConfig.GetChannelLicenseOverride("HBOCM");
 	EXPECT_STREQ(result, "test");
 	std::string str2 = "donut=";
-	aampConfig.ProcessConfigText(str2, AAMP_DEV_CFG_SETTING);
+	EXPECT_FALSE(aampConfig.ProcessConfigText(str2, AAMP_DEV_CFG_SETTING));
 }
 
 
@@ -999,38 +1003,38 @@ TEST_F(AampConfigTests, RestoreConfiguration)
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableEC3,true);
-	aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_DisableEC3, false); //- so last owner == AAMP_DEFAULT_SETTING
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableEC3,true));
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_DisableEC3, false)); //- so last owner == AAMP_DEFAULT_SETTING
 	aampConfig.RestoreConfiguration(AAMP_STREAM_SETTING); //current owner == AAMP_STREAM_SETTING, last owner != AAMP_STREAM_SETTING
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_DisableEC3), true) << "Failed to restore previous owner's setting";
 
 	int iResult = aampConfig.GetConfigValue(eAAMPConfig_MaxBitrate);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_MaxBitrate, iResult-1);
-	aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_MaxBitrate, iResult-2);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_MaxBitrate, iResult-1));
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_MaxBitrate, iResult-2));
 	aampConfig.RestoreConfiguration(AAMP_STREAM_SETTING);
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_MaxBitrate), iResult-1) << "Failed to restore previous owner's setting";
 
 	double dResult = aampConfig.GetConfigValue(eAAMPConfig_LiveOffset4K);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LiveOffset4K, dResult-1);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LiveOffset4K, dResult-1));
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_LiveOffset4K), dResult-1);
-	aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_LiveOffset4K, dResult-2);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_LiveOffset4K, dResult-2));
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_LiveOffset4K), dResult-2);
 	aampConfig.RestoreConfiguration(AAMP_STREAM_SETTING);
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_LiveOffset4K), dResult-1) << "Failed to restore previous owner's setting";
 
 	aampConfig.GetConfigValue(eAAMPConfig_LRHContentType);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LRHContentType, "test1");
-	aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_LRHContentType, "test2");
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LRHContentType, "test1"));
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_LRHContentType, "test2"));
 	aampConfig.RestoreConfiguration(AAMP_STREAM_SETTING);
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_LRHContentType), "test1") << "Failed to restore previous owner's setting";
 
 	//Coverage for ConfigureLogSettings
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_TraceLogging, false);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DebugLogging, false);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_InfoLogging, false);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, false);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_TraceLogging, false));
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DebugLogging, false));
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_InfoLogging, false));
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, false));
 	aampConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, true);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, true));
 	mAampConfig->ConfigureLogSettings();
 	EXPECT_EQ( AampLogManager::locked, false );
 	EXPECT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_WARN );
@@ -1055,9 +1059,9 @@ TEST_F(AampConfigTests, RestoreConfiguration)
 
 	aampConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
 	bool bResult = aampConfig.GetConfigValue(eAAMPConfig_useRialtoSink);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, false);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_useRialtoSink, false));
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useRialtoSink), false);
-	aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_useRialtoSink, true);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_STREAM_SETTING, eAAMPConfig_useRialtoSink, true));
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useRialtoSink), true);
 	aampConfig.RestoreConfiguration(AAMP_STREAM_SETTING);
 	EXPECT_EQ(aampConfig.GetConfigValue(eAAMPConfig_useRialtoSink), false) << "Failed to restore previous owner's setting";
@@ -1068,22 +1072,22 @@ TEST_F(AampConfigTests, DoCustomSetting)
 	AampConfig aampConfig;
 	aampConfig.Initialize();
 	
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableEC3,true);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableEC3,true));
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableEC3), true);
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING,eAAMPConfig_DisableEC3, false);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING,eAAMPConfig_DisableEC3, false));
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableEC3), false);
 	
 	//Make a config change that DoCustomSetting should ignore
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_StereoOnly,false);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_StereoOnly,false));
 	aampConfig.DoCustomSetting(AAMP_DEFAULT_SETTING);
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableEC3), false) << "DoCustomSetting changed a setting unexpectedly";
 
 	//Make a config change that should cause DoCustomSetting to change a setting
-	aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_StereoOnly,true);
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_StereoOnly,true));
 	aampConfig.DoCustomSetting(AAMP_DEFAULT_SETTING);
 
 	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableEC3), true) << "DoCustomSetting failed to make a change";
-	aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AuthToken, "test");
+	EXPECT_TRUE(aampConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_AuthToken, "test"));
 	aampConfig.DoCustomSetting(AAMP_DEFAULT_SETTING);
 }
 
@@ -1170,7 +1174,7 @@ TEST_F(AampConfigTests, ConfigureLogSettingsNoWarn)
 {
 	mAampConfig->Initialize();
 
-	mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, false);
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WarnLogging, false));
 	ASSERT_EQ(false, mAampConfig->GetConfigValue(eAAMPConfig_WarnLogging));
 
 	mAampConfig->ConfigureLogSettings();
@@ -1184,7 +1188,7 @@ TEST_F(AampConfigTests, ConfigureLogSettingsTrace)
 {
 	std::string logLevel{"trace"};
 	mAampConfig->Initialize();
-	mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LogLevel, logLevel.c_str());
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LogLevel, logLevel.c_str()));
 	mAampConfig->ConfigureLogSettings();
 	ASSERT_EQ(logLevel.c_str(), mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
 	EXPECT_EQ( AampLogManager::locked, true );
@@ -1199,7 +1203,7 @@ TEST_F(AampConfigTests, ConfigureLogSettingsInfo)
 {
 	std::string logLevel{"info"};
 	mAampConfig->Initialize();
-	mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LogLevel, logLevel.c_str());
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_LogLevel, logLevel.c_str()));
 	ASSERT_EQ(logLevel.c_str(), mAampConfig->GetConfigValue(eAAMPConfig_LogLevel));
 	mAampConfig->ConfigureLogSettings();
 	EXPECT_EQ( AampLogManager::locked, true );
@@ -1234,12 +1238,12 @@ void TestSetAndRestoreSingleConfig(AampConfig* config, ConfigPriority initialOwn
 
 	// Initialize configuration and set initial value and owner
 	config->Initialize();
-	config->SetConfigValue(initialOwner, key, initialValue);
+	EXPECT_TRUE(config->SetConfigValue(initialOwner, key, initialValue));
 	ASSERT_EQ(initialValue, config->GetConfigValue(key));
 	ASSERT_EQ(initialOwner, config->GetConfigOwner(key));
 
 	// Update value and owner, and verify
-	config->SetConfigValue(restoreOwner, key, newValue);
+	EXPECT_TRUE(config->SetConfigValue(restoreOwner, key, newValue));
 	ASSERT_EQ(newValue, config->GetConfigValue(key));
 	ASSERT_EQ(restoreOwner, config->GetConfigOwner(key));
 
@@ -1256,7 +1260,7 @@ void TestSetAndRestoreSingleConfig(AampConfig* config, ConfigPriority initialOwn
 	EXPECT_EQ(lookup[key].defaultValue, config->GetConfigValue(key));
 
 	// Test Restore with mismatching owner, should not restore
-	config->SetConfigValue(restoreOwner, key, newValue);
+	EXPECT_TRUE(config->SetConfigValue(restoreOwner, key, newValue));
 	config->RestoreConfiguration(static_cast<ConfigPriority>(AAMP_DEV_CFG_SETTING), key);
 	ASSERT_EQ(newValue, config->GetConfigValue(key));
 	ASSERT_EQ(restoreOwner, config->GetConfigOwner(key));
@@ -1320,7 +1324,7 @@ TEST_F(AampConfigTests, TLSVersionMaxTLS12)
 	// Set TLS version to CURL_SSLVERSION_MAX_TLSv1_2 (393216)
 	// This forces TLSv1.2 as the maximum version
 	const int CURL_SSLVERSION_MAX_TLSv1_2 = 393216;
-	mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, CURL_SSLVERSION_MAX_TLSv1_2);
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, CURL_SSLVERSION_MAX_TLSv1_2));
 	
 	int tlsVersion = mAampConfig->GetConfigValue(eAAMPConfig_TLSVersion);
 	EXPECT_EQ(tlsVersion, CURL_SSLVERSION_MAX_TLSv1_2) 
@@ -1347,7 +1351,7 @@ TEST_F(AampConfigTests, TLSVersionFromConfigFile)
 	
 	// Simulate loading from aamp.cfg with supportTLS=393216
 	std::string configText = "supportTLS=393216";
-	aampConfig.ProcessConfigText(configText, AAMP_DEV_CFG_SETTING);
+	EXPECT_TRUE(aampConfig.ProcessConfigText(configText, AAMP_DEV_CFG_SETTING));
 	
 	int tlsVersion = aampConfig.GetConfigValue(eAAMPConfig_TLSVersion);
 	EXPECT_EQ(tlsVersion, 393216) 
@@ -1365,7 +1369,7 @@ TEST_F(AampConfigTests, TLSVersionWithCurlLogging)
 	mAampConfig->Initialize();
 	
 	// Enable curl verbose logging
-	mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_CurlLogging, true);
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_CurlLogging, true));
 	EXPECT_TRUE(mAampConfig->GetConfigValue(eAAMPConfig_CurlLogging)) 
 		<< "Curl logging should be enabled";
 	
@@ -1376,7 +1380,7 @@ TEST_F(AampConfigTests, TLSVersionWithCurlLogging)
 	
 	// Set to MAX_TLSv1_2 and verify
 	const int CURL_SSLVERSION_MAX_TLSv1_2 = 393216;
-	mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, CURL_SSLVERSION_MAX_TLSv1_2);
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, CURL_SSLVERSION_MAX_TLSv1_2));
 	
 	int tlsVersion = mAampConfig->GetConfigValue(eAAMPConfig_TLSVersion);
 	EXPECT_EQ(tlsVersion, CURL_SSLVERSION_MAX_TLSv1_2) 
@@ -1394,13 +1398,13 @@ TEST_F(AampConfigTests, TLSVersionRangeValidation)
 	mAampConfig->Initialize();
 	
 	// Valid values within range should be accepted
-	mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, 6);
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, 6));
 	EXPECT_EQ(mAampConfig->GetConfigValue(eAAMPConfig_TLSVersion), 6);
 	
-	mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, 7);
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, 7));
 	EXPECT_EQ(mAampConfig->GetConfigValue(eAAMPConfig_TLSVersion), 7);
 	
-	mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, 393216);
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_DEV_CFG_SETTING, eAAMPConfig_TLSVersion, 393216));
 	EXPECT_EQ(mAampConfig->GetConfigValue(eAAMPConfig_TLSVersion), 393216);
 }
 
@@ -1424,7 +1428,7 @@ TEST_F(AampConfigTests, TLSVersionAppliesGlobally)
 	
 	// Verify that changing the value affects the global setting
 	const int CURL_SSLVERSION_MAX_TLSv1_2 = 393216;
-	mAampConfig->SetConfigValue(AAMP_OPERATOR_SETTING, eAAMPConfig_TLSVersion, CURL_SSLVERSION_MAX_TLSv1_2);
+	EXPECT_TRUE(mAampConfig->SetConfigValue(AAMP_OPERATOR_SETTING, eAAMPConfig_TLSVersion, CURL_SSLVERSION_MAX_TLSv1_2));
 	
 	tlsVersion = mAampConfig->GetConfigValue(eAAMPConfig_TLSVersion);
 	EXPECT_EQ(tlsVersion, CURL_SSLVERSION_MAX_TLSv1_2) 

@@ -102,6 +102,8 @@ public:
 	MOCK_METHOD(bool, TrackDownloadsAreEnabled, (AampMediaType type));
 	MOCK_METHOD(long, GetCurrentLatencyMs, ());
 	MOCK_METHOD(double, GetBufferedDurationSecs, ());
+	MOCK_METHOD(double, GetVideoBufferedDurationSecs, ());
+	MOCK_METHOD(double, GetAudioBufferedDurationSecs, ());
 	MOCK_METHOD(bool, IsAdPlaying, ());
 	MOCK_METHOD(bool, IsLatencyExceedingTrickplayThreshold, (), (const));
 	MOCK_METHOD(void, EnableLatencyMonitor, (bool enabled));

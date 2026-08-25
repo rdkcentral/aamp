@@ -812,10 +812,14 @@ static const char *ChunkedTransferStateToName( ChunkedTransferState state )
  * @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
  *
  * This callback is invoked by the downloader whenever a new block of bytes is
- * received for a request that uses HTTP/1.1 chunked transfer encoding. It
- * implements an incremental parser driven by a state machine stored in
- * CurlCallbackContext::m_ChunkedTransferState. The parser consumes the input buffer,
- * interpreting chunk-size lines, chunk payload, and the required CR/LF
+ * received for a request that uses HTTP/1.1 chunked transfer encoding.
+ *
+ * @note This code does not handle the HTTP/3 case, which uses a different
+ *       framing mechanism and is handled separately.
+ *
+ * It implements an incremental parser driven by a state machine stored in
+ * CurlCallbackContext::m_ChunkedTransferState. The parser consumes the input
+ * buffer, interpreting chunk-size lines, chunk payload, and the required CR/LF
  * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
  *
  * The state machine transitions between:
@@ -3053,11 +3057,61 @@ void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 }
 
 /**
- * @brief Sends UnderFlow Event messages
- * @param[in] bufferingStarted True if buffering started, false if buffering ended.
+ * @brief Handle a pending manifest refresh failure when buffering starts.
+ *
+ * If buffering begins while the MPD downloader is already in a manifest
+ * refresh failure state, send the corresponding fatal error event and let
+ * the caller skip the normal BufferingChanged path.
+ *
+ * @return true if a manifest failure event was sent; false otherwise.
  */
+bool PrivateInstanceAAMP::HandleManifestRefreshFailureOnBuffering()
+{
+	if (mMPDDownloaderInstance == nullptr)
+	{
+		// Always null for HLS, so lets move to DEBUG to avoid noisy logging
+		AAMPLOG_DEBUG("Null MPD downloader instance");
+		return false;
+	}
+
+	ManifestRefreshStatus retryStatus = mMPDDownloaderInstance->GetManifestRefreshStatus();
+	AAMPStatusType retryErrorType = retryStatus.type;
+	if (retryErrorType == AAMPStatusType::eAAMPSTATUS_OK)
+	{
+		AAMPLOG_DEBUG("Manifest refresh status is OK");
+		return false;
+	}
+	// Buffer drained while manifest refresh was already failing.
+	// Send the appropriate fatal error event instead of a BufferingChanged event.
+	// SetBufUnderFlowStatus is intentionally omitted here: the error event triggers
+	// player teardown, so the underflow flag is irrelevant. The normal buffering path
+	// (when this function returns false) sets it via SetBufUnderFlowStatus(bufferingStarted).
+	else if (retryErrorType == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with manifest content failure; sending init-failed content error");
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+	}
+	else if (retryErrorType == AAMPStatusType::eAAMPSTATUS_MANIFEST_PARSE_ERROR)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry with manifest parse failure; sending init-failed parse error");
+		SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR);
+	}
+	else
+	{
+		int manifestRefreshError = retryStatus.errorCode;
+		AAMPLOG_WARN("PrivateInstanceAAMP: Buffering during manifest refresh retry failure (status=%d err=%d); sending manifest request failed event", retryErrorType, manifestRefreshError);
+		SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, manifestRefreshError);
+	}
+	return true;
+}
+
 void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 {
+	if (bufferingStarted && HandleManifestRefreshFailureOnBuffering())
+	{
+		return;
+	}
+
 	// Buffer Change event indicate buffer availability
 	// bufferingStarted need to be inverted to indicate if buffer available or not
 	// BufferChangeEvent with False = Underflow / non-availability of buffer to play
@@ -3109,11 +3163,11 @@ void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStarted)
 /**
  * @brief Forward the current buffer level to the latency monitor.
  */
-void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(double bufferMs)
+void PrivateInstanceAAMP::NotifyBufferLevelToLatencyMonitor(AampMediaType mediaType, double bufferMs)
 {
 	if (mLatencyMonitor)
 	{
-		mLatencyMonitor->OnBufferLevelUpdate(bufferMs);
+		mLatencyMonitor->OnBufferLevelUpdate(mediaType, bufferMs);
 	}
 }
 
@@ -4492,10 +4546,32 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
 			}
-			if(this->mAampLLDashServiceData.lowLatencyMode)
+			context.remoteUrl = remoteUrl;
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+			if( ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3) && mediaType != eMEDIATYPE_LICENCE )
+			{
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY);
+				AAMPLOG_INFO("HTTP/3 (QUIC) enabled for mediaType=%d", mediaType);
+			}
+			else
+#else
+			if( ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3) && mediaType != eMEDIATYPE_LICENCE )
+			{
+				static std::atomic<bool> warnedHTTP3{false};
+				bool expected = false;
+				if (warnedHTTP3.compare_exchange_strong(expected, true))
+				{
+					AAMPLOG_WARN("enableHTTP3 config is set but HTTP/3 is not available in this build (libcurl lacks QUIC support)");
+				}
+			}
+#endif
+			if(this->mAampLLDashServiceData.lowLatencyMode
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+				&& !ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3)
+#endif
+			)
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-				context.remoteUrl = remoteUrl;
 			}
 			context.aamp = this;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
@@ -4745,6 +4821,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
 					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
 					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+					{
+						long httpVersion = 0;
+						curl_off_t speedDownload = 0;
+						curl_easy_getinfo(curl, CURLINFO_HTTP_VERSION, &httpVersion);
+						curl_easy_getinfo(curl, CURLINFO_SPEED_DOWNLOAD_T, &speedDownload);
+						AAMPLOG_INFO("NET_TRACE mediaType=%d httpVersion=%ld speedBps=%" CURL_FORMAT_CURL_OFF_T " appconnect=%.3f total=%.3f reused=%ld",
+							mediaType, httpVersion, speedDownload, t_appconnect, t_total, (num_connects == 0) ? 1L : 0L);
+					}
+#endif
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					size_download = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
@@ -4958,11 +5044,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-						if (res == CURLE_COULDNT_CONNECT || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) ||
-							(isDownloadStalled &&
-								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
-							res == CURLE_SEND_ERROR )
-						{
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+					if (res == CURLE_HTTP3)
+					{
+						AAMPLOG_ERR("QUIC connection failed (CURLE_HTTP3=%d) mediaType=%d url=%s", res, mediaType, remoteUrl.c_str());
+					}
+#endif
+					if (res == CURLE_COULDNT_CONNECT || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) || res == CURLE_SEND_ERROR)
+					{
 
 						if(mpStreamAbstractionAAMP)
 						{
@@ -5618,6 +5707,15 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				if (sink)
 				{
 					sink->Stop(!newTune);
+				}
+			}
+			// Deactivate DRM session after pipeline teardown to avoid use-after-free race
+			// between GStreamer element disposal and async DRM session cleanup
+			if (!IsLocalAAMPTsb() && (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK)))
+			{
+				if (mDRMLicenseManager)
+				{
+					mDRMLicenseManager->notifyCleanup();
 				}
 			}
 		}
@@ -14498,6 +14596,14 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->bVerbose	=      ISCONFIGSET_PRIV(eAAMPConfig_CurlLogging);
 	inpData->mDnldConfig->bCurlThroughput = ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput);
 	inpData->mDnldConfig->networkPersonaFile = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+	inpData->mDnldConfig->bEnableHTTP3 = ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3);
+#else
+	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3))
+	{
+		AAMPLOG_WARN("enableHTTP3 config is set but HTTP/3 is not available in this build (libcurl lacks QUIC support)");
+	}
+#endif
 
 	struct curl_slist* headers = GetCustomHeaders(eMEDIATYPE_MANIFEST);
 	std::unordered_map<std::string, std::vector<std::string>> sCustomHeaders;
@@ -15028,6 +15134,36 @@ double PrivateInstanceAAMP::GetBufferedDurationSecs()
 	// Return a negative sentinel so callers can distinguish a genuine empty
 	// buffer from a transient lock-contention failure.  0.0 would be
 	// indistinguishable from an actually-empty buffer.
+	return -1.0;
+}
+
+/**
+ * @fn GetVideoBufferedDurationSecs
+ * @brief Get the buffered video duration in seconds
+ * @return Buffered video duration in seconds
+ */
+double PrivateInstanceAAMP::GetVideoBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedVideoDurationSec();
+	}
+	return -1.0;
+}
+
+/**
+ * @fn GetAudioBufferedDurationSecs
+ * @brief Get the buffered audio duration in seconds
+ * @return Buffered audio duration in seconds
+ */
+double PrivateInstanceAAMP::GetAudioBufferedDurationSecs()
+{
+	std::unique_lock<std::recursive_mutex> lock(mStreamLock, std::try_to_lock);
+	if (lock.owns_lock() && mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetBufferedAudioDurationSec();
+	}
 	return -1.0;
 }
 
