@@ -5959,13 +5959,13 @@ TEST_F(PrivAampPrivTests,SetLLDashChunkModeTrueTest)
 	testp_aamp->InitStreamAbstraction();
 	int fragment_duration = 0;
 
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadStartTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlStallTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadStartTimeout,fragment_duration)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlStallTimeout,fragment_duration)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout,fragment_duration)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD)).WillOnce(Return(true));
 
 	testp_aamp->SetLLDashChunkMode(true);
 }
