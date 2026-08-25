@@ -1254,9 +1254,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	double inFragmentDuration = cachedFragment->duration;
 	if (aamp->GetLLDashChunkMode())
 	{
-		bool bIgnore;
 		AAMPLOG_TRACE("[%s] Processing the chunk ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
-		bIgnore = ProcessFragmentChunk();
+		bool bIgnore = ProcessFragmentChunk();
 		if(bIgnore)
 		{
 			AAMPLOG_TRACE("[%s] Updating the chunk inject ==> fragmentIdxToInject = %d numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
