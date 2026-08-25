@@ -1301,6 +1301,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsFlushOperationInProgress(false)
 	, mThumbnailLastProgramDateTime(0)
 	, mLastSleThumbnailInfo()
+	, isNewTune(false)
 {
 	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
@@ -3539,6 +3540,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	{
 		SendTuneMetricsEvent(tuneData);
 	}
+	isNewTune = false;
 	AdditionalTuneFailLogEntries();
 }
 
@@ -3547,6 +3549,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
  */
 void PrivateInstanceAAMP::LogTuneComplete(void)
 {
+	isNewTune = false;
 	TuneEndMetrics mTuneMetrics = {0, 0, 0,0,0,0,0,0,0,(ContentType)0};
 
 	mTuneMetrics.success 		 	 = true;
@@ -6230,6 +6233,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		char tuneStrPrefix[64];
 		mTsbSessionRequestUrl.clear();
+		isNewTune = true;
 		memset(tuneStrPrefix, '\0', sizeof(tuneStrPrefix));
 		if (!mAppName.empty())
 		{
