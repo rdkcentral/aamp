@@ -1246,6 +1246,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, bitrateList()
 	, userProfileStatus(false)
 	, mApplyCachedVideoMute(false)
+	, mApplyCachedCCStatus(false)
 	, mFirstProgress(false)
 	, mTsbSessionRequestUrl()
 	, mcurrent_keyIdArray()
@@ -5668,6 +5669,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					sink->SetVideoMute(video_muted.load());
 				}
 				SetCCStatusInternal();
+				mApplyCachedCCStatus = false;
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
@@ -6274,11 +6276,17 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			//These two fns are being called in PlayerInstanceAAMP::SetVideoMute
 			SetVideoMuteInternal(video_muted.load());
 			SetCCStatusInternal();
+			mApplyCachedCCStatus=false;
 		}
 		else
 		{
 			AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
 		}
+	}
+	else if (mApplyCachedCCStatus.load())
+	{
+		SetCCStatusInternal();
+		mApplyCachedCCStatus=false;
 	}
 	ReleaseStreamLock();
 
@@ -7698,6 +7706,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
 	auto stopStartTime = NOW_STEADY_TS_MS;
+	mApplyCachedCCStatus = false;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	// Set state to STOPPING irrespective of sending state change event or not
@@ -7759,10 +7768,13 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// so downloads are disabled among other things
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
+	auto streamLockStartTime = NOW_STEADY_TS_MS;
+	auto streamLockStopTime = NOW_STEADY_TS_MS;
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
 		AcquireStreamLock();
+		streamLockStopTime = NOW_STEADY_TS_MS;
 		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
@@ -7774,7 +7786,9 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		}
 		ReleaseStreamLock();
 	}
+	auto tearDownStartTime = NOW_STEADY_TS_MS;
 	TeardownStream(true,true); //disable download as well
+	auto tearDownEndTime = NOW_STEADY_TS_MS;
 
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
@@ -7892,7 +7906,10 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
-	AAMPLOG_WARN("AAMP Stop took %u ms",mLastStopDurationMs);
+	AAMPLOG_WARN("AAMP Stop took %u ms; streamLock %u, Teardown %u",
+		mLastStopDurationMs,
+		(unsigned int)(streamLockStopTime - streamLockStartTime),
+		(unsigned int)(tearDownEndTime - tearDownStartTime)	);
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
 }
@@ -11154,40 +11171,70 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
-	AcquireStreamLock();
 	// Set subtitles_muted flag to the value requested by the app
-	subtitles_muted = !enabled;
+	subtitles_muted = !enabled; 	// this is atomic - StreamLock not required
 	SetCCStatusInternal();
-	ReleaseStreamLock();
 }
 
 void PrivateInstanceAAMP::SetCCStatusInternal(void)
 {
-	// StreamLock is recursive, so it is fine to call this method with it locked.
-	AcquireStreamLock();
-	if (mpStreamAbstractionAAMP)
-	{
-		// Mute subtitles if either video is muted or subtitles are muted
-		bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
-		bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
-		AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
-					  mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+	auto playerState=GetState();
+	bool streamLockTaken=false;
+	// This process will be blocking if we've already entered a playback state.
+	// This is a workaround where SetCCStatus is called whilst Tune is in progress (StreamLock held) from an EPG Stop call.
+	// Note: CC status can be changed at any time during playback and we do not want to ignore this if StreamLock is currently taken.
+	// The alternative would be to allow TryStreamLock() to have a timeout ~1s, but this might be less predictable.
+	bool allowDeferredApplication =	
+					((playerState == eSTATE_IDLE)         ||
+					 (playerState == eSTATE_INITIALIZING) ||
+					 (playerState == eSTATE_INITIALIZED)  ||
+					 (playerState == eSTATE_PREPARING)    ||
+					 (playerState == eSTATE_PREPARED)     ||
+					 (playerState == eSTATE_STOPPING)     ||
+					 (playerState == eSTATE_STOPPED)
+					);
 
-		if (mIsInbandCC || !isGstSubtecEnabled)
-		{
-			PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-		}
-		else
-		{
-			mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
-			if (HasSidecarData())
-			{ // has sidecar data
-				mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
-			}
-			SetSubtitleMuteInternal(mute_subtitles_applied);
-		}
+	if(allowDeferredApplication)
+	{
+		streamLockTaken=TryStreamLock();
 	}
-	ReleaseStreamLock();
+	else
+	{
+		AcquireStreamLock();
+		streamLockTaken=true;
+	}
+	if (streamLockTaken)
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			// Mute subtitles if either video is muted or subtitles are muted
+			bool mute_subtitles_applied = video_muted.load() || subtitles_muted.load();
+			bool isGstSubtecEnabled = ISCONFIGSET_PRIV(eAAMPConfig_GstSubtecEnabled);
+			AAMPLOG_INFO("mIsInbandCC %d GstSubtecEnabled %d mute_subtitles_applied %d video_muted %d subtitles_muted %d",
+						mIsInbandCC, isGstSubtecEnabled, mute_subtitles_applied, video_muted.load(), subtitles_muted.load());
+
+			if (mIsInbandCC || !isGstSubtecEnabled)
+			{
+				PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+			}
+			else
+			{
+				mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
+				if (HasSidecarData())
+				{ // has sidecar data
+					mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
+				}
+				SetSubtitleMuteInternal(mute_subtitles_applied);
+			}
+        	}
+		mApplyCachedCCStatus=false;
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("CC status value has been cached, subtitles_muted = %d, playerState=%d", subtitles_muted.load(), playerState);
+		mApplyCachedCCStatus=true; // can't do it now, but remember that we want to apply this
+	}
 }
 
 /**
