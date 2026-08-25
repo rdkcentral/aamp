@@ -534,12 +534,19 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		{
 			// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 			// decrypt() call will return without doing anything
-			if (cdmidecryptor->drmSession != NULL && cdmidecryptor->sinkCaps != NULL)
-			   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
+			/* DELIA-70726 fix: guard against the DrmSession being concurrently torn down
+			 * (e.g. DrmSessionManager reusing/evicting the slot during a back-to-back
+			 * channel change) while this pipeline still has buffers in flight. */
+			if (cdmidecryptor->drmSession != NULL && cdmidecryptor->sinkCaps != NULL
+					&& cdmidecryptor->drmSession->AcquireForUse())
+			{
+				errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
+				cdmidecryptor->drmSession->ReleaseAfterUse();
+			}
 			else
-			{ /* If drmSession creation failed, then the call will be aborted here */
+			{ /* If drmSession creation failed, or is being destroyed, the call will be aborted here */
 				result = GST_FLOW_NOT_SUPPORTED;
-				GST_ERROR_OBJECT(cdmidecryptor, "drmSession or sinkCaps is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
+				GST_ERROR_OBJECT(cdmidecryptor, "drmSession or sinkCaps is **** NULL **** (or session is being destroyed), returning GST_FLOW_NOT_SUPPORTED");
 			}
 		}
 		goto free_resources;
@@ -656,7 +663,20 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	    result = GST_FLOW_NOT_SUPPORTED;
 	    goto free_resources;
 	}
+	/* DELIA-70726 fix: guard against the DrmSession being concurrently torn down
+	 * (e.g. DrmSessionManager reusing/evicting the slot during a back-to-back
+	 * channel change) while this pipeline still has buffers in flight. Without
+	 * this guard, the multiqueue/decryptor thread can call decrypt() on a
+	 * DrmSession that is being (or has already been) freed, causing a
+	 * use-after-free SIGSEGV inside OCDMSessionAdapter::verifyOutputProtection(). */
+	if (!cdmidecryptor->drmSession->AcquireForUse())
+	{
+		GST_ERROR_OBJECT(cdmidecryptor, "drmSession is being destroyed, aborting decrypt");
+		result = GST_FLOW_NOT_SUPPORTED;
+		goto free_resources;
+	}
 	errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
+	cdmidecryptor->drmSession->ReleaseAfterUse();
 
 	cdmidecryptor->streamEncrypted = true;
 	if (errorCode != 0 || cdmidecryptor->hdcpOpProtectionFailCount)

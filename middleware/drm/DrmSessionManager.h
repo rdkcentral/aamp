@@ -70,19 +70,24 @@ struct DrmSessionContext
 	}
 };
 
-/**
- *  @struct	KeyID
- *  @brief	Structure to hold, keyId and session creation time for
- *  		keyId
- */
-struct KeyID
+struct KeyIdEntry
 {
-	std::vector<std::vector<uint8_t>> data;
-	long long creationTime;
+	std::vector<uint8_t> keyId;
 	bool isFailedKeyId;
-	bool isPrimaryKeyId;
 
-	KeyID();
+	KeyIdEntry() : keyId(), isFailedKeyId(false)
+	{
+	}
+};
+
+struct KeyIdEntries
+{
+	std::vector<KeyIdEntry> data;
+	long long creationTime;
+	bool isPrimaryKeyId;
+	bool isFailedKeyEntries;
+
+	KeyIdEntries();
 };
 
 /**
@@ -133,7 +138,7 @@ public:
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 private:
-	KeyID *cachedKeyIDs;
+	KeyIdEntries *cachedKeyIDs;
 	char* accessToken;
 	int accessTokenLen;
 	SessionMgrState sessionMgrState;
@@ -374,6 +379,14 @@ public:
 	 * @return index to the session slot for selected drmSessionContext 
 	 */
 	int getSlotIdForSession(DrmSession* session);
+     /**
+	 * @fn ValidateMultiKeySlot
+	 * @brief Validate multiple key IDs for a given DRM session slot
+	 * @param[in] keyId The key ID to validate
+	 * @param[in] selectedSlot The DRM session slot to validate
+	 * @return true if validation is successful, false otherwise
+	 */
+	bool ValidateMultiKeySlot(const std::vector<uint8_t> &keyId, int selectedSlot);
 	/**
 	 * @fn releaseLicenseRenewalThreads
 	 */
