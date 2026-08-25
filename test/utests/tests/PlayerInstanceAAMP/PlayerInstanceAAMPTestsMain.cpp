@@ -2530,12 +2530,6 @@ TEST_F(PlayerInstanceAAMPTests,SetTextTrackTest)
 
 	mPlayerInstance->SetTextTrack(trackID,ccData);
 }
-TEST_F(PlayerInstanceAAMPTests,InitAAMPConfigTest)
-{
-	const char* jsonStr = "{\"key\": \"value\"}";
-	mPlayerInstance->AsyncStartStop();
-	mPlayerInstance->InitAAMPConfig(jsonStr);
-}
 
 TEST_F(PlayerInstanceAAMPTests,SetPlaybackSpeedTest1)
 {

@@ -96,8 +96,8 @@ TEST_F(LocalTSBTests, TimeOut_Config_Based_On_Network)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ManifestTimeout)).WillRepeatedly([&manifestTimeout] { return manifestTimeout; });
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PlaylistTimeout)).WillRepeatedly([&playlistTimeout] { return playlistTimeout; });
 
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_ManifestTimeout, networkTimeout)).WillOnce([&manifestTimeout, networkTimeout] { manifestTimeout = networkTimeout; });
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_PlaylistTimeout, networkTimeout)).WillOnce([&playlistTimeout, networkTimeout] { playlistTimeout = networkTimeout; });
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_ManifestTimeout, networkTimeout)).WillOnce([&manifestTimeout, networkTimeout] { manifestTimeout = networkTimeout; return true; });
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_PlaylistTimeout, networkTimeout)).WillOnce([&playlistTimeout, networkTimeout] { playlistTimeout = networkTimeout; return true; });
 
 
 	const char *lldUrl = "http://localhost:80/test/manifest.mpd";
@@ -302,13 +302,13 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_1)
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(30000000)); //30 Mbps
 	newBuffer = 30000000 * 0.8;
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer)).WillOnce(Return(true));
 	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
 
 	//GST_VIDEOBUFFER_SIZE_MAX_BYTES
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(100000000)); //100 Mbps should top out to 25 Mb
 	newBuffer = GST_VIDEOBUFFER_SIZE_MAX_BYTES;
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer)).WillOnce(Return(true));
 	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
 }
 
