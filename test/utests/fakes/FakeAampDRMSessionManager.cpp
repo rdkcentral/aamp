@@ -22,7 +22,7 @@
 #include "MockAampDRMSessionManager.h"
 std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager{};
 
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
+DrmSessionManager::	DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback, DrmSessionCreator creator)
 {
 }
 
@@ -61,7 +61,7 @@ void DrmSessionManager::clearSessionData(void)
 
 int DrmSessionManager::getSlotIdForSession(DrmSession* )
 {
-	return false;	
+	return false;
 }
 
 // DrmSession implementations
@@ -95,11 +95,11 @@ int DrmSession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *p
 	return -1;
 }
 
-const std::vector<std::vector<uint8_t>>& DrmSession::getUsableKeys() const
-{
-	static const std::vector<std::vector<uint8_t>> emptyVector;
-	return emptyVector;
-}
+//const std::vector<std::vector<uint8_t>>& DrmSession::getUsableKeys() const
+//{
+//	static const std::vector<std::vector<uint8_t>> emptyVector;
+//	return emptyVector;
+//}
 
 void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
 {
@@ -107,7 +107,7 @@ void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutput
 
 DrmSession * DrmSessionManager::createDrmSession(int &responseCode,int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
-		uint16_t initDataLen, int streamType, 
+		uint16_t initDataLen, int streamType,
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,
 		bool isPrimarySession)
 {
@@ -122,7 +122,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	}
 	return nullptr;
 }
-		
+
 SessionMgrState DrmSessionManager::getSessionMgrState()
 {
 	return SessionMgrState::eSESSIONMGR_INACTIVE;
