@@ -135,7 +135,7 @@ void PlayerCCManager::DestroyInstance()
 	mInstance = nullptr;
 }
 
-void PlayerCCManager::SetRialto(bool bIsRialto, bool bIsDirectRialto)
+void PlayerCCManager::SetRialto(bool state)
 {
 }
 
