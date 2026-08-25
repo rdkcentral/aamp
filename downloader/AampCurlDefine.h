@@ -31,6 +31,17 @@
 #include <curl/curl.h>
 #include "AampDefine.h"
 
+#if defined(AAMP_HTTP3_SUPPORTED) && !defined(CURL_HTTP_VERSION_3ONLY)
+/* libcurl 7.88.0 introduced CURL_HTTP_VERSION_3ONLY.  Enforce the minimum
+ * in production builds; test builds mock curl so the real version is moot. */
+#  if !defined(AAMP_TEST_BUILD) && (LIBCURL_VERSION_NUM < 0x075800)
+#    error "AAMP_HTTP3_SUPPORTED requires libcurl >= 7.88.0 (CURL_HTTP_VERSION_3ONLY)"
+#  endif
+/* libcurl >= 7.88.0 exposes this as an enum on some platforms (e.g. macOS),
+ * not as a preprocessor macro; supply the numeric equivalent. */
+#  define CURL_HTTP_VERSION_3ONLY 31
+#endif
+
 #define CURL_EASY_SETOPT(curl, CURLoption, option)\
 		if (curl_easy_setopt(curl, CURLoption, option) != 0) {\
 			AAMPLOG_WARN("Failed at curl_easy_setopt ");\

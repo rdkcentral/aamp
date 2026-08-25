@@ -372,22 +372,6 @@ public:
 	void SubscribeResponseHeaders(std::vector<std::string> responseHeaders);
 
 	/**
-	 *   @fn LoadJS
-	 *
-	 *   @param[in]  context - JS context.
-	 *   @return void
-	 */
-	void LoadJS(void* context);
-
-	/**
-	 *   @fn UnloadJS
-	 *
-	 *   @param[in]  context - JS context.
-	 *   @return void
-	 */
-	void UnloadJS(void* context);
-
-	/**
 	 *   @fn AddEventListener
 	 *
 	 *   @param[in]  eventType - type of event.
@@ -723,11 +707,11 @@ public:
 	std::vector<BitsPerSecond> GetVideoBitrates(void);
 
 	/**
-		 *   @fn GetManifest
-		 *
-		 *   @return available manifest
-		 */
-		std::string GetManifest(void);
+	 *   @fn GetManifest
+	 *
+	 *   @return available manifest
+	 */
+	std::string GetManifest(void);
 
 	/**
 	 *   @fn GetAudioBitrates
