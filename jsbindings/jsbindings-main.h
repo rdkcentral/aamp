@@ -51,6 +51,8 @@ struct PrivAAMPStruct_JS {
 	std::multimap<AAMPEventType, std::shared_ptr<void>> _listeners;
 };
 
+void aamp_LoadJS(void* context, void* playerInstanceAAMP);
+
 /**
  * @brief Loads AAMPMediaPlayer JS constructor into JS context
  *

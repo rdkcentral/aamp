@@ -115,6 +115,7 @@ void aamp_LoadJSController(JSGlobalContextRef context)
 	LOG_WARN_EX("[JS_TRACE] aamp_LoadJSController enter context=%p", context);
 	g_UserAgent = "";
 
+	aamp_LoadJS(context, NULL);
 	AAMPPlayer_LoadJS(context);
 	LOG_WARN_EX("[JS_TRACE] aamp_LoadJSController exit context=%p", context);
 }

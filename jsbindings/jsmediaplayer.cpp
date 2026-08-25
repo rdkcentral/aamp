@@ -42,11 +42,48 @@
 #define JS_AAMP_OBJECT_NAME "AAMP"
 #define JS_AAMP_MEDIA_PLAYER_OBJECT_NAME "AAMPMediaPlayer"
 
+
+static class PlayerInstanceAAMP* _allocated_aamp = NULL;
+static std::mutex jsMutex;
+
 extern "C"
 {
 	JS_EXPORT JSGlobalContextRef JSContextGetGlobalContext(JSContextRef);
 	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);
+	JSObjectRef AAMP_JS_AddEventTypeClass(JSGlobalContextRef context);
 }
+
+#if 0
+extern "C"
+{
+	/**
+	 * @brief Get the global JS execution context
+	 * @param[in] JSContextRef JS execution context
+	 * @retval global execution context
+	 */
+	JS_EXPORT JSGlobalContextRef JSContextGetGlobalContext(JSContextRef);
+
+	JSObjectRef AAMP_JS_AddEventTypeClass(JSGlobalContextRef context);
+	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);
+}
+#endif
+class AAMP_JSListener;
+
+/**
+ * @struct AAMP_JS
+ * @brief Data structure of AAMP object
+ */
+struct AAMP_JS
+{
+	JSGlobalContextRef _ctx;
+	class PlayerInstanceAAMP* _aamp;
+	std::shared_ptr<AAMP_JSListener> _listeners;
+	int  iPlayerId; /*An int variable iPlayerID to store Playerid */
+        bool bInfoEnabled; /*A bool variable bInfoEnabled for INFO logging check*/
+	JSObjectRef _eventType;
+	JSObjectRef _subscribedTags;
+	JSObjectRef _promiseCallback;	/* Callback function for JS promise resolve/reject.*/
+};
 
 /**
  * @struct AAMPMediaPlayer_JS
@@ -4360,6 +4397,61 @@ void LoadXREReceiverStub(void* context)
 }
 
 /**
+ *   @brief  Load aamp JS bindings.
+ */
+void aamp_LoadJS(void* context, void* playerInstanceAAMP)
+{
+	LOG_WARN_EX("context=%p, aamp=%p", context, playerInstanceAAMP);
+	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
+	
+	AAMP_JS* pAAMP = new AAMP_JS();
+	pAAMP->_ctx = jsContext;
+	if (NULL != playerInstanceAAMP)
+	{
+		pAAMP->_aamp = (PlayerInstanceAAMP*)playerInstanceAAMP;
+	}
+	else
+	{
+		std::lock_guard<std::mutex> guard(jsMutex);
+		if (NULL == _allocated_aamp )
+		{
+			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL, true);
+			LOG_WARN_EX("create aamp %p", _allocated_aamp);
+		}
+		else
+		{
+			LOG_WARN_EX("reuse aamp %p", _allocated_aamp);
+		}
+		pAAMP->_aamp = _allocated_aamp;
+	}
+
+	pAAMP->_listeners = NULL;
+
+	//Get PLAYER ID and store for future use in logging
+	pAAMP->iPlayerId = pAAMP->_aamp->GetId();
+	//Get jsinfo config for INFO logging
+	pAAMP->bInfoEnabled =  pAAMP->_aamp->IsJsInfoLoggingEnabled();
+	
+	// Set tuned event configuration to playlist indexed
+	pAAMP->_aamp->SetTuneEventConfig(eTUNED_EVENT_ON_PLAYLIST_INDEXED);
+	// Set EnableVideoRectangle to false, this is tied to westeros config
+	pAAMP->_aamp->EnableVideoRectangle(false);
+
+	//pAAMP->_eventType = AAMP_JS_AddEventTypeClass(jsContext);
+
+	pAAMP->_subscribedTags = NULL;
+	pAAMP->_promiseCallback = NULL;
+	//AAMP_JSListener::AddEventListener(pAAMP, AAMP_EVENT_AD_RESOLVED, NULL);
+
+	//JSObjectRef classObj = JSObjectMake(jsContext, AAMP_class_ref(), pAAMP);
+	JSObjectRef classObj = JSObjectMake(jsContext, AAMPMediaPlayer_object_ref(), pAAMP);
+	JSObjectRef globalObj = JSContextGetGlobalObject(jsContext);
+	JSStringRef str = JSStringCreateWithUTF8CString("AAMP");
+	JSObjectSetProperty(jsContext, globalObj, str, classObj, kJSPropertyAttributeReadOnly, NULL);
+	JSStringRelease(str);
+}
+
+/**
  * @brief Loads AAMPMediaPlayer JS constructor into JS context
  * @param[in] context JS execution context
  */
@@ -4388,34 +4480,6 @@ void AAMPPlayer_LoadJS(void* context)
 
 	JSClassRelease(mediaPlayerClass);
 	JSStringRelease(str);
-
-	if (JSObjectGetProperty(jsContext, globalJSObj, JSStringCreateWithUTF8CString(JS_AAMP_OBJECT_NAME), NULL) == NULL)
-	{
-		// Create the legacy global AAMP player instance during page load.
-		JSValueRef exception = NULL;
-		JSObjectRef gAAMPObj = AAMPMediaPlayer_JS_class_constructor(
-			jsContext, classObj, 0, NULL, &exception);
-		if (gAAMPObj != NULL && exception == NULL)
-		{
-			AAMPMediaPlayer_JS *privObj = (AAMPMediaPlayer_JS *)
-				JSObjectGetPrivate(gAAMPObj);
-			LOG_WARN_EX("[JS_TRACE] AAMPPlayer_LoadJS created global AAMP player instance context=%p privObj=%p aamp=%p", context, privObj, privObj ? privObj->_aamp : nullptr);
-			JSValueProtect(jsContext, gAAMPObj);
-		}
-		else
-		{
-			LOG_ERROR_EX("Failed to create global AAMP player object");
-			return;
-		}
-
-		JSStringRef gAAMPStr = JSStringCreateWithUTF8CString(JS_AAMP_OBJECT_NAME);
-		JSObjectSetProperty(jsContext, globalJSObj, gAAMPStr, gAAMPObj, kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(gAAMPStr);
-	}
-	else
-	{
-		LOG_WARN_EX("[JS_TRACE] AAMPPlayer_LoadJS global AAMP player instance %p already exists context=%p", JSObjectGetProperty(jsContext, globalJSObj, JSStringCreateWithUTF8CString(JS_AAMP_OBJECT_NAME), NULL), context);
-	}
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
