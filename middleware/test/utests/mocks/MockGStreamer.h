@@ -84,6 +84,9 @@ public:
 	MOCK_METHOD(void, gst_segment_init, (GstSegment *segment, GstFormat format));
 	MOCK_METHOD(GstEvent *, gst_event_new_segment, (GstSegment *segment));
 	MOCK_METHOD(GstEvent*, gst_event_new_custom, (GstEventType type, GstStructure* structure), ());
+	MOCK_METHOD(GstCaps *, gst_app_src_get_caps, (GstAppSrc *appsrc));
+	MOCK_METHOD(GstSample *, gst_sample_new, (GstBuffer *buffer, GstCaps *caps, const GstSegment *segment, GstStructure *info));
+	MOCK_METHOD(GstFlowReturn, gst_app_src_push_sample, (GstAppSrc *appsrc, GstSample *sample));
 
 	/*
 gst_app_sink_get_type
