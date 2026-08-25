@@ -4257,10 +4257,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 							// The live time and period end are in the same UTC time domain;
 							// compensate local time when a server UTC delta is available.
 							double liveTime = static_cast<double>(NOW_SYSTEM_TS_MS) / 1000.0;
-							if (mTimeSyncClient.HasServerUtcTime())
-							{
-								liveTime += mTimeSyncClient.GetDelta();
-							}
 							double periodEndTime = mMPDParseHelper->GetPeriodEndTime(
 								mCurrentPeriodIdx,
 								mLastPlaylistDownloadTimeMs,
