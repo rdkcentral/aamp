@@ -123,19 +123,6 @@ private:
 	SegmentInfo_t UpdateSegmentInfo() const;
 
 	/**
-	 * @brief Sends elementary stream with proper PTS
-	 */
-	void send();
-
-	/**
-	 * @brief Flushes a completed access unit, buffering the first sample of
-	 *        an epoch until the following sample establishes its duration.
-	 * @param[in] processor Optional processor; when null the sample is sent
-	 *        via PrivateInstanceAAMP::SendStreamCopy.
-	 */
-	void sendCompleted(const MediaProcessor::process_fcn_t &processor);
-
-	/**
 	 * @brief Emits a single access unit via the processor or SendStreamCopy.
 	 * @param[in] info Timing information for the sample.
 	 * @param[in,out] payload Elementary stream bytes (moved when a processor

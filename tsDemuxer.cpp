@@ -107,7 +107,7 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 {
 	SegmentInfo_t ret {position, 0, duration};
 	const double max_pts_s = 95443.71768889; // 2^33/90000
-AAMPLOG_INFO("patrick");
+
 	// Replaces the whole-segment duration with the duration of this sample:
 	// the DTS delta from the previously sent access unit. The first sample
 	// after a (re)start or discontinuity has no predecessor, so it retains
@@ -200,7 +200,15 @@ void Demuxer::emitPendingSample(const MediaProcessor::process_fcn_t &processor)
 	}
 }
 
-void Demuxer::sendCompleted(const MediaProcessor::process_fcn_t &processor)
+void Demuxer::resetInternal()
+{
+	aamp_utils::ClearAndRelease(es);
+	aamp_utils::ClearAndRelease(pes_header);
+	aamp_utils::ClearAndRelease(pending_es);
+	has_pending_sample = false;
+}
+
+void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 {
 	if (!CheckForSteadyState())
 	{
@@ -239,24 +247,6 @@ void Demuxer::sendCompleted(const MediaProcessor::process_fcn_t &processor)
 	}
 }
 
-void Demuxer::send()
-{
-	sendCompleted(nullptr);
-}
-
-void Demuxer::resetInternal()
-{
-	aamp_utils::ClearAndRelease(es);
-	aamp_utils::ClearAndRelease(pes_header);
-	aamp_utils::ClearAndRelease(pending_es);
-	has_pending_sample = false;
-}
-
-void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
-{
-	sendCompleted(processor);
-}
-
 void Demuxer::init(double position, double duration, bool trickmode, bool resetBasePTS, bool optimizeMuxed )
 {
 	std::lock_guard<std::mutex> lock{mMutex};
@@ -293,7 +283,7 @@ void Demuxer::flush()
 	if (!es.empty())
 	{
 		AAMPLOG_INFO("demux : sending remaining bytes. es.len %zu", es.size());
-		send();
+		sendInternal(nullptr);
 	}
 	// Emit any sample still held for look-ahead (e.g. a single-sample epoch);
 	// no successor is available so it keeps its fallback duration.
@@ -354,7 +344,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				}
 				else
 				{
-					send();
+					sendInternal(nullptr);
 				}
 			}
 
