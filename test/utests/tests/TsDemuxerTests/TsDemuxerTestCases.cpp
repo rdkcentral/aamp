@@ -36,6 +36,15 @@
  *
  *  5. Legitimate 33-bit PTS rollover (same encoder epoch) is still
  *     corrected in restamp mode.
+ *
+ *  6. UpdateSegmentInfo() now reports the per-sample duration (the DTS
+ *     delta to the previously emitted access unit) instead of the
+ *     whole-segment duration.
+ *
+ *  7. First-sample look-ahead: the first access unit of an epoch is
+ *     buffered until the next unit arrives so its true duration can be
+ *     measured; a lone buffered sample is emitted on flush with the
+ *     segment duration as a fallback.
  */
 
 #include <gtest/gtest.h>
@@ -54,8 +63,10 @@
 
 using ::testing::_;
 using ::testing::AnyNumber;
+using ::testing::DoAll;
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::SaveArg;
 
 // Named tolerances for floating-point comparisons used in tests.
 static constexpr double EPS_SMALL = 1e-6; // for ~1s-scale values
@@ -181,19 +192,67 @@ protected:
 	}
 
 	/**
-	 * @brief Call the public send(processor) interface and return the
-	 *        SegmentInfo_t that UpdateSegmentInfo() produced, or
-	 *        std::nullopt if CheckForSteadyState() discarded the call.
+	 * @brief Feed one TS packet through the demuxer with a processor
+	 *        callback.  ES flushed at a PAYLOAD_UNIT_START boundary (the
+	 *        previous access unit) is routed through @a processor, so
+	 *        look-ahead emissions triggered by the incoming packet are
+	 *        observable.
+	 */
+	static void ProcessPacket(
+		Demuxer& demux,
+		const std::array<uint8_t, 188>& pkt,
+		MediaProcessor::process_fcn_t processor)
+	{
+		bool basePtsUpdated = false;
+		bool ptsError       = false;
+		bool isPacketIgnored = false;
+		demux.processPacket(
+			pkt.data(),
+			basePtsUpdated, ptsError, isPacketIgnored,
+			/*applyOffset=*/false,
+			std::move(processor));
+	}
+
+	/**
+	 * @brief Call the public send(processor) interface then flush any
+	 *        look-ahead-buffered first sample, returning the SegmentInfo_t
+	 *        of the LAST emitted access unit, or std::nullopt if nothing
+	 *        was emitted (e.g. CheckForSteadyState() discarded the call).
+	 *
+	 * @note The first access unit of an epoch is now buffered by send()
+	 *       until the next unit establishes its duration, so a trailing
+	 *       ConsumeCachedData() is required to emit a lone buffered sample.
 	 */
 	static std::optional<SegmentInfo_t> Capture(Demuxer& demux)
 	{
 		std::optional<SegmentInfo_t> result;
-		demux.send([&result](AampMediaType, SegmentInfo_t info,
+		auto proc = [&result](AampMediaType, SegmentInfo_t info,
 		                     std::vector<uint8_t>)
 		{
 			result = info;
-		});
+		};
+		demux.send(proc);
+		demux.ConsumeCachedData(proc); // flush any look-ahead-buffered sample
 		return result;
+	}
+
+	/**
+	 * @brief Emit and collect every access unit produced by draining the
+	 *        demuxer: send() emits any completed sample, ConsumeCachedData()
+	 *        flushes a lone buffered first sample. Emissions are recorded in
+	 *        decode (emission) order.
+	 */
+	static std::vector<SegmentInfo_t> DrainAll(Demuxer& demux)
+	{
+		std::vector<SegmentInfo_t> emitted;
+		auto proc = [&emitted](AampMediaType, SegmentInfo_t info,
+		                       std::vector<uint8_t>)
+		{
+			emitted.push_back(info);
+		};
+		demux.send(proc);
+		demux.ConsumeCachedData(proc);
+		return emitted;
 	}
 };
 
@@ -428,3 +487,170 @@ TEST_F(DemuxerTests, Init_ResetsSuppressRolloverDetectionFlag)
 		<< "init() should have reset suppress_rollover_detection. "
 		<< "pts_s near 11.0 means the flag survived init() — bug not fixed.";
 }
+
+// ---------------------------------------------------------------------------
+// Per-sample duration and first-sample look-ahead buffering
+// ---------------------------------------------------------------------------
+
+/**
+ * @test FirstSampleDuration_DerivedFromSecondSampleDts
+ *
+ * The first access unit of an epoch is buffered until the next unit
+ * arrives, so its duration is measured as dts(sample2) - dts(sample1)
+ * rather than the whole-segment duration. Feeding two packets one DTS
+ * step apart (1.0 s then 1.5 s) must emit both samples in decode order,
+ * with the FIRST sample carrying the measured 0.5 s duration.
+ */
+TEST_F(DemuxerTests, FirstSampleDuration_DerivedFromSecondSampleDts)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+	            IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	Demuxer demux(mAamp, eMEDIATYPE_VIDEO, /*optimizeMuxed=*/true);
+	// Segment duration 2.0 is the fallback; the measured value must win.
+	demux.init(0.0, 2.0, false, false, true);
+
+	// DTS 90000 ticks = 1.0 s, DTS 135000 ticks = 1.5 s → per-sample 0.5 s.
+	constexpr uint64_t kDts1 = 90000ULL;
+	constexpr uint64_t kDts2 = 135000ULL;
+	ProcessPacket(demux, MakeTsPacket(kDts1, kDts1));
+	ProcessPacket(demux, MakeTsPacket(kDts2, kDts2));
+
+	const auto emitted = DrainAll(demux);
+
+	ASSERT_EQ(emitted.size(), 2u);
+	// Decode order preserved: first emission is the earlier (buffered) unit.
+	EXPECT_NEAR(emitted[0].dts_s, 1.0, EPS_SMALL);
+	EXPECT_NEAR(emitted[0].pts_s, 1.0, EPS_SMALL);
+	EXPECT_NEAR(emitted[1].dts_s, 1.5, EPS_SMALL);
+	EXPECT_NEAR(emitted[1].pts_s, 1.5, EPS_SMALL);
+	// First sample's duration comes from the DTS delta to the second sample.
+	EXPECT_NEAR(emitted[0].duration, 0.5, EPS_SMALL)
+		<< "First sample duration must be dts(sample2) - dts(sample1).";
+}
+
+/**
+ * @test FirstSample_IsBufferedNotEmittedImmediately
+ *
+ * After a single access unit, send() must NOT emit anything yet — the
+ * first unit is held for look-ahead — but the demuxer must report cached
+ * data. A subsequent flush via ConsumeCachedData() then emits it.
+ */
+TEST_F(DemuxerTests, FirstSample_IsBufferedNotEmittedImmediately)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+	            IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	Demuxer demux(mAamp, eMEDIATYPE_VIDEO, /*optimizeMuxed=*/true);
+	demux.init(0.0, 2.0, false, false, true);
+
+	constexpr uint64_t kDts = 90000ULL; // 1.0 s
+	ProcessPacket(demux, MakeTsPacket(kDts, kDts));
+
+	int emitCount = 0;
+	auto proc = [&emitCount](AampMediaType, SegmentInfo_t,
+	                         std::vector<uint8_t>)
+	{
+		++emitCount;
+	};
+
+	// send() buffers the first sample; nothing is emitted yet.
+	demux.send(proc);
+	EXPECT_EQ(emitCount, 0)
+		<< "The first access unit of an epoch must be buffered, not emitted.";
+	EXPECT_TRUE(demux.HasCachedData())
+		<< "A buffered look-ahead sample must count as cached data.";
+
+	// Flushing emits the previously buffered sample.
+	const bool sent = demux.ConsumeCachedData(proc);
+	EXPECT_TRUE(sent);
+	EXPECT_EQ(emitCount, 1);
+	EXPECT_FALSE(demux.HasCachedData());
+}
+
+/**
+ * @test SubsequentSampleDuration_IsDtsDeltaFromPrevious
+ *
+ * For constant-frame-rate spacing, every non-first sample's duration is
+ * the DTS delta from its predecessor. Three packets at 1.0/1.5/2.0 s must
+ * emit three samples, each with a 0.5 s duration.
+ */
+TEST_F(DemuxerTests, SubsequentSampleDuration_IsDtsDeltaFromPrevious)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+	            IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	Demuxer demux(mAamp, eMEDIATYPE_VIDEO, /*optimizeMuxed=*/true);
+	demux.init(0.0, 2.0, false, false, true);
+
+	constexpr uint64_t kDts1 = 90000ULL;  // 1.0 s
+	constexpr uint64_t kDts2 = 135000ULL; // 1.5 s
+	constexpr uint64_t kDts3 = 180000ULL; // 2.0 s
+
+	std::vector<SegmentInfo_t> emitted;
+	auto proc = [&emitted](AampMediaType, SegmentInfo_t info,
+	                       std::vector<uint8_t>)
+	{
+		emitted.push_back(info);
+	};
+
+	// Route look-ahead emissions triggered at each packet boundary through
+	// the processor so every sample's duration is observable.
+	ProcessPacket(demux, MakeTsPacket(kDts1, kDts1), proc);
+	ProcessPacket(demux, MakeTsPacket(kDts2, kDts2), proc);
+	ProcessPacket(demux, MakeTsPacket(kDts3, kDts3), proc);
+	demux.send(proc);
+	demux.ConsumeCachedData(proc);
+
+	ASSERT_EQ(emitted.size(), 3u);
+	EXPECT_NEAR(emitted[0].dts_s, 1.0, EPS_SMALL);
+	EXPECT_NEAR(emitted[1].dts_s, 1.5, EPS_SMALL);
+	EXPECT_NEAR(emitted[2].dts_s, 2.0, EPS_SMALL);
+	// Every sample spans the 0.5 s DTS step to the following sample.
+	EXPECT_NEAR(emitted[0].duration, 0.5, EPS_SMALL);
+	EXPECT_NEAR(emitted[1].duration, 0.5, EPS_SMALL);
+	EXPECT_NEAR(emitted[2].duration, 0.5, EPS_SMALL);
+}
+
+/**
+ * @test SingleSampleEpoch_FlushEmitsWithFallbackDuration
+ *
+ * A single-sample epoch has no successor to measure duration against, so
+ * flush() must still emit the lone buffered sample, falling back to the
+ * segment duration supplied to init(). flush() emits via SendStreamCopy,
+ * so the emission and its fallback duration are observed on the mock.
+ */
+TEST_F(DemuxerTests, SingleSampleEpoch_FlushEmitsWithFallbackDuration)
+{
+	EXPECT_CALL(*g_mockAampConfig,
+	            IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+
+	Demuxer demux(mAamp, eMEDIATYPE_VIDEO, /*optimizeMuxed=*/true);
+	constexpr double kSegmentDuration = 2.0;
+	demux.init(0.0, kSegmentDuration, false, false, true);
+
+	constexpr uint64_t kDts = 90000ULL; // 1.0 s
+	ProcessPacket(demux, MakeTsPacket(kDts, kDts));
+
+	double sentDuration = -1.0;
+	double sentPts = -1.0;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+	            SendStreamCopy(eMEDIATYPE_VIDEO, _, _, _, _))
+		.Times(1)
+		.WillOnce(DoAll(SaveArg<2>(&sentPts),
+		                SaveArg<4>(&sentDuration),
+		                Return(true)));
+
+	// flush() emits the lone buffered sample (with fallback duration).
+	demux.flush();
+
+	EXPECT_NEAR(sentPts, 1.0, EPS_SMALL);
+	EXPECT_NEAR(sentDuration, kSegmentDuration, EPS_SMALL)
+		<< "A single-sample epoch must fall back to the segment duration.";
+	EXPECT_FALSE(demux.HasCachedData());
+}
+
