@@ -375,9 +375,10 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false },
 	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false},
 	{true, "enableChunkInjection", eAAMPConfig_EnableChunkInjection, true},
-	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false},
+	{false, "debugChunkTransfer", eAAMPConfig_DebugChunkTransfer, false}, // This does not work in http/3 mode.
 	{true, "utcSyncOnStartup", eAAMPConfig_UTCSyncOnStartup, true},
 	{false, "disableWebVTT", eAAMPConfig_DisableWebVTT, false},
+	{false, "enableHTTP3", eAAMPConfig_EnableHTTP3, false},
 	{false, "enablePTSReStampLogging", eAAMPConfig_EnablePTSReStampLogging, false},
 	{false, "netTraceCsvDump", eAAMPConfig_NetTraceCsvDump, false},
 	{false, "logFilename", eAAMPConfig_LogFilename, false},

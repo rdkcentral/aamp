@@ -134,6 +134,7 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...)
             break;
 
             case CURLOPT_DNS_CACHE_TIMEOUT:
+            case CURLOPT_HTTP_VERSION:
             {
                 long value = va_arg(arg, long);
                 curl_code = g_mockCurl->curl_easy_setopt_long(handle, option, value);
