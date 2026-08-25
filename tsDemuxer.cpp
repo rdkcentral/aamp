@@ -107,6 +107,22 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 {
 	SegmentInfo_t ret {position, 0, duration};
 	const double max_pts_s = 95443.71768889; // 2^33/90000
+AAMPLOG_INFO("patrick");
+	// Replaces the whole-segment duration with the duration of this sample:
+	// the DTS delta from the previously sent access unit. The first sample
+	// after a (re)start or discontinuity has no predecessor, so it retains
+	// the segment duration as a fallback.
+	auto applySampleDuration = [this](SegmentInfo_t &info)
+	{
+		if (last_sent_dts_s >= 0.0)
+		{
+			const double sampleDuration = info.dts_s - last_sent_dts_s;
+			if (sampleDuration > 0.0)
+			{
+				info.duration = sampleDuration;
+			}
+		}
+	};
 
 	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 	{
@@ -133,8 +149,9 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 		}
 		ret.pts_s = ptsOffset + raw_pts_s;
 		ret.dts_s = ptsOffset + raw_dts_s;
-		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
-			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s);
+		applySampleDuration(ret);
+		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f dur=%.3f",
+			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s, ret.duration);
 		return ret;
 	}
 
@@ -157,6 +174,7 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 			ret.dts_s += max_pts_s;
 		}
 	}
+	applySampleDuration(ret);
 	return ret;
 }
 
@@ -168,8 +186,9 @@ void Demuxer::send()
 
 		if (aamp)
 		{
-			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, duration);
+			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, info.duration);
 		}
+		last_sent_dts_s = info.dts_s;
 		es.clear();
 	}
 }
@@ -186,7 +205,9 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 	{
 		if (CheckForSteadyState())
 		{
-			processor(type, UpdateSegmentInfo(), std::move(es));
+			const auto info = UpdateSegmentInfo();
+			last_sent_dts_s = info.dts_s;
+			processor(type, info, std::move(es));
 			es.clear(); // move leaves es in valid-but-unspecified state; clear for determinism
 		}
 	}
@@ -209,13 +230,14 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	current_dts = 0;
 	current_pts = 0;
 	first_pts = 0;
+	last_sent_dts_s = -1.0;
 	update_first_pts = false;
 	finalized_base_pts = false;
 	rollover_pts = false;
 	suppress_rollover_detection = false;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
-	
+
 	if( optimizeMuxed )
 	{ // when hls/ts in use, restamp starting from zero to avoid jitter at playback start
 		base_pts = 0;
