@@ -115,10 +115,10 @@ public:
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);
 		g_mockPrivateInstanceAAMP->ProcessID3Metadata(cachedFragment->fragment, (AampMediaType)type, 0);
 		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment, cachedFragment->position,
-													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
+													  cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
-	void fillCachedFragment(bool isInit, bool isDisc, double position = 0.0, double duration = 0.0)
+	void fillCachedFragment(bool isInit, bool isDisc, double position = 0.0, double duration = 0.0, double ptsOffsetSec = 0.0)
 	{
 		const uint8_t data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 		// DASH now routes all fragments through the chunk cache (see
@@ -130,6 +130,7 @@ public:
 		cachFragment->discontinuity = isDisc;
 		cachFragment->position = position;
 		cachFragment->duration = duration;
+		cachFragment->PTSOffsetSec = ptsOffsetSec;
 		cachFragment->type = isInit ? eMEDIATYPE_INIT_VIDEO : eMEDIATYPE_VIDEO;
 		cachFragment->fragment.assign(data, data + sizeof(data));
 		UpdateTSAfterFetch();
@@ -345,18 +346,18 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	// Initialize after mock has been setup
 	Initialize();
 
-	double pts = 10.0, duration = 0.48;
-	mMediaTrack->fillCachedFragment(false, false, pts, duration);
+	double pts = 10.0, duration = 0.48, ptsOffsetSec = 5.0;
+	mMediaTrack->fillCachedFragment(false, false, pts, duration, ptsOffsetSec);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
-	// InjectFragmentInternal is overridden above to forward cachedFragment->position/duration
+	// InjectFragmentInternal is overridden above to forward cachedFragment->position/duration/PTSOffsetSec
 	// straight to SendStreamTransfer, so no ISOBMFF box parsing occurs on this path.
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, (AampMediaType)eMEDIATYPE_VIDEO, 0));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, ptsOffsetSec, false, false));
 	mMediaTrack->RunInjectLoop();
 }
 
