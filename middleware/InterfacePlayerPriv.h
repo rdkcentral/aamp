@@ -265,8 +265,16 @@ class InterfacePlayerPriv
 		InterfacePlayerPriv(bool isRialto);
 		~InterfacePlayerPriv();
 		GstPlayerPriv *gstPrivateContext;
-		std::shared_ptr<SocInterface> socInterface;
 		std::string mPlayerName;
+
+		/**
+		 * @brief Returns the current process-wide SoC interface singleton.
+		 *
+		 * Always resolves through SocInterface::CreateSocInterface() so that
+		 * any replacement performed by InitializePlatformFromPlugins() is visible
+		 * to existing InterfacePlayerPriv instances.
+		 */
+		std::shared_ptr<SocInterface> GetSocInterface() const { return SocInterface::CreateSocInterface(); }
 
 		/**
 		 * @brief Connects a signal to a handler.
