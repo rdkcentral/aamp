@@ -351,6 +351,16 @@ private:
 	/// notifyDuration callbacks from the Rialto server.
 	std::atomic<int64_t> m_durationMs{0};
 
+	/// Guards m_lastKnownPts / m_ptsUpdatedTimeMs, which must be read and
+	/// updated together by CheckForPTSChangeWithTimeout().
+	std::mutex m_ptsCheckMutex;
+
+	/// Video PTS observed on the previous CheckForPTSChangeWithTimeout()
+	/// call, and the steady-clock time (ms) at which it last changed.
+	/// Reset by Stop(), mirroring InterfacePlayerRDK.
+	long long m_lastKnownPts{0};
+	long long m_ptsUpdatedTimeMs{0};
+
 	/// Current video rectangle stored as "x,y,w,h".  Updated by
 	/// SetVideoRectangle() and returned by GetVideoRectangle().
 	std::string m_videoRectangle;
@@ -443,10 +453,35 @@ private:
 	 */
 	void WaitForFlushToComplete();
 
+	/**
+	 * @brief Shared implementation for Stop() and Flush()'s teardown-recovery
+	 *        call.
+	 *
+	 * @param[in] keepLastFrame        Forwarded to the pipeline stop() call.
+	 * @param[in] preservePendingPosition  When false (the normal Stop()
+	 *            case), resets m_pendingPositionNs/m_segmentStartPositionNs
+	 *            so a stale prior-session position cannot leak into the next
+	 *            session's AttachSource().  When true, used only by Flush()'s
+	 *            "not in a flushable state and shouldTearDown" branch, which
+	 *            has just staged those values moments earlier for the
+	 *            caller's benefit and must not have them wiped out here.
+	 */
+	void StopInternal(bool keepLastFrame, bool preservePendingPosition);
+
 	/// Position (ns) stored by Flush(); used to set the initial GStreamer
 	/// segment via setSourcePosition() once each source is attached.
 	/// -1 means no flush position has been set yet.
 	std::atomic<int64_t> m_pendingPositionNs{-1};
+
+	/// Position (ns) the current segment actually started at: either the
+	/// value consumed by AttachSource() when the video source newly attaches
+	/// (covers the first tune, and content types where Flush() pre-stages a
+	/// position before any source is attached - see DoStreamSinkFlushOnDiscontinuity
+	/// in priv_aamp.cpp), or the value committed by the SEEK_DONE handler for
+	/// a later mid-playback Flush()/seek.  Used by GetPositionMilliseconds()
+	/// as the segment-start baseline instead of the first injected sample's
+	/// own PTS, since a flush/seek position can land mid-fragment.
+	std::atomic<int64_t> m_segmentStartPositionNs{0};
 
 	/// Set by Stream(); cleared once play() is issued.  Lets us defer the
 	/// play() call until after allSourcesAttached() so the Rialto server
@@ -465,9 +500,50 @@ private:
 	///   order and cannot substitute for this atomic.
 	std::atomic<bool> m_allSourcesAttachedFlag{false};
 
+	/// True when the player has no established position for the current
+	/// period. Cleared once a position is (re)established: either
+	/// AttachSource() commits a definitive baseline for a newly-attached
+	/// video source, or Flush() commits to one - cleared synchronously as
+	/// soon as Flush() enters (flushable or staging-only path), not
+	/// deferred until SEEK_DONE, so a sample injected while that flush is
+	/// still resolving does not try to resolve it a second time.
+	/// Generalizes the old DISCONTINUITY state to any "position not yet
+	/// known" window - notably HLS fMP4, where neither
+	/// ProcessPendingDiscontinuity() nor an ordinary TuneHelper(SEEK) issues
+	/// a Flush() of its own (DoEarlyStreamSinkFlush()/
+	/// DoStreamSinkFlushOnDiscontinuity() are both false for ISO BMFF), so
+	/// MaybeFlushForPendingPosition() must supply one once the new period's
+	/// first sample is demuxed. Armed unconditionally by every Configure():
+	/// no sample can be in flight yet at any Configure() call site (always
+	/// preceded by StopInjection()/not-yet-Start()), so an unconditional arm
+	/// there is never racy, even when an explicit Flush() immediately
+	/// follows and clears it again. Discontinuity() only arms this when
+	/// m_aamp->WillFlushOnDiscontinuity() is false - PTS-restamped content
+	/// keeps injecting across that call, so arming when an explicit Flush()
+	/// is guaranteed would let the still-flowing samples race an early
+	/// implicit Flush() ahead of it. Either arm site gates every source
+	/// until an AttachSource() or a Flush() resolves the real position.
+	std::atomic<bool> m_positionPending{false};
+
+	/// Claimed by the first sample that drives the deferred implicit Flush(),
+	/// so that concurrent video/audio injector threads cannot both trigger
+	/// it.  Reset whenever m_positionPending is (re)armed.
+	std::atomic<bool> m_pendingPositionFlushClaimed{false};
+
+	/// Arms the deferred-flush window: resets the claim so the next elected
+	/// sample may drive MaybeFlushForPendingPosition(), then sets
+	/// m_positionPending.  Shared by every call site that needs to mark a
+	/// position as not-yet-established for the current segment.
+	void ArmPositionPending(const char *reason);
+
+	/// Issue the deferred Flush() using @p position, if this sample is the
+	/// first from the track elected to supply the new period's PTS.  No-op
+	/// unless m_positionPending is true.
+	void MaybeFlushForPendingPosition(AampMediaType mediaType, double position);
+
 	/// Cached subtitle mute state.  Set by SetSubtitleMute() and re-applied
 	/// via m_pipeline->setMute() whenever the subtitle source first attaches.
-	bool m_subtitleMuted{false};
+	bool m_subtitleMuted{true};
 
 	/// Cached audio volume (0-100), matching PrivateInstanceAAMP::audio_volume.
 	/// Set by SetAudioVolume() and re-applied via applyAudioVolume() whenever
@@ -555,6 +631,9 @@ private:
 	/// @brief Called when Rialto reports that a media source has run dry.
 	void OnBufferUnderflow(int32_t sourceId);
 
+	/// @brief Called when Rialto reports a non-fatal playback error.
+	void OnPlaybackError(int32_t sourceId, firebolt::rialto::PlaybackError error);
+
 	/// @brief Called when Rialto confirms a source flush is complete.
 	///
 	/// Clears the flushing flag on the source and calls
@@ -584,11 +663,12 @@ private:
 	/**
 	 * @brief Compute the appliedRate to pass to setSourcePosition().
 	 *
-	 * Queries IMediaPipelineCapabilitiesFactory for the isVideoMaster
-	 * property.  Returns @p candidateRate when the query succeeds and
-	 * isVideoMaster is false; returns 1.0 otherwise.
+	 * Only the video source's segment carries a trickplay applied_rate,
+	 * so @p type must be eMEDIATYPE_VIDEO for the isVideoMaster IPC query
+	 * to run at all; any other type (or normal play rate) short-circuits
+	 * to 1.0 without contacting Rialto.
 	 */
-	double computeAppliedRate(int candidateRate) const;
+	double computeAppliedRate(int candidateRate, AampMediaType type) const;
 
 	/**
 	 * @brief Call allSourcesAttached() once every expected source has

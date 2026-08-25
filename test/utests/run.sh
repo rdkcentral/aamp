@@ -123,6 +123,25 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Please install it with:  brew install openssl@3"
         exit 1
     fi
+    # Detect a stale cmake cache caused by a Homebrew OpenSSL upgrade.
+    # pkg_check_modules(OPENSSL) caches the resolved Cellar path (e.g.
+    # /opt/homebrew/Cellar/openssl@3/3.6.2/include).  After "brew upgrade
+    # openssl@3 && brew cleanup", that Cellar directory may be incomplete or
+    # missing headers entirely.  When make re-triggers cmake it runs without
+    # PKG_CONFIG_PATH, so cmake reads the cached stale path and the build
+    # fails with "openssl/sha.h file not found".  Clearing CMakeCache.txt
+    # forces cmake to re-run pkg_check_modules with the correct PKG_CONFIG_PATH
+    # set by this script, picking up the newly installed version.
+    if [[ -f "CMakeCache.txt" ]]; then
+        _cached_ssl_inc=$(grep "^OPENSSL_INCLUDE_DIRS:INTERNAL=" CMakeCache.txt | cut -d= -f2) || true
+        if [[ -n "${_cached_ssl_inc}" && ! -f "${_cached_ssl_inc}/openssl/sha.h" ]]; then
+            echo "WARNING: Cached OpenSSL include path is stale:"
+            echo "         ${_cached_ssl_inc}/openssl/sha.h not found."
+            echo "         This typically means 'brew upgrade openssl@3' ran since the last"
+            echo "         cmake configure. Removing CMakeCache.txt so OpenSSL is re-detected."
+            rm -f CMakeCache.txt
+        fi
+    fi
     # GStreamer: prefer the macOS framework installer; fall back to Homebrew.
     # Mirrors the detection logic added to scripts/install_aampcli.sh in
     # PR #1489 (VPAAMP-392).  The old code unconditionally prepended the

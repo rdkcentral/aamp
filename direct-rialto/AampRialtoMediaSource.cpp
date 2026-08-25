@@ -48,6 +48,20 @@ firebolt::rialto::CipherMode cipherTypeToRialto(CipherType cipher)
 	}
 }
 
+/// Bytes of DRM metadata (key id + IV + subsample table) a sample
+/// contributes to its segment, for batch byte-accounting/logging only.
+/// Mirrors the encrypted-segment condition used by annotateEncryption().
+size_t drmMetadataBytes(const AampMediaSample &sample, int32_t mksId)
+{
+	if (!sample.mDrmMetadata.mIsEncrypted || mksId < 0)
+	{
+		return 0;
+	}
+	return sample.mDrmMetadata.mKeyId.size() +
+	       sample.mDrmMetadata.mIV.size() +
+	       sample.mDrmMetadata.mSubSamples.size();
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -66,11 +80,13 @@ void AampRialtoMediaSource::reset()
 		std::lock_guard<std::mutex> lock(m_state.mu);
 		++m_state.generation;
 		m_state.hasPending          = false;
-		m_state.segmentsAddedInBatch = 0;
-		m_state.batchHasFirstPts    = false;
-		m_state.batchFirstPtsSec    = 0.0;
-		m_state.batchDurationSecSum = 0.0;
-		m_state.eos                 = false;
+		m_state.segmentsAddedInBatch  = 0;
+		m_state.batchHasFirstPts      = false;
+		m_state.batchFirstPtsSec      = 0.0;
+		m_state.batchDurationSecSum   = 0.0;
+		m_state.batchMediaBytesSum    = 0;
+		m_state.batchMetadataBytesSum = 0;
+		m_state.eos                   = false;
 		// gateMode is intentionally left untouched here.  reset() runs
 		// mid-Configure(), which can be followed by a second Flush() (e.g.
 		// trickplay's Flush(pos=0) -> Configure() -> Flush(correctPos) ->
@@ -84,6 +100,7 @@ void AampRialtoMediaSource::reset()
 	}
 	m_sourceId       = -1;
 	m_mksId          = -1;
+	m_activeProtection.reset();
 	m_pendingCodecData = nullptr;
 
 	m_firstPtsMs.store(kFirstPtsNotSet, std::memory_order_relaxed);
@@ -195,10 +212,14 @@ AampRialtoMediaSource::BatchSummary AampRialtoMediaSource::snapshotAndClearBatch
 	summary.hasFirstPts    = m_state.batchHasFirstPts;
 	summary.firstPtsSec    = m_state.batchFirstPtsSec;
 	summary.durationSecSum = m_state.batchDurationSecSum;
-	m_state.segmentsAddedInBatch = 0;
-	m_state.batchHasFirstPts     = false;
-	m_state.batchFirstPtsSec     = 0.0;
-	m_state.batchDurationSecSum  = 0.0;
+	summary.mediaBytes     = m_state.batchMediaBytesSum;
+	summary.metadataBytes  = m_state.batchMetadataBytesSum;
+	m_state.segmentsAddedInBatch  = 0;
+	m_state.batchHasFirstPts      = false;
+	m_state.batchFirstPtsSec      = 0.0;
+	m_state.batchDurationSecSum   = 0.0;
+	m_state.batchMediaBytesSum    = 0;
+	m_state.batchMetadataBytesSum = 0;
 	return summary;
 }
 
@@ -255,17 +276,20 @@ bool AampRialtoMediaSource::sendHaveData(
 	if (batch.hasFirstPts)
 	{
 		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
-			"frameCount=%zu firstPtsSec=%.3f durationSecSum=%.3f",
+			"frameCount=%zu firstPtsSec=%.3f durationSecSum=%.3f "
+			"mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
 			static_cast<int>(status), requestId,
-			batch.frameCount, batch.firstPtsSec, batch.durationSecSum);
+			batch.frameCount, batch.firstPtsSec, batch.durationSecSum,
+			batch.mediaBytes, batch.metadataBytes);
 	}
 	else
 	{
 		AAMPLOG_TRACE("sourceId=%d mediaType=%d status=%d requestId=%u "
-			"frameCount=%zu",
+			"frameCount=%zu mediaBytes=%zu metadataBytes=%zu",
 			m_sourceId, static_cast<int>(mediaType()),
-			static_cast<int>(status), requestId, batch.frameCount);
+			static_cast<int>(status), requestId, batch.frameCount,
+			batch.mediaBytes, batch.metadataBytes);
 	}
 	return pipeline.haveData(status, requestId);
 }
@@ -273,13 +297,6 @@ bool AampRialtoMediaSource::sendHaveData(
 int64_t AampRialtoMediaSource::firstPtsMs() const
 {
 	return m_firstPtsMs.load(std::memory_order_relaxed);
-}
-
-void AampRialtoMediaSource::setFirstPtsMs(int64_t ptsMs)
-{
-	AAMPLOG_INFO("firstPtsMs set to %" PRId64 " for sourceId=%d mediaType=%d",
-		ptsMs, m_sourceId, static_cast<int>(mediaType()));
-	m_firstPtsMs.store(ptsMs, std::memory_order_relaxed);
 }
 
 bool AampRialtoMediaSource::waitForAttach()
@@ -372,9 +389,48 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 	// 4. Stage pending codec data for the injection path
 	m_pendingCodecData = codecData;
 
-	// 5. If already attached → update only
+	// 5. If already attached → update only.  A new period's init segment
+	//    can carry genuinely new protection params (different DRM system or
+	//    PSSH/init data), which must be applied to the existing session —
+	//    otherwise every subsequent sample keeps stamping the stale mksId.
+	//    Compare against the params last used to create a session so
+	//    unchanged/repeated params (re-queued on every period regardless of
+	//    whether they changed) do not trigger a redundant OCDM license
+	//    round-trip.
 	if (m_sourceId >= 0)
 	{
+		if (protection.has_value() && !(m_activeProtection == protection))
+		{
+			if (!drmBridge)
+			{
+				AAMPLOG_ERR("Protection params changed but drmBridge is null for"
+					" mediaType=%d — DRM session will not be updated",
+					static_cast<int>(mediaType()));
+			}
+			else
+			{
+				const auto &prot = *protection;
+				const int32_t newMksId = drmBridge->createSession(
+					prot.systemId.c_str(),
+					prot.initData.data(),
+					prot.initData.size(),
+					prot.type);
+				if (newMksId < 0)
+				{
+					AAMPLOG_WARN("createSession failed while updating mediaType=%d"
+						" — keeping previous mksId=%d",
+						static_cast<int>(mediaType()), m_mksId);
+				}
+				else
+				{
+					AAMPLOG_INFO("createSession returned new mksId=%d (was %d) for"
+						" mediaType=%d", newMksId, m_mksId,
+						static_cast<int>(mediaType()));
+					m_mksId = newMksId;
+					m_activeProtection = protection;
+				}
+			}
+		}
 		AAMPLOG_INFO("source already attached (id=%d) for mediaType=%d, "
 			"staged new codec data",
 			m_sourceId, static_cast<int>(mediaType()));
@@ -405,6 +461,7 @@ AampRialtoMediaSource::AttachResult AampRialtoMediaSource::attachOrUpdate(
 		{
 			AAMPLOG_INFO("createSession returned mksId=%d for mediaType=%d",
 				m_mksId, static_cast<int>(mediaType()));
+			m_activeProtection = protection;
 		}
 	}
 
@@ -633,7 +690,8 @@ bool AampRialtoMediaSource::injectOneSample(
 				{
 					handleAddSegmentCompletion(pipeline, addStatus,
 						capturedGen, reqId, morePending, sample.mPts,
-						sample.mDuration);
+						sample.mDuration, sample.mDataSize,
+						drmMetadataBytes(sample, m_mksId));
 					injected = true;
 					done     = true;
 				}
@@ -771,7 +829,9 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 	uint32_t reqId,
 	bool morePending,
 	double samplePts,
-	double sampleDurationSec)
+	double sampleDurationSec,
+	size_t sampleMediaBytes,
+	size_t sampleMetadataBytes)
 {
 	if (addStatus == firebolt::rialto::AddSegmentStatus::OK)
 	{
@@ -802,6 +862,8 @@ void AampRialtoMediaSource::handleAddSegmentCompletion(
 		    m_state.pendingRequestId == reqId)
 		{
 			++m_state.segmentsAddedInBatch;
+			m_state.batchMediaBytesSum    += sampleMediaBytes;
+			m_state.batchMetadataBytesSum += sampleMetadataBytes;
 			if (!m_state.batchHasFirstPts)
 			{
 				m_state.batchHasFirstPts = true;

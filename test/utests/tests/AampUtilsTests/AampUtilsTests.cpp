@@ -594,6 +594,44 @@ TEST(_AampUtils, GetVideoFormatForCodec)
 	EXPECT_EQ(result, nullptr);
 }
 
+
+TEST(_AampUtils, GetMp4DemuxVideoFormatForCodec)
+{
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("avc1.64001f"), FORMAT_VIDEO_ES_H264);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("hvc1.2.4.L120.90"), FORMAT_VIDEO_ES_HEVC);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("hev1.2.4.L120.90"), FORMAT_VIDEO_ES_HEVC);
+	// A HLS profile lists video and audio codecs together; the video lookup must pick out its own
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_VIDEO_ES_H264);
+	// mpeg2v has no codec configuration box AampMp4Demuxer recognises, so it must not be predicted
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("mpeg2v"), FORMAT_UNKNOWN);
+	// an audio-only codec string must not yield a video format
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec("mp4a.40.2"), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec(""), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxVideoFormatForCodec(nullptr), FORMAT_UNKNOWN);
+}
+
+
+TEST(_AampUtils, GetMp4DemuxAudioFormatForCodec)
+{
+	// AampMp4Demuxer strips the container and reports raw AAC, not the ADTS-framed
+	// FORMAT_AUDIO_ES_AAC that GetAudioFormatForCodec returns for these same strings
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("mp4a.40.2"), FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("mp4a.40.5"), FORMAT_AUDIO_ES_AAC_RAW);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ec-3"), FORMAT_AUDIO_ES_EC3);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("eac3"), FORMAT_AUDIO_ES_EC3);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.01"), FORMAT_AUDIO_ES_AC4);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-4.02.01.02"), FORMAT_AUDIO_ES_AC4);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f,mp4a.40.2"), FORMAT_AUDIO_ES_AAC_RAW);
+	// ac-3 and ATMOS have no dac3/dec3-distinguishable mapping in AampMp4Demuxer, so they must
+	// fall through to FORMAT_UNKNOWN rather than being predicted incorrectly
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ac-3"), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("ec+3"), FORMAT_UNKNOWN);
+	// a video-only codec string must not yield an audio format
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec("avc1.64001f"), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec(""), FORMAT_UNKNOWN);
+	EXPECT_EQ(GetMp4DemuxAudioFormatForCodec(nullptr), FORMAT_UNKNOWN);
+}
+
 static void PrintableStdThreadHelper( size_t *out )
 {
 	*out = GetPrintableThreadID();
@@ -767,10 +805,13 @@ TEST(_AampUtils, parseAndValidateSCTE35ProgramResumption_invalid)
 
 TEST(_AampUtils, parseAndValidateSCTE35ProgramResumption_true)
 {
-	/* Start with a known-good SCTE35 signal and mutate the segmentation_type_id
-	 * byte to PROGRAM_IMMEDIATE_RESUMPTION (0x1A), then recompute CRC32.
+	/* Start with a known-good SCTE35 signal that contains no resumption type
+	 * (0x1A) and mutate the segmentation_type_id byte to
+	 * PROGRAM_IMMEDIATE_RESUMPTION (0x1A), then recompute CRC32.
+	 * The previous string ("/DBcAABMcsOF…") was a multi-descriptor payload
+	 * that already contained a 0x1A descriptor, making EXPECT_FALSE fail.
 	 */
-	const std::string providerAdvertisementStart = "/DBcAABMcsOF///wBQb+MrpDwgBGAjNDVUVJAAAACX+/ASQ1MzhlNGMzOC1iYWFjLTQ1OGEtODE1MS1mYmJiNDU3OGM1NGE1AAACD0NVRUkAAAAKf78AABoAAMkTIBk=";
+	const std::string providerAdvertisementStart = "/DB3AACRDm31AP/wBQb++u5TsABhAl9DVUVJAABhSH/AAAANu6ANSw4pYXZhaWxpZD04OTc1NTc3OTkmYml0bWFwPSZpbmFjdGl2aXR5PTM0ODAPHnVybjpjb21jYXN0OmFsdGNvbjphZGRyZXNzYWJsZTAAAC2N6xw=";
 	EXPECT_FALSE(parseAndValidateSCTE35ProgramResumption(providerAdvertisementStart));
 
 	size_t decodedLen = 0;

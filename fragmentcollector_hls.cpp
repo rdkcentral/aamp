@@ -5066,10 +5066,25 @@ void StreamAbstractionAAMP_HLS::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		(aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4 ||
 		 trackState[eMEDIATYPE_VIDEO]->streamOutputFormat == FORMAT_ISO_BMFF))
 	{
-		// Mp4Demuxer will set the format later once the init fragment is parsed
-		// format is only used for video and audio formats. Subtitle should be unaffected
+		// AampMp4Demuxer consumes the container and feeds elementary streams, so report the codec
+		// format rather than FORMAT_ISO_BMFF. Predict it from the manifest so the appsrc is created
+		// with the correct caps and gstreamer autoplugs once during preroll; reporting
+		// FORMAT_UNKNOWN leaves the appsrc uncapped until SetStreamCaps() runs on an
+		// already-running pipeline, which races the first data push - see the full explanation in
+		// StreamAbstractionAAMP_MPD::GetStreamFormat and VPAAMP-1039.
 		primaryOutputFormat = FORMAT_UNKNOWN;
 		audioOutputFormat = FORMAT_UNKNOWN;
+		if (!hasDrm)
+		{
+			HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(currentProfileIndex);
+			if (streamInfo != NULL)
+			{
+				// A HLS video profile lists every codec it carries in one attribute, so the video
+				// and audio lookups are given the same string and each picks out its own.
+				primaryOutputFormat = GetMp4DemuxVideoFormatForCodec(streamInfo->codecs.c_str());
+				audioOutputFormat = GetMp4DemuxAudioFormatForCodec(streamInfo->codecs.c_str());
+			}
+		}
 	}
 	else
 	{
