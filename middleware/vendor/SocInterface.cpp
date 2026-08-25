@@ -18,11 +18,16 @@
  */
 
 #include <assert.h>
+#include <mutex>
 #include "SocInterface.h"
 #include "vendor/amlogic/AmlogicSocInterface.h"
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
 #include "vendor/default/DefaultSocInterface.h"
+// One-time singleton: never replaced after first successful creation
+static std::shared_ptr<SocInterface> g_socInterface;
+static std::once_flag g_socInitOnce;
+static bool g_socInitialized = false;
 
 /**Initially re-sets the IsRialtoMode */
 bool SocInterface::mIsRialtoMode = false;
@@ -49,15 +54,20 @@ bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
 }
 
 /**
- *  @brief To enable certain player configs based upon platform check
+ *  @brief Infers platform from GStreamer plugin registry without calling gst_init_check.
+ *         Only safe to call when GStreamer is already initialized.
  */
-SocPlatformType InferPlatformFromPluginScan()
+static SocPlatformType InferPlatformFromPluginScan()
 {
+	
 	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
-	// Ensure GST is initialized
-	if (!gst_init_check(nullptr, nullptr, nullptr)) {
-		MW_LOG_ERR("gst_init_check() failed");
+	// Never call gst_init_check here — only scan registry if GST is already running
+	if (!gst_is_initialized())
+	{
+		MW_LOG_WARN("GStreamer not initialized, skipping plugin registry scan");
+		return platform;
 	}
+	
 	static const std::pair<const char*, SocPlatformType> plugins[] = {
 		{"amlhalasink", SOC_PLATFORM_AMLOGIC},
 		{"omxeac3dec", SOC_PLATFORM_REALTEK},
@@ -77,8 +87,7 @@ SocPlatformType InferPlatformFromPluginScan()
 			break;
 		}
 	}
-	
-	if( platform == SOC_PLATFORM_DEFAULT )
+	if (platform == SOC_PLATFORM_DEFAULT)
 	{
 		MW_LOG_WARN("InterfacePlayerRDK: None of the plugins found in registry");
 	}
@@ -146,56 +155,80 @@ SocPlatformType SocInterface::InferPlatformFromDeviceProperties( void )
 
 
 /**
- * @brief Loads the instance with rialto mode or not 
- *
- * @return A pointer to the created SocInterface object, or nullptr on failure.
+ * @brief Helper to create the right subclass based on platform type.
+ */
+static std::shared_ptr<SocInterface> CreateForPlatform(SocPlatformType platformType)
+{
+	switch (platformType)
+	{
+		case SOC_PLATFORM_AMLOGIC:
+			MW_LOG_MIL("Setting up SoC Interface for AMLOGIC");
+			return std::make_shared<AmlogicSocInterface>();
+		case SOC_PLATFORM_BROADCOM:
+			MW_LOG_MIL("Setting up SoC Interface for BROADCOM");
+			return std::make_shared<BrcmSocInterface>();
+		case SOC_PLATFORM_REALTEK:
+			MW_LOG_MIL("Setting up SoC Interface for REALTEK");
+			return std::make_shared<RealtekSocInterface>();
+		default:
+			MW_LOG_MIL("Setting up SoC Interface for Default");
+			return std::make_shared<DefaultSocInterface>();
+	}
+}
+
+
+/**
+ * @brief Sets Rialto mode and returns the singleton SoC interface.
+ *        Must only set mIsRialtoMode before the first CreateSocInterface() call.
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface(bool isRialto)
 {
-	if(isRialto == true)
+	if (g_socInitialized)
 	{
-	    MW_LOG_MIL("Rialto is enabled and creating default soc");
+		MW_LOG_MIL("SoC interface already initialized, ignoring re-init attempt (isRialto=%d)", isRialto);
+		return g_socInterface;
+	}
+	if (isRialto)
+	{
+		MW_LOG_MIL("Rialto is enabled and creating default soc");
 	}
 	mIsRialtoMode = isRialto;
 	return CreateSocInterface();
 }
 
 /**
- * @brief Creates an instance of the SoC-specific interface based on the detected platform.
- *
- * @return A pointer to the created SocInterface object, or nullptr on failure.
+ * @brief Creates the SoC interface singleton exactly once for the process lifetime.
+ *        Deterministic order: device.properties → plugin registry (if GST ready) → default.
+ *        Safe to call from any context including dl_init.
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
-	static std::shared_ptr<SocInterface> socInterface;
-	if( !socInterface)
-	{
+	std::call_once(g_socInitOnce, []() {
 		SocPlatformType platformType = InferPlatformFromDeviceProperties();
-		if(platformType == SOC_PLATFORM_DEFAULT)
+		if (platformType == SOC_PLATFORM_DEFAULT && !mIsRialtoMode)
 		{
-			if(!mIsRialtoMode)
-			{
-				MW_LOG_MIL("Performing InterfacePluginScan| Rialto-Disabled");
-				platformType = InferPlatformFromPluginScan();
-                        }
+			// Plugin scan only if GStreamer is already up — never triggers gst_init_check
+			platformType = InferPlatformFromPluginScan();
 		}
-		switch (platformType)
-		{
-			case SOC_PLATFORM_AMLOGIC:
-				socInterface = std::make_shared<AmlogicSocInterface>();
-				break;
-			case SOC_PLATFORM_BROADCOM:
-				socInterface = std::make_shared<BrcmSocInterface>();
-				break;
-			case SOC_PLATFORM_REALTEK:
-				socInterface = std::make_shared<RealtekSocInterface>();
-				break;
-			default:
-				socInterface = std::make_shared<DefaultSocInterface>();
-				break;
-		}
+		g_socInterface = CreateForPlatform(platformType);
+		g_socInitialized = true;
+	});
+	return g_socInterface;
+}
+
+/**
+ * @brief No-op guard: platform is detected once in CreateSocInterface().
+ *        Any call after initialization is logged and ignored.
+ */
+void SocInterface::InitializePlatformFromPlugins()
+{
+	if (g_socInitialized)
+	{
+		MW_LOG_MIL("Platform already initialized, ignoring InitializePlatformFromPlugins call");
+		return;
 	}
-	return socInterface;
+	// Trigger one-time initialization if not done yet
+	CreateSocInterface();
 }
 
 /**
@@ -269,3 +302,4 @@ void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_cla
         base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(accept_caps_func);
     }
 }
+
