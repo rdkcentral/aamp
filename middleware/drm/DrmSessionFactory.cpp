@@ -32,7 +32,7 @@
 /**
  *  @brief Creates an appropriate DRM session based on the given DrmHelper
  */
-DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
+std::shared_ptr<DrmSession> DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
 {
 	const std::string systemId = drmHelper->ocdmSystemId();
 
@@ -42,23 +42,23 @@ DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallback
 #if defined(USE_CLEARKEY)
 		if (systemId == CLEAR_KEY_SYSTEM_STRING)
 		{
-			return new ClearKeySession();
+			return std::make_shared<ClearKeySession>();
 		}
 		else
 #endif
 		{
-			return new OCDMBasicSessionAdapter(drmHelper, drmCallbacks);
+			return std::make_shared<OCDMBasicSessionAdapter>(drmHelper, drmCallbacks);
 		}
 	}
 	else
 	{
-		return new OCDMGSTSessionAdapter(drmHelper, drmCallbacks);
+		return std::make_shared<OCDMGSTSessionAdapter>(drmHelper, drmCallbacks);
 	}
 #else // No form of OCDM support. Attempt to fallback to hardcoded session classes
     if (systemId == CLEAR_KEY_SYSTEM_STRING)
 	{
 #if defined(USE_CLEARKEY)
-		return new ClearKeySession();
+		return std::make_shared<ClearKeySession>();
 #endif // USE_CLEARKEY
 	}
 #endif // Not USE_OPENCDM_ADAPTER

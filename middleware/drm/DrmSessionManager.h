@@ -50,7 +50,7 @@ struct DrmSessionContext
 {
 	std::vector<uint8_t> data;
 	std::mutex sessionMutex;
-	DrmSession * drmSession;
+	std::shared_ptr<DrmSession> drmSession;
 
 	DrmSessionContext() : sessionMutex(), drmSession(NULL),data()
 	{
