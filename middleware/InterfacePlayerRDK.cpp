@@ -5254,6 +5254,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 	}
 	SocUtils::Init();
 
+	SocUtils::Init();
 #define PLUGINS_TO_LOWER_RANK_MAX    2
 	static const char *plugins_to_lower_rank[PLUGINS_TO_LOWER_RANK_MAX] = {
 		"aacparse",
