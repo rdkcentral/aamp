@@ -193,10 +193,9 @@ void Demuxer::emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payloa
 
 void Demuxer::emitPendingSample(const MediaProcessor::process_fcn_t &processor)
 {
-	if (has_pending_sample)
+	if (!pending_es.empty())
 	{
 		emitSample(pending_info, pending_es, processor);
-		has_pending_sample = false;
 	}
 }
 
@@ -205,7 +204,6 @@ void Demuxer::resetInternal()
 	aamp_utils::ClearAndRelease(es);
 	aamp_utils::ClearAndRelease(pes_header);
 	aamp_utils::ClearAndRelease(pending_es);
-	has_pending_sample = false;
 }
 
 void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
@@ -219,7 +217,7 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 	// A previously buffered first sample can now have its true duration
 	// measured as the DTS delta to this (the next) access unit. Emit it
 	// before the current sample to preserve decode order.
-	if (has_pending_sample)
+	if (!pending_es.empty())
 	{
 		const double sampleDuration = info.dts_s - pending_info.dts_s;
 		if (sampleDuration > 0.0)
@@ -227,7 +225,6 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 			pending_info.duration = sampleDuration;
 		}
 		emitSample(pending_info, pending_es, processor);
-		has_pending_sample = false;
 	}
 
 	if (last_sent_dts_s < 0.0)
@@ -237,7 +234,6 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 		pending_es = std::move(es);
 		es.clear();
 		pending_info = info;
-		has_pending_sample = true;
 		last_sent_dts_s = info.dts_s;
 	}
 	else
@@ -262,7 +258,6 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	first_pts = 0;
 	last_sent_dts_s = -1.0;
 	pending_es.clear();
-	has_pending_sample = false;
 	update_first_pts = false;
 	finalized_base_pts = false;
 	rollover_pts = false;

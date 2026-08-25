@@ -92,7 +92,6 @@ private:
 	 * DTS delta before it is emitted. */
 	std::vector<uint8_t> pending_es{};
 	SegmentInfo_t pending_info{};
-	bool has_pending_sample = false;
 	uint33_t base_pts{};
 	bool rollover_pts = false;
 	uint33_t current_pts{};
@@ -290,7 +289,7 @@ public:
 			sendInternal(processor);
 			sent = true;
 		}
-		if (has_pending_sample)
+		if (!pending_es.empty())
 		{
 			emitPendingSample(processor);
 			sent = true;
@@ -307,7 +306,7 @@ public:
 	{
 
 		std::lock_guard<std::mutex> lock{mMutex};
-		return !es.empty() || has_pending_sample;
+		return !es.empty() || !pending_es.empty();
 	}
 
 	/**
