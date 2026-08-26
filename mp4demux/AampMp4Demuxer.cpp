@@ -162,6 +162,7 @@ void AampMp4Demuxer::HandleTrickModeDiscontinuity()
  * @param[in,out] sample - Sample to restamp
  * @param[in] duration - Fragment duration
  * @param[in] discontinuous - True if this sample begins a discontinuous segment
+ * @param[in] fragmentPTSoffset - Fragment ptsOffset
  */
 void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous, double fragmentPTSoffset)
 {

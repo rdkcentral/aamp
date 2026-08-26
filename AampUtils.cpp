@@ -82,7 +82,7 @@ static const FormatMap mVideoFormatMap[] =
  * Manifest codec string -> the elementary stream format AampMp4Demuxer reports once it has
  * parsed the init segment.
  *
- * These two maps deliberately mirror gCodecMappings in mp4demux/MP4Demux.cpp, which recognises
+ * These two maps deliberately mirror gCodecMappings in mp4demux/MP4Demux.cpp, which recognizes
  * exactly five codec configuration boxes: avcC, hvcC, esds, dec3 and dac4. Codecs outside that
  * set are omitted on purpose - the point of these maps is to predict the format AampMp4Demuxer
  * will report so the appsrc caps never have to change, and a format it will not report would

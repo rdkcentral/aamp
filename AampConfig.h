@@ -230,6 +230,7 @@ typedef enum
 	eAAMPConfig_DebugChunkTransfer,					/**< app-managed chunked transfer protocol */
 	eAAMPConfig_UTCSyncOnStartup,					/**< Perform sync at startup */
 	eAAMPConfig_DisableWebVTT,					/**< Config to disable/exclude WebVTT tracks (default: WebVTT enabled) */
+	eAAMPConfig_EnableHTTP3,					/**< Enable HTTP/3 (QUIC) for content-origin downloads (fragments, manifests, init segments) */
 	eAAMPConfig_EnablePTSReStampLogging,		/**< Config to enable logging for PTS restamping in Mp4Demuxer */
 	eAAMPConfig_NetTraceCsvDump,			/**< Write AAMP_NET_TRACE CSV files when true (default path: /tmp; may be overridden via AAMP_REQ_CSV/AAMP_BUR_CSV; output includes a PID suffix; default: false) */
 	eAAMPConfig_LogFilename,				/**< Config to include source filename in log output */
@@ -432,10 +433,10 @@ struct ConfigChannelInfo
 
 struct customJson
 {
-        customJson() : config(), configValue()
-        { }
-        std::string config;
-        std::string configValue;
+	customJson() : config(), configValue()
+	{ }
+	std::string config;
+	std::string configValue;
 };
 
 /**
@@ -478,11 +479,11 @@ typedef struct ConfigValueInt
  */
 typedef struct ConfigValueFloat
 {
-    ConfigPriority owner;
-    double value;
-    ConfigPriority lastowner;
-    double lastvalue;
-    ConfigValueFloat():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
+	ConfigPriority owner;
+	double value;
+	ConfigPriority lastowner;
+	double lastvalue;
+	ConfigValueFloat():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
 } ConfigValueFloat;
 
 /**
@@ -505,27 +506,27 @@ class AampConfig
 {
 public:
 	/**
-    	 * @fn AampConfig
-    	 *
-    	 * @return None
-    	 */
+	 * @fn AampConfig
+	 *
+	 * @return None
+	 */
 	AampConfig();
 	/**
-         * @brief AampConfig Destructor function
-         *
-         * @return None
-         */
+	 * @brief AampConfig Destructor function
+	 *
+	 * @return None
+	 */
 	~AampConfig(){};
 	/**
-         * @brief Copy constructor disabled
-         *
-         */
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	AampConfig(const AampConfig&) = delete;
 	/**
-     	 * @fn operator= 
-     	 *
-     	 * @return New Config instance with copied values
-     	 */
+	 * @fn operator= 
+	 *
+	 * @return New Config instance with copied values
+	 */
 	AampConfig& operator=(const AampConfig&);
 	void Initialize();
 	/**
@@ -534,44 +535,44 @@ public:
 	 */
 	void ApplyDeviceCapabilities();
 	/**
-     	 * @fn ShowOperatorSetConfiguration
-     	 * @return Void
-     	 */
+	 * @fn ShowOperatorSetConfiguration
+	 * @return Void
+	 */
 	void ShowOperatorSetConfiguration();
 	/**
-     	 * @fn ShowAppSetConfiguration
-     	 * @return void
-     	 */
+	 * @fn ShowAppSetConfiguration
+	 * @return void
+	 */
 	void ShowAppSetConfiguration();
 	/**
-     	 * @fn ShowStreamSetConfiguration
+	 * @fn ShowStreamSetConfiguration
 	 *
-     	 * @return Void
-     	 */
+	 * @return Void
+	 */
 	void ShowStreamSetConfiguration();
 	/**
-     	 * @fn ShowDefaultAampConfiguration 
-     	 *
-     	 * @return Void
-     	 */
+	 * @fn ShowDefaultAampConfiguration 
+	 *
+	 * @return Void
+	 */
 	void ShowDefaultAampConfiguration();	
 	/**
-     	 *@fn ShowDevCfgConfiguration
+	 *@fn ShowDevCfgConfiguration
 	 *
-     	 * @return Void
-     	 */
+	 * @return Void
+	 */
 	void ShowDevCfgConfiguration();
 	/**
-     	 * @fn ShowAAMPConfiguration
-     	 *
-     	 * @return Void
-     	 */
+	 * @fn ShowAAMPConfiguration
+	 *
+	 * @return Void
+	 */
 	void ShowAAMPConfiguration();
 	/**
-     	 * @fn ReadAampCfgTxtFile
+	 * @fn ReadAampCfgTxtFile
 	 *
-     	 * @return Void
-     	 */
+	 * @return Void
+	 */
 	bool ReadAampCfgTxtFile();
 
 	/**
@@ -588,14 +589,14 @@ public:
 	bool ProcessBase64AampCfg(const char * base64Config, size_t configLen,ConfigPriority cfgPriority);
 
 	/**
-     	 * @fn ReadAampCfgJsonFile
-    	 */
+	 * @fn ReadAampCfgJsonFile
+	 */
 	bool ReadAampCfgJsonFile();
 
 	/**
-     	 * @fn ReadOperatorConfiguration
-     	 * @return void
-     	 */
+	 * @fn ReadOperatorConfiguration
+	 * @return void
+	 */
 	void ReadOperatorConfiguration();
 	/**
 	 * @fn ReadBase64TR181Param reads Tr181 parameter at Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config
@@ -608,34 +609,35 @@ public:
 	 */
 	void ReadAllTR181Params();
 	/**
-         * @brief ParseAampCfgTxtString - It parses the aamp configuration 
-         *
-         * @return Void
-         */
+	 * @brief ParseAampCfgTxtString - It parses the aamp configuration 
+	 *
+	 * @return Void
+	 */
 	void ParseAampCfgTxtString(std::string &cfg);
 	/**
-         * @brief ParseAampCfgJsonString - It parses the aamp configuration from json format
-         *
-         * @return Void
-         */
+	 * @brief ParseAampCfgJsonString - It parses the aamp configuration from json format
+	 *
+	 * @return Void
+	 */
 	void ParseAampCfgJsonString(std::string &cfg);	
 	
 	/**
-     	 * @fn SetConfigValue
-     	 * @param[in] owner  - ownership of new set call
-     	 * @param[in] cfg	- Configuration enum to set
-     	 * @param[in] value   - value to set
-     	 */
-	void SetConfigValue(ConfigPriority owner, AAMPConfigSettingBool cfg , const bool &value);
-	void SetConfigValue(ConfigPriority owner, AAMPConfigSettingInt cfg , const int &value);
-	void SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg , const double &value);
-	void SetConfigValue(ConfigPriority owner, AAMPConfigSettingString cfg , const std::string &value);
+	 * @fn SetConfigValue
+	 * @param[in] owner  - ownership of new set call
+	 * @param[in] cfg	- Configuration enum to set
+	 * @param[in] value   - value to set
+	 * @return true if successfully updated, false otherwise
+	 */
+	bool SetConfigValue(ConfigPriority owner, AAMPConfigSettingBool cfg , const bool &value);
+	bool SetConfigValue(ConfigPriority owner, AAMPConfigSettingInt cfg , const int &value);
+	bool SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg , const double &value);
+	bool SetConfigValue(ConfigPriority owner, AAMPConfigSettingString cfg , const std::string &value);
 	/**
-     	 * @fn IsConfigSet
-     	 *
-     	 * @param[in] cfg - Configuration enum
-     	 * @return true / false 
-     	 */
+	 * @fn IsConfigSet
+	 *
+	 * @param[in] cfg - Configuration enum
+	 * @return true / false 
+	 */
 	bool IsConfigSet(AAMPConfigSettingBool cfg) const;
 	bool GetConfigValue( AAMPConfigSettingBool cfg ) const;
 	int GetConfigValue( AAMPConfigSettingInt cfg ) const;
@@ -648,117 +650,118 @@ public:
 	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg) const;
 	
  	/**
-     	 * @fn GetChannelOverride
-     	 * @param[in] chName - channel name to search
-     	 */
+	 * @fn GetChannelOverride
+	 * @param[in] chName - channel name to search
+	 */
 	const char * GetChannelOverride(const std::string chName) const;
  	/**
-     	 * @fn GetChannelLicenseOverride
-     	 * @param[in] chName - channel Name to override
-     	 */
+	 * @fn GetChannelLicenseOverride
+	 * @param[in] chName - channel Name to override
+	 */
  	const char * GetChannelLicenseOverride(const std::string chName) const;
 
 	/**
-         * @fn ProcessConfigJson
-         * @param[in] cfg - json format
-         * @param[in] owner   - Owner who is setting the value
-         */
+	 * @fn ProcessConfigJson
+	 * @param[in] cfg - json format
+	 * @param[in] owner   - Owner who is setting the value
+	 */
 	bool ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner );
 	/**
-     	 * @fn ProcessConfigText
-     	 * @param[in] cfg - config text ( new line separated)
-     	 * @param[in] owner   - Owner who is setting the value
-     	 */
-	void ProcessConfigText(std::string &cfg, ConfigPriority owner );
+	 * @fn ProcessConfigText
+	 * @param[in] cfg - config text ( new line separated)
+	 * @param[in] owner   - Owner who is setting the value
+	 * @return true if successful, false otherwise
+	 */
+	bool ProcessConfigText(std::string &cfg, ConfigPriority owner );
 	/**
-     	 * @fn RestoreConfiguration
-     	 * @param[in] owner - Owner value for reverting
-     	 * @return None
-     	 */
+	 * @fn RestoreConfiguration
+	 * @param[in] owner - Owner value for reverting
+	 * @return None
+	 */
 	void RestoreConfiguration(ConfigPriority owner);
 	/**
-     	 * @fn RestoreConfiguration
-     	 * @param[in] owner - Restore from this owner to previous owner
-     	 * @param[in] cfg - Config value for restoring
-     	 * @return None
-		 */
+	 * @fn RestoreConfiguration
+	 * @param[in] owner - Restore from this owner to previous owner
+	 * @param[in] cfg - Config value for restoring
+	 * @return None
+	 */
 	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingBool cfg);
 	/**
-     	 * @fn RestoreConfiguration
-     	 * @param[in] owner - Restore from this owner to previous owner
-     	 * @param[in] cfg - Config value for restoring
-     	 * @return None
-		 */
+	 * @fn RestoreConfiguration
+	 * @param[in] owner - Restore from this owner to previous owner
+	 * @param[in] cfg - Config value for restoring
+	 * @return None
+	 */
 	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingInt cfg);
 	/**
-     	 * @fn RestoreConfiguration
-     	 * @param[in] owner - Restore from this owner to previous owner
-     	 * @param[in] cfg - Config value for restoring
-     	 * @return None
-		 */
+	 * @fn RestoreConfiguration
+	 * @param[in] owner - Restore from this owner to previous owner
+	 * @param[in] cfg - Config value for restoring
+	 * @return None
+	 */
 	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingFloat cfg);
 	/**
-     	 * @fn RestoreConfiguration
-     	 * @param[in] owner - Restore from this owner to previous owner
-     	 * @param[in] cfg - Config value for restoring
-     	 * @return None
-		 */
+	 * @fn RestoreConfiguration
+	 * @param[in] owner - Restore from this owner to previous owner
+	 * @param[in] cfg - Config value for restoring
+	 * @return None
+	 */
 	void RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingString cfg);
 	/**
-     	 * @fn ConfigureLogSettings
-     	 * @return None
-     	 */
+	 * @fn ConfigureLogSettings
+	 * @return None
+	 */
 	void ConfigureLogSettings();
 	/**
-     	 * @fn GetAampConfigJSONStr
-     	 * @param[in] str  - input string where config json will be stored
-     	 */
+	 * @fn GetAampConfigJSONStr
+	 * @param[in] str  - input string where config json will be stored
+	 */
 	bool GetAampConfigJSONStr(std::string &str) const;
 	/**
-     	 * @fn DoCustomSetting 
-     	 *
+	 * @fn DoCustomSetting 
+	 *
 	 * @param[in] owner - ConfigPriority owner
-     	 * @return None
-     	 */
+	 * @return None
+	 */
 	void DoCustomSetting(ConfigPriority owner);
 
 	/**
-     	 * @fn CustomSearch
-     	 * @param[in] url  - input string where url name will be stored
-     	 * @param[in] playerId  - input int variable where playerId will be stored
-     	 * @param[in] appname  - input string where appname will be stored
-     	 */
+	 * @fn CustomSearch
+	 * @param[in] url  - input string where url name will be stored
+	 * @param[in] playerId  - input int variable where playerId will be stored
+	 * @param[in] appname  - input string where appname will be stored
+	 */
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 
 	std::string GetUserAgentString() const;
 private:
 
 	/**
-     	 * @fn SetValue
-     	 *
-     	 * @param[in] setting - Config variable to set
-     	 * @param[in] newowner - New owner value
-     	 * @param[in] value - Value to set
-       	 * @return void
-    	 */
+	 * @fn SetValue
+	 *
+	 * @param[in] setting - Config variable to set
+	 * @param[in] newowner - New owner value
+	 * @param[in] value - Value to set
+	 * @return void
+	 */
 	template<class J,class K>
 	void SetValue(J &setting, ConfigPriority newowner, const K &value,std::string cfgName);
 	void trim(std::string& src);
 	
 	void ShowConfiguration(ConfigPriority owner);	
-	/**
-     	 * @fn GetConfigName
-     	 * @param[in] cfg  - configuration enum
-     	 * @return string - configuration name
-     	 */
 
 	/**
 	 * @fn CustomArrayRead
-		 * @param[in] customArray - input string where custom config json will be stored
-		 * @param[in] owner - ownership of configs will be stored
-		 */
+	 * @param[in] customArray - input string where custom config json will be stored
+	 * @param[in] owner - ownership of configs will be stored
+	 */
 	void CustomArrayRead( cJSON *customArray,ConfigPriority owner );
 
+	/**
+	 * @fn GetConfigName
+	 * @param[in] cfg  - configuration enum
+	 * @return string - configuration name
+	 */
 	const char * GetConfigName(AAMPConfigSettingBool cfg ) const;
 	const char * GetConfigName(AAMPConfigSettingInt cfg ) const;
 	const char * GetConfigName(AAMPConfigSettingFloat cfg ) const;

@@ -5969,9 +5969,9 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_SetsLatencyConfigs)
 	AampLLDashServiceData llData;
 	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
 
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, 3.5));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, 2.0));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, 6.0));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, 3.5)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, 2.0)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, 6.0)).WillOnce(Return(true));
 
 	bool result = mStreamAbstractionAAMP_MPD->CallParseMPDLLData(mpd, llData);
 
@@ -6016,7 +6016,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ParseMPDLLData_OnlyTargetLatency)
 	AampLLDashServiceData llData;
 	MPD *mpd = static_cast<MPD *>(response->mMPDInstance.get());
 
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, 4.0));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLTargetLatency, 4.0)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMinLatency, _)).Times(0);
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_LLMaxLatency, _)).Times(0);
 
