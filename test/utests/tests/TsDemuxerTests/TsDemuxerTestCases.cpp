@@ -580,7 +580,7 @@ TEST_F(DemuxerTests, SubsequentSampleDuration_IsDtsDeltaFromPrevious)
 		.WillRepeatedly(Return(true));
 
 	Demuxer demux(mAamp, eMEDIATYPE_VIDEO, /*optimizeMuxed=*/true);
-	demux.init(0.0, 3.5, false, false, true);
+	demux.init(0.0, 4.0, false, false, true);
 
 	constexpr uint64_t kDts1 = 90*1000ULL;  // 1.0 s
 	constexpr uint64_t kDts2 = (90+45)*1000ULL; // 1.5 s
