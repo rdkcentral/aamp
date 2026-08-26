@@ -576,15 +576,16 @@ TEST_F(DemuxerTests, FirstSample_IsBufferedNotEmittedImmediately)
 TEST_F(DemuxerTests, SubsequentSampleDuration_IsDtsDeltaFromPrevious)
 {
 	EXPECT_CALL(*g_mockAampConfig,
-	            IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
+				IsConfigSet(eAAMPConfig_HlsTsEnablePTSReStamp))
 		.WillRepeatedly(Return(true));
+	constexpr double SegmentDuration = 4.0;
+	constexpr double ticks = 90000.0;							   // 90 kHz ticks per second
+	constexpr uint64_t kDts1 = static_cast<uint64_t>(1.0 * ticks); // 1.0 s
+	constexpr uint64_t kDts2 = static_cast<uint64_t>(1.5 * ticks); // 1.5 s
+	constexpr uint64_t kDts3 = static_cast<uint64_t>(2.4 * ticks); // 2.4 s
 
 	Demuxer demux(mAamp, eMEDIATYPE_VIDEO, /*optimizeMuxed=*/true);
-	demux.init(0.0, 4.0, false, false, true);
-
-	constexpr uint64_t kDts1 = 90*1000ULL;  // 1.0 s
-	constexpr uint64_t kDts2 = (90+45)*1000ULL; // 1.5 s
-	constexpr uint64_t kDts3 = (90+90+45)*1000ULL; // 2.5 s
+	demux.init(0.0, SegmentDuration, false, false, true);
 
 	std::vector<SegmentInfo_t> emitted;
 	auto proc = [&emitted](AampMediaType, SegmentInfo_t info,
@@ -604,11 +605,11 @@ TEST_F(DemuxerTests, SubsequentSampleDuration_IsDtsDeltaFromPrevious)
 	ASSERT_EQ(emitted.size(), 3u);
 	EXPECT_NEAR(emitted[0].dts_s, 1.0, EPS_SMALL);
 	EXPECT_NEAR(emitted[1].dts_s, 1.5, EPS_SMALL);
-	EXPECT_NEAR(emitted[2].dts_s, 2.5, EPS_SMALL);
-	// Every sample spans the 0.5 s DTS step to the following sample.
+	EXPECT_NEAR(emitted[2].dts_s, 2.4, EPS_SMALL);
+
 	EXPECT_NEAR(emitted[0].duration, 0.5, EPS_SMALL);
 	EXPECT_NEAR(emitted[1].duration, 1.0, EPS_SMALL);
-	EXPECT_NEAR(emitted[2].duration, 1.5, EPS_SMALL);
+	EXPECT_NEAR(emitted[2].duration, SegmentDuration-2.4, EPS_SMALL);
 }
 
 /**
