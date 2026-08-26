@@ -607,8 +607,8 @@ TEST_F(DemuxerTests, SubsequentSampleDuration_IsDtsDeltaFromPrevious)
 	EXPECT_NEAR(emitted[1].dts_s, 1.5, EPS_SMALL);
 	EXPECT_NEAR(emitted[2].dts_s, 2.4, EPS_SMALL);
 
-	EXPECT_NEAR(emitted[0].duration, 0.5, EPS_SMALL);
-	EXPECT_NEAR(emitted[1].duration, 1.0, EPS_SMALL);
+	EXPECT_NEAR(emitted[0].duration, 0.5 /* 1.5-1.0 */, EPS_SMALL);
+	EXPECT_NEAR(emitted[1].duration, 0.9 /* 2.4-1.5 */, EPS_SMALL);
 	EXPECT_NEAR(emitted[2].duration, SegmentDuration-2.4, EPS_SMALL);
 }
 
