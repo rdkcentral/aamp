@@ -170,7 +170,6 @@ public:
   void InitializeAdMPD(const char *manifest, bool isFOG = false, bool fogDownloadSuccess = true, int count = 1, int httpError = 404)
   {
     std::string adManifestUrl = TEST_AD_MANIFEST_URL;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
     if (manifest)
     {
       mManifest = manifest;
