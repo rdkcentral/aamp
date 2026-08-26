@@ -219,10 +219,8 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		}
 		PopulateCommonMetadata(cachedFragment, std::move(remoteUrl), actualType, 0, false, false);
 		TransferFragmentBuffer(cachedFragment, ptr, nullptr, size, true);
-		cachedFragment->absPosition = 0;
 		cachedFragment->downloadStartTime = dnldStartTime;
 
-		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
 		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
 		cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
