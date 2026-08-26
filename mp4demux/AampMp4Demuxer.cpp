@@ -26,7 +26,6 @@
 #include "AampLogManager.h"
 #include "AampUtils.h"
 #include "AampConfig.h"
-#include <cinttypes>
 #include <cmath>
 #include <cinttypes>
 
