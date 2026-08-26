@@ -37,11 +37,7 @@
  *  5. Legitimate 33-bit PTS rollover (same encoder epoch) is still
  *     corrected in restamp mode.
  *
- *  6. UpdateSegmentInfo() now reports the per-sample duration (the DTS
- *     delta to the previously emitted access unit) instead of the
- *     whole-segment duration.
- *
- *  7. First-sample look-ahead: the first access unit of an epoch is
+ *  6. First-sample look-ahead: the first access unit of an epoch is
  *     buffered until the next unit arrives so its true duration can be
  *     measured; a lone buffered sample is emitted on flush with the
  *     segment duration as a fallback.
@@ -584,11 +580,11 @@ TEST_F(DemuxerTests, SubsequentSampleDuration_IsDtsDeltaFromPrevious)
 		.WillRepeatedly(Return(true));
 
 	Demuxer demux(mAamp, eMEDIATYPE_VIDEO, /*optimizeMuxed=*/true);
-	demux.init(0.0, 2.0, false, false, true);
+	demux.init(0.0, 3.5, false, false, true);
 
-	constexpr uint64_t kDts1 = 90000ULL;  // 1.0 s
-	constexpr uint64_t kDts2 = 135000ULL; // 1.5 s
-	constexpr uint64_t kDts3 = 180000ULL; // 2.0 s
+	constexpr uint64_t kDts1 = 90*1000ULL;  // 1.0 s
+	constexpr uint64_t kDts2 = (90+45)*1000ULL; // 1.5 s
+	constexpr uint64_t kDts3 = (90+90+45)*1000ULL; // 2.5 s
 
 	std::vector<SegmentInfo_t> emitted;
 	auto proc = [&emitted](AampMediaType, SegmentInfo_t info,
@@ -608,11 +604,11 @@ TEST_F(DemuxerTests, SubsequentSampleDuration_IsDtsDeltaFromPrevious)
 	ASSERT_EQ(emitted.size(), 3u);
 	EXPECT_NEAR(emitted[0].dts_s, 1.0, EPS_SMALL);
 	EXPECT_NEAR(emitted[1].dts_s, 1.5, EPS_SMALL);
-	EXPECT_NEAR(emitted[2].dts_s, 2.0, EPS_SMALL);
+	EXPECT_NEAR(emitted[2].dts_s, 2.5, EPS_SMALL);
 	// Every sample spans the 0.5 s DTS step to the following sample.
 	EXPECT_NEAR(emitted[0].duration, 0.5, EPS_SMALL);
-	EXPECT_NEAR(emitted[1].duration, 0.5, EPS_SMALL);
-	EXPECT_NEAR(emitted[2].duration, 0.5, EPS_SMALL);
+	EXPECT_NEAR(emitted[1].duration, 1.0, EPS_SMALL);
+	EXPECT_NEAR(emitted[2].duration, 1.5, EPS_SMALL);
 }
 
 /**
