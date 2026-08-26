@@ -108,22 +108,6 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	SegmentInfo_t ret {position, 0, duration};
 	const double max_pts_s = 95443.71768889; // 2^33/90000
 
-	// Replaces the whole-segment duration with the duration of this sample:
-	// the DTS delta from the previously sent access unit. The first sample
-	// after a (re)start or discontinuity has no predecessor, so it retains
-	// the segment duration as a fallback.
-	auto applySampleDuration = [this](SegmentInfo_t &info)
-	{
-		if (last_sent_dts_s >= 0.0)
-		{
-			const double sampleDuration = info.dts_s - last_sent_dts_s;
-			if (sampleDuration > 0.0)
-			{
-				info.duration = sampleDuration;
-			}
-		}
-	};
-
 	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 	{
 		// In restamp mode base_pts may be stale, from the first tune: the
@@ -149,7 +133,6 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 		}
 		ret.pts_s = ptsOffset + raw_pts_s;
 		ret.dts_s = ptsOffset + raw_dts_s;
-		applySampleDuration(ret);
 		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f dur=%.3f",
 			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s, ret.duration);
 		return ret;
@@ -174,12 +157,13 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 			ret.dts_s += max_pts_s;
 		}
 	}
-	applySampleDuration(ret);
 	return ret;
 }
 
 void Demuxer::emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payload, const MediaProcessor::process_fcn_t &processor)
 {
+	total_sample_duration += info.duration;
+	AAMPLOG_INFO("patrick type %d total_sample_duration %f this %f", (int)type, total_sample_duration, info.duration);
 	if (processor)
 	{
 		processor(type, info, std::move(payload));
@@ -191,11 +175,23 @@ void Demuxer::emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payloa
 	payload.clear(); // move may leave payload valid-but-unspecified; clear for determinism
 }
 
-void Demuxer::emitPendingSample(const MediaProcessor::process_fcn_t &processor)
+void Demuxer::emitLastSample(const MediaProcessor::process_fcn_t &processor)
 {
+
 	if (!pending_es.empty())
 	{
+		/* calculate the duration of the last sample which is:
+		* duration = duration of segment - duration of all samples sent so far
+		*/
+		double duration = pending_info.duration - total_sample_duration;
+		AAMPLOG_INFO("patrick type %d duration %f", (int)type, duration);
+		if (duration > 0.0)
+		{
+			pending_info.duration = duration;
+		}
 		emitSample(pending_info, pending_es, processor);
+		total_sample_duration = 0.0;
+		pending_es.clear();
 	}
 }
 
@@ -214,7 +210,7 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 	}
 	const SegmentInfo_t info = UpdateSegmentInfo();
 
-	// A previously buffered first sample can now have its true duration
+	// A previously buffered sample can now have its true duration
 	// measured as the DTS delta to this (the next) access unit. Emit it
 	// before the current sample to preserve decode order.
 	if (!pending_es.empty())
@@ -227,20 +223,10 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 		emitSample(pending_info, pending_es, processor);
 	}
 
-	if (last_sent_dts_s < 0.0)
-	{
-		// First access unit of the epoch: buffer it until the next sample
-		// arrives so its duration can be established from that sample.
-		pending_es = std::move(es);
-		es.clear();
-		pending_info = info;
-		last_sent_dts_s = info.dts_s;
-	}
-	else
-	{
-		emitSample(info, es, processor);
-		last_sent_dts_s = info.dts_s;
-	}
+	pending_es = std::move(es);
+	es.clear();
+	pending_info = info;
+
 }
 
 void Demuxer::init(double position, double duration, bool trickmode, bool resetBasePTS, bool optimizeMuxed )
@@ -256,7 +242,7 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	current_dts = 0;
 	current_pts = 0;
 	first_pts = 0;
-	last_sent_dts_s = -1.0;
+	total_sample_duration = 0.0;
 	pending_es.clear();
 	update_first_pts = false;
 	finalized_base_pts = false;
@@ -282,7 +268,7 @@ void Demuxer::flush()
 	}
 	// Emit any sample still held for look-ahead (e.g. a single-sample epoch);
 	// no successor is available so it keeps its fallback duration.
-	emitPendingSample(nullptr);
+	emitLastSample(nullptr);
 	resetInternal();
 }
 

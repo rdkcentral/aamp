@@ -82,16 +82,12 @@ private:
 	std::vector<uint8_t> es{};
 	double position = 0.0;
 	double duration = 0.0;
-	/* DTS (in seconds) of the last access unit sent. Used to derive the
-	 * per-sample duration as the delta to the current access unit's DTS.
-	 * Negative means "no previous sample" (start of stream / discontinuity).
-	 */
-	double last_sent_dts_s = -1.0;
 	/* The first access unit of an epoch is buffered here until the next
 	 * access unit arrives, so its true duration can be measured from the
 	 * DTS delta before it is emitted. */
 	std::vector<uint8_t> pending_es{};
 	SegmentInfo_t pending_info{};
+	double total_sample_duration = 0.0;
 	uint33_t base_pts{};
 	bool rollover_pts = false;
 	uint33_t current_pts{};
@@ -131,11 +127,10 @@ private:
 	void emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payload, const MediaProcessor::process_fcn_t &processor);
 
 	/**
-	 * @brief Emits the buffered first sample, if any, with its current
-	 *        (possibly fallback) duration.
+	 * @brief Emits the buffered sample, when other samples from segment have been processed.
 	 * @param[in] processor Optional processor.
 	 */
-	void emitPendingSample(const MediaProcessor::process_fcn_t &processor);
+	void emitLastSample(const MediaProcessor::process_fcn_t &processor);
 
 	/**
 	 * @brief reset demux state
@@ -162,12 +157,9 @@ public:
 		// falsely detecting a 33-bit wrap when there is a large PTS jump
 		// caused by the discontinuity / restamp boundary.
 		suppress_rollover_detection = true;
-		// New encoder epoch: the first access unit after the boundary has
-		// no valid predecessor for per-sample duration calculation.
-		last_sent_dts_s = -1.0;
 		// Flush any sample still held for look-ahead from the previous epoch
 		// so it is not measured against the new (discontinuous) timeline.
-		emitPendingSample(nullptr);
+		emitLastSample(nullptr);
 	}
 
 	/**
@@ -291,7 +283,7 @@ public:
 		}
 		if (!pending_es.empty())
 		{
-			emitPendingSample(processor);
+			emitLastSample(processor);
 			sent = true;
 		}
 		return sent;
