@@ -680,6 +680,7 @@ JSValueRef AAMPMediaPlayerJS_initConfig (JSContextRef ctx, JSObjectRef function,
 	LOG_TRACE("Enter");
 
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	LOG_WARN_EX("[JS_TRACE] AAMPMediaPlayerJS_initConfig ctx=%p thisObject=%p privObj=%p, privObj->_aamp=%p", ctx, thisObject, privObj, privObj ? privObj->_aamp : NULL);
 	if (!privObj || !privObj->_aamp)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
@@ -3881,6 +3882,7 @@ JSValueRef AAMPMediaPlayerJS_getProperty_Version(JSContextRef ctx, JSObjectRef o
 {
 	LOG_TRACE("Enter");
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(object);
+	LOG_WARN_EX("Enter AAMPMediaPlayerJS_getProperty_Version: ctx=%p object=%p privObj=%p privObj->_aamp=%p", ctx, object, privObj, privObj ? privObj->_aamp : NULL);
 	if (!privObj || !privObj->_aamp)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
@@ -4449,6 +4451,17 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 	JSStringRef str = JSStringCreateWithUTF8CString("AAMP");
 	JSObjectSetProperty(jsContext, globalObj, str, classObj, kJSPropertyAttributeReadOnly, NULL);
 	JSStringRelease(str);
+
+	// update playerInstanceAAMP with the new AAMPMediaPlayer_JS object
+	if (NULL != pAAMP->_aamp)
+	{
+		AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(classObj);
+		if (NULL != privObj)
+		{
+			LOG_WARN_EX("[JS_TRACE]update playerInstanceAAMP %p with the new AAMPMediaPlayer_JS object %p", pAAMP->_aamp, privObj);
+			privObj->_aamp = pAAMP->_aamp;
+		}
+	}
 }
 
 /**
