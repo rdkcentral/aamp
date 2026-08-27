@@ -1918,11 +1918,19 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	}
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample)
+void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->QueueProtectionEvent(type, protectionEvents);
+	}
+}
+
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample, bool morePending)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, std::move(sample));
+		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, std::move(sample), morePending);
 	}
 }
 

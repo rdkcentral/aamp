@@ -190,7 +190,8 @@ private:
 	uint8_t constantIvSize; /**< Constant IV size */
 	std::vector<uint8_t> constantIv; /**< Constant initialization vector */
 	// Media timing and samples
-	uint32_t timeScale; /**< Media timescale */
+	uint32_t timeScale; /**< Media timescale, from mvhd/mdhd; 0 if not present in this segment */
+	uint32_t fallbackTimeScale; /**< Manifest-declared timescale, used when timeScale is 0 (e.g. no init segment) */
 	std::vector<AampMediaSample> samples; /**< Parsed media samples */
 	// Encryption-specific data
 	std::vector<uint8_t> defaultKid; /**< Default key identifier */
@@ -213,6 +214,7 @@ private:
 	// Track fragment fields
 	uint64_t baseMediaDecodeTime; /**< Base media decode time */
 	uint32_t trackId; /**< Track identifier */
+	uint32_t handlerType; /**< Handler type FourCC from 'hdlr' (e.g. 'vide', 'soun', 'meta'), for diagnostics */
 	uint64_t baseDataOffset; /**< Base data offset */
 	uint32_t defaultSampleDescriptionIndex; /**< Default sample description index */
 	uint32_t defaultSampleDuration; /**< Default sample duration */
@@ -453,6 +455,11 @@ public:
 	 * @return Media timescale
 	 */
 	uint32_t GetTimeScale() const;
+	/** @brief Set the manifest-declared timescale to fall back on when no mvhd/mdhd
+	 * box establishes timeScale (e.g. streams with no init segment for this track).
+	 * @param ts Timescale value from the manifest (e.g. DASH SegmentTemplate\@timescale)
+	 */
+	void SetFallbackTimeScale(uint32_t ts);
 	/** @brief Get codec information
 	 * @return Codec information with ownership transferred to caller
 	 */
