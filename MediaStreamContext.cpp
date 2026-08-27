@@ -217,58 +217,51 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const uint
 		}
 		PopulateCommonMetadata(cachedFragment, std::move(remoteUrl), actualType, 0, false, false);
 		TransferFragmentBuffer(cachedFragment, ptr, nullptr, size, true);
-		cachedFragment->absPosition = 0;
 		cachedFragment->downloadStartTime = dnldStartTime;
 
-		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
-		if (mActiveDownloadInfo)
+		cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
+		cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
+		cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
+		// Position of this chunk, before chunkDurationSec advances past it - required by the
+		// SLD restamping path (RestampPts/TrickModePtsRestamp), which chunk mode now also uses.
+		cachedFragment->position = mActiveDownloadInfo->pts + mActiveDownloadInfo->chunkDurationSec;
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			cachedFragment->absPosition = mActiveDownloadInfo->absolutePosition;
-			cachedFragment->timeScale = mActiveDownloadInfo->timeScale;
-			cachedFragment->duration = (double)durationInTicks / (double)cachedFragment->timeScale;
-			// Position of this chunk, before chunkDurationSec advances past it - required by the
-			// SLD restamping path (RestampPts/TrickModePtsRestamp), which chunk mode now also uses.
-			cachedFragment->position = mActiveDownloadInfo->pts + mActiveDownloadInfo->chunkDurationSec;
-			if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+			cachedFragment->position += mActiveDownloadInfo->ptsOffset.inSeconds();
+		}
+		mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
+		// Only update when absPosition is set to avoid messing up the values.
+		if (cachedFragment->absPosition > 0)
+		{
+			AAMPLOG_DEBUG("[%s] Updating last downloaded position[chunkDuration:%f]. Previous: %f, New: %f",
+				name, mActiveDownloadInfo->chunkDurationSec, lastDownloadedPosition.load(),
+				cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+			lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
+			if (eTRACK_VIDEO == type)
 			{
-				cachedFragment->position += mActiveDownloadInfo->ptsOffset.inSeconds();
-			}
-			mActiveDownloadInfo->chunkDurationSec += cachedFragment->duration;
-			// Only update when absPosition is set to avoid messing up the values.
-			if (cachedFragment->absPosition > 0)
-			{
-				AAMPLOG_DEBUG("[%s] Updating last downloaded position[chunkDuration:%f]. Previous: %f, New: %f",
-					name, mActiveDownloadInfo->chunkDurationSec, lastDownloadedPosition.load(),
-					cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
-				lastDownloadedPosition.store(cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec);
-				if (eTRACK_VIDEO == type)
+				// Notify the underflow monitor for LL-DASH chunks.
+				// Paused-state gating to 0.0f is handled inside
+				// NotifyVideoFragmentToUnderflowMonitor under its mutex.
+				GetContext()->NotifyVideoFragmentToUnderflowMonitor(
+					cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
+					aamp->rate);
+				const double videoBufferMs = GetContext()->GetBufferedVideoDurationSec() * 1000.0;
+				if (videoBufferMs >= 0.0)
 				{
-					// Notify the underflow monitor for LL-DASH chunks.
-					// Paused-state gating to 0.0f is handled inside
-					// NotifyVideoFragmentToUnderflowMonitor under its mutex.
-					GetContext()->NotifyVideoFragmentToUnderflowMonitor(
-						cachedFragment->absPosition + mActiveDownloadInfo->chunkDurationSec,
-						aamp->rate);
-					const double videoBufferMs = GetContext()->GetBufferedVideoDurationSec() * 1000.0;
-					if (videoBufferMs >= 0.0)
-					{
-						GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_VIDEO, videoBufferMs);
-					}
+					GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_VIDEO, videoBufferMs);
 				}
-				else if (eTRACK_AUDIO == type)
+			}
+			else if (eTRACK_AUDIO == type)
+			{
+				const double audioBufferMs = GetContext()->GetBufferedAudioDurationSec() * 1000.0;
+				if (audioBufferMs >= 0.0)
 				{
-					const double audioBufferMs = GetContext()->GetBufferedAudioDurationSec() * 1000.0;
-					if (audioBufferMs >= 0.0)
-					{
-						GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_AUDIO, audioBufferMs);
-					}
+					GetContext()->NotifyBufferLevelToLatencyMonitor(eMEDIATYPE_AUDIO, audioBufferMs);
 				}
 			}
 		}
-		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
-		 * the last segment from the previous period has been injected, hence we copy it
-		 */
-		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
+		// Use the PTS offset captured in the active download info to avoid a race with manifest-driven updates to mPTSOffset.
+		cachedFragment->PTSOffsetSec = mActiveDownloadInfo->ptsOffset.inSeconds();
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.data());
 		UpdateTSAfterFetch();

@@ -34,6 +34,7 @@ public:
     MOCK_METHOD(std::vector<MediaProtectionInfo>, GetProtectionEvents, ());
     MOCK_METHOD(std::vector<AampMediaSample>, GetSamples, ());
     MOCK_METHOD(Mp4ParseError, GetLastError, (), (const));
+    MOCK_METHOD(void, SetFallbackTimeScale, (uint32_t ts));
 };
 
 extern std::shared_ptr<MockMp4Demux> g_mockMp4Demux;

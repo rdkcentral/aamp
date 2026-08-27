@@ -72,6 +72,10 @@ void AampMp4Demuxer::setFrameRateForTM(int frameRate)
 {
 }
 
+void AampMp4Demuxer::setFallbackTimeScale(uint32_t timeScale)
+{
+}
+
 void AampMp4Demuxer::abort()
 {
 }

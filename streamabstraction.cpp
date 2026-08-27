@@ -1027,7 +1027,6 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 	class StreamAbstractionAAMP* pContext = GetContext();
 	// This will change for trickplay if restamping is enabled (cachedFragment->duration is changed according to abs rate)
 	double inFragmentDuration = cachedFragment->duration;
-
 	// Restamp 2.0 only for DASH streams
 	/*
 	* Ignore restamping for mp4demux here(both Trickplay and normal playback) as the restamping will be done in the mp4demux
@@ -1119,7 +1118,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			mSubtitleParser->processData( ptr, len, cachedFragment->position, cachedFragment->duration);
 		}
 	}
-	if (!cachedFragment->isDummy && (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled())))
+		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 	{
 		if(AAMP_NORMAL_PLAY_RATE==aamp->rate)
 		{
