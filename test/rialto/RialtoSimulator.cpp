@@ -443,34 +443,40 @@ public:
 			if (allNonSubtitleSourcesEos &&
 				!m_eosNotified.exchange(true, std::memory_order_relaxed))
 			{
-				// Snapshot the maximum injected content duration across
-				// non-subtitle sources.  A real renderer must play out all
-				// buffered frames before signalling END_OF_STREAM, so the
-				// drain wait must cover at least this many nanoseconds of
-				// elapsed wall time from play-start.  On fast networks AAMP
-				// can inject a 60 s clip well under 60 s of wall time,
-				// leaving up to kBufferHighWaterNs of content buffered-ahead
-				// when EOS arrives; without this guard the fixed 6 s floor
-				// is already satisfied and END_OF_STREAM fires immediately
-				// — premature relative to the clip end.
-				int64_t maxInjectedNs = 0;
+				// Snapshot the maximum *unplayed backlog* (injected minus
+				// already-played, per bufferedAheadNsLocked()) across
+				// non-subtitle sources.  A real renderer must play out
+				// buffered-but-not-yet-rendered frames before signalling
+				// END_OF_STREAM, so the drain wait must cover at least this
+				// many nanoseconds of elapsed wall time.  Using the raw
+				// cumulative injected total instead of the backlog is wrong
+				// during trickplay: fast-forward/rewind can inject tens of
+				// seconds of pipeline-timebase content over the life of the
+				// trick session, none of which is still "buffered ahead" by
+				// the time EOS is reached, which previously inflated the
+				// drain wait far beyond the actual outstanding backlog.
+				int64_t maxBufferedAheadNs = 0;
 				{
 					std::lock_guard<std::mutex> lock(m_trackMutex);
 					for (const auto &entry : m_injectedDurationNs)
 					{
 						auto typeIt = m_sourceTypes.find(entry.first);
 						if (typeIt != m_sourceTypes.end() &&
-							typeIt->second != MediaSourceType::SUBTITLE &&
-							entry.second > maxInjectedNs)
+							typeIt->second != MediaSourceType::SUBTITLE)
 						{
-							maxInjectedNs = entry.second;
+							int64_t bufferedNs =
+								bufferedAheadNsLocked(entry.first);
+							if (bufferedNs > maxBufferedAheadNs)
+							{
+								maxBufferedAheadNs = bufferedNs;
+							}
 						}
 					}
 				}
 				// All non-subtitle sources EOS'd — delay END_OF_STREAM
 				// to model the real pipeline's drain time (renderer must
 				// play out buffered frames before signalling EOS).
-				std::thread([this, maxInjectedNs]() {
+				std::thread([this, maxBufferedAheadNs]() {
 					using namespace std::chrono;
 					constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
 					// Gate on the user's play/pause intent (m_playRequested), not
@@ -479,7 +485,7 @@ public:
 					// actually paused, which would otherwise stall this
 					// drain (and END_OF_STREAM) indefinitely during ff/rew.
 					const int64_t waitUntilNs = std::max(kMinDrainNs,
-						maxInjectedNs);
+						maxBufferedAheadNs);
 					int64_t drainedWhilePlayingNs = 0;
 					auto lastTick = steady_clock::now();
 					for (;;)
