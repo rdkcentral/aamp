@@ -96,6 +96,10 @@ SecManagerThunder::~SecManagerThunder()
 		std::lock_guard<std::mutex> ownedSessionsLock(mOwnedSessionsMutex);
 		mOwnedSessions.clear();
 	}
+	{
+		std::lock_guard<std::mutex> graphicOpLock(mGraphicOpMutex);
+		mGraphicIdsInFlight.clear();
+	}
 	/* hide watermarking before secmanager shutdown */
 	ShowWatermark(false);
 
@@ -607,6 +611,23 @@ bool SecManagerThunder::isOwnedSession(int64_t sessionId)
 	return mOwnedSessions.find(sessionId) != mOwnedSessions.end();
 }
 
+bool SecManagerThunder::tryMarkGraphicOpInFlight(int graphicId)
+{
+	std::lock_guard<std::mutex> lock(mGraphicOpMutex);
+	if (mGraphicIdsInFlight.find(graphicId) != mGraphicIdsInFlight.end())
+	{
+		return false;
+	}
+	mGraphicIdsInFlight.insert(graphicId);
+	return true;
+}
+
+void SecManagerThunder::clearGraphicOpInFlight(int graphicId)
+{
+	std::lock_guard<std::mutex> lock(mGraphicOpMutex);
+	mGraphicIdsInFlight.erase(graphicId);
+}
+
 /**
  * @brief  Detects watermarking session conditions
  */
@@ -659,6 +680,11 @@ void SecManagerThunder::addWatermarkHandler(const JsonObject& parameters)
 	{
 		int graphicId = parameters["graphicId"].Number();
 		int zIndex = parameters["zIndex"].Number();
+		if (!tryMarkGraphicOpInFlight(graphicId))
+		{
+			MW_LOG_WARN("ContentSecurityManager::%s:%d Ignoring duplicate onAddWatermark for graphicId already in flight: %d", __FUNCTION__, __LINE__, graphicId);
+			return;
+		}
 		MW_LOG_WARN("ContentSecurityManager::%s:%d graphicId : %d index : %d ", __FUNCTION__, __LINE__, graphicId, zIndex);
 		ScheduleTask(PlayerAsyncTaskObj([graphicId, zIndex](void *data)
 					{
@@ -751,6 +777,7 @@ void SecManagerThunder::removeWatermarkHandler(const JsonObject& parameters)
 					{
 					SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
 					instance->DeleteWatermark(graphicId);
+					instance->clearGraphicOpInFlight(graphicId);
 					}, (void *) ContentSecurityManager::GetInstance()));
 #if 0
 		/*Method to be called only if RDKShell is used for rendering*/

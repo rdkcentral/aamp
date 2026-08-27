@@ -202,6 +202,17 @@ protected:
 	 * @return true if this instance owns the session, false otherwise
 	 */
 	bool isOwnedSession(int64_t sessionId);
+	/**
+	 * @brief Marks graphicId as having an in-flight create/update/delete op; fails if one is already pending
+	 * @param graphicId graphic ID to reserve
+	 * @return true if reservation succeeded (no operation already in flight for this graphicId)
+	 */
+	bool tryMarkGraphicOpInFlight(int graphicId);
+	/**
+	 * @brief Clears the in-flight marker for graphicId, allowing future create/update/delete ops
+	 * @param graphicId graphic ID to release
+	 */
+	void clearGraphicOpInFlight(int graphicId);
 
 	ThunderAccessPlayer mSecManagerObj;       /**< ThunderAccessPlayer object for communicating with SecManager*/
 	ThunderAccessPlayer mWatermarkPluginObj;  /**< ThunderAccessPlayer object for communicating with Watermark Plugin Obj*/
@@ -209,10 +220,11 @@ protected:
 	std::mutex mWatMutex;		        /**< Lock for accessing mWatermarkPluginObj*/
 	std::mutex mSpeedStateMutex;		/**< mutex for setPlaybackSpeedState()*/
 	std::mutex mOwnedSessionsMutex;     /**< mutex for mOwnedSessions*/
+	std::mutex mGraphicOpMutex;          /**< mutex for mGraphicIdsInFlight*/
 	std::list<std::string> mRegisteredEvents;
 	bool mSchedulerStarted;
 	std::set<int64_t> mOwnedSessions;   /**< Set of session IDs owned by this instance*/
-
+	std::set<int> mGraphicIdsInFlight;  /**< graphicIds with a create/update/delete op currently in flight*/
 };
 
 #endif /* __SECMANAGER_THUNDER_H__ */
