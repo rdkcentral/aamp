@@ -4406,7 +4406,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 	LOG_WARN_EX("context=%p, aamp=%p", context, playerInstanceAAMP);
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 	
-	AAMP_JS* pAAMP = new AAMP_JS();
+	AAMPMediaPlayer_JS* pAAMP = new AAMPMediaPlayer_JS();
 	pAAMP->_ctx = jsContext;
 	if (NULL != playerInstanceAAMP)
 	{
@@ -4414,7 +4414,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 	}
 	else
 	{
-		std::lock_guard<std::mutex> guard(jsMutex);
+		/*std::lock_guard<std::mutex> guard(jsMutex);
 		if (NULL == _allocated_aamp )
 		{
 			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL, true);
@@ -4423,11 +4423,11 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 		else
 		{
 			LOG_WARN_EX("reuse aamp %p", _allocated_aamp);
-		}
-		pAAMP->_aamp = _allocated_aamp;
+		}*/
+		pAAMP->_aamp = new PlayerInstanceAAMP(NULL, NULL, true);
 	}
 
-	pAAMP->_listeners = NULL;
+	pAAMP->_listeners.clear();
 
 	//Get PLAYER ID and store for future use in logging
 	pAAMP->iPlayerId = pAAMP->_aamp->GetId();
@@ -4441,8 +4441,8 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 
 	//pAAMP->_eventType = AAMP_JS_AddEventTypeClass(jsContext);
 
-	pAAMP->_subscribedTags = NULL;
-	pAAMP->_promiseCallback = NULL;
+	//pAAMP->_subscribedTags = NULL;
+	//pAAMP->_promiseCallback = NULL;
 	//AAMP_JSListener::AddEventListener(pAAMP, AAMP_EVENT_AD_RESOLVED, NULL);
 
 	//JSObjectRef classObj = JSObjectMake(jsContext, AAMP_class_ref(), pAAMP);
@@ -4458,8 +4458,8 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 		AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(classObj);
 		if (NULL != privObj)
 		{
-			LOG_WARN_EX("[JS_TRACE]update playerInstanceAAMP %p with the new AAMPMediaPlayer_JS object %p", pAAMP->_aamp, privObj);
-			privObj->_aamp = pAAMP->_aamp;
+			LOG_WARN_EX("[JS_TRACE] playerInstanceAAMP %p of new AAMPMediaPlayer_JS object %p", privObj->_aamp, privObj);
+			//privObj->_aamp = pAAMP->_aamp;
 		}
 	}
 }
