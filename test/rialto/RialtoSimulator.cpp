@@ -448,35 +448,26 @@ public:
 				// non-subtitle sources.  A real renderer must play out
 				// buffered-but-not-yet-rendered frames before signalling
 				// END_OF_STREAM, so the drain wait must cover at least this
-				// many nanoseconds of elapsed wall time.  Using the raw
-				// cumulative injected total instead of the backlog is wrong
-				// during trickplay: fast-forward/rewind can inject tens of
-				// seconds of pipeline-timebase content over the life of the
-				// trick session, none of which is still "buffered ahead" by
-				// the time EOS is reached, which previously inflated the
-				// drain wait far beyond the actual outstanding backlog.
+				// many nanoseconds of elapsed wall time.
 				int64_t maxBufferedAheadNs = 0;
 				{
 					std::lock_guard<std::mutex> lock(m_trackMutex);
-					for (const auto &entry : m_injectedDurationNs)
+					for (const auto &[srcId, injectedNs] : m_injectedDurationNs)
 					{
-						auto typeIt = m_sourceTypes.find(entry.first);
+						auto typeIt = m_sourceTypes.find(srcId);
 						if (typeIt != m_sourceTypes.end() &&
 							typeIt->second != MediaSourceType::SUBTITLE)
 						{
 							int64_t bufferedNs =
-								bufferedAheadNsLocked(entry.first);
+								bufferedAheadNsLocked(srcId);
 							if (!m_playing.load(std::memory_order_relaxed))
 							{
 								// bufferedAheadNsLocked() reports 0 while not PLAYING; for
 								// EOS drain timing, fall back to injected duration so we
 								// don’t under-wait when EOS is reached while paused/preroll.
-								bufferedNs = entry.second;
+								bufferedNs = injectedNs;
 							}
-							if (bufferedNs > maxBufferedAheadNs)
-							{
-								maxBufferedAheadNs = bufferedNs;
-							}
+							maxBufferedAheadNs = std::max(maxBufferedAheadNs, bufferedNs);
 						}
 					}
 				}
@@ -745,7 +736,7 @@ private:
 
 	void startEosDrain(int64_t maxBufferedAheadNs)
 	{
-		std::thread([this, maxBufferedAheadNs]() {
+		m_eosThread = std::thread([this, maxBufferedAheadNs]() {
 			using namespace std::chrono;
 			constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
 			// Gate on the user's play/pause intent (m_playRequested), not
@@ -805,7 +796,7 @@ private:
 				client->notifyPlaybackState(
 					firebolt::rialto::PlaybackState::END_OF_STREAM);
 			}
-		}).detach();
+		});
 	}
 
 	void startNeedDataPump()
@@ -1072,6 +1063,10 @@ private:
 		{
 			m_positionThread.join();
 		}
+		if (m_eosThread.joinable())
+		{
+			m_eosThread.join();
+		}
 	}
 
 	std::weak_ptr<IMediaPipelineClient> m_client;
@@ -1094,6 +1089,7 @@ private:
 	std::atomic<int> m_eosSourceCount;
 	std::atomic<bool> m_eosNotified;
 	std::thread m_positionThread;
+	std::thread m_eosThread;
 	bool m_playbackRateEnabled;
 	mutable std::mutex m_trackMutex;
 	std::map<int32_t, MediaSourceType> m_sourceTypes;
