@@ -473,9 +473,11 @@ public:
 				std::thread([this, maxInjectedNs]() {
 					using namespace std::chrono;
 					constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
-					// Drain must not advance while paused, but should otherwise
-					// follow active playback wall time so trickplay timing
-					// remains consistent with previous behavior.
+					// Gate on the user's play/pause intent (m_playRequested), not
+					// m_playing: flush() clears m_playing on every internal
+					// seek/trickplay cycle even though playback was never
+					// actually paused, which would otherwise stall this
+					// drain (and END_OF_STREAM) indefinitely during ff/rew.
 					const int64_t waitUntilNs = std::max(kMinDrainNs,
 						maxInjectedNs);
 					int64_t drainedWhilePlayingNs = 0;
@@ -492,7 +494,7 @@ public:
 							now - lastTick).count();
 						lastTick = now;
 
-						if (!m_playing.load(std::memory_order_relaxed))
+						if (!m_playRequested.load(std::memory_order_relaxed))
 						{
 							std::this_thread::sleep_for(
 								milliseconds(50));
