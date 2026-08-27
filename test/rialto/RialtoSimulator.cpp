@@ -466,6 +466,13 @@ public:
 						{
 							int64_t bufferedNs =
 								bufferedAheadNsLocked(entry.first);
+							if (!m_playing.load(std::memory_order_relaxed))
+							{
+								// bufferedAheadNsLocked() reports 0 while not PLAYING; for
+								// EOS drain timing, fall back to injected duration so we
+								// don’t under-wait when EOS is reached while paused/preroll.
+								bufferedNs = entry.second;
+							}
 							if (bufferedNs > maxBufferedAheadNs)
 							{
 								maxBufferedAheadNs = bufferedNs;
