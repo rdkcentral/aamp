@@ -685,6 +685,24 @@ public:
 	void TuneHelper(TuneType tuneType, bool seekWhilePaused = false);
 
 	/**
+	 * @brief Control whether we can terminate a TuneInternal async task early
+	 *
+	 * @fn SetTuneAsyncTaskAbortEnable
+	 * @param[in] enableAbortType - Control whether we can terminate a TuneInternal async task early
+	 * @return void
+	 */
+	void SetTuneAsyncTaskAbortEnable(bool enableAbort);
+
+	/**
+	 * @brief Query whether early abort is enabled during TuneInternal async task
+	 *
+	 * @fn IsTuneAsyncTaskAbortEnable
+	 * @param[in] enableAbortType - Control whether we can terminate a TuneInternal async task early
+	 * @return void
+	 */
+	bool IsTuneAsyncTaskAbortEnabled(void);
+
+	/**
 	 * @fn TeardownStream
 	 *
 	 * @param[in] newTune - true if operation is a new tune
@@ -960,6 +978,7 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
+	std::atomic<bool> mAsyncTaskAbortEnabled;
 	std::string mTsbType;
 	int mTsbDepthMs;
 	int mDownloadDelay;

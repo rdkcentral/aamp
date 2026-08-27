@@ -3913,7 +3913,34 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	AAMPStatusType ret = FetchDashManifest();
+	AAMPStatusType ret= eAAMPSTATUS_OK;
+	AAMPPlayerState state = aamp->GetState();
+	if (aamp->IsTuneAsyncTaskAbortEnabled() && (eSTATE_STOPPING == state))
+	{
+		AAMPLOG_WARN("Manifest download will be skipped since we are already stopping");
+		ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+	}
+	else
+	{
+		initialManifestFetchInProgress=true;	// Signal to any stop process that a manifest download can be aborted
+		// This may get terminated by Release from Stop(), returning eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR
+		ret = FetchDashManifest();
+		initialManifestFetchInProgress=false;
+
+		if (ret != eAAMPSTATUS_OK)
+		{
+			AAMPLOG_INFO("Manifest download failed or was aborted, code = %s", statusName(ret));
+		}
+		// If we are in a stopping state then assume that manifest download was aborted.
+		// We do not care about (or want to be) returning an error if we are stopping.
+		state = aamp->GetState();
+		if (eSTATE_STOPPING == state)
+		{
+			ret = eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED;
+			AAMPLOG_INFO("A stop has been requested during manifest download. Adjusted code = %s", statusName(ret));
+		}
+	}	
+	
 	if (ret == eAAMPSTATUS_OK)
 	{
 		std::string manifestUrl = aamp->GetManifestUrl();

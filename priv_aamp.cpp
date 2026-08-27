@@ -1680,6 +1680,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)
 	,mbPlayEnabled(true), mPlayerPreBuffered(false), mPlayerId(PLAYERID_CNTR++),mAampCacheHandler(NULL)
 	,mAsyncTuneEnabled(false)
+	,mAsyncTaskAbortEnabled(false)
 	,waitforplaystart()
 	,mCurlShared(NULL)
 	,mDrmDecryptFailCount(MAX_SEG_DRM_DECRYPT_FAIL_COUNT)
@@ -3272,9 +3273,13 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 #endif
 	bool sendErrorEvent = false;
 	std::unique_lock<std::recursive_mutex> lock(mLock);
+	//  GNP
 	if(mState != eSTATE_ERROR)
 	{
-		if(IsFogTSBSupported() && mState <= eSTATE_PREPARED)
+		if( IsFogTSBSupported() &&
+		   (  mState <= eSTATE_PREPARED ||
+		      (mState == eSTATE_STOPPING && (tuneFailure == AAMP_TUNE_MANIFEST_REQ_FAILED || tuneFailure == AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR))
+		   ) )
 		{
 			// Send a TSB delete request when player is not tuned successfully.
 			// If player is once tuned, retune happens with same content and player can reuse same TSB.
@@ -3287,8 +3292,15 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			T1.Initialize(std::move(inpData));
 			T1.Download(remoteUrl, std::move(respData));
 		}
-		sendErrorEvent = true;
-		mState = eSTATE_ERROR;
+		if (mState == eSTATE_STOPPING && (tuneFailure == AAMP_TUNE_MANIFEST_REQ_FAILED || tuneFailure == AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR))
+		{
+			AAMPLOG_MIL("Ignoring error since this was a forced abort. tuneFailure=%d, decription=%s", tuneFailure, description ? description : "NONE");
+		}
+		else
+		{
+			sendErrorEvent = true;
+			mState = eSTATE_ERROR;
+		}
 	}
 	lock.unlock();
 	if (sendErrorEvent)
@@ -3378,7 +3390,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	}
 	else
 	{
-		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error %d[%s]", (int)tuneFailure, description);
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error %d[%s]", (int)tuneFailure, description ? description : "NONE");
 	}
 }
 
@@ -5574,6 +5586,23 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 	return ;
 }
 
+/**
+ * @brief Control whether we can terminate a TuneInternal async task early
+ */
+void PrivateInstanceAAMP::SetTuneAsyncTaskAbortEnable(bool enableAbort)
+{
+	mAsyncTaskAbortEnabled = enableAbort;
+}
+
+/**
+ * @brief Control whether we can terminate a TuneInternal async task early
+ * 
+ * @return bool  true if async tasks are enabled and SetTuneAsyncTaskAbortEnable(true) has been called
+ */
+bool PrivateInstanceAAMP::IsTuneAsyncTaskAbortEnabled(void)
+{
+	return (mAsyncTuneEnabled && mAsyncTaskAbortEnabled.load());
+}
 
 /**
  * @brief Terminate the stream
@@ -5941,6 +5970,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
 	bool previousCCEnabled = false;
+	timingExecutionStore timingData(__LINE__);
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -6007,8 +6037,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMPLOG_INFO ("Resetting mClearPipeline & mEncryptedPeriodFound");
 	}
 
+	timingData.storeTimingPoint(__LINE__);
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-
+	timingData.storeTimingPoint(__LINE__);
 	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
@@ -6076,6 +6107,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMPDDownloaderInstance->Start();
 		}
 	}
+	timingData.storeTimingPoint(__LINE__);
 
 	trickStartUTCMS = -1;
 
@@ -6192,6 +6224,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		SendErrorEvent(AAMP_TUNE_UNSUPPORTED_STREAM_TYPE);
 		return;
 	}
+	timingData.storeTimingPoint(__LINE__);
 
 	mInitSuccess = true;
 	AAMPStatusType retVal = eAAMPSTATUS_GENERIC_ERROR;
@@ -6227,6 +6260,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		else
 		{
 			mpStreamAbstractionAAMP->SetCDAIObject(mCdaiObject);
+			timingData.storeTimingPoint(__LINE__);
 			retVal = mpStreamAbstractionAAMP->Init(tuneType);
 		}
 	}
@@ -6235,6 +6269,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMPLOG_WARN("Stream abstraction object is NULL");
 		retVal = eAAMPSTATUS_GENERIC_ERROR;
 	}
+
+	timingData.storeTimingPoint(__LINE__);
 
 	// Validate tune type
 	// (need to find a better way to do this)
@@ -6317,6 +6353,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			}
 		}
 		mInitSuccess = false;
+		timingData.printTimingPointsAsInfo(__LINE__, __FUNCTION__,"ExitTune");
 		return;
 	}
 	else
@@ -6326,6 +6363,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		int volume = audio_volume;
 		double updatedSeekPosition = mpStreamAbstractionAAMP->GetStreamPosition();
+
+		timingData.storeTimingPoint(__LINE__);
+
 		if(mMediaFormat != eMEDIAFORMAT_DASH)
 		{
 			/* For non-DASH formats, the stream position returned by the StreamAbstraction object is relative to the
@@ -6370,6 +6410,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mFragmentCachingRequired = true;
 		}
+
+		timingData.storeTimingPoint(__LINE__);
 
 		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
 		UpdatePTSOffsetFromTune(seek_pos_seconds, true);
@@ -6437,6 +6479,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					SetCCStatusInternal();
 				}
 				sink->SetAudioVolume(volume);
+				timingData.storeTimingPoint(__LINE__);
 				if (mbPlayEnabled)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus());
@@ -6447,6 +6490,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				AAMPLOG_ERR("GetStreamSink() returned NULL");
 			}
 		}
+		timingData.storeTimingPoint(__LINE__);
 
 		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
 		 * and retrieve the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
@@ -6470,6 +6514,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			AAMPLOG_MIL("Disabling local TSB handling for this tune");
 		}
 
+		timingData.storeTimingPoint(__LINE__);
 		// TODO - X1-TSB : ES Change status needs to be checked
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
 		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
@@ -6484,6 +6529,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
 			}
 		}
+		timingData.storeTimingPoint(__LINE__);
 		if (!mbUsingExternalPlayer)
 		{
 			if (mbPlayEnabled)
@@ -6495,6 +6541,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				}
 			}
 		}
+
+		timingData.storeTimingPoint(__LINE__);
 
 		if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 		{
@@ -6560,6 +6608,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SetState(eSTATE_PREPARED);
 			SendMediaMetadataEvent();
 		}
+	}
+	if (timingData.timeSinceStartMs() > 2500)
+	{
+		timingData.printTimingPointsAsWarning(__LINE__, __FUNCTION__,"SlowTune");
+	}
+	else
+	{
+		timingData.printTimingPointsAsInfo(__LINE__, __FUNCTION__,"NormalTune");
 	}
 }
 
@@ -9278,6 +9334,17 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
  */
 void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
+	// only allow us to go to stopped, released, complete, or idle state from stopping state, since an ongoing tune/seek/setrate or similar operation may erase stopping state otherwise
+	if (   (eSTATE_STOPPING == mState) && 
+		  !( (eSTATE_STOPPED == state) || (eSTATE_IDLE == state) ) )
+	{
+		if (state != mState)
+		{
+			AAMPLOG_MIL("Player state request '%s' is rejected since we are stopping", stateName(state));
+		}
+		return;
+	}
+
 	// Atomically exchange the state and get the previous value in one operation
 	// This ensures only one thread observes each state transition, preventing duplicate events
 	AAMPPlayerState oldState = mState.exchange(state);
@@ -9287,16 +9354,6 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEv
 	{
 		return;
 	}
-
-	static const char* const kStateNames[] = {
-		"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
-		"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
-		"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
-	};
-	auto stateName = [](AAMPPlayerState s) -> const char* {
-		return (s >= 0 && s < (int)(sizeof(kStateNames)/sizeof(kStateNames[0])))
-			? kStateNames[s] : "UNKNOWN";
-	};
 	AAMPLOG_MIL("Player state changed: %s -> %s", stateName(oldState), stateName(state));
 
 	// Handle SEEKED event based on the actual previous state

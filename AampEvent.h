@@ -209,6 +209,21 @@ typedef enum
 	eSTATE_BLOCKED      = 14  /**< AV muted due to parental control */
 } AAMPPlayerState;
 
+
+static const char* const kStateNames[] = {
+	"IDLE", "INITIALIZING", "INITIALIZED", "PREPARING", "PREPARED",
+	"BUFFERING", "PAUSED", "SEEKING", "PLAYING", "STOPPING",
+	"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
+};
+
+/** 
+ * @brief lambda to return a string for a state name
+ */
+const auto stateName = [](AAMPPlayerState s) -> const char* {
+	return (s >= 0 && s < (int)(sizeof(kStateNames)/sizeof(kStateNames[0])))
+		? kStateNames[s] : "UNKNOWN";
+};
+
 /**
  * @enum AAMPCDAIError
  * @brief CDAI failure error code
