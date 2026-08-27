@@ -5970,7 +5970,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
 	bool previousCCEnabled = false;
-	timingExecutionStore timingData(__LINE__);
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -6037,9 +6036,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMPLOG_INFO ("Resetting mClearPipeline & mEncryptedPeriodFound");
 	}
 
-	timingData.storeTimingPoint(__LINE__);
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-	timingData.storeTimingPoint(__LINE__);
 	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
@@ -6107,7 +6104,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMPDDownloaderInstance->Start();
 		}
 	}
-	timingData.storeTimingPoint(__LINE__);
 
 	trickStartUTCMS = -1;
 
@@ -6224,7 +6220,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		SendErrorEvent(AAMP_TUNE_UNSUPPORTED_STREAM_TYPE);
 		return;
 	}
-	timingData.storeTimingPoint(__LINE__);
 
 	mInitSuccess = true;
 	AAMPStatusType retVal = eAAMPSTATUS_GENERIC_ERROR;
@@ -6260,7 +6255,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		else
 		{
 			mpStreamAbstractionAAMP->SetCDAIObject(mCdaiObject);
-			timingData.storeTimingPoint(__LINE__);
 			retVal = mpStreamAbstractionAAMP->Init(tuneType);
 		}
 	}
@@ -6270,7 +6264,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		retVal = eAAMPSTATUS_GENERIC_ERROR;
 	}
 
-	timingData.storeTimingPoint(__LINE__);
 
 	// Validate tune type
 	// (need to find a better way to do this)
@@ -6353,7 +6346,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			}
 		}
 		mInitSuccess = false;
-		timingData.printTimingPointsAsInfo(__LINE__, __FUNCTION__,"ExitTune");
 		return;
 	}
 	else
@@ -6364,7 +6356,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		int volume = audio_volume;
 		double updatedSeekPosition = mpStreamAbstractionAAMP->GetStreamPosition();
 
-		timingData.storeTimingPoint(__LINE__);
 
 		if(mMediaFormat != eMEDIAFORMAT_DASH)
 		{
@@ -6411,7 +6402,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFragmentCachingRequired = true;
 		}
 
-		timingData.storeTimingPoint(__LINE__);
 
 		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
 		UpdatePTSOffsetFromTune(seek_pos_seconds, true);
@@ -6479,7 +6469,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					SetCCStatusInternal();
 				}
 				sink->SetAudioVolume(volume);
-				timingData.storeTimingPoint(__LINE__);
 				if (mbPlayEnabled)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus());
@@ -6490,7 +6479,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				AAMPLOG_ERR("GetStreamSink() returned NULL");
 			}
 		}
-		timingData.storeTimingPoint(__LINE__);
 
 		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
 		 * and retrieve the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
@@ -6514,7 +6502,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			AAMPLOG_MIL("Disabling local TSB handling for this tune");
 		}
 
-		timingData.storeTimingPoint(__LINE__);
 		// TODO - X1-TSB : ES Change status needs to be checked
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
 		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
@@ -6529,7 +6516,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				AAMPLOG_WARN("UnderflowMonitor did not start; continuing without AampUnderflowMonitor");
 			}
 		}
-		timingData.storeTimingPoint(__LINE__);
 		if (!mbUsingExternalPlayer)
 		{
 			if (mbPlayEnabled)
@@ -6542,7 +6528,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			}
 		}
 
-		timingData.storeTimingPoint(__LINE__);
 
 		if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 		{
@@ -6608,14 +6593,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SetState(eSTATE_PREPARED);
 			SendMediaMetadataEvent();
 		}
-	}
-	if (timingData.timeSinceStartMs() > 2500)
-	{
-		timingData.printTimingPointsAsWarning(__LINE__, __FUNCTION__,"SlowTune");
-	}
-	else
-	{
-		timingData.printTimingPointsAsInfo(__LINE__, __FUNCTION__,"NormalTune");
 	}
 }
 
