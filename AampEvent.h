@@ -177,6 +177,9 @@ typedef enum
 	AAMP_TUNE_GST_PIPELINE_ERROR, /**< Playback failed due to an error in the GStreamer pipeline */
 	AAMP_TUNE_FAILED_PTS_ERROR,  /**< Playback failed due to PTS error */
 
+	//Mp4 demuxer error
+	AAMP_TUNE_MP4_DEMUX_ERROR, /**< Playback failed due to a corrupt or invalid MP4 fragment detected by the demuxer */
+
 	//Playback failure
 	AAMP_TUNE_PLAYBACK_STALLED, /**< Playback was stalled due to valid fragments not available in playlist */
 	

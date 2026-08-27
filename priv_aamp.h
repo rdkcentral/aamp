@@ -1915,9 +1915,10 @@ public:
 	 *   @param[in]  sample - Media sample; ownership is transferred (consumed).
 	 *                        Callers must pass via std::move() and must not
 	 *                        access the sample after this call returns.
+	 *   @param[in]  morePending - True if more samples are available to inject after this one (default: false).
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample);
+	void SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample, bool morePending = false);
 
 	/**
 	 * @fn IsLive
@@ -4089,6 +4090,15 @@ public:
 	 * @param[in] codecInfo - Codec information
 	 */
 	void SetStreamCaps(AampMediaType type, MediaCodecInfo&& codecInfo);
+
+	/**
+	 * @fn QueueProtectionEvent
+	 * @brief Forward in-band PSSH data (parsed from an MP4 container) to the stream sink
+	 *
+	 * @param[in] type - Media type
+	 * @param[in] protectionEvents - Protection system data (systemID + pssh blob) extracted from the MP4 container
+	 */
+	void QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents);
 
 	/**
 	 * @fn GetBufferedDurationSecs
