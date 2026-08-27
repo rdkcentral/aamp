@@ -28,6 +28,7 @@
 #include "mediaprocessor.h"
 #include "MP4Demux.h"
 #include "priv_aamp.h"
+#include <atomic>
 #include <memory>
 
 class AampMp4Demuxer : public MediaProcessor
@@ -45,6 +46,14 @@ public:
 
 	AampMp4Demuxer(const AampMp4Demuxer&) = delete;
 	AampMp4Demuxer& operator=(const AampMp4Demuxer&) = delete;
+
+	/**
+	 * @brief Provide the manifest-declared timescale (e.g. DASH SegmentTemplate\@timescale)
+	 * for this track, used as a fallback when a data segment has no mvhd/mdhd
+	 * (e.g. streams with no init segment for this track), to avoid NaN/Inf sample times.
+	 * @param[in] timeScale - timescale value from the manifest
+	 */
+	void setFallbackTimeScale(uint32_t timeScale);
 
 	/**
 	 * @brief given TS media segment (not yet injected), extract and report first PTS
@@ -149,8 +158,9 @@ private:
 	 * @param[in,out] sample - Sample to restamp
 	 * @param[in] duration - Fragment duration
 	 * @param[in] discontinuous - True if this sample begins a discontinuous segment
+	 * @param[in] fragmentPTSoffset - PTS offset from the manifest/container for this fragment
 	 */
-	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous);
+	void TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous, double fragmentPTSoffset);
 
 	/**
 	 * @brief Handle trickmode discontinuity by pre-advancing state machine
@@ -181,7 +191,12 @@ private:
 	bool mIsTrickMode {false};				/**< True if in trickmode (rate != 1.0) */
 	double mLastSamplePts {0.0};			/**< PTS of the previous sample, used in trick modes */
 	double mRestampedPts {0.0};				/**< Restamped PTS of the sample, used in trick modes */
-		
+	/// Set by abort() (from a control thread, e.g. Stop()/Flush()) and checked
+	/// between samples in sendSegment()'s injection loop so that a fragment
+	/// already in flight stops sending further samples instead of proceeding
+	/// to block on each remaining sample (e.g. against an injection gate set
+	/// by AampRialtoMediaSource::unblockInjection()).  Cleared by reset().
+	std::atomic<bool> mAborted {false};
 	Mp4TrickPhase mTrickPhase {Mp4TrickPhase::FIRST_SAMPLE}; /**< Current trick mode state */
 	double mLastTrickRate {0.0};     /**< Last used trickplay rate for state reset */
 	double mRestampedDuration {0.0}; /**< Last restamped duration (seconds); reused across discontinuities */

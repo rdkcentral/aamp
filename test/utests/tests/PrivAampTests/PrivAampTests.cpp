@@ -5990,13 +5990,13 @@ TEST_F(PrivAampPrivTests,SetLLDashChunkModeTrueTest)
 	testp_aamp->InitStreamAbstraction();
 	int fragment_duration = 0;
 
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadStartTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlStallTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout,fragment_duration));
-	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MinABRNWBufferRampDown,AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_MaxABRNWBufferRampUp,AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadStartTimeout,fragment_duration)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlStallTimeout,fragment_duration)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_CurlDownloadLowBWTimeout,fragment_duration)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_NetworkTimeout,TIMEOUT_FOR_LLD)).WillOnce(Return(true));
 
 	testp_aamp->SetLLDashChunkMode(true);
 }
@@ -6405,6 +6405,218 @@ TEST_F(PrivAampTests, GetFileTest_DisableLowBWTimeoutOnLowestProfile)
 	int http_error{-1};
 	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error);
 }
+
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+
+/**
+ * @brief Verify CURLOPT_HTTP_VERSION is set to HTTP/3 for video fragments when enabled
+ */
+TEST_F(PrivAampTests, GetFileTest_HTTP3EnabledSetsHTTP3ForVideoFragment)
+{
+	std::string effectiveUrl;
+	std::vector<uint8_t> gBuff{};
+	AampMediaType mType = eMEDIATYPE_VIDEO;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_VIDEO] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	// Catch-all for other bool configs, then enable HTTP/3
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableHTTP3)).WillRepeatedly(Return(true));
+
+	// Expect CURLOPT_HTTP_VERSION set to CURL_HTTP_VERSION_3ONLY
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.Times(1)
+		.WillOnce(Return(CURLE_OK));
+
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error);
+}
+
+/**
+ * @brief Verify CURLOPT_HTTP_VERSION is set to HTTP/3 for manifest downloads when enabled
+ */
+TEST_F(PrivAampTests, GetFileTest_HTTP3EnabledSetsHTTP3ForManifest)
+{
+	std::string effectiveUrl;
+	std::vector<uint8_t> gBuff{};
+	AampMediaType mType = eMEDIATYPE_MANIFEST;
+
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableHTTP3)).WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.Times(1)
+		.WillOnce(Return(CURLE_OK));
+
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error,
+		NULL, NULL, eCURLINSTANCE_MANIFEST_MAIN);
+}
+
+/**
+ * @brief Verify CURLOPT_HTTP_VERSION is NOT set to HTTP/3 for DRM licence downloads
+ */
+TEST_F(PrivAampTests, GetFileTest_HTTP3EnabledDoesNotApplyToLicence)
+{
+	std::string effectiveUrl;
+	std::vector<uint8_t> gBuff{};
+	AampMediaType mType = eMEDIATYPE_LICENCE;
+
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_VIDEO] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableHTTP3)).WillRepeatedly(Return(true));
+
+	// HTTP/3 should NOT be set for licence type
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.Times(0);
+
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error);
+}
+
+/**
+ * @brief Verify CURLOPT_HTTP_VERSION is set to HTTP/3 for audio fragments when enabled
+ */
+TEST_F(PrivAampTests, GetFileTest_HTTP3EnabledSetsHTTP3ForAudioFragment)
+{
+	std::string effectiveUrl;
+	std::vector<uint8_t> gBuff{};
+	AampMediaType mType = eMEDIATYPE_AUDIO;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_AUDIO] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_AUDIO] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableHTTP3)).WillRepeatedly(Return(true));
+
+	// Expect CURLOPT_HTTP_VERSION set to CURL_HTTP_VERSION_3ONLY for audio
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.Times(1)
+		.WillOnce(Return(CURLE_OK));
+
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error,
+		NULL, NULL, eCURLINSTANCE_AUDIO);
+}
+
+/**
+ * @brief Verify HTTP/3 is not applied when config is disabled (default)
+ */
+TEST_F(PrivAampTests, GetFileTest_HTTP3DisabledDoesNotSetHTTPVersion)
+{
+	std::string effectiveUrl;
+	std::vector<uint8_t> gBuff{};
+	AampMediaType mType = eMEDIATYPE_VIDEO;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_VIDEO] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_VIDEO] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	// HTTP/3 is NOT enabled
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+
+	// CURLOPT_HTTP_VERSION should NOT be set to HTTP/3
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.Times(0);
+
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error);
+}
+
+/**
+ * @brief Verify HTTP/3 applies to subtitle downloads (subtitle is not excluded like licence)
+ */
+TEST_F(PrivAampTests, GetFileTest_HTTP3EnabledAppliesToSubtitle)
+{
+	std::string effectiveUrl;
+	std::vector<uint8_t> gBuff{};
+	AampMediaType mType = eMEDIATYPE_SUBTITLE;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP.get();
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_SUBTITLE] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_SUBTITLE] = 2000;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableHTTP3)).WillRepeatedly(Return(true));
+
+	// Subtitle is not licence, so HTTP/3 should be applied
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long(mCurlEasyHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY))
+		.Times(1)
+		.WillOnce(Return(CURLE_OK));
+
+	int http_error{-1};
+	p_aamp->GetFile("remoteurl", mType, gBuff, effectiveUrl, http_error,
+		NULL, NULL, eCURLINSTANCE_SUBTITLE);
+}
+#endif // CURL_HTTP_VERSION_3ONLY || AAMP_HTTP3_SUPPORTED
 
 // Pass null pointer as CurlCallbackContext and abort should be false
 TEST_F(PrivAampPrivTests, CheckForChunkEarlyAbort_Test1)

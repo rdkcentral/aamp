@@ -246,6 +246,9 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_GST_PIPELINE_ERROR, 80, 1, "AAMP: Error from gstreamer pipeline"},
 	{AAMP_TUNE_FAILED_PTS_ERROR, 80, 2, "AAMP: Playback failed due to PTS error"},
 
+	//Mp4 demuxer error
+	{AAMP_TUNE_MP4_DEMUX_ERROR, 80, 3, "AAMP: Error from mp4 demuxer"},
+
 	//Playback failure
 	{AAMP_TUNE_PLAYBACK_STALLED, 7600, 1, "AAMP: Playback was stalled due to lack of new fragments"},
 
@@ -812,10 +815,14 @@ static const char *ChunkedTransferStateToName( ChunkedTransferState state )
  * @brief cURL write callback that parses HTTP/1.1 chunked transfer-encoded data.
  *
  * This callback is invoked by the downloader whenever a new block of bytes is
- * received for a request that uses HTTP/1.1 chunked transfer encoding. It
- * implements an incremental parser driven by a state machine stored in
- * CurlCallbackContext::m_ChunkedTransferState. The parser consumes the input buffer,
- * interpreting chunk-size lines, chunk payload, and the required CR/LF
+ * received for a request that uses HTTP/1.1 chunked transfer encoding.
+ *
+ * @note This code does not handle the HTTP/3 case, which uses a different
+ *       framing mechanism and is handled separately.
+ *
+ * It implements an incremental parser driven by a state machine stored in
+ * CurlCallbackContext::m_ChunkedTransferState. The parser consumes the input
+ * buffer, interpreting chunk-size lines, chunk payload, and the required CR/LF
  * delimiters as defined by the HTTP/1.1 Chunked Transfer Protocol.
  *
  * The state machine transitions between:
@@ -4542,10 +4549,32 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
 			}
-			if(this->mAampLLDashServiceData.lowLatencyMode)
+			context.remoteUrl = remoteUrl;
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+			if( ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3) && mediaType != eMEDIATYPE_LICENCE )
+			{
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3ONLY);
+				AAMPLOG_INFO("HTTP/3 (QUIC) enabled for mediaType=%d", mediaType);
+			}
+			else
+#else
+			if( ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3) && mediaType != eMEDIATYPE_LICENCE )
+			{
+				static std::atomic<bool> warnedHTTP3{false};
+				bool expected = false;
+				if (warnedHTTP3.compare_exchange_strong(expected, true))
+				{
+					AAMPLOG_WARN("enableHTTP3 config is set but HTTP/3 is not available in this build (libcurl lacks QUIC support)");
+				}
+			}
+#endif
+			if(this->mAampLLDashServiceData.lowLatencyMode
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+				&& !ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3)
+#endif
+			)
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-				context.remoteUrl = remoteUrl;
 			}
 			context.aamp = this;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
@@ -4795,6 +4824,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT,         &local_port);
 					curl_easy_getinfo(curl, CURLINFO_NUM_CONNECTS,       &num_connects);
 					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE,      &http_code_local);
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+					{
+						long httpVersion = 0;
+						curl_off_t speedDownload = 0;
+						curl_easy_getinfo(curl, CURLINFO_HTTP_VERSION, &httpVersion);
+						curl_easy_getinfo(curl, CURLINFO_SPEED_DOWNLOAD_T, &speedDownload);
+						AAMPLOG_INFO("NET_TRACE mediaType=%d httpVersion=%ld speedBps=%" CURL_FORMAT_CURL_OFF_T " appconnect=%.3f total=%.3f reused=%ld",
+							mediaType, httpVersion, speedDownload, t_appconnect, t_total, (num_connects == 0) ? 1L : 0L);
+					}
+#endif
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					size_download = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
@@ -5008,11 +5047,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-						if (res == CURLE_COULDNT_CONNECT || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) ||
-							(isDownloadStalled &&
-								(eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) ||
-							res == CURLE_SEND_ERROR )
-						{
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+					if (res == CURLE_HTTP3)
+					{
+						AAMPLOG_ERR("QUIC connection failed (CURLE_HTTP3=%d) mediaType=%d url=%s", res, mediaType, remoteUrl.c_str());
+					}
+#endif
+					if (res == CURLE_COULDNT_CONNECT || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) || res == CURLE_SEND_ERROR)
+					{
 
 						if(mpStreamAbstractionAAMP)
 						{
@@ -8425,12 +8467,12 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vecto
 	aamp_utils::ClearAndRelease(buffer);
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample, bool morePending)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SendSample(mediaType, std::move(sample));
+		sink->SendSample(mediaType, std::move(sample), morePending);
 	}
 }
 
@@ -14574,6 +14616,14 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	inpData->mDnldConfig->bVerbose	=      ISCONFIGSET_PRIV(eAAMPConfig_CurlLogging);
 	inpData->mDnldConfig->bCurlThroughput = ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput);
 	inpData->mDnldConfig->networkPersonaFile = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkPersonaFile);
+#if defined(CURL_HTTP_VERSION_3ONLY) || defined(AAMP_HTTP3_SUPPORTED)
+	inpData->mDnldConfig->bEnableHTTP3 = ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3);
+#else
+	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableHTTP3))
+	{
+		AAMPLOG_WARN("enableHTTP3 config is set but HTTP/3 is not available in this build (libcurl lacks QUIC support)");
+	}
+#endif
 
 	struct curl_slist* headers = GetCustomHeaders(eMEDIATYPE_MANIFEST);
 	std::unordered_map<std::string, std::vector<std::string>> sCustomHeaders;
@@ -15091,6 +15141,37 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	if (sink)
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
+	}
+}
+
+/**
+ * @fn QueueProtectionEvent
+ * @brief Forward in-band PSSH data (parsed from an MP4 container) to the stream sink
+ *
+ * @param[in] type - Media type
+ * @param[in] protectionEvents - Protection system data (systemID + pssh blob) extracted from the MP4 container
+ */
+void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		// An init segment can carry PSSH boxes for multiple DRM systems, but only
+		// one is selected for this session (manifest-driven, e.g. preferredKeysystem).
+		// Only forward the matching entry so we don't create sessions for the rest.
+		DrmHelperPtr currentDrm = GetCurrentDRM();
+		for (const auto& protectionEvent : protectionEvents)
+		{
+			if (currentDrm && strcasecmp(protectionEvent.systemID.c_str(), currentDrm->getUuid().c_str()) != 0)
+			{
+				AAMPLOG_INFO("Skipping in-band protection event for type:%d systemId:%s (selected DRM systemId:%s)",
+					type, protectionEvent.systemID.c_str(), currentDrm->getUuid().c_str());
+				continue;
+			}
+			AAMPLOG_INFO("Queueing in-band protection event for type:%d systemId:%s psshSize:%zu",
+				type, protectionEvent.systemID.c_str(), protectionEvent.pssh.size());
+			sink->QueueProtectionEvent(protectionEvent.systemID.c_str(), protectionEvent.pssh.data(), protectionEvent.pssh.size(), type);
+		}
 	}
 }
 
