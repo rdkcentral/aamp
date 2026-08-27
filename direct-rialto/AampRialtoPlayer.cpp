@@ -2084,6 +2084,7 @@ void AampRialtoPlayer::ResetEOSSignalledFlag()
 void AampRialtoPlayer::NotifyFragmentCachingComplete()
 {
 	AAMPLOG_INFO("ENTRY");
+
 	if (m_pendingPlayOnFragCaching)
 	{
 		AAMPLOG_MIL("Fragment caching complete — issuing play() to resume pipeline");
@@ -2094,6 +2095,7 @@ void AampRialtoPlayer::NotifyFragmentCachingComplete()
 			m_pipeline->play(async);
 		}
 	}
+
 	AAMPLOG_INFO("EXIT");
 }
 
