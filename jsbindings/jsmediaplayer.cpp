@@ -4406,8 +4406,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 	LOG_WARN_EX("context=%p, aamp=%p", context, playerInstanceAAMP);
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 	
-	//AAMPMediaPlayer_JS* pAAMP = new AAMPMediaPlayer_JS();	
-	AAMP_JS*pAAMP = new AAMP_JS();
+	AAMPMediaPlayer_JS* pAAMP = new AAMPMediaPlayer_JS();
 	pAAMP->_ctx = jsContext;
 	if (NULL != playerInstanceAAMP)
 	{
@@ -4428,7 +4427,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 		pAAMP->_aamp = new PlayerInstanceAAMP(NULL, NULL, true);
 	}
 
-	pAAMP->_listeners = NULL;
+	pAAMP->_listeners.clear();
 
 	//Get PLAYER ID and store for future use in logging
 	pAAMP->iPlayerId = pAAMP->_aamp->GetId();
