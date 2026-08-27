@@ -2133,6 +2133,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// Pause(true) pauses again after clearing the pending-play flag.
 	EXPECT_CALL(*m_mockPipelinePtr, pause()).Times(2).WillRepeatedly(Return(true));
 	m_player->NotifyFragmentCachingOngoing();
+
 	m_player->Pause(/*pause=*/true, /*forceStop=*/false);
 
 	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
