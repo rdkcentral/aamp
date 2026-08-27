@@ -4088,6 +4088,93 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
+	Configure_VideoUnknownThenKnown_NoRecreate_UpdatesStoredFormat)
+{
+	/**
+	 * @brief A video source created with FORMAT_UNKNOWN (e.g. muxed HLS-TS
+	 *        before PMT parsing) that is later Configure()'d with the real,
+	 *        now-known codec must NOT trigger a pipeline recreation, and the
+	 *        source's stored format must be updated to the known value.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_UNKNOWN, FORMAT_UNKNOWN);
+
+	auto *videoSource = m_mockSources[eMEDIATYPE_VIDEO];
+	ASSERT_NE(videoSource, nullptr);
+	EXPECT_EQ(videoSource->format(), FORMAT_UNKNOWN);
+
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_UNKNOWN, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_VideoKnownThenUnknown_NoRecreate_KeepsStoredFormat)
+{
+	/**
+	 * @brief Once a video source's codec is known, a later Configure() call
+	 *        reporting FORMAT_UNKNOWN must NOT recreate the pipeline and
+	 *        must NOT overwrite the already-known stored format.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF);
+
+	auto *videoSource = m_mockSources[eMEDIATYPE_VIDEO];
+	ASSERT_NE(videoSource, nullptr);
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+
+	m_player->Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioUnknownThenKnown_NoRecreate_UpdatesStoredFormat)
+{
+	/**
+	 * @brief Same as the video case above, but for the audio source.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_UNKNOWN, FORMAT_UNKNOWN);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+	EXPECT_EQ(audioSource->format(), FORMAT_UNKNOWN);
+
+	m_player->Configure(FORMAT_UNKNOWN, FORMAT_AUDIO_ES_AAC, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioKnownThenUnknown_NoRecreate_KeepsStoredFormat)
+{
+	/**
+	 * @brief Once an audio source's codec is known, a later Configure() call
+	 *        reporting FORMAT_UNKNOWN must NOT recreate the pipeline and
+	 *        must NOT overwrite the already-known stored format.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_AUDIO_ES_AAC);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+}
+
+TEST_F(AampRialtoPlayerTest,
 	Configure_AudioGoesInvalid_NoPipelineRecreation_EOSSignaled)
 {
 	/**

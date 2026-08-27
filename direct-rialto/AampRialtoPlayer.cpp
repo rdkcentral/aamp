@@ -346,7 +346,11 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		AAMPLOG_INFO("Video source going away: ShouldRecreatePipeline true");
 		return true;  // Video source going away.
 	}
-	else if (videoSrc->format() != videoFormat)
+	// FORMAT_UNKNOWN on either side means the codec isn't known yet (e.g.
+	// muxed HLS-TS before PMT parsing) - not a genuine codec change.
+	else if (videoFormat != FORMAT_UNKNOWN &&
+	         videoSrc->format() != FORMAT_UNKNOWN &&
+	         videoSrc->format() != videoFormat)
 	{
 		AAMPLOG_INFO("Video codec changed (old=%d, new=%d): ShouldRecreatePipeline true",
 			videoSrc->format(), videoFormat);
@@ -365,6 +369,8 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		}
 	}
 	else if (audioFormat != FORMAT_INVALID &&
+	         audioFormat != FORMAT_UNKNOWN &&
+	         audioSrc->format() != FORMAT_UNKNOWN &&
 	         audioSrc->format() != audioFormat)
 	{
 		AAMPLOG_INFO("Audio codec changed to a different valid format (old=%d, new=%d): ShouldRecreatePipeline true",
@@ -454,6 +460,24 @@ void AampRialtoPlayer::Configure(
 		if (!ShouldRecreatePipeline(videoFormat, audioFormat, subFormat,
 		        bESChangeStatus, setReadyAfterPipelineCreation))
 		{
+			// Codec was unknown when the source was created (e.g. muxed
+			// HLS-TS before PMT parsing) and has since been identified -
+			// record it so later stream-caps computation (SendCopy's
+			// muxed-TS path) uses the real codec instead of FORMAT_UNKNOWN.
+			if (m_sources[eMEDIATYPE_VIDEO] &&
+			    m_sources[eMEDIATYPE_VIDEO]->format() == FORMAT_UNKNOWN &&
+			    videoFormat != FORMAT_UNKNOWN)
+			{
+				m_sources[eMEDIATYPE_VIDEO]->setFormat(videoFormat);
+			}
+			if (m_sources[eMEDIATYPE_AUDIO] &&
+			    m_sources[eMEDIATYPE_AUDIO]->format() == FORMAT_UNKNOWN &&
+			    audioFormat != FORMAT_UNKNOWN &&
+			    audioFormat != FORMAT_INVALID)
+			{
+				m_sources[eMEDIATYPE_AUDIO]->setFormat(audioFormat);
+			}
+
 			if (audioGoingInvalid)
 			{
 				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
