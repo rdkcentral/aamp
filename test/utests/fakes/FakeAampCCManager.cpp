@@ -51,6 +51,15 @@ public:
 	}
 
 	void Release(int iID) override {}
+
+	void InvalidateHandle(void *handle) override
+	{
+		if (g_mockPlayerCCManager)
+		{
+			g_mockPlayerCCManager->InvalidateHandle(handle);
+		}
+	}
+
 	void StartRendering() override {}
 	void StopRendering() override {}
 	int SetDigitalChannel(unsigned int id) override { return 0; }
@@ -135,7 +144,7 @@ void PlayerCCManager::DestroyInstance()
 	mInstance = nullptr;
 }
 
-void PlayerCCManager::SetRialto(bool state)
+void PlayerCCManager::SetRialto(bool bIsRialto, bool bIsDirectRialto)
 {
 }
 
@@ -146,4 +155,9 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
 		mInstance = new TestPlayerCCManager();
 	}
 	return mInstance;
+}
+
+bool PlayerCCManager::HasInstance()
+{
+	return mInstance != nullptr;
 }
