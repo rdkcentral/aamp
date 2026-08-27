@@ -697,8 +697,7 @@ public:
 	 * @brief Query whether early abort is enabled during TuneInternal async task
 	 *
 	 * @fn IsTuneAsyncTaskAbortEnable
-	 * @param[in] enableAbortType - Control whether we can terminate a TuneInternal async task early
-	 * @return void
+	 * @return True if async tune is enabled and early-abort is enabled
 	 */
 	bool IsTuneAsyncTaskAbortEnabled(void);
 

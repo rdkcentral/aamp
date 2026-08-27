@@ -384,7 +384,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 						{
 								auto manifestAbortStartTime = NOW_STEADY_TS_MS;
 								dnldInstance->Release();
-								AAMPLOG_MIL("Manifest abort took %d ms", (unsigned)(NOW_STEADY_TS_MS - manifestAbortStartTime));
+								AAMPLOG_MIL("Manifest abort took %u ms", (unsigned)(NOW_STEADY_TS_MS - manifestAbortStartTime));
 						}
 						else
 						{

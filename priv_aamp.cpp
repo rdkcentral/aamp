@@ -3294,7 +3294,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 		}
 		if (mState == eSTATE_STOPPING && (tuneFailure == AAMP_TUNE_MANIFEST_REQ_FAILED || tuneFailure == AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR))
 		{
-			AAMPLOG_MIL("Ignoring error since this was a forced abort. tuneFailure=%d, decription=%s", tuneFailure, description ? description : "NONE");
+			AAMPLOG_MIL("Ignoring error since this was a forced abort. tuneFailure=%d, description=%s", tuneFailure, description ? description : "NONE");
 		}
 		else
 		{
@@ -9311,9 +9311,9 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
  */
 void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
-	// only allow us to go to stopped, released, complete, or idle state from stopping state, since an ongoing tune/seek/setrate or similar operation may erase stopping state otherwise
-	if (   (eSTATE_STOPPING == mState) && 
-		  !( (eSTATE_STOPPED == state) || (eSTATE_IDLE == state) ) )
+	// During an async tune: Only allow us to go to stopped, complete or idle state from stopping state. This prevents STOPPING state from being erased when we are shutting down a tune.
+	if (   ((eSTATE_STOPPING == mState) && IsTuneAsyncTaskAbortEnabled()) && 
+		  !( (eSTATE_STOPPED == state) || (eSTATE_IDLE == state) || (state == eSTATE_COMPLETE)) )
 	{
 		if (state != mState)
 		{

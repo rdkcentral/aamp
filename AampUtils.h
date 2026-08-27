@@ -534,9 +534,9 @@ class timingExecutionStore
 		*   @brief returns the time span since start of diagnostic data logging start (e.g. function start)
 		*   @return unsigned int - time in ms from first to last timing points
 		*/		
-		unsigned int timeSinceStartMs(void)
+		long long timeSinceStartMs(void)
 		{
-			return ( (unsigned int)NOW_STEADY_TS_MS - timeVals.front() );
+			return ( NOW_STEADY_TS_MS - timeVals.front() );
 		};
 		/**
 		*   @brief prints out timing diagnostic data as WARN in format "debugMarker ... (l1,t1), (l2,t2)"
@@ -575,7 +575,7 @@ class timingExecutionStore
 			AAMPLOG_DEBUG("%s",formatTimingPoints(lineVal, functionName, debugMarker).c_str());
 		};
 	private:
-		std::vector<unsigned int> timeVals;	/**< time at given checkpoints  */
+		std::vector<long long> timeVals;	/**< time at given checkpoints  */
 		std::vector<unsigned int> lineVals;	/**< line number for a given checkpoint  */
 
 		std::string formatTimingPoints(const unsigned int lineVal, const std::string functionName, const std::string debugMarker)
