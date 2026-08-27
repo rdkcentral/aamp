@@ -10223,8 +10223,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
  */
 void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChanged,
 	uint64_t nextSegmentTime, uint32_t nextSegmentTimeScale,
-	const std::string &nextSegmentPeriodId, int nextSegmentPeriodIdx,
-	uint64_t nextSegmentPto, double nextSegmentPeriodStart)
+	const std::string &nextSegmentPeriodId, int nextSegmentPeriodIdx)
 {
 	bool discontinuity = false;
 
@@ -10310,33 +10309,11 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					mPlayRate,
 					(int)mCdaiObject->mAdState);
 
-				constexpr double PERIOD_BOUNDARY_TOLERANCE_SECONDS = 0.05;
-				bool timelineDiscontinuity = false;
-				if (segmentTimeline && mPlayRate >= AAMP_RATE_PAUSE &&
-					nextSegmentTimeScale > 0 && periodTimeScale > 0)
-				{
-					double previousBoundary = nextSegmentPeriodStart +
-						((double)nextSegmentTime - (double)nextSegmentPto) /
-						(double)nextSegmentTimeScale;
-					double currentBoundary =
-						mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,
-							mLastPlaylistDownloadTimeMs) +
-						((double)segmentStartTime -
-							(double)presentationTimeOffset) /
-						(double)periodTimeScale;
-					double boundaryDelta = std::fabs(previousBoundary - currentBoundary);
-					timelineDiscontinuity =
-						boundaryDelta > PERIOD_BOUNDARY_TOLERANCE_SECONDS;
-					AAMPLOG_WARN("[PTS-DIAG] normalized-boundary prev=%.6f curr=%.6f delta=%.6f discontinuity=%d",
-						previousBoundary, currentBoundary, boundaryDelta,
-						timelineDiscontinuity);
-				}
-
 				/* Process the discontinuity,
 				* 1. If the next segment time is not matching with the next period segment start time.
 				* 2. To reconfigure the pipeline, if there is a change in the Audio Codec even if there is no change in segment start time in multi period content.
 				*/
-				if (timelineDiscontinuity || GetESChangeStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
+				if ((segmentTemplates.GetSegmentTimeline() != NULL && nextSegmentTime != segmentStartTime) || GetESChangeStatus() || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					discontinuity = true;
@@ -10356,7 +10333,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 						UpdateStartTimeOfFirstPTS();
 					}
 				}
-				else if (!segmentTimeline && nextSegmentTime != segmentStartTime)
+				else if (nextSegmentTime != segmentStartTime || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 				{
 					discontinuity = true;
 					if (usingPTO)
@@ -10527,13 +10504,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.Time;
 			const uint32_t previousSegmentTimeScale =
 				mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.TimeScale;
-			SegmentTemplates previousSegmentTemplates(
-				mMediaStreamContext[eMEDIATYPE_VIDEO]->representation->GetSegmentTemplate(),
-				mMediaStreamContext[eMEDIATYPE_VIDEO]->adaptationSet->GetSegmentTemplate());
-			const uint64_t previousSegmentPto =
-				previousSegmentTemplates.GetPresentationTimeOffset();
-			const double previousPeriodStart = mMPDParseHelper->GetPeriodStartTime(
-				previousPeriodIdx, mLastPlaylistDownloadTimeMs);
 
 			/*
 			 * VOD CDAI: fire vodAdBreakOpportunity events for upcoming insertion points.
@@ -10699,8 +10669,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				// Indexing success case
 				DetectDiscontinuityAndFetchInit(periodChanged, nextSegmentTime,
 					nextSegmentTimeScale, nextSegmentPeriodId,
-					previousPeriodIdx, previousSegmentPto,
-					previousPeriodStart);
+					previousPeriodIdx);
 				if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState)
 				{
 					if (mCdaiObject->mAdBreaks[mBasePeriodId].mAdFailed)
