@@ -209,6 +209,8 @@ protected:
 	std::mutex mWatMutex;		        /**< Lock for accessing mWatermarkPluginObj*/
 	std::mutex mSpeedStateMutex;		/**< mutex for setPlaybackSpeedState()*/
 	std::mutex mOwnedSessionsMutex;     /**< mutex for mOwnedSessions*/
+	std::mutex mLoadClutMutex;		/**< mutex for mLoadClutInFlight set*/
+	std::set<int> mLoadClutInFlight;	/**< graphicIds currently in loadClutWatermark*/
 	std::list<std::string> mRegisteredEvents;
 	bool mSchedulerStarted;
 	std::set<int64_t> mOwnedSessions;   /**< Set of session IDs owned by this instance*/

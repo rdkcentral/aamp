@@ -37,7 +37,7 @@
  * @brief SecManagerThunder Constructor
  */
 SecManagerThunder::SecManagerThunder() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMutex(), mSchedulerStarted(false),
-	mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex(), mOwnedSessionsMutex(), mOwnedSessions()
+	mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex(), mOwnedSessionsMutex(), mLoadClutMutex(), mLoadClutInFlight(), mOwnedSessions()
 {
 	std::lock_guard<std::mutex> lock(mSecMutex);
 	mSecManagerObj.ActivatePlugin();	
@@ -668,23 +668,20 @@ void SecManagerThunder::addWatermarkHandler(const JsonObject& parameters)
 
 		int smKey = parameters["graphicImageBufferKey"].Number();
 		int smSize = parameters["graphicImageSize"].Number();/*ToDo : graphicImageSize (long) long conversion*/
+		bool adjustVisibility = parameters["adjustVisibilityRequired"].Boolean();
 		MW_LOG_WARN("ContentSecurityManager::%s:%d graphicId : %d smKey: %d smSize: %d", __FUNCTION__, __LINE__, graphicId, smKey, smSize);
-		ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([graphicId, smKey, smSize](void *data)
+		ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([graphicId, smKey, smSize, adjustVisibility, sessionId](void *data)
 					{
 					SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
 					instance->UpdateWatermark(graphicId, smKey, smSize);
+					if (adjustVisibility)
+					{
+						MW_LOG_WARN("ContentSecurityManager::addWatermarkHandler adjustVisibilityRequired is true, invoking GetWaterMarkPalette after UpdateWatermark. graphicId : %d", graphicId);
+						instance->GetWaterMarkPalette(sessionId, graphicId);
+					}
 					}, (void *)ContentSecurityManager::GetInstance()));
 
-		if (parameters["adjustVisibilityRequired"].Boolean())
-		{
-			MW_LOG_WARN("ContentSecurityManager::%s:%d adjustVisibilityRequired is true, invoking GetWaterMarkPalette. graphicId : %d", __FUNCTION__, __LINE__, graphicId);
-			ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([sessionId, graphicId](void *data)
-						{
-						SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
-						instance->GetWaterMarkPalette(sessionId, graphicId);
-						}, (void *)ContentSecurityManager::GetInstance()));
-		}
-		else
+		if (!adjustVisibility)
 		{
 			MW_LOG_WARN("ContentSecurityManager::%s:%d adjustVisibilityRequired is false, graphicId : %d", __FUNCTION__, __LINE__, graphicId);
 		}
@@ -747,6 +744,10 @@ void SecManagerThunder::removeWatermarkHandler(const JsonObject& parameters)
 	{
 		int graphicId = parameters["graphicId"].Number();
 		MW_LOG_WARN("ContentSecurityManager::%s:%d graphicId : %d ", __FUNCTION__, __LINE__, graphicId);
+		{
+			std::lock_guard<std::mutex> lock(mLoadClutMutex);
+			mLoadClutInFlight.erase(graphicId);
+		}
 		ContentSecurityManager::GetInstance()->ScheduleTask(PlayerAsyncTaskObj([graphicId](void *data)
 					{
 					SecManagerThunder *instance = static_cast<SecManagerThunder *>(data);
@@ -958,6 +959,15 @@ void SecManagerThunder::AlwaysShowWatermarkOnTop(bool show)
  */
 void SecManagerThunder::GetWaterMarkPalette(int sessionId, int graphicId)
 {
+	{
+		std::lock_guard<std::mutex> lock(mLoadClutMutex);
+		if (mLoadClutInFlight.count(graphicId) > 0)
+		{
+			MW_LOG_WARN("ContentSecurityManager::%s:%d loadClutWatermark already in-flight for graphicId %d, skipping duplicate call", __FUNCTION__, __LINE__, graphicId);
+			return;
+		}
+		mLoadClutInFlight.insert(graphicId);
+	}
 	JsonObject param;
 	JsonObject result;
 	bool rpcResult = false;
@@ -995,6 +1005,10 @@ void SecManagerThunder::GetWaterMarkPalette(int sessionId, int graphicId)
 	else
 	{
 		MW_LOG_ERR("ContentSecurityManager::%s thunder invocation failed!", __FUNCTION__);
+	}
+	{
+		std::lock_guard<std::mutex> lock(mLoadClutMutex);
+		mLoadClutInFlight.erase(graphicId);
 	}
 }
 
