@@ -2521,12 +2521,12 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			else if (m_notifiable->GetState() == eSTATE_SEEKING)
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifyFirstVideoFrameDisplayed();
 			}
 			else
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifySpeedChanged(
 					static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
 					/*changeState=*/true);
