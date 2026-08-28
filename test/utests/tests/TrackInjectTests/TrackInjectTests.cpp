@@ -111,6 +111,7 @@ public:
 
 	void InjectFragmentInternal(CachedFragment *cachedFragment, bool &fragmentDiscarded, bool isDiscontinuity = false) override
 	{
+		fragmentDiscarded = false;
 		AAMPLOG_WARN("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d",
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);
 		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, cachedFragment->fragment, cachedFragment->position,
