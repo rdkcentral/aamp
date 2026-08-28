@@ -11243,13 +11243,10 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 			AudioTrackInfo currentTrackInfo;
 			if(root)
 			{
-				if (IsLocalAAMPTsb())
+				bool currentTrackAvailable = mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
+				if( !currentTrackAvailable )
 				{
-					bool trackAvailable = mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
-					if( !trackAvailable )
-					{
-						AAMPLOG_WARN( "GetCurrentAudioTrack returned false" );
-					}
+					AAMPLOG_WARN( "GetCurrentAudioTrack returned false" );
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
@@ -11318,6 +11315,7 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 						AAMPLOG_INFO("Setting audio track %s isAvailable to %d", iter->index.c_str(), isAvailable);
 					}
 					cJSON_AddBoolToObject(item, "availability", isAvailable);
+					cJSON_AddBoolToObject(item, "selected", currentTrackAvailable && (iter->index == currentTrackInfo.index));
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{
 						cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
