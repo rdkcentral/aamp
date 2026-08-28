@@ -9688,6 +9688,27 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 	// Else this will be called as a part of ProcessPlaylist
 	// IsLive(), InProgressCdvr, Vod/CDVR for PeriodChange , resetTimeLineIndex = 1
 	// If mUpdateStreamInfo is true, first thread which is reaching UpdateTrackInfo will be executed
+	if (periodChanged && !GetESChangeStatus() &&
+		mMediaStreamContext[eMEDIATYPE_AUDIO] &&
+		mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled)
+	{
+		// A period boundary can require an audio source replacement even when
+		// both periods produce identical GStreamer caps.
+		if (adStateChanged && mCdaiObject &&
+			(mCdaiObject->mAdState == AdState::OUTSIDE_ADBREAK ||
+			 mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING))
+		{
+			const char *transition =
+				(mCdaiObject->mAdState == AdState::OUTSIDE_ADBREAK) ?
+				"Ad-to-content" : "Content-to-ad";
+			AAMPLOG_ERR("[CDAI] %s audio transition: period[%s] "
+				"AudioType[%d] AudioFormat[%d] same-caps candidate; "
+				"forcing ES reconfiguration",
+				transition, currentPeriodId.c_str(), mAudioType,
+				aamp->mAudioFormat);
+		}
+		SetESChangeStatus();
+	}
 	if (mUpdateStreamInfo && periodChanged)
 	{
 		bool resetTimeLineIndex = (mIsLiveStream || periodChanged);
