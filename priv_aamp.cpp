@@ -10312,6 +10312,18 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
 
+	// Populate audio metadata (codec, mixType, isAtmos).
+	// previousAudioType tracks the selected AudioType for the current stream;
+	// eAUDIO_ATMOS means a JOC-flagged EC-3 track was selected (DASH/HLS).
+	// SetAudioMetaData() was previously only called from ota_shim, leaving
+	// isAtmos always false for DASH/HLS content.
+	AudioTrackInfo currentAudioTrack;
+	if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack))
+	{
+		bool isAtmos = (previousAudioType == eAUDIO_ATMOS);
+		event->SetAudioMetaData(currentAudioTrack.codec, currentAudioTrack.mixType, isAtmos);
+	}
+
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
 
