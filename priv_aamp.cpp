@@ -11732,6 +11732,10 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				{
 					cJSON_AddStringToObject(item, "mixType", trackInfo.mixType.c_str());
 				}
+				// isAtmos: derived from the currently selected AudioType so that
+				// getAudioTrackInfo() reflects the real-time Atmos status even
+				// after period transitions (where mediaMetadata is not re-fired).
+				cJSON_AddBoolToObject(item, "isAtmos", (previousAudioType == eAUDIO_ATMOS));
 				if (!trackInfo.mType.empty())
 				{
 					cJSON_AddStringToObject(item, "type", trackInfo.mType.c_str());
