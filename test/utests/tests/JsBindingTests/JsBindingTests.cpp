@@ -16,7 +16,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "jsbindings-main.h"
+#include "jsbindings.h"
+#include "jsevent.h"
+#include "jseventlistener.h"
+#include "jsutils.h"
 #include "jsutils.h"
 #include "PersistentWatermark.h"
 #include "PersistentWatermarkDisplaySequencer.h"
@@ -55,9 +58,9 @@ public:
 TEST_F(JsBindingTests, TestJsBindings)
 {
 	void *context = NULL;
-	AAMPPlayer_LoadJS(context);
+	aamp_LoadJS(context, playerInstanceAAMP);
 
-	AAMPPlayer_UnloadJS(context);
+	aamp_UnloadJS( context );
 }
 
 TEST_F(JsBindingTests, TestJsonUtils )
