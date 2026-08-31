@@ -8593,7 +8593,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					pMediaStreamContext->fragmentDescriptor.Number += (long)((mMPDParseHelper->GetPeriodStartTime(0,mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime) / fragmentDuration);
 					// For LiveTimeSync cases, availability timeOffset and periodstart is same. So take first fragment time based on fragment number.
 				}
-				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf mPTSOffset:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS, mPTSOffset.inSeconds());
+				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d codec %s timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf mPTSOffset:%lf", i, GetCurrentCodec(static_cast<AampMediaType>(i)).c_str(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS, mPTSOffset.inSeconds());
 			}
 			else
 			{
