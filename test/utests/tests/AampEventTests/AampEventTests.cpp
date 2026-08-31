@@ -387,7 +387,7 @@ TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
 
     EXPECT_EQ(event.getAudioCodec(), "AA3");
     EXPECT_EQ(event.getAudioMixType(), "STEREO");
-    EXPECT_FALSE(event.getAtmosInfo());
+    EXPECT_TRUE(event.getAtmosInfo());
 }
 // Test case for getMediaFormat and setMediaFormat methods
 TEST_F(MediaMetadataEventTest, MediaFormatMethodsTest) {
