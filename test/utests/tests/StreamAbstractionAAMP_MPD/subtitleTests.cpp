@@ -131,7 +131,6 @@ public:
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_useRialtoSink, false},
 		{eAAMPConfig_UseMp4Demux, false},
-		{eAAMPConfig_ProcessLicenseFromEAP, false},
 	};
 	BoolConfigSettings mBoolConfigSettings;
 

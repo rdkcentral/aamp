@@ -38,7 +38,7 @@ DrmHelperPtr DrmHelperEngine::createHelper(const struct DrmInfo& drmInfo) const
 
 bool DrmHelperEngine::hasDRM(const struct DrmInfo& drmInfo) const
 {
-	return (g_mockDrmHelper != nullptr);
+	return false;
 }
 
 bool DrmHelper::compare(DrmHelperPtr other)

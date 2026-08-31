@@ -3694,6 +3694,7 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 		drmHelper->setDrmMetaData(contentMetadata);
 		drmHelper->setDefaultKeyID(cencDefaultData);
 	}
+
 	return drmHelper;
 }
 
