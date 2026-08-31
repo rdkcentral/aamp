@@ -8561,6 +8561,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
+				AAMPLOG_MIL("StreamAbstractionAAMP_MPD: Track %d PeriodId[%s] AdaptationSetId[%u] RepresentationId[%s] Codec[%s]",
+					i, mCurrentPeriod->GetId().c_str(), pMediaStreamContext->adaptationSet->GetId(),
+					pMediaStreamContext->representation->GetId().c_str(),
+					GetCurrentCodec(static_cast<AampMediaType>(i)).c_str());
 				// For playing an ad in an ad break, seed fragmentTime using absoluteAdBreakStartTime +
 				// cumulative duration of all previously played ads. This is robust against
 				// basePeriodOffset=0 being set incorrectly by the waitForNextPeriod path in
