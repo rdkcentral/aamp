@@ -542,7 +542,7 @@ void MediaMetadataEvent::SetAudioMetaData(const std::string &audioCodec,const st
 {
 	mAudioCodec = audioCodec;
 	mAudioMixType = mixType;
-	isAtmos = isAtmos;
+	this->isAtmos = isAtmos;
 	return;
 }
 
