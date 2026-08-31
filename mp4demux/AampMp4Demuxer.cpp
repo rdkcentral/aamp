@@ -256,8 +256,7 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 		// so each sample keeps the segment buffer alive for its lifetime.
 		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
 		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d, discontinuous: %d", mMediaType, position, duration, isInit, discontinuous);
-		
-	
+
 		ret = mMp4Demux->Parse(std::move(segment));
 
 		if (!ret)
