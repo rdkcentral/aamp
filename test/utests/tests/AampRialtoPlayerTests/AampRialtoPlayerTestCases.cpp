@@ -2037,7 +2037,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_CALL(m_mockNotifiable,
 		NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, /*changeState=*/true))
 		.Times(1);
-	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(1);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
