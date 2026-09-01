@@ -1667,6 +1667,8 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 	{
 		if (pause)
 		{
+			// Cancel any pending play-after-caching: an explicit pause takes precedence.
+			m_pendingPlayOnFragCaching = false;
 			result = m_pipeline->pause();
 		}
 		else
@@ -2082,12 +2084,30 @@ void AampRialtoPlayer::ResetEOSSignalledFlag()
 void AampRialtoPlayer::NotifyFragmentCachingComplete()
 {
 	AAMPLOG_INFO("ENTRY");
+
+	if (m_pendingPlayOnFragCaching)
+	{
+		AAMPLOG_MIL("Fragment caching complete — issuing play() to resume pipeline");
+		m_pendingPlayOnFragCaching = false;
+		if (m_pipeline)
+		{
+			bool async = false;
+			m_pipeline->play(async);
+		}
+	}
+
 	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyFragmentCachingOngoing()
 {
 	AAMPLOG_INFO("ENTRY");
+	m_pendingPlayOnFragCaching = true;
+	if (m_pipeline && m_stateMachine.currentState() != PlayerStateId::PAUSED)
+	{
+		AAMPLOG_MIL("Pipeline not paused during fragment caching — issuing pause()");
+		m_pipeline->pause();
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
