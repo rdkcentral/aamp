@@ -410,6 +410,16 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
 }
 
+void PrivateInstanceAAMP::SetTuneAsyncTaskAbortEnable(bool enableAbort)
+{
+	mAsyncTaskAbortEnabled = enableAbort;
+}
+
+bool PrivateInstanceAAMP::IsTuneAsyncTaskAbortEnabled(void)
+{
+	return (mAsyncTuneEnabled && mAsyncTaskAbortEnabled.load());
+}
+
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
