@@ -1283,13 +1283,17 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		* not enter. So under mp4demux this block handles subtitle during normal play only;
 		* without mp4demux the behaviour for every track is unchanged.
 		*
+		* The !pContext guard prevents double-restamping on the direct-rialto + FORMAT_SUBTITLE_MP4
+		* path: InitializeMediaProcessor creates an AampMp4Demuxer for subtitle there (needsDemuxer
+		* is true), which already restamps. Restamping here too causes uint64 underflow (~2^64).
+		*
 		* The useMp4Demux check stays inline below rather than being hoisted into a local, so it
 		* is still only evaluated after the EnablePTSReStamp and DASH checks pass, exactly as
 		* before. Reading it unconditionally would add a config lookup to every fragment
 		* injection on every path.
 		*/
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-			(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay)))
+			(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay && !pContext)))
 		{
 			if (trickplay)
 			{
@@ -4142,9 +4146,29 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			else
 			{
 				AAMPLOG_MIL("StreamAbstractionAAMP : Track[%s] - Using Mp4Demux", track->name);
-				if (i != eMEDIATYPE_SUBTITLE)
+				// For the RialtoDirect path, subtitle MP4 fragments are demuxed
+				// externally so samples arrive via SendSample (not SendTransfer).
+				// Raw TTML/WebVTT have no MP4 container and no init segment, so
+				// AampMp4Demuxer must NOT be used for them — data arrives via
+				// InjectFragmentChunkInternal → SendTransfer directly, and
+				// AampRialtoPlayer::Configure() queues the source attachment.
+				const bool needsDemuxer =
+					(i != eMEDIATYPE_SUBTITLE) ||
+					(ISCONFIGSET(eAAMPConfig_useDirectRialto) &&
+					 subtitleFormat == FORMAT_SUBTITLE_MP4);
+				if (needsDemuxer)
 				{
-					track->playContext = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
+					auto demuxer = std::make_shared<AampMp4Demuxer>(aamp, (AampMediaType)i, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp));
+					track->playContext = demuxer;
+
+					// Fall back to the manifest-declared timescale when a track has
+					// no init segment to establish one from (e.g. subtitle streams
+					// with no 'initialization' attribute in the SegmentTemplate).
+					uint32_t manifestTimeScale = track->GetManifestTimeScale();
+					if (manifestTimeScale != 0)
+					{
+						demuxer->setFallbackTimeScale(manifestTimeScale);
+					}
 
 					// Set playback rate
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
@@ -4761,8 +4785,17 @@ void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 	//      keyframe filtering and PTS restamping in TrickmodePtsRestamp(). Without this,
 	//      the demuxer retains rate=1.0 and sends all frames with incorrect PTS during
 	//      trickplay.
+	//   3. Subtitle (eMEDIATYPE_SUBTITLE) must be included.  When a period
+	//      re-initialisation occurs during trick play (e.g. rewind reaching the TSB
+	//      start boundary), InitializeMediaProcessor updates all three demuxers —
+	//      including subtitle — to the current trick play rate.  Subsequent speed
+	//      changes then arrive exclusively through this loop, so omitting subtitle
+	//      leaves its mIsTrickMode and mRate stale.  When normal playback resumes
+	//      (e.g. TSB-to-live transition), subtitle retains the old trick play rate,
+	//      routes the first live segment through TrickmodePtsRestamp, and stamps its
+	//      PTS to 0, causing subtitles to disappear.
 	//
-	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_AUDIO; i++)
+	for (int i = eMEDIATYPE_VIDEO; i <= eMEDIATYPE_SUBTITLE; i++)	
 	{
 		MediaTrack *track = GetMediaTrack((TrackType) i);
 		if (track && track->enabled && track->playContext)

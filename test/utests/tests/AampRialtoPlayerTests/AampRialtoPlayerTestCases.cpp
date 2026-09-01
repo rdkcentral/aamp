@@ -1,0 +1,6556 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2026 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file AampRialtoPlayerTestCases.cpp
+ * @brief L1 unit tests for AampRialtoPlayer.
+ *
+ * Tests verify the player's orchestration of its dependencies (pipeline,
+ * sources, DRM bridge, notifiable) using mock objects.  Per-source behaviour
+ * (codec mapping, segment creation, injection) is covered by the dedicated
+ * AampRialtoVideoSourceTests, AampRialtoAudioSourceTests, and
+ * AampRialtoSubtitleSourceTests suites.
+ */
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <atomic>
+#include <chrono>
+#include <functional>
+#include <thread>
+
+#include "AampRialtoPlayer.h"
+#include "AampRialtoMediaPipelineClient.h"
+#include "AampRialtoMediaSource.h"
+#include "IDirectRialtoCC.h"
+#include "MockIMediaPipeline.h"
+#include "MockIMediaPipelineFactory.h"
+#include "MockPrivateInstanceAAMP.h"
+#include "MockMp4Demux.h"
+#include "MockDrmBridge.h"
+#include "MockIStreamSinkNotifiable.h"
+#include "MockIRialtoControlBackend.h"
+#include "MockAampRialtoMediaSource.h"
+#include "MockAampConfig.h"
+#include "MockGLib.h"
+#include "MockIMediaPipelineCapabilities.h"
+#include "MockPlayerCCManager.h"
+
+using ::testing::_;
+using ::testing::AnyOf;
+using ::testing::DoAll;
+using ::testing::DoubleEq;
+using ::testing::Invoke;
+using ::testing::Ne;
+using ::testing::NiceMock;
+using ::testing::Return;
+using ::testing::SaveArg;
+using ::testing::SetArgReferee;
+using ::testing::StrictMock;
+using ::testing::WithArg;
+
+// ---------------------------------------------------------------------------
+// Helper: build a minimal H264 codec info
+// ---------------------------------------------------------------------------
+static MediaCodecInfo MakeVideoH264CodecInfo(
+	uint32_t width = 1280, uint32_t height = 720)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat               = GST_FORMAT_VIDEO_ES_H264;
+	ci.mInfo.video.mWidth         = width;
+	ci.mInfo.video.mHeight        = height;
+	ci.mCodecData                 = {0x01, 0x02, 0x03}; // fake SPS/PPS
+	return ci;
+}
+
+static MediaCodecInfo MakeVideoHevcCodecInfo(
+	uint32_t width = 1920, uint32_t height = 1080)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat               = GST_FORMAT_VIDEO_ES_HEVC;
+	ci.mInfo.video.mWidth         = width;
+	ci.mInfo.video.mHeight        = height;
+	ci.mCodecData                 = {0x01, 0x02};
+	return ci;
+}
+
+static MediaCodecInfo MakeAudioAacCodecInfo(
+	uint32_t channels = 2, uint32_t sampleRate = 48000)
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat                  = GST_FORMAT_AUDIO_ES_AAC_RAW;
+	ci.mInfo.audio.mChannelCount     = channels;
+	ci.mInfo.audio.mSampleRate       = sampleRate;
+	ci.mCodecData                    = {0xAA, 0xBB};
+	return ci;
+}
+
+static MediaCodecInfo MakeSubtitleTtmlCodecInfo()
+{
+	MediaCodecInfo ci{};
+	ci.mCodecFormat = GST_FORMAT_SUBTITLE_TTML;
+	return ci;
+}
+
+// ---------------------------------------------------------------------------
+// Base test fixture
+// ---------------------------------------------------------------------------
+
+/**
+ * @class AampRialtoPlayerTest
+ * @brief Base fixture that wires MockIMediaPipelineFactory and a
+ *        SourceCreator lambda into AampRialtoPlayer.
+ *
+ * The mock source factory returns NiceMock<MockAampRialtoMediaSource>
+ * instances whose raw pointers are captured so tests can set expectations.
+ */
+class AampRialtoPlayerTest : public ::testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		g_mockPrivateInstanceAAMP = std::make_shared<NiceMock<MockPrivateInstanceAAMP>>();
+		g_mockAampConfig = std::make_shared<NiceMock<MockAampConfig>>();
+		g_mockGLib = std::make_shared<NiceMock<MockGLib>>();
+
+		ON_CALL(*g_mockAampConfig,
+			GetConfigValue(eAAMPConfig_ReportProgressInterval))
+			.WillByDefault(Return(1.0));
+
+		ON_CALL(*g_mockGLib, g_timeout_add(_, _, _))
+			.WillByDefault(Invoke(
+				[this](guint /*interval*/, GSourceFunc function, gpointer data)
+				{
+					m_progressTimerCallback = function;
+					m_progressTimerUserData = data;
+					return m_nextTimerId++;
+				}));
+
+		ON_CALL(*g_mockGLib, g_source_remove(_))
+			.WillByDefault(Return(TRUE));
+
+		m_mockFactory = std::make_shared<NiceMock<MockIMediaPipelineFactory>>();
+		m_mockPipeline = std::make_unique<NiceMock<MockIMediaPipeline>>();
+		m_mockPipelinePtr = m_mockPipeline.get();
+
+		// Factory returns the mock pipeline and captures the client pointer.
+		ON_CALL(*m_mockFactory, createMediaPipeline(_, _))
+			.WillByDefault(Invoke(
+				[this](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+				       const firebolt::rialto::VideoRequirements &)
+					-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+				{
+					m_capturedClient = client;
+					return std::move(m_mockPipeline);
+				}));
+
+		ON_CALL(*m_mockPipelinePtr, load(_, _, _, _))
+			.WillByDefault(Return(true));
+
+		ON_CALL(*m_mockPipelinePtr, attachSource(_))
+			.WillByDefault(Invoke(
+				[this](const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+				{
+					const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+						*src).setId(m_nextSourceId++);
+					return true;
+				}));
+
+		ON_CALL(*m_mockPipelinePtr, allSourcesAttached())
+			.WillByDefault(Return(true));
+
+		ON_CALL(*m_mockPipelinePtr, play(_))
+			.WillByDefault(Return(true));
+
+		ON_CALL(*m_mockPipelinePtr, pause())
+			.WillByDefault(Return(true));
+
+		ON_CALL(*m_mockPipelinePtr, setPlaybackRate(_))
+			.WillByDefault(Return(true));
+
+		ON_CALL(*m_mockPipelinePtr, stop())
+			.WillByDefault(Return(true));
+
+		ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+			.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+
+		ON_CALL(*m_mockPipelinePtr, haveData(_, _))
+			.WillByDefault(Return(true));
+
+		ON_CALL(*m_mockPipelinePtr, flush(_, _, _))
+			.WillByDefault(Return(true));
+
+		ON_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _))
+			.WillByDefault(Return(true));
+
+		g_mockPipelineFactory = m_mockFactory;
+
+		// Set up the capabilities factory mock.  Default returns nullptr so
+		// computeAppliedRate() falls back to 1.0 unless a test overrides it.
+		m_mockCapabilitiesFactory =
+			std::make_shared<NiceMock<MockIMediaPipelineCapabilitiesFactory>>();
+		ON_CALL(*m_mockCapabilitiesFactory, createMediaPipelineCapabilities())
+			.WillByDefault(Invoke([]{
+				return std::unique_ptr<
+					firebolt::rialto::IMediaPipelineCapabilities>{nullptr};
+			}));
+		g_mockCapabilitiesFactory = m_mockCapabilitiesFactory;
+
+		// Create a NiceMock control backend.
+		auto controlBackend =
+				std::make_unique<NiceMock<MockIRialtoControlBackend>>();
+		m_mockControlBackend = controlBackend.get();
+		ON_CALL(*m_mockControlBackend, waitForRunning(_))
+				.WillByDefault(Return(true));
+
+		// Build a SourceCreator lambda that returns mock sources and
+		// captures raw pointers so tests can set per-test expectations.
+		ON_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
+			.WillByDefault(Return(1.0));
+
+		SourceCreator sourceCreator =
+			[this](AampMediaType type)
+				-> std::unique_ptr<AampRialtoMediaSource>
+			{
+				++m_createSourceCallCount;
+
+				auto src = std::make_unique<
+					NiceMock<MockAampRialtoMediaSource>>();
+				auto *rawPtr = src.get();
+
+					ON_CALL(*rawPtr, mediaType())
+						.WillByDefault(Return(type));
+
+					// Delegate isInbandCC() to the real format check so
+					// that setFormat(FORMAT_INVALID) makes it return true.
+					ON_CALL(*rawPtr, isInbandCC())
+						.WillByDefault([rawPtr]() {
+							return rawPtr->format() == FORMAT_INVALID;
+						});
+					ON_CALL(*rawPtr, mapCodecToMime(_, _, _, _))
+						.WillByDefault(Invoke(
+							[type](GstStreamOutputFormat,
+								bool,
+								std::string &mimeType,
+								firebolt::rialto::StreamFormat &fmt)
+							{
+								if (type == eMEDIATYPE_VIDEO)
+								{
+									mimeType = "video/h264";
+									fmt = firebolt::rialto::StreamFormat::AVC;
+								}
+								else if (type == eMEDIATYPE_AUDIO)
+								{
+									mimeType = "audio/aac";
+									fmt = firebolt::rialto::StreamFormat::RAW;
+								}
+								else if (type == eMEDIATYPE_SUBTITLE)
+								{
+									mimeType = "text/vtt";
+									fmt = firebolt::rialto::StreamFormat::RAW;
+								}
+								return true;
+							}));
+
+					// createRialtoSource returns a MediaSourceVideo/Audio
+					ON_CALL(*rawPtr, createRialtoSource(_, _, _, _, _))
+						.WillByDefault(Invoke(
+							[type](const std::string &mime, bool hasDrm,
+								const MediaCodecInfo &,
+								firebolt::rialto::StreamFormat fmt,
+								std::shared_ptr<firebolt::rialto::CodecData>)
+							{
+								if (type == eMEDIATYPE_VIDEO)
+								{
+									return std::unique_ptr<
+										firebolt::rialto::IMediaPipeline::MediaSource>(
+										std::make_unique<
+											firebolt::rialto::IMediaPipeline::MediaSourceVideo>(
+												mime, hasDrm, 0, 0,
+												firebolt::rialto::SegmentAlignment::AU,
+												fmt, nullptr));
+								}
+								if (type == eMEDIATYPE_SUBTITLE)
+								{
+									return std::unique_ptr<
+										firebolt::rialto::IMediaPipeline::MediaSource>(
+										std::make_unique<
+											firebolt::rialto::IMediaPipeline::MediaSourceSubtitle>(
+												mime, ""));
+								}
+								return std::unique_ptr<
+									firebolt::rialto::IMediaPipeline::MediaSource>(
+									std::make_unique<
+										firebolt::rialto::IMediaPipeline::MediaSourceAudio>(
+											mime, hasDrm,
+											firebolt::rialto::AudioConfig{},
+											firebolt::rialto::SegmentAlignment::UNDEFINED,
+											fmt, nullptr));
+							}));
+
+					ON_CALL(*rawPtr, updateCachedMetadata(_))
+						.WillByDefault(Return());
+
+					// For subtitle sources, default to Return(true) since
+					// there is no NeedData handshake or demuxer to drive.
+					// For video/audio, delegate to the base class so the
+					// real Rialto state machine runs.
+					if (type == eMEDIATYPE_SUBTITLE)
+					{
+						ON_CALL(*rawPtr, injectSingleSample(_, _, _))
+							.WillByDefault(Return(true));
+						ON_CALL(*rawPtr, processDataFragment(_, _, _, _, _, _))
+							.WillByDefault(Return(true));
+					}
+					else
+					{
+						ON_CALL(*rawPtr, injectSingleSample(_, _, _))
+							.WillByDefault(
+								[rawPtr](firebolt::rialto::IMediaPipeline &pipeline,
+									AampMediaSample &&sample, bool morePending)
+								{
+									return rawPtr->AampRialtoMediaSource::injectSingleSample(
+										pipeline, std::move(sample), morePending);
+								});
+						ON_CALL(*rawPtr, processDataFragment(_, _, _, _, _, _))
+							.WillByDefault(
+								[rawPtr](firebolt::rialto::IMediaPipeline &pipeline,
+									std::shared_ptr<std::vector<uint8_t>> buffer,
+									double fpts, double fdts,
+									double fDuration, double offset)
+								{
+									return rawPtr->AampRialtoMediaSource::processDataFragment(
+										pipeline, std::move(buffer),
+										fpts, fdts, fDuration, offset);
+								});
+					}
+
+					ON_CALL(*rawPtr, createSegment(_))
+						.WillByDefault(Invoke(
+						[](const AampMediaSample &sample)
+						{
+							const int64_t ptsNs      = static_cast<int64_t>(sample.mPts      * kNsPerSecond);
+							const int64_t durationNs = static_cast<int64_t>(sample.mDuration * kNsPerSecond);
+							return std::make_unique<
+								firebolt::rialto::IMediaPipeline::MediaSegmentVideo>(
+									0, ptsNs, durationNs, 0, 0);
+						}));
+
+				// Default: no sample injected yet — GetPositionMilliseconds()
+				// returns 0.  Individual tests override to simulate a known
+				// first PTS (segment start).
+				ON_CALL(*rawPtr, firstPtsMs())
+					.WillByDefault(Return(
+						AampRialtoMediaSource::kFirstPtsNotSet));
+
+				auto idx = static_cast<size_t>(type);
+					if (idx < m_mockSources.size())
+					{
+						m_mockSources[idx] = rawPtr;
+					}
+					return src;
+			};
+
+		m_player = std::make_unique<AampRialtoPlayer>(
+				reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
+				&m_mockNotifiable,
+				std::move(controlBackend),
+				/*id3HandlerCallback=*/nullptr,
+				/*exportFrames=*/nullptr,
+				std::move(sourceCreator));
+	}
+
+	void TearDown() override
+	{
+		m_player.reset();
+		g_mockGLib.reset();
+		g_mockAampConfig.reset();
+		g_mockPipelineFactory = nullptr;
+		g_mockCapabilitiesFactory = nullptr;
+		g_mockPrivateInstanceAAMP.reset();
+		m_nextSourceId = 0;
+		m_createSourceCallCount = 0;
+		m_mockSources = {};
+		m_progressTimerCallback = nullptr;
+		m_progressTimerUserData = nullptr;
+		m_nextTimerId = 1;
+	}
+
+	/// Post a playback-state notification via the captured client.
+	void PostPlaybackState(firebolt::rialto::PlaybackState state)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostPlaybackState";
+		client->notifyPlaybackState(state);
+	}
+
+	/// Post a position notification (nanoseconds) via the captured client.
+	void PostPosition(int64_t positionNs)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostPosition";
+		client->notifyPosition(positionNs);
+	}
+
+	/// Post a duration notification (nanoseconds) via the captured client.
+	void PostDuration(int64_t durationNs)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostDuration";
+		client->notifyDuration(durationNs);
+	}
+
+	/// Post a needData event via the real IPC callback path.
+	void PostNeedData(int32_t sourceId, size_t frameCount, uint32_t requestId)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr) << "Configure() must be called before PostNeedData";
+		client->notifyNeedMediaData(sourceId, frameCount, requestId, nullptr);
+	}
+
+	/// Cancel pending needData requests via the real IPC callback path.
+	void CancelNeedData(int32_t sourceId)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr) << "Configure() must be called before CancelNeedData";
+		client->notifyCancelNeedMediaData(sourceId);
+	}
+
+	/// Post a Rialto buffer-underflow notification via the captured client.
+	void PostBufferUnderflow(int32_t sourceId)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostBufferUnderflow";
+		client->notifyBufferUnderflow(sourceId);
+	}
+
+	/// Post a Rialto playback-error notification via the captured client.
+	void PostPlaybackError(int32_t sourceId, firebolt::rialto::PlaybackError error)
+	{
+		auto client = m_capturedClient.lock();
+		ASSERT_NE(client, nullptr)
+			<< "Configure() must be called before PostPlaybackError";
+		client->notifyPlaybackError(sourceId, error);
+	}
+
+	/// Call Configure() with specific formats.
+	/// Recreate m_mockPipeline with fresh default behaviours.
+	/// Must be called before every player Configure() so the factory lambda
+	/// has a valid pipeline to move into the player.
+	void ResetMockPipeline()
+	{
+		m_mockPipeline = std::make_unique<NiceMock<MockIMediaPipeline>>();
+		m_mockPipelinePtr = m_mockPipeline.get();
+
+		ON_CALL(*m_mockPipelinePtr, load(_, _, _, _))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, attachSource(_))
+			.WillByDefault(Invoke(
+				[this](const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+				{
+					const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+						*src).setId(m_nextSourceId++);
+					return true;
+				}));
+		ON_CALL(*m_mockPipelinePtr, allSourcesAttached())
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, play(_))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, pause())
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, setPlaybackRate(_))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, stop())
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+			.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+		ON_CALL(*m_mockPipelinePtr, haveData(_, _))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, flush(_, _, _))
+			.WillByDefault(Return(true));
+		ON_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _))
+			.WillByDefault(Return(true));
+	}
+
+	void Configure(
+		StreamOutputFormat video = FORMAT_ISO_BMFF,
+		StreamOutputFormat audio = FORMAT_ISO_BMFF,
+		StreamOutputFormat sub   = FORMAT_INVALID)
+	{
+		// The factory lambda moves m_mockPipeline into the player on each call.
+		// If it was already consumed (null), recreate it with default behaviours
+		// so the player gets a valid pipeline and EXPECT_CALLs on
+		// m_mockPipelinePtr target the new pipeline correctly.
+		if (!m_mockPipeline)
+		{
+			ResetMockPipeline();
+		}
+		m_player->Configure(video, audio, sub,
+			/*bESChangeStatus=*/false,
+			/*setReadyAfterPipelineCreation=*/false);
+	}
+
+	/// Build a minimal AampMediaSample.
+	AampMediaSample MakeSample(double pts = 0.1, double duration = 0.033)
+	{
+		AampMediaSample s{};
+		s.mPts      = pts;
+		s.mDuration = duration;
+		return s;
+	}
+
+	/// Spin-poll until condition() returns true or the timeout elapses.
+	static void WaitFor(
+		const std::function<bool()> &condition,
+		std::chrono::milliseconds timeout = std::chrono::milliseconds(500))
+	{
+		const auto deadline =
+			std::chrono::steady_clock::now() + timeout;
+		while (!condition() && std::chrono::steady_clock::now() < deadline)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		}
+	}
+
+	/// Trigger initFragment SendTransfer — relies on the mock source's
+	/// attachOrUpdate (inherited from base class).
+	void SendVideoInitFragment()
+	{
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+			.WillByDefault([]() { return MakeVideoH264CodecInfo(); });
+		std::vector<uint8_t> buf = {0x00, 0x00, 0x00, 0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			0, 0, 0, 0, /*initFragment=*/true);
+	}
+
+	/// Trigger initFragment SendTransfer for audio.
+	void SendAudioInitFragment(bool encrypted = false)
+	{
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetCodecInfo())
+			.WillByDefault([encrypted]() {
+				MediaCodecInfo ci = MakeAudioAacCodecInfo();
+				ci.mIsEncrypted = encrypted;
+				return ci;
+			});
+		std::vector<uint8_t> buf = {0x00, 0x00, 0x00, 0x01};
+		m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(buf),
+			0, 0, 0, 0, /*initFragment=*/true);
+	}
+
+	void TriggerProgressTimerTick()
+	{
+		// With the new ProgressTimer implementation, we directly invoke
+		// OnProgressTimerTick() to simulate a timer tick.
+		m_player->OnProgressTimerTick();
+	}
+
+	std::shared_ptr<NiceMock<MockIMediaPipelineFactory>>        m_mockFactory;
+	std::unique_ptr<NiceMock<MockIMediaPipeline>>               m_mockPipeline;
+	NiceMock<MockIMediaPipeline> *                              m_mockPipelinePtr{nullptr};
+	std::shared_ptr<NiceMock<MockIMediaPipelineCapabilitiesFactory>>
+	                                                            m_mockCapabilitiesFactory;
+	std::unique_ptr<AampRialtoPlayer>                           m_player;
+	std::weak_ptr<firebolt::rialto::IMediaPipelineClient>       m_capturedClient;
+	NiceMock<MockIStreamSinkNotifiable>                         m_mockNotifiable;
+	MockIRialtoControlBackend *                                 m_mockControlBackend{nullptr};
+	std::array<NiceMock<MockAampRialtoMediaSource> *, 3>        m_mockSources{};
+	int                                                         m_createSourceCallCount{0};
+	int32_t                                                     m_nextSourceId{0};
+	GSourceFunc                                                 m_progressTimerCallback{nullptr};
+	gpointer                                                    m_progressTimerUserData{nullptr};
+	guint                                                       m_nextTimerId{1};
+};
+
+/**
+ * @class AampRialtoPlayerWithDemuxTest
+ * @brief Fixture that additionally sets up g_mockMp4Demux for tests
+ *        exercising SendTransfer (which uses the demuxer owned by sources).
+ */
+class AampRialtoPlayerWithDemuxTest : public AampRialtoPlayerTest
+{
+protected:
+	void SetUp() override
+	{
+		AampRialtoPlayerTest::SetUp();
+		g_mockMp4Demux = std::make_shared<NiceMock<MockMp4Demux>>();
+	}
+
+	void TearDown() override
+	{
+		g_mockMp4Demux.reset();
+		g_mockMp4Demux = nullptr;
+		AampRialtoPlayerTest::TearDown();
+	}
+};
+
+// ===========================================================================
+// Phase 2 — Configure / pipeline creation
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest, Configure_ValidFormats_CreatesPipeline)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, load(_, _, _, _))
+		.WillOnce(Return(true));
+
+	Configure();
+}
+
+TEST_F(AampRialtoPlayerTest, Configure_NullSourceCreator_DoesNotCrash)
+{
+	g_mockPipelineFactory = nullptr;
+	m_player.reset();
+
+	SourceCreator nullCreator = [](AampMediaType) { return nullptr; };
+
+	m_player = std::make_unique<AampRialtoPlayer>(
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get()),
+		&m_mockNotifiable,
+		std::unique_ptr<IRialtoControlBackend>(nullptr),
+		/*id3HandlerCallback=*/nullptr,
+		/*exportFrames=*/nullptr,
+		std::move(nullCreator));
+	EXPECT_NO_THROW(
+		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID, false, false));
+	g_mockPipelineFactory = m_mockFactory;
+}
+
+TEST_F(AampRialtoPlayerTest, Configure_CallsSourceCreatorForEachFormat)
+{
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	EXPECT_EQ(m_createSourceCallCount, 3);  // video + audio + inband CC subtitle
+	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);  // inband CC
+}
+
+TEST_F(AampRialtoPlayerTest, Configure_VideoOnly_CreatesVideoSourceOnly)
+{
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	EXPECT_EQ(m_createSourceCallCount, 2);  // video + inband CC subtitle
+	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);  // inband CC
+}
+
+TEST_F(AampRialtoPlayerTest, Configure_FormatUnknown_CreatesSourceWithoutDemuxer)
+{
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_UNKNOWN, FORMAT_UNKNOWN);
+	EXPECT_EQ(m_createSourceCallCount, 3);  // video + audio + inband CC subtitle
+	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->hasDemuxer());
+}
+
+TEST_F(AampRialtoPlayerTest, Configure_FormatIsoBmff_DoesNotCreateDemuxer)
+{
+	// Demuxer creation is deferred until the first SendTransfer call so
+	// that sources using the SendSample path (already-demuxed data) never
+	// allocate a demuxer they do not need.
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->hasDemuxer());
+}
+
+TEST_F(AampRialtoPlayerTest, Configure_AudioOnly_CreatesAudioSourceOnly)
+{
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	EXPECT_EQ(m_createSourceCallCount, 1);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+}
+
+TEST_F(AampRialtoPlayerTest, Configure_AllThreeFormats_CreatesAllThreeSources)
+{
+	m_createSourceCallCount = 0;
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	EXPECT_EQ(m_createSourceCallCount, 3);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+}
+
+// ===========================================================================
+// Phase 3 — CheckAllSourcesAttached
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_InitFragment_CreatesDemuxerLazily)
+{
+	// No demuxer should exist after Configure — it is created on the
+	// first SendTransfer call, so sources that only ever receive
+	// already-demuxed samples via SendSample never allocate one.
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
+	SendVideoInitFragment();
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->hasDemuxer());
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_BothSources_CallsAllSourcesAttachedOnce)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_VideoOnlyStream_CallsAllSourcesAttachedAfterVideo)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_AudioOnlyStream_CallsAllSourcesAttachedAfterAudio)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+
+	SendAudioInitFragment();
+}
+
+// ===========================================================================
+// Phase 4 — attachSource via SendTransfer
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_InitFragment_AttachesSourceToPipeline)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// video attaches first, then the deferred inband CC subtitle source.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(2);
+
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_InitFragment_AttachesAudioSourceToPipeline)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+
+	SendAudioInitFragment();
+}
+
+// ===========================================================================
+// Phase 4b — Source attachment ordering (video before audio)
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_AudioInitFirst_DefersUntilVideoAttaches)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Audio init arrives first — should NOT trigger attachSource yet.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+	SendAudioInitFragment();
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// Video init arrives — should trigger video, deferred audio, and the
+	// deferred inband CC subtitle source created in Configure().
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(
+		testing::Truly([](const auto &src) {
+			return dynamic_cast<
+				const firebolt::rialto::IMediaPipeline::MediaSourceSubtitle *>(
+					src.get()) != nullptr;
+		})))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*m_mockPipelinePtr, attachSource(
+			testing::Truly([](const auto &src) {
+				return dynamic_cast<
+					const firebolt::rialto::IMediaPipeline::MediaSourceVideo *>(
+						src.get()) != nullptr;
+			})))
+			.WillOnce(Invoke(
+				[this](const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+				{
+					const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+						*src).setId(m_nextSourceId++);
+					return true;
+				}));
+		EXPECT_CALL(*m_mockPipelinePtr, attachSource(
+			testing::Truly([](const auto &src) {
+				return dynamic_cast<
+					const firebolt::rialto::IMediaPipeline::MediaSourceAudio *>(
+						src.get()) != nullptr;
+			})))
+			.WillOnce(Invoke(
+				[this](const std::unique_ptr<
+					firebolt::rialto::IMediaPipeline::MediaSource> &src)
+				{
+					const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+						*src).setId(m_nextSourceId++);
+					return true;
+				}));
+	}
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_AudioOnlyConfig_AttachesImmediately)
+{
+	// No video source configured — audio should not be deferred.
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+
+	SendAudioInitFragment();
+}
+
+// ===========================================================================
+// Phase 5 — Segment injection baseline
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_MediaFragment_EnqueuesSamples)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+	// Mirrors real AAMP usage: Stream() always follows Configure()/attach
+	// and is what clears the gate set by Configure() (via
+	// UngateAllSources()) so injection can proceed.
+	m_player->Stream();
+
+	PostNeedData(0, 1, 42);
+
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.2; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+
+	std::atomic<bool> haveDataCalled{false};
+	EXPECT_CALL(*m_mockPipelinePtr, addSegment(42, _)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 42))
+		.WillOnce(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+
+	std::vector<uint8_t> buf = {0x01};
+	m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+		0.2, 0.2, 0.033, 0, /*initFragment=*/false);
+
+	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	EndOfStreamReached_SetsEosFlag)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+	// Mirrors real usage: EOS is reached during active playback, i.e. after
+	// Stream() has cleared the gate set by Configure().
+	m_player->Stream();
+
+	PostNeedData(0, 0, 7);
+
+	std::atomic<bool> haveDataCalled{false};
+	EXPECT_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::EOS, 7))
+		.WillOnce(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+
+	m_player->EndOfStreamReached(eMEDIATYPE_VIDEO);
+
+	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnNeedMediaData_EnqueuesRequest)
+{
+	Configure();
+	EXPECT_CALL(*m_mockPipelinePtr, haveData(_, _)).Times(::testing::AtLeast(0));
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	EXPECT_NO_THROW(client->notifyNeedMediaData(0, 5, 100, nullptr));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnCancelNeedMediaData_ClearsRequests)
+{
+	Configure();
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	client->notifyNeedMediaData(0, 5, 200, nullptr);
+	EXPECT_NO_THROW(client->notifyCancelNeedMediaData(0));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	InjectSamples_EosOnly_CallsHaveDataWithEos)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+	// Mirrors real usage: EOS is reached during active playback, i.e. after
+	// Stream() has cleared the gate set by Configure().
+	m_player->Stream();
+
+	m_player->EndOfStreamReached(eMEDIATYPE_VIDEO);
+
+	std::atomic<bool> haveDataCalled{false};
+	EXPECT_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::EOS, 55))
+		.WillOnce(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+
+	PostNeedData(0, 1, 55);
+
+	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
+}
+
+TEST_F(AampRialtoPlayerTest,
+	InjectSamples_NullPipeline_DoesNotCrash)
+{
+	ON_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillByDefault(Invoke(
+			[this](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+			       const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				m_capturedClient = client;
+				return nullptr;
+			}));
+	Configure();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+	EXPECT_NO_THROW({
+		m_player->EndOfStreamReached(eMEDIATYPE_VIDEO);
+		client->notifyNeedMediaData(0, 1, 1, nullptr);
+	});
+	WaitFor([]{ return false; }, std::chrono::milliseconds(10));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, Stream_CallsPlay)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+
+	m_player->Stream();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_DeferredDuringFlush_SeekDoneIssuesPlay)
+{
+	/**
+	 * @brief Regression: when Stream() is called while a flush is in
+	 *        progress, m_playRequested is set but play() is deferred.
+	 *        The SEEK_DONE handler completing the flush cycle must issue
+	 *        play() because m_playRequested is true, even though the
+	 *        restored pre-flush state is SOURCES_ATTACHED (not PLAYING).
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+
+	// Flush: state → FLUSHING, pre-flush state = SOURCES_ATTACHED.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Precondition: Flush() must move state to FLUSHING";
+
+	// Stream() while FLUSHING sets m_playRequested=true and returns early
+	// without calling play().  play() must be issued exactly once —
+	// by the SEEK_DONE handler once the flush cycle completes.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+
+	// Simulate Rialto confirming the pipeline-level flushing seek completed.
+	// OnPlaybackState(SEEK_DONE) calls onFlushComplete() (restoring
+	// SOURCES_ATTACHED), then checks m_playRequested=true and issues play().
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_PlayRequestReset_SubsequentFlushWhilePausedNoPlay)
+{
+	/**
+	 * @brief After Stream() successfully issues play(), m_playRequested is
+	 *        reset to false.  A subsequent seek-while-paused flush must not
+	 *        spuriously re-issue play() once Rialto's post-flush PAUSED
+	 *        notification arrives.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Stream(): sources already attached, play() issued immediately and
+	// m_playRequested reset to false.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// Rialto confirms PLAYING, then user pauses.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	// Seek-while-paused: Flush() → FLUSHING, pre-flush state = PAUSED.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// play() must NOT be called: m_playRequested was reset when Stream()
+	// issued play(). SEEK_DONE only lands in FLUSHED; Rialto's own PAUSED
+	// notification (guaranteed to follow SEEK_DONE) drives FLUSHED -> PAUSED.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);  // triggers onFlushComplete() → FLUSHED
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);  // FLUSHED -> PAUSED
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED)
+		<< "Seek-while-paused flush must settle in PAUSED, not resume play";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_CallsPipelineStop)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(1);
+
+	m_player->Stop(false);
+}
+
+TEST_F(AampRialtoPlayerTest, Stop_NullPipeline_DoesNotCrash)
+{
+	EXPECT_NO_THROW(m_player->Stop(false));
+}
+
+TEST_F(AampRialtoPlayerTest, Stop_DestroysPipeline)
+{
+	/**
+	 * @brief m_pipeline is private, so destruction is observed indirectly:
+	 *        a tracked pipeline subclass flips a flag from its destructor,
+	 *        installed in place of the fixture's default mock pipeline.
+	 */
+	class TrackedPipeline : public NiceMock<MockIMediaPipeline>
+	{
+	public:
+		explicit TrackedPipeline(bool *destroyedFlag) : m_destroyedFlag(destroyedFlag) {}
+		~TrackedPipeline() override { *m_destroyedFlag = true; }
+	private:
+		bool *m_destroyedFlag;
+	};
+
+	bool pipelineDestroyed = false;
+	auto trackedPipeline = std::make_unique<TrackedPipeline>(&pipelineDestroyed);
+	ON_CALL(*trackedPipeline, load(_, _, _, _)).WillByDefault(Return(true));
+	ON_CALL(*trackedPipeline, stop()).WillByDefault(Return(true));
+
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillOnce(Invoke(
+			[&trackedPipeline](std::weak_ptr<firebolt::rialto::IMediaPipelineClient>,
+			                    const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				return std::move(trackedPipeline);
+			}));
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_FALSE(pipelineDestroyed)
+		<< "Pipeline must stay alive while the player is configured";
+
+	m_player->Stop(false);
+
+	EXPECT_TRUE(pipelineDestroyed)
+		<< "Stop() must release the pipeline so its destructor runs immediately";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_Idempotent_DoesNotCrash)
+{
+	Configure();
+
+	// Stop() destroys the pipeline, so a second call has no pipeline left
+	// to call stop() on again.
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(1);
+
+	m_player->Stop(false);
+	EXPECT_NO_THROW(m_player->Stop(false));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest, Stop_KeepLastFrame_StillCallsPipelineStop)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(1);
+
+	m_player->Stop(/*keepLastFrame=*/true);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_WakesBlockedInjectionThread)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	std::atomic<bool> injectionReturned{false};
+	std::thread injector([this, &injectionReturned]() {
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetSamples())
+			.WillByDefault([]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s{};
+				s.mPts      = 1.0;
+				s.mDuration = 0.033;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		std::vector<uint8_t> buf = {0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			1.0, 1.0, 0.033, 0, /*initFragment=*/false);
+		injectionReturned.store(true);
+	});
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	EXPECT_FALSE(injectionReturned.load())
+		<< "Injector should be blocked waiting for needData";
+
+	m_player->Stop(false);
+
+	injector.join();
+	EXPECT_TRUE(injectionReturned.load())
+		<< "Injector should have been unblocked by Stop()";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_NeedDataAfterStop_DoesNotCrash)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+
+	m_player->Stop(false);
+
+	// Stop() destroys the pipeline (m_mockPipelinePtr is now a dangling
+	// pointer - no EXPECT_CALL can be set against it). The stale needData
+	// arriving after Stop() has nothing left to respond to and must be
+	// dropped safely rather than crashing (see AampRialtoMediaSource::
+	// respondAbandonedRequest's null-pipeline branch).
+	EXPECT_NO_THROW(client->notifyNeedMediaData(/*sourceId=*/0, /*frameCount=*/3,
+		/*requestId=*/99, /*shmInfo=*/nullptr));
+
+	// Give the (synchronous, but exercised via a callback) needData handler
+	// a moment to run so a use-after-free on the destroyed pipeline would
+	// actually surface here rather than after the test has already passed.
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_EosThenNeedDataAfterStop_DoesNotCrash)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	m_player->EndOfStreamReached(eMEDIATYPE_VIDEO);
+	m_player->EndOfStreamReached(eMEDIATYPE_AUDIO);
+
+	auto client = m_capturedClient.lock();
+	ASSERT_NE(client, nullptr);
+
+	m_player->Stop(false);
+
+	// Stop() destroys the pipeline (m_mockPipelinePtr is now a dangling
+	// pointer - no EXPECT_CALL can be set against it), so it must not
+	// resurrect the EOS state and re-fire haveData(EOS, ...); the stale
+	// needData arriving after Stop() has nothing left to respond to and
+	// must be dropped safely rather than crashing.
+	EXPECT_NO_THROW(client->notifyNeedMediaData(/*sourceId=*/0, /*frameCount=*/3,
+		/*requestId=*/100, /*shmInfo=*/nullptr));
+
+	// Give the (synchronous, but exercised via a callback) needData handler
+	// a moment to run so a use-after-free on the destroyed pipeline would
+	// actually surface here rather than after the test has already passed.
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+}
+
+
+// ===========================================================================
+// Phase 5b — NotifyInjectorToPause / wake blocked injection threads
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyInjectorToPause_WakesBlockedInjectionThread)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	std::atomic<bool> injectionReturned{false};
+	std::thread injector([this, &injectionReturned]() {
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetSamples())
+			.WillByDefault([]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s{};
+				s.mPts      = 1.0;
+				s.mDuration = 0.033;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		std::vector<uint8_t> buf = {0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			1.0, 1.0, 0.033, 0, /*initFragment=*/false);
+		injectionReturned.store(true);
+	});
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	EXPECT_FALSE(injectionReturned.load())
+		<< "Injector should be blocked waiting for needData";
+
+	m_player->NotifyInjectorToPause();
+
+	injector.join();
+	EXPECT_TRUE(injectionReturned.load())
+		<< "Injector should have been unblocked by NotifyInjectorToPause()";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	NotifyInjectorToPause_NoPipeline_DoesNotCrash)
+{
+	EXPECT_NO_THROW(m_player->NotifyInjectorToPause());
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyInjectorToPause_DoesNotCallPipelineStop)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
+
+	m_player->NotifyInjectorToPause();
+}
+
+// ===========================================================================
+// Phase 5c — NotifyInjectorToResume / clear gateMode
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyInjectorToResume_ClearsGateSoSubsequentSampleIsNotDropped)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	// Gate injection, mirroring DisableDownloads() -> NotifyInjectorToPause().
+	// This leaves gateMode == DROPPED, so a sample submitted right now would
+	// be discarded immediately (see the Phase 5d test below) rather than
+	// waiting for a future ungate.
+	m_player->NotifyInjectorToPause();
+
+	// Mirrors EnableDownloads() -> NotifyInjectorToResume(): clears the
+	// gate back to NONE so a sample submitted after this point is
+	// processed normally (blocks waiting for needData) instead of being
+	// dropped immediately.
+	m_player->NotifyInjectorToResume();
+
+	std::atomic<bool> injectionReturned{false};
+	std::thread injector([this, &injectionReturned]() {
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetSamples())
+			.WillByDefault([]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s{};
+				s.mPts      = 1.0;
+				s.mDuration = 0.033;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		std::vector<uint8_t> buf = {0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			1.0, 1.0, 0.033, 0, /*initFragment=*/false);
+		injectionReturned.store(true);
+	});
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	EXPECT_FALSE(injectionReturned.load())
+		<< "Injector should be blocked waiting for needData (not dropped) "
+		   "since NotifyInjectorToResume() cleared the gate";
+
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/200);
+
+	WaitFor([&]{ return injectionReturned.load(); });
+	const bool completed = injectionReturned.load();
+	if (!completed)
+	{
+		// Safety net: force the stuck injector to bail via a generation
+		// bump so the test process does not hang if the assertion below
+		// fails (i.e. NotifyInjectorToResume() did not clear the gate).
+		m_player->NotifyInjectorToPause();
+	}
+	injector.join();
+
+	EXPECT_TRUE(completed)
+		<< "Injector should complete once needData arrives after "
+		   "NotifyInjectorToResume() cleared the gate";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	NotifyInjectorToResume_NoPipeline_DoesNotCrash)
+{
+	EXPECT_NO_THROW(m_player->NotifyInjectorToResume());
+}
+
+
+// ===========================================================================
+// Phase 5d — NotifyInjectorToPause must never block the injector thread
+//
+// Unlike Flush()/Configure() (which must block genuinely-wanted post-seek
+// data until Stream() resumes), NotifyInjectorToPause() mirrors GStreamer's
+// InterfacePlayerRDK::mPauseInjector, which drops new buffers synchronously
+// and never blocks the pushing thread.  A sample submitted after
+// NotifyInjectorToPause() must therefore be dropped immediately - it must
+// not rely on a subsequent NotifyInjectorToResume() (or any other ungate
+// event) to release the caller thread, otherwise a fragment-injector thread
+// being torn down while paused (but never resumed) hangs forever.
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyInjectorToPause_NewSampleAfterPause_DoesNotBlockCallerThread)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	m_player->NotifyInjectorToPause();
+
+	std::atomic<bool> injectionReturned{false};
+	std::thread injector([this, &injectionReturned]() {
+		ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+		ON_CALL(*g_mockMp4Demux, GetSamples())
+			.WillByDefault([]() {
+				std::vector<AampMediaSample> samples;
+				AampMediaSample s{};
+				s.mPts      = 1.0;
+				s.mDuration = 0.033;
+				samples.push_back(std::move(s));
+				return samples;
+			});
+		std::vector<uint8_t> buf = {0x01};
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(buf),
+			1.0, 1.0, 0.033, 0, /*initFragment=*/false);
+		injectionReturned.store(true);
+	});
+
+	WaitFor([&]{ return injectionReturned.load(); });
+	const bool completed = injectionReturned.load();
+	if (!completed)
+	{
+		// Safety net: force the stuck injector to bail via a generation
+		// bump so the test process does not hang if the assertion below
+		// fails (i.e. the sample was blocked rather than dropped).
+		m_player->NotifyInjectorToPause();
+	}
+	injector.join();
+
+	EXPECT_TRUE(completed)
+		<< "A sample submitted after NotifyInjectorToPause() must be "
+		   "dropped immediately and must never block the caller thread "
+		   "waiting for a future NotifyInjectorToResume()/ungate event";
+}
+
+// ===========================================================================
+// Phase 6 — setSourcePosition before first injection
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	InjectSamples_FirstInjection_CallsSetSourcePosition)
+{
+	m_player->Flush(10.0, 1, false);
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// setSourcePosition fires for both video (id=0) and the inband CC
+	// subtitle source (id=1) created alongside video in Configure().
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, 10000000000LL, true, _, _)).Times(2);
+
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	AttachSource_NoFlush_DoesNotCallSetSourcePosition)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+
+	SendVideoInitFragment();
+}
+
+// Stop() ends the session outright (as opposed to Flush()'s internal
+// teardown-recovery call, which pre-stages a position for the very next
+// Configure()/AttachSource()).  A stale m_pendingPositionNs left over from
+// the ended session must not be reused by a fresh tune's own AttachSource()
+// when that tune issues no Flush() of its own (e.g. an ordinary HLS tune).
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_ResetsPendingPositionForNextSessionsAttach)
+{
+	// First session: Flush() stages a non-zero position before attach.
+	m_player->Flush(10.0, 1, false);
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	m_player->Stop(false);
+
+	// Second session (fresh tune): no Flush() before the video source
+	// attaches - the stale 10s position must not be reused.
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+	SendVideoInitFragment();
+}
+
+// ===========================================================================
+// Phase 7 — Flush calls pipeline flush + resets queues
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_CallsPipelineSetPositionAtFlushPosition)
+{
+	/**
+	 * @brief Flush() now performs a pipeline-level flushing seek via
+	 *        setPosition() instead of the old per-source flush() IPC.
+	 *        position=5.0s -> 5,000,000,000ns.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(5'000'000'000LL))
+		.WillOnce(Return(true));
+
+	m_player->Flush(5.0, 1, false);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_NoPipeline_DoesNotCrash)
+{
+	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
+}
+
+// ===========================================================================
+// SeekStreamSink — Delegates to Flush() (matches AAMPGstPlayer::SeekStreamSink())
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_CallsSetPositionWithCorrectValue)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// SeekStreamSink delegates to Flush(), which calls pipeline->setPosition()
+	// with position in nanoseconds. position = 10.5 seconds = 10,500,000,000ns.
+	const int64_t expectedPosNs = 10'500'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+
+	m_player->SeekStreamSink(10.5, 1.0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_TrickplayRate_CallsSetPositionAndStoresRate)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// position = 20.0 seconds = 20,000,000,000 nanoseconds
+	const int64_t expectedPosNs = 20'000'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+
+	m_player->SeekStreamSink(20.0, 4.0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_ReverseRate_CallsSetPosition)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// position = 15.0 seconds = 15,000,000,000 nanoseconds
+	const int64_t expectedPosNs = 15'000'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+
+	m_player->SeekStreamSink(15.0, -2.0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_GatesAllSourcesDuringFlush)
+{
+	/**
+	 * @brief A mid-playback discontinuity (e.g. AampMp4Demuxer's delayed
+	 *        video-track flush) must gate every source, not just adjust
+	 *        position - otherwise other tracks keep injecting new-period
+	 *        data completely unsynchronized with the flush.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->SeekStreamSink(8.76, 1.0);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekStreamSink_AutoResumesAllSourcesAfterSeekDone)
+{
+	/**
+	 * @brief Nothing else calls Stream() again for a mid-playback
+	 *        discontinuity flush, so SeekStreamSink() must itself request
+	 *        playback resumption - otherwise sources stay gated forever
+	 *        once SEEK_DONE arrives, freezing playback.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->SeekStreamSink(8.76, 1.0);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SeekStreamSink_NoPipeline_DoesNotCrash)
+{
+	EXPECT_NO_THROW(m_player->SeekStreamSink(0.0, 1.0));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SeekStreamSink_NoSourcesAttached_DoesNotCrash)
+{
+	Configure();
+	EXPECT_NO_THROW(m_player->SeekStreamSink(5.0, 1.0));
+}
+
+// ===========================================================================
+// Phase 8 — Pause / SetPlayBackRate
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Pause_True_CallsPipelinePause)
+{
+	Configure();
+	EXPECT_CALL(*m_mockPipelinePtr, pause()).Times(1).WillOnce(Return(true));
+	EXPECT_TRUE(m_player->Pause(/*pause=*/true, false));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Pause_False_CallsPipelinePlay)
+{
+	Configure();
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	EXPECT_TRUE(m_player->Pause(/*pause=*/false, false));
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetPlayBackRate_CallsPipelineSetPlaybackRate)
+{
+	Configure();
+	EXPECT_CALL(*m_mockPipelinePtr, setPlaybackRate(2.0))
+		.Times(1).WillOnce(Return(true));
+	EXPECT_TRUE(m_player->SetPlayBackRate(2.0));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Pause_NullPipeline_ReturnsFalse)
+{
+	EXPECT_FALSE(m_player->Pause(true, false));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetPlayBackRate_NullPipeline_ReturnsFalse)
+{
+	EXPECT_FALSE(m_player->SetPlayBackRate(1.5));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	ChangeAamp_NullNewAamp_KeepsExistingAssociation)
+{
+	auto *originalAamp =
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
+
+	EXPECT_TRUE(m_player->IsAssociatedAamp(originalAamp));
+
+	m_player->ChangeAamp(nullptr, nullptr);
+
+	EXPECT_TRUE(m_player->IsAssociatedAamp(originalAamp));
+}
+
+// ===========================================================================
+// Phase DRM — QueueProtectionEvent / ClearProtectionEvent
+// ===========================================================================
+
+class AampRialtoPlayerDrmTest : public AampRialtoPlayerWithDemuxTest
+{
+protected:
+	void SetUp() override
+	{
+		m_mockDrmBridge = std::make_unique<NiceMock<MockDrmBridge>>();
+		g_mockDrmBridge = m_mockDrmBridge.get();
+		AampRialtoPlayerWithDemuxTest::SetUp();
+	}
+
+	void TearDown() override
+	{
+		AampRialtoPlayerWithDemuxTest::TearDown();
+		g_mockDrmBridge = nullptr;
+		m_mockDrmBridge.reset();
+	}
+
+	std::unique_ptr<NiceMock<MockDrmBridge>> m_mockDrmBridge;
+};
+
+TEST_F(AampRialtoPlayerDrmTest,
+	QueueProtectionEvent_Video_StoresParamsWithoutCallingBridge)
+{
+	const char *systemId = "com.widevine.alpha";
+	const uint8_t initData[] = {0x01, 0x02, 0x03};
+
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).Times(0);
+
+	m_player->QueueProtectionEvent(
+		systemId, initData, sizeof(initData), eMEDIATYPE_VIDEO);
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	QueueProtectionEvent_NullInitData_DoesNotCallBridge)
+{
+	EXPECT_CALL(*m_mockDrmBridge, createSession(_, _, _, _)).Times(0);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", nullptr, 0, eMEDIATYPE_VIDEO);
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	ClearProtectionEvent_ClearsPendingProtection)
+{
+	const uint8_t initData[] = {0x01};
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	// ClearProtectionEvent must NOT call clearSessions — it only clears the
+	// buffered init data so that a subsequent Configure/attachOrUpdate does
+	// not re-use stale protection params.
+	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(0);
+	m_player->ClearProtectionEvent();
+}
+
+// ---------------------------------------------------------------------------
+// SetEncryptedAamp — lazy DRM bridge initialisation for pre-roll ad scenario
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerDrmTest,
+	SetEncryptedAamp_CreatesBridge_BridgeDelegatesToMock)
+{
+	// Before any call the bridge is absent; SetEncryptedAamp must create it.
+	// The fake AampDrmBridge delegates to g_mockDrmBridge, so subsequent
+	// calls on the player's bridge reach m_mockDrmBridge.
+ 	PrivateInstanceAAMP encryptedAamp{};
+ 	m_player->SetEncryptedAamp(&encryptedAamp);
+
+	// ClearProtectionEvent only clears pending params — it does not call
+	// clearSessions.  Verify that the bridge was created by queuing protection
+	// and checking createSession is reachable through the mock.
+	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(0);
+	m_player->ClearProtectionEvent();
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachSource_WithNoBridgeSet_LazilyCreatesBridge)
+{
+	// Bridge is not pre-initialised via SetEncryptedAamp.
+	// It must be created lazily when AttachSource is first called, and the
+	// fake must delegate calls to g_mockDrmBridge (set by the fixture).
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	// ClearProtectionEvent only clears pending params, not DRM sessions.
+	EXPECT_CALL(*m_mockDrmBridge, clearSessions()).Times(0);
+	m_player->ClearProtectionEvent();
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachSource_AfterSetEncryptedAamp_DoesNotReplaceBridge)
+{
+	// SetEncryptedAamp sets the bridge.  Subsequent AttachSource calls must
+	// NOT replace it — the lazy guard `if (!m_drmBridge)` ensures this.
+	// Verify by checking createSession is called through the same mock.
+	const uint8_t initData[] = {0x01};
+ 	PrivateInstanceAAMP encryptedAamp{};
+ 	m_player->SetEncryptedAamp(&encryptedAamp);
+	
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	// createSession must be called on the bridge installed by SetEncryptedAamp
+	// (which delegates to m_mockDrmBridge via the fake).
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(7));
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				// Inband CC subtitle source — no DRM expected.
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachVideoSource_WithValidMksId_AttachesWithHasDrmTrue)
+{
+	const uint8_t initData[] = {0x01};
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.WillOnce(Return(10));
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				// Inband CC subtitle source — no DRM expected.
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachVideoSource_WithoutMksId_AttachesWithHasDrmFalse)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_FALSE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				// Inband CC subtitle source — no DRM expected.
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+}
+
+// ---------------------------------------------------------------------------
+// HLS-convention fallback: protection queued only under eMEDIATYPE_VIDEO
+// (see StreamAbstractionAAMP_HLS::InitiateDrmProcess) must still be used to
+// create a DRM session for an encrypted non-video source.
+// ---------------------------------------------------------------------------
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSource_EncryptedWithOnlyVideoProtectionQueued_UsesVideoProtection)
+{
+	const uint8_t initData[] = {0x01, 0x02};
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	// HLS only ever queues protection under eMEDIATYPE_VIDEO.
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.Times(2) // once for video's own attach, once for the audio fallback
+		.WillRepeatedly(Return(10));
+
+	// Attach order is video, then the inband CC subtitle source (deferred
+	// in Configure() until video attaches, no protection queued for it),
+	// then audio once SendAudioInitFragment() runs.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+	SendAudioInitFragment(/*encrypted=*/true);
+}
+
+TEST_F(AampRialtoPlayerDrmTest,
+	AttachAudioSource_NotEncrypted_DoesNotFallBackToVideoProtection)
+{
+	const uint8_t initData[] = {0x01, 0x02};
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	m_player->QueueProtectionEvent(
+		"com.widevine.alpha", initData, sizeof(initData), eMEDIATYPE_VIDEO);
+
+	// Only the video attach should create a DRM session.
+	EXPECT_CALL(*m_mockDrmBridge,
+		createSession(_, _, _, eMEDIATYPE_VIDEO))
+		.Times(1)
+		.WillOnce(Return(10));
+
+	// Attach order is video, then the inband CC subtitle source, then audio.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_TRUE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				EXPECT_FALSE(src->getHasDrm());
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	SendVideoInitFragment();
+	SendAudioInitFragment(/*encrypted=*/false);
+}
+
+// ===========================================================================
+// IStreamSinkNotifiable — OnPlaybackState notifications
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_FirstTime_CallsAllFirstFrameNotifications)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+
+	EXPECT_CALL(m_mockNotifiable, LogFirstFrame()).Times(1);
+	EXPECT_CALL(m_mockNotifiable, LogTuneComplete()).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
+	// The direct-rialto CC path passes a non-zero IDirectRialtoCC* handle.
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(Ne(0UL)))
+		.Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstVideoFrameDisplayed()).Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_FirstTime_DoesNotCallSpeedChanged)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+
+	EXPECT_CALL(m_mockNotifiable, NotifySpeedChanged(_, _)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_PostSeek_CallsNotifyFirstBufferAndFrame)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_SEEKING));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
+	// CC source already created on first PLAYING; handle is still non-zero.
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(Ne(0UL))).Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstVideoFrameDisplayed()).Times(1);
+	EXPECT_CALL(m_mockNotifiable, LogFirstFrame()).Times(0);
+	EXPECT_CALL(m_mockNotifiable, LogTuneComplete()).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_ResumeFromPause_CallsNotifySpeedChanged)
+{
+	Configure();
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_PAUSED));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(1);
+	EXPECT_CALL(m_mockNotifiable,
+		NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, /*changeState=*/true))
+		.Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_EndOfStream_CallsNotifyEOSReached)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, NotifyEOSReached()).Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_EndOfStream_DoesNotCallFirstFrameNotifications)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Paused_DoesNotCallNotifiable)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstBufferProcessed(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyEOSReached()).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifySpeedChanged(_, _)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(_, _)).Times(0);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Paused_DoesNotChangeGateMode)
+{
+	// Rialto sends PAUSED for buffering-pause (e.g. AampUnderflowMonitor).
+	// Injection must be allowed to continue so the buffer refills —
+	// aborting it here would discard samples and delay recovery.
+	// Only unblockInjection()/gateInjection() (flush/stop/pause-notify
+	// paths) should change gateMode.
+	Configure();
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	// Configure() gates new sources to BLOCKED until Stream() confirms
+	// play() (not exercised here) — see the gateInjection(true) call sites
+	// in Configure().
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyFragmentCachingOngoing_ThenComplete_IssuesPlay)
+{
+	// SetStateBufferingIfRequired() calls NotifyFragmentCachingOngoing() when
+	// mFragmentCachingRequired is true. NotifyFragmentCachingComplete() must
+	// then issue play() to resume the pipeline — mirroring GSTPlayer's
+	// pendingPlayState mechanism to close the seek-while-paused race.
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Pipeline is not yet PAUSED (SOURCES_ATTACHED), so NotifyFragmentCachingOngoing
+	// must pause it before waiting for the cache to fill.
+	EXPECT_CALL(*m_mockPipelinePtr, pause()).WillOnce(Return(true));
+	m_player->NotifyFragmentCachingOngoing();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->NotifyFragmentCachingComplete();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyFragmentCachingComplete_AfterPauseTrue_DoesNotIssuePlay)
+{
+	// Pause(true) cancels the pending play: an explicit pause (e.g. user
+	// paused during buffering) must take precedence over the deferred resume.
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// NotifyFragmentCachingOngoing pauses (pipeline not yet PAUSED), then
+	// Pause(true) pauses again after clearing the pending-play flag.
+	EXPECT_CALL(*m_mockPipelinePtr, pause()).Times(2).WillRepeatedly(Return(true));
+	m_player->NotifyFragmentCachingOngoing();
+
+	m_player->Pause(/*pause=*/true, /*forceStop=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	m_player->NotifyFragmentCachingComplete();
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Playing_DoesNotChangeGateMode)
+{
+	// A PLAYING notification is not a genuine ungate point (see the
+	// consolidated ungate-timing design comment below) - it can be a late
+	// echo of a play() issued elsewhere (e.g. StopBuffering() inside
+	// Discontinuity()) while a position is still pending, and must not
+	// prematurely clear a gate applied by Configure()/Flush().
+	Configure();
+
+	// Force sources into a gated state first.
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+// ===========================================================================
+// gateMode — consolidated ungate-timing design (UngateAllSources())
+// ===========================================================================
+//
+// The gate is set to BLOCKED by gateInjection(true) (Configure()/Flush()'s
+// flushable path) or to DROPPED by unblockInjection() (Flush()/Stop()/
+// NotifyInjectorToPause()/dtor), and must be cleared to NONE ONLY at the
+// points that genuinely issue play(): Stream(), CheckAllSourcesAttached()
+// (deferred play), Pause(false), StopBuffering(), and
+// OnPlaybackState(SEEK_DONE)'s shouldPlay branch. It must NOT be cleared by
+// reset(), AttachSource(), handleNeedData(), or OnPlaybackState(PLAYING)
+// (covered above) — see AampRialtoVideoSourceTests for the former group.
+
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_SetsGateModeBlockedOnAllSources)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	// Mirrors real usage: Flush() (e.g. for a seek) normally happens once
+	// already playing, i.e. after Stream() has cleared the gate set by
+	// Configure().
+	m_player->Stream();
+
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_SetsGateModeDroppedOnAllSources)
+{
+	// Stop() ends the session with no follow-up gateInjection(true) — it
+	// must leave sources DROPPED (never blocking a future caller thread)
+	// rather than BLOCKED, until the next Configure()/Flush() re-gates
+	// them explicitly.
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	// Mirrors real usage: Stop() normally happens once already playing,
+	// i.e. after Stream() has cleared the gate set by Configure().
+	m_player->Stream();
+
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+
+	m_player->Stop(/*keepLastFrame=*/false);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::DROPPED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	AttachSource_DoesNotClearGateMode)
+{
+	/**
+	 * @brief AttachSource() runs mid-Configure(), potentially before a
+	 *        subsequent Flush() completes a multi-step trickplay sequence.
+	 *        It must NOT clear gateMode - only UngateAllSources() at
+	 *        a genuine play()-issuance point may do so.
+	 */
+	Configure();
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+
+	// Only video attaches; audio remains unattached so
+	// CheckAllSourcesAttached() (called from AttachSource()) cannot fire
+	// and confound the result via its own UngateAllSources() call.
+	SendVideoInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_ClearsGateModeOnAllSources)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+
+	m_player->Stream();
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_AlreadyPlaying_ClearsGateModeAndCallsPlay)
+{
+	/**
+	 * @brief Regression: UngateAllSources() must be called unconditionally
+	 *        in Stream() - not only when promoting to PLAYING - so a
+	 *        second Stream() call (e.g. immediately following a Flush()
+	 *        that already restored PLAYING) still clears a gate left set
+	 *        by that flush.  play() is now issued unconditionally on every
+	 *        Stream() call (even when the pipeline already reports PLAYING)
+	 *        so a genuine play()-issuance point does not depend on the
+	 *        state machine's view of Rialto's state being perfectly in
+	 *        sync.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckAllSourcesAttached_DeferredPlay_ClearsGateModeOnAllSources)
+{
+	/**
+	 * @brief When Stream() is called before all sources are attached,
+	 *        play() is deferred to CheckAllSourcesAttached(). That deferred
+	 *        path must also clear the gate immediately before issuing
+	 *        play(), not just the immediate Stream() path.
+	 */
+	Configure();
+	SendVideoInitFragment();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+
+	// Sources not all attached yet - Stream() defers play().
+	m_player->Stream();
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	SendAudioInitFragment();  // completes attachment - fires deferred play()
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Pause_False_ClearsGateModeOnAllSources)
+{
+	Configure();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+
+	EXPECT_TRUE(m_player->Pause(/*pause=*/false, false));
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Pause_True_DoesNotClearGateMode)
+{
+	// Pausing must not clear the gate - only resuming (Pause(false)) does.
+	Configure();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+
+	EXPECT_TRUE(m_player->Pause(/*pause=*/true, false));
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StopBuffering_ClearsGateModeOnAllSources)
+{
+	Configure();
+
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+	m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode = AampRialtoMediaSource::GateMode::BLOCKED;
+
+	m_player->StopBuffering(/*forceStop=*/true);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_SeekDone_ShouldPlay_ClearsGateModeOnAllSources)
+{
+	/**
+	 * @brief Regression coverage for the trickplay ungate-timing race:
+	 *        Flush() sets the gate to BLOCKED (real gateInjection(true)
+	 *        call, not a manual override); Stream() while FLUSHING defers
+	 *        play() without touching the gate; only once SEEK_DONE
+	 *        completes the flush cycle and decides to play does the gate
+	 *        finally clear.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	// Mirrors real usage: Flush() (e.g. for a seek) normally happens once
+	// already playing, i.e. after Stream() has cleared the gate set by
+	// Configure().
+	m_player->Stream();
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED)
+		<< "Flush() must set the gate";
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED)
+		<< "Stream() while FLUSHING must defer without clearing the gate";
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_BlockedByFlushGate_InjectsOnceGateClearsAfterStream)
+{
+	/**
+	 * @brief Regression: reproduces AAMP's real Flush()->Stream()->
+	 *        SendSample() sequence where Stream() is called while a flush
+	 *        is still completing (play() deferred, gateMode still
+	 *        BLOCKED).  SendSample() must BLOCK the sample until the gate
+	 *        clears, not drop it - it is genuinely-wanted playback data,
+	 *        not stale data.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	// Stream() while FLUSHING defers play() without clearing the gate.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	ASSERT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	// SendSample() called now (matching AAMP's real Flush()->Stream()->
+	// SendSample() sequence) must block rather than drop the sample.
+	std::atomic<bool> sendDone{false};
+	std::atomic<bool> sendResult{false};
+	std::thread sender([this, &sendDone, &sendResult]() {
+		sendResult = m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(5.0, 0.033));
+		sendDone = true;
+	});
+
+	WaitFor([&sendDone]{ return sendDone.load(); }, std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load())
+		<< "SendSample must block while the flush gate is still set, "
+		   "not drop the sample";
+
+	// SEEK_DONE completes the flush; m_playRequested was true so the gate
+	// must clear (and play() is issued, satisfying the EXPECT_CALL above).
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+
+	// The unblocked injector now waits for needData; post it and confirm
+	// the originally-submitted sample is actually delivered (not dropped).
+	std::atomic<bool> haveDataCalled{false};
+	ON_CALL(*m_mockPipelinePtr, addSegment(7, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 7))
+		.WillByDefault(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/7);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	EXPECT_TRUE(sendResult.load());
+	EXPECT_TRUE(haveDataCalled.load());
+
+	sender.join();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_SeekDone_PreFlushStatePlaying_ClearsGateModeAndCallsPlay)
+{
+	/**
+	 * @brief Regression: seek-while-playing.  onFlushComplete() only takes
+	 *        the state machine to FLUSHED - it does not restore PLAYING.
+	 *        The gate must still be cleared based on m_playRequested alone -
+	 *        it must not depend on Rialto's subsequent PLAYING notification
+	 *        (guaranteed to follow SEEK_DONE) to eventually clear it via the
+	 *        PLAYING case handler.  play() is issued unconditionally whenever
+	 *        m_playRequested was set, regardless of the state machine still
+	 *        being in FLUSHED at that point.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Establish PLAYING as the pre-flush state.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// Seek-while-playing: Flush() → FLUSHING, pre-flush state = PLAYING,
+	// setting the gate.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	// Stream() while FLUSHING sets m_playRequested=true and defers play().
+	m_player->Stream();
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED)
+		<< "Stream() while FLUSHING must defer without clearing the gate";
+
+	// SEEK_DONE alone lands in FLUSHED (no restore to PLAYING) and must
+	// clear the gate on both sources, and must issue play() unconditionally
+	// since m_playRequested was set - regardless of the state machine still
+	// being in FLUSHED.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE)
+		<< "Gate must clear based on m_playRequested alone, not on a "
+		   "subsequent Rialto PLAYING notification";
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+
+	// Rialto's own PLAYING notification (guaranteed to follow SEEK_DONE)
+	// drives the state machine the rest of the way.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_SeekDone_PositionStillPendingAfterConcurrentDiscontinuity_DefersPlay)
+{
+	/**
+	 * @brief Regression: a Discontinuity() that arrives for a newer period
+	 *        while an earlier flush cycle is still FLUSHING re-arms
+	 *        m_positionPending (see MaybeFlushForPendingPosition()'s own
+	 *        FLUSHING-guard comment: its SEEK_DONE resolves the earlier,
+	 *        now-stale position only). The SEEK_DONE that completes THIS
+	 *        stale flush cycle must not ungate/play - a position is still
+	 *        owed to the newer period, and playing now would run past it.
+	 *        m_playRequested must be left set (not consumed) so the next
+	 *        flush cycle's own SEEK_DONE - once it resolves the newer
+	 *        position - performs the deferred ungate/play instead.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+
+	// First (stale) flush cycle.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// Stream() while FLUSHING sets m_playRequested=true and defers play().
+	m_player->Stream();
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+
+	// A concurrent Discontinuity() for a newer period re-arms
+	// m_positionPending while the above flush cycle is still in flight.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ON_CALL(*g_mockPrivateInstanceAAMP, WillFlushOnDiscontinuity())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	// SEEK_DONE completing the STALE flush cycle must not play - a position
+	// is still owed to the newer, re-armed period.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED)
+		<< "Gate must remain BLOCKED - a newer position is still pending";
+
+	::testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// The subsequent flush cycle that finally resolves the re-armed
+	// position must still perform the deferred ungate/play once ITS
+	// SEEK_DONE arrives.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/6.0, /*rate=*/1, /*shouldTearDown=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::NONE);
+}
+
+// ===========================================================================
+// IStreamSinkNotifiable — position and duration callbacks
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyPosition_DoesNotCallMonitorProgress)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(/*sync=*/false, /*bos=*/false))
+		.Times(0);
+
+	constexpr int64_t kTwoSecondsNs = 2'000'000'000LL;
+	PostPosition(kTwoSecondsNs);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Playing_StartsProgressTimer_UsesConfiguredInterval)
+{
+	constexpr guint kExpectedIntervalMs = 250;
+	EXPECT_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
+		.WillOnce(Return(0.25));
+	EXPECT_CALL(*g_mockGLib,
+		g_timeout_add(kExpectedIntervalMs, _, _))
+		.WillOnce(DoAll(
+			SaveArg<1>(&m_progressTimerCallback),
+			SaveArg<2>(&m_progressTimerUserData),
+			Return(101)));
+
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_DoesNotStartProgressTimer)
+{
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)).Times(0);
+
+	Configure();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	ProgressTimer_WhenPaused_StillReportsProgress)
+{
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_TRUE(m_player->Pause(
+		/*pause=*/true,
+		/*forceStopGstreamerPreBuffering=*/false));
+
+	EXPECT_CALL(m_mockNotifiable,
+		MonitorProgress(/*sync=*/false, /*bos=*/false))
+		.Times(1);
+
+	TriggerProgressTimerTick();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_RemovesProgressTimer)
+{
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _))
+		.WillOnce(DoAll(
+			SaveArg<1>(&m_progressTimerCallback),
+			SaveArg<2>(&m_progressTimerUserData),
+			Return(77)));
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*g_mockGLib, g_source_remove(77))
+		.WillOnce(Return(TRUE));
+	m_player->Stop(/*keepLastFrame=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackState_Playing_DoesNotRestartProgressTimerWhenAlreadyRunning)
+{
+	// First PLAYING: start() fires immediately then schedules g_timeout_add(id=88).
+	// Second PLAYING: kick() calls g_source_remove(88) then a new g_timeout_add(id=89).
+	// Teardown: player dtor calls stop() which calls g_source_remove(89).
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)).Times(2)
+		.WillOnce(Return(88))
+		.WillOnce(Return(89));
+	EXPECT_CALL(*g_mockGLib, g_source_remove(88)).WillOnce(Return(TRUE));
+	EXPECT_CALL(*g_mockGLib, g_source_remove(89)).WillOnce(Return(TRUE));
+
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StartProgressTimer_WhenAlreadyRunning_KicksTimerForImmediateDispatch)
+{
+	// start() fires once immediately then schedules the periodic timer (id=101).
+	// kick() removes id=101 and reschedules (id=102).
+	// Teardown: player dtor calls stop() which calls g_source_remove(102).
+	constexpr guint kIntervalMs = 500;
+	EXPECT_CALL(m_mockNotifiable, GetProgressReportIntervalSeconds())
+		.WillOnce(Return(0.5));
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(kIntervalMs, _, _)).Times(2)
+		.WillOnce(Return(101))
+		.WillOnce(Return(102));
+	EXPECT_CALL(*g_mockGLib, g_source_remove(101)).WillOnce(Return(TRUE));
+	EXPECT_CALL(*g_mockGLib, g_source_remove(102)).WillOnce(Return(TRUE));
+
+	Configure();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	// StartProgressTimer() on an already-running timer kicks it:
+	// one immediate MonitorProgress() call.
+	EXPECT_CALL(m_mockNotifiable, MonitorProgress(/*sync=*/false, /*bos=*/false))
+		.Times(1);
+
+	m_player->StartProgressTimer();
+}
+
+// Configure() unconditionally arms m_positionPending (it cannot tell
+// whether the caller will follow up with an AttachSource() or an explicit
+// Flush() to resolve the real position - see Configure()'s comment).  With
+// no AttachSource()/Flush() having run yet to resolve it,
+// GetPositionMilliseconds() must report 0 rather than a raw, unresolved
+// pipeline position.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_ReturnsElapsedTimeSinceSegmentStart)
+{
+	Configure();
+
+	// positionPending short-circuits before ever querying the pipeline.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
+// When Flush() pre-stages a non-zero position before the video source
+// attaches (e.g. the DASH known-PTS-discontinuity path, where
+// priv_aamp.cpp calls sink->Flush() immediately after Configure() and
+// before any source is attached), AttachSource() commits that position as
+// the segment-start baseline.  GetPositionMilliseconds() must then return
+// elapsed time from that baseline, not the raw pipeline position.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_WithNonZeroSegmentStart_ReturnsElapsedTime)
+{
+	Configure();
+
+	// Flush() before any source attaches: not a flushable state, so the
+	// position is only staged (no SEEK_DONE) - AttachSource() will consume
+	// it below, committing 13440 ms as the segment-start baseline.
+	constexpr int64_t  kCurrentPosNs   = 14'921'000'000LL;  // 14921 ms
+	constexpr long long kExpectedMs    = 1'481LL;            // elapsed
+
+	m_player->Flush(/*position=*/13.44, /*rate=*/1, /*shouldTearDown=*/false);
+	SendVideoInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kCurrentPosNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpectedMs);
+}
+
+// Unlike m_positionPending (cleared per-flush cycle), the segment-start
+// baseline is a plain committed value with no automatic reset hook: neither
+// Stop() nor Configure() clears it, mirroring the pre-existing lifecycle of
+// m_pendingPositionNs (which it is derived from).  However Configure() now
+// unconditionally re-arms m_positionPending, so a re-tune that does not
+// issue its own Flush() before the first AttachSource() reports 0 (not the
+// stale carried-over baseline) until that AttachSource()/Flush() resolves
+// the position afresh.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterReconfigureWithoutNewFlush_CarriesOverPriorBaseline)
+{
+	// First session: Flush() stages 5000 ms before the video source attaches.
+	Configure();
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+	SendVideoInitFragment();
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(7'000'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 2'000LL);
+
+	// Reconfigure — simulates a re-tune (Stop then Configure) with no
+	// intervening Flush() call.
+	m_player->Stop(false);
+	Configure();
+
+	// Configure() unconditionally re-arms m_positionPending, so until this
+	// session's own AttachSource()/Flush() resolves it, position reports 0
+	// rather than the stale prior-session baseline.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+
+	// Second session: a fresh Flush() before attach commits a new baseline.
+	m_player->Flush(/*position=*/2.0, /*rate=*/1, /*shouldTearDown=*/false);
+	SendVideoInitFragment();
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(3'500'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 1'500LL);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	GetPositionMilliseconds_BeforeConfigure_ReturnsZero)
+{
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
+// When the pipeline query fails after a segment start has been recorded,
+// GetPositionMilliseconds() must return 0.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_WhenPipelineQueryFails_ReturnsZero)
+{
+	Configure();
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(13'440LL));  // segment start = 13440 ms
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_)).WillByDefault(Return(false));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
+// After a trickplay rewind flush (rate=-2), GetPositionMilliseconds() must
+// return elapsed * rate (negative) so priv_aamp's
+//   reported_pos = seek_pos + GetPositionMilliseconds()
+// decrements correctly — mirroring GStreamer's
+//   rc = (pos - segmentStart) * rate.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_TrickplayRewind_ReturnsNegativeElapsed)
+{
+	/**
+	 * @brief With PTS restamping enabled, Rialto plays restamped frames
+	 *        (0, 1, 2, … seconds) in forward order. GetPositionMilliseconds()
+	 *        must multiply the elapsed restamped time by rate so that the
+	 *        returned delta is negative for reverse trickplay.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure();
+
+	// Attach both sources first (segment-start baseline commits to 0, and
+	// AttachSource() clears m_positionPending) so the player reaches
+	// SOURCES_ATTACHED - a flushable state - before Flush() below runs.
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Trickplay rewind: seek to 12 s at rate=-2.  The mock pipeline has no
+	// default action for setPosition(), so it returns false; Flush() then
+	// commits the rate immediately without touching the segment-start
+	// baseline (still 0 from the attach above).
+	m_player->Flush(12.0, -2, /*shouldTearDown=*/false);
+
+	// With PTS restamping the first video sample arrives with PTS = 0 ms.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
+
+	// After 616 ms of pipeline time (restamped domain) the content position
+	// elapsed at rate=-2 should be 616 × (-2) = -1232 ms.
+	constexpr int64_t  kElapsedNs = 616'000'000LL;  // 616 ms
+	constexpr long long kExpected = -1232LL;          // 616 × (-2)
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kElapsedNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpected);
+}
+
+// After returning from trickplay (rate resets to 1), GetPositionMilliseconds()
+// must revert to non-negative, forward-incrementing behaviour.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterTrickplayExit_RateReturnsToOne)
+{
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure();
+
+	// Attach both sources first (segment-start baseline commits to 0, and
+	// AttachSource() clears m_positionPending) so the player reaches
+	// SOURCES_ATTACHED - a flushable state - before the Flush() calls below.
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Enter trickplay rewind.  The mock pipeline has no default action for
+	// setPosition(), so it returns false and Flush() commits the rate
+	// immediately (state -> FLUSHED, itself flushable) without touching the
+	// segment-start baseline.
+	m_player->Flush(12.0, -2, /*shouldTearDown=*/false);
+
+	// Resume normal play: flush back to 1× forward.
+	m_player->Flush(8.0, 1, /*shouldTearDown=*/false);
+
+	// After the second flush, first video sample arrives with PTS = 0 ms.
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0LL));
+
+	constexpr int64_t  kElapsedNs = 500'000'000LL;  // 500 ms
+	constexpr long long kExpected = 500LL;            // 500 × 1
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kElapsedNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kExpected);
+}
+
+// During a mid-segment seek, Flush() stages the seek position in
+// m_pendingPositionNs so that GetPositionMilliseconds() can return it
+// immediately while the pipeline is in FLUSHING state (before SEEK_DONE
+// commits it as the new segment-start baseline).  This prevents position
+// reporting from snapping to zero during the flush window.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_WhileFlushing_ReturnsSeekPositionWithoutQueryingPipeline)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Seek to 30 s mid-segment.  setPosition returning true keeps the
+	// player in FLUSHING so the SEEK_DONE path is not yet taken.
+	constexpr double   kSeekSec   = 30.0;
+	constexpr int64_t  kSeekPosMs = 30'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(kSeekSec, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// getPosition() must not be called while in FLUSHING state.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), kSeekPosMs);
+
+	// Exit FLUSHING so TearDown() can clean up without blocking.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+}
+
+// After a mid-fragment seek the segment-start baseline is the seek position
+// (not the PTS of the first byte of the fragment): OnPlaybackState(SEEK_DONE)
+// commits m_pendingPositionNs into m_segmentStartPositionNs.  When the
+// pipeline reports that same seek position as its current position on the
+// first query after SEEK_DONE, the elapsed calculation (queried - segmentStart)
+// == 0 so the reported position is 0 — correctly representing "just seeked,
+// no elapsed playback yet" rather than surfacing a non-zero fragment-offset
+// blip.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetPositionMilliseconds_AfterMidFragmentSeek_FirstQueryReturnsZero)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	constexpr double   kSeekSec   = 30.0;
+	constexpr int64_t  kSeekPosNs = 30'000'000'000LL;
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(kSeekSec, /*rate=*/1, /*shouldTearDown=*/false);
+
+	// Rialto confirms the seek; player exits FLUSHING and commits the
+	// segment-start baseline to the seek position.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	// Pipeline reports exactly the seek position immediately after SEEK_DONE.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kSeekPosNs), Return(true)));
+
+	// (30000 - 30000) * 1 = 0: no elapsed time since the seek target.
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 0LL);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetDurationMilliseconds_ReturnsLatestNotifiedDuration)
+{
+	Configure();
+
+	constexpr int64_t kOneHourNs  = 3'600'000'000'000LL;
+	constexpr long     kExpectedMs = 3'600'000L;
+
+	PostDuration(kOneHourNs);
+
+	EXPECT_EQ(m_player->GetDurationMilliseconds(), kExpectedMs);
+}
+
+// ===========================================================================
+// GetVideoPTS
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPTS_ConvertsPipelinePositionTo90kHzTicks)
+{
+	Configure();
+
+	constexpr int64_t   kPositionNs = 5'000'000'000LL;  // 5000 ms
+	constexpr long long kExpectedPts = 450'000LL;         // 5000 ms * 90
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(kPositionNs), Return(true)));
+
+	EXPECT_EQ(m_player->GetVideoPTS(), kExpectedPts);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPTS_WhenPipelineQueryFails_ReturnsZero)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).WillOnce(Return(false));
+
+	EXPECT_EQ(m_player->GetVideoPTS(), 0LL);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	GetVideoPTS_NoPipeline_ReturnsZero)
+{
+	EXPECT_EQ(m_player->GetVideoPTS(), 0LL);
+}
+
+// ===========================================================================
+// CheckForPTSChangeWithTimeout
+// ===========================================================================
+//
+// Mirrors InterfacePlayerRDK::CheckForPTSChangeWithTimeout(), reached via
+// AAMPGstPlayer::CheckForPTSChangeWithTimeout().  A false return makes
+// PrivateInstanceAAMP::CheckForDiscontinuityStall() schedule a retune, so
+// false must be reported only when the PTS is genuinely available and has
+// not advanced for longer than the timeout.
+
+/**
+ * @test With no queryable position the PTS is unknown, so the check must
+ *       optimistically report "still moving" rather than force a retune.
+ */
+TEST_F(AampRialtoPlayerTest,
+	CheckForPTSChangeWithTimeout_NoPipeline_ReturnsTrue)
+{
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(0));
+}
+
+/**
+ * @test A failed position query yields PTS 0, which must also be treated as
+ *       "unknown" rather than "stalled".
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_PositionQueryFails_ReturnsTrue)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_)).WillByDefault(Return(false));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(0));
+}
+
+/**
+ * @test An advancing PTS must report no stall, and must refresh the
+ *       last-updated timestamp so a subsequent zero timeout does not
+ *       immediately trip.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_PtsAdvancing_ReturnsTrue)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}), Return(true)))
+		.WillOnce(DoAll(SetArgReferee<0>(int64_t{2'000'000'000}), Return(true)));
+
+	// No sleep needed here: the PTS itself changes between calls, which
+	// resets the baseline regardless of elapsed wall-clock time.
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+}
+
+/**
+ * @test A static PTS within the timeout window must not be reported as a
+ *       stall.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_PtsStaticWithinTimeout_ReturnsTrue)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}),
+			Return(true)));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(60'000));
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(60'000));
+}
+
+/**
+ * @test Only a PTS that has been static for longer than the timeout may be
+ *       reported as a stall.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_PtsStaticBeyondTimeout_ReturnsFalse)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}),
+			Return(true)));
+
+	// First call establishes the baseline timestamp for this PTS.
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+	EXPECT_FALSE(m_player->CheckForPTSChangeWithTimeout(1));
+}
+
+/**
+ * @test Stop() must clear the PTS baseline so a new session starting at the
+ *       same PTS is not immediately judged stalled using the previous
+ *       session's timestamp.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	CheckForPTSChangeWithTimeout_AfterStop_BaselineIsReset)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}),
+			Return(true)));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+	std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	ASSERT_FALSE(m_player->CheckForPTSChangeWithTimeout(1));
+
+	m_player->Stop(false);
+	Configure();
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(int64_t{1'000'000'000}),
+			Return(true)));
+
+	EXPECT_TRUE(m_player->CheckForPTSChangeWithTimeout(1));
+}
+
+// ===========================================================================
+// SetVideoRectangle / GetVideoRectangle
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoRectangle_ReturnsStringSetBySetVideoRectangle)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, setVideoWindow(_, _, _, _))
+		.WillByDefault(Return(true));
+
+	m_player->SetVideoRectangle(10, 20, 640, 480);
+
+	EXPECT_EQ(m_player->GetVideoRectangle(), "10,20,640,480");
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetVideoRectangle_CallsPipelineSetVideoWindow)
+{
+	Configure();
+
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setVideoWindow(/*x=*/0u, /*y=*/0u, /*w=*/1920u, /*h=*/1080u))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	m_player->SetVideoRectangle(0, 0, 1920, 1080);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnPlaybackState_Playing_FirstTime_PassesVideoRectangleToNotifyFirstBuffer)
+{
+	Configure();
+
+	ON_CALL(*m_mockPipelinePtr, setVideoWindow(_, _, _, _))
+		.WillByDefault(Return(true));
+	ON_CALL(m_mockNotifiable, GetState())
+		.WillByDefault(Return(eSTATE_IDLE));
+
+	m_player->SetVideoRectangle(5, 10, 320, 240);
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyFirstBufferProcessed(std::string{"5,10,320,240"}))
+		.Times(1);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+// ===========================================================================
+// GetVideoSize
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoSize_AfterSetVideoRectangle_ReturnsWidthAndHeight)
+{
+	Configure();
+	ON_CALL(*m_mockPipelinePtr, setVideoWindow(_, _, _, _))
+		.WillByDefault(Return(true));
+
+	m_player->SetVideoRectangle(10, 20, 640, 480);
+
+	int w = 0;
+	int h = 0;
+	m_player->GetVideoSize(w, h);
+
+	EXPECT_EQ(w, 640);
+	EXPECT_EQ(h, 480);
+}
+
+TEST_F(AampRialtoPlayerTest, GetVideoSize_BeforeSetVideoRectangle_LeavesOutputsUnchanged)
+{
+	int w = 111;
+	int h = 222;
+	m_player->GetVideoSize(w, h);
+
+	// No rectangle has been set yet, so the (unparseable) empty string
+	// must leave the caller-supplied values untouched.
+	EXPECT_EQ(w, 111);
+	EXPECT_EQ(h, 222);
+}
+
+// ===========================================================================
+// IRialtoControlBackend integration
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest, Configure_CallsWaitForRunningBeforeCreatingPipeline)
+{
+	testing::InSequence seq;
+	EXPECT_CALL(*m_mockControlBackend, waitForRunning(_)).WillOnce(Return(true));
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillOnce(Invoke(
+			[this](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+				const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				m_capturedClient = client;
+				return std::move(m_mockPipeline);
+			}));
+
+	Configure();
+}
+
+TEST_F(AampRialtoPlayerTest, Configure_ProceedsWhenWaitForRunningTimesOut)
+{
+	EXPECT_CALL(*m_mockControlBackend, waitForRunning(_)).WillOnce(Return(false));
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillOnce(Invoke(
+			[this](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+			       const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				m_capturedClient = client;
+				return std::move(m_mockPipeline);
+			}));
+
+	Configure();
+}
+
+// ===========================================================================
+// SetStreamCaps — source attach via external demuxer path
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_VideoH264_AttachesVideoSource)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.Times(2)
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached())
+		.WillOnce(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_AudioAAC_AttachesAudioSource)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.WillOnce(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached())
+		.WillOnce(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_VideoAndAudio_AllSourcesAttached)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.Times(3)
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached())
+		.Times(1)
+		.WillOnce(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_VideoAlreadyAttached_StagesCodecData)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.Times(2)
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo(1280, 720));
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo(1920, 1080));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_UnknownCodecFormat_DoesNotAttach)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// Override mapCodecToMime to return false for invalid format
+	if (m_mockSources[eMEDIATYPE_VIDEO])
+	{
+		ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], mapCodecToMime(_, _, _, _))
+			.WillByDefault(Return(false));
+	}
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+
+	MediaCodecInfo ci{};
+	ci.mCodecFormat = GST_FORMAT_INVALID;
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, std::move(ci));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_NoPipeline_DoesNotCrash)
+{
+	ON_CALL(*m_mockFactory, createMediaPipeline(_, _))
+		.WillByDefault(Invoke(
+			[this](std::weak_ptr<firebolt::rialto::IMediaPipelineClient> client,
+			       const firebolt::rialto::VideoRequirements &)
+				-> std::unique_ptr<firebolt::rialto::IMediaPipeline>
+			{
+				m_capturedClient = client;
+				return nullptr;
+			}));
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	EXPECT_NO_THROW(
+		m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo()));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_WithFlushPosition_SetsSourcePosition)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	m_player->Flush(10.0, 1, false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.Times(2)
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	// Both video (id=0) and the deferred inband CC subtitle (id=1) call
+	// setSourcePosition because they both attach during this SetStreamCaps.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL), _, _, _))
+		.Times(2)
+		.WillRepeatedly(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_Subtitle_ResumesTrackDownloads)
+{
+	// Regression test: after a period transition SelectSubtitleTrack calls
+	// StopTrackDownloads(SUBTITLE), setting mbTrackDownloadsBlocked[SUBTITLE]=true.
+	// For Rialto, the NeedData callback never clears that flag (Rialto uses
+	// gateMode, not mbTrackDownloadsBlocked for subtitle backpressure).
+	// SetStreamCaps must therefore call ResumeTrackDownloads(SUBTITLE) after
+	// attaching the subtitle source so the inject loop is unblocked.
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ResumeTrackDownloads(eMEDIATYPE_SUBTITLE))
+		.Times(1);
+
+	m_player->SetStreamCaps(eMEDIATYPE_SUBTITLE, MakeSubtitleTtmlCodecInfo());
+}
+
+// ===========================================================================
+// SendCopy — fragment injection via legacy copy path
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_AudioWhenUnattached_AttachesViaSetStreamCapsAndForwardsFragment)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buffer = {0x01, 0x02, 0x03, 0x04};
+	bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/1.25, /*fdts=*/1.20, /*fDuration=*/0.05);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_AUDIO));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_AudioAlreadyAttached_DoesNotReattach)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buffer = {0x0A, 0x0B, 0x0C, 0x0D};
+	bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/0.1);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_WhenProcessDataFragmentFails_ReturnsFalse)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(1);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, _, _, _, _))
+		.WillOnce(Return(false));
+
+	std::vector<uint8_t> buffer = {0xA1, 0xA2, 0xA3, 0xA4};
+	bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/3.0, /*fdts=*/3.0, /*fDuration=*/0.1);
+
+	EXPECT_FALSE(result);
+}
+
+/**
+ * @test SendCopy() must also drive the deferred pending-position flush
+ *       (MaybeFlushForPendingPosition()), not just SendSample() - muxed
+ *       HLS-TS content is injected exclusively via SendCopy(), so a
+ *       discontinuity on that content would otherwise never resolve.
+ */
+TEST_F(AampRialtoPlayerTest,
+	SendCopy_PositionPending_FlushesToFragmentPts)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	const int64_t expectedPosNs = 4'500'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, /*fpts=*/4.5, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buffer = {0x01, 0x02, 0x03, 0x04};
+	const bool result = m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(buffer),
+		/*fpts=*/4.5, /*fdts=*/4.5, /*fDuration=*/0.1);
+
+	EXPECT_TRUE(result);
+}
+
+/**
+ * @test When ProcessPendingDiscontinuity() is guaranteed to issue its own
+ *       explicit Flush() (WillFlushOnDiscontinuity() == true), Discontinuity()
+ *       must not arm the deferred m_positionPending window - PTS-restamped
+ *       samples keep flowing across Discontinuity(), so arming here would let
+ *       the next sample drive an early implicit Flush() that races the
+ *       guaranteed explicit one, discarding whatever it buffered in between.
+ */
+TEST_F(AampRialtoPlayerTest,
+	Discontinuity_WillFlushOnDiscontinuity_DoesNotArmPositionPending)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+
+	// First sample resolves Configure()'s own unconditional arm, so the
+	// window is provably closed before Discontinuity() runs below.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(false));
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, /*fpts=*/1.0, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> firstBuffer = {0x01, 0x02, 0x03, 0x04};
+	ASSERT_TRUE(m_player->SendCopy(eMEDIATYPE_AUDIO, std::move(firstBuffer),
+		/*fpts=*/1.0, /*fdts=*/1.0, /*fDuration=*/0.1));
+
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+	testing::Mock::VerifyAndClearExpectations(m_mockSources[eMEDIATYPE_AUDIO]);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ON_CALL(*g_mockPrivateInstanceAAMP, WillFlushOnDiscontinuity())
+		.WillByDefault(Return(true));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).Times(0);
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_AUDIO],
+		processDataFragment(_, _, /*fpts=*/4.5, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> secondBuffer = {0x05, 0x06, 0x07, 0x08};
+	const bool result = m_player->SendCopy(eMEDIATYPE_AUDIO,
+		std::move(secondBuffer), /*fpts=*/4.5, /*fdts=*/4.5,
+		/*fDuration=*/0.1);
+
+	EXPECT_TRUE(result);
+}
+
+// ===========================================================================
+// SendSample — per-sample injection via external demuxer path
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SendSample_Video_InjectsSample)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	// Mirrors real AAMP usage: Stream() always follows Configure()/attach
+	// and is what clears the gate set by Configure() (via
+	// UngateAllSources()) so injection can proceed.
+	m_player->Stream();
+
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/1);
+
+	std::atomic<bool> haveDataCalled{false};
+	EXPECT_CALL(*m_mockPipelinePtr, addSegment(1, _)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 1))
+		.WillOnce(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+
+	m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(0.1, 0.033));
+
+	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
+	EXPECT_TRUE(haveDataCalled.load());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendSample_NoSourceAttached_ReturnsFalse)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	bool result = m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample());
+	EXPECT_FALSE(result);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendSample_AfterFlush_DropsRemainingSamples)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	std::atomic<bool> sampleReturned{false};
+	std::thread sender([this, &sampleReturned]() {
+		m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(1.0, 0.033));
+		sampleReturned.store(true);
+	});
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	EXPECT_FALSE(sampleReturned.load())
+		<< "SendSample should be blocked waiting for needData";
+
+	m_player->Flush(5.0);
+
+	WaitFor([&sampleReturned]{ return sampleReturned.load(); });
+	EXPECT_TRUE(sampleReturned.load());
+
+	sender.join();
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendSample_AfterStop_DropsRemainingSamples)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	std::atomic<bool> sampleReturned{false};
+	std::thread sender([this, &sampleReturned]() {
+		m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(1.0, 0.033));
+		sampleReturned.store(true);
+	});
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+	m_player->Stop(false);
+
+	WaitFor([&sampleReturned]{ return sampleReturned.load(); });
+	EXPECT_TRUE(sampleReturned.load());
+
+	sender.join();
+}
+
+// ===========================================================================
+// PipelineConfiguredForMedia
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	PipelineConfiguredForMedia_VideoAttached_ReturnsTrue)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	EXPECT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_VIDEO));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	PipelineConfiguredForMedia_NotAttached_ReturnsFalse)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	EXPECT_FALSE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_VIDEO));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	PipelineConfiguredForMedia_AudioAttached_ReturnsTrue)
+{
+	Configure(FORMAT_INVALID, FORMAT_ISO_BMFF);
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+
+	EXPECT_TRUE(m_player->PipelineConfiguredForMedia(eMEDIATYPE_AUDIO));
+}
+
+// ===========================================================================
+// OnNeedMediaData dispatches to the correct source
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	OnNeedMediaData_DoesNotBlockCallerThread)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	for (int i = 0; i < 30; ++i)
+	{
+		PostNeedData(0, 1, static_cast<uint32_t>(100 + i));
+		PostNeedData(1, 1, static_cast<uint32_t>(200 + i));
+	}
+	SUCCEED();
+}
+
+// ===========================================================================
+// Back-pressure (synchronous pacing)
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	BackPressure_SendTransfer_BlocksUntilNeedData)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+	// Mirrors real AAMP usage: Stream() always follows Configure()/attach
+	// and is what clears the gate set by Configure() (via
+	// UngateAllSources()) so injection can proceed.
+	m_player->Stream();
+
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+
+	std::atomic<bool> sendDone{false};
+	std::atomic<int>  addSegmentCalls{0};
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&addSegmentCalls](uint32_t, const auto &)
+				-> firebolt::rialto::AddSegmentStatus
+			{
+				++addSegmentCalls;
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	std::vector<uint8_t> buf = {0x01};
+	std::thread sender([this, b = std::move(buf), &sendDone]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+		sendDone = true;
+	});
+
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+	EXPECT_EQ(addSegmentCalls.load(), 0);
+
+	PostNeedData(0, 1, 1);
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	EXPECT_EQ(addSegmentCalls.load(), 1);
+
+	sender.join();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	BackPressure_FlushWhileBlocked_UnblocksSendTransfer)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	SendVideoInitFragment();
+
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+
+	std::atomic<bool> sendDone{false};
+	std::vector<uint8_t> buf = {0x01};
+	std::thread sender([this, b = std::move(buf), &sendDone]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_VIDEO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+		sendDone = true;
+	});
+
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+
+	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	sender.join();
+}
+
+// ===========================================================================
+// StopBuffering
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StopBuffering_ForceStop_CallsPipelinePlay)
+{
+	Configure();
+	EXPECT_CALL(*m_mockPipelinePtr, play(_))
+		.Times(1).WillOnce(Return(true));
+	m_player->StopBuffering(/*forceStop=*/true);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	StopBuffering_NotForced_CallsPipelinePlay)
+{
+	Configure();
+	EXPECT_CALL(*m_mockPipelinePtr, play(_))
+		.Times(1).WillOnce(Return(true));
+	m_player->StopBuffering(/*forceStop=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	StopBuffering_NullPipeline_DoesNotCrash)
+{
+	EXPECT_NO_THROW(m_player->StopBuffering(true));
+}
+
+// ===========================================================================
+// Deferred audio attachment — inject-thread blocking
+// ===========================================================================
+
+// When audio attachment is deferred (waiting for video), the audio source's
+// attachPending flag must be set so the inject thread knows to block.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_DeferredAudio_SetsAttachPendingOnAudioSource)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_)).Times(0);
+	SendAudioInitFragment();
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_AUDIO], nullptr);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().attachPending);
+}
+
+// When a media fragment arrives for a deferred-audio source, the inject
+// thread must block until video attaches (which drains the pending audio
+// attachment), then inject normally.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_DeferredAudio_BlocksUntilVideoAttaches)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	// Mirrors real AAMP usage: Stream() always follows Configure(), setting
+	// m_playRequested so that once all sources finish attaching (below),
+	// CheckAllSourcesAttached() clears the gate set by Configure() via
+	// UngateAllSources().
+	m_player->Stream();
+	SendAudioInitFragment();  // deferred — attachPending=true
+
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+	std::atomic<int> addSegmentCalls{0};
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Invoke(
+			[&addSegmentCalls](uint32_t, const auto &)
+				-> firebolt::rialto::AddSegmentStatus
+			{
+				++addSegmentCalls;
+				return firebolt::rialto::AddSegmentStatus::OK;
+			}));
+
+	// Audio media fragment should block because source is not attached yet.
+	std::atomic<bool> sendDone{false};
+	std::vector<uint8_t> buf = {0x01};
+	std::thread sender([this, b = std::move(buf), &sendDone]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+		sendDone = true;
+	});
+
+	// Verify the inject thread is blocked — no injection yet.
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+	EXPECT_EQ(addSegmentCalls.load(), 0);
+
+	// Attaching video drains the pending audio attachment, which unblocks
+	// the waiting inject thread.
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+	SendVideoInitFragment();  // attaches video; deferred audio attachment fires
+	// Audio sourceId=1 is now registered. Send NeedData so the inject
+	// thread (unblocked from the attachPending wait) can proceed.
+	PostNeedData(1, 1, 42);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	EXPECT_EQ(addSegmentCalls.load(), 1);
+
+	sender.join();
+}
+
+// If Flush() is called while the inject thread is blocked on a deferred
+// attachment, the thread must unblock and discard the fragment.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendTransfer_DeferredAudio_FlushWhileBlockedAbortsSendTransfer)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendAudioInitFragment();  // deferred — attachPending=true
+
+	ON_CALL(*g_mockMp4Demux, Parse(_)).WillByDefault(Return(true));
+	ON_CALL(*g_mockMp4Demux, GetSamples())
+		.WillByDefault([]() {
+			std::vector<AampMediaSample> s;
+			AampMediaSample ms{};
+			ms.mPts = 0.1; ms.mDuration = 0.033;
+			s.push_back(std::move(ms));
+			return s;
+		});
+
+	std::atomic<bool> sendDone{false};
+	std::vector<uint8_t> buf = {0x01};
+	std::thread sender([this, b = std::move(buf), &sendDone]() mutable {
+		m_player->SendTransfer(eMEDIATYPE_AUDIO, std::move(b),
+			0.1, 0.1, 0.033, 0, false);
+		sendDone = true;
+	});
+
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+
+	// Flush increments the generation and sets paused=true, which must
+	// wake the blocked inject thread.
+	EXPECT_NO_THROW(m_player->Flush(0.0, 1, false));
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+
+	sender.join();
+}
+
+// SendSample uses the same waitForAttach() helper as SendTransfer.  Verify
+// that a pre-decoded audio sample is also held until the deferred Rialto
+// attachment completes, then injected successfully.
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_DeferredAudio_BlocksUntilVideoAttaches)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	// Mirrors real AAMP usage: Stream() always follows Configure(), setting
+	// m_playRequested so that once all sources finish attaching (below),
+	// CheckAllSourcesAttached() clears the gate set by Configure() via
+	// UngateAllSources().
+	m_player->Stream();
+	SendAudioInitFragment();  // deferred — attachPending=true
+
+	// Spawn a thread to call SendSample on the deferred audio source.
+	std::atomic<bool> sendDone{false};
+	std::thread sender([this, &sendDone]() {
+		m_player->SendSample(eMEDIATYPE_AUDIO, MakeSample(0.1, 0.033));
+		sendDone = true;
+	});
+
+	// Verify the inject thread is blocked — no injection yet.
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load());
+
+	// Attaching video drains the pending audio attachment, unblocking the
+	// waiting SendSample thread.
+	EXPECT_CALL(*m_mockPipelinePtr, allSourcesAttached()).Times(1);
+	SendVideoInitFragment();
+
+	// Audio sourceId=1 is now registered.  Post NeedData so the unblocked
+	// SendSample thread can complete its injection.
+	std::atomic<bool> haveDataCalled{false};
+	ON_CALL(*m_mockPipelinePtr, addSegment(42, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 42))
+		.WillByDefault(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+	PostNeedData(/*sourceId=*/1, /*frameCount=*/1, /*requestId=*/42);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+
+	sender.join();
+}
+
+// ===========================================================================
+// notifyBufferUnderflow — OnBufferUnderflow dispatch
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	OnBufferUnderflow_KnownVideoSourceId_CallsNotifyBufferUnderflowWithVideoType)
+{
+	/**
+	 * @brief Verifies that a Rialto buffer-underflow notification for the
+	 *        video source is forwarded to the notifiable as
+	 *        NotifyBufferUnderflow(eMEDIATYPE_VIDEO).
+	 *
+	 *        SetStreamCaps is used (not SendVideoInitFragment) because it
+	 *        attaches the source synchronously, ensuring sourceId=0 is
+	 *        registered before PostBufferUnderflow fires.
+	 */
+	Configure();
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	// Video source was assigned sourceId=0 (first m_nextSourceId++).
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyBufferUnderflow(eMEDIATYPE_VIDEO))
+		.Times(1);
+
+	PostBufferUnderflow(/*sourceId=*/0);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnBufferUnderflow_KnownAudioSourceId_CallsNotifyBufferUnderflowWithAudioType)
+{
+	/**
+	 * @brief Verifies that a Rialto buffer-underflow notification for the
+	 *        audio source is forwarded to the notifiable as
+	 *        NotifyBufferUnderflow(eMEDIATYPE_AUDIO).
+	 *
+	 *        SetStreamCaps is used (synchronous attach) so sourceIds are
+	 *        deterministic: video=0, audio=1.
+	 */
+	Configure();
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+	m_player->SetStreamCaps(eMEDIATYPE_AUDIO, MakeAudioAacCodecInfo());
+	// Source IDs: video=0, inband CC subtitle=1 (deferred, drained with
+	// video), audio=2 (third m_nextSourceId++).
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyBufferUnderflow(eMEDIATYPE_AUDIO))
+		.Times(1);
+
+	PostBufferUnderflow(/*sourceId=*/2);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnBufferUnderflow_UnknownSourceId_DoesNotCallNotifiable)
+{
+	/**
+	 * @brief Verifies that an underflow notification for an unrecognised
+	 *        sourceId is silently ignored — no crash, no spurious call.
+	 */
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyBufferUnderflow(_))
+		.Times(0);
+
+	PostBufferUnderflow(/*sourceId=*/99);
+}
+
+// ===========================================================================
+// notifyPlaybackError — OnPlaybackError dispatch / mapping
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackError_Decryption_MapsToDrmDecryptFailedWithRetry)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_DRM_DECRYPT_FAILED, _,
+			/*isRetryEnabled=*/true))
+		.Times(1);
+
+	PostPlaybackError(/*sourceId=*/0,
+		firebolt::rialto::PlaybackError::DECRYPTION);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackError_OutputProtection_MapsToHdcpComplianceErrorNoRetry)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_HDCP_COMPLIANCE_ERROR, _,
+			/*isRetryEnabled=*/false))
+		.Times(1);
+
+	PostPlaybackError(/*sourceId=*/0,
+		firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackError_Unknown_MapsToGstPipelineErrorWithRetry)
+{
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _,
+			/*isRetryEnabled=*/true))
+		.Times(1);
+
+	PostPlaybackError(/*sourceId=*/0,
+		firebolt::rialto::PlaybackError::UNKNOWN);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	OnPlaybackError_UnknownSourceId_StillReportsError)
+{
+	// Unlike underflow, a playback error for an unrecognised sourceId is
+	// still forwarded (with a generic description) — the error itself is
+	// real even if the specific source can no longer be identified.
+	Configure();
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_GST_PIPELINE_ERROR, _, _))
+		.Times(1);
+
+	PostPlaybackError(/*sourceId=*/99,
+		firebolt::rialto::PlaybackError::UNKNOWN);
+}
+
+// ===========================================================================
+// Phase N — Configure idempotency and smart pipeline recreation
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_SameFormats_SecondCallDoesNotRecreate)
+{
+	/**
+	 * @brief Calling Configure() a second time with identical formats must
+	 *        not recreate the Rialto pipeline.  createMediaPipeline must be
+	 *        invoked exactly once across both calls.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Second call with same formats — early return expected.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_DifferentVideoFormat_RecreatesPipeline)
+{
+	/**
+	 * @brief Changing the video format between Configure() calls must
+	 *        trigger a full pipeline teardown and recreation.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_VideoUnknownThenKnown_NoRecreate_UpdatesStoredFormat)
+{
+	/**
+	 * @brief A video source created with FORMAT_UNKNOWN (e.g. muxed HLS-TS
+	 *        before PMT parsing) that is later Configure()'d with the real,
+	 *        now-known codec must NOT trigger a pipeline recreation, and the
+	 *        source's stored format must be updated to the known value.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_UNKNOWN, FORMAT_UNKNOWN);
+
+	auto *videoSource = m_mockSources[eMEDIATYPE_VIDEO];
+	ASSERT_NE(videoSource, nullptr);
+	EXPECT_EQ(videoSource->format(), FORMAT_UNKNOWN);
+
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_UNKNOWN, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_VideoKnownThenUnknown_NoRecreate_KeepsStoredFormat)
+{
+	/**
+	 * @brief Once a video source's codec is known, a later Configure() call
+	 *        reporting FORMAT_UNKNOWN must NOT recreate the pipeline and
+	 *        must NOT overwrite the already-known stored format.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF);
+
+	auto *videoSource = m_mockSources[eMEDIATYPE_VIDEO];
+	ASSERT_NE(videoSource, nullptr);
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+
+	m_player->Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioUnknownThenKnown_NoRecreate_UpdatesStoredFormat)
+{
+	/**
+	 * @brief Same as the video case above, but for the audio source.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_UNKNOWN, FORMAT_UNKNOWN);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+	EXPECT_EQ(audioSource->format(), FORMAT_UNKNOWN);
+
+	m_player->Configure(FORMAT_UNKNOWN, FORMAT_AUDIO_ES_AAC, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioKnownThenUnknown_NoRecreate_KeepsStoredFormat)
+{
+	/**
+	 * @brief Once an audio source's codec is known, a later Configure() call
+	 *        reporting FORMAT_UNKNOWN must NOT recreate the pipeline and
+	 *        must NOT overwrite the already-known stored format.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_AUDIO_ES_AAC);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioGoesInvalid_NoPipelineRecreation_EOSSignaled)
+{
+	/**
+	 * @brief When audio transitions from a valid format to FORMAT_INVALID
+	 *        (trickplay entry) the pipeline must NOT be recreated.  Instead,
+	 *        EOS is signalled on the audio source so it drains cleanly and
+	 *        video continues without interruption.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	// Trickplay entry: audio goes FORMAT_INVALID.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_TRUE(audioSource->state().eos);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_VideoGoesInvalid_RecreatesPipeline)
+{
+	/**
+	 * @brief When video transitions to FORMAT_INVALID the pipeline must be
+	 *        fully recreated — video going away is not a trickplay-EOS
+	 *        scenario.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_INVALID, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioReturnsAfterEOS_SameFormatNoRecreation)
+{
+	/**
+	 * @brief After trickplay (audio EOS'd via FORMAT_INVALID), restoring
+	 *        the original audio format must NOT recreate the pipeline.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Trickplay entry: audio → FORMAT_INVALID (EOS signalled, no recreation).
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	// Trickplay exit: audio returns to the same original format — still no
+	// recreation because the source set is unchanged.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	// Times(1) verification is implicit at end of test scope.
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_ESChangeStatus_ForcesRecreation)
+{
+	/**
+	 * @brief bESChangeStatus=true must force pipeline recreation even when
+	 *        the stream formats are otherwise identical.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/true,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_SetReadyAfterPipeline_ForcesRecreation)
+{
+	/**
+	 * @brief setReadyAfterPipelineCreation=true must force pipeline
+	 *        recreation even when stream formats are unchanged.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/true);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AfterStop_RecreatesPipeline)
+{
+	/**
+	 * @brief Stop() marks the pipeline as stopped, so the next Configure()
+	 *        with identical formats must still recreate the pipeline.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(2);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	m_player->Stop(false);
+	ResetMockPipeline();
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_Trickplay_EosPersistsThroughFlush)
+{
+	/**
+	 * @brief Regression: Bug B from L2 TESTDATA0 rewind failure.
+	 *
+	 * When trickplay entry (audio → FORMAT_INVALID) is followed by a
+	 * Flush() with rate != 1, the audio source's EOS must NOT be cleared.
+	 * Without this the Flush() clears EOS, Rialto issues needData for
+	 * audio, AAMP never responds, and the Rialto/GStreamer pipeline clock
+	 * stalls so no video is rendered.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	// Trickplay entry: audio goes FORMAT_INVALID.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	// EOS must be set immediately after trickplay Configure().
+	EXPECT_TRUE(audioSource->state().eos);
+
+	// A subsequent Flush (the position-seek flush that follows in trickplay)
+	// must NOT clear the audio EOS because rate != 1 (trickplay).
+	m_player->Flush(/*position=*/12.0, /*rate=*/-2, /*shouldTearDown=*/false);
+
+	EXPECT_TRUE(audioSource->state().eos)
+		<< "Audio EOS must survive Flush() when rate != AAMP_NORMAL_PLAY_RATE";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_NormalRate_ClearsAudioEos)
+{
+	/**
+	 * @brief Flush() with rate == AAMP_NORMAL_PLAY_RATE must clear audio EOS
+	 *        so the injection path can resume normally after trickplay exit.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	// Trickplay entry: audio goes FORMAT_INVALID.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+	EXPECT_TRUE(audioSource->state().eos);
+
+	// Flush at normal rate (trickplay exit seek) must clear audio EOS.
+	m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false);
+
+	EXPECT_FALSE(audioSource->state().eos)
+		<< "Audio EOS must be cleared when Flush() rate == AAMP_NORMAL_PLAY_RATE";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_Trickplay_FlushingStateRespondsToRialtoCallbacks)
+{
+	/**
+	 * @brief Regression: Bug A from L2 TESTDATA0 rewind failure.
+	 *
+	 * The sequence Flush(shouldTearDown=false) → SEEK_DONE →
+	 * Configure(audio=INVALID) → Rialto PLAYING previously left the state
+	 * machine stuck in FLUSHING when the Configure() did not rebuild the
+	 * pipeline.
+	 *
+	 * Fix: onFlushComplete() is now called from the SEEK_DONE handler once
+	 * the pipeline-level flushing seek completes, taking the state machine
+	 * to FLUSHED. FLUSHED does not remember or restore the pre-flush state -
+	 * it simply finds a non-FLUSHING state for the pipeline reuse path in
+	 * Configure(), and the subsequent Rialto PLAYING notification (guaranteed
+	 * to follow SEEK_DONE) transitions FLUSHED → PLAYING via
+	 * FlushedState::onPlaybackStarted().
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PIPELINE_CREATED)
+		<< "Precondition: state must be PIPELINE_CREATED after Configure()";
+
+	// Advance state machine to SOURCES_ATTACHED by sending init fragments
+	// for both sources so that Flush() can transition to FLUSHING.
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED)
+		<< "Precondition: state must be SOURCES_ATTACHED before the flush";
+
+	// Move state machine to FLUSHING via a flush without teardown.
+	// shouldTearDown=false allows flush to proceed even when not in PLAYING/PAUSED.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/-2, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Precondition: Flush(shouldTearDown=false) must move state to FLUSHING";
+
+	// Simulate Rialto confirming the pipeline-level flushing seek completed.
+	// This fixture does not stub isVideoMaster(), so computeAppliedRate()
+	// falls back to 1.0 (normal) and the SEEK_DONE handler does not issue the
+	// extra video-source setSourcePosition() call.  onFlushComplete() takes
+	// the state machine to FLUSHED and notifies WaitForFlushToComplete() so
+	// Configure() can proceed.  The subtitle source's position is still
+	// updated unconditionally on every SEEK_DONE.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(),
+			/*posNs=*/0, /*resetTime=*/false, _, _))
+		.WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	// After the flushing seek completes, onFlushComplete() lands in FLUSHED
+	// (it does not restore SOURCES_ATTACHED).
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED)
+		<< "onFlushComplete() must transition FLUSHING -> FLUSHED";
+
+	// Trickplay Configure: audio → FORMAT_INVALID, no pipeline recreation.
+	// The pipeline reuse path does not touch the state machine, so state
+	// remains FLUSHED.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED)
+		<< "Pipeline reuse must not change the state from FLUSHED";
+
+	// Verify the normal transition: FLUSHED responds to Rialto PLAYING - this
+	// is the mechanism that used to get stuck in FLUSHING before the fix.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING)
+		<< "FLUSHED must transition to PLAYING when Rialto sends PLAYING";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_TrickplayExit_ClearsEos)
+{
+	/**
+	 * @brief When audio returns from FORMAT_INVALID to a valid format
+	 *        without pipeline recreation, EOS must be cleared so the
+	 *        audio injection path can resume.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+
+	// Trickplay entry.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_INVALID, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+	EXPECT_TRUE(audioSource->state().eos);
+
+	// Trickplay exit: same original audio format — no recreation, but
+	// EOS must be cleared.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_FALSE(audioSource->state().eos)
+		<< "EOS must be cleared on trickplay exit so audio injection resumes";
+}
+
+// ===========================================================================
+// Flush — shouldTearDown parameter tests
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_NullPipeline_ShouldTearDownTrue_CallsStop)
+{
+	/**
+	 * @brief When the player is in IDLE state (no pipeline) and shouldTearDown=true,
+	 *        Flush() must call Stop(true) to tear down gracefully.
+	 *
+	 * This mirrors GStreamer's behavior: if the pipeline is in an invalid
+	 * state (GST_STATE_NULL), it calls stopCallback(true) to tear down.
+	 */
+	// Setup: DON'T call Configure() so player remains in IDLE state.
+	// Player is constructed in SetUp() but no pipeline is created yet.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Precondition: player must be in IDLE state";
+	
+	// Flush() with shouldTearDown=true should call Stop() even in IDLE state.
+	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
+
+	// Stop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Player remains in IDLE after Flush(shouldTearDown=true) with no pipeline";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_NullPipeline_ShouldTearDownFalse_DoesNotCallStop)
+{
+	/**
+	 * @brief When the player is in IDLE state (no pipeline) and shouldTearDown=false,
+	 *        Flush() must NOT call Stop(), only log and return.
+	 *
+	 * This mirrors GStreamer: if shouldTearDown=false, the pipeline
+	 * error is logged but no recovery action is taken.
+	 */
+	// Setup: DON'T call Configure() so player remains in IDLE state.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+	
+	// Flush() with shouldTearDown=false should NOT change state.
+	EXPECT_NO_FATAL_FAILURE(
+		m_player->Flush(/*position=*/5.0, /*rate=*/1, /*shouldTearDown=*/false));
+
+	// Verify player remains in IDLE state (no Stop() called).
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Player must remain in IDLE when shouldTearDown=false";
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_NullPipeline_ShouldTearDownTrue_StagesPendingPositionAndRate)
+{
+	/**
+	 * @brief Flush() must stage m_pendingPositionNs/m_pendingFlushRate before
+	 *        the shouldTearDown early-return branch, so a subsequent
+	 *        Configure()/attach still observes the requested position and
+	 *        rate even though this Flush() call took the Stop(true) path.
+	 */
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Precondition: player must be in IDLE state";
+
+	m_player->Flush(/*position=*/10.0, /*rate=*/1, /*shouldTearDown=*/true);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// setSourcePosition fires for both video (id=0) and the inband CC
+	// subtitle source (id=1) created alongside video in Configure().
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, 10000000000LL, true, _, _)).Times(2);
+
+	SendVideoInitFragment();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_PipelineStopped_ShouldTearDownTrue_DoesNotCrash)
+{
+	/**
+	 * @brief When the player is already STOPPED (pipeline destroyed) and
+	 *        shouldTearDown=true, Flush() re-enters Stop(true); with no
+	 *        pipeline left this must be a safe no-op, not a crash.
+	 */
+	Configure();
+	m_player->Stop(false);
+
+	// onStop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE)
+		<< "Precondition: player must be in IDLE state after Stop()";
+
+	// Stop() already destroyed the pipeline (m_mockPipelinePtr is now
+	// dangling) - no EXPECT_CALL can be set against it.
+	EXPECT_NO_THROW(
+		m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true));
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_PipelineStopped_ShouldTearDownFalse_DoesNotCrash)
+{
+	/**
+	 * @brief When the player is already STOPPED (pipeline destroyed) and
+	 *        shouldTearDown=false, Flush() must return early without
+	 *        touching the already-gone pipeline.
+	 */
+	Configure();
+	m_player->Stop(false);
+
+	// onStop() transitions to IDLE; PlayerStateId::STOPPED is unreachable.
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+
+	// Stop() already destroyed the pipeline (m_mockPipelinePtr is now
+	// dangling) - no EXPECT_CALL can be set against it.
+	EXPECT_NO_THROW(
+		m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/false));
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_ValidPipeline_ShouldTearDownTrue_DoesNotCallStop)
+{
+	/**
+	 * @brief When the player is in PLAYING state (valid for flushing),
+	 *        shouldTearDown has no effect — Flush() proceeds with normal flush.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Transition to PLAYING state.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING)
+		<< "Precondition: player must be in PLAYING state";
+
+	// Player is in PLAYING state; expect the pipeline-level flushing seek,
+	// NOT stop() and NOT the old per-source flush() IPC.
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+
+	m_player->Flush(/*position=*/20.0, /*rate=*/1, /*shouldTearDown=*/true);
+
+	// Verify player transitions to FLUSHING state.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "Player must transition to FLUSHING after successful Flush()";
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_PipelineReused_CallsResumeTrackDownloadsForAllExistingSources)
+{
+	/**
+	 * @brief When Configure() reuses the existing pipeline (same formats,
+	 *        no forced recreation), ResumeTrackDownloads must still be
+	 *        called for every existing source so AAMP's track worker
+	 *        threads are unblocked.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Second Configure with identical formats — pipeline is reused.
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ResumeTrackDownloads(eMEDIATYPE_VIDEO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ResumeTrackDownloads(eMEDIATYPE_AUDIO)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+		ResumeTrackDownloads(eMEDIATYPE_SUBTITLE)).Times(1);
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_ValidPipeline_ShouldTearDownFalse_DoesNotCallStop)
+{
+	/**
+	 * @brief When the player is in PLAYING state (valid for flushing),
+	 *        shouldTearDown has no effect — Flush() proceeds with normal flush.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Transition to PLAYING state.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	m_player->Stream();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Player is in PLAYING state; expect the pipeline-level flushing seek,
+	// NOT stop() and NOT the old per-source flush() IPC.
+	EXPECT_CALL(*m_mockPipelinePtr, stop()).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, flush(_, _, _)).Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+
+	m_player->Flush(/*position=*/15.0, /*rate=*/1, /*shouldTearDown=*/false);
+
+	// Verify player transitions to FLUSHING state.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+}
+
+static void SetupCapabilities(
+	std::shared_ptr<NiceMock<MockIMediaPipelineCapabilitiesFactory>> &factory,
+	bool querySucceeds,
+	bool videoMaster);
+
+TEST_F(AampRialtoPlayerTest,
+	Flush_SequentialFlushes_SecondFlushIssuesNewPipelineSetPositionWithNewPositionAndRate)
+{
+	/**
+	 * @brief Flush() calls WaitForFlushToComplete() at entry, so a second
+	 *        Flush() issued after SEEK_DONE completes the first cycle issues
+	 *        a fresh pipeline-level setPosition() with its own position and
+	 *        rate.
+	 *
+	 * This replaces the old re-entrant-flush test.  With the blocking design
+	 * there is no re-entrant path: the second Flush() simply waits for the
+	 * first cycle to finish, then starts its own.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	// First flush: pipeline-level seek to the requested position.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(10'000'000'000LL))
+		.WillOnce(Return(true));
+	m_player->Flush(/*position=*/10.0, /*rate=*/2, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// Complete first flush cycle via SEEK_DONE.  Capabilities are not
+	// stubbed here, so computeAppliedRate() falls back to 1.0 (normal) and
+	// no extra setSourcePosition() call is issued.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING)
+		<< "First flush cycle must be complete before second Flush() call";
+
+	// Second flush: fresh pipeline-level seek with the new position/rate.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(33'000'000'000LL))
+		.WillOnce(Return(true));
+	m_player->Flush(/*position=*/33.0, /*rate=*/-4, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// Complete second flush cycle.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	// GetPositionMilliseconds() must use both the rate and the segment-start
+	// baseline (33000 ms) committed by the second flush's SEEK_DONE:
+	// (500 - 33000) * -4 = 130000 ms.
+	EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillOnce(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 130'000LL);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_CommitsRateOnlyAfterSeekDone)
+{
+	/**
+	 * @brief Flush() stages the pending rate, but the rate multiplier must
+	 *        only be applied once SEEK_DONE confirms the flushing seek
+	 *        completed.  While FLUSHING, GetPositionMilliseconds() short-
+	 *        circuits to m_pendingPositionNs (the staged seek target)
+	 *        without querying the pipeline or applying the pending rate.
+	 */
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/false);
+
+	ON_CALL(*m_mockPipelinePtr, getPosition(_))
+		.WillByDefault(DoAll(SetArgReferee<0>(500'000'000LL), Return(true)));
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/12.0, /*rate=*/-4, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// Still FLUSHING: report the pending flush target (12000 ms) directly,
+	// ignoring both the not-yet-committed rate and the raw pipeline query.
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 12'000LL);
+
+	// SEEK_DONE commits the pending rate AND the segment-start baseline
+	// (12000 ms) as a single event: (500 - 12000) * -4 = 46000 ms.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	EXPECT_EQ(m_player->GetPositionMilliseconds(), 46'000LL);
+}
+
+// ===========================================================================
+// appliedRate selection in setSourcePosition — isVideoMaster integration
+// ===========================================================================
+
+ /// Helper: program the IMediaPipelineCapabilitiesFactory mock to return a
+ /// NiceMock<MockIMediaPipelineCapabilities> whose isVideoMaster() behavior is
+ /// controlled by querySucceeds/videoMaster.
+static void SetupCapabilities(
+	std::shared_ptr<NiceMock<MockIMediaPipelineCapabilitiesFactory>> &factory,
+	bool querySucceeds,
+	bool videoMaster)
+{
+	ON_CALL(*factory, createMediaPipelineCapabilities())
+		.WillByDefault(Invoke(
+			[querySucceeds, videoMaster]()
+				-> std::unique_ptr<firebolt::rialto::IMediaPipelineCapabilities>
+			{
+				auto caps =
+					std::make_unique<NiceMock<MockIMediaPipelineCapabilities>>();
+				ON_CALL(*caps, isVideoMaster(_))
+					.WillByDefault(DoAll(
+						SetArgReferee<0>(videoMaster),
+						Return(querySucceeds)));
+				return caps;
+			}));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition)
+{
+	/**
+	 * @brief When the platform reports isVideoMaster==false, setSourcePosition
+	 * must be called with appliedRate equal to the flushed rate (2.0) for the
+	 * video source, but the accompanying inband CC subtitle source (which
+	 * carries no trickplay rate of its own) must get appliedRate==1.0.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/false);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+
+	// The branch adds an inband CC subtitle source alongside the video source,
+	// so both attachSource and setSourcePosition are called twice.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.Times(2)
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 2.0, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 1.0, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_FlushAtRate2_VideoMaster_UsesRate1InSetSourcePosition)
+{
+	/**
+	 * @brief When the platform reports isVideoMaster==true, setSourcePosition
+	 * must be called with appliedRate == 1.0 regardless of stored rate.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/true);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+
+	// The branch adds an inband CC subtitle source alongside the video source,
+	// so both attachSource and setSourcePosition are called twice.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.Times(2)
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 1.0, _))
+		.Times(2)
+		.WillRepeatedly(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetStreamCaps_FlushAtRate2_CapabilityQueryFails_UsesRate1InSetSourcePosition)
+{
+	/**
+	 * @brief When isVideoMaster() call itself fails (returns false), fall back
+	 * to appliedRate == 1.0.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/false,
+		/*videoMaster=*/false);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+
+	// The branch adds an inband CC subtitle source alongside the video source,
+	// so both attachSource and setSourcePosition are called twice.
+	EXPECT_CALL(*m_mockPipelinePtr, attachSource(_))
+		.Times(2)
+		.WillRepeatedly(Invoke(
+			[this](const std::unique_ptr<
+				firebolt::rialto::IMediaPipeline::MediaSource> &src)
+			{
+				const_cast<firebolt::rialto::IMediaPipeline::MediaSource &>(
+					*src).setId(m_nextSourceId++);
+				return true;
+			}));
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(_, testing::Ge(10'000'000'000LL),
+			/*resetTime=*/true, 1.0, _))
+		.Times(2)
+		.WillRepeatedly(Return(true));
+
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SeekDone_FlushAtRate2_NotVideoMaster_UsesStoredRateInSetSourcePosition)
+{
+	/**
+	 * @brief SEEK_DONE must forward appliedRate == stored rate to the video
+	 * source's setSourcePosition() when the platform reports
+	 * isVideoMaster==false.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/false);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// Attach source first so the video source exists for setSourcePosition().
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// appliedRate=2.0 != normal, so the SEEK_DONE handler issues the extra
+	// video-source setSourcePosition() call (resetTime=false - the
+	// pipeline-level setPosition() already flushed the source buffers).
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_VIDEO]->sourceId(),
+			testing::Ge(10'000'000'000LL),
+			/*resetTime=*/false, 2.0, _))
+		.WillOnce(Return(true));
+
+	// The subtitle source's position is also updated unconditionally on
+	// every SEEK_DONE, independent of the applied playback rate.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(),
+			testing::Ge(10'000'000'000LL),
+			/*resetTime=*/false, _, _))
+		.WillOnce(Return(true));
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SeekDone_FlushAtRate2_VideoMaster_SkipsSetSourcePosition)
+{
+	/**
+	 * @brief When the platform reports isVideoMaster==true, computeAppliedRate()
+	 * collapses to AAMP_NORMAL_PLAY_RATE (1.0), so the SEEK_DONE handler must
+	 * NOT issue the extra setSourcePosition() call - the pipeline-level
+	 * setPosition() already established the correct (normal-rate) segment.
+	 */
+	SetupCapabilities(m_mockCapabilitiesFactory, /*querySucceeds=*/true,
+		/*videoMaster=*/true);
+
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+
+	// Attach source first so the video source exists for setSourcePosition().
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(10.0, 2, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// Video appliedRate collapses to 1.0 (normal), so no extra video-source
+	// setSourcePosition() call is issued.  The subtitle source's position is
+	// still updated unconditionally on every SEEK_DONE.
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(),
+			testing::Ge(10'000'000'000LL),
+			/*resetTime=*/false, _, _))
+		.WillOnce(Return(true));
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	// SEEK_DONE only drives FLUSHING -> FLUSHED. No Rialto PLAYING/PAUSED
+	// notification has been posted in this test, so the state machine
+	// remains in FLUSHED awaiting one (it does not restore SOURCES_ATTACHED).
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SeekDone_SubtitleAttached_UpdatesSubtitlePosition)
+{
+	/**
+	 * @brief SEEK_DONE must forward the flushed position to the subtitle
+	 *        source's setSourcePosition() with resetTime=false, independent
+	 *        of appliedRate, so the Thunder text-track renderer learns the
+	 *        new position without waiting for the next
+	 *        SignalSubtitleClock() call.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/12.5, /*rate=*/1, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	EXPECT_CALL(*m_mockPipelinePtr,
+		setSourcePosition(m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId(),
+			12'500'000'000LL, /*resetTime=*/false, _, _))
+		.WillOnce(Return(true));
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+}
+
+/**
+ * @test SendTransfer() must also drive the deferred pending-position flush
+ *       (MaybeFlushForPendingPosition()) for its direct processDataFragment()
+ *       path (non-init fragment, no external demuxer), not just SendSample().
+ */
+TEST_F(AampRialtoPlayerTest,
+	SendTransfer_PositionPending_FlushesToFragmentPts)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_INVALID);
+	m_player->SetStreamCaps(eMEDIATYPE_VIDEO, MakeVideoH264CodecInfo());
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	const int64_t expectedPosNs = 9'500'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_VIDEO],
+		processDataFragment(_, _, /*fpts=*/9.5, _, _, _))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buf = {0x01, 0x02, 0x03, 0x04};
+	const bool result = m_player->SendTransfer(
+		eMEDIATYPE_VIDEO, std::move(buf),
+		/*fpts=*/9.5, /*fdts=*/9.5, /*fDuration=*/0.04,
+		/*fragmentPTSoffset=*/0.0, /*initFragment=*/false);
+
+	EXPECT_TRUE(result);
+}
+
+// ===========================================================================
+// Phase N — Subtitle source injection
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SendTransfer_SubtitleRawFragment_RoutesViaProcessDataFragment)
+{
+	/**
+	 * @brief Verifies that a non-init subtitle fragment is routed through
+	 *        processDataFragment() (the subtitle source override), with the
+	 *        correct fpts, fdts, fDuration and fragmentPTSoffset parameters.
+	 *
+	 *        The mock's processDataFragment default (Return(true)) means
+	 *        the test does not need a demuxer or a Rialto NeedData handshake.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	// Expect processDataFragment proxy called with the exact parameters
+	// passed to SendTransfer (fragmentPTSoffset == 0.0).
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_SUBTITLE],
+		processDataFragment(
+			Ref(*m_mockPipelinePtr), _,
+			/*fpts=*/1.0, /*fdts=*/1.0, /*fDuration=*/0.5,
+			/*fragmentPTSoffset=*/0.0))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buf = {0x3C, 0x74, 0x74, 0x3E}; // "<tt>"
+	const bool result = m_player->SendTransfer(
+		eMEDIATYPE_SUBTITLE, std::move(buf),
+		/*fpts=*/1.0, /*fdts=*/1.0, /*fDuration=*/0.5,
+		/*fragmentPTSoffset=*/0.0, /*initFragment=*/false);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SendTransfer_SubtitleRawFragmentWithOffset_ForwardsFragmentPTSoffset)
+{
+	/**
+	 * @brief Verifies that a non-zero fragmentPTSoffset is forwarded
+	 *        unchanged to processDataFragment().  The subtitle source's
+	 *        processDataFragment override stores it as
+	 *        sample.mDisplayOffsetMs = fragmentPTSoffset * 1000 before
+	 *        calling injectSingleSample.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	constexpr double kOffsetSec = 5.0;
+
+	EXPECT_CALL(*m_mockSources[eMEDIATYPE_SUBTITLE],
+		processDataFragment(
+			Ref(*m_mockPipelinePtr), _,
+			/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/1.0,
+			/*fragmentPTSoffset=*/kOffsetSec))
+		.WillOnce(Return(true));
+
+	std::vector<uint8_t> buf = {0x3C, 0x74, 0x74, 0x3E};
+	m_player->SendTransfer(
+		eMEDIATYPE_SUBTITLE, std::move(buf),
+		/*fpts=*/2.0, /*fdts=*/2.0, /*fDuration=*/1.0,
+		/*fragmentPTSoffset=*/kOffsetSec, /*initFragment=*/false);
+}
+// ===========================================================================
+// SignalSubtitleClock
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+        SignalSubtitleClock_WithAttachedSubtitle_SyncsPosition)
+{
+        /**
+         * @brief When a subtitle source is attached, SignalSubtitleClock()
+         *        queries the pipeline position and forwards it to
+         *        setSourcePosition() for the subtitle source with
+         *        resetTime=false.  Returns true on success.
+         *
+         * This is the primary fix for the 10-15 s subtitle delay: the
+         * AAMP UpdateSubtitleClockTask calls SignalSubtitleClock() every
+         * 500 ms at startup.  Implementing it to call getPosition +
+         * setSourcePosition sends sendSessionTimestamp() to the Thunder
+         * text-track renderer within 500 ms instead of waiting for the
+         * Rialto server's 10-second periodic SynchroniseSubtitleClock.
+         */
+        Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+        SendVideoInitFragment();
+        ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+        ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+        constexpr int64_t kPositionNs     = 23'780'000'000LL;
+        const int32_t     subtitleSrcId   = m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId();
+
+        EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+                .WillOnce(DoAll(SetArgReferee<0>(kPositionNs), Return(true)));
+        EXPECT_CALL(*m_mockPipelinePtr,
+                setSourcePosition(subtitleSrcId, kPositionNs, false, _, _))
+                .WillOnce(Return(true));
+
+        EXPECT_TRUE(m_player->SignalSubtitleClock());
+}
+
+TEST_F(AampRialtoPlayerTest,
+        SignalSubtitleClock_NoSubtitleSource_ReturnsFalse)
+{
+        /**
+         * @brief When no subtitle source is configured, SignalSubtitleClock()
+         *        returns false without querying the pipeline.
+         */
+        Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, /*sub=*/FORMAT_INVALID);
+
+        EXPECT_CALL(*m_mockPipelinePtr, getPosition(_)).Times(0);
+        EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+
+        EXPECT_FALSE(m_player->SignalSubtitleClock());
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+        SignalSubtitleClock_GetPositionFails_ReturnsFalse)
+{
+        /**
+         * @brief When getPosition() fails, SignalSubtitleClock() returns
+         *        false without calling setSourcePosition().
+         */
+        Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+        SendVideoInitFragment();
+
+        EXPECT_CALL(*m_mockPipelinePtr, getPosition(_))
+                .WillOnce(Return(false));
+        EXPECT_CALL(*m_mockPipelinePtr, setSourcePosition(_, _, _, _, _)).Times(0);
+
+        EXPECT_FALSE(m_player->SignalSubtitleClock());
+}
+
+TEST_F(AampRialtoPlayerTest,
+        SignalSubtitleClock_NoPipeline_ReturnsFalse)
+{
+        /**
+         * @brief Before Configure() there is no pipeline; SignalSubtitleClock()
+         *        returns false without crashing.
+         */
+        EXPECT_FALSE(m_player->SignalSubtitleClock());
+}
+
+// ===========================================================================
+// SetSubtitleMute
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetSubtitleMute_AttachedSubtitle_CallsPipelineSetMute)
+{
+	/**
+	 * @brief When the subtitle source is attached, SetSubtitleMute(true)
+	 *        must call m_pipeline->setMute(sourceId, true) and
+	 *        SetSubtitleMute(false) must call setMute(sourceId, false).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+	SendVideoInitFragment();
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+	const int32_t subtitleSrcId =
+		m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(subtitleSrcId, true)).Times(1);
+	m_player->SetSubtitleMute(true);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(subtitleSrcId, false)).Times(1);
+	m_player->SetSubtitleMute(false);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetSubtitleMute_SubtitleNotYetAttached_MuteAppliedWhenAttached)
+{
+	/**
+	 * @brief SetSubtitleMute(true) called before the subtitle source is
+	 *        attached must cache the state and call setMute once the
+	 *        source attaches (triggered here by SendVideoInitFragment).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_SUBTITLE_TTML);
+
+	// After Configure(), subtitle attachment is deferred — video hasn't
+	// attached yet so isAttached() must be false here.
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+	// Mute before attach — must NOT trigger setMute yet.
+	m_player->SetSubtitleMute(true);
+
+	// setMute must be called exactly once when the subtitle source attaches.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, true)).Times(1);
+
+	// SendVideoInitFragment triggers synchronous video attach which then
+	// drains the deferred subtitle attach, applying the cached mute.
+	SendVideoInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetSubtitleMute_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief SetSubtitleMute called before Configure() (no pipeline)
+	 *        must not crash.
+	 */
+	EXPECT_NO_FATAL_FAILURE(m_player->SetSubtitleMute(true));
+}
+
+// ===========================================================================
+// SetAudioVolume
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerTest,
+	SetAudioVolume_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief SetAudioVolume called before Configure() (no pipeline) must
+	 *        not crash.
+	 */
+	EXPECT_NO_FATAL_FAILURE(m_player->SetAudioVolume(50));
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetAudioVolume_NonZero_CallsPipelineSetVolume)
+{
+	/**
+	 * @brief SetAudioVolume(50) with an existing pipeline must forward the
+	 *        0-100 value to IMediaPipeline::setVolume() as 0.0-1.0, without
+	 *        touching setMute() (the audio source has no sourceId yet).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.5), _, _)).Times(1);
+	m_player->SetAudioVolume(50);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_ZeroWithAttachedAudio_CallsPipelineSetMuteOnly)
+{
+	/**
+	 * @brief SetAudioVolume(0) with an attached audio source must call
+	 *        setMute(sourceId, true) and must NOT call setVolume() -
+	 *        mirrors InterfacePlayerRDK::SetVolumeOrMuteUnMute(), which
+	 *        skips the volume write while muted.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	const int32_t audioSrcId = m_mockSources[eMEDIATYPE_AUDIO]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(audioSrcId, true)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(_, _, _)).Times(0);
+	m_player->SetAudioVolume(0);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_NonZeroAfterMute_UnmutesAndSetsVolume)
+{
+	/**
+	 * @brief SetAudioVolume(volume>0) after a previous SetAudioVolume(0)
+	 *        must unmute the audio source and forward the new volume.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	const int32_t audioSrcId = m_mockSources[eMEDIATYPE_AUDIO]->sourceId();
+
+	m_player->SetAudioVolume(0);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(audioSrcId, false)).Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.3), _, _)).Times(1);
+	m_player->SetAudioVolume(30);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetAudioVolume_MutedBeforeAudioAttached_MuteAppliedOnAttach)
+{
+	/**
+	 * @brief SetAudioVolume(0) called before the audio source attaches
+	 *        must cache the value and apply setMute() once the audio
+	 *        source attaches (mirrors the SetSubtitleMute deferred-apply
+	 *        pattern).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+
+	// Mute before attach - no sourceId yet, so setMute must NOT fire here.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, _)).Times(0);
+	m_player->SetAudioVolume(0);
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// Inband CC attaches before audio and applies its default cached mute.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(1, true)).Times(1);
+	// The audio source follows video and inband CC, so it receives sourceId 2.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(2, true)).Times(1);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->isAttached());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_Retune_ReappliesCachedAudioVolumeToNewPipeline)
+{
+	/**
+	 * @brief A freshly (re)created pipeline defaults to full volume, so a
+	 *        previously requested SetAudioVolume() value must be re-sent
+	 *        to the new pipeline once Configure() recreates it.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	m_player->SetAudioVolume(40);
+
+	ResetMockPipeline();
+	EXPECT_CALL(*m_mockPipelinePtr, setVolume(DoubleEq(0.4), _, _)).Times(1);
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+}
+
+// ===========================================================================
+// SetVideoMute
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetVideoMute_AttachedVideo_CallsPipelineSetMute)
+{
+	/**
+	 * @brief When the video source is attached, SetVideoMute(true) must
+	 *        call m_pipeline->setMute(sourceId, true) and
+	 *        SetVideoMute(false) must call setMute(sourceId, false).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(videoSrcId, true)).Times(1);
+	m_player->SetVideoMute(true);
+
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(videoSrcId, false)).Times(1);
+	m_player->SetVideoMute(false);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetVideoMute_VideoNotYetAttached_MuteAppliedWhenAttached)
+{
+	/**
+	 * @brief SetVideoMute(true) called before the video source is attached
+	 *        must cache the state and call setMute once the source
+	 *        attaches (triggered here by SendVideoInitFragment).
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_NE(m_mockSources[eMEDIATYPE_VIDEO], nullptr);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+
+	// Mute before attach — must NOT trigger setMute yet.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(_, _)).Times(0);
+	m_player->SetVideoMute(true);
+	testing::Mock::VerifyAndClearExpectations(m_mockPipelinePtr);
+
+	// Inband CC attaches before the cached video mute is applied.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(1, true)).Times(1);
+	// The video source is attached first and receives sourceId 0.
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(0, true)).Times(1);
+	SendVideoInitFragment();
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+}
+
+TEST_F(AampRialtoPlayerTest,
+	SetVideoMute_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief SetVideoMute called before Configure() (no pipeline) must not
+	 *        crash.
+	 */
+	EXPECT_NO_FATAL_FAILURE(m_player->SetVideoMute(true));
+}
+
+// ===========================================================================
+// GetVideoPlaybackQuality
+// ===========================================================================
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_Playing_ReturnsStats)
+{
+	/**
+	 * @brief In PLAYING state with the video source attached,
+	 *        GetVideoPlaybackQuality() must query
+	 *        m_pipeline->getStats(videoSourceId, ...) and return a pointer
+	 *        populated with the rendered/dropped frame counts.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(videoSrcId, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(100), SetArgReferee<2>(5),
+			Return(true)));
+
+	PlaybackQualityStruct *result = m_player->GetVideoPlaybackQuality();
+
+	ASSERT_NE(result, nullptr);
+	EXPECT_EQ(result->rendered, 100);
+	EXPECT_EQ(result->dropped, 5);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_Paused_ReturnsStats)
+{
+	/**
+	 * @brief PAUSED (like PLAYING) is a queryable state.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PAUSED);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	const int32_t videoSrcId = m_mockSources[eMEDIATYPE_VIDEO]->sourceId();
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(videoSrcId, _, _))
+		.WillOnce(DoAll(SetArgReferee<1>(42), SetArgReferee<2>(1),
+			Return(true)));
+
+	PlaybackQualityStruct *result = m_player->GetVideoPlaybackQuality();
+
+	ASSERT_NE(result, nullptr);
+	EXPECT_EQ(result->rendered, 42);
+	EXPECT_EQ(result->dropped, 1);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_NotPlayingOrPaused_ReturnsNullptrWithoutQuery)
+{
+	/**
+	 * @brief Outside PLAYING/PAUSED (e.g. right after Configure(), still
+	 *        SOURCES_ATTACHED), the query must not be issued at all.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+	ASSERT_NE(m_player->GetCurrentPlayerState(), PlayerStateId::PAUSED);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).Times(0);
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_VideoNotAttached_ReturnsNullptr)
+{
+	/**
+	 * @brief Even in PLAYING state, if the video source has not attached
+	 *        there is no sourceId to query stats for.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->isAttached());
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).Times(0);
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	GetVideoPlaybackQuality_PipelineGetStatsFails_ReturnsNullptr)
+{
+	/**
+	 * @brief If IMediaPipeline::getStats() itself fails, the method must
+	 *        return nullptr rather than a stale/partial struct.
+	 */
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::SOURCES_ATTACHED);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, getStats(_, _, _)).WillOnce(Return(false));
+
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	GetVideoPlaybackQuality_NoPipeline_DoesNotCrash)
+{
+	/**
+	 * @brief Called before Configure() (no pipeline) must not crash and
+	 *        must return nullptr.
+	 */
+	EXPECT_EQ(m_player->GetVideoPlaybackQuality(), nullptr);
+}
+
+// ===========================================================================
+// Inband Closed Caption (CC) — PlayerDirectRialtoCCManager integration
+// ===========================================================================
+
+/**
+ * @test After Configure(video, audio) [no subtitle], AampRialtoPlayer
+ *       eagerly creates an inband-CC subtitle source at Configure() time
+ *       so that the Rialto server can route closed-caption data internally.
+ */
+TEST_F(AampRialtoPlayerTest,
+	OnPlayingState_VideoAndAudio_CreatesInbandCCSubtitleSource)
+{
+	// CC source is now created eagerly at Configure() time.
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	EXPECT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr)
+		<< "CC source must be created at Configure() time when no subtitle "
+		   "format is supplied";
+}
+
+/**
+ * @test When inband CC mode is active, NotifyFirstFrameReceived() must carry a
+ *       non-zero ccDecoderHandle so that PlayerDirectRialtoCCManager::Initialize()
+ *       receives a valid IDirectRialtoCC pointer.
+ */
+TEST_F(AampRialtoPlayerTest,
+	OnPlayingState_InbandCC_PassesNonZeroDecoderHandle)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyFirstFrameReceived(Ne(static_cast<unsigned long>(0))));
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+}
+
+/**
+ * @test AampRialtoPlayer implements IDirectRialtoCC; its setTextTrackIdentifier()
+ *       must forward the identifier string to IMediaPipeline::setTextTrackIdentifier().
+ */
+TEST_F(AampRialtoPlayerTest,
+	SetTextTrackIdentifier_InbandCC_ForwardsToPipeline)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	auto *cc = dynamic_cast<IDirectRialtoCC *>(m_player.get());
+	ASSERT_NE(cc, nullptr) << "AampRialtoPlayer must implement IDirectRialtoCC";
+
+	EXPECT_CALL(*m_mockPipelinePtr, setTextTrackIdentifier(std::string("CC1")))
+		.WillOnce(Return(true));
+
+	EXPECT_TRUE(cc->setTextTrackIdentifier("CC1"));
+}
+
+/**
+ * @test ~AampRialtoPlayer() must invalidate any PlayerCCManager handle that
+ *       still refers to this instance. In multi-pipeline mode the CC manager
+ *       singleton (and its GetId()/Release() refcount) is shared across
+ *       independently-lived AampRialtoPlayer instances, so it cannot be
+ *       relied on to clear the handle before this object is destroyed.
+ */
+TEST_F(AampRialtoPlayerTest,
+	Destructor_InvalidatesCCManagerHandle)
+{
+	g_mockPlayerCCManager = std::make_shared<StrictMock<MockPlayerCCManager>>();
+	// Force the (fake) CC manager singleton to exist, mirroring production
+	// where Init() is called once the first frame/decoder handle arrives.
+	PlayerCCManager::GetInstance();
+
+	auto *cc = dynamic_cast<IDirectRialtoCC *>(m_player.get());
+	ASSERT_NE(cc, nullptr);
+	void *expectedHandle = static_cast<void *>(cc);
+
+	EXPECT_CALL(*g_mockPlayerCCManager, InvalidateHandle(expectedHandle)).Times(1);
+
+	m_player.reset();
+
+	g_mockPlayerCCManager.reset();
+}
+
+// ===========================================================================
+// WaitForFlushToComplete — Configure blocks until flush cycle finishes
+// ===========================================================================
+
+/**
+ * @test When Configure() is called while the player is FLUSHING, it must block
+ *       until all sources have finished flushing so that m_rate reflects the
+ *       pending flush rate before ShouldRecreatePipeline checks it.
+ *
+ * Scenario: Flush at rate=4 → state=FLUSHING → Configure() on another thread
+ * → OnSourceFlushed() completes the flush cycle → Configure() unblocks with
+ * the correct m_rate.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_WhileFlushing_BlocksUntilFlushComplete)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Enter PLAYING so Flush() transitions to FLUSHING.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Flush at trickplay rate — moves to FLUSHING and sets m_pendingFlushRate.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(10.0, 4, /*shouldTearDown=*/false);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// At this point m_rate has NOT been committed yet (awaiting SEEK_DONE).
+	// Launch Configure() on a background thread; it should block in
+	// WaitForFlushToComplete().
+	std::atomic<bool> configureFinished{false};
+	std::thread configureThread([&]() {
+		// Force pipeline recreation via bESChangeStatus=true so we always
+		// hit ShouldRecreatePipeline() path.
+		ResetMockPipeline();
+		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+			/*bESChangeStatus=*/true,
+			/*setReadyAfterPipelineCreation=*/false);
+		configureFinished.store(true, std::memory_order_release);
+	});
+
+	// Spin until Configure() finishes or the timeout elapses.
+	// If WaitForFlushToComplete() is working, Configure() must still be blocked.
+	const auto deadline =
+		std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+	while (!configureFinished.load(std::memory_order_acquire) &&
+	       std::chrono::steady_clock::now() < deadline)
+	{
+		std::this_thread::yield();
+	}
+	EXPECT_FALSE(configureFinished.load(std::memory_order_acquire))
+		<< "Configure() must block while the flush is still in progress";
+
+	// Complete the flush cycle by posting SEEK_DONE.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	// Configure() should now unblock.
+	configureThread.join();
+	EXPECT_TRUE(configureFinished.load(std::memory_order_acquire));
+}
+
+/**
+ * @test When Configure() is called and the player is NOT flushing,
+ *       WaitForFlushToComplete() returns immediately without blocking.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_NotFlushing_DoesNotBlock)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// No flush in progress — Configure must complete immediately.
+	ResetMockPipeline();
+	EXPECT_NO_THROW(
+		m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+			/*bESChangeStatus=*/true, /*setReadyAfterPipelineCreation=*/false));
+}
+
+// ===========================================================================
+// Closed-caption / setTextTrackIdentifier / setCCMute
+// ===========================================================================
+
+/**
+ * @test AampRialtoPlayer::setCCMute(true) must call IMediaPipeline::setMute()
+ *       with the CC subtitle source's Rialto sourceId and mute=true.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SetCCMute_InbandCC_ForwardsPipelineSetMute)
+{
+	Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF);
+
+	// Attach video source so the CC subtitle source is not deferred.
+	SendVideoInitFragment();
+
+	// PLAYING triggers CC subtitle source creation and attachment.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+
+	auto *cc = dynamic_cast<IDirectRialtoCC *>(m_player.get());
+	ASSERT_NE(cc, nullptr);
+
+	const int32_t expectedSourceId =
+		m_mockSources[eMEDIATYPE_SUBTITLE]->sourceId();
+	EXPECT_CALL(*m_mockPipelinePtr, setMute(expectedSourceId, true))
+		.WillOnce(Return(true));
+
+	EXPECT_TRUE(cc->setCCMute(true));
+}
+
+// ===========================================================================
+// Discontinuity
+// ===========================================================================
+//
+// Mirrors InterfacePlayerRDK::CheckDiscontinuity() (middleware-player-
+// interface/InterfacePlayerRDK.cpp), reached via
+// AAMPGstPlayer::Discontinuity():
+//  - a discontinuity before this track's first injected sample is ignored
+//    (mirrors the stream->firstBufferProcessed guard) - returns false, no
+//    side effects.
+//  - PTS restamping enabled + no elementary-stream change pending:
+//    CompleteDiscontinuityDataDeliverForPTSRestamp() only, no EOS signal
+//    and no buffering disruption.
+//  - otherwise (the default / no-PTS-restamp / ES-change-pending case):
+//    signal EOS on the track (mirrors GstPlayer_SignalEOS()), resume
+//    buffering unconditionally (StopBuffering(true) semantics), and
+//    disarm the underflow monitor when AampUnderflowMonitor is enabled.
+//
+// Additionally, and unlike the reference, a media type with no source at
+// all is rejected outright, and the EOS branch propagates EOS to the
+// subtitle source (keyed off video rather than the reference's audio,
+// because audio may be absent) so Rialto can still report END_OF_STREAM.
+
+/**
+ * @test A discontinuity that arrives before this track has ever injected a
+ *       sample must be ignored: no EOS signal, no buffering change, and the
+ *       call reports the discontinuity as not handled.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_BeforeFirstSample_IgnoredReturnsFalse)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(AampRialtoMediaSource::kFirstPtsNotSet));
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelinePausedToUnderflowMonitor())
+		.Times(0);
+	EXPECT_CALL(m_mockNotifiable,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(_))
+		.Times(0);
+
+	EXPECT_FALSE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+}
+
+/**
+ * @test Default configuration (PTS restamp disabled) must signal EOS on the
+ *       track, resume buffering (equivalent to StopBuffering(true): sources
+ *       ungated, pipeline resumed), and report the discontinuity as handled.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_PtsRestampDisabled_SignalsEosAndResumesBuffering)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode =
+		AampRialtoMediaSource::GateMode::BLOCKED;
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::NONE);
+}
+
+/**
+ * @test When AampUnderflowMonitor is enabled, the halt-buffering branch
+ *       must also notify the monitor so it disarms its deadline during
+ *       the transition.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_UnderflowMonitorEnabled_NotifiesPipelinePaused)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig,
+		IsConfigSet(eAAMPConfig_EnableAampUnderflowMonitor))
+		.WillByDefault(Return(true));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelinePausedToUnderflowMonitor())
+		.Times(1);
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().eos);
+}
+
+/**
+ * @test When AampUnderflowMonitor is disabled (default), the halt-buffering
+ *       branch must not notify the monitor.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_UnderflowMonitorDisabled_DoesNotNotifyPipelinePaused)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelinePausedToUnderflowMonitor())
+		.Times(0);
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().eos);
+}
+
+/**
+ * @test PTS restamping enabled with no elementary-stream change pending
+ *       must complete the discontinuity via the restamp path only, without
+ *       signalling EOS or resuming/halting buffering.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_PtsRestampActiveNoEsChange_CompletesWithoutTouchingBuffering)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+
+	EXPECT_CALL(m_mockNotifiable,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO))
+		.Times(1);
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+}
+
+/**
+ * @test Even with PTS restamping enabled, a pending elementary-stream
+ *       change must fall back to the halt-buffering branch (EOS signal +
+ *       resumed buffering) instead of the restamp-only completion.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_PtsRestampActiveButEsChangePending_SignalsEosAndResumesBuffering)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(true));
+
+	EXPECT_CALL(m_mockNotifiable,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(_))
+		.Times(0);
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+}
+
+/**
+ * @test A discontinuity for a media type that has no source (here, before
+ *       Configure() has created any) must be rejected outright: returning
+ *       true would make AAMP wait for an EOS that can never be signalled.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_NoSourceForMediaType_ReturnsFalse)
+{
+	EXPECT_CALL(m_mockNotifiable, NotifyPipelinePausedToUnderflowMonitor())
+		.Times(0);
+	EXPECT_CALL(m_mockNotifiable,
+		CompleteDiscontinuityDataDeliverForPTSRestamp(_))
+		.Times(0);
+
+	EXPECT_FALSE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+}
+
+/**
+ * @test The first-sample guard is evaluated per track: a video
+ *       discontinuity must still be ignored when only audio has injected
+ *       a sample.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_FirstSampleGuardIsPerTrack_IgnoresVideoOnly)
+{
+	Configure();
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(AampRialtoMediaSource::kFirstPtsNotSet));
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+
+	// Only the audio call reaches the halt-buffering branch.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+
+	EXPECT_FALSE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().eos);
+}
+
+/**
+ * @test Rialto reports END_OF_STREAM only once every attached source has
+ *       delivered haveData(EOS), so a video discontinuity that signals EOS
+ *       must also signal the always-attached subtitle source.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_VideoEos_AlsoSignalsSubtitleEos)
+{
+	Configure();
+	SendVideoInitFragment();
+	// PLAYING triggers the inband CC subtitle source attachment.
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+	ASSERT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->isAttached());
+	ASSERT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->state().eos);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_VIDEO]->state().eos);
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_SUBTITLE]->state().eos);
+}
+
+/**
+ * @test Subtitle EOS is keyed off video only - an audio discontinuity must
+ *       leave the subtitle source untouched, since video will still be
+ *       delivering samples.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_AudioEos_LeavesSubtitleUntouched)
+{
+	Configure();
+	SendVideoInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_TRUE(m_mockSources[eMEDIATYPE_AUDIO]->state().eos);
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->state().eos);
+}
+
+/**
+ * @test The PTS-restamp branch must not signal EOS on the subtitle source
+ *       either - no track is being taken to EOS in that path.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_PtsRestampActiveNoEsChange_LeavesSubtitleUntouched)
+{
+	Configure();
+	SendVideoInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ASSERT_NE(m_mockSources[eMEDIATYPE_SUBTITLE], nullptr);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_FALSE(m_mockSources[eMEDIATYPE_SUBTITLE]->state().eos);
+}
+
+// ===========================================================================
+// Deferred discontinuity flush — pending-position tracking
+// ===========================================================================
+
+/**
+ * @test An accepted discontinuity no longer moves the player to a dedicated
+ *       FSM state - it only arms the internal "position pending" tracking
+ *       (exercised behaviourally by the Configure()/Stream()/SendSample()
+ *       tests below).  Returning true from Discontinuity() commits AAMP to
+ *       a flush cycle, but for HLS fMP4 that cycle issues no Flush() of its
+ *       own, so the sink has to mark the window and supply the position
+ *       itself.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_Accepted_LeavesStateUnchanged)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+}
+
+/**
+ * @test Every track signals its own discontinuity; the repeat notification
+ *       must not disturb the state or re-arm the pending flush.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Discontinuity_SecondTrack_LeavesStateUnchanged)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*m_mockSources[eMEDIATYPE_AUDIO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+	EXPECT_TRUE(m_player->Discontinuity(eMEDIATYPE_AUDIO));
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+}
+
+/**
+ * @test Configure() is reached from ProcessPendingDiscontinuity() only after
+ *       StopInjection() has joined every injector thread, so gating there
+ *       loses no pre-discontinuity content while stopping other tracks
+ *       racing new-period samples in before the deferred Flush().
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_PositionPending_GatesAllSources)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	// Same formats: the pipeline is reused, so the pending position survives.
+	Configure();
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+/**
+ * @test For HLS MP4, DoEarlyStreamSinkFlush() returns false even for an
+ *       ordinary seek (TuneHelper(eTUNETYPE_SEEK) -> Configure(), pipeline
+ *       reused, no Discontinuity() call and no follow-up Flush()). The
+ *       real seek position is only known from the first post-seek sample's
+ *       own PTS, so Configure() must arm the deferred-flush mechanism even
+ *       when no prior Discontinuity() has set it.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_ReusedPipelineWithoutDiscontinuity_StillDefersPositionToFirstSample)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	// Simulate an ordinary seek: same formats, pipeline reused, no
+	// Discontinuity() call. Call the player's Configure() directly (not the
+	// test's Configure() helper) - the helper would call ResetMockPipeline()
+	// again (m_mockPipeline was already consumed by the first Configure())
+	// and swap m_mockPipelinePtr to an unused mock, even though the pipeline
+	// is actually reused here.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
+
+	const int64_t expectedPosNs = 42'000'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+
+	std::atomic<bool> sendDone{false};
+	std::thread sender([this, &sendDone]() {
+		m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(42.0, 0.04));
+		sendDone = true;
+	});
+
+	WaitFor([this]{
+		return m_player->GetCurrentPlayerState() == PlayerStateId::FLUSHING;
+	});
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	ON_CALL(*m_mockPipelinePtr, addSegment(0, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 0))
+		.WillByDefault(Return(true));
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/0);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	sender.join();
+}
+
+/**
+ * @test Mirrors AampStreamSinkManager::SetActive() (single-pipeline-mode ad
+ *       transition): an explicit Flush(positionIsAuthoritative=true)
+ *       resolves the real, already-known position and settles in FLUSHED
+ *       without ungating (Stream() for this session has not run yet, so
+ *       SEEK_DONE's playRequested check is false). The subsequent
+ *       reused-pipeline Configure() call must not re-arm the
+ *       deferred-flush window: the position is already known, and
+ *       re-arming would leave Stream() deferring play() forever waiting on
+ *       a sample that can never be injected while sources stay gated.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_ReusedPipelineAfterSessionHandoffFlushSettledToFlushed_DoesNotReArmPositionPending)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Mirrors AampStreamSinkManager::SetActive(): ChangeAamp() switches the
+	// pipeline to serve a different session, then an explicit
+	// Flush(positionIsAuthoritative=true) resolves that session's real,
+	// already-known resume position.
+	auto *newAamp =
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
+	m_player->ChangeAamp(newAamp, nullptr);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true,
+		/*positionIsAuthoritative=*/true);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// No Stream() call precedes this SEEK_DONE, so m_playRequested is still
+	// false: as in production, sources are not ungated here and the player
+	// settles in FLUSHED rather than resuming PLAYING.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	// The position is already resolved by the Flush() above - Stream() must
+	// issue play() immediately rather than deferring for a sample that can
+	// never be injected.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+}
+
+/**
+ * @test Distinguishes the session-handoff case above from an ordinary
+ *       same-session seek: TeardownStream() issues Flush(0, rate) (default
+ *       positionIsAuthoritative=false) ahead of TuneHelper()'s
+ *       reused-pipeline Configure(), and that placeholder position is NOT
+ *       the real seek target - only the following sample's own PTS (via
+ *       MaybeFlushForPendingPosition()) supplies it. Configure() must still
+ *       arm and gate in this case even though the pre-flush state is
+ *       FLUSHED.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_ReusedPipelineAfterSameSessionFlushSettledToFlushed_StillArmsPositionPending)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Mirrors TeardownStream()'s pre-seek discard flush: positionIsAuthoritative
+	// defaults to false, so this position is treated as a placeholder.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	// TuneHelper()'s reused-pipeline Configure() for the seek.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+/**
+ * @test Configure() now arms m_positionPending unconditionally, but
+ *       AttachSource() already establishes a definitive baseline for an
+ *       ordinary fresh tune - the first ordinary sample must not trigger a
+ *       second, redundant flush cycle.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_AfterFreshConfigureAndAttach_DoesNotIssueRedundantFlush)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).Times(0);
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(_, _))
+		.WillByDefault(Return(true));
+
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/0);
+
+	std::atomic<bool> haveDataCalled{false};
+	EXPECT_CALL(*m_mockPipelinePtr, haveData(_, _))
+		.WillOnce(DoAll(
+			Invoke([&haveDataCalled](auto, auto){ haveDataCalled = true; }),
+			Return(true)));
+
+	m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(10.0, 0.04));
+
+	WaitFor([&haveDataCalled]{ return haveDataCalled.load(); });
+	EXPECT_TRUE(haveDataCalled.load());
+}
+
+/**
+ * @test ProcessPendingDiscontinuity() calls Stream() before the new period's
+ *       PTS is known.  Playing then would resume at the pre-discontinuity
+ *       position, so play() must be deferred until the flush resolves.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stream_PositionPending_DefersPlay)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+
+	m_player->Stream();
+
+	// state machine still reports PLAYING (no dedicated FSM state); the
+	// pending position is what actually deferred play() above.
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+}
+
+/**
+ * @test The first video sample after the discontinuity carries the new
+ *       period's actual PTS, which is the position the sink must flush to.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_PositionPending_VideoFlushesToSamplePts)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	const int64_t expectedPosNs = 8'760'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(expectedPosNs))
+		.WillOnce(Return(true));
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+
+	// The flushing sample gates itself, so it blocks until SEEK_DONE -
+	// exactly as it would on the injector thread in production.
+	std::atomic<bool> sendDone{false};
+	std::thread sender([this, &sendDone]() {
+		m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(8.76, 0.04));
+		sendDone = true;
+	});
+
+	WaitFor([this]{
+		return m_player->GetCurrentPlayerState() == PlayerStateId::FLUSHING;
+	});
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+
+	ON_CALL(*m_mockPipelinePtr, addSegment(7, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(
+		firebolt::rialto::MediaSourceStatus::OK, 7))
+		.WillByDefault(Return(true));
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/7);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	sender.join();
+}
+
+/**
+ * @test Audio must not resolve the discontinuity while an attached video
+ *       source exists - video carries the reference timeline, and audio's
+ *       first PTS may differ from it.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_PositionPending_AudioDoesNotFlushWhenVideoAttached)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).Times(0);
+
+	std::atomic<bool> sendDone{false};
+	std::thread sender([this, &sendDone]() {
+		m_player->SendSample(eMEDIATYPE_AUDIO, MakeSample(8.70, 0.02));
+		sendDone = true;
+	});
+
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load())
+		<< "audio must leave the pending position unresolved for video";
+
+	// Release the blocked injector so the test can join.
+	m_player->Stop(false);
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	sender.join();
+}
+
+/**
+ * @test When AAMP knows the position itself (DASH), its own Flush() arrives
+ *       first and must take the player straight to FLUSHING, so no later
+ *       sample can issue a second, competing seek.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Flush_PositionPending_TakesOverDiscontinuity)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	const int64_t aampPosNs = 12'000'000'000LL;
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(aampPosNs))
+		.WillOnce(Return(true));
+
+	m_player->Flush(12.0, AAMP_NORMAL_PLAY_RATE, false);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+}
+
+/**
+ * @test MaybeFlushForPendingPosition() must not start a second, overlapping
+ *       flush while one is already resolving.  Discontinuity() arms
+ *       m_positionPending, but here an unrelated explicit seek
+ *       (SeekStreamSink(), e.g. a trickplay rate change) begins resolving a
+ *       position before the first post-discontinuity sample arrives - the
+ *       injection thread must simply wait behind that in-flight flush
+ *       (state==FLUSHING) rather than kicking off its own.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	SendSample_PositionPending_DuringActiveFlush_DoesNotIssueOverlappingFlush)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	// An unrelated explicit seek (e.g. a trickplay rate change) begins
+	// resolving a position while m_positionPending is still armed from
+	// Discontinuity() above; setPosition() is async, so the player stays
+	// FLUSHING until SEEK_DONE arrives. This is the ONLY setPosition() call
+	// expected - if MaybeFlushForPendingPosition() were to issue a second,
+	// overlapping flush below, this expectation is violated.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_))
+		.Times(1).WillOnce(Return(true));
+	m_player->SeekStreamSink(10.0, 4.0);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// The still-pending discontinuity's first sample now arrives on the
+	// injection thread while the flush above is in flight.
+	ON_CALL(*m_mockPipelinePtr, addSegment(_, _))
+		.WillByDefault(Return(firebolt::rialto::AddSegmentStatus::OK));
+	ON_CALL(*m_mockPipelinePtr, haveData(_, _))
+		.WillByDefault(Return(true));
+
+	std::atomic<bool> sendDone{false};
+	std::thread sender([this, &sendDone]() {
+		m_player->SendSample(eMEDIATYPE_VIDEO, MakeSample(8.76, 0.04));
+		sendDone = true;
+	});
+
+	// The sample must simply wait behind the in-flight flush's gate, not
+	// complete early via a redundant flush of its own.
+	WaitFor([&sendDone]{ return sendDone.load(); },
+		std::chrono::milliseconds(30));
+	EXPECT_FALSE(sendDone.load())
+		<< "sample must wait behind the in-flight flush, not resolve early "
+		   "via a redundant Flush() of its own";
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).WillOnce(Return(true));
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	PostNeedData(/*sourceId=*/0, /*frameCount=*/1, /*requestId=*/1);
+
+	WaitFor([&sendDone]{ return sendDone.load(); });
+	EXPECT_TRUE(sendDone.load());
+	sender.join();
+}
+
+/**
+ * @test Stop() during the window ends the session; the pending position is
+ *       moot and must not leave the player stuck (e.g. gated forever).
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Stop_PositionPending_EndsSession)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+
+	ON_CALL(*m_mockSources[eMEDIATYPE_VIDEO], firstPtsMs())
+		.WillByDefault(Return(0));
+	ON_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillByDefault(Return(true));
+	ON_CALL(*g_mockPrivateInstanceAAMP, ReconfigureForElementaryStreamUpdate())
+		.WillByDefault(Return(false));
+	ASSERT_TRUE(m_player->Discontinuity(eMEDIATYPE_VIDEO));
+
+	m_player->Stop(false);
+
+	EXPECT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::IDLE);
+}

@@ -70,6 +70,7 @@ static constexpr double kNetTraceLateGapThresholdS = 0.120;  // 120 milliseconds
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampDRMLicManager.h"
+#include "RialtoSessionCreator.h"
 
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include <AampTelemetry2.hpp>
@@ -1862,7 +1863,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCMCDCollector = new AampCMCDCollector();
 
 	// Ensure the correct CC variant class will be used
-	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink));
+	PlayerCCManager::SetRialto(GETCONFIGVALUE_PRIV(eAAMPConfig_useRialtoSink),
+					GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto));
 
 	preferredLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioLanguage);
 	preferredRenditionString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAudioRendition);
@@ -1874,7 +1876,12 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this);
+	DrmSessionCreator rialtoCreator;
+	if (GETCONFIGVALUE_PRIV(eAAMPConfig_useDirectRialto))
+	{
+		rialtoCreator = makeRialtoSessionCreator();
+	}
+	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this, std::move(rialtoCreator));
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{
@@ -10703,12 +10710,23 @@ bool PrivateInstanceAAMP::IsMuxedStream()
  * @brief Stop injection for a track.
  * Called from StopInjection
  */
-void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
+void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type, bool discard)
 {
 	if( type<AAMP_TRACK_COUNT && !mTrackInjectionBlocked[type] )
 	{
 		AAMPLOG_TRACE("PrivateInstanceAAMP: for type %s", GetMediaTypeName(type) );
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		if (discard)
+		{
+			// Direct Rialto blocks the injector thread(s) whilst waiting for NeedData,
+			// this call releases the thread for the specific track being stopped
+			// so the caller can join it via StopInjectLoop
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->UnblockTrackInjection(type);
+			}
+		}
 		mTrackInjectionBlocked[type] = true;
 	}
 	AAMPLOG_TRACE ("PrivateInstanceAAMP::Exit. type = %d", (int) type);
@@ -10845,6 +10863,15 @@ bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 		AAMPLOG_ERR("ERROR - should not get here. 'mpStreamAbstractionAAMP' is NULL! Assuming ESChangeStatus() is false.");
 		return false;
 	}
+}
+
+/**
+ * @brief Get if an explicit StreamSink Flush() is guaranteed to follow a discontinuity (from stream abstraction)
+ * @return true if StreamSink::Flush() will be called explicitly for the pending discontinuity
+ */
+bool PrivateInstanceAAMP::WillFlushOnDiscontinuity()
+{
+	return mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->DoStreamSinkFlushOnDiscontinuity();
 }
 
 /**

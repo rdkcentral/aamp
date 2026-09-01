@@ -139,15 +139,14 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 StreamSink* AampStreamSinkManager::CreateSinkInstance(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int)> exportFrames)
 {
 	StreamSink *sink = nullptr;
-	// DirectRialto is not yet supported, so we will always create the GstPlayer for now.
-	// The config is in place for when DirectRialto support is added.
 	if (ISCONFIGSET(eAAMPConfig_useDirectRialto))
 	{
-		AAMPLOG_ERR("Creating AampRialtoPlayer not yet supported");
+		AAMPLOG_MIL("Creating AampRialtoPlayer");
+		sink = new AampRialtoPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 	}
-	//else
+	else
 	{
-		AAMPLOG_MIL("Creating stream player");
+		AAMPLOG_MIL("Creating AAMPGstPlayer");
 		sink = new AAMPGstPlayer(aamp, std::move(id3HandlerCallback), std::move(exportFrames));
 	}
 	return sink;
@@ -515,7 +514,8 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position
 
 	mStreamPlayer->ChangeAamp(aamp, mInactivePlayersMap[aamp]->GetID3MetadataHandler());
 	aamp->mIsFlushOperationInProgress = true;
-	mStreamPlayer->Flush(position, aamp->rate, true);
+	// position is the new session's real resume position, not a placeholder.
+	mStreamPlayer->Flush(position, aamp->rate, true, /*positionIsAuthoritative=*/true);
 	aamp->mIsFlushOperationInProgress = false;
 	mStreamPlayer->SetSubtitleMute(aamp->subtitles_muted);
 	if(!aamp->IsTuneCompleted() && aamp->IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))

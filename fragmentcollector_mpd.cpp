@@ -11603,7 +11603,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track)
 		{
-			aamp->StopTrackInjection((AampMediaType) iTrack);
+			aamp->StopTrackInjection((AampMediaType) iTrack, true);
 			track->StopInjectLoop();
 			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 			{
@@ -12453,7 +12453,7 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 				track->playContext->abort();
 			}
 			track->AbortWaitForCachedFragment();
-			aamp->StopTrackInjection((AampMediaType) iTrack);
+			aamp->StopTrackInjection((AampMediaType) iTrack, true);
 			track->StopInjectLoop();
 		}
 	}

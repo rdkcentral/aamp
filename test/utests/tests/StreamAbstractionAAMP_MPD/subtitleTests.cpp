@@ -264,6 +264,8 @@ public:
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 			.WillOnce(WithoutArgs(Invoke(this, &SubtitleTrackTests::GetManifestForMPDDownloader)));
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, ResumeTrackDownloads(eMEDIATYPE_SUBTITLE))
+			.Times(AnyNumber());
 		status = mStreamAbstractionAAMP_MPD->Init(tuneType);
 		return status;
 	}
