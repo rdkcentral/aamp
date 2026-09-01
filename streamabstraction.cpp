@@ -2900,11 +2900,15 @@ void StreamAbstractionAAMP::StartUnderflowMonitor()
 
 void StreamAbstractionAAMP::StopUnderflowMonitor()
 {
-	std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
-	if (mUnderflowMonitor)
+	std::unique_ptr<AampUnderflowMonitor> underflowMonitor;
 	{
-		mUnderflowMonitor->Stop();
-		mUnderflowMonitor.reset();
+		std::lock_guard<std::mutex> lock(mUnderflowMonitorMutex);
+		underflowMonitor = std::move(mUnderflowMonitor);
+	}
+
+	if (underflowMonitor)
+	{
+		underflowMonitor->Stop();
 		AAMPLOG_INFO("Stopped AampUnderflowMonitor for video");
 	}
 }
