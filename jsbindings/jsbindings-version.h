@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2026 RDK Management
+ * Copyright 2020 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,31 +15,21 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+*/
+
+#ifndef __JSBINDINGS_VERSION_H__
+#define __JSBINDINGS_VERSION_H__
+
+#include "AampDefine.h"
+/*
+ * @file jsbindings-version.h
+ * @brief Holds the AAMP JS bindings version information.
  */
 
-#include "CachedFragment.h"
+#define AAMP_UNIFIED_VIDEO_ENGINE_VERSION AAMP_VERSION
 
-CachedFragment::CachedFragment()
-	: fragment()
-	, position(0.0)
-	, duration(0.0)
-	, initFragment(false)
-	, discontinuity(false)
-	, profileIndex(0)
-	, cacheFragStreamInfo(StreamInfo())
-	, type(eMEDIATYPE_DEFAULT)
-	, downloadStartTime(0)
-	, timeScale(0)
-	, PTSOffsetSec(0)
-	, absPosition(0.0)
-	, discontinuityIndex(0)
-{
-}
+// GLOBAL_AAMP_NATIVEBINDING_VERSION is no longer used as this will be deprecated in future
+//#define GLOBAL_AAMP_NATIVEBINDING_VERSION "2.7"
 
-void CachedFragment::Copy(const CachedFragment& other)
-{
-}
+#endif /* __JSBINDINGS_VERSION_H__ */
 
-void CachedFragment::Clear()
-{
-}

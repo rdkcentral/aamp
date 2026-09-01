@@ -47,6 +47,15 @@ AampMp4Demuxer::AampMp4Demuxer(PrivateInstanceAAMP* aamp, AampMediaType type, bo
 }
 
 /**
+ * @brief Provide the manifest-declared fallback timescale
+ * @see AampMp4Demuxer.h
+ */
+void AampMp4Demuxer::setFallbackTimeScale(uint32_t timeScale)
+{
+	mMp4Demux->SetFallbackTimeScale(timeScale);
+}
+
+/**
  * @brief Set frame rate for trickmode
  * @param[in] frameRate - rate per second
  */
@@ -87,6 +96,10 @@ void AampMp4Demuxer::setRate(double rate, PlayMode mode)
  */
 void AampMp4Demuxer::abort()
 {
+	// Set first so any sendSegment() call already looping over samples on
+	// another thread observes it as soon as possible and stops sending
+	// further samples for the in-flight fragment.
+	mAborted.store(true, std::memory_order_relaxed);
 	mTrickPhase = Mp4TrickPhase::FIRST_SAMPLE;
 	mLastSamplePts = 0.0;
 	mRestampedPts = 0.0;
@@ -100,6 +113,7 @@ void AampMp4Demuxer::abort()
  */
 void AampMp4Demuxer::reset()
 {
+	mAborted.store(false, std::memory_order_relaxed);
 	resetTrickMode();
 }
 
@@ -147,8 +161,9 @@ void AampMp4Demuxer::HandleTrickModeDiscontinuity()
  * @param[in,out] sample - Sample to restamp
  * @param[in] duration - Fragment duration
  * @param[in] discontinuous - True if this sample begins a discontinuous segment
+ * @param[in] fragmentPTSoffset - Fragment ptsOffset
  */
-void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous)
+void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duration, bool discontinuous, double fragmentPTSoffset)
 {
 	// Store original values for logging
 	double originalPts = sample.mPts;
@@ -185,7 +200,7 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 		case Mp4TrickPhase::STEADY:
 			// Delta-based duration: distance between current and previous original PTS
 			// divided by |rate|.
-			fragmentPtsDelta = fabs(sample.mPts - mLastSamplePts);
+			fragmentPtsDelta = fabs(sample.mPts + fragmentPTSoffset - mLastSamplePts);
 			restampedDuration = fragmentPtsDelta / std::fabs(mRate);
 			mRestampedDuration = restampedDuration;
 			mRestampedPts += restampedDuration;
@@ -193,7 +208,7 @@ void AampMp4Demuxer::TrickmodePtsRestamp(AampMediaSample& sample, double duratio
 	} // end switch
 
 	// Store the current sample PTS before overwriting it
-	mLastSamplePts = sample.mPts;
+	mLastSamplePts = sample.mPts + fragmentPTSoffset;
 
 	// Apply restamped PTS and duration to the sample
 	sample.mPts = mRestampedPts;
@@ -228,32 +243,58 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 {
 	bool ret = true;
 	(void) processor;
+	if (mAborted.load(std::memory_order_relaxed))
+	{
+		AAMPLOG_WARN("Aborted - not processing segment for type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
+		ptsError = false;
+		return false;
+	}
 	if (mMp4Demux && !buffer.empty())
 	{
 		// Move the caller's buffer into a shared_ptr and pass ownership into
 		// Parse(), which stamps each sample's mData (via aliasing shared_ptr)
 		// so each sample keeps the segment buffer alive for its lifetime.
 		auto segment = std::make_shared<std::vector<uint8_t>>(std::move(buffer));
-		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d", mMediaType, position, duration, isInit);
-
+		AAMPLOG_INFO("Processing segment with type:%d position: %f, duration: %f, isInit: %d, discontinuous: %d", mMediaType, position, duration, isInit, discontinuous);
 
 		ret = mMp4Demux->Parse(std::move(segment));
 
 		if (!ret)
 		{
 			AAMPLOG_ERR("Failed to parse MP4 segment [err:%d] for type:%d position: %f, duration: %f, isInit: %d", mMp4Demux->GetLastError(), mMediaType, position, duration, isInit);
+			mAamp->SendErrorEvent(AAMP_TUNE_MP4_DEMUX_ERROR, "Mp4Demux Error:This file is invalid and cannot be played.", false);
 		}
 		else
 		{
+			// pssh boxes are typically found in the init segment (moov), but
+			// key-rotation streams can also carry them per-fragment (moof), so
+			// this is checked unconditionally rather than gated on isInit.
+			auto protectionEvents = mMp4Demux->GetProtectionEvents();
+			if (!protectionEvents.empty())
+			{
+				mAamp->QueueProtectionEvent(mMediaType, protectionEvents);
+			}
 			auto samples = mMp4Demux->GetSamples();
 			if (!samples.empty())
 			{
+				size_t sampleIndex = 0;
+				const size_t totalSamples = samples.size();
 				if (mIsTrickMode)
 				{
 					// Trickmode: the demuxer yields exactly one sample — the iframe.
-					auto& iframe = samples.front();
-					TrickmodePtsRestamp(iframe, duration, discontinuous);
-					mAamp->SendStreamTransfer(mMediaType, std::move(iframe));
+					if (mAborted.load(std::memory_order_relaxed))
+					{
+						AAMPLOG_WARN("Aborted - not injecting trickmode sample for type:%d position: %f", mMediaType, position);
+						ret = false;
+					}
+					else
+					{
+						auto& iframe = samples.front();
+						TrickmodePtsRestamp(iframe, duration, discontinuous, fragmentPTSoffset);
+						++sampleIndex;
+						bool morePending = (sampleIndex < totalSamples);
+						mAamp->SendStreamTransfer(mMediaType, std::move(iframe), morePending);
+					}
 				}
 				else
 				{
@@ -265,11 +306,28 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 
 					for (auto& sample : samples)
 					{
+						// Re-checked on every iteration: abort() can be called from
+						// another thread (e.g. alongside Stop()/Flush() invalidating
+						// the injection generation) while this loop is mid-fragment.
+						// Without this check, a bailed-out sample would simply be
+						// followed by the next sample re-entering the same blocked/
+						// gated injection path.
+						if (mAborted.load(std::memory_order_relaxed))
+						{
+							AAMPLOG_WARN("Aborted mid-segment - stopping sample injection for type:%d position: %f (sent %zu/%zu samples)",
+								mMediaType, position, sampleIndex, totalSamples);
+							ret = false;
+							break;
+						}
 						if (mEnablePtsRestamp)
 						{
 							const double beforeDTS = sample.mDts;
 							sample.mPts += fragmentPTSoffset;
 							sample.mDts += fragmentPTSoffset;
+							// Carry the applied restamp as a display-timing correction
+							// for subtitles.
+							sample.mDisplayOffsetMs = static_cast<int64_t>(fragmentPTSoffset * 1000.0);
+							// Log the restamping if enabled. This can be helpful for debugging and verifying correct behavior, but may cause log flooding for large segments.
 							if (!haveFirstSample)
 							{
 								segmentBeforeDts = beforeDTS;
@@ -293,7 +351,9 @@ bool AampMp4Demuxer::sendSegment(std::vector<uint8_t>&& buffer, double position,
 								sample.mDuration * timeScale);
 							}
 						}
-						mAamp->SendStreamTransfer(mMediaType, std::move(sample));
+						++sampleIndex;
+						bool morePending = (sampleIndex < totalSamples);
+						mAamp->SendStreamTransfer(mMediaType, std::move(sample), morePending);
 					}
 
 					// Per-segment summary in the same shape as the line IsoBmffHelper::RestampPts()

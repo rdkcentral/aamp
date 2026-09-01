@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2026 RDK Management
+ * Copyright 2018 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,31 +15,26 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+*/
+
+/**
+ * @file jsevent.h
+ * @brief JavaScript Event Impl for AAMP_JSController and AAMPMediaPlayer_JS
  */
 
-#include "CachedFragment.h"
+#ifndef __AAMP_JSEVENT_H__
+#define __AAMP_JSEVENT_H__
 
-CachedFragment::CachedFragment()
-	: fragment()
-	, position(0.0)
-	, duration(0.0)
-	, initFragment(false)
-	, discontinuity(false)
-	, profileIndex(0)
-	, cacheFragStreamInfo(StreamInfo())
-	, type(eMEDIATYPE_DEFAULT)
-	, downloadStartTime(0)
-	, timeScale(0)
-	, PTSOffsetSec(0)
-	, absPosition(0.0)
-	, discontinuityIndex(0)
-{
-}
+#include <JavaScriptCore/JavaScript.h>
 
-void CachedFragment::Copy(const CachedFragment& other)
-{
-}
+/**
+ * @brief To create a new JS event instance
+ * @param[in] ctx JS execution context
+ * @param[in] type event type
+ * @param[in] bubbles denotes if event support bubbling
+ * @param[in] cancelable denotes if event is cancelable
+ * @retval JSObject of the new instance created
+ */
+JSObjectRef createNewAAMPJSEvent(JSGlobalContextRef ctx, const char *type, bool bubbles, bool cancelable);
 
-void CachedFragment::Clear()
-{
-}
+#endif // __AAMP_JSEVENT_H__

@@ -34,6 +34,7 @@
 #include "Mp4DemuxTestData.h"
 #include <vector>
 #include <cstring>
+#include <cmath>
 
 /**
  * @class Mp4DemuxFunctionalTests
@@ -80,6 +81,12 @@ TEST_F(Mp4DemuxFunctionalTests, ParsePsshBoxAndValidateProtectionEvents)
 	// Validate PSSH data was extracted
 	EXPECT_FALSE(protectionEvents[0].pssh.empty()) << "PSSH data should not be empty";
 	EXPECT_GT(protectionEvents[0].pssh.size(), 0) << "PSSH data should have content";
+
+	// Reconstructed box must be byte-identical to the input (size, type,
+	// version/flags, and data), since Rialto's parsePssh re-parses it as a
+	// standalone ISO BMFF box.
+	std::vector<uint8_t> expectedBox(psshBoxWidevine, psshBoxWidevine + sizeof(psshBoxWidevine));
+	EXPECT_EQ(protectionEvents[0].pssh, expectedBox) << "Reconstructed PSSH box should match input byte-for-byte";
 }
 
 /**
@@ -235,6 +242,11 @@ TEST_F(Mp4DemuxFunctionalTests, ParsePsshV1WithKID)
 	ASSERT_EQ(protectionEvents.size(), 1) << "Should have one PSSH entry";
 	EXPECT_FALSE(protectionEvents[0].systemID.empty());
 	EXPECT_FALSE(protectionEvents[0].pssh.empty());
+
+	// Reconstructed box must be byte-identical to the input (size, type,
+	// version/flags, KIDs, and data).
+	std::vector<uint8_t> expectedBox(psshBoxV1WithKID, psshBoxV1WithKID + sizeof(psshBoxV1WithKID));
+	EXPECT_EQ(protectionEvents[0].pssh, expectedBox) << "Reconstructed PSSH v1 box should match input byte-for-byte";
 }
 
 
@@ -263,6 +275,28 @@ TEST_F(Mp4DemuxFunctionalTests, HandleTruncatedBox)
 }
 
 // ---- helpers (local) ----
+
+/**
+ * @brief Write the 78-byte Visual Sample Entry payload consumed by ParseVideoInformation().
+ *
+ * Layout (ISO 14496-12 §12.1.3 VisualSampleEntry):
+ *   - 24 bytes: reserved[6](6) + data_reference_index(2) + pre_defined/reserved(16)
+ *               → consumed by SkipBytes(24)
+ *   - 2 bytes:  width
+ *   - 2 bytes:  height
+ *   - 48 bytes: horizresolution(4) + vertresolution(4) + reserved(4) + frame_count(2)
+ *               + compressorname(32) + depth(2)  → consumed by SkipBytes(48)
+ *   - 2 bytes:  pre_defined (0xFFFF padding marker)
+ */
+static void writeVideoSampleEntryFields(std::vector<uint8_t>& b, uint16_t w, uint16_t h)
+{
+	for (int i = 0; i < 24; ++i) b.push_back(0x00); // reserved + pre_defined (SkipBytes(24))
+	b.push_back(uint8_t(w >> 8)); b.push_back(uint8_t(w & 0xFF)); // width
+	b.push_back(uint8_t(h >> 8)); b.push_back(uint8_t(h & 0xFF)); // height
+	for (int i = 0; i < 48; ++i) b.push_back(0x00); // resolutions + compressorname + depth (SkipBytes(48))
+	b.push_back(0xFF); b.push_back(0xFF); // padding marker (VIDEO_PREDEFINED_PADDING_MARKER = 0xFFFF)
+}
+
 static void write32be(std::vector<uint8_t>& b, uint32_t v) {
 	b.push_back((v >> 24) & 0xFF);
 	b.push_back((v >> 16) & 0xFF);
@@ -416,6 +450,250 @@ TEST(Mp4Demux_Gaps, AC4InitHasCodecData) {
 	ASSERT_EQ(info.mCodecData.size(), 5u);
 	EXPECT_EQ(info.mCodecData[0], 0x10);
 	EXPECT_EQ(info.mCodecData[4], 0x14);
+}
+
+// stsd: entry_count == 0 is invalid and must raise MP4_PARSE_ERROR_INVALID_ENTRY_COUNT.
+TEST(Mp4Demux_Stsd, EntryCountZero_RaisesInvalidEntryCountError)
+{
+	std::vector<uint8_t> buf;
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, /*entry_count*/0);
+			stsd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	EXPECT_FALSE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_INVALID_ENTRY_COUNT);
+}
+
+// stsd: entry_count > 1 (e.g. clear/encrypted variants) must parse successfully,
+// with the last sample entry's codec info taking effect.
+TEST(Mp4Demux_Stsd, MultipleEntries_ParsesSuccessfully_LastEntryWins)
+{
+	std::vector<uint8_t> buf;
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, /*entry_count*/2);
+			for (uint8_t entryPayloadByte : { uint8_t(0xAA), uint8_t(0xBB) })
+			{
+				Box ac4(buf, "ac-4"); // AudioSampleEntry per ISO/IEC 14496-12
+
+				// reserved[6] + data_reference_index(2) + reserved[8] = 16 bytes
+				for (int i = 0; i < 16; ++i) buf.push_back(0x00);
+
+				// channel_count(2) = 2
+				write16be(buf, 2);
+
+				// sample_size(2) + pre_defined(2) + reserved(2) = 6 bytes
+				buf.insert(buf.end(), 6, 0x00);
+
+				// sample_rate (32-bit fixed-point 16.16): upper16 = 0xAC44, lower16 = 0x0000
+				write16be(buf, 0xAC44);
+				write16be(buf, 0x0000);
+
+				// Decoder-specific AC-4 box: 'dac4', payload distinguishes entries
+				{
+					Box dac4(buf, "dac4");
+					for (int i = 0; i < 5; ++i) buf.push_back(uint8_t(entryPayloadByte + i));
+					dac4.close();
+				}
+				ac4.close();
+			}
+			stsd.close();
+		}
+		moov.close();
+	}
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+	auto info = d.GetCodecInfo();
+	ASSERT_EQ(info.mCodecData.size(), 5u);
+	// Last-parsed entry (payload starting at 0xBB) must be the one in effect.
+	EXPECT_EQ(info.mCodecData[0], 0xBB);
+}
+
+// ---- TST_2009: HLS + Widevine DRM, useMp4Demux=true ----
+//
+// CBCS-encrypted HLS fMP4 init segments legitimately carry two stsd entries:
+//   Entry 1 – clear sample entry  (e.g. 'avc1')
+//   Entry 2 – encrypted sample entry ('encv') with sinf/frma/schm(cbcs)/schi/tenc
+//
+// Before the fix ParseSampleDescriptionBox() threw
+// MP4_PARSE_ERROR_UNSUPPORTED_SAMPLE_ENTRY_COUNT for any count != 1, causing
+// the entire demux of an HLS+Widevine stream to fail.
+//
+// The two tests below assert that:
+//   (a) Parse() succeeds for dual-entry stsd in either entry order.
+//   (b) mIsEncrypted is true after parsing the init segment – either directly
+//       (when 'encv' is the last-parsed entry) or via the
+//       handledEncryptedSamples force in Parse() (when 'encv' is first).
+
+/**
+ * @brief TST_2009 regression – clear 'avc1' first, encrypted 'encv'/CBCS second.
+ *
+ * This is the canonical CBCS HLS layout: the encrypted sample entry follows
+ * the clear one.  The encrypted entry is the last parsed, so its tenc box
+ * sets mIsEncrypted = true directly.
+ */
+TEST(Mp4Demux_Stsd, TST2009_HlsCbcs_ClearFirstEncryptedSecond_ParseSucceeds_IsEncrypted)
+{
+	std::vector<uint8_t> buf;
+
+	static const uint8_t kid[16] = {
+		0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+		0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00
+	};
+	// Different avcC payloads let us verify which entry's codec data is active.
+	static const uint8_t avcCClear[4]      = { 0x01, 0x64, 0x00, 0x1F };
+	static const uint8_t avcCEncrypted[4]  = { 0x01, 0x64, 0x00, 0x29 };
+
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, /*entry_count*/2);
+
+			// Entry 1: clear 'avc1'
+			{
+				Box avc1(buf, "avc1");
+				writeVideoSampleEntryFields(buf, 1280, 720);
+				{ Box avcC(buf, "avcC"); buf.insert(buf.end(), avcCClear, avcCClear + 4); avcC.close(); }
+				avc1.close();
+			}
+
+			// Entry 2: encrypted 'encv' – CBCS scheme
+			{
+				Box encv(buf, "encv");
+				writeVideoSampleEntryFields(buf, 1280, 720);
+				{ Box avcC(buf, "avcC"); buf.insert(buf.end(), avcCEncrypted, avcCEncrypted + 4); avcC.close(); }
+				{
+					Box sinf(buf, "sinf");
+					{ Box frma(buf, "frma"); write4cc(buf, "avc1"); frma.close(); }
+					{ Box schm(buf, "schm"); writeFullBoxHeader(buf, 0, 0); write4cc(buf, "cbcs"); write32be(buf, 0x00010000); schm.close(); }
+					{
+						Box schi(buf, "schi");
+						{
+							Box tenc(buf, "tenc");
+							writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+							buf.push_back(0x00); // reserved
+							buf.push_back(0x00); // pattern (crypt/skip nibbles – 0 for test)
+							buf.push_back(0x01); // is_encrypted = 1
+							buf.push_back(0x10); // iv_size = 16
+							buf.insert(buf.end(), kid, kid + 16);
+							tenc.close();
+						}
+						schi.close();
+					}
+					sinf.close();
+				}
+				encv.close();
+			}
+			stsd.close();
+		}
+		moov.close();
+	}
+
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)))
+		<< "Dual-entry stsd (clear avc1 + encrypted encv/CBCS) must parse without error (TST_2009 regression)";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+
+	auto info = d.GetCodecInfo();
+	EXPECT_TRUE(info.mIsEncrypted)
+		<< "mIsEncrypted must be true: tenc with is_encrypted=1 was the last-parsed entry";
+	EXPECT_EQ(info.mCodecFormat, GST_FORMAT_VIDEO_ES_H264)
+		<< "Codec format must be H.264 (avcC inside encv)";
+	// Last-parsed entry wins for codec data
+	ASSERT_EQ(info.mCodecData.size(), 4u);
+	EXPECT_EQ(info.mCodecData[0], avcCEncrypted[0]);
+}
+
+/**
+ * @brief TST_2009 regression – encrypted 'encv'/CBCS first, clear 'avc1' second.
+ *
+ * In this order the clear entry is last-parsed.  It has no tenc box so it
+ * cannot reset mIsEncrypted.  handledEncryptedSamples (set by the first
+ * entry's tenc) causes Parse() to force mIsEncrypted = true even though
+ * the clear entry was seen most recently.
+ */
+TEST(Mp4Demux_Stsd, TST2009_HlsCbcs_EncryptedFirstClearSecond_ParseSucceeds_IsEncrypted)
+{
+	std::vector<uint8_t> buf;
+
+	static const uint8_t kid[16] = {
+		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11,
+		0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99
+	};
+	static const uint8_t avcCEncrypted[4]  = { 0x01, 0x64, 0x00, 0x29 };
+	static const uint8_t avcCClear[4]      = { 0x01, 0x64, 0x00, 0x1F };
+
+	{
+		Box moov(buf, "moov");
+		{
+			Box stsd(buf, "stsd");
+			writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+			write32be(buf, /*entry_count*/2);
+
+			// Entry 1: encrypted 'encv' – CBCS scheme
+			{
+				Box encv(buf, "encv");
+				writeVideoSampleEntryFields(buf, 1280, 720);
+				{ Box avcC(buf, "avcC"); buf.insert(buf.end(), avcCEncrypted, avcCEncrypted + 4); avcC.close(); }
+				{
+					Box sinf(buf, "sinf");
+					{ Box frma(buf, "frma"); write4cc(buf, "avc1"); frma.close(); }
+					{ Box schm(buf, "schm"); writeFullBoxHeader(buf, 0, 0); write4cc(buf, "cbcs"); write32be(buf, 0x00010000); schm.close(); }
+					{
+						Box schi(buf, "schi");
+						{
+							Box tenc(buf, "tenc");
+							writeFullBoxHeader(buf, /*version*/0, /*flags*/0);
+							buf.push_back(0x00); // reserved
+							buf.push_back(0x00); // pattern
+							buf.push_back(0x01); // is_encrypted = 1
+							buf.push_back(0x10); // iv_size = 16
+							buf.insert(buf.end(), kid, kid + 16);
+							tenc.close();
+						}
+						schi.close();
+					}
+					sinf.close();
+				}
+				encv.close();
+			}
+
+			// Entry 2: clear 'avc1' (last-parsed; no tenc → mIsEncrypted must not be cleared)
+			{
+				Box avc1(buf, "avc1");
+				writeVideoSampleEntryFields(buf, 1280, 720);
+				{ Box avcC(buf, "avcC"); buf.insert(buf.end(), avcCClear, avcCClear + 4); avcC.close(); }
+				avc1.close();
+			}
+			stsd.close();
+		}
+		moov.close();
+	}
+
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)))
+		<< "Dual-entry stsd (encrypted encv/CBCS + clear avc1) must parse without error (TST_2009 regression)";
+	EXPECT_EQ(d.GetLastError(), MP4_PARSE_OK);
+
+	auto info = d.GetCodecInfo();
+	// handledEncryptedSamples in Parse() forces mIsEncrypted=true even though the
+	// last-parsed entry was the clear avc1 with no tenc of its own.
+	EXPECT_TRUE(info.mIsEncrypted)
+		<< "mIsEncrypted must be true: handledEncryptedSamples forces it even when clear entry is last";
+	EXPECT_EQ(info.mCodecFormat, GST_FORMAT_VIDEO_ES_H264);
 }
 
 // E) TRUN overrun detection (negative)
@@ -762,6 +1040,85 @@ TEST(Mp4Demux_NoInitSegment, SaioSaizFragment_WithoutInitSegment_NoCrash)
 	// ProcessAuxiliaryInformation: cencAuxInfoSizes[i]=16 > 0==ivSize
 	EXPECT_FALSE(ok);
 	EXPECT_EQ(d.GetLastError(), MP4_PARSE_ERROR_DATA_BOUNDARY_MISMATCH);
+}
+
+// Build a minimal moof+traf+tfhd+tfdt+trun+mdat fragment with one sample and
+// no init segment (no moov/mvhd/mdhd), to exercise timeScale==0 handling.
+static std::vector<uint8_t> BuildSingleSampleFragmentNoInit(uint32_t sampleDurationTicks, uint32_t sampleSize)
+{
+	std::vector<uint8_t> buf;
+	size_t dataOffsetFieldPos = 0;
+	{
+		Box moof(buf, "moof");
+		{ Box mfhd(buf, "mfhd"); writeFullBoxHeader(buf,0,0); write32be(buf,1); mfhd.close(); }
+		{
+			Box traf(buf, "traf");
+			{ Box tfhd(buf, "tfhd"); writeFullBoxHeader(buf,0,0); write32be(buf,1); tfhd.close(); }
+			{ Box tfdt(buf, "tfdt"); writeFullBoxHeader(buf,0,0); write32be(buf,0); tfdt.close(); }
+			{ Box trun(buf, "trun"); writeFullBoxHeader(buf,0,0x0301); // data-offset + duration + size present
+				write32be(buf,1); // sample_count
+				dataOffsetFieldPos = buf.size();
+				write32be(buf,0); // data_offset placeholder
+				write32be(buf,sampleDurationTicks);
+				write32be(buf,sampleSize);
+				trun.close(); }
+			traf.close();
+		}
+		moof.close();
+	}
+	size_t moofSize = buf.size();
+	int32_t dataOffset = static_cast<int32_t>(moofSize + 8);
+	buf[dataOffsetFieldPos+0] = uint8_t((dataOffset>>24)&0xFF);
+	buf[dataOffsetFieldPos+1] = uint8_t((dataOffset>>16)&0xFF);
+	buf[dataOffsetFieldPos+2] = uint8_t((dataOffset>>8 )&0xFF);
+	buf[dataOffsetFieldPos+3] = uint8_t((dataOffset>>0 )&0xFF);
+
+	write32be(buf, static_cast<uint32_t>(8 + sampleSize));
+	write4cc(buf, "mdat");
+	for (uint32_t i = 0; i < sampleSize; ++i)
+	{
+		buf.push_back(uint8_t(i & 0xFF));
+	}
+	return buf;
+}
+
+// Regression test for a subtitle stream whose manifest SegmentTemplate has no
+// 'initialization' attribute: timeScale stays 0, so sample pts/dts/duration
+// must be set to 0 rather than dividing by zero (which produced NaN/Inf).
+TEST(Mp4Demux_NoInitSegment, NoTimeScale_SamplePtsAndDurationSetToZero_NotNanOrInf)
+{
+	std::vector<uint8_t> buf = BuildSingleSampleFragmentNoInit(/*sampleDurationTicks=*/48000, /*sampleSize=*/16);
+
+	Mp4Demux d;
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetTimeScale(), 0u) << "No mvhd/mdhd parsed, timescale should remain 0";
+
+	auto samples = d.GetSamples();
+	ASSERT_EQ(samples.size(), 1u);
+	EXPECT_TRUE(std::isfinite(samples[0].mPts)) << "pts must not be NaN/Inf when timescale is 0";
+	EXPECT_TRUE(std::isfinite(samples[0].mDts)) << "dts must not be NaN/Inf when timescale is 0";
+	EXPECT_TRUE(std::isfinite(samples[0].mDuration)) << "duration must not be NaN/Inf when timescale is 0";
+	EXPECT_DOUBLE_EQ(samples[0].mPts, 0.0);
+	EXPECT_DOUBLE_EQ(samples[0].mDts, 0.0);
+	EXPECT_DOUBLE_EQ(samples[0].mDuration, 0.0);
+}
+
+// When no mvhd/mdhd is present, SetFallbackTimeScale() (manifest-declared
+// timescale, e.g. DASH SegmentTemplate@timescale) should be used instead of 0.
+TEST(Mp4Demux_NoInitSegment, FallbackTimeScale_UsedWhenNoMdhdMvhdParsed)
+{
+	std::vector<uint8_t> buf = BuildSingleSampleFragmentNoInit(/*sampleDurationTicks=*/48000, /*sampleSize=*/16);
+
+	Mp4Demux d;
+	d.SetFallbackTimeScale(48000);
+	ASSERT_TRUE(d.Parse(std::make_shared<std::vector<uint8_t>>(buf)));
+	EXPECT_EQ(d.GetTimeScale(), 0u) << "mdhd/mvhd still not parsed; box-derived timescale stays 0";
+
+	auto samples = d.GetSamples();
+	ASSERT_EQ(samples.size(), 1u);
+	EXPECT_DOUBLE_EQ(samples[0].mDuration, 1.0) << "48000 ticks / 48000 fallback timescale == 1 second";
+	EXPECT_DOUBLE_EQ(samples[0].mPts, 0.0);
+	EXPECT_DOUBLE_EQ(samples[0].mDts, 0.0);
 }
 
 

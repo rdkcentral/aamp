@@ -246,6 +246,9 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_GST_PIPELINE_ERROR, 80, 1, "AAMP: Error from gstreamer pipeline"},
 	{AAMP_TUNE_FAILED_PTS_ERROR, 80, 2, "AAMP: Playback failed due to PTS error"},
 
+	//Mp4 demuxer error
+	{AAMP_TUNE_MP4_DEMUX_ERROR, 80, 3, "AAMP: Error from mp4 demuxer"},
+
 	//Playback failure
 	{AAMP_TUNE_PLAYBACK_STALLED, 7600, 1, "AAMP: Playback was stalled due to lack of new fragments"},
 
@@ -8464,12 +8467,12 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, std::vecto
 	aamp_utils::ClearAndRelease(buffer);
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample)
+void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampMediaSample&& sample, bool morePending)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SendSample(mediaType, std::move(sample));
+		sink->SendSample(mediaType, std::move(sample), morePending);
 	}
 }
 
@@ -10309,6 +10312,20 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
 
+	// Populate audio metadata (codec, mixType, isAtmos).
+	// previousAudioType (AudioType) tracks the DASH-selected audio type;
+	// eAUDIO_ATMOS means a JOC-flagged EC-3 track was selected on DASH.
+	// mPreviousAudioType (StreamOutputFormat) tracks the HLS-selected audio
+	// type; FORMAT_AUDIO_ES_ATMOS means an Atmos ES track was selected on HLS.
+	// Both trackers are checked so that isAtmos is correct for DASH and HLS.
+	AudioTrackInfo currentAudioTrack;
+	if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack))
+	{
+		bool isAtmos = (previousAudioType == eAUDIO_ATMOS) ||
+		               (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS);
+		event->SetAudioMetaData(currentAudioTrack.codec, currentAudioTrack.mixType, isAtmos);
+	}
+
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -11717,6 +11734,14 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				{
 					cJSON_AddStringToObject(item, "mixType", trackInfo.mixType.c_str());
 				}
+				// isAtmos: derived from both audio-type trackers so that
+				// getAudioTrackInfo() reflects the real-time Atmos status for both
+				// DASH (previousAudioType == eAUDIO_ATMOS) and HLS
+				// (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS) after period
+				// transitions (where mediaMetadata is not re-fired).
+				cJSON_AddBoolToObject(item, "isAtmos",
+				                      (previousAudioType == eAUDIO_ATMOS) ||
+				                      (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS));
 				if (!trackInfo.mType.empty())
 				{
 					cJSON_AddStringToObject(item, "type", trackInfo.mType.c_str());
@@ -15121,6 +15146,37 @@ void PrivateInstanceAAMP::SetStreamCaps(AampMediaType type, MediaCodecInfo&& cod
 	if (sink)
 	{
 		sink->SetStreamCaps(type, std::move(codecInfo));
+	}
+}
+
+/**
+ * @fn QueueProtectionEvent
+ * @brief Forward in-band PSSH data (parsed from an MP4 container) to the stream sink
+ *
+ * @param[in] type - Media type
+ * @param[in] protectionEvents - Protection system data (systemID + pssh blob) extracted from the MP4 container
+ */
+void PrivateInstanceAAMP::QueueProtectionEvent(AampMediaType type, const std::vector<MediaProtectionInfo>& protectionEvents)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		// An init segment can carry PSSH boxes for multiple DRM systems, but only
+		// one is selected for this session (manifest-driven, e.g. preferredKeysystem).
+		// Only forward the matching entry so we don't create sessions for the rest.
+		DrmHelperPtr currentDrm = GetCurrentDRM();
+		for (const auto& protectionEvent : protectionEvents)
+		{
+			if (currentDrm && strcasecmp(protectionEvent.systemID.c_str(), currentDrm->getUuid().c_str()) != 0)
+			{
+				AAMPLOG_INFO("Skipping in-band protection event for type:%d systemId:%s (selected DRM systemId:%s)",
+					type, protectionEvent.systemID.c_str(), currentDrm->getUuid().c_str());
+				continue;
+			}
+			AAMPLOG_INFO("Queueing in-band protection event for type:%d systemId:%s psshSize:%zu",
+				type, protectionEvent.systemID.c_str(), protectionEvent.pssh.size());
+			sink->QueueProtectionEvent(protectionEvent.systemID.c_str(), protectionEvent.pssh.data(), protectionEvent.pssh.size(), type);
+		}
 	}
 }
 
