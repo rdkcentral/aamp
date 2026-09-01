@@ -623,25 +623,6 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 				AAMPCLI_PRINTF("[AAMP-CLI] ERROR - expected 'advert rc <breakId>'\n");
 			}
 		}
-		else if( token == "defer" )
-		{
-			mAampcli.mDeferReservationComplete = !mAampcli.mDeferReservationComplete;
-			AAMPCLI_PRINTF("[AAMP-CLI] deferred NotifyReservationComplete: %s\n",
-				mAampcli.mDeferReservationComplete ? "ON" : "OFF" );
-		}
-		else if( token == "rc" )
-		{
-			std::string breakId;
-			if( std::getline(input, breakId, ' ') && !breakId.empty() )
-			{
-				AAMPCLI_PRINTF("[AAMP-CLI] NotifyReservationComplete breakId=%s\n", breakId.c_str() );
-				playerInstanceAamp->NotifyReservationComplete(breakId);
-			}
-			else
-			{
-				AAMPCLI_PRINTF("[AAMP-CLI] ERROR - expected 'advert rc <breakId>'\n");
-			}
-		}
 	}
 	else
 	{
