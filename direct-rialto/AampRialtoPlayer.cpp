@@ -1832,6 +1832,32 @@ void AampRialtoPlayer::SetSubtitleMute(bool muted)
 	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
 	{
 		m_pipeline->setMute(subtitleSource->sourceId(), muted);
+		if (!muted)
+		{
+			// Sync the subtitle render position immediately on unmute.
+			// UpdateSubtitleClockTask is disabled for the Rialto path
+			// (see streamabstraction.cpp), so without this the text track
+			// renderer keeps the stale position set at AttachSource time,
+			// causing a 30-40 s display delay on live channels when the
+			// user enables subtitles after AV is already playing.
+			int64_t posNs = 0;
+			if (m_pipeline->getPosition(posNs))
+			{
+				if (!m_pipeline->setSourcePosition(
+					subtitleSource->sourceId(), posNs,
+					/*resetTime=*/false))
+				{
+					AAMPLOG_WARN("setSourcePosition failed for subtitle "
+						"sourceId=%d on unmute",
+						subtitleSource->sourceId());
+				}
+				else
+				{
+					AAMPLOG_INFO("unmute: updated subtitle position to "
+						"%" PRId64 " ns", posNs);
+				}
+			}
+		}
 	}
 	AAMPLOG_INFO("EXIT");
 }
