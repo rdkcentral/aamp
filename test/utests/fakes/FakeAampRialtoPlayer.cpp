@@ -64,7 +64,7 @@ bool AampRialtoPlayer::PipelineConfiguredForMedia(AampMediaType)
 void AampRialtoPlayer::EndOfStreamReached(AampMediaType) {}
 void AampRialtoPlayer::Stream() {}
 void AampRialtoPlayer::Stop(bool) {}
-void AampRialtoPlayer::Flush(double, int, bool) {}
+void AampRialtoPlayer::Flush(double, int, bool, bool) {}
 void AampRialtoPlayer::FlushTrack(AampMediaType, double) {}
 
 bool AampRialtoPlayer::SetPlayBackRate(double) { return false; }

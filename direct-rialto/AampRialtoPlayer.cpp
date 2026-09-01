@@ -438,13 +438,22 @@ void AampRialtoPlayer::Configure(
 	// NEWLY_ATTACHED already establishes a definitive baseline, so an
 	// ordinary tune's first sample does not trigger a redundant flush.
 	//
-	// Exception: if a Flush() cycle has already completed (state ==
-	// FLUSHED, e.g. AampStreamSinkManager::SetActive() driving a
-	// single-pipeline ad transition), the real position is already known
-	// and playRequested may still be false at that point, so re-arming here
-	// would leave Stream() deferring play() forever waiting on a sample
-	// that can never be injected while sources stay gated.
-	if (m_stateMachine.currentState() != PlayerStateId::FLUSHED)
+	// Exception: a same-session teardown flush to a placeholder position
+	// (e.g. TeardownStream()'s Flush(0, rate) ahead of an ordinary seek)
+	// also lands in FLUSHED, but its position is NOT authoritative - the
+	// real target position is only resolved once Configure()'s subsequent
+	// first sample runs MaybeFlushForPendingPosition(), so that case must
+	// still arm normally. Only skip when the Flush() that reached FLUSHED
+	// was called with positionIsAuthoritative=true (e.g.
+	// AampStreamSinkManager::SetActive() driving a single-pipeline ad
+	// transition): that position IS authoritative, and playRequested may
+	// still be false at that point, so re-arming here would leave Stream()
+	// deferring play() forever waiting on a sample that can never be
+	// injected while sources stay gated.
+	const bool skipArm =
+		m_lastFlushPositionAuthoritative.exchange(false, std::memory_order_relaxed) &&
+		m_stateMachine.currentState() == PlayerStateId::FLUSHED;
+	if (!skipArm)
 	{
 		ArmPositionPending("Configure");
 		for (auto &source : m_sources)
@@ -1495,9 +1504,10 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	AAMPLOG_INFO("EXIT");
 }
 
-void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
+void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, bool positionIsAuthoritative)
 {
-	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
+	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d positionIsAuthoritative=%d",
+		position, rate, shouldTearDown, positionIsAuthoritative);
 
 	// Step 1: Wait for any previous flush cycle to complete (no claim yet).
 	// The teardown check below reads the current state AFTER any in-flight
@@ -1521,6 +1531,11 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// even happen (teardown / non-flushable paths), so a sample injected
 	// concurrently does not try to resolve an already-resolved position.
 	m_positionPending.store(false, std::memory_order_relaxed);
+
+	// Caller-supplied signal for Configure() below, unconditionally mirrored
+	// (not just set-if-true) so a later non-authoritative Flush() cannot
+	// leave a stale true from an earlier authoritative one still pending.
+	m_lastFlushPositionAuthoritative.store(positionIsAuthoritative, std::memory_order_relaxed);
 
 	// Step 2: Decide whether to tear down or flush based on current state.
 	// This check happens BEFORE claiming FLUSHING so that Stop() — which

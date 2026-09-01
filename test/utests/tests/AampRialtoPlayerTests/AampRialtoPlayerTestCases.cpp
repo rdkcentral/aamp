@@ -6152,16 +6152,17 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 /**
  * @test Mirrors AampStreamSinkManager::SetActive() (single-pipeline-mode ad
- *       transition): an explicit Flush() resolves the real position and
- *       settles in FLUSHED without ungating (Stream() for this session has
- *       not run yet, so SEEK_DONE's playRequested check is false). The
- *       subsequent reused-pipeline Configure() call must not re-arm the
+ *       transition): an explicit Flush(positionIsAuthoritative=true)
+ *       resolves the real, already-known position and settles in FLUSHED
+ *       without ungating (Stream() for this session has not run yet, so
+ *       SEEK_DONE's playRequested check is false). The subsequent
+ *       reused-pipeline Configure() call must not re-arm the
  *       deferred-flush window: the position is already known, and
  *       re-arming would leave Stream() deferring play() forever waiting on
  *       a sample that can never be injected while sources stay gated.
  */
 TEST_F(AampRialtoPlayerWithDemuxTest,
-	Configure_ReusedPipelineAfterFlushSettledToFlushed_DoesNotReArmPositionPending)
+	Configure_ReusedPipelineAfterSessionHandoffFlushSettledToFlushed_DoesNotReArmPositionPending)
 {
 	Configure();
 	SendVideoInitFragment();
@@ -6169,11 +6170,16 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
 
-	// Mirrors AampStreamSinkManager::SetActive(): an explicit Flush()
-	// resolves the real, already-known position for the newly active
-	// session sharing this pipeline.
+	// Mirrors AampStreamSinkManager::SetActive(): ChangeAamp() switches the
+	// pipeline to serve a different session, then an explicit
+	// Flush(positionIsAuthoritative=true) resolves that session's real,
+	// already-known resume position.
+	auto *newAamp =
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
+	m_player->ChangeAamp(newAamp, nullptr);
 	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
-	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true);
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true,
+		/*positionIsAuthoritative=*/true);
 	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
 
 	// No Stream() call precedes this SEEK_DONE, so m_playRequested is still
@@ -6190,6 +6196,44 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	// never be injected.
 	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
 	m_player->Stream();
+}
+
+/**
+ * @test Distinguishes the session-handoff case above from an ordinary
+ *       same-session seek: TeardownStream() issues Flush(0, rate) (default
+ *       positionIsAuthoritative=false) ahead of TuneHelper()'s
+ *       reused-pipeline Configure(), and that placeholder position is NOT
+ *       the real seek target - only the following sample's own PTS (via
+ *       MaybeFlushForPendingPosition()) supplies it. Configure() must still
+ *       arm and gate in this case even though the pre-flush state is
+ *       FLUSHED.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_ReusedPipelineAfterSameSessionFlushSettledToFlushed_StillArmsPositionPending)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Mirrors TeardownStream()'s pre-seek discard flush: positionIsAuthoritative
+	// defaults to false, so this position is treated as a placeholder.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	// TuneHelper()'s reused-pipeline Configure() for the seek.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
 }
 
 /**
