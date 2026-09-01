@@ -6151,6 +6151,48 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 }
 
 /**
+ * @test Mirrors AampStreamSinkManager::SetActive() (single-pipeline-mode ad
+ *       transition): an explicit Flush() resolves the real position and
+ *       settles in FLUSHED without ungating (Stream() for this session has
+ *       not run yet, so SEEK_DONE's playRequested check is false). The
+ *       subsequent reused-pipeline Configure() call must not re-arm the
+ *       deferred-flush window: the position is already known, and
+ *       re-arming would leave Stream() deferring play() forever waiting on
+ *       a sample that can never be injected while sources stay gated.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_ReusedPipelineAfterFlushSettledToFlushed_DoesNotReArmPositionPending)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Mirrors AampStreamSinkManager::SetActive(): an explicit Flush()
+	// resolves the real, already-known position for the newly active
+	// session sharing this pipeline.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// No Stream() call precedes this SEEK_DONE, so m_playRequested is still
+	// false: as in production, sources are not ungated here and the player
+	// settles in FLUSHED rather than resuming PLAYING.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	// The position is already resolved by the Flush() above - Stream() must
+	// issue play() immediately rather than deferring for a sample that can
+	// never be injected.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+}
+
+/**
  * @test Configure() now arms m_positionPending unconditionally, but
  *       AttachSource() already establishes a definitive baseline for an
  *       ordinary fresh tune - the first ordinary sample must not trigger a

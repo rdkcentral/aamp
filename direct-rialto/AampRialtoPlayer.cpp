@@ -437,13 +437,23 @@ void AampRialtoPlayer::Configure(
 	// clears it. AttachSource() also clears it directly when a fresh
 	// NEWLY_ATTACHED already establishes a definitive baseline, so an
 	// ordinary tune's first sample does not trigger a redundant flush.
-	ArmPositionPending("Configure");
-	for (auto &source : m_sources)
+	//
+	// Exception: if a Flush() cycle has already completed (state ==
+	// FLUSHED, e.g. AampStreamSinkManager::SetActive() driving a
+	// single-pipeline ad transition), the real position is already known
+	// and playRequested may still be false at that point, so re-arming here
+	// would leave Stream() deferring play() forever waiting on a sample
+	// that can never be injected while sources stay gated.
+	if (m_stateMachine.currentState() != PlayerStateId::FLUSHED)
 	{
-		if (source)
+		ArmPositionPending("Configure");
+		for (auto &source : m_sources)
 		{
-			source->gateInjection(m_pipeline.get(), true,
-				"Configure(position-pending)");
+			if (source)
+			{
+				source->gateInjection(m_pipeline.get(), true,
+					"Configure(position-pending)");
+			}
 		}
 	}
 
