@@ -2037,7 +2037,7 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 	EXPECT_CALL(m_mockNotifiable,
 		NotifySpeedChanged(AAMP_NORMAL_PLAY_RATE, /*changeState=*/true))
 		.Times(1);
-	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(0);
+	EXPECT_CALL(m_mockNotifiable, NotifyFirstFrameReceived(_)).Times(1);
 
 	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
 }
@@ -2099,6 +2099,46 @@ TEST_F(AampRialtoPlayerTest,
 
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
 	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode, AampRialtoMediaSource::GateMode::BLOCKED);
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyFragmentCachingOngoing_ThenComplete_IssuesPlay)
+{
+	// SetStateBufferingIfRequired() calls NotifyFragmentCachingOngoing() when
+	// mFragmentCachingRequired is true. NotifyFragmentCachingComplete() must
+	// then issue play() to resume the pipeline — mirroring GSTPlayer's
+	// pendingPlayState mechanism to close the seek-while-paused race.
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// Pipeline is not yet PAUSED (SOURCES_ATTACHED), so NotifyFragmentCachingOngoing
+	// must pause it before waiting for the cache to fill.
+	EXPECT_CALL(*m_mockPipelinePtr, pause()).WillOnce(Return(true));
+	m_player->NotifyFragmentCachingOngoing();
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->NotifyFragmentCachingComplete();
+}
+
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	NotifyFragmentCachingComplete_AfterPauseTrue_DoesNotIssuePlay)
+{
+	// Pause(true) cancels the pending play: an explicit pause (e.g. user
+	// paused during buffering) must take precedence over the deferred resume.
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+
+	// NotifyFragmentCachingOngoing pauses (pipeline not yet PAUSED), then
+	// Pause(true) pauses again after clearing the pending-play flag.
+	EXPECT_CALL(*m_mockPipelinePtr, pause()).Times(2).WillRepeatedly(Return(true));
+	m_player->NotifyFragmentCachingOngoing();
+
+	m_player->Pause(/*pause=*/true, /*forceStop=*/false);
+
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(0);
+	m_player->NotifyFragmentCachingComplete();
 }
 
 TEST_F(AampRialtoPlayerTest,

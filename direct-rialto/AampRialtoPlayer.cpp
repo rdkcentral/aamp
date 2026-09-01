@@ -1716,6 +1716,8 @@ bool AampRialtoPlayer::Pause(bool pause, bool forceStopGstreamerPreBuffering)
 	{
 		if (pause)
 		{
+			// Cancel any pending play-after-caching: an explicit pause takes precedence.
+			m_pendingPlayOnFragCaching = false;
 			result = m_pipeline->pause();
 		}
 		else
@@ -2131,12 +2133,30 @@ void AampRialtoPlayer::ResetEOSSignalledFlag()
 void AampRialtoPlayer::NotifyFragmentCachingComplete()
 {
 	AAMPLOG_INFO("ENTRY");
+
+	if (m_pendingPlayOnFragCaching)
+	{
+		AAMPLOG_MIL("Fragment caching complete — issuing play() to resume pipeline");
+		m_pendingPlayOnFragCaching = false;
+		if (m_pipeline)
+		{
+			bool async = false;
+			m_pipeline->play(async);
+		}
+	}
+
 	AAMPLOG_INFO("EXIT");
 }
 
 void AampRialtoPlayer::NotifyFragmentCachingOngoing()
 {
 	AAMPLOG_INFO("ENTRY");
+	m_pendingPlayOnFragCaching = true;
+	if (m_pipeline && m_stateMachine.currentState() != PlayerStateId::PAUSED)
+	{
+		AAMPLOG_MIL("Pipeline not paused during fragment caching — issuing pause()");
+		m_pipeline->pause();
+	}
 	AAMPLOG_INFO("EXIT");
 }
 
@@ -2556,6 +2576,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			else
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
+				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifySpeedChanged(
 					static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
 					/*changeState=*/true);

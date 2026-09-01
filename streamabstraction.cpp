@@ -1283,13 +1283,17 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		* not enter. So under mp4demux this block handles subtitle during normal play only;
 		* without mp4demux the behaviour for every track is unchanged.
 		*
+		* The !pContext guard prevents double-restamping on the direct-rialto + FORMAT_SUBTITLE_MP4
+		* path: InitializeMediaProcessor creates an AampMp4Demuxer for subtitle there (needsDemuxer
+		* is true), which already restamps. Restamping here too causes uint64 underflow (~2^64).
+		*
 		* The useMp4Demux check stays inline below rather than being hoisted into a local, so it
 		* is still only evaluated after the EnablePTSReStamp and DASH checks pass, exactly as
 		* before. Reading it unconditionally would add a config lookup to every fragment
 		* injection on every path.
 		*/
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-			(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay)))
+			(!ISCONFIGSET(eAAMPConfig_UseMp4Demux) || ((eTRACK_SUBTITLE == type) && !trickplay && !pContext)))
 		{
 			if (trickplay)
 			{

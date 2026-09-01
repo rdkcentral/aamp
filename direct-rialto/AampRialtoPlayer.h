@@ -572,6 +572,11 @@ private:
 	/// Overwritten on each call; not re-applied anywhere (read-only query).
 	PlaybackQualityStruct m_playbackQuality{};
 
+	/// Set by NotifyFragmentCachingOngoing(); cleared by Pause(true) or
+	/// NotifyFragmentCachingComplete(). Mirrors GSTPlayer's pendingPlayState:
+	/// when true, NotifyFragmentCachingComplete() issues play() to resume.
+	bool m_pendingPlayOnFragCaching{false};
+
 	/// @brief Embedded progress timer with immediate-start and kick capability.
 	///
 	/// Fires immediately on start, then continues at specified interval.
