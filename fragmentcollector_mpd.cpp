@@ -797,7 +797,8 @@ uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamCont
 
 		bool isFirstSegment = pMediaStreamContext->lastSegmentTime == 0 && startTime == 0
 									&& pMediaStreamContext->lastSegmentDuration != 0
-									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0;
+									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0
+									&& timelines.size() != 1;
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 		AAMPLOG_INFO("Type[%d] nextStartTime=%" PRIu64 " startTime=%" PRIu64 " repeatCount=%u", pMediaStreamContext->type,
