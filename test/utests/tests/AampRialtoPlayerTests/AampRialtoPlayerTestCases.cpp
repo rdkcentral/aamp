@@ -4128,6 +4128,93 @@ TEST_F(AampRialtoPlayerTest,
 }
 
 TEST_F(AampRialtoPlayerTest,
+	Configure_VideoUnknownThenKnown_NoRecreate_UpdatesStoredFormat)
+{
+	/**
+	 * @brief A video source created with FORMAT_UNKNOWN (e.g. muxed HLS-TS
+	 *        before PMT parsing) that is later Configure()'d with the real,
+	 *        now-known codec must NOT trigger a pipeline recreation, and the
+	 *        source's stored format must be updated to the known value.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_UNKNOWN, FORMAT_UNKNOWN);
+
+	auto *videoSource = m_mockSources[eMEDIATYPE_VIDEO];
+	ASSERT_NE(videoSource, nullptr);
+	EXPECT_EQ(videoSource->format(), FORMAT_UNKNOWN);
+
+	m_player->Configure(FORMAT_VIDEO_ES_H264, FORMAT_UNKNOWN, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_VideoKnownThenUnknown_NoRecreate_KeepsStoredFormat)
+{
+	/**
+	 * @brief Once a video source's codec is known, a later Configure() call
+	 *        reporting FORMAT_UNKNOWN must NOT recreate the pipeline and
+	 *        must NOT overwrite the already-known stored format.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_VIDEO_ES_H264, FORMAT_ISO_BMFF);
+
+	auto *videoSource = m_mockSources[eMEDIATYPE_VIDEO];
+	ASSERT_NE(videoSource, nullptr);
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+
+	m_player->Configure(FORMAT_UNKNOWN, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(videoSource->format(), FORMAT_VIDEO_ES_H264);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioUnknownThenKnown_NoRecreate_UpdatesStoredFormat)
+{
+	/**
+	 * @brief Same as the video case above, but for the audio source.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_UNKNOWN, FORMAT_UNKNOWN);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+	EXPECT_EQ(audioSource->format(), FORMAT_UNKNOWN);
+
+	m_player->Configure(FORMAT_UNKNOWN, FORMAT_AUDIO_ES_AAC, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+}
+
+TEST_F(AampRialtoPlayerTest,
+	Configure_AudioKnownThenUnknown_NoRecreate_KeepsStoredFormat)
+{
+	/**
+	 * @brief Once an audio source's codec is known, a later Configure() call
+	 *        reporting FORMAT_UNKNOWN must NOT recreate the pipeline and
+	 *        must NOT overwrite the already-known stored format.
+	 */
+	EXPECT_CALL(*m_mockFactory, createMediaPipeline(_, _)).Times(1);
+	Configure(FORMAT_ISO_BMFF, FORMAT_AUDIO_ES_AAC);
+
+	auto *audioSource = m_mockSources[eMEDIATYPE_AUDIO];
+	ASSERT_NE(audioSource, nullptr);
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_UNKNOWN, FORMAT_INVALID,
+		/*bESChangeStatus=*/false,
+		/*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(audioSource->format(), FORMAT_AUDIO_ES_AAC);
+}
+
+TEST_F(AampRialtoPlayerTest,
 	Configure_AudioGoesInvalid_NoPipelineRecreation_EOSSignaled)
 {
 	/**
@@ -6101,6 +6188,92 @@ TEST_F(AampRialtoPlayerWithDemuxTest,
 
 	WaitFor([&sendDone]{ return sendDone.load(); });
 	sender.join();
+}
+
+/**
+ * @test Mirrors AampStreamSinkManager::SetActive() (single-pipeline-mode ad
+ *       transition): an explicit Flush(positionIsAuthoritative=true)
+ *       resolves the real, already-known position and settles in FLUSHED
+ *       without ungating (Stream() for this session has not run yet, so
+ *       SEEK_DONE's playRequested check is false). The subsequent
+ *       reused-pipeline Configure() call must not re-arm the
+ *       deferred-flush window: the position is already known, and
+ *       re-arming would leave Stream() deferring play() forever waiting on
+ *       a sample that can never be injected while sources stay gated.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_ReusedPipelineAfterSessionHandoffFlushSettledToFlushed_DoesNotReArmPositionPending)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Mirrors AampStreamSinkManager::SetActive(): ChangeAamp() switches the
+	// pipeline to serve a different session, then an explicit
+	// Flush(positionIsAuthoritative=true) resolves that session's real,
+	// already-known resume position.
+	auto *newAamp =
+		reinterpret_cast<PrivateInstanceAAMP *>(g_mockPrivateInstanceAAMP.get());
+	m_player->ChangeAamp(newAamp, nullptr);
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true,
+		/*positionIsAuthoritative=*/true);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	// No Stream() call precedes this SEEK_DONE, so m_playRequested is still
+	// false: as in production, sources are not ungated here and the player
+	// settles in FLUSHED rather than resuming PLAYING.
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	// The position is already resolved by the Flush() above - Stream() must
+	// issue play() immediately rather than deferring for a sample that can
+	// never be injected.
+	EXPECT_CALL(*m_mockPipelinePtr, play(_)).Times(1).WillOnce(Return(true));
+	m_player->Stream();
+}
+
+/**
+ * @test Distinguishes the session-handoff case above from an ordinary
+ *       same-session seek: TeardownStream() issues Flush(0, rate) (default
+ *       positionIsAuthoritative=false) ahead of TuneHelper()'s
+ *       reused-pipeline Configure(), and that placeholder position is NOT
+ *       the real seek target - only the following sample's own PTS (via
+ *       MaybeFlushForPendingPosition()) supplies it. Configure() must still
+ *       arm and gate in this case even though the pre-flush state is
+ *       FLUSHED.
+ */
+TEST_F(AampRialtoPlayerWithDemuxTest,
+	Configure_ReusedPipelineAfterSameSessionFlushSettledToFlushed_StillArmsPositionPending)
+{
+	Configure();
+	SendVideoInitFragment();
+	SendAudioInitFragment();
+	PostPlaybackState(firebolt::rialto::PlaybackState::PLAYING);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::PLAYING);
+
+	// Mirrors TeardownStream()'s pre-seek discard flush: positionIsAuthoritative
+	// defaults to false, so this position is treated as a placeholder.
+	EXPECT_CALL(*m_mockPipelinePtr, setPosition(_)).WillOnce(Return(true));
+	m_player->Flush(/*position=*/0.0, /*rate=*/1, /*shouldTearDown=*/true);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHING);
+
+	PostPlaybackState(firebolt::rialto::PlaybackState::SEEK_DONE);
+	ASSERT_EQ(m_player->GetCurrentPlayerState(), PlayerStateId::FLUSHED);
+
+	// TuneHelper()'s reused-pipeline Configure() for the seek.
+	m_player->Configure(FORMAT_ISO_BMFF, FORMAT_ISO_BMFF, FORMAT_INVALID,
+		/*bESChangeStatus=*/false, /*setReadyAfterPipelineCreation=*/false);
+
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_VIDEO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
+	EXPECT_EQ(m_mockSources[eMEDIATYPE_AUDIO]->state().gateMode,
+		AampRialtoMediaSource::GateMode::BLOCKED);
 }
 
 /**

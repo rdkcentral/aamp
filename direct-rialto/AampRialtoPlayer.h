@@ -176,7 +176,8 @@ public:
 	void Flush(
 		double position = 0,
 		int rate = AAMP_NORMAL_PLAY_RATE,
-		bool shouldTearDown = true) override;
+		bool shouldTearDown = true,
+		bool positionIsAuthoritative = false) override;
 
 	/// @copydoc StreamSink::FlushTrack
 	void FlushTrack(AampMediaType mediaType, double position = 0) override;
@@ -513,17 +514,30 @@ private:
 	/// a Flush() of its own (DoEarlyStreamSinkFlush()/
 	/// DoStreamSinkFlushOnDiscontinuity() are both false for ISO BMFF), so
 	/// MaybeFlushForPendingPosition() must supply one once the new period's
-	/// first sample is demuxed. Armed unconditionally by every Configure():
+	/// first sample is demuxed. Armed by every Configure() UNLESS the
+	/// Flush() that settled FLUSHED was called with
+	/// positionIsAuthoritative=true (see m_lastFlushPositionAuthoritative) -
 	/// no sample can be in flight yet at any Configure() call site (always
-	/// preceded by StopInjection()/not-yet-Start()), so an unconditional arm
-	/// there is never racy, even when an explicit Flush() immediately
-	/// follows and clears it again. Discontinuity() only arms this when
-	/// m_aamp->WillFlushOnDiscontinuity() is false - PTS-restamped content
-	/// keeps injecting across that call, so arming when an explicit Flush()
-	/// is guaranteed would let the still-flowing samples race an early
-	/// implicit Flush() ahead of it. Either arm site gates every source
-	/// until an AttachSource() or a Flush() resolves the real position.
+	/// preceded by StopInjection()/not-yet-Start()), so arming there is
+	/// never racy, even when an explicit Flush() immediately follows and
+	/// clears it again.
+	/// Discontinuity() only arms this when m_aamp->WillFlushOnDiscontinuity()
+	/// is false - PTS-restamped content keeps injecting across that call, so
+	/// arming when an explicit Flush() is guaranteed would let the
+	/// still-flowing samples race an early implicit Flush() ahead of it.
+	/// Either arm site gates every source until an AttachSource() or a
+	/// Flush() resolves the real position.
 	std::atomic<bool> m_positionPending{false};
+
+	/// Mirrors the positionIsAuthoritative argument of the most recent
+	/// Flush() call (e.g. true for AampStreamSinkManager::SetActive()
+	/// driving a single-pipeline-mode ad transition's real resume
+	/// position; false for a same-session discard-to-0 teardown
+	/// placeholder). Stored unconditionally on every Flush() so a later
+	/// non-authoritative call cannot leave a stale true from an earlier
+	/// authoritative one. Consulted (and cleared) by Configure() to decide
+	/// whether re-arming m_positionPending would be redundant.
+	std::atomic<bool> m_lastFlushPositionAuthoritative{false};
 
 	/// Claimed by the first sample that drives the deferred implicit Flush(),
 	/// so that concurrent video/audio injector threads cannot both trigger

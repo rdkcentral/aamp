@@ -514,7 +514,8 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position
 
 	mStreamPlayer->ChangeAamp(aamp, mInactivePlayersMap[aamp]->GetID3MetadataHandler());
 	aamp->mIsFlushOperationInProgress = true;
-	mStreamPlayer->Flush(position, aamp->rate, true);
+	// position is the new session's real resume position, not a placeholder.
+	mStreamPlayer->Flush(position, aamp->rate, true, /*positionIsAuthoritative=*/true);
 	aamp->mIsFlushOperationInProgress = false;
 	mStreamPlayer->SetSubtitleMute(aamp->subtitles_muted);
 	if(!aamp->IsTuneCompleted() && aamp->IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))

@@ -346,7 +346,11 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		AAMPLOG_INFO("Video source going away: ShouldRecreatePipeline true");
 		return true;  // Video source going away.
 	}
-	else if (videoSrc->format() != videoFormat)
+	// FORMAT_UNKNOWN on either side means the codec isn't known yet (e.g.
+	// muxed HLS-TS before PMT parsing) - not a genuine codec change.
+	else if (videoFormat != FORMAT_UNKNOWN &&
+	         videoSrc->format() != FORMAT_UNKNOWN &&
+	         videoSrc->format() != videoFormat)
 	{
 		AAMPLOG_INFO("Video codec changed (old=%d, new=%d): ShouldRecreatePipeline true",
 			videoSrc->format(), videoFormat);
@@ -365,6 +369,8 @@ bool AampRialtoPlayer::ShouldRecreatePipeline(
 		}
 	}
 	else if (audioFormat != FORMAT_INVALID &&
+	         audioFormat != FORMAT_UNKNOWN &&
+	         audioSrc->format() != FORMAT_UNKNOWN &&
 	         audioSrc->format() != audioFormat)
 	{
 		AAMPLOG_INFO("Audio codec changed to a different valid format (old=%d, new=%d): ShouldRecreatePipeline true",
@@ -431,13 +437,32 @@ void AampRialtoPlayer::Configure(
 	// clears it. AttachSource() also clears it directly when a fresh
 	// NEWLY_ATTACHED already establishes a definitive baseline, so an
 	// ordinary tune's first sample does not trigger a redundant flush.
-	ArmPositionPending("Configure");
-	for (auto &source : m_sources)
+	//
+	// Exception: a same-session teardown flush to a placeholder position
+	// (e.g. TeardownStream()'s Flush(0, rate) ahead of an ordinary seek)
+	// also lands in FLUSHED, but its position is NOT authoritative - the
+	// real target position is only resolved once Configure()'s subsequent
+	// first sample runs MaybeFlushForPendingPosition(), so that case must
+	// still arm normally. Only skip when the Flush() that reached FLUSHED
+	// was called with positionIsAuthoritative=true (e.g.
+	// AampStreamSinkManager::SetActive() driving a single-pipeline ad
+	// transition): that position IS authoritative, and playRequested may
+	// still be false at that point, so re-arming here would leave Stream()
+	// deferring play() forever waiting on a sample that can never be
+	// injected while sources stay gated.
+	const bool skipArm =
+		m_lastFlushPositionAuthoritative.exchange(false, std::memory_order_relaxed) &&
+		m_stateMachine.currentState() == PlayerStateId::FLUSHED;
+	if (!skipArm)
 	{
-		if (source)
+		ArmPositionPending("Configure");
+		for (auto &source : m_sources)
 		{
-			source->gateInjection(m_pipeline.get(), true,
-				"Configure(position-pending)");
+			if (source)
+			{
+				source->gateInjection(m_pipeline.get(), true,
+					"Configure(position-pending)");
+			}
 		}
 	}
 
@@ -454,6 +479,24 @@ void AampRialtoPlayer::Configure(
 		if (!ShouldRecreatePipeline(videoFormat, audioFormat, subFormat,
 		        bESChangeStatus, setReadyAfterPipelineCreation))
 		{
+			// Codec was unknown when the source was created (e.g. muxed
+			// HLS-TS before PMT parsing) and has since been identified -
+			// record it so later stream-caps computation (SendCopy's
+			// muxed-TS path) uses the real codec instead of FORMAT_UNKNOWN.
+			if (m_sources[eMEDIATYPE_VIDEO] &&
+			    m_sources[eMEDIATYPE_VIDEO]->format() == FORMAT_UNKNOWN &&
+			    videoFormat != FORMAT_UNKNOWN)
+			{
+				m_sources[eMEDIATYPE_VIDEO]->setFormat(videoFormat);
+			}
+			if (m_sources[eMEDIATYPE_AUDIO] &&
+			    m_sources[eMEDIATYPE_AUDIO]->format() == FORMAT_UNKNOWN &&
+			    audioFormat != FORMAT_UNKNOWN &&
+			    audioFormat != FORMAT_INVALID)
+			{
+				m_sources[eMEDIATYPE_AUDIO]->setFormat(audioFormat);
+			}
+
 			if (audioGoingInvalid)
 			{
 				AAMPLOG_INFO("Audio going FORMAT_INVALID (trickplay) - "
@@ -1461,9 +1504,10 @@ void AampRialtoPlayer::StopInternal(bool keepLastFrame, bool preservePendingPosi
 	AAMPLOG_INFO("EXIT");
 }
 
-void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
+void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown, bool positionIsAuthoritative)
 {
-	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d", position, rate, shouldTearDown);
+	AAMPLOG_INFO("ENTRY position=%f rate=%d shouldTearDown=%d positionIsAuthoritative=%d",
+		position, rate, shouldTearDown, positionIsAuthoritative);
 
 	// Step 1: Wait for any previous flush cycle to complete (no claim yet).
 	// The teardown check below reads the current state AFTER any in-flight
@@ -1487,6 +1531,11 @@ void AampRialtoPlayer::Flush(double position, int rate, bool shouldTearDown)
 	// even happen (teardown / non-flushable paths), so a sample injected
 	// concurrently does not try to resolve an already-resolved position.
 	m_positionPending.store(false, std::memory_order_relaxed);
+
+	// Caller-supplied signal for Configure() below, unconditionally mirrored
+	// (not just set-if-true) so a later non-authoritative Flush() cannot
+	// leave a stale true from an earlier authoritative one still pending.
+	m_lastFlushPositionAuthoritative.store(positionIsAuthoritative, std::memory_order_relaxed);
 
 	// Step 2: Decide whether to tear down or flush based on current state.
 	// This check happens BEFORE claiming FLUSHING so that Stop() — which
