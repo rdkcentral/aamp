@@ -10319,6 +10319,20 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
 
+	// Populate audio metadata (codec, mixType, isAtmos).
+	// previousAudioType (AudioType) tracks the DASH-selected audio type;
+	// eAUDIO_ATMOS means a JOC-flagged EC-3 track was selected on DASH.
+	// mPreviousAudioType (StreamOutputFormat) tracks the HLS-selected audio
+	// type; FORMAT_AUDIO_ES_ATMOS means an Atmos ES track was selected on HLS.
+	// Both trackers are checked so that isAtmos is correct for DASH and HLS.
+	AudioTrackInfo currentAudioTrack;
+	if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack))
+	{
+		bool isAtmos = (previousAudioType == eAUDIO_ATMOS) ||
+		               (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS);
+		event->SetAudioMetaData(currentAudioTrack.codec, currentAudioTrack.mixType, isAtmos);
+	}
+
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -11747,6 +11761,14 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				{
 					cJSON_AddStringToObject(item, "mixType", trackInfo.mixType.c_str());
 				}
+				// isAtmos: derived from both audio-type trackers so that
+				// getAudioTrackInfo() reflects the real-time Atmos status for both
+				// DASH (previousAudioType == eAUDIO_ATMOS) and HLS
+				// (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS) after period
+				// transitions (where mediaMetadata is not re-fired).
+				cJSON_AddBoolToObject(item, "isAtmos",
+				                      (previousAudioType == eAUDIO_ATMOS) ||
+				                      (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS));
 				if (!trackInfo.mType.empty())
 				{
 					cJSON_AddStringToObject(item, "type", trackInfo.mType.c_str());
