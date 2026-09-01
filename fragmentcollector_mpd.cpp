@@ -10409,10 +10409,16 @@ void StreamAbstractionAAMP_MPD::UpdateStartTimeOfFirstPTS()
 		}
 		else
 		{
-			AAMPLOG_WARN("skipping adPeriodOffset; using mStartTimeOfFirstPTS as %.0f ms", mStartTimeOfFirstPTS);
+			if (mCdaiObject && mBasePeriodOffset > 0)
+			{
+				mStartTimeOfFirstPTS += (mBasePeriodOffset * 1000.0);
+				AAMPLOG_INFO("UpdateStartTimeOfFirstPTS (partial ad fallback): +mBasePeriodOffset=%lf sec : mStartTimeOfFirstPTS=%.0f ms",
+					mBasePeriodOffset, mStartTimeOfFirstPTS);
+			}
 		}
 	}
 }
+
 
 /**
  * @brief Fetches and caches fragments in a loop
