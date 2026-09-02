@@ -133,8 +133,8 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 		}
 		ret.pts_s = ptsOffset + raw_pts_s;
 		ret.dts_s = ptsOffset + raw_dts_s;
-		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f",
-			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s);
+		AAMPLOG_TRACE("restamp type=%d ptsOffset=%.3f raw_pts=%.3f raw_dts=%.3f => pts_s=%.3f dts_s=%.3f dur=%.3f",
+			(int)type, ptsOffset, raw_pts_s, raw_dts_s, ret.pts_s, ret.dts_s, ret.duration);
 		return ret;
 	}
 
@@ -160,17 +160,36 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	return ret;
 }
 
-void Demuxer::send()
+void Demuxer::emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payload, const MediaProcessor::process_fcn_t &processor)
 {
-	if (CheckForSteadyState())
+	total_sample_duration += info.duration;
+	if (processor)
 	{
-		const auto info = UpdateSegmentInfo();
+		processor(type, info, std::move(payload));
+	}
+	else if (aamp)
+	{
+		aamp->SendStreamCopy(type, payload, info.pts_s, info.dts_s, info.duration);
+	}
+	payload.clear(); // move may leave payload valid-but-unspecified; clear for determinism
+}
 
-		if (aamp)
+void Demuxer::emitLastSample(const MediaProcessor::process_fcn_t &processor)
+{
+
+	if (!pending_es.empty())
+	{
+		/* calculate the duration of the last sample which is:
+		* duration = duration of segment - duration of all samples sent so far
+		*/
+		double duration = pending_info.duration - total_sample_duration;
+		if (duration > 0.0)
 		{
-			aamp->SendStreamCopy(type, es, info.pts_s, info.dts_s, duration);
+			pending_info.duration = duration;
 		}
-		es.clear();
+		emitSample(pending_info, pending_es, processor);
+		total_sample_duration = 0.0;
+		pending_es.clear();
 	}
 }
 
@@ -178,22 +197,34 @@ void Demuxer::resetInternal()
 {
 	aamp_utils::ClearAndRelease(es);
 	aamp_utils::ClearAndRelease(pes_header);
+	aamp_utils::ClearAndRelease(pending_es);
 }
 
 void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 {
-	if (processor)
+	if (!CheckForSteadyState())
 	{
-		if (CheckForSteadyState())
+		return; // CheckForSteadyState() clears es on discard
+	}
+	const SegmentInfo_t info = UpdateSegmentInfo();
+
+	// A previously buffered sample can now have its true duration
+	// measured as the DTS delta to this (the next) access unit. Emit it
+	// before the current sample to preserve decode order.
+	if (!pending_es.empty())
+	{
+		const double sampleDuration = info.dts_s - pending_info.dts_s;
+		if (sampleDuration > 0.0)
 		{
-			processor(type, UpdateSegmentInfo(), std::move(es));
-			es.clear(); // move leaves es in valid-but-unspecified state; clear for determinism
+			pending_info.duration = sampleDuration;
 		}
+		emitSample(pending_info, pending_es, processor);
 	}
-	else
-	{
-		send();
-	}
+
+	pending_es = std::move(es);
+	es.clear();
+	pending_info = info;
+
 }
 
 void Demuxer::init(double position, double duration, bool trickmode, bool resetBasePTS, bool optimizeMuxed )
@@ -209,13 +240,15 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	current_dts = 0;
 	current_pts = 0;
 	first_pts = 0;
+	total_sample_duration = 0.0;
+	pending_es.clear();
 	update_first_pts = false;
 	finalized_base_pts = false;
 	rollover_pts = false;
 	suppress_rollover_detection = false;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
-	
+
 	if( optimizeMuxed )
 	{ // when hls/ts in use, restamp starting from zero to avoid jitter at playback start
 		base_pts = 0;
@@ -229,8 +262,11 @@ void Demuxer::flush()
 	if (!es.empty())
 	{
 		AAMPLOG_INFO("demux : sending remaining bytes. es.len %zu", es.size());
-		send();
+		sendInternal(nullptr);
 	}
+	// Emit any sample still held for look-ahead (e.g. a single-sample epoch);
+	// no successor is available so it keeps its fallback duration.
+	emitLastSample(nullptr);
 	resetInternal();
 }
 
@@ -287,7 +323,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 				}
 				else
 				{
-					send();
+					sendInternal(nullptr);
 				}
 			}
 
