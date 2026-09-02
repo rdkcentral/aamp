@@ -87,7 +87,7 @@ static std::string LogPreamble(const char *function, int line)
 }
 
 #define RIALTO_SIM_LOG(fmt, ...) \
-	fprintf(stderr, "%s " fmt "\n",LogPreamble(__func__, __LINE__).c_str(), ##__VA_ARGS__)
+	fprintf(stderr, "%s" fmt "\n",LogPreamble(__func__, __LINE__).c_str(), ##__VA_ARGS__)
 
 // Minimum amount of media data (per non-subtitle track) that must be
 // injected — or an EOS received — before the pipeline transitions to
@@ -1101,7 +1101,6 @@ private:
 
 	void stopThreads()
 	{
-		RIALTO_SIM_LOG("stopThreads ");
 		m_stopRequested.store(true, std::memory_order_relaxed);
 		if (m_positionThread.joinable())
 		{
