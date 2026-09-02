@@ -1405,6 +1405,12 @@ public:
 	 * @param[in]  maxInitDownloadTimeMS Max time (ms) to retry init-segment
 	 *                                 downloads when AAMP TSB is enabled;
 	 *                                 pass 0 otherwise.
+	 * @param[in]  synthesizeIframeAbort    When true the CURL transfer is aborted
+	 *                                 as soon as the first I-frame payload has
+	 *                                 been received (VOD iframe synthesis mode).
+	 *                                 The caller must subsequently invoke
+	 *                                 IsoBmffHelper::ConvertToKeyFrame() to fix
+	 *                                 the MOOF metadata.  Default: false.
 	 * @return true on success, false on failure.
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType,
@@ -1413,7 +1419,8 @@ public:
 				const char *range = NULL, unsigned int curlInstance = 0,
 				bool resetBuffer = true, BitsPerSecond *bitrate = NULL,
 				int *fogError = NULL, double fragmentDurationS = 0,
-				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
+				ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT,
+				int maxInitDownloadTimeMS = 0, bool synthesizeIframeAbort = false);
 
 	/**
 	 * @fn CheckSegmentIntegrity

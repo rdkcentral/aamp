@@ -42,7 +42,7 @@ public:
 	MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, std::vector<uint8_t> &buffer, std::string& effectiveUrl,
 				int& http_error, double *downloadTime, const char *range, unsigned int curlInstance,
 				bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
-				double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS));
+				double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS, bool synthesizeIframeAbort));
 	MOCK_METHOD(void, SetStreamFormat, (StreamOutputFormat videoFormat, StreamOutputFormat audioFormat));
 
 	MOCK_METHOD(std::string, GetAvailableAudioTracks, (bool allTrack));
