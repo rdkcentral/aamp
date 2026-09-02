@@ -11246,7 +11246,7 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 				bool currentTrackAvailable = mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
 				if( !currentTrackAvailable )
 				{
-					AAMPLOG_WARN( "GetCurrentAudioTrack returned false" );
+					AAMPLOG_INFO( "GetCurrentAudioTrack returned false" );
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
