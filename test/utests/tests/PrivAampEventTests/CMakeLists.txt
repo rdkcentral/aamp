@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2023 RDK Management
+# Copyright 2026 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ include(GoogleTest)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME PrivAampTests)
+set(EXEC_NAME PrivAampEventTests)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(UUID REQUIRED uuid)
@@ -27,17 +27,14 @@ pkg_check_modules(UUID REQUIRED uuid)
 # Include common test directories
 include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
 
-set(TEST_SOURCES	PrivAampTests.cpp
-					PrivAampAAMPTests.cpp
-					PrivAampTests_TsbInjection.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/CachedFragment.cpp)
-add_executable(	${EXEC_NAME}
+set(TEST_SOURCES PrivAampEventTests.cpp PrivAampEventTestCases.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/AampEvent.cpp)
+add_executable(${EXEC_NAME}
 				${TEST_SOURCES}
 				${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
-	# XCode schema target
 	xcode_define_schema(${EXEC_NAME})
 endif()
 
