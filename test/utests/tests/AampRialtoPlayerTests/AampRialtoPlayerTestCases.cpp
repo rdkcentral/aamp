@@ -4034,28 +4034,24 @@ TEST_F(AampRialtoPlayerTest,
 // ===========================================================================
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackError_Decryption_MapsToDrmDecryptFailedWithRetry)
+	OnPlaybackError_Decryption_SuppressedAsNonFatal)
 {
 	Configure();
 
-	EXPECT_CALL(m_mockNotifiable,
-		NotifyPlaybackError(AAMP_TUNE_DRM_DECRYPT_FAILED, _,
-			/*isRetryEnabled=*/true))
-		.Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyPlaybackError(_, _, _))
+		.Times(0);
 
 	PostPlaybackError(/*sourceId=*/0,
 		firebolt::rialto::PlaybackError::DECRYPTION);
 }
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackError_OutputProtection_MapsToHdcpComplianceErrorNoRetry)
+	OnPlaybackError_OutputProtection_SuppressedAsNonFatal)
 {
 	Configure();
 
-	EXPECT_CALL(m_mockNotifiable,
-		NotifyPlaybackError(AAMP_TUNE_HDCP_COMPLIANCE_ERROR, _,
-			/*isRetryEnabled=*/false))
-		.Times(1);
+	EXPECT_CALL(m_mockNotifiable, NotifyPlaybackError(_, _, _))
+		.Times(0);
 
 	PostPlaybackError(/*sourceId=*/0,
 		firebolt::rialto::PlaybackError::OUTPUT_PROTECTION);

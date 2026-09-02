@@ -2764,14 +2764,15 @@ void AampRialtoPlayer::OnPlaybackError(
 	switch (error)
 	{
 		case firebolt::rialto::PlaybackError::DECRYPTION:
-			m_notifiable->NotifyPlaybackError(
-				AAMP_TUNE_DRM_DECRYPT_FAILED, errorDesc,
-				/*isRetryEnabled=*/true);
-			break;
 		case firebolt::rialto::PlaybackError::OUTPUT_PROTECTION:
-			m_notifiable->NotifyPlaybackError(
-				AAMP_TUNE_HDCP_COMPLIANCE_ERROR, errorDesc,
-				/*isRetryEnabled=*/false);
+			// Non-fatal per Rialto's own PlaybackErrorCallback contract.
+			// HDCP/output-restriction is transient; escalating this to
+			// SendErrorEvent() puts AAMP into eSTATE_ERROR and calls
+			// DisableDownloads(), which halts fetch/injection session-wide
+			// with no automatic recovery path once the key becomes usable
+			// again. Log only, do not escalate.
+			AAMPLOG_WARN("%s - non-fatal, not escalating to tune failure",
+				errorDesc.c_str());
 			break;
 		case firebolt::rialto::PlaybackError::UNKNOWN:
 		default:
