@@ -431,7 +431,7 @@ bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
 
 bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
 {
-	if ( (isAsyncTuneAbortSupported()) &&
+	if ( (IsAsyncTuneAbortSupported()) &&
 		 (mAsyncTaskAbortEnabled.load()) )
 	{
 		return true;
