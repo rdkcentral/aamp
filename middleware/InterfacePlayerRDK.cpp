@@ -2171,8 +2171,16 @@ void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 	// Check elements are not already assigned
 	if (stream->sinkbin)
 	{
-		MW_LOG_ERR("Sinkbin already assigned");
-		g_clear_object(&stream->sinkbin);
+		//MW_LOG_ERR("Sinkbin already assigned");
+		//g_clear_object(&stream->sinkbin);
+		MW_LOG_ERR("Sinkbin already assigned, cleaning up stale subtitle bin");
+    	SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL);
+    	
+		if (!gst_bin_remove(GST_BIN(privatePlayer->gstPrivateContext->pipeline), stream->sinkbin))
+    	{
+        	MW_LOG_ERR("Failed to remove stale subtitle sinkbin from pipeline");
+    	}
+    	g_clear_object(&stream->sinkbin);
 	}
 	if (privatePlayer->gstPrivateContext->subtitle_sink)
 	{
