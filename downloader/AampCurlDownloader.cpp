@@ -232,7 +232,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				{
 					if(numDownloadAttempts <= numRetriesAllowed)
 					{ //Attempt retry for partial downloads, which have a higher chance to succeed
-						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) )
+						if (httpRetVal == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure (httpRetVal) || httpRetVal == CURLE_COULDNT_RESOLVE_HOST)
 						{
 							loopAgain = true;
 						}

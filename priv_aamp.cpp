@@ -2680,6 +2680,9 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 		{
 			strcat(description, "(FOG)");
 		}
+		// There is a playback failure due to network issues
+		// so flush the curl store to avoid using stale curl handles in the next tune.
+		SetFlushFdsNeededInCurlStore(true);
 		SendErrorEvent(actualFailure, description, retryStatus);
 	}
 	else
@@ -4382,7 +4385,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 
 					}
-					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
+					if (res == CURLE_COULDNT_CONNECT || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) || res == CURLE_COULDNT_RESOLVE_HOST)
 					{
 						
 						if(mpStreamAbstractionAAMP)
@@ -9157,6 +9160,8 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
 	char description[MAX_ERROR_DESCRIPTION_LENGTH] = {};
 	int stalltimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_StallTimeoutMS);
 	snprintf(description, (MAX_ERROR_DESCRIPTION_LENGTH - 1), "Playback has been stalled for more than %d ms due to lack of new fragments", stalltimeout);
+	// Flush the curl store FDs, to avoid using stale curl handles in the next tune.
+	SetFlushFdsNeededInCurlStore(true);
 	SendErrorEvent(AAMP_TUNE_PLAYBACK_STALLED, description);
 }
 

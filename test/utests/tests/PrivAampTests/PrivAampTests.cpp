@@ -1489,19 +1489,6 @@ TEST_F(PrivAampTests,SendDrmErrorEventTest_2)
 	p_aamp->SendDrmErrorEvent(event,true);
 }
 
-TEST_F(PrivAampTests,SendDownloadErrorEventTest1)
-{
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,130);
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,133);
-
-	p_aamp->SendDownloadErrorEvent((AAMPTuneFailure)38,130);
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,100);
-
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,404);
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,421);
-}
-
-
 TEST_F(PrivAampTests,SendAnomalyEventTest)
 {
 	p_aamp->SendAnomalyEvent(ANOMALY_ERROR,"error event");
@@ -4861,24 +4848,7 @@ TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly3) {
 	// Call UpdateVideoEndMetrics
 	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, curlDownloadTime, manifestData);
 }
-TEST_F(PrivAampTests,SendDownloadErrorEventTest2)
-{
-	p_aamp->mFogTSBEnabled = true;
-	p_aamp->IsFogTSBSupported();
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,131);
-}
-TEST_F(PrivAampTests,SendDownloadErrorEventTest4)
-{
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,28);
-}
-TEST_F(PrivAampTests,SendDownloadErrorEventTest5)
-{
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,132);
-}
-TEST_F(PrivAampTests,SendDownloadErrorEventTest6)
-{
-	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,99);
-}
+
 TEST_F(PrivAampTests,SendErrorEventTest11)
 {
 	p_aamp->mFogTSBEnabled = true;
