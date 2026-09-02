@@ -4903,8 +4903,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			else
 			{
 				aamp->UpdateDuration(0);
-				aamp->SetFlushFdsNeededInCurlStore(true);
-
 				switch( http_error )
 				{
 					case eCURL_TIMEOUT_DNS:
@@ -4929,7 +4927,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
-			aamp->SetFlushFdsNeededInCurlStore(true);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}

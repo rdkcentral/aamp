@@ -941,7 +941,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					{
 						AAMPLOG_ERR("%s Not able to download fragments; reached failure threshold sending tune failed event", name);
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
@@ -950,8 +949,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					// When rampdown limit is not specified, init segment will be ramped down, this will
 					AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event", name);
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
-
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 			}
@@ -985,7 +982,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 					// Already at lowest profile, send error event for init fragment.
 					AAMPLOG_ERR("Not able to download init fragments; reached failure threshold sending tune failed event");
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 				else
@@ -1019,7 +1015,6 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 				if (!dlInfo->isPlayingAd && httpErrorCode != 502)
 				{
 					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
 					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 				}
 			}
