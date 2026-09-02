@@ -127,6 +127,7 @@ protected:
 		{eAAMPConfig_EnablePTSReStamp, false},
 		{eAAMPConfig_LocalTSBEnabled, false},
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
+		{eAAMPConfig_SynthesizeIframeForVOD, false},
 		{eAAMPConfig_useRialtoSink, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
 		{eAAMPConfig_UseMp4Demux, false},
@@ -2290,6 +2291,7 @@ TEST_F(FunctionalTests_1, UseIframeTrack_aamptsb_iframeextract)
 TEST_F(FunctionalTests_1, UseIframeTrack_iframeextract)
 {
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableIFrameTrackExtract)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD)).WillRepeatedly(Return(false));
 	_instanceStreamAbstractionAAMP_MPD->aamp->SetLocalAAMPTsb(false);
 	_instanceStreamAbstractionAAMP_MPD->trickplayMode = true;
 	bool result = _instanceStreamAbstractionAAMP_MPD->UseIframeTrack();
@@ -6122,6 +6124,8 @@ TEST_F(StreamAbstractionAAMP_MPDTest, CheckForRampDownProfile_CurleRecvError_Ram
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableABR))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ABRBufferCheckEnabled))
+		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SynthesizeIframeForVOD))
 		.WillRepeatedly(Return(false));
 
 	mStreamAbstractionAAMP_MPD->SetIsFogTSB(false);
