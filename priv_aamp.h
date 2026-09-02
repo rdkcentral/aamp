@@ -3642,6 +3642,19 @@ public:
 	}
 
 	/**
+	 *   @brief Is VOD iframe synthesis from video segments enabled.
+	 *          When true, AAMP downloads the regular video segment during trickplay
+	 *          and strips it to a single I-frame via IsoBmffHelper::ConvertToKeyFrame(),
+	 *          providing trickplay even when no iframe AdaptationSet is advertised.
+	 *
+	 *   @return bool
+	 */
+	bool IsVODIframeSynthesisEnabled()
+	{
+		return ISCONFIGSET_PRIV(eAAMPConfig_SynthesizeIframeForVOD);
+	}
+
+	/**
 	 *   @fn GetLiveOffsetAppRequest
 	 *   @return bool
 	 */

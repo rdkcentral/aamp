@@ -184,6 +184,7 @@ public:
 			{eAAMPConfig_EnablePTSReStamp, false},
 			{eAAMPConfig_LocalTSBEnabled, false},
 			{eAAMPConfig_EnableIFrameTrackExtract, false},
+			{eAAMPConfig_SynthesizeIframeForVOD, false},
 			{eAAMPConfig_EnableABR, true},
 			{eAAMPConfig_MPDDiscontinuityHandling, true},
 			{eAAMPConfig_MPDDiscontinuityHandlingCdvr, true},
