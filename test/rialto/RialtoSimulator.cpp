@@ -72,12 +72,17 @@ static std::string LogPreamble(const char *function, int line)
 		static_cast<long long>(milliseconds % 1000),
 		function,
 		line);
+	if (size <= 0)
+ 	{
+ 		return "Unknown error";
+ 	}
 	std::string preamble(size+1, '\0');
 	std::sprintf(&preamble[0], format,
 		static_cast<long long>(milliseconds / 1000),
 		static_cast<long long>(milliseconds % 1000),
 		function,
 		line);
+	preamble.pop_back();
 	return preamble;
 }
 
@@ -755,9 +760,9 @@ private:
 		return buffered > 0 ? buffered : 0;
 	}
 
-void startEosDrain(int64_t maxBufferedAheadNs)
+	void startEosDrain(int64_t maxBufferedAheadNs)
 	{
-		RIALTO_SIM_LOG("startEosDrain %ld", maxBufferedAheadNs);
+		RIALTO_SIM_LOG("startEosDrain %lld", static_cast<long long>(maxBufferedAheadNs));
 		// A flush()/setPosition() clears m_eosNotified, so EOS can be reached
 		// again and this can be called more than once.  Move-assigning onto a
 		// still-joinable std::thread calls std::terminate, so retire the
@@ -770,7 +775,8 @@ void startEosDrain(int64_t maxBufferedAheadNs)
 			RIALTO_SIM_LOG("startEosDrain joining");
 			m_eosThread.join();
 		}
-		m_eosThread = std::thread([this, maxBufferedAheadNs, drainGeneration]() {
+		m_eosThread = std::thread([this, maxBufferedAheadNs, drainGeneration]()
+								  {
 			using namespace std::chrono;
 			constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
 			// Gate on the user's play/pause intent (m_playRequested), not
@@ -833,9 +839,7 @@ void startEosDrain(int64_t maxBufferedAheadNs)
 			{
 				RIALTO_SIM_LOG("END_OF_STREAM (after drain)");
 				client->notifyPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
-			}
-		});
-
+			} });
 	}
 
 	void startNeedDataPump()
@@ -869,8 +873,7 @@ void startEosDrain(int64_t maxBufferedAheadNs)
 		const uint64_t expectedGeneration = m_generation.load(std::memory_order_relaxed);
 		RIALTO_SIM_LOG("scheduleNextNeedData:");
 		std::thread([this, sourceId, expectedGeneration]() {
-			// Pace data requests to model per-track buffer backpressure: wait
-			// until this source's buffered (injected-but-not-played) media
+			// Wait until this source's buffered (injected-but-not-played) media
 			// drops below the high-water mark before asking it for more.
 			// This keeps injection at ~real time instead of draining AAMP's
 			// local TSB as fast as fragments can be produced, and — since
