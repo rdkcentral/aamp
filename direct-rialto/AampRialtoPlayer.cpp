@@ -1831,15 +1831,9 @@ void AampRialtoPlayer::SetSubtitleMute(bool muted)
 	auto *subtitleSource = m_sources[eMEDIATYPE_SUBTITLE].get();
 	if (m_pipeline && subtitleSource && subtitleSource->isAttached())
 	{
-		m_pipeline->setMute(subtitleSource->sourceId(), muted);
 		if (!muted)
 		{
-			// Sync the subtitle render position immediately on unmute.
-			// UpdateSubtitleClockTask is disabled for the Rialto path
-			// (see streamabstraction.cpp), so without this the text track
-			// renderer keeps the stale position set at AttachSource time,
-			// causing a 30-40 s display delay on live channels when the
-			// user enables subtitles after AV is already playing.
+			// Refresh the text track render clock before making the sink visible.
 			int64_t posNs = 0;
 			if (m_pipeline->getPosition(posNs))
 			{
@@ -1857,7 +1851,13 @@ void AampRialtoPlayer::SetSubtitleMute(bool muted)
 						"%" PRId64 " ns", posNs);
 				}
 			}
+			else
+			{
+				AAMPLOG_WARN("getPosition failed on subtitle unmute - "
+					"text track may render against a stale position");
+			}
 		}
+		m_pipeline->setMute(subtitleSource->sourceId(), muted);
 	}
 	AAMPLOG_INFO("EXIT");
 }
@@ -2553,7 +2553,7 @@ void AampRialtoPlayer::OnPlaybackState(firebolt::rialto::PlaybackState state)
 			else
 			{
 				m_notifiable->NotifyFirstBufferProcessed(GetVideoRectangle());
-				//m_notifiable->NotifyFirstFrameReceived(ccHandle);//anj
+				m_notifiable->NotifyFirstFrameReceived(ccHandle);
 				m_notifiable->NotifySpeedChanged(
 					static_cast<float>(m_rate.load(std::memory_order_relaxed)), // actual rate
 					/*changeState=*/true);
