@@ -271,3 +271,22 @@ bool MtkSocInterface::IsVideoMaster(GstElement *videoSink)
 	}
 	return (isMaster == TRUE);
 }
+
+/**
+ * @brief Retrieves the CC decoder handle.
+ *
+ * On MTK the video decoder element is westerossink (see IsVideoDecoder), which
+ * exposes the underlying hardware decoder through its "videodecoder" property.
+ * This matches the Amlogic implementation, which also uses westerossink as the
+ * video decoder element.
+ *
+ * @param[out] dec_handle Pointer to store the retrieved CC decoder handle.
+ * @param[in] video_dec The GStreamer video decoder element from which the CC decoder handle is extracted.
+ */
+void MtkSocInterface::GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)
+{
+        if (video_dec)
+        {
+                g_object_get(video_dec, "videodecoder", dec_handle, NULL);
+        }
+}

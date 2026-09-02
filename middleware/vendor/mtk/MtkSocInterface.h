@@ -81,8 +81,18 @@ public:
 	 * @return True on success, false otherwise.
 	 */
 	bool SetRateCorrection() override {return false;}
-	
-	void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override{};
+
+
+        /**
+         * @brief Retrieves the Closed Caption decoder handle.
+         *
+         * On MTK the video decoder element is westerossink, which exposes the
+         * underlying decoder through its "videodecoder" property.
+         *
+         * @param[out] dec_handle Pointer to store the retrieved CC decoder handle.
+         * @param[in] video_dec The GStreamer video decoder element from which the CC decoder handle is extracted.
+         */
+	void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override;
 	
 	/**
 	 * @brief Check if the given name is a video sink.
