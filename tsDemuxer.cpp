@@ -188,9 +188,9 @@ void Demuxer::emitLastSample(const MediaProcessor::process_fcn_t &processor)
 			pending_info.duration = duration;
 		}
 		emitSample(pending_info, pending_es, processor);
-		total_sample_duration = 0.0;
 		pending_es.clear();
 	}
+	total_sample_duration = 0.0;
 }
 
 void Demuxer::resetInternal()
