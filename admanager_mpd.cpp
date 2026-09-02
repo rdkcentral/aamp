@@ -673,6 +673,10 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					//Take copy because we do not want to change the value of mWaitForManifestUpdate via pass by ref.
 					uint64_t WaitForManifestUpdate_copy = mWaitForManifestUpdate;
 					int64_t periodDelta = static_cast<int64_t>(adMPDParseHelper->GetPeriodNewContentDurationMs(periods.at(iter), WaitForManifestUpdate_copy));
+					AAMPLOG_INFO("[CDAI] End-period adjustment: adBreakId:%s endPeriodId:%s endPeriodOffset:%" PRIu64 " currentPeriodId:%s currentPeriodDuration:%" PRIu64 " nextPeriodId:%s nextPeriodIndex:%d diff:%" PRId64 " periodDelta:%" PRId64,
+						mPlacementObj.pendingAdbrkId.c_str(), abObj.endPeriodId.c_str(), abObj.endPeriodOffset,
+						periods.at(iter)->GetId().c_str(), currPeriodDuration,
+						(iter + 1 < static_cast<int>(periods.size())) ? periods.at(iter + 1)->GetId().c_str() : "not available", iter + 1, diff, periodDelta);
 
 					// Unfilled time remaining in the SCTE break after all ads are placed
 					// (positive = break has leftover time, negative = ads exceeded the break).
@@ -715,6 +719,9 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 						// Ads have finished close to end of the period
 
 						auto nextPeriod = periods.at(iter);
+						AAMPLOG_INFO("[CDAI] Aligning ad-break end: endPeriodId:%s endPeriodOffset:%" PRIu64 " selectedPeriodId:%s selectedPeriodIndex:%d nextPeriodId:%s nextPeriodIndex:%d",
+							abObj.endPeriodId.c_str(), abObj.endPeriodOffset, nextPeriod->GetId().c_str(), iter,
+							(iter + 1 < static_cast<int>(periods.size())) ? periods.at(iter + 1)->GetId().c_str() : "not available", iter + 1);
 						// done with Adjustment
 						abObj.adjustEndPeriodOffset = false;
 						// Aligning to next period start
