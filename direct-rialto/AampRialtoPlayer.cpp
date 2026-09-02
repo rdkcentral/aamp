@@ -2764,11 +2764,6 @@ void AampRialtoPlayer::OnPlaybackError(
 	switch (error)
 	{
 		case firebolt::rialto::PlaybackError::DECRYPTION:
-			// Per Rialto's GstDecryptor: DECRYPTION is only ever posted for
-			// a decrypt failure OTHER than HDCP output-restriction (that
-			// case returns early and never reaches the DECRYPTION warning
-			// path) - so unlike OUTPUT_PROTECTION this is a genuine,
-			// non-transient decrypt fault and must still be escalated.
 			m_notifiable->NotifyPlaybackError(
 				AAMP_TUNE_DRM_DECRYPT_FAILED, errorDesc,
 				/*isRetryEnabled=*/true);
