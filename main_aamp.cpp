@@ -292,6 +292,29 @@ void PlayerInstanceAAMP::CancelReservation(const std::string& cancelAtReservatio
 }
 
 /**
+ *  @brief Register a VOD ad-break insertion point.
+ */
+void PlayerInstanceAAMP::RegisterVodAdBreak(const std::string &breakId, double insertionPointSec,
+                                            double breakDurationSec, const std::string &breakType)
+{
+	if (aamp)
+	{
+		aamp->RegisterVodAdBreak(breakId, insertionPointSec, breakDurationSec, breakType);
+	}
+}
+
+/**
+ *  @brief Cancel a registered VOD ad-break that has not yet started.
+ */
+void PlayerInstanceAAMP::CancelVodAdBreak(const std::string &breakId)
+{
+	if (aamp)
+	{
+		aamp->CancelVodAdBreak(breakId);
+	}
+}
+
+/**
  *   @brief API to reset configuration across tunes for single player instance
  */
 void PlayerInstanceAAMP::ResetConfiguration()
@@ -312,6 +335,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 {
 	if (aamp)
 	{
+		auto playerStopStartTime = NOW_STEADY_TS_MS;
 		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPPlayerState state = aamp->GetState();
 
@@ -319,7 +343,9 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
 		// 3. Restart the scheduler , needed if same instance is used for tune again
 
+		auto suspendSchedulerStartTime = NOW_STEADY_TS_MS;
 		mScheduler.SuspendScheduler();
+		auto suspendSchedulerEndTime = NOW_STEADY_TS_MS;
 		mScheduler.RemoveAllTasks();
 
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
@@ -338,6 +364,11 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		}
 		//Release lock
 		mScheduler.ResumeScheduler();
+		auto resumeSchedulerEndTime = NOW_STEADY_TS_MS;
+		AAMPLOG_WARN("-Stop (player) ; SuspendScheduler took %u ms, Total %u ms",
+				(unsigned)(suspendSchedulerEndTime - suspendSchedulerStartTime),
+				(unsigned)(resumeSchedulerEndTime - playerStopStartTime)
+			);
 	}
 }
 
@@ -750,7 +781,8 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 			if (rate >= AAMP_NORMAL_PLAY_RATE &&
 				aamp->IsAtLivePoint() &&
-				!aamp->mbDetached)
+				!aamp->mbDetached && !aamp->mSinkPaused.load()
+				&& !aamp->IsLatencyExceedingTrickplayThreshold())
 			{
 				AAMPLOG_WARN("Already at logical live point, hence skipping operation (rate=%.2f)", rate);
 				aamp->NotifyOnEnteringLive();
@@ -942,21 +974,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						}
 					}
 
+					AAMPLOG_INFO("Latency correction is disabled due to the Pause operation!!");
+					aamp->EnableLatencyMonitor(false);
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
 						retValue = sink->Pause(true, false);
 					}
 					aamp->mSinkPaused = true;
-
-					if(aamp->GetLLDashServiceData()->lowLatencyMode)
-					{
-						// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
-						AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
-						aamp->EnableLatencyMonitor(false);
-					}
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Live latency correction is disabled due to the Pause operation!!");
-					aamp->mDisableRateCorrection = true;
 				}
 			}
 			else
@@ -966,6 +991,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					aamp->mbPlayEnabled = true;
 				}
 
+				// Set rate before ActivatePlayer so that GetFirstPTS (called inside
+				// AampStreamSinkManager::ActivatePlayer) sees the new rate and correctly
+				// overrides firstPTS to 0.0 for AampMp4Demuxer trickplay transitions.
+				aamp->rate = rate;
 				aamp->ActivatePlayer();
 				aamp->LogPlayerPreBuffered();
 				if (AAMP_NORMAL_PLAY_RATE != rate)
@@ -981,7 +1010,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
-				aamp->rate = rate;
+				// Disable latency monitor immediately on trickplay to prevent
+				// stale Run() logs between rate change and TeardownStream.
+				aamp->EnableLatencyMonitor(false);
 				// Notify the underflow monitor of the new rate immediately — before
 				// TuneHelper starts downloading fragments at the new rate.  This
 				// prevents a stale normal-play deadline from firing and declaring a
@@ -3042,16 +3073,6 @@ void PlayerInstanceAAMP::SetInitRampdownLimit(int limit)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_InitRampDownLimit,limit);
 }
-
-
-/**
- *  @brief Set the CEA format for force setting
- */
-void PlayerInstanceAAMP::SetCEAFormat(int format)
-{
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_CEAPreferred,format);
-}
-
 
 /**
  *   @brief To get the available bitrates for thumbnails.

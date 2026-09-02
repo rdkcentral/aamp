@@ -21,11 +21,28 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME lstringTests)
 
-# Include common test directories
-include(${CMAKE_CURRENT_LIST_DIR}/../CommonTestIncludes.cmake)
+# lstringTests is intentionally self-contained: lstring.hpp has no GStreamer
+# or priv_aamp dependency.  We do NOT include CommonTestIncludes.cmake
+# here because that file adds middleware-player-interface to the include path, which
+# transitively pulls in GstUtils.h → gst/gst.h.  On Mac developer
+# machines without GStreamer installed this breaks the build even though lstring
+# itself never touches a GStreamer symbol.
+#
+# For the same reason we do NOT link against the `fakes` library:
+#   fakes/FakeAampLogManager.cpp → priv_aamp.h → AampDemuxDataTypes.h
+#   → DemuxDataTypes.h → GstUtils.h → gst/gst.h
+#
+# FakeLstringDeps.cpp (in this directory) provides the only AampLogManager
+# symbols that lstring.cpp actually needs at link time.
+
+include_directories(${AAMP_ROOT})
+include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GMOCK_INCLUDE_DIRS})
+include_directories(${GLIB_INCLUDE_DIRS})
 
 set(TEST_SOURCES lstringTests.cpp
-                 lstringRun.cpp)
+                 lstringRun.cpp
+                 FakeLstringDeps.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/lstring.cpp)
 
@@ -43,7 +60,7 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread ${LIBCJSON_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

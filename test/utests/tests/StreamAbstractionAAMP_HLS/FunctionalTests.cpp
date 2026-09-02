@@ -225,7 +225,7 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig = new MockAampConfig();
+		g_mockAampConfig = std::make_shared<MockAampConfig>();
 
 		mStreamAbstractionAAMP_HLS = new TestableStreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0.0, 1.0);
 	}
@@ -241,8 +241,7 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 	}
 };
 
@@ -262,7 +261,7 @@ protected:
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
-		g_mockAampConfig = new MockAampConfig();
+		g_mockAampConfig = std::make_shared<MockAampConfig>();
 
 		mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, 0.0);
 
@@ -288,12 +287,135 @@ protected:
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+		g_mockAampConfig.reset();
 	}
 
 public:
 };
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamFormat_UseMp4DemuxAndHlsMp4_ReturnsUnknownForAv)
+{
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO] =
+			new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "video");
+	}
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO] =
+			new TrackState(eTRACK_AUDIO, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "audio");
+	}
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE] =
+			new TrackState(eTRACK_SUBTITLE, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "subtitle");
+	}
+
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS_MP4;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO]->streamOutputFormat = FORMAT_VIDEO_ES_H264;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO]->streamOutputFormat = FORMAT_AUDIO_ES_AAC;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE]->streamOutputFormat = FORMAT_SUBTITLE_WEBVTT;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillOnce(Return(true));
+
+	StreamOutputFormat primaryOutputFormat{};
+	StreamOutputFormat audioOutputFormat{};
+	StreamOutputFormat subtitleOutputFormat{};
+	mStreamAbstractionAAMP_HLS->GetStreamFormat(primaryOutputFormat,
+		audioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, FORMAT_UNKNOWN);
+	EXPECT_EQ(audioOutputFormat, FORMAT_UNKNOWN);
+	EXPECT_EQ(subtitleOutputFormat, FORMAT_SUBTITLE_WEBVTT);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamFormat_UseMp4DemuxHlsNotYetPromoted_VideoISOBMFF_ReturnsUnknownForAv)
+{
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO] =
+			new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "video");
+	}
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO] =
+			new TrackState(eTRACK_AUDIO, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "audio");
+	}
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE] =
+			new TrackState(eTRACK_SUBTITLE, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "subtitle");
+	}
+
+	// mMediaFormat not yet promoted (still HLS), but Init() has set video/audio
+	// tracks to FORMAT_ISO_BMFF after detecting EXT-X-MAP fMP4 segments.
+	// GetStreamFormat() must return UNKNOWN for both so Configure() defers
+	// pipeline setup to SetStreamCaps() from AampMp4Demuxer.
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO]->streamOutputFormat = FORMAT_ISO_BMFF;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO]->streamOutputFormat = FORMAT_ISO_BMFF;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE]->streamOutputFormat = FORMAT_SUBTITLE_WEBVTT;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillOnce(Return(true));
+
+	StreamOutputFormat primaryOutputFormat{};
+	StreamOutputFormat audioOutputFormat{};
+	StreamOutputFormat subtitleOutputFormat{};
+	mStreamAbstractionAAMP_HLS->GetStreamFormat(primaryOutputFormat,
+		audioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, FORMAT_UNKNOWN);
+	EXPECT_EQ(audioOutputFormat, FORMAT_UNKNOWN);
+	EXPECT_EQ(subtitleOutputFormat, FORMAT_SUBTITLE_WEBVTT);
+}
+
+TEST_F(StreamAbstractionAAMP_HLSTest, GetStreamFormat_UseMp4DemuxAndHlsTs_ReturnsTrackFormats)
+{
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO] =
+			new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "video");
+	}
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO] =
+			new TrackState(eTRACK_AUDIO, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "audio");
+	}
+	if (mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE] == nullptr)
+	{
+		mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE] =
+			new TrackState(eTRACK_SUBTITLE, mStreamAbstractionAAMP_HLS,
+				mPrivateInstanceAAMP, "subtitle");
+	}
+
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_HLS;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_VIDEO]->streamOutputFormat = FORMAT_MPEGTS;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_AUDIO]->streamOutputFormat = FORMAT_AUDIO_ES_AAC;
+	mStreamAbstractionAAMP_HLS->trackState[eTRACK_SUBTITLE]->streamOutputFormat = FORMAT_SUBTITLE_WEBVTT;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseMp4Demux))
+		.WillOnce(Return(true));
+
+	StreamOutputFormat primaryOutputFormat{};
+	StreamOutputFormat audioOutputFormat{};
+	StreamOutputFormat subtitleOutputFormat{};
+	mStreamAbstractionAAMP_HLS->GetStreamFormat(primaryOutputFormat,
+		audioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, FORMAT_MPEGTS);
+	EXPECT_EQ(audioOutputFormat, FORMAT_AUDIO_ES_AAC);
+	EXPECT_EQ(subtitleOutputFormat, FORMAT_SUBTITLE_WEBVTT);
+}
 
 TEST_F(StreamAbstractionAAMP_HLSTest, TestPopulateAudioAndTextTracks)
 {

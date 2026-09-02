@@ -20,7 +20,7 @@
 #include "isobmffbuffer.h"
 #include "MockIsoBmffBuffer.h"
 
-MockIsoBmffBuffer *g_mockIsoBmffBuffer = nullptr;
+std::shared_ptr<MockIsoBmffBuffer> g_mockIsoBmffBuffer{};
 
 IsoBmffBuffer::~IsoBmffBuffer()
 {
@@ -113,7 +113,8 @@ Box* IsoBmffBuffer::getChunkedfBox() const
     return nullptr;
 }
 
-bool IsoBmffBuffer::getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t &pts)
+bool IsoBmffBuffer::getFirstPTSInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes, uint64_t &pts)
 {
     return true;
 }
@@ -190,12 +191,13 @@ uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
 	}
 }
 
-std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
+const std::vector<std::unique_ptr<Box>> *IsoBmffBuffer::getParsedBoxes() const
 {
     return nullptr;
 }
 
-uint64_t IsoBmffBuffer::getSampleDurationInternal(const std::vector<Box*> *boxes)
+uint64_t IsoBmffBuffer::getSampleDurationInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes)
 {
     return 0;
 }
@@ -237,7 +239,7 @@ bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timeScale)
 	}
 }
 
-void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
+void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint32_t duration)
 {
     if (g_mockIsoBmffBuffer)
     {

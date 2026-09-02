@@ -28,21 +28,13 @@
 #include <inttypes.h>
 #include <string.h>
 
-static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes);
+static Box *findBoxInVector(const char * box_type,
+	const std::vector<std::unique_ptr<Box>> *boxes);
 
 /**
  *  @brief IsoBmffBuffer destructor
  */
-IsoBmffBuffer::~IsoBmffBuffer()
-{
-	for (unsigned int i=(unsigned int)boxes.size(); i>0;)
-	{
-		--i;
-		SAFE_DELETE(boxes[i]);
-		boxes.pop_back();
-	}
-	boxes.clear();
-}
+IsoBmffBuffer::~IsoBmffBuffer() = default;
 
 /**
  *  @brief Set buffer
@@ -51,6 +43,7 @@ void IsoBmffBuffer::setBuffer(std::vector<uint8_t>& buffer)
 {
 	this->buffer = buffer.data();
 	this->bufSize = buffer.size();
+	this->readOnlyBuffer = false;
 }
 
 /**
@@ -60,19 +53,17 @@ void IsoBmffBuffer::setBuffer(uint8_t* buffer, size_t bufferLen)
 {
 	this->buffer = buffer;
 	this->bufSize = bufferLen;
+	this->readOnlyBuffer = false;
 }
 
 /**
  *  @brief Set buffer from a const vector (read-only use only)
- * 		const_cast is safe here because the read-only query methods
- * 		(getFirstPTS, isInitSegment, getTimeScale, getSampleDuration, etc.)
- * 		do not modify the buffer contents.  Callers using this overload
- * 		must not call mutating methods (restampPts, truncate, etc.).
  */
 void IsoBmffBuffer::setBuffer(const std::vector<uint8_t> &buffer)
 {
-	this->buffer = const_cast<uint8_t *>(buffer.data());
+	this->buffer = buffer.data();
 	this->bufSize = buffer.size();
+	this->readOnlyBuffer = true;
 }
 
 /**
@@ -134,17 +125,45 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, uint8_t* &unParsedBuffer, u
  */
 bool IsoBmffBuffer::parseBuffer(bool correctBoxSize, int newTrackId)
 {
+	constexpr size_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
+	const bool effectiveCorrectBoxSize =
+		(correctBoxSize && !readOnlyBuffer);
+	if (correctBoxSize && readOnlyBuffer)
+	{
+		AAMPLOG_WARN("Read-only buffer: disabling correctBoxSize to avoid mutation");
+	}
 	size_t curOffset = 0;
 	while (curOffset < bufSize)
 	{
-		Box *box = Box::constructBox(buffer+curOffset, (uint32_t)(bufSize - curOffset), correctBoxSize, newTrackId);
-		if( ((bufSize - curOffset) < 4) || ( (bufSize - curOffset) < box->getSize()) )
+		const size_t remaining = bufSize - curOffset;
+		if (remaining < minHeaderSize)
 		{
-			chunkedBox = box;
+			AAMPLOG_WARN("Trailing bytes[%zu] smaller than box header at offset %zu",
+				remaining, curOffset);
+			break;
+		}
+
+		auto box = Box::constructBox(const_cast<uint8_t *>(buffer + curOffset),
+			(uint32_t)remaining, effectiveCorrectBoxSize, newTrackId);
+		const uint32_t boxSize = box->getSize();
+		if (boxSize > remaining)
+		{
+			AAMPLOG_WARN("Declared box size[%u] exceeds remaining[%zu] at offset %zu; marking as chunked",
+				boxSize, remaining, curOffset);
+			box->setOffset((uint32_t)curOffset);
+			chunkedBox = box.get();
+			boxes.push_back(std::move(box));
+			break;
+		}
+		if (boxSize < minHeaderSize)
+		{
+			AAMPLOG_WARN("Invalid box size[%u] at offset %zu (remaining %zu); stopping parse",
+				boxSize, curOffset, remaining);
+			break;
 		}
 		box->setOffset((uint32_t)curOffset);
-		boxes.push_back(box);
-		curOffset += box->getSize();
+		boxes.push_back(std::move(box));
+		curOffset += boxSize;
 	}
 	return !!(boxes.size());
 }
@@ -162,17 +181,35 @@ bool IsoBmffBuffer::parseMdatBox(uint8_t *buf, size_t &size)
 /**
  *  @brief parse ISOBMFF boxes of a type in a parsed buffer
  */
-bool IsoBmffBuffer::parseBoxInternal(const std::vector<Box*> *boxes, const char *name, uint8_t *buf, size_t &size)
+bool IsoBmffBuffer::parseBoxInternal(const std::vector<std::unique_ptr<Box>> *boxes,
+	const char *name, uint8_t *buf, size_t &size)
 {
+	if (buf == nullptr)
+	{
+		return false;
+	}
+
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 		AAMPLOG_TRACE("Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
 		if (IS_TYPE(box->getType(), name))
 		{
+			if (box->getSize() < BOX_HEADER_SIZE)
+			{
+				AAMPLOG_WARN("Invalid %s box size[%u] smaller than header",
+					name, box->getSize());
+				return false;
+			}
 			size_t offset = box->getOffset() + BOX_HEADER_SIZE;
 			size = box->getSize() - BOX_HEADER_SIZE;
-			memcpy(buf, buffer + offset, size);
+			if (offset > bufSize || size > (bufSize - offset))
+			{
+				AAMPLOG_WARN("Invalid %s box bounds (offset %zu size %zu bufSize %zu)",
+					name, offset, size, bufSize);
+				return false;
+			}
+			std::memcpy(buf, buffer + offset, size);
 			return true;
 		}
 	}
@@ -190,11 +227,12 @@ bool IsoBmffBuffer::getMdatBoxSize(size_t &size)
 /**
  *  @brief get ISOBMFF box size of a type
  */
-bool IsoBmffBuffer::getBoxSizeInternal(const std::vector<Box*> *boxes, const char *name, size_t &size)
+bool IsoBmffBuffer::getBoxSizeInternal(const std::vector<std::unique_ptr<Box>> *boxes,
+	const char *name, size_t &size)
 {
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 		if (IS_TYPE(box->getType(), name))
 		{
 			size = box->getSize();
@@ -209,14 +247,35 @@ bool IsoBmffBuffer::getBoxSizeInternal(const std::vector<Box*> *boxes, const cha
  */
 void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segment, uint32_t bufSz)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("restampPTS called with read-only buffer");
+		return;
+	}
+
+	const uint32_t minHeaderSize = sizeof(uint32_t) + sizeof(uint32_t);
 	uint32_t curOffset = 0;
 	while (curOffset < bufSz)
 	{
+		const uint32_t remaining = bufSz - curOffset;
+		if (remaining < minHeaderSize)
+		{
+			AAMPLOG_WARN("Trailing bytes[%u] smaller than box header while restamping",
+				remaining);
+			break;
+		}
+
 		uint8_t *buf = segment + curOffset;
 		uint32_t size = READ_U32(buf);
-		uint8_t type[5];
-		READ_U8(type, buf, 4);
-		type[4] = '\0';
+		if (size < minHeaderSize || size > remaining)
+		{
+			AAMPLOG_WARN("Invalid box size[%u] while restamping PTS (remaining %u)",
+				size, remaining);
+			break;
+		}
+		char type[Box::BOX_TYPE_BUFFER_SIZE];
+		READ_U8(type, buf, sizeof(uint32_t));
+		type[sizeof(uint32_t)] = '\0';
 
 		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
 		{
@@ -248,74 +307,87 @@ void IsoBmffBuffer::restampPTS(uint64_t offset, uint64_t basePts, uint8_t *segme
 	}
 }
 
-void IsoBmffBuffer::restampPtsInternal(int64_t offset, uint8_t *segment, size_t bufSz)
+void IsoBmffBuffer::restampPts(int64_t offset)
 {
-	size_t curOffset = 0;
-	while (curOffset < bufSz)
+	if (readOnlyBuffer)
 	{
-		uint8_t *buf = segment + curOffset;
-		uint32_t size = READ_U32(buf);
-		uint8_t type[5];
-		READ_U8(type, buf, 4);
-		type[4] = '\0';
+		AAMPLOG_WARN("restampPts called with read-only buffer");
+		return;
+	}
 
-		if (IS_TYPE(type, Box::MOOF) || IS_TYPE(type, Box::TRAF))
+	// Use the already-parsed boxes instead of re-parsing raw bytes
+	// This avoids issues with partial/incomplete box data in the buffer
+	restampPtsUsingParsedBoxes(offset, &boxes);
+}
+
+void IsoBmffBuffer::restampPtsUsingParsedBoxes(int64_t offset, const std::vector<std::unique_ptr<Box>> *boxes)
+{
+	for (size_t i = 0; i < boxes->size(); i++)
+	{
+		Box *box = boxes->at(i).get();
+		
+		if (IS_TYPE(box->getType(), Box::MOOF) || IS_TYPE(box->getType(), Box::TRAF))
 		{
-			restampPtsInternal(offset, buf, size);
-		}
-		else if (IS_TYPE(type, Box::TFDT))
-		{
-			uint8_t version = READ_VERSION(buf);
-			uint32_t flags  = READ_FLAGS(buf);
-
-			(void)flags; // Avoid a warning.
-
-			if (1 == version)
+			// Recursively process child boxes
+			if (box->hasChildren())
 			{
-				uint64_t pts = ReadUint64(buf);
-				if (!firstPtsSaved)
-				{
-					beforePTS = pts;
-				}
-				pts += offset;
-				WriteUint64(buf, pts);
-				if (!firstPtsSaved)
-				{
-					firstPtsSaved = true;
-					afterPTS = pts;
-				}
-			}
-			else
-			{
-				uint32_t pts = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-				if (!firstPtsSaved)
-				{
-					beforePTS = pts;
-				}
-				pts += (uint32_t)offset;
-				WRITE_U32(buf, pts);
-				if (!firstPtsSaved )
-				{
-					afterPTS = pts;
-					firstPtsSaved = true;
-				}
+				restampPtsUsingParsedBoxes(offset, box->getChildren());
 			}
 		}
-		else
+		else if (IS_TYPE(box->getType(), Box::TFDT))
 		{
-			// Any other box type
+			// Use the TfdtBox API to safely modify the PTS
+			TfdtBox *tfdtBox = dynamic_cast<TfdtBox*>(box);
+			if (tfdtBox != nullptr)
+			{
+				// Check the TFDT version to determine arithmetic type
+				uint8_t version = tfdtBox->getVersion();
+				
+				if (version == 0)
+				{
+					// For version 0 boxes, use 32-bit arithmetic to maintain overflow/underflow behavior
+					uint32_t pts = static_cast<uint32_t>(tfdtBox->getBaseMDT());
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					pts += static_cast<uint32_t>(offset);
+					tfdtBox->setBaseMDT(pts);
+					if (!firstPtsSaved)
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
+				}
+				else
+				{
+					// For version 1 boxes, use 64-bit arithmetic
+					uint64_t pts = tfdtBox->getBaseMDT();
+					if (!firstPtsSaved)
+					{
+						beforePTS = pts;
+					}
+					pts += offset;
+					tfdtBox->setBaseMDT(pts);
+					if (!firstPtsSaved)
+					{
+						afterPTS = pts;
+						firstPtsSaved = true;
+					}
+				}
+			}
 		}
-		curOffset += size;
 	}
 }
 
-void IsoBmffBuffer::restampPts(int64_t offset)
+void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint32_t duration)
 {
-	restampPtsInternal(offset, buffer, bufSize);
-}
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("setPtsAndDuration called with read-only buffer");
+		return;
+	}
 
-void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
-{
 	size_t index{0};
 
 	// This is an I-frame media segment, so there will only be one moof with one traf
@@ -367,24 +439,20 @@ void IsoBmffBuffer::setPtsAndDuration(uint64_t pts, uint64_t duration)
  */
 void IsoBmffBuffer::destroyBoxes()
 {
-	for (unsigned int i=(unsigned int)boxes.size(); i>0;)
-	{
-		--i;
-		SAFE_DELETE(boxes[i]);
-		boxes.pop_back();
-	}
+	chunkedBox = nullptr;
 	boxes.clear();
 }
 
 /**
  *  @brief Get first PTS of buffer
  */
-bool IsoBmffBuffer::getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t &pts)
+bool IsoBmffBuffer::getFirstPTSInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes, uint64_t &pts)
 {
 	bool ret = false;
 	for (size_t i = 0; (false == ret) && i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 		if (IS_TYPE(box->getType(), Box::TFDT))
 		{
 			TfdtBox *tfdtBox = dynamic_cast<TfdtBox *>(box);
@@ -406,12 +474,13 @@ bool IsoBmffBuffer::getFirstPTSInternal(const std::vector<Box*> *boxes, uint64_t
 /**
  *  @brief Get track id from trak box
  */
-bool IsoBmffBuffer::getTrackIdInternal(const std::vector<Box*> *boxes, uint32_t &track_id)
+bool IsoBmffBuffer::getTrackIdInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes, uint32_t &track_id)
 {
 	bool ret = false;
 	for (size_t i = 0; (false == ret) && i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 		if (IS_TYPE(box->getType(), Box::TRAK))
 		{
 			try {
@@ -461,12 +530,14 @@ bool IsoBmffBuffer::getTrack_id(uint32_t &track_id)
 /**
  *  @brief Get TimeScale value of buffer
  */
-bool IsoBmffBuffer::getTimeScaleInternal(const std::vector<Box*> *boxes, uint32_t &timeScale, bool &foundMdhd)
+bool IsoBmffBuffer::getTimeScaleInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes,
+	uint32_t &timeScale, bool &foundMdhd)
 {
 	bool ret = false;
 	for (size_t i = 0; (false == foundMdhd) && i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 		if (IS_TYPE(box->getType(), Box::MVHD))
 		{
 			MvhdBox *mvhdBox = dynamic_cast<MvhdBox *>(box);
@@ -504,12 +575,13 @@ bool IsoBmffBuffer::getTimeScale(uint32_t &timeScale)
 /**
  *  @brief Print ISOBMFF boxes
  */
-void IsoBmffBuffer::printBoxesInternal(const std::vector<Box*> *boxes)
+void IsoBmffBuffer::printBoxesInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes)
 {
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
-		AAMPLOG_WARN("Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
+		Box *box = boxes->at(i).get();
+		AAMPLOG_MIL("Offset[%u] Type[%s] Size[%u]", box->getOffset(), box->getType(), box->getSize());
 		if (IS_TYPE(box->getType(), Box::TFDT))
 		{
 			TfdtBox *tfdtBox = dynamic_cast<TfdtBox *>(box);
@@ -556,7 +628,7 @@ bool IsoBmffBuffer::isInitSegment()
 	bool foundFtypBox = false;
 	for (size_t i = 0; i < boxes.size(); i++)
 	{
-		Box *box = boxes.at(i);
+		Box *box = boxes.at(i).get();
 		if (IS_TYPE(box->getType(), Box::FTYP))
 		{
 			foundFtypBox = true;
@@ -569,12 +641,16 @@ bool IsoBmffBuffer::isInitSegment()
 /**
  *  @brief Get emsg informations
  */
-bool IsoBmffBuffer::getEMSGInfoInternal(const std::vector<Box*> *boxes, uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri, uint8_t* &value, uint64_t &presTime, uint32_t &timeScale, uint32_t &eventDuration, uint32_t &id, bool &foundEmsg)
+bool IsoBmffBuffer::getEMSGInfoInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes,
+	uint8_t* &message, uint32_t &messageLen, char * &schemeIdUri,
+	uint8_t* &value, uint64_t &presTime, uint32_t &timeScale,
+	uint32_t &eventDuration, uint32_t &id, bool &foundEmsg)
 {
 	bool ret = false;
 	for (size_t i = 0; (false == foundEmsg) && i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 		if (IS_TYPE(box->getType(), Box::EMSG))
 		{
 			EmsgBox *emsgBox = dynamic_cast<EmsgBox *>(box);
@@ -608,7 +684,9 @@ bool IsoBmffBuffer::getEMSGData(uint8_t* &message, uint32_t &messageLen, char * 
 /**
  *  @brief get ISOBMFF box list of a type in a parsed buffer
  */
-bool IsoBmffBuffer::getBoxesInternal(const std::vector<Box*> *boxes, const char *name, std::vector<Box*> *pBoxes)
+bool IsoBmffBuffer::getBoxesInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes,
+	const char *name, std::vector<Box*> *pBoxes)
 {
 	size_t size =boxes->size();
 	//Adjust size when chunked box is available
@@ -618,7 +696,7 @@ bool IsoBmffBuffer::getBoxesInternal(const std::vector<Box*> *boxes, const char 
 	}
 	for (size_t i = 0; i < size; i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 		if (IS_TYPE(box->getType(), name))
 		{
 			pBoxes->push_back(box);
@@ -646,7 +724,11 @@ void IsoBmffBuffer::printMdatBoxes()
 {
 	std::vector<Box*> mdatBoxes;
 	(void)getBoxesInternal(&boxes ,Box::MDAT, &mdatBoxes);
-	printBoxesInternal(&mdatBoxes);
+	for (auto box : mdatBoxes)
+	{
+		AAMPLOG_MIL("Offset[%u] Type[%s] Size[%u]", box->getOffset(),
+			box->getType(), box->getSize());
+	}
 }
 
 /**
@@ -670,7 +752,7 @@ Box* IsoBmffBuffer::getChunkedfBox() const
 /**
  *  @brief Get list of box handles in a parsed buffer
  */
-std::vector<Box*> *IsoBmffBuffer::getParsedBoxes()
+const std::vector<std::unique_ptr<Box>> *IsoBmffBuffer::getParsedBoxes() const
 {
 	return &this->boxes;
 }
@@ -704,7 +786,7 @@ bool IsoBmffBuffer::getChunkedfBoxMetaData(uint32_t &offset, std::string &type, 
  */
 int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuffer, size_t &unParsedBufferSize, size_t & parsedBufferSize)
 {
-	std::vector<Box*> *pBoxes = getParsedBoxes();
+	const std::vector<std::unique_ptr<Box>> *pBoxes = getParsedBoxes();
 	size_t mdatCount;
 	int lastMDatIndex = -1;
 	getMdatBoxCount(mdatCount);
@@ -713,7 +795,7 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, uint8_t* &unParsedBuf
 		//Get Last MDAT box
 		for( int i=(int)parsedBoxCount-1; i>=0; i-- )
 		{
-			Box *box = pBoxes->at(i);
+			Box *box = pBoxes->at(i).get();
 			if (IS_TYPE(box->getType(), Box::MDAT))
 			{
 				lastMDatIndex = i;
@@ -741,10 +823,10 @@ uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
 {
 	uint64_t totalChunkDuration = 0;
 	uint64_t fDuration = 0;
-	std::vector<Box*> *pBoxes = getParsedBoxes();
+	const std::vector<std::unique_ptr<Box>> *pBoxes = getParsedBoxes();
 	for(int i=0;i<lastMDatIndex;i++)
 	{
-		Box *box = pBoxes->at(i);
+		Box *box = pBoxes->at(i).get();
 		AAMPLOG_TRACE("Type: %s", box->getType());
 		if (IS_TYPE(box->getType(), Box::MOOF))
 		{
@@ -761,7 +843,7 @@ uint64_t IsoBmffBuffer::getTotalChunkDurationInTicks(int lastMDatIndex)
  */
 Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 {
-	Box *pBox = NULL;
+	Box *pBox = nullptr;
 	if (index >= boxes.size())
 	{
 		AAMPLOG_ERR("Index passed is too big (%zu >= %zu)", index, boxes.size());
@@ -770,13 +852,13 @@ Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 	{
 		for (size_t i = index; i < boxes.size(); i++)
 		{
-			pBox = boxes.at(i);
+			pBox = boxes.at(i).get();
 			if (IS_TYPE(pBox->getType(), name))
 			{
 				index = i;
 				break;
 			}
-			pBox = NULL;
+			pBox = nullptr;
 		}
 	}
 	return pBox;
@@ -788,9 +870,9 @@ Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 Box* IsoBmffBuffer::getBoxAtIndex(size_t index)
 {
 	if(index != -1)
-		return boxes.at(index);
+		return boxes.at(index).get();
 	else
-		return NULL;
+		return nullptr;
 }
 
 /**
@@ -805,7 +887,7 @@ Box* IsoBmffBuffer::getChildBox(Box *parent, const char *name, size_t &index)
 		auto children{parent->getChildren()};
 		for (size_t i = index; i < children->size(); ++i)
 		{
-			pBox = children->at(i);
+			pBox = children->at(i).get();
 			if (IS_TYPE(pBox->getType(), name))
 			{
 				index = i;
@@ -820,11 +902,12 @@ Box* IsoBmffBuffer::getChildBox(Box *parent, const char *name, size_t &index)
 /**
  *  @brief Print ISOBMFF box PTS
  */
-void IsoBmffBuffer::printPTSInternal(const std::vector<Box*> *boxes)
+void IsoBmffBuffer::printPTSInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes)
 {
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 
 		if (IS_TYPE(box->getType(), Box::TFDT))
 		{
@@ -845,16 +928,22 @@ void IsoBmffBuffer::printPTSInternal(const std::vector<Box*> *boxes)
 /**
  *  @brief Look for a specific box in a vector of boxes
  */
-static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes)
+static Box *findBoxInVector(const char * box_type,
+	const std::vector<std::unique_ptr<Box>> *boxes)
 {
-	auto it = find_if(boxes->begin(), boxes->end(), [box_type](Box* b){ return IS_TYPE(b->getType(), box_type);});
-	return (it != boxes->end()) ? *it : nullptr;
+	auto it = find_if(boxes->begin(), boxes->end(),
+		[box_type](const std::unique_ptr<Box>& b)
+		{
+			return IS_TYPE(b->getType(), box_type);
+		});
+	return (it != boxes->end()) ? it->get() : nullptr;
 }
 
 /**
  *  @brief Get ISOBMFF box Sample Duration
  */
-uint64_t IsoBmffBuffer::getSampleDurationInternal(const std::vector<Box*> *boxes)
+uint64_t IsoBmffBuffer::getSampleDurationInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes)
 {
 	if(boxes == nullptr)
 		return 0;
@@ -908,12 +997,13 @@ void IsoBmffBuffer::getSampleDuration(Box *box, uint64_t &fduration)
 /**
  *  @brief Get ISOBMFF box PTS
  */
-uint64_t IsoBmffBuffer::getPtsInternal(const std::vector<Box*> *boxes)
+uint64_t IsoBmffBuffer::getPtsInternal(
+	const std::vector<std::unique_ptr<Box>> *boxes)
 {
 	uint64_t retValue = 0;
 	for (size_t i = 0; i < boxes->size(); i++)
 	{
-		Box *box = boxes->at(i);
+		Box *box = boxes->at(i).get();
 
 		if (IS_TYPE(box->getType(), Box::TFDT))
 		{
@@ -946,7 +1036,7 @@ void IsoBmffBuffer::getPts(Box *box, uint64_t &fpts)
 	}
 }
 
-bool IsoBmffBuffer::updateSampleDurationInternal(uint64_t duration, TrunBox& trun, TfhdBox& tfhd)
+bool IsoBmffBuffer::updateSampleDurationInternal(uint32_t duration, TrunBox& trun, TfhdBox& tfhd)
 {
 	bool durationPresent{false};
 
@@ -974,6 +1064,12 @@ bool IsoBmffBuffer::updateSampleDurationInternal(uint64_t duration, TrunBox& tru
 */
 void IsoBmffBuffer::truncate(void)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("truncate called with read-only buffer");
+		return;
+	}
+
 	size_t index{0};
 	// Find the moof.  NB there is no specific MoofBox implemented, it's just a generic container box
 	uint64_t duration{};
@@ -1036,7 +1132,12 @@ void IsoBmffBuffer::truncate(void)
 		auto mdat{dynamic_cast<MdatBox *>(getBox(Box::MDAT, localIndex))};
 		if(mdat)
 		{
-			if (!updateSampleDurationInternal(duration, *trunList[0], *tfhd))
+			uint32_t duration32 = (duration > UINT32_MAX) ? UINT32_MAX : static_cast<uint32_t>(duration);
+			if (duration > UINT32_MAX)
+			{
+				AAMPLOG_WARN("Duration %" PRIu64 " exceeds UINT32_MAX, clamping to %u", duration, UINT32_MAX);
+			}
+			if (!updateSampleDurationInternal(duration32, *trunList[0], *tfhd))
 			{
 				AAMPLOG_WARN("Sample duration not set");
 			}
@@ -1102,7 +1203,7 @@ uint64_t IsoBmffBuffer::getSegmentDuration()
 		//Get Last MDAT box
 		for( int i=(int)parsedBoxCount-1; i>=0; i-- )
 		{
-			Box *box = boxes.at(i);
+			Box *box = boxes.at(i).get();
 			if (IS_TYPE(box->getType(), Box::MDAT))
 			{
 				lastMDatIndex = i;
@@ -1112,7 +1213,7 @@ uint64_t IsoBmffBuffer::getSegmentDuration()
 
 		for(int i=0;i<lastMDatIndex;i++)
 		{
-			Box *box = boxes.at(i);
+			Box *box = boxes.at(i).get();
 			if (IS_TYPE(box->getType(), Box::MOOF))
 			{
 				getSampleDuration(box, fDuration);
@@ -1130,6 +1231,12 @@ uint64_t IsoBmffBuffer::getSegmentDuration()
 */
 bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("setTrickmodeTimescale called with read-only buffer");
+		return false;
+	}
+
 	bool retval{false};
 	size_t index{0};
 
@@ -1198,6 +1305,12 @@ bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
  */
 bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
 {
+	if (readOnlyBuffer)
+	{
+		AAMPLOG_WARN("setMediaHeaderDuration called with read-only buffer");
+		return false;
+	}
+
 	bool retval{false};
 	size_t index{0};
 	auto moov{getBox(Box::MOOV, index)};
@@ -1275,7 +1388,7 @@ bool IsoBmffBuffer::getBoxInfoInternal(const char *name, size_t index, size_t &s
 	}
 	for (size_t i = 0; i < numBoxes; i++)
 	{
-		Box *box = boxes.at(i);
+		Box *box = boxes.at(i).get();
 		if (IS_TYPE(box->getType(), name))
 		{
 			if (matchCount == index)
@@ -1328,7 +1441,7 @@ int IsoBmffBuffer::getLastMdatBoxIndex() const
 	{
 		if (IS_TYPE(boxes.at(i)->getType(), Box::MDAT))
 		{
-			index = i;
+			index = static_cast<int>(i);
 		}
 	}
 	return index;

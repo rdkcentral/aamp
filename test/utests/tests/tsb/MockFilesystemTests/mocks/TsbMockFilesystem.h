@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <filesystem>
 #include <atomic>
+#include <memory>
 
 #include "TsbSem.h"
 
@@ -44,6 +45,6 @@ public:
 	std::atomic_bool mockRemoveAllCompleted{false};
 };
 
-extern TsbMockFilesystem* g_mockFilesystem;
+extern std::shared_ptr<TsbMockFilesystem> g_mockFilesystem;
 
 #endif // __TSB_MOCK_FILESYSTEM__

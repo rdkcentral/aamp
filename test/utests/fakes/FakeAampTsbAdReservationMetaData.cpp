@@ -19,7 +19,7 @@
 
 #include "MockAampTsbAdReservationMetaData.h"
 
-MockAampTsbAdReservationMetaData* g_mockAampTsbAdReservationMetaData = nullptr;
+std::shared_ptr<MockAampTsbAdReservationMetaData> g_mockAampTsbAdReservationMetaData{};
 
 // Constructor for AampTsbAdReservationMetaData
 AampTsbAdReservationMetaData::AampTsbAdReservationMetaData(

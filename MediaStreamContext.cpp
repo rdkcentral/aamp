@@ -36,6 +36,12 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 {
 	assert(!aamp->GetLLDashChunkMode());
 
+	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	{
+		fragmentDiscarded = false;
+		return;
+	}
+
 	if(playContext)
 	{
 		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
@@ -693,7 +699,8 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr dlInfo)
 {
 	if (nullptr == mActiveDownloadInfo || nullptr == dlInfo || !aamp->DownloadsAreEnabled() || abort)
 	{
-		AAMPLOG_WARN("mActiveDownloadInfo or dlInfo is NULL or downloads are disabled");
+		AAMPLOG_WARN("mActiveDownloadInfo or dlInfo is NULL or downloads are disabled. DownloadsAreEnabled=%d abort=%d",
+			aamp->DownloadsAreEnabled(), abort);
 		return;
 	}
 
@@ -978,7 +985,14 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 				}
 				else
 				{
-					AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Already at the lowest profile, skipping segment at pos:%lf dur:%lf disc:%d", name, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->isDiscontinuity);
+					if (context->IsCurrentProfileLowest())
+					{
+						AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Already at the lowest profile, skipping segment at pos:%lf dur:%lf disc:%d", name, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->isDiscontinuity);
+					}
+					else
+					{
+						AAMPLOG_WARN("%s StreamAbstractionAAMP_MPD::Rampdown not applied for error:%d; skipping segment at pos:%lf dur:%lf disc:%d", name, httpErrorCode, dlInfo->pts, dlInfo->fragmentDurationSec, dlInfo->isDiscontinuity);
+					}
 					if (!dlInfo->isInitSegment)
 						updateSkipPoint((dlInfo->pts + dlInfo->fragmentDurationSec), dlInfo->fragmentDurationSec);
 					auto timeBasedBufferManager = GetTimeBasedBufferManager();
@@ -1056,21 +1070,15 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 	// Handle change in bandwidth for segmentBase streams, so need to load new range
 	if((dlInfo->bandwidth != fragmentDescriptor.Bandwidth) && !IDX.empty() && uriInfo.range.empty())
 	{
+		std::lock_guard<std::mutex> idxLock(mIdxMutex);
 		// If the bandwidth is different, then set the range
 		if (dlInfo->bandwidth > 0)
 		{
-			dlInfo->fragmentOffset = 0;
-			dlInfo->fragmentOffset++; // first byte following packed index
-			unsigned int firstOffset = 0;
-			if (ParseSegmentIndexBox(IDX.data(),
-									 IDX.size(),
-									 0,
-									 NULL,
-									 NULL,
-									 &firstOffset))
-			{
-				dlInfo->fragmentOffset += firstOffset;
-			}
+			// mIdxBaseOffset is the byte position of segment 0 in the file for the
+			// current IDX profile, captured when IDX was loaded in the FetcherLoop.
+			// Using it here avoids the previous bug of starting from offset 1,
+			// which landed inside the moov+SIDX prefix and fetched wrong byte ranges.
+			dlInfo->fragmentOffset = mIdxBaseOffset;
 			unsigned int referenced_size = 0;
 			float fragmentDuration = 0.0f;
 			AAMPLOG_DEBUG("current fragmentIndex = %d", dlInfo->fragmentIndex);
@@ -1186,7 +1194,8 @@ bool MediaStreamContext::DownloadFragment(DownloadInfoPtr dlInfo)
 		// Wait for a free cache slot before starting the download.
 		// IsFragmentCacheFull() checks the unified fragment chunk cache usage, so
 		// this wait throttles downloads until shared cache capacity is available.
-		if (IsFragmentCacheFull())
+		// Skip the wait when playing from local TSB
+		if (IsFragmentCacheFull() && !aamp->IsLocalAAMPTsbInjection())
 		{
 			while (DownloadsEnabled() && !WaitForFreeFragmentAvailable(MAX_WAIT_TIMEOUT_MS))
 			{

@@ -45,7 +45,7 @@ class IsoBmffConvertToKeyFrameTests : public ::testing::Test
 
 		void SetUp() override
 		{
-			g_mockGLib = new NiceMock<MockGLib>();
+			g_mockGLib = std::make_shared<NiceMock<MockGLib>>();
 			gpGlobalConfig = new AampConfig();
 			helper = std::make_shared<IsoBmffHelper>();
 		}
@@ -54,8 +54,7 @@ class IsoBmffConvertToKeyFrameTests : public ::testing::Test
 		{
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
-			delete g_mockGLib;
-			g_mockGLib = nullptr;
+			g_mockGLib.reset();
 		}
 	public:
 
@@ -128,6 +127,7 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 
 	EXPECT_TRUE(helper->ConvertToKeyFrame(src_data));
 	EXPECT_EQ(src_data.size(), td.expected_data_len);
+	EXPECT_EQ(src_data.capacity(), td.expected_data_len);
 	auto memcmp_actual_vs_expected = std::memcmp(src_data.data(), td.expected_data,  td.expected_data_len);
 	EXPECT_EQ(0, memcmp_actual_vs_expected);
 	if (memcmp_actual_vs_expected)

@@ -80,7 +80,8 @@ public:
 			mReachedFirstFragOnRewind(false),
 			fetchChunkBufferMutex(),
 			mActiveDownloadInfo(nullptr),
-			mMediaStreamContextMutex()
+		mMediaStreamContextMutex(),
+		mIdxMutex()
 	{
 		AAMPLOG_INFO("[%s] Create new MediaStreamContext",
 				GetMediaTypeName(mediaType));
@@ -233,6 +234,14 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	double GetBufferedDuration() override;
 
 	/**
+	 * @brief Get the absolute end position of the last downloaded fragment
+	 *        (position + duration). This tracks the live downloader's leading
+	 *        edge and is independent of GStreamer injection state.
+	 * @return last downloaded fragment end position in seconds
+	 */
+	double GetLastDownloadedPosition() override { return lastDownloadedPosition.load(); }
+
+	/**
 	 * @fn SignalTrickModeDiscontinuity
 	 * @return void
 	 */
@@ -354,6 +363,7 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	double periodStartOffset;
 	uint64_t timeStampOffset;
 	std::vector<uint8_t> IDX{};		/**< Index data buffer for DASH byte-range segments */
+	uint64_t mIdxBaseOffset{0};		/**< Byte offset of segment 0 in the file for the current IDX profile; set when IDX is loaded, cleared with IDX */
 	uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
 	uint64_t lastSegmentNumber;
 	uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
@@ -374,6 +384,7 @@ bool CacheFragmentData(const FragmentCacheDescriptor& desc);
 	std::mutex fetchChunkBufferMutex;
 	DownloadInfoPtr mActiveDownloadInfo;
 	std::recursive_mutex mMediaStreamContextMutex; /**< Recursive mutex to protect MediaStreamContext state during ABR profile changes and playlist updates */
+	std::mutex mIdxMutex; /**< Protects IDX buffer: FetcherLoop (writer) vs. download worker threads (reader) */
 
 protected:
 	CachedFragment mStagingFragment{};		/**< Staging buffer for fragment download in progress */

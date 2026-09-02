@@ -21,7 +21,7 @@
 #include "MockAampUtils.h"
 #include <cctype>
 
-MockAampUtils *g_mockAampUtils = nullptr;
+std::shared_ptr<MockAampUtils> g_mockAampUtils{};
 
 /**
  * @enum HarvestConfigType
@@ -79,6 +79,10 @@ bool replace(std::string &str, const char *existingSubStringToReplace, const cha
 
 bool aamp_IsLocalHost ( std::string Hostname )
 {
+    if (g_mockAampUtils)
+    {
+        return g_mockAampUtils->isLocalHost(Hostname);
+    }
     return false;
 }
 
@@ -95,6 +99,10 @@ float getPseudoTrickplayRate(float rate)
 
 std::string aamp_getHostFromURL(std::string url)
 {
+    if (g_mockAampUtils)
+    {
+        return g_mockAampUtils->getHostFromURL(url);
+    }
     return "";
 }
 

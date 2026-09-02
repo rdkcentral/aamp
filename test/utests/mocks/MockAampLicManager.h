@@ -21,6 +21,7 @@
 #define AAMP_MOCK_AAMP_LICENSE_MANAGER_H
 
 #include <gmock/gmock.h>
+#include <memory>
 #include "AampDRMLicManager.h"
 
 class MockAampLicenseManager
@@ -29,8 +30,10 @@ public:
     MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
     MOCK_METHOD(DrmSession*, createDrmSession, (std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn));
     MOCK_METHOD(void, setSessionMgrState, (SessionMgrState state));
+    MOCK_METHOD(bool, queueContentProtection, (DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod));
+    MOCK_METHOD(void, queueProtectionEvent, (DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type));
 };
 
-extern MockAampLicenseManager *g_mockAampLicenseManager;
+extern std::shared_ptr<MockAampLicenseManager> g_mockAampLicenseManager;
 
 #endif /* AAMP_MOCK_AAMP_LICENSE_MANAGER_H */

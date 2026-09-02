@@ -21,7 +21,7 @@
 #include "MockAampLicManager.h"
 #include "MockAampDRMSessionManager.h"
 #include "priv_aamp.h"
-MockAampLicenseManager *g_mockAampLicenseManager = nullptr;
+std::shared_ptr<MockAampLicenseManager> g_mockAampLicenseManager{};
 
 AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
 {
@@ -97,11 +97,19 @@ void AampDRMLicenseManager::setLicenseRequestAbort(bool)
 
 bool AampDRMLicenseManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
-	return false;
+    if (g_mockAampLicenseManager)
+    {
+	return g_mockAampLicenseManager->queueContentProtection(std::move(drmHelper), std::move(periodId), adapIdx, type, isVssPeriod);
+    }
+    return false;
 }
 
 void AampDRMLicenseManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
 {
+    if (g_mockAampLicenseManager)
+    {
+        g_mockAampLicenseManager->queueProtectionEvent(std::move(drmHelper), std::move(periodId), adapIdx, type);
+    }
 }
 
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)

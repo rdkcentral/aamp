@@ -20,7 +20,7 @@
 #include "DrmSessionManager.h"
 #include "DrmHelper.h"
 #include "MockAampDRMSessionManager.h"
-MockDRMSessionManager *g_mockDRMSessionManager = nullptr;
+std::shared_ptr<MockDRMSessionManager> g_mockDRMSessionManager{};
 
 DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
 {
@@ -67,6 +67,12 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* )
 // DrmSession implementations
 DrmSession::DrmSession(const string &keySystem) : m_keySystem(keySystem), m_OutputProtectionEnabled(false)
 		, mContentSecurityManagerSession()
+#ifdef DRMSESSION_HAS_LIFECYCLE_GUARD
+		, mLifecycleMutex()
+		, mLifecycleCV()
+		, mActiveOperations(0)
+		, mMarkedForDestruction(false)
+#endif
 {
 }
 
