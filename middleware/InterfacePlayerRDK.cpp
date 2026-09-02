@@ -1354,10 +1354,10 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = false;
 		}
 		stream->format = GST_FORMAT_INVALID;
-		//interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = false;
 		if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 		{
-    		usingClosedCaptionsControl = false;
+			interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = false;
+			MW_LOG_ERR("Set false for usingClosedCaptionsControl flag");
 		}
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
