@@ -4034,12 +4034,14 @@ TEST_F(AampRialtoPlayerTest,
 // ===========================================================================
 
 TEST_F(AampRialtoPlayerTest,
-	OnPlaybackError_Decryption_SuppressedAsNonFatal)
+	OnPlaybackError_Decryption_MapsToDrmDecryptFailedWithRetry)
 {
 	Configure();
 
-	EXPECT_CALL(m_mockNotifiable, NotifyPlaybackError(_, _, _))
-		.Times(0);
+	EXPECT_CALL(m_mockNotifiable,
+		NotifyPlaybackError(AAMP_TUNE_DRM_DECRYPT_FAILED, _,
+			/*isRetryEnabled=*/true))
+		.Times(1);
 
 	PostPlaybackError(/*sourceId=*/0,
 		firebolt::rialto::PlaybackError::DECRYPTION);
