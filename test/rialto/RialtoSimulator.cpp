@@ -44,6 +44,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -59,9 +60,29 @@ namespace firebolt::rialto
 // ===========================================================================
 // Logging helper
 // ===========================================================================
+static std::string LogPreamble(const char *function, int line)
+{
+	const auto now = std::chrono::system_clock::now().time_since_epoch();
+	const auto milliseconds = std::chrono::duration_cast<
+		std::chrono::milliseconds>(now).count();
+	const char *format = "%lld.%03lld: [RialtoSim][%s][%d]";
+
+	auto size = std::snprintf(nullptr,0, format,
+		static_cast<long long>(milliseconds / 1000),
+		static_cast<long long>(milliseconds % 1000),
+		function,
+		line);
+	std::string preamble(size+1, '\0');
+	std::sprintf(&preamble[0], format,
+		static_cast<long long>(milliseconds / 1000),
+		static_cast<long long>(milliseconds % 1000),
+		function,
+		line);
+	return preamble;
+}
 
 #define RIALTO_SIM_LOG(fmt, ...) \
-	fprintf(stderr, "[RialtoSim] " fmt "\n", ##__VA_ARGS__)
+	fprintf(stderr, "%s " fmt "\n",LogPreamble(__func__, __LINE__).c_str(), ##__VA_ARGS__)
 
 // Minimum amount of media data (per non-subtitle track) that must be
 // injected — or an EOS received — before the pipeline transitions to
@@ -112,6 +133,7 @@ public:
 		, m_stopRequested(false)
 		, m_eosSourceCount(0)
 		, m_eosNotified(false)
+		, m_eosDrainGeneration(0)
 		, m_playbackRateEnabled(false)
 	{
 		const char *envRate = std::getenv("RIALTO_SIM_ENABLE_PLAYBACK_RATE");
@@ -458,8 +480,7 @@ public:
 						if (typeIt != m_sourceTypes.end() &&
 							typeIt->second != MediaSourceType::SUBTITLE)
 						{
-							int64_t bufferedNs =
-								bufferedAheadNsLocked(srcId);
+							int64_t bufferedNs = bufferedAheadNsLocked(srcId);
 							if (!m_playing.load(std::memory_order_relaxed))
 							{
 								// bufferedAheadNsLocked() reports 0 while not PLAYING; for
@@ -736,7 +757,20 @@ private:
 
 void startEosDrain(int64_t maxBufferedAheadNs)
 	{
-		m_eosThread = std::thread([this, maxBufferedAheadNs]() {
+		RIALTO_SIM_LOG("startEosDrain %ld", maxBufferedAheadNs);
+		// A flush()/setPosition() clears m_eosNotified, so EOS can be reached
+		// again and this can be called more than once.  Move-assigning onto a
+		// still-joinable std::thread calls std::terminate, so retire the
+		// previous drain first: bumping the generation makes it exit its wait
+		// loop promptly, then join it.
+		const uint64_t drainGeneration =
+			m_eosDrainGeneration.fetch_add(1, std::memory_order_relaxed) + 1;
+		if (m_eosThread.joinable())
+		{
+			RIALTO_SIM_LOG("startEosDrain joining");
+			m_eosThread.join();
+		}
+		m_eosThread = std::thread([this, maxBufferedAheadNs, drainGeneration]() {
 			using namespace std::chrono;
 			constexpr int64_t kMinDrainNs = 6000000000LL; // 6 s
 			// Gate on the user's play/pause intent (m_playRequested), not
@@ -744,20 +778,25 @@ void startEosDrain(int64_t maxBufferedAheadNs)
 			// seek/trickplay cycle even though playback was never
 			// actually paused, which would otherwise stall this
 			// drain (and END_OF_STREAM) indefinitely during ff/rew.
-			const int64_t waitUntilNs = std::max(kMinDrainNs,
-				maxBufferedAheadNs);
+			const int64_t waitUntilNs = std::max(kMinDrainNs, maxBufferedAheadNs);
 			int64_t drainedWhilePlayingNs = 0;
 			auto lastTick = steady_clock::now();
 			for (;;)
 			{
 				if (m_stopRequested.load(std::memory_order_relaxed))
 				{
+					RIALTO_SIM_LOG("startEosDrain m_stopRequested");
+					return;
+				}
+				if (m_eosDrainGeneration.load(std::memory_order_relaxed) !=
+					drainGeneration)
+				{
+					RIALTO_SIM_LOG("startEosDrain superseded");
 					return;
 				}
 
 				auto now = steady_clock::now();
-				auto deltaNs = duration_cast<nanoseconds>(
-					now - lastTick).count();
+				auto deltaNs = duration_cast<nanoseconds>(now - lastTick).count();
 				lastTick = now;
 
 				if (!m_playRequested.load(std::memory_order_relaxed))
@@ -772,31 +811,31 @@ void startEosDrain(int64_t maxBufferedAheadNs)
 					break;
 				}
 
-				const int64_t remainingNs = waitUntilNs -
-					drainedWhilePlayingNs;
-				const int64_t sleepNs = std::min<int64_t>(remainingNs,
-					200000000LL);
+				const int64_t remainingNs = waitUntilNs - drainedWhilePlayingNs;
+				const int64_t sleepNs = std::min<int64_t>(remainingNs, 200000000LL);
 				std::this_thread::sleep_for(nanoseconds(sleepNs));
 			}
+
 			// Re-validate EOS after draining: new media may have arrived
 			// during the drain window, which clears the EOS tracking.
 			{
 				std::lock_guard<std::mutex> lock(m_trackMutex);
-				if (!m_eosNotified.load(std::memory_order_relaxed) ||
+				if (m_eosDrainGeneration.load(std::memory_order_relaxed) !=
+						drainGeneration ||
+					!m_eosNotified.load(std::memory_order_relaxed) ||
 					!allNonSubtitleSourcesEosLocked())
 				{
-					RIALTO_SIM_LOG(
-						"END_OF_STREAM cancelled: new media arrived during drain");
+					RIALTO_SIM_LOG("END_OF_STREAM cancelled: new media arrived during drain");
 					return;
 				}
 			}
 			if (auto client = m_client.lock())
 			{
 				RIALTO_SIM_LOG("END_OF_STREAM (after drain)");
-				client->notifyPlaybackState(
-					firebolt::rialto::PlaybackState::END_OF_STREAM);
+				client->notifyPlaybackState(firebolt::rialto::PlaybackState::END_OF_STREAM);
 			}
 		});
+
 	}
 
 	void startNeedDataPump()
@@ -828,6 +867,7 @@ void startEosDrain(int64_t maxBufferedAheadNs)
 	void scheduleNextNeedData(int32_t sourceId)
 	{
 		const uint64_t expectedGeneration = m_generation.load(std::memory_order_relaxed);
+		RIALTO_SIM_LOG("scheduleNextNeedData:");
 		std::thread([this, sourceId, expectedGeneration]() {
 			// Pace data requests to model per-track buffer backpressure: wait
 			// until this source's buffered (injected-but-not-played) media
@@ -1058,6 +1098,7 @@ void startEosDrain(int64_t maxBufferedAheadNs)
 
 	void stopThreads()
 	{
+		RIALTO_SIM_LOG("stopThreads ");
 		m_stopRequested.store(true, std::memory_order_relaxed);
 		if (m_positionThread.joinable())
 		{
@@ -1088,6 +1129,8 @@ void startEosDrain(int64_t maxBufferedAheadNs)
 	std::atomic<bool> m_stopRequested;
 	std::atomic<int> m_eosSourceCount;
 	std::atomic<bool> m_eosNotified;
+	// Incremented each time a new EOS drain supersedes a previous one.
+	std::atomic<uint64_t> m_eosDrainGeneration;
 	std::thread m_positionThread;
 	std::thread m_eosThread;
 	bool m_playbackRateEnabled;
