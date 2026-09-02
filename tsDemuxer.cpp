@@ -163,7 +163,6 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 void Demuxer::emitSample(const SegmentInfo_t &info, std::vector<uint8_t> &payload, const MediaProcessor::process_fcn_t &processor)
 {
 	total_sample_duration += info.duration;
-	AAMPLOG_INFO("patrick type %d total_sample_duration %f this %f", (int)type, total_sample_duration, info.duration);
 	if (processor)
 	{
 		processor(type, info, std::move(payload));
@@ -184,7 +183,6 @@ void Demuxer::emitLastSample(const MediaProcessor::process_fcn_t &processor)
 		* duration = duration of segment - duration of all samples sent so far
 		*/
 		double duration = pending_info.duration - total_sample_duration;
-		AAMPLOG_INFO("patrick type %d duration %f", (int)type, duration);
 		if (duration > 0.0)
 		{
 			pending_info.duration = duration;

@@ -39,8 +39,7 @@
  *
  *  6. First-sample look-ahead: the first access unit of an epoch is
  *     buffered until the next unit arrives so its true duration can be
- *     measured; a lone buffered sample is emitted on flush with the
- *     segment duration as a fallback.
+ *     measured. Last buffered sample emitted at the end of the segment.
  */
 
 #include <gtest/gtest.h>
@@ -570,8 +569,8 @@ TEST_F(DemuxerTests, FirstSample_IsBufferedNotEmittedImmediately)
  * @test SubsequentSampleDuration_IsDtsDeltaFromPrevious
  *
  * For constant-frame-rate spacing, every non-first sample's duration is
- * the DTS delta from its predecessor. Three packets at 1.0/1.5/2.0 s must
- * emit three samples, each with a 0.5 s duration.
+ * the DTS delta from its predecessor. Three packets must emit three samples,
+ *  each with a different duration.
  */
 TEST_F(DemuxerTests, SubsequentSampleDuration_IsDtsDeltaFromPrevious)
 {
