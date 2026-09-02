@@ -348,7 +348,7 @@ static const char* const AAMPStatusStrings[] =
 	"eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED"
 };
 
-/** 
+/**
  * @brief lambda to return a string for a status name
  */
 const auto statusName = [](AAMPStatusType s) -> const char* {

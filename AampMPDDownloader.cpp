@@ -409,7 +409,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			{
 				if(mReleaseCalled)
 				{
-					AAMPLOG_WARN("Skipping manifest download since Release was called");
+					AAMPLOG_INFO("Skipping manifest download since Release was called");
 					break;
 				}
 				// FIXME: There is a small window here where Release can be called on AaampMPDDownloader after we have checked mReleaseCalled.

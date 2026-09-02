@@ -490,14 +490,14 @@ bool IsCurlTimeoutFailure( int httpResponseCode );
 /**
  * @brief Class for tracing timing deltas between checkpoints through a method,
  *  allowing trace of where delays are taking place.
- * 
+ *
  * @details
  * Example usage:
  * Timing will be output as warning for each code section in ms.
  * At each point we see (line number, time since previous checkpoint), ...
  * fn
  * {
- *    timingExecutionStore timingData;
+ *    timingExecutionStore timingData(__LINE__);
  * 	     code section 1
  *    timingData.storeTimingPoint(__LINE__);
  *       code section 2
@@ -533,7 +533,7 @@ class timingExecutionStore
 		/**
 		*   @brief returns the time span since start of diagnostic data logging start (e.g. function start)
 		*   @return unsigned int - time in ms from first to last timing points
-		*/		
+		*/
 		long long timeSinceStartMs(void)
 		{
 			return ( NOW_STEADY_TS_MS - timeVals.front() );

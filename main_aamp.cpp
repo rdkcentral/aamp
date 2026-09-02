@@ -358,51 +358,48 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent, bool forceCleanup)
 		AAMPPlayerState state = aamp->GetState();
 		auto suspendSchedulerStartTime = NOW_STEADY_TS_MS;
 
-		// block new tasks from being scheduled
+		// Block new tasks from being scheduled
 		mScheduler.DisableScheduleTask();
 
-		// clear the scheduled task queue so that no new tasks will start executing
+		// Clear the scheduled task queue so that no new tasks will start executing
 		mScheduler.RemoveAllTasks();
 
-		// Signal that the player is now in stopping state. This will attempt to end any tune earlier where possible.
-        // Note: Some SetState() transitions will now be blocked until stop is complete, to ensure that this state is not over-written during a tune thread (or similar)
-		aamp->SetState(eSTATE_STOPPING);
+		// Signal that the player is now in stopping state to any tune. This may trigger an early end to any async tune
+		aamp->SetEarlyAbortRequestFlag(true);
 
-		// If we are tuning in another async task thread then take any steps possible to terminate the tune early
-		if (aamp->IsTuneAsyncTaskAbortEnabled())
+		// If we are already tuning in another async task thread then take any additional steps possible to terminate the tune early
+		// 1. Terminate any manifest fetch in progress
+		if (aamp && aamp->mpStreamAbstractionAAMP && aamp->mpStreamAbstractionAAMP->initialManifestFetchInProgress)
 		{
-				AAMPLOG_INFO("A tune is in progress so we will signal it to abort (where possible)");
-
-				// For DASH: Abort any manifest download that is in progress
-				if(	aamp && aamp->mpStreamAbstractionAAMP &&
-					(eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-					(aamp->mpStreamAbstractionAAMP->initialManifestFetchInProgress) )
+				AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
+				if (dnldInstance)
 				{
-						// abort manifest download and cause the current async tune in progress to end, causing tune to fail
-						AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
-						if (dnldInstance)
-						{
-								auto manifestAbortStartTime = NOW_STEADY_TS_MS;
-								dnldInstance->Release();
-								AAMPLOG_MIL("Manifest abort took %u ms", (unsigned)(NOW_STEADY_TS_MS - manifestAbortStartTime));
-						}
-						else
-						{
-								AAMPLOG_WARN("Could not get a handle to dnldInstance to force a manifest abort");
-						}
+						AAMPLOG_INFO("An interruptable manifest download is in progress so signal it to abort");
+						auto manifestAbortStartTime = NOW_STEADY_TS_MS;
+						dnldInstance->Release();
+						AAMPLOG_MIL("Manifest abort took %u ms", (unsigned)(NOW_STEADY_TS_MS - manifestAbortStartTime));
+				}
+				else
+				{
+						AAMPLOG_WARN("Could not get a handle to dnldInstance to force a manifest abort");
 				}
 		}
+
 		// now suspend the scheduler; this will block until any existing tune task exits
 		mScheduler.SuspendScheduler();
+		// allow new tasks to be queued
 		mScheduler.EnableScheduleTask();
-		auto suspendSchedulerEndTime = NOW_STEADY_TS_MS;
 
+		auto suspendSchedulerEndTime = NOW_STEADY_TS_MS;
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		state = aamp->GetState();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			StopInternal(sendStateChangeEvent, forceCleanup);
 		}
+
+		aamp->SetEarlyAbortRequestFlag(false);
+
 		// Enhanced DRM cleanup for Deep Sleep scenarios
 		// Must be done AFTER StopInternal() to ensure GStreamer pipeline is torn down
 		// and all encrypted buffers are flushed before destroying DRM sessions
@@ -494,13 +491,13 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		if (eSTATE_STOPPING == aamp->GetState())
+
+		// TODO: Check for url override here also?
+		if ( aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
 		{
-			AAMPLOG_INFO("Player is stopping, so abort the tune immediately");
-			return;
+				AAMPLOG_INFO("Aborting tune early");
+				return;
 		}
-		// Signal to any Stop process that we can now abort a tune if async tune is enabled
-		aamp->SetTuneAsyncTaskAbortEnable(true);
 	/* Set single pipeline according to the configuration */
 		aamp->UpdateUseSinglePipeline();
 
@@ -518,28 +515,25 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 				IsOTAtoOTA = true;
 			}
 		}
-		state = aamp->GetState();
-		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (state != eSTATE_STOPPING) && (!IsOTAtoOTA))
+		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA) && (!(aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType))) )
 		{
 			//Calling tune without closing previous tune
 			StopInternal(true, false);
 		}
 		else
 		{
-			AAMPLOG_INFO("Player is in state '%s', so do not stop before tune", stateName(state));
+			AAMPLOG_INFO("Player is in state '%s'. Do not stop before tune", stateName(state));
 		}
 
-		state = aamp->GetState();
-		if (eSTATE_STOPPING == state)
-		{
-			AAMPLOG_MIL("Player is stopping, so do not continue with the tune");
-		}
-		else
+		if ( !aamp->IsAsyncTuneAbortRequired(mainManifestUrl, contentType) )
 		{
 			aamp->getAampCacheHandler()->StartPlaylistCache();
 			aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
 		}
-		aamp->SetTuneAsyncTaskAbortEnable(false);
+		else
+		{
+			AAMPLOG_MIL("Player is stopping, so do not continue with the tune");
+		}
 	}
 }
 

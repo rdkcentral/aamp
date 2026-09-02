@@ -219,7 +219,7 @@ static const char* const kStateNames[] = {
 	"STOPPED", "COMPLETE", "ERROR", "RELEASED", "BLOCKED"
 };
 
-/** 
+/**
  * @brief lambda to return a string for a state name
  */
 const auto stateName = [](AAMPPlayerState s) -> const char* {

@@ -3276,13 +3276,9 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 #endif
 	bool sendErrorEvent = false;
 	std::unique_lock<std::recursive_mutex> lock(mLock);
-	//  GNP
 	if(mState != eSTATE_ERROR)
 	{
-		if( IsFogTSBSupported() &&
-		   (  mState <= eSTATE_PREPARED ||
-		      (mState == eSTATE_STOPPING && (tuneFailure == AAMP_TUNE_MANIFEST_REQ_FAILED || tuneFailure == AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR))
-		   ) )
+		if(IsFogTSBSupported() && mState <= eSTATE_PREPARED)
 		{
 			// Send a TSB delete request when player is not tuned successfully.
 			// If player is once tuned, retune happens with same content and player can reuse same TSB.
@@ -3295,15 +3291,8 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			T1.Initialize(std::move(inpData));
 			T1.Download(remoteUrl, std::move(respData));
 		}
-		if (mState == eSTATE_STOPPING && (tuneFailure == AAMP_TUNE_MANIFEST_REQ_FAILED || tuneFailure == AAMP_TUNE_INIT_FAILED_MANIFEST_PARSE_ERROR))
-		{
-			AAMPLOG_MIL("Ignoring error since this was a forced abort. tuneFailure=%d, description=%s", tuneFailure, description ? description : "NONE");
-		}
-		else
-		{
-			sendErrorEvent = true;
-			mState = eSTATE_ERROR;
-		}
+		sendErrorEvent = true;
+		mState = eSTATE_ERROR;
 	}
 	lock.unlock();
 	if (sendErrorEvent)
@@ -5592,19 +5581,67 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 /**
  * @brief Control whether we can terminate a TuneInternal async task early
  */
-void PrivateInstanceAAMP::SetTuneAsyncTaskAbortEnable(bool enableAbort)
+void PrivateInstanceAAMP::SetEarlyAbortRequestFlag(bool enableAbort)
 {
-	mAsyncTaskAbortEnabled = enableAbort;
+	mAsyncTaskAbortEnabled=enableAbort;
 }
 
 /**
- * @brief Control whether we can terminate a TuneInternal async task early
- * 
- * @return bool  true if async tasks are enabled and SetTuneAsyncTaskAbortEnable(true) has been called
+ * @brief Determine whether we can terminate an async tune task early
+ *
+ * @return bool  true if this is a suitable tune for aborting early
  */
-bool PrivateInstanceAAMP::IsTuneAsyncTaskAbortEnabled(void)
+bool PrivateInstanceAAMP::IsAsyncTuneAbortSupported()
 {
-	return (mAsyncTuneEnabled && mAsyncTaskAbortEnabled.load());
+	if ( (eMEDIAFORMAT_DASH == mMediaFormat)  &&
+		 (ContentType_LINEAR == mContentType) &&
+		  (mAsyncTuneEnabled) )
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/**
+ * @brief Determine whether we can terminate an async tune task early
+ *
+ * @return bool  true if async tasks are enabled, SetEarlyAbortRequestFlag has been called and this is a suitable tune
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired()
+{
+	if ( (IsAsyncTuneAbortSupported()) &&
+		 (mAsyncTaskAbortEnabled.load()) )
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/**
+ * @brief Determine whether we can terminate an async tune task early
+ *
+ * @return bool  true if async tasks is enabled, SetEarlyAbortRequestFlag has been called and this is a suitable tune
+ */
+bool PrivateInstanceAAMP::IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString)
+{
+	// Note: This must equate to IsAsyncTuneAbortSupported for tune type
+	if ( (manifestUrl && (eMEDIAFORMAT_DASH == GetMediaFormatType(manifestUrl)))       &&
+		 (contentTypeString && !strncmp(contentTypeString,"LINEAR_TV", 9))             &&
+		 (mAsyncTuneEnabled)                                                           &&
+		 (mAsyncTaskAbortEnabled.load()) )
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 /**
@@ -6312,6 +6349,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				mEventManager->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()));
 				AAMPLOG_MIL( "Stopping fake tune playback");
 			}
+		}
+		else if (retVal == eAAMPSTATUS_MANIFEST_DOWNLOAD_ABORTED)
+		{
+			mInitSuccess = false;
+			AAMPLOG_MIL("TuneHelper aborted due to a manifest download abort during Stop");
+			return;
 		}
 		else if (DownloadsAreEnabled())
 		{
@@ -9314,17 +9357,6 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
  */
 void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
 {
-	// During an async tune: Only allow us to go to stopped, complete or idle state from stopping state. This prevents STOPPING state from being erased when we are shutting down a tune.
-	if (   ((eSTATE_STOPPING == mState) && IsTuneAsyncTaskAbortEnabled()) && 
-		  !( (eSTATE_STOPPED == state) || (eSTATE_IDLE == state) || (state == eSTATE_COMPLETE)) )
-	{
-		if (state != mState)
-		{
-			AAMPLOG_MIL("Player state request '%s' is rejected since we are stopping", stateName(state));
-		}
-		return;
-	}
-
 	// Atomically exchange the state and get the previous value in one operation
 	// This ensures only one thread observes each state transition, preventing duplicate events
 	AAMPPlayerState oldState = mState.exchange(state);
