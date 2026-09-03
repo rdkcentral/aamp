@@ -148,6 +148,14 @@ public:
 	 * @return void
 	 */
 	void EnableScheduleTask();
+
+	/**
+	 * @fn DisableScheduleTask
+	 *
+	 * @return void
+	 */
+	void DisableScheduleTask();
+
 	/**
 	 * @fn SetState
 	 *

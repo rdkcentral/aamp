@@ -685,10 +685,40 @@ public:
 	void TuneHelper(TuneType tuneType, bool seekWhilePaused = false);
 
 	/**
+	 * @brief set a flag to request early abort during an async tune
+	 *
+	 * @fn SetEarlyAbortRequestFlag
+	 * @return True if async tune is enabled and early-abort is enabled
+	 */
+	void SetEarlyAbortRequestFlag(bool enableAbort);
+
+	/**
+	 * @brief Determine whether the tune type allows us to terminate an async tune task early
+	 *
+	 * @return bool  true if this is a suitable tune for aborting early
+	 */
+	bool IsAsyncTuneAbortSupported();
+
+	/**
+	 * @brief Determine whether we can terminate an async tune task early
+	 *
+	 * @return bool true if async tasks is enabled, SetEarlyAbortRequestFlag has been called and this is a suitable tune
+	 */
+	bool IsAsyncTuneAbortRequired();
+
+	/**
+	 * @brief Determine whether we can terminate an async tune task early
+	 *
+	 * @param[in] manifestUrl - main manifest url
+	 * @param[in] contentTypeString - content type
+	 * @return bool  true if async tasks is enabled, SetEarlyAbortRequestFlag has been called and this is a suitable tune
+	 */
+	bool IsAsyncTuneAbortRequired(const char* manifestUrl, const char* contentTypeString);
+	/**
 	 * @fn TeardownStream
 	 *
 	 * @param[in] newTune - true if operation is a new tune
-	 * @param[in] newTune - true if downloads need to be disabled
+	 * @param[in] disableDownloads - true if downloads need to be disabled
 	 * @return void
 	 */
 	void TeardownStream( bool newTune, bool disableDownloads = false );
@@ -924,6 +954,7 @@ public:
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
+	std::atomic<bool> mAsyncTaskAbortEnabled;
 	long mNetworkBandwidth;
 	std::string mTsbType;
 	int mTsbDepthMs;
