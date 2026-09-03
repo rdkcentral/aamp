@@ -14105,8 +14105,7 @@ bool StreamAbstractionAAMP_MPD::IsVideoDRMLicenseRequired()
 		mpd != nullptr &&
 		mMPDParseHelper != nullptr &&
 		aamp != nullptr &&
-		aamp->mDRMLicenseManager != nullptr &&
-		aamp->mDRMLicenseManager->mDrmSessionManager != nullptr;
+		aamp->mDRMLicenseManager != nullptr;
 
 	/* Only inspect the manifest when all DRM state required for the check exists. */
 	if (drmStateAvailable)
