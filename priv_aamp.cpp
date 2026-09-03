@@ -2595,7 +2595,13 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 			bps = mpStreamAbstractionAAMP->GetVideoBitrate();
 		}
 
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, networkBandwidth, currentRate, GetSessionId());
+		double targetLatencyMs = 0.0;
+		if (mLatencyMonitor && mLatencyMonitor->IsRunning())
+		{
+			targetLatencyMs = std::get<1>(mLatencyMonitor->GetCurrentThresholds());
+		}
+
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, targetLatencyMs, bps, networkBandwidth, currentRate, GetSessionId());
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2630,7 +2636,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f]",
+					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%" BITSPERSECOND_FORMAT "..%" BITSPERSECOND_FORMAT "..%.2f..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormattedCurrPos / 1000),
 						(long)(end / 1000),
@@ -2641,7 +2647,8 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 						seiTimecode.c_str(),
 						bps,
 						networkBandwidth,
-						currentRate);
+						currentRate,
+						(double)(targetLatencyMs / 1000.0));
 				}
 			}
 
@@ -3018,6 +3025,9 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 		{
 			strcat(description, "(FOG)");
 		}
+		// There is a playback failure due to network issues
+		// so flush the curl store to avoid using stale curl handles in the next tune.
+		SetFlushFdsNeededInCurlStore(true);
 		SendErrorEvent(actualFailure, description, retryStatus);
 	}
 	else
@@ -5054,7 +5064,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						AAMPLOG_ERR("QUIC connection failed (CURLE_HTTP3=%d) mediaType=%d url=%s", res, mediaType, remoteUrl.c_str());
 					}
 #endif
-					if (res == CURLE_COULDNT_CONNECT || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) || res == CURLE_SEND_ERROR)
+					if (res == CURLE_COULDNT_CONNECT || res == CURLE_RECV_ERROR || IsCurlTimeoutFailure(res) || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)) || res == CURLE_SEND_ERROR || res == CURLE_COULDNT_RESOLVE_HOST)
 					{
 
 						if(mpStreamAbstractionAAMP)
@@ -10020,6 +10030,8 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
 	char description[MAX_ERROR_DESCRIPTION_LENGTH] = {};
 	int stalltimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_StallTimeoutMS);
 	snprintf(description, (MAX_ERROR_DESCRIPTION_LENGTH - 1), "Playback has been stalled for more than %d ms due to lack of new fragments", stalltimeout);
+	// Flush the curl store FDs, to avoid using stale curl handles in the next tune.
+	SetFlushFdsNeededInCurlStore(true);
 	SendErrorEvent(AAMP_TUNE_PLAYBACK_STALLED, description);
 }
 
@@ -10377,6 +10389,20 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	}
 
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
+
+	// Populate audio metadata (codec, mixType, isAtmos).
+	// previousAudioType (AudioType) tracks the DASH-selected audio type;
+	// eAUDIO_ATMOS means a JOC-flagged EC-3 track was selected on DASH.
+	// mPreviousAudioType (StreamOutputFormat) tracks the HLS-selected audio
+	// type; FORMAT_AUDIO_ES_ATMOS means an Atmos ES track was selected on HLS.
+	// Both trackers are checked so that isAtmos is correct for DASH and HLS.
+	AudioTrackInfo currentAudioTrack;
+	if (mpStreamAbstractionAAMP && mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentAudioTrack))
+	{
+		bool isAtmos = (previousAudioType == eAUDIO_ATMOS) ||
+		               (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS);
+		event->SetAudioMetaData(currentAudioTrack.codec, currentAudioTrack.mixType, isAtmos);
+	}
 
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
@@ -11786,6 +11812,14 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				{
 					cJSON_AddStringToObject(item, "mixType", trackInfo.mixType.c_str());
 				}
+				// isAtmos: derived from both audio-type trackers so that
+				// getAudioTrackInfo() reflects the real-time Atmos status for both
+				// DASH (previousAudioType == eAUDIO_ATMOS) and HLS
+				// (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS) after period
+				// transitions (where mediaMetadata is not re-fired).
+				cJSON_AddBoolToObject(item, "isAtmos",
+				                      (previousAudioType == eAUDIO_ATMOS) ||
+				                      (mPreviousAudioType == FORMAT_AUDIO_ES_ATMOS));
 				if (!trackInfo.mType.empty())
 				{
 					cJSON_AddStringToObject(item, "type", trackInfo.mType.c_str());

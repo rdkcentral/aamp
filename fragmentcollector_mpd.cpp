@@ -793,11 +793,17 @@ uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamCont
 		* and a manifest update after segment 1 has been sent. Ensure one cycle of the for loop so
 		* timeLineIndex gets incremented.
 		* Without this we get a segment dropped and another repeated in server side ads
+		* Also check that this is not a special case (only 1 segment in timeline) as given below
+		* which causes AAMP to land in a non-existent timeline when it forces one cycle of for loop.
+		* <SegmentTimeline>
+		*  <S d="109568" t="0"/>
+		* </SegmentTimeline>
 		*/
 
 		bool isFirstSegment = pMediaStreamContext->lastSegmentTime == 0 && startTime == 0
 									&& pMediaStreamContext->lastSegmentDuration != 0
-									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0;
+									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0
+									&& timelines.size() != 1;
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 		AAMPLOG_INFO("Type[%d] nextStartTime=%" PRIu64 " startTime=%" PRIu64 " repeatCount=%u", pMediaStreamContext->type,
@@ -4940,8 +4946,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			else
 			{
 				aamp->UpdateDuration(0);
-				aamp->SetFlushFdsNeededInCurlStore(true);
-
 				switch( http_error )
 				{
 					case eCURL_TIMEOUT_DNS:
@@ -4966,7 +4970,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		{
 			aamp->UpdateDuration(0);
 			AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
-			aamp->SetFlushFdsNeededInCurlStore(true);
 			ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 		}
 	}
