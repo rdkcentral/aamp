@@ -35,6 +35,7 @@
 #include <sstream>
 #include <curl/curl.h>
 #include <chrono>
+#include <vector>
 #include "TsbApi.h"
 #include "AampCurlDownloader.h"
 #include "AampLogManager.h"
